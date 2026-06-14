@@ -111,29 +111,122 @@ k8s-setup (containerd) → time-sync → kubernetes_role (kubelet/kubeadm/kubect
 
 ## 3. Yêu cầu hệ thống (prerequisites)
 
-### 3.1. Các node K8s (master + worker)
-- **OS:** Ubuntu Server **22.04** hoặc **24.04 LTS** (x86_64; arm64 cũng được).
-- **Cấu hình tối thiểu** (theo tài liệu kubeadm):
-  - Control‑plane: **≥ 2 vCPU, ≥ 2 GB RAM**.
-  - Worker: ≥ 1 vCPU, ≥ 2 GB RAM.
-  - *(VM lab nhỏ hơn vẫn init được nhờ cờ `--ignore-preflight-errors=NumCPU,Mem` — xem [§6.6](#66-role-first-master--kubeadm-init).)*
-- **Swap:** sẽ được tắt tự động bởi playbook (kubelet yêu cầu).
-- **Mạng:** các node thông nhau; mở port kubeadm cơ bản: `6443` (apiserver), `2379-2380` (etcd), `10250` (kubelet), `10257`,`10259`, dải NodePort `30000-32767`, và các port Cilium (VXLAN `8472/udp`, health `4240/tcp`).
-- **Hostname:** mỗi node một hostname duy nhất (playbook tự đặt theo tên trong inventory).
-- **User `ansible-user`:** tồn tại trên **mọi** node, có **sudo không cần mật khẩu** và đã nạp **SSH public key** của bạn.
+> Phần này trả lời: **thuê bao nhiêu máy, mỗi máy cấu hình ra sao, mạng/firewall thế nào, thuê ở đâu** — rồi mới tới phần chuẩn bị user/OS.
 
-  ```bash
-  # Chạy trên từng node (hoặc bằng cloud-init/user-data):
-  sudo adduser --disabled-password --gecos "" ansible-user
-  echo 'ansible-user ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/ansible-user
-  sudo mkdir -p /home/ansible-user/.ssh && sudo chmod 700 /home/ansible-user/.ssh
-  # dán public key của bạn vào:
-  sudo tee /home/ansible-user/.ssh/authorized_keys < your_id_rsa.pub
-  sudo chown -R ansible-user:ansible-user /home/ansible-user/.ssh
-  sudo chmod 600 /home/ansible-user/.ssh/authorized_keys
-  ```
+### 3.1. Cần thuê bao nhiêu máy chủ?
 
-### 3.2. Máy điều khiển (Ansible control node)
+| Vai trò | Nhóm inventory | Số lượng | Bắt buộc? | Có thể gộp/thay thế? |
+|---|---|---|---|---|
+| **Control‑plane** (`master1`) | `controlplane` | **1** | ✅ Bắt buộc | Không. Đây là 1 control‑plane (chưa HA). |
+| **Worker** (`worker1…N`) | `node` | **N ≥ 1** (khuyến nghị **≥ 2**) | ✅ ≥ 1 | Thêm/bớt tùy nhu cầu |
+| **Bastion / máy chạy Ansible** | `local` | **1** | ⬜ Tùy chọn | **Dùng luôn máy cá nhân/WSL** thay vì thuê riêng |
+
+**Ví dụ số lượng theo nhu cầu:**
+
+| Kịch bản | Số VM phải thuê | Thành phần |
+|---|---|---|
+| Lab tối thiểu | **2 VM** | 1 control‑plane + 1 worker (chạy Ansible từ laptop/WSL) |
+| **Lab khuyến nghị** (khớp `inventory.ini` mẫu) | **3 VM** | 1 control‑plane + 2 worker (Ansible từ WSL) |
+| Có bastion riêng | **4 VM** | 1 control‑plane + 2 worker + 1 bastion |
+
+> ⚠️ **Lưu ý HA:** cụm **1 control‑plane KHÔNG có HA cho control‑plane** — nếu master chết thì mất quyền quản lý cụm (workload đang chạy trên worker vẫn sống). Đây là chủ ý cho phase học/nền tảng; HA control‑plane để dành phase sau (mở rộng `--control-plane --certificate-key`).
+
+### 3.2. Cấu hình từng máy (theo vai trò)
+
+Tối thiểu **theo tài liệu kubeadm**: control‑plane cần **≥ 2 vCPU, ≥ 2 GB RAM**.
+
+| Vai trò | vCPU | RAM | Disk (SSD) | Ghi chú |
+|---|---|---|---|---|
+| **Control‑plane** | **2** (tối thiểu) | **2 GB** tối thiểu, **4 GB** khuyến nghị | **20–40 GB** | Chạy etcd + apiserver; <2 vCPU phải dùng `--ignore-preflight-errors=NumCPU,Mem` ([§6.6](#66-role-first-master--kubeadm-init)) |
+| **Worker** | 2 | 2 GB tối thiểu, **4 GB+** khuyến nghị | **40 GB+** | RAM/CPU tăng theo workload bạn định chạy |
+| **Bastion** | 1 | 1 GB | 10 GB | Chỉ chạy `ansible`/`kubectl`/`git`. Thường dùng WSL nên khỏi thuê |
+
+**Cỡ instance tương ứng theo nhà cung cấp (cho node ~2 vCPU/4 GB):**
+
+| Provider | Cỡ máy cho node | Cỡ máy cho bastion |
+|---|---|---|
+| AWS EC2 | `t3.medium` | `t3.micro` |
+| GCP | `e2-medium` | `e2-micro` |
+| Azure | `Standard_B2s` | `Standard_B1s` |
+| DigitalOcean / Vultr / Linode | Gói 2 vCPU / 4 GB | Gói 1 vCPU / 1 GB |
+| Hetzner Cloud | `CX22`/`CPX21` | `CX11` |
+| Lab local | VM Multipass/VirtualBox/Proxmox 2 vCPU/2–4 GB | — |
+
+### 3.3. Hệ điều hành, ổ đĩa & swap
+
+- **OS:** Ubuntu Server **22.04 LTS** hoặc **24.04 LTS** (khuyến nghị **24.04** — cgroup v2 mặc định, containerd 1.7.x sẵn). **Tất cả node dùng cùng một bản OS.**
+- **Kiến trúc:** `x86_64` (amd64). `arm64` cũng được — playbook tự phát hiện kiến trúc khi thêm repo Docker.
+- **Đĩa:** SSD, ≥ 20 GB (control‑plane) / ≥ 40 GB (worker) cho image + pod ephemeral.
+- **Swap:** kubelet yêu cầu **TẮT swap**. Playbook tự `swapoff -a` và xóa swap khỏi `/etc/fstab`; bạn không cần làm thủ công. (Một số provider bật swap sẵn — không sao.)
+- **Kernel module:** cần `overlay`, `br_netfilter` (playbook tự nạp).
+
+### 3.4. Mạng, IP tĩnh & firewall / security group
+
+- **Cùng một mạng riêng/VPC:** mọi node phải SSH/ping được nhau qua **private IP**.
+- **IP TĨNH (quan trọng):** `inventory.ini` ghi IP cố định, và kubeadm gắn IP vào chứng chỉ/etcd. Hãy đặt **IP tĩnh** (hoặc DHCP reservation) cho từng node — nếu IP đổi sau reboot sẽ **hỏng cluster**.
+- **Internet ra ngoài (egress):** cần để tải `apt` (`pkgs.k8s.io`, `download.docker.com`), Helm chart (`helm.cilium.io`), image (`registry.k8s.io`, `quay.io`/`ghcr.io` của Cilium), `dl.k8s.io`. Môi trường air‑gapped phải tự mirror.
+
+**Cổng cần mở (firewall / security group):**
+
+| Cổng | Giao thức | Chiều | Dùng cho |
+|---|---|---|---|
+| `22` | TCP | bastion → mọi node | SSH (Ansible) |
+| `6443` | TCP | worker + bastion → control‑plane | kube‑apiserver |
+| `2379-2380` | TCP | control‑plane (nội bộ) | etcd |
+| `10250` | TCP | mọi node ↔ mọi node | Kubelet API |
+| `10257` | TCP | control‑plane | kube‑controller‑manager |
+| `10259` | TCP | control‑plane | kube‑scheduler |
+| `30000-32767` | TCP | client → worker | NodePort Services |
+| `8472` | UDP | mọi node ↔ mọi node | **Cilium** VXLAN overlay |
+| `4240` | TCP | mọi node ↔ mọi node | **Cilium** health check |
+| (ICMP echo) | ICMP | mọi node ↔ mọi node | **Cilium** kiểm tra kết nối |
+
+> 💡 **Lab đơn giản:** nếu tất cả node nằm trong **cùng một subnet/VPC tin cậy**, cách nhanh nhất là **cho phép toàn bộ traffic nội bộ giữa các node**, và chỉ giới hạn chiều từ Internet vào (mở `22`, `6443`, dải NodePort khi cần).
+
+### 3.5. Gợi ý nhà cung cấp & các bước thuê
+
+**Nơi thuê:**
+- **Cloud công cộng:** AWS EC2, GCP Compute Engine, Azure VM, DigitalOcean, Vultr, Linode (Akamai), Hetzner Cloud, Oracle Cloud (có free tier arm64).
+- **On‑prem / lab:** Proxmox VE, VMware vSphere, hoặc máy cá nhân với **Multipass / VirtualBox / Vagrant**.
+- Repo gốc có sẵn thư mục **`terraform/`** dựng hạ tầng trên **AWS** (đã loại khỏi branch này nhưng còn trên `main`/lịch sử) — tham khảo được nếu muốn IaC. Lưu ý nó kèm LoadBalancer + bastion cho **HA 3 master**, vượt nhu cầu 1‑CP.
+
+**Các bước thuê (chung cho mọi provider):**
+1. Tạo **N+1** instance (hoặc **N+2** nếu bastion riêng) Ubuntu 22.04/24.04, cỡ theo [§3.2](#32-cấu-hình-từng-máy-theo-vai-trò).
+2. Đặt tất cả vào **cùng VPC/subnet riêng**; gán **IP tĩnh**.
+3. Khi tạo, **nạp SSH public key của bạn** (hoặc dùng password rồi nạp key sau).
+4. Cấu hình **Security Group/firewall** theo [§3.4](#34-mạng-ip-tĩnh--firewall--security-group).
+5. Ghi lại **private IP** từng máy → điền vào `inventory.ini` ([§6.2](#62-ansibleinventoryini-tạo-mới)).
+6. Tạo user `ansible-user` trên mỗi node ([§3.6](#36-tạo-user-ansible-user-trên-mỗi-node)) — hoặc nhúng sẵn qua cloud‑init lúc tạo máy.
+
+### 3.6. Tạo user `ansible-user` trên mỗi node
+
+Mỗi node phải có user **`ansible-user`** với **sudo không mật khẩu** và **SSH public key** của bạn.
+
+```bash
+# Chạy trên từng node:
+sudo adduser --disabled-password --gecos "" ansible-user
+echo 'ansible-user ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/ansible-user
+sudo mkdir -p /home/ansible-user/.ssh && sudo chmod 700 /home/ansible-user/.ssh
+# dán public key của bạn vào:
+sudo tee /home/ansible-user/.ssh/authorized_keys < your_key.pub
+sudo chown -R ansible-user:ansible-user /home/ansible-user/.ssh
+sudo chmod 600 /home/ansible-user/.ssh/authorized_keys
+```
+
+**Hoặc tự động hóa khi tạo máy bằng cloud‑init/user‑data** (dán vào ô "user data" của provider):
+
+```yaml
+#cloud-config
+users:
+  - name: ansible-user
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA...thay-bằng-public-key-của-bạn...
+package_update: true
+```
+
+### 3.7. Máy điều khiển (Ansible control node)
 - Phải là **Linux** (Windows → dùng **WSL2 Ubuntu**, vì Ansible không chạy native trên Windows).
 - Cài: `git`, `ansible` (core ≥ 2.15), `ssh`.
 

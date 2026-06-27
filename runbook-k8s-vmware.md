@@ -10,7 +10,7 @@
 
 ## Mục lục
 
-1. [Tổng quan & kiến trúc](#1-tổng-quan--kiến-trúc)
+1. [Tổng quan &amp; kiến trúc](#1-tổng-quan--kiến-trúc)
 2. [Quy hoạch (versions, IP, hostname)](#2-quy-hoạch)
 3. [Tạo 3 VM Ubuntu 24.04 trên VMware](#3-tạo-3-vm-ubuntu-2404-trên-vmware)
 4. [Cấu hình OS chung (CHẠY TRÊN CẢ 3 NODE)](#4-cấu-hình-os-chung-chạy-trên-cả-3-node)
@@ -19,11 +19,11 @@
 7. [Verify cụm](#7-verify-cụm)
 8. [Cài Ingress Controller (ingress-nginx)](#8-cài-ingress-controller-ingress-nginx)
 9. [Deploy app mẫu + Ingress](#9-deploy-app-mẫu--ingress)
-10. [Mua & cấu hình domain trên Cloudflare](#10-mua--cấu-hình-domain-trên-cloudflare)
+10. [Mua &amp; cấu hình domain trên Cloudflare](#10-mua--cấu-hình-domain-trên-cloudflare)
 11. [Tạo Cloudflare Tunnel (chạy trong cụm)](#11-tạo-cloudflare-tunnel-chạy-trong-cụm)
-12. [Trỏ domain & kiểm tra trên Internet](#12-trỏ-domain--kiểm-tra-trên-internet)
-13. [Cài Rancher 2.13.4 & quản lý cụm](#13-cài-rancher-2134--quản-lý-cụm)
-14. [Vận hành & troubleshooting](#14-vận-hành--troubleshooting)
+12. [Trỏ domain &amp; kiểm tra trên Internet](#12-trỏ-domain--kiểm-tra-trên-internet)
+13. [Cài Rancher 2.13.4 &amp; quản lý cụm](#13-cài-rancher-2134--quản-lý-cụm)
+14. [Vận hành &amp; troubleshooting](#14-vận-hành--troubleshooting)
 15. [Nguồn official](#15-nguồn-official)
 16. [Phụ lục](#16-phụ-lục)
 
@@ -76,16 +76,16 @@
 
 ### 2.1. Phiên bản (ghim để khỏi lệch version-skew)
 
-| Thành phần | Phiên bản dùng trong runbook | Ghi chú |
-| --- | --- | --- |
-| Ubuntu Server | **24.04.x LTS (Noble)** | Cài bản Server, không cần GUI |
-| Kubernetes | **v1.34** — patch mới nhất **1.34.8** | Pin ở **1.34** vì **Rancher 2.13.4 chỉ chứng nhận tới k8s 1.34** (1.35 chưa Rancher nào support). Repo `pkgs.k8s.io` dùng `v1.34`. Kiểm tra patch tại <https://kubernetes.io/releases/> |
-| Container runtime | **containerd 1.7.x** (gói Ubuntu) | cgroup driver = `systemd` |
-| CNI | **Flannel** (pod CIDR `10.244.0.0/16`) | Chọn Flannel để **không đụng** dải LAN `192.168.x` |
-| Ingress | **ingress-nginx** (chart mới nhất) | |
-| Tunnel | **cloudflared** (mới nhất) | chạy như Deployment trong cụm |
-| Cluster management | **Rancher 2.13.4** (chart `rancher-latest`) | Bản 2.13.x mới nhất; chứng nhận k8s **1.32–1.34** (RKE2/K3s + imported). Cài bằng Helm vào chính cụm kubeadm |
-| cert-manager | **mới nhất** (vd v1.16.x) | Rancher cần để tự cấp TLS nội bộ khi `ingress.tls.source=rancher` |
+| Thành phần       | Phiên bản dùng trong runbook                      | Ghi chú                                                                                                                                                                                                                                        |
+| ------------------ | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ubuntu Server      | **24.04.x LTS (Noble)**                        | Cài bản Server, không cần GUI                                                                                                                                                                                                               |
+| Kubernetes         | **v1.34** — patch mới nhất **1.34.8** | Pin ở**1.34** vì **Rancher 2.13.4 chỉ chứng nhận tới k8s 1.34** (1.35 chưa Rancher nào support). Repo `pkgs.k8s.io` dùng `v1.34`. Kiểm tra patch tại [https://kubernetes.io/releases/](https://kubernetes.io/releases/) |
+| Container runtime  | **containerd 1.7.x** (gói Ubuntu)             | cgroup driver =`systemd`                                                                                                                                                                                                                      |
+| CNI                | **Flannel** (pod CIDR `10.244.0.0/16`)       | Chọn Flannel để**không đụng** dải LAN `192.168.x`                                                                                                                                                                                |
+| Ingress            | **ingress-nginx** (chart mới nhất)           |                                                                                                                                                                                                                                                 |
+| Tunnel             | **cloudflared** (mới nhất)                   | chạy như Deployment trong cụm                                                                                                                                                                                                                |
+| Cluster management | **Rancher 2.13.4** (chart `rancher-latest`)  | Bản 2.13.x mới nhất; chứng nhận k8s**1.32–1.34** (RKE2/K3s + imported). Cài bằng Helm vào chính cụm kubeadm                                                                                                                    |
+| cert-manager       | **mới nhất** (vd v1.16.x)                    | Rancher cần để tự cấp TLS nội bộ khi`ingress.tls.source=rancher`                                                                                                                                                                       |
 
 > ⚠️ **Version-skew:** `kubelet`/`kubeadm`/`kubectl` nên cùng minor (v1.34). `kubelet` được phép thấp hơn control plane tối đa 1 minor, không bao giờ cao hơn.
 >
@@ -95,20 +95,61 @@
 
 Giả sử LAN nhà bạn là `192.168.100.0/24`, gateway `192.168.100.1`. Chọn IP tĩnh **ngoài dải DHCP** của router.
 
-| Vai trò | Hostname | IP tĩnh | vCPU | RAM | Disk |
-| --- | --- | --- | --- | --- | --- |
-| Control plane | `k8s-master` | `192.168.100.101` | **2** (tối thiểu) | 4 GB | 40 GB |
-| Worker 1 | `k8s-worker1` | `192.168.100.102` | 2 | 4 GB | 40 GB |
-| Worker 2 | `k8s-worker2` | `192.168.100.103` | 2 | 4 GB | 40 GB |
+| Vai trò      | Hostname        | IP tĩnh            | vCPU                      | RAM  | Disk  |
+| ------------- | --------------- | ------------------- | ------------------------- | ---- | ----- |
+| Control plane | `k8s-master`  | `192.168.100.101` | **2** (tối thiểu) | 4 GB | 40 GB |
+| Worker 1      | `k8s-worker1` | `192.168.100.102` | 2                         | 4 GB | 40 GB |
+| Worker 2      | `k8s-worker2` | `192.168.100.103` | 2                         | 4 GB | 40 GB |
 
 > Pod CIDR `10.244.0.0/16` và Service CIDR mặc định `10.96.0.0/12` **không** được trùng dải LAN `192.168.100.0/24` → an toàn.
 >
 > ⚠️ **RAM khi có Rancher:** Rancher + cert-manager chiếm thêm tài nguyên. Master/worker nên **≥ 4 GB** (Rancher khuyến nghị), tránh để 2 GB như cụm thuần.
 
+### 2.2.1. Kiểm tra IP tĩnh KHÔNG trùng dải DHCP của router (làm 1 lần, trước khi cài)
+
+> Vì sao: IP tĩnh `.101–.103` ở trên là **ví dụ**. Nếu chúng vô tình rơi **trong** dải mà router tự cấp (DHCP pool), router có thể cấp cùng IP đó cho một thiết bị khác → **trùng IP, cụm chập chờn**. Phải đảm bảo `.101/.102/.103` nằm **ngoài** dải DHCP. Làm **một** trong hai cách dưới (Cách A chắc chắn hơn).
+
+**Trước tiên — xác định gateway router** (trên máy host Windows):
+
+```powershell
+ipconfig | findstr /i "Default Gateway"
+# vd: Default Gateway . . . : 192.168.100.1   ← đây là địa chỉ trang quản trị router
+```
+
+**Cách A — Xem trực tiếp dải DHCP trên router (khuyến nghị):**
+
+1. Mở trình duyệt trên host → vào `http://192.168.100.1` (đúng IP gateway vừa tìm).
+2. Đăng nhập admin router (tài khoản/mật khẩu thường in ở **đáy router** hoặc theo nhà mạng Viettel/VNPT/FPT).
+3. Tìm mục **LAN → DHCP Server / DHCP Settings** (tên tuỳ hãng TP-Link, Tenda, Asus…).
+4. Ghi lại **Start IP** và **End IP** của dải DHCP — ví dụ `192.168.100.2 – 192.168.100.200`.
+5. Đối chiếu `.101 / .102 / .103`:
+   - **Nằm NGOÀI** dải đó → dùng được luôn, sang [§2.3](#23-yêu-cầu-máy-host).
+   - **Nằm TRONG** dải (vd pool `.100–.200` thì `.101–.103` bị dính) → chọn 1 trong 2:
+     - **(a)** Đổi IP tĩnh sang dải cao ngoài pool, vd `.201/.202/.203`, **rồi sửa đồng bộ** ở [bảng §2.2](#22-ip--hostname-ví-dụ--đổi-theo-dải-lan-của-bạn), [§4.1 `/etc/hosts`](#41-hostname--etchosts), [§4.2 netplan](#42-ip-tĩnh-netplan), [§5 `kubeadm init`](#5-khởi-tạo-control-plane-chỉ-master). **Hoặc**
+     - **(b)** Thu hẹp **End IP** của pool trên router (vd kéo về `.99`) để chừa `.101–.103` ra ngoài.
+
+**Cách B — Không vào được router? Ping thử xem IP có đang bị dùng (nhanh, kém chắc hơn):**
+
+Trên host, ping từng IP định gán — IP "không ai trả lời" là khả năng đang trống:
+
+```powershell
+ping -n 2 192.168.100.101
+ping -n 2 192.168.100.102
+ping -n 2 192.168.100.103
+```
+
+- **"Request timed out" / "Destination host unreachable"** trên cả 2 gói → IP đang trống, nhiều khả năng dùng được.
+- **"Reply from 192.168.100.x..."** → IP đang bị thiết bị khác chiếm → chọn IP khác.
+
+> ⚠️ Cách B chỉ kiểm tra phụ: một thiết bị đang **tắt** sẽ không trả lời ping nhưng router vẫn có thể đã giữ/cấp lại IP đó. Cách chắc chắn nhất vẫn là **Cách A**. Chắc ăn nhất: chọn IP **ngoài pool** (Cách A) *hoặc* tạo **DHCP Reservation** trên router (gán cứng `.101–.103` theo MAC của từng VM) để router không bao giờ cấp trùng.
+
+> ✅ Sau khi chốt được dải IP an toàn, ghi đè lại 3 IP đó vào [bảng §2.2](#22-ip--hostname-ví-dụ--đổi-theo-dải-lan-của-bạn) và dùng xuyên suốt runbook. **Tất cả** chỗ có `192.168.100.10x` phải khớp nhau.
+
 ### 2.3. Yêu cầu máy host
+
 - RAM host nên ≥ 16 GB (3 VM × 4 GB + Windows).
 - VMware Workstation Pro/Player (Player đủ dùng cho lab).
-- ISO Ubuntu Server 24.04: <https://ubuntu.com/download/server>
+- ISO Ubuntu Server 24.04: [https://ubuntu.com/download/server](https://ubuntu.com/download/server)
 
 ---
 
@@ -123,7 +164,11 @@ Làm **3 lần** (master, worker1, worker2), chỉ khác tên + tài nguyên the
    - **Memory**: 4096 MB.
    - **Processors**: 2 (master **bắt buộc ≥ 2**).
    - **Network Adapter** → **Bridged** → tick *Replicate physical network connection state*.
-     - Mở **Edit → Virtual Network Editor → VMnet0 (Bridged)** và **chọn đúng card vật lý** (Ethernet hoặc Wi-Fi đang dùng) thay vì *Automatic*, để sau reboot không bị bind nhầm card.
+     - ⚠️ **Virtual Network Editor là cửa sổ KHÁC với VM Settings.** Mở từ **menu cửa sổ chính VMware → Edit → Virtual Network Editor** (KHÔNG phải trong Settings của VM). Nếu các ô bị mờ → bấm **Change Settings** (cần quyền admin/UAC).
+     - Chọn dòng **VMnet0** (Type = *Bridged*) → ở mục **"Bridged to:"** đổi từ *Automatic* sang **đúng tên card vật lý đang có mạng** (vd `Realtek PCIe GbE Family Controller` nếu dùng dây LAN, hoặc card `...Wi-Fi...` nếu dùng Wi-Fi) → **Apply → OK**. Để *Automatic* dễ bị bind nhầm card sau reboot.
+     - **KHÔNG chọn** các card ảo trong danh sách: `Hyper-V Virtual Ethernet Adapter`, `TAP-Windows Adapter ... OpenVPN`… (không phải card mạng thật).
+     - Không chắc card nào đang chạy? Trên host chạy `ipconfig /all`, tìm adapter có **IPv4 Address** dạng `192.168.x.x` + có **Default Gateway** → lấy đúng tên ở dòng *Description*.
+     - 💡 **Nếu host bật Hyper-V** (thấy "Hyper-V Virtual Ethernet Adapter" trong danh sách "Bridged to") thì bridge VMware có thể bị Hyper-V chiếm card → DHCP không ra IP dù chọn đúng card. Cách xử lý ở [§14](#14-vận-hành--troubleshooting).
 5. Power On → cài Ubuntu Server:
    - Chọn **Ubuntu Server (minimized hoặc full)**.
    - Network: cứ để DHCP khi cài, ta sẽ đặt IP tĩnh sau ([§4.2](#42-ip-tĩnh-netplan)).
@@ -165,26 +210,55 @@ EOF
 
 ### 4.2. IP tĩnh (netplan)
 
-Tìm tên card mạng: `ip a` (trên VMware thường là `ens33` hoặc `ens160`). Sửa file netplan (vd `/etc/netplan/50-cloud-init.yaml` hoặc tạo `/etc/netplan/01-static.yaml`) — **đổi IP theo từng máy**:
+**Chạy trên TỪNG máy** (đổi IP theo bảng [§2.2](#22-ip--hostname-ví-dụ--đổi-theo-dải-lan-của-bạn)). Nên làm qua **console của VM trong cửa sổ VMware** (không qua SSH), vì khi đổi IP phiên SSH sẽ rớt.
+
+**1) Tìm tên card mạng:**
+
+```bash
+ip -br a        # trên VMware thường là ens33 hoặc ens160 — nhớ tên này để điền vào YAML
+```
+
+**2) Chặn cloud-init quản mạng** (BẮT BUỘC — nếu bỏ qua, IP tĩnh có thể bị ghi đè về DHCP sau reboot):
+
+```bash
+echo 'network: {config: disabled}' | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+# bỏ file netplan do cloud-init sinh (đang để DHCP) để tránh xung đột:
+sudo mv /etc/netplan/50-cloud-init.yaml /etc/netplan/50-cloud-init.yaml.bak 2>/dev/null || true
+```
+
+**3) Tạo file tĩnh** `/etc/netplan/01-static.yaml` (vd `sudo nano /etc/netplan/01-static.yaml`) — **đổi IP & tên card theo từng máy**:
 
 ```yaml
 network:
   version: 2
   ethernets:
-    ens33:                          # ⚠️ đổi cho khớp `ip a`
+    ens33:                          # ⚠️ đổi cho khớp tên ở bước 1
       dhcp4: no
       addresses: [192.168.100.101/24]   # ⚠️ .101 master / .102 w1 / .103 w2
       routes:
         - to: default
-          via: 192.168.100.1            # gateway router
+          via: 192.168.100.1            # gateway router (= Default Gateway của host)
       nameservers:
         addresses: [1.1.1.1, 8.8.8.8]
 ```
 
+**4) Áp dụng:**
+
 ```bash
-sudo chmod 600 /etc/netplan/*.yaml      # tránh cảnh báo permission
+sudo chmod 600 /etc/netplan/01-static.yaml   # tránh cảnh báo permission
 sudo netplan apply
-ip a                                    # xác nhận IP đã đúng
+```
+
+> ⚠️ Nếu đang làm qua SSH, sau `netplan apply` phiên sẽ **đứng/rớt** vì IP đã đổi — kết nối lại bằng IP mới: `ssh <user>@192.168.100.101`. Khi chỉ chỉnh nhỏ, có thể dùng `sudo netplan try` (tự hoàn tác sau 120s nếu mất mạng).
+
+**5) Kiểm tra (cả 3 máy đều phải đạt):**
+
+```bash
+ip -br a                       # card hiển thị đúng IP tĩnh .101/.102/.103
+ping -c2 192.168.100.1         # tới gateway → phải có reply
+ping -c2 8.8.8.8               # ra Internet bằng IP → phải có reply
+ping -c2 google.com            # phân giải DNS → phải có reply
+                               #   (nếu ping 8.8.8.8 OK mà google.com fail = lỗi DNS → xem lại nameservers)
 ```
 
 > Dùng `routes:` thay cho `gateway4` (đã deprecated từ Ubuntu 22.04+).
@@ -203,6 +277,13 @@ sudo systemctl mask swap.target 2>/dev/null || true
 ```
 
 Kiểm tra: `free -h` → dòng Swap phải = 0.
+
+**Đồng bộ thời gian (quan trọng cho etcd/cert):** lệch giờ giữa các node làm hỏng TLS handshake & etcd. Ubuntu bật `systemd-timesyncd` sẵn — chỉ cần xác nhận:
+
+```bash
+timedatectl                 # phải thấy: System clock synchronized: yes  +  NTP service: active
+sudo timedatectl set-ntp true   # bật nếu chưa active
+```
 
 ### 4.4. Kernel modules + sysctl (cho CRI & bridge networking)
 
@@ -283,17 +364,25 @@ sudo ufw disable
 
 **Hoặc** mở đúng cổng nếu muốn giữ firewall:
 
-| Node | Cổng cần mở |
-| --- | --- |
-| master | TCP `6443` (API), `2379-2380` (etcd), `10250` (kubelet), `10257` (controller-mgr), `10259` (scheduler) |
-| worker | TCP `10250` (kubelet), `30000-32767` (NodePort) |
-| cả hai (Flannel VXLAN) | **UDP `8472`** |
+| Node                    | Cổng cần mở                                                                                                  |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
+| master                  | TCP`6443` (API), `2379-2380` (etcd), `10250` (kubelet), `10257` (controller-mgr), `10259` (scheduler) |
+| worker                  | TCP`10250` (kubelet), `30000-32767` (NodePort)                                                              |
+| cả hai (Flannel VXLAN) | **UDP `8472`**                                                                                          |
 
 ---
 
 ## 5. Khởi tạo control plane (CHỈ MASTER)
 
-Chạy **chỉ trên `k8s-master`**:
+Chạy **chỉ trên `k8s-master`**.
+
+(Tùy chọn) Kéo image trước để lộ sớm lỗi mạng/registry và để `init` nhanh hơn:
+
+```bash
+sudo kubeadm config images pull
+```
+
+Khởi tạo control plane (lệnh chạy **vài phút** — kéo image + dựng etcd/control plane, **đừng ngắt giữa chừng**):
 
 ```bash
 sudo kubeadm init \
@@ -307,6 +396,7 @@ sudo kubeadm init \
 - `--pod-network-cidr 10.244.0.0/16`: **bắt buộc cho Flannel**.
 
 Khi xong, kubeadm in ra:
+
 1. **Lệnh cấu hình kubeconfig** — chạy ngay (với user thường, không phải root):
 
 ```bash
@@ -340,7 +430,16 @@ kubectl get pods -n kube-flannel
 
 ## 6. Join worker (CHỈ 2 WORKER)
 
-Trên **`k8s-worker1`** và **`k8s-worker2`**, chạy lệnh join đã lưu ở [§5] (dạng):
+Trên **`k8s-worker1`** và **`k8s-worker2`**:
+
+**Kiểm tra trước khi join** (bắt sớm lỗi `/etc/hosts`/firewall — không cần cài thêm gói):
+
+```bash
+ping -c2 k8s-master
+timeout 3 bash -c 'echo > /dev/tcp/k8s-master/6443' && echo "API 6443 reachable" || echo "API 6443 UNREACHABLE"
+```
+
+Rồi chạy lệnh join đã lưu ở [§5] (dạng):
 
 ```bash
 sudo kubeadm join k8s-master:6443 \
@@ -392,6 +491,13 @@ kubectl get pods -n ingress-nginx
 kubectl get svc  -n ingress-nginx
 ```
 
+**Đợi controller sẵn sàng trước khi tạo Ingress ở [§9]** (nếu không, apply Ingress hay lỗi *admission webhook chưa ready*):
+
+```bash
+kubectl -n ingress-nginx wait --for=condition=ready pod \
+  -l app.kubernetes.io/component=controller --timeout=180s
+```
+
 > Service `ingress-nginx-controller` mặc định type `LoadBalancer`. Trên bare-metal, **EXTERNAL-IP sẽ `<pending>` mãi — KHÔNG SAO**: ta không dùng external IP đó. cloudflared sẽ gọi vào **ClusterIP** qua DNS nội bộ:
 > `http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80`
 >
@@ -400,6 +506,8 @@ kubectl get svc  -n ingress-nginx
 ---
 
 ## 9. Deploy app mẫu + Ingress
+
+> Toàn bộ [§9] chạy **trên master** (nơi có `kubectl`). File `.yaml` tạo ở thư mục home của user (vd `~/demo-app.yaml`).
 
 Tạo file `demo-app.yaml` (đổi `app.example.com` thành domain thật của bạn — sẽ mua ở [§10]):
 
@@ -474,10 +582,12 @@ Thấy output nghĩa là chuỗi **ingress → service → pod** đã chạy. Gi
 ## 10. Mua & cấu hình domain trên Cloudflare
 
 ### 10.1. Mua domain
+
 Mua ở bất kỳ registrar nào (Cloudflare Registrar, Namecheap, GoDaddy, PA Vietnam…). Domain rẻ (`.com`, `.dev`, `.xyz`) đều được.
 
 ### 10.2. Thêm domain vào Cloudflare
-1. Tạo tài khoản <https://dash.cloudflare.com> → **Add a site** → nhập domain.
+
+1. Tạo tài khoản [https://dash.cloudflare.com](https://dash.cloudflare.com) → **Add a site** → nhập domain.
 2. Chọn plan **Free**.
 3. Cloudflare cấp **2 nameserver** (vd `xxx.ns.cloudflare.com`).
 4. Vào trang quản trị của **registrar** → đổi **nameservers** của domain sang 2 NS Cloudflare vừa cấp.
@@ -492,13 +602,14 @@ Mua ở bất kỳ registrar nào (Cloudflare Registrar, Namecheap, GoDaddy, PA 
 Dùng **remotely-managed tunnel** (quản lý qua dashboard bằng *token*) — đơn giản, hợp với cụm k8s và đúng theo deployment guide của Cloudflare. (Cách CLI `config.yml` xem [Phụ lục A](#phụ-lục-a--locally-managed-tunnel-cli--configyml).)
 
 ### 11.1. Tạo tunnel trên dashboard → lấy token
+
 1. Dashboard → **Zero Trust** → **Networks → Tunnels** → **Create a tunnel**.
 2. Chọn loại **Cloudflared** → đặt tên (vd `homelab-k8s`) → **Save**.
 3. Màn hình *Install and run* hiện lệnh có dạng `cloudflared ... run --token eyJh...`. **Copy chuỗi token `eyJh...`** (rất dài). Chưa cần chạy lệnh đó — ta sẽ nhúng token vào k8s.
 
 ### 11.2. Deploy cloudflared vào cụm
 
-Tạo `cloudflared.yaml` (dán token vào):
+**Trên master**, tạo `cloudflared.yaml` (dán token vào):
 
 ```yaml
 apiVersion: v1
@@ -550,12 +661,12 @@ Quay lại dashboard tunnel → trạng thái phải chuyển **Healthy** (2 con
 
 Trong tunnel vừa tạo → tab **Published application routes** (hoặc **Public Hostname**) → **Add a public hostname**:
 
-| Trường | Giá trị |
-| --- | --- |
-| **Subdomain** | `app` (để trống nếu dùng root domain) |
-| **Domain** | `example.com` (chọn từ dropdown) |
-| **Type** | `HTTP` |
-| **URL** | `ingress-nginx-controller.ingress-nginx.svc.cluster.local:80` |
+| Trường            | Giá trị                                                       |
+| ------------------- | --------------------------------------------------------------- |
+| **Subdomain** | `app` (để trống nếu dùng root domain)                    |
+| **Domain**    | `example.com` (chọn từ dropdown)                            |
+| **Type**      | `HTTP`                                                        |
+| **URL**       | `ingress-nginx-controller.ingress-nginx.svc.cluster.local:80` |
 
 → **Save**. Cloudflare **tự tạo bản ghi DNS (CNAME)** `app.example.com → <tunnel-id>.cfargotunnel.com`. Bạn **không phải** tự thêm DNS record.
 
@@ -638,14 +749,14 @@ kubectl -n cattle-system get pods
 
 Thêm **một Public Hostname nữa** trong cùng tunnel đã tạo ở [§11.3](#113-thêm-public-hostname-route-domain--ingress-nội-bộ):
 
-| Trường | Giá trị |
-| --- | --- |
-| **Subdomain** | `rancher` |
-| **Domain** | `example.com` |
-| **Type** | **HTTPS** |
-| **URL** | `ingress-nginx-controller.ingress-nginx.svc.cluster.local:443` |
-| **Additional settings → TLS → No TLS Verify** | **ON** (vì cert Rancher là self-signed) |
-| **Additional settings → HTTP Host Header** | `rancher.example.com` |
+| Trường                                              | Giá trị                                                        |
+| ----------------------------------------------------- | ---------------------------------------------------------------- |
+| **Subdomain**                                   | `rancher`                                                      |
+| **Domain**                                      | `example.com`                                                  |
+| **Type**                                        | **HTTPS**                                                  |
+| **URL**                                         | `ingress-nginx-controller.ingress-nginx.svc.cluster.local:443` |
+| **Additional settings → TLS → No TLS Verify** | **ON** (vì cert Rancher là self-signed)                  |
+| **Additional settings → HTTP Host Header**     | `rancher.example.com`                                          |
 
 → **Save**. Cloudflare tự tạo DNS CNAME cho `rancher.example.com`.
 
@@ -663,6 +774,7 @@ kubectl get secret --namespace cattle-system bootstrap-secret \
 4. Vào **Cluster Management** → thấy cụm **`local`** = chính cụm kubeadm của bạn, trạng thái **Active**.
 
 ### 13.5. Kiểm tra
+
 - UI hiện cụm `local` Active, đủ 3 node.
 - Quản lý workload / Helm app / monitoring qua UI; cụm vẫn dùng song song bằng `kubectl`.
 
@@ -673,27 +785,32 @@ kubectl get secret --namespace cattle-system bootstrap-secret \
 ## 14. Vận hành & troubleshooting
 
 ### Thêm app/domain mới sau này
+
 Chỉ cần: (1) `Deployment`+`Service`+`Ingress` mới với `host: app2.example.com`; (2) thêm **Public Hostname** mới trong cùng tunnel trỏ về cùng `ingress-nginx-controller...:80`. Xong. Không đụng gì tới VM/router.
 
 ### Vì sao phải tôn trọng EOL & upgrade đúng nhịp
+
 Cụm **vẫn chạy** sau ngày EOL của k8s, nhưng dừng nhận **patch bảo mật (CVE)** + bug fix; kubeadm **không skip được minor** (phải nhảy từng bậc) nên để càng lâu càng khó nâng; và hệ sinh thái (CNI/ingress/cloudflared/**Rancher**) dần bỏ hỗ trợ bản cũ. Với cụm **phơi ra Internet qua tunnel**, rủi ro CVE chưa vá là nghiêm trọng nhất → nâng đều, luôn nằm trong vùng Rancher support.
 
 ### Bảng lỗi thường gặp
 
-| Triệu chứng | Nguyên nhân & cách xử lý |
-| --- | --- |
-| Node `NotReady` | CNI chưa chạy → `kubectl get pods -n kube-flannel`; kiểm tra UDP 8472 mở; `--pod-network-cidr` đúng `10.244.0.0/16` |
-| `kubeadm join` timeout | Worker không resolve `k8s-master` (thiếu `/etc/hosts`); hoặc cổng `6443` master bị firewall chặn |
-| Pod kẹt `ContainerCreating`/CNI lỗi | sai cgroup driver → `grep SystemdCgroup /etc/containerd/config.toml` phải `true`, rồi `systemctl restart containerd kubelet` |
-| `kubelet` crashloop sau init | còn swap → `swapoff -a` + check `/etc/fstab` |
-| Tunnel không **Healthy** | token sai/thiếu → `kubectl logs -n cloudflare deploy/cloudflared`; pod phải `Running` |
-| Domain mở ra **502/error 1033** | URL route sai tên service; thử đúng `ingress-nginx-controller.ingress-nginx.svc.cluster.local:80` (hoặc `:443` cho Rancher); kiểm tra `kubectl get svc -n ingress-nginx` |
-| Mở domain ra **404 từ nginx** | Host header không khớp Ingress `host:` → set HTTP Host Header trong tunnel, hoặc sửa `host:` trong Ingress |
-| `rancher.example.com` lỗi **TLS/redirect-loop** | thiếu **No TLS Verify=ON** + **Host Header**=`rancher.example.com` ở route HTTPS; hoặc cert-manager chưa Ready (`kubectl get pods -n cert-manager`) |
-| Rancher pod `CrashLoop`/Pending | thiếu RAM (nâng VM ≥ 4 GB); hoặc cert-manager CRDs chưa cài (`--set crds.enabled=true`) |
-| `curl -H Host` nội bộ OK nhưng Internet lỗi | vấn đề ở tunnel/DNS, không phải cụm → soi log cloudflared + trạng thái tunnel |
+| Triệu chứng                                            | Nguyên nhân & cách xử lý                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cài Ubuntu:**DHCPv4 quay mãi, không ra IP**     | VMnet0 bridge bind nhầm card →**Edit → Virtual Network Editor → VMnet0**, đổi *Automatic* sang đúng card vật lý ([§3](#3-tạo-3-vm-ubuntu-2404-trên-vmware)). Xác nhận card đang chạy bằng `ipconfig /all` trên host. Tạm thời có thể đặt IP tĩnh ngay tại màn hình installer.                                                                                                                                                                                                                        |
+| Bridge**vẫn** không ra IP dù chọn đúng card  | Host bật**Hyper-V** làm VMware bridge xung đột (danh sách "Bridged to" có "Hyper-V Virtual Ethernet Adapter"). Kiểm tra host: `bcdedit /enum \| findstr -i hypervisorlaunchtype`. Xử lý: tắt Hyper-V cho lab (`bcdedit /set hypervisorlaunchtype off` + reboot — **lưu ý sẽ tắt WSL2/Docker Desktop/Sandbox**), **hoặc** chuyển Network Adapter sang **NAT** (vẫn ra Internet; khi đó IP tĩnh phải theo dải NAT của VMnet8, vd `192.168.71.x`, và đổi đồng bộ toàn runbook). |
+| Node`NotReady`                                         | CNI chưa chạy →`kubectl get pods -n kube-flannel`; kiểm tra UDP 8472 mở; `--pod-network-cidr` đúng `10.244.0.0/16`                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `kubeadm join` timeout                                 | Worker không resolve`k8s-master` (thiếu `/etc/hosts`); hoặc cổng `6443` master bị firewall chặn                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Pod kẹt`ContainerCreating`/CNI lỗi                   | sai cgroup driver →`grep SystemdCgroup /etc/containerd/config.toml` phải `true`, rồi `systemctl restart containerd kubelet`                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `kubelet` crashloop sau init                           | còn swap →`swapoff -a` + check `/etc/fstab`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Tunnel không**Healthy**                           | token sai/thiếu →`kubectl logs -n cloudflare deploy/cloudflared`; pod phải `Running`                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Domain mở ra**502/error 1033**                    | URL route sai tên service; thử đúng`ingress-nginx-controller.ingress-nginx.svc.cluster.local:80` (hoặc `:443` cho Rancher); kiểm tra `kubectl get svc -n ingress-nginx`                                                                                                                                                                                                                                                                                                                                                      |
+| Mở domain ra**404 từ nginx**                     | Host header không khớp Ingress`host:` → set HTTP Host Header trong tunnel, hoặc sửa `host:` trong Ingress                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `rancher.example.com` lỗi **TLS/redirect-loop** | thiếu**No TLS Verify=ON** + **Host Header**=`rancher.example.com` ở route HTTPS; hoặc cert-manager chưa Ready (`kubectl get pods -n cert-manager`)                                                                                                                                                                                                                                                                                                                                                                   |
+| Rancher pod`CrashLoop`/Pending                         | thiếu RAM (nâng VM ≥ 4 GB); hoặc cert-manager CRDs chưa cài (`--set crds.enabled=true`)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `curl -H Host` nội bộ OK nhưng Internet lỗi        | vấn đề ở tunnel/DNS, không phải cụm → soi log cloudflared + trạng thái tunnel                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ### Lệnh chẩn đoán nhanh
+
 ```bash
 kubectl get nodes,pods -A -o wide
 kubectl logs -n cloudflare deploy/cloudflared --tail=50
@@ -706,18 +823,18 @@ kubectl get events -A --sort-by=.lastTimestamp | tail -30
 
 ## 15. Nguồn official
 
-- Kubernetes — *Creating a cluster with kubeadm*: <https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/>
-- Kubernetes — *Installing kubeadm* (repo pkgs.k8s.io): <https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/>
-- Kubernetes — *Container runtimes* (containerd, SystemdCgroup, sysctl): <https://kubernetes.io/docs/setup/production-environment/container-runtimes/>
-- Kubernetes — *Releases* (phiên bản stable + EOL): <https://kubernetes.io/releases/>
-- Kubernetes — *pkgs.k8s.io* (repo mới): <https://kubernetes.io/blog/2023/08/15/pkgs-k8s-io-introduction/>
-- ingress-nginx — *Bare-metal considerations*: <https://kubernetes.github.io/ingress-nginx/deploy/baremetal/>
-- MetalLB — *Installation*: <https://metallb.universe.tf/installation/>
-- Cloudflare — *Tunnel setup*: <https://developers.cloudflare.com/tunnel/setup/>
-- Cloudflare — *Create a locally-managed tunnel (CLI)*: <https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-local-tunnel/>
-- Cloudflare — *Deploy cloudflared in Kubernetes*: <https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/deployment-guides/kubernetes/>
-- Rancher — *Support matrix v2.13.4*: <https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/rancher-v2-13-4/>
-- Rancher — *Install on a Kubernetes cluster (Helm)*: <https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/install-upgrade-on-a-kubernetes-cluster/install-rancher-ha>
+- Kubernetes — *Creating a cluster with kubeadm*: [https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/)
+- Kubernetes — *Installing kubeadm* (repo pkgs.k8s.io): [https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
+- Kubernetes — *Container runtimes* (containerd, SystemdCgroup, sysctl): [https://kubernetes.io/docs/setup/production-environment/container-runtimes/](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
+- Kubernetes — *Releases* (phiên bản stable + EOL): [https://kubernetes.io/releases/](https://kubernetes.io/releases/)
+- Kubernetes — *pkgs.k8s.io* (repo mới): [https://kubernetes.io/blog/2023/08/15/pkgs-k8s-io-introduction/](https://kubernetes.io/blog/2023/08/15/pkgs-k8s-io-introduction/)
+- ingress-nginx — *Bare-metal considerations*: [https://kubernetes.github.io/ingress-nginx/deploy/baremetal/](https://kubernetes.github.io/ingress-nginx/deploy/baremetal/)
+- MetalLB — *Installation*: [https://metallb.universe.tf/installation/](https://metallb.universe.tf/installation/)
+- Cloudflare — *Tunnel setup*: [https://developers.cloudflare.com/tunnel/setup/](https://developers.cloudflare.com/tunnel/setup/)
+- Cloudflare — *Create a locally-managed tunnel (CLI)*: [https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-local-tunnel/](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-local-tunnel/)
+- Cloudflare — *Deploy cloudflared in Kubernetes*: [https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/deployment-guides/kubernetes/](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/deployment-guides/kubernetes/)
+- Rancher — *Support matrix v2.13.4*: [https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/rancher-v2-13-4/](https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/rancher-v2-13-4/)
+- Rancher — *Install on a Kubernetes cluster (Helm)*: [https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/install-upgrade-on-a-kubernetes-cluster/install-rancher-ha](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/install-upgrade-on-a-kubernetes-cluster/install-rancher-ha)
 
 ---
 

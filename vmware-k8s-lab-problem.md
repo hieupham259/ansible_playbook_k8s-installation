@@ -1,6 +1,6 @@
 # Báo cáo review & verify — `vmware-k8s-lab.md`
 
-> **Đối tượng review:** `E:\xaml\vmware-k8s-lab.md` (1557 dòng, footer ghi *"Runbook tạo ngày 2026-06-26"*)
+> **Đối tượng review:** `vmware-k8s-lab.md` (1557 dòng, footer ghi *"Runbook tạo ngày 2026-06-26"*)
 > **Ngày review:** 2026-07-20
 > **Phạm vi:** toàn bộ §1 → §17, bao gồm cả Phụ lục A/B/C
 > **Kết luận ngắn:** Runbook **khả thi, không có lỗi kiến trúc**, chất lượng trên trung bình rõ rệt. Nhưng có **8 lỗi chặn** khiến người làm tuần tự sẽ khựng hoặc nhận kết quả verify sai, và vấn đề hệ thống lớn nhất là **runbook được viết dựa trên một ảnh chụp version đã trôi** (chart Traefik < v33, containerd 1.7, Rancher 2.13.4, k8s 1.34 sắp hết hạn).
@@ -973,7 +973,7 @@ kubectl -n kube-system exec etcd-k8s-master -- etcdctl \
 
 **Runbook tham chiếu `servers.md` 8 lần**, bắt đầu ngay từ header đầu file (*"dựng 1 VM gốc → snapshot → full-clone ra 3 server […] theo [`servers.md`](servers.md)"*) và xuyên suốt §4 — kể cả tiêu đề chương: **"§4. Tạo và nhân bản 3 server theo servers.md"**.
 
-**Bằng chứng:** liệt kê thư mục chứa runbook (`E:\xaml\`) — **không có file `servers.md`**. Toàn bộ 8 link `](servers.md)` trỏ vào hư không.
+**Bằng chứng:** liệt kê thư mục chứa runbook (`./`) — **không có file `servers.md`**. Toàn bộ 8 link `](servers.md)` trỏ vào hư không.
 
 **Tác động:**
 

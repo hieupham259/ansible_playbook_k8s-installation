@@ -627,12 +627,22 @@ echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 
 sudo apt-get update
 
-# Xác nhận repo có đúng gói trước khi cài:
-apt-cache madison kubeadm | grep '1.35.6-1.1'
-VER='1.35.6-1.1'
-sudo apt-get install -y kubelet="$VER" kubeadm="$VER" kubectl="$VER"
+# Xem Installed/Candidate và toàn bộ version cri-tools repo đang cung cấp:
+apt-cache policy cri-tools
+apt-cache madison cri-tools
 
-sudo apt-mark hold kubelet kubeadm kubectl   # ghim version, tránh apt upgrade làm vỡ skew
+# Gate version: chỉ gán/cài các version đã thấy trong output phía trên
+apt-cache madison kubeadm | grep '1.35.6-1.1'
+apt-cache madison cri-tools | grep '1.35.0-1.1'
+VER='1.35.6-1.1'
+CRI_TOOLS_VER='1.35.0-1.1'
+sudo apt-get install -y \
+  kubelet="$VER" \
+  kubeadm="$VER" \
+  kubectl="$VER" \
+  cri-tools="$CRI_TOOLS_VER"
+
+sudo apt-mark hold kubelet kubeadm kubectl cri-tools   # ghim version, tránh apt upgrade làm vỡ skew
 sudo systemctl enable --now kubelet
 
 # cấu hình crictl trỏ tường minh tới containerd
@@ -643,11 +653,37 @@ timeout: 10
 debug: false
 EOF
 
-# verify runtime thực tế, không chỉ đọc config trên đĩa
+# verify package/binary vừa cài
+kubeadm version -o short
+kubelet --version
+kubectl version --client
+crictl --version
+apt-mark showhold | grep -E '^(kubeadm|kubelet|kubectl|cri-tools)$'
+systemctl is-enabled kubelet
+
+# verify crictl kết nối được tới containerd và runtime thực sự dùng systemd cgroup
+sudo crictl version
 sudo crictl info | grep -i -A2 systemdCgroup
+
+# verify lại toàn bộ prereq OS/runtime ở trạng thái hiện tại
+free -h | grep -i swap
+lsmod | grep -E 'br_netfilter|overlay'
+sysctl \
+  net.bridge.bridge-nf-call-iptables \
+  net.bridge.bridge-nf-call-ip6tables \
+  net.ipv4.ip_forward
+systemctl is-active containerd
 ```
 
-> `kubelet` lúc này sẽ ở trạng thái crashloop cho tới khi `kubeadm init`/`join` — **bình thường**. `crictl info` phải cho thấy `systemdCgroup: true`; nếu không, sửa containerd trước khi tiếp tục.
+Kết quả PASS trước khi rời §5.6:
+
+- `kubeadm`/`kubelet`/`kubectl`: `v1.35.6`; `crictl`: `v1.35.0`;
+- cả `kubeadm`, `kubelet`, `kubectl`, `cri-tools` có trong danh sách hold; kubelet là `enabled`;
+- `crictl version` kết nối được tới `containerd`, CRI API là `v1`;
+- `SystemdCgroup: true`, containerd `active`;
+- Swap = `0B`, có cả `br_netfilter` + `overlay`, ba sysctl đều bằng `1`.
+
+> `kubelet` lúc này có thể restart/crashloop cho tới khi `kubeadm init`/`join` vì chưa có `/var/lib/kubelet/config.yaml` — **bình thường**. Không yêu cầu `systemctl is-active kubelet` phải PASS ở bước này. Nếu `crictl: command not found`, kiểm tra `apt-cache policy cri-tools`; không tiếp tục cho đến khi package `cri-tools` đã cài đúng. Nếu `crictl info` không cho thấy `SystemdCgroup: true`, sửa containerd trước khi tiếp tục.
 
 ### 5.7. Firewall
 
@@ -749,13 +785,27 @@ ssh root@192.168.100.111        # vào được shell root là đạt (.112/.113
 ```bash
 sudo reboot
 # sau khi node lên lại, kiểm tra:
-free -h | grep -i swap                     # Swap phải = 0
-sysctl net.ipv4.ip_forward                 # = 1
-lsmod | grep -E 'br_netfilter|overlay'     # cả 2 module phải load
-systemctl is-active containerd             # active
+uname -r
+free -h | grep -i swap
+lsmod | grep -E 'br_netfilter|overlay'
+sysctl \
+  net.bridge.bridge-nf-call-iptables \
+  net.bridge.bridge-nf-call-ip6tables \
+  net.ipv4.ip_forward
+systemctl is-active containerd
+sudo crictl info | grep -i -A2 systemdCgroup
 ```
 
-> Nếu sau reboot swap ≠ 0 / module không load / containerd không chạy → sửa lại [§5.3]/[§5.4]/[§5.5] **trước khi** `kubeadm init`, tránh lỗi giữa chừng. (`kubelet` vẫn crashloop tới khi init là **bình thường**.)
+**Quality gate trước §6 — cả 3 node đều phải PASS:**
+
+- `uname -r` là kernel mới đã được APT cài (không còn cảnh báo *Pending kernel upgrade*);
+- Swap = `0B`;
+- có cả `br_netfilter` và `overlay`;
+- `net.bridge.bridge-nf-call-iptables`, `net.bridge.bridge-nf-call-ip6tables`, `net.ipv4.ip_forward` đều bằng `1`;
+- containerd là `active`;
+- `crictl` kết nối được tới containerd và trả `SystemdCgroup: true`.
+
+Nếu bất kỳ điều kiện nào FAIL, sửa lại [§5.3]/[§5.4]/[§5.5]/[§5.6] trên node đó **trước khi** `kubeadm init` hoặc `join`, tránh lỗi giữa chừng. (`kubelet` vẫn có thể crashloop tới khi init/join là **bình thường**.)
 
 ---
 

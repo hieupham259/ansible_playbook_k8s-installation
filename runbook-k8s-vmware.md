@@ -813,33 +813,68 @@ Nếu bất kỳ điều kiện nào FAIL, sửa lại [§5.3]/[§5.4]/[§5.5]/[
 
 Chạy **chỉ trên `k8s-master`**.
 
-(Tùy chọn) Kéo image trước để lộ sớm lỗi mạng/registry và để `init` nhanh hơn:
+(Tùy chọn) Kéo image trước để lộ sớm lỗi mạng/registry và để `init` nhanh hơn. **Không chạy**
+`sudo kubeadm config images pull` mà không chỉ định version: kubeadm có thể dò remote và tự chọn một
+patch mới hơn package đang cài (ví dụ binary `v1.35.6` nhưng image `v1.35.7`).
 
 ```bash
-sudo kubeadm config images pull
+# Lấy đúng version từ binary kubeadm đã pin ở §5.6
+KUBERNETES_VERSION="$(kubeadm version -o short)"
+echo "$KUBERNETES_VERSION"                    # PASS: v1.35.6
+
+# Gate của baseline này: dừng nếu node đang cài sai version
+test "$KUBERNETES_VERSION" = "v1.35.6" || {
+  echo "FAIL: expected kubeadm v1.35.6, got $KUBERNETES_VERSION" >&2
+  exit 1
+}
+
+# Xem trước và pull đúng bộ image của version vừa xác nhận
+sudo kubeadm config images list --kubernetes-version "$KUBERNETES_VERSION"
+sudo kubeadm config images pull --kubernetes-version "$KUBERNETES_VERSION"
 ```
 
 Khởi tạo control plane (lệnh chạy **vài phút** — kéo image + dựng etcd/control plane, **đừng ngắt giữa chừng**):
 
 ```bash
 sudo kubeadm init \
+  --kubernetes-version "$KUBERNETES_VERSION" \
   --control-plane-endpoint "k8s-master:6443" \
   --apiserver-advertise-address 192.168.100.111 \
   --pod-network-cidr 10.244.0.0/16
 ```
 
+> Phải giữ `--kubernetes-version` ở cả lệnh `images pull` và `init`; nếu bỏ ở lệnh `init`, kubeadm vẫn
+> có thể dò remote và chọn patch khác. Các image patch khác đã pull trước đó có thể giữ lại, chúng
+> không được dùng khi `init` đã pin `v1.35.6`.
+
 - `--control-plane-endpoint k8s-master:6443`: dùng tên (đã map trong `/etc/hosts`) → thuận lợi cho HA/đổi IP sau này.
 - `--apiserver-advertise-address`: IP master (tránh kubeadm tự đoán nhầm card).
 - `--pod-network-cidr 10.244.0.0/16`: **bắt buộc cho Flannel**.
 
-Khi xong, kubeadm in ra:
+Khi xong, kubeadm in ra các bước tiếp theo.
 
-1. **Lệnh cấu hình kubeconfig** — chạy ngay (với user thường, không phải root):
+1. **Cấu hình kubeconfig** — chọn **một** trong hai cách sau.
+
+   **Cách A — user thường (khuyến nghị, dùng lâu dài):** thoát khỏi phiên `root`, đăng nhập lại bằng
+   user quản trị rồi chạy:
 
 ```bash
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
+mkdir -p "$HOME/.kube"
+sudo cp -i /etc/kubernetes/admin.conf "$HOME/.kube/config"
+sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
+```
+
+   **Cách B — đang thao tác bằng `root` (chỉ có hiệu lực trong terminal hiện tại):**
+
+```bash
+export KUBECONFIG=/etc/kubernetes/admin.conf
+```
+
+   Không cần chạy cả hai cách. Nếu dùng cách B, sau khi logout hoặc mở phiên SSH mới phải chạy lại
+   lệnh `export`. Kiểm tra kubeconfig trước khi tiếp tục:
+
+```bash
+kubectl get nodes
 ```
 
 2. **Lệnh `kubeadm join ...`** cho worker — **COPY LƯU LẠI** (sẽ dùng ở [§7](#7-join-worker-chỉ-2-worker)). Mất thì sinh lại bằng:
@@ -988,7 +1023,12 @@ Giữ nguyên taint `NoSchedule` trên `k8s-master` để etcd/API server không
 kubectl get pods -n kube-flannel -o wide     # PASS: đúng 3 pod, mỗi node 1, Running
 ```
 
-Test thật — tạo tường minh 2 pod trên **2 worker khác nhau**, không dựa vào thứ tự mảng trả về từ `kubectl`:
+Lệnh trên xác nhận Flannel DaemonSet có đúng một pod trên mỗi node. Các pod này thiết lập interface,
+route và VXLAN để các PodCIDR khác nhau liên lạc xuyên node. Cột `NODE` phải có `k8s-master`,
+`k8s-worker1`, `k8s-worker2`; cả ba pod phải `Running`.
+
+Test thật — tạo tường minh hai pod trên **hai worker khác nhau**, không dựa vào thứ tự mảng trả về từ
+`kubectl`:
 
 ```yaml
 # nettest.yaml
@@ -1017,16 +1057,51 @@ spec:
       command: ["sleep", "3600"]
 ```
 
+- `nodeName` ép `nettest-w1` lên worker1 và `nettest-w2` lên worker2. Nếu để scheduler tự chọn, hai
+  pod có thể cùng nằm trên một node; ping thành công khi đó không chứng minh cross-node networking.
+- Label `app: nettest` cho phép chọn đồng thời cả hai pod bằng `-l app=nettest`.
+- Image `netshoot` có sẵn các công cụ mạng như `ping`, `curl`, `dig`; `sleep 3600` giữ container chạy
+  một giờ để có thể `kubectl exec` vào kiểm tra.
+
+Tạo pod, đợi cả hai thật sự `Ready`, rồi xác nhận vị trí và Pod IP:
+
 ```bash
 kubectl apply -f nettest.yaml
 kubectl wait --for=condition=Ready pod/nettest-w1 pod/nettest-w2 --timeout=180s
 kubectl get pod -l app=nettest -o wide
+```
 
+PASS khi:
+
+- `kubectl wait` trả `condition met` cho cả hai pod;
+- hai pod đều `1/1 Running`;
+- `nettest-w1` nằm trên `k8s-worker1`, IP thuộc `10.244.1.0/24`;
+- `nettest-w2` nằm trên `k8s-worker2`, IP thuộc `10.244.2.0/24`.
+
+Lấy Pod IP hiện tại của `nettest-w2` bằng JSONPath, rồi chạy `ping` **từ bên trong** `nettest-w1`.
+Dùng biến thay vì copy IP thủ công vì Pod IP có thể đổi khi pod được tạo lại:
+
+```bash
 BIP=$(kubectl get pod nettest-w2 -o jsonpath='{.status.podIP}')
 kubectl exec nettest-w1 -- ping -c3 "$BIP"    # PASS: 0% packet loss
 ```
 
+Luồng được kiểm tra:
+
+```text
+nettest-w1 (10.244.1.x, worker1)
+  → Flannel/VXLAN giữa các node (UDP 8472)
+  → nettest-w2 (10.244.2.x, worker2)
+```
+
+`3 packets transmitted, 3 received, 0% packet loss` chứng minh đường Pod network theo chiều
+worker1 → worker2 hoạt động. Đây là kiểm tra kết nối IP/ICMP layer 3; nó chưa kiểm tra DNS, Service
+hay kube-proxy — các tầng tiếp theo sẽ kiểm tra riêng.
+
 > ❌ **Fail ở đây** = VXLAN **UDP 8472** bị chặn giữa các node ([§5.7](#57-firewall)), hoặc Flannel bind nhầm interface, hoặc `--pod-network-cidr` lúc `kubeadm init` không phải `10.244.0.0/16`. Đây là nguyên nhân số 1 của triệu chứng *"cụm nhìn Ready mà app không gọi được nhau"*.
+
+Giữ nguyên hai pod sau bước này: §8.4–§8.6 còn dùng `nettest-w1` để kiểm tra DNS, Service và
+`kubectl exec`. Dọn chúng cùng các resource test khác tại [§8.9](#89-dọn-dẹp-resource-test).
 
 ### 8.4. Tầng 4 — DNS
 
@@ -1046,20 +1121,47 @@ kubectl exec "$TEST_POD" -- nslookup releases.rancher.com           # PASS: reso
 
 ### 8.5. Tầng 5 — Service & kube-proxy
 
+Mục đích của tầng này là kiểm tra toàn bộ data path của Kubernetes Service:
+
+```text
+client → tên Service/ClusterIP hoặc NodeIP:NodePort → kube-proxy → EndpointSlice → backend Pod
+```
+
+Một cluster có thể có node `Ready`, Pod network và DNS đều tốt nhưng Service vẫn hỏng nếu kube-proxy
+không lập được rule chuyển tiếp. Trước tiên xác nhận kube-proxy có đúng một pod trên mỗi node:
+
 ```bash
 kubectl get pods -n kube-system -l k8s-app=kube-proxy -o wide   # PASS: 3 pod Running
+```
 
+Tạo ba nginx backend. `rollout status` chỉ PASS khi Deployment có đủ replica sẵn sàng phục vụ:
+
+```bash
 kubectl create deploy web --image=nginx --replicas=3
 kubectl rollout status deploy/web
+```
+
+Tạo Service `web` loại mặc định `ClusterIP`. EndpointSlice là danh sách Pod IP thật đứng sau Service;
+nếu cột `ENDPOINTS` rỗng thì selector không chọn được backend và Service không thể chuyển traffic:
+
+```bash
 kubectl expose deploy web --port=80
 kubectl get endpointslice -l kubernetes.io/service-name=web
 # PASS: cột ENDPOINTS liệt kê các Pod IP
+```
 
-# gọi ClusterIP từ pod nằm trên node KHÁC
+Gọi Service bằng tên ngắn `web` từ pod test. Lệnh này đồng thời xác nhận DNS Service, ClusterIP,
+kube-proxy load-balancing và đường mạng tới một backend; HTTP `200` là PASS:
+
+```bash
 TEST_POD=nettest-w1
-kubectl exec "$TEST_POD" -- curl -s -o /dev/null -w '%{http_code}\n' http://web    # PASS: 200
+kubectl exec "$TEST_POD" -- curl -s -o /dev/null -w '%{http_code}\n' http://web
+# PASS: 200
+```
 
-# NodePort — kiểm tra từ ngoài cụm
+Tạo thêm Service `NodePort`, lấy port được Kubernetes cấp động rồi gọi qua IP của cả ba node:
+
+```bash
 kubectl expose deploy web --name=web-np --type=NodePort --port=80
 NP=$(kubectl get svc web-np -o jsonpath='{.spec.ports[0].nodePort}')
 for ip in 192.168.100.111 192.168.100.112 192.168.100.113; do
@@ -1067,7 +1169,13 @@ for ip in 192.168.100.111 192.168.100.112 192.168.100.113; do
 done                                   # PASS: cả 3 IP đều trả 200
 ```
 
-> NodePort mở trên **mọi** node, kể cả node không chạy pod nào của Service đó — kube-proxy tự forward sang node có pod. Nếu chỉ 1/3 IP trả 200 → kube-proxy hoặc CNI ([§8.3](#83-tầng-3--pod-networking-cross-node)) có vấn đề.
+NodePort mở trên **mọi** node, kể cả node không có backend Pod; kube-proxy nhận traffic rồi forward tới
+một endpoint có thể nằm trên node khác. Cả ba IP trả `200` chứng minh NodePort và đường forward
+xuyên node hoạt động. Nếu chỉ 1/3 IP trả `200`, kiểm tra kube-proxy, firewall và CNI
+([§8.3](#83-tầng-3--pod-networking-cross-node)).
+
+> Chạy vòng `curl` trên master kiểm tra data path NodePort qua các Node IP. Muốn xác nhận thêm firewall
+> và khả năng truy cập từ LAN, chạy `curl http://<NodeIP>:<NP>` từ một máy khác cùng mạng.
 
 ### 8.6. Tầng 6 — Đường control plane → kubelet (Rancher UI sống chết ở đây)
 
@@ -1133,11 +1241,52 @@ spec:
   accessModes: [ReadWriteOnce]
   resources: { requests: { storage: 1Gi } }
 EOF
+
+# local-path dùng WaitForFirstConsumer nên PVC vẫn Pending cho tới khi có Pod sử dụng
+kubectl get pvc pvc-test          # EXPECTED ở bước này: STATUS = Pending
+
+kubectl create -f - <<'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pvc-test-pod
+spec:
+  containers:
+    - name: test
+      image: busybox:1.37
+      command:
+        - sh
+        - -c
+        - echo "local-path works" > /data/test.txt && sleep 3600
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: pvc-test
+EOF
+
+kubectl wait --for=condition=Ready pod/pvc-test-pod --timeout=180s
 kubectl get pvc pvc-test          # PASS: STATUS = Bound
+kubectl get pv
+kubectl get pod pvc-test-pod -o wide
+kubectl exec pvc-test-pod -- cat /data/test.txt
+# PASS: local-path works
+
+# cleanup: xóa consumer trước, sau đó mới xóa claim
+kubectl delete pod pvc-test-pod
 kubectl delete pvc pvc-test
 ```
 
-> ⚠️ `local-path` lưu dữ liệu trên disk của node được chọn. Node mất disk thì volume không tự failover; chỉ dùng cho lab hoặc workload chấp nhận rủi ro này.
+`VOLUMEBINDINGMODE=WaitForFirstConsumer` trì hoãn việc tạo/bind PV cho tới khi scheduler biết Pod consumer
+sẽ chạy trên node nào; vì vậy PVC `Pending` trước khi tạo `pvc-test-pod` là **đúng thiết kế**, không
+phải lỗi. `ALLOWVOLUMEEXPANSION=false` cũng là giá trị mong đợi của StorageClass này: không thể tăng
+dung lượng claim hiện hữu bằng cách sửa `requests.storage`.
+
+> ⚠️ `local-path` lưu dữ liệu trên disk của node được chọn. Node mất disk thì volume không tự failover;
+> chỉ dùng cho lab hoặc workload chấp nhận rủi ro này. Xóa Pod không làm mất PVC ngay, nhưng
+> `RECLAIMPOLICY=Delete` sẽ xóa PV và dữ liệu local tương ứng khi PVC bị xóa.
 
 ### 8.8. Gate cụm nền — trước khi cài các add-on
 
@@ -1855,6 +2004,96 @@ sudo kubeadm certs check-expiration
 
 > Với nâng **minor**, không được skip minor; phải đổi repo `pkgs.k8s.io` sang minor đích, nâng từng bậc và làm theo đúng trang upgrade của phiên bản nguồn. Luôn kiểm support matrix Rancher **trước**; Rancher 2.14.3 chưa cho phép nâng cụm này vượt 1.35.
 
+### Quản lý và gia hạn certificate kubeadm
+
+Các certificate control plane do kubeadm cấp mặc định có hạn khoảng **1 năm**; CA có hạn dài hơn và
+không được `kubeadm certs renew all` xoay vòng. Không chờ certificate hết hạn mới xử lý.
+
+**Cơ chế chính (phổ biến):** nâng Kubernetes bằng kubeadm định kỳ, khoảng cách giữa hai lần nâng
+control plane phải **dưới 1 năm**. `kubeadm upgrade apply` mặc định tự gia hạn các certificate do
+kubeadm quản lý trên control-plane node. Không thêm `--certificate-renewal=false`.
+
+**Gate vận hành:** chạy trên master mỗi tháng và trước mọi đợt bảo trì:
+
+```bash
+sudo kubeadm certs check-expiration
+```
+
+- Còn **trên 60 ngày**: tiếp tục theo dõi hoặc gia hạn qua đợt upgrade định kỳ.
+- Còn **60 ngày trở xuống** và đã sẵn sàng upgrade: backup rồi làm quy trình upgrade ở trên.
+- Còn **60 ngày trở xuống** nhưng chưa thể upgrade: dùng manual renew bên dưới; không trì hoãn tới
+  ngày hết hạn.
+
+#### Manual renew dự phòng (single control plane)
+
+Quy trình này làm API tạm gián đoạn vì runbook chỉ có một control plane. Thực hiện trong maintenance
+window trên `k8s-master`; backup etcd và `/etc/kubernetes` theo mục **Backup etcd và cấu hình trước
+thay đổi lớn** ở trên trước khi tiếp tục.
+
+Gia hạn và xác nhận hạn mới:
+
+```bash
+sudo kubeadm certs check-expiration
+sudo kubeadm certs renew all
+sudo kubeadm certs check-expiration
+```
+
+Renew không tự reload certificate cho mọi control-plane component. Restart từng static Pod tuần tự;
+thư mục tạm phải nằm **ngoài** `/etc/kubernetes/manifests`, nếu không kubelet vẫn đọc file tạm như
+một manifest:
+
+```bash
+STAMP=$(date +%Y%m%d-%H%M%S)
+MANIFEST_HOLD="$HOME/k8s-maintenance/static-pods-$STAMP"
+mkdir -p "$MANIFEST_HOLD"
+
+for component in etcd kube-apiserver kube-controller-manager kube-scheduler; do
+  OLD_ID="$(sudo crictl ps --name "$component" -q)"
+  sudo mv "/etc/kubernetes/manifests/${component}.yaml" "$MANIFEST_HOLD/"
+  sleep 25
+  sudo mv "$MANIFEST_HOLD/${component}.yaml" /etc/kubernetes/manifests/
+
+  NEW_ID=""
+  for attempt in {1..12}; do
+    NEW_ID="$(sudo crictl ps --name "$component" -q)"
+    if [ -n "$NEW_ID" ] && [ "$NEW_ID" != "$OLD_ID" ]; then
+      break
+    fi
+    sleep 5
+  done
+
+  test -n "$NEW_ID" && test "$NEW_ID" != "$OLD_ID" || {
+    echo "FAIL: $component chưa được tạo lại; dừng để kiểm tra kubelet/crictl" >&2
+    exit 1
+  }
+  echo "PASS: $component restarted ($NEW_ID)"
+done
+```
+
+`admin.conf` đã được renew nhưng user `ubuntu` đang dùng một bản copy trong `$HOME/.kube/config`;
+chép lại bản mới rồi verify:
+
+```bash
+sudo cp /etc/kubernetes/admin.conf "$HOME/.kube/config"
+sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
+
+kubectl get --raw='/readyz?verbose'
+kubectl get nodes
+kubectl get pods -A
+sudo kubeadm certs check-expiration
+```
+
+PASS khi `readyz` kết thúc bằng `readyz check passed`, mọi node `Ready`, các system pod `Running`,
+và certificate có `RESIDUAL TIME` mới gần 1 năm. Nếu certificate đã hết hạn thì vẫn thực hiện quy
+trình này trực tiếp trên master bằng `sudo`; **không** chạy lại `kubeadm init` và không
+`kubeadm reset`.
+
+> Với nhiều control-plane node, phải renew và restart tuần tự trên **từng** control-plane node. Kubeadm
+> không hỗ trợ CA rotation/replacement tự động; đó là một quy trình PKI riêng, không thay bằng
+> `kubeadm certs renew all`. Tham khảo
+> [Certificate Management with kubeadm](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/)
+> và [`kubeadm certs`](https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-certs/).
+
 ### Giới hạn Cloudflare cần biết
 
 - Upload qua hostname proxied bị giới hạn theo plan: Free/Pro 100 MB, Business 200 MB, Enterprise 500+ MB. Upload chart/backup lớn qua Rancher UI có thể nhận HTTP 413 dù cluster khỏe.
@@ -2030,4 +2269,4 @@ sudo systemctl restart containerd kubelet
 
 ---
 
-*Runbook tạo ngày 2026-06-26; cập nhật đồng bộ ngày 2026-07-25. Baseline: Ubuntu 24.04 amd64, Kubernetes **v1.35.6** (`1.35.6-1.1`), containerd **2.x** từ Ubuntu, Flannel **v0.28.7**, Traefik chart **41.0.2** / Proxy **v3.7.6**, cert-manager **v1.21.0**, Rancher **2.14.3**. Đây là homelab baseline, không phải SLA/certification production end-to-end cho kubeadm.*
+*Runbook tạo ngày 2026-06-26; cập nhật đồng bộ ngày 2026-07-26. Baseline: Ubuntu 24.04 amd64, Kubernetes **v1.35.6** (`1.35.6-1.1`), containerd **2.x** từ Ubuntu, Flannel **v0.28.7**, Traefik chart **41.0.2** / Proxy **v3.7.6**, cert-manager **v1.21.0**, Rancher **2.14.3**. Đây là homelab baseline, không phải SLA/certification production end-to-end cho kubeadm.*

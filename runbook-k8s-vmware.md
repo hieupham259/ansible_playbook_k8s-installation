@@ -73,7 +73,7 @@
 
 - **Cloudflare Tunnel** mở kết nối **outbound** từ trong cụm ra Cloudflare → vượt CGNAT, không phơi IP nhà, không mở cổng router. Đây là lý do **không cần gọi nhà mạng tắt NAT / mua IP public**.
 - **cloudflared chạy *trong* cụm** và trỏ thẳng vào **Service ClusterIP** của Traefik qua DNS nội bộ → **không cần MetalLB, không cần NodePort, không cần LoadBalancer external IP**.
-- **Traefik** làm điểm vào duy nhất, định tuyến theo hostname → host nhiều app/nhiều domain (kể cả **UI Rancher**) chỉ bằng cách thêm `Ingress` + một public hostname trong tunnel. (Runbook **không** dùng `ingress-nginx` — dự án đó đã bị khai tử 03/2026, lý do ở [§9.2](#92-vì-sao-traefik-mà-không-phải-ingress-nginx).)
+- **Traefik** làm điểm vào duy nhất, định tuyến theo hostname → host nhiều app/nhiều domain (kể cả **UI Rancher**) chỉ bằng cách thêm `Ingress` + một public hostname trong tunnel. (Runbook **không** dùng `ingress-nginx` — dự án đó đã bị khai tử 03/2026, lý do ở [§9.2](#92-vì-sao-chọn-traefik-thay-cho-ingress-nginx).)
 - **Rancher** cài *vào chính cụm kubeadm*, quản trị cụm đó (hiện trong UI là cụm `local`) bằng giao diện. Runbook dùng **Kubernetes 1.35.6 + Rancher 2.14.3**, nằm trong dải Kubernetes `1.33–1.35` của support matrix Rancher 2.14.3. Tuy nhiên, `kubeadm` thuộc nhóm “Any/imported cluster”, không phải một distro được SUSE chứng nhận riêng như RKE2/K3s.
 
 ---
@@ -1225,6 +1225,30 @@ kubectl get storageclass          # cụm kubeadm thuần: RỖNG
 
 Lab 1 master 2 worker thì `local-path-provisioner` của Rancher là lựa chọn gọn. Cài bản stable được upstream hướng dẫn, đặt `local-path` làm mặc định, rồi verify:
 
+**Mô hình Pod → PVC → StorageClass → PV:**
+
+```text
+Pod tham chiếu PVC
+  → PVC yêu cầu dung lượng và access mode từ StorageClass
+  → provisioner tạo PV trên disk của node đã chọn
+  → PVC bind với PV
+  → kubelet mount PV vào mountPath bên trong container
+```
+
+- **PVC (PersistentVolumeClaim)** là yêu cầu của ứng dụng, ví dụ “cần `1Gi`, `ReadWriteOnce`”. Pod
+  chỉ tham chiếu tên PVC và thấy đường dẫn như `/data` trong container; Pod không cần biết thư mục thật
+  trên disk của worker.
+- **StorageClass** là chính sách cấp volume. PVC có thể chỉ định `storageClassName`; nếu bỏ trống thì
+  dùng class có `(default)`. Trong runbook này, `local-path` gọi provisioner `rancher.io/local-path`.
+- **PV (PersistentVolume)** là volume Kubernetes tạo để đáp ứng PVC. Với `local-path`, PV là dữ liệu
+  nằm cục bộ trên disk của một node, không phải storage dùng chung giữa ba node.
+
+Do `local-path` dùng `WaitForFirstConsumer`, provisioner không chọn worker ngẫu nhiên ngay lúc tạo
+PVC. Scheduler chọn node phù hợp cho Pod consumer trước, rồi PV được tạo trên node đó và Pod được
+mount volume. Nếu Pod được tạo lại, Kubernetes phải đặt Pod về node giữ PV; node hoặc disk đó hỏng thì
+dữ liệu không tự failover sang worker khác. Dung lượng `1Gi` của local-path cũng không nhất thiết là
+quota filesystem cứng; phải tiếp tục giám sát dung lượng disk thật của worker.
+
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.36/deploy/local-path-storage.yaml
 kubectl -n local-path-storage rollout status deploy/local-path-provisioner
@@ -1292,15 +1316,46 @@ dung lượng claim hiện hữu bằng cách sửa `requests.storage`.
 
 | #  | Kiểm tra                     | Lệnh                                                                                | PASS                                               |
 | -- | ----------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| 1  | Kubernetes đúng baseline | `kubectl version` | Server **v1.35.6** |
-| 2  | 3 node Ready, worker 0 taint  | [§8.2](#82-tầng-2--node--tài-nguyên)                                              | 3/3                                                |
-| 3  | Pod cross-node thông         | [§8.3](#83-tầng-3--pod-networking-cross-node)                                       | 0% packet loss                                     |
-| 4  | DNS nội + ngoại             | [§8.4](#84-tầng-4--dns)                                                             | cả 2 resolve                                      |
-| 5  | RAM còn headroom | `kubectl describe nodes \| grep -A6 Allocated` | Requests < 50% trước Rancher |
-| 6  | quyền cluster-admin | `kubectl auth can-i '*' '*' --all-namespaces` | `yes` |
-| 7  | exec / logs / port-forward | [§8.6](#86-tầng-6--đường-control-plane--kubelet-rancher-ui-sống-chết-ở-đây) | cả 3 lệnh OK |
-| 8  | metrics-server | `kubectl top nodes` | ra số liệu |
-| 9  | Default StorageClass | `kubectl get storageclass` | `local-path` có `(default)` |
+| 1  | Helm đúng baseline | `helm version --short` | **≥ v3.18** |
+| 2  | Kubernetes đúng baseline | `kubectl version` | Client/Server **v1.35.6** |
+| 3  | 3 node Ready, worker 0 taint  | [§8.2](#82-tầng-2--node--tài-nguyên)                                              | 3/3                                                |
+| 4  | Pod cross-node thông         | [§8.3](#83-tầng-3--pod-networking-cross-node)                                       | 0% packet loss                                     |
+| 5  | DNS nội + ngoại             | [§8.4](#84-tầng-4--dns)                                                             | cả 2 resolve                                      |
+| 6  | RAM còn headroom | `kubectl describe nodes \| grep -A6 Allocated` | Requests < 50% trước Rancher |
+| 7  | quyền cluster-admin | `kubectl auth can-i '*' '*' --all-namespaces` | `yes` |
+| 8  | exec / logs / port-forward | [§8.6](#86-tầng-6--đường-control-plane--kubelet-rancher-ui-sống-chết-ở-đây) | cả 3 lệnh OK |
+| 9  | metrics-server | `kubectl top nodes` | đủ số liệu 3 node |
+| 10 | Default StorageClass | `kubectl get storageclass` | `local-path` có `(default)` |
+| 11 | Storage provisioner | `kubectl -n local-path-storage rollout status deploy/local-path-provisioner` | `successfully rolled out` |
+| 12 | Pull image Traefik | Trên **từng worker**: `sudo crictl pull docker.io/traefik:v3.7.6` | cả 2 worker trả về image reference/ID |
+
+Gate nhanh chạy trên `k8s-master` bằng user `ubuntu` ngay trước §9:
+
+```bash
+helm version --short                                      # PASS: >= v3.18
+kubectl version                                           # PASS: Client/Server v1.35.6
+kubectl get nodes                                         # PASS: 3/3 Ready
+kubectl auth can-i '*' '*' --all-namespaces               # PASS: yes
+kubectl top nodes                                         # PASS: có CPU/RAM của cả 3 node
+kubectl get storageclass                                  # PASS: local-path (default)
+kubectl -n local-path-storage rollout status \
+  deploy/local-path-provisioner                           # PASS: successfully rolled out
+```
+
+Khả năng pull image là trạng thái riêng của runtime trên từng node. Master đang giữ taint `NoSchedule`,
+nên chạy lệnh sau **trực tiếp trên `k8s-worker1`, rồi lặp lại trên `k8s-worker2`**; chỉ chạy trên master
+không chứng minh node có thể chạy Pod Traefik:
+
+```bash
+sudo crictl pull docker.io/traefik:v3.7.6
+# PASS: trả về image reference/ID; không có lỗi DNS, TLS, timeout hoặc rate-limit
+```
+
+Chỉ tiếp tục khi Helm đạt baseline, server Kubernetes đúng version, đủ 3 node `Ready`, quyền trả
+`yes`, metrics có số liệu, `local-path` có `(default)`, provisioner `successfully rolled out` và cả
+hai worker pull được image Traefik.
+`WaitForFirstConsumer` và `ALLOWVOLUMEEXPANSION=false` của `local-path` là giá trị mong đợi, không
+phải lỗi.
 
 ### 8.9. Dọn dẹp resource test
 
@@ -1314,109 +1369,184 @@ kubectl delete svc web web-np
 
 ## 9. Cài Ingress Controller (Traefik)
 
-> ⚠️ **Runbook này KHÔNG dùng `ingress-nginx`.** Dự án đó đã bị **khai tử tháng 03/2026** và hiện có lỗ hổng RCE chưa vá đang bị khai thác thực tế. Lý do đầy đủ ở [§9.2](#92-vì-sao-traefik-mà-không-phải-ingress-nginx) — **đọc phần đó trước khi bạn định thay Traefik bằng nginx theo thói quen cũ.**
+> **Đọc §9.1 trước khi cài.** Mục tiêu của mục 9 không chỉ là tạo một Pod Traefik, mà là tạo **điểm vào HTTP/HTTPS chung** cho nhiều ứng dụng. Trong kiến trúc của runbook, Cloudflare Tunnel chạy trong cluster và gọi Traefik qua mạng nội bộ, nên Traefik được cài với Service `ClusterIP`; **không cần NodePort, external IP hay MetalLB** cho luồng Internet chính.
 
-### 9.1. Kiến thức nền — Ingress và Ingress Controller
+### 9.1. Kiến thức nền và mục đích của mục 9
 
-**Vấn đề cần giải:** mặc định, để lộ một app ra ngoài cụm bạn chỉ có 2 lựa chọn, cả 2 đều tệ khi số app tăng lên:
+#### 9.1.1. Từ Pod đến một địa chỉ ổn định: Service và EndpointSlice
 
-| Cách                  | Hoạt động                                                 | Nhược điểm                                                                                         |
-| ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `type: NodePort`     | mở 1 cổng random`30000–32767` trên **mọi** node | URL xấu (`http://192.168.100.111:31234`), mỗi app 1 cổng, không TLS, không route theo domain    |
-| `type: LoadBalancer` | xin cloud cấp 1 IP public + 1 LB riêng                     | **mỗi Service = 1 LB** → trên cloud thì tốn tiền, trên bare-metal thì không có ai cấp |
+Pod có IP riêng nhưng Pod là tài nguyên tạm thời: khi bị tạo lại, IP có thể đổi. Client vì vậy không nên nhớ IP của từng Pod. **Service** tạo một tên DNS và địa chỉ ổn định phía trước một nhóm Pod; selector của Service chọn các Pod backend. Control plane ghi danh sách IP/port backend hiện tại vào **EndpointSlice** và tự cập nhật khi Pod thêm, mất hoặc đổi trạng thái.
 
-**Ingress** sinh ra để giải quyết: **một** điểm vào duy nhất (cổng 80/443), rồi phân luồng vào nhiều Service **dựa trên tên miền và đường dẫn** — đúng mô hình *virtual host* của web server truyền thống.
+Ví dụ đường đi bên trong cluster:
 
-**Phân biệt 2 khái niệm hay bị lẫn:**
-
-| Khái niệm                  | Là gì                                                                                                                                                                           | Ví dụ                                                                                                                                                                 |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Ingress** (object)   | Chỉ là**bản khai báo YAML** — "domain X, path Y → Service Z". Tự nó **không làm gì cả**. Apply Ingress mà không có controller = không có gì xảy ra | file`demo-app.yaml` ở [§10](#10-deploy-app-mẫu--ingress)                                                                                                            |
-| **Ingress Controller** | **Phần mềm chạy thật** trong cụm, đọc các object Ingress rồi thực thi việc route                                                                                 | **Traefik** (runbook này), HAProxy, Kong, Envoy Gateway — và `ingress-nginx` *(đã khai tử, [§9.2](#92-vì-sao-traefik-mà-không-phải-ingress-nginx))* |
-
-> K8s **cố ý không** ship sẵn Ingress Controller — bạn phải tự chọn và cài. Đây là lý do một cụm kubeadm mới toanh apply Ingress vào thì "không thấy gì chạy".
-
-**Traefik xử lý việc đó thế nào?** Traefik là **một binary Go duy nhất**, vừa là proxy vừa là controller — khác hẳn kiến trúc "2 phần" của các controller dựa trên nginx/HAProxy:
-
-|                   | Controller kiểu nginx/HAProxy                      | **Traefik**                                                               |
-| ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Cấu trúc        | proxy (C) + controller (Go) sinh file config        | 1 binary Go làm cả 2                                                          |
-| Khi Ingress đổi | sinh lại`nginx.conf` → **reload process** | cập nhật**bảng route trong RAM**, không reload, không rớt kết nối |
-| Cấu hình        | file tĩnh, phải render lại                       | động từ đầu — thiết kế cho môi trường thay đổi liên tục          |
-
-Bốn khái niệm của Traefik, đi theo đúng đường đi của một request:
-
-```
-Request "Host: app.example.com"
-        │
-        ▼
-[EntryPoint]   cổng lắng nghe — web(:80) / websecure(:443)
-        │
-        ▼
-[Router]       luật khớp:  Host(`app.example.com`)
-        │      (Traefik tự sinh Router này từ Ingress của bạn)
-        ▼
-[Middleware]   (tuỳ chọn) auth, rate-limit, strip prefix, redirect...
-        │
-        ▼
-[Service]      danh sách Pod IP lấy từ EndpointSlices → load-balance
-        │
-        ▼
-      Pod app
+```text
+client → web.default.svc.cluster.local:80
+       → Service web, port 80
+       → EndpointSlice: 10.244.1.2:80, 10.244.2.3:80, ...
+       → một Pod web đang Ready
 ```
 
-**Provider** là nguồn Traefik đọc cấu hình. Chart bật sẵn 2 cái:
+Ba trường port thường gặp:
 
-- `kubernetesIngress` — đọc object `Ingress` chuẩn. **Đây là thứ runbook này dùng.**
-- `kubernetesCRD` — đọc CRD riêng của Traefik (`IngressRoute`, `Middleware`). Mạnh hơn Ingress (TCP/UDP, middleware phức tạp) nhưng **khoá chặt vào Traefik**.
+| Trường | Ý nghĩa |
+| --- | --- |
+| `port` | Cổng mà client dùng trên Service |
+| `targetPort` | Cổng ứng dụng lắng nghe trong Pod; mặc định bằng `port` |
+| `nodePort` | Cổng được mở trên mỗi node, chỉ có với `NodePort` hoặc khi một `LoadBalancer` có cấp NodePort |
 
-> 💡 Ba điểm dễ hiểu nhầm:
->
-> - Với `nativeLBByDefault: false`, Traefik lấy backend từ **EndpointSlices** và proxy tới Pod IP, thay vì đưa request qua ClusterIP của Service.
-> - Ingress chuẩn chỉ hiểu **HTTP/HTTPS (L7)**. Muốn expose TCP/UDP thuần (Postgres, MySQL...) phải dùng `IngressRouteTCP` của Traefik, hoặc **Gateway API**.
-> - Runbook dùng `Ingress` chuẩn **có chủ đích**: kiến thức đó portable sang mọi controller. `IngressRoute` tiện hơn nhưng học xong chỉ dùng được với Traefik.
+> Dùng `kubectl get endpointslice -l kubernetes.io/service-name=<service>` để kiểm tra Service đã tìm thấy Pod backend hay chưa. API `Endpoints` cũ đã deprecated từ Kubernetes 1.33; runbook ưu tiên `EndpointSlice`.
 
-**`IngressClass`** — chart đặt tên class theo tên Helm release nếu không khai `ingressClass.name`. Runbook cố định cả release và class là `traefik`, đồng thời đặt làm **mặc định của cụm**. Ingress ở [§10](#10-deploy-app-mẫu--ingress) vẫn khai tường minh `ingressClassName: traefik` để sau này có nhiều controller không bị mơ hồ.
+#### 9.1.2. Pod gọi Pod: DNS, kube-proxy và load balancing theo kết nối
 
-> Khác với `ingress-nginx`, Traefik **không có admission webhook**. Ingress sai cú pháp sẽ không bị chặn lúc `apply` mà đơn giản là không được route — debug bằng `kubectl describe ingress` và dashboard ([§9.3](#93-cài-đặt)).
+Tình huống phổ biến nhất trong cluster: ứng dụng A gọi ứng dụng B, mỗi bên chạy 2–3 Pod. A **không gọi thẳng IP của một Pod B** mà gọi qua Service của B. Cơ chế gồm ba tầng:
 
-### 9.2. Vì sao Traefik mà không phải ingress-nginx
+1. **Mạng phẳng của CNI.** Flannel cấp mỗi Pod một IP trong `10.244.0.0/16` và mọi Pod tới được IP của mọi Pod khác, kể cả khác node — chính là điều đã verify ở [§8.3](#83-tầng-3--pod-networking-cross-node). Đây là nền tảng bắt buộc, nhưng IP Pod là tạm thời ([§9.1.1](#911-từ-pod-đến-một-địa-chỉ-ổn-định-service-và-endpointslice)) nên không dùng trực tiếp.
+2. **Service = địa chỉ ổn định + load balancing.** Bạn tạo Service `b` với selector trỏ vào label của các Pod B. Kubernetes cấp cho nó một ClusterIP cố định và tự duy trì danh sách IP của 2–3 Pod B đang **Ready** trong EndpointSlice. Khi Pod A mở kết nối tới ClusterIP đó, kube-proxy (iptables/IPVS trên node) DNAT kết nối tới **một trong các Pod B** — mỗi connection được phân phối sang một backend, đó là load balancing ở tầng **L4**, theo kết nối chứ không theo request.
+3. **CoreDNS.** Mỗi Service có tên DNS — DNS nội bộ đã verify ở [§8.4](#84-tầng-4--dns). Code trong Pod A chỉ cần biết tên:
 
-Hầu hết tài liệu K8s trên mạng (và các khoá học cũ) đều dạy `ingress-nginx`. Nó từng chạy ở **~50% số cụm K8s toàn thế giới**. Nhưng:
+| Cách gọi | Khi nào dùng |
+| --- | --- |
+| `http://b` | A và B cùng namespace |
+| `http://b.other-ns` | B ở namespace khác |
+| `http://b.other-ns.svc.cluster.local:8080` | Dạng đầy đủ, tường minh nhất; nên dùng trong manifest/config |
 
-| Mốc                 | Sự kiện                                                                                                                                                                                                                                                |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **11/2025**    | Kubernetes công bố kế hoạch khai tử. Lý do: suốt nhiều năm chỉ**1–2 người** maintain ngoài giờ làm, trong khi nợ kỹ thuật (đặc biệt cơ chế `snippets` annotation) khiến việc vá bảo mật *"không còn khả thi"*  |
-| **01/2026**    | Steering Committee + Security Response Committee ra tuyên bố khẩn:*"Một nửa trong số các bạn sẽ bị ảnh hưởng. Các bạn còn hai tháng để chuẩn bị."*                                                                                |
-| **03/2026**    | **Retired chính thức.** Bản cuối `v1.15.1`. Không còn release, bugfix, hay bản vá bảo mật nào nữa                                                                                                                                    |
-| **13/05/2026** | 💥 **CVE-2026-42945 ("NGINX Rift")** — heap buffer overflow trong `ngx_http_rewrite_module`, tồn tại từ 2008. Nginx upstream xếp **Medium**; một số hãng bảo mật chấm **CVSS v4.0 9.2 Critical** theo kịch bản xấu nhất. Hoạt động khai thác được ghi nhận từ 16/05/2026 |
+Luồng đầy đủ khi A gọi B:
 
-nginx upstream đã vá (1.30.1/1.31.0). F5 đã vá bản thương mại của họ. **`ingress-nginx` v1.15.1 thì không — và sẽ không bao giờ**, vì không còn maintainer.
+```text
+Pod A ──► http://b:80
+      → CoreDNS: "b" → ClusterIP của Service b (vd 10.96.34.12)
+      → kube-proxy DNAT → chọn một Pod B: 10.244.1.5 / 10.244.2.7 / 10.244.2.9
+      → Pod B xử lý và trả response trên đúng kết nối đó
+```
 
-Đặt vào đúng kiến trúc runbook này: ingress controller nằm **ngay rìa cụm** và [§12](#12-tạo-cloudflare-tunnel-chạy-trong-cụm) chủ động đưa nó ra Internet. Đó chính xác là kịch bản *"unauthenticated RCE at the cluster's edge"*.
+Các điểm hay nhầm:
 
-**Ba thứ hay bị gộp làm một — cần tách bạch:**
+- **Chỉ bên nhận cần Service.** A gọi ra ngoài bằng chính network của Pod; A chỉ cần Service khi có bên khác muốn gọi *vào* A.
+- **Load balancing theo kết nối, không theo request.** Nếu A giữ kết nối keep-alive hoặc gRPC lâu dài tới B, mọi request trên kết nối đó dồn vào đúng một Pod B. Muốn cân bằng theo từng request phải xử lý ở L7: client-side load balancing, service mesh, hoặc reverse proxy như Traefik.
+- **Resolve được chưa chắc gọi được.** Service sai selector hoặc Pod chưa Ready thì DNS vẫn trả ClusterIP nhưng kết nối thất bại; kiểm tra bằng lệnh EndpointSlice ở [§9.1.1](#911-từ-pod-đến-một-địa-chỉ-ổn-định-service-và-endpointslice).
+- **Headless Service** (`clusterIP: None`) dành cho trường hợp cần gọi *từng Pod cụ thể* (database primary/replica, Kafka…): DNS trả thẳng IP từng Pod thay vì một địa chỉ chung, thường đi cùng StatefulSet. Runbook không cần nó cho luồng chính.
 
-| Thứ                                                             | Trạng thái                                                      |
-| ---------------------------------------------------------------- | ----------------------------------------------------------------- |
-| **nginx** (web server)                                     | ✅ Sống khỏe, vẫn vá đều                                    |
-| **Ingress API** của K8s (`kind: Ingress`)               | ✅**Không** hề bị deprecate — vẫn là API chính thức |
-| **`kubernetes/ingress-nginx`** (controller cộng đồng) | ❌ Đã retired 03/2026                                           |
-| **`nginx/kubernetes-ingress`** (F5/NGINX Inc.)           | ✅ Dự án**khác hoàn toàn**, vẫn maintain, đã vá    |
-| **InGate** (successor được lên kế hoạch)             | ❌ Không kịp trưởng thành, cũng đã bị khai tử           |
+Trong runbook, chính cơ chế này xuất hiện ở [§12](#12-tạo-cloudflare-tunnel-chạy-trong-cụm): Pod `cloudflared` gọi `traefik.traefik.svc.cluster.local:80` — một lời gọi service-to-service qua DNS + ClusterIP, không khác gì A gọi B.
 
-**Vì sao chọn Traefik trong số các phương án thay thế:**
+#### 9.1.3. `ClusterIP`, `NodePort` và `LoadBalancer`
 
-- **SUSE/Rancher chính thức chọn Traefik** làm đích migration và có [hướng dẫn riêng](https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/kubernetes-resources-setup/load-balancer-and-ingress-controller/guide-to-ingress-nginx-retirement). Vì đích đến của runbook là Rancher ([§14](#14-cài-rancher-2143--quản-lý-cụm)), đi cùng hệ sinh thái là hợp lý.
-- Traefik có provider tương thích `providers.kubernetesIngressNGINX` để đọc **một phần** annotation của ingress-nginx, nhưng mặc định tắt và không phải drop-in hoàn chỉnh. Không bật đồng thời với `kubernetesIngress` mà không giới hạn class/namespace, vì có thể sinh router trùng; nhiều annotation và semantics vẫn không được hỗ trợ.
-- Hỗ trợ **Gateway API** sẵn — hướng đi mà Kubernetes khuyến nghị dài hạn, không phải làm lại từ đầu sau này.
-- Chart gọn, 1 binary, hợp lab nhỏ.
+Đây là **các kiểu Service ở tầng mạng L4**, không phải các loại Ingress:
 
-> Các phương án khác nếu bạn gặp trong công việc: **F5 NGINX Ingress Controller** (`nginx/kubernetes-ingress`, OSS miễn phí, đã vá — nhưng **cú pháp annotation khác**, không phải drop-in), **Envoy Gateway / Cilium Gateway** (thuần Gateway API), hoặc bản hỗ trợ thương mại có vá cho `ingress-nginx` v1.15.1.
+| Kiểu Service | Có thể truy cập từ đâu | Cơ chế và mục đích phù hợp |
+| --- | --- | --- |
+| `ClusterIP` | Trong cluster | Mặc định. Cấp IP/DNS nội bộ ổn định; phù hợp cho giao tiếp service-to-service và cho `cloudflared` gọi Traefik trong runbook này. |
+| `NodePort` | Qua `<NodeIP>:<nodePort>` trên mỗi node, ngoài việc vẫn có ClusterIP | Phù hợp test từ LAN hoặc làm tầng dưới cho một LB bên ngoài. Không tự cung cấp hostname routing hay TLS; ứng dụng/controller vẫn có thể tự phục vụ TLS. Dải mặc định là `30000–32767`. |
+| `LoadBalancer` | Qua địa chỉ do một implementation LB cấp; có thể là public hoặc private/LAN | Kubernetes chỉ khai báo nhu cầu. Cloud provider, MetalLB hoặc implementation khác phải cấp/quảng bá địa chỉ. Thông thường nó xây trên NodePort, nhưng có thể tắt cấp NodePort bằng `allocateLoadBalancerNodePorts: false` nếu implementation hỗ trợ đường đi trực tiếp. |
 
-### 9.3. Cài đặt
+`EXTERNAL-IP: <pending>` không có nghĩa CNI hỏng. Nó thường có nghĩa Service `LoadBalancer` chưa được implementation nào xử lý. Trên VMware/bare-metal, **MetalLB** có thể cấp IP từ pool LAN và quảng bá IP đó bằng L2/BGP; MetalLB là một implementation cho Service `LoadBalancer`, **không phải cloud-controller-manager**.
 
-Cài bằng Helm đã chuẩn bị ở [§8.7](#87-tầng-7--công-cụ-và-add-on-kubeadm-không-cài-sẵn), ghim chart **41.0.2** để lệnh và giá trị mặc định không trôi. Trên master:
+Từ “load balancing” xuất hiện ở nhiều tầng nhưng không cùng một đối tượng: Service/kube-proxy phân phối kết nối tới endpoint; Traefik chọn backend theo rule HTTP rồi cân bằng request; Service `type: LoadBalancer` yêu cầu thêm một điểm vào bên ngoài cluster. Đừng suy ra rằng cứ có cân bằng tải nội bộ thì Service phải mang type `LoadBalancer`.
+
+#### 9.1.4. Service khác Ingress như thế nào?
+
+Service trả lời câu hỏi: **“làm sao tới một nhóm Pod ổn định?”** Ingress trả lời câu hỏi: **“request HTTP/HTTPS có host/path này phải tới Service nào?”**
+
+| Thành phần | Vai trò |
+| --- | --- |
+| `Ingress` | Object YAML chứa rule L7, ví dụ `Host(app.example.com)` và path `/` → Service `web:80`. Chỉ tạo object này thì chưa có proxy nào chạy. |
+| `IngressClass` | Xác định controller nào chịu trách nhiệm cho một Ingress. Runbook tạo class `traefik` và vẫn khai rõ `ingressClassName: traefik` trong mỗi Ingress. |
+| Ingress Controller | Phần mềm thật sự theo dõi Ingress/Service/EndpointSlice và cấu hình reverse proxy. Runbook dùng Traefik. |
+| Service của controller | Xác định client đi tới chính Traefik bằng `ClusterIP`, `NodePort` hay `LoadBalancer`. Đây là lựa chọn độc lập với các Service backend của ứng dụng. |
+
+Ingress chuẩn chỉ định tuyến **HTTP/HTTPS (L7)** theo hostname/path; nó không expose TCP/UDP bất kỳ. Kubernetes vẫn duy trì Ingress API ổn định nhưng đã **freeze** API này và khuyến nghị Gateway API cho phát triển mới. Runbook vẫn dùng Ingress vì đơn giản, phổ biến và đủ cho lab; muốn dùng Gateway API với Traefik phải cài Gateway API CRDs và bật provider riêng — mục 9 không làm việc đó.
+
+#### 9.1.5. Traefik sẽ làm gì trong cluster này?
+
+Traefik vừa theo dõi Kubernetes API vừa làm reverse proxy. Một request đi qua các khái niệm sau:
+
+```text
+Internet → Cloudflare edge → tunnel outbound → Pod cloudflared
+        → traefik.traefik.svc.cluster.local:80 (ClusterIP)
+        → EntryPoint web (:80)
+        → Router khớp Host/Path từ object Ingress
+        → Middleware tùy chọn
+        → Traefik Service nội bộ → Pod IP lấy từ EndpointSlice
+```
+
+- **EntryPoint**: cổng Traefik lắng nghe, trong chart là `web` và `websecure`.
+- **Router**: rule chọn request theo host/path.
+- **Middleware**: bước xử lý tùy chọn như redirect, auth, rate limit hoặc sửa path.
+- **Traefik Service**: khái niệm nội bộ của Traefik chứa các backend; đừng nhầm với object Kubernetes `Service`.
+- **Provider**: nguồn cấu hình mà Traefik theo dõi. `kubernetesIngress` đọc Ingress chuẩn; `kubernetesCRD` đọc CRD riêng như `IngressRoute` và `Middleware`. Chi tiết ở [§9.1.6](#916-provider-của-traefik-và-default-ingressclass).
+
+Với `nativeLBByDefault: false` của chart, Traefik thường resolve EndpointSlice rồi proxy trực tiếp tới Pod IP thay vì coi ClusterIP của Service backend là một đích duy nhất. Ta dùng `Ingress` chuẩn trong [§10](#10-deploy-app-mẫu--ingress) để kiến thức dễ chuyển sang controller khác; chỉ dùng CRD riêng khi thật sự cần tính năng đặc thù của Traefik.
+
+#### 9.1.6. Provider của Traefik và default IngressClass
+
+Hai nhóm flag quan trọng của lệnh cài ở [§9.3](#93-cài-đặt-traefik) xoay quanh hai khái niệm này.
+
+**Provider là khái niệm của Traefik, không phải của Kubernetes.** Traefik là reverse proxy **động**: không có file config tĩnh liệt kê sẵn route. Nó theo dõi các nguồn cấu hình — mỗi nguồn là một *provider* — rồi tự dựng bảng định tuyến từ những gì đọc được và cập nhật nóng khi nguồn thay đổi, không cần restart. Chạy trong Kubernetes, "bật một provider" nghĩa là: Traefik mở watch tới Kubernetes API server và theo dõi một nhóm resource nhất định (RBAC của chart cấp quyền đọc tương ứng). Hai provider trong lệnh cài khác nhau ở *loại resource được theo dõi*:
+
+| Provider | Theo dõi resource | Đặc điểm |
+| --- | --- | --- |
+| `kubernetesIngress` | `Ingress` chuẩn (`networking.k8s.io/v1`) | API chính thức của Kubernetes, controller nào cũng hiểu → manifest **portable** sang controller khác. Chỉ định tuyến HTTP theo host/path. |
+| `kubernetesCRD` | CRD riêng của Traefik: `IngressRoute`, `Middleware`, `TraefikService`, `TLSOption`… | Chỉ Traefik hiểu → **không portable**; đổi lại rule match phức tạp hơn, có middleware, route được cả TCP/UDP. |
+
+**CRD (CustomResourceDefinition)** là cơ chế "dạy" API server một kiểu resource mới ngoài bộ chuẩn (Pod, Service…). Chart Traefik cài các CRD này ở lần install đầu; sau đó `kubectl get ingressroute -A` chạy được như với resource chuẩn và object được lưu trong etcd như mọi object khác. Bản thân CRD chỉ là *định nghĩa kiểu dữ liệu* — phải có phần mềm đọc nó (ở đây là Traefik với provider `kubernetesCRD` bật) thì object mới có tác dụng.
+
+Runbook bật **cả hai** provider vì: ứng dụng ở [§10](#10-deploy-app-mẫu--ingress) dùng `Ingress` chuẩn, còn route dashboard mà chart tạo là một `IngressRoute` (CRD). Thiếu provider nào thì YAML tương ứng thành object "nằm im trong etcd, không ai đọc". Cả hai provider cùng đổ cấu hình vào một bảng routing nội bộ duy nhất của Traefik.
+
+**Default IngressClass giải bài toán "Ingress này của ai?".** Một cluster có thể chạy nhiều ingress controller cùng lúc; khi tạo một `Ingress` phải có cách chỉ định controller chịu trách nhiệm — nếu không, hoặc không ai xử lý, hoặc hai controller tranh nhau xử lý. `IngressClass` là object cấp cluster làm "danh thiếp" cho mỗi controller:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: traefik                                          # tên mà Ingress tham chiếu
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "true"  # phần "default"
+spec:
+  controller: traefik.io/ingress-controller              # định danh phần mềm xử lý
+```
+
+Mỗi `Ingress` khai `spec.ingressClassName: traefik`; controller thấy class không phải của mình thì bỏ qua. **Default** nghĩa là: khi một Ingress *không khai* `ingressClassName`, admission controller của Kubernetes tự điền tên class default vào object ngay lúc tạo. Đây là lưới an toàn cho manifest thiếu sót — và là lý do chỉ nên có **một** class default: từ hai default trở lên, Kubernetes từ chối tạo Ingress không khai class vì không biết chọn ai. Đây là cùng một pattern với StorageClass default đã gặp ở [§8.7](#87-tầng-7--công-cụ-và-add-on-kubeadm-không-cài-sẵn): PVC không khai `storageClassName` thì dùng class có `(default)`.
+
+Luồng đầy đủ khi hai khái niệm gặp nhau:
+
+```text
+Bạn tạo Ingress (giả sử quên khai class)
+  → admission controller điền ingressClassName: traefik (vì class traefik là default)
+Traefik (provider kubernetesIngress đang watch Ingress)
+  → thấy ingressClassName trỏ tới IngressClass có controller traefik.io/ingress-controller
+  → nhận trách nhiệm → sinh Router → bắt đầu nhận traffic cho host/path đó
+Controller khác (nếu có) → class không phải của mình → bỏ qua
+```
+
+Runbook vẫn khai tường minh `ingressClassName: traefik` trong mọi Ingress dù đã có default — khai rõ tốt hơn dựa vào lưới an toàn; default chỉ để đỡ các manifest quên khai.
+
+#### 9.1.7. Các khái niệm Helm xuất hiện trong lệnh cài
+
+| Khái niệm | Nghĩa trong mục 9 |
+| --- | --- |
+| Helm chart | Gói template Kubernetes của Traefik |
+| Helm release `traefik` | Một lần cài chart có tên `traefik`; `upgrade --install` tạo mới nếu chưa có và cập nhật nếu đã có |
+| Namespace `traefik` | Phạm vi chứa Deployment, Pod, Service và phần lớn tài nguyên của release; `IngressClass` và CRD là tài nguyên cấp cluster |
+| Values / `--set` | Giá trị làm thay đổi template. Runbook khai tường minh các quyết định quan trọng thay vì phụ thuộc hoàn toàn vào default của phiên bản chart tương lai |
+| `--version 41.0.2` | Ghim chart để lần chạy sau không tự lấy chart mới có hành vi khác |
+
+**Kết quả mong đợi sau mục 9:** có một Deployment Traefik Ready, một IngressClass `traefik`, một Service Traefik kiểu `ClusterIP` với cổng 80/443, và dashboard chỉ truy cập cục bộ qua `kubectl port-forward`. Mục 10 mới tạo ứng dụng và rule Ingress để kiểm tra đường đi end-to-end.
+
+### 9.2. Vì sao chọn Traefik thay cho `ingress-nginx`
+
+> ⚠️ `kubernetes/ingress-nginx` đã **retired và archive trong tháng 03/2026**; bản cuối là `v1.15.1` và dự án không còn release, bugfix hay bản vá bảo mật. Đây là lý do đủ để không dùng nó cho một cài đặt mới. Không nhầm dự án này với web server nginx hoặc F5 NGINX Ingress Controller — đó là các sản phẩm/dự án khác. Khi đánh giá CVE, luôn đối chiếu đúng sản phẩm và phiên bản; không tự động gán advisory của nginx upstream cho mọi ingress controller có chữ “nginx”.
+
+Traefik phù hợp ở đây vì:
+
+- Traefik vẫn được duy trì và chart **41.0.2** phát hành ngày 06/07/2026, dùng Traefik Proxy `v3.7.6`; chart yêu cầu Kubernetes `>=1.25`, phù hợp Kubernetes `1.35.6` của runbook.
+- SUSE/Rancher có [hướng dẫn migration từ ingress-nginx sang Traefik](https://ranchermanager.docs.rancher.com/v2.14/how-to-guides/new-user-guides/kubernetes-resources-setup/load-balancer-and-ingress-controller/guide-to-ingress-nginx-retirement); đích tiếp theo của runbook là Rancher.
+- Hỗ trợ cả Ingress chuẩn và CRD riêng. Traefik cũng hỗ trợ Gateway API, nhưng chart không cài Gateway API CRDs và runbook chưa bật provider đó.
+- Một replica là đủ cho lab hiện tại; production cần đánh giá thêm replica, PodDisruptionBudget, anti-affinity, tài nguyên và đường vào HA.
+
+Nguồn kiểm chứng: [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/), [Kubernetes Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/), [thông báo retirement ingress-nginx](https://v1-35.docs.kubernetes.io/blog/2026/01/29/ingress-nginx-statement/), [Traefik chart 41.0.2](https://github.com/traefik/traefik-helm-chart/releases/tag/v41.0.2).
+
+### 9.3. Cài đặt Traefik
+
+Chạy trên master bằng user `ubuntu` đã có kubeconfig. Helm đã được chuẩn bị ở [§8.7](#87-tầng-7--công-cụ-và-add-on-kubeadm-không-cài-sẵn). Ghim chart và các lựa chọn kiến trúc quan trọng để lần sau không bị thay đổi theo default mới:
 
 ```bash
 helm repo add traefik https://traefik.github.io/charts
@@ -1425,122 +1555,126 @@ helm repo update
 helm upgrade --install traefik traefik/traefik \
   --namespace traefik --create-namespace \
   --version 41.0.2 \
+  --set providers.kubernetesIngress.enabled=true \
+  --set providers.kubernetesCRD.enabled=true \
+  --set ingressClass.enabled=true \
   --set ingressClass.name=traefik \
-  --set ingressRoute.dashboard.enabled=true
+  --set ingressClass.isDefaultClass=true \
+  --set ingressRoute.dashboard.enabled=true \
+  --set service.spec.type=ClusterIP \
+  --wait --timeout 5m
 ```
 
-Các giá trị hiệu lực sau lệnh trên; phần lớn là mặc định chart, hai giá trị class/dashboard được ghim tường minh nên không cần `values.yaml` riêng:
+Các giá trị chính:
 
-| Giá trị hiệu lực | Ý nghĩa |
-| --------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `providers.kubernetesIngress.enabled: true`             | Đọc object`Ingress` chuẩn ✅                                           |
-| `ingressClass.enabled: true` + `isDefaultClass: true` | Tạo IngressClass`traefik`, đặt làm mặc định cụm                   |
-| Container `ports.web.port: 8000` → Service `exposedPort: 80` | EntryPoint HTTP; pod không cần bind cổng đặc quyền 80 |
-| Container `ports.websecure.port: 8443` → Service `exposedPort: 443` | EntryPoint HTTPS |
-| `service.spec.type: LoadBalancer` | Xem [§9.4](#94-vì-sao-external-ip-là-pending-mãi--và-vì-sao-không-sao) |
-| `ingressRoute.dashboard.enabled: true` | Chỉ tạo route dashboard trên entrypoint nội bộ `traefik`; không expose qua Service/Ingress Internet |
+| Giá trị | Ý nghĩa |
+| --- | --- |
+| `providers.kubernetesIngress.enabled=true` | Đọc object Ingress chuẩn mà mục 10 sẽ tạo |
+| `providers.kubernetesCRD.enabled=true` | Cài/đọc CRD Traefik; dashboard chart dùng `IngressRoute` nội bộ |
+| `ingressClass.*` | Tạo class `traefik` và đặt làm default duy nhất của cluster ([§9.1.6](#916-provider-của-traefik-và-default-ingressclass)) |
+| `service.spec.type=ClusterIP` | Chỉ expose Traefik trong cluster; đúng với cloudflared in-cluster và không sinh NodePort/`EXTERNAL-IP: <pending>` |
+| `ports.web` / `ports.websecure` | Container lắng nghe 8000/8443; Service cung cấp cổng 80/443 |
+| `ingressRoute.dashboard.enabled=true` | Bật route dashboard trên entrypoint admin nội bộ, không công khai nó qua Service 80/443 |
+| `--wait --timeout 5m` | Helm chỉ trả thành công sau khi tài nguyên sẵn sàng hoặc báo timeout |
 
-Kiểm tra:
+> ⚠️ Với chart 41.0.2 phải dùng `service.spec.type`. Key cũ `service.type` vẫn có thể được Helm/schema
+> chấp nhận nhưng chart bỏ qua; Service khi đó giữ mặc định `LoadBalancer` và `EXTERNAL-IP` có thể ở
+> `<pending>`.
+
+#### 9.3.1. Verify — tất cả phải PASS trước mục 10
 
 ```bash
-kubectl -n traefik rollout status deploy/traefik
-kubectl get pods,svc -n traefik
-kubectl get ingressclass          # PASS: có "traefik" và cột DEFAULT = true
+helm status traefik -n traefik
+kubectl -n traefik rollout status deploy/traefik --timeout=180s
+kubectl -n traefik get deploy,pod,svc,endpointslice -o wide
+kubectl get ingressclass -o custom-columns='NAME:.metadata.name,CONTROLLER:.spec.controller,DEFAULT:.metadata.annotations.ingressclass\.kubernetes\.io/is-default-class'
+kubectl -n traefik logs deploy/traefik --tail=50
 ```
 
-**Đợi controller Ready trước khi tạo Ingress ở [§10]** — Ingress apply lúc Traefik chưa lên sẽ không được route (không báo lỗi gì, nên rất dễ tưởng nhầm là cấu hình sai):
+PASS khi:
+
+- Helm báo `STATUS: deployed`; Deployment rollout thành công, Pod `Running` và `READY 1/1`.
+- Service `traefik` có `TYPE=ClusterIP`, một `CLUSTER-IP`, cổng `80/TCP,443/TCP`; không cần cột `EXTERNAL-IP` có giá trị.
+- EndpointSlice của Service Traefik có endpoint Ready trỏ tới Pod Traefik.
+- `IngressClass` có tên `traefik`, controller `traefik.io/ingress-controller` và cột `DEFAULT=true`. Cluster chỉ nên có **một** default IngressClass.
+- Log không có lỗi lặp lại; warning đơn lẻ phải được đọc theo ngữ cảnh trước khi kết luận fail.
+
+Nếu Service không có endpoint, kiểm tra selector/Pod:
 
 ```bash
-kubectl -n traefik wait --for=condition=ready pod \
-  -l app.kubernetes.io/name=traefik --timeout=180s
+kubectl -n traefik describe svc traefik
+kubectl -n traefik get endpointslice \
+  -l kubernetes.io/service-name=traefik -o yaml
+kubectl -n traefik describe pod \
+  -l app.kubernetes.io/name=traefik
 ```
 
-**(Tuỳ chọn) Dashboard** — xem trực quan Router/Service/Middleware mà Traefik đã sinh ra từ Ingress của bạn. Rất đáng dùng khi debug:
+Smoke test HTTP trước khi tạo app/Ingress ở mục 10; bước này tách lỗi Traefik khỏi lỗi manifest ứng
+dụng. Dùng `trap` để tiến trình `port-forward` vẫn được dọn nếu `curl` bị lỗi:
+
+```bash
+kubectl -n traefik port-forward svc/traefik 8081:80 \
+  >/tmp/traefik-port-forward.log 2>&1 &
+PF_PID=$!
+trap 'kill "$PF_PID" 2>/dev/null' EXIT
+
+HTTP_CODE=$(curl -sS --retry 10 --retry-connrefused --retry-delay 1 \
+  -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/)
+echo "$HTTP_CODE"                 # PASS: 404 — Traefik sống, chưa có Router ứng dụng
+
+kill "$PF_PID"
+trap - EXIT
+```
+
+Ở thời điểm này chưa có Ingress ứng dụng, nên HTTP `404` là kết quả mong đợi. Mã `000`, lỗi kết nối
+hoặc timeout mới là FAIL; xem `/tmp/traefik-port-forward.log` và kiểm tra lại Pod, Service,
+EndpointSlice.
+
+#### 9.3.2. Dashboard nội bộ (tuỳ chọn)
 
 ```bash
 TRAEFIK_POD=$(kubectl -n traefik get pod \
   -l app.kubernetes.io/name=traefik \
   -o jsonpath='{.items[0].metadata.name}')
 kubectl -n traefik port-forward "pod/$TRAEFIK_POD" 8080:8080
-# mở http://127.0.0.1:8080/dashboard/   ← BẮT BUỘC có dấu / ở cuối
+# Mở http://127.0.0.1:8080/dashboard/ — bắt buộc có dấu / cuối.
 ```
 
-> Chart 41.0.2 dùng cổng admin `8080`, không còn `9000`. Dashboard được bật bằng `ingressRoute.dashboard.enabled=true` nhưng entrypoint `traefik` không expose mặc định; chỉ truy cập qua `port-forward`. Đừng tạo Ingress Internet cho dashboard.
+Lệnh `port-forward` giữ terminal; nhấn `Ctrl+C` để dừng. Dashboard không có mục đích public trong runbook này. Không tạo Ingress Internet cho dashboard và không dùng `api.insecure=true`.
 
-### 9.4. Vì sao `EXTERNAL-IP` là `<pending>` mãi — và vì sao KHÔNG SAO
+### 9.4. Khi nào dùng `ClusterIP`, `NodePort`, `LoadBalancer` hoặc MetalLB cho Traefik?
 
-Sau khi cài, `kubectl get svc -n traefik` sẽ ra thế này và **đứng nguyên như vậy vĩnh viễn**:
+Runbook chọn `ClusterIP` vì đường vào Internet là tunnel outbound:
 
-```
-NAME      TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)
-traefik   LoadBalancer   10.104.21.187   <pending>     80:31234/TCP,443:31892/TCP
-```
-
-**Nguyên nhân — ai là người điền `EXTERNAL-IP`?**
-
-Kubernetes **tự nó không biết cách tạo load balancer**. Khi bạn tạo Service `type: LoadBalancer`, K8s chỉ ghi vào etcd một yêu cầu "cần LB", rồi **chờ một thành phần bên ngoài** tên **cloud-controller-manager (CCM)** đến xử lý:
-
-```
-Service type=LoadBalancer  ──►  CCM của cloud provider
-                                      │  gọi API của nhà cung cấp
-                                      ▼
-                            AWS tạo ELB / GCP tạo Forwarding Rule /
-                            Azure tạo Load Balancer  → trả về 1 IP public
-                                      │
-                                      ▼
-                    CCM ghi IP đó vào  svc.status.loadBalancer.ingress
-                                      │
-                                      ▼
-                          kubectl hiển thị ở cột EXTERNAL-IP
+```text
+Internet → Cloudflare edge → Pod cloudflared
+        → http://traefik.traefik.svc.cluster.local:80
+        → Traefik → Service/Pod ứng dụng
 ```
 
-Cụm của bạn dựng bằng **kubeadm trên VMware — bare-metal**, **không có CCM nào cả**. Không ai nhận yêu cầu → trường `status.loadBalancer.ingress` không bao giờ được ghi → `kubectl` hiển thị `<pending>`.
+| Nhu cầu | Kiểu Service Traefik | Xử lý |
+| --- | --- | --- |
+| Cloudflare Tunnel chạy trong cluster như runbook | `ClusterIP` | Giữ nguyên; không mở cổng LAN và không cần external IP |
+| Test nhanh từ máy trong LAN bằng IP node và port cao | `NodePort` | Đổi type; firewall phải cho phép nodePort cần dùng |
+| Một IP LAN cố định trên VMware/bare-metal | `LoadBalancer` + MetalLB | Cài/cấu hình MetalLB, dành pool IP ngoài DHCP, rồi đổi Traefik sang `LoadBalancer` |
+| Kubernetes trên cloud có integration LB | `LoadBalancer` | Controller/provider của cloud cấp địa chỉ và hạ tầng LB; địa chỉ public hay private tùy cấu hình provider |
 
-Kiểm chứng — trường status rỗng, và không có event lỗi nào (nghĩa là cụm không hỏng, chỉ là không ai xử lý):
+Đổi sang NodePort khi thật sự cần truy cập trực tiếp từ LAN:
 
 ```bash
-kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer}{"\n"}'
-# → {}   (rỗng — đúng như mong đợi trên bare-metal)
+helm upgrade traefik traefik/traefik \
+  -n traefik --version 41.0.2 --reuse-values \
+  --set service.spec.type=NodePort \
+  --wait --timeout 5m
+kubectl -n traefik get svc traefik
 ```
 
-> ⚠️ `<pending>` ở đây **không phải lỗi cần sửa**. Nó là trạng thái đúng của một yêu cầu không có ai phục vụ. Đừng đi debug CNI/firewall vì dòng này.
+> Lệnh trên giữ nguyên `--version 41.0.2`, nên không thay đổi CRD. Khi bump chart về sau, đọc release
+> notes và apply CRD của đúng phiên bản đích **trước** `helm upgrade`, ví dụ:
+> `helm show crds traefik/traefik --version <phiên-bản-đích> | kubectl apply --server-side --force-conflicts -f -`.
+> Helm không tự nâng cấp các CRD nằm trong thư mục `crds/`.
 
-**Vì sao không sao — Service vẫn hoạt động đầy đủ:**
-
-3 kiểu Service là **quan hệ bao hàm**, kiểu sau bao gồm toàn bộ kiểu trước:
-
-```
-ClusterIP  ⊂  NodePort  ⊂  LoadBalancer
-```
-
-Nên một Service `type: LoadBalancer` **vẫn được cấp đủ**:
-
-- ✅ **ClusterIP** (`10.104.21.187`) — truy cập được từ mọi pod trong cụm
-- ✅ **NodePort** (`31234`, `31892`) — truy cập được từ LAN qua IP bất kỳ node nào
-- ❌ **External IP** — chỉ riêng phần này thiếu
-
-Tức là **chỉ mất đúng cái IP public mà kiến trúc này không dùng tới**.
-
-**Kiến trúc của runbook này cố tình không cần external IP:** `cloudflared` chạy **bên trong cụm** như một Deployment ([§12.2](#122-deploy-cloudflared-vào-cụm)). Nó đã ở trong mạng pod rồi, nên gọi thẳng ingress qua **DNS nội bộ + ClusterIP**:
-
-```
-Internet → Cloudflare edge → (tunnel outbound, không mở port nào ở router)
-        → pod cloudflared trong cụm
-        → http://traefik.traefik.svc.cluster.local:80
-        → Traefik → Pod của app
-```
-
-Đường vào cụm là **outbound tunnel** do cloudflared tự mở ra, **không phải** inbound tới một IP public. Vì vậy external IP không những không cần, mà còn là thứ ta chủ động tránh — đó chính là ưu điểm bảo mật của mô hình tunnel ([§1](#1-tổng-quan--kiến-trúc)): **router không mở cổng nào, cụm không phơi IP nào ra Internet**.
-
-**Khi nào thì bạn *thực sự* cần sửa `<pending>`:**
-
-| Tình huống                                                            | Cần xử lý?                                                                                                                                                                   |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ra Internet qua Cloudflare Tunnel (runbook này)                        | **Không** — bỏ qua hoàn toàn                                                                                                                                         |
-| Muốn gõ`http://192.168.100.x` từ LAN để test nhanh               | Không bắt buộc — dùng luôn**NodePort** đã được cấp sẵn                                                                                                       |
-| Muốn một IP LAN cố định, đẹp (vd`192.168.100.200`) cho ingress | Cài**MetalLB** — nó đóng vai CCM cho bare-metal, cấp IP từ dải LAN bạn khoanh sẵn. Xem [Phụ lục B](#phụ-lục-b--metallb-tuỳ-chọn-loadbalancer-ip-trong-lan) |
-
-> 💡 Nếu muốn bỏ trạng thái `<pending>` và chắc chắn không dùng MetalLB, chạy `helm upgrade traefik traefik/traefik -n traefik --version 41.0.2 --reuse-values --set service.spec.type=NodePort`. Key đúng của chart 41.0.2 là `service.spec.type`, không phải `service.type`.
+Muốn IP LAN cố định, làm theo [Phụ lục B](#phụ-lục-b--metallb-tuỳ-chọn-loadbalancer-ip-trong-lan). Nếu tạo Service `LoadBalancer` trước khi có implementation phù hợp, `EXTERNAL-IP` có thể ở `<pending>`; đó là yêu cầu chưa được cấp địa chỉ, không tự động chứng minh CNI hay Traefik lỗi.
 
 ---
 
@@ -1603,6 +1737,10 @@ kubectl apply -f demo-app.yaml
 kubectl get ingress
 ```
 
+> Chart bật sẵn `providers.kubernetesIngress.publishedService.enabled=true`. Với Service Traefik kiểu
+> `ClusterIP` và không khai `spec.externalIPs`, cột `ADDRESS` của `kubectl get ingress` để trống là
+> **PASS**, không phải lỗi. Tiếp tục kiểm tra `CLASS=traefik`, hostname và test HTTP bên dưới.
+
 **Test nội bộ** (chưa cần domain) — giả lập Host header tới ingress:
 
 ```bash
@@ -1612,7 +1750,7 @@ curl -s -H "Host: app.example.com" http://$ING_IP/
 # → phải thấy "Server address..." từ nginx hello
 ```
 
-> 404 ở bước này = Traefik chưa sinh Router cho Ingress. Soi bằng `kubectl describe ingress web`, hoặc mở dashboard ([§9.3](#93-cài-đặt)) xem tab **HTTP → Routers**.
+> 404 ở bước này = Traefik chưa sinh Router cho Ingress. Soi bằng `kubectl describe ingress web`, hoặc mở dashboard ([§9.3](#93-cài-đặt-traefik)) xem tab **HTTP → Routers**.
 
 Thấy output nghĩa là chuỗi **ingress → service → pod** đã chạy. Giờ chỉ còn nối Internet vào.
 
@@ -2112,7 +2250,7 @@ trình này trực tiếp trên master bằng `sudo`; **không** chạy lại `k
 | `kubelet` crashloop sau init                           | còn swap →`swapoff -a` + check `/etc/fstab`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | Tunnel không**Healthy**                           | token sai/thiếu →`kubectl logs -n cloudflare deploy/cloudflared`; pod phải `Running`                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Domain mở ra**502/error 1033**                    | URL route sai tên service; thử đúng`traefik.traefik.svc.cluster.local:80` (hoặc `:443` cho Rancher); kiểm tra `kubectl get svc -n traefik`                                                                                                                                                                                                                                                                                                                                                                                   |
-| Mở domain ra**404 page not found**                | Host header không khớp Ingress`host:` → set HTTP Host Header trong tunnel, hoặc sửa `host:` trong Ingress. Soi Router thực tế ở dashboard Traefik ([§9.3](#93-cài-đặt))                                                                                                                                                                                                                                                                                                                                                   |
+| Mở domain ra**404 page not found**                | Host header không khớp Ingress`host:` → set HTTP Host Header trong tunnel, hoặc sửa `host:` trong Ingress. Soi Router thực tế ở dashboard Traefik ([§9.3](#93-cài-đặt-traefik))                                                                                                                                                                                                                                                                                                                                                   |
 | Ingress apply xong nhưng**không được route**  | Thiếu/sai`ingressClassName` → phải là `traefik`; kiểm tra `kubectl get ingress -A` cột CLASS và `kubectl get ingressclass`                                                                                                                                                                                                                                                                                                                                                                                                |
 | **UI Rancher 404** dù pod Running                 | Chart Rancher mặc định nhắm`ingress-nginx` → cài lại/upgrade với `--set ingress.ingressClassName=traefik` ([§14.2](#142-cài-rancher-helm-pin-2143))                                                                                                                                                                                                                                                                                                                                                                         |
 | `rancher.example.com` lỗi **TLS/redirect-loop** | thiếu**No TLS Verify=ON** + **Host Header**=`rancher.example.com` ở route HTTPS; hoặc cert-manager chưa Ready (`kubectl get pods -n cert-manager`)                                                                                                                                                                                                                                                                                                                                                                   |
@@ -2150,11 +2288,14 @@ kubectl get events -A --sort-by=.lastTimestamp | tail -30
 - Traefik — *Setup on Kubernetes*: [https://doc.traefik.io/traefik/setup/kubernetes/](https://doc.traefik.io/traefik/setup/kubernetes/)
 - Traefik — *Helm chart 41.0.2 release*: [https://github.com/traefik/traefik-helm-chart/releases/tag/v41.0.2](https://github.com/traefik/traefik-helm-chart/releases/tag/v41.0.2)
 - Traefik — *Chart 41.0.2 metadata/values*: [Chart.yaml](https://raw.githubusercontent.com/traefik/traefik-helm-chart/v41.0.2/traefik/Chart.yaml), [values.yaml](https://raw.githubusercontent.com/traefik/traefik-helm-chart/v41.0.2/traefik/values.yaml)
+- Kubernetes — *Service, Service types và EndpointSlice*: [https://kubernetes.io/docs/concepts/services-networking/service/](https://kubernetes.io/docs/concepts/services-networking/service/)
+- Kubernetes — *Ingress và IngressClass*: [https://kubernetes.io/docs/concepts/services-networking/ingress/](https://kubernetes.io/docs/concepts/services-networking/ingress/)
 - Kubernetes — *Ingress NGINX Retirement: What You Need to Know* (11/2025): [https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/](https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/)
 - Kubernetes — *Statement from the Steering and Security Response Committees* (01/2026): [https://kubernetes.io/blog/2026/01/29/ingress-nginx-statement/](https://kubernetes.io/blog/2026/01/29/ingress-nginx-statement/)
-- Rancher — *Guide to Ingress NGINX Retirement* (đích migration = Traefik): [https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/kubernetes-resources-setup/load-balancer-and-ingress-controller/guide-to-ingress-nginx-retirement](https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/kubernetes-resources-setup/load-balancer-and-ingress-controller/guide-to-ingress-nginx-retirement)
+- Rancher — *Guide to Ingress NGINX Retirement* (migration sang Traefik): [https://ranchermanager.docs.rancher.com/v2.14/how-to-guides/new-user-guides/kubernetes-resources-setup/load-balancer-and-ingress-controller/guide-to-ingress-nginx-retirement](https://ranchermanager.docs.rancher.com/v2.14/how-to-guides/new-user-guides/kubernetes-resources-setup/load-balancer-and-ingress-controller/guide-to-ingress-nginx-retirement)
 - Rancher — *local-path-provisioner stable install*: [https://github.com/rancher/local-path-provisioner](https://github.com/rancher/local-path-provisioner)
-- MetalLB — *Installation*: [https://metallb.universe.tf/installation/](https://metallb.universe.tf/installation/)
+- MetalLB — *Installation*: [https://metallb.io/installation/](https://metallb.io/installation/)
+- MetalLB — *Configuration và Usage*: [https://metallb.io/configuration/](https://metallb.io/configuration/), [https://metallb.io/usage/](https://metallb.io/usage/)
 - Cloudflare — *Tunnel setup*: [https://developers.cloudflare.com/tunnel/setup/](https://developers.cloudflare.com/tunnel/setup/)
 - Cloudflare — *Deploy cloudflared in Kubernetes*: [https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/](https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/)
 - Cloudflare — *Tunnel with firewall*: [https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/)
@@ -2222,7 +2363,9 @@ sudo cloudflared service install
 
 ### Phụ lục B — MetalLB (tuỳ chọn: LoadBalancer IP trong LAN)
 
-Chỉ cần nếu bạn **cũng** muốn truy cập ingress từ LAN bằng một IP cố định (không bắt buộc cho luồng Cloudflare Tunnel).
+Chỉ cần nếu bạn **cũng** muốn truy cập ingress từ LAN bằng một IP cố định. Cloudflare Tunnel in-cluster vẫn chỉ cần `ClusterIP`.
+
+MetalLB gồm controller cấp IP cho Service `LoadBalancer` và speaker quảng bá IP đó ra mạng. Với L2 mode bên dưới, một node trả lời ARP cho IP dịch vụ; traffic tới node đó rồi được chuyển đến backend. Dải IP phải thuộc LAN, chưa được thiết bị nào dùng và nên nằm ngoài pool DHCP để tránh trùng IP.
 
 ```bash
 # kubeadm mặc định dùng kube-proxy mode iptables: không cần bật strictARP.
@@ -2230,6 +2373,8 @@ Chỉ cần nếu bạn **cũng** muốn truy cập ingress từ LAN bằng mộ
 
 # cài bản đã pin
 kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.16.1/config/manifests/metallb-native.yaml
+kubectl -n metallb-system rollout status deploy/controller --timeout=180s
+kubectl -n metallb-system rollout status daemonset/speaker --timeout=180s
 ```
 
 Sau đó cấp một dải IP **trong LAN nhưng ngoài DHCP** (vd `192.168.100.200-192.168.100.210`):
@@ -2255,7 +2400,18 @@ spec:
 
 ```bash
 kubectl apply -f metallb-config.yaml
-kubectl get svc -n traefik           # EXTERNAL-IP giờ nhận 1 IP từ pool
+
+# §9 cài Traefik là ClusterIP; đổi sang LoadBalancer sau khi MetalLB đã sẵn sàng.
+helm upgrade traefik traefik/traefik \
+  -n traefik --version 41.0.2 --reuse-values \
+  --set service.spec.type=LoadBalancer \
+  --wait --timeout 5m
+
+kubectl -n traefik get svc traefik
+# PASS: TYPE=LoadBalancer và EXTERNAL-IP nhận một IP trong lan-pool.
+
+kubectl -n traefik describe svc traefik
+# PASS: Events không báo lỗi cấp/quảng bá IP; test curl IP đó từ một máy khác trong LAN.
 ```
 
 ### Phụ lục C — Reset / làm lại một node
@@ -2269,4 +2425,4 @@ sudo systemctl restart containerd kubelet
 
 ---
 
-*Runbook tạo ngày 2026-06-26; cập nhật đồng bộ ngày 2026-07-26. Baseline: Ubuntu 24.04 amd64, Kubernetes **v1.35.6** (`1.35.6-1.1`), containerd **2.x** từ Ubuntu, Flannel **v0.28.7**, Traefik chart **41.0.2** / Proxy **v3.7.6**, cert-manager **v1.21.0**, Rancher **2.14.3**. Đây là homelab baseline, không phải SLA/certification production end-to-end cho kubeadm.*
+*Runbook tạo ngày 2026-06-26; cập nhật đồng bộ ngày 2026-08-01. Baseline: Ubuntu 24.04 amd64, Kubernetes **v1.35.6** (`1.35.6-1.1`), containerd **2.x** từ Ubuntu, Flannel **v0.28.7**, Traefik chart **41.0.2** / Proxy **v3.7.6**, cert-manager **v1.21.0**, Rancher **2.14.3**. Đây là homelab baseline, không phải SLA/certification production end-to-end cho kubeadm.*

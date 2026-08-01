@@ -1401,7 +1401,7 @@ Ba trường port thường gặp:
 Tình huống phổ biến nhất trong cluster: ứng dụng A gọi ứng dụng B, mỗi bên chạy 2–3 Pod. A **không gọi thẳng IP của một Pod B** mà gọi qua Service của B. Cơ chế gồm ba tầng:
 
 1. **Mạng phẳng của CNI.** Flannel cấp mỗi Pod một IP trong `10.244.0.0/16` và mọi Pod tới được IP của mọi Pod khác, kể cả khác node — chính là điều đã verify ở [§8.3](#83-tầng-3--pod-networking-cross-node). Đây là nền tảng bắt buộc, nhưng IP Pod là tạm thời ([§9.1.1](#911-từ-pod-đến-một-địa-chỉ-ổn-định-service-và-endpointslice)) nên không dùng trực tiếp.
-2. **Service = địa chỉ ổn định + load balancing.** Bạn tạo Service `b` với selector trỏ vào label của các Pod B. Kubernetes cấp cho nó một ClusterIP cố định và tự duy trì danh sách IP của 2–3 Pod B đang **Ready** trong EndpointSlice. Khi Pod A mở kết nối tới ClusterIP đó, kube-proxy (iptables/IPVS trên node) DNAT kết nối tới **một trong các Pod B** — mỗi connection được phân phối sang một backend, đó là load balancing ở tầng **L4**, theo kết nối chứ không theo request.
+2. **Service = địa chỉ ổn định + load balancing.** Bạn tạo Service `b` với selector trỏ vào label của các Pod B. Kubernetes cấp cho nó một ClusterIP cố định và tự duy trì danh sách IP của 2–3 Pod B đang **Ready** trong EndpointSlice. Khi Pod A mở kết nối tới ClusterIP đó, kube-proxy (iptables/IPVS trên node) DNAT kết nối tới **một trong các Pod B** — mỗi connection được phân phối sang một backend, đó là load balancing ở tầng **L4** (tầng kết nối TCP/UDP: hệ thống chỉ nhìn thấy IP và port, không đọc được nội dung HTTP bên trong).
 3. **CoreDNS.** Mỗi Service có tên DNS — DNS nội bộ đã verify ở [§8.4](#84-tầng-4--dns). Code trong Pod A chỉ cần biết tên:
 
 | Cách gọi | Khi nào dùng |
@@ -1422,7 +1422,7 @@ Pod A ──► http://b:80
 Các điểm hay nhầm:
 
 - **Chỉ bên nhận cần Service.** A gọi ra ngoài bằng chính network của Pod; A chỉ cần Service khi có bên khác muốn gọi *vào* A.
-- **Load balancing theo kết nối, không theo request.** Nếu A giữ kết nối keep-alive hoặc gRPC lâu dài tới B, mọi request trên kết nối đó dồn vào đúng một Pod B. Muốn cân bằng theo từng request phải xử lý ở L7: client-side load balancing, service mesh, hoặc reverse proxy như Traefik.
+- **Load balancing theo kết nối, không theo request.** Nếu A giữ kết nối keep-alive hoặc gRPC lâu dài tới B, mọi request trên kết nối đó dồn vào đúng một Pod B. Muốn cân bằng theo từng request phải xử lý ở **L7** — tầng nội dung HTTP, nơi phần mềm đọc được hostname, path, header: client-side load balancing, service mesh, hoặc một **reverse proxy** (máy chủ trung gian đứng về phía server, nhận request thay cho backend rồi chuyển tiếp) như Traefik — đúng vai trò Traefik sẽ đảm nhận ở [§9.1.4](#914-service-khác-ingress-như-thế-nào).
 - **Resolve được chưa chắc gọi được.** Service sai selector hoặc Pod chưa Ready thì DNS vẫn trả ClusterIP nhưng kết nối thất bại; kiểm tra bằng lệnh EndpointSlice ở [§9.1.1](#911-từ-pod-đến-một-địa-chỉ-ổn-định-service-và-endpointslice).
 - **Headless Service** (`clusterIP: None`) dành cho trường hợp cần gọi *từng Pod cụ thể* (database primary/replica, Kafka…): DNS trả thẳng IP từng Pod thay vì một địa chỉ chung, thường đi cùng StatefulSet. Runbook không cần nó cho luồng chính.
 
@@ -1444,18 +1444,73 @@ Từ “load balancing” xuất hiện ở nhiều tầng nhưng không cùng m
 
 #### 9.1.4. Service khác Ingress như thế nào?
 
-Service trả lời câu hỏi: **“làm sao tới một nhóm Pod ổn định?”** Ingress trả lời câu hỏi: **“request HTTP/HTTPS có host/path này phải tới Service nào?”**
+Đến đây bạn đã đưa được traffic tới một nhóm Pod qua Service. Nhưng khi triển khai thật, cluster chạy **nhiều ứng dụng cùng lúc** — web app, API, rồi cả UI Rancher — mỗi ứng dụng một Service riêng. Bài toán mới xuất hiện: muốn **một điểm vào duy nhất** cho tất cả, và phân request theo **tên miền / đường dẫn**: `app.example.com` vào Service `web`, `rancher.example.com` vào Service của Rancher. Service không tự làm được việc này vì nó hoạt động ở L4 — chỉ thấy IP và port, không đọc được hostname hay path nằm bên trong request HTTP.
 
-| Thành phần | Vai trò |
+Lời giải kinh điển (có từ trước cả Kubernetes) là đặt một **reverse proxy** ở cửa: một server nhận *mọi* request HTTP thay cho các ứng dụng, mở request ra đọc hostname/path, rồi chuyển tiếp tới đúng ứng dụng. Gọi là *reverse* vì nó đứng về phía server, đại diện cho backend — ngược với proxy phía client:
+
+```text
+                          ┌─ Host: app.example.com     → Service web     → Pod web
+mọi request ──► Traefik ──┼─ Host: api.example.com     → Service api     → Pod api
+   (một reverse proxy)    └─ Host: rancher.example.com → Service rancher → Pod rancher
+```
+
+Nói gọn: Service trả lời câu hỏi **“làm sao tới một nhóm Pod ổn định?”**, Ingress trả lời câu hỏi **“request HTTP có host/path này phải tới Service nào?”**. Kubernetes chia lời giải reverse proxy thành các mảnh có tên riêng — đọc bảng theo đúng thứ tự này:
+
+| Thành phần | Vai trò khi triển khai |
 | --- | --- |
-| `Ingress` | Object YAML chứa rule L7, ví dụ `Host(app.example.com)` và path `/` → Service `web:80`. Chỉ tạo object này thì chưa có proxy nào chạy. |
-| `IngressClass` | Xác định controller nào chịu trách nhiệm cho một Ingress. Runbook tạo class `traefik` và vẫn khai rõ `ingressClassName: traefik` trong mỗi Ingress. |
-| Ingress Controller | Phần mềm thật sự theo dõi Ingress/Service/EndpointSlice và cấu hình reverse proxy. Runbook dùng Traefik. |
-| Service của controller | Xác định client đi tới chính Traefik bằng `ClusterIP`, `NodePort` hay `LoadBalancer`. Đây là lựa chọn độc lập với các Service backend của ứng dụng. |
+| `Ingress` | **Bản khai báo luật định tuyến của một ứng dụng**, viết bằng YAML: “request có hostname `app.example.com`, path `/` → giao cho Service `web` port 80”. Nó chỉ là *dữ liệu* lưu trong cluster — tự nó không nhận và không xử lý request nào. Lợi ích khi vận hành: mỗi app tự mang luật của mình; thêm app mới = thêm một Ingress, không phải sửa file cấu hình tập trung nào. |
+| Ingress Controller | **Phần mềm thật sự làm việc**: chạy như Pod trong cluster, liên tục theo dõi các object Ingress/Service/EndpointSlice qua Kubernetes API, rồi tự cấu hình reverse proxy bên trong nó theo các luật đọc được. Không cài controller thì mọi Ingress chỉ nằm im vô hại — đây là lý do mục 9 tồn tại. Runbook dùng **Traefik**. |
+| `IngressClass` | **Tấm biển tên gắn cho mỗi controller.** Một cluster có thể chạy nhiều controller cùng lúc (Traefik cho app nội bộ, một controller khác cho app public…), nên mỗi Ingress phải chỉ rõ nó thuộc về ai bằng trường `ingressClassName`. Runbook tạo class tên `traefik`; chi tiết và khái niệm *default class* ở [§9.1.7](#917-provider-của-traefik-và-default-ingressclass). |
+| Service của controller | **Đường để client tới được chính Traefik.** Traefik cũng chỉ là Pod chạy trong cluster — quy tắc [§9.1.1](#911-từ-pod-đến-một-địa-chỉ-ổn-định-service-và-endpointslice) áp dụng cho chính nó — nên nó cũng cần một Service đứng trước. Kiểu `ClusterIP`/`NodePort`/`LoadBalancer` ([§9.1.3](#913-clusterip-nodeport-và-loadbalancer)) của Service này quyết định *ai gọi được vào proxy*; lựa chọn đó độc lập với các Service của ứng dụng phía sau. |
 
 Ingress chuẩn chỉ định tuyến **HTTP/HTTPS (L7)** theo hostname/path; nó không expose TCP/UDP bất kỳ. Kubernetes vẫn duy trì Ingress API ổn định nhưng đã **freeze** API này và khuyến nghị Gateway API cho phát triển mới. Runbook vẫn dùng Ingress vì đơn giản, phổ biến và đủ cho lab; muốn dùng Gateway API với Traefik phải cài Gateway API CRDs và bật provider riêng — mục 9 không làm việc đó.
 
-#### 9.1.5. Traefik sẽ làm gì trong cluster này?
+#### 9.1.5. Đọc một object `Ingress`: rules, host, path và pathType
+
+Đây là dạng manifest sẽ gõ ở mục 10 — đọc kỹ từng trường một lần ở đây để lúc đó chỉ việc gõ. Mỗi trường được chú thích ngay tại chỗ:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+spec:
+  ingressClassName: traefik   # controller chịu trách nhiệm — IngressClass, chi tiết ở §9.1.7
+  rules:                      # danh sách rule L7; mỗi rule = 1 host + nhiều path
+    - host: app.example.com   # so với Host header của request
+      http:
+        paths:                # cùng 1 host có thể tách nhiều path về nhiều Service
+          - path: /
+            pathType: Prefix  # cách hiểu trường path — bảng ngay dưới
+            backend:
+              service:
+                name: web     # Service đích (§9.1.1); phải cùng namespace với Ingress
+                port:
+                  number: 80  # port của Service; hoặc dùng name: <tên-port> thay số
+```
+
+`pathType` quyết định cách so trường `path` với URL của request — trường bắt buộc và hay bị chép máy móc mà không hiểu:
+
+| `pathType` | Cách khớp | Ví dụ với `path: /api` |
+| --- | --- | --- |
+| `Prefix` | Theo **segment** của URL, tách bằng `/` | Khớp `/api`, `/api/`, `/api/v1`; **không** khớp `/apixyz` |
+| `Exact` | Đúng tuyệt đối, phân biệt cả dấu `/` cuối | Khớp `/api`; không khớp `/api/` |
+| `ImplementationSpecific` | Tùy controller tự định nghĩa | Tránh dùng khi cần manifest portable |
+
+Quy tắc khớp một request:
+
+- **`host` so với cái gì?** Mỗi request HTTP luôn mang theo tên miền đang truy cập trong header `Host` — trình duyệt và `curl` tự thêm. Nhờ header này, một điểm vào duy nhất phục vụ được nhiều domain: controller chỉ việc đọc `Host` rồi chọn rule tương ứng. Các lệnh test ở mục 10 và 13 giả lập chính nó bằng `curl -H "Host: ..."`.
+- Controller so **host trước, path sau**. Rule không khai `host` thì khớp mọi hostname (catch-all).
+- Host wildcard `*.example.com` chỉ khớp **đúng một label**: `a.example.com` khớp, `a.b.example.com` và `example.com` không.
+- Nhiều path cùng khớp một request → **path dài nhất thắng**; nếu vẫn hòa, `Exact` được ưu tiên hơn `Prefix`.
+- Hai object `Ingress` cùng host nhưng khác path → controller **gộp chung** thành một bảng route; nhờ vậy nhiều app/team chia nhau được một domain, mỗi app giữ Ingress riêng.
+- Request không khớp rule nào → rơi vào `defaultBackend` nếu có khai; runbook không khai, nên Traefik trả **404**. Đây chính là lý do smoke test ở [§9.3.1](#931-verify--tất-cả-phải-pass-trước-mục-10) coi 404 là PASS: nó chứng minh Traefik sống và chỉ đơn giản chưa có rule nào — không phải lỗi.
+
+Còn `tls:`? Ingress chuẩn có block `tls: [{hosts, secretName}]` để controller terminate HTTPS bằng cert lấy từ Secret. Runbook **cố ý không dùng**: TLS terminate ở Cloudflare edge, đoạn đường trong cluster đi HTTP ([§13](#13-trỏ-domain--kiểm-tra-trên-internet)). Gặp tutorial bên ngoài có `tls:` thì hiểu đó là kiến trúc không có tunnel đứng trước.
+
+Tiểu mục tiếp theo trả lời: Traefik đọc object này và biến nó thành cấu hình proxy như thế nào.
+
+#### 9.1.6. Traefik sẽ làm gì trong cluster này?
 
 Traefik vừa theo dõi Kubernetes API vừa làm reverse proxy. Một request đi qua các khái niệm sau:
 
@@ -1472,11 +1527,11 @@ Internet → Cloudflare edge → tunnel outbound → Pod cloudflared
 - **Router**: rule chọn request theo host/path.
 - **Middleware**: bước xử lý tùy chọn như redirect, auth, rate limit hoặc sửa path.
 - **Traefik Service**: khái niệm nội bộ của Traefik chứa các backend; đừng nhầm với object Kubernetes `Service`.
-- **Provider**: nguồn cấu hình mà Traefik theo dõi. `kubernetesIngress` đọc Ingress chuẩn; `kubernetesCRD` đọc CRD riêng như `IngressRoute` và `Middleware`. Chi tiết ở [§9.1.6](#916-provider-của-traefik-và-default-ingressclass).
+- **Provider**: nguồn cấu hình mà Traefik theo dõi. `kubernetesIngress` đọc Ingress chuẩn; `kubernetesCRD` đọc CRD riêng như `IngressRoute` và `Middleware`. Chi tiết ở [§9.1.7](#917-provider-của-traefik-và-default-ingressclass).
 
 Với `nativeLBByDefault: false` của chart, Traefik thường resolve EndpointSlice rồi proxy trực tiếp tới Pod IP thay vì coi ClusterIP của Service backend là một đích duy nhất. Ta dùng `Ingress` chuẩn trong [§10](#10-deploy-app-mẫu--ingress) để kiến thức dễ chuyển sang controller khác; chỉ dùng CRD riêng khi thật sự cần tính năng đặc thù của Traefik.
 
-#### 9.1.6. Provider của Traefik và default IngressClass
+#### 9.1.7. Provider của Traefik và default IngressClass
 
 Hai nhóm flag quan trọng của lệnh cài ở [§9.3](#93-cài-đặt-traefik) xoay quanh hai khái niệm này.
 
@@ -1519,7 +1574,7 @@ Controller khác (nếu có) → class không phải của mình → bỏ qua
 
 Runbook vẫn khai tường minh `ingressClassName: traefik` trong mọi Ingress dù đã có default — khai rõ tốt hơn dựa vào lưới an toàn; default chỉ để đỡ các manifest quên khai.
 
-#### 9.1.7. Các khái niệm Helm xuất hiện trong lệnh cài
+#### 9.1.8. Các khái niệm Helm xuất hiện trong lệnh cài
 
 | Khái niệm | Nghĩa trong mục 9 |
 | --- | --- |
@@ -1571,7 +1626,7 @@ Các giá trị chính:
 | --- | --- |
 | `providers.kubernetesIngress.enabled=true` | Đọc object Ingress chuẩn mà mục 10 sẽ tạo |
 | `providers.kubernetesCRD.enabled=true` | Cài/đọc CRD Traefik; dashboard chart dùng `IngressRoute` nội bộ |
-| `ingressClass.*` | Tạo class `traefik` và đặt làm default duy nhất của cluster ([§9.1.6](#916-provider-của-traefik-và-default-ingressclass)) |
+| `ingressClass.*` | Tạo class `traefik` và đặt làm default duy nhất của cluster ([§9.1.7](#917-provider-của-traefik-và-default-ingressclass)) |
 | `service.spec.type=ClusterIP` | Chỉ expose Traefik trong cluster; đúng với cloudflared in-cluster và không sinh NodePort/`EXTERNAL-IP: <pending>` |
 | `ports.web` / `ports.websecure` | Container lắng nghe 8000/8443; Service cung cấp cổng 80/443 |
 | `ingressRoute.dashboard.enabled=true` | Bật route dashboard trên entrypoint admin nội bộ, không công khai nó qua Service 80/443 |
@@ -1682,7 +1737,7 @@ Muốn IP LAN cố định, làm theo [Phụ lục B](#phụ-lục-b--metallb-tu
 
 > Toàn bộ [§10] chạy **trên master** (nơi có `kubectl`). File `.yaml` tạo ở thư mục home của user (vd `~/demo-app.yaml`).
 
-Tạo file `demo-app.yaml` (đổi `app.example.com` thành domain thật của bạn — sẽ mua ở [§11]):
+Tạo file `demo-app.yaml` (đổi `app.example.com` thành domain thật của bạn — sẽ mua ở [§11]). Ý nghĩa từng trường của phần `Ingress` đã giải thích ở [§9.1.5](#915-đọc-một-object-ingress-rules-host-path-và-pathtype):
 
 ```yaml
 apiVersion: apps/v1
@@ -1732,25 +1787,109 @@ spec:
                   number: 80
 ```
 
+### 10.1. Đọc manifest: Deployment → Service → Ingress
+
+File trên chứa ba document YAML, ngăn cách bằng `---`. Chúng tạo thành một chuỗi nhưng đảm nhiệm ba
+vai trò khác nhau:
+
+```text
+Deployment web → tạo 2 Pod có label app=web
+Service web:80 → chọn các Pod app=web và chuyển tới Pod port 80
+Ingress web    → với Host app.example.com, chuyển request tới Service web:80
+```
+
+**Deployment `web`:** `replicas: 2` yêu cầu Kubernetes duy trì hai Pod ứng dụng. Hai chỗ
+`matchLabels: { app: web }` và `labels: { app: web }` phải khớp nhau để Deployment nhận đúng Pod do
+nó tạo. Container chạy image `nginxdemos/hello:plain-text` và lắng nghe cổng 80. Khai báo
+`containerPort: 80` chỉ mô tả cổng của container; nó không tự expose Pod và không tạo địa chỉ ổn định.
+
+**Service `web`:** selector `{ app: web }` tìm đúng hai Pod trên. `port: 80` là cổng ổn định của
+Service, còn `targetPort: 80` là cổng nhận request trên Pod:
+
+```text
+Service web:80 → một trong các Pod app=web:80
+```
+
+Manifest không khai `spec.type`, nên Kubernetes dùng mặc định `ClusterIP`. Pod có thể bị tạo lại và
+đổi IP nhưng Traefik vẫn gọi tên Service `web` ổn định; EndpointSlice của Service sẽ được Kubernetes
+cập nhật theo các Pod Ready hiện tại.
+
+**Ingress `web`:** `ingressClassName: traefik` giao object này cho controller đã cài ở §9. Rule chỉ
+khớp request có Host header `app.example.com`; `path: /` với `pathType: Prefix` nhận mọi đường dẫn bắt
+đầu bằng `/`, rồi gửi tới backend `Service web:80`. Manifest không cấu hình TLS hay redirect
+HTTP→HTTPS, nên test nội bộ bên dưới dùng HTTP.
+
+Không resource nào trong file khai `metadata.namespace`, vì vậy Deployment, Service và Ingress
+`web` đều được tạo trong namespace `default`. Backend của một Ingress chuẩn phải là Service cùng
+namespace, nên `Ingress web` tham chiếu đúng `Service web` trong `default`.
+
+Cần phân biệt hai Service mà các lệnh bên dưới sử dụng:
+
+| Service | Namespace | Vai trò |
+| --- | --- | --- |
+| `traefik` | `traefik` | Điểm vào của ingress controller; nhận request test trước tiên |
+| `web` | `default` | Backend ứng dụng; được Ingress `web` chuyển request tới |
+
+### 10.2. Apply manifest và kiểm tra rule Ingress
+
+`kubectl apply` đọc cả ba document trong file và tạo mới hoặc cập nhật chúng theo kiểu idempotent.
+Output `created`, `configured` hoặc `unchanged` đều cho biết API server đã chấp nhận resource:
+
 ```bash
 kubectl apply -f demo-app.yaml
+```
+
+Sau đó kiểm tra object Ingress mà Traefik sẽ theo dõi:
+
+```bash
 kubectl get ingress
 ```
+
+PASS khi thấy `NAME=web`, `CLASS=traefik`, `HOSTS=app.example.com` và `PORTS=80`.
 
 > Chart bật sẵn `providers.kubernetesIngress.publishedService.enabled=true`. Với Service Traefik kiểu
 > `ClusterIP` và không khai `spec.externalIPs`, cột `ADDRESS` của `kubectl get ingress` để trống là
 > **PASS**, không phải lỗi. Tiếp tục kiểm tra `CLASS=traefik`, hostname và test HTTP bên dưới.
 
-**Test nội bộ** (chưa cần domain) — giả lập Host header tới ingress:
+### 10.3. Test nội bộ end-to-end qua ClusterIP Traefik
+
+Test này chưa cần DNS hay domain thật. Lệnh đầu lấy ClusterIP của **Service `traefik` trong namespace
+`traefik`** và lưu vào biến shell `ING_IP`. Phép gán biến thành công sẽ không in output:
 
 ```bash
 # lấy ClusterIP của ingress controller:
 ING_IP=$(kubectl get svc -n traefik traefik -o jsonpath='{.spec.clusterIP}')
+```
+
+Lệnh tiếp theo gửi request tới cổng HTTP 80 của Traefik. `-H "Host: app.example.com"` giả lập Host
+header mà trình duyệt sẽ gửi khi DNS thật đã trỏ vào hệ thống; Traefik dùng giá trị này để khớp rule
+trong `Ingress web`. `-s` chỉ ẩn progress meter của `curl`:
+
+```bash
 curl -s -H "Host: app.example.com" http://$ING_IP/
 # → phải thấy "Server address..." từ nginx hello
 ```
 
-> 404 ở bước này = Traefik chưa sinh Router cho Ingress. Soi bằng `kubectl describe ingress web`, hoặc mở dashboard ([§9.3](#93-cài-đặt-traefik)) xem tab **HTTP → Routers**.
+Đường đi đầy đủ của request:
+
+```text
+curl trên master
+  → Service traefik:80 (namespace traefik)
+  → Pod Traefik:8000
+  → khớp Ingress web vì Host=app.example.com
+  → Service web:80 (namespace default)
+  → một trong hai Pod web:80
+```
+
+Output `Server address` và `Server name` từ nginx demo chứng minh toàn bộ chuỗi đã chạy, không chỉ
+riêng Pod hay Service. Chạy lại `curl` có thể thấy Pod khác vì Deployment có hai replica. Nếu bỏ Host
+header hoặc dùng hostname không khớp, Traefik không tìm thấy Router phù hợp và thường trả `404`.
+
+> Nếu lệnh `curl` đúng như trên vẫn trả `404`, kiểm tra Host header có khớp chính xác
+> `app.example.com` và `kubectl get ingress` có `CLASS=traefik`; sau đó chạy
+> `kubectl describe ingress web` hoặc mở dashboard ([§9.3](#93-cài-đặt-traefik)) xem tab
+> **HTTP → Routers**. Chủ động bỏ Host header hoặc dùng hostname khác thì `404` lại là kết quả mong đợi
+> vì không có rule nào khớp.
 
 Thấy output nghĩa là chuỗi **ingress → service → pod** đã chạy. Giờ chỉ còn nối Internet vào.
 

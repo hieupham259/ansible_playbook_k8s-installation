@@ -253,3 +253,74 @@ Bài 2, 4 và 7 là ba bài hay bị bỏ qua nhất, và cũng là ba bài hay 
 3. **Điều kiện tiên quyết:** Ba nguyên tắc ở §3. Thiếu bất kỳ nguyên tắc nào thì việc chọn engine nào cũng không cứu được.
 4. **Điều chỉnh:** Graylog nếu đội vận hành mỏng; hoãn Kafka nếu dưới 50 GB/ngày nhưng phải chừa đường chèn vào sau (§8.2).
 5. **Nghiệm thu:** Bảy bài ở §9, đặc biệt bài khôi phục snapshot.
+
+---
+
+## 11. Tài liệu triển khai và lộ trình học
+
+### 11.1 Nhận định
+
+**Không có khoá học hay video nào dạy trọn kiến trúc §2 từ đầu đến cuối.** Các khoá thương mại dạy Elasticsearch với tư cách một *sản phẩm* — mapping, query DSL, aggregation. Ba nguyên tắc quyết định độ an toàn ở §3, cùng toàn bộ phần kiểm chứng ở §9, nằm rải rác trong tài liệu chính thức và các repo mẫu.
+
+Hệ quả thực tế: phần dễ học nhất lại là phần ít quyết định thành bại nhất. Phải chủ động ghép, không mua sẵn được.
+
+### 11.2 Nguồn chính thức — đọc trước tiên
+
+| Nguồn | Nội dung | Liên quan mục |
+|---|---|---|
+| [Elastic Reference Architectures](https://www.elastic.co/docs/deploy-manage/reference-architectures) | Bản chính thức của kiến trúc trong tài liệu này: deployment pattern on-premises, kiến trúc theo use-case logging, hướng dẫn sizing | §2, §6 |
+| [Sizing Hot-Warm Architectures for Logging and Metrics](https://www.elastic.co/blog/sizing-hot-warm-architectures-for-logging-and-metrics-in-the-elasticsearch-service-on-elastic-cloud) | Phương pháp tính dung lượng và số node theo tầng | §6 |
+| [Implementing Hot-Warm-Cold with Index Lifecycle Management](https://www.elastic.co/blog/implementing-hot-warm-cold-in-elasticsearch-with-index-lifecycle-management) | Vòng đời dữ liệu qua các tầng | §6.4 |
+| [OpenSearch — Install with Docker](https://docs.opensearch.org/latest/install-and-configure/install-opensearch/docker/) | Cấu hình mẫu chính chủ, có cả multi-node | §6.3 |
+
+> ⚠️ Repo GitHub `elastic/reference-architecture-docs` **đã bị archive ngày 2026-04-17** (kiểm chứng 2026-08-04). Nội dung đã chuyển hẳn lên trang docs ở hàng đầu bảng. Không clone repo cũ.
+
+### 11.3 Repo mẫu — chọn theo mục đích
+
+| Mục đích | Repo | Ghi chú |
+|---|---|---|
+| Dựng lab nhanh nhất | [deviantony/docker-elk](https://github.com/deviantony/docker-elk) | Repo ELK-on-Docker phổ biến nhất. Điểm khởi đầu |
+| **Có Kafka trong pipeline** | [eunsour/docker-elk](https://github.com/eunsour/docker-elk) | Filebeat → Kafka → Logstash → ES → Kibana, đúng luồng §2 |
+| Có Kafka, kèm phân rã kiến trúc | [mk-hasan/Filebeat-Kafka-ELK-Machine_Learning](https://github.com/mk-hasan/Filebeat-Kafka-ELK-Machine_Learning) | Giải thích vai trò từng thành phần, không chỉ file compose |
+| OpenSearch cluster nhiều node | [flavienbwk/opensearch-docker-compose](https://github.com/flavienbwk/opensearch-docker-compose) | Cluster thật, không phải single-node |
+| Triển khai trên Kubernetes | [opensearch-project/opensearch-k8s-operator](https://github.com/opensearch-project/opensearch-k8s-operator) | Operator chính thức |
+| Graylog (phương án §8.2) | [Graylog2/docker-compose](https://github.com/Graylog2/docker-compose), [Graylog2/graylog-docker](https://github.com/Graylog2/graylog-docker) | Kèm [tài liệu containerized deployment](https://go2docs.graylog.org/current/downloading_and_installing_graylog/graylog_and_docker.htm) |
+
+> ⚠️ **Mọi repo `docker-compose` ở trên là lab, không phải production.** Chúng thiếu 3 master riêng (§3.3), thiếu coordinating node (§3.2), thiếu snapshot (§2.1), và thường tắt bảo mật. Dùng để hiểu luồng dữ liệu, sau đó dựng lại theo topology §6.3.
+
+### 11.4 Khoá học
+
+| Khoá | Điểm mạnh |
+|---|---|
+| [Complete Guide to Elasticsearch](https://www.udemy.com/course/elasticsearch-complete-guide/) — Bo Andersen | Bestseller, cập nhật 01/2026, ~13 giờ. Sâu nhất về query DSL, mapping, aggregation |
+| [Elasticsearch 9 and the Elastic Stack: In Depth and Hands On](https://www.udemy.com/course/elasticsearch-and-elastic-stack/) | Cập nhật 07/2026, **có phần quản trị cluster production** — gần yêu cầu nhất |
+| [Introduction to the Elastic Stack (ELK)](https://www.udemy.com/course/introduction-elk-stack/) | Miễn phí, dùng để thử trước khi bỏ tiền |
+
+**Cả hai khoá trả phí đều không dạy:** Kafka làm lớp đệm bền (§3.1), tách đường đọc khỏi đường ghi (§3.2), chiến lược snapshot (§2.1), và toàn bộ §9.
+
+### 11.5 Video và bài viết
+
+Các video dưới đây tìm được qua tra cứu ngày 2026-08-04 nhưng **chưa xem, không đảm bảo chất lượng**:
+
+- [Elastic Stack Cluster — Configure and Secure](https://www.youtube.com/watch?v=i4T1PNQZsiY) — cluster 3 node, có phần bảo mật
+- [How to deploy a multi-node Elasticsearch cluster](https://www.youtube.com/watch?v=id8L4fiCnQE)
+- [Elasticsearch cluster setup](https://www.youtube.com/watch?v=lRAS7H09f78) — 1 master + 2 data từ đầu
+
+Bài viết chi tiết hơn video cho phần cluster nhiều master:
+
+- [Highly Available Elasticsearch Cluster for Production](https://blog.janamk.com.np/posts/elk-multi-master-prod-setup)
+- [Setup a multi node production ready Elasticsearch cluster](https://prabhjot-singh.medium.com/setup-a-multi-node-production-ready-elasticsearch-cluster-8504955f5d10)
+- [Centralized logs with Elastic Stack and Apache Kafka](https://medium.com/inside-freenow/centralized-logs-with-elastic-stack-and-apache-kafka-7db576044fe7) — đúng trọng tâm lớp đệm Kafka
+
+### 11.6 Lộ trình, ánh xạ vào tài liệu này
+
+| Giai đoạn | Việc | Mục | Nguồn |
+|---|---|---|---|
+| 1 | Hiểu luồng dữ liệu — lab 1 node | §2.1 | `deviantony/docker-elk` |
+| 2 | Học truy vấn cho thật chắc | — | Udemy Bo Andersen |
+| 3 | Chèn Kafka vào giữa | §3.1 | `eunsour/docker-elk` + bài freenow |
+| 4 | Cluster nhiều node đúng vai trò | §3.3, §6.3 | Elastic Reference Architectures + bài janamk |
+| 5 | Hot/warm + ILM + snapshot | §6.4 | Hai bài blog Elastic ở §11.2 |
+| 6 | **Chạy bảy bài phá hệ thống** | §9 | **Không có nguồn — tự làm** |
+
+Giai đoạn 6 là phần không tài liệu nào dạy, và cũng là phần phân biệt một hệ thống *chạy được* với một hệ thống *chịu được sự cố*. Đừng bỏ qua chỉ vì không có ai hướng dẫn.

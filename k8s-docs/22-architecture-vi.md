@@ -43,6 +43,136 @@ và không chạy container của người dùng trên máy này.
 Xem [Tạo cluster có tính sẵn sàng cao với kubeadm](./08-high-availability-vi.md)
 để có ví dụ về một thiết lập control plane chạy trên nhiều máy.
 
+### Phân biệt control plane và control-plane node {#control-plane-vs-control-plane-node}
+
+Hai thuật ngữ này mô tả hai mức khác nhau, không phải hai bộ phận ngang hàng của cluster:
+
+- **Control plane** là lớp chức năng, gồm tập hợp các thành phần phần mềm điều khiển cluster:
+  API server, etcd, scheduler và controller manager.
+- **Control-plane node** là thuật ngữ triển khai, chỉ một máy vật lý hoặc VM được chọn để
+  chạy một hay nhiều thành phần control plane. Với kubeadm, máy này còn được đăng ký và
+  đánh dấu là một Node có vai trò control plane.
+
+Có thể liên hệ với cơ sở dữ liệu:
+
+```text
+Database
+    = phần mềm và chức năng cơ sở dữ liệu
+
+Database server
+    = máy được chọn để chạy phần mềm cơ sở dữ liệu
+```
+
+Tương ứng trong Kubernetes:
+
+```text
+Control plane
+    = tập hợp thành phần điều khiển cluster
+
+Control-plane node
+    = máy được chọn để chạy những thành phần đó
+```
+
+Vì vậy, nói “control plane chạy trên ba máy” nghĩa là các thành phần hoặc các instance của
+control plane được bố trí trên ba control-plane node. Nó không có nghĩa control plane là một
+máy duy nhất được chia thành ba phần.
+
+#### Cách kubeadm bố trí control plane
+
+Về mặt kiến trúc tổng quát, các thành phần control plane có thể được phân bố theo nhiều cách.
+Tuy nhiên, khi dựng control plane có tính sẵn sàng cao bằng kubeadm, mỗi control-plane node
+thường chạy một bộ gồm:
+
+```text
+kube-apiserver
+kube-scheduler
+kube-controller-manager
+```
+
+Nếu dùng mô hình **stacked etcd**, mỗi control-plane node còn chạy một etcd member. Ví dụ:
+
+```text
+cp1: API server + scheduler + controller manager + etcd member 1
+cp2: API server + scheduler + controller manager + etcd member 2
+cp3: API server + scheduler + controller manager + etcd member 3
+```
+
+Các API server có thể cùng nhận request qua một load balancer. Các scheduler và controller
+manager dùng leader election để một instance giữ vai trò leader tại một thời điểm. Các etcd
+member hợp thành một etcd cluster.
+
+Nếu dùng **external etcd**, các control-plane node vẫn chạy API server, scheduler và controller
+manager, còn etcd chạy trên một nhóm máy riêng:
+
+```text
+cp1, cp2, cp3       : API server + scheduler + controller manager
+etcd1, etcd2, etcd3 : external etcd cluster
+```
+
+Máy external-etcd không bắt buộc là Kubernetes Node. Vì vậy, chúng không bắt buộc phải có
+kubelet hoặc kube-proxy; container runtime cũng chỉ cần nếu cách triển khai etcd thực sự chạy
+etcd trong container.
+
+#### Vì sao control-plane node của kubeadm có kubelet và container runtime?
+
+Trong cách triển khai của kubeadm, các thành phần control plane được chạy dưới dạng
+**static Pod**. Ở đây chỉ cần hiểu tối thiểu: static Pod là Pod do kubelet trên một máy cụ thể
+khởi động và quản lý trực tiếp, không cần scheduler chọn node cho nó. Cơ chế này được giải
+thích đầy đủ ở bài [Pod tĩnh](./58-static-pods-vi.md).
+
+Kubeadm ghi manifest của các thành phần control plane vào:
+
+```text
+/etc/kubernetes/manifests/
+├── etcd.yaml                       # chỉ khi dùng local/stacked etcd
+├── kube-apiserver.yaml
+├── kube-controller-manager.yaml
+└── kube-scheduler.yaml
+```
+
+Kubelet trên control-plane node theo dõi thư mục này. Khi thấy manifest, kubelet yêu cầu
+container runtime chạy các container tương ứng. Trong cluster lab dùng `containerd`, đường đi
+có thể hình dung như sau:
+
+```text
+kubeadm ghi manifest
+        ↓
+/etc/kubernetes/manifests/
+        ↓
+kubelet trên k8s-master đọc manifest
+        ↓
+kubelet yêu cầu containerd chạy container
+        ↓
+API server / etcd / scheduler / controller manager
+```
+
+Do đó, các control-plane node do kubeadm quản lý cần có **kubelet** và **container runtime**.
+Kubeadm mặc định triển khai `kube-proxy`; còn CNI được người quản trị cài sau khi khởi tạo
+control plane và thường cũng chạy thành phần cần thiết trên các node này. Tuy nhiên, cần phân biệt:
+
+| Thành phần | Trạng thái trên control-plane node dùng kubeadm |
+|---|---|
+| `kubelet` | Cần cho cách kubeadm vận hành các static Pod control plane |
+| Container runtime | Cần để thực thi container của các thành phần control plane |
+| `kube-proxy` | Kubeadm mặc định thường triển khai; có thể được thay thế hoặc loại bỏ bởi giải pháp mạng khác |
+| CNI | Thường hiện diện để cung cấp mạng Pod; cách triển khai phụ thuộc network plugin |
+
+Việc **kubelet, container runtime, kube-proxy và CNI có mặt trên control-plane node không làm
+chúng trở thành control-plane component**. Chúng vẫn là thành phần node, runtime hoặc networking;
+chúng chỉ cùng chạy trên một máy đang host các thành phần control plane. Tương tự, việc một
+database server chạy thêm agent giám sát không biến agent đó thành thành phần của database.
+
+Tóm lại:
+
+> Khi dùng kubeadm dựng control plane HA, mỗi control-plane node thường chạy một bộ gồm API
+> server, scheduler và controller manager; nếu dùng stacked etcd thì mỗi node còn chạy một
+> etcd member. Những control-plane node này cần kubelet và container runtime để kubelet đọc
+> các manifest trong `/etc/kubernetes/manifests/` và yêu cầu runtime như containerd chạy các
+> static Pod control plane. Kube-proxy và CNI thường có mặt trên các node đó nhưng không phải
+> control-plane component; kube-proxy cũng có thể được thay thế. Nếu etcd được tách ra các máy
+> riêng thì các máy external-etcd không bắt buộc là Kubernetes Node và không cần kubelet hoặc
+> kube-proxy.
+
 ### kube-apiserver
 
 API server là một thành phần của control plane Kubernetes, chịu trách nhiệm cung cấp (expose) API của Kubernetes.

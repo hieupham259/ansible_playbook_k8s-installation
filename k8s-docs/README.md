@@ -2,7 +2,11 @@
 
 Các bản dịch tiếng Việt của tài liệu chính thức trên <https://kubernetes.io/docs/>, giữ nguyên cấu trúc trang gốc. Mỗi file đều có link trang nguồn ở đầu. Tài liệu Kubernetes phát hành theo giấy phép CC BY 4.0.
 
-Các file được đánh số theo **thứ tự học**: mỗi tài liệu chỉ dựa trên kiến thức của các tài liệu đứng trước nó, không yêu cầu kiến thức của phần sau.
+> **Muốn học theo lộ trình?** Xem [LO-TRINH-ADMIN.md](LO-TRINH-ADMIN.md) — giáo trình 15 giai đoạn dành cho người muốn trở thành Kubernetes administrator, kèm mục tiêu và checkpoint thực hành cho từng giai đoạn, và phần tiếp nối sang nhánh `/docs/tasks/` để vận hành thực tế.
+>
+> File README này là **mục lục tra cứu theo chủ đề**. Số trong tên file bám theo cấu trúc mục của kubernetes.io để dễ đối chiếu khi trang gốc cập nhật — **không phải thứ tự đọc**; thứ tự đọc nằm ở file lộ trình.
+
+Các file trong cùng một phần được sắp xếp sao cho tài liệu sau chỉ dựa trên kiến thức của các tài liệu đứng trước nó trong phần đó.
 
 ## Phần 1 — Dựng cluster với kubeadm
 

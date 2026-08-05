@@ -52,6 +52,138 @@ Hiện thực chính của API server Kubernetes là [kube-apiserver](https://ku
 kube-apiserver được thiết kế để mở rộng theo chiều ngang (scale horizontally) — nghĩa là nó mở rộng bằng cách triển khai thêm nhiều instance.
 Bạn có thể chạy nhiều instance của kube-apiserver và cân bằng lưu lượng giữa các instance đó.
 
+#### Hình dung: cơ chế "một cửa" {#co-che-mot-cua}
+
+> **Ghi chú:** Phần này không có trong trang gốc. Đây là một cách ví von được thêm vào
+> để dễ hình dung vai trò của kube-apiserver trong việc phối hợp giữa các thành phần.
+
+Hãy hình dung cluster như một cơ quan hành chính làm việc theo cơ chế một cửa.
+
+Bạn muốn xin giấy phép, bạn không đi thẳng vào phòng của từng cán bộ. Bạn nộp hồ sơ ở một
+quầy tiếp nhận duy nhất. Cán bộ các phòng ban cũng không cầm hồ sơ chạy sang phòng nhau —
+họ đọc và cập nhật hồ sơ trong cùng một hệ thống chung.
+
+kube-apiserver chính là quầy tiếp nhận đó. Điều dễ hiểu nhầm nhất nằm ở chỗ này:
+các thành phần trong Kubernetes không hề "gọi điện" cho nhau.
+
+- [kube-scheduler](#kube-scheduler) quyết định Pod chạy trên node nào — nhưng nó không báo cho
+  kubelet. Nó chỉ ghi vào hồ sơ (qua apiserver): "Pod này thuộc node A".
+- [kubelet](#kubelet) trên node A cũng không chờ ai ra lệnh. Nó liên tục theo dõi hồ sơ
+  (qua apiserver) và tự thấy: "Ơ, có Pod được gán cho tôi" → tự kéo image về chạy.
+
+Hai thành phần đó phối hợp với nhau xong một việc mà chưa từng nói chuyện trực tiếp với nhau
+một lần nào — tất cả giao tiếp đều là ghi vào hồ sơ và đọc hồ sơ, qua đúng một cửa.
+
+Vì sao thiết kế như vậy? Vì chỉ cần gác một cửa là gác được tất cả: kiểm tra danh tính
+(authentication), kiểm tra quyền (authorization), áp chính sách (admission control) — làm một lần,
+một chỗ. Và vì các thành phần không phụ thuộc trực tiếp vào nhau, một thành phần chết đi sống lại
+không làm gãy chuỗi — nó chỉ cần đọc lại hồ sơ là biết mình đang ở đâu.
+
+#### Nhiều bản kube-apiserver sau một load balancer {#nhieu-ban-apiserver}
+
+> **Ghi chú:** Phần này không có trong trang gốc. Nội dung làm rõ ý "mở rộng theo chiều ngang"
+> ở trên, và phân biệt với Service `type: LoadBalancer` — hai thứ hay bị lẫn vì trùng tên.
+
+##### 1. Kiến trúc được tổ chức như thế nào
+
+Một control plane HA điển hình trên on-prem (3 node, dựng bằng kubeadm):
+
+```
+        kubectl (admin)      kubelet (mọi worker)      CI/CD, app gọi API
+                └──────────────────┼──────────────────────┘
+                                   ▼
+                    https://192.168.100.200:6443   ◀── VIP: một IP "ảo" đại diện
+                       (HAProxy + keepalived,          cho cả control plane
+                        hoặc kube-vip)
+                ┌──────────────────┼──────────────────┐
+                ▼                  ▼                  ▼
+         ┌────────────┐    ┌────────────┐    ┌────────────┐
+         │    cp1     │    │    cp2     │    │    cp3     │
+         │ apiserver  │    │ apiserver  │    │ apiserver  │  ← cả 3 cùng chạy,
+         │ ctrl-mgr   │    │ ctrl-mgr   │    │ ctrl-mgr   │    cùng nhận request
+         │ scheduler  │    │ scheduler  │    │ scheduler  │
+         │   etcd ────┼────┼── etcd ────┼────┼── etcd     │  ← Raft quorum 3
+         └────────────┘    └────────────┘    └────────────┘
+```
+
+Các điểm tổ chức quan trọng:
+
+- **Mọi client chỉ biết một địa chỉ duy nhất** — cái VIP. Trong kubeconfig của admin,
+  trong cấu hình kubelet của từng worker, đều ghi `server: https://192.168.100.200:6443`.
+  Không ai trỏ thẳng vào IP của cp1/cp2/cp3. Với kubeadm, địa chỉ này được chốt ngay
+  lúc dựng: `kubeadm init --control-plane-endpoint "192.168.100.200:6443"`.
+- **Load balancer phải có TRƯỚC khi cluster ra đời** — vì địa chỉ VIP được nướng vào
+  chứng chỉ TLS và cấu hình của mọi thành phần từ lệnh init. Trên on-prem, nó thường là
+  cặp HAProxy + keepalived (VIP trôi giữa 2 máy LB), hoặc gọn hơn là **kube-vip** chạy
+  static pod ngay trên chính các control-plane node — VIP trôi giữa cp1/cp2/cp3,
+  không cần máy riêng. Xem [Tạo cluster có tính sẵn sàng cao với kubeadm](./08-high-availability-vi.md).
+- **Ba apiserver chạy active-active** — cả ba cùng phục vụ đồng thời, LB chia request
+  cho cả ba. Không có "bản chính, bản dự phòng". Làm được vậy chính vì stateless:
+  request nào rơi vào bản nào cũng tra cùng một etcd.
+
+Chi tiết tinh tế đáng biết: cùng nằm trên 3 node đó nhưng **ba loại thành phần dùng
+ba mô hình HA khác nhau**:
+
+| Thành phần | Mô hình HA | Vì sao |
+|---|---|---|
+| apiserver | **Active-active** — cả 3 cùng làm việc | Stateless, không cần phối hợp gì với nhau |
+| etcd | **Quorum Raft** — cả 3 giữ dữ liệu, 1 leader ghi | Stateful, phải giữ nhất quán |
+| controller-manager, scheduler | **Leader election** — cả 3 chạy nhưng chỉ 1 bản hoạt động, 2 bản kia đứng chờ | Logic phải là "một người quyết" — hai scheduler cùng gán Pod sẽ giẫm chân nhau |
+
+##### 2. "Scale được" nghĩa là gì
+
+Tải của apiserver là **tải xử lý request**: hàng nghìn kubelet giữ kết nối watch
+thường trực, controllers liên tục đọc/ghi, CI/CD bắn kubectl, mỗi request đều phải qua
+xác thực (authentication) → phân quyền (authorization) — và với request ghi thì thêm cả
+admission control (tốn CPU thật). Cluster càng lớn, lượng này càng phình.
+
+"Scale ngang" nghĩa là: **tải tăng thì thêm bản apiserver, LB tự chia bớt sang** —
+3 bản chịu được lượng kết nối lớn hơn hẳn 1 bản. Điều khiến việc này *rẻ và an toàn* là
+các bản apiserver **không cần phối hợp với nhau để phục vụ request**: không chia vùng
+dữ liệu, không bầu leader, không đồng bộ trạng thái cho nhau. Thêm một bản = chạy thêm
+một process trỏ vào cùng etcd, thêm vào backend của LB. Hết.
+
+Nhưng có một trần quan trọng: scale apiserver **không** scale được cả cluster vô hạn,
+vì mọi bản đều dồn về **một etcd quorum** — mà etcd không scale ngang được cho ghi
+(thêm member chỉ thêm bản sao, không thêm sức ghi). Đến quy mô đủ lớn, nghẽn chuyển
+từ apiserver xuống etcd.
+
+Quy luật chung (trùng với nguyên tắc của hệ thống log tập trung): **lớp stateless nhân
+thoải mái** (Logstash, apiserver); **lớp stateful là nơi quyết định giới hạn**
+(OpenSearch, etcd) — nhân có kỷ luật bằng quorum/replica.
+
+##### 3. Liên quan gì đến Service `type: LoadBalancer`?
+
+**Không liên quan về cơ chế — chỉ trùng chữ "load balancer".** Đây là hai thứ ở hai
+tầng khác nhau; phân biệt được chúng là hiểu đúng ranh giới control plane / data plane:
+
+| | LB trước apiserver | Service [`type: LoadBalancer`](./82-service-vi.md#loadbalancer) |
+|---|---|---|
+| Phục vụ ai | **Control plane** — traffic điều khiển cluster (port 6443) | **Ứng dụng** — traffic của người dùng vào app (port 80/443/...) |
+| Đích cuối | Các bản kube-apiserver | Các **Pod** của ứng dụng |
+| Ai tạo ra | Người dựng hạ tầng, **trước khi** cluster tồn tại | Kubernetes tạo **khi** `kubectl apply` một Service |
+| Kubernetes có biết nó không | Không — nó nằm ngoài, dưới cluster | Có — nó là một object trong cluster |
+| Trên cloud | NLB do người dùng/cloud team dựng | Cloud tự cấp (cloud-controller-manager gọi API cloud) |
+| Trên on-prem | HAProxy + keepalived, hoặc kube-vip | Phải tự cài **MetalLB** hoặc kube-vip — không có gì cấp sẵn |
+
+Quan hệ nhân quả duy nhất giữa chúng: cái LB thứ nhất phải sống thì cái thứ hai mới
+tạo được — vì `kubectl apply` một Service cũng chỉ là một request... đi qua apiserver.
+
+Lý do hai thứ này hay bị lẫn trên on-prem: **kube-vip làm được cả hai vai** — vừa giữ
+VIP cho control plane, vừa cấp IP cho Service LoadBalancer. Cùng một phần mềm, hai
+chức năng độc lập; bật vai nào là lựa chọn cấu hình.
+
+Chuỗi đầy đủ khi nhìn cả hai tầng cùng lúc:
+
+```
+Admin ──▶ VIP:6443 ──▶ apiserver ──▶ etcd            (tầng điều khiển: "hãy chạy app này")
+User  ──▶ LB của Service ──▶ Pod của app             (tầng dữ liệu: dùng app đang chạy)
+```
+
+> 💡 Thực hành: lab k8s 1 control-plane có thể nâng lên HA bằng kube-vip (không cần
+> thêm VM cho LB) — khi đó kubeconfig trỏ VIP thay vì IP node, và có thể tắt một
+> control-plane node để kiểm chứng kubectl vẫn chạy — đúng kiểu "bài phá" của lab log.
+
 ### etcd
 
 Kho lưu trữ key-value nhất quán (consistent) và có tính sẵn sàng cao, được dùng làm nơi lưu trữ nền (backing store) cho toàn bộ dữ liệu cluster của Kubernetes.

@@ -230,3 +230,141 @@ Ghi chú: các bài 10–13 (DNS, Ingress, Ingress Controllers, Gateway API) cũ
 | 162 | [Observability](162-observability-vi.md) | 158–161 (log, metric, trace) |
 | 163 | [kube-state-metrics](163-kube-state-metrics-vi.md) | 160 |
 | 164 | [Proxies](164-proxies-vi.md) | 82 (Service) |
+| 165 | [Addons](165-addons-vi.md) | 155, 157 (quản trị cluster, networking) |
+| 166 | [API Priority và Fairness](166-flow-control-vi.md) | 21, 119 (API, kiểm soát truy cập) |
+| 167 | [Coordinated Leader Election](167-coordinated-leader-election-vi.md) | 35 (Leases) |
+| 168 | [Compatibility Version](168-compatibility-version-vi.md) | 22 (control plane) |
+| 169 | [Node Shutdown](169-node-shutdown-vi.md) | 23, 47 (node, vòng đời Pod) |
+| 170 | [Quản lý bộ nhớ Swap](170-swap-memory-management-vi.md) | 00, 110 (swap khi cài, tài nguyên) |
+| 171 | [Node Autoscaling](171-node-autoscaling-vi.md) | 23, 71 (node, autoscaling workload) |
+| 172 | [DRA cho quản trị viên cluster](172-cluster-admin-dra-vi.md) | 149 (DRA) |
+| 173 | [Admission Webhooks Good Practices](173-admission-webhooks-vi.md) | 119, 166 (kiểm soát truy cập, APF) |
+
+## Phần 13 — Windows in Kubernetes
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 174 | [Windows trong Kubernetes](174-windows-vi.md) | — (trang mục) |
+| 175 | [Container Windows trong Kubernetes](175-windows-intro-vi.md) | 174, 39 (container) |
+| 176 | [Hướng dẫn lập lịch Windows container](176-windows-user-guide-vi.md) | 175, 63 (Deployment) |
+
+## Phần 14 — Extending Kubernetes
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 177 | [Mở rộng Kubernetes](177-extend-kubernetes-vi.md) | 21–22 (API, kiến trúc) |
+| 178 | [Mở rộng API Kubernetes](178-api-extension-vi.md) | 177 |
+| 179 | [Custom Resources](179-custom-resources-vi.md) | 178, 16 (mở rộng API, đối tượng) |
+| 180 | [Aggregation Layer của API Server](180-apiserver-aggregation-vi.md) | 178–179 |
+| 181 | [Mẫu Operator](181-operator-vi.md) | 179, 25 (custom resource, controller) |
+| 182 | [Mở rộng Compute, Storage và Networking](182-compute-storage-net-vi.md) | 177 |
+| 183 | [Network Plugins](183-network-plugins-vi.md) | 182, 157 (networking) |
+| 184 | [Device Plugins](184-device-plugins-vi.md) | 182, 110 (tài nguyên) |
+
+## Checkpoint — Những phần còn thiếu quan trọng
+
+Phần này theo dõi các khoảng trống cần bổ sung để bộ tài liệu không chỉ bao phủ
+Kubernetes Concepts mà còn đủ dùng cho việc quản trị cluster thực tế. Đánh dấu
+`[x]` khi đã có tài liệu hướng dẫn đầy đủ và có bài thực hành kiểm chứng; việc một
+khái niệm chỉ được nhắc đến hoặc trỏ sang tài liệu bên ngoài chưa được coi là hoàn tất.
+
+### A. Vòng đời cluster và quản trị bằng kubeadm
+
+- [ ] Nâng cấp control plane và worker node bằng `kubeadm upgrade`.
+- [ ] Giải thích version skew và thứ tự nâng cấp các component.
+- [ ] Cấu hình lại một cluster do kubeadm quản lý.
+- [ ] Thay đổi hoặc di chuyển container runtime trên node.
+- [ ] Thêm, xóa và thay thế node an toàn.
+- [ ] Thực hành `cordon`, `drain`, `uncordon` và xử lý PodDisruptionBudget khi bảo trì node.
+- [ ] Xử lý và khôi phục khi quá trình nâng cấp cluster thất bại.
+
+Tài liệu tham chiếu: <https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/>
+
+### B. Vận hành etcd và khôi phục thảm họa
+
+- [ ] Kiểm tra endpoint health, endpoint status và cảnh báo mất quorum.
+- [ ] Tạo và xác minh snapshot bằng `etcdctl`.
+- [ ] Khôi phục stacked etcd từ snapshot.
+- [ ] Khôi phục external etcd từ snapshot.
+- [ ] Cập nhật static Pod manifest và data directory sau khi restore.
+- [ ] Bảo trì database: compaction, defragmentation và theo dõi dung lượng.
+- [ ] Xây dựng và kiểm thử runbook disaster recovery cho control plane.
+
+Tài liệu tham chiếu: <https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/>
+
+### C. Certificate và PKI
+
+- [ ] Giải thích cấu trúc PKI và các certificate do kubeadm tạo.
+- [ ] Kiểm tra thời hạn bằng `kubeadm certs check-expiration`.
+- [ ] Gia hạn certificate bằng `kubeadm certs renew` và khởi động lại component an toàn.
+- [ ] Cấu hình và xử lý lỗi kubelet certificate rotation.
+- [ ] Tạo, phê duyệt hoặc từ chối `CertificateSigningRequest`.
+- [ ] Xoay vòng CA và phân phối lại kubeconfig/certificate khi cần.
+- [ ] Chẩn đoán các lỗi do certificate hết hạn hoặc sai SAN.
+
+Tài liệu tham chiếu: <https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/>
+
+### D. Troubleshooting có hệ thống
+
+- [ ] Xây dựng quy trình triage chung bằng Events, `kubectl describe`, log và trạng thái component.
+- [ ] Debug Pod `Pending`, `CrashLoopBackOff`, `ImagePullBackOff`, OOMKilled và probe thất bại.
+- [ ] Debug Deployment rollout, StatefulSet, DaemonSet, Job và scheduling failure.
+- [ ] Debug Service không có endpoint, DNS/CoreDNS, NetworkPolicy, CNI và kube-proxy.
+- [ ] Debug node `NotReady`, kubelet, container runtime và node pressure.
+- [ ] Debug static Pod của API server, scheduler, controller-manager và etcd.
+- [ ] Debug PVC `Pending`, lỗi attach/mount, StorageClass và CSI driver.
+- [ ] Debug lỗi authentication, RBAC `Forbidden`, admission và certificate.
+- [ ] Thực hành `kubectl debug`, `journalctl`, `systemctl`, `crictl`, `curl`, `openssl`, `ss`, `ip route` và `nsenter`.
+- [ ] Chuẩn bị các lab cố ý làm hỏng cluster và runbook khôi phục tương ứng.
+
+Tài liệu tham chiếu: <https://kubernetes.io/docs/tasks/debug/>
+
+### E. Security vận hành
+
+- [ ] Authentication và authorization căn bản, bao gồm luồng xử lý một API request.
+- [ ] Thực hành `Role`, `ClusterRole`, `RoleBinding`, `ClusterRoleBinding` và `kubectl auth can-i`.
+- [ ] Cấu hình audit policy, audit backend và chính sách lưu giữ audit log.
+- [ ] Mã hóa Secret tại rest bằng `EncryptionConfiguration`.
+- [ ] Cấu hình và vận hành KMS provider.
+- [ ] Cấu hình kubelet authentication và authorization.
+- [ ] Quản lý TLS/CSR cho user, node và component.
+- [ ] Cấu hình admission controller và `ValidatingAdmissionPolicy`.
+- [ ] Hardening API server, etcd và quyền truy cập host/control-plane node.
+
+Tài liệu tham chiếu:
+
+- <https://kubernetes.io/docs/tasks/administer-cluster/securing-a-cluster/>
+- <https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/>
+
+### F. Networking vận hành
+
+- [ ] Cài đặt, nâng cấp và rollback ít nhất một CNI plugin cụ thể.
+- [ ] Chẩn đoán CNI plugin, IPAM, routing, overlay, MTU và lỗi cấp IP cho Pod.
+- [ ] Cấu hình CoreDNS/Corefile và kiểm tra luồng phân giải DNS end-to-end.
+- [ ] Cài đặt, cấu hình và chẩn đoán NodeLocal DNSCache.
+- [ ] Giải thích và kiểm tra các mode của kube-proxy: iptables, IPVS và nftables.
+- [ ] Debug Service, EndpointSlice, NodePort, LoadBalancer, Ingress và Gateway.
+- [ ] Thực hành NetworkPolicy với một network policy provider thực tế.
+- [ ] Chẩn đoán SNAT, conntrack, firewall và route giữa Pod, Service, Node và mạng ngoài.
+
+Tài liệu tham chiếu: <https://kubernetes.io/docs/tasks/administer-cluster/dns-debugging-resolution/>
+
+### G. Observability và vận hành production
+
+- [ ] Cài đặt và xác minh Metrics Server/resource metrics pipeline.
+- [ ] Thu thập metric của node, control plane, kubelet, kube-proxy, CoreDNS và etcd.
+- [ ] Xây dựng alert cho API latency/error, etcd, node pressure, Pod failure và certificate expiry.
+- [ ] Triển khai log aggregation, log rotation, retention và truy vấn log tập trung.
+- [ ] Thu thập và phân tích distributed trace khi phù hợp.
+- [ ] Xây dựng dashboard, SLI/SLO và runbook liên kết với từng cảnh báo.
+- [ ] Thực hành capacity planning cho CPU, memory, storage, Pod và API server.
+- [ ] Kiểm thử backup/restore cho cả trạng thái cluster và dữ liệu workload.
+
+Tài liệu tham chiếu: <https://kubernetes.io/docs/tasks/debug/>
+
+### H. Công cụ quản lý cấu hình và package
+
+- [ ] Quản lý manifest theo kiểu declarative với Kustomize, bao gồm base và overlay.
+- [ ] Cài đặt, nâng cấp, rollback và kiểm tra release bằng Helm.
+- [ ] Quản lý khác biệt cấu hình giữa dev, staging và production.
+- [ ] Thiết lập quy trình kiểm tra manifest trước khi áp dụng vào cluster.

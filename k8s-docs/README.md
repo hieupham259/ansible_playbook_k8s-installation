@@ -211,3 +211,22 @@ Ghi chú: các bài 10–13 (DNS, Ingress, Ingress Controllers, Gateway API) cũ
 | 148 | [Resource Bin Packing](148-resource-bin-packing-vi.md) | 137, 147 |
 | 149 | [Dynamic Resource Allocation](149-dynamic-resource-allocation-vi.md) | 110, 137 |
 | 150 | [Gang Scheduling](150-gang-scheduling-vi.md) | 59, 75, 137 (scheduling group, PodGroup) |
+| 151 | [PodGroup Scheduling](151-podgroup-scheduling-vi.md) | 75, 150 |
+| 152 | [Workload-aware Preemption](152-workload-aware-preemption-vi.md) | 141, 77 |
+| 153 | [Topology-aware Scheduling](153-topology-aware-scheduling-vi.md) | 80, 138 |
+| 154 | [Node Declared Features](154-node-declared-features-vi.md) | 23, 137 |
+
+## Phần 12 — Cluster Administration
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 155 | [Cluster Administration](155-cluster-administration-vi.md) | — (trang mục) |
+| 156 | [Chứng chỉ](156-certificates-vi.md) | — (trang trỏ hướng sang tài liệu tasks) |
+| 157 | [Networking cho quản trị cluster](157-networking-vi.md) | 22, 81 (kiến trúc, networking) |
+| 158 | [Kiến trúc Logging](158-logging-vi.md) | 46, 23 (Pod, node) |
+| 159 | [System Logs](159-system-logs-vi.md) | 158 |
+| 160 | [System Metrics](160-system-metrics-vi.md) | 155 |
+| 161 | [Traces](161-system-traces-vi.md) | 155 |
+| 162 | [Observability](162-observability-vi.md) | 158–161 (log, metric, trace) |
+| 163 | [kube-state-metrics](163-kube-state-metrics-vi.md) | 160 |
+| 164 | [Proxies](164-proxies-vi.md) | 82 (Service) |

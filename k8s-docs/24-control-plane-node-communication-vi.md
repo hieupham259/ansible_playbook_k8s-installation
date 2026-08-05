@@ -1,0 +1,116 @@
+# Giao tiếp giữa Node và Control Plane (Communication between Nodes and the Control Plane)
+
+> Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/architecture/control-plane-node-communication/>
+>
+> Tài liệu này liệt kê các đường giao tiếp giữa API server và cluster Kubernetes,
+> nhằm giúp bạn tùy chỉnh bản cài đặt để tăng cường bảo mật cấu hình mạng.
+
+Tài liệu này liệt kê các đường giao tiếp (communication path) giữa API server
+và cluster Kubernetes.
+Mục đích là cho phép người dùng tùy chỉnh bản cài đặt của mình để tăng cường bảo mật (harden) cấu hình mạng,
+sao cho cluster có thể chạy trên một mạng không tin cậy (untrusted network) — hoặc trên các địa chỉ IP
+hoàn toàn công khai của một nhà cung cấp đám mây (cloud provider).
+
+## Node đến Control Plane (Node to Control Plane)
+
+Kubernetes dùng mẫu API kiểu "trục và nan hoa" (hub-and-spoke). Mọi truy cập API từ các node (hoặc các pod chạy trên chúng)
+đều kết thúc tại API server. Không có thành phần control plane nào khác được thiết kế để cung cấp
+dịch vụ từ xa. API server được cấu hình để lắng nghe các kết nối từ xa trên một port HTTPS
+bảo mật (thường là 443), với một hoặc nhiều hình thức
+[xác thực](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) (authentication) phía client được bật.
+Bạn nên bật một hoặc nhiều hình thức [ủy quyền](https://kubernetes.io/docs/reference/access-authn-authz/authorization/) (authorization),
+đặc biệt khi cho phép [request ẩn danh](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#anonymous-requests) (anonymous requests)
+hoặc [token của service account](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#service-account-tokens).
+
+Các node nên được cấp phát (provision) certificate gốc công khai (public root certificate) của cluster,
+để chúng có thể kết nối an toàn tới API server cùng với thông tin xác thực client (client credentials) hợp lệ.
+Một cách làm tốt là cung cấp thông tin xác thực cho kubelet dưới dạng client certificate. Xem
+[kubelet TLS bootstrapping](https://kubernetes.io/docs/reference/access-authn-authz/kubelet-tls-bootstrapping/)
+để biết cách cấp phát tự động client certificate cho kubelet.
+
+Các Pod muốn kết nối tới API server có thể thực hiện điều đó một cách an toàn bằng cách tận dụng service account —
+Kubernetes sẽ tự động đưa (inject) certificate gốc công khai và một bearer token hợp lệ
+vào pod khi pod được khởi tạo.
+Service `kubernetes` (trong namespace `default`) được cấu hình với một địa chỉ IP ảo, và địa chỉ này được
+chuyển hướng (thông qua `kube-proxy`) tới endpoint HTTPS trên API server.
+
+Các thành phần control plane cũng giao tiếp với API server qua port bảo mật này.
+
+Kết quả là, chế độ hoạt động mặc định cho các kết nối từ node và các pod chạy trên
+node tới control plane đã được bảo mật sẵn, và có thể chạy trên các mạng không tin cậy và/hoặc
+mạng công cộng.
+
+## Control plane đến node (Control plane to node)
+
+Có hai đường giao tiếp chính từ control plane (API server) tới các node.
+Đường thứ nhất là từ API server tới tiến trình kubelet chạy trên mỗi node trong cluster.
+Đường thứ hai là từ API server tới bất kỳ node, pod hay service nào, thông qua chức năng _proxy_
+của API server.
+
+### API server đến kubelet (API server to kubelet)
+
+Các kết nối từ API server tới kubelet được dùng để:
+
+* Lấy log của các pod.
+* Attach (thường thông qua `kubectl`) vào các pod đang chạy.
+* Cung cấp chức năng port-forwarding của kubelet.
+
+Các kết nối này kết thúc tại endpoint HTTPS của kubelet. Theo mặc định, API server không
+xác minh serving certificate của kubelet, điều này khiến kết nối dễ bị tấn công xen giữa (man-in-the-middle)
+và **không an toàn** khi chạy trên các mạng không tin cậy và/hoặc mạng công cộng.
+
+Để xác minh kết nối này, hãy dùng flag `--kubelet-certificate-authority` để cung cấp cho API
+server một bộ certificate gốc (root certificate bundle) dùng để xác minh serving certificate của kubelet.
+
+Nếu điều đó không khả thi, hãy dùng [đường hầm SSH](#ssh-tunnels) giữa API server và kubelet khi cần,
+để tránh kết nối qua mạng không tin cậy hoặc mạng công cộng.
+
+Cuối cùng, nên bật [xác thực và/hoặc ủy quyền cho kubelet](https://kubernetes.io/docs/reference/access-authn-authz/kubelet-authn-authz/)
+để bảo vệ API của kubelet.
+
+### API server đến node, pod và service (API server to nodes, pods, and services)
+
+Các kết nối từ API server tới một node, pod hay service mặc định là kết nối HTTP thường,
+do đó chúng không được xác thực và cũng không được mã hóa. Chúng có thể chạy qua kết nối HTTPS
+bảo mật bằng cách thêm tiền tố `https:` vào tên node, pod hay service trong URL của API, nhưng khi đó chúng
+sẽ không kiểm tra certificate mà endpoint HTTPS cung cấp, cũng không gửi kèm thông tin xác thực của client. Vì vậy,
+mặc dù kết nối được mã hóa, nó không mang lại bất kỳ bảo đảm nào về tính toàn vẹn (integrity). Các kết nối này
+**hiện không an toàn** để chạy trên các mạng không tin cậy hoặc mạng công cộng.
+
+### Đường hầm SSH (SSH tunnels) {#ssh-tunnels}
+
+Kubernetes hỗ trợ [đường hầm SSH](https://www.ssh.com/academy/ssh/tunneling) (SSH tunnel) để bảo vệ các đường giao tiếp
+từ control plane tới node. Trong cấu hình này, API server khởi tạo một đường hầm SSH tới từng node trong cluster
+(kết nối tới SSH server đang lắng nghe trên port 22) và chuyển toàn bộ lưu lượng (traffic) hướng tới kubelet, node, pod hay
+service đi qua đường hầm đó.
+Đường hầm này bảo đảm lưu lượng không bị lộ ra bên ngoài mạng mà các node đang chạy trong đó.
+
+> **Ghi chú:**
+> Đường hầm SSH hiện đã bị loại bỏ dần (deprecated), vì vậy bạn không nên chọn dùng chúng trừ khi bạn thực sự
+> biết mình đang làm gì. [Dịch vụ Konnectivity](#konnectivity-service) là giải pháp thay thế cho
+> kênh giao tiếp này.
+
+### Dịch vụ Konnectivity (Konnectivity service) {#konnectivity-service}
+
+**TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.18 [beta]`
+
+Là giải pháp thay thế cho đường hầm SSH, dịch vụ Konnectivity cung cấp proxy ở tầng TCP cho
+giao tiếp từ control plane tới cluster. Dịch vụ Konnectivity gồm hai phần:
+Konnectivity server trong mạng của control plane và các Konnectivity agent trong mạng của các node.
+Các Konnectivity agent khởi tạo kết nối tới Konnectivity server và duy trì các kết nối
+mạng đó.
+Sau khi bật dịch vụ Konnectivity, toàn bộ lưu lượng từ control plane tới các node sẽ đi qua các
+kết nối này.
+
+Hãy làm theo [tác vụ thiết lập dịch vụ Konnectivity](https://kubernetes.io/docs/tasks/extend-kubernetes/setup-konnectivity/) để thiết lập
+dịch vụ Konnectivity trong cluster của bạn.
+
+## Tiếp theo (What's next)
+
+* Đọc về [các thành phần control plane của Kubernetes](https://kubernetes.io/docs/concepts/architecture/#control-plane-components)
+* Tìm hiểu thêm về [mô hình Hub and Spoke](https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts.html#hubs-spokes-and-other-wheel-metaphors)
+* Tìm hiểu cách [bảo mật một cluster](https://kubernetes.io/docs/tasks/administer-cluster/securing-a-cluster/)
+* Tìm hiểu thêm về [Kubernetes API](https://kubernetes.io/docs/concepts/overview/kubernetes-api/)
+* [Thiết lập dịch vụ Konnectivity](https://kubernetes.io/docs/tasks/extend-kubernetes/setup-konnectivity/)
+* [Dùng Port Forwarding để truy cập ứng dụng trong cluster](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/)
+* Tìm hiểu cách [lấy log của các Pod](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#examine-pod-logs), [dùng kubectl port-forward](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/#forward-a-local-port-to-a-port-on-the-pod)

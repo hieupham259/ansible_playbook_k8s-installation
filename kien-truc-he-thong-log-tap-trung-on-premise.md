@@ -46,7 +46,7 @@ Hệ quả: rủi ro đã biết tên thì quản lý được. Toàn bộ §7 (
 | **Agent** (Filebeat / Fluent Bit) | Đọc file log trên máy nguồn, buffer trên đĩa cục bộ | Trung tâm chết 10 phút = mất log 10 phút |
 | **Kafka** | Lớp đệm bền, tách rời nguồn khỏi đích | Không thể nâng cấp/bảo trì cluster mà không dừng ingest |
 | **Logstash / Fluentd** | Parse, chuẩn hoá, làm giàu dữ liệu | Parse lỗi làm nghẽn ingest; không thể sửa rồi replay |
-| **Master node (3)** | Bầu cử quorum, quản lý metadata cluster | 2 node = split-brain. **Luôn là số lẻ, luôn là 3** |
+| **Master node (3)** | Bầu cử quorum, quản lý metadata cluster | 2 node = hỏng 1 là mất master (ES 7+/OpenSearch đã loại trừ split-brain bằng voting quorum; rủi ro của số chẵn là **mất khả dụng**). **Luôn là số lẻ, luôn là 3** |
 | **Data hot / warm** | Lưu trữ và tìm kiếm; mỗi shard có 2 bản | Một ổ đĩa hỏng = mất dữ liệu vĩnh viễn |
 | **Coordinating node (2)** | Nhận toàn bộ query, gom kết quả từ data node | Query nặng đánh thẳng vào data node đang ghi |
 | **Snapshot ra MinIO/NFS** | Backup thật sự | Replication **không phải** backup — nó nhân bản cả lệnh xoá nhầm |
@@ -89,7 +89,7 @@ Nguyên tắc phía sau: **việc ghi log là thứ không thể làm lại, vi�
 | 1 | App → file log | App ghi qua UDP syslog, hoặc ghi stdout mà agent chết | Luôn ghi ra **file** — file chính là lớp đệm bền đầu tiên (§3.1) |
 | 2 | Log rotation | Agent tắc 2 giờ, logrotate đã xoá mất các file cũ | Giữ số bản rotate tương ứng **ít nhất bằng thời gian buffer dự kiến** |
 | 3 | Agent → Kafka | Mạng đứt, trung tâm down | Disk buffer tại agent + chỉ đánh dấu đã đọc **sau khi** đích xác nhận |
-| 4 | Kafka nhận nhưng chưa bền | Ghi mới ở một broker thì broker đó chết | Ghi phải được xác nhận bởi **đa số bản sao**, không phải một bản |
+| 4 | Kafka nhận nhưng chưa bền | Ghi mới ở một broker thì broker đó chết | `acks=all` + `min.insync.replicas=2`: ghi chỉ tính xong khi **tối thiểu 2 bản in-sync** đã nhận (Kafka dùng ISR, không phải majority quorum) |
 | 5 | Đĩa hỏng / đĩa đầy | Một bản duy nhất; vòng đời dữ liệu không chạy | Tối thiểu 2 bản mỗi shard + cảnh báo dung lượng ở 70% |
 
 Điểm 3 và 4 cùng chung một nguyên tắc: **không bao giờ coi dữ liệu là đã gửi xong khi mới có một bên biết về nó.**
@@ -146,11 +146,15 @@ Số shard:
 Shard mục tiêu 30 GB  →  110 GB/ngày ÷ 30 GB  = 4 primary shard mỗi index ngày
 Kèm replica                                    = 8 shard mỗi ngày
 30 ngày online                                 = 240 shard
+(hot giữ 7 ngày × 8 = 56; warm giữ 23 ngày × 8 = 184)
 
-Sức chứa: 3 hot node × 31 GB heap = 93 GB heap
-Quy tắc ~20 shard mỗi GB heap     ≈ 1.860 shard
-→ 240 / 1.860 = 13% sức chứa. Rất thoải mái.
+Giới hạn hiện hành (ES 8.3+/OpenSearch):
+~1.000 shard non-frozen mỗi data node
+Sức chứa: 5 data node × 1.000     = 5.000 shard
+→ 240 / 5.000 ≈ 5% sức chứa. Rất thoải mái.
 ```
+
+> Quy tắc cũ "~20 shard mỗi GB heap" đã bị Elastic gỡ khỏi hướng dẫn sizing từ 8.3, thay bằng giới hạn ~1.000 shard non-frozen mỗi data node. Nếu vẫn áp quy tắc cũ (3 hot node × 31 GB heap ≈ 1.860 shard) thì kết quả cũng thoải mái tương tự.
 
 Kafka:
 
@@ -172,7 +176,7 @@ Chia cho 3 broker                               = 75 GB/broker
 | Kafka broker | 3 | 8 vCPU / 32 GB / 500 GB SSD | RF = 3 |
 | Logstash | 2 | 8 vCPU / 16 GB | Không trạng thái, scale ngang tự do |
 | Dashboards | 2 | 4 vCPU / 8 GB | Sau load balancer |
-| MinIO | 4 | 4 vCPU / 16 GB / 4 TB | Erasure coding cho 9,9 TB snapshot |
+| MinIO | 4 | 4 vCPU / 16 GB / 6 TB | Set 4 ổ → parity tối đa EC:2 → ~50% khả dụng (~12 TB) cho 9,9 TB snapshot. 4 TB/node chỉ cho ~8 TB khả dụng — không đủ |
 
 Tổng 21 node. Ở quy mô nhỏ hơn có thể gộp vai trò (§8.2), nhưng **không bao giờ gộp xuống dưới 3 master và 2 bản mỗi shard**.
 
@@ -235,8 +239,8 @@ Chạy trên staging trước khi lên production. Mỗi bài kết thúc bằng
 | # | Bài kiểm tra | Kiểm chứng điều gì |
 |---|---|---|
 | 1 | Kill tiến trình cluster giữa lúc ingest | Replay từ Kafka có đủ không (§3.1) |
-| 2 | **Rút điện vật lý một node** | Độ bền thật sự — khác hẳn kill tiến trình (§4.4) |
-| 3 | Chặn firewall giữa agent và trung tâm 30 phút | Disk buffer giữ và gửi lại đủ không (§4.3) |
+| 2 | **Rút điện vật lý một node** | Độ bền thật sự — khác hẳn kill tiến trình (§4, điểm 4) |
+| 3 | Chặn firewall giữa agent và trung tâm 30 phút | Disk buffer giữ và gửi lại đủ không (§4, điểm 3) |
 | 4 | Đổ đầy đĩa đến 100% | Hệ thống dừng sạch hay hỏng dữ liệu (§5) |
 | 5 | Chạy query cố tình quét toàn bộ dữ liệu | Ingest có bị ảnh hưởng không (§3.2) |
 | 6 | Cho một máy client lệch giờ 2 tiếng | Log của nó có tìm được không — NTP là bắt buộc |

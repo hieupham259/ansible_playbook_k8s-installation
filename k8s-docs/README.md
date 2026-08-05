@@ -95,3 +95,119 @@ Các file được đánh số theo **thứ tự học**: mỗi tài liệu ch�
 | 64 | [ReplicaSet](64-replicaset-vi.md) | 62, 18 (controller, label selector) |
 | 65 | [StatefulSet](65-statefulset-vi.md) | 62–63 (dùng thêm PV ở Phần Storage) |
 | 66 | [DaemonSet](66-daemonset-vi.md) | 62, 23 (controller, node) |
+| 67 | [Jobs](67-job-vi.md) | 62 (workload management) |
+| 68 | [TTL cho Job đã hoàn tất](68-ttlafterfinished-vi.md) | 67 (Job) |
+| 69 | [CronJob](69-cron-jobs-vi.md) | 67 (Job) |
+| 70 | [ReplicationController](70-replicationcontroller-vi.md) | 62, 64 (tiền thân của ReplicaSet) |
+| 71 | [Autoscaling Workloads](71-autoscaling-vi.md) | 62–63 (các workload controller) |
+| 72 | [Horizontal Pod Autoscaler](72-horizontal-pod-autoscale-vi.md) | 71 (autoscaling) |
+| 73 | [Vertical Pod Autoscaler](73-vertical-pod-autoscale-vi.md) | 71–72 |
+| 74 | [Resource Managers](74-resource-managers-vi.md) | 23, 54 (node/kubelet, tài nguyên Pod) |
+| 75 | [PodGroup API](75-podgroup-api-vi.md) | 46, 59 (Pod, scheduling group) |
+| 76 | [Vòng đời PodGroup](76-podgroup-lifecycle-vi.md) | 75 |
+| 77 | [Workload API](77-workload-api-vi.md) | 45, 62 |
+| 78 | [Workload: Disruption và Priority](78-workload-disruption-priority-vi.md) | 77, 53 (disruption) |
+| 79 | [Workload Policies](79-workload-policies-vi.md) | 77 |
+| 80 | [Workload: Topology-aware Scheduling](80-workload-topology-scheduling-vi.md) | 77 |
+
+## Phần 6 — Services, Load Balancing và Networking (phần còn lại)
+
+Ghi chú: các bài 10–13 (DNS, Ingress, Ingress Controllers, Gateway API) cũng thuộc mục này, đã dịch ở Phần 2.
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 81 | [Services, Load Balancing và Networking](81-services-networking-vi.md) | 22 (mô hình mạng cluster) |
+| 82 | [Service](82-service-vi.md) | 81, 46, 18 (networking, Pod, selector) |
+| 83 | [EndpointSlices](83-endpoint-slices-vi.md) | 82 (Service) |
+| 84 | [Network Policies](84-network-policies-vi.md) | 82, 19 (Service, namespace) |
+| 85 | [IPv4/IPv6 dual-stack](85-dual-stack-vi.md) | 82 (Service; liên quan 05) |
+| 86 | [Topology Aware Routing](86-topology-aware-routing-vi.md) | 82–83 (Service, EndpointSlices) |
+| 87 | [Service Internal Traffic Policy](87-service-traffic-policy-vi.md) | 82 (Service) |
+| 88 | [Cấp phát địa chỉ ClusterIP](88-cluster-ip-allocation-vi.md) | 82 (Service) |
+| 89 | [Networking trên Windows](89-windows-networking-vi.md) | 81–82 |
+
+## Phần 7 — Storage
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 90 | [Storage](90-storage-vi.md) | — (trang mục) |
+| 91 | [Volumes](91-volumes-vi.md) | 46, 90 (Pod, tổng quan storage) |
+| 92 | [Persistent Volumes](92-persistent-volumes-vi.md) | 91 (volume) |
+| 93 | [Projected Volumes](93-projected-volumes-vi.md) | 91 |
+| 94 | [Ephemeral Volumes](94-ephemeral-volumes-vi.md) | 91–92 |
+| 95 | [Ephemeral Storage](95-ephemeral-storage-vi.md) | 91, 54 (volume, tài nguyên Pod) |
+| 96 | [Storage Classes](96-storage-classes-vi.md) | 92 (PV/PVC) |
+| 97 | [Volume Attributes Classes](97-volume-attributes-classes-vi.md) | 92, 96 |
+| 98 | [Dynamic Volume Provisioning](98-dynamic-provisioning-vi.md) | 92, 96 |
+| 99 | [Volume Snapshots](99-volume-snapshots-vi.md) | 92 (PV/PVC) |
+| 100 | [Volume Snapshot Classes](100-volume-snapshot-classes-vi.md) | 99 |
+| 101 | [PVC làm DataSource (CSI Cloning)](101-volume-pvc-datasource-vi.md) | 92, 99 |
+| 102 | [Volume Populators và Data Sources](102-volume-populators-vi.md) | 99, 101 |
+| 103 | [Storage Capacity](103-storage-capacity-vi.md) | 92, 98 |
+| 104 | [Giới hạn Volume theo Node](104-storage-limits-vi.md) | 91, 23 (volume, node) |
+| 105 | [Giám sát sức khỏe Volume](105-volume-health-monitoring-vi.md) | 91–92 |
+| 106 | [Storage trên Windows](106-windows-storage-vi.md) | 91 |
+
+## Phần 8 — Configuration
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 107 | [Configuration](107-configuration-vi.md) | — (trang mục) |
+| 108 | [ConfigMap](108-configmap-vi.md) | 46, 91 (Pod, volume) |
+| 109 | [Secrets](109-secret-vi.md) | 108, 46 (ConfigMap, Pod) |
+| 110 | [Quản lý tài nguyên cho Pod và Container](110-manage-resources-containers-vi.md) | 46, 54 (Pod, QoS) |
+| 111 | [Tổ chức truy cập cluster bằng kubeconfig](111-kubeconfig-vi.md) | 26, 21 (kubectl, API) |
+| 112 | [Quản lý tài nguyên trên Windows](112-windows-resource-management-vi.md) | 110 |
+
+## Phần 9 — Security
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 113 | [Security](113-security-vi.md) | — (trang mục) |
+| 114 | [Cloud Native Security](114-cloud-native-security-vi.md) | 113 |
+| 115 | [Pod Security Standards](115-pod-security-standards-vi.md) | 46, 113 (Pod) |
+| 116 | [Pod Security Admission](116-pod-security-admission-vi.md) | 115, 19 (PSS, namespace) |
+| 117 | [Pod Security Policy (đã gỡ bỏ)](117-pod-security-policy-vi.md) | 115–116 |
+| 118 | [Service Accounts](118-service-accounts-vi.md) | 16, 109 (đối tượng, Secret) |
+| 119 | [Kiểm soát truy cập Kubernetes API](119-controlling-access-vi.md) | 21, 118 (API, service account) |
+| 120 | [RBAC Good Practices](120-rbac-good-practices-vi.md) | 119 (kiểm soát truy cập) |
+| 121 | [Secrets Good Practices](121-secrets-good-practices-vi.md) | 109, 120 |
+| 122 | [Multi-tenancy](122-multi-tenancy-vi.md) | 19, 84, 119 (namespace, NetworkPolicy, RBAC) |
+| 123 | [Hardening: Cơ chế xác thực](123-hardening-authentication-vi.md) | 119 (kiểm soát truy cập) |
+| 124 | [Hardening: kube-scheduler](124-hardening-scheduler-vi.md) | 119 (đọc kèm Phần 11) |
+| 125 | [Hardening: Dynamic Resource Allocation](125-hardening-dra-vi.md) | 119 (liên quan 149) |
+| 126 | [Bảo mật Linux](126-linux-security-vi.md) | 113 (trang mục con) |
+| 127 | [Ràng buộc bảo mật kernel Linux](127-linux-kernel-security-vi.md) | 126, 115 |
+| 128 | [Rủi ro bypass API Server](128-api-server-bypass-risks-vi.md) | 119, 58 (static pod) |
+| 129 | [Security Checklist](129-security-checklist-vi.md) | 113–128 (tổng kết mục Security) |
+| 130 | [Application Security Checklist](130-application-security-checklist-vi.md) | 115, 129 |
+| 131 | [Bảo mật Windows](131-windows-security-vi.md) | 113 |
+
+## Phần 10 — Policies
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 132 | [Policies](132-policies-vi.md) | — (trang mục) |
+| 133 | [Limit Ranges](133-limit-range-vi.md) | 110, 19 (tài nguyên, namespace) |
+| 134 | [Resource Quotas](134-resource-quotas-vi.md) | 110, 133 |
+| 135 | [PID Limiting](135-pid-limiting-vi.md) | 110, 23 (tài nguyên, node) |
+
+## Phần 11 — Scheduling, Preemption và Eviction
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 136 | [Scheduling, Preemption và Eviction](136-scheduling-eviction-vi.md) | — (trang mục) |
+| 137 | [kube-scheduler](137-kube-scheduler-vi.md) | 136, 22 (kiến trúc) |
+| 138 | [Gán Pod vào Node](138-assign-pod-node-vi.md) | 137, 18, 23 (scheduler, label, node) |
+| 139 | [Taints và Tolerations](139-taint-and-toleration-vi.md) | 138 |
+| 140 | [Topology Spread Constraints](140-topology-spread-constraints-vi.md) | 138, 18 |
+| 141 | [Pod Priority và Preemption](141-pod-priority-preemption-vi.md) | 137, 53 (scheduler, disruption) |
+| 142 | [Node-pressure Eviction](142-node-pressure-eviction-vi.md) | 23, 54, 110 (node, QoS, tài nguyên) |
+| 143 | [API-initiated Eviction](143-api-eviction-vi.md) | 53, 142 |
+| 144 | [Pod Overhead](144-pod-overhead-vi.md) | 110, 43 (tài nguyên, RuntimeClass) |
+| 145 | [Pod Scheduling Readiness](145-pod-scheduling-readiness-vi.md) | 137 |
+| 146 | [Scheduler Performance Tuning](146-scheduler-perf-tuning-vi.md) | 137 |
+| 147 | [Scheduling Framework](147-scheduling-framework-vi.md) | 137 |
+| 148 | [Resource Bin Packing](148-resource-bin-packing-vi.md) | 137, 147 |
+| 149 | [Dynamic Resource Allocation](149-dynamic-resource-allocation-vi.md) | 110, 137 |
+| 150 | [Gang Scheduling](150-gang-scheduling-vi.md) | 59, 75, 137 (scheduling group, PodGroup) |

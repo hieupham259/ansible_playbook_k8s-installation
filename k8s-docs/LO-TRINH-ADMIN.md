@@ -86,8 +86,8 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 - [X] [Tổng quan](14-overview-vi.md) — Kubernetes giải quyết bài toán gì.
 - [X] [Các thành phần của Kubernetes](15-components-vi.md) — trọng tâm: phân biệt thành phần control plane và thành phần chạy trên mọi node.
-- [ ] [Kiến trúc cluster](22-architecture-vi.md) — ghép các thành phần ở bài 2 thành bức tranh tổng thể.
-- [ ] [Các đối tượng trong Kubernetes](16-working-with-objects-vi.md) — trọng tâm: `spec` (mong muốn) vs `status` (thực tế).
+- [X] [Kiến trúc cluster](22-architecture-vi.md) — ghép các thành phần ở bài 2 thành bức tranh tổng thể.
+- [X] [Các đối tượng trong Kubernetes](16-working-with-objects-vi.md) — trọng tâm: `spec` (mong muốn) vs `status` (thực tế).
 - [ ] [Kubernetes API](21-kubernetes-api-vi.md) — trọng tâm: API group, versioning (alpha/beta/stable); phần API aggregation đọc lướt, sẽ quay lại ở giai đoạn 14.
 - [ ] [Các Node](23-nodes-vi.md) — trọng tâm: kubelet đăng ký node, node condition, heartbeat.
 - [ ] [Giao tiếp giữa Node và Control Plane](24-control-plane-node-communication-vi.md) — chiều giao tiếp nào đi qua API server, chiều nào không.

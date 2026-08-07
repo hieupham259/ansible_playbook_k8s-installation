@@ -89,7 +89,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [X] [Kiến trúc cluster](22-architecture-vi.md) — ghép các thành phần ở bài 2 thành bức tranh tổng thể.
 - [X] [Các đối tượng trong Kubernetes](16-working-with-objects-vi.md) — trọng tâm: `spec` (mong muốn) vs `status` (thực tế).
 - [X] [Kubernetes API](21-kubernetes-api-vi.md) — trọng tâm: API group, versioning (alpha/beta/stable); phần API aggregation đọc lướt, sẽ quay lại ở giai đoạn 14.
-- [ ] [Các Node](23-nodes-vi.md) — trọng tâm: kubelet đăng ký node, node condition, heartbeat.
+- [X] [Các Node](23-nodes-vi.md) — trọng tâm: kubelet đăng ký node, node condition, heartbeat.
 - [ ] [Giao tiếp giữa Node và Control Plane](24-control-plane-node-communication-vi.md) — chiều giao tiếp nào đi qua API server, chiều nào không.
 - [ ] [Các Controller](25-controllers-vi.md) — vòng lặp điều khiển; đây là ý tưởng cốt lõi của toàn bộ Kubernetes.
 - [ ] [Lab 1a — Kiến trúc và mô hình điều khiển](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) — dựng cluster lab độc lập, quan sát component/API/Node và thực hành reconciliation.

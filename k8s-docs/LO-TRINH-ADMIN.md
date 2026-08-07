@@ -10,6 +10,10 @@ Mỗi giai đoạn có **Mục tiêu** (học xong phải trả lời được g
 bài tương ứng. Các trang `/docs/tasks/` ở phần cuối cũng có checkbox riêng; chỉ đánh dấu
 hoàn tất sau khi đã thực hành trên cluster lab, không chỉ sau khi đọc trang hướng dẫn.
 
+**Mục có dấu 🧪 là bài lab**, đặt ở cuối nhóm bài mà nó kiểm chứng — làm lab sau khi đã đọc
+hết nhóm bài đứng trên nó. Bản đồ lab, chuỗi snapshot và sổ nợ lab nằm ở
+[labs/README.md](labs/README.md).
+
 Phần thực hành vận hành thực tế (upgrade, backup etcd, drain node, xử lý sự cố…) nằm ở [Checkpoint tiếp nối](#checkpoint-tiếp-nối--nhánh-docstasks) ở cuối file.
 
 ---
@@ -18,6 +22,10 @@ Phần thực hành vận hành thực tế (upgrade, backup etcd, drain node, x
 
 Lộ trình này yêu cầu một cluster thật để thực hiện checkpoint ngay từ Giai đoạn 1.
 Không sử dụng minikube. Chọn một trong hai phương án sau:
+
+> **Runbook lab:** thư mục [labs/](labs/README.md) chứa bài thực hành chạy được cho từng nhóm
+> bài, kèm bản đồ lab, chuỗi snapshot và sổ nợ lab. Phần dựng môi trường nằm một chỗ duy nhất
+> ở [Lab 00](labs/LAB-00-MOI-TRUONG.md); mọi lab khác bắt đầu từ một snapshot có tên.
 
 ### Phương án 1 — Dùng cluster đã dựng
 
@@ -38,7 +46,9 @@ control plane trên cluster đang phục vụ người dùng thật.
 ### Phương án 2 — Dựng một cluster lab khác tương tự
 
 Nếu cluster hiện tại đang được sử dụng hoặc không được phép thử nghiệm phá lỗi, hãy dựng
-một cluster riêng có kiến trúc tương tự. Nên dùng các máy ảo để có thể snapshot và khôi phục:
+một cluster riêng có kiến trúc tương tự. Bản dựng từng bước có sẵn ở
+[Lab 00 — Môi trường](labs/LAB-00-MOI-TRUONG.md). Nên dùng các máy ảo để có thể snapshot và
+khôi phục:
 
 - Tối thiểu cho phần lớn bài học: 1 control plane + 2 worker.
 - Cho bài HA: 3 control plane + 2 worker và một load balancer phía trước API server.
@@ -58,9 +68,13 @@ là một phần của bài thực hành, không phải thao tác chuẩn bị c
 - Với bài làm đầy disk, chỉ dùng filesystem/volume dành riêng cho lab và đặt giới hạn rõ ràng;
   không làm đầy filesystem của máy host.
 
+- [ ] 🧪 [Lab 00 — Dựng môi trường lab dùng chung](labs/LAB-00-MOI-TRUONG.md) — làm trước giai đoạn 1; kết thúc bằng snapshot `01-cluster-ready`.
+
 **Checkpoint môi trường:** chạy được `kubectl get nodes`, tất cả node ở trạng thái `Ready`;
 SSH được vào từng node; xác định được container runtime, CNI, CoreDNS, kube-proxy và
 StorageClass đang sử dụng; đồng thời có phương án snapshot hoặc dựng lại cluster khi bị hỏng.
+
+StorageClass chỉ xuất hiện từ Lab 6a; trước đó phần đó của checkpoint chưa áp dụng.
 
 ---
 
@@ -92,7 +106,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [X] [Các Node](23-nodes-vi.md) — trọng tâm: kubelet đăng ký node, node condition, heartbeat.
 - [ ] [Giao tiếp giữa Node và Control Plane](24-control-plane-node-communication-vi.md) — chiều giao tiếp nào đi qua API server, chiều nào không.
 - [ ] [Các Controller](25-controllers-vi.md) — vòng lặp điều khiển; đây là ý tưởng cốt lõi của toàn bộ Kubernetes.
-- [ ] [Lab 1a — Kiến trúc và mô hình điều khiển](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) — dựng cluster lab độc lập, quan sát component/API/Node và thực hành reconciliation.
+- [ ] 🧪 [Lab 1a — Kiến trúc và mô hình điều khiển](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) — quan sát component/API/Node và thực hành reconciliation. Cần [Lab 00](labs/LAB-00-MOI-TRUONG.md) xong trước.
 
 ### 1b. Làm việc với object và kubectl
 
@@ -105,6 +119,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Tổ chức quyền truy cập cluster bằng file kubeconfig](111-kubeconfig-vi.md) — context, cluster, user; cần cho mọi thao tác về sau.
 - [ ] [Quản lý object trong Kubernetes](27-object-management-vi.md) — trọng tâm: khác biệt giữa imperative, declarative (`apply`) và khi nào dùng cái nào.
 - [ ] [Field selector](28-field-selectors-vi.md) — bổ sung cho label selector khi lọc theo trường.
+- [ ] 🧪 **Lab 1b — Object, label, kubectl và kubeconfig** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Lab này đóng phần `kubectl apply -f pod.yaml` và label selector trong checkpoint giai đoạn 1.
 
 ### 1c. Vòng đời và cơ chế nền của object
 
@@ -115,6 +130,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Các phiên bản lưu trữ](32-storage-version-vi.md) — object được lưu trong etcd ở version nào.
 - [ ] [Proxy phiên bản hỗn hợp](37-mixed-version-proxy-vi.md) — đọc lướt, chỉ cần biết tồn tại khi cluster có nhiều version apiserver.
 - [ ] [Cloud Controller Manager](34-cloud-controller-vi.md) — nếu chạy on-premise thì đọc để biết phần nào **không** có.
+- [ ] 🧪 **Lab 1c — Vòng đời và cơ chế nền của object** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 **Checkpoint:** giải thích được đường đi của `kubectl apply -f pod.yaml` từ lúc gõ lệnh đến khi container chạy, kể tên từng thành phần tham gia. Dùng `kubectl explain`, `kubectl get -o yaml`, label selector và `-n` thành thạo trên cluster lab đã chuẩn bị ở đầu lộ trình.
 
@@ -132,6 +148,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Giới thiệu về cgroup v2](33-cgroups-vi.md) — nền tảng của mọi giới hạn tài nguyên học ở giai đoạn 3.
 - [ ] [Runtime Class](43-runtime-class-vi.md) — chọn runtime khác nhau cho từng workload.
 - [ ] [Các container runtime](00-container-runtimes-vi.md) — **đọc lý thuyết ở đây** (đặc biệt mục cgroup driver: kubelet và runtime phải khớp nhau). Phần cài đặt thực tế để dành làm cùng giai đoạn 8.
+- [ ] 🧪 **Lab 2 — Container, image, CRI và cgroup** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 **Checkpoint:** trên một máy Linux, giải thích được `containerd` và `runc` khác nhau chỗ nào, kiểm tra được cgroup version của máy, và nói được hậu quả khi kubelet dùng `systemd` còn runtime dùng `cgroupfs`.
 
@@ -154,6 +171,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Không gian tên người dùng](55-user-namespaces-vi.md)
 - [ ] [Downward API](56-downward-api-vi.md)
 - [ ] [Cấu hình Pod nâng cao](60-advanced-pod-config-vi.md)
+- [ ] 🧪 **Lab 3a — Pod và vòng đời** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 ### 3b. Cấu hình và tài nguyên
 
@@ -164,6 +182,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Các lớp chất lượng dịch vụ của Pod](54-pod-qos-vi.md) — Guaranteed/Burstable/BestEffort suy ra trực tiếp từ requests và limits.
 - [ ] [Sự gián đoạn](53-disruptions-vi.md) — gián đoạn tự nguyện vs không tự nguyện, PodDisruptionBudget.
 - [ ] [Pod tĩnh](58-static-pods-vi.md) — kubelet tự quản; chính là cách control plane của kubeadm chạy, cần cho giai đoạn 8.
+- [ ] 🧪 **Lab 3b — Cấu hình và tài nguyên** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Phần mã hóa Secret at rest là [nợ lab](labs/README.md#5-sổ-nợ-lab), trả ở CP7.
 
 **Checkpoint:** viết tay một Pod manifest có init container, sidecar, readiness + liveness probe, requests/limits, mount ConfigMap và Secret. Cố ý đặt request vượt sức node để thấy Pod `Pending`, rồi đọc `kubectl describe` tìm lý do. Xác định QoS class của 3 Pod khác nhau chỉ bằng cách nhìn manifest.
 
@@ -184,9 +203,10 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Khả năng tự phục hồi của Kubernetes](38-self-healing-vi.md) — đọc ở đây (không phải giai đoạn 1) vì nội dung dựa trên Deployment, ReplicaSet, StatefulSet vừa học.
 - [ ] [Quản lý Workload — vận hành bằng kubectl](61-management-vi.md) — tổ chức manifest, `kubectl apply` theo nhóm, canary thủ công.
 - [ ] [Tự động co giãn Workload](71-autoscaling-vi.md)
-- [ ] [Tự động co giãn Pod theo chiều ngang](72-horizontal-pod-autoscale-vi.md) — cần metrics server; phần triển khai nằm ở giai đoạn 11.
-- [ ] [Tự động co giãn Pod theo chiều dọc](73-vertical-pod-autoscale-vi.md)
+- [ ] [Tự động co giãn Pod theo chiều ngang](72-horizontal-pod-autoscale-vi.md) — **chỉ đọc lý thuyết ở đây.** HPA cần metrics-server, mà metrics-server thuộc giai đoạn 11; phần thực hành nằm ở Lab 11b. Không cài metrics-server sớm để "chạy thử".
+- [ ] [Tự động co giãn Pod theo chiều dọc](73-vertical-pod-autoscale-vi.md) — như trên, thực hành ở Lab 11b.
 - [ ] **Đọc như tài liệu lịch sử:** [ReplicationController](70-replicationcontroller-vi.md) — tiền thân của ReplicaSet, không dùng cho hệ thống mới. Chỉ cần biết nó tồn tại khi gặp cluster cũ.
+- [ ] 🧪 **Lab 4 — Workload controller** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). StatefulSet chỉ thực hành phần định danh ổn định và thứ tự khởi tạo; `volumeClaimTemplates` và Service headless là [nợ lab](labs/README.md#5-sổ-nợ-lab), trả ở Lab 6a và 5a.
 
 **Checkpoint:** tạo Deployment 3 replica, thực hiện rolling update, theo dõi `kubectl rollout status`, rồi rollback về revision trước. Xóa thủ công một Pod và quan sát ReplicaSet tạo lại. Giải thích được vì sao StatefulSet không thể thay bằng Deployment cho database.
 
@@ -205,6 +225,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Định tuyến nhận biết topology](86-topology-aware-routing-vi.md)
 - [ ] [Chính sách lưu lượng nội bộ của Service](87-service-traffic-policy-vi.md)
 - [ ] [Cấp phát ClusterIP cho Service](88-cluster-ip-allocation-vi.md)
+- [ ] 🧪 **Lab 5a — Service, EndpointSlice và DNS** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Trả nợ Service headless cho StatefulSet của giai đoạn 4.
 - [ ] [Ingress](11-ingress-vi.md) — trọng tâm: rule, path type, IngressClass, TLS.
 - [ ] [Ingress Controllers](12-ingress-controllers-vi.md) — không có controller thì Ingress vô nghĩa.
 - [ ] [Gateway API](13-gateway-vi.md) — hướng thay thế Ingress; đọc để biết định hướng tương lai.
@@ -215,6 +236,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Mạng trong cluster](157-networking-vi.md) — mô hình mạng ở góc nhìn quản trị và các cách hiện thực.
 - [ ] [Network Plugin](183-network-plugins-vi.md) — CNI; cần trước khi cài CNI thật ở giai đoạn 8.
 - [ ] [Các loại proxy trong Kubernetes](164-proxies-vi.md) — kube-proxy và các loại proxy khác.
+- [ ] 🧪 **Lab 5b — NetworkPolicy, Ingress và CNI** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Lab này **đổi CNI** sang loại có thực thi NetworkPolicy (Flannel của baseline không hỗ trợ) và cài ingress controller, rồi tạo snapshot `02-net-ready`.
 
 **Checkpoint:** expose một Deployment bằng ClusterIP rồi NodePort; từ trong một Pod dùng `nslookup`/`curl` gọi Service bằng tên ngắn và FQDN. Viết một NetworkPolicy chặn toàn bộ ingress vào một namespace rồi mở đúng một cổng. Giải thích được khác biệt giữa Service, Ingress và load balancer bên ngoài.
 
@@ -232,6 +254,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Volume dạng projected](93-projected-volumes-vi.md) — gộp ConfigMap, Secret, downwardAPI, service account token vào một mount.
 - [ ] [Volume tạm thời](94-ephemeral-volumes-vi.md)
 - [ ] [Lưu trữ tạm thời cục bộ](95-ephemeral-storage-vi.md) — liên quan trực tiếp tới eviction ở giai đoạn 7.
+- [ ] 🧪 **Lab 6a — PV, PVC và StorageClass** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Cài provisioner, tạo snapshot `03-storage-ready`, và trả nợ `volumeClaimTemplates` của StatefulSet ở giai đoạn 4.
 - [ ] [Lớp thuộc tính Volume](97-volume-attributes-classes-vi.md)
 - [ ] [Ảnh chụp nhanh Volume](99-volume-snapshots-vi.md)
 - [ ] [Các lớp Volume Snapshot](100-volume-snapshot-classes-vi.md)
@@ -240,6 +263,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Dung lượng lưu trữ](103-storage-capacity-vi.md)
 - [ ] [Giới hạn volume theo từng Node](104-storage-limits-vi.md)
 - [ ] [Giám sát tình trạng volume](105-volume-health-monitoring-vi.md)
+- [ ] 🧪 **Lab 6b — Snapshot và volume nâng cao** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Phần snapshot/clone chỉ làm được nếu CSI driver đang dùng có hỗ trợ; nếu không thì giữ ở mức đọc và ghi vào sổ nợ.
 
 **Checkpoint:** tạo StorageClass, xin một PVC và mount vào Pod; xóa Pod rồi tạo lại, chứng minh dữ liệu còn nguyên. Thử `reclaimPolicy: Retain` và `Delete` để thấy khác biệt khi xóa PVC. Chạy một StatefulSet có `volumeClaimTemplates` và quan sát PVC sinh ra theo từng replica.
 
@@ -264,6 +288,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Tinh chỉnh hiệu năng bộ lập lịch](146-scheduler-perf-tuning-vi.md) — đọc lướt, chỉ cần khi cluster rất lớn.
 - [ ] [Scheduling Framework](147-scheduling-framework-vi.md) — các điểm mở rộng của scheduler.
 - [ ] [Đóng gói tài nguyên](148-resource-bin-packing-vi.md)
+- [ ] 🧪 **Lab 7a — Lập lịch và eviction** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 ### 7b. Chính sách giới hạn tài nguyên
 
@@ -273,6 +298,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Giới hạn và dự trữ Process ID](135-pid-limiting-vi.md)
 - [ ] [Các trình quản lý tài nguyên](74-resource-managers-vi.md) — CPU manager, memory manager, topology manager của kubelet.
 - [ ] [Tính năng do Node khai báo](154-node-declared-features-vi.md) — đọc lướt.
+- [ ] 🧪 **Lab 7b — Quota và giới hạn tài nguyên** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 **Checkpoint:** taint một node và chứng minh Pod thường không lên đó, rồi thêm toleration để lên được. Đặt ResourceQuota + LimitRange cho một namespace, thử tạo Pod vượt quota và đọc thông báo từ chối. Tạo tình huống node hết đĩa để quan sát eviction và thứ tự Pod bị trục xuất.
 
@@ -291,6 +317,9 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Tạo cluster có tính sẵn sàng cao với kubeadm](08-high-availability-vi.md) — cần load balancer đứng trước các API server.
 - [ ] [Hỗ trợ dual-stack với kubeadm](05-dual-stack-support-vi.md)
 - [ ] [Xử lý sự cố kubeadm](09-troubleshooting-kubeadm-vi.md) — **tài liệu tra cứu, không đọc tuần tự**. Đọc lướt mục lục một lần để biết có gì, rồi quay lại khi gặp lỗi.
+- [ ] 🧪 **Lab 8a — Dựng cluster bằng kubeadm** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Phá và dựng lại chính ba VM của chuỗi snapshot, kết thúc bằng restore về `03-storage-ready`.
+- [ ] 🧪 **Lab 8b — HA với stacked etcd** — chưa viết. Cần **bộ VM riêng** (3 control plane + 2 worker + 1 load balancer), snapshot tiền tố `8x-`.
+- [ ] 🧪 **Lab 8c — HA với external etcd** — chưa viết. Dựng trên bộ VM của lab 8b, bổ sung nhóm node etcd tách biệt.
 
 **Checkpoint — bắt buộc làm thật, không xem video:**
 
@@ -312,6 +341,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Tài khoản dịch vụ](118-service-accounts-vi.md) — danh tính của Pod khi gọi API.
 - [ ] [Kiểm soát truy cập vào Kubernetes API](119-controlling-access-vi.md) — **bài xương sống**: authentication → authorization (RBAC) → admission control, đúng thứ tự ba chặng.
 - [ ] [Các thực hành tốt về kiểm soát truy cập dựa trên vai trò](120-rbac-good-practices-vi.md) — Role/ClusterRole, binding, nguyên tắc quyền tối thiểu.
+- [ ] 🧪 **Lab 9a — ServiceAccount, authn/authz và RBAC** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 - [ ] [Chuẩn bảo mật Pod](115-pod-security-standards-vi.md) — ba profile Privileged/Baseline/Restricted.
 - [ ] [Cơ chế admission bảo mật Pod](116-pod-security-admission-vi.md) — áp ba profile trên vào namespace bằng label, chế độ enforce/audit/warn.
 - [ ] [Các thực hành tốt cho Kubernetes Secrets](121-secrets-good-practices-vi.md)
@@ -324,6 +354,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Danh sách kiểm tra bảo mật ứng dụng](130-application-security-checklist-vi.md)
 - [ ] [Ưu tiên và Công bằng cho API](166-flow-control-vi.md) — bảo vệ API server khỏi quá tải; FlowSchema và PriorityLevelConfiguration.
 - [ ] [Thực hành tốt cho Admission Webhook](173-admission-webhooks-vi.md) — webhook hỏng có thể làm chết cả cluster; đọc kỹ phần failure policy.
+- [ ] 🧪 **Lab 9b — Pod Security và hardening** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 - [ ] **Đọc như tài liệu lịch sử:** [Chính sách bảo mật Pod](117-pod-security-policy-vi.md) — PodSecurityPolicy đã bị gỡ khỏi Kubernetes, thay bằng bài 6–7 ở trên. Chỉ đọc khi tiếp quản cluster rất cũ.
 
 **Để sau:** [Hướng dẫn tăng cường bảo mật — Cấu hình Scheduler](124-hardening-scheduler-vi.md) và [— Cấp phát tài nguyên động](125-hardening-dra-vi.md) nằm ở giai đoạn 13, sau khi đã học DRA và scheduler nâng cao.
@@ -350,8 +381,10 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 - [ ] [Kiến trúc ghi log](158-logging-vi.md) — log ở mức container, node, cluster; mô hình sidecar và node agent.
 - [ ] [Log hệ thống](159-system-logs-vi.md) — log của kubelet và các thành phần control plane, mức verbosity.
 - [ ] [Trace cho các thành phần hệ thống Kubernetes](161-system-traces-vi.md)
+- [ ] 🧪 **Lab 11a — Observability** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Cài metrics-server và stack giám sát, tạo snapshot `04-metrics-ready`.
+- [ ] 🧪 **Lab 11b — HPA và VPA** — chưa viết. Đây là **lab trả nợ cho giai đoạn 4**: bài [72](72-horizontal-pod-autoscale-vi.md) và [73](73-vertical-pod-autoscale-vi.md) đã đọc lý thuyết từ giai đoạn 4 nhưng chỉ thực hành được sau khi có metrics-server ở lab 11a. Đọc lại hai bài đó trước khi làm.
 
-**Checkpoint:** triển khai metrics-server và chạy được `kubectl top node`/`kubectl top pod` (đây cũng là điều kiện để HPA ở giai đoạn 4 hoạt động). Triển khai một stack Prometheus + Grafana, thu metric từ kubelet và kube-state-metrics, dựng một dashboard và một alert (ví dụ node NotReady hoặc Pod CrashLoopBackOff). Gom log tập trung bằng một agent chạy dạng DaemonSet.
+**Checkpoint:** triển khai metrics-server và chạy được `kubectl top node`/`kubectl top pod`. Triển khai một stack Prometheus + Grafana, thu metric từ kubelet và kube-state-metrics, dựng một dashboard và một alert (ví dụ node NotReady hoặc Pod CrashLoopBackOff). Gom log tập trung bằng một agent chạy dạng DaemonSet. Sau đó cho một Deployment tự co giãn bằng HPA dưới tải và quan sát số replica thay đổi — phần này đóng nốt checkpoint autoscaling của giai đoạn 4.
 
 ---
 
@@ -367,6 +400,7 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 - [ ] [Phiên bản tương thích cho các thành phần Control Plane](168-compatibility-version-vi.md) — `--emulated-version`, hữu ích khi nâng cấp thận trọng.
 - [ ] [Bầu chọn leader có phối hợp](167-coordinated-leader-election-vi.md)
 - [ ] **Trang trỏ hướng:** [Chứng chỉ](156-certificates-vi.md) trong thư mục chỉ có 6 dòng, không thay thế được module quản lý certificate — phần đó nằm ở checkpoint tasks cuối file.
+- [ ] 🧪 **Lab 12 — Vận hành vòng đời node** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 **Checkpoint:** mô phỏng bảo trì một node: cordon → drain → tắt máy → bật lại → uncordon, và quan sát workload dịch chuyển. Kiểm tra graceful node shutdown có được kích hoạt không.
 
@@ -391,6 +425,7 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 - [ ] [Preemption nhận biết workload](152-workload-aware-preemption-vi.md)
 - [ ] [Lập lịch workload nhận biết topology (scheduling)](153-topology-aware-scheduling-vi.md)
 - [ ] [Hướng dẫn tăng cường bảo mật — Cấu hình Scheduler](124-hardening-scheduler-vi.md) — phần hoãn lại từ giai đoạn 9.
+- [ ] 🧪 **Lab 13 — DRA** (tùy chọn) — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Chỉ làm được nếu lab có GPU hoặc thiết bị chuyên dụng.
 
 **Checkpoint:** nếu cluster có GPU, cấp phát một GPU cho Pod bằng DRA. Nếu không, chỉ cần giải thích được DRA khác device plugin truyền thống ở điểm nào.
 
@@ -407,6 +442,7 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 - [ ] [Mẫu Operator](181-operator-vi.md) — CRD + controller; mô hình vận hành ứng dụng stateful phức tạp.
 - [ ] [Các phần mở rộng về Tính toán, Lưu trữ và Mạng](182-compute-storage-net-vi.md)
 - [ ] [Device Plugin](184-device-plugins-vi.md) — cách cũ để expose GPU/thiết bị, so sánh với DRA ở giai đoạn 13.
+- [ ] 🧪 **Lab 14 — CRD và Operator** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 **Đã đọc ở giai đoạn 5:** [Network Plugin](183-network-plugins-vi.md) — nếu cần xem lại trong ngữ cảnh mở rộng thì quay lại bài đó.
 
@@ -425,6 +461,7 @@ Bỏ qua hoàn toàn nếu cluster chỉ có Linux.
 - [ ] [Lưu trữ trên Windows](106-windows-storage-vi.md)
 - [ ] [Quản lý tài nguyên cho các node Windows](112-windows-resource-management-vi.md)
 - [ ] [Bảo mật cho các node Windows](131-windows-security-vi.md)
+- [ ] 🧪 **Lab 15 — Node Windows** (tùy chọn) — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Cần thêm một VM Windows Server.
 
 **Checkpoint:** join một node Windows vào cluster và chạy được một workload Windows có Service.
 
@@ -541,11 +578,14 @@ Chỉ cần khi tiếp quản cluster đời cũ còn dùng Docker Engine:
 
 ## Điều chỉnh so với bản phác thảo ban đầu
 
-Bốn thay đổi có chủ đích so với thứ tự phác thảo, để không còn bài nào phải tham chiếu kiến thức của giai đoạn sau:
+Năm thay đổi có chủ đích so với thứ tự phác thảo, để không còn bài nào phải tham chiếu kiến thức của giai đoạn sau:
 
 1. **Bài [38](38-self-healing-vi.md) (Tự phục hồi) chuyển từ giai đoạn 1 xuống giai đoạn 4.** Nội dung bài này nói về cách Deployment, ReplicaSet và StatefulSet phục hồi workload — đọc ở giai đoạn 1 sẽ gặp toàn khái niệm chưa học.
 2. **Bài [172](172-cluster-admin-dra-vi.md) (DRA cho quản trị viên) chỉ đặt ở giai đoạn 13**, bỏ khỏi giai đoạn 12. Nội dung phụ thuộc hoàn toàn vào DRA ở bài 149.
 3. **Bài [183](183-network-plugins-vi.md) (Network Plugin) đặt chính ở giai đoạn 5**, giai đoạn 14 chỉ tham chiếu lại. Cần hiểu CNI trước khi cài CNI ở giai đoạn 8.
 4. **Bài [00](00-container-runtimes-vi.md) tách làm hai lần dùng**: đọc lý thuyết ở giai đoạn 2 (cùng CRI và cgroup), thực hành cài đặt ở giai đoạn 8 (cùng kubeadm) — tránh việc cài runtime xong bỏ máy không dùng suốt sáu giai đoạn.
+5. **Bài [72](72-horizontal-pod-autoscale-vi.md) và [73](73-vertical-pod-autoscale-vi.md) tách đọc khỏi thực hành**: đọc lý thuyết tại giai đoạn 4 cùng các workload controller, thực hành ở Lab 11b sau khi giai đoạn 11 dựng metrics-server. Phương án còn lại — cài metrics-server sớm ở giai đoạn 4 — bị loại vì nó buộc người học vận hành một add-on mà giai đoạn 11 mới giải thích, và làm hỏng nguyên tắc không nhảy cóc của cả lộ trình.
 
 Ngoài ra bài [70](70-replicationcontroller-vi.md) và [117](117-pod-security-policy-vi.md) được đánh dấu là tài liệu lịch sử, không nằm trong mạch bắt buộc.
+
+Những phần cố ý hoãn lại kiểu này được ghi tập trung ở [sổ nợ lab](labs/README.md#5-sổ-nợ-lab).

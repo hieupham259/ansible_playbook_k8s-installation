@@ -1,0 +1,584 @@
+# Lab 00 — Dựng môi trường lab dùng chung
+
+> **Baseline:** Ubuntu Server 24.04.4 LTS, Kubernetes v1.35.6, containerd 2.2.1,
+> Flannel v0.28.7, một control plane và hai worker chạy bằng VM trên Windows.
+>
+> **Cập nhật và đối chiếu phiên bản:** 05/08/2026.
+
+File này là **nguồn duy nhất** cho phần dựng môi trường của toàn bộ lab trong
+[thư mục labs](README.md). Mọi lab khác bắt đầu từ một snapshot do file này (hoặc một lab
+trước đó) tạo ra, và **không lặp lại** hướng dẫn cài đặt ở đây.
+
+Quy tắc bảo trì: bảng version ở mục A1.3 là nơi duy nhất ghi số phiên bản. Lab khác cần nói
+tới phiên bản thì **link về đây**, không chép lại con số — nếu chép, mỗi lần baseline đổi sẽ
+phải sửa hàng chục file và chắc chắn sót.
+
+Việc cài OS, container runtime, kubeadm và CNI trong file này chỉ là **chuẩn bị môi trường**.
+Không cần hiểu sâu các thao tác cài đặt ở giai đoạn 1; nội dung đó sẽ được học tại giai đoạn
+2, 5 và 8, khi bạn dựng lại cluster một lần nữa với đầy đủ hiểu biết.
+
+---
+
+## 1. Kết quả phải đạt
+
+- Ba VM chạy Ubuntu Server 24.04.4, liên lạc được hai chiều với nhau và với Windows host.
+- Một cluster Kubernetes v1.35.6 gồm một control plane và hai worker, tất cả `Ready`.
+- Snapshot `01-cluster-ready` trên cả ba VM, khôi phục được bất cứ lúc nào.
+
+Đây **không phải** bài học kiến thức. Không có checkpoint vấn đáp; chỉ có gate kỹ thuật.
+
+### 1.1. Thời lượng
+
+- Dựng VM và cluster lần đầu: khoảng 2–4 giờ, phụ thuộc tốc độ tải image.
+- Khôi phục snapshot `01-cluster-ready` và chạy lại gate A5.4: khoảng 10 phút.
+
+---
+
+## 2. Chuỗi snapshot
+
+Mọi lab đều khai báo **điểm bắt đầu** (snapshot nào) và **điểm kết thúc** (trả cluster về
+snapshot cũ hay tạo snapshot mới). Chuỗi chính:
+
+| Snapshot | Tạo bởi | Nội dung thêm so với snapshot trước |
+| --- | --- | --- |
+| `01-cluster-ready` | Lab 00 (file này) | 1 control plane + 2 worker, Flannel, không có workload |
+| `02-net-ready` | Lab 5b | CNI hỗ trợ NetworkPolicy thay Flannel, ingress controller |
+| `03-storage-ready` | Lab 6a | StorageClass mặc định và provisioner đang chạy |
+| `04-metrics-ready` | Lab 11a | metrics-server (điều kiện của lab HPA/VPA) |
+
+Quy tắc:
+
+- Lab **không** tạo snapshot mới thì phải cleanup đưa cluster về đúng trạng thái snapshot
+  đầu vào, và gate cuối phải chứng minh điều đó.
+- Không restore riêng một VM trong khi giữ hai VM còn lại ở state mới. Với lab một control
+  plane, restore là thao tác trên **cả ba VM cùng mốc**.
+- Giai đoạn 8 (dựng cluster bằng kubeadm) dùng **bộ VM riêng** với topology khác, snapshot
+  đặt tiền tố `8x-`; không đụng vào chuỗi ở trên.
+
+---
+
+## 3. Quy ước và an toàn
+
+- Mở ít nhất ba terminal SSH: master, worker 1 và worker 2.
+- Các lệnh không ghi rõ node được chạy trên `k8s-master` bằng user quản trị có kubeconfig.
+- Dòng bắt đầu bằng `PASS:` mô tả điều kiện phải đạt; không tiếp tục nếu gate tương ứng fail.
+- Thay dải `192.168.100.0/24` nếu trùng LAN, VPN, Pod CIDR hoặc Service CIDR của máy host.
+
+---
+
+# Phần A — Dựng cluster lab độc lập
+
+## A1. Topology và phần cứng
+
+### A1.1. Máy host Windows
+
+Khuyến nghị:
+
+| Tài nguyên host | Tối thiểu thực dụng | Khuyến nghị |
+| --- | --- | --- |
+| CPU vật lý | 6 core / 12 thread, VT-x hoặc AMD-V | 8 core / 16 thread trở lên |
+| RAM | 24 GB | 32 GB trở lên |
+| SSD trống | 150 GB | 200 GB để còn chỗ cho snapshot |
+| Hypervisor | VMware Workstation có hỗ trợ Ubuntu 24.04 x64 | VMware Workstation 17.6 trở lên |
+
+Ba VM dưới đây cấp tổng cộng 8 vCPU và 20 GB RAM. Nếu host chỉ có 24 GB RAM, phải đóng
+ứng dụng nặng khi chạy lab. Không chạy cả ba VM trên host 16 GB.
+
+Kiểm tra trên PowerShell:
+
+```powershell
+Get-CimInstance Win32_Processor |
+  Select-Object Name, NumberOfCores, NumberOfLogicalProcessors, VirtualizationFirmwareEnabled
+
+Get-CimInstance Win32_ComputerSystem |
+  Select-Object @{N='RAM_GB';E={[math]::Round($_.TotalPhysicalMemory/1GB,1)}}
+
+Get-Volume |
+  Where-Object DriveLetter |
+  Select-Object DriveLetter, @{N='Free_GB';E={[math]::Round($_.SizeRemaining/1GB,1)}}
+```
+
+**PASS:** virtualization là `True`, host có ít nhất 24 GB RAM và ổ chứa VM còn ít nhất
+150 GB.
+
+### A1.2. Ba VM
+
+| Vai trò | Hostname | IP ví dụ | vCPU | RAM | Disk thin-provisioned |
+| --- | --- | --- | --- | --- | --- |
+| Control plane | `k8s-master` | `192.168.100.111` | 4 | 8 GB | 40 GB |
+| Worker 1 | `k8s-worker1` | `192.168.100.112` | 2 | 6 GB | 40 GB |
+| Worker 2 / fault target | `k8s-worker2` | `192.168.100.113` | 2 | 6 GB | 40 GB |
+
+Thiết lập mỗi VM:
+
+1. Guest OS: Ubuntu 64-bit.
+2. Firmware: UEFI; Secure Boot có thể giữ bật nếu hypervisor hỗ trợ bình thường.
+3. Network: Bridged để Windows host SSH trực tiếp được tới VM.
+4. Disk: SCSI/NVMe, thin provision, 40 GB.
+5. Không clone một VM đã boot nếu chưa tạo lại `machine-id`, MAC và product UUID. Cách ít
+   lỗi nhất cho lab đầu tiên là cài riêng ba VM.
+
+Nếu LAN không cho dùng Bridged, dùng một VMnet NAT riêng. Điều kiện bắt buộc là ba VM liên
+lạc hai chiều với nhau, Windows host SSH được tới cả ba VM và cả ba VM có Internet egress.
+
+Một số lab sau cần thêm tài nguyên hoặc thêm VM (giai đoạn 8 cần 3 control plane và một load
+balancer; lab lưu trữ cần thêm disk hoặc một NFS server). Các lab đó tự khai báo phần bổ
+sung; không cấp trước ở đây.
+
+### A1.3. Phiên bản được khóa
+
+| Thành phần | Baseline chính xác |
+| --- | --- |
+| Ubuntu ISO | `ubuntu-24.04.4-live-server-amd64.iso` |
+| Kubernetes control plane | `v1.35.6` |
+| `kubeadm`, `kubelet`, `kubectl` | Debian package `1.35.6-1.1` |
+| `cri-tools` / `crictl` | Debian package `1.35.0-1.1` |
+| `kubernetes-cni` package | `1.8.0-1.1` |
+| `containerd` từ Ubuntu Noble | `2.2.1-0ubuntu1~24.04.3` |
+| `runc` từ Ubuntu Noble | `1.3.3-0ubuntu1~24.04.3` |
+| CNI | Flannel manifest release `v0.28.7` |
+| Pod CIDR | `10.244.0.0/16` |
+| Service CIDR | kubeadm mặc định `10.96.0.0/12` |
+
+Hậu tố `~24.04.3` của package `containerd`/`runc` là revision package hiện có trong kho
+Noble Updates/Security và vẫn là package chính thức cho Ubuntu 24.04.4. Runbook kiểm tra
+candidate trước khi cài; nếu kho không còn đúng revision này thì **dừng**, cập nhật baseline
+runbook sau khi đối chiếu changelog và tài liệu tương thích, không âm thầm cài version khác.
+
+Các gói nền `ca-certificates`, `curl`, `gpg`, `apt-transport-https` và bản vá OS lấy từ
+Noble Updates/Security. Version của chúng biến đổi theo bản vá bảo mật; A5 sẽ ghi version
+thực tế vào hồ sơ lab.
+
+Flannel **không thực thi NetworkPolicy**. Đây là lựa chọn có chủ đích: baseline giữ CNI đơn
+giản nhất, còn việc đổi sang CNI hỗ trợ policy là một bài học của lab 5b chứ không phải thao
+tác chuẩn bị âm thầm.
+
+Sau khi tải ISO từ trang Ubuntu chính thức, kiểm tra trên PowerShell trước khi gắn ISO vào VM:
+
+```powershell
+$isoPath = 'D:\ISO\ubuntu-24.04.4-live-server-amd64.iso'
+$expectedSha256 = 'e907d92eeec9df64163a7e454cbc8d7755e8ddc7ed42f99dbc80c40f1a138433'
+$actualSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $isoPath).Hash.ToLowerInvariant()
+if ($actualSha256 -ne $expectedSha256) {
+  throw "FAIL: ISO SHA256 mismatch: $actualSha256"
+}
+'PASS: Ubuntu ISO SHA256 is valid'
+```
+
+Không tiếp tục nếu checksum khác giá trị được Canonical công bố trong `SHA256SUMS`.
+
+## A2. Cài Ubuntu và cấu hình identity
+
+Cài Ubuntu Server 24.04.4 trên cả ba VM:
+
+- Minimal installation, không cài GUI.
+- Bật OpenSSH Server.
+- Tạo cùng một user quản trị, ví dụ `k8sadmin`, có quyền `sudo`.
+- Đặt hostname đúng theo bảng A1.2 ngay trong installer; nếu chưa đúng, chạy lệnh tương ứng:
+
+```bash
+# Chỉ chạy đúng một lệnh phù hợp trên từng VM
+sudo hostnamectl set-hostname k8s-master
+sudo hostnamectl set-hostname k8s-worker1
+sudo hostnamectl set-hostname k8s-worker2
+```
+
+Sau reboot, chạy trên từng VM:
+
+```bash
+hostnamectl --static
+cat /etc/machine-id
+sudo cat /sys/class/dmi/id/product_uuid
+ip -br link
+```
+
+**PASS:** hostname đúng; `machine-id`, product UUID và MAC khác nhau giữa ba VM.
+
+## A3. Đặt IP tĩnh và phân giải tên
+
+Trước khi gán IP, kiểm tra `.111–.113` nằm ngoài DHCP pool của router. Nếu không chắc, tạo
+DHCP reservation theo MAC hoặc chọn ba IP khác.
+
+Trên mỗi VM, tìm interface đang giữ default route:
+
+```bash
+ip route
+ip route | awk '/default/ {print $5; exit}'
+```
+
+Ví dụ interface là `ens33`. Tạo netplan riêng trên từng VM; thay gateway/DNS cho đúng LAN.
+Ví dụ cho master:
+
+```bash
+sudo tee /etc/netplan/99-k8s-lab.yaml >/dev/null <<'EOF'
+network:
+  version: 2
+  ethernets:
+    ens33:
+      dhcp4: false
+      addresses: [192.168.100.111/24]
+      routes:
+        - to: default
+          via: 192.168.100.1
+      nameservers:
+        addresses: [192.168.100.1, 1.1.1.1]
+EOF
+sudo chmod 600 /etc/netplan/99-k8s-lab.yaml
+sudo netplan try
+```
+
+Với worker 1 và worker 2, giữ nguyên cấu trúc nhưng đổi `addresses` lần lượt thành
+`192.168.100.112/24` và `192.168.100.113/24`. Nếu interface không phải `ens33`, thay đúng
+tên đã tìm ở trên. Xác nhận cấu hình trong thời gian `netplan try` yêu cầu.
+
+Thêm trên **cả ba VM**:
+
+```bash
+sudo tee -a /etc/hosts >/dev/null <<'EOF'
+192.168.100.111 k8s-master
+192.168.100.112 k8s-worker1
+192.168.100.113 k8s-worker2
+EOF
+```
+
+Verify trên cả ba VM:
+
+```bash
+ip -br address
+ip route
+getent hosts k8s-master k8s-worker1 k8s-worker2
+ping -c 2 k8s-master
+ping -c 2 k8s-worker1
+ping -c 2 k8s-worker2
+curl -I --max-time 10 https://pkgs.k8s.io/
+```
+
+**PASS:** tên trả đúng IP; ping giữa mọi node thành công; HTTPS egress hoạt động.
+
+## A4. Chuẩn bị OS và container runtime
+
+Chạy toàn bộ mục A4 trên **cả ba VM**.
+
+### A4.1. Cập nhật OS, tắt swap và bật kernel prerequisites
+
+```bash
+sudo apt-get update
+sudo apt-get upgrade -y
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+
+sudo swapoff -a
+sudo sed -ri '/\sswap\s/s/^#?/#/' /etc/fstab
+
+cat <<'EOF' | sudo tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+
+sudo modprobe overlay
+sudo modprobe br_netfilter
+
+cat <<'EOF' | sudo tee /etc/sysctl.d/99-kubernetes-cri.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+
+sudo sysctl --system
+sudo reboot
+```
+
+Chờ VM boot lại, SSH vào đúng node rồi verify:
+
+```bash
+swapon --show
+free -h | grep -i swap
+lsmod | grep -E '^(overlay|br_netfilter)'
+sysctl net.bridge.bridge-nf-call-iptables \
+  net.bridge.bridge-nf-call-ip6tables \
+  net.ipv4.ip_forward
+stat -fc %T /sys/fs/cgroup
+```
+
+**PASS:** `swapon --show` rỗng, Swap là `0B`, hai module có mặt, ba sysctl bằng `1`, cgroup
+filesystem là `cgroup2fs`.
+
+### A4.2. Cài containerd và runc đúng version
+
+```bash
+CONTAINERD_VER='2.2.1-0ubuntu1~24.04.3'
+RUNC_VER='1.3.3-0ubuntu1~24.04.3'
+
+apt-cache madison containerd | grep -F "$CONTAINERD_VER"
+apt-cache madison runc | grep -F "$RUNC_VER"
+
+sudo apt-get install -y \
+  containerd="$CONTAINERD_VER" \
+  runc="$RUNC_VER"
+
+sudo apt-mark hold containerd runc
+```
+
+Nếu một trong hai lệnh `grep` không có output, dừng tại đây. Không bỏ version khỏi lệnh cài.
+
+Cấu hình CRI plugin và systemd cgroup cho containerd 2.x:
+
+```bash
+sudo mkdir -p /etc/containerd
+sudo tee /etc/containerd/config.toml >/dev/null <<'EOF'
+version = 3
+
+[plugins.'io.containerd.cri.v1.runtime'.containerd]
+  default_runtime_name = 'runc'
+
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc]
+  runtime_type = 'io.containerd.runc.v2'
+
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc.options]
+  SystemdCgroup = true
+EOF
+
+sudo systemctl enable --now containerd
+sudo systemctl restart containerd
+```
+
+Verify:
+
+```bash
+containerd --version
+runc --version | head -n 1
+dpkg-query -W -f='${Package} ${Version}\n' containerd runc
+systemctl is-active containerd
+sudo ctr plugins ls | grep 'io.containerd.cri.v1'
+grep -n 'SystemdCgroup = true' /etc/containerd/config.toml
+```
+
+**PASS:** package version khớp bảng A1.3; containerd `active`; CRI plugin trạng thái `ok`;
+`SystemdCgroup = true`.
+
+### A4.3. Cài kubeadm, kubelet, kubectl và crictl
+
+```bash
+sudo mkdir -p -m 755 /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key \
+  | sudo gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /' \
+  | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+sudo apt-get update
+
+K8S_VER='1.35.6-1.1'
+CRI_VER='1.35.0-1.1'
+CNI_PKG_VER='1.8.0-1.1'
+
+apt-cache madison kubeadm | grep -F "$K8S_VER"
+apt-cache madison cri-tools | grep -F "$CRI_VER"
+apt-cache madison kubernetes-cni | grep -F "$CNI_PKG_VER"
+
+sudo apt-get install -y \
+  kubernetes-cni="$CNI_PKG_VER" \
+  cri-tools="$CRI_VER" \
+  kubelet="$K8S_VER" \
+  kubeadm="$K8S_VER" \
+  kubectl="$K8S_VER"
+
+sudo apt-mark hold kubernetes-cni cri-tools kubelet kubeadm kubectl
+sudo systemctl enable kubelet
+
+sudo tee /etc/crictl.yaml >/dev/null <<'EOF'
+runtime-endpoint: unix:///run/containerd/containerd.sock
+image-endpoint: unix:///run/containerd/containerd.sock
+timeout: 10
+debug: false
+EOF
+```
+
+Verify:
+
+```bash
+kubeadm version -o short
+kubelet --version
+kubectl version --client
+crictl --version
+dpkg-query -W -f='${Package} ${Version}\n' \
+  kubernetes-cni cri-tools kubelet kubeadm kubectl
+apt-mark showhold | grep -E \
+  '^(containerd|runc|kubernetes-cni|cri-tools|kubelet|kubeadm|kubectl)$'
+sudo crictl version
+sudo crictl info | grep -i -A2 systemdCgroup
+```
+
+**PASS:** ba Kubernetes binary là `v1.35.6`, crictl là `v1.35.0`, package CNI là
+`1.8.0-1.1`, CRI API là `v1`, `systemdCgroup` là `true` và toàn bộ package đã được hold.
+
+Kubelet có thể restart liên tục trước `kubeadm init/join`; đây là trạng thái dự kiến vì chưa
+có `/var/lib/kubelet/config.yaml`.
+
+### A4.4. Firewall cho mạng lab cô lập
+
+Với mạng homelab tin cậy, tắt UFW trên cả ba VM để các lab không bị nhiễu bởi bài firewall:
+
+```bash
+sudo ufw status
+sudo ufw disable
+sudo ufw status
+```
+
+**PASS:** trạng thái `inactive`. Không áp dụng lựa chọn này cho cluster production.
+
+## A5. Khởi tạo cluster
+
+### A5.1. Init control plane
+
+Chạy chỉ trên `k8s-master`:
+
+```bash
+KUBERNETES_VERSION="$(kubeadm version -o short)"
+test "$KUBERNETES_VERSION" = 'v1.35.6'
+
+sudo kubeadm config images list --kubernetes-version "$KUBERNETES_VERSION"
+sudo kubeadm config images pull --kubernetes-version "$KUBERNETES_VERSION"
+
+sudo kubeadm init \
+  --kubernetes-version "$KUBERNETES_VERSION" \
+  --control-plane-endpoint 'k8s-master:6443' \
+  --apiserver-advertise-address 192.168.100.111 \
+  --pod-network-cidr 10.244.0.0/16
+```
+
+Không ngắt lệnh `kubeadm init`. Khi thành công, cấu hình kubeconfig cho user thường:
+
+```bash
+mkdir -p "$HOME/.kube"
+sudo cp /etc/kubernetes/admin.conf "$HOME/.kube/config"
+sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
+chmod 600 "$HOME/.kube/config"
+
+kubectl version
+kubectl get nodes -o wide
+```
+
+Master có thể còn `NotReady` trước khi cài CNI.
+
+### A5.2. Cài Flannel v0.28.7
+
+Chạy trên `k8s-master`:
+
+```bash
+kubectl apply -f \
+  https://github.com/flannel-io/flannel/releases/download/v0.28.7/kube-flannel.yml
+
+kubectl rollout status daemonset/kube-flannel-ds \
+  -n kube-flannel --timeout=180s
+kubectl get pods -n kube-flannel -o wide
+```
+
+**PASS:** DaemonSet rollout thành công; Pod Flannel trên master là `Running`.
+
+### A5.3. Join hai worker
+
+Trên master, sinh lệnh join mới:
+
+```bash
+kubeadm token create --print-join-command
+```
+
+Copy nguyên lệnh được sinh và chạy bằng `sudo` trên `k8s-worker1`, rồi `k8s-worker2`.
+Trước khi join, verify trên từng worker:
+
+```bash
+getent hosts k8s-master
+timeout 3 bash -c 'echo > /dev/tcp/k8s-master/6443' \
+  && echo 'PASS: API 6443 reachable' \
+  || echo 'FAIL: API 6443 unreachable'
+```
+
+Ví dụ hình dạng lệnh, không copy placeholder dưới đây:
+
+```bash
+sudo kubeadm join k8s-master:6443 \
+  --token <token-thật> \
+  --discovery-token-ca-cert-hash sha256:<hash-thật>
+```
+
+### A5.4. Gate `01-cluster-ready`
+
+Đây là gate được **mọi lab dùng chuỗi snapshot chính tham chiếu tới**. Chạy trên master:
+
+```bash
+kubectl wait --for=condition=Ready node --all --timeout=180s
+kubectl get nodes -o wide
+kubectl get pods -A -o wide
+
+kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.nodeInfo.kubeletVersion}{"\t"}{.status.nodeInfo.containerRuntimeVersion}{"\n"}{end}'
+
+kubectl -n kube-system get deployment coredns
+kubectl -n kube-system get daemonset kube-proxy
+kubectl -n kube-flannel get daemonset kube-flannel-ds
+```
+
+**PASS:**
+
+- Cả ba node `Ready` và cùng kubelet `v1.35.6`.
+- Control plane có role `control-plane`; hai worker không mang role này.
+- Tất cả Pod hệ thống `Running`; CoreDNS có đủ replica `READY`.
+- `kube-proxy` và Flannel có một Pod sẵn sàng trên mỗi node.
+
+Ghi baseline package trên từng node để có thể tái lập:
+
+```bash
+mkdir -p ~/lab-evidence
+{
+  date -Is
+  hostnamectl
+  uname -a
+  lsb_release -a
+  dpkg-query -W -f='${Package} ${Version}\n' \
+    apt-transport-https ca-certificates curl gpg \
+    containerd runc kubernetes-cni cri-tools kubelet kubeadm kubectl
+} | tee ~/lab-evidence/00-package-baseline.txt
+```
+
+Tắt ba VM sạch sẽ và tạo snapshot VMware tên **`01-cluster-ready`** cho từng VM.
+
+### A5.5. Quy trình mở đầu mỗi lab
+
+Chạy trước khi bắt đầu bất kỳ lab nào dùng chuỗi snapshot chính:
+
+1. Bật ba VM theo thứ tự master → worker 1 → worker 2.
+2. Chạy lại toàn bộ gate ở A5.4 (hoặc gate của snapshot mà lab đó khai báo là điểm bắt đầu).
+3. Chỉ khi gate PASS mới sang phần nội dung của lab.
+
+Nếu gate fail và không sửa được trong vài phút, tắt và restore **cả ba VM** về snapshot đầu
+vào rồi chạy lại. Không debug một cluster đã lệch state — thời gian đó nên dành cho bài học.
+
+---
+
+## 4. Troubleshooting môi trường
+
+Bảng này chỉ xử lý sự cố **dựng môi trường**. Sự cố phát sinh trong nội dung bài học nằm ở
+mục troubleshooting của chính lab đó.
+
+| Triệu chứng | Kiểm tra | Cách xử lý trong lab |
+| --- | --- | --- |
+| VM không ping nhau | VMware network mode, IP, route | Đưa cả ba VM vào cùng Bridged/VMnet; sửa IP trước kubeadm |
+| `kubeadm init` báo swap | `swapon --show` | `swapoff -a`, comment swap trong `/etc/fstab` |
+| CRI không hoạt động | `crictl info`, `ctr plugins ls` | Kiểm tra config version 3 và restart containerd |
+| Node `NotReady` sau join | Flannel Pod, kubelet log | Kiểm tra Pod CIDR, egress, module và sysctl |
+| Worker không join | DNS và TCP 6443 | Sửa `/etc/hosts`, IP/firewall; sinh token join mới |
+| Package không đúng revision | `apt-cache madison <pkg>` | Dừng; cập nhật bảng A1.3 sau khi đối chiếu changelog |
+| Cluster lệch state không rõ nguyên nhân | — | Restore cả ba VM về snapshot đầu vào của lab |
+
+Không reset hoặc restore riêng master bằng snapshot cũ trong khi giữ worker ở state mới. Với
+lab một control plane, nếu cần quay lại mốc `01-cluster-ready`, tắt và restore **cả ba VM**.
+
+---
+
+## 5. Nguồn chính thức
+
+- [Kubernetes — Installing kubeadm v1.35](https://v1-35.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
+- [Kubernetes — Creating a cluster with kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/)
+- [Kubernetes — Container runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
+- [Ubuntu — 24.04.4 LTS images](https://releases.ubuntu.com/24.04/)
+- [Ubuntu — containerd package for Noble](https://packages.ubuntu.com/noble/containerd)
+- [Flannel — release v0.28.7](https://github.com/flannel-io/flannel/releases/tag/v0.28.7)

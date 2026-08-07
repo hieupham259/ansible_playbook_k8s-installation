@@ -5,6 +5,40 @@
 > Mỗi đối tượng trong cluster của bạn có một Tên (Name) duy nhất cho loại tài nguyên đó.
 > Mỗi đối tượng Kubernetes cũng có một UID duy nhất trên toàn bộ cluster của bạn.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 1/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Phải hiểu ở lần đọc này:**
+
+- Kubernetes định danh một object bằng **bốn thuộc tính**: API group, resource type, namespace,
+  name. **Phiên bản API không nằm trong đó** — không thể lách trùng tên bằng cách dùng version
+  khác.
+- Name duy nhất trong phạm vi đó **tại một thời điểm**; xóa rồi tạo lại trùng tên là hợp lệ.
+- UID do hệ thống sinh, duy nhất toàn cluster và **phân biệt các lần xuất hiện trong lịch sử**
+  của cùng một tên. Bạn đã dùng chính điều này ở Lab 1a phần B8.
+- Ràng buộc **DNS subdomain** (≤253 ký tự, chữ-số thường, `-` và `.`) — dạng phổ biến nhất.
+- `generateName`: server tự nối hậu tố vào tiền tố bạn đưa.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Khác biệt chi tiết giữa RFC 1123 và RFC 1035 label | chỉ cần khi gặp lỗi validation cụ thể | tra lại khi bị từ chối tên |
+| Feature gate `RelaxedServiceNameValidation` | liên quan tới Service | giai đoạn 5 |
+| *Tên dùng làm phân đoạn đường dẫn* | ràng buộc hiếm gặp | tra khi cần |
+
+Đừng học thuộc bốn bộ ràng buộc. Chỉ cần biết **chúng khác nhau** và khi API server từ chối
+một cái tên thì phải tra xem resource đó đòi dạng nào.
+
+---
+
 Mỗi đối tượng trong cluster của bạn có một [_Tên (Name)_](#names) duy nhất cho loại tài nguyên (resource) đó.
 Mỗi đối tượng Kubernetes cũng có một [_UID_](#uids) duy nhất trên toàn bộ cluster của bạn.
 
@@ -115,3 +149,37 @@ UUID được chuẩn hóa theo ISO/IEC 9834-8 và ITU-T X.667.
 
 * Đọc về [label](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) và [annotation](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) trong Kubernetes.
 * Xem tài liệu thiết kế [Identifiers and Names in Kubernetes](https://git.k8s.io/design-proposals-archive/architecture/identifiers.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Trong cùng một namespace, có thể vừa có Pod tên `web` vừa có Deployment tên `web` không?
+   Còn hai Pod cùng tên `web` ở hai namespace khác nhau?
+2. Kể bốn thuộc tính định danh duy nhất một object. Phiên bản API có nằm trong đó không, và
+   hệ quả là gì?
+3. Bạn xóa Pod `web` rồi tạo lại một Pod cũng tên `web`. Object mới có cùng UID với object cũ
+   không? Vì sao Kubernetes thiết kế như vậy?
+4. Ở Lab 1a phần B8, bạn so sánh giá trị nào để chứng minh ServiceAccount `default` được
+   controller **tạo mới** chứ không phải chưa từng bị xóa?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Được cả hai.** Name chỉ cần duy nhất trong phạm vi *(API group, resource type, namespace)*.
+   Pod và Deployment là hai resource type khác nhau nên không đụng nhau; hai namespace khác
+   nhau cũng là hai phạm vi khác nhau.
+2. API group, resource type, namespace, name. **Phiên bản API không nằm trong định danh** —
+   các version chỉ là cách biểu diễn khác của cùng một dữ liệu. Hệ quả: không thể tạo hai
+   object trùng tên cùng resource type trong cùng namespace bằng cách dùng `v1` và `v1beta1`.
+3. **Không** — UID mới. UID sinh ra để phân biệt các lần xuất hiện trong lịch sử của những
+   thực thể trông giống nhau, nên hệ thống luôn nói được "đây là object khác, không phải cái
+   cũ hồi sinh".
+4. So sánh **UID** trước và sau. Tên vẫn là `default` nên tên không chứng minh được gì; UID
+   khác mới chứng minh đây là object mới do controller tạo.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

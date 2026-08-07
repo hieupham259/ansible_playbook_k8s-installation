@@ -2,6 +2,46 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 4/8 ·
+Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Lộ trình ghi rõ: `preStop` liên quan trực tiếp đến **shutdown êm** ở giai đoạn 3. Đọc bài này
+với ý thức rằng nó là nửa đầu của câu chuyện chấm dứt Pod.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hai hook chính: **`PostStart`** chạy **đồng thời** với ENTRYPOINT — không có gì bảo đảm tiến
+  trình chính đã sẵn sàng khi hook chạy; **`PreStop`** chạy **trước** khi tín hiệu TERM được
+  gửi.
+- Cơ chế thời gian của `PreStop`, và đây là chỗ dễ cấu hình sai nhất:
+  `terminationGracePeriodSeconds` **bắt đầu đếm trước khi hook chạy** và bao trùm **cả** thời
+  gian hook lẫn thời gian container tự dừng. Hook 55 giây + dừng 10 giây > grace period 60
+  giây thì container bị kill giữa chừng.
+- Ba loại handler: `exec` (chạy trong container, tài nguyên tính vào container), `httpGet` và
+  `sleep` (do kubelet thực thi).
+- **Hook thất bại thì container bị kill.**
+- Cơ chế gửi là **ít nhất một lần** — hook của bạn phải chịu được việc bị gọi hai lần.
+- Debug: log của handler **không** hiện trong event Pod; chỉ có event `FailedPostStartHook`
+  hoặc `FailedPreStopHook`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| `terminationGracePeriodSeconds` và toàn bộ quy trình chấm dứt Pod | là bài xương sống riêng | giai đoạn 3, bài [47](47-pod-lifecycle-vi.md) |
+| Hook `StopSignal` | chi tiết của cùng quy trình chấm dứt | giai đoạn 3 |
+| Liveness/startup probe được nhắc trong định nghĩa `PreStop` | chưa học probe | giai đoạn 3, bài [49](49-probes-vi.md) |
+| Preemption và tranh chấp tài nguyên | thuộc chủ đề lập lịch | giai đoạn 7 |
+
+---
+
 Trang này mô tả cách các Container do kubelet quản lý có thể sử dụng framework hook
 vòng đời của Container để chạy code được kích hoạt bởi các sự kiện trong vòng đời
 quản lý của chúng.
@@ -139,3 +179,40 @@ Events:
 * Tìm hiểu thêm về [Môi trường của Container (Container environment)](https://kubernetes.io/docs/concepts/containers/container-environment/).
 * Thực hành thực tế với việc
   [gắn handler vào các sự kiện vòng đời của Container](https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. `PostStart` chạy trước hay sau ENTRYPOINT của container? Vì sao bài khuyên không nên dùng
+   HTTP handler cho `PostStart`?
+2. `terminationGracePeriodSeconds` là 30. Hook `PreStop` của bạn mất 25 giây, và ứng dụng cần
+   thêm 10 giây nữa để đóng kết nối cho sạch. Chuyện gì xảy ra?
+3. Hook `PreStop` của bạn thất bại. Container ra sao?
+4. Hook handler của bạn ghi log ra stdout. Bạn tìm log đó ở đâu, và `kubectl describe pod` cho
+   bạn thấy gì khi hook lỗi?
+5. Hook được gửi mấy lần? Điều đó ràng buộc gì lên cách bạn viết handler?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Đồng thời.** Hook được kích hoạt khi container được tạo, cùng lúc với ENTRYPOINT, nên nó
+   có thể chạy trước, trong hoặc sau khi tiến trình chính khởi động. HTTP handler không hợp lý
+   vì **không có gì đảm bảo tiến trình đã lắng nghe cổng** vào lúc hook gọi tới.
+2. Container **bị kill trước khi kịp đóng sạch**. Grace period bắt đầu đếm **trước khi** hook
+   chạy và bao trùm cả hai giai đoạn: 25 + 10 = 35 giây > 30 giây. Muốn đúng thì phải nâng
+   `terminationGracePeriodSeconds` lên trên tổng thời gian đó.
+3. **Container bị kill.** Bài nói rõ: nếu hook `PostStart` hoặc `PreStop` thất bại, nó sẽ kill
+   container.
+4. **Log của hook handler không hiển thị trong event của Pod.** `kubectl describe pod` chỉ cho
+   bạn một event `Warning`: `FailedPostStartHook` hoặc `FailedPreStopHook`, kèm thông báo lỗi
+   của lệnh.
+5. **Ít nhất một lần.** Thông thường đúng một lần, nhưng nếu kubelet khởi động lại giữa lúc gửi
+   thì hook có thể chạy hai lần. Ràng buộc: handler phải **idempotent** — chạy lại không được
+   gây hại.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

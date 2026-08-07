@@ -578,4 +578,31 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    ba thứ đó vẫn không phải control plane component?
 5. Vì sao thêm bản `kube-apiserver` thì dễ, còn thêm sức ghi cho etcd thì không?
 
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Nghĩa là **các thành phần (hoặc instance) của control plane được bố trí trên ba
+   control-plane node**. Control plane là **lớp chức năng** — tập phần mềm điều khiển cluster;
+   control-plane node là **cái máy** được chọn để chạy chúng. Đúng như "database" so với
+   "database server". Không phải một máy bị chia làm ba.
+2. **Nó không báo.** Scheduler chỉ ghi vào object qua API server rằng Pod này thuộc node A.
+   Kubelet trên node A liên tục theo dõi API server, tự thấy có Pod được gán cho mình rồi kéo
+   image về chạy. Hai thành phần **chưa từng gọi trực tiếp cho nhau** — tất cả là ghi hồ sơ và
+   đọc hồ sơ qua đúng một cửa.
+3. Chỉ **kube-apiserver**. `kubelet` **không** kết nối tới etcd; nó chỉ nói chuyện với API
+   server. Bạn đã tự chứng minh điều này ở Lab 1a phần B3, khi chỉ manifest
+   `kube-apiserver.yaml` chứa `--etcd-servers`.
+4. Vì phân loại theo **vai trò**, không theo máy. `kubelet` là agent của node, containerd là
+   runtime, `kube-proxy` là networking. Chúng có mặt ở đó vì kubeadm chạy control plane dưới
+   dạng **static Pod**, mà static Pod thì cần kubelet đọc manifest trong
+   `/etc/kubernetes/manifests/` và cần runtime thực thi container. Giống việc một database
+   server chạy thêm agent giám sát không biến agent đó thành thành phần của database.
+5. `kube-apiserver` **không giữ trạng thái**: các bản không chia vùng dữ liệu, không bầu
+   leader, không đồng bộ với nhau. Thêm một bản chỉ là chạy thêm một process trỏ vào cùng etcd
+   rồi thêm vào backend của load balancer. etcd thì **có trạng thái** và giữ nhất quán bằng
+   quorum Raft — thêm member chỉ thêm bản sao chứ **không thêm sức ghi**. Vì vậy đến quy mô đủ
+   lớn, nghẽn chuyển từ apiserver xuống etcd.
+
+</details>
+
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

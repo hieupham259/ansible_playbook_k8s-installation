@@ -4,6 +4,38 @@
 >
 > Công nghệ đóng gói một ứng dụng cùng với các dependency lúc chạy (runtime dependency) của nó.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 1/8 ·
+Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài mở đầu giai đoạn, rất ngắn và chỉ đặt vấn đề. Giá trị nằm ở **một nguyên tắc** mà mọi thứ
+sau đó dựa vào.
+
+**Phải hiểu ở lần đọc này:**
+
+- Container được thiết kế **bất biến**: muốn đổi thì build image mới rồi tạo lại container,
+  **không sửa container đang chạy**. Đây là nguyên tắc chi phối toàn bộ cách vận hành workload
+  ở giai đoạn 3 và 4.
+- Container image là gói chứa mã, runtime, thư viện và giá trị mặc định — tức là thứ làm cho
+  container "chạy đâu cũng như nhau".
+- Kubernetes không tự chạy container; nó nhờ **container runtime**, và runtime nào cũng được
+  miễn hiện thực CRI.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Nhắc tới Pod và việc container được lập lịch cùng nhau | chưa học Pod | giai đoạn 3 |
+| RuntimeClass | có bài riêng ở cuối giai đoạn này | bài [43](43-runtime-class-vi.md) |
+
+---
+
 Trang này sẽ thảo luận về container và container image, cũng như việc sử dụng chúng
 trong vận hành (operations) và phát triển giải pháp (solution development).
 
@@ -52,3 +84,35 @@ cụ thể.
 
 Bạn cũng có thể dùng RuntimeClass để chạy các Pod khác nhau với cùng một container
 runtime nhưng với các thiết lập khác nhau.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Ứng dụng trong container cần vá một dòng cấu hình. Quy trình đúng theo bài này là gì, và vì
+   sao không phải là `exec` vào container rồi sửa?
+2. Kubernetes có tự chạy container không? Nếu không thì ai chạy, và Kubernetes ràng buộc thứ
+   đó bằng cái gì?
+3. Bài mở đầu bằng câu "container là một thuật ngữ mang nhiều nghĩa". Kể hai nghĩa khác nhau
+   mà từ này có thể mang.
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Build một image mới** chứa thay đổi, rồi **tạo lại container** từ image đã cập nhật. Sửa
+   trực tiếp phá vỡ tính bất biến: container đang chạy không còn khớp với image sinh ra nó, nên
+   lần tạo lại tiếp theo — do restart, do rollout, do node chết — thay đổi của bạn biến mất mà
+   không có dấu vết.
+2. **Không.** Container runtime chạy — containerd, CRI-O hoặc bất kỳ hiện thực nào khác.
+   Kubernetes ràng buộc chúng bằng **CRI (Container Runtime Interface)**; runtime nào hiện thực
+   đúng giao diện đó thì dùng được.
+3. Ví dụ: **image** (gói phần mềm nằm yên trên đĩa) so với **tiến trình đang chạy** sinh ra từ
+   image đó; hoặc **container theo nghĩa Linux** (namespace + cgroup) so với **container trong
+   spec của một Pod**. Bài dặn mỗi lần dùng từ này nên kiểm tra người nghe đang hiểu theo nghĩa
+   nào.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

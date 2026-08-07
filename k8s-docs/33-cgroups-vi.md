@@ -2,6 +2,47 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/architecture/cgroups/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 6/8 ·
+Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Lộ trình gọi đây là **nền tảng của mọi giới hạn tài nguyên học ở giai đoạn 3**. Bạn cũng đã
+chạy `stat -fc %T /sys/fs/cgroup` ở [Lab 00](labs/LAB-00-MOI-TRUONG.md) như một gate mà chưa
+biết nó kiểm cái gì.
+
+**Phải hiểu ở lần đọc này:**
+
+- cgroup là cơ chế của **Linux kernel** giới hạn tài nguyên cho tiến trình. Kubelet và runtime
+  đều phải nói chuyện với nó để thực thi `requests` và `limits`.
+- Lệnh kiểm tra phiên bản: `stat -fc %T /sys/fs/cgroup/` → **`cgroup2fs`** là v2, **`tmpfs`**
+  là v1.
+- **cgroup driver phải khớp** giữa kubelet và container runtime — cả hai cùng `systemd`. Đây
+  là yêu cầu được nêu trong mục *Yêu cầu*, và là lỗi cấu hình kinh điển nhất khi tự dựng
+  cluster.
+- Kubelet **tự phát hiện** cgroup v2, không cần cấu hình thêm.
+- cgroup v1 đã **deprecated** từ v1.35: mặc định kubelet **không khởi động** trên node dùng
+  cgroup v1.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Danh sách cải tiến kỹ thuật của v2 (PSI, sub-tree delegation) | chi tiết kernel | không cần |
+| MemoryQoS | cần hiểu QoS class trước | giai đoạn 3, bài [54](54-pod-qos-vi.md) |
+| Danh sách phiên bản Java, Node.js, cAdvisor | là danh sách tra cứu khi di chuyển | tra khi cần |
+| Cách bật cgroup v2 bằng GRUB | Ubuntu 24.04 đã bật sẵn | không cần cho lab này |
+
+Điều quan trọng nhất mang sang giai đoạn 3: **cgroup chính là thứ biến `limits` trong YAML
+thành ràng buộc thật trên node.**
+
+---
+
 Trên Linux, các nhóm điều khiển (control group) giới hạn tài nguyên được cấp phát
 cho các tiến trình (process).
 
@@ -140,3 +181,38 @@ trong [file cấu hình kubelet](https://kubernetes.io/docs/tasks/administer-clu
 - Tìm hiểu thêm về [cgroups](https://man7.org/linux/man-pages/man7/cgroups.7.html)
 - Tìm hiểu thêm về [container runtime](https://kubernetes.io/docs/concepts/architecture/cri)
 - Tìm hiểu thêm về [cgroup driver](https://kubernetes.io/docs/setup/production-environment/container-runtimes#cgroup-drivers)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Lệnh nào cho biết node đang dùng cgroup phiên bản mấy, và hai giá trị output tương ứng với
+   phiên bản nào?
+2. Ở Lab 00 bạn đặt `SystemdCgroup = true` cho containerd. Nếu kubelet dùng `systemd` còn
+   runtime dùng `cgroupfs` thì vấn đề là gì?
+3. cgroup nằm ở tầng nào — Kubernetes, container runtime, hay Linux kernel? Nó liên quan thế
+   nào tới `limits` bạn viết trong manifest?
+4. Bạn nâng một node lên Kubernetes v1.35 nhưng node đó vẫn dùng cgroup v1. Chuyện gì xảy ra
+   với kubelet, và có cách nào tạm thời đi tiếp không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `stat -fc %T /sys/fs/cgroup/`. Output **`cgroup2fs`** là cgroup **v2**, output **`tmpfs`**
+   là cgroup **v1**.
+2. Hai bên **quản lý hai cây cgroup khác nhau** cho cùng những tiến trình đó. Hệ quả là việc
+   thống kê và áp giới hạn tài nguyên trở nên không nhất quán, node dễ rơi vào trạng thái bất
+   ổn dưới tải. Bài liệt kê "kubelet và container runtime được cấu hình để dùng systemd cgroup
+   driver" là một **yêu cầu**, không phải khuyến nghị.
+3. Ở tầng **Linux kernel**. `limits` trong manifest là con số bạn khai báo; kubelet và runtime
+   dịch nó thành các thiết lập cgroup trên node, và **chính kernel** mới là thứ thực sự chặn
+   tiến trình vượt ngưỡng. Không có cgroup thì `limits` chỉ là chữ trong YAML.
+4. **Kubelet mặc định không khởi động.** cgroup v1 đã deprecated từ v1.35. Cách đi tiếp tạm
+   thời là đặt `failCgroupV1: false` trong file cấu hình kubelet — nhưng đó là hoãn binh, việc
+   đúng là chuyển node sang cgroup v2.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -2,6 +2,38 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/overview/working-with-objects/object-management/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 8/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài ngắn nhưng có hậu quả vận hành rất lớn. Bảng so sánh ở đầu bài là thứ đáng nhớ nhất.
+
+**Phải hiểu ở lần đọc này:**
+
+- **Ba kỹ thuật**: câu lệnh mệnh lệnh, cấu hình object kiểu mệnh lệnh, cấu hình object kiểu
+  khai báo — cùng với việc mỗi kỹ thuật hợp với môi trường nào và hỗ trợ mấy người ghi.
+- Cảnh báo mở đầu là quan trọng nhất: **một object chỉ nên được quản lý bằng một kỹ thuật
+  duy nhất**. Trộn lẫn cho ra hành vi không xác định.
+- Khác biệt cơ chế giữa `replace` và `apply`: `replace` **ghi đè toàn bộ spec** và làm mất mọi
+  thay đổi không có trong file; `apply` dùng thao tác API **`patch`** nên giữ lại thay đổi của
+  những người ghi khác.
+- `kubectl diff` chạy trước `apply` để xem trước thay đổi.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ví dụ `externalIPs` của Service `LoadBalancer` | chưa học Service | giai đoạn 5 |
+| Kustomize trong mục *Tiếp theo* | công cụ riêng, ngoài lộ trình lõi | khi cần |
+
+---
+
 Công cụ dòng lệnh `kubectl` hỗ trợ nhiều cách khác nhau để tạo và quản lý
 các [object](./16-working-with-objects-vi.md) của Kubernetes. Tài liệu này cung cấp cái nhìn tổng quan về các
 cách tiếp cận khác nhau đó. Đọc [Kubectl book](https://kubectl.docs.kubernetes.io) để biết
@@ -164,3 +196,37 @@ Nhược điểm so với cấu hình object kiểu mệnh lệnh:
 - [Tài liệu tham khảo lệnh Kubectl](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands/)
 - [Kubectl Book](https://kubectl.docs.kubernetes.io)
 - [Tài liệu tham khảo Kubernetes API](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Ba kỹ thuật quản lý object là gì? Kỹ thuật nào phù hợp cho dự án production có nhiều người
+   cùng ghi?
+2. `kubectl replace -f app.yaml` và `kubectl apply -f app.yaml` khác nhau ở **hậu quả** nào,
+   nếu ai đó vừa sửa một field trực tiếp trên cluster?
+3. Một Deployment đang được quản lý bằng `apply` từ Git. Bạn `kubectl edit` nó để sửa nhanh.
+   Vấn đề gì sẽ đến?
+4. Lệnh nào cho bạn xem trước thay đổi trước khi thực sự áp dụng?
+5. Vì sao `apply` giữ được thay đổi của người ghi khác còn `replace` thì không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Câu lệnh mệnh lệnh, cấu hình object kiểu mệnh lệnh, cấu hình object kiểu khai báo. **Kiểu
+   khai báo** (`apply` trên thư mục) là kỹ thuật duy nhất trong bảng vừa khuyến nghị cho
+   production vừa hỗ trợ nhiều người ghi.
+2. `replace` **xóa mất** thay đổi đó, vì nó thay toàn bộ spec bằng nội dung file. `apply` giữ
+   lại, vì nó chỉ ghi phần khác biệt.
+3. Bạn đang **trộn hai kỹ thuật trên cùng một object** — đúng thứ bài cảnh báo là cho ra hành
+   vi không xác định. Cụ thể hơn: lần `apply` sau từ Git sẽ không biết về thay đổi thủ công
+   của bạn, và Git không còn phản ánh đúng thực tế cluster.
+4. `kubectl diff -f ...` (thêm `-R` nếu chạy đệ quy trên thư mục).
+5. Vì `apply` dùng thao tác API **`patch`**, chỉ ghi những khác biệt quan sát được; còn
+   `replace` dùng thao tác API **`replace`**, thay thế toàn bộ cấu hình object.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -2,6 +2,45 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/containers/runtime-class/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 7/8 ·
+Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Cluster lab của bạn chỉ có một runtime handler nên sẽ không tạo RuntimeClass nào. Đọc để biết
+**cơ chế tồn tại** và nhận ra nó khi gặp cluster có workload cần cô lập mạnh.
+
+**Phải hiểu ở lần đọc này:**
+
+- RuntimeClass là cách **chọn cấu hình container runtime cho từng Pod**, đánh đổi giữa hiệu
+  năng và mức cô lập.
+- Thiết lập gồm **hai bước** và thứ tự bắt buộc: cấu hình handler trong CRI **trên node**
+  trước, rồi mới tạo object RuntimeClass trỏ tới `handler` đó. Object trong API không tự tạo
+  ra cấu hình trên node.
+- RuntimeClass là tài nguyên **cấp cluster**, không thuộc namespace nào — nối với bài
+  [19](19-namespaces-vi.md).
+- Pod dùng nó qua `spec.runtimeClassName`. Nếu RuntimeClass không tồn tại hoặc CRI không chạy
+  được handler, **Pod vào phase `Failed`**.
+- Không chỉ định `runtimeClassName` thì dùng handler mặc định — đúng như hành vi hiện tại của
+  cluster lab.
+- Quyền ghi RuntimeClass nên giới hạn cho quản trị viên cluster.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cấu hình handler trong `config.toml` của containerd và `crio.conf` | thao tác trên node, làm khi cần runtime thứ hai | giai đoạn 8 |
+| Toàn bộ mục *Lập lịch* — `nodeSelector`, `tolerations` | chưa học lập lịch | giai đoạn 7 |
+| *Overhead của Pod* | cần hiểu requests/limits trước | giai đoạn 3 và 7, bài [144](144-pod-overhead-vi.md) |
+| Tham chiếu tới phase `Failed` của Pod | chưa học vòng đời Pod | giai đoạn 3, bài [47](47-pod-lifecycle-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.20 [stable]`
 
 Trang này mô tả tài nguyên RuntimeClass và cơ chế lựa chọn runtime.
@@ -172,3 +211,33 @@ RuntimeClass này và đảm bảo các overhead đó được tính đến tron
 - [Tài liệu tham khảo API RuntimeClass (RuntimeClass API reference)](https://kubernetes.io/docs/reference/kubernetes-api/node/runtime-class-v1/)
 - Đọc về khái niệm [Overhead của Pod (Pod Overhead)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-overhead/)
 - [Thiết kế tính năng PodOverhead (PodOverhead Feature Design)](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/688-pod-overhead)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Bạn `kubectl apply` một RuntimeClass tên `gvisor` với `handler: runsc`, nhưng chưa đụng gì
+   tới các node. Pod dùng `runtimeClassName: gvisor` sẽ ra sao?
+2. RuntimeClass là tài nguyên thuộc namespace hay cấp cluster? Kiểm bằng lệnh nào?
+3. Pod của bạn không khai báo `runtimeClassName`. Nó chạy bằng gì?
+4. Vì sao bài khuyến nghị chỉ quản trị viên cluster mới được ghi RuntimeClass?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Pod vào **phase `Failed`**, vì CRI trên node không có handler `runsc` để chạy. Object trong
+   API chỉ là cái tên trỏ tới một cấu hình; **cấu hình thật phải tồn tại trên node trước** — đó
+   là lý do bài đánh số hai bước theo đúng thứ tự đó. Xem event của Pod để thấy thông báo lỗi.
+2. **Cấp cluster** — bài ghi rõ RuntimeClass là tài nguyên không thuộc namespace nào. Kiểm bằng
+   `kubectl api-resources --namespaced=false | grep runtimeclass`.
+3. Bằng **RuntimeHandler mặc định**, tương đương với hành vi khi tính năng RuntimeClass bị tắt.
+   Đây chính là điều đang xảy ra với mọi Pod trong cluster lab của bạn.
+4. Vì RuntimeClass quyết định **workload chạy dưới cơ chế cô lập nào**. Ai tạo được
+   RuntimeClass thì có thể trỏ tới một handler yếu hơn về bảo mật, hoặc gắn `scheduling` và
+   `overhead` ảnh hưởng tới việc Pod được đặt ở đâu và tính tài nguyên ra sao.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

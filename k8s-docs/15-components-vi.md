@@ -119,4 +119,21 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 4. Nếu network plugin tự hiện thực chuyển tiếp cho Service thì node còn cần `kube-proxy`
    không?
 
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không phải.** Bài xếp `kubelet` và container runtime vào nhóm *thành phần của node* —
+   nhóm chạy trên **mọi** node. Việc chúng có mặt trên control-plane node chỉ nói lên máy đó
+   cũng là một node, không đổi vai trò của chúng. Phân loại theo **vai trò**, không theo máy.
+2. Thiếu **cloud-controller-manager**, và bài đánh dấu nó là **tùy chọn**. Nó chỉ có việc để
+   làm khi cần tích hợp với API của nhà cung cấp cloud; cluster on-premise không có cloud
+   provider nên không thiếu gì cả.
+3. **Addon.** CoreDNS nằm ở mục *Addons* dưới mục DNS. Bài nói mọi cluster đều nên có DNS,
+   nhưng "nên có" khác với "là thành phần của control plane".
+4. **Không.** Bài đánh dấu `kube-proxy` là tùy chọn và nói rõ: nếu bạn dùng network plugin tự
+   hiện thực việc chuyển tiếp gói tin cho Service và cung cấp hành vi tương đương, thì không
+   cần chạy `kube-proxy` trên các node.
+
+</details>
+
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

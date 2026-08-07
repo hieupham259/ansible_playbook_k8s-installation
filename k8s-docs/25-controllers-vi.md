@@ -206,5 +206,26 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 5. Controller mở rộng số node của cluster phải gọi API của nhà cung cấp cloud. Vậy nó còn dùng
    Kubernetes API để làm gì?
 
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Observe** — theo dõi trạng thái; **compare** — so với trạng thái mong muốn trong `spec`;
+   **act** — hành động thu hẹp khoảng cách; **repeat** — lặp lại không kết thúc. Bộ điều nhiệt:
+   đọc nhiệt độ phòng, so với nhiệt độ bạn đặt, bật hoặc tắt thiết bị, rồi lặp lại.
+2. **Không.** Job controller **yêu cầu API server tạo Pod**. Các thành phần khác hành động dựa
+   trên thông tin mới đó — scheduler gán node, kubelet trên node đó chạy container. Bản thân
+   controller không chạy Pod hay container nào.
+3. **ServiceAccount controller tạo lại object `default` với UID mới**, không cần bạn làm gì. Nó
+   là một trong các controller có sẵn chạy trong `kube-controller-manager`, và nó bảo đảm mọi
+   namespace đang `Active` đều có một ServiceAccount tên `default`.
+4. **Sai.** Bài nói rõ cluster rất có thể **không bao giờ đạt trạng thái ổn định**, và điều đó
+   không quan trọng miễn là các controller vẫn chạy và vẫn thực hiện được những thay đổi hữu
+   ích. Thay đổi liên tục là trạng thái bình thường, không phải dấu hiệu hỏng.
+5. Nó **lấy trạng thái mong muốn từ API server**, và sau khi tác động ra bên ngoài thì **báo
+   cáo trạng thái hiện tại về API server**. Các vòng lặp điều khiển khác quan sát dữ liệu được
+   báo cáo đó rồi tự thực hiện hành động của chúng.
+
+</details>
+
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của nhóm 1a — khi
 trả lời được hết, bạn sẵn sàng vào [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md).

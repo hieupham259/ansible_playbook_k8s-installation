@@ -6,6 +6,45 @@
 > các thuộc tính nhận dạng có ý nghĩa với người dùng; selector cho phép chọn ra
 > các tập con object dựa trên label.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 2/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Đây là bài quan trọng nhất nhóm 1b.** Selector là cơ chế mà mọi controller và Service dùng
+để tìm Pod — không nắm bài này thì giai đoạn 4 và 5 sẽ học vẹt.
+
+**Phải hiểu ở lần đọc này:**
+
+- Label **không đảm bảo duy nhất** — đây là khác biệt cốt lõi với name. Nhiều object cùng mang
+  một label là chuyện bình thường và là mục đích thiết kế.
+- Hai loại requirement: **dựa trên đẳng thức** (`=`, `==`, `!=`) và **dựa trên tập hợp**
+  (`in`, `notin`, `exists`, `!`).
+- Dấu phẩy là **AND**. Không có toán tử OR giữa các requirement — nhưng `in (a, b)` là OR trên
+  *value* của cùng một key.
+- Cái bẫy lớn nhất: `tier != frontend` **cũng chọn cả object không có key `tier`**. Tương tự
+  với `notin`.
+- `matchLabels` và `matchExpressions` là dạng selector trong manifest; `matchLabels` chỉ là
+  cách viết gọn của `matchExpressions` với toán tử `In`.
+- Ba lệnh phải thạo: `kubectl get -l`, `kubectl get -L`, `kubectl label`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| `nodeSelector` và ví dụ GPU `accelerator` | thuộc chủ đề lập lịch | giai đoạn 7 |
+| *Service và ReplicationController* | chưa học Service | giai đoạn 5 |
+| Ghi chú selector của hai ReplicaSet không được chồng lấn | chưa học ReplicaSet | giai đoạn 4 |
+| Chuỗi truy vấn URL đã mã hóa trong mục *Lọc trong LIST và WATCH* | chi tiết cho người viết client | khi viết client |
+| Ví dụ guestbook nhiều tầng | minh họa, không cần chạy | đọc lấy ý |
+
+---
+
 _Label_ (nhãn) là các cặp key/value được gắn vào các object như Pod.
 Label được thiết kế để chỉ định các thuộc tính nhận dạng (identifying attributes) của object
 có ý nghĩa và liên quan đến người dùng, nhưng không trực tiếp mang ngữ nghĩa
@@ -408,3 +447,41 @@ Kết quả hiển thị tất cả các pod "app=nginx", kèm một cột label
 - Xem [các label được khuyến nghị (Recommended labels)](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
 - [Áp dụng Pod Security Standards bằng Label của Namespace](https://kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-namespace-labels/)
 - Đọc bài blog [Viết một Controller cho Pod Labels](https://kubernetes.io/blog/2021/06/21/writing-a-controller-for-pod-labels/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Khác biệt cơ bản giữa **name** và **label** là gì? Vì sao không thể dùng name để làm việc
+   mà label làm?
+2. `kubectl get pods -l 'tier!=frontend'`. Một Pod hoàn toàn **không có** label key `tier` có
+   nằm trong kết quả không?
+3. Viết một selector chọn các Pod thuộc `production` hoặc `qa`, nhưng loại các Pod có
+   `tier=frontend`.
+4. Bài nói không có toán tử OR, nhưng `environment in (production, qa)` trông rất giống OR.
+   Mâu thuẫn ở đâu?
+5. `kubectl get pods -l tier=fe` và `kubectl get pods -L tier` khác nhau thế nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Name **duy nhất** và dùng để trỏ tới đúng **một** object; label **không duy nhất** và dùng
+   để mô tả thuộc tính nhận dạng, cho phép chọn ra **một tập** object. Muốn nói "tất cả Pod
+   của frontend ở production" thì name bó tay, vì bạn phải liệt kê từng tên và danh sách đó
+   thay đổi liên tục.
+2. **Có.** Requirement bất đẳng thức chọn cả các resource không mang key đó. Đây là chỗ dễ sai
+   nhất: `!=` không có nghĩa là "có key này và giá trị khác".
+3. `environment in (production,qa),tier notin (frontend)` — hoặc trộn hai kiểu:
+   `environment in (production,qa),tier!=frontend`. Lưu ý cách viết thứ hai cũng lấy cả Pod
+   không có key `tier`.
+4. Không mâu thuẫn: OR bị cấm **giữa các requirement** (không thể viết "environment=production
+   HOẶC tier=backend"). Còn `in (production, qa)` là tập giá trị **của cùng một key** — vẫn chỉ
+   là một requirement.
+5. `-l` **lọc**: chỉ trả về Pod khớp. `-L` **hiển thị**: giữ nguyên tập kết quả nhưng thêm một
+   cột in ra giá trị label đó. Hai cờ hoàn toàn độc lập và thường dùng chung.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

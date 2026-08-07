@@ -2,6 +2,42 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 7/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Ở [Lab 00](labs/LAB-00-MOI-TRUONG.md) bạn đã copy `/etc/kubernetes/admin.conf` thành
+`~/.kube/config` mà chưa biết bên trong có gì. Đây là bài mở file đó ra.
+
+**Phải hiểu ở lần đọc này:**
+
+- Kubeconfig có **ba nhóm mục**: `clusters` (địa chỉ và CA), `users` (thông tin xác thực),
+  `contexts`. Một **context** buộc ba thứ lại: cluster + user + namespace.
+- `current-context` quyết định lệnh không có flag sẽ đi tới đâu.
+- Thứ tự tìm file: `--kubeconfig` (chỉ một file, không merge) → `KUBECONFIG` (danh sách, có
+  merge) → `$HOME/.kube/config`.
+- Quy tắc merge quan trọng nhất: **file đầu tiên đặt một giá trị sẽ thắng**, và file sau không
+  bổ sung được vào mục đã bị chiếm.
+- Đường dẫn file bên trong kubeconfig là **tương đối so với vị trí file kubeconfig**, còn
+  đường dẫn trên dòng lệnh thì tương đối so với thư mục hiện tại.
+- Cảnh báo bảo mật: kubeconfig lạ phải soi như soi một shell script lạ trước khi dùng.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Chuỗi sáu bước xác định cluster và user | là đặc tả để tra khi debug, không phải để nhớ | quay lại khi kubectl trỏ sai chỗ |
+| Các cơ chế xác thực khác nhau (certificate, token) | chưa học authentication | giai đoạn 9 |
+| `proxy-url` | trường hợp đặc thù | khi cần qua proxy |
+
+---
+
 Hãy dùng các file kubeconfig để tổ chức thông tin về cluster, người dùng (user), namespace và
 các cơ chế xác thực (authentication). Công cụ dòng lệnh `kubectl` dùng các file kubeconfig để
 tìm thông tin cần thiết nhằm chọn một cluster và giao tiếp với API server
@@ -163,3 +199,36 @@ contexts:
 
 * [Cấu hình quyền truy cập tới nhiều cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/)
 * [`kubectl config`](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#config)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Một context gồm mấy tham số, là những gì?
+2. Ở Lab 00 bạn chạy `sudo cp /etc/kubernetes/admin.conf ~/.kube/config` rồi `chmod 600`. File
+   đó chứa gì khiến quyền 600 là bắt buộc?
+3. `KUBECONFIG` trỏ tới hai file, cả hai đều khai báo một user tên `red-user` với các trường
+   khác nhau. Kết quả hợp nhất ra sao?
+4. Bạn muốn mọi lệnh `kubectl` mặc định chạy trong namespace `lab-1b` mà không phải gõ `-n`.
+   Làm thế nào, và thay đổi đó nằm ở đâu?
+5. Có `--kubeconfig` **và** `KUBECONFIG` cùng lúc thì `kubectl` dùng cái nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Ba**: cluster, user và namespace.
+2. Nó chứa **thông tin xác thực quản trị cluster** — client certificate và key của admin. Ai
+   đọc được file đó thì có toàn quyền trên cluster, nên không được để người dùng khác trên máy
+   đọc.
+3. Chỉ các giá trị từ **file đầu tiên** khai báo `red-user` được dùng. Các mục của file thứ
+   hai bị **loại bỏ hoàn toàn**, kể cả những mục không xung đột. Đây là chỗ hay gây bất ngờ khi
+   ghép nhiều kubeconfig.
+4. `kubectl config set-context --current --namespace=lab-1b`. Thay đổi được ghi vào **context
+   hiện tại trong chính file kubeconfig**, nên nó bền qua các phiên terminal.
+5. Dùng `--kubeconfig`, và **không hợp nhất gì cả**. Flag thắng, `KUBECONFIG` bị bỏ qua.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

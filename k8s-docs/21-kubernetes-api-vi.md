@@ -348,4 +348,22 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 3. Cluster có một resource ở `v1alpha1`. Điều đó có nghĩa cả cluster đang ở mức alpha không?
 4. Object bạn tạo qua API server cuối cùng được lưu ở đâu?
 
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `/api/v1` là **core group** — group rỗng, nên đường dẫn không mang tên group.
+   `/apis/apps/v1` là một **named API group** tên `apps`, version `v1`. Mọi group ngoài core
+   đều nằm dưới dạng `/apis/<group>/<version>`.
+2. **Không mất.** Các phiên bản API chỉ là những cách biểu diễn khác nhau của **cùng một dữ
+   liệu lưu trữ**, và API server chuyển đổi giữa chúng một cách trong suốt. Bạn đọc, sửa, xóa
+   được bằng cả `v1beta1` lẫn `v1` cho tới khi `v1beta1` bị ngưng hỗ trợ và gỡ bỏ; sau đó dùng
+   `v1`.
+3. **Không.** Versioning được thực hiện ở **cấp API group**, không phải cấp cluster. Một
+   cluster hoàn toàn có thể vừa phục vụ `v1` cho group này vừa phục vụ `v1alpha1` cho group
+   khác. Mức trưởng thành nói về **API đó**, không nói về độ ổn định của cluster.
+4. Trong **etcd**. API server ghi trạng thái đã tuần tự hóa của object vào đó — mục *Lưu trữ
+   bền vững*.
+
+</details>
+
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

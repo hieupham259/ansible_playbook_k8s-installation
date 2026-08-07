@@ -171,4 +171,21 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Khi bạn chạy `kubectl logs`, request đi qua những chặng nào?
 3. Trong hai chiều giao tiếp đó, chiều nào mặc định đã bảo mật, chiều nào là điểm yếu?
 
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Chỉ với **API server**. **Không** nói trực tiếp với scheduler hay etcd. Đây là mô hình
+   hub-and-spoke: mọi truy cập API từ node đều kết thúc tại API server, và không có thành phần
+   control plane nào khác được thiết kế để cung cấp dịch vụ từ xa.
+2. `kubectl` → **API server** (HTTPS, thường là 6443) → **kubelet** trên node đang chạy Pod đó
+   (endpoint HTTPS của kubelet) → log đi ngược lại theo cùng đường. Client **không** mở kết nối
+   trực tiếp tới kubelet. Cùng đường này được dùng cho attach và port-forward.
+3. Chiều **node → control plane đã bảo mật mặc định**: HTTPS trên port bảo mật, node được cấp
+   certificate gốc của cluster và thông tin xác thực client, nên chạy được trên cả mạng không
+   tin cậy. Chiều **control plane → node là điểm yếu**: mặc định API server **không xác minh
+   serving certificate của kubelet**, nên kết nối dễ bị tấn công xen giữa. Khắc phục bằng
+   `--kubelet-certificate-authority` — thuộc phần hardening ở giai đoạn 9.
+
+</details>
+
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

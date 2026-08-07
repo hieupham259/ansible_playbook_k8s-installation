@@ -2,6 +2,39 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/containers/cri/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 5/8 ·
+Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Ở [Lab 00](labs/LAB-00-MOI-TRUONG.md) bạn đã chạy `crictl info` và kiểm tra "CRI API là `v1`"
+mà chưa biết vì sao điều đó quan trọng. Bài này trả lời.
+
+**Phải hiểu ở lần đọc này:**
+
+- CRI là **hợp đồng giữa kubelet và container runtime**, dùng gRPC. Nhờ nó, đổi runtime không
+  phải biên dịch lại thành phần nào của cluster.
+- **Kubelet là client, runtime là server.** Endpoint được chỉ định bằng
+  `--container-runtime-endpoint` — chính giá trị bạn đã đặt trong `/etc/crictl.yaml` ở Lab 00.
+- Runtime phải phục vụ **hai dịch vụ**: runtime service và image service.
+- Từ Kubernetes v1.26, runtime **bắt buộc** hỗ trợ CRI API `v1`. Không hỗ trợ thì **kubelet
+  không đăng ký node** — đây là nguyên nhân trực tiếp của một dạng sự cố `NotReady` sau nâng
+  cấp.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Nâng cấp* và tình huống re-dial gRPC | chỉ gặp khi nâng cấp cluster thật | CP2 |
+| *Liệt kê theo kiểu streaming* và `CRIListStreaming` (alpha) | chỉ có ý nghĩa ở node hơn 10.000 container | không cần |
+
+---
+
 CRI là một giao diện plugin (plugin interface) cho phép kubelet sử dụng nhiều loại
 container runtime khác nhau mà không cần phải biên dịch lại các thành phần của
 cluster.
@@ -64,3 +97,33 @@ Nếu container runtime không hỗ trợ các RPC streaming, kubelet sẽ tự 
 ## Tiếp theo (What's next)
 
 - Tìm hiểu thêm về [định nghĩa giao thức (protocol definition)](https://github.com/kubernetes/cri-api/blob/v0.33.1/pkg/apis/runtime/v1/api.proto) CRI
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Trong quan hệ CRI, ai là client và ai là server?
+2. CRI giải quyết vấn đề gì? Không có nó thì việc đổi container runtime sẽ tốn kém ra sao?
+3. Bạn nâng cấp một node lên Kubernetes mới, nhưng container runtime trên node đó chỉ hỗ trợ
+   CRI API cũ. Triệu chứng bạn nhìn thấy là gì?
+4. Ở Lab 00 bạn viết `runtime-endpoint: unix:///run/containerd/containerd.sock` vào
+   `/etc/crictl.yaml`. Giá trị đó tương ứng với thứ gì trong bài này?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Kubelet là client**, kết nối tới **container runtime** đóng vai server, qua gRPC.
+2. Nó cho phép kubelet dùng **nhiều loại container runtime khác nhau mà không phải biên dịch
+   lại các thành phần của cluster**. Không có CRI, mỗi runtime mới sẽ đòi một bản kubelet
+   riêng — tức là mỗi tổ hợp runtime × phiên bản Kubernetes là một bản build.
+3. **Kubelet đăng ký node thất bại và báo lỗi**, nên node không lên `Ready`. Từ v1.26 kubelet
+   yêu cầu runtime hỗ trợ CRI API `v1`; không có thì nó không đăng ký node.
+4. Đó là **endpoint của dịch vụ runtime và image** mà CRI nói tới — cùng thứ mà kubelet nhận
+   qua cờ `--container-runtime-endpoint`. `crictl` nói chuyện với runtime qua đúng giao thức
+   CRI mà kubelet dùng, nên nó là công cụ debug đúng tầng khi node có vấn đề.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

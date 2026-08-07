@@ -2,6 +2,47 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/architecture/garbage-collection/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+bài 3/7 · Kiểm chứng ở Lab 1c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này **dựa hoàn toàn** trên hai bài vừa đọc: [29 — Finalizers](29-finalizers-vi.md) và
+[30 — Owner và dependent](30-owners-dependents-vi.md). Đọc lệch thứ tự sẽ không hiểu.
+
+Lưu ý: "thu gom rác" ở đây gộp **hai chuyện hoàn toàn khác nhau** — dọn object trong API, và
+dọn container/image trên đĩa node. Đừng lẫn hai phần đó.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ba chính sách xóa: **foreground** (xóa phụ thuộc trước, chủ sở hữu vẫn hiện trong API cho
+  tới khi xong), **background** (xóa chủ sở hữu ngay, dọn phụ thuộc ở nền — **mặc định**), và
+  **orphan** (bỏ lại phụ thuộc).
+- Foreground và orphan được hiện thực bằng **finalizer** đặt lên chính chủ sở hữu — đây là chỗ
+  bài 29 và bài 30 khớp vào nhau.
+- Trong xóa foreground, chỉ những phụ thuộc có `blockOwnerDeletion=true` **và đang nằm trong
+  cache của garbage collector** mới thực sự chặn được.
+- Phần thu gom container và image là việc của **kubelet trên từng node**, hoàn toàn tách khỏi
+  cơ chế owner reference: image mỗi 5 phút, container mỗi phút.
+- Cơ chế ngưỡng đĩa `HighThresholdPercent` / `LowThresholdPercent`: vượt ngưỡng cao thì xóa
+  image từ cũ nhất cho tới khi xuống ngưỡng thấp.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Danh sách tài nguyên được dọn ở đầu bài (Job, PV, CSR…) | phần lớn chưa học | giai đoạn 4, 6, 9 |
+| `MinAge`, `MaxPerPodContainer`, `MaxContainers` | là tham số tinh chỉnh kubelet | giai đoạn 12 và CP5 |
+| `imageMaximumGCAge` | cấu hình theo từng node | giai đoạn 12 |
+| Ghi chú owner reference cross-namespace | đã đọc ở bài [30](30-owners-dependents-vi.md) | không cần đọc lại |
+
+---
+
 Thu gom rác (garbage collection) là thuật ngữ chung cho các cơ chế khác nhau mà Kubernetes dùng
 để dọn dẹp tài nguyên trong cluster. Điều này cho phép dọn dẹp các tài nguyên như sau:
 
@@ -191,3 +232,40 @@ cách cấu hình thu gom rác:
 * Tìm hiểu thêm về [quyền sở hữu của các đối tượng Kubernetes](https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/).
 * Tìm hiểu thêm về [finalizer](https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/) trong Kubernetes.
 * Tìm hiểu về [TTL controller](https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/) dọn dẹp các Job đã hoàn thành.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Ba chính sách xóa theo tầng là gì? Cái nào là mặc định?
+2. Bạn xóa một chủ sở hữu bằng foreground. Object đó biến mất khỏi `kubectl get` ngay hay còn
+   nhìn thấy? Vì sao?
+3. Foreground và orphan được hiện thực bằng cơ chế nào đã học ở bài [29](29-finalizers-vi.md)?
+4. Một object phụ thuộc có `blockOwnerDeletion=true` nhưng vẫn không chặn được việc xóa chủ sở
+   hữu. Bài nêu lý do gì?
+5. Thành phần nào dọn container và image không dùng nữa? Nó có liên quan gì tới owner
+   reference không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Foreground**, **background**, **orphan**. Kubernetes dùng **background** mặc định, trừ khi
+   bạn chủ động chọn foreground hoặc chọn bỏ lại phụ thuộc.
+2. **Vẫn nhìn thấy.** Trong xóa foreground, chủ sở hữu chuyển sang trạng thái đang trong quá
+   trình xóa: `metadata.deletionTimestamp` được đặt, `metadata.finalizers` có
+   `foregroundDeletion`, và object **vẫn hiển thị qua API** cho tới khi mọi phụ thuộc mà
+   controller biết đã bị xóa xong.
+3. Bằng **finalizer** đặt trên chính object chủ sở hữu: `foregroundDeletion` cho foreground,
+   `orphan` cho orphan. Đây chính là cơ chế "chờ đến khi điều kiện được thỏa mãn" của bài 29.
+4. Vì nó **không nằm trong cache của controller thu gom rác**. Cache có thể thiếu những object
+   mà loại tài nguyên của chúng không list/watch thành công, hoặc những object được tạo đồng
+   thời với lúc chủ sở hữu bị xóa.
+5. **Kubelet** trên từng node — image mỗi 5 phút, container mỗi phút. Việc này **không liên
+   quan** tới owner reference; nó dựa trên tuổi, số lượng và ngưỡng sử dụng đĩa. Kubelet cũng
+   chỉ dọn những container do chính nó quản lý.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -2,6 +2,38 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 5/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là bài **quy ước**, không phải bài cơ chế. Không có gì trong cluster cưỡng chế các label
+này; đọc để về sau đặt tên có kỷ luật và để đọc hiểu manifest của người khác.
+
+**Phải hiểu ở lần đọc này:**
+
+- Prefix `app.kubernetes.io/` dành cho label dùng chung, để chúng không xung đột với label
+  riêng của bạn.
+- Sáu key và ý nghĩa từng cái. Quan trọng nhất là phân biệt `name` (tên **ứng dụng**) với
+  `instance` (một **bản cài cụ thể** của ứng dụng đó).
+- Kubernetes **không có** khái niệm "ứng dụng" chính thức. Ứng dụng chỉ tồn tại dưới dạng
+  metadata do bạn gắn vào.
+- Đây là khuyến nghị, không bắt buộc với bất kỳ công cụ lõi nào.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ví dụ WordPress + MySQL với Deployment, Service, StatefulSet | chưa học các workload này | giai đoạn 4 và 5 |
+| `managed-by: Helm` | Helm nằm ngoài lộ trình lõi | khi dùng Helm |
+
+---
+
 Bạn có thể trực quan hóa và quản lý các object Kubernetes bằng nhiều công cụ khác ngoài kubectl và
 dashboard. Một tập label chung cho phép các công cụ hoạt động tương thích với nhau (interoperably), mô tả
 các object theo một cách chung mà mọi công cụ đều có thể hiểu.
@@ -164,3 +196,35 @@ metadata:
 ```
 
 Với `StatefulSet` và `Service` của MySQL, bạn sẽ thấy thông tin về cả MySQL lẫn WordPress — ứng dụng bao quát hơn — đều được bao gồm.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Vì sao các label khuyến nghị đều có prefix, trong khi label của riêng bạn thì không cần?
+2. Bạn cài WordPress hai lần trong cùng một cluster cho hai website khác nhau. Giá trị
+   `app.kubernetes.io/name` và `app.kubernetes.io/instance` của hai bản khác nhau ra sao?
+3. Kubernetes có một object nào tên là "Application" không? Vậy khái niệm "ứng dụng" tồn tại ở
+   đâu trong cluster?
+4. Bỏ hết các label `app.kubernetes.io/*` đi thì cluster có chạy sai không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Prefix `app.kubernetes.io` bảo đảm label dùng chung **không xung đột** với label tùy chỉnh
+   của người dùng. Label không prefix được coi là riêng tư của bạn, nên bạn tự do đặt tên
+   trong không gian đó.
+2. `name` **giống nhau** ở cả hai — đều là `wordpress`, vì cùng một ứng dụng. `instance` phải
+   **khác nhau** (ví dụ `wordpress-abcxyz` và `wordpress-uvwxyz`), vì mỗi bản cài là một
+   instance riêng và mỗi instance phải có tên duy nhất.
+3. **Không có.** Bài nói rõ Kubernetes không phải PaaS và không có hay cưỡng chế khái niệm
+   ứng dụng chính thức. "Ứng dụng" chỉ tồn tại như một khái niệm không chính thức, được mô tả
+   hoàn toàn bằng metadata bạn gắn vào các object.
+4. **Không.** Đây là khuyến nghị, không bắt buộc với bất kỳ công cụ lõi nào. Cái mất là khả
+   năng truy vấn và khả năng các công cụ bên ngoài hiểu được cấu trúc ứng dụng của bạn.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

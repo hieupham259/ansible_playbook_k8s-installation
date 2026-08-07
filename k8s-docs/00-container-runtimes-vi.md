@@ -4,6 +4,50 @@
 >
 > Bạn cần cài đặt một container runtime (môi trường thực thi container) vào mỗi node trong cluster để các Pod có thể chạy ở đó. Trang này trình bày những việc liên quan và mô tả các tác vụ đi kèm khi thiết lập node.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 8/8 ·
+Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Bài này được lộ trình tách làm hai lần dùng.** Lần này ở giai đoạn 2 bạn **chỉ đọc lý
+thuyết**, đặc biệt là mục *Các cgroup driver*. Phần thao tác cài đặt để dành cho
+[giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), khi bạn dựng lại
+cluster có hiểu — xem điều chỉnh số 4 ở cuối lộ trình.
+
+Bạn đã **chạy** phần lớn nội dung bài này ở [Lab 00](labs/LAB-00-MOI-TRUONG.md) mục A4 mà chưa
+biết vì sao. Đây là lúc đọc để hiểu những dòng lệnh đã gõ.
+
+**Phải hiểu ở lần đọc này:**
+
+- **Mục *Các cgroup driver* là trọng tâm duy nhất.** Kubelet và container runtime **bắt buộc
+  phải dùng cùng một cgroup driver**. Đây là lỗi cấu hình kinh điển nhất khi tự dựng cluster.
+- Vì sao `systemd` là lựa chọn đúng khi init system là systemd: dùng `cgroupfs` trong hoàn cảnh
+  đó tạo ra **hai trình quản lý cgroup**, hai cách nhìn khác nhau về tài nguyên, và node trở
+  nên **không ổn định khi chịu áp lực tài nguyên**.
+- kubeadm từ v1.22 mặc định đặt `cgroupDriver: systemd` cho kubelet — nên phần bạn phải tự lo
+  là **phía runtime** (`SystemdCgroup = true` trong `config.toml`, đúng như Lab 00 đã làm).
+- **Đổi cgroup driver của node đã tham gia cluster là thao tác nhạy cảm**; cách an toàn là thay
+  hoặc cài lại node, không phải sửa tại chỗ.
+- Runtime bắt buộc hỗ trợ CRI `v1`; không có thì kubelet không đăng ký được node — nối với bài
+  [44](44-cri-vi.md).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ các bước cài đặt containerd, CRI-O, Docker Engine, MCR | là thao tác dựng cluster | giai đoạn 8 |
+| Bật chuyển tiếp gói tin IPv4, tham số sysctl | đã chạy ở Lab 00; hiểu khi học mạng | giai đoạn 5 và 8 |
+| Ghi đè image sandbox (pause) | tinh chỉnh khi cần registry riêng | giai đoạn 8 |
+| Feature gate `KubeletCgroupDriverFromCRI` | tự phát hiện driver, còn đang chuyển tiếp | giai đoạn 12 |
+| Toàn bộ phần dockershim và di chuyển khỏi nó | chỉ cần khi tiếp quản cluster đời cũ | CP12 |
+
+---
+
 > **Ghi chú:** Dockershim đã bị loại bỏ khỏi dự án Kubernetes kể từ bản phát hành 1.24. Đọc [Câu hỏi thường gặp về việc loại bỏ Dockershim](https://kubernetes.io/dockershim) để biết thêm chi tiết.
 
 Bạn cần cài đặt một container runtime vào mỗi node trong cluster để các Pod có thể chạy ở đó.
@@ -335,3 +379,43 @@ chỉ định container image dùng làm Pod infrastructure container ("pause im
 Bên cạnh container runtime, cluster của bạn còn cần một
 [network plugin](https://kubernetes.io/docs/concepts/cluster-administration/networking/#how-to-implement-the-kubernetes-network-model)
 hoạt động.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Điều gì xảy ra nếu kubelet dùng cgroup driver `systemd` còn container runtime dùng
+   `cgroupfs`? Vì sao triệu chứng chỉ lộ ra khi node chịu tải?
+2. Ở Lab 00 bạn đặt `SystemdCgroup = true` cho containerd nhưng **không** đụng gì tới cấu hình
+   kubelet. Vì sao vẫn khớp?
+3. Một node đã chạy trong cluster và bạn muốn đổi cgroup driver của nó. Cách làm an toàn là gì,
+   và vì sao không nên sửa tại chỗ rồi restart kubelet?
+4. Bạn cài containerd từ gói `.deb` và cluster không lên. Bài nêu một nguyên nhân rất hay gặp
+   liên quan tới plugin — đó là gì?
+5. Vì sao lộ trình bắt bạn đọc bài này ở giai đoạn 2 nhưng để phần cài đặt lại tới giai đoạn 8?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Hệ thống có **hai trình quản lý cgroup**, dẫn tới **hai cách nhìn khác nhau về tài nguyên
+   khả dụng và đang dùng**. Khi node rảnh thì chẳng ai nhận ra; chỉ khi có **áp lực tài nguyên**
+   thì việc thống kê và áp giới hạn mới mâu thuẫn, và node trở nên không ổn định.
+2. Vì **kubeadm từ v1.22 mặc định đặt `cgroupDriver: systemd`** cho kubelet khi người dùng
+   không tự khai báo trong `KubeletConfiguration`. Nên phần duy nhất bạn phải tự lo là phía
+   runtime — đúng thứ Lab 00 làm.
+3. **Thay node bằng node mới với cấu hình đã cập nhật, hoặc cài lại node.** Sửa tại chỗ nguy
+   hiểm vì kubelet đã tạo Pod theo ngữ nghĩa của driver cũ; đổi driver có thể gây lỗi khi tạo
+   lại Pod sandbox cho những Pod hiện có, và **restart kubelet không sửa được** các lỗi đó.
+4. **Plugin CRI bị tắt mặc định** trong cấu hình đi kèm gói. Phải bảo đảm `cri` không nằm trong
+   `disabled_plugins` của `/etc/containerd/config.toml` rồi restart containerd. Bài cũng gợi ý
+   nếu container crash loop sau khi cài cluster hoặc cài CNI thì đặt lại cấu hình bằng
+   `containerd config default > /etc/containerd/config.toml`.
+5. Để **cài runtime xong không bỏ máy không dùng suốt sáu giai đoạn**. Ở giai đoạn 2 bạn cần
+   *hiểu* cgroup driver và CRI để nắm tầng dưới Pod; đến giai đoạn 8 bạn mới *dựng* cluster, và
+   lúc đó mỗi bước cài đặt đều có nghĩa thay vì gõ theo hướng dẫn.
+
+</details>
+
+Đây là bài cuối của **Giai đoạn 2**. Trả lời được hết tám bài thì bạn sẵn sàng vào Lab 2.

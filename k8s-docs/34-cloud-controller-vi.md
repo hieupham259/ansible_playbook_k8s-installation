@@ -2,6 +2,44 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/architecture/cloud-controller/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+bài 7/7 · Kiểm chứng ở Lab 1c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Lộ trình ghi rõ mục đích đọc bài này khi bạn chạy on-premise: **để biết phần nào cluster của
+bạn KHÔNG có.** Ở Lab 1a phần B2 bạn đã thấy cluster lab không có `cloud-controller-manager`
+nào; đây là bài giải thích thứ còn thiếu đó làm gì trên cloud.
+
+**Phải hiểu ở lần đọc này:**
+
+- `cloud-controller-manager` là thành phần control plane **tùy chọn**, tách logic đặc thù cloud
+  ra khỏi phần lõi để nhà cung cấp cloud phát hành theo nhịp riêng.
+- **Ba controller** bên trong nó và ý nghĩa vắng mặt của chúng trên cluster on-premise:
+  **Node controller** (hỏi cloud xem VM còn tồn tại không rồi xóa object Node),
+  **Route controller** (cấu hình route cho mạng Pod),
+  **Service controller** (dựng load balancer của cloud khi bạn khai báo Service cần nó).
+- Hệ quả trực tiếp cho lab của bạn: không có ai tự xóa object Node khi máy biến mất, và không
+  có ai cấp load balancer — hai việc bạn sẽ phải tự làm.
+- Phân biệt **Node controller của `kube-controller-manager`** (đã gặp ở bài
+  [23](23-nodes-vi.md), đổi `Ready` thành `Unknown`) với **Node controller của
+  `cloud-controller-manager`** (hỏi API cloud). Hai thứ khác nhau, trùng tên.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ mục *Phân quyền* và ClusterRole RBAC | chưa học RBAC | giai đoạn 9 |
+| Service controller và load balancer của cloud | chưa học Service | giai đoạn 5 |
+| Tự hiện thực cloud provider, interface `CloudProvider` | dành cho người phát triển | giai đoạn 14 |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.11 [beta]`
 
 Các công nghệ hạ tầng cloud cho phép bạn chạy Kubernetes trên cloud công cộng (public),
@@ -220,3 +258,48 @@ rules:
     interface `CloudProvider`.
   - Để biết thêm thông tin về việc phát triển plugin, xem
     [Phát triển Cloud Controller Manager](https://kubernetes.io/docs/tasks/administer-cluster/developing-cloud-controller-manager/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Ở Lab 1a phần B2 bạn không thấy `cloud-controller-manager` nào. Đó là lỗi cài đặt hay là
+   đúng?
+2. Kể ba controller bên trong cloud-controller-manager và nói mỗi cái làm gì.
+3. Bài [23](23-nodes-vi.md) cũng nói về "Node controller", và bài này cũng vậy. Hai cái đó có
+   phải một không?
+4. Một VM worker trên cloud bị xóa hẳn. Ai phát hiện và xóa object Node tương ứng? Trên cluster
+   lab on-premise của bạn thì ai làm việc đó?
+5. Bạn khai báo một Service cần load balancer trên cluster lab on-premise. Chuyện gì xảy ra?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Đúng, không phải lỗi.** Bài [22](22-architecture-vi.md) nói rõ: nếu bạn chạy Kubernetes
+   trên hạ tầng của riêng mình hoặc trong môi trường học tập, cluster sẽ không có cloud
+   controller manager. Nó chỉ chạy các controller đặc thù cho nhà cung cấp cloud.
+2. **Node controller** — cập nhật object Node bằng thông tin lấy từ API cloud (định danh máy,
+   region, tài nguyên, địa chỉ), và xóa object Node khi VM đã bị xóa khỏi cloud.
+   **Route controller** — cấu hình route trong cloud để container trên các node khác nhau nói
+   chuyện được. **Service controller** — gọi API cloud để dựng và gỡ load balancer khi bạn khai
+   báo Service cần chúng.
+3. **Không.** Node controller trong `kube-controller-manager` giám sát heartbeat và đổi
+   condition `Ready` thành `Unknown` khi mất liên lạc. Node controller trong
+   `cloud-controller-manager` **hỏi API của nhà cung cấp cloud** xem máy còn tồn tại không. Hai
+   controller khác nhau, trùng tên, chạy trong hai tiến trình khác nhau.
+4. Trên cloud: **Node controller của cloud-controller-manager** — nó thấy node ngừng phản hồi,
+   hỏi API cloud, thấy máy đã bị xóa nên xóa object Node. Trên cluster lab on-premise:
+   **không ai cả**. Object Node ở lại mãi với `Ready=Unknown` cho tới khi bạn tự
+   `kubectl delete node`.
+5. **Service ở mãi trạng thái chờ, không bao giờ được cấp địa chỉ**, vì không có
+   cloud-controller-manager nào gọi API cloud để dựng load balancer. Trên on-premise bạn phải
+   tự cài một thứ đảm nhiệm vai đó — bài [22](22-architecture-vi.md) nhắc tới MetalLB và
+   kube-vip.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của nhóm 1c và cũng
+là bài cuối của **Giai đoạn 1**.
+

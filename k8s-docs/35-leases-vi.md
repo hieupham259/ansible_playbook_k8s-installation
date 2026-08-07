@@ -2,6 +2,39 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/architecture/leases/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+bài 4/7 · Kiểm chứng ở Lab 1c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bạn đã **dùng** Lease ở Lab 1a phần B6 mà chưa biết nó là gì: theo dõi `renewTime` của
+`k8s-worker2` rồi dừng kubelet để xem nó đứng lại. Đây là bài giải thích thứ bạn đã quan sát.
+
+**Phải hiểu ở lần đọc này:**
+
+- Lease là một object thật, thuộc API group `coordination.k8s.io`. Nó phục vụ **hai việc**
+  hoàn toàn khác nhau: heartbeat của node, và bầu chọn leader.
+- Heartbeat: mỗi Node có một Lease **trùng tên** trong namespace `kube-node-lease`. Mỗi
+  heartbeat là một request **update** làm mới `spec.renewTime`.
+- Bầu leader: `kube-controller-manager` và `kube-scheduler` trong cấu hình HA dùng Lease để
+  chỉ **một** instance hoạt động, các instance khác chờ. Điều này khớp với bảng ba mô hình HA
+  ở bài [22](22-architecture-vi.md).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Feature gate `ControllerManagerReleaseLeaderElectionLockOnExit` (alpha) | tinh chỉnh độ trễ chuyển giao leader | giai đoạn 12 |
+| *Định danh của API server* và các Lease `apiserver-<hash>` | chỉ có ý nghĩa khi có nhiều API server | giai đoạn 8 |
+| *Workload* — tự dùng Lease trong controller của bạn | dành cho người viết controller | giai đoạn 14 |
+
+---
+
 Các hệ thống phân tán thường có nhu cầu về _lease_ (hợp đồng thuê), cơ chế cung cấp cách khóa
 các tài nguyên dùng chung và điều phối hoạt động giữa các thành viên trong một nhóm.
 Trong Kubernetes, khái niệm lease được biểu diễn bởi các đối tượng
@@ -113,3 +146,33 @@ của một thành phần, hãy chọn một tiền tố tên và một cơ ch�
 
 Bạn có thể dùng một cách tiếp cận khác miễn là đạt được cùng kết quả: các sản phẩm phần mềm
 khác nhau không xung đột với nhau.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Lease phục vụ hai mục đích rất khác nhau trong Kubernetes. Đó là hai mục đích nào?
+2. Ở Lab 1a bạn theo dõi `spec.renewTime` của Lease `k8s-worker2`. Field đó do thành phần nào
+   cập nhật, và bằng thao tác API gì?
+3. Lease của một Node nằm ở namespace nào và có tên là gì?
+4. Ba control-plane node đều chạy `kube-scheduler`. Vì sao chỉ một bản được hoạt động, và cơ
+   chế nào bảo đảm điều đó?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Heartbeat của node** (kubelet báo mình còn sống) và **bầu chọn leader** giữa các instance
+   của một thành phần control plane.
+2. **Kubelet** trên chính node đó cập nhật, bằng một request **update** tới object Lease. Bài
+   nói rõ: bên dưới, mỗi heartbeat của kubelet là một request update làm mới `spec.renewTime`.
+   Control plane dùng dấu thời gian này để xác định node còn khả dụng hay không.
+3. Namespace **`kube-node-lease`**, và Lease **trùng tên với Node**.
+4. Vì logic của scheduler phải là "một người quyết" — hai scheduler cùng gán Pod sẽ giẫm chân
+   nhau. Cơ chế là **leader election dựa trên Lease**: chỉ instance giữ được Lease mới hoạt
+   động, các instance khác ở trạng thái chờ.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

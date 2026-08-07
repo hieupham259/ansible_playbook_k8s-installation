@@ -5,6 +5,44 @@
 > Trong Kubernetes, namespace cung cấp cơ chế cô lập các nhóm resource bên trong
 > một cluster duy nhất.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 4/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Lab 1a đã dùng namespace như một vùng chứa tạm mà không giải thích. Đây là chỗ trả nợ đó.
+
+**Phải hiểu ở lần đọc này:**
+
+- Namespace là **phạm vi cho tên**, không phải ranh giới bảo mật tự động. Muốn cô lập thật thì
+  phải cộng thêm RBAC, quota và NetworkPolicy — những thứ học sau.
+- **Resource namespaced và resource cấp cluster** là hai loại tách bạch. Node,
+  PersistentVolume, StorageClass và chính Namespace đều **không** thuộc namespace nào. Kiểm
+  bằng `kubectl api-resources --namespaced=true` và `--namespaced=false`.
+- Bốn namespace ban đầu và vai trò từng cái — đặc biệt `kube-node-lease`, nơi bạn đã quan sát
+  heartbeat ở Lab 1a phần B6.
+- Namespace **không lồng nhau**; mỗi resource nằm trong đúng một namespace.
+- Đừng dùng namespace để phân biệt thứ chỉ hơi khác nhau (các version của cùng một app) —
+  việc đó là của label.
+- Tên namespace phải là **DNS label theo RFC 1123**, tức chặt hơn tên object thông thường.
+- `--namespace` cho một lệnh, `kubectl config set-context --current --namespace=...` cho cả
+  context.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Namespace và DNS*, dạng FQDN `svc.cluster.local` | chưa học Service và DNS trong cluster | giai đoạn 5 |
+| Cảnh báo về namespace trùng tên TLD công cộng | hệ quả nằm ở tầng phân giải DNS | giai đoạn 5 và 9 |
+| Resource quota để chia tài nguyên | là chủ đề chính sách riêng | giai đoạn 7 |
+
+---
+
 Trong Kubernetes, _namespace_ cung cấp một cơ chế để cô lập (isolate) các nhóm resource bên trong một cluster duy nhất. Tên của các resource phải là duy nhất trong một namespace, nhưng không cần duy nhất giữa các namespace. Phạm vi (scope) theo namespace chỉ áp dụng cho các object thuộc namespace _(ví dụ: Deployment, Service, v.v.)_ chứ không áp dụng cho các object ở phạm vi toàn cluster _(ví dụ: StorageClass, Node, PersistentVolume, v.v.)_.
 
 ## Khi nào nên dùng nhiều namespace (When to Use Multiple Namespaces)
@@ -137,3 +175,39 @@ Giá trị của label này là tên của namespace.
 
 * Tìm hiểu thêm về [tạo một namespace mới](https://kubernetes.io/docs/tasks/administer-cluster/namespaces/#creating-a-new-namespace).
 * Tìm hiểu thêm về [xóa một namespace](https://kubernetes.io/docs/tasks/administer-cluster/namespaces/#deleting-a-namespace).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Node và PersistentVolume có nằm trong namespace không? Bạn kiểm chứng bằng lệnh nào trên
+   cluster lab?
+2. Ở Lab 1a bạn theo dõi Lease trong `kube-node-lease`. Namespace đó chứa gì, và thành phần
+   nào ghi vào đó?
+3. Bạn có ba phiên bản của cùng một ứng dụng chạy song song. Nên tách ba namespace hay dùng
+   label? Vì sao?
+4. Tạo được namespace tên `My_App` không? Nếu không thì vì sao, và ràng buộc đó chặt hơn tên
+   object thông thường ở chỗ nào?
+5. Đặt một Pod vào hai namespace cùng lúc có được không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Cả hai đều là resource cấp cluster. Kiểm bằng
+   `kubectl api-resources --namespaced=false` — Node, PersistentVolume, StorageClass và chính
+   Namespace đều xuất hiện ở đó.
+2. Chứa object **Lease** gắn với từng Node. **Kubelet** trên mỗi node ghi vào Lease của node
+   mình để gửi heartbeat, còn node controller đọc để phát hiện node mất liên lạc.
+3. **Dùng label.** Bài nói rõ: không cần dùng nhiều namespace để tách các resource chỉ hơi
+   khác nhau như các phiên bản của cùng một phần mềm. Namespace dành cho nhiều team hoặc nhiều
+   dự án, và nó kéo theo cả quota lẫn phân quyền.
+4. **Không.** Tên namespace phải là DNS label theo RFC 1123: chỉ chữ-số **thường** và `-`, tối
+   đa 63 ký tự. `My_App` sai cả vì chữ hoa lẫn vì dấu gạch dưới. Tên object thông thường
+   thường chỉ cần là DNS subdomain — cho phép dấu chấm và dài tới 253 ký tự.
+5. **Không.** Namespace không lồng nhau và mỗi resource chỉ nằm trong đúng một namespace.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

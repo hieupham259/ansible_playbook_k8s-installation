@@ -351,4 +351,26 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 5. Bạn thay một máy worker bằng máy mới nhưng giữ nguyên hostname. Vì sao nên xóa object Node
    cũ trước?
 
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Kubelet tự đăng ký.** Cờ `--register-node` mặc định là `true` và đây là mẫu hình được ưu
+   tiên; lệnh `kubeadm join` ở Lab 00 chính là khiến kubelet tự đăng ký với API server. Bạn
+   không hề tạo object Node nào bằng tay.
+2. **Addresses** — ví dụ `InternalIP` của node. **Conditions** — ví dụ `Ready`.
+   **Capacity/Allocatable** — ví dụ `cpu`, `memory`. **Info** — ví dụ `kubeletVersion`,
+   `containerRuntimeVersion`, phiên bản kernel.
+3. Cập nhật vào **`.status` của Node**, và object **Lease** trong namespace `kube-node-lease`.
+   Cần hai vì `.status` mang nhiều thông tin nên cập nhật tốn kém; Lease rất nhẹ nên cập nhật
+   được dày, giúp phát hiện node chết nhanh mà không tạo tải lớn lên API server và etcd.
+4. Đổi thành **`Unknown`**, và người đổi là **node controller** trong
+   `kube-controller-manager` — không phải kubelet, vì kubelet đã chết. Nếu node vẫn không liên
+   lạc được, node controller tiếp tục kích hoạt eviction các Pod trên node đó.
+5. Vì Kubernetes **giả định cùng tên là cùng một object với cùng trạng thái** — cấu hình mạng,
+   nội dung đĩa gốc, các label của node. Máy mới mang tên cũ sẽ thừa hưởng thông tin không còn
+   đúng, dẫn tới không nhất quán. Bài khuyên xóa object Node hiện có trước rồi thêm lại sau khi
+   cập nhật.
+
+</details>
+
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

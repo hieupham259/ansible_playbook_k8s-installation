@@ -2,6 +2,41 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/containers/container-environment/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 3/8 ·
+Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài rất ngắn, trả lời đúng một câu hỏi: **tiến trình bên trong container nhìn thấy gì?**
+
+**Phải hiểu ở lần đọc này:**
+
+- Filesystem mà container thấy là **image cộng với các volume được mount** — không phải chỉ
+  image.
+- **Hostname của container là tên Pod**, không phải tên container. Đây là chi tiết hay gây bất
+  ngờ khi debug.
+- Kubernetes bơm sẵn vào container: biến môi trường của **Service** cùng namespace, cộng với
+  các biến bạn tự khai báo và biến tĩnh trong image.
+- Điểm bẫy quan trọng: biến môi trường Service chỉ chứa **những Service đã tồn tại lúc
+  container được tạo**. Service tạo sau sẽ không xuất hiện — và đó chính là lý do người ta dùng
+  DNS thay vì biến môi trường.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Định dạng `FOO_SERVICE_HOST` / `FOO_SERVICE_PORT` | chưa học Service | giai đoạn 5 |
+| Truy cập Service qua DNS | cần DNS trong cluster | giai đoạn 5 |
+| Downward API | có bài riêng | giai đoạn 3, bài [56](56-downward-api-vi.md) |
+| Volume | có nhóm bài riêng | giai đoạn 6 |
+
+---
+
 Trang này mô tả các tài nguyên khả dụng cho các Container trong môi trường Container.
 
 ## Môi trường container (Container environment)
@@ -49,3 +84,30 @@ nếu [DNS addon](https://releases.k8s.io/v1.36.0/cluster/addons/dns/) được 
 * Tìm hiểu thêm về [các hook vòng đời Container (Container lifecycle hooks)](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/).
 * Thực hành thực tế việc
   [gắn handler vào các sự kiện trong vòng đời Container](https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Bạn `exec` vào một container và chạy `hostname`. Kết quả là tên container hay tên Pod?
+2. Filesystem mà container nhìn thấy được ghép từ những nguồn nào?
+3. Một Service được tạo **sau** khi container đã khởi động. Biến môi trường tương ứng có xuất
+   hiện trong container đó không? Hệ quả thực tế là gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Tên Pod.** Bài nói rõ hostname của một container là tên của Pod mà container đó chạy bên
+   trong. Một Pod nhiều container thì mọi container đều có cùng hostname.
+2. **Image cộng với một hoặc nhiều volume** được mount vào. Image cung cấp lớp nền, volume phủ
+   thêm dữ liệu lên các đường dẫn cụ thể.
+3. **Không.** Danh sách biến môi trường Service chỉ gồm các Service **đang chạy tại thời điểm
+   container được tạo**. Hệ quả: không thể dựa vào biến môi trường để tìm Service tạo sau — đó
+   là lý do cách tìm Service đáng tin cậy là **DNS**, thứ tra cứu lúc chạy chứ không đông cứng
+   lúc khởi động.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

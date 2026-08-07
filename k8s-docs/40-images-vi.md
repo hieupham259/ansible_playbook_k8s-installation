@@ -2,6 +2,50 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/containers/images/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 2/8 ·
+Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Lộ trình ghi rõ: đây là **nguồn lỗi vận hành rất phổ biến**. Bài dài, nhưng phần gây sự cố
+thật chỉ nằm ở một phần ba đầu — tag, digest và `imagePullPolicy`. Nửa sau nói về private
+registry, cần Secret của giai đoạn 3 mới làm được.
+
+**Phải hiểu ở lần đọc này:**
+
+- **Tag có thể bị dời sang image khác; digest thì bất biến.** Dùng tag nghĩa là chấp nhận rủi
+  ro hai Pod cùng spec chạy hai bản mã khác nhau. Ghim bằng `@sha256:...` là cách loại bỏ rủi
+  ro đó.
+- Ba giá trị `imagePullPolicy` — `IfNotPresent`, `Always`, `Never` — và ý nghĩa của từng cái.
+- **Quy tắc tự đặt mặc định**, thứ gây bất ngờ nhiều nhất: bỏ trống `imagePullPolicy` thì
+  Kubernetes suy ra từ tag. Không tag hoặc `:latest` → `Always`; tag khác hoặc có digest →
+  `IfNotPresent`.
+- Cái bẫy đi kèm: **giá trị đó chỉ được đặt lúc object được tạo lần đầu**. Đổi tag sang
+  `:latest` về sau **không** làm policy đổi theo.
+- Không tag gì cả nghĩa là `:latest` — và `:latest` không nên dùng cho production vì khó biết
+  đang chạy phiên bản nào và khó rollback.
+- **`ImagePullBackOff`** nghĩa là gì, nguyên nhân thường gặp (tên image sai, private registry
+  thiếu `imagePullSecret`), và back-off tăng dần tới trần 5 phút.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ mục *Sử dụng private registry*, `imagePullSecrets`, cách tạo Secret | cần học Secret trước | giai đoạn 3, bài [109](109-secret-vi.md) |
+| *Cách diễn giải config.json*, kubelet credential provider | cấu hình ở cấp node | giai đoạn 8 và CP5 |
+| *Bảo đảm kiểm tra thông tin xác thực khi pull image* | là chủ đề bảo mật | giai đoạn 9 |
+| `serializeImagePulls`, `maxParallelImagePulls` | tinh chỉnh kubelet | giai đoạn 12 |
+| *Pull image theo runtime class* (alpha) | cần RuntimeClass | bài [43](43-runtime-class-vi.md) |
+| *Image đa kiến trúc với image index* | chỉ cần khi cluster có nhiều kiến trúc CPU | tra khi cần |
+| Legacy built-in credential provider (ACR/ECR/GCR) | đã gỡ bỏ từ v1.26 | không cần |
+
+---
+
 Một container image đại diện cho dữ liệu nhị phân đóng gói một ứng dụng và toàn bộ các
 dependency phần mềm của nó. Container image là các gói phần mềm có thể thực thi, chạy
 độc lập và đưa ra những giả định được xác định rất rõ ràng về môi trường runtime của
@@ -569,3 +613,39 @@ vì vậy bạn sẽ cần hoặc là:
 * Đọc [OCI Image Manifest Specification](https://github.com/opencontainers/image-spec/blob/main/manifest.md).
 * Tìm hiểu về [thu gom rác container image (container image garbage collection)](./36-garbage-collection-vi.md#container-image-garbage-collection).
 * Tìm hiểu thêm về [pull image từ một private registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Hai Pod có spec giống hệt nhau, cùng dùng `image: myapp:v2`, nhưng chạy hai bản mã khác
+   nhau. Điều đó xảy ra thế nào, và cách viết nào loại bỏ được?
+2. Bạn viết `image: nginx` và bỏ trống `imagePullPolicy`. Kubernetes đặt policy thành gì, và
+   theo quy tắc nào?
+3. Bạn tạo Deployment với `image: myapp:v1` rồi sau đó `kubectl set image` sang `myapp:latest`.
+   `imagePullPolicy` có tự đổi thành `Always` không?
+4. Pod báo `ImagePullBackOff`. Kể hai nguyên nhân thường gặp, và giải thích phần `BackOff`.
+5. `myapp` không có tag và không có digest. Kubernetes hiểu là image nào, ở registry nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì **tag có thể được dời sang image khác** ở registry. Pod thứ nhất pull `v2` lúc tag còn
+   trỏ tới bản cũ; sau đó ai đó push đè `v2`; Pod thứ hai pull ra bản mới. Loại bỏ bằng cách
+   **ghim digest**: `myapp@sha256:...`, vì digest là hash của nội dung nên bất biến.
+2. **`Always`.** Không chỉ định tag nghĩa là tag `:latest`, và quy tắc mặc định đặt
+   `imagePullPolicy: Always` cho cả trường hợp tag là `:latest` lẫn trường hợp không có tag.
+3. **Không.** Giá trị `imagePullPolicy` chỉ được đặt khi object **được tạo lần đầu** và không
+   cập nhật lại khi tag hay digest đổi về sau. Bạn phải tự tay sửa policy.
+4. Nguyên nhân: **tên image sai**, hoặc **pull từ private registry mà không có
+   `imagePullSecret`**. Phần `BackOff` nghĩa là Kubernetes vẫn tiếp tục thử lại, nhưng **giãn
+   dần khoảng cách giữa các lần thử**, tới trần 300 giây (5 phút).
+5. **`docker.io/library/myapp:latest`.** Không có hostname registry thì Kubernetes hiểu là
+   Docker public registry; không có tag thì hiểu là `latest`. Registry mặc định này đổi được
+   trong cấu hình container runtime.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

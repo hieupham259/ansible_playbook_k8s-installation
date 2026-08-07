@@ -236,4 +236,21 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    xảy ra? Object có được tạo không?
 4. Kể bốn trường bắt buộc của một manifest và nói mỗi trường trả lời câu hỏi gì.
 
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `spec.podCIDR` nằm trong **`spec`** — trạng thái mong muốn, do cluster gán cho node.
+   `status.capacity.cpu` nằm trong **`status`** — trạng thái thực tế, do kubelet quan sát phần
+   cứng rồi báo lên. Quy tắc nhận biết nhanh: nhìn tên nhánh chứa nó.
+2. Vì `status` là nơi **hệ thống công bố những gì nó quan sát được**. Client ghi vào đó là nói
+   dối về thực tế; control plane vẫn tiếp tục cập nhật đè lên theo quan sát thật, nên giá trị
+   bịa vừa vô nghĩa vừa làm các controller đang đọc `status` ra quyết định sai.
+3. API server **từ chối request** và báo có field không nhận diện được; **object không được
+   tạo**. Với `--validate=warn` thì chỉ cảnh báo và vẫn tạo; với `ignore` thì không kiểm tra
+   phía server.
+4. `apiVersion` — dùng phiên bản API nào? `kind` — loại object gì? `metadata` — object này là
+   ai (name, UID, namespace)? `spec` — bạn muốn nó ở trạng thái nào?
+
+</details>
+
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

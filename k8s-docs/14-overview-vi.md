@@ -217,4 +217,27 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 3. "Kubernetes loại bỏ nhu cầu điều phối" nghĩa là gì? Nó khác một script chạy lần lượt
    A → B → C ở chỗ nào?
 
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Tự động hóa** (chọn ba bất kỳ): khám phá dịch vụ và cân bằng tải, điều phối lưu trữ,
+   rollout và rollback tự động, sắp xếp tối ưu lên node theo CPU/RAM, tự phục hồi container
+   lỗi, quản lý secret và cấu hình, chạy workload batch, co giãn ngang.
+   **Không làm** (chọn ba bất kỳ): không build và không triển khai mã nguồn của bạn — CI/CD là
+   việc của bạn; không cung cấp middleware, database hay cache như dịch vụ tích hợp sẵn; không
+   áp đặt giải pháp logging/giám sát/cảnh báo; không cung cấp ngôn ngữ cấu hình; không quản lý,
+   bảo trì hay tự phục hồi bản thân các máy.
+2. Thiếu **orchestrator**. Cụ thể là thiếu ba thứ: một nơi lưu trạng thái mong muốn chung cho
+   cả ba máy, một thứ quyết định container nào chạy trên máy nào, và các vòng lặp giữ cho thực
+   tế khớp với mong muốn. Container runtime chỉ biết chạy container **trên chính máy nó** — nó
+   không biết hai máy kia tồn tại.
+3. Điều phối theo định nghĩa kỹ thuật là **thực thi một workflow định sẵn**: làm A, rồi B, rồi
+   C. Kubernetes thay nó bằng **một tập tiến trình điều khiển độc lập**, mỗi cái liên tục so
+   trạng thái hiện tại với trạng thái mong muốn rồi tự hành động; đi từ A đến C bằng đường nào
+   không quan trọng, và không cần điều khiển tập trung. Khác biệt với script: script chạy một
+   lần rồi kết thúc, còn control loop **không kết thúc** nên tự sửa được khi hệ thống lệch đi
+   sau đó.
+
+</details>
+
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -2,6 +2,38 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/architecture/mixed-version-proxy/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+bài 6/7 · Không có phần nào trong Lab 1c kiểm chứng bài này.
+
+**Lộ trình đánh dấu bài này là "đọc lướt".** Nó chỉ có ý nghĩa khi cluster có **nhiều API
+server chạy các phiên bản Kubernetes khác nhau** — tình huống chỉ xuất hiện giữa chừng một đợt
+nâng cấp cluster HA. Cluster lab một control plane của bạn không bao giờ rơi vào cảnh đó.
+
+**Phải hiểu ở lần đọc này — đúng một ý:**
+
+- Khi nâng cấp một cluster HA, trong lúc chuyển tiếp có API server đã biết một API mới còn API
+  server khác thì chưa. Tính năng này khiến request rơi vào server cũ được **proxy sang server
+  biết API đó**, thay vì trả về `404` gây hiểu lầm.
+
+Biết tên tính năng và biết nó tồn tại là đủ. Đừng đọc kỹ hơn ở giai đoạn 1.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ mục *Bật Peer-aggregated Discovery…* và các cờ `--peer-*` | là cấu hình API server | giai đoạn 8 |
+| Truyền tải proxy và xác thực giữa các API server | cần hiểu certificate và aggregation layer | giai đoạn 9 và 14 |
+| *Cách hoạt động bên trong* | chi tiết hiện thực | quay lại khi nâng cấp cluster HA thật |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [beta]`
 
 Kubernetes v1.36 bao gồm một tính năng beta cho phép một API Server ủy quyền (proxy)
@@ -133,3 +165,30 @@ bằng tài liệu discovery non peer-aggregated (không tổng hợp từ các 
   liệu (data race) giữa thời điểm yêu cầu được nhận và thời điểm một controller đăng ký
   thông tin của peer vào control plane), thì API server xử lý sẽ trả về lỗi 503
   ("Service Unavailable").
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Tính năng này giải quyết vấn đề gì, và nó chỉ xuất hiện trong hoàn cảnh nào?
+2. Cluster lab một control plane của bạn có cần tính năng này không? Vì sao?
+3. Không có tính năng này, một client gọi API mà API server đang xử lý chưa biết sẽ nhận được
+   mã lỗi nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Nó tránh **lỗi `404 Not Found` bất ngờ trong quá trình nâng cấp**, khi cluster tạm thời có
+   nhiều API server chạy các phiên bản Kubernetes khác nhau. Request tới một server chưa biết
+   API đó sẽ được proxy sang một peer biết nó.
+2. **Không.** Cluster chỉ có một API server nên không bao giờ tồn tại hai phiên bản API server
+   cùng lúc. Đây đúng là lý do lộ trình xếp bài này vào diện đọc lướt.
+3. **`404` (Not Found)** — API server xử lý chuyển request vào chuỗi handler của chính nó và
+   chuỗi này kết thúc bằng 404. Nếu đã chọn được peer nhưng peer không phản hồi thì là **`503`
+   (Service Unavailable)**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

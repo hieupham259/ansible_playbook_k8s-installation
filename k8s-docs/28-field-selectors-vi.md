@@ -2,6 +2,39 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 9/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài cuối nhóm 1b, và ngắn nhất. Đọc nó như phần bổ sung cho bài [18](18-labels-vi.md): cùng là
+lọc, nhưng lọc theo thứ khác.
+
+**Phải hiểu ở lần đọc này:**
+
+- Field selector lọc theo **giá trị field của resource**; label selector lọc theo **label bạn
+  tự gắn**. Hai cơ chế độc lập, dùng chung được trong một lệnh.
+- Mọi resource đều hỗ trợ `metadata.name` và `metadata.namespace`; ngoài hai cái đó thì **tùy
+  từng kind**.
+- Chỉ có `=`, `==`, `!=`. **Không** có `in`, `notin`, `exists` — khác hẳn label selector.
+- Dấu phẩy là AND, giống label selector.
+- Dùng field không được hỗ trợ thì API server **báo lỗi**, chứ không im lặng trả về rỗng.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Bảng đầy đủ field theo từng kind | là tài liệu tra cứu | tra khi cần |
+| Các field của Pod như `status.phase`, `spec.nodeName` | chưa học Pod và lập lịch | giai đoạn 3 và 7 |
+| `selectableFields` của CustomResourceDefinition | thuộc chủ đề mở rộng API | giai đoạn 14 |
+
+---
+
 _Field selector_ (bộ chọn trường) cho phép bạn chọn các object Kubernetes dựa trên
 giá trị của một hoặc nhiều trường (field) của resource. Dưới đây là một vài ví dụ về truy vấn field selector:
 
@@ -77,3 +110,35 @@ Bạn có thể dùng field selector trên nhiều loại resource cùng lúc. L
 ```shell
 kubectl get statefulsets,services --all-namespaces --field-selector metadata.namespace!=default
 ```
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Nói bằng một câu: label selector lọc theo cái gì, field selector lọc theo cái gì?
+2. `in` và `notin` dùng được với field selector không?
+3. Bạn gõ một field selector mà resource đó không hỗ trợ. API server trả về danh sách rỗng hay
+   báo lỗi? Vì sao hành vi này khác với việc gõ một label không tồn tại?
+4. Hai cách sau khác nhau chỗ nào về mặt tải lên API server: lọc bằng `--field-selector`, so
+   với lấy hết rồi lọc bằng `-o jsonpath` ở phía client?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Label selector lọc theo **label do bạn gắn vào metadata**; field selector lọc theo **giá trị
+   các field có sẵn của chính resource** (`metadata.name`, `status.phase`, `spec.nodeName`…).
+2. **Không.** Field selector chỉ hỗ trợ `=`, `==` và `!=`. Toán tử dựa trên tập hợp là đặc
+   quyền của label selector.
+3. **Báo lỗi** `BadRequest`, kèm danh sách các field selector hợp lệ. Khác với label: label
+   nào cũng là chuỗi tùy ý nên API server không có cách nào biết bạn gõ nhầm, chỉ trả về tập
+   rỗng. Field thì có schema, nên gõ sai là lỗi phát hiện được.
+4. `--field-selector` lọc **ở phía server**, nên API server chỉ trả về phần đã khớp. Lọc bằng
+   `jsonpath` thì toàn bộ danh sách vẫn được truyền về client rồi mới bị cắt bớt — tốn băng
+   thông và tốn công API server hơn, đáng kể khi cluster lớn.
+
+</details>
+
+Đây là bài cuối của nhóm 1b. Trả lời được hết các câu trong chín bài của nhóm thì bạn sẵn sàng
+vào Lab 1b.

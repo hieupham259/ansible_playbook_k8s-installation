@@ -2,6 +2,38 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 3/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài rất ngắn, và toàn bộ giá trị nằm ở **ranh giới với label** vừa học. Đọc bài này ngay sau
+bài [18](18-labels-vi.md) để so sánh khi còn nóng.
+
+**Phải hiểu ở lần đọc này:**
+
+- Annotation là metadata **không dùng để định danh và không dùng để chọn object**. Không có
+  `--annotation-selector`.
+- Key theo cùng cú pháp với label (prefix tùy chọn + name ≤ 63 ký tự), nhưng **value thì
+  không bị giới hạn tập ký tự** — chứa được khoảng trắng, JSON, YAML.
+- Giới hạn thật là **tổng kích thước mọi annotation trên một object ≤ 256 KiB**.
+- Prefix `kubernetes.io/` và `k8s.io/` dành riêng cho thành phần lõi; thành phần tự động
+  **bắt buộc** dùng prefix khi ghi annotation lên object của người dùng.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Danh sách dài các loại thông tin nên đặt vào annotation | là gợi ý sử dụng, không phải cơ chế | đọc lấy ý |
+| Khuyến nghị mã hóa base64 cho dữ liệu nhị phân | trường hợp hiếm | tra khi cần |
+
+---
+
 Bạn có thể dùng annotation của Kubernetes để gắn metadata tùy ý, không dùng để định danh
 (non-identifying), vào các object.
 Các client như công cụ và thư viện có thể truy xuất metadata này.
@@ -95,3 +127,32 @@ spec:
 
 - Tìm hiểu thêm về [Label và Selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/).
 - Xem [Các label, annotation và taint phổ biến (Well-known labels, Annotations and Taints)](https://kubernetes.io/docs/reference/labels-annotations-taints/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Bạn muốn tìm nhanh mọi object do team A sở hữu. Dùng label hay annotation? Vì sao cái kia
+   không làm được?
+2. Bạn muốn lưu nguyên đoạn JSON cấu hình build kèm theo object. Label hay annotation? Hai
+   giới hạn nào khiến lựa chọn kia bất khả thi?
+3. Một annotation key không có prefix nghĩa là gì? Vì sao `kube-controller-manager` bắt buộc
+   phải đặt prefix khi nó ghi annotation lên object của bạn?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Label.** Chỉ label mới dùng được với selector (`kubectl get ... -l team=a`). Annotation
+   không dùng để định danh và không có cơ chế chọn theo annotation.
+2. **Annotation.** Label value bị giới hạn ≤ 63 ký tự, chỉ chữ-số cùng `-`, `_`, `.`, nên
+   không chứa nổi dấu ngoặc, dấu hai chấm hay khoảng trắng của JSON. Annotation value không
+   giới hạn tập ký tự; ràng buộc duy nhất là tổng mọi annotation trên object ≤ 256 KiB.
+3. Không có prefix nghĩa là key đó **riêng tư của người dùng**. Thành phần tự động phải đặt
+   prefix để annotation của hệ thống không giẫm lên không gian tên của người dùng, và để nhìn
+   key là biết ngay ai đã ghi nó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

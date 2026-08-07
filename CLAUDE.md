@@ -180,7 +180,21 @@ Nội dung bản dịch nằm liền mạch giữa hai khối, không bị cắt
    - Ít nhất một câu neo vào cluster lab thật của người học ("hai worker của bạn…").
    - Ít nhất một câu là **câu bẫy phân biệt** — thứ dễ nhầm mà bài vừa làm rõ.
    - Chỉ hỏi thứ đã nằm trong phần "Phải hiểu"; không hỏi thứ đã xếp vào "Đọc lướt".
-4. Dòng kết: `Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.`
+4. **Đáp án**, đặt trong khối gập để không lộ khi đọc câu hỏi:
+
+   ```markdown
+   <details>
+   <summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+   1. ...
+
+   </details>
+   ```
+
+   Đáp án phải **trả lời trực tiếp**, in đậm phần kết luận, và nêu lý do bằng chính lập luận
+   của bài — không dẫn thêm kiến thức ngoài. Với câu bẫy, nói rõ vì sao trực giác thông thường
+   lại sai.
+5. Dòng kết: `Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.`
    Bài cuối của một nhóm thì chuyển hướng sang lab của nhóm đó.
 
 ### Quy tắc
@@ -194,8 +208,18 @@ Nội dung bản dịch nằm liền mạch giữa hai khối, không bị cắt
 - Khi dịch lại hoặc cập nhật một trang từ upstream, **giữ nguyên hai khối** và rà lại xem các
   mục được nhắc tên còn tồn tại không.
 
-Tiến độ: nhóm 1a (bài 14, 15, 22, 16, 21, 23, 24, 25) đã có đủ hai khối. Các bài còn lại làm
-tiếp theo thứ tự lộ trình.
+### Tiến độ
+
+| Nhóm | Bài | Trạng thái |
+| --- | --- | --- |
+| 1a | 14, 15, 22, 16, 21, 23, 24, 25 | ✅ đủ ba khối |
+| 1b | 17, 18, 20, 19, 31, 26, 111, 27, 28 | ✅ đủ ba khối |
+| 1c | 29, 30, 36, 35, 32, 37, 34 | ✅ đủ ba khối |
+| Giai đoạn 2 | 39, 40, 41, 42, 44, 33, 43, 00 | ✅ đủ ba khối |
+| Còn lại | 153 bài, từ giai đoạn 3 trở đi | ⬜ |
+
+**Làm tiếp từ:** giai đoạn 3, nhóm 3a — bài 45, 46, 47, 48, 49, 50, 51, 52, 55, 56, 60. Sau đó
+nhóm 3b: 107, 108, 109, 110, 54, 53, 58.
 
 ## Dịch tài liệu kubernetes.io
 

@@ -2,6 +2,42 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+bài 1/7 · Kiểm chứng ở Lab 1c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là bài trả lời cho một triệu chứng vận hành rất cụ thể: **object xóa mãi không đi**. Đọc
+với câu hỏi đó trong đầu.
+
+**Phải hiểu ở lần đọc này:**
+
+- Xóa một object có finalizer **không xóa ngay**. API server đặt `.metadata.deletionTimestamp`,
+  trả về `202 Accepted`, và object ở trạng thái đang kết thúc.
+- Object chỉ thực sự biến mất khi **`metadata.finalizers` rỗng**. Mỗi controller tự gỡ key của
+  mình sau khi làm xong phần dọn dẹp của nó.
+- Finalizer **không chứa code**. Nó chỉ là một danh sách key, giống annotation; code nằm ở
+  controller nhận ra key đó.
+- Sau khi đã yêu cầu xóa, bạn **gỡ bớt** được finalizer nhưng **không thêm** được, và không sửa
+  được `deletionTimestamp`. Không có đường quay lại.
+- Cảnh báo vận hành quan trọng nhất: **đừng gỡ finalizer bằng tay** để "giải phóng" object bị
+  kẹt. Finalizer có ở đó vì một lý do, và cưỡng chế gỡ có thể để lại rác không ai dọn.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ví dụ `kubernetes.io/pv-protection` | chưa học PersistentVolume | giai đoạn 6 |
+| Mục *Owner reference, label và finalizer* | cần owner reference | bài [30](30-owners-dependents-vi.md) ngay sau |
+| Finalizer `foreground` và `orphan` | thuộc cơ chế xóa theo tầng | bài [36](36-garbage-collection-vi.md) |
+
+---
+
 Finalizer là các key có namespace (namespaced key) báo cho Kubernetes chờ đến khi
 các điều kiện cụ thể được thỏa mãn trước khi xóa hoàn toàn những resource
 đã được đánh dấu xóa.
@@ -102,3 +138,39 @@ phụ thuộc liên quan để tìm nguyên nhân.
 
 * Đọc [Using Finalizers to Control Deletion](https://kubernetes.io/blog/2021/05/14/using-finalizers-to-control-deletion/)
   trên blog của Kubernetes.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Bạn `kubectl delete` một object có finalizer. API server trả về mã gì, và object biến mất
+   ngay hay không?
+2. Điều kiện chính xác để object thực sự bị xóa khỏi cluster là gì?
+3. Finalizer có chứa code dọn dẹp không? Nếu không thì code nằm ở đâu?
+4. Một namespace kẹt ở `Terminating` nhiều giờ. Vì sao **không** nên vào sửa
+   `metadata.finalizers` để nó biến mất?
+5. Sau khi `deletionTimestamp` đã được đặt, bạn còn thêm được finalizer mới vào object không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **`202` (HTTP Accepted)**, và object **không biến mất ngay**. API server chỉ đánh dấu chờ
+   xóa bằng cách điền `.metadata.deletionTimestamp`; object vẫn hiển thị qua API ở trạng thái
+   đang kết thúc.
+2. Khi field **`metadata.finalizers` rỗng**. Mỗi controller quản lý một finalizer sẽ tự gỡ key
+   của mình sau khi hoàn tất phần dọn dẹp; khi danh sách trống và `deletionTimestamp` đã có,
+   object tự động bị xóa.
+3. **Không.** Finalizer thường chỉ là danh sách key trên resource, tương tự annotation. Code
+   nằm ở **controller** nhận ra key đó và biết mình phải làm gì trước khi gỡ nó.
+4. Vì finalizer được thêm vào **vì một lý do** — thường là còn tài nguyên phụ thuộc chưa dọn.
+   Cưỡng chế gỡ khiến việc xóa hoàn tất nhưng phần dọn dẹp không bao giờ chạy, để lại rác mà
+   không thành phần nào còn theo dõi. Chỉ làm khi đã hiểu finalizer đó phục vụ mục đích gì và
+   bạn đã hoàn thành mục đích đó bằng cách khác.
+5. **Không.** Sau khi việc xóa được yêu cầu, bạn chỉ có thể **gỡ bớt** finalizer hiện có, không
+   thêm mới, và cũng không sửa được `deletionTimestamp`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

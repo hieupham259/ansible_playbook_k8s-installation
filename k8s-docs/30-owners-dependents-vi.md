@@ -2,6 +2,43 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+bài 2/7 · Kiểm chứng ở Lab 1c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này đặt cạnh bài [18 — Label và Selector](18-labels-vi.md) mới đọc ở nhóm 1b. Cả hai đều
+mô tả quan hệ giữa các object, nhưng dùng cho hai việc khác nhau — nắm được ranh giới đó là
+mục tiêu chính.
+
+**Phải hiểu ở lần đọc này:**
+
+- **Label dùng để controller theo dõi một nhóm; owner reference dùng để xác định cái gì phải
+  bị dọn khi chủ sở hữu bị xóa.** Cùng một Pod thường mang cả hai, phục vụ hai mục đích khác
+  nhau.
+- Owner reference nằm ở `metadata.ownerReferences` của **object phụ thuộc**, và gồm cả tên lẫn
+  **UID** của chủ sở hữu — UID mới là thứ chống nhầm với một object trùng tên đời sau.
+- Kubernetes tự đặt field này; bạn hiếm khi cần tự viết.
+- `blockOwnerDeletion` quyết định object phụ thuộc có chặn được việc xóa chủ sở hữu hay không.
+- **Owner reference giữa các namespace bị cấm theo thiết kế.** Chỉ định sai thì reference bị
+  coi như không tồn tại và object phụ thuộc có thể bị xóa.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ví dụ Service tạo `EndpointSlice` | chưa học Service | giai đoạn 5 |
+| Ví dụ ReplicaSet, Deployment, Job, CronJob | chưa học các workload controller | giai đoạn 4 |
+| Admission controller kiểm soát quyền sửa `blockOwnerDeletion` | thuộc kiểm soát truy cập | giai đoạn 9 |
+| Finalizer `foreground` và `orphan` | là cơ chế xóa theo tầng | bài [36](36-garbage-collection-vi.md) ngay sau |
+
+---
+
 Trong Kubernetes, một số object là *chủ sở hữu (owner)* của các object khác.
 Ví dụ, một ReplicaSet là chủ sở hữu
 của một tập các Pod. Những object được sở hữu này là *đối tượng phụ thuộc (dependent)* của chủ sở hữu của chúng.
@@ -82,3 +119,41 @@ hữu.
 * Tìm hiểu thêm về [finalizer trong Kubernetes](./29-finalizers-vi.md).
 * Tìm hiểu về [thu gom rác (garbage collection)](https://kubernetes.io/docs/concepts/architecture/garbage-collection).
 * Đọc tài liệu tham khảo API cho [metadata của object](https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/object-meta/#System).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Một controller đã dùng label để theo dõi nhóm Pod của mình. Vậy owner reference còn để làm
+   gì nữa?
+2. Owner reference nằm trên object nào — chủ sở hữu hay object phụ thuộc? Nó chứa những gì?
+3. Vì sao owner reference phải mang **UID** chứ không chỉ tên?
+4. Bạn tạo một owner reference trỏ từ một ConfigMap ở namespace `a` tới một object ở namespace
+   `b`. Chuyện gì xảy ra?
+5. `blockOwnerDeletion` dùng để làm gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Để xác định **cái gì phải bị dọn khi chủ sở hữu bị xóa**. Bài nói rõ: nếu bạn xóa một Job
+   trong khi các Pod đang chạy, Kubernetes dùng **owner reference chứ không phải label** để
+   biết Pod nào cần dọn. Label trả lời "nhóm này gồm những ai"; owner reference trả lời "ai
+   sinh ra cái này".
+2. Nằm trên **object phụ thuộc**, ở field `metadata.ownerReferences`. Nó chứa **tên và UID**
+   của chủ sở hữu, và chủ sở hữu phải ở cùng namespace nếu là loại thuộc namespace.
+3. Vì tên có thể được tái sử dụng — xóa object rồi tạo lại object trùng tên là hợp lệ (bài
+   [17](17-names-vi.md)). Nếu chỉ có tên, object phụ thuộc cũ sẽ bám nhầm vào chủ sở hữu mới.
+   UID là duy nhất theo từng lần xuất hiện nên loại được nhầm lẫn đó.
+4. Owner reference cross-namespace **bị cấm theo thiết kế**. Reference đó bị coi như **không
+   tồn tại**, và object phụ thuộc có thể bị xóa một khi tất cả chủ sở hữu được xác nhận là
+   không tồn tại. Garbage collector còn ghi một Event cảnh báo với reason
+   `OwnerRefInvalidNamespace`.
+5. Nó quyết định object phụ thuộc đó có **chặn việc thu gom rác xóa chủ sở hữu** hay không.
+   Kubernetes tự đặt thành `true` khi một controller đặt `ownerReferences`; bạn đặt tay được
+   để kiểm soát phụ thuộc nào phải bị xóa xong trước khi chủ sở hữu ra đi.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

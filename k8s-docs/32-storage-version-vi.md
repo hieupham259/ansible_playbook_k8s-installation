@@ -2,6 +2,45 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/overview/working-with-objects/storage-version/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+bài 5/7 · Kiểm chứng ở Lab 1c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài [21](21-kubernetes-api-vi.md) đã nói mọi phiên bản API chỉ là những cách biểu diễn của cùng
+một dữ liệu lưu trữ. Bài này trả lời câu hỏi kế tiếp: **dữ liệu đó thực sự nằm ở dạng nào?**
+
+**Phải hiểu ở lần đọc này:**
+
+- **Phiên bản API và phiên bản lưu trữ là hai thứ tách biệt.** Object `v1alpha1` và `v1beta1`
+  của cùng một resource có thể được mã hóa **giống hệt nhau** trong etcd.
+- Mỗi resource có **đúng một** phiên bản lưu trữ đang hoạt động tại một thời điểm; mọi thao
+  tác **ghi** đều lưu ở phiên bản đó.
+- **Đọc thì chuyển đổi, ghi thì di chuyển.** Vì vậy object cũ có thể nằm ở phiên bản lưu trữ
+  cũ **vô thời hạn** nếu không ai ghi lại nó.
+- Hệ quả vận hành: bạn **không gỡ được** một phiên bản API cũ cho tới khi chắc chắn không còn
+  object nào lưu ở phiên bản đó — gỡ sớm là không đọc được object nữa.
+- Với **encryption at rest**, hệ quả còn nặng hơn: khi xoay khóa, phải giữ cả khóa cũ lẫn khóa
+  mới cho tới khi mọi object đã được ghi lại ít nhất một lần.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ mục *Phiên bản lưu trữ cho custom resource* và ví dụ CRD `crontabs` | chưa học CRD | giai đoạn 14 |
+| Chi tiết KMS provider và cách bật mã hóa | là tác vụ vận hành riêng | CP7 |
+| Quy trình storage version migration | tác vụ vận hành | CP7 |
+
+Đây là bài **khái niệm nền**. Ở giai đoạn 1 chỉ cần nhận ra vấn đề tồn tại; thao tác thật nằm
+ở phần checkpoint tasks.
+
+---
+
 API server của Kubernetes lưu trữ các đối tượng (object), dựa trên một kho lưu trữ
 phía sau (backing store) tương thích với etcd (thông thường, kho lưu trữ phía sau
 chính là etcd). Mỗi đối tượng được tuần tự hóa (serialize) bằng một phiên bản cụ thể
@@ -160,3 +199,38 @@ một khóa chưa thể được loại bỏ hoàn toàn khỏi việc sử dụ
 Xem [di chuyển phiên bản lưu trữ (storage version migration)](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/storage-version-migration)
 để có các ví dụ về cách chạy một cuộc di chuyển nhằm đảm bảo tất cả các đối tượng
 đều đang dùng phiên bản lưu trữ mới hơn mà không cần can thiệp thủ công.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+1. Phiên bản API của một object và phiên bản lưu trữ của nó có phải một không?
+2. Một object được tạo từ hai năm trước và chưa ai sửa. Nó đang nằm ở phiên bản lưu trữ nào —
+   phiên bản hiện tại hay phiên bản lúc nó được tạo? Vì sao?
+3. Bạn muốn gỡ bỏ một phiên bản API cũ khỏi cluster. Vì sao không thể gỡ ngay cả khi không ai
+   còn gọi phiên bản đó nữa?
+4. Cluster đang bật mã hóa dữ liệu lưu trữ và bạn muốn xoay khóa. Vì sao chưa thể vứt khóa cũ
+   đi ngay sau khi đưa khóa mới vào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Chúng hoàn toàn tách biệt. Bài nêu ví dụ: một object API `v1alpha1` và một object
+   API `v1beta1` của cùng resource sẽ được mã hóa **giống nhau** trong kho lưu trữ, miễn là
+   phiên bản lưu trữ không đổi giữa hai thời điểm đó.
+2. **Phiên bản lúc nó được ghi lần cuối.** Chỉ thao tác **ghi** mới chuyển object sang phiên
+   bản lưu trữ hiện hành; thao tác **đọc** chỉ chuyển đổi khi trả về cho client. Nên phiên bản
+   lưu trữ cũ có thể tồn tại vô thời hạn.
+3. Vì có thể vẫn còn **object đang được lưu ở phiên bản đó**. Không ai gọi API không có nghĩa
+   là dữ liệu đã được ghi lại. Gỡ sớm đồng nghĩa với việc **hoàn toàn không đọc được** những
+   object ấy nữa.
+4. Vì API server cần **khóa của phiên bản lưu trữ tương ứng** để giải mã. Một object chỉ được
+   mã hóa lại bằng khóa mới khi nó **được ghi lại**. Phải giữ cả hai khóa cho tới khi chắc
+   chắn mọi object đã được ghi ít nhất một lần — đó vừa là rủi ro bảo mật vừa là phiền toái
+   vận hành, và là lý do tồn tại của storage version migration.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

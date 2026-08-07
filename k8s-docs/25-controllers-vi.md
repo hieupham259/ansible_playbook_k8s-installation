@@ -1,6 +1,6 @@
 # Các Controller (Controllers)
 
-> Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/architecture/controllers/>
+> Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/architecture/controller/>
 >
 > Trong Kubernetes, controller là các vòng lặp điều khiển theo dõi trạng thái cluster của bạn,
 > rồi thực hiện hoặc yêu cầu các thay đổi khi cần thiết.

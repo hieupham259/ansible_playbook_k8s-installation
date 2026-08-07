@@ -35,6 +35,11 @@ Không cài trước hạ tầng của giai đoạn sau rồi im lặng dùng. V
 nhưng cần metrics-server của giai đoạn 11, nên phần thực hành HPA nằm ở lab 11b — giai đoạn 4
 không cài metrics-server sớm.
 
+**Ngoại lệ duy nhất: [Lab 00](LAB-00-MOI-TRUONG.md).** Nó dùng kubeadm — nội dung của giai
+đoạn 8 — vì lộ trình cần cluster thật ngay từ giai đoạn 1. Lab 00 được miễn trừ vì nó không
+phải bài học: không có checkpoint vấn đáp, người học chạy copy-paste và được dặn rõ là chưa
+cần hiểu. Phần học thật nằm ở Lab 8a. Không lab nào khác được viện dẫn ngoại lệ này.
+
 ## 3. Chuỗi snapshot
 
 Mỗi lab khai báo ở đầu file: **điểm bắt đầu** (snapshot nào) và **điểm kết thúc** (trả cluster
@@ -48,37 +53,50 @@ về snapshot cũ, hay tạo snapshot mới).
 | `04-metrics-ready` | Lab 11a | metrics-server |
 
 Lab không tạo snapshot mới thì phải cleanup đưa cluster về đúng trạng thái đầu vào, và gate
-cuối phải chứng minh điều đó. Giai đoạn 8 dùng bộ VM và chuỗi snapshot riêng tiền tố `8x-`.
+cuối phải chứng minh điều đó.
+
+Ngoài chuỗi chính còn hai nhánh phụ: hai lab HA của giai đoạn 8 dùng **bộ VM riêng** với mốc
+tiền tố `8x-` (`8x-ha-stacked`, `8x-ha-external`), và lab 15 thêm một VM Windows vào chuỗi
+chính rồi chụp `15-windows-ready`. Cả hai nhánh này không ảnh hưởng tới chuỗi chính.
 
 ## 4. Bản đồ lab
 
-| Lab | Giai đoạn / nhóm bài | Snapshot vào → ra | Giờ | Trạng thái |
-| --- | --- | --- | --- | --- |
-| [00 — Môi trường](LAB-00-MOI-TRUONG.md) | chuẩn bị | — → `01-cluster-ready` | 2–4 | ✅ đã viết |
-| [1a — Kiến trúc và mô hình điều khiển](LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) | 1a (8 bài) | `01` → `01` | 2–3 | ✅ đã viết |
-| 1b — Object, label, kubectl và kubeconfig | 1b (9 bài) | `01` → `01` | 3–4 | ⬜ chưa viết |
-| 1c — Vòng đời và cơ chế nền của object | 1c (7 bài) | `01` → `01` | 2–3 | ⬜ chưa viết |
-| 2 — Container, image, CRI và cgroup | 2 (8 bài) | `01` → `01` | 2–3 | ⬜ chưa viết |
-| 3a — Pod và vòng đời | 3a (11 bài) | `01` → `01` | 3–4 | ⬜ chưa viết |
-| 3b — Cấu hình và tài nguyên | 3b (7 bài) | `01` → `01` | 3–4 | ⬜ chưa viết |
-| 4 — Workload controller | 4 (11 bài thực hành) | `01` → `01` | 3–4 | ⬜ chưa viết |
-| 5a — Service, EndpointSlice và DNS | 5 (phần Service/DNS) | `01` → `01` | 3–4 | ⬜ chưa viết |
-| 5b — NetworkPolicy, Ingress và CNI | 5 (phần policy/ingress) | `01` → `02-net-ready` | 3–4 | ⬜ chưa viết |
-| 6a — PV, PVC và StorageClass | 6 (phần cốt lõi) | `02` → `03-storage-ready` | 3–4 | ⬜ chưa viết |
-| 6b — Snapshot và volume nâng cao | 6 (phần còn lại) | `03` → `03` | 2–3 | ⬜ chưa viết |
-| 7a — Lập lịch và eviction | 7a (13 bài) | `03` → `03` | 3–4 | ⬜ chưa viết |
-| 7b — Quota và giới hạn tài nguyên | 7b (6 bài) | `03` → `03` | 2–3 | ⬜ chưa viết |
-| 8a — Dựng cluster bằng kubeadm | 8 (bài 01–05, 09) | `03` → `03` (phá và dựng lại) | 4 | ⬜ chưa viết |
-| 8b — HA với stacked etcd | 8 (bài 06, 08) | bộ VM riêng `8x-` | 4 | ⬜ chưa viết |
-| 8c — HA với external etcd | 8 (bài 06, 07, 08) | bộ VM riêng `8x-` | 4 | ⬜ chưa viết |
-| 9a — ServiceAccount, authn/authz và RBAC | 9 (phần truy cập) | `03` → `03` | 3–4 | ⬜ chưa viết |
-| 9b — Pod Security và hardening | 9 (phần policy) | `03` → `03` | 3–4 | ⬜ chưa viết |
-| 11a — Observability | 11 (6 bài) | `03` → `04-metrics-ready` | 3–4 | ⬜ chưa viết |
-| 11b — HPA và VPA | trả nợ giai đoạn 4 | `04` → `04` | 2–3 | ⬜ chưa viết |
-| 12 — Vận hành vòng đời node | 12 (8 bài) | `04` → `04` | 2–3 | ⬜ chưa viết |
-| 13 — DRA (tùy chọn) | 13 | `04` → `04` | 2–3 | ⬜ chưa viết |
-| 14 — CRD và Operator | 14 (7 bài) | `04` → `04` | 2–3 | ⬜ chưa viết |
-| 15 — Node Windows (tùy chọn) | 15 | bộ VM riêng | 4 | ⬜ chưa viết |
+Cột **Bắt đầu từ** là snapshot phải khôi phục trước khi mở lab. Cột **Kết thúc** cho biết lab
+đó có tạo mốc mới hay không: *trả về* nghĩa là cleanup đưa cluster về đúng snapshot đầu vào và
+không snapshot lại; *tạo* nghĩa là lab thay đổi hạ tầng vĩnh viễn và phải chụp mốc mới trước
+khi sang lab sau.
+
+| Lab | Giai đoạn / nhóm bài | Bắt đầu từ | Kết thúc | Giờ | Trạng thái |
+| --- | --- | --- | --- | --- | --- |
+| [00 — Môi trường](LAB-00-MOI-TRUONG.md) | chuẩn bị | chưa có cluster | **tạo** `01-cluster-ready` | 2–4 | ✅ đã viết |
+| [1a — Kiến trúc và mô hình điều khiển](LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) | 1a (8 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
+| 1b — Object, label, kubectl và kubeconfig | 1b (9 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
+| 1c — Vòng đời và cơ chế nền của object | 1c (7 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ⬜ chưa viết |
+| 2 — Container, image, CRI và cgroup | 2 (8 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ⬜ chưa viết |
+| 3a — Pod và vòng đời | 3a (11 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
+| 3b — Cấu hình và tài nguyên | 3b (7 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
+| 4 — Workload controller | 4 (11 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
+| 5a — Service, EndpointSlice và DNS | 5 (phần Service/DNS) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
+| 5b — NetworkPolicy, Ingress và CNI | 5 (phần policy/ingress) | `01-cluster-ready` | **tạo** `02-net-ready` | 3–4 | ⬜ chưa viết |
+| 6a — PV, PVC và StorageClass | 6 (phần cốt lõi) | `02-net-ready` | **tạo** `03-storage-ready` | 3–4 | ⬜ chưa viết |
+| 6b — Snapshot và volume nâng cao | 6 (phần còn lại) | `03-storage-ready` | trả về `03-storage-ready` | 2–3 | ⬜ chưa viết |
+| 7a — Lập lịch và eviction | 7a (13 bài) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ⬜ chưa viết |
+| 7b — Quota và giới hạn tài nguyên | 7b (6 bài) | `03-storage-ready` | trả về `03-storage-ready` | 2–3 | ⬜ chưa viết |
+| 8a — Dựng cluster bằng kubeadm | 8 (bài 01–05, 09) | `03-storage-ready` | phá cluster rồi **restore** `03-storage-ready` | 4 | ⬜ chưa viết |
+| 8b — HA với stacked etcd | 8 (bài 06, 08) | bộ VM riêng, dựng mới | **tạo** `8x-ha-stacked` | 4 | ⬜ chưa viết |
+| 8c — HA với external etcd | 8 (bài 06, 07, 08) | bộ VM riêng của lab 8b, reset | **tạo** `8x-ha-external` | 4 | ⬜ chưa viết |
+| 9a — ServiceAccount, authn/authz và RBAC | 9 (phần truy cập) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ⬜ chưa viết |
+| 9b — Pod Security và hardening | 9 (phần policy) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ⬜ chưa viết |
+| 11a — Observability | 11 (6 bài) | `03-storage-ready` | **tạo** `04-metrics-ready` | 3–4 | ⬜ chưa viết |
+| 11b — HPA và VPA | trả nợ giai đoạn 4 | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ⬜ chưa viết |
+| 12 — Vận hành vòng đời node | 12 (8 bài) | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ⬜ chưa viết |
+| 13 — DRA (tùy chọn) | 13 | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ⬜ chưa viết |
+| 14 — CRD và Operator | 14 (7 bài) | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ⬜ chưa viết |
+| 15 — Node Windows (tùy chọn) | 15 | `04-metrics-ready` + 1 VM Windows | **tạo** `15-windows-ready` | 4 | ⬜ chưa viết |
+
+Trên chuỗi chính chỉ có **bốn lab tạo mốc mới**: 00, 5b, 6a và 11a. Hai lab HA (8b, 8c) dùng
+bộ VM riêng với mốc tiền tố `8x-`, và lab 15 thêm một VM Windows vào chuỗi chính rồi chụp mốc
+riêng. Toàn bộ lab còn lại trả cluster về mốc cũ, nên bạn không cần chụp snapshot sau mỗi bài.
 
 Giai đoạn 10 không có lab riêng: toàn bộ nội dung nằm ở phần
 [Checkpoint tiếp nối](../LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks) và được thực

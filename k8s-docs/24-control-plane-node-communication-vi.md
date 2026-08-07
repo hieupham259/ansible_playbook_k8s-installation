@@ -5,6 +5,49 @@
 > Tài liệu này liệt kê các đường giao tiếp giữa API server và cluster Kubernetes,
 > nhằm giúp bạn tùy chỉnh bản cài đặt để tăng cường bảo mật cấu hình mạng.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+bài 7/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B7.
+
+Bài này vốn **không phải bài giới thiệu kiến trúc** — nó là bài hardening bảo mật mạng, viết
+cho người sắp cấu hình cluster chạy trên mạng không tin cậy. Vì vậy nó nhắc tới client
+certificate, service account token, Pod, Service và kube-proxy, toàn thứ thuộc giai đoạn 3, 5
+và 9. Thấy mơ hồ ở những đoạn đó là bình thường; phần cần hiểu lúc này chỉ khoảng 15 dòng.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mô hình **hub-and-spoke**: mọi truy cập API từ node đều kết thúc tại API server. Không có
+  thành phần control plane nào khác được thiết kế để phục vụ từ xa.
+- Chiều ngược lại có đúng **hai đường**: API server → kubelet, và API server → node/pod/service
+  qua chức năng proxy của chính API server.
+- Đường API server → kubelet dùng để làm gì: lấy log, attach, port-forward.
+- Điểm **bất đối xứng** đáng nhớ: chiều node → control plane mặc định đã bảo mật, còn chiều
+  control plane → node thì mặc định không xác minh certificate của kubelet.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Client certificate, kubelet TLS bootstrapping | chưa học xác thực | giai đoạn 9 |
+| Pod gọi API bằng service account, Service `kubernetes` | chưa học Pod, Service, ServiceAccount | giai đoạn 3, 5, 9 |
+| `--kubelet-certificate-authority`, kubelet authn/authz | là thao tác hardening | giai đoạn 9 |
+| *API server đến node, pod và service* | cần biết Pod và Service | giai đoạn 5 |
+| *Đường hầm SSH* | đã deprecated | không cần |
+| *Dịch vụ Konnectivity* | chỉ cần biết nó tồn tại như một lựa chọn thay thế | không cần |
+
+Bài này bạn sẽ quay lại ở giai đoạn 9 khi học
+[119 — Kiểm soát truy cập](119-controlling-access-vi.md) và
+[128 — Rủi ro vượt qua API Server](128-api-server-bypass-risks-vi.md). Lúc đó các đoạn đang mơ
+hồ mới có chỗ móc vào.
+
+---
+
 Tài liệu này liệt kê các đường giao tiếp (communication path) giữa API server
 và cluster Kubernetes.
 Mục đích là cho phép người dùng tùy chỉnh bản cài đặt của mình để tăng cường bảo mật (harden) cấu hình mạng,
@@ -114,3 +157,18 @@ dịch vụ Konnectivity trong cluster của bạn.
 * [Thiết lập dịch vụ Konnectivity](https://kubernetes.io/docs/tasks/extend-kubernetes/setup-konnectivity/)
 * [Dùng Port Forwarding để truy cập ứng dụng trong cluster](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/)
 * Tìm hiểu cách [lấy log của các Pod](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#examine-pod-logs), [dùng kubectl port-forward](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/#forward-a-local-port-to-a-port-on-the-pod)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 1:
+
+1. Kubelet muốn báo trạng thái node thì nói chuyện với thành phần nào? Nó có nói trực tiếp với
+   scheduler hay etcd không?
+2. Khi bạn chạy `kubectl logs`, request đi qua những chặng nào?
+3. Trong hai chiều giao tiếp đó, chiều nào mặc định đã bảo mật, chiều nào là điểm yếu?
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

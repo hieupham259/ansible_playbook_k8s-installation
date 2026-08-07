@@ -4,6 +4,47 @@
 >
 > Các khái niệm kiến trúc đằng sau Kubernetes.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+bài 3/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B2 và B3.
+
+Đây là bài dài nhất nhóm 1a. Khoảng một phần ba nội dung nói về control plane HA — thứ thuộc
+giai đoạn 8. **Đừng cố hiểu hết trong một lần đọc.**
+
+**Phải hiểu ở lần đọc này:**
+
+- Phân biệt **control plane** (lớp chức năng) với **control-plane node** (cái máy) — mục
+  *Phân biệt control plane và control-plane node*. Đây là chỗ dễ nhầm nhất.
+- Cơ chế **"một cửa"**: scheduler không gọi kubelet, kubelet không chờ ai ra lệnh; mọi phối
+  hợp đều là ghi và đọc qua API server. Đây là ý cốt lõi nhất của cả nhóm 1a.
+- Vì sao control-plane node dựng bằng kubeadm vẫn cần kubelet và container runtime, và vì sao
+  điều đó **không** biến chúng thành control plane component.
+- Vai trò của từng thành phần: `kube-apiserver`, `etcd`, `kube-scheduler`,
+  `kube-controller-manager`, `kubelet`, `kube-proxy`, container runtime.
+- Chỉ API server nói chuyện trực tiếp với etcd.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Stacked etcd vs external etcd | là quyết định topology khi dựng HA | giai đoạn 8 |
+| *Nhiều bản kube-apiserver sau một load balancer*, VIP, kube-vip, leader election | cần hiểu quy trình dựng HA trước | giai đoạn 8 |
+| Mục so sánh với Service `type: LoadBalancer` | cần biết Service là gì | giai đoạn 5 |
+| Static Pod (chi tiết) | bài riêng, chỉ cần hiểu tối thiểu ở đây | giai đoạn 3, bài [58](58-static-pods-vi.md) |
+| Addon: dashboard, monitoring, logging | chủ đề observability | giai đoạn 11 |
+| *Các biến thể kiến trúc* | so sánh cách triển khai | giai đoạn 8, 12, 14 |
+
+Từ mục HA, lần này chỉ cần mang đi một ý: **API server không giữ trạng thái nên nhân bản
+thoải mái, còn etcd thì không** — đó là lý do etcd quyết định giới hạn quy mô cluster.
+
+---
+
 Một cluster Kubernetes bao gồm một control plane cùng với một tập các máy worker, gọi là các node,
 chuyên chạy các ứng dụng đóng gói trong container (containerized applications). Mỗi cluster cần
 ít nhất một worker node để chạy các Pod.
@@ -519,3 +560,22 @@ Tìm hiểu thêm về các chủ đề sau:
 - Một số [container runtime](./00-container-runtimes-vi.md) trong Kubernetes.
 - Tích hợp với các nhà cung cấp cloud bằng [cloud-controller-manager](https://kubernetes.io/docs/concepts/architecture/cloud-controller/).
 - Các lệnh [kubectl](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 1:
+
+1. Nói "control plane chạy trên ba máy" nghĩa là gì? Có phải control plane là một máy bị chia
+   làm ba phần không?
+2. Scheduler quyết định một Pod sẽ chạy trên node A. Nó báo cho kubelet của node A bằng cách
+   nào? Hai thành phần đó có gọi trực tiếp cho nhau không?
+3. Thành phần nào đọc và ghi etcd trực tiếp? `kubelet` có kết nối tới etcd không?
+4. Trên control-plane node dựng bằng kubeadm có `kubelet`, containerd và `kube-proxy`. Vì sao
+   ba thứ đó vẫn không phải control plane component?
+5. Vì sao thêm bản `kube-apiserver` thì dễ, còn thêm sức ghi cho etcd thì không?
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

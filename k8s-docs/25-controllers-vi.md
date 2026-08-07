@@ -5,6 +5,43 @@
 > Trong Kubernetes, controller là các vòng lặp điều khiển theo dõi trạng thái cluster của bạn,
 > rồi thực hiện hoặc yêu cầu các thay đổi khi cần thiết.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+bài 8/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B8.
+
+Đây là **ý tưởng cốt lõi của toàn bộ Kubernetes**, và là bài quan trọng nhất nhóm 1a. Bài ngắn
+nhưng đừng đọc nhanh. Toàn bộ ví dụ trong bài dùng Job và Pod — hai thứ bạn chưa học; hãy đọc
+chúng như minh họa cho **hình dạng của vòng lặp**, đừng cố hiểu Job.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vòng lặp điều khiển là gì, qua ví dụ bộ điều nhiệt: có trạng thái mong muốn, có trạng thái
+  hiện tại, và một vòng lặp không kết thúc kéo cái sau về cái trước.
+- Controller **thường không tự làm việc** — nó gửi request tới API server để tạo ra hiệu ứng.
+  Job controller không chạy Pod nào cả; nó yêu cầu API server tạo Pod.
+- Một số controller tác động ra ngoài cluster (*Điều khiển trực tiếp*), nhưng vẫn lấy trạng
+  thái mong muốn từ API server và báo cáo trạng thái hiện tại về đó.
+- Cluster **không cần đạt trạng thái ổn định**. Miễn các controller còn chạy và còn làm được
+  việc hữu ích thì hệ thống vẫn khỏe. Đây là điểm phản trực giác nhất của bài.
+- Thiết kế nhiều controller nhỏ, mỗi controller lo một khía cạnh; các controller có sẵn chạy
+  chung trong `kube-controller-manager`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Chi tiết Job, Pod, Deployment trong các ví dụ | chưa học các workload này | giai đoạn 3 và 4 |
+| Ghi chú về việc dùng label để phân biệt Pod của Deployment và của Job | chưa học label | nhóm 1b |
+| Tự viết controller, `sample-controller` | dành cho người phát triển operator | giai đoạn 14 |
+
+---
+
 Trong lĩnh vực robot và tự động hóa, _vòng lặp điều khiển_ (control loop) là
 một vòng lặp không kết thúc, có nhiệm vụ điều chỉnh trạng thái của một hệ thống.
 
@@ -151,3 +188,23 @@ controller cụ thể đó.
 * Nếu bạn muốn tự viết controller của riêng mình, hãy xem
   [các mẫu mở rộng Kubernetes](https://kubernetes.io/docs/concepts/extend-kubernetes/#extension-patterns)
   và repository [sample-controller](https://github.com/kubernetes/sample-controller).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 1:
+
+1. Kể bốn bước của một vòng lặp điều khiển, dùng ví dụ bộ điều nhiệt.
+2. Job controller có tự chạy container không? Nếu không thì nó làm gì để công việc được chạy?
+3. Bạn xóa ServiceAccount `default` trong một namespace đang `Active`. Chuyện gì xảy ra, và
+   thành phần nào làm việc đó?
+4. Có người nói "cluster của tôi không bao giờ ở trạng thái ổn định, chắc đang hỏng". Nhận
+   định đó đúng hay sai theo bài này?
+5. Controller mở rộng số node của cluster phải gọi API của nhà cung cấp cloud. Vậy nó còn dùng
+   Kubernetes API để làm gì?
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của nhóm 1a — khi
+trả lời được hết, bạn sẵn sàng vào [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md).

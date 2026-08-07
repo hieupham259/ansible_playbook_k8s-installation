@@ -4,6 +4,40 @@
 >
 > Tổng quan về các thành phần chính cấu thành một cluster Kubernetes.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+bài 2/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B2.
+
+Bài này rất ngắn và chỉ là danh mục. Giá trị của nó nằm ở **ranh giới phân loại**, không ở
+chi tiết từng thành phần — chi tiết nằm ở bài [Kiến trúc cluster](22-architecture-vi.md) ngay
+sau đây.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ba nhóm tách bạch: thành phần **control plane**, thành phần **node**, và **addon**. Nhầm
+  nhóm là lỗi phổ biến nhất ở giai đoạn 1.
+- Năm thành phần control plane: `kube-apiserver`, `etcd`, `kube-scheduler`,
+  `kube-controller-manager`, và `cloud-controller-manager` (tùy chọn).
+- Ba thành phần node: `kubelet`, `kube-proxy` (tùy chọn), container runtime.
+- Vì sao hai thành phần được đánh dấu *tùy chọn*: cluster lab on-premise không có
+  cloud-controller-manager; `kube-proxy` có thể được network plugin thay thế.
+- CoreDNS là **addon**, không phải thành phần bắt buộc của control plane.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mô tả một dòng của từng thành phần | quá ngắn để hiểu thật | bài [22](22-architecture-vi.md) ngay sau |
+| Addon Web UI, monitoring, cluster logging | là chủ đề observability | giai đoạn 11 |
+
+---
+
 Trang này cung cấp cái nhìn tổng quan ở mức cao về các thành phần thiết yếu cấu thành một cluster Kubernetes.
 
 ![Các thành phần của Kubernetes](https://kubernetes.io/images/docs/components-of-kubernetes.svg)
@@ -68,3 +102,21 @@ cho đến các hệ thống production quy mô lớn.
 
 Để biết thông tin chi tiết hơn về từng thành phần và các cách khác nhau để cấu hình
 kiến trúc cluster của bạn, hãy xem trang [Kiến trúc cluster (Cluster Architecture)](https://kubernetes.io/docs/concepts/architecture/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 1:
+
+1. Trên control-plane node có chạy `kubelet` và container runtime. Hai thứ đó có phải thành
+   phần control plane không? Vì sao?
+2. Cluster lab on-premise của bạn thiếu thành phần control plane nào trong danh sách, và vì
+   sao thiếu nó vẫn chạy được?
+3. CoreDNS thuộc nhóm nào trong ba nhóm: control plane, thành phần node, hay addon?
+4. Nếu network plugin tự hiện thực chuyển tiếp cho Service thì node còn cần `kube-proxy`
+   không?
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

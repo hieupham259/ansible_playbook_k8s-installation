@@ -2,6 +2,49 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/architecture/nodes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+bài 6/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B6.
+
+Nửa sau của bài nói về eviction, taint và availability zone — thuộc giai đoạn 7 và 12. Ở đây
+chỉ cần biết những cơ chế đó tồn tại.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hai cách một Node vào cluster: **kubelet tự đăng ký** (mặc định, và là cách cluster lab của
+  bạn dùng) hoặc bạn tạo object thủ công.
+- Tên Node phải là DNS subdomain hợp lệ và **duy nhất tại một thời điểm**; đổi máy mà giữ tên
+  thì phải xóa object Node cũ trước.
+- Bốn nhóm thông tin trong Node status: `Addresses`, `Conditions`, `Capacity`/`Allocatable`,
+  `Info`.
+- **Hai dạng heartbeat**: cập nhật `.status` của Node, và đối tượng Lease trong namespace
+  `kube-node-lease`. Phân biệt được hai dạng này là trọng tâm của bài.
+- Node controller làm gì khi mất heartbeat: đặt condition `Ready` thành `Unknown`, rồi nếu vẫn
+  mất liên lạc thì kích hoạt eviction.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| `--register-with-taints` | taint là chủ đề lập lịch | giai đoạn 7 |
+| `--node-labels` và node selector | label là nhóm bài kế tiếp | nhóm 1b |
+| Node authorization mode, NodeRestriction | thuộc kiểm soát truy cập | giai đoạn 9 |
+| `kubectl cordon`, drain, DaemonSet tolerate | quy trình bảo trì node | giai đoạn 12 và CP1 |
+| *Giới hạn tốc độ trục xuất*, availability zone | eviction là chủ đề riêng | giai đoạn 7 |
+| *Theo dõi dung lượng tài nguyên*, `requests` của container | cần hiểu tài nguyên Pod trước | giai đoạn 3 |
+| *Topology của node* | tính năng nâng cao của kubelet | giai đoạn 7 |
+
+Đừng học thuộc các con số mặc định (5 giây, 5 phút, `0.1`/giây). Chúng là giá trị cấu hình
+được, không phải cam kết của hệ thống.
+
+---
+
 Kubernetes chạy workload của bạn bằng cách đặt các container vào trong các Pod để chạy trên các _Node_.
 Một node có thể là máy ảo hoặc máy vật lý, tùy thuộc vào cluster. Mỗi node
 được quản lý bởi control plane
@@ -290,3 +333,22 @@ Tìm hiểu thêm về các chủ đề sau:
 * [Taint và Toleration](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
 * [Node Resource Managers](https://kubernetes.io/docs/concepts/policy/node-resource-managers/).
 * [Quản lý tài nguyên cho các node Windows (Resource Management for Windows nodes)](https://kubernetes.io/docs/concepts/configuration/windows-resource-management/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 1:
+
+1. Hai worker trong cluster lab của bạn vào cluster bằng cách nào — bạn tạo object Node, hay
+   kubelet tự đăng ký?
+2. Kể bốn nhóm thông tin trong Node status, và cho một ví dụ cụ thể của từng nhóm.
+3. Node có hai dạng heartbeat. Chúng là gì, và vì sao lại cần tới hai dạng thay vì một?
+4. Bạn dừng `kubelet` trên một worker. Condition `Ready` của Node đó đổi thành gì, và **ai**
+   là người đổi nó?
+5. Bạn thay một máy worker bằng máy mới nhưng giữ nguyên hostname. Vì sao nên xóa object Node
+   cũ trước?
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

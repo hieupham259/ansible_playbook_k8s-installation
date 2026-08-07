@@ -6,6 +6,37 @@
 > Kubernetes dùng các thực thể này để biểu diễn trạng thái của cluster.
 > Tìm hiểu về mô hình đối tượng Kubernetes và cách làm việc với các đối tượng này.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+bài 4/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B4 và B5.3.
+
+**Phải hiểu ở lần đọc này:**
+
+- Object là một **bản ghi ý định**: tạo object tức là khai báo bạn muốn cluster trông thế nào,
+  rồi hệ thống liên tục làm việc để giữ đúng như vậy.
+- `spec` là trạng thái **mong muốn** do bạn đặt; `status` là trạng thái **thực tế** do hệ
+  thống quan sát rồi ghi. Đây là ý quan trọng nhất của bài.
+- Bốn trường bắt buộc trong manifest: `apiVersion`, `kind`, `metadata`, `spec`.
+- Server-side field validation và ba mức `ignore` / `warn` / `strict`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Nội dung bên trong manifest Deployment ví dụ (`selector`, `matchLabels`, `template`, `replicas`) | chưa học label selector và Deployment | nhóm 1b và giai đoạn 4 |
+| Liên kết tới API Reference, API Conventions | tài liệu tra cứu, không đọc tuần tự | khi cần tra field |
+
+Với manifest ví dụ, lần này chỉ cần nhìn ra **hình dạng bốn trường bắt buộc**, không cần hiểu
+nội dung bên trong `spec`.
+
+---
+
 Trang này giải thích cách các đối tượng Kubernetes được biểu diễn trong Kubernetes API, và cách bạn
 thể hiện chúng ở định dạng `.yaml`.
 
@@ -189,3 +220,20 @@ Bạn có thể cần [cài đặt kubectl](https://kubernetes.io/docs/tasks/too
 * [Finalizers](https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/)
 * [Owners và Dependents (Owners and Dependents)](https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/)
 * [Các label khuyến nghị (Recommended Labels)](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 1:
+
+1. Trong một Node object, `spec.podCIDR` và `status.capacity.cpu` — trường nào do bạn hoặc
+   cluster đặt, trường nào do hệ thống quan sát rồi ghi vào?
+2. Vì sao client không nên tự ý ghi vào `status`?
+3. Bạn `kubectl apply` một YAML có tên field sai chính tả. Với `--validate=strict`, chuyện gì
+   xảy ra? Object có được tạo không?
+4. Kể bốn trường bắt buộc của một manifest và nói mỗi trường trả lời câu hỏi gì.
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

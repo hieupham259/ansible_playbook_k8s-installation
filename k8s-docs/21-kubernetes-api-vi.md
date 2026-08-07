@@ -5,6 +5,41 @@
 > Kubernetes API cho phép bạn truy vấn và thao tác trạng thái của các object trong Kubernetes.
 > Cốt lõi của control plane Kubernetes là API server và HTTP API mà nó cung cấp. Người dùng, các thành phần khác nhau trong cluster của bạn và các thành phần bên ngoài đều giao tiếp với nhau thông qua API server.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+bài 5/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B5.
+
+Bài này có nhiều chi tiết giao thức (header, hash, protobuf) dành cho người viết client. Ở
+giai đoạn 1 bạn là người **dùng** API, không phải người viết client — bỏ qua những chỗ đó.
+
+**Phải hiểu ở lần đọc này:**
+
+- API server là cổng vào duy nhất; mọi thành phần giao tiếp qua nó.
+- Cấu trúc đường dẫn: `/api/v1` là **core group**, `/apis/<group>/<version>` là **named API
+  group**. Biết đọc một chuỗi dạng `group/version/resource`.
+- Versioning nằm ở **cấp API**, không phải cấp field hay cấp cluster.
+- `v1alphaN`, `v1betaN`, `v1` là ba mức trưởng thành, với cam kết tương thích khác nhau.
+- Object được lưu bền vững trong etcd — mục *Lưu trữ bền vững*, chỉ hai dòng nhưng quan trọng.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Aggregated vs unaggregated discovery, header `Accept`, ETag | chi tiết giao thức cho client | khi viết client |
+| Toàn bộ mục *Định nghĩa giao diện OpenAPI* (v2, v3, bảng header, hash URL) | tài liệu tra cứu | khi viết client |
+| Tuần tự hóa Protobuf | giao tiếp nội bộ cluster | không cần |
+| *Mở rộng API* — custom resource và aggregation layer | là chủ đề riêng của platform admin | giai đoạn 14 |
+
+Lộ trình đã ghi rõ phần API aggregation chỉ đọc lướt ở đây và quay lại ở giai đoạn 14.
+
+---
+
 Cốt lõi của control plane Kubernetes
 là API server. API server
 cung cấp một HTTP API cho phép người dùng cuối, các thành phần khác nhau trong cluster của bạn và
@@ -298,3 +333,19 @@ Kubernetes API có thể được mở rộng theo một trong hai cách:
   [Tài liệu tham chiếu API (API Reference)](https://kubernetes.io/docs/reference/kubernetes-api/).
 - Tìm hiểu điều gì tạo nên một thay đổi tương thích, và cách thay đổi API, trong
   [API changes](https://git.k8s.io/community/contributors/devel/sig-architecture/api_changes.md#readme).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 1:
+
+1. `/api/v1` và `/apis/apps/v1` khác nhau ở chỗ nào?
+2. Một resource được nâng từ `v1beta1` lên `v1`. Object bạn đã tạo bằng `v1beta1` có mất
+   không? Bạn còn đọc và sửa nó được bằng cách nào?
+3. Cluster có một resource ở `v1alpha1`. Điều đó có nghĩa cả cluster đang ở mức alpha không?
+4. Object bạn tạo qua API server cuối cùng được lưu ở đâu?
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

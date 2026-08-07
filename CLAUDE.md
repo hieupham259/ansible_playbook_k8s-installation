@@ -58,6 +58,11 @@ Lab **không được** dùng khái niệm chưa dạy trong lộ trình để l
 Ví dụ đã quyết: HPA/VPA đọc lý thuyết ở giai đoạn 4 nhưng thực hành ở Lab 11b, vì cần
 metrics-server của giai đoạn 11. Không cài metrics-server sớm.
 
+**Ngoại lệ duy nhất là Lab 00**, vì lộ trình cần cluster thật từ giai đoạn 1 trong khi kubeadm
+thuộc giai đoạn 8. Lab 00 được miễn trừ do không phải bài học: không checkpoint vấn đáp, chạy
+copy-paste, và có mục nói rõ điều đó ở đầu file. Đừng "sửa" ngoại lệ này, cũng đừng cho lab
+khác viện dẫn nó.
+
 Lab phát sinh nợ phải nói rõ trong checkpoint rằng nợ chưa trả. Lab trả nợ phải nhắc người
 học đọc lại bài gốc trước khi làm.
 
@@ -133,6 +138,64 @@ Cập nhật đủ ba chỗ, nếu thiếu thì coi như chưa xong:
 - Dùng backtick cho tên lệnh, file, field và giá trị.
 
 ---
+
+## Khối "Đọc bài này thế nào" và "Tự kiểm tra" trong `k8s-docs/`
+
+Mỗi bài dịch mang thêm hai khối **không thuộc trang gốc**, giúp người học biết cần hiểu sâu
+tới đâu ở lần đọc đó và tự kiểm tra sau khi đọc. Mục tiêu: không để người học thiếu kiến thức,
+cũng không để họ hoang mang vì những đoạn tham chiếu kiến thức của giai đoạn sau.
+
+### Vị trí
+
+- **`## Đọc bài này thế nào`** — ngay sau blockquote nguồn ở đầu file, ngăn cách bằng `---`
+  ở cả hai phía. Đặt ở đầu vì đây là chỉ dẫn cho việc sắp đọc.
+- **`## Tự kiểm tra`** — ở **cuối file**, sau cả mục *Tiếp theo (What's next)*.
+
+Nội dung bản dịch nằm liền mạch giữa hai khối, không bị cắt thêm chỗ nào khác.
+
+### Khuôn của khối "Đọc bài này thế nào"
+
+1. Blockquote một dòng, nguyên văn:
+
+   ```markdown
+   > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+   > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+   ```
+
+2. Dòng **Vị trí**: giai đoạn → nhóm bài (link tới đúng anchor trong lộ trình), số thứ tự
+   `bài N/M`, và lab kiểm chứng kèm phần cụ thể (`phần B7`).
+3. Tùy chọn: một đoạn ngắn cảnh báo về đặc thù của bài — bài quá dài, bài vốn viết cho mục
+   đích khác, bài dùng ví dụ chưa học.
+4. **Phải hiểu ở lần đọc này:** gạch đầu dòng, tối đa 5 ý, mỗi ý trỏ tới một mục có thật trong
+   bài. Viết ở dạng ý phải nắm, không phải tên mục.
+5. **Đọc lướt, chưa cần hiểu:** bảng ba cột `Phần | Vì sao hoãn | Sẽ hiểu ở`. Cột thứ ba phải
+   chỉ ra giai đoạn hoặc bài cụ thể, không được ghi chung chung là "sau này".
+
+### Khuôn của khối "Tự kiểm tra"
+
+1. Blockquote: `> Phần này không có trong trang gốc.`
+2. Một dòng dẫn: trả lời được mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn đó.
+3. **3–5 câu hỏi đánh số.** Yêu cầu về câu hỏi:
+   - Hỏi vào **cơ chế và ranh giới**, không hỏi định nghĩa thuộc lòng.
+   - Ít nhất một câu neo vào cluster lab thật của người học ("hai worker của bạn…").
+   - Ít nhất một câu là **câu bẫy phân biệt** — thứ dễ nhầm mà bài vừa làm rõ.
+   - Chỉ hỏi thứ đã nằm trong phần "Phải hiểu"; không hỏi thứ đã xếp vào "Đọc lướt".
+4. Dòng kết: `Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.`
+   Bài cuối của một nhóm thì chuyển hướng sang lab của nhóm đó.
+
+### Quy tắc
+
+- **Đọc toàn bộ bài trước khi viết hai khối.** Không suy đoán nội dung từ tên file hay từ
+  kiến thức chung về Kubernetes; mọi mục được nhắc tên phải có thật trong bài.
+- Vị trí trong lộ trình lấy từ `LO-TRINH-ADMIN.md`, không tự suy ra từ số thứ tự file.
+- Phần "Sẽ hiểu ở" phải khớp với thứ tự thật của lộ trình và với
+  [sổ nợ lab](k8s-docs/labs/README.md#5-sổ-nợ-lab) nếu liên quan.
+- Không thêm kiến thức mới vào hai khối này. Chúng chỉ định hướng và kiểm tra.
+- Khi dịch lại hoặc cập nhật một trang từ upstream, **giữ nguyên hai khối** và rà lại xem các
+  mục được nhắc tên còn tồn tại không.
+
+Tiến độ: nhóm 1a (bài 14, 15, 22, 16, 21, 23, 24, 25) đã có đủ hai khối. Các bài còn lại làm
+tiếp theo thứ tự lộ trình.
 
 ## Dịch tài liệu kubernetes.io
 

@@ -7,6 +7,36 @@
 > Kubernetes có một hệ sinh thái lớn và đang phát triển nhanh chóng. Các dịch vụ, sự hỗ trợ và công cụ dành cho
 > Kubernetes được cung cấp rộng rãi.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+bài 1/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B1.
+
+**Phải hiểu ở lần đọc này:**
+
+- Kubernetes tự động hóa những việc gì — đọc kỹ mục *Vì sao bạn cần Kubernetes*.
+- Kubernetes **không** làm những việc gì — mục *Kubernetes không phải là gì* quan trọng ngang
+  mục trên. Lab 1a hỏi đúng chỗ này.
+- Ý ở cuối mục đó: Kubernetes "loại bỏ nhu cầu điều phối", là một tập các tiến trình điều
+  khiển độc lập liên tục đưa trạng thái hiện tại về trạng thái mong muốn. Đây là hạt giống của
+  bài [Các Controller](25-controllers-vi.md).
+- Khác biệt giữa container runtime và orchestrator: ba máy đã cài containerd vẫn chưa phải
+  cluster.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Các tính năng nhắc tới Pod, Service, Secret, HPA, dual-stack | mới là tên gọi, chưa có gì để bám vào | giai đoạn 3, 4, 5 |
+| *Bối cảnh lịch sử của Kubernetes* | kiến thức nền, không kiểm chứng được trên cluster | đọc một lần cho biết |
+
+---
+
 Trang này là phần tổng quan về Kubernetes.
 
 Cái tên Kubernetes bắt nguồn từ tiếng Hy Lạp, có nghĩa là người cầm lái (helmsman) hoặc hoa tiêu (pilot).
@@ -172,3 +202,19 @@ Container đã trở nên phổ biến vì chúng mang lại thêm nhiều lợi
 * Xem qua [kubectl](https://kubernetes.io/docs/concepts/overview/kubectl/): công cụ dòng lệnh (CLI) chính của Kubernetes
 * Xem qua [Kiến trúc cluster](https://kubernetes.io/docs/concepts/architecture/)
 * Sẵn sàng để [Bắt đầu](https://kubernetes.io/docs/setup/)?
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 1:
+
+1. Kể ba việc Kubernetes tự động hóa, và ba việc nó **không** làm thay bạn.
+2. Ba máy đã cài containerd và chạy được container. Chúng còn thiếu gì để trở thành một
+   cluster Kubernetes?
+3. "Kubernetes loại bỏ nhu cầu điều phối" nghĩa là gì? Nó khác một script chạy lần lượt
+   A → B → C ở chỗ nào?
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

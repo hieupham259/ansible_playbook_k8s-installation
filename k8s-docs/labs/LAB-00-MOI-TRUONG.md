@@ -13,9 +13,29 @@ Quy tắc bảo trì: bảng version ở mục A1.3 là nơi duy nhất ghi số
 tới phiên bản thì **link về đây**, không chép lại con số — nếu chép, mỗi lần baseline đổi sẽ
 phải sửa hàng chục file và chắc chắn sót.
 
-Việc cài OS, container runtime, kubeadm và CNI trong file này chỉ là **chuẩn bị môi trường**.
-Không cần hiểu sâu các thao tác cài đặt ở giai đoạn 1; nội dung đó sẽ được học tại giai đoạn
-2, 5 và 8, khi bạn dựng lại cluster một lần nữa với đầy đủ hiểu biết.
+## Lab này là ngoại lệ có chủ đích
+
+Lab 00 **không phải bài học** và là lab duy nhất được phép đi trước kiến thức của lộ trình.
+Chạy nó ở chế độ copy-paste: không cần hiểu vì sao phải `swapoff`, vì sao
+`SystemdCgroup = true`, hay `kubeadm init` làm những gì. File này không có checkpoint vấn đáp,
+chỉ có gate kỹ thuật.
+
+Lý do: lộ trình yêu cầu cluster thật để làm checkpoint ngay từ giai đoạn 1, nhưng kubeadm lại
+là nội dung của giai đoạn 8. Lộ trình giải vòng lặp này bằng hai phương án ở mục
+[Môi trường lab](../LO-TRINH-ADMIN.md#môi-trường-lab): mượn cluster có sẵn, hoặc tự dựng. Lab
+00 là phương án tự dựng ở dạng copy-paste — về mặt kiến thức nó tương đương với việc có người
+đưa cho bạn một cluster.
+
+Bạn sẽ quay lại đúng nội dung file này ba lần, mỗi lần hiểu thêm một tầng:
+
+| Giai đoạn | Bài | Hiểu ra phần nào của Lab 00 |
+| --- | --- | --- |
+| 2 | [00 — Các container runtime](../00-container-runtimes-vi.md), [44 — CRI](../44-cri-vi.md), [33 — cgroup v2](../33-cgroups-vi.md) | vì sao cấu hình containerd như A4.2; cgroup driver của kubelet và runtime phải khớp |
+| 5 | [183 — Network Plugin](../183-network-plugins-vi.md) | Flannel làm gì; vì sao `kubeadm init` cần `--pod-network-cidr` |
+| 8 | [01 — Cài đặt kubeadm](../01-install-kubeadm-vi.md), [02 — Tạo cluster với kubeadm](../02-create-cluster-kubeadm-vi.md) | toàn bộ A4 và A5 — lúc đó Lab 8a phá chính ba VM này và dựng lại có hiểu |
+
+Không suy ra từ đây rằng lab khác cũng được đi trước kiến thức. Mọi lab còn lại tuân thủ
+[nguyên tắc không nhảy cóc](README.md#2-nguyên-tắc-không-nhảy-cóc).
 
 ---
 

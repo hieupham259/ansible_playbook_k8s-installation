@@ -4,6 +4,54 @@
 >
 > Tự động điều chỉnh resource request và limit dựa trên các mẫu sử dụng thực tế.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 13/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Như bài [72](72-horizontal-pod-autoscale-vi.md): ở đây bạn chỉ đọc lý thuyết.** VPA cần
+hai thứ mà cluster baseline chưa có — chính add-on VPA (nó không đi kèm Kubernetes) và
+Metrics Server của **giai đoạn 11**. Phần thực hành là [nợ lab](labs/README.md#5-sổ-nợ-lab),
+trả ở **Lab 11b**. **Đừng cài metrics-server hay VPA sớm để chạy thử.** Lần đọc này chỉ cần
+nắm ba thành phần của VPA và ranh giới giữa các `updateMode` — đó là thứ quyết định workload
+của bạn có bị khởi động lại hay không.
+
+**Phải hiểu ở lần đọc này:**
+
+- VPA **không thuộc API lõi**: nó được định nghĩa dưới dạng một CustomResourceDefinition
+  (`autoscaling.k8s.io/v1`) và phải cài riêng — khác hẳn HorizontalPodAutoscaler. Nó cũng
+  **yêu cầu một nguồn metric**, các thành phần VPA lấy metric từ API `metrics.k8s.io`.
+- Ba thành phần và việc của từng cái: **Recommender** phân tích mức sử dụng hiện tại và quá
+  khứ rồi ghi khuyến nghị vào `.status.recommendation`; **Updater** so sánh request hiện tại
+  với khuyến nghị và evict Pod hoặc sửa tại chỗ; **admission controller** là một mutating
+  webhook chặn request tạo Pod và áp khuyến nghị **Target** lên Pod trước khi nó được tạo.
+- Recommender sinh **ba mức** — Target, cận dưới, cận trên — và VPA chạy **theo từng đợt**,
+  không phải một tiến trình liên tục.
+- Ranh giới giữa các `updateMode`: `Off` chỉ khuyến nghị chứ không áp dụng; `Initial` chỉ đặt
+  request lúc Pod được tạo lần đầu; `Recreate` **evict Pod** để áp giá trị mới;
+  `InPlaceOrRecreate` thử sửa tại chỗ rồi mới quay về evict; `InPlace` **không bao giờ evict**
+  mà hoãn lại và thử lại; `Auto` đã lỗi thời và hiện chỉ là bí danh của `Recreate`.
+- `resourcePolicy` để chặn khuyến nghị đi quá xa: `minAllowed`/`maxAllowed` là biên cứng mà
+  VPA không bao giờ vượt, `controlledResources` giới hạn loại tài nguyên (`cpu`, `memory`),
+  và `controlledValues` quyết định VPA đặt cả request lẫn limit (`RequestsAndLimits`, mặc
+  định) hay chỉ request (`RequestsOnly`).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ phần thao tác thật — cài VPA, tạo object VerticalPodAutoscaler | cần add-on VPA và Metrics Server | [nợ lab](labs/README.md#5-sổ-nợ-lab), trả ở Lab 11b |
+| Mục *InPlace* — feature gate `InPlace` và `InPlacePodVerticalScaling`, VPA 1.7.0 | alpha, phải bật feature gate ở cả cluster lẫn hai thành phần VPA | không cần |
+| *Tài nguyên LimitRange* | chưa học LimitRange | giai đoạn 7 |
+| Cú pháp đầy đủ của `containerPolicies` trong ví dụ YAML | không cài VPA ở giai đoạn này | Lab 11b |
+
+---
+
 Trong Kubernetes, một _VerticalPodAutoscaler_ tự động cập nhật một tài nguyên quản lý
 workload (chẳng hạn một Deployment hoặc StatefulSet), với mục tiêu tự động điều chỉnh
 [request và limit](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits)
@@ -289,3 +337,57 @@ dùng [tự động co giãn node (node autoscaling)](https://kubernetes.io/docs
 để bảo đảm bạn đang chạy đúng số lượng node.
 Bạn cũng có thể đọc thêm về
 [tự động co giãn Pod theo chiều _ngang_ (horizontal Pod autoscaling)](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4. Đây là bài
+chỉ đọc lý thuyết; phần thực hành nằm ở [Lab 11b](labs/README.md#5-sổ-nợ-lab).
+
+1. **Câu bẫy.** VPA ở `updateMode: Recreate` quyết định tăng CPU request cho một Deployment.
+   Pod có được đổi request mà không phải khởi động lại không? Và thành phần nào của VPA thực
+   sự ghi giá trị mới lên Pod?
+2. `updateMode: Off` có tác dụng gì, và bạn xem khuyến nghị ở đâu?
+3. `InPlace` và `InPlaceOrRecreate` khác nhau đúng một điểm. Điểm đó là gì?
+4. Trên cluster lab của bạn — chưa có metrics-server, chưa cài gì thêm — bạn `kubectl apply`
+   một object `kind: VerticalPodAutoscaler`. Chuyện gì xảy ra, và khác gì so với khi bạn apply
+   một HorizontalPodAutoscaler?
+5. Bạn đặt `controlledValues: RequestsOnly`. Limit của container có còn tác dụng không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không — Pod bị evict.** Trong chế độ `Recreate`, VPA "chủ động quản lý tài nguyên của Pod
+   bằng cách **evict Pod** khi resource request hiện tại của chúng chênh lệch đáng kể so với
+   khuyến nghị". Và thành phần ghi giá trị mới **không phải updater**: updater chỉ evict, sau
+   đó **workload controller** (Deployment ở đây) tạo Pod thay thế, rồi **admission controller
+   của VPA** — một mutating webhook chặn request tạo Pod — mới áp resource request đã cập nhật
+   lên Pod mới, dùng khuyến nghị Target trong `.status.recommendation`. Trực giác "VPA sửa
+   thẳng Pod đang chạy" chỉ đúng với `InPlace` và `InPlaceOrRecreate`, không đúng với
+   `Recreate`.
+2. Ở `Off`, **recommender vẫn phân tích và vẫn sinh khuyến nghị, nhưng khuyến nghị không được
+   tự động áp dụng cho Pod**. Chúng chỉ được lưu trong trường **`.status`** của object VPA, và
+   bạn xem bằng `kubectl`. Đây là chế độ để đo trước khi dám cho VPA đụng vào workload.
+3. Điểm khác duy nhất là **cách xử lý khi việc resize tại chỗ không thực hiện được**.
+   `InPlaceOrRecreate` **quay về evict Pod** (giống `Recreate`) rồi để workload controller tạo
+   Pod thay thế. `InPlace` thì **không bao giờ evict**: khi thao tác resize bị hoãn, đang diễn
+   ra, hoặc bất khả thi — ví dụ node không còn đủ dung lượng — nó hoãn cập nhật lại và thử lại
+   trong một vòng đối chiếu tiếp theo, bất kể đã chờ bao lâu.
+4. **API server từ chối vì không biết kind đó.** VPA "được định nghĩa dưới dạng một Custom
+   Resource Definition (CRD) trong Kubernetes. **Không giống HorizontalPodAutoscaler vốn là
+   một phần của API lõi Kubernetes, VPA phải được cài đặt riêng** vào cluster của bạn". Với
+   HorizontalPodAutoscaler thì ngược lại: object tạo được ngay vì kind đã có sẵn — nó chỉ
+   không hoạt động vì thiếu nguồn metric. Đó là hai loại "không dùng được" khác nhau, và là lý
+   do cả hai bài đều để phần thực hành ở Lab 11b.
+5. **Có, limit vẫn còn nguyên tác dụng.** `RequestsOnly` chỉ nghĩa là **VPA chỉ đặt request và
+   giữ nguyên limit** — bài nói rõ "Limit vẫn được tôn trọng và vẫn có thể gây throttling hoặc
+   bị kill do hết bộ nhớ (out-of-memory kill) nếu mức sử dụng vượt quá chúng". Ở chế độ mặc
+   định `RequestsAndLimits` thì limit được co giãn theo tỷ lệ với request, dựa trên tỷ lệ
+   request-trên-limit định nghĩa trong spec của Pod.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

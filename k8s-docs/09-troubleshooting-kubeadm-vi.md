@@ -2,6 +2,60 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/troubleshooting-kubeadm/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 9/9 ·
+Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Đây là tài liệu tra cứu, không phải bài học — đừng đọc tuần tự và đừng cố nhớ nội dung.**
+Lộ trình đánh dấu rõ như vậy. Cách dùng đúng: lướt **mục lục** một lần, đọc tên từng mục `##`
+để biết trong này có những triệu chứng nào, rồi **đóng lại**. Khi nào cluster hỏng thật thì mở
+ra tìm mục có triệu chứng khớp.
+
+Lý do phải đọc theo cách đó: nhiều mục ở đây là **di sản lịch sử** — lỗi RBAC khi join node
+v1.18 vào cluster v1.17, Docker 1.13.1.84 trên CentOS 7, một regression của kubeadm 1.15 đã sửa
+ở 1.20. Cluster lab chạy Kubernetes v1.35.6 với containerd 2.2.1 trên Ubuntu 24.04.4, nên phần
+lớn danh sách này bạn **không thể** gặp. Học thuộc chúng là lãng phí; biết chúng nằm ở đâu mới
+là kỹ năng.
+
+**Phải hiểu ở lần đọc này:**
+
+- **Cách tài liệu được tổ chức**: mỗi mục `##` là **một triệu chứng**, không phải một chủ đề.
+  Thứ bạn cần nhớ là *hình dạng của triệu chứng* — một dòng log, một trạng thái Pod, một lệnh
+  bị treo — đủ để tra ngược lại, chứ không phải cách sửa.
+- Ít nhất một mục ở đây mô tả **trạng thái bình thường chứ không phải lỗi**: *`coredns` bị kẹt
+  ở trạng thái `Pending`* nói thẳng rằng điều này **bình thường và nằm trong thiết kế**, vì
+  kubeadm không phụ thuộc nhà cung cấp mạng nào và bạn phải cài Pod network trước.
+- Ba mục có khả năng gặp thật trên cluster lab: *kubeadm bị treo khi chờ control plane*
+  (ba nguyên nhân: mạng, cgroup driver lệch, container control plane crashloop), *Lỗi certificate
+  TLS* (kubeconfig sai hoặc biến `KUBECONFIG` trỏ nhầm), và *`kubeadm bị treo khi xóa các
+  container được quản lý`*.
+- **Công cụ mà bài liên tục đẩy về là `crictl`** — dùng để nhìn vào container khi cluster chưa
+  lên nên `kubectl` vô dụng. Đúng bộ đôi mà checkpoint giai đoạn 8 yêu cầu đọc được, cùng với
+  `journalctl -u kubelet`. Lab 00 đã cài `cri-tools` và cấu hình `/etc/crictl.yaml` sẵn ở
+  [A4.3](labs/LAB-00-MOI-TRUONG.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl).
+- **Đường thoát khi không mục nào khớp**, nêu ngay đầu bài: tìm issue đã có ở
+  `github.com/kubernetes/kubeadm`, chưa có thì mở issue mới theo mẫu; còn nếu chỉ là chưa hiểu
+  kubeadm hoạt động thế nào thì hỏi ở Slack `#kubeadm` hoặc StackOverflow với tag phù hợp.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Các mục gắn với phiên bản đã quá cũ: RBAC v1.18/v1.17, Docker 1.13.1.84 trên CentOS 7, `kubeadm reset` unmount `/var/lib/kubelet`, `context deadline exceeded` | cluster lab chạy v1.35.6, không thể gặp | không cần |
+| *NIC mặc định khi dùng flannel trong Vagrant*, *IP không công khai được dùng cho container*, *`/usr` được mount ở chế độ chỉ đọc* | môi trường khác lab: Vagrant, cloud, Flatcar/CoreOS | không cần |
+| *kube-proxy được lập lịch trước khi node được cloud-controller-manager khởi tạo* | chỉ xảy ra với cloud provider | không cần |
+| *Xoay vòng client certificate của kubelet thất bại* | cần hiểu vòng đời và cách ký certificate | CP3 certificate |
+| *Nâng cấp thất bại do hash của etcd không thay đổi* | chỉ gặp khi nâng cấp từ v1.28.0–v1.28.2 | CP2 nâng cấp |
+| *Không thể dùng metrics-server một cách an toàn trong cluster kubeadm* | chưa cài metrics-server | giai đoạn 11 |
+
+---
+
 Như với bất kỳ chương trình nào, bạn có thể gặp lỗi khi cài đặt hoặc chạy kubeadm.
 Trang này liệt kê một số tình huống lỗi thường gặp và cung cấp các bước có thể giúp bạn hiểu và khắc phục vấn đề.
 
@@ -556,3 +610,48 @@ Có hai cách khắc phục nếu bạn gặp vấn đề này trong cluster c�
 
 Có thể tìm thêm thông tin trong
 [issue theo dõi](https://github.com/kubernetes/kubeadm/issues/2927) lỗi này.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Đây là tài liệu tra cứu, nên ba câu dưới đây chỉ kiểm tra **cách dùng nó**, không kiểm tra bạn
+có thuộc từng lỗi hay không. Trả lời được mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
+
+1. Bạn vừa chạy `kubeadm init` trên `k8s-master` xong và chưa cài Flannel. `kubectl get pods -A`
+   cho thấy Pod `coredns` ở trạng thái `Pending`. Có nên mở bài này tìm cách sửa không?
+2. `kubeadm init` treo ở dòng `[apiclient] Created API client, waiting for the control plane to
+   become ready`. Bài liệt kê mấy nhóm nguyên nhân, và bạn dùng công cụ nào để nhìn vào
+   container của control plane khi `kubectl` chưa dùng được?
+3. Bạn gặp một triệu chứng mà không mục `##` nào trong bài mô tả. Bài chỉ bạn làm gì tiếp, theo
+   đúng thứ tự?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không — đây không phải lỗi.** Bài có hẳn một mục *`coredns` bị kẹt ở trạng thái `Pending`*
+   và câu đầu tiên của nó là: điều này **bình thường và nằm trong thiết kế**, vì kubeadm không
+   phụ thuộc nhà cung cấp mạng nào nên bạn **phải cài đặt một Pod Network trước khi CoreDNS có
+   thể được triển khai đầy đủ**. Đây đúng là kiểu bẫy mà một tài liệu troubleshooting hay tạo
+   ra: thấy tên mục khớp với triệu chứng nên tưởng mình đang gặp lỗi, trong khi nội dung mục lại
+   nói ngược lại. Mục *Pod ở trạng thái `RunContainerError`, `CrashLoopBackOff` hoặc `Error`*
+   nhắc lại cùng điều đó: `coredns` **nên** ở `Pending` cho tới khi bạn triển khai add-on mạng.
+2. **Ba nhóm nguyên nhân**, theo đúng thứ tự phổ biến mà bài xếp: **vấn đề kết nối mạng**;
+   **cgroup driver của container runtime khác cgroup driver của kubelet**; và **các container
+   control plane bị crashloop hoặc bị treo**. Công cụ để nhìn vào container là **`crictl`** —
+   bài trỏ sang *Gỡ lỗi node Kubernetes với crictl* cho mọi container runtime không phải Docker,
+   và đây cũng là công cụ nó nhắc lại ở mục `kubeadm reset` bị treo. Lúc này `kubectl` chưa dùng
+   được vì API server chính là thứ chưa lên.
+3. Theo đúng thứ tự bài nêu ở phần mở đầu: **nếu bạn cho rằng đó là bug của kubeadm** thì trước
+   hết vào `github.com/kubernetes/kubeadm` và **tìm trong các issue hiện có**; **chỉ khi chưa có
+   issue nào** mới mở issue mới và **làm theo mẫu issue**. Còn **nếu bạn chỉ chưa rõ kubeadm hoạt
+   động thế nào** — không phải bug — thì hỏi ở kênh Slack `#kubeadm` hoặc StackOverflow, kèm tag
+   `#kubernetes` và `#kubeadm`. Phân biệt "bug" với "chưa hiểu" là bước đầu tiên, không phải bước
+   cuối.
+
+</details>
+
+Đây là bài cuối của **Giai đoạn 8**. Trả lời được ba câu này nghĩa là bạn biết dùng tài liệu tra
+cứu; phần dựng thật nằm ở Lab 8a, 8b và 8c — xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).

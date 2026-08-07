@@ -2,6 +2,55 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/policy/pid-limiting/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
+bài 4/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này **đổi mặt phẳng cấu hình**. Hai bài trước là đối tượng API trong namespace; từ đây tới
+hết nhóm 7b là chính sách nằm trên kubelet của từng node — đúng nhánh thứ hai mà bài
+[132](132-policies-vi.md) đã vạch ra. Bài ngắn, nhưng đọc kỹ chỗ nó nói vì sao PID không khai
+được trong `.spec` của Pod: đó là điểm khác biệt lớn nhất so với `requests`/`limits` bạn đã
+quen từ bài [110](110-manage-resources-containers-vi.md).
+
+**Phải hiểu ở lần đọc này:**
+
+- PID là **tài nguyên nền tảng của node**: rất dễ chạm giới hạn số task mà chưa chạm bất kỳ
+  giới hạn tài nguyên nào khác, và điều đó gây mất ổn định cho host.
+- Nơi khai giới hạn: **không** nằm trong `.spec` của Pod mà là **thiết lập trên kubelet** —
+  tham số `--pod-max-pids` hoặc `PodPidsLimit` trong file cấu hình kubelet. Giới hạn PID định
+  nghĩa ở cấp Pod hiện **chưa được hỗ trợ**. Hệ quả bài cảnh báo: giới hạn áp cho một Pod có
+  thể khác nhau tùy nơi Pod được lập lịch, nên cách dễ nhất là để mọi Node dùng cùng một mức.
+- Hai lớp bảo vệ khác nhau, đừng nhầm: **dự trữ PID cho node** — tham số `pid=<number>` trong
+  `--system-reserved` và `--kube-reserved` — giữ PID cho hệ điều hành và các daemon hệ thống
+  của Kubernetes; **giới hạn PID của Pod** chỉ bảo vệ Pod này khỏi Pod khác. Bài nói thẳng:
+  giới hạn theo từng Pod **không** đảm bảo mọi Pod trên host không tác động tới node nói chung,
+  và **không** bảo vệ được chính các agent của node khỏi cạn PID.
+- Cách nghĩ về "ngân sách": ví dụ của bài là node có `262144` PID và dự kiến dưới `250` Pod thì
+  cấp mỗi Pod `1000` PID; overcommit được như với CPU hay bộ nhớ nhưng kèm rủi ro bổ sung. Dù
+  theo cách nào, một Pod đơn lẻ cũng không làm sập được cả máy.
+- Ranh giới giữa giới hạn cứng và eviction: giới hạn PID theo Pod và theo Node là **giới hạn
+  cứng** — chạm tới là workload bắt đầu lỗi khi xin PID mới, và việc Pod có bị lập lịch lại hay
+  không còn tùy cách workload phản ứng cùng cấu hình probe. Còn tín hiệu eviction
+  `pid.available` được **tính toán định kỳ và KHÔNG cưỡng chế giới hạn**, nên kể cả đặt eviction
+  cứng, node vẫn có thể mất ổn định nếu số PID tăng rất nhanh.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| `/proc/sys/kernel/pid_max` và giới hạn PID mặc định thấp của một số bản Linux | là cấu hình hệ điều hành, nằm ngoài Kubernetes | không cần |
+| Cách thực sự áp `--pod-max-pids` / `PodPidsLimit` lên từng node | bạn chưa dựng cluster nên chưa sửa được kubelet | giai đoạn 8, bài [04](04-kubelet-integration-vi.md) |
+| Cách đặt cụ thể `--system-reserved` và `--kube-reserved`, kèm phần dự trữ CPU/bộ nhớ đi cùng | là thao tác cấu hình trên node thật, không phải khái niệm | nhóm task CP5 ở cuối lộ trình (*Reserve Compute Resources for System Daemons*) |
+| Cách đặt ngưỡng eviction mềm và cứng cho `pid.available` | ở đây chỉ cần biết eviction **không** thay thế được giới hạn cứng | nhóm task CP5 ở cuối lộ trình |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.20 [stable]`
 
 Kubernetes cho phép bạn giới hạn số lượng process ID (PID) mà một Pod có thể sử dụng.
@@ -96,3 +145,54 @@ sẽ không bị cạn PID khi có một Pod hoạt động bất thường.
   [Process ID Limiting for Stability Improvements in Kubernetes 1.14](https://kubernetes.io/blog/2019/04/15/process-id-limiting-for-stability-improvements-in-kubernetes-1.14/).
 - Đọc [Quản lý tài nguyên cho container (Managing Resources for Containers)](./110-manage-resources-containers-vi.md).
 - Tìm hiểu cách [Cấu hình xử lý khi hết tài nguyên (Configure Out of Resource Handling)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Giới hạn PID của một Pod được khai ở đâu? Vì sao hai bản sao giống hệt nhau của cùng một
+   Pod trong cluster của bạn lại có thể chịu hai mức giới hạn PID khác nhau?
+2. Cluster lab của bạn có hai worker, mỗi máy 2 vCPU / 6 GB RAM. Bạn chỉ đặt `--pod-max-pids`
+   trên `k8s-worker2`. Một Pod chạy loạn được lập lịch lên `k8s-worker1` — chuyện gì xảy ra, và
+   bài khuyên làm gì để khỏi rơi vào tình huống này?
+3. Giới hạn PID theo từng Pod có đủ để kubelet và kube-proxy trên node không bị cạn PID không?
+   Nếu không thì cơ chế nào lo việc đó, và nó khai ở đâu?
+4. Tín hiệu eviction `pid.available` có phải là cơ chế cưỡng chế giới hạn PID không? Nếu đặt
+   eviction cứng thì node có chắc chắn an toàn không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Khai trên kubelet của node, không phải trong `.spec` của Pod.** Cụ thể là tham số dòng
+   lệnh `--pod-max-pids` hoặc trường `PodPidsLimit` trong file cấu hình kubelet; bài nói rõ giới
+   hạn PID định nghĩa ở cấp Pod **hiện chưa được hỗ trợ**. Vì mỗi Node có thể có một giới hạn
+   PID khác nhau, **giới hạn thực tế áp lên một Pod phụ thuộc vào nơi nó được lập lịch tới** —
+   hai bản sao giống hệt nhau rơi lên hai node cấu hình khác nhau sẽ nhận hai mức khác nhau. Đây
+   là chỗ PID lệch hẳn khỏi `requests`/`limits`, vốn đi theo Pod.
+2. **Pod đó không bị chặn gì cả trên `k8s-worker1`** — không có giới hạn thì không có gì để
+   cưỡng chế, và nó có thể ngốn PID tới mức làm mất ổn định node. Bài đưa ra đúng lời khuyên cho
+   trường hợp này trong ghi chú thận trọng: vì giới hạn áp cho một Pod thay đổi theo nơi Pod
+   được lập lịch, **cách dễ nhất là để tất cả các Node dùng cùng một mức giới hạn và dự trữ tài
+   nguyên PID**. Nghĩa là cấu hình phải đặt trên cả `k8s-worker1` lẫn `k8s-worker2`, không phải
+   chỉ trên node bạn đang thử nghiệm.
+3. **Không đủ.** Bài nói thẳng: giới hạn PID theo từng Pod cho phép quản trị viên bảo vệ Pod này
+   khỏi Pod khác, nhưng **không đảm bảo mọi Pod được lập lịch lên host đó không tác động đến
+   node nói chung**, và **cũng không bảo vệ được chính các agent của node** khỏi cạn PID. Việc
+   đó thuộc về **dự trữ PID cho node**: tham số `pid=<number>` trong các tùy chọn
+   `--system-reserved` và `--kube-reserved` của kubelet, dành riêng một lượng PID cho toàn hệ
+   thống và cho các daemon hệ thống của Kubernetes. Hai cơ chế bổ sung nhau, không thay thế nhau.
+4. **Không, `pid.available` không cưỡng chế gì cả.** Trực giác "đặt hard eviction là xong" sai vì
+   nó lẫn hai loại cơ chế: bài ghi rõ giá trị của tín hiệu eviction được **tính toán định kỳ và
+   KHÔNG cưỡng chế giới hạn** — nó chỉ quan sát rồi chấm dứt Pod khi vượt ngưỡng. Vì việc quan
+   sát là định kỳ, **nếu số PID tăng rất nhanh thì node vẫn có thể rơi vào trạng thái mất ổn
+   định do chạm giới hạn PID của node**, kể cả với chính sách eviction cứng. Thứ đặt ra giới hạn
+   cứng thật sự là **giới hạn PID theo từng Pod và theo từng Node**: chạm tới là workload lập
+   tức gặp lỗi khi cố xin một PID mới.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

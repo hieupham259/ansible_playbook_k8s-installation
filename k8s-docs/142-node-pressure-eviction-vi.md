@@ -2,6 +2,66 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 7/13 ·
+Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Điểm khác biệt lớn nhất so với mọi bài trước trong nhóm: **chủ thể ở đây là kubelet, không
+phải kube-scheduler**. Không có API nào được gọi, không có PodDisruptionBudget nào được hỏi —
+node tự cứu mình. Đây cũng là bài mà `requests` của bài
+[110](110-manage-resources-containers-vi.md) và QoS class của bài [54](54-pod-qos-vi.md) trả
+bài: cả thứ tự trục xuất lẫn ngưỡng đều tính từ hai thứ đó.
+
+Bài dài vì phải mô tả ba bố cục filesystem khác nhau. Cluster lab dùng bố cục đơn giản nhất —
+mọi thứ nằm trên một `nodefs` duy nhất — nên bạn có thể lướt nhanh mọi đoạn nói về `imagefs`
+tách riêng và `containerfs`.
+
+**Phải hiểu ở lần đọc này:**
+
+- kubelet **tự** chấm dứt Pod, đặt phase của Pod thành `Failed`. Nó **không tôn trọng**
+  PodDisruptionBudget hay `terminationGracePeriodSeconds` của Pod — khác hẳn eviction khởi
+  phát qua API ở bài [143](143-api-eviction-vi.md).
+- Cơ chế đo: **tín hiệu eviction** (`memory.available`, `nodefs.available`,
+  `nodefs.inodesFree`, `imagefs.available`, `pid.available`…) được so với **ngưỡng eviction**.
+  Ngưỡng **mềm** đi kèm grace period bắt buộc; ngưỡng **cứng** không có grace period, kubelet
+  kill Pod ngay với grace period `0s`. Nhớ các ngưỡng cứng mặc định: `memory.available<100Mi`,
+  `nodefs.available<10%`, `imagefs.available<15%`, `nodefs.inodesFree<5%`,
+  `imagefs.inodesFree<5%` trên node Linux.
+- **Bẫy cấu hình quan trọng nhất của bài:** nếu bạn đổi giá trị của **một** tham số ngưỡng
+  cứng, các tham số còn lại **không kế thừa** mặc định mà bị đặt về **không**. Muốn giữ mặc
+  định thì phải khai đủ, hoặc bật `MergeDefaultEvictionSettings`.
+- kubelet **thu hồi tài nguyên cấp node trước** khi động tới Pod của người dùng: garbage
+  collect pod/container đã chết, rồi xóa các image không dùng đến.
+- Thứ tự trục xuất dựa trên ba tham số theo đúng thứ tự: (1) mức sử dụng có **vượt requests**
+  hay không, (2) **Priority** của Pod, (3) mức vượt so với requests là bao nhiêu. Kết quả:
+  nhóm `BestEffort`/`Burstable` **vượt requests** bị evict trước, nhóm `Guaranteed` và
+  `Burstable` **dưới requests** bị evict sau cùng. Ghi chú của bài nhấn mạnh kubelet **không**
+  dùng QoS class để quyết định thứ tự — QoS chỉ dùng để **ước lượng**.
+- Ba điều kiện node `MemoryPressure`, `DiskPressure`, `PIDPressure` được kubelet báo cáo khi
+  chạm ngưỡng, và control plane **ánh xạ chúng thành taint** — nối thẳng sang bài
+  [139](139-taint-and-toleration-vi.md), đó là lý do node đang chịu áp lực cũng ngừng nhận Pod
+  mới.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ba bố cục filesystem, toàn bộ `containerfs` và *split image filesystem* | cluster lab chỉ có một `nodefs` | không cần |
+| Cách lấy `memory.available` trên node Windows, `GetPerformanceInfo()` | không có node Windows | giai đoạn 15 |
+| *Các tính năng garbage collection của kubelet đã lỗi thời* | các flag đã bị thay bằng eviction | không cần |
+| *Lượng thu hồi eviction tối thiểu* (`--eviction-minimum-reclaim`) | tinh chỉnh khi eviction lặp lại nhiều lần | không cần |
+| *Hành vi khi node hết bộ nhớ* — bảng `oom_score_adj`, `oom_killer` | là cơ chế của kernel Linux, không phải eviction của kubelet | giai đoạn 2, bài [33](33-cgroups-vi.md) |
+| *Tài nguyên có thể lập lịch và chính sách eviction*, `--system-reserved`/`--kube-reserved` | thuộc phần dự trữ tài nguyên cho daemon hệ thống | [checkpoint tasks](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks) |
+| *Các vấn đề đã biết* — `active_file`, kubelet không thấy áp lực ngay | là trường hợp biên khi tinh chỉnh | không cần |
+
+---
+
 Eviction do áp lực node (node-pressure eviction) là quá trình trong đó kubelet chủ động
 chấm dứt các pod để thu hồi tài nguyên trên các node.
 
@@ -546,3 +606,60 @@ bằng nhau cho các container có khả năng thực hiện hoạt động I/O 
 - Tìm hiểu về [PodDisruptionBudget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)
 - Tìm hiểu về [Chất lượng dịch vụ (Quality of Service)](https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/) (QoS)
 - Xem [Eviction API](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#create-eviction-pod-v1-core)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Kể ba tham số kubelet dùng để xếp thứ tự evict Pod, theo đúng thứ tự. Vì sao bài khẳng định
+   kubelet **không** dùng QoS class để quyết định thứ tự, dù bảng thứ tự lại nhắc tên
+   `BestEffort`, `Burstable`, `Guaranteed`?
+2. Trên `k8s-worker2`, bạn muốn evict sớm hơn nên đặt trong file cấu hình kubelet đúng một
+   dòng `evictionHard: memory.available: "500Mi"` và không đụng gì khác. Ngưỡng
+   `nodefs.available` lúc này là bao nhiêu?
+3. Một Pod `Guaranteed` có bao giờ bị evict do áp lực node không?
+4. `k8s-worker2` sắp đầy đĩa. kubelet làm gì **trước khi** chấm dứt Pod của bạn? Điều kiện
+   node nào xuất hiện, và vì sao node đó cũng ngừng nhận Pod mới?
+5. So với `kubectl drain`, eviction do áp lực node đối xử với PodDisruptionBudget và
+   `terminationGracePeriodSeconds` thế nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Theo đúng thứ tự: **(1) mức sử dụng tài nguyên của Pod có vượt quá `requests` hay không,
+   (2) độ ưu tiên (Priority) của Pod, (3) mức sử dụng so với `requests`.** Không có tham số nào
+   là "QoS class". QoS chỉ là **hệ quả** của requests/limits, nên nhóm Pod theo QoS cho ra kết
+   quả *gần đúng* với thứ tự thật — bài dùng tên QoS cho dễ hình dung, rồi ghi chú rằng bạn chỉ
+   nên dùng QoS để **ước lượng**. Bằng chứng rõ nhất là phân loại QoS không áp dụng cho request
+   `EphemeralStorage`, nên khi node ở trạng thái `DiskPressure` thì cách suy theo QoS không còn
+   đúng nữa.
+2. **Bằng 0** — tức là tín hiệu `nodefs.available` gần như không bao giờ chạm ngưỡng nữa. Bài
+   nói rõ: các giá trị mặc định của ngưỡng eviction cứng **chỉ được thiết lập nếu không có tham
+   số nào bị thay đổi**; khi bạn đổi một tham số, các tham số còn lại **không được kế thừa như
+   giá trị mặc định mà bị đặt về không**. Muốn giữ 10% cho `nodefs.available` thì phải khai đủ
+   tất cả các ngưỡng, hoặc đặt `MergeDefaultEvictionSettings: true`.
+3. **Có, trong đúng một trường hợp.** Pod `Guaranteed` không bao giờ bị evict **vì mức tiêu
+   thụ của một Pod khác**. Nhưng nếu daemon hệ thống (như `kubelet`, `journald`) tiêu thụ nhiều
+   hơn phần đã được dành riêng, mà trên node chỉ còn các Pod `Guaranteed` hoặc `Burstable` đang
+   dùng **dưới** requests, thì kubelet **buộc phải chọn evict một trong số đó** để giữ node ổn
+   định — và nó chọn Pod có **Priority thấp nhất** trước. Ngoài ra, khi node cạn inode hoặc
+   PID, kubelet xếp thứ tự **chỉ bằng Priority**, vì inode và PID không có requests.
+4. kubelet **thu hồi tài nguyên cấp node trước**: với bố cục một `nodefs` duy nhất như cluster
+   lab, nó (1) garbage collect các pod và container đã chết, rồi (2) xóa các image không dùng
+   đến. Chỉ khi làm vậy vẫn không đưa được tín hiệu xuống dưới ngưỡng, nó mới bắt đầu evict Pod
+   của người dùng cuối. Điều kiện node xuất hiện là **`DiskPressure`**, và control plane **ánh
+   xạ điều kiện node thành taint** `node.kubernetes.io/disk-pressure`; bộ lập lịch kiểm tra
+   taint chứ không kiểm tra điều kiện node, nên Pod mới không còn được đặt lên node đó.
+5. **Ngược nhau.** Eviction do áp lực node **không tôn trọng** PodDisruptionBudget và **không
+   tôn trọng** `terminationGracePeriodSeconds` của Pod. Với ngưỡng **mềm**, kubelet chỉ dùng
+   `eviction-max-pod-grace-period` mà quản trị viên cấu hình; với ngưỡng **cứng**, nó dùng
+   grace period **`0s`**, tức là tắt ngay. Nói cách khác, khi node đang tự cứu mình thì mọi
+   thỏa thuận ở tầng API đều không có hiệu lực.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

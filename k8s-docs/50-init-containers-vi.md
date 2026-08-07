@@ -2,6 +2,52 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/pods/init-containers/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 6/11 · Kiểm chứng
+ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài có một ví dụ dài dùng Service và DNS — hai thứ thuộc giai đoạn 5. Đọc ví dụ đó để thấy hình
+dạng của `Init:0/2` và luồng sự kiện, đừng bận tâm phần `nslookup myservice`. Hai điểm dễ bỏ sót
+lại nằm ở cuối bài: cách tính tài nguyên hiệu dụng, và yêu cầu idempotent.
+
+**Phải hiểu ở lần đọc này:**
+
+- Init container **chạy đến khi hoàn thành**, **tuần tự** theo thứ tự trong spec, mỗi cái phải
+  thành công trước khi cái kế tiếp bắt đầu; chỉ khi tất cả xong, kubelet mới khởi tạo app
+  container — và lúc đó chúng khởi động song song.
+- Xử lý thất bại phụ thuộc `restartPolicy` cấp Pod: kubelet khởi động lại init container cho tới
+  khi nó thành công, nhưng nếu Pod đặt `Never` thì **một init container thất bại làm cả Pod thất
+  bại**; nếu Pod đặt `Always` thì init container dùng `OnFailure`.
+- Init container thông thường **không hỗ trợ** `lifecycle`, `livenessProbe`, `readinessProbe`,
+  `startupProbe`. Riêng `readinessProbe` bị **cấm ở tầng kiểm tra hợp lệ**, vì init container
+  không thể có trạng thái sẵn sàng tách biệt với việc hoàn thành.
+- Cách tính tài nguyên: *request/limit khởi tạo hiệu dụng* là **giá trị cao nhất** trong các init
+  container; *request/limit hiệu dụng của Pod* là giá trị **lớn hơn** giữa tổng của các app
+  container và con số vừa tính. Lập lịch dựa trên con số hiệu dụng đó, nên **init container có
+  thể chiếm trước tài nguyên mà nó không dùng suốt phần đời còn lại của Pod**.
+- Mã init container phải **idempotent**, vì Pod có thể khởi động lại và khi đó **tất cả init
+  container phải chạy lại**; đọc trạng thái ở `.status.initContainerStatuses`, cột `STATUS` hiện
+  `Init:0/2`, log lấy bằng `kubectl logs <pod> -c <tên-init-container>`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ví dụ *Init container trong thực tế* chờ `myservice`/`mydb` bằng `nslookup` | dựa trên Service và DNS chưa học | giai đoạn 5 — bài [82](82-service-vi.md), [10](10-dns-pod-service-vi.md) |
+| Ví dụ đăng ký Pod với server ở xa từ downward API | downward API là bài cuối nhóm này | bài [56](56-downward-api-vi.md) |
+| Phần *hạng QoS hiệu dụng* trong mục chia sẻ tài nguyên | chưa học QoS | giai đoạn 3, nhóm 3b — bài [54](54-pod-qos-vi.md) |
+| *Init container và cgroup trên Linux*, quota và limit | phần cấp phát thuộc quản lý tài nguyên | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
+| `activeDeadlineSeconds` và khuyến nghị chỉ dùng với Job | Job học ở giai đoạn sau | giai đoạn 4 — bài [67](67-job-vi.md) |
+| Mọi so sánh với sidecar container | bài kế trình bày đủ | bài [51](51-sidecar-containers-vi.md) |
+
+---
+
 Trang này cung cấp cái nhìn tổng quan về container khởi tạo (init container): các
 container chuyên biệt chạy trước các container ứng dụng (app container) trong một
 Pod. Init container có thể chứa các tiện ích hoặc script cài đặt không có trong
@@ -374,3 +420,50 @@ Tìm hiểu thêm về các nội dung sau:
 * Tổng quan về [kubelet](https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/) và [kubectl](https://kubernetes.io/docs/reference/kubectl/).
 * [Các loại probe](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#types-of-probe): liveness, readiness, startup probe.
 * [Sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Pod có hai init container, cái thứ hai thất bại liên tục. Pod ở phase nào, condition nào chưa
+   đạt, và kubelet đang làm gì?
+2. Pod đặt `restartPolicy: Always`. Init container của nó dùng chính sách khởi động lại nào khi
+   thất bại? Còn Pod đặt `Never` thì một init container thất bại dẫn tới đâu?
+3. Một Pod có một init container xin `requests.memory: 2Gi` và hai app container mỗi cái xin
+   `256Mi`. Scheduler dùng con số nào để chọn giữa `k8s-worker1` và `k8s-worker2`? Điều gì xảy ra
+   nếu cả hai worker chỉ còn 1Gi trống?
+4. Vì sao Kubernetes cấm hẳn `readinessProbe` trên init container thông thường?
+5. Vì sao mã của init container nên idempotent, nhất là khi nó ghi vào một volume `emptyDir`?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Pod đang trong quá trình khởi tạo nên ở phase **`Pending`**, và condition **`Initialized` là
+   false**. Kubelet **liên tục khởi động lại init container thất bại cho đến khi nó thành công** —
+   với `restartPolicy` mặc định của Pod. Init container thứ nhất đã xong, app container chưa hề
+   được tạo: cột `STATUS` vẫn ở dạng `Init:<số đã xong>/<tổng>`, còn `kubectl describe` cho thấy
+   app container ở `State: Waiting`, `Reason: PodInitializing`.
+2. Với Pod `Always`, **init container dùng `OnFailure`** — không phải `Always`. Đây là chỗ dễ sai
+   vì tên chính sách của Pod và của init container không trùng nhau. Với Pod `Never`, **một init
+   container thất bại khiến Kubernetes coi toàn bộ Pod là thất bại**, không thử lại.
+3. Scheduler dùng **request hiệu dụng của Pod = 2Gi**. Cách tính: *request khởi tạo hiệu dụng* là
+   **giá trị cao nhất trên tất cả init container**, tức 2Gi; *request hiệu dụng của Pod* là **giá
+   trị lớn hơn** giữa tổng của các app container (512Mi) và con số đó — vẫn là 2Gi. Nếu cả hai
+   worker chỉ còn 1Gi thì **Pod không lập lịch được và nằm `Pending`**, dù app container chỉ cần
+   512Mi. Bài nói thẳng hệ quả này: **init container chiếm trước tài nguyên cho quá trình khởi
+   tạo mà không dùng trong suốt vòng đời của Pod**.
+4. Vì **init container không thể định nghĩa trạng thái sẵn sàng tách biệt với việc hoàn thành**:
+   với nó, "xong" và "sẵn sàng" là một. Lệnh cấm này được **thực thi trong quá trình kiểm tra hợp
+   lệ**, nên manifest sai sẽ bị API server từ chối chứ không âm thầm bỏ qua.
+5. Vì **init container có thể bị khởi động lại, thử lại, hoặc thực thi lại**: khi Pod khởi động
+   lại thì **tất cả init container phải được thực thi lại**. Cụ thể với `emptyDir`, mã ghi vào đó
+   **phải chuẩn bị cho khả năng file đầu ra đã tồn tại sẵn** — nếu không, lần chạy thứ hai sẽ
+   thất bại hoặc làm hỏng dữ liệu đã có.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

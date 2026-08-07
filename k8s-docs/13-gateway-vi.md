@@ -5,6 +5,48 @@
 > Gateway API là một họ các loại API (API kinds) cung cấp khả năng cấp phát hạ tầng động (dynamic infrastructure provisioning)
 > và định tuyến lưu lượng nâng cao.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 12/16 · Kiểm chứng
+ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này đọc để **biết định hướng**, không phải để triển khai ngay. Điểm dễ hiểu nhầm nhất:
+Gateway API **không có sẵn** trong Kubernetes như Ingress — nó là add-on gồm các
+CustomResourceDefinition, phải cài CRD cộng với một bản hiện thực thì các loại object trong bài
+mới tồn tại. Lab 5b cài ingress controller chứ không cài Gateway, nên phần thực hành để dành.
+
+**Phải hiểu ở lần đọc này:**
+
+- Gateway API là **add-on**: các đặc tả của nó được định nghĩa dưới dạng **Custom Resource**,
+  không được Kubernetes hiện thực nguyên bản. Không cài CRD và một bản hiện thực thì không có
+  gì chạy.
+- Bốn loại API ổn định và chuỗi liên kết giữa chúng: **GatewayClass** (khai controller nào quản
+  class đó) ← **Gateway** (`gatewayClassName`, một thực thể hạ tầng xử lý lưu lượng với các
+  `listeners`) ← **HTTPRoute** / **GRPCRoute** (`parentRefs` trỏ lên Gateway, `backendRefs` trỏ
+  xuống Service).
+- **Mô hình tin cậy hai chiều**: Route khai Gateway cha, còn Gateway lọc những Route được phép
+  gắn vào listener của nó qua `allowedRoutes`. Mặc định một Gateway **chỉ chấp nhận Route cùng
+  namespace**.
+- Vì sao API bị tách ra nhiều loại: nó **hướng theo vai trò** — infrastructure provider, cluster
+  operator và application developer nắm những phần khác nhau của cấu hình mạng.
+- Quan hệ với Ingress: Gateway API là **hậu duệ** của Ingress nhưng **không bao gồm loại
+  Ingress**, nên chuyển đổi là một lần dứt điểm chứ không phải chạy song song trên cùng object.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Tính tuân thủ* — kênh phát hành, mức độ hỗ trợ, cách chạy bài kiểm tra | chỉ cần khi thẩm định một bản hiện thực cụ thể | Lab 5b |
+| Ví dụ *GRPCRoute* so khớp `method` cụ thể | chỉ dùng khi chạy dịch vụ gRPC | không cần |
+| Ba nguyên tắc thiết kế còn lại (khả chuyển, giàu khả năng biểu đạt, khả năng mở rộng) | là tuyên ngôn thiết kế, không đổi thao tác của bạn | không cần |
+
+---
+
 Làm cho các dịch vụ mạng khả dụng bằng một cơ chế cấu hình có khả năng mở rộng, hướng theo vai trò (role-oriented) và hiểu giao thức (protocol-aware). [Gateway API](https://gateway-api.sigs.k8s.io/) là một [add-on](https://kubernetes.io/docs/concepts/cluster-administration/addons/)
 chứa các [loại](https://gateway-api.sigs.k8s.io/references/spec/) API cung cấp khả năng cấp phát hạ tầng
 động và định tuyến lưu lượng nâng cao.
@@ -271,3 +313,46 @@ nhanh chóng bắt đầu làm việc với Gateway API.
 
 Tham khảo [đặc tả API](https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/) để biết thêm
 chi tiết về tất cả các loại API của Gateway API.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Bạn `kubectl apply` một manifest HTTPRoute lên cluster lab đúng như nó đang có. Chuyện gì
+   xảy ra, và khác gì với việc apply một Ingress lên cùng cluster đó?
+2. Cần tối thiểu những loại object nào để một request HTTP từ ngoài tới được một Service, và
+   trường nào nối chúng lại với nhau?
+3. Một HTTPRoute nằm ở namespace `app`, còn Gateway nằm ở namespace `infra`. Route có gắn được
+   vào Gateway không?
+4. Vì sao Gateway API tách thành nhiều loại object thay vì gói tất cả vào một object như
+   Ingress?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Lệnh thất bại vì cluster không biết kind đó.** Gateway API không được Kubernetes hiện thực
+   nguyên bản: các đặc tả tài nguyên của nó **được định nghĩa dưới dạng Custom Resource**, nên
+   phải cài CRD của Gateway API cùng một bản hiện thực trước đã. Đây đúng là chỗ khác biệt với
+   Ingress: `kind: Ingress` **có sẵn** trong Kubernetes nên object được tạo bình thường — nó chỉ
+   nằm im nếu thiếu controller. Một bên thiếu *kiểu dữ liệu*, một bên thiếu *người thực thi*.
+2. **GatewayClass → Gateway → HTTPRoute → Service.** Gateway tham chiếu GatewayClass qua
+   `gatewayClassName`; GatewayClass khai `controllerName` của bản hiện thực sẽ quản lý các
+   Gateway thuộc class đó. HTTPRoute gắn lên Gateway qua **`parentRefs`** và trỏ tới backend qua
+   **`backendRefs`** (tên Service + port).
+3. **Không, theo mặc định.** Bài ghi rõ: theo mặc định một Gateway **chỉ chấp nhận các Route từ
+   cùng namespace**; Route liên namespace yêu cầu cấu hình **`allowedRoutes`**. Đó là vế thứ hai
+   của mô hình tin cậy hai chiều — Route chọn Gateway cha, nhưng Gateway vẫn có quyền lọc Route
+   nào được gắn vào `listeners` của nó.
+4. Vì API được thiết kế **hướng theo vai trò**: các loại API được mô hình hóa theo những vai trò
+   trong tổ chức chịu trách nhiệm quản lý mạng dịch vụ — **infrastructure provider** (hạ tầng đa
+   tenant), **cluster operator** (chính sách, quyền truy cập mạng) và **application developer**
+   (cấu hình ở cấp ứng dụng, tổ hợp Service). Tách object cho phép mỗi vai trò sở hữu đúng phần
+   cấu hình của mình thay vì cùng ghi vào một object.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

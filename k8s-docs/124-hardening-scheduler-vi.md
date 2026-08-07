@@ -4,6 +4,58 @@
 >
 > Thông tin về cách làm cho Kubernetes scheduler an toàn hơn.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+bài 15/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
+hoặc dành cho nền tảng chuyên biệt (AI/HPC, GPU). Chỉ đọc khi đã vững giai đoạn 1–12 hoặc khi
+công việc thực sự cần. Riêng bài này là ngoại lệ dễ chịu: nó **không** alpha, và phần lớn nội
+dung áp dụng được cho mọi cluster — kể cả cluster lab 3 VM trên VMware, vì mọi cluster đều có
+kube-scheduler. Phần duy nhất lab không dùng tới là mục về **scheduler tùy chỉnh**.
+
+Đây là **phần hoãn lại từ giai đoạn 9**. Lộ trình cố tình tách nó khỏi cụm hardening để đọc
+sau khi bạn đã biết scheduler làm gì (giai đoạn 7) và đã thấy các điểm mở rộng bị dùng thế nào
+trong nhóm PodGroup vừa đọc. Nếu bạn nhảy thẳng vào giai đoạn 13 mà chưa qua giai đoạn 7 và 9,
+hãy đọc [bài 137](137-kube-scheduler-vi.md) và
+[bài 147](147-scheduling-framework-vi.md) trước.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vì sao scheduler là vấn đề **bảo mật** chứ không chỉ là hiệu năng: một scheduler bị cấu hình
+  sai có thể **nhắm vào node cụ thể và trục xuất workload đang chia sẻ node đó**, và hỗ trợ
+  tấn công Yo-Yo nhắm vào autoscaler.
+- Nhóm cờ xác thực/phân quyền: đặt `authentication-tolerate-lookup-failure` và
+  `authentication-skip-lookup` thành `false` để scheduler **luôn** tra cứu cấu hình xác thực
+  từ API server; bảo vệ file `authentication-kubeconfig` bằng quyền truy cập file nghiêm ngặt;
+  tránh truyền `requestheader-client-ca-file`; tắt profiling (nay qua `enableProfiling` trong
+  cấu hình kube-scheduler).
+- Nhóm cờ mạng và TLS: `bind-address` nên là `localhost` vì kube-scheduler thường **không cần
+  truy cập từ bên ngoài**; `permit-address-sharing` đặt `false`; giữ `permit-port-sharing` ở
+  mặc định `false`; luôn khai `tls-cipher-suites` tường minh.
+- Bốn điểm mở rộng cần soi kỹ khi chạy scheduler tùy chỉnh và lý do của từng cái: `queueSort`
+  (**chỉ một plugin được bật tại một thời điểm**), `prefilter`/`filter` (**có thể đánh dấu tất
+  cả node là unschedulable**, làm đình trệ hoàn toàn việc lập lịch Pod mới), `permit` (**ngăn
+  hoặc trì hoãn việc bind Pod**).
+- Mục cuối, ngắn nhất mà thực dụng nhất: **không cho người dùng cluster gán nhãn node**, vì kẻ
+  xấu chỉ cần `nodeSelector` là đẩy được workload lên node lẽ ra không được chạm tới.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Đoạn YAML tắt plugin theo từng điểm mở rộng | chỉ dùng khi thực sự chạy scheduler tùy chỉnh | khi công việc thực sự cần |
+| Chi tiết từng điểm mở rộng của scheduling framework | nền đã học | giai đoạn 7 — [bài 147](147-scheduling-framework-vi.md) |
+| Tấn công Yo-Yo và cơ chế autoscaler bị lợi dụng | nằm ngoài phạm vi bài | giai đoạn 12 — [bài 171](171-node-autoscaling-vi.md) |
+
+---
+
 Kubernetes scheduler (bộ lập lịch) là
 một trong những thành phần quan trọng của
 control plane.
@@ -107,3 +159,49 @@ và sau đó định nghĩa một Pod với `.spec.schedulerName` được đặ
 
 Quản trị viên cluster nên đảm bảo rằng người dùng cluster không thể gán nhãn (label) cho các node.
 Một tác nhân độc hại có thể sử dụng `nodeSelector` để lập lịch các workload lên những node mà các workload đó không nên xuất hiện.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho một giai đoạn tùy chọn:
+
+1. Vì sao bài yêu cầu đặt `authentication-skip-lookup` và `authentication-tolerate-lookup-failure`
+   thành `false`? Điều gì hỏng nếu để scheduler tự xoay xở khi không tra cứu được?
+2. Trong bốn điểm mở rộng mà bài cảnh báo, điểm nào chỉ cho phép **đúng một** plugin được bật,
+   và vì sao một plugin `filter` viết ẩu lại nguy hiểm hơn vẻ ngoài của nó?
+3. Trên cluster lab của bạn, người dùng thường không có quyền gán nhãn node. Vì sao đó là biện
+   pháp **bảo mật**, chứ không chỉ là giữ cho cluster gọn gàng?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Để **cơ chế xác thực của kube-scheduler luôn nhất quán với kube-apiserver**. Bài nêu nguyên
+   tắc: nếu một yêu cầu thiếu header xác thực thì việc xác thực nên được thực hiện thông qua
+   kube-apiserver, để mọi hoạt động xác thực trong cluster nhất quán. Đặt hai cờ đó thành
+   `false` buộc scheduler **luôn luôn** tra cứu cấu hình xác thực của nó từ API server, thay vì
+   bỏ qua bước tra cứu hoặc âm thầm chấp nhận khi tra cứu thất bại — hai trường hợp đều tạo ra
+   một thành phần control plane xác thực theo luật riêng.
+2. **`queueSort`** — tại một thời điểm chỉ có thể bật **đúng một** plugin dùng điểm mở rộng
+   này, nên bất kỳ plugin nào đụng tới nó đều phải xem xét kỹ. Còn plugin `prefilter` hoặc
+   `filter`: chúng **có khả năng đánh dấu tất cả các node là unschedulable**, và hệ quả không
+   phải là "một Pod bị chậm" mà là **việc lập lịch cho các Pod mới bị đình trệ hoàn toàn**.
+   Một lỗi trong hàm lọc trông như lỗi cục bộ nhưng thực chất là mất khả năng lập lịch toàn
+   cluster. Điểm mở rộng `permit` nguy hiểm theo cách khác: nó **ngăn hoặc trì hoãn việc bind**
+   một Pod.
+3. Vì nhãn node là **đầu vào của quyết định lập lịch**. Ai gán được nhãn thì dùng
+   `nodeSelector` để **đưa workload lên đúng những node mà workload đó không nên xuất hiện** —
+   ví dụ node control plane hoặc node dành cho workload nhạy cảm. Đây là đường vòng: kẻ tấn
+   công không cần phá scheduler, chỉ cần nói dối scheduler về node. Cùng logic đó, bài coi
+   scheduler bị cấu hình sai là rủi ro bảo mật vì nó có thể **nhắm vào node cụ thể và trục xuất
+   các workload đang chia sẻ node và tài nguyên của node đó**.
+
+</details>
+
+Hết giai đoạn 13. Câu nào chưa trả lời được thì quay lại đúng mục tương ứng.
+[Lab 13 — DRA](labs/README.md#4-bản-đồ-lab) là lab **tùy chọn và chưa viết**, và chỉ làm được
+nếu bạn có GPU hoặc thiết bị chuyên dụng. Nếu cluster lab của bạn không có, checkpoint của giai
+đoạn chỉ yêu cầu một điều: giải thích được DRA khác device plugin truyền thống ở điểm nào —
+xem lại [bài 149](149-dynamic-resource-allocation-vi.md) nếu còn lấn cấn.

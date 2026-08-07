@@ -2,6 +2,56 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 3/11 · Kiểm chứng
+ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là **bài xương sống của nhóm**, và cũng là bài dài nhất. Phần lớn độ dài đến từ các mục nằm
+sau feature gate beta hoặc alpha — những thứ cluster lab không bật. Bốn cơ chế thật sự phải nắm
+chỉ chiếm chừng một phần ba bài: phase, trạng thái container, `restartPolicy`, và trình tự kết
+thúc êm. Đọc kỹ bốn phần đó, phần còn lại đọc lướt để biết là có.
+
+**Phải hiểu ở lần đọc này:**
+
+- Năm giá trị của `phase`: `Pending`, `Running`, `Succeeded`, `Failed`, `Unknown` — và phase chỉ
+  là **bản tóm tắt ở mức cao**, không phải máy trạng thái đầy đủ. `CrashLoopBackOff` và
+  `Terminating` là **trường Status hiển thị của kubectl**, không phải phase.
+- Ba trạng thái container `Waiting`, `Running`, `Terminated`, ý nghĩa của từng cái, và cách đọc
+  chúng bằng `kubectl describe pod <tên-pod>`.
+- `restartPolicy` cấp Pod (`Always` mặc định, `OnFailure`, `Never`) áp cho app container và init
+  container thông thường, còn **sidecar bỏ qua nó**; sau lần crash đầu, kubelet khởi động lại với
+  backoff theo hàm mũ 10s, 20s, 40s… trần 300 giây, và đặt lại bộ đếm khi container chạy êm 10
+  phút. Đó chính là cơ chế đứng sau `CrashLoopBackOff`.
+- Trình tự **kết thúc êm**: Pod bị đánh dấu đang kết thúc → chạy hook `preStop` → container
+  runtime gửi TERM (hoặc `STOPSIGNAL` của image) tới tiến trình 1 → hết
+  `terminationGracePeriodSeconds` (mặc định 30 giây) → `SIGKILL` → kubelet chuyển Pod sang phase
+  kết thúc rồi buộc xóa khỏi API server. Nếu `preStop` còn chạy khi hết ân hạn, kubelet chỉ xin
+  gia hạn **một lần 2 giây**.
+- Pod chỉ được **lập lịch một lần** trong đời. Pod chết không bao giờ được "lập lịch lại"; nó chỉ
+  có thể được **thay thế** bằng một Pod mới, có thể trùng `.metadata.name` nhưng khác
+  `.metadata.uid`, và không có bảo đảm nào rằng bản thay thế lên đúng node cũ.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Pod condition* và *Độ sẵn sàng của Pod* (`readinessGates`) | bài kế trình bày đủ | bài [48](48-pod-condition-vi.md) |
+| *Container probe* — startup, liveness, readiness | ở đây chỉ là tóm tắt | bài [49](49-probes-vi.md) |
+| *Chính sách và quy tắc khởi động lại cho từng container* (`restartPolicyRules`), *Khởi động lại tất cả container*, *Định nghĩa tín hiệu dừng tùy chỉnh* | đều nằm sau feature gate beta/alpha, cluster lab không bật | giai đoạn 8 — bài [03](03-control-plane-flags-vi.md), khi học cách bật feature gate |
+| *Giảm* và *Cấu hình độ trễ khởi động lại container* (`maxContainerRestartPeriod`) | là cấu hình kubelet theo từng node | giai đoạn 8 — bài [04](04-kubelet-integration-vi.md) |
+| *Thay đổi kích thước Pod* và hai condition `PodResizePending`/`PodResizeInProgress` | dựa trên requests/limits chưa học | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
+| Việc Pod đang kết thúc bị rút khỏi EndpointSlice, condition `serving` | chưa học Service | giai đoạn 5 — bài [83](83-endpoint-slices-vi.md) |
+| *Thu gom rác cho Pod* (PodGC) và condition `DisruptionTarget` | gắn với gián đoạn và eviction | giai đoạn 3, nhóm 3b — bài [53](53-disruptions-vi.md); giai đoạn 7 |
+| *Hành vi của Pod khi kubelet khởi động lại* | là tình huống vận hành node | giai đoạn 12 |
+
+---
+
 Trang này mô tả vòng đời của một Pod. Pod tuân theo một vòng đời được định nghĩa sẵn, bắt đầu
 ở [phase](#pod-phase) `Pending`, chuyển sang `Running` nếu ít nhất một trong các container
 chính của nó khởi động thành công, rồi sau đó chuyển sang phase `Succeeded` hoặc `Failed`
@@ -1122,3 +1172,57 @@ Khi kubelet khởi động lại, trạng thái các container được quản l
 * Để biết thông tin chi tiết về trạng thái của Pod và container trong API, xem
   tài liệu tham chiếu API về
   [`status`](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodStatus) của Pod.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. `kubectl get pod` hiện `STATUS: CrashLoopBackOff`. Lúc đó `phase` của Pod là gì?
+2. Một Pod đặt `restartPolicy: OnFailure` và có một sidecar. Sidecar thoát với mã 0. Nó có được
+   khởi động lại không? Còn app container thoát với mã 0 thì sao?
+3. Bạn `kubectl delete pod` một Pod đang chạy trên `k8s-worker1`, và tiến trình trong container
+   lờ hẳn tín hiệu TERM. Kể lại chuỗi việc kubelet làm, kèm mốc thời gian mặc định.
+4. Hook `preStop` của bạn cần 45 giây, còn `terminationGracePeriodSeconds` để mặc định. Chuyện gì
+   xảy ra, và bài bảo phải làm gì?
+5. `k8s-worker2` mất kết nối với phần còn lại của cluster. Control plane làm gì với các Pod trên
+   node đó? Khi worker2 quay lại, chính Pod cũ có chạy tiếp không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **`Running`.** Đây là chỗ dễ nhầm nhất của bài: `CrashLoopBackOff` **không phải một phase**,
+   nó là giá trị của **trường Status hiển thị của kubectl** cho người dùng dễ hình dung. Pod đã
+   được gắn với một node và tất cả container đã được tạo, có container đang trong quá trình khởi
+   động lại — đúng định nghĩa của phase `Running`. Phase là một phần tường minh của mô hình dữ
+   liệu Kubernetes; trường Status của kubectl thì không.
+2. **Sidecar vẫn được khởi động lại; app container thì không.** Sidecar **bỏ qua `restartPolicy`
+   cấp Pod**: theo định nghĩa của Kubernetes, sidecar là một mục trong `initContainers` có
+   `restartPolicy` **cấp container** đặt là `Always`, nên bảng so sánh trong bài ghi "Luôn khởi
+   động lại" cho cả mã thoát 0 lẫn mã khác 0. App container thì tuân theo `OnFailure` của Pod:
+   **mã thoát 0 là thành công nên không khởi động lại**.
+3. Ngay khi kubelet thấy Pod đã bị đánh dấu đang kết thúc: (a) nếu container có hook `preStop` và
+   `terminationGracePeriodSeconds` khác 0, **kubelet chạy `preStop` bên trong container**; (b)
+   kubelet kích hoạt container runtime **gửi TERM tới tiến trình 1** của mỗi container — hoặc
+   `STOPSIGNAL` nếu image định nghĩa; (c) tiến trình lờ TERM nên nó sống tới khi **hết thời gian
+   ân hạn, mặc định 30 giây**; (d) kubelet kích hoạt tắt cưỡng bức, runtime gửi **`SIGKILL`** cho
+   mọi tiến trình còn lại và kubelet dọn cả container `pause` ẩn; (e) kubelet chuyển Pod sang
+   phase kết thúc (`Failed` hoặc `Succeeded`) rồi **buộc xóa đối tượng Pod khỏi API server** bằng
+   cách đặt ân hạn về 0. Song song đó, control plane đã đánh giá loại Pod khỏi các EndpointSlice.
+4. `preStop` chưa xong khi hết 30 giây ân hạn, và kubelet chỉ cho **một khoảng gia hạn nhỏ, một
+   lần duy nhất, là 2 giây** — sau đó là tắt cưỡng bức, hook bị cắt ngang. Bài nói rõ: nếu
+   `preStop` cần nhiều thời gian hơn mức ân hạn mặc định cho phép thì bạn **phải điều chỉnh
+   `terminationGracePeriodSeconds`** cho phù hợp. Đừng trông vào 2 giây gia hạn đó.
+5. Control plane **áp một chính sách đặt `phase` của tất cả Pod trên node bị mất thành `Failed`**,
+   và các Pod đó được đánh dấu để xóa sau một khoảng chờ. Khi worker2 quay lại, **Pod cũ không
+   chạy tiếp**: một Pod cho trước, được xác định bởi **UID**, không bao giờ được lập lịch lại sang
+   chỗ khác hay hồi sinh; nó chỉ có thể được **thay bằng một Pod mới gần như giống hệt**, có thể
+   trùng `.metadata.name` nhưng **khác `.metadata.uid`** — và Kubernetes không bảo đảm bản thay
+   thế lên đúng node cũ.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

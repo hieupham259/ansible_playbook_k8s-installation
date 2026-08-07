@@ -4,6 +4,57 @@
 >
 > Device plugin cho phép bạn cấu hình cluster của mình để hỗ trợ các thiết bị hoặc resource cần thiết lập riêng theo nhà cung cấp, chẳng hạn như GPU, NIC, FPGA hoặc bộ nhớ chính không mất dữ liệu (non-volatile main memory).
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 14](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 7/7 ·
+Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Giai đoạn này lộ trình ghi rõ là **dành cho platform administrator / người phát triển operator**.
+
+Đây là **cách cũ để expose GPU và thiết bị chuyên dụng**, đối chiếu với DRA mà bạn đã đọc ở
+[bài 149](149-dynamic-resource-allocation-vi.md) của giai đoạn 13. Hai cách cùng tồn tại: device
+plugin vẫn là cơ chế đang chạy trong hầu hết cluster có GPU hiện nay, còn DRA là hướng thay thế.
+Đọc bài này để nói được **hai cách khác nhau ở chỗ nào** — đúng thứ checkpoint giai đoạn 13 hỏi.
+
+Bài dài, nhưng **hơn một nửa là định nghĩa gRPC/protobuf** dành cho người viết plugin. Với vai
+trò admin, phần cần hiểu chỉ khoảng ba mục đầu.
+
+**Phải hiểu ở lần đọc này:**
+
+- Luồng đăng ký: plugin tự đăng ký với **kubelet** qua Unix socket
+  `/var/lib/kubelet/device-plugins/kubelet.sock`, gửi tên socket, phiên bản API và
+  **`ResourceName` dạng `vendor-domain/resourcetype`**. Sau đó **kubelet** mới là bên công bố
+  resource này lên API server, như một phần của việc cập nhật trạng thái node.
+- Pod xin thiết bị bằng **extended resource** trong `resources.limits`, với hai ràng buộc:
+  **chỉ là số nguyên và không thể overcommit**, và **thiết bị không chia sẻ được giữa các
+  container**.
+- Thứ tự bắt buộc trong *Hiện thực device plugin*: plugin **PHẢI phục vụ dịch vụ gRPC trước** rồi
+  mới tự đăng ký. Và khi kubelet khởi động lại, nó **xóa toàn bộ Unix socket** dưới thư mục đó,
+  nên plugin phải phát hiện và **tự đăng ký lại**.
+- Thiết bị hỏng: kubelet **giảm allocatable** của resource đó trên Node, còn **capacity giữ
+  nguyên**. Pod đã được gán thiết bị hỏng **vẫn giữ nguyên thiết bị đó** và sẽ vào pha Failed
+  hoặc rơi vào vòng lặp crash tùy `restartPolicy`.
+- Triển khai dạng DaemonSet: cần **security context privileged** và phải **mount
+  `/var/lib/kubelet/device-plugins` như một volume**, vì đường dẫn này được hard-code trong
+  kubelet. Đổi lại, Kubernetes lo việc đặt Pod lên các Node, khởi động lại sau lỗi và nâng cấp.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ định nghĩa gRPC và message protobuf (`DevicePlugin`, `ListPodResources…`) | là hợp đồng lập trình cho nhà cung cấp | Lab 14 |
+| *Giám sát resource của device plugin* — ba endpoint `List`, `GetAllocatableResources`, `Get` | dành cho agent giám sát, không phải để chạy workload | giai đoạn 11 — bài [162](162-observability-vi.md) |
+| *Tích hợp device plugin với Topology Manager*, `TopologyInfo`, NUMA | Topology Manager thuộc nhóm trình quản lý tài nguyên của kubelet | giai đoạn 7 — bài [74](74-resource-managers-vi.md) |
+| *Tương thích API* — quy tắc nâng cấp phiên bản device plugin API | chỉ chạm tới khi nâng cấp cluster đang có GPU | Lab 14 |
+| Danh sách *Ví dụ về device plugin* của các nhà cung cấp | tra khi có phần cứng thật | Lab 14 |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.26 [stable]`
 
 Kubernetes cung cấp một framework device plugin mà bạn có thể dùng để công bố (advertise) các
@@ -487,3 +538,64 @@ Dưới đây là một số ví dụ về các hiện thực device plugin:
 * Đọc về việc dùng [tăng tốc phần cứng cho TLS ingress](https://kubernetes.io/blog/2019/04/24/hardware-accelerated-ssl/tls-termination-in-ingress-controllers-using-kubernetes-device-plugins-and-runtimeclass/)
   với Kubernetes
 * Đọc thêm về [Cấp phát Extended Resource bằng DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#extended-resource)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 14:
+
+1. Câu bẫy phân biệt: với device plugin, Pod xin thiết bị bằng **thứ gì**, và hai ràng buộc nào
+   áp lên con số đó? So với DRA ở bài [149](149-dynamic-resource-allocation-vi.md), vì sao cách
+   này không diễn đạt được yêu cầu kiểu "cho tôi một thiết bị có thuộc tính X"?
+2. Một thiết bị trên `k8s-worker2` hỏng và device plugin báo unhealthy. Trong `kubectl describe
+   node k8s-worker2`, con số nào thay đổi và con số nào **không** đổi? Pod đang giữ đúng thiết bị
+   đó bị gì?
+3. Bạn viết một device plugin và cho nó đăng ký với kubelet ngay khi khởi động, rồi mới mở dịch
+   vụ gRPC. Bài nói gì về thứ tự này?
+4. kubelet trên `k8s-worker2` được restart. Device plugin phải làm gì, và nhờ dấu hiệu nào nó
+   biết cần làm?
+5. Bạn triển khai device plugin dạng DaemonSet. Hai điều kiện bắt buộc bài nêu là gì, và bạn
+   được lợi gì khi chọn DaemonSet thay vì cài thủ công?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Pod xin bằng một **extended resource** đặt trong `resources.limits`, tên theo quy ước
+   `vendor-domain/resourcetype` (ví dụ `hardware-vendor.example/foo: 2`). Hai ràng buộc:
+   **chỉ là resource số nguyên và không thể overcommit**, và **thiết bị không chia sẻ được giữa
+   các container**. Vì thứ duy nhất Pod nói được là **một cái tên và một con số đếm**, mô hình
+   này **không có chỗ để diễn đạt thuộc tính** — mọi thiết bị mang cùng `ResourceName` bị coi là
+   thay thế được cho nhau. Đó chính là ranh giới mà DRA ở bài
+   [149](149-dynamic-resource-allocation-vi.md) vượt qua bằng ResourceClaim và DeviceClass. Chỗ
+   dễ nhầm: device plugin **chưa hề bị thay thế** — bài này vẫn là `stable` và trong chính bài,
+   endpoint `List` phải bổ sung trường `DynamicResource` để báo cáo cả thiết bị do DRA cấp phát,
+   cho thấy hai cơ chế cùng tồn tại trên một node.
+2. **Allocatable giảm, capacity giữ nguyên.** Bài viết: "kubelet sẽ giảm số lượng allocatable của
+   resource này trên Node để phản ánh còn bao nhiêu thiết bị có thể dùng để lập lịch cho các pod
+   mới. Số lượng capacity của resource sẽ không thay đổi." Pod đang giữ thiết bị hỏng **vẫn tiếp
+   tục được gán cho thiết bị đó** — Kubernetes không tự dời nó đi; mã chạy trên thiết bị sẽ bắt
+   đầu lỗi và Pod **rơi vào pha Failed nếu `restartPolicy` không phải `Always`**, ngược lại thì
+   vào **vòng lặp crash**. Từ v1.36, feature gate `ResourceHealthStatus` bật mặc định thêm
+   `allocatedResourcesStatus` vào `.status` của Pod để bạn biết Pod hỏng có phải do thiết bị.
+3. **Sai thứ tự.** Bài ghi rõ trong ghi chú: "Thứ tự của luồng làm việc là quan trọng. Một plugin
+   **BẮT BUỘC** phải bắt đầu phục vụ dịch vụ gRPC **trước khi** tự đăng ký với kubelet thì việc
+   đăng ký mới thành công." Đăng ký trước nghĩa là kubelet có thể gọi tới một socket chưa ai
+   phục vụ.
+4. Plugin phải **tự đăng ký lại với instance kubelet mới**. Dấu hiệu: một kubelet mới khởi động
+   sẽ **xóa toàn bộ các Unix socket hiện có** dưới `/var/lib/kubelet/device-plugins`, nên plugin
+   chỉ cần **theo dõi việc Unix socket của chính nó bị xóa** và đăng ký lại khi sự kiện đó xảy
+   ra.
+5. Hai điều kiện: plugin phải chạy trong một **security context privileged** (vì thư mục chuẩn
+   `/var/lib/kubelet/device-plugins` được hard-code trong kubelet và yêu cầu quyền privileged),
+   và **`/var/lib/kubelet/device-plugins` phải được mount như một volume** trong PodSpec của
+   plugin. Lợi ích của DaemonSet: bạn **dựa vào Kubernetes** để đặt Pod của plugin lên các Node,
+   khởi động lại Pod daemon sau khi gặp lỗi, và tự động hóa việc nâng cấp.
+
+</details>
+
+Đây là bài cuối của **Giai đoạn 14**. Trả lời được hết bảy bài thì bạn sẵn sàng vào Lab 14 (chưa
+viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)); trước đó hãy chốt lại checkpoint của giai
+đoạn trong [lộ trình](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng).

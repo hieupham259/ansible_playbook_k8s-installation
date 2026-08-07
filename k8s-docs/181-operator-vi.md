@@ -2,6 +2,49 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/extend-kubernetes/operator/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 14](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 5/7 ·
+Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Giai đoạn này lộ trình ghi rõ là **dành cho platform administrator / người phát triển operator**;
+đây là bài đích của cả giai đoạn.
+
+Bài này **nối thẳng vào bài [25 — Controller](25-controllers-vi.md)** của giai đoạn 1: operator
+tuân theo đúng vòng lặp điều khiển bạn đã học ở đó, chỉ khác là resource nó điều khiển do bạn
+định nghĩa (bài [179](179-custom-resources-vi.md)) chứ không phải Deployment hay Job dựng sẵn.
+Đọc bài này như phần kết của chuỗi "custom resource + custom controller".
+
+**Phải hiểu ở lần đọc này:**
+
+- Operator là **client của Kubernetes API đóng vai trò controller cho một custom resource**. Nó
+  cho phép mở rộng hành vi cluster **mà không cần sửa mã nguồn của chính Kubernetes**.
+- Bảy bước trong mục *Một ví dụ về operator*: custom resource `SampleDB`, một Deployment chạy
+  Pod chứa controller, image chứa mã, mã truy vấn control plane tìm các resource `SampleDB` đang
+  được cấu hình, rồi phần lõi làm cho **thực tế khớp với cấu hình** — tạo PersistentVolumeClaim,
+  StatefulSet và Job khi thêm; **tạo snapshot trước** rồi mới xóa StatefulSet và Volume khi xóa.
+- Operator ôm cả việc **định kỳ**: sao lưu theo lịch, và kiểm tra phiên bản cũ để tự tạo Job
+  nâng cấp. Đó là phần "tri thức của người vận hành" được mã hóa lại.
+- Nơi chạy: **controller thường chạy bên ngoài control plane**, như một ứng dụng container hóa
+  bình thường — ví dụ một Deployment trong cluster của bạn.
+- Cách dùng: không có CLI riêng. Bạn **thêm, sửa hoặc xóa chính custom resource đó** bằng
+  `kubectl get SampleDB` và `kubectl edit SampleDB/example-database`; operator lo phần còn lại.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Tự viết operator của riêng bạn* và danh sách framework (kubebuilder, Kopf, kube-rs, Operator Framework…) | là công việc lập trình, chọn khi thực sự viết operator | Lab 14 |
+| Danh sách việc có thể tự động hóa ở đầu mục *Một ví dụ về operator* | là cảm hứng, không phải cơ chế | Lab 14 |
+| Operator White Paper của CNCF, OperatorHub.io, bài viết gốc của CoreOS | tài liệu tham khảo mở rộng | không cần |
+
+---
+
 Operator là các phần mở rộng phần mềm cho Kubernetes, sử dụng
 [custom resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
 để quản lý các ứng dụng và những thành phần của chúng. Operator tuân theo
@@ -121,3 +164,51 @@ Dưới đây là một vài thư viện và công cụ bạn có thể dùng đ
   đã giới thiệu mẫu operator (đây là bản lưu trữ của bài viết gốc).
 * Đọc [bài viết](https://cloud.google.com/blog/products/containers-kubernetes/best-practices-for-building-kubernetes-operators-and-stateful-apps)
   từ Google Cloud về các thực hành tốt nhất khi xây dựng operator
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 14:
+
+1. Bài [25](25-controllers-vi.md) mô tả controller là vòng lặp đưa trạng thái hiện tại về trạng
+   thái mong muốn. Operator thêm gì vào đó mà Deployment controller dựng sẵn không có?
+2. Câu bẫy: bạn đã cài CRD `SampleDB`, `kubectl get SampleDB` chạy được, `kubectl edit` sửa được
+   và object lưu lại đúng — nhưng trong cluster không có gì xảy ra. Thiếu thứ gì, và vì sao
+   `kubectl` vẫn hoạt động bình thường dù thiếu nó?
+3. Trên cluster lab ba VM của bạn, operator sẽ chạy ở đâu — cạnh control plane trên `k8s-master`
+   dưới dạng thành phần đặc biệt, hay như một workload thường trên worker? Bài nói gì?
+4. Trong ví dụ `SampleDB`, khi bạn xóa một resource `SampleDB` thì operator làm những gì, và
+   theo thứ tự nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Operator thêm **custom resource của riêng bạn** và **tri thức nghiệp vụ về một ứng dụng cụ
+   thể**. Bài định nghĩa: mẫu operator "cho phép bạn mở rộng hành vi của cluster mà không cần
+   sửa mã nguồn của chính Kubernetes, bằng cách **liên kết các controller với một hoặc nhiều
+   custom resource**". Deployment controller cũng là vòng lặp điều khiển, nhưng nó chỉ biết một
+   kind dựng sẵn và không biết gì về "nâng cấp schema cơ sở dữ liệu" hay "tạo snapshot trước khi
+   xóa". Điểm giống nhau: **cả hai đều chỉ là client của Kubernetes API**.
+2. Thiếu **controller** — tức thiếu chính phần "operator". Custom resource chỉ là nơi lưu trạng
+   thái mong muốn; `kubectl` vẫn hoạt động vì API server phục vụ và lưu trữ CRD y như mọi
+   resource khác, hoàn toàn không cần biết có ai đang lắng nghe hay không. Bài nói cách triển
+   khai phổ biến nhất là "thêm **Custom Resource Definition và Controller tương ứng** của nó vào
+   cluster" — hai vế, không phải một. Đây đúng là điều mà checkpoint của giai đoạn 14 trong
+   [lộ trình](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) bắt bạn giải thích được.
+3. **Như một workload thường.** Bài viết: "Controller thường chạy **bên ngoài control plane**,
+   giống như cách bạn chạy bất kỳ ứng dụng container hóa nào. Ví dụ, bạn có thể chạy controller
+   trong cluster của mình dưới dạng một **Deployment**." Trong ví dụ, chính bước 2 là "một
+   Deployment đảm bảo có một Pod đang chạy chứa phần controller của operator". Operator không
+   phải thành phần control plane và không cần đặc quyền của control plane node.
+4. **Tạo một snapshot trước**, sau đó mới đảm bảo StatefulSet và các Volume bị xóa theo. Thứ tự
+   này chính là "tri thức của người vận hành" được mã hóa: một người vận hành cơ sở dữ liệu có
+   kinh nghiệm sẽ không xóa volume trước khi có bản sao lưu. Chiều ngược lại, khi bạn **thêm**
+   một `SampleDB`, operator thiết lập PersistentVolumeClaim để cấp lưu trữ bền vững, một
+   StatefulSet để chạy SampleDB, và một Job để xử lý cấu hình ban đầu.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

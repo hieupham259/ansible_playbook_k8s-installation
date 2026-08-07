@@ -2,6 +2,56 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 4/13 ·
+Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là **mặt đối ngẫu** của bài [138](138-assign-pod-node-vi.md): affinity là thuộc tính của
+Pod dùng để **thu hút** Pod về một tập node; taint là thuộc tính của node dùng để **đẩy** Pod
+ra. Bạn đã gặp cơ chế này từ Lab 1a mà chưa biết tên: control plane node `k8s-master` mang một
+taint, và đó chính là lý do Pod thường của bạn luôn rơi xuống hai worker.
+
+Nửa sau của bài (*Eviction dựa trên taint*, *Taint Node theo điều kiện*) không nói về việc bạn
+đặt taint, mà về **các taint Kubernetes tự đặt** khi node có vấn đề. Đó là phần nối thẳng sang
+bài [142](142-node-pressure-eviction-vi.md), đọc kỹ.
+
+**Phải hiểu ở lần đọc này:**
+
+- Taint nằm trên **node**, toleration nằm trên **Pod**. Toleration chỉ **cho phép** lập lịch
+  lên node bị taint, **không đảm bảo** và cũng không kéo Pod về đó — bộ lập lịch vẫn đánh giá
+  các tham số khác.
+- Ba effect: `NoSchedule` chặn Pod mới nhưng **không đuổi** Pod đang chạy; `PreferNoSchedule`
+  là bản mềm của nó; `NoExecute` **đuổi cả Pod đang chạy**, và `tolerationSeconds` quyết định
+  Pod còn được ở lại bao lâu sau khi taint được thêm.
+- Quy tắc khớp: cùng `key`, cùng `effect`, và `operator` là `Exists` hoặc là `Equal` với
+  `value` bằng nhau. Nhiều taint được xử lý **như một bộ lọc**: bỏ qua các taint được dung
+  thứ, những taint còn lại vẫn phát huy effect của chúng.
+- `.spec.nodeName` bỏ qua bộ lập lịch nên Pod lên được cả node có taint `NoSchedule`; nhưng
+  nếu node đó cũng có taint `NoExecute` thì **kubelet vẫn đẩy Pod ra**.
+- Kubernetes tự taint node theo tình trạng: `node.kubernetes.io/not-ready`, `unreachable`,
+  `memory-pressure`, `disk-pressure`, `pid-pressure`, `unschedulable`… Bộ lập lịch **nhìn
+  taint chứ không nhìn node condition**. Với `not-ready` và `unreachable`, Kubernetes tự thêm
+  toleration `tolerationSeconds=300` cho Pod, còn Pod của DaemonSet được thêm toleration
+  `NoExecute` **không** kèm `tolerationSeconds` nên không bao giờ bị đuổi vì hai sự cố này.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Toán tử so sánh số* `Gt`/`Lt` và cảnh báo về feature gate `TaintTolerationComparisonOperators` | tính năng alpha, chỉ dùng với taint có giá trị số | không cần |
+| *Các trường hợp sử dụng ví dụ* — node chuyên dụng, node có phần cứng đặc biệt | cần admission controller tùy chỉnh và extended resource | giai đoạn 9, bài [119](119-controlling-access-vi.md) |
+| `ExtendedResourceToleration` | như trên | giai đoạn 9, bài [119](119-controlling-access-vi.md) |
+| *Taint và toleration cho thiết bị* | thuộc cấp phát tài nguyên động | giai đoạn 13, bài [149](149-dynamic-resource-allocation-vi.md) |
+| Ghi chú `taint-eviction-controller` tách khỏi node controller từ 1.29 | chi tiết triển khai nội bộ | không cần |
+
+---
+
 [_Node affinity_](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)
 là một thuộc tính của Pod có tác dụng *thu hút* chúng đến
 một tập các node (dưới dạng ưu tiên hoặc yêu cầu bắt buộc). _Taint_ thì ngược lại — chúng cho phép một node đẩy lùi (repel) một tập các pod.
@@ -424,3 +474,59 @@ thiết bị. Giống như taint, chúng áp dụng cho tất cả các pod dùn
   và cách bạn có thể cấu hình nó
 * Đọc về [Độ ưu tiên của Pod (Pod Priority)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)
 * Đọc về [taint và toleration cho thiết bị](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation#device-taints-and-tolerations)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Taint đặt trên đối tượng nào, toleration đặt trên đối tượng nào? Thêm toleration vào một
+   Pod có làm Pod đó **được đưa** lên node bị taint không?
+2. Trên cluster lab, `k8s-master` mang một taint effect `NoSchedule`. Vì sao Pod bạn tạo bằng
+   `kubectl run` không bao giờ lên node đó, và bạn phải làm gì nếu muốn một Pod cụ thể chạy
+   được ở đó?
+3. Một node đang chạy 5 Pod. Bạn chạy `kubectl taint nodes <node> key1=value1:NoSchedule`.
+   Năm Pod đó có bị đuổi không? Câu trả lời đổi thế nào nếu effect là `NoExecute`?
+4. Bạn rút mạng `k8s-worker2` để tạo sự cố. Node controller đặt taint gì, các Pod thường trên
+   đó còn ở lại bao lâu trước khi bị thu hồi, và Pod của DaemonSet thì sao?
+5. Một node có ba taint. Pod của bạn có toleration khớp hai trong ba taint đó, taint còn lại
+   có effect `NoSchedule`. Pod có được lập lịch lên node không? Nếu Pod **đã đang chạy** trên
+   node từ trước khi taint thứ ba được thêm thì sao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Taint trên node, toleration trên Pod (trong PodSpec).** **Không.** Bài nói rõ: toleration
+   *cho phép* bộ lập lịch lập lịch Pod có taint khớp, nhưng **không đảm bảo việc lập lịch** —
+   bộ lập lịch còn đánh giá các tham số khác. Toleration chỉ gỡ rào, không phải lực hút; muốn
+   ép Pod về đúng tập node đó thì phải thêm label và `nodeSelector`/node affinity của bài
+   [138](138-assign-pod-node-vi.md).
+2. Vì effect `NoSchedule` nghĩa là **không Pod mới nào được lập lịch lên node bị taint trừ khi
+   chúng có toleration khớp tương ứng** — Pod mặc định không có toleration nào nên bị loại
+   ngay ở bước lọc, và chỉ còn hai worker là ứng viên. Muốn một Pod lên được `k8s-master`, bạn
+   thêm vào PodSpec một toleration **khớp cả `key` lẫn `effect`** của taint đó (`operator:
+   Exists`, hoặc `Equal` với `value` bằng đúng giá trị taint). Nhưng nhớ câu 1: khi đó Pod chỉ
+   *được phép* lên, bộ lập lịch vẫn có thể chọn worker.
+3. **Không bị đuổi.** `NoSchedule` chỉ chặn Pod mới; bài ghi rõ "Các Pod hiện đang chạy trên
+   node **không** bị thu hồi". Với `NoExecute` thì ngược lại: **các Pod không dung thứ taint
+   bị thu hồi ngay lập tức**; Pod có toleration mà không đặt `tolerationSeconds` thì ở lại mãi
+   mãi; Pod có `tolerationSeconds` thì ở lại đúng khoảng đó rồi bị node lifecycle controller
+   thu hồi.
+4. Node controller đặt taint **`node.kubernetes.io/unreachable`** (ứng với NodeCondition
+   `Ready` = `Unknown`) với effect **`NoExecute`**. Pod thường ở lại **5 phút**, vì Kubernetes
+   **tự động thêm toleration `tolerationSeconds=300`** cho `not-ready` và `unreachable` trừ khi
+   bạn hoặc controller đặt tường minh. Pod của **DaemonSet không bị thu hồi**, vì chúng được
+   tạo với toleration `NoExecute` cho hai taint này mà **không có** `tolerationSeconds`. Lưu ý
+   thêm: khi node không liên lạc được, quyết định xóa Pod **không truyền được tới kubelet**,
+   nên Pod có thể vẫn tiếp tục chạy trên node bị chia cắt.
+5. **Không được lập lịch** — vẫn còn một taint không bị bỏ qua với effect `NoSchedule`, và chỉ
+   cần một taint như vậy là Kubernetes không lập lịch Pod lên node. Nhưng nếu Pod **đã chạy từ
+   trước**, nó **tiếp tục chạy**: `NoSchedule` không thu hồi Pod đang chạy, và taint thứ ba là
+   taint duy nhất không được dung thứ.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

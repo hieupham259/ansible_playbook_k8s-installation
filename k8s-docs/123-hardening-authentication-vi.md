@@ -4,6 +4,54 @@
 >
 > Thông tin về các tùy chọn xác thực trong Kubernetes và các đặc tính bảo mật của chúng.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 10/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài [119](119-controlling-access-vi.md) chỉ nói "có nhiều module xác thực, thử lần lượt". Bài
+này mở đúng chỗ đó ra và **so sánh từng cơ chế theo nhược điểm**, không phải theo cách cấu hình.
+Đọc như một bảng đối chiếu: mỗi mục trả lời câu "vì sao cơ chế này không nên dùng để xác thực
+người dùng". Nó cũng giải thích trực tiếp vì sao kubeconfig admin của cluster lab là một
+credential nguy hiểm.
+
+**Phải hiểu ở lần đọc này:**
+
+- Nguyên tắc nền: **bật càng ít cơ chế xác thực càng tốt**. Kubernetes **không có cơ sở dữ liệu
+  người dùng bên trong cluster**; nó lấy thông tin người dùng từ hệ thống xác thực đã cấu hình,
+  nên muốn kiểm toán quyền truy cập thì phải rà **mọi nguồn xác thực đã bật**.
+- Với cluster production có nhiều người dùng truy cập trực tiếp API: khuyến nghị dùng **nguồn
+  bên ngoài như OIDC**; client certificate và token của service account **không phù hợp** cho
+  trường hợp này.
+- Vì sao client certificate X.509 không hợp để xác thực người dùng: **không thu hồi được từng
+  cái riêng lẻ** — muốn vô hiệu thì phải **re-key cả certificate authority**, kéo theo rủi ro về
+  tính sẵn sàng; **không có bản ghi lưu vĩnh viễn** các certificate đã cấp; private key **không
+  đặt được mật khẩu**; phải kết nối thẳng tới API server, không được có TLS termination trung
+  gian; và **dữ liệu nhóm nằm trong giá trị `O` của certificate**, nên tư cách thành viên nhóm
+  không đổi được trong suốt vòng đời certificate.
+- Vì sao file token tĩnh và bootstrap token không dùng cho người dùng: token nằm **dạng văn bản
+  thuần trên đĩa node control plane**; đổi token phải **khởi động lại API server**; người dùng
+  **không tự xoay vòng được**; và **không có cơ chế khóa tài khoản chống brute-force**.
+  Bootstrap token còn có nhóm gán cứng, và vốn chỉ để join node.
+- Với các cơ chế bên ngoài: phần mềm hỗ trợ OIDC hoặc webhook chạy với **đặc quyền cao**, phải
+  cách ly khỏi workload thường; token nên **ngắn hạn**. Riêng **proxy xác thực** có hai điều
+  kiện bắt buộc — TLS cấu hình an toàn giữa proxy và API server, và bảo vệ header, vì **ai sửa
+  được header là giành được quyền truy cập trái phép**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Token dạng Secret của ServiceAccount* và *Token của TokenRequest API* | đã học ở bài service account | bài [118](118-service-accounts-vi.md) |
+| Cách tích hợp một identity provider OIDC cụ thể | cần dựng identity provider ngoài cluster | không cần |
+| Cấu hình xác thực webhook trên hệ thống file của control plane | là thao tác sửa cấu hình API server | giai đoạn 8, bài [03](03-control-plane-flags-vi.md) |
+
+---
+
 Việc lựa chọn (các) cơ chế xác thực phù hợp là một khía cạnh then chốt trong việc bảo mật cluster của bạn.
 Kubernetes cung cấp sẵn nhiều cơ chế, mỗi cơ chế có những điểm mạnh và điểm yếu riêng
 cần được cân nhắc kỹ lưỡng khi chọn cơ chế xác thực tốt nhất cho cluster của bạn.
@@ -142,3 +190,53 @@ phải đảm bảo các header được bảo vệ đúng cách và không th�
 - [Xác thực với Bootstrap Token (Authenticating with Bootstrap Tokens)](https://kubernetes.io/docs/reference/access-authn-authz/bootstrap-tokens/)
 - [Xác thực kubelet (kubelet Authentication)](https://kubernetes.io/docs/reference/access-authn-authz/kubelet-authn-authz/#kubelet-authentication)
 - [Xác thực với token của Service Account (Authenticating with Service Account Tokens)](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#bound-service-account-tokens)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Trên cluster lab bạn đăng nhập bằng kubeconfig copy từ `/etc/kubernetes/admin.conf`. Đó là
+   cơ chế xác thực nào? Nếu file đó bị lộ, theo bài bạn thu hồi bằng cách nào, và vì sao đó là
+   chuyện phiền phức?
+2. Bạn muốn chuyển một người dùng sang nhóm khác để đổi quyền của họ. Với client certificate,
+   phải làm gì? Vì sao không sửa nhanh được như sửa một RoleBinding?
+3. Vì sao bài khuyên bật càng ít cơ chế xác thực càng tốt? Nêu hệ quả cụ thể khi cluster có
+   nhiều nguồn xác thực cùng bật.
+4. Hai cơ chế nào bài nói **không có cơ chế khóa tài khoản** chống tấn công brute-force, và với
+   loại nào thì điều đó đặc biệt đáng lo?
+5. Dùng proxy xác thực thì hai điều kiện bắt buộc là gì, và nếu thiếu điều kiện thứ hai thì kẻ
+   tấn công làm được gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Đó là **xác thực bằng client certificate X.509**. Bài nói **client certificate không thể bị
+   thu hồi từng cái riêng lẻ**: một khi bị lộ, certificate dùng được **cho tới khi hết hạn**.
+   Muốn vô hiệu hóa nó thì **certificate authority phải được thay khóa (re-key)** — việc này
+   **có thể gây rủi ro về tính sẵn sàng cho cluster**, vì mọi thứ đang tin CA đó đều bị ảnh
+   hưởng. Vì vậy khuyến nghị của bài là để thời hạn sống ngắn cho credential dạng này.
+2. Phải **cấp một certificate mới**. **Dữ liệu nhóm được nhúng trong giá trị `O` của client
+   certificate**, nghĩa là **tư cách thành viên nhóm không thể thay đổi trong suốt vòng đời của
+   certificate**. Trực giác "quyền nằm ở RBAC nên sửa binding là xong" sai ở đây, vì thứ quyết
+   định người dùng thuộc nhóm nào không nằm trong cluster mà nằm **bên trong certificate**.
+3. Để **đơn giản hóa việc quản lý người dùng và ngăn trường hợp người dùng vẫn giữ được quyền
+   truy cập cluster dù không còn cần nữa**. Hệ quả cụ thể khi có nhiều nguồn: Kubernetes **không
+   có cơ sở dữ liệu người dùng bên trong cluster**, nên để kiểm toán ai đang truy cập được, bạn
+   phải **rà soát thông tin xác thực từ mọi nguồn xác thực đã cấu hình** — bỏ sót một nguồn là
+   bỏ sót cả một tập người dùng.
+4. **File token tĩnh** và **bootstrap token**. Đáng lo nhất với **bootstrap token tạo thủ công**,
+   vì bài nói việc tạo thủ công có thể sinh ra **token yếu mà kẻ tấn công đoán được** — không có
+   khóa tài khoản thì kẻ tấn công cứ thử đến khi trúng.
+5. Thứ nhất, **phải dùng TLS được cấu hình an toàn giữa proxy và Kubernetes API server**, để
+   giảm rủi ro bị chặn bắt hoặc nghe lén lưu lượng. Thứ hai, **các header phải được bảo vệ và
+   không thể bị can thiệp**. Thiếu điều kiện thứ hai, kẻ tấn công **sửa được header của yêu cầu
+   sẽ giành được quyền truy cập trái phép vào tài nguyên Kubernetes** — vì Kubernetes tin thẳng
+   tên người dùng và nhóm mà header khai báo.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -2,6 +2,51 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/pod-overhead/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 9/13 ·
+Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này chỉ có tác dụng khi cluster dùng một container runtime "nặng" — bài lấy ví dụ Kata
+Containers chạy trên máy ảo Firecracker, tốn khoảng 120MiB cho mỗi Pod. Cluster lab dùng
+containerd với runc nên bạn **sẽ không thấy `spec.overhead` xuất hiện**. Đọc bài để hiểu
+**cách một khoản tài nguyên vô hình được cộng vào phép tính lập lịch**, chứ không phải để cấu
+hình gì.
+
+Bài nối trực tiếp với [43 — RuntimeClass](43-runtime-class-vi.md) đã đọc ở giai đoạn 2:
+overhead là một trường của RuntimeClass, không phải một trường bạn tự viết trong Pod.
+
+**Phải hiểu ở lần đọc này:**
+
+- Pod Overhead là tài nguyên mà **hạ tầng của chính Pod** tiêu thụ, **cộng thêm** vào request
+  và limit của các container bên trong.
+- Nguồn của nó là `overhead.podFixed` khai báo trong **RuntimeClass**. Admission controller
+  RuntimeClass điền `spec.overhead` vào PodSpec tại thời điểm admission; nếu PodSpec **đã tự
+  định nghĩa** trường này thì **Pod bị từ chối**.
+- Ba nơi overhead thực sự có hiệu lực: **lập lịch** (kube-scheduler cộng overhead vào tổng
+  request của container khi tìm node), **kích thước cgroup của Pod** do kubelet đặt, và **xếp
+  hạng eviction**. Ngoài ra nó cũng được tính vào ResourceQuota.
+- Ví dụ số của bài phải nhớ được đường đi: container xin tổng `2000m` CPU và `200MiB` bộ nhớ,
+  overhead `250m` / `120MiB`, node báo cáo request là **`2250m` CPU và `320MiB`**, và cgroup
+  cấp Pod cũng bị giới hạn ở 320MiB.
+- Overhead **chỉ tồn tại khi Pod chỉ định một RuntimeClass có trường `overhead`**; không có
+  RuntimeClass như vậy thì không có khoản cộng thêm nào.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Kiểm tra giới hạn cgroup của Pod* bằng `crictl` | chính bài nói đây là ví dụ nâng cao và người dùng thường không cần | không cần |
+| `cpu.cfs_quota_us`, `memory.limit_in_bytes`, `cpu.shares` | là chi tiết cgroup | giai đoạn 2, bài [33](33-cgroups-vi.md) |
+| *Khả năng quan sát* — metric `kube_pod_overhead_*` | cần kube-state-metrics | giai đoạn 11, bài [163](163-kube-state-metrics-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.24 [stable]`
 
 Khi bạn chạy một Pod trên một Node, bản thân Pod chiếm một lượng tài nguyên hệ thống. Các
@@ -192,3 +237,46 @@ của các workload chạy với overhead đã được định nghĩa.
 * Tìm hiểu thêm về [RuntimeClass](./43-runtime-class-vi.md)
 * Đọc đề xuất cải tiến [PodOverhead Design](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/688-pod-overhead)
   để có thêm bối cảnh
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Ai điền `spec.overhead` vào Pod, và lấy giá trị từ đâu? Nếu bạn tự viết trường `overhead`
+   trong manifest thì sao?
+2. Overhead có được cộng thẳng vào `resources.requests` của container không? Trong ví dụ của
+   bài, `kubectl get pod -o jsonpath='{.spec.containers[*].resources.limits}'` và
+   `kubectl describe node` cho ra hai con số khác nhau — vì sao?
+3. Trên cluster lab, mỗi worker có 2 vCPU. Bạn tạo một Pod xin tổng `1800m` CPU và dùng một
+   RuntimeClass khai `podFixed.cpu: 250m`. Bộ lập lịch đi tìm node còn trống bao nhiêu CPU, và
+   Pod này có chạy được trên `k8s-worker1` hay `k8s-worker2` không?
+4. Kể ba chỗ mà Pod overhead thực sự thay đổi hành vi của hệ thống.
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Admission controller RuntimeClass** điền nó, tại thời điểm admission, **theo trường
+   `overhead` của RuntimeClass mà Pod chỉ định**. Nếu PodSpec đã tự định nghĩa sẵn trường này,
+   **Pod bị từ chối** — đây không phải trường dành cho người viết manifest.
+2. **Không cộng vào requests của container.** Overhead nằm riêng ở `spec.overhead`; các
+   container vẫn khai đúng những gì bạn viết. Vì vậy lệnh thứ nhất trả về tổng của các container
+   (`500m + 1500m` CPU, `100Mi + 100Mi` bộ nhớ), còn `kubectl describe node` báo **`2250m` CPU
+   và `320Mi` bộ nhớ** — vì node cộng cả overhead vào. Đây là chỗ dễ nhầm: hai con số khác nhau
+   không có nghĩa là cluster tính sai, mà là hai lăng kính khác nhau lên cùng một Pod.
+3. Bộ lập lịch cộng request của container với overhead và đi tìm node còn trống **`2050m`
+   CPU**. Hai worker chỉ có **2 vCPU, tức `2000m`**, nên **không worker nào khả thi** kể cả khi
+   chúng hoàn toàn rỗng — Pod sẽ nằm chờ. Bài nói rõ: khi quyết định node nào chạy Pod mới, bộ
+   lập lịch xét `overhead` **cũng như** tổng các request container.
+4. **(1) Lập lịch** — scheduler cộng overhead vào tổng request khi tìm node; **(2) kích thước
+   cgroup của Pod** — kubelet đặt giới hạn trên cgroup cấp Pod bằng tổng limit của container
+   **cộng** overhead (trong ví dụ là 320MiB), và đặt `cpu.shares` theo tổng request cộng
+   overhead; **(3) xếp hạng eviction** của Pod. Ngoài ba chỗ đó, overhead còn được tính vào
+   **ResourceQuota** nếu namespace có định nghĩa quota.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

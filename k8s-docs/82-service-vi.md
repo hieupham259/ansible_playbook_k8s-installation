@@ -5,6 +5,52 @@
 > Expose một ứng dụng đang chạy trong cluster của bạn ra phía sau một endpoint
 > hướng ra ngoài duy nhất, ngay cả khi workload được chia thành nhiều backend.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 2/16 · Kiểm chứng ở
+Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là **bài quan trọng nhất giai đoạn 5** và cũng là bài dài nhất. Một phần lớn nội dung viết
+cho cluster chạy trên cloud: annotation load balancer của từng nhà cung cấp, `loadBalancerClass`,
+`ipMode`. Cluster lab là bare metal, không có cloud provider, nên những đoạn đó chỉ cần lướt.
+Phần phải nắm chắc xoay quanh bốn `type` và headless Service.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vấn đề Service giải quyết: Pod là tài nguyên phù du, tập Pod và IP của chúng thay đổi liên
+  tục; Service cho một endpoint ổn định, chọn Pod bằng **selector**, và controller của Service
+  liên tục cập nhật tập EndpointSlice tương ứng.
+- Ánh xạ `port` → `targetPort` ở mục *Định nghĩa port*: client luôn gọi `port` của Service,
+  `targetPort` có thể là số hoặc **tên port đã đặt trên Pod**, nhờ đó đổi port backend mà không
+  làm hỏng client.
+- Bốn giá trị `type` và thiết kế **lồng nhau**: `ClusterIP` (mặc định, chỉ trong cluster),
+  `NodePort` (thêm một port tĩnh trong dải 30000–32767 mở trên **mọi** node và vẫn có cluster
+  IP), `LoadBalancer` (thường dựng trên NodePort, cần cloud provider), `ExternalName` (chỉ trả
+  bản ghi `CNAME`, **không thiết lập proxy nào**). Cluster IP là một **địa chỉ IP ảo** — không
+  có tiến trình nào lắng nghe trên nó.
+- Headless Service: đặt tường minh `.spec.clusterIP: None`. Không cấp cluster IP, kube-proxy
+  không xử lý, không cân bằng tải; thay vào đó DNS trả về IP của **từng Pod**.
+- Hai cách khám phá Service từ trong Pod: **biến môi trường** (`{SVCNAME}_SERVICE_HOST`…, chỉ
+  được nạp cho Service đã tồn tại **trước** khi Pod ra đời) và **DNS** (không phụ thuộc thứ tự).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Service không có selector*, *EndpointSlice tùy chỉnh* | dùng khi backend nằm ngoài cluster; cần hiểu EndpointSlice trước | bài [83](83-endpoint-slices-vi.md) |
+| *Endpoints (deprecated)*, *Endpoint vượt dung lượng* | là API cũ đã bị thay thế | bài [83](83-endpoint-slices-vi.md) |
+| Chi tiết `type: LoadBalancer`: annotation từng cloud, `loadBalancerClass`, `ipMode`, tắt cấp phát NodePort | cluster lab không có cloud provider | không cần |
+| *Chính sách traffic* và *Điều khiển phân phối traffic* (`trafficDistribution`) | là tinh chỉnh định tuyến, có bài riêng | bài [86](86-topology-aware-routing-vi.md), [87](87-service-traffic-policy-vi.md) |
+| *Giao thức ứng dụng* (`appProtocol`), *Độ bám phiên* | là gợi ý cho hiện thực, không đổi cơ chế cơ bản | không cần |
+| *IP bên ngoài* (`externalIPs`) | đã deprecated, bài khuyên chuyển đi | không cần |
+
+---
+
 Trong Kubernetes, Service là một phương thức để expose một ứng dụng mạng đang chạy
 dưới dạng một hoặc nhiều Pod trong cluster của bạn.
 
@@ -117,7 +163,7 @@ selector của nó, rồi thực hiện mọi cập nhật cần thiết cho t�
 EndpointSlice của Service.
 
 Tên của một đối tượng Service phải là một
-[tên nhãn RFC 1123](./17-names-vi.md#rfc-1123-label-names) hợp lệ.
+[tên nhãn RFC 1123](./17-names-vi.md#dns-label-names) hợp lệ.
 
 > **Ghi chú:**
 > Một Service có thể ánh xạ _bất kỳ_ `port` đến nào sang một `targetPort`. Theo mặc định và
@@ -1057,3 +1103,47 @@ Tìm hiểu thêm về Service và cách chúng khớp vào Kubernetes:
 * [Service API reference](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/service-v1/)
 * [EndpointSlice API reference](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/endpoint-slice-v1/)
 * [Endpoint API reference (legacy)](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/endpoints-v1/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Cluster lab có một control plane và hai worker. Bạn tạo một Service `type: NodePort` cho một
+   Deployment 2 replica, và cả hai Pod tình cờ đều nằm trên `k8s-worker1`. Từ máy host bạn gọi
+   `<IP của k8s-worker2>:<nodePort>` — có ra không? Vì sao?
+2. `port: 80` và `targetPort: 9376` trong một Service nghĩa là gì? Client kết nối vào số nào,
+   và con số nào phải khớp với thứ ứng dụng đang lắng nghe?
+3. Một Service khai `type: ClusterIP` và `clusterIP: None`. Nó còn là `type: ClusterIP` không?
+   DNS trả về gì cho nó, và kube-proxy có tham gia không?
+4. Một Pod client được tạo **trước** Service mà nó cần gọi. Ứng dụng bên trong đọc biến môi
+   trường `MYSVC_SERVICE_HOST` thì sao? Nếu nó phân giải bằng DNS thì sao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Có.** Với Service `type: NodePort`, control plane cấp một port và **mọi node trong cluster
+   tự cấu hình để lắng nghe trên port đã được gán đó** rồi chuyển tiếp traffic tới một trong
+   các endpoint sẵn sàng của Service. Node không chạy Pod nào của Service vẫn nhận và chuyển
+   tiếp. Cách giới hạn chỉ dùng endpoint cục bộ trên node là nội dung của bài
+   [87](87-service-traffic-policy-vi.md), không phải hành vi mặc định.
+2. `port` là port **của Service** — thứ client gọi. `targetPort` là port **trên Pod** — thứ
+   phải khớp với cái ứng dụng lắng nghe. Một Service có thể ánh xạ bất kỳ `port` đến nào sang
+   một `targetPort`; mặc định `targetPort` lấy cùng giá trị với `port`. `targetPort` còn có thể
+   là **tên** của một port đã khai trên Pod, nên **đổi số port của backend ở phiên bản sau không
+   làm hỏng client**.
+3. **Vẫn là `type: ClusterIP`** — headless không phải một `type` riêng. Chuỗi `"None"` là một
+   trường hợp đặc biệt và **khác hẳn với việc bỏ trống `.spec.clusterIP`**: cluster IP không
+   được cấp phát, **kube-proxy không xử lý Service này**, nền tảng không cân bằng tải và không
+   proxy. DNS trả về **địa chỉ IP endpoint của từng Pod** thay vì một IP ảo duy nhất.
+4. Biến môi trường **sẽ không có**. kubelet chỉ thêm biến cho các Service **đang hoạt động vào
+   lúc Pod ra đời**, nên bạn phải tạo Service *trước* các Pod client. Nếu client phân giải bằng
+   **DNS thì không cần lo thứ tự** — bài nói rõ vấn đề thứ tự này chỉ thuộc về cách dùng biến
+   môi trường.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

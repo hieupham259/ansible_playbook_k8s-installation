@@ -2,6 +2,55 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/workload-api/topology-aware-scheduling/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+bài 10/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
+hoặc dành cho nền tảng chuyên biệt (AI/HPC, GPU). Chỉ đọc khi đã vững giai đoạn 1–12 hoặc khi
+công việc thực sự cần. Bài này ở trạng thái `alpha` từ v1.36 — **API có thể đổi giữa các phiên
+bản**. Cluster lab 3 VM trên VMware **không có miền topology thật** (không rack, không zone,
+không nhãn node tương ứng), nên ràng buộc topology ở đây không kiểm chứng được. Đọc để hiểu
+khái niệm.
+
+Trong lộ trình có **hai bài cùng tên** "Lập lịch workload nhận biết topology". Bài này là mặt
+**API** — bạn khai báo gì trong PodGroup. Mặt **thuật toán và plugin** nằm ở
+[bài 153](153-topology-aware-scheduling-vi.md), đọc sau.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mục tiêu của TAS: đặt **tất cả Pod của một PodGroup cùng một miền topology** (rack, zone) để
+  giảm độ trễ giao tiếp giữa các Pod và tránh workload bị phân mảnh trên hạ tầng.
+- Với chính sách `gang`: TAS **mô phỏng việc gán cả nhóm cùng lúc**, đảm bảo ít nhất `minCount`
+  Pod cùng nằm vừa trong một miền trước khi cam kết tài nguyên; không có phương án khả thi thì
+  **toàn bộ PodGroup** trở thành unschedulable.
+- Với chính sách `basic`: hành vi **có thể không nhất quán**, vì scheduler chỉ quan sát được
+  một tập con Pod khi bước vào chu kỳ lập lịch; cách giảm nhẹ là dùng **scheduling gate** để
+  trì hoãn cho tới khi mọi Pod của nhóm đã có mặt trong hàng đợi.
+- Quy tắc với Pod đến sau: scheduler **buộc Pod mới vào đúng miền topology nơi các Pod hiện có
+  đang cư trú**; miền đó thiếu dung lượng thì Pod mới nằm pending — **kể cả khi điều đó khiến
+  số Pod được lập lịch tụt xuống dưới `minCount`**.
+- Cấu hình API: `schedulingConstraints.topology` với `key` là **một nhãn node**; scheduler
+  thực thi nghiêm ngặt việc mọi Pod nằm trên node có **cùng chính xác giá trị** của nhãn đó.
+  Tính đến v1.36 chỉ được **một** ràng buộc topology cho mỗi PodGroup, và **TAS không kích
+  hoạt preemption**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Thuật toán lập lịch theo placement mà `schedulingConstraints` được diễn giải trong đó | là cơ chế scheduler | [bài 151](151-podgroup-scheduling-vi.md) |
+| Các plugin TAS và cách chỉnh trọng số | thuộc cấu hình scheduler | [bài 153](153-topology-aware-scheduling-vi.md) |
+| Scheduling gate | nền đã học | giai đoạn 7 — [bài 145](145-pod-scheduling-readiness-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
 *Lập lịch nhận biết topology* (Topology-Aware Scheduling — TAS) là một tính năng của Workload API
@@ -85,3 +134,41 @@ spec:
 * Tìm hiểu về [các chính sách của pod group](./79-workload-policies-vi.md).
 * Tìm hiểu về [các plugin liên quan đến Lập lịch nhận biết topology](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-aware-scheduling/)
 * Đọc về thuật toán [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho một giai đoạn tùy chọn:
+
+1. Một PodGroup dùng `gang` kèm ràng buộc topology không tìm được miền nào chứa đủ `minCount`
+   Pod, nhưng cluster vẫn còn Pod ưu tiên thấp có thể bị đá đi. Scheduler có preempt để dọn
+   chỗ không?
+2. Vì sao dùng TAS với chính sách `basic` lại có thể cho kết quả không nhất quán, và bài gợi ý
+   cách giảm nhẹ nào?
+3. Vài Pod của một nhóm bị tạo lại trong khi các Pod còn lại đã chạy, nhưng miền topology cũ
+   đã hết chỗ. Scheduler đặt Pod mới sang miền còn trống chứ?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Khối *Ghi chú* nói rõ: tính đến v1.36, **TAS không kích hoạt preemption đối với
+   workload hay Pod**, và nếu không tìm được phương án sắp đặt khả thi mà không cần preemption
+   thì **PodGroup trở thành unschedulable**. Trực giác "ưu tiên cao thì cứ đá ưu tiên thấp"
+   không áp dụng ở đây — đó là cơ chế của một bài khác, không phải của TAS.
+2. Vì scheduler **có thể chỉ quan sát được một tập con các Pod** khi bước vào chu kỳ lập lịch
+   PodGroup, nên **tính khả thi của việc sắp đặt chỉ được đánh giá cho các Pod quan sát được**,
+   không phải cho toàn bộ nhóm. Hệ quả: có thể chỉ một tập con Pod được lập lịch (dù các Pod
+   đó vẫn được đảm bảo thỏa mãn ràng buộc). Cách giảm nhẹ mà bài đưa ra là **dùng scheduling
+   gate để trì hoãn việc lập lịch PodGroup cho tới khi tất cả Pod của nhóm có mặt trong hàng
+   đợi**. Với `gang` thì vấn đề này không đặt ra vì cả nhóm được mô phỏng cùng lúc.
+3. **Không.** Scheduler **buộc tất cả Pod mới đến phải nằm trên đúng miền topology nơi các Pod
+   hiện có đang cư trú**. Nếu miền đó thiếu dung lượng, các Pod mới **ở trạng thái pending** —
+   và bài nhấn mạnh: kể cả khi điều đó có nghĩa là tại thời điểm này **có ít hơn `minCount` Pod
+   được lập lịch**. Hành vi này giống nhau cho cả `gang` lẫn `basic`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

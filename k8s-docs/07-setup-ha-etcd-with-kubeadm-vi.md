@@ -4,6 +4,58 @@
 >
 > (Trang gốc không có phần description trong frontmatter)
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 6/9 ·
+Kiểm chứng ở Lab 8c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này **có điều kiện**: lộ trình ghi rõ nó *chỉ cần nếu chọn external etcd* ở bài
+[06](06-ha-topology-vi.md), và **phải dựng xong trước** bài [08](08-high-availability-vi.md).
+Nếu bạn chọn stacked thì đọc lướt để biết external etcd tốn công tới mức nào, rồi đi tiếp.
+
+Bài viết dưới dạng runbook tám bước, nhưng thứ đáng nhớ không phải danh sách lệnh — mà là
+**mô hình**: ở đây kubelet bị trưng dụng làm trình quản lý dịch vụ cho etcd, khi **chưa hề có
+cluster Kubernetes nào tồn tại**. Đọc theo hướng đó thì các bước lạ (ghi đè unit kubelet, tạo
+certificate trên một host rồi phát đi) đều có lý do.
+
+**Phải hiểu ở lần đọc này:**
+
+- Kết quả của bài là một **cluster etcd external ba thành viên**, chạy dưới dạng **static pod
+  do một kubelet quản lý** — chưa có API server, chưa có Kubernetes cluster. Ba host đó cần
+  container runtime, kubelet và kubeadm đã cài, cùng quyền pull image từ `registry.k8s.io`.
+- Vì sao phải ghi đè unit của kubelet (bước 1): **etcd được tạo trước**, nên phải tạo unit file
+  có **độ ưu tiên cao hơn** unit kubelet mà kubeadm cung cấp — `20-etcd-service-manager.conf`
+  trỏ kubelet vào một `KubeletConfiguration` riêng với `staticPodPath: /etc/kubernetes/manifests`,
+  `authorization.mode: AlwaysAllow` và `address: 127.0.0.1`.
+- Mô hình phân phối certificate (bước 3–5): tạo **toàn bộ certificate trên một host** (`$HOST0`)
+  rồi chỉ chép **những file cần thiết** sang host khác. `ca.key` **không được rời `$HOST0`** —
+  đó là mục đích của hai lệnh `find /tmp/${HOST1} -name ca.key -type f -delete`. kubeadm tự
+  chứa đủ cơ chế mã hóa, không cần công cụ ngoài.
+- Mỗi member có **file `kubeadmcfg.yaml` riêng**: `etcd.local` với `serverCertSANs`/`peerCertSANs`
+  là IP của chính host đó, còn `extraArgs` chứa `initial-cluster` liệt kê **cả ba** member,
+  `initial-cluster-state: new`, và các URL peer/client.
+- Hai port có hai vai trò: **2380 cho lưu lượng giữa các member** (`listen-peer-urls`,
+  `initial-advertise-peer-urls`) và **2379 cho client** (`listen-client-urls`,
+  `advertise-client-urls`). `kubeadm init phase etcd local` sinh static pod manifest trên từng
+  host; kiểm tra bằng `etcdctl ... endpoint health`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ba cây thư mục liệt kê file bắt buộc trên `$HOST0`/`$HOST1`/`$HOST2` | là checklist lúc làm thật, không phải kiến thức | Lab 8c |
+| Vai trò riêng của từng certificate: `peer`, `server`, `healthcheck-client`, `apiserver-etcd-client` | chưa học PKI của cluster | CP3 certificate |
+| Cách chạy `etcdctl` bên trong container bằng `crictl run` | là bước kiểm tra tùy chọn | CP4 etcd backup |
+| Ghi chú "etcd không hỗ trợ dual-stack" | dual-stack là bài riêng, đọc sau | bài [05](05-dual-stack-support-vi.md) |
+| `authentication.anonymous/webhook`, `authorization.mode` trong `KubeletConfiguration` | chưa học xác thực và ủy quyền | giai đoạn 9 |
+
+---
+
 Theo mặc định, kubeadm chạy một instance etcd cục bộ (local) trên mỗi node control plane.
 Cũng có thể coi cluster etcd là bên ngoài (external) và cung cấp (provision)
 các instance etcd trên các host riêng biệt. Sự khác biệt giữa hai cách tiếp cận này được trình bày trong
@@ -303,3 +355,57 @@ các file _cần thiết_ đến các node khác.
 Khi bạn đã có một cluster etcd với 3 thành viên hoạt động, bạn có thể tiếp tục thiết lập một
 control plane có tính sẵn sàng cao bằng
 [phương pháp external etcd với kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
+
+1. Chạy hết tám bước của bài này xong, bạn đã có một cluster Kubernetes chưa? Kubelet trên ba
+   host đó đang nói chuyện với API server nào?
+2. Vì sao bài bắt tạo `20-etcd-service-manager.conf` thay vì để kubelet chạy bằng unit mà gói
+   `kubeadm` đã cài sẵn?
+3. Sau khi làm xong, `ca.key` của etcd nằm trên host nào? Vì sao bài cố ý xóa nó khỏi
+   `/tmp/${HOST1}` và `/tmp/${HOST2}` trước khi `scp`?
+4. Port 2379 và 2380 khác vai trò thế nào? Nếu firewall chỉ mở 2379 giữa ba host thì hỏng ở đâu?
+5. Cluster lab của bạn (`k8s-master` 192.168.100.111 + hai worker) hiện chạy etcd ở đâu? Bài
+   này có áp dụng cho nó không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Chưa.** Bạn mới có **một cluster etcd external ba thành viên**, chạy dưới dạng **static
+   pod được quản lý bởi một kubelet**. Kubelet ở đây **không nói chuyện với API server nào cả**
+   — cấu hình mà bài ghi cho nó đặt `address: 127.0.0.1` và `authorization.mode: AlwaysAllow`,
+   đúng nghĩa một trình quản lý dịch vụ cục bộ. Phần dựng control plane nằm ở bài
+   [08](08-high-availability-vi.md), và mục *Tiếp theo* của chính bài này trỏ sang đó.
+2. Vì **etcd được tạo trước** khi có cluster, nên kubelet phải chạy ở một chế độ khác chế độ
+   bình thường của kubeadm. Bài yêu cầu **ghi đè mức ưu tiên của service bằng cách tạo một unit
+   file mới có độ ưu tiên cao hơn unit file kubelet do kubeadm cung cấp** — file
+   `20-etcd-service-manager.conf` xóa `ExecStart` cũ rồi trỏ kubelet vào `kubelet.conf` riêng
+   với `staticPodPath: /etc/kubernetes/manifests`. Unit gốc của kubeadm giả định có API server
+   để bootstrap, thứ chưa tồn tại ở bước này.
+3. Chỉ trên **`$HOST0`** — nơi bạn chạy `kubeadm init phase certs etcd-ca`. Danh sách file bắt
+   buộc trong bài phản ánh đúng điều đó: `$HOST0` có cả `etcd/ca.crt` và `etcd/ca.key`, còn
+   `$HOST1` và `$HOST2` **chỉ có `ca.crt`**. Lý do là **CA key ký được certificate mới**; các
+   host member chỉ cần certificate đã ký của chính chúng, nên bài chép **các file *cần thiết***
+   chứ không chép cả thư mục. Cùng logic với lệnh `find /etc/kubernetes/pki -not -name ca.crt
+   -not -name ca.key -type f -delete` giữa các vòng: dọn certificate của host trước để không
+   phát nhầm sang host sau.
+4. **2380 là port peer** — lưu lượng giữa các etcd member với nhau (`listen-peer-urls`,
+   `initial-advertise-peer-urls`, và các URL trong `initial-cluster`). **2379 là port client** —
+   nơi `kube-apiserver` và `etcdctl` kết nối vào (`listen-client-urls`, `advertise-client-urls`).
+   Mở mỗi 2379 thì `etcdctl ... endpoint health` có thể chạm được từng endpoint, nhưng ba member
+   **không hình thành được cluster** vì không nói chuyện với nhau; mục *Trước khi bạn bắt đầu*
+   yêu cầu **cả hai** port TCP 2379 và 2380 thông giữa ba host.
+5. Etcd của cluster lab chạy **cục bộ ngay trên `k8s-master`**: câu đầu bài nói theo mặc định
+   **kubeadm chạy một instance etcd cục bộ trên mỗi node control plane**, và Lab 00 dùng đúng
+   mặc định đó. Nên bài này **không áp dụng** cho cluster lab — nó chỉ dùng khi bạn cố ý chọn
+   external etcd, tức Lab 8c với bộ VM riêng, và phải làm **trước** khi dựng control plane.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -2,6 +2,56 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/policy/resource-quotas/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
+bài 3/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là bài **dài nhất nhóm 7b** và hơn nửa số dòng là bảng tra tên tài nguyên cùng các mục con
+về *Phạm vi hạn ngạch*. Đừng học thuộc bảng — chúng để tra khi viết YAML. Phần thực sự phải
+nắm nằm trong hai mục đầu cộng mục *Hạn ngạch và dung lượng cluster*, khoảng 60 dòng. Giữ tiếp
+câu phân biệt từ bài [133](133-limit-range-vi.md): LimitRange là trần cho **từng** đối tượng,
+ResourceQuota là trần cho **tổng** cả namespace. Đây là công cụ chính khi chia cluster cho
+nhiều nhóm.
+
+**Phải hiểu ở lần đọc này:**
+
+- ResourceQuota ràng buộc **tổng mức tiêu thụ cho mỗi namespace**, và chỉ được ép buộc trong
+  namespace nào thực sự có một đối tượng ResourceQuota. Vi phạm thì control plane từ chối yêu
+  cầu với `403 Forbidden` kèm thông báo giải thích ràng buộc lẽ ra sẽ bị vi phạm.
+- Hệ quả bắt buộc phải nhớ: khi hạn ngạch áp cho `cpu` hoặc `memory`, **mọi Pod mới** phải chỉ
+  định `requests` hoặc `limits` cho tài nguyên đó, nếu không control plane có thể từ chối
+  admission. Với các tài nguyên khác thì hạn ngạch **bỏ qua** Pod không khai. Lối thoát mà bài
+  chỉ ra: định nghĩa một [LimitRange](133-limit-range-vi.md) để ép giá trị mặc định.
+- Bẫy Deployment: bạn thường không tạo Pod trực tiếp. Tạo một Deployment đòi nhiều hơn mức khả
+  dụng vẫn **thành công**; chỉ là nó không đưa đủ số Pod vào tồn tại. Nơi tìm nguyên nhân là
+  `kubectl describe` trên đối tượng quản lý workload, không phải ở thông báo của lệnh apply.
+- Ba họ giới hạn mà ResourceQuota ép được: tài nguyên tính toán (`requests.cpu`,
+  `limits.memory`…), lưu trữ (`requests.storage`, `persistentvolumeclaims`, tách theo
+  StorageClass), và **số lượng đối tượng** (`count/<resource>.<group>`). Họ thứ ba tồn tại để
+  bảo vệ bộ lưu trữ của control plane — ví dụ chặn CronJob hỏng đẻ ra vô số Job.
+- ResourceQuota **độc lập với dung lượng cluster**: thêm node không tự cho namespace tiêu thụ
+  nhiều hơn; ngược lại tổng hạn ngạch có thể vượt dung lượng thật và khi đó tranh chấp được xử
+  lý theo nguyên tắc ai đến trước được phục vụ trước. Nó cũng **không tạo ràng buộc nào về
+  node** — Pod của nhiều namespace vẫn chạy chung một node.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Hạn ngạch cho tài nguyên mở rộng* và *Hạn ngạch cho DRA resource claim* | chưa học DRA lẫn device plugin | giai đoạn 13, bài [149](149-dynamic-resource-allocation-vi.md); device plugin ở giai đoạn 14, bài [184](184-device-plugins-vi.md) |
+| *Phạm vi hạn ngạch* và toàn bộ mục con (`BestEffort`, `Terminating`, `PriorityClass`, `CrossNamespacePodAffinity`, `VolumeAttributesClass`) | là tinh chỉnh nâng cao; hai ví dụ mạnh nhất còn cần cờ `--admission-control-config-file` của kube-apiserver | giai đoạn 9, bài [122](122-multi-tenancy-vi.md) khi ghép namespace + RBAC + quota thành mô hình cô lập |
+| *Hạn ngạch cho lưu trữ tạm thời cục bộ* | vẫn ở mức alpha | giai đoạn 9, bài [122](122-multi-tenancy-vi.md) |
+| Đoạn về custom resource và API aggregation trong *Hạn ngạch theo số lượng đối tượng* | chưa học CRD và aggregated API | giai đoạn 14, bài [179](179-custom-resources-vi.md) |
+| Các bảng tra tên tài nguyên và output mẫu của `kubectl describe quota` | là tài liệu tra cứu, không phải nội dung để nhớ | tra lại khi viết YAML ở Lab 7b |
+
+---
+
 Khi nhiều người dùng hoặc nhiều nhóm cùng chia sẻ một cluster với số lượng node cố định,
 sẽ có mối lo ngại rằng một nhóm nào đó có thể sử dụng nhiều hơn phần tài nguyên hợp lý của mình.
 
@@ -847,3 +897,66 @@ Khi hạn ngạch được giới hạn phạm vi theo volume attributes class b
 - Bạn có thể đọc [tài liệu thiết kế ResourceQuota](https://git.k8s.io/design-proposals-archive/resource-management/admission_control_resource_quota.md)
   trong lịch sử để biết thêm thông tin.
 - Bạn cũng có thể đọc [tài liệu thiết kế về hỗ trợ hạn ngạch cho priority class](https://git.k8s.io/design-proposals-archive/scheduling/pod-priority-resourcequota.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Namespace `team-a` có một ResourceQuota `requests.cpu: "2"` và một LimitRange
+   `max.cpu: "1"`. Mỗi cái chặn điều gì? Nói rõ cái nào là trần cho từng đối tượng, cái nào là
+   trần cho cả namespace, và một Pod xin `cpu: 1500m` sẽ bị cái nào từ chối.
+2. Namespace đã có hạn ngạch cho `requests.memory`. Bạn `kubectl apply` một Deployment 5
+   replica mà template không khai `requests` lẫn `limits` bộ nhớ. Lệnh apply báo gì, Pod ra
+   sao, và bạn tìm nguyên nhân ở đâu?
+3. Vẫn namespace đó, bạn không muốn người dùng phải nhớ khai `requests` nhưng cũng không muốn
+   Pod bị từ chối. Theo bài, bạn thêm cái gì và nó can thiệp vào lúc nào?
+4. Cluster lab của bạn có một control plane `k8s-master` và hai worker, mỗi worker 2 vCPU /
+   6 GB RAM. Bạn thêm worker thứ ba. Hạn ngạch của `team-a` có tự nới ra không? Và
+   ResourceQuota có buộc Pod của `team-a` chỉ chạy trên một số node nhất định không?
+5. Hạn ngạch theo **số lượng đối tượng** bảo vệ được điều gì mà hạn ngạch CPU/memory không bảo
+   vệ được? Nêu một ví dụ bài đưa ra.
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **ResourceQuota là trần tổng của namespace; LimitRange là trần của từng đối tượng.**
+   `requests.cpu: "2"` nghĩa là trên tất cả Pod chưa kết thúc trong `team-a`, **tổng** các
+   request CPU không được vượt 2. `max.cpu: "1"` nghĩa là **mỗi** Container không được vượt 1.
+   Pod xin `cpu: 1500m` bị **LimitRange** chặn — nó vi phạm trần đơn vị — kể cả khi namespace
+   còn trống nguyên 2 CPU hạn ngạch. Ngược lại, ba Pod mỗi Pod `cpu: 1` đều lọt LimitRange
+   nhưng Pod thứ ba sẽ bị **ResourceQuota** chặn vì tổng vượt 2. Hai cơ chế độc lập, cả hai
+   cùng phải qua.
+2. **Lệnh apply thành công, còn Pod thì không sinh ra đủ.** Bài nói rõ: bạn thường không tạo
+   Pod trực tiếp, và nếu tạo một Deployment cố dùng nhiều tài nguyên hơn mức khả dụng thì việc
+   tạo Deployment **thành công**, nhưng Deployment có thể không đưa được toàn bộ số Pod nó quản
+   lý vào tồn tại. Lý do nền: khi hạn ngạch bật cho `memory`, mọi Pod mới **phải** chỉ định
+   `requests` hoặc `limits` cho tài nguyên đó, nếu không control plane có thể từ chối admission
+   — mà ở đây bên bị từ chối là các Pod do ReplicaSet tạo ra, không phải lệnh apply của bạn.
+   Tìm nguyên nhân bằng **`kubectl describe` trên Deployment**, đúng như bài chỉ.
+3. **Thêm một [LimitRange](133-limit-range-vi.md).** Bài ghi thẳng trong ghi chú: định nghĩa
+   LimitRange để ép các giá trị mặc định cho những Pod không đặt yêu cầu tài nguyên tính toán,
+   "để người dùng không phải nhớ tự làm việc đó". Nó can thiệp **ở giai đoạn admission, trước**
+   khi hạn ngạch soi Pod: LimitRange chèn `requests` mặc định vào, nhờ đó Pod không còn rơi vào
+   trường hợp thiếu request mà hạn ngạch từ chối. Đây là lý do hai đối tượng này gần như luôn đi
+   thành cặp khi chia namespace cho nhiều nhóm.
+4. **Không, và không.** Bài dành hẳn mục *Hạn ngạch và dung lượng cluster* cho ý đầu: các
+   ResourceQuota **độc lập với dung lượng cluster** và được biểu diễn bằng đơn vị tuyệt đối, nên
+   thêm node *không* tự động cho phép mỗi namespace tiêu thụ nhiều tài nguyên hơn — muốn nới thì
+   phải sửa chính đối tượng hạn ngạch. Ý sau ở cuối cùng mục đó: hạn ngạch phân chia tổng tài
+   nguyên của cluster nhưng **không tạo ràng buộc nào liên quan đến node** — Pod từ nhiều
+   namespace vẫn chạy chung trên một node. Trên cluster của bạn, Pod của `team-a` và của
+   namespace khác hoàn toàn có thể cùng nằm trên `k8s-worker1`.
+5. **Bảo vệ bộ lưu trữ của control plane, thứ mà trần CPU/memory hoàn toàn không chạm tới.**
+   Một đống đối tượng nhỏ xíu chẳng tốn CPU hay RAM của node nhưng vẫn phá được cluster. Ví dụ
+   bài đưa ra: giới hạn số Secret vì kích thước lớn của chúng — quá nhiều Secret có thể khiến
+   server và controller không khởi động được; và đặt hạn ngạch cho Job để chống một CronJob cấu
+   hình kém tạo quá nhiều Job dẫn tới từ chối dịch vụ. Cú pháp là `count/<resource>` cho nhóm
+   API lõi và `count/<resource>.<group>` cho nhóm khác.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -2,6 +2,50 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/cluster-administration/system-traces/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 11](LO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 6/6 · Kiểm chứng
+ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là trụ cột thứ ba và cũng là trụ cột **non nhất**: bài tự nói phần đo đạc còn đang phát triển
+tích cực và chưa có bảo đảm tương thích ngược. Lần đọc này chỉ cần biết trace của Kubernetes trả
+lời được câu hỏi gì mà metric và log không trả lời được, cùng những giới hạn phải nhớ trước khi
+bật nó trên cluster thật.
+
+**Phải hiểu ở lần đọc này:**
+
+- Trace ghi **độ trễ và mối quan hệ giữa các thao tác**. Các thành phần phát trace bằng **OTLP
+  qua gRPC exporter**, mặc định tới port **4317**, và có hai đường: đi thẳng tới backend (chỉ
+  cần đặt trường `endpoint`) hoặc qua một **OpenTelemetry Collector**.
+- kube-apiserver sinh span cho request đến, cho request đi ra tới webhook và etcd, và cho request
+  tái nhập. Nó **lan truyền W3C Trace Context với request đi ra** nhưng **không dùng trace
+  context đính kèm theo request đến**, vì nó thường là một endpoint công khai.
+- kubelet đo đạc giao diện CRI và các HTTP server có xác thực; nó **lan truyền trace context
+  xuống container runtime** qua gRPC, nên span của kubelet và span của containerd nối được thành
+  quan hệ cha–con — đó là giá trị chính khi gỡ lỗi trên node.
+- Cách đọc `samplingRatePerMillion`: `100` là ghi span cho 1 trong mỗi 10000 request, `1000000`
+  là mọi span. **Quyết định lấy mẫu của span cha luôn được tôn trọng**, tỷ lệ này chỉ áp dụng cho
+  span **không có cha**.
+- Bật tracing luôn có **chi phí mạng và CPU**; cách giảm nhẹ là hạ `samplingRatePerMillion` hoặc
+  tắt hẳn bằng cách gỡ cấu hình. Cộng thêm việc tên span và thuộc tính chưa ổn định, đây là tính
+  năng để chẩn đoán theo đợt, không phải để dựng dashboard dài hạn.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| `--tracing-config-file` và nội dung `TracingConfiguration` của kube-apiserver | phải sửa manifest static Pod của API server | CP5 cấu hình lại cluster đang chạy |
+| Đoạn cấu hình `tracing` trong `KubeletConfiguration` | phải sửa file cấu hình kubelet trên từng node rồi khởi động lại | CP5 cấu hình lại cluster đang chạy |
+| Cấu hình receiver YAML của OpenTelemetry Collector | thuộc tài liệu OpenTelemetry, không phải Kubernetes | Lab 11a |
+| `OTEL_EXPORTER_OTLP_HEADERS` và `OTEL_RESOURCE_ATTRIBUTES` | chỉ cần khi đã có backend tracing thật cần xác thực | CP8 giám sát và cảnh báo |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.27 [beta]`
 
 Trace của các thành phần hệ thống ghi lại độ trễ và mối quan hệ giữa các thao tác trong cluster.
@@ -138,3 +182,52 @@ không có bảo đảm nào về tương thích ngược cho phần đo đạc 
 
 * Đọc về [Bắt đầu với OpenTelemetry Collector](https://opentelemetry.io/docs/collector/getting-started/)
 * Đọc về [Cấu hình OTLP Exporter](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
+
+1. Cluster lab dùng containerd làm container runtime. Bật tracing cho kubelet trên `k8s-worker1`
+   mang lại thứ gì mà log của kubelet không có? Cơ chế nào làm được điều đó?
+2. **Câu bẫy.** Client của bạn gửi request tới kube-apiserver kèm sẵn trace context, mong span
+   của client nối liền vào trace của API server. Việc đó có xảy ra không? Vì sao Kubernetes chọn
+   như vậy?
+3. `samplingRatePerMillion: 100` nghĩa là gì? Một span có cha đã được quyết định lấy mẫu thì tỷ
+   lệ này còn chi phối nó nữa không?
+4. Bạn định dựng một dashboard dài hạn cho đội trực, dựa trên tên span mà kube-apiserver phát ra.
+   Bài khuyên gì về ý định này?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Nó cho bạn **liên kết cha–con giữa span của kubelet và span do container runtime xuất ra**.
+   Cơ chế: kubelet **lan truyền trace context theo các request gRPC**, nên một runtime có đo đạc
+   trace như containerd hay CRI-O gắn được span của nó vào đúng trace của kubelet. Kết quả là
+   thấy được một thao tác trên node đi qua hai tiến trình mất bao lâu ở từng chặng — thứ mà đọc
+   log kubelet không dựng lại được.
+2. **Không.** kube-apiserver **lan truyền W3C Trace Context với các request đi ra, nhưng không sử
+   dụng trace context đính kèm theo các request đến**. Lý do bài nêu thẳng: kube-apiserver
+   **thường là một endpoint công khai**, nên tin vào trace context do client bất kỳ gửi tới là
+   không an toàn. Trực giác sai ở chỗ nghĩ tracing phân tán thì luôn nối được đầu-cuối; ở đây
+   biên tin cậy cắt đúng tại API server.
+3. Nghĩa là ghi span cho **1 trong mỗi 10000 request** (100 phần triệu). Và **không** — bài nói
+   rõ **quyết định lấy mẫu của span cha luôn được tôn trọng**, còn tỷ lệ trong cấu hình tracing
+   chỉ áp dụng cho **các span không có cha**. Nếu đặt `1000000` thì mọi span đều được gửi tới
+   exporter.
+4. **Đừng làm lúc này.** Bài dành hẳn mục *Tính ổn định* để nói rằng phần đo đạc tracing vẫn đang
+   được phát triển tích cực và có thể thay đổi ở nhiều mặt — **tên span, các thuộc tính đính kèm,
+   các endpoint được đo đạc** — và **không có bảo đảm nào về tương thích ngược** cho tới khi tính
+   năng lên mức stable. Thêm vào đó, việc xuất span luôn kèm chi phí mạng và CPU, nên tracing hợp
+   với các đợt chẩn đoán có thời hạn hơn là với giám sát thường trực.
+
+</details>
+
+Đây là bài cuối của giai đoạn 11. Trả lời trôi cả bốn câu thì chuyển sang **Lab 11a** (chưa viết,
+xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)) — nơi bạn cài metrics-server, chụp snapshot
+`04-metrics-ready` rồi dùng nó để trả nợ HPA/VPA ở Lab 11b, xem
+[sổ nợ lab](labs/README.md#5-sổ-nợ-lab). Câu nào còn vướng thì quay lại đúng mục tương ứng trước
+khi mở lab.

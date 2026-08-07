@@ -2,6 +2,49 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+bài 11/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
+hoặc dành cho nền tảng chuyên biệt (AI/HPC, GPU). Chỉ đọc khi đã vững giai đoạn 1–12 hoặc khi
+công việc thực sự cần. Bài này ở trạng thái `alpha` từ v1.35, cần feature gate
+`GenericWorkload` và API group `scheduling.k8s.io/v1alpha2` — **API có thể đổi giữa các phiên
+bản**. Cluster lab 3 VM trên VMware không bật hai thứ đó; đọc để hiểu khái niệm.
+
+Bài rất ngắn nhưng là **hạt nhân của cả giai đoạn**: nó nêu đúng một nguyên tắc — hoặc chạy
+hết cả nhóm, hoặc không chạy gì. Đây là thứ khiến huấn luyện phân tán chạy được trên
+Kubernetes, nên nếu chỉ đọc một bài trong nhóm PodGroup thì đọc bài này.
+
+**Phải hiểu ở lần đọc này:**
+
+- Định nghĩa: một nhóm Pod được lập lịch theo nguyên tắc **all-or-nothing**; cluster không
+  chứa nổi cả nhóm (hoặc số Pod tối thiểu đã định) thì **không Pod nào được bind vào node**.
+- Điều kiện rời pha `PreEnqueue` gồm **hai** vế: đối tượng PodGroup được tham chiếu đã tồn
+  tại, **và** số Pod **đã được tạo** cho PodGroup ít nhất bằng `minCount`. Trước đó Pod không
+  vào hàng đợi lập lịch hoạt động.
+- Khi đủ quorum, scheduler dùng **chu trình lập lịch PodGroup** để ra **một quyết định duy
+  nhất, nguyên tử** cho cả nhóm, thay vì n quyết định rời rạc.
+- Plugin `GangScheduling` cài một điểm mở rộng **`Permit`**, được đánh giá cho mỗi Pod lập lịch
+  được trong chu trình, để so số Pod đã sắp đặt thành công với `minCount`.
+- Khi không đủ chỗ: các Pod chuyển sang **hàng đợi không thể lập lịch**, và bài nêu rõ mục
+  đích — **để workload khác được lập lịch trong thời gian chờ**, thay vì giữ chỗ vô ích.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Chu trình lập lịch PodGroup và quyết định nguyên tử diễn ra thế nào | là bài kế tiếp | [bài 151](151-podgroup-scheduling-vi.md) |
+| Các điểm mở rộng `PreEnqueue`, `Permit` của scheduling framework | nền đã học | giai đoạn 7 — [bài 147](147-scheduling-framework-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.35 [alpha]`
 
 Gang scheduling (lập lịch theo nhóm) đảm bảo một nhóm Pod được lập lịch theo nguyên tắc "tất cả hoặc không gì cả" (all-or-nothing).
@@ -43,3 +86,40 @@ Quá trình này diễn ra theo các bước sau cho mỗi PodGroup:
 * Tìm hiểu về [PodGroup API](https://kubernetes.io/docs/concepts/workloads/podgroup-api/) và [vòng đời](https://kubernetes.io/docs/concepts/workloads/podgroup-api/lifecycle/) của nó.
 * Đọc về [các chính sách lập lịch PodGroup](https://kubernetes.io/docs/concepts/workloads/workload-api/policies/).
 * Đọc về [lập lịch PodGroup](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho một giai đoạn tùy chọn:
+
+1. Gang scheduling khác lập lịch từng Pod ở điểm nào? Vì sao cách lập lịch từng Pod lại gây
+   rắc rối với một job huấn luyện phân tán cần 4 worker chạy đồng thời?
+2. Hai điều kiện nào phải cùng đúng thì các Pod của một PodGroup mới rời pha `PreEnqueue`?
+   Điều kiện thứ hai đếm Pod theo tiêu chí gì?
+3. `minCount: 4` nhưng cluster chỉ còn chỗ cho 3 Pod. Ba Pod đã tìm được node có được bind
+   không? Điều gì xảy ra với chúng, và vì sao bài coi đó là lựa chọn tốt?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Lập lịch từng Pod ra **n quyết định độc lập**; gang scheduling ra **một quyết định duy nhất,
+   nguyên tử cho cả nhóm**, và nếu cluster không chứa nổi cả nhóm (hoặc số Pod tối thiểu đã
+   định) thì **không Pod nào được bind vào node**. Với job huấn luyện phân tán, lập lịch từng
+   Pod cho phép 3/4 worker khởi động và **chiếm giữ tài nguyên trong khi không thể tiến triển**
+   — chúng chờ worker thứ tư mãi không có chỗ. Kết quả là tài nguyên bị giam mà công việc
+   không chạy.
+2. Thứ nhất: **đối tượng PodGroup được tham chiếu phải tồn tại**. Thứ hai: **số Pod đã được tạo
+   cho PodGroup ít nhất bằng `minCount`**. Chú ý tiêu chí đếm — đây là **số Pod đã được tạo**,
+   không phải số Pod đã lập lịch được. Đó là điều kiện quorum để bắt đầu; việc có đủ chỗ hay
+   không mới được kiểm ở bước sau, qua điểm mở rộng `Permit`.
+3. **Không Pod nào được bind.** Cả nhóm được chuyển sang **hàng đợi không thể lập lịch** để chờ
+   tài nguyên cluster được giải phóng. Bài nêu rõ lợi ích: làm vậy **cho phép các workload khác
+   được lập lịch trong thời gian chờ đó** — thay vì để ba Pod nửa vời giữ chỗ mà không sinh ra
+   kết quả nào.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

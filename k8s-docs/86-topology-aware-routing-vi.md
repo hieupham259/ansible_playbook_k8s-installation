@@ -4,6 +4,50 @@
 >
 > *Định tuyến nhận biết topology* (Topology Aware Routing) cung cấp một cơ chế giúp giữ lưu lượng mạng bên trong zone nơi nó xuất phát. Việc ưu tiên lưu lượng cùng zone giữa các Pod trong cluster của bạn có thể có lợi cho độ tin cậy, hiệu năng (độ trễ mạng và thông lượng), hoặc chi phí.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 7/16 · Kiểm chứng ở
+Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này viết cho cluster **đa zone**. Cluster lab chỉ có ba VM trong một mạng phẳng và không
+node nào mang label `topology.kubernetes.io/zone`, nên bạn **không bật được** tính năng này ở
+đây. Giá trị của bài lúc này nằm ở chỗ khác: nó là ví dụ rõ nhất về việc kube-proxy **lọc** tập
+endpoint mà bài [83](83-endpoint-slices-vi.md) đã dựng ra, và về cách Kubernetes tự tắt một tối
+ưu khi điều kiện không đủ.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bật bằng annotation `service.kubernetes.io/topology-mode: Auto` trên **từng Service** (trước
+  1.27 là annotation `service.kubernetes.io/topology-aware-hints`).
+- Cơ chế hai vế: **EndpointSlice controller** điền trường `hints.forZones` cho từng endpoint,
+  phân bổ theo tỷ lệ **số CPU core có thể cấp phát** của các node trong zone; **kube-proxy** lọc
+  endpoint mà nó định tuyến tới dựa trên các hint đó.
+- Điều kiện để tính năng hữu ích: lưu lượng đến **phân bổ đều** giữa các zone, và Service có
+  **từ 3 endpoint trở lên mỗi zone** — ít hơn thì xác suất cao controller không phân bổ đều
+  được và quay về định tuyến mặc định trên toàn cluster.
+- Năm **cơ chế bảo vệ** khiến hint bị bỏ qua và kube-proxy quay về dùng endpoint ở mọi nơi:
+  không đủ endpoint, không đạt được phân bổ cân bằng, có node thiếu label zone hoặc thiếu giá
+  trị CPU allocatable, có endpoint không mang hint, hoặc zone của chính kube-proxy không xuất
+  hiện trong hint nào.
+- Ràng buộc phải nhớ: **không dùng được cùng `internalTrafficPolicy: Local` trên cùng một
+  Service**; controller còn bỏ qua node chưa sẵn sàng và node có label
+  `node-role.kubernetes.io/control-plane` hoặc `node-role.kubernetes.io/master`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Heuristic tùy chỉnh* | mới có những bước đầu tiên, hiện thực còn hạn chế | không cần |
+| Gạch đầu dòng cuối của *Các ràng buộc* — tương tác với autoscaling | cần HPA và metrics-server, chưa có | giai đoạn 11 |
+| Trường `trafficDistribution` nhắc ở *Tiếp theo* | là API mới thay dần annotation, không đổi cơ chế đang học | không cần |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.23 [beta]`
 
 > **Ghi chú:**
@@ -109,3 +153,43 @@ Kubernetes được triển khai theo nhiều cách khác nhau, không có một
 
 * Làm theo hướng dẫn [Kết nối ứng dụng với Service (Connecting Applications with Services)](https://kubernetes.io/docs/tutorials/services/connect-applications-service/)
 * Tìm hiểu về trường [trafficDistribution](https://kubernetes.io/docs/concepts/services-networking/service/#traffic-distribution), trường này liên quan chặt chẽ tới annotation `service.kubernetes.io/topology-mode` và cung cấp các tùy chọn linh hoạt cho việc định tuyến lưu lượng trong Kubernetes.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Ba node của cluster lab không node nào có label `topology.kubernetes.io/zone`. Bạn vẫn đặt
+   annotation `service.kubernetes.io/topology-mode: Auto` lên một Service. Điều gì xảy ra?
+2. Một Service đã đặt `internalTrafficPolicy: Local`. Bật thêm topology-mode `Auto` cho chính
+   Service đó thì hai hiệu ứng có cộng dồn không?
+3. Thành phần nào **đặt** hint, thành phần nào **dùng** hint, và hint được lưu ở đâu?
+4. Vì sao bài khuyến nghị có từ 3 endpoint trở lên trên mỗi zone?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không có hint nào được đặt, và kube-proxy không lọc endpoint theo zone.** Đây là cơ chế
+   bảo vệ số 3: nếu bất kỳ node nào không có label `topology.kubernetes.io/zone` hoặc không báo
+   cáo giá trị CPU có thể cấp phát, control plane sẽ không đặt bất kỳ hint nào. Annotation vẫn
+   nằm đó nhưng hành vi định tuyến không đổi.
+2. **Không.** Bài nêu ràng buộc rõ: Topology Aware Hints **không được sử dụng khi
+   `internalTrafficPolicy` được đặt là `Local`** trên một Service. Hai tính năng dùng chung
+   được **trong cùng một cluster trên những Service khác nhau**, nhưng không trên cùng một
+   Service.
+3. **EndpointSlice controller đặt hint**; nó ghi vào trường `hints.forZones` của từng endpoint
+   **trong đối tượng EndpointSlice**. **kube-proxy dùng hint**: nó lọc các endpoint mà nó định
+   tuyến tới dựa trên hint đó, nên phần lớn trường hợp traffic ở lại trong cùng zone. Đôi khi
+   controller cố ý gán endpoint sang zone khác để cân bằng, và khi đó một phần traffic vẫn đi
+   liên zone.
+4. Vì heuristic phân bổ theo **tỷ lệ**, và tỷ lệ chỉ có nghĩa khi có đủ endpoint để chia. Với
+   ít hơn 3 endpoint mỗi zone, **xác suất cao (≈50%) EndpointSlice controller không phân bổ đều
+   được** và sẽ quay về cách tiếp cận định tuyến mặc định trên toàn cluster. Trong một cluster
+   ba zone, điều đó nghĩa là cần từ 9 endpoint trở lên.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

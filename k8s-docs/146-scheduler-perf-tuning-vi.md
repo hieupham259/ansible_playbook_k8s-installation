@@ -2,6 +2,45 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/scheduler-perf-tuning/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 11/13 ·
+Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Lộ trình đánh dấu bài này là ĐỌC LƯỚT.** Cả trang chỉ nói về một núm vặn duy nhất,
+`percentageOfNodesToScore`, và núm đó **chỉ có tác dụng khi cluster có hàng trăm tới hàng
+nghìn node**. Cluster lab của bạn có ba node, nên dù bạn đặt giá trị nào thì hành vi lập lịch
+cũng không đổi — chính bài cũng khuyên cluster vài trăm node trở xuống thì cứ để mặc định.
+
+Mục tiêu của lần đọc này chỉ là: **biết núm đó tồn tại, biết nó đánh đổi cái gì, và biết mình
+chưa cần đụng vào**. Đừng sửa file cấu hình kube-scheduler trên cluster lab.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vì sao có núm này: để tăng tốc, kube-scheduler có thể **dừng tìm node khả thi khi đã đủ số
+  lượng**, thay vì xem xét mọi node. `percentageOfNodesToScore` là ngưỡng "đủ" đó, tính theo
+  phần trăm số node của cluster.
+- Ngưỡng mặc định được **tính tự động** theo kích thước cluster (khoảng 50% ở 100 node, 10% ở
+  5000 node, sàn 5%), và **dưới 100 node khả thi thì scheduler vẫn kiểm tra tất cả** — nên
+  cluster lab không bị ảnh hưởng dù bạn đặt gì.
+- Cái giá phải trả: node bị bỏ qua ở bước lọc **không được chuyển sang bước chấm điểm**, nên
+  một node lẽ ra điểm cao có thể không bao giờ được xét — đổi độ chính xác lấy độ trễ.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Đặt ngưỡng* và ví dụ YAML `percentageOfNodesToScore: 50` | phải sửa file cấu hình kube-scheduler, không làm trên cluster lab | không cần |
+| *Cách bộ lập lịch duyệt qua các Node* — round robin, xen kẽ zone | chính bài nói đây là chi tiết nội bộ | không cần |
+| *Bật Opportunistic Batching* | beta, dành cho việc lập lịch workload rất lớn | không cần |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.14 [beta]`
 
 [kube-scheduler](https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/#kube-scheduler)
@@ -189,3 +228,40 @@ Các hạn chế và điều kiện này dự kiến sẽ thay đổi trong các
 ## Tiếp theo (What's next)
 
 * Xem [tài liệu tham khảo cấu hình kube-scheduler (v1)](https://kubernetes.io/docs/reference/config-api/kube-scheduler-config.v1/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Bài này chỉ đọc lướt, nên ba câu dưới đây là đủ cho lần đọc ở giai đoạn 7:
+
+1. Cluster lab của bạn có `k8s-master` và hai worker. Bạn đặt `percentageOfNodesToScore: 10`
+   với hy vọng lập lịch nhanh hơn. Kết quả ra sao?
+2. Núm `percentageOfNodesToScore` đánh đổi giữa hai thứ gì, và điều gì xấu đi khi bạn đặt nó
+   quá thấp?
+3. Đặt giá trị `100` nghĩa là gì? Còn giá trị `0` thì sao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không thay đổi gì cả.** Bài nói rõ: trong các cluster có **ít hơn 100 node khả thi**, bộ
+   lập lịch **vẫn kiểm tra tất cả các node** vì không đủ node để nó dừng tìm sớm; và trong một
+   cluster nhỏ, đặt giá trị thấp cho `percentageOfNodesToScore` sẽ **không có hoặc có rất ít
+   tác dụng**. Có một cận dưới 100 node được cố định trong mã nguồn. Trực giác "giảm phần trăm
+   thì scheduler làm ít việc hơn nên nhanh hơn" sai ở cluster nhỏ, vì tổng số node còn chưa
+   chạm tới ngưỡng dừng.
+2. Đánh đổi giữa **độ trễ** (Pod mới được đặt nhanh) và **độ chính xác** (bộ lập lịch hiếm khi
+   đưa ra quyết định đặt Pod kém). Đặt quá thấp thì **một số node không được gửi đi chấm
+   điểm**, nên một Node lẽ ra đạt điểm cao hơn có thể **không bao giờ tới được giai đoạn chấm
+   điểm** — hệ quả là vị trí đặt Pod kém lý tưởng hơn. Bài khuyên tránh đặt dưới 10% trừ khi
+   thông lượng là yếu tố sống còn và bạn chấp nhận chạy Pod trên bất kỳ node khả thi nào.
+3. `100` nghĩa là **chấm điểm tất cả các node** trong cluster. `0` **không phải** là "không
+   chấm node nào" — đó là một **số đặc biệt** báo kube-scheduler dùng **giá trị mặc định được
+   biên dịch sẵn** của nó. (Ngược lại, đặt lớn hơn 100 thì scheduler hành xử như thể bạn đặt
+   100.)
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

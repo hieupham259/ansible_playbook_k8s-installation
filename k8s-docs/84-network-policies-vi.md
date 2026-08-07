@@ -7,6 +7,51 @@
 > cũng như giữa các Pod và thế giới bên ngoài.
 > Cluster của bạn phải sử dụng một network plugin có hỗ trợ thực thi NetworkPolicy.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 6/16 · Kiểm chứng ở
+Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Cảnh báo về cluster lab:** baseline dùng **Flannel**, và Flannel **không thực thi
+NetworkPolicy** (xem [Lab 00](labs/LAB-00-MOI-TRUONG.md#a13-phiên-bản-được-khóa)). Bạn vẫn tạo
+được object NetworkPolicy — API server chấp nhận và lưu nó — nhưng **không có gì bị chặn**.
+Đây là một [nợ lab](labs/README.md#5-sổ-nợ-lab) có chủ đích, được trả ở **Lab 5b** khi đổi sang
+CNI có thực thi policy. Vì vậy ở lần đọc này bạn học ngữ nghĩa và cú pháp; phần chứng minh
+bằng traffic thật để dành tới lab đó.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mặc định là **cho phép tất cả**: một pod không bị cô lập chiều đến lẫn chiều đi cho tới khi
+  tồn tại một NetworkPolicy vừa **chọn** pod đó vừa có hướng tương ứng trong `policyTypes`.
+- NetworkPolicy do network plugin hiện thực. **Tạo tài nguyên mà không có controller hiện thực
+  nó sẽ không có tác dụng gì** — object hợp lệ không đồng nghĩa với policy có hiệu lực.
+- Các chính sách **cộng gộp, không xung đột**, thứ tự đánh giá không ảnh hưởng kết quả; và một
+  kết nối chỉ đi được khi **cả** chính sách egress ở pod nguồn **lẫn** chính sách ingress ở pod
+  đích cùng cho phép.
+- Ngữ nghĩa của `from`/`to`: một phần tử duy nhất chứa cả `namespaceSelector` **và**
+  `podSelector` là phép **giao**; hai phần tử tách rời bằng dấu `-` là phép **hợp**. Sai một
+  dấu gạch đầu dòng là đổi hẳn ý nghĩa chính sách.
+- Bốn công thức mặc định trong mục *Các chính sách mặc định*: `default-deny-ingress`,
+  `allow-all-ingress`, `default-deny-egress`, `default-deny-all` — kèm cảnh báo **deny egress
+  chặn luôn traffic DNS**, phải mở riêng đường tới Service DNS của cluster.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Nhắm đến một dải port* (`endPort`) | cần CNI hỗ trợ đúng trường này mới có tác dụng | Lab 5b |
+| *Vòng đời Pod* — thứ tự áp dụng quy tắc cô lập và quy tắc cho phép | chỉ quan sát được khi có CNI thực thi thật | Lab 5b |
+| *NetworkPolicy và các pod `hostNetwork`* | hành vi không được định nghĩa, phụ thuộc plugin | không cần |
+| *Ảnh hưởng của NetworkPolicy lên các kết nối hiện có* | do từng hiện thực quyết định | không cần |
+| *Những gì bạn không thể làm với network policy* | là danh sách giới hạn để tra khi thiết kế bảo mật | giai đoạn 9 |
+
+---
+
 Nếu bạn muốn kiểm soát luồng traffic ở mức địa chỉ IP hoặc port cho các giao thức TCP, UDP và SCTP,
 bạn có thể cân nhắc sử dụng NetworkPolicy của Kubernetes cho những ứng dụng cụ thể trong cluster.
 NetworkPolicy là một cấu trúc lấy ứng dụng làm trung tâm (application-centric), cho phép bạn chỉ định
@@ -587,3 +632,60 @@ Khuyến nghị không nên sửa đổi các chính sách/pod/namespace theo nh
   để có thêm ví dụ.
 - Xem thêm các [công thức (recipes)](https://github.com/ahmetb/kubernetes-network-policy-recipes)
   cho các kịch bản phổ biến mà tài nguyên NetworkPolicy hỗ trợ.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Trên cluster lab đang dùng Flannel, bạn apply `default-deny-ingress` vào namespace `default`
+   rồi `curl` từ Pod này sang Pod khác. Kết quả ra sao, và vì sao?
+2. Hai đoạn `from` dưới đây khác nhau ở đúng một dấu `-`. Đoạn nào chặt hơn, và mỗi đoạn cho
+   phép chính xác những nguồn nào?
+
+   ```yaml
+   from:
+   - namespaceSelector: {matchLabels: {user: alice}}
+     podSelector: {matchLabels: {role: client}}
+   ```
+
+   ```yaml
+   from:
+   - namespaceSelector: {matchLabels: {user: alice}}
+   - podSelector: {matchLabels: {role: client}}
+   ```
+
+3. Trong một namespace đã có `default-deny-ingress`, một pod **không** được bất kỳ NetworkPolicy
+   nào khác chọn thì có bị cô lập chiều đến không?
+4. Bạn apply `default-deny-egress` cho một namespace và ứng dụng hỏng ngay ở bước phân giải
+   tên. Vì sao, và sửa thế nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **`curl` vẫn thông — chính sách không có tác dụng gì.** Network policy được hiện thực bởi
+   network plugin; bài nói thẳng: "Việc tạo một tài nguyên NetworkPolicy mà không có controller
+   hiện thực nó sẽ không có tác dụng gì", và POST manifest lên API server "sẽ không có tác dụng
+   gì trừ khi giải pháp mạng bạn chọn có hỗ trợ network policy". Flannel của baseline không hỗ
+   trợ, nên đây là [nợ lab](labs/README.md#5-sổ-nợ-lab), trả ở Lab 5b sau khi đổi CNI.
+2. **Đoạn thứ nhất chặt hơn.** Nó là **một** phần tử `from` chứa đồng thời `namespaceSelector`
+   và `podSelector`, nên chỉ cho phép các Pod có label `role=client` **nằm trong** các namespace
+   có label `user=alice` — phép giao. Đoạn thứ hai có **hai** phần tử trong mảng `from`, nên
+   cho phép Pod có label `role=client` **trong namespace cục bộ**, *hoặc* **bất kỳ Pod nào**
+   trong bất kỳ namespace có label `user=alice` — phép hợp, rộng hơn nhiều. Khi chưa chắc, dùng
+   `kubectl describe` để xem Kubernetes đã diễn giải chính sách ra sao.
+3. **Có.** `default-deny-ingress` dùng `podSelector: {}`, mà một `podSelector` rỗng **chọn tất
+   cả các pod trong namespace**. Bài ghi rõ chính sách này "bảo đảm rằng ngay cả những pod không
+   được chọn bởi bất kỳ NetworkPolicy nào khác vẫn sẽ bị cô lập chiều đến". Nó không đụng tới
+   cô lập chiều đi.
+4. Vì **một chính sách mặc định từ chối toàn bộ egress cũng chặn cả traffic DNS**. Khi pod bị
+   cô lập chiều đi, kết nối duy nhất được phép là những kết nối nằm trong danh sách `egress`
+   của một chính sách áp dụng cho pod — mà `default-deny-egress` không có `egress` nào. Sửa
+   bằng cách **thêm một NetworkPolicy riêng cho phép egress đến Service DNS của cluster**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

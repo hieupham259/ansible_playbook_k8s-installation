@@ -6,6 +6,51 @@
 > tại bất kỳ thời điểm nào. Thông thường, bạn định nghĩa một Deployment và để Deployment đó
 > tự động quản lý các ReplicaSet.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 2/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Lộ trình bắt đọc ReplicaSet **trước** [Deployment](63-deployment-vi.md), dù bài này tự nói
+"có lẽ bạn sẽ không bao giờ cần thao tác trực tiếp với ReplicaSet". Lý do: Deployment vận
+hành **thông qua** ReplicaSet — mọi thứ Deployment làm khi rollout đều là scale up và scale
+down các ReplicaSet. Không nắm ReplicaSet thì phần rollout của bài sau chỉ là một chuỗi lệnh
+học thuộc. Đọc bài này để hiểu cơ chế nền, không phải để dùng ReplicaSet trực tiếp.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ba thành phần làm nên một ReplicaSet và vòng lặp của nó: **selector**, **số replica** và
+  **pod template**; nó tạo và xóa Pod cho tới khi số Pod khớp con số mong muốn.
+- ReplicaSet nhận biết Pod của mình qua `metadata.ownerReferences`, nhưng nó **thu nhận**
+  thêm bất kỳ Pod nào khớp selector mà chưa có controller làm owner — đó là toàn bộ nội dung
+  mục *Thu nhận các Pod không theo template*, và là cái bẫy label kinh điển.
+- `.spec.template.metadata.labels` **phải** khớp `.spec.selector`, nếu không API từ chối;
+  `.spec.template.spec.restartPolicy` chỉ được là `Always`; không đặt `.spec.replicas` thì
+  mặc định là 1.
+- Xóa ReplicaSet mặc định xóa luôn Pod (garbage collector); `--cascade=orphan` giữ Pod lại.
+  ReplicaSet mới cùng selector sẽ **nhận nuôi** Pod cũ nhưng **không** cập nhật chúng theo
+  template mới — vì ReplicaSet không hỗ trợ rolling update. Đây chính là chỗ Deployment vào.
+- Thứ tự chọn Pod để xóa khi thu hẹp quy mô (mục *Thay đổi quy mô một ReplicaSet*): Pod
+  Pending trước, rồi `pod-deletion-cost` thấp hơn, rồi Pod trên node có nhiều replica hơn,
+  rồi Pod được tạo gần đây hơn.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Các Pod đang kết thúc* và `.status.terminatingReplicas` | cần feature gate `DeploymentReplicaSetTerminatingReplicas`, không bật ở baseline | không cần |
+| *Chi phí xóa Pod* và *Ví dụ tình huống sử dụng* | chỉ tinh chỉnh thứ tự xóa, không đổi cơ chế | không cần |
+| *ReplicaSet làm mục tiêu cho Horizontal Pod Autoscaler* | HPA cần metrics-server | bài [72](72-horizontal-pod-autoscale-vi.md), thực hành ở Lab 11b |
+| *Các lựa chọn thay thế* — Job, DaemonSet, ReplicationController | chưa học ba controller đó | bài [66](66-daemonset-vi.md), [67](67-job-vi.md), [70](70-replicationcontroller-vi.md) |
+| Ví dụ `curl -X DELETE` kèm `propagationPolicy` | thao tác qua REST API, `kubectl` đã đủ | không cần |
+
+---
+
 Mục đích của một ReplicaSet là duy trì một tập hợp ổn định các Pod bản sao (replica Pod)
 luôn chạy tại bất kỳ thời điểm nào. Vì vậy, nó thường được dùng để đảm bảo tính sẵn sàng
 (availability) của một số lượng Pod giống hệt nhau theo chỉ định.
@@ -528,3 +573,56 @@ Vì vậy, ReplicaSet được ưa chuộng hơn ReplicationController.
 * Đọc về [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/)
   và cách bạn có thể dùng nó để quản lý tính sẵn sàng của ứng dụng trong các giai đoạn
   gián đoạn (disruption).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. Trên hai worker của bạn đang có sẵn 2 Pod trần mang label `tier: frontend`. Bạn apply một
+   ReplicaSet `replicas: 3` với `selector: matchLabels: tier=frontend`. Hai Pod cũ ra sao, và
+   ReplicaSet tạo thêm mấy Pod? Nếu bạn làm ngược thứ tự — ReplicaSet trước, Pod trần sau —
+   thì kết quả khác thế nào?
+2. **Câu bẫy.** Bạn chạy `kubectl delete rs frontend --cascade=orphan`, rồi tạo một ReplicaSet
+   mới có **cùng** `.spec.selector` nhưng pod template dùng image mới. Các Pod cũ có được cập
+   nhật sang image mới không?
+3. ReplicaSet biết Pod nào là của nó bằng cách nào — chỉ bằng selector, hay còn thứ khác?
+4. Bạn scale một ReplicaSet từ 5 xuống 3. `k8s-worker1` đang chạy 4 Pod, `k8s-worker2` chạy 1
+   Pod, và cả 5 Pod đều Running. Theo thuật toán trong bài, Pod trên node nào bị chọn xóa
+   trước, và tiêu chí cuối cùng khi mọi thứ ngang nhau là gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Hai Pod cũ **bị ReplicaSet thu nhận ngay lập tức**, vì chúng không có Controller (hay bất
+   kỳ object nào) làm owner reference và lại khớp selector. ReplicaSet chỉ **tạo thêm 1 Pod**
+   cho đủ 3. Nếu làm ngược thứ tự — ReplicaSet đã ổn định với 3 Pod của riêng nó rồi bạn mới
+   tạo Pod trần — thì các Pod trần vẫn bị thu nhận, nhưng **ngay lập tức bị chấm dứt**, vì khi
+   đó ReplicaSet vượt quá số lượng mong muốn. Bài kết luận: theo cách này một ReplicaSet có
+   thể sở hữu một tập Pod **không đồng nhất**, nên đừng để Pod trần trùng label với selector
+   của bất kỳ ReplicaSet nào.
+2. **Không.** ReplicaSet mới **nhận nuôi** các Pod cũ (vì selector giống nhau), nhưng bài nói
+   rõ nó "sẽ không nỗ lực làm cho các Pod hiện có khớp với một pod template mới, khác trước".
+   Trực giác sai ở chỗ nghĩ rằng template mới sẽ được "áp" xuống Pod đang chạy — ReplicaSet
+   chỉ đếm số Pod khớp selector, template của nó chỉ dùng khi **tạo Pod mới**. Muốn cập nhật
+   Pod sang spec mới một cách có kiểm soát thì phải dùng Deployment, vì **ReplicaSet không
+   trực tiếp hỗ trợ rolling update**.
+3. **Cả hai, nhưng cho hai việc khác nhau.** Liên kết sở hữu nằm ở trường
+   `metadata.ownerReferences` của Pod — mọi Pod đã được thu nhận đều mang định danh của
+   ReplicaSet sở hữu ở đó, và nhờ liên kết này ReplicaSet biết trạng thái các Pod nó đang duy
+   trì. Còn **selector** là thứ nó dùng để **nhận diện Pod mới cần thu nhận**: Pod nào không
+   có OwnerReference, hoặc có OwnerReference không phải controller, mà khớp selector thì bị
+   thu nhận.
+4. Xóa trước các Pod trên **`k8s-worker1`** — bài xếp "các pod trên node có nhiều replica hơn
+   được chọn trước các pod trên node có ít replica hơn". Thứ tự đầy đủ trước đó: Pod Pending
+   và không lập lịch được bị thu hẹp trước tiên, rồi tới annotation
+   `controller.kubernetes.io/pod-deletion-cost` thấp hơn. Sau tiêu chí node là **Pod được tạo
+   gần đây hơn bị chọn trước Pod cũ hơn**. Nếu tất cả tiêu chí đều như nhau, việc lựa chọn là
+   **ngẫu nhiên**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

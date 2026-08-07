@@ -2,6 +2,51 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/storage/volume-snapshots/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 10/16 · Kiểm chứng ở
+Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này chỉ thực hành được nếu CSI driver bạn cài ở Lab 6a có hỗ trợ snapshot. Nếu không, phần
+snapshot và nhân bản được ghi vào [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) và bạn dừng ở mức
+đọc. Điều tốt là toàn bộ mô hình khái niệm ở đây **lặp lại y hệt** mô hình PV/PVC của bài
+[92](92-persistent-volumes-vi.md), nên đọc nhanh được nếu bài 92 đã chắc.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ánh xạ khái niệm một-đối-một với những gì đã học: `VolumeSnapshotContent` ứng với PV (tài
+  nguyên trong cluster), `VolumeSnapshot` ứng với PVC (yêu cầu của người dùng),
+  `VolumeSnapshotClass` ứng với StorageClass — mục *Giới thiệu*.
+- Điều kiện để chạy được thật: ba API này là **CRD, không thuộc core API**; chỉ hỗ trợ **CSI
+  driver**; cần snapshot controller ở control plane cộng sidecar csi-snapshotter cạnh driver;
+  và việc cài CRD lẫn controller là **trách nhiệm của bản phân phối Kubernetes**, không phải
+  của driver — mục *Giới thiệu*.
+- Hai kiểu cấp phát: **cấp phát sẵn** (admin tạo `VolumeSnapshotContent`, VolumeSnapshot nằm
+  chưa ràng buộc cho tới khi content tồn tại) và **động** (chụp từ một PVC qua
+  `source.persistentVolumeClaimName`); ràng buộc là ánh xạ **một-một** — mục *Cấp phát Volume
+  Snapshot* và *Ràng buộc*.
+- Bảo vệ nguồn: xóa một PVC đang được dùng làm nguồn snapshot thì việc xóa **bị hoãn** cho tới
+  khi snapshot ở trạng thái `readyToUse` hoặc bị hủy bỏ — mục *Bảo vệ PersistentVolumeClaim
+  đang làm nguồn Snapshot*.
+- `DeletionPolicy` khi xóa VolumeSnapshot: `Delete` xóa cả snapshot bên dưới lẫn
+  `VolumeSnapshotContent`, `Retain` giữ lại cả hai. Và snapshot dùng để tạo volume mới qua
+  trường `dataSource` của PVC — mục *Xóa* và *Cấp phát Volume từ Snapshot*.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Các VolumeSnapshotContent* — `volumeHandle`, `snapshotHandle`, `sourceVolumeMode` | là phần admin điền khi cấp phát sẵn, phụ thuộc backend | Lab 6b, nếu driver hỗ trợ |
+| *Chuyển đổi volume mode của một Snapshot* | cần annotation riêng và quyền admin trên VolumeSnapshotContent | không cần |
+| validating webhook server và group snapshot | thuộc phần triển khai của bản phân phối | không cần |
+
+---
+
 Trong Kubernetes, một _VolumeSnapshot_ đại diện cho một ảnh chụp nhanh (snapshot) của một volume
 trên hệ thống lưu trữ. Tài liệu này giả định rằng bạn đã quen thuộc với
 [persistent volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) trong Kubernetes.
@@ -250,3 +295,50 @@ trường _dataSource_ trong đối tượng `PersistentVolumeClaim`.
 
 Để biết thêm chi tiết, xem
 [Volume Snapshot và khôi phục Volume từ Snapshot](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#volume-snapshot-and-restore-volume-from-snapshot-support).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. `VolumeSnapshot` và `VolumeSnapshotContent` — cái nào là "yêu cầu", cái nào là "tài nguyên"?
+   Trong kiểu cấp phát động, ai tạo cái nào?
+2. Bạn xóa một `VolumeSnapshot`. Với `DeletionPolicy: Delete` thì cái gì mất, với `Retain` thì
+   cái gì còn?
+3. Bạn `kubectl delete pvc` trong khi một snapshot đang được chụp từ chính PVC đó. Chuyện gì
+   xảy ra và vì sao Kubernetes làm vậy?
+4. Cluster lab của bạn dùng containerd, và sau Lab 6a sẽ có một provisioner. Những điều kiện
+   nào phải thỏa thì bạn mới chụp được snapshot thật, và nếu không thỏa thì lộ trình xử lý ra
+   sao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **`VolumeSnapshot` là yêu cầu** của người dùng — nó tương tự PersistentVolumeClaim.
+   **`VolumeSnapshotContent` là tài nguyên trong cluster** đại diện cho snapshot thật trên hệ
+   thống lưu trữ — nó tương tự PersistentVolume. Trong cấp phát động, **người dùng tạo
+   VolumeSnapshot** và **snapshot controller tạo VolumeSnapshotContent**; sidecar
+   csi-snapshotter mới là thứ gọi `CreateSnapshot` xuống endpoint CSI. Ràng buộc giữa hai đối
+   tượng là ánh xạ một-một.
+2. Với **`Delete`**: **snapshot lưu trữ bên dưới bị xóa cùng với đối tượng
+   VolumeSnapshotContent** — mất cả hai. Với **`Retain`**: **cả snapshot bên dưới lẫn
+   VolumeSnapshotContent đều được giữ lại**. Đây đúng là cặp `Retain`/`Delete` bạn đã gặp với
+   reclaim policy của PV ở bài [92](92-persistent-volumes-vi.md), chỉ khác đối tượng áp dụng.
+3. **PVC không bị xóa ngay.** Trong lúc snapshot đang được chụp, PVC đó được coi là đang được
+   sử dụng, nên việc xóa **bị hoãn lại cho tới khi snapshot ở trạng thái `readyToUse` hoặc bị
+   hủy bỏ**. Lý do rất thẳng thắn: xóa nguồn giữa chừng có thể dẫn tới **mất dữ liệu**, và cả
+   snapshot lẫn dữ liệu gốc đều hỏng.
+4. Cần đủ ba thứ mà bài liệt kê ngay ở mục *Giới thiệu*: **các CRD `VolumeSnapshot`,
+   `VolumeSnapshotContent`, `VolumeSnapshotClass` đã được cài** (đây là trách nhiệm của bản
+   phân phối, không tự có); **snapshot controller đang chạy trong control plane** cùng sidecar
+   csi-snapshotter cạnh driver; và **CSI driver đang dùng thực sự đã triển khai chức năng
+   snapshot** — bài nói rõ driver "có thể đã hoặc chưa" triển khai. Nếu không thỏa, phần
+   snapshot và nhân bản được ghi vào [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) và giữ ở mức đọc;
+   Lab 6b là nơi trả nợ nếu điều kiện cho phép.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

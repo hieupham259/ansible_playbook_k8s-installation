@@ -4,6 +4,46 @@
 >
 > Các khái niệm để giữ cho workload cloud-native của bạn được an toàn.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 1/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này là **trang mục lục của cả giai đoạn 9**, không phải bài dạy cơ chế. Nó gọi tên từng
+nhóm cơ chế bảo mật rồi trỏ sang trang chi tiết. Đọc để có bản đồ và biết mỗi cơ chế nằm ở
+đâu; đừng cố hiểu sâu mục nào, vì 17 bài sau sẽ mở từng mục ra.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bản đồ năm nhóm trong mục *Các cơ chế bảo mật của Kubernetes*: bảo vệ control plane, Secret,
+  bảo vệ workload, kiểm soát admission, kiểm toán. Nhóm **then chốt** là kiểm soát quyền truy
+  cập tới Kubernetes API — chính là bài [119](119-controlling-access-vi.md).
+- Hai thứ bài tách bạch rõ: **mã hóa khi truyền** (TLS trong control plane và giữa control
+  plane với client) và **mã hóa khi lưu trữ** dữ liệu bên trong control plane. Bài còn tách
+  tiếp mã hóa khi lưu trữ của control plane với mã hóa dữ liệu workload của bạn.
+- Secret API chỉ cung cấp **sự bảo vệ cơ bản** cho giá trị cấu hình cần giữ bí mật — đó là
+  giới hạn mà bài tự nói ra, không phải một cơ chế mã hóa.
+- Admission controller là plugin **chặn request tới API** và có thể **kiểm tra hợp lệ hoặc
+  biến đổi** request dựa trên những trường cụ thể trong request.
+- Audit logging cho một tập bản ghi theo trình tự thời gian, và nó kiểm toán **ba nguồn**:
+  người dùng, ứng dụng dùng Kubernetes API, và chính control plane.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Bảng *Bảo mật của nhà cung cấp cloud* | cluster lab chạy trên VM tự dựng, không có IaaS | không cần |
+| Chi tiết mã hóa khi lưu trữ và cấu hình audit | là thao tác cấu hình API server | CP7 audit/encryption |
+| RuntimeClass để định nghĩa cơ chế cô lập tùy chỉnh | chỉ được nhắc tên ở đây | bài [43](43-runtime-class-vi.md), đã đọc ở giai đoạn 2 |
+| ValidatingAdmissionPolicy và các hiện thực policy của hệ sinh thái | cần biết các điểm mở rộng API trước | giai đoạn 14 |
+| Mục *Tiếp theo* — CVE feed, chứng chỉ CKS | tài nguyên tham khảo, không phải nội dung học | không cần |
+
+---
+
 Phần này của tài liệu Kubernetes nhằm giúp bạn học cách chạy
 workload một cách an toàn hơn, cũng như tìm hiểu về những khía cạnh thiết yếu của việc giữ cho một
 cluster Kubernetes được an toàn.
@@ -131,3 +171,42 @@ Lấy chứng chỉ:
   và khóa đào tạo chính thức.
 
 Đọc thêm trong phần này:
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Bài nói cluster nên dùng TLS cho dữ liệu khi truyền và **có thể** bật mã hóa khi lưu trữ.
+   Hai thứ đó bảo vệ dữ liệu ở trạng thái nào, và bật cái này có thay được cái kia không?
+2. Đồng nghiệp nói: "cứ để mật khẩu trong Secret thay vì ConfigMap là đã mã hóa rồi." Theo
+   đúng câu chữ của bài, Secret API cung cấp mức bảo vệ nào, và còn thiếu bước gì?
+3. Admission controller làm được gì với một request mà các cơ chế kiểm soát khác được liệt kê
+   trong bài không làm được?
+4. Trên cluster lab, bạn dùng kubeconfig copy từ `/etc/kubernetes/admin.conf` chạy
+   `kubectl get pods`. Theo bài, audit log kiểm toán hoạt động từ ba nguồn nào, và hành động
+   vừa rồi của bạn thuộc nguồn nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không thay được cho nhau.** Mã hóa khi truyền bảo vệ dữ liệu **đang đi trên đường**
+   — bên trong control plane và giữa control plane với các client của nó; mã hóa khi lưu trữ
+   bảo vệ dữ liệu **đang nằm trong control plane**. Bài còn nói rõ mã hóa khi lưu trữ cho dữ
+   liệu của control plane **tách biệt** với mã hóa khi lưu trữ cho dữ liệu workload của bạn —
+   nghĩa là ba thứ khác nhau, không cái nào bao cái nào.
+2. **Chưa đủ.** Bài chỉ nói Secret API cung cấp **sự bảo vệ cơ bản** cho các giá trị cấu hình
+   đòi hỏi tính bí mật. Muốn dữ liệu đó được mã hóa trong control plane thì phải **bật mã hóa
+   khi lưu trữ** — một việc riêng mà bài liệt kê ở mục *Bảo vệ control plane*.
+3. Admission controller **chặn request tới Kubernetes API** rồi **kiểm tra hợp lệ hoặc biến
+   đổi** request đó **dựa trên những trường cụ thể trong request**. Tức là nó làm việc với
+   **nội dung** của thứ đang được tạo hoặc sửa, chứ không chỉ với danh tính người gửi.
+4. Ba nguồn: **người dùng**, **các ứng dụng sử dụng Kubernetes API**, và **chính control
+   plane**. Lệnh `kubectl get pods` chạy bằng credential của bạn thuộc nguồn **người dùng**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -2,6 +2,45 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 8/11 · Kiểm chứng
+ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài ngắn nhất nhóm và là **công cụ xử lý sự cố**, không phải cơ chế vận hành. Bạn sẽ dùng nó
+nhiều ở các giai đoạn sau, nên lần đọc này chỉ cần nhớ nó giải quyết tình huống nào và bị cấm
+những gì.
+
+**Phải hiểu ở lần đọc này:**
+
+- Không thể thêm container vào một Pod sau khi Pod đã được tạo. Ephemeral container là ngoại lệ
+  dành riêng cho **hành động do người dùng khởi xướng để kiểm tra một Pod có sẵn** — dùng để
+  inspect dịch vụ, **không** để xây dựng ứng dụng.
+- Lý do nó không dùng được cho ứng dụng: ephemeral container **thiếu đảm bảo về tài nguyên và về
+  việc thực thi**, và **không bao giờ được tự động khởi động lại**.
+- Các trường bị cấm và lý do: không có port nên `ports`, `livenessProbe`, `readinessProbe` đều
+  không được phép; việc phân bổ tài nguyên của Pod là bất biến nên `resources` cũng không.
+- Cách thêm: qua handler `ephemeralcontainers` của API, **không** thêm được bằng `kubectl edit`.
+  Đã thêm rồi thì **không sửa và không xóa được**.
+- Khi nào cần đến nó thay vì `kubectl exec`: container đã crash, hoặc image không có shell và
+  tiện ích gỡ lỗi — trường hợp điển hình là distroless image. Bật chia sẻ process namespace thì
+  bạn nhìn được tiến trình của các container khác trong Pod.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ghi chú ephemeral container không được static pod hỗ trợ | chưa học static Pod | giai đoạn 3, nhóm 3b — bài [58](58-static-pods-vi.md) |
+| Thao tác bật *chia sẻ process namespace* | là cấu hình Pod, chỉ làm khi thật sự cần debug | Lab 3a |
+| Mục *Tiếp theo* — hướng dẫn gỡ lỗi pod bằng ephemeral container | là tài liệu tác vụ, làm khi có Pod hỏng thật | Lab 3a |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.25 [stable]`
 
 Trang này cung cấp cái nhìn tổng quan về ephemeral container (container tạm thời): một
@@ -66,3 +105,42 @@ Khi sử dụng ephemeral container, sẽ hữu ích nếu bật
 ## Tiếp theo (What's next)
 
 * Tìm hiểu cách [gỡ lỗi pod bằng ephemeral container](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Vì sao ephemeral container không được đặt `resources`, `ports` hay `livenessProbe`?
+2. Một Pod trên `k8s-worker2` dùng image distroless và container chính đã crash. Vì sao
+   `kubectl exec` không giúp được gì, ephemeral container giải quyết ra sao, và bạn nên bật thêm
+   gì để nhìn được tiến trình của container kia?
+3. Bạn thêm nhầm một ephemeral container. Sửa lại bằng `kubectl edit` được không?
+4. Vì sao bài nói ephemeral container "không phù hợp để xây dựng ứng dụng"?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì hai ràng buộc khác nhau. **`ports` — và kéo theo `livenessProbe`, `readinessProbe` — bị cấm
+   vì ephemeral container không được có port.** **`resources` bị cấm vì việc phân bổ tài nguyên
+   của Pod là bất biến**: Pod đã tồn tại rồi, không thể xin thêm phần tài nguyên mới cho nó. Đây
+   cũng là lý do ephemeral container được mô tả bằng cùng `ContainerSpec` như container thường
+   nhưng nhiều trường trong đó không được phép dùng.
+2. `kubectl exec` cần một container còn sống và một shell trong image. Ở đây **container đã crash**
+   và **distroless image không có shell hay bất kỳ tiện ích gỡ lỗi nào** — đó chính xác là hai
+   tình huống bài nêu. Ephemeral container cho bạn **chạy một container tạm mang sẵn công cụ ngay
+   trong Pod đang có** để kiểm tra trạng thái và chạy lệnh tùy ý. Nên **bật chia sẻ process
+   namespace** để thấy được các tiến trình trong những container khác.
+3. **Không.** Ephemeral container được tạo qua handler đặc biệt **`ephemeralcontainers`** trong
+   API chứ không thêm trực tiếp vào `pod.spec`, nên `kubectl edit` không thêm được. Và giống các
+   container thông thường, **đã thêm vào Pod rồi thì bạn không thay đổi hay xóa nó được nữa**.
+4. Vì nó **thiếu các đảm bảo về tài nguyên và về việc thực thi**, và **không bao giờ được tự động
+   khởi động lại**. Nói cách khác không có gì bảo đảm nó chạy, chạy đủ, hay chạy lại sau khi
+   chết — ba thứ tối thiểu mà một thành phần ứng dụng cần.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

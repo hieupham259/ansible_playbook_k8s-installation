@@ -5,6 +5,49 @@
 > Workload của bạn có thể khám phá (discover) các Service bên trong cluster bằng DNS;
 > trang này giải thích cách điều đó hoạt động.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 4/16 · Kiểm chứng ở
+Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này là chỗ giải thích **vì sao gọi Service bằng tên lại chạy được**. Trọng tâm nằm ở ba
+thứ: dạng FQDN, danh sách `search` trong `/etc/resolv.conf`, và `ndots:5`. Các mục về Windows
+và về `dnsConfig` nâng cao có thể lướt.
+
+**Phải hiểu ở lần đọc này:**
+
+- Dạng tên chuẩn của Service là `my-svc.my-namespace.svc.cluster-domain.example`. Service
+  thường phân giải thành **cluster IP**; headless Service phân giải thành **tập IP của tất cả
+  Pod** mà nó chọn, và client phải tự dùng hết tập đó hoặc round-robin.
+- Truy vấn DNS **không ghi namespace thì bị giới hạn trong namespace của Pod truy vấn**; muốn
+  sang namespace khác phải chỉ định rõ (`data.prod`).
+- `/etc/resolv.conf` do kubelet ghi cho từng Pod: `nameserver`, `search
+  <namespace>.svc.cluster.local svc.cluster.local cluster.local` và `options ndots:5`. Chính
+  danh sách `search` biến `data` thành `data.test.svc.cluster.local`.
+- `dnsPolicy` mặc định là **`ClusterFirst`**, không phải `Default`. Phân biệt được bốn giá trị,
+  đặc biệt `Default` nghĩa là **kế thừa cấu hình phân giải tên của node**, và Pod chạy
+  `hostNetwork` phải đặt tường minh `ClusterFirstWithHostNet` nếu muốn dùng DNS của cluster.
+- Bản ghi cho **từng Pod** chỉ có khi Pod đặt `hostname` và `subdomain`, với `subdomain` trùng
+  tên một headless Service cùng namespace; thiếu `hostname` thì không có bản ghi riêng cho Pod,
+  và Pod phải ở trạng thái ready (trừ khi Service đặt `publishNotReadyAddresses`).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Bản ghi SRV* | chỉ cần khi ứng dụng tự tra cứu số port qua DNS | không cần |
+| Bản ghi A dạng `<pod-ip>.<namespace>.pod.<cluster-domain>` | là di sản của kube-DNS, hiếm dùng | không cần |
+| *Trường setHostnameAsFQDN của Pod* | trùng nội dung với bài kế, đọc một lần là đủ | bài [57](57-pod-hostname-vi.md) |
+| *Cấu hình DNS của Pod* (`dnsConfig`) và *Giới hạn danh sách domain tìm kiếm* | là tinh chỉnh nâng cao, chưa cần để gọi Service | không cần |
+| *Phân giải DNS trên các node Windows* | lab không có node Windows | giai đoạn 15 |
+
+---
+
 Kubernetes tạo các bản ghi DNS (DNS record) cho các Service và Pod. Bạn có thể liên lạc với
 các Service bằng những tên DNS nhất quán thay vì địa chỉ IP.
 
@@ -407,3 +450,45 @@ của Pod, và Cấu hình DNS sau khi gộp.
 
 Để có hướng dẫn về việc quản trị các cấu hình DNS, xem
 [Configure DNS Service](https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Trên cluster lab, một Pod chạy ở namespace `default` và có một Service `web` nằm ở namespace
+   `prod`. Vì sao `curl web` không tới được, còn `curl web.prod` thì tới? Truy vấn `web.prod`
+   được mở rộng thành những tên nào trước khi ra kết quả?
+2. `dnsPolicy: Default` có phải giá trị mặc định của `dnsPolicy` không? Nó thực sự làm gì?
+3. Cùng một truy vấn `my-svc.my-ns.svc.cluster.local` trả về gì khi `my-svc` là Service thường,
+   và trả về gì khi nó là headless Service?
+4. Bạn đặt `spec.subdomain: busybox-subdomain` cho hai Pod nhưng quên đặt `spec.hostname`. DNS
+   có bản ghi riêng cho từng Pod không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Vì truy vấn không chỉ định namespace bị giới hạn trong namespace của Pod.** `web` được
+   danh sách `search` mở rộng thành `web.default.svc.cluster.local` — không tồn tại. Còn
+   `web.prod` lần lượt được thử với các hậu tố trong `search`: `web.prod.default.svc.cluster.local`
+   (trượt), rồi `web.prod.svc.cluster.local` — **khớp**, vì đó đúng là dạng
+   `my-svc.my-namespace.svc.cluster-domain.example`. Bài tóm lại đúng điều này: một Pod trong
+   namespace `test` phân giải được cả `data.prod` lẫn `data.prod.svc.cluster.local`.
+2. **Không.** Bài ghi rõ: "Default" **không phải** chính sách DNS mặc định; nếu `dnsPolicy`
+   không được chỉ định tường minh thì **`ClusterFirst`** được dùng. `Default` nghĩa là Pod **kế
+   thừa cấu hình phân giải tên từ node** mà nó chạy trên đó — tức là bỏ qua DNS của cluster.
+3. Service thường: **một bản ghi A/AAAA trỏ tới cluster IP** của Service. Headless Service:
+   cùng tên đó nhưng **phân giải thành tập IP của tất cả các Pod được Service chọn**, và client
+   được kỳ vọng dùng cả tập hoặc round-robin trên tập đó.
+4. **Không.** Bài ghi rõ: bản ghi A và AAAA **không được tạo cho tên Pod khi Pod thiếu
+   `hostname`**. Pod có `subdomain` mà không có `hostname` chỉ góp mặt trong bản ghi của chính
+   headless Service (`busybox-subdomain.my-namespace.svc.cluster-domain.example`), trỏ tới IP
+   các Pod. Ngoài ra Pod phải ở trạng thái ready mới có bản ghi, trừ khi Service đặt
+   `publishNotReadyAddresses=True`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

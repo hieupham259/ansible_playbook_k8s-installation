@@ -2,6 +2,50 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/security/controlling-access/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 4/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là **bài xương sống của giai đoạn 9**. Mọi bài còn lại đều gắn vào một chặng nào đó của
+luồng mô tả ở đây: bài [123](123-hardening-authentication-vi.md) mở rộng chặng xác thực, bài
+[120](120-rbac-good-practices-vi.md) mở rộng chặng phân quyền, các bài
+[116](116-pod-security-admission-vi.md) và [173](173-admission-webhooks-vi.md) mở rộng chặng
+admission. Bài chỉ dài hơn 170 dòng — đọc kỹ, và nhớ **đúng thứ tự**.
+
+**Phải hiểu ở lần đọc này:**
+
+- Luồng đầy đủ của một request: **TLS** (bảo mật tầng truyền tải) → **1. Xác thực** →
+  **2. Phân quyền** → **3. Kiểm soát tiếp nhận** → **4. validate rồi ghi vào object store**.
+  Hai chặng đầu từ chối bằng hai mã khác nhau: **401** ở xác thực, **403** ở phân quyền.
+- Chặng xác thực: các module được thử **lần lượt cho đến khi một module thành công**. Kết quả
+  là một `username` (một số module cho thêm thông tin nhóm). Kubernetes **không có object
+  `User`** và không lưu username trong API — nó chỉ dùng username để ra quyết định và ghi log.
+- Chặng phân quyền: request phải mang username + hành động + đối tượng chịu tác động. Khi có
+  nhiều module, **chỉ cần một module cho phép** là request đi tiếp; **tất cả cùng từ chối** thì
+  mới 403. RBAC chỉ là một trong các module, cạnh ABAC và Webhook.
+- Chặng kiểm soát tiếp nhận **ngược lại**: chỉ cần **một** module từ chối là request bị từ chối
+  ngay. Đây cũng là chặng duy nhất truy cập được **nội dung object** đang được tạo hoặc sửa,
+  nên nó vừa từ chối được, vừa **đặt giá trị mặc định phức tạp cho các trường**.
+- Ranh giới của chặng ba: admission controller tác động lên request **tạo, sửa đổi, xóa hoặc
+  proxy** một đối tượng, và **không tác động lên request chỉ đọc**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ví dụ policy ABAC và SubjectAccessReview dạng JSON của Bob | chỉ là minh họa khái niệm "policy"; cluster kubeadm dùng RBAC | bài [120](120-rbac-good-practices-vi.md) |
+| `--secure-port`, `--bind-address`, `--tls-cert-file`, `--tls-private-key-file` | là thao tác cấu hình API server | giai đoạn 8, bài [03](03-control-plane-flags-vi.md) |
+| Danh sách các module xác thực cụ thể và ưu nhược điểm | được so sánh chi tiết ở bài riêng | bài [123](123-hardening-authentication-vi.md) |
+| Danh sách các module Admission Control khả dụng | là bảng tra cứu | bài [129](129-security-checklist-vi.md) |
+| Mục *Kiểm toán* | audit policy và backend là thao tác cấu hình | CP7 audit/encryption |
+
+---
+
 Trang này cung cấp cái nhìn tổng quan về việc kiểm soát truy cập vào Kubernetes API.
 
 Người dùng truy cập [Kubernetes API](https://kubernetes.io/docs/concepts/overview/kubernetes-api/) bằng `kubectl`,
@@ -174,3 +218,54 @@ Bạn có thể tìm hiểu về:
 - cách các Pod có thể sử dụng
   [Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#service-accounts-automatically-create-and-attach-secrets-with-api-credentials)
   để lấy thông tin xác thực (credential) truy cập API.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Sau khi TLS đã được thiết lập, một request đi qua **ba chặng** nào, theo đúng thứ tự? Với
+   mỗi chặng, nói rõ nó từ chối request **vì lý do gì** và trả về **mã HTTP nào** nếu bài có
+   nêu.
+2. Cả chặng phân quyền lẫn chặng kiểm soát tiếp nhận đều cho phép cấu hình nhiều module. Quy
+   tắc kết hợp của hai chặng này **ngược nhau** như thế nào?
+3. `kubectl get pods` có đi qua các admission controller không? Vì sao?
+4. Trên cluster lab, bạn dùng kubeconfig copy từ `/etc/kubernetes/admin.conf`. Theo bài, client
+   certificate trong file đó được xuất trình ở bước nào, và thứ rút ra được từ nó dùng để làm
+   gì ở chặng kế tiếp?
+5. Admission controller nhìn thấy thứ gì mà module phân quyền không nhìn thấy, và điều đó cho
+   nó làm thêm việc gì ngoài việc từ chối?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Xác thực → Phân quyền → Kiểm soát tiếp nhận** (các bước 1, 2, 3 trong sơ đồ), rồi mới tới
+   bước 4 là validate và ghi vào object store.
+   - **Xác thực** từ chối vì **không xác định được request đến từ ai** — không module nào nhận
+     ra credential. Mã **HTTP 401**.
+   - **Phân quyền** từ chối vì **người dùng đã biết đó không được phép làm hành động đó trên
+     đối tượng đó** — không có policy nào cho phép. Mã **HTTP 403**.
+   - **Kiểm soát tiếp nhận** từ chối vì **nội dung của chính object không hợp lệ theo chính
+     sách**, chứ không phải vì người gửi là ai.
+2. **Ngược nhau hoàn toàn.** Ở **phân quyền**, Kubernetes kiểm tra từng module và **chỉ cần một
+   module cho phép** là request được tiếp tục; phải **tất cả** cùng từ chối thì mới 403. Ở
+   **kiểm soát tiếp nhận**, bài nói rõ: khác với Xác thực và Phân quyền, **chỉ cần bất kỳ module
+   nào từ chối là request lập tức bị từ chối**. Một bên là "hoặc", một bên là "và".
+3. **Không.** Bài nói admission controller tác động lên các request **tạo, sửa đổi, xóa hoặc
+   kết nối tới (proxy)** một đối tượng, và **không tác động lên các request chỉ đọc đối tượng**.
+   `kubectl get pods` là request chỉ đọc nên dừng lại sau chặng phân quyền.
+4. Client certificate được xuất trình **ở giai đoạn bảo mật tầng truyền tải**, ngay khi thiết
+   lập TLS, rồi được **module xác thực bằng client certificate** dùng ở chặng 1. Kết quả của
+   chặng 1 là một **`username`** (và có thể là thông tin nhóm), và chính username đó là thứ
+   chặng **phân quyền** dùng để quyết định request có được phép hay không.
+5. Admission controller truy cập được **nội dung của đối tượng đang được tạo hoặc sửa đổi** —
+   thứ mà module phân quyền không có, vì phân quyền chỉ làm việc với username, hành động và đối
+   tượng chịu tác động. Nhờ đó, ngoài việc từ chối, admission controller còn **thiết lập được
+   các giá trị mặc định phức tạp cho các trường** của đối tượng.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

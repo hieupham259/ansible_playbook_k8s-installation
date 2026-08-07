@@ -2,6 +2,48 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/storage/volume-snapshot-classes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 11/16 · Kiểm chứng ở
+Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài rất ngắn và là bản sao của bài [96](96-storage-classes-vi.md) đặt lên snapshot. Đọc nó chủ
+yếu để bắt hai chỗ **khác** StorageClass: cách chọn class mặc định, và việc đối tượng không sửa
+được sau khi tạo. Cùng thuộc nhóm nợ lab với bài [99](99-volume-snapshots-vi.md), xem
+[sổ nợ lab](labs/README.md#5-sổ-nợ-lab).
+
+**Phải hiểu ở lần đọc này:**
+
+- VolumeSnapshotClass với snapshot đóng vai trò như StorageClass với volume: mô tả "lớp" lưu
+  trữ khi cấp phát một volume snapshot — mục *Giới thiệu*.
+- Ba trường cốt lõi `driver`, `deletionPolicy`, `parameters`; **`driver` và `deletionPolicy`
+  đều bắt buộc**; đối tượng **không cập nhật được sau khi đã tạo**; và không có sẵn CRD thì
+  việc tạo VolumeSnapshotClass sẽ thất bại — mục *Tài nguyên VolumeSnapshotClass*, *Driver*,
+  *DeletionPolicy*.
+- Class mặc định là **mặc định theo từng CSI driver**: đánh dấu bằng annotation
+  `snapshot.storage.kubernetes.io/is-default-class: "true"`; **nhiều class mặc định cùng tồn
+  tại được** miễn mỗi cái gắn một driver riêng, nhưng **hai class mặc định cùng một driver thì
+  việc tạo VolumeSnapshot thất bại** vì Kubernetes không quyết định được — mục *Các phụ thuộc
+  của VolumeSnapshotClass*.
+- Khi VolumeSnapshot không chỉ định class, Kubernetes chọn class mặc định có **CSI driver khớp
+  với driver trong StorageClass của PVC** nguồn — cùng mục.
+- `deletionPolicy` là `Retain` hay `Delete` quyết định số phận của snapshot bên dưới và của
+  `VolumeSnapshotContent` khi VolumeSnapshot bị xóa — mục *DeletionPolicy*.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ví dụ `driver: hostpath.csi.k8s.io` | driver mẫu của tài liệu CSI, không phải driver của lab | Lab 6a, khi chọn provisioner |
+| *Tham số* | đặc thù từng `driver`, phải tra tài liệu driver | Lab 6b |
+
+---
+
 Tài liệu này mô tả khái niệm VolumeSnapshotClass trong Kubernetes. Bạn nên
 làm quen trước với [volume snapshot](https://kubernetes.io/docs/concepts/storage/volume-snapshots/) và
 [storage class](https://kubernetes.io/docs/concepts/storage/storage-classes).
@@ -90,3 +132,46 @@ cả snapshot bên dưới lẫn VolumeSnapshotContent đều được giữ l�
 Các lớp volume snapshot có các tham số mô tả những volume snapshot thuộc
 lớp volume snapshot đó. Các tham số được chấp nhận có thể khác nhau tùy theo
 `driver`.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. Cluster có hai VolumeSnapshotClass cùng đánh dấu mặc định. Khi nào điều đó chấp nhận được,
+   khi nào nó làm hỏng việc tạo VolumeSnapshot? So sánh với cách StorageClass xử lý tình huống
+   tương tự ở bài [96](96-storage-classes-vi.md).
+2. Bạn tạo một VolumeSnapshot không đặt `volumeSnapshotClassName`. Kubernetes chọn class nào,
+   và nó dựa vào thông tin gì để chọn?
+3. Bạn cần đổi `deletionPolicy` của một VolumeSnapshotClass đang dùng từ `Delete` sang `Retain`.
+   Làm thế nào?
+4. Cluster lab của bạn hiện chưa cài các CRD của snapshot. Bạn `kubectl apply` một
+   VolumeSnapshotClass. Kết quả?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Chấp nhận được khi mỗi class mặc định gắn với một CSI driver khác nhau** — bài nói rõ
+   hành vi này cho phép nhiều VolumeSnapshotClass mặc định cùng tồn tại trong một cluster.
+   **Hỏng khi hai class mặc định dùng chung một CSI driver**: lúc đó **việc tạo VolumeSnapshot
+   sẽ thất bại** vì Kubernetes không xác định được nên dùng cái nào. Đây là chỗ trực giác từ
+   StorageClass dẫn bạn đi sai: với StorageClass, nhiều class mặc định thì Kubernetes lặng lẽ
+   **lấy cái tạo gần đây nhất**; với VolumeSnapshotClass thì nó **báo lỗi**.
+2. Kubernetes **tự động chọn VolumeSnapshotClass mặc định có CSI driver khớp với CSI driver
+   trong StorageClass của PVC** nguồn. Nói cách khác, quyết định không nằm ở snapshot mà nằm ở
+   chỗ volume nguồn đang do driver nào quản lý.
+3. **Không sửa được — phải tạo một VolumeSnapshotClass mới.** Bài nói thẳng: quản trị viên đặt
+   tên và các tham số của một lớp khi tạo lần đầu, và **các đối tượng này không thể được cập
+   nhật sau khi đã tạo**. Nếu class cũ đang là mặc định thì nhớ chuyển annotation mặc định
+   sang class mới, và giữ đúng một class mặc định cho mỗi driver.
+4. **Thất bại.** Ghi chú của bài nói rõ: việc cài các CRD là trách nhiệm của bản phân phối
+   Kubernetes, và **nếu không có sẵn các CRD cần thiết thì việc tạo một VolumeSnapshotClass sẽ
+   thất bại**. Đây là điều kiện đầu tiên phải kiểm tra ở Lab 6b, trước cả chuyện driver có hỗ
+   trợ snapshot hay không.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

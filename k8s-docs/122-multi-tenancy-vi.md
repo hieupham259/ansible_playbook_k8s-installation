@@ -2,6 +2,54 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/security/multi-tenancy/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 9/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là bài **ghép** — nó không dạy cơ chế mới nào. Namespace, RBAC, ResourceQuota và
+NetworkPolicy bạn đã học rời rạc ở các giai đoạn trước; bài này đặt chúng cạnh nhau thành một
+mô hình cô lập và, quan trọng hơn, chỉ ra **giới hạn của từng lớp**. Đọc để nhớ mỗi lớp chặn
+được kiểu chia sẻ nào và bỏ sót kiểu nào.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hai nhóm use case: **nhiều team** (tenant truy cập trực tiếp Kubernetes API, cần RBAC, quota
+  và network policy) và **nhiều khách hàng** kiểu SaaS (khách hàng không truy cập cluster,
+  Kubernetes vô hình với họ). "Hard" và "soft" multi-tenancy là **một phổ**, không phải hai loại
+  tách bạch.
+- Cách ly **control plane** gồm ba lớp: **Namespace** (tên tài nguyên độc lập giữa các
+  namespace, và nhiều chính sách bảo mật có phạm vi namespace), **kiểm soát truy cập** — bài gọi
+  phân quyền là **loại cách ly quan trọng nhất** của control plane, và **quota** (giới hạn cả
+  tài nguyên tính toán lẫn **số lượng đối tượng API**, chống hàng xóm ồn ào).
+- Cách ly **data plane** gồm: cách ly mạng (mặc định **mọi Pod nói chuyện được với nhau và lưu
+  lượng không được mã hóa**; nên bắt đầu bằng chính sách mặc định **từ chối**, kèm một quy tắc
+  cho phép truy vấn DNS), cách ly lưu trữ, sandbox cho container, và cách ly node.
+- Giới hạn của từng lớp — phần đáng nhớ nhất: **quota không bảo vệ được mọi kiểu chia sẻ tài
+  nguyên**, ví dụ lưu lượng mạng, và bài chỉ sang cách ly node cho vấn đề đó; **NetworkPolicy
+  cần CNI plugin hỗ trợ, nếu không thì tài nguyên NetworkPolicy bị bỏ qua**; **cách ly node vẫn
+  dùng chung kubelet và API service**, nên kẻ tấn công vẫn có đường di chuyển ngang.
+- Về lưu trữ: PersistentVolumeClaim thuộc phạm vi namespace nhưng **PersistentVolume là tài
+  nguyên phạm vi toàn cluster** với vòng đời độc lập; khi dùng chung một StorageClass thì nên
+  đặt reclaim policy là `Delete` để một PersistentVolume không bị tái sử dụng giữa các namespace.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Sandbox cho container* — máy ảo, kernel không gian người dùng | cần RuntimeClass và một runtime thay thế | bài [43](43-runtime-class-vi.md) |
+| *Độ ưu tiên và công bằng của API* | là bài riêng ở cuối giai đoạn này | bài [166](166-flow-control-vi.md) |
+| *Chất lượng dịch vụ (QoS)* — bandwidth plugin, độ ưu tiên và chiếm chỗ của Pod | priority/preemption đã học rồi; bandwidth plugin còn là thử nghiệm | giai đoạn 7 |
+| *DNS* — hạn chế tra cứu liên namespace bằng policy của CoreDNS | là thao tác cấu hình CoreDNS | CP6 DNS/CNI/kube-proxy |
+| *Operator* | chưa học CRD và controller tùy chỉnh | giai đoạn 14 |
+| *Control plane ảo cho mỗi tenant*, super-cluster | kiến trúc ngoài phạm vi cluster lab một control plane | không cần |
+
+---
+
 Trang này cung cấp cái nhìn tổng quan về các lựa chọn cấu hình sẵn có và các thực hành tốt nhất cho
 mô hình đa người thuê (multi-tenancy) trên cluster.
 
@@ -472,3 +520,55 @@ Sự cách ly được cải thiện đi kèm với cái giá là phải vận h
 riêng cho mỗi tenant. Ngoài ra, control plane theo từng tenant không giải quyết các vấn đề cách ly ở
 data plane, chẳng hạn hàng xóm ồn ào ở cấp node hay các mối đe dọa bảo mật. Những vấn đề này vẫn phải được xử lý
 riêng.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Namespace, RBAC, quota và NetworkPolicy ghép lại thành mô hình cô lập. Mỗi lớp chặn được
+   **kiểu chia sẻ nào**, và bài gọi lớp nào là loại cách ly quan trọng nhất của control plane?
+2. Bạn đặt ResourceQuota cho từng namespace tenant và cho rằng đã chống được hàng xóm ồn ào.
+   Bài nói quota **không** che được kiểu chia sẻ tài nguyên nào, và đề xuất giải pháp gì thay
+   cho quota trong trường hợp đó?
+3. Cluster lab dùng Flannel, và [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) ghi rằng NetworkPolicy
+   chưa được thực thi thật cho tới Lab 5b. Theo cảnh báo trong bài, nếu bạn apply một
+   NetworkPolicy "mặc định từ chối" lên cluster đó ngay bây giờ thì chuyện gì xảy ra?
+4. PersistentVolumeClaim thuộc namespace nhưng PersistentVolume thì không. Điều đó tạo rủi ro
+   gì giữa các tenant, và bài khuyên đặt reclaim policy thế nào khi dùng chung StorageClass?
+5. Bạn dành riêng một nhóm node cho mỗi tenant. Vì sao bài nói như thế **vẫn chưa** chặn được
+   việc di chuyển ngang trong cluster?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Namespace** chặn **va chạm tên và phạm vi của chính sách**: tên đối tượng trong một
+   namespace có thể trùng với namespace khác, và nhiều chính sách bảo mật — RBAC Role,
+   NetworkPolicy — là tài nguyên có phạm vi namespace. **RBAC** chặn việc tenant đọc hoặc sửa
+   **tài nguyên API của nhau**; bài nói **phân quyền là loại cách ly quan trọng nhất đối với
+   control plane**, vì ai sửa được API của người khác thì vô hiệu hóa được mọi chính sách còn
+   lại. **Quota** chặn việc một tenant **độc chiếm tài nguyên node hoặc làm quá tải control
+   plane** bằng số lượng đối tượng API. **NetworkPolicy** chặn **lưu lượng pod-với-pod** không
+   mong muốn.
+2. Quota **không bảo vệ chống lại mọi loại chia sẻ tài nguyên, chẳng hạn lưu lượng mạng**. Với
+   vấn đề đó, bài nói **cách ly node có thể là giải pháp tốt hơn**.
+3. **NetworkPolicy sẽ không có tác dụng gì.** Cảnh báo trong bài nói rõ: NetworkPolicy yêu cầu
+   một **CNI plugin hỗ trợ việc hiện thực network policy**; nếu không, **các tài nguyên
+   NetworkPolicy sẽ bị bỏ qua**. Object vẫn tạo được và `kubectl get netpol` vẫn liệt kê ra —
+   đó là chỗ nguy hiểm, vì bạn tưởng mình đã chặn trong khi lưu lượng vẫn đi bình thường.
+4. Rủi ro là **một PersistentVolume bị tái sử dụng giữa các namespace khác nhau**, kéo theo dữ
+   liệu của tenant trước còn lại trên volume mà tenant sau nhận được — vì PersistentVolume là
+   tài nguyên **phạm vi toàn cluster** và có **vòng đời độc lập với workload và namespace**.
+   Khi StorageClass được dùng chung, bài khuyên đặt **reclaim policy là `Delete`**.
+5. Vì **kubelet và, trừ khi dùng control plane ảo, API service vẫn là các dịch vụ dùng chung**.
+   Một kẻ tấn công có kỹ năng có thể **lợi dụng các quyền được gán cho kubelet hoặc cho các Pod
+   khác chạy trên node** để di chuyển ngang và với tới workload của tenant khác trên node khác.
+   Cách ly node chỉ **thu hẹp** thiệt hại trực tiếp của một lần thoát container — kẻ tấn công
+   chỉ chạm được các container và volume mount trên chính node đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

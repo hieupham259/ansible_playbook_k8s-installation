@@ -2,6 +2,56 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/cluster-administration/flow-control/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 16/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài dài hơn 750 dòng, nhưng gần một nửa là **danh sách metric** — bỏ hẳn ở lần đọc này. Đây là
+lớp bảo vệ **tính sẵn sàng** của API server, khác với các bài trước vốn bảo vệ tính bí mật và
+toàn vẹn: nó lo chuyện một client hỏng làm ngập API server khiến kubelet không báo cáo được và
+việc bầu chọn leader thất bại. Bài [122](122-multi-tenancy-vi.md) đã nhắc tên tính năng này;
+đây là chỗ giải thích nó.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vấn đề APF giải quyết: `--max-requests-inflight` và `--max-mutating-requests-inflight` chỉ
+  giới hạn **tổng** khối lượng đang xử lý, **không đảm bảo request quan trọng nhất vẫn được phục
+  vụ** khi lưu lượng cao. APF phân loại và cô lập request chi tiết hơn, cộng một lượng **xếp
+  hàng có giới hạn** để không request nào bị từ chối trong các đợt bùng phát rất ngắn.
+- Hai tài nguyên và vai trò từng cái: **FlowSchema** phân loại từng request đến và khớp nó với
+  **đúng một** PriorityLevelConfiguration; **PriorityLevelConfiguration** định nghĩa một mức ưu
+  tiên, phần ngân sách concurrency mà nó xử lý được, và hành vi xếp hàng.
+- Cách khớp FlowSchema: mọi request được đối chiếu **bắt đầu từ `matchingPrecedence` nhỏ nhất
+  rồi tăng dần**, và **FlowSchema khớp đầu tiên thắng**. Trường `distinguisherMethod.type` —
+  `ByUser`, `ByNamespace`, hoặc để trống — quyết định request được tách thành các flow thế nào.
+- Hai tầng cô lập: **giữa các mức ưu tiên**, mỗi mức có giới hạn concurrency riêng nên không làm
+  đói nhau; **trong một mức ưu tiên**, thuật toán fair-queuing cộng shuffle sharding ngăn một
+  flow làm đói flow khác. Khi vượt mức cho phép, trường `type` quyết định: **`Reject` trả HTTP
+  429 ngay**, còn **`Queue`** thì xếp hàng.
+- Hai loại đối tượng cấu hình: **bắt buộc** (`exempt` cho request không chịu flow control —
+  trong đó có mọi request từ nhóm `system:masters`; và `catch-all`) và **được đề xuất** với sáu
+  mức `node-high`, `system`, `leader-election`, `workload-high`, `workload-low`,
+  `global-default`. **Xóa một đối tượng được đề xuất thì quá trình bảo trì khôi phục lại nó**;
+  muốn tự kiểm soát phải đặt annotation `apf.kubernetes.io/autoupdate-spec` thành `false`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ mục *Khả năng quan sát → Metrics* | chưa học endpoint `/metrics` và Prometheus | giai đoạn 11 |
+| *Số ghế mà một request chiếm dụng* và *Điều chỉnh thời gian thực thi cho request watch* | là chi tiết nội bộ của thuật toán | giai đoạn 9, khi tinh chỉnh APF thật |
+| Bảng xác suất shuffle sharding theo `handSize` và `queues` | là bảng tham chiếu lúc tinh chỉnh | không cần |
+| *Kịch bản server đệ quy* | cần hiểu admission webhook và API aggregation | bài [173](173-admission-webhooks-vi.md) và giai đoạn 14 |
+| Chi tiết *Bảo trì các đối tượng cấu hình* — quy tắc `metadata.generation` | tra cứu khi sửa cấu hình mặc định | giai đoạn 9, khi tinh chỉnh APF thật |
+| *Miễn trừ concurrency cho health check* và mục *Thực hành tốt* | là thao tác thêm hoặc sửa FlowSchema | giai đoạn 9, khi làm Lab 9b |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.29 [stable]`
 
 Kiểm soát hành vi của Kubernetes API server trong tình huống quá tải (overload) là một
@@ -756,3 +806,61 @@ spec:
   [SIG API Machinery](https://github.com/kubernetes/community/tree/main/sig-api-machinery)
   hoặc [kênh slack](https://kubernetes.slack.com/messages/api-priority-and-fairness) của
   tính năng này.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. FlowSchema và PriorityLevelConfiguration — mỗi tài nguyên chịu trách nhiệm việc gì, và một
+   request đến có thể được gán vào bao nhiêu mức ưu tiên?
+2. Hai FlowSchema cùng khớp một request, một cái có `matchingPrecedence: 8000`, cái kia
+   `9000`. Cái nào thắng? Trả lời kèm quy tắc duyệt mà bài mô tả.
+3. Trên cluster lab, một controller lỗi chạy trong Pod bắn dồn dập request vào API server của
+   `k8s-master`. Theo cấu hình được đề xuất, request đó rơi vào mức ưu tiên nào, và cơ chế nào
+   giữ cho kubelet của hai worker cùng việc bầu chọn leader không bị bỏ đói?
+4. Khi lượng request vào một mức ưu tiên vượt quá concurrency cho phép, hai kiểu hành vi là gì,
+   và client nhìn thấy lỗi nào?
+5. Bạn sửa spec một PriorityLevelConfiguration mặc định, ít phút sau thấy nó trở lại như cũ.
+   Vì sao, và phải làm gì để giữ được thay đổi?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **FlowSchema phân loại**: nó khớp với các request đến và gán chúng vào một mức ưu tiên.
+   **PriorityLevelConfiguration định nghĩa mức ưu tiên**: giới hạn concurrency riêng của mức đó,
+   phần ngân sách concurrency nó được hưởng, và hành vi xếp hàng. Mỗi request được gán vào
+   **đúng một** mức ưu tiên — bài nói mỗi FlowSchema luôn gán request vào đúng một
+   PriorityLevelConfiguration.
+2. **Cái có `matchingPrecedence: 8000` thắng.** Quy tắc: mọi request được đối chiếu với các
+   FlowSchema **bắt đầu từ những FlowSchema có `matchingPrecedence` nhỏ nhất về mặt số học rồi
+   tăng dần**, và **FlowSchema khớp đầu tiên sẽ thắng** — tức là **số nhỏ hơn được xét trước**.
+   Chính ví dụ ở cuối bài dùng đúng cơ chế này: FlowSchema
+   `list-events-default-service-account` đặt `matchingPrecedence: 8000` để thắng FlowSchema
+   `service-accounts` sẵn có vốn dùng 9000. Bài cũng khuyên **đừng để hai FlowSchema có cùng
+   `matchingPrecedence`**.
+3. Rơi vào **`workload-low`** — mức ưu tiên dành cho request từ bất kỳ service account nào khác,
+   **thường bao gồm tất cả request từ các controller đang chạy trong Pod**. Cơ chế bảo vệ là
+   **mỗi mức ưu tiên có giới hạn concurrency riêng biệt**, nên các mức khác không bị làm đói:
+   request của kubelet thuộc mức **`system`** (request không liên quan tới sức khỏe từ nhóm
+   `system:nodes`), cập nhật sức khỏe từ node thuộc **`node-high`**, và bầu chọn leader thuộc
+   **`leader-election`** — mức mà bài nhấn mạnh phải cô lập, vì lỗi bầu chọn leader làm các
+   controller lỗi và khởi động lại, kéo theo lưu lượng còn tốn kém hơn khi chúng đồng bộ lại
+   informer.
+4. Trường `type` trong spec của PriorityLevelConfiguration quyết định: **`Reject`** nghĩa là lưu
+   lượng vượt mức **bị từ chối ngay lập tức với lỗi HTTP 429 (Too Many Requests)**; **`Queue`**
+   nghĩa là request vượt ngưỡng **được xếp hàng**, dùng shuffle sharding và fair queuing để cân
+   bằng tiến độ giữa các flow. Request bị xếp hàng quá lâu rồi hết thời gian chờ cũng bị từ chối.
+5. Vì đó là một **đối tượng cấu hình được đề xuất**, và mỗi `kube-apiserver` **bảo trì định kỳ
+   mỗi phút một lần**: nếu các kube-apiserver đang kiểm soát đối tượng, chúng **đảm bảo spec
+   đúng như server đề xuất**. Để giữ thay đổi, phải chuyển quyền kiểm soát sang người dùng bằng
+   cách đặt annotation **`apf.kubernetes.io/autoupdate-spec` thành `false`**. Lưu ý thêm: **xóa
+   thì không được tôn trọng** — quá trình bảo trì sẽ khôi phục lại đối tượng, nên muốn vô hiệu
+   một mức thì phải **giữ nó lại nhưng đặt spec sao cho ít gây hệ quả nhất**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -2,6 +2,51 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/pods/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 2/11 · Kiểm chứng
+ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này là **trang mục lục của cả nhóm 3a**: nó nêu tên init container, sidecar, ephemeral
+container, probe, static Pod, requests/limits, `securityContext` rồi trỏ sang chỗ khác. Đừng cố
+hiểu sâu những đoạn đó ở đây — mỗi thứ có một bài riêng ngay sau. Phần cốt lõi chỉ là mô hình
+Pod: chia sẻ cái gì, sống bao lâu, và sửa được gì.
+
+**Phải hiểu ở lần đọc này:**
+
+- Pod là **đơn vị triển khai nhỏ nhất**; ngữ cảnh dùng chung của nó là một tập Linux namespace và
+  cgroup, nên nội dung một Pod luôn được đặt cùng vị trí và lập lịch cùng nhau.
+- Mạng của Pod: mỗi Pod một địa chỉ IP, mọi container trong Pod chung network namespace nên gọi
+  nhau bằng `localhost` và **phải tự chia nhau không gian port**; container ở Pod khác thì chỉ
+  đến được qua mạng IP.
+- Pod là thực thể **phù du và không phải một tiến trình**: nó ở lại đúng node đã được lập lịch
+  cho tới khi chạy xong, bị xóa, bị trục xuất, hoặc node hỏng. Khởi động lại một container
+  **không phải** là khởi động lại Pod.
+- Pod gần như bất biến. Hầu hết metadata không sửa được, và cập nhật thông thường chỉ đổi được
+  `spec.containers[*].image`, `spec.initContainers[*].image`, `spec.activeDeadlineSeconds`,
+  `spec.terminationGracePeriodSeconds`, `spec.tolerations` và `spec.schedulingGates`. Muốn đổi
+  thứ khác thì phải thay Pod — đó chính là lý do tồn tại của pod template và controller.
+- Nhân bản nghĩa là **thêm Pod**, không phải thêm container: mỗi Pod chạy một thực thể ứng dụng.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Init container, sidecar, ephemeral container, probe — ở đây chỉ nêu tên | mỗi thứ có bài riêng trong chính nhóm này | bài [49](49-probes-vi.md), [50](50-init-containers-vi.md), [51](51-sidecar-containers-vi.md), [52](52-ephemeral-containers-vi.md) |
+| *Yêu cầu và giới hạn tài nguyên* | ở đây chỉ tóm tắt vài dòng | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
+| *Thiết lập bảo mật cho Pod* (`securityContext`) | mới chỉ nêu tên trường | bài [60](60-advanced-pod-config-vi.md) cuối nhóm này, rồi giai đoạn 9 |
+| *Static Pod* | gắn với cách kubeadm chạy control plane | giai đoạn 3, nhóm 3b — bài [58](58-static-pods-vi.md) |
+| *Subresource của Pod* và *Generation của Pod* (`observedGeneration`) | chi tiết API, chưa cần để tạo Pod | phần `resize` ở bài [47](47-pod-lifecycle-vi.md); `observedGeneration` ở bài [48](48-pod-condition-vi.md) |
+| *Hệ điều hành của Pod* (`.spec.os.name`) | chỉ có nghĩa khi cluster có node Windows | giai đoạn 15 |
+| *Chỉ định nhóm lập lịch* (`spec.schedulingGroup`) | tính năng alpha, cần PodGroup | giai đoạn 13 — bài [59](59-scheduling-group-vi.md) |
+
+---
+
 _Pod_ là đơn vị tính toán nhỏ nhất có thể triển khai mà bạn có thể tạo và quản lý trong Kubernetes.
 
 Một _Pod_ (như một đàn cá voi — pod of whales — hay một quả đậu — pea pod) là một nhóm gồm một hoặc nhiều
@@ -502,3 +547,46 @@ bạn có thể đọc về các công trình đi trước, bao gồm:
 * [Marathon](https://github.com/d2iq-archive/marathon)
 * [Omega](https://research.google/pubs/pub41684/)
 * [Tupperware](https://engineering.fb.com/data-center-engineering/tupperware/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Hai container trong cùng một Pod gọi nhau bằng địa chỉ nào, và điều gì chúng buộc phải tự
+   thỏa thuận với nhau?
+2. Trên cluster lab bạn cần ba bản sao của một web server. Tạo một Pod có ba container nginx,
+   hay ba Pod mỗi Pod một container? Bài lập luận thế nào?
+3. Bạn `kubectl edit` một Pod đang chạy: đổi `image` của container thì được, còn thêm
+   `nodeSelector` thì bị từ chối. Vì sao?
+4. Một container trong Pod crash rồi được khởi động lại. Pod đó có được coi là đã khởi động lại
+   không, và nó có thể chuyển sang node khác không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Bằng **`localhost`**. Mọi container trong một Pod **chia sẻ chung network namespace**, tức là
+   chung địa chỉ IP và chung không gian port — nên thứ chúng phải tự thỏa thuận là **port**: hai
+   container trong cùng Pod không thể cùng nghe trên một port. Bên trong Pod (và **chỉ** khi đó)
+   mới dùng được `localhost`; container ở Pod khác có IP khác và phải đi qua mạng IP.
+2. **Ba Pod, mỗi Pod một container.** Mỗi Pod được thiết kế để chạy **một thực thể duy nhất** của
+   một ứng dụng; muốn mở rộng theo chiều ngang thì dùng nhiều Pod, mỗi Pod một thực thể — đó là
+   _nhân bản_. Bài nói thẳng: bạn **không cần** chạy nhiều container để có khả năng nhân bản.
+   Nhiều container trong một Pod là mẫu dành cho các thành phần gắn kết chặt và chia sẻ tài
+   nguyên, và là một trường hợp sử dụng tương đối nâng cao.
+3. Vì cập nhật Pod **không được thay đổi các trường khác ngoài** `spec.containers[*].image`,
+   `spec.initContainers[*].image`, `spec.activeDeadlineSeconds`,
+   `spec.terminationGracePeriodSeconds`, `spec.tolerations` và `spec.schedulingGates`.
+   `image` nằm trong danh sách, `nodeSelector` thì không. **Pod gần như bất biến**; muốn đổi thứ
+   ngoài danh sách đó thì phải thay Pod, và đó là việc của controller qua pod template.
+4. **Không, và không.** Bài cảnh báo đừng nhầm khởi động lại một container với khởi động lại một
+   Pod: **Pod không phải một tiến trình mà là môi trường để chạy container**, và nó tồn tại cho
+   đến khi bị xóa. Pod **ở lại trên node đã được lập lịch** cho tới khi chạy xong, bị xóa, bị
+   trục xuất vì thiếu tài nguyên, hoặc node gặp sự cố — nó không tự chuyển sang node khác.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

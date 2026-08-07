@@ -2,6 +2,53 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/concepts/cluster-administration/node-shutdown/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 12](LO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 2/8 ·
+Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là bài **thực dụng nhất** của giai đoạn 12: mỗi lần bảo trì phần cứng, mỗi lần vá kernel rồi
+reboot, bạn đều đang dùng nội dung của bài này. Bài chia đôi rõ ràng — nửa đầu là **tắt nhẹ nhàng
+có kế hoạch**, nửa sau là **cứu vãn khi node tắt mà kubelet không kịp biết**. Đừng đọc lẫn hai
+nửa với nhau.
+
+**Phải hiểu ở lần đọc này:**
+
+- Cơ chế tắt nhẹ nhàng: kubelet phát hiện hệ thống sắp tắt (trên Linux là nhờ **systemd inhibitor
+  lock**), đặt condition **`NotReady` với reason `"node is shutting down"`**, rồi chấm dứt Pod
+  theo **hai giai đoạn** — pod thông thường trước, pod quan trọng sau.
+- Node bị chặn nhận Pod mới **ở hai lớp**: kube-scheduler tôn trọng condition nên không lập lịch
+  lên đó, và kubelet còn từ chối ở giai đoạn `PodAdmission` — nên cả Pod có toleration cho
+  `node.kubernetes.io/not-ready:NoSchedule` cũng không khởi động được.
+- Cái bẫy cấu hình lớn nhất: feature gate `GracefulNodeShutdown` **bật mặc định từ 1.21**, nhưng
+  `shutdownGracePeriod` và `shutdownGracePeriodCriticalPods` **mặc định đều bằng 0**, nghĩa là
+  tính năng **không hoạt động** cho tới khi bạn đặt cả hai khác 0.
+- Cách đọc hai con số: `shutdownGracePeriod` là **tổng**; phần dành cho pod thông thường bằng
+  tổng trừ đi `shutdownGracePeriodCriticalPods`. Với `30s`/`10s` thì 20 giây đầu cho pod thường,
+  10 giây cuối cho pod quan trọng.
+- Khi node tắt mà kubelet **không** kịp phát hiện: pod của StatefulSet kẹt `Terminating` và
+  VolumeAttachment không được xóa, nên volume không attach sang node khác được. Lối thoát là gắn
+  tay taint **`node.kubernetes.io/out-of-service`** để xóa cưỡng bức pod và tách volume ngay —
+  kèm hai điều kiện bắt buộc: xác minh node **thực sự đã tắt hoặc mất điện**, và **tự tay gỡ
+  taint** sau khi phục hồi.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cảnh báo về `unattended-upgrades` của Debian và `logind.conf.d` | là bước chuẩn bị node ngay trước khi bật tính năng thật | CP1 vòng đời node |
+| Mục *Windows* trong *Bật tính năng tắt node nhẹ nhàng* | cluster lab chỉ có node Linux | giai đoạn 15 (node Windows) |
+| *Tắt node nhẹ nhàng dựa trên độ ưu tiên của Pod* — `shutdownGracePeriodByPodPriority` | là tinh chỉnh nhiều giai đoạn, chỉ đáng làm khi cluster có nhiều lớp workload | CP1 vòng đời node |
+| *Buộc tách storage khi hết thời gian chờ* — `disable-force-detach-on-timeout` | phải sửa cấu hình kube-controller-manager | CP5 cấu hình lại cluster đang chạy |
+| Metric `graceful_shutdown_start_time_seconds` và `graceful_shutdown_end_time_seconds` | cần pipeline metric đã dựng mới quan sát được | Lab 11a |
+
+---
+
 Trong một cluster Kubernetes, một node có thể được tắt theo cách nhẹ nhàng có kế hoạch, hoặc bất ngờ vì những lý do như mất điện hay một nguyên nhân bên ngoài nào khác. Việc tắt node có thể dẫn đến hỏng workload nếu node không được drain trước khi tắt. Việc tắt node có thể là **nhẹ nhàng (graceful)** hoặc **không nhẹ nhàng (non-graceful)**.
 
 > **Thận trọng:** Gói `unattended-upgrades` của Debian, trong cấu hình thông thường của nó, xung đột với tính năng tắt node nhẹ nhàng.
@@ -183,3 +230,47 @@ Tìm hiểu thêm về các nội dung sau:
 
 - Blog: [Non-Graceful Node Shutdown](https://kubernetes.io/blog/2023/08/16/kubernetes-1-28-non-graceful-node-shutdown-ga/).
 - Kiến trúc cluster: [Nodes](https://kubernetes.io/docs/concepts/architecture/nodes/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 12:
+
+1. **Câu bẫy.** `k8s-worker2` chạy Ubuntu 24.04 với systemd, kubelet giữ nguyên cấu hình từ Lab
+   00, và feature gate `GracefulNodeShutdown` bật mặc định. Bạn `sudo shutdown -h now`. Các Pod
+   trên đó có được chấm dứt nhẹ nhàng không?
+2. Với `shutdownGracePeriod=30s` và `shutdownGracePeriodCriticalPods=10s`, pod thông thường có
+   bao nhiêu giây, pod quan trọng có bao nhiêu giây, và ai bị chấm dứt trước?
+3. Khi kubelet biết node sắp tắt, nó chặn Pod mới bằng những lớp nào? Một Pod có toleration cho
+   `node.kubernetes.io/not-ready:NoSchedule` có lọt qua được không?
+4. `k8s-worker1` mất phản hồi và bạn không chắc nó đang reboot hay đã chết. Có nên gắn ngay taint
+   `node.kubernetes.io/out-of-service` cho workload phục hồi nhanh không? Hậu quả nếu đoán sai?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Bật feature gate là chưa đủ: bài nói rõ **cả `shutdownGracePeriod` lẫn
+   `shutdownGracePeriodCriticalPods` đều mặc định bằng 0, do đó không kích hoạt chức năng tắt node
+   nhẹ nhàng**; phải cấu hình cả hai khác 0 thì tính năng mới chạy. Đây đúng là chỗ dễ ngã: thấy
+   "enabled by default from 1.21" rồi kết luận nó đang bảo vệ mình, trong khi node sẽ đi thẳng
+   vào kịch bản tắt **không** nhẹ nhàng.
+2. Pod thông thường có **20 giây** (30 − 10), pod quan trọng có **10 giây**, tổng đúng bằng
+   `shutdownGracePeriod` = 30 giây mà node trì hoãn việc tắt. **Pod thông thường bị chấm dứt
+   trước**, pod quan trọng sau — đúng thứ tự hai giai đoạn của tắt nhẹ nhàng.
+3. Hai lớp. Thứ nhất, kubelet đặt condition **`NotReady`** với reason `"node is shutting down"`,
+   và **kube-scheduler tôn trọng condition này** nên không lập lịch Pod nào lên node đó. Thứ hai,
+   kubelet **cũng từ chối Pod ở giai đoạn `PodAdmission`** khi phát hiện quá trình tắt đang diễn
+   ra. Chính nhờ lớp thứ hai mà **Pod có toleration cho `node.kubernetes.io/not-ready:NoSchedule`
+   vẫn không khởi động được** ở đó.
+4. **Không.** Bài yêu cầu **xác minh node đã thực sự ở trạng thái tắt máy hoặc mất điện, không
+   phải đang trong quá trình khởi động lại**, trước khi thêm taint. Gắn nhầm lúc node chỉ đang
+   reboot nghĩa là **xóa cưỡng bức các Pod và tách volume ngay lập tức** trong khi node vẫn có thể
+   quay lại và ghi xuống volume đó — đúng kịch bản mà bài cảnh báo là dẫn tới **hỏng dữ liệu**.
+   Thêm nữa, taint này **không tự biến mất**: chính bạn phải gỡ nó sau khi node phục hồi.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

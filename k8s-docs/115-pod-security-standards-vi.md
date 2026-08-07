@@ -4,6 +4,52 @@
 >
 > Cái nhìn chi tiết về các cấp độ chính sách (policy) khác nhau được định nghĩa trong Chuẩn bảo mật Pod (Pod Security Standards).
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 6/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài dài hơn 600 dòng, nhưng khoảng ba phần tư là **hai bảng đặc tả trường** viết bằng HTML.
+Đừng học thuộc bảng — đó là tài liệu tra cứu lúc viết manifest. Bài này chỉ **định nghĩa** ba
+profile; việc **áp** chúng vào namespace là bài kế tiếp,
+[116](116-pod-security-admission-vi.md). Đọc hai bài này liền nhau.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ba profile có tính **tích lũy**, trải từ dễ dãi tới hạn chế: **Privileged** (không hạn chế
+  gì, cho workload cấp hệ thống và hạ tầng do người dùng đặc quyền quản lý), **Baseline** (hạn
+  chế tối thiểu, ngăn các cách leo thang đặc quyền đã biết, vẫn chạy được cấu hình Pod mặc
+  định), **Restricted** (hardening theo thực hành tốt nhất, **đánh đổi bằng tính tương thích**).
+- Ranh giới của Baseline, tức những thứ nó cấm: chia sẻ namespace của host
+  (`hostNetwork`, `hostPID`, `hostIPC`), container `privileged`, volume `hostPath`, thêm
+  capability ngoài danh sách cho phép, và đặt seccomp profile thành `Unconfined`.
+- Restricted **thêm** gì trên Baseline: giới hạn danh sách loại volume được phép,
+  `allowPrivilegeEscalation: false`, `runAsNonRoot: true` cùng `runAsUser` khác 0, seccomp
+  profile phải được đặt **tường minh** (không đặt cũng bị cấm), và **drop `ALL` capability**,
+  chỉ được thêm lại `NET_BIND_SERVICE`.
+- Ghi chú về wildcard đứng trước cả hai bảng: `spec.containers[*]` nghĩa là **tất cả** container
+  đã định nghĩa, và **chỉ cần một container không đạt là cả Pod trượt validation**.
+- Phân biệt trong mục FAQ: **security context** là cấu hình trong manifest Pod/container, là
+  tham số truyền cho container runtime; **security profile** là cơ chế **của control plane** để
+  thực thi những thiết lập đó cùng các tham số liên quan nằm ngoài security context.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ danh sách trường trong hai bảng Baseline và Restricted | là bảng tra cứu lúc viết manifest, không phải nội dung học thuộc | giai đoạn 9, khi làm Lab 9b |
+| Ý nghĩa của seccomp, AppArmor, SELinux, capability trong bảng | chưa học các ràng buộc bảo mật của kernel | bài [127](127-linux-kernel-security-vi.md) |
+| `windowsOptions.hostProcess`, mục *Trường OS của Pod* và *Các kiểm soát chính sách đặc thù theo hệ điều hành* | cluster lab chỉ có node Linux | giai đoạn 15 |
+| *Khởi tạo chính sách* — ba manifest Namespace kèm label | chính là nội dung bài kế tiếp | bài [116](116-pod-security-admission-vi.md) |
+| *Các lựa chọn thay thế* — Kubewarden, Kyverno, OPA Gatekeeper | công cụ bên thứ ba ngoài lộ trình | không cần |
+| FAQ *Không gian tên người dùng* và *Còn các Pod sandbox thì sao?* | cần user namespace và runtime sandbox | bài [55](55-user-namespaces-vi.md) và [43](43-runtime-class-vi.md) |
+
+---
+
 Chuẩn bảo mật Pod định nghĩa ba _chính sách_ (policy) khác nhau nhằm bao quát rộng
 phổ bảo mật. Các chính sách này có tính _tích lũy_ (cumulative) và trải dài từ mức rất
 dễ dãi (highly-permissive) đến mức rất hạn chế (highly-restrictive).
@@ -624,3 +670,57 @@ bên dưới. Điều này cho phép những workload đòi hỏi quyền cao h�
 
 Ngoài ra, việc bảo vệ các workload sandbox phụ thuộc rất nhiều vào phương thức sandbox.
 Do đó, không có một profile khuyến nghị duy nhất nào cho tất cả các workload sandbox.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Kể ba profile theo thứ tự từ dễ dãi tới hạn chế, và nói mỗi profile nhắm tới loại workload
+   hoặc loại người dùng nào.
+2. Một Pod **không đặt** `seccompProfile` gì cả. Nó qua được Baseline không? Qua được Restricted
+   không? Vì sao hai câu trả lời khác nhau?
+3. Trên cluster lab, bạn muốn chạy một DaemonSet giám sát cần `hostNetwork: true` và mount
+   `hostPath` `/var/log` trên `k8s-worker1` và `k8s-worker2`. Profile thấp nhất cho phép Pod
+   đó chạy là gì, và vì sao Baseline không đủ?
+4. Restricted thêm gì so với Baseline về **capability** và về **quyền chạy dưới root**?
+5. "Security profile" và "security context" khác nhau ở đâu — cái nào nằm trong manifest của
+   bạn, cái nào là cơ chế của control plane?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Privileged → Baseline → Restricted.**
+   - **Privileged**: chính sách không hạn chế, chủ đích để mở; nhắm tới **workload cấp hệ thống
+     và hạ tầng**, do **người dùng đặc quyền, đáng tin cậy** quản lý.
+   - **Baseline**: hạn chế ở mức tối thiểu, ngăn các cách leo thang đặc quyền đã biết, vẫn chạy
+     được cấu hình Pod mặc định; nhắm tới **người vận hành ứng dụng và nhà phát triển của các
+     ứng dụng không trọng yếu**.
+   - **Restricted**: hardening theo thực hành tốt nhất hiện tại, **đánh đổi một phần tính tương
+     thích**; nhắm tới **ứng dụng trọng yếu về bảo mật và những người dùng có mức tin cậy thấp**.
+2. **Qua được Baseline, trượt Restricted.** Trực giác "không khai báo thì không vi phạm" đúng ở
+   Baseline nhưng sai ở Restricted. Baseline chỉ yêu cầu profile seccomp **không được đặt tường
+   minh thành `Unconfined`**, nên "không định nghĩa/nil" nằm trong danh sách giá trị được phép.
+   Restricted thì yêu cầu profile seccomp **phải được đặt tường minh** thành `RuntimeDefault`
+   hoặc `Localhost`; bài ghi rõ **cả `Unconfined` lẫn việc *không đặt* profile đều bị cấm**.
+3. Chỉ **Privileged**. Baseline không đủ vì nó cấm **cả hai** thứ Pod này cần: mục *Host
+   Namespaces* cấm `spec.hostNetwork` khác `false`, và mục *HostPath Volumes* cấm hoàn toàn
+   `spec.volumes[*].hostPath` — giá trị được phép duy nhất là không định nghĩa. Restricted càng
+   không, vì nó chỉ cho một danh sách loại volume không có `hostPath`.
+4. **Capability**: Baseline chỉ **giới hạn danh sách capability được thêm**; Restricted bắt
+   container **drop `ALL`** và chỉ cho phép thêm lại duy nhất **`NET_BIND_SERVICE`**.
+   **Quyền root**: Baseline không nói gì về việc chạy dưới root; Restricted bắt
+   **`runAsNonRoot: true`** và **`runAsUser` khác 0**, đồng thời cấm leo thang đặc quyền bằng
+   `allowPrivilegeEscalation: false`.
+5. **Security context nằm trong manifest của bạn** — nó được định nghĩa như một phần của đặc tả
+   Pod và container, cấu hình Pod/Container tại thời điểm chạy, và đại diện cho **các tham số
+   truyền cho container runtime**. **Security profile là cơ chế của control plane** để thực thi
+   những thiết lập cụ thể trong security context, cùng các tham số liên quan **nằm ngoài**
+   security context.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

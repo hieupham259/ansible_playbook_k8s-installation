@@ -4,6 +4,61 @@
 >
 > (Trang gốc không có phần description trong frontmatter)
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 7/9 ·
+Kiểm chứng ở Lab 8b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này **rẽ đôi** theo lựa chọn bạn đã chốt ở bài [06](06-ha-topology-vi.md): đọc mục *Các
+node control plane và etcd xếp chồng* hoặc mục *Các node etcd bên ngoài*, không phải cả hai.
+Hai mục đầu (load balancer) và hai mục cuối (worker, phân phối certificate) dùng chung.
+
+Điều kiện tiên quyết của bài — **load balancer đứng trước các API server** — là thứ lộ trình
+nhấn mạnh, và cũng là thứ bài [22 — Kiến trúc cluster](22-architecture-vi.md#nhieu-ban-apiserver)
+đã giải thích ở mức nguyên lý: nhiều bản `kube-apiserver` cùng nhận request được vì trạng thái
+nằm ở etcd chứ không nằm trong apiserver. Bài này là phần dựng thật của sơ đồ đó. Cluster lab
+ba VM **không** chạy được nội dung này; nó cần bộ VM riêng của Lab 8b.
+
+**Phải hiểu ở lần đọc này:**
+
+- *Tạo bộ cân bằng tải cho kube-apiserver* là **bước đầu tiên và chung cho cả hai phương pháp**:
+  load balancer **chuyển tiếp TCP** tới các control plane node khỏe mạnh, health check là **kiểm
+  tra TCP trên port apiserver** (mặc định `:6443`), và địa chỉ của nó phải **luôn khớp với
+  `ControlPlaneEndpoint`** của kubeadm.
+- Cách đọc kết quả `nc -zv -w 2 <LOAD_BALANCER_IP> <PORT>` trước khi init: **connection refused
+  là bình thường** vì API server chưa chạy, còn **timeout nghĩa là load balancer không giao tiếp
+  được với control plane node** — phải sửa load balancer trước khi đi tiếp.
+- `--upload-certs` làm gì: mã hóa và tải certificate của control plane chính lên **Secret
+  `kubeadm-certs`**; node control plane khác lấy về khi join bằng `--control-plane
+  --certificate-key`. **Secret và khóa giải mã hết hạn sau hai giờ**; tạo lại bằng
+  `kubeadm init phase upload-certs --upload-certs` trên một node đã join.
+- Khác biệt **duy nhất** của external etcd trong bài này: phải dựng etcd trước, `scp` ba file
+  `ca.crt` + `apiserver-etcd-client.crt` + `apiserver-etcd-client.key` sang control plane node
+  đầu tiên, và **bắt buộc dùng file cấu hình** có `etcd.external.endpoints`; với stacked thì
+  kubeadm quản lý tự động. Kèm ràng buộc: `--config` và `--certificate-key` **không dùng chung
+  được**, nên phải đặt `certificateKey` trong file cấu hình.
+- Ghi chú về CoreDNS ở cuối mục stacked: vì các node được khởi tạo **tuần tự**, Pod CoreDNS
+  nhiều khả năng dồn hết trên control plane node đầu tiên; muốn sẵn sàng cao hơn thì chạy
+  `kubectl -n kube-system rollout restart deployment coredns` sau khi có node mới join.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cảnh báo về cloud provider, Service `LoadBalancer`, PersistentVolume động | lab chạy on-premises trên VM | không cần |
+| *Các container image* — khi host không pull được image | mạng lab có HTTPS egress | không cần |
+| *Giao diện dòng lệnh* | chỉ là lời khuyên cài `kubectl` | không cần |
+| *Phân phối certificate thủ công* và `kubeadm certs certificate-key` | chỉ cần khi cố ý bỏ `--upload-certs` | CP3 certificate |
+| Link *tài liệu về nâng cấp* ở đầu bài | HA đổi cách nâng cấp control plane | CP2 nâng cấp |
+| Hai danh sách *Trước khi bạn bắt đầu* gần trùng nhau | chỉ đọc danh sách của topology bạn đã chọn | không cần |
+
+---
+
 Trang này giải thích hai cách tiếp cận khác nhau để thiết lập một cluster Kubernetes có tính sẵn sàng cao (highly available) bằng kubeadm:
 
 - Với các node control plane xếp chồng (stacked). Cách tiếp cận này đòi hỏi ít hạ tầng hơn. Các thành viên etcd và các node control plane được đặt cùng nhau (co-located).
@@ -387,3 +442,64 @@ SSH là bắt buộc nếu bạn muốn điều khiển tất cả các node t�
    # Bỏ qua dòng tiếp theo nếu bạn đang dùng external etcd
    mv /home/${USER}/etcd-ca.key /etc/kubernetes/pki/etcd/ca.key
    ```
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
+
+1. Bạn dựng load balancer, thêm control plane node đầu tiên vào target list, rồi chạy
+   `nc -zv -w 2 <LOAD_BALANCER_IP> 6443`. Kết quả là `connection refused`. Đi tiếp hay dừng lại
+   sửa? Còn nếu kết quả là timeout?
+2. Bạn `kubeadm init --control-plane-endpoint "lb.lab:6443" --upload-certs` lúc 09:00. Đến
+   12:00 mới rảnh để join control plane node thứ hai và lệnh join báo lỗi. Chuyện gì xảy ra, và
+   khắc phục thế nào?
+3. So với cluster lab mà [A5.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a51-init-control-plane)
+   dựng, `--control-plane-endpoint` ở đây phải trỏ tới đâu, và điều gì xảy ra nếu địa chỉ đó
+   khác địa chỉ load balancer?
+4. Bạn chọn external etcd. So với quy trình stacked, bạn phải làm thêm đúng những gì trong bài
+   này? Vì sao ở nhánh này bạn **buộc** phải dùng `--config` chứ không dùng cờ dòng lệnh được?
+5. Cluster HA của bạn đã có ba control plane node `Ready`, nhưng `kubectl -n kube-system get
+   pods -o wide` cho thấy cả hai Pod CoreDNS vẫn nằm trên node đầu tiên. Đây là lỗi hay là hệ
+   quả bình thường? Bài chỉ cách xử lý nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **`connection refused` thì đi tiếp** — bài nói rõ đây là **điều được mong đợi vì API server
+   chưa chạy**: gói tin đã tới được node, chỉ chưa có ai lắng nghe. **Timeout thì dừng lại**,
+   vì nó nghĩa là **load balancer không thể giao tiếp với node control plane**, và bài yêu cầu
+   cấu hình lại load balancer trước khi làm gì tiếp. Bẫy ở đây là trực giác "báo lỗi tức là
+   hỏng": hai thông báo lỗi khác nhau mang hai kết luận trái ngược.
+2. Certificate đã hết hiệu lực để join: `--upload-certs` mã hóa và tải certificate control
+   plane lên **Secret `kubeadm-certs`**, và **Secret cùng khóa giải mã sẽ hết hạn sau hai giờ**.
+   Khắc phục bằng cách **tải lên lại và tạo khóa giải mã mới** trên một control plane node đã
+   join: `sudo kubeadm init phase upload-certs --upload-certs`, rồi dùng `--certificate-key`
+   mới trong lệnh join. Bài cũng cho phương án chủ động: chỉ định trước một `--certificate-key`
+   tùy chỉnh lúc `init`, sinh bằng `kubeadm certs certificate-key`.
+3. Phải trỏ tới **địa chỉ (hoặc DNS) và port của load balancer**, không phải IP của một control
+   plane node cụ thể — Lab 00 dùng `k8s-master:6443` vì cluster đó chỉ có một control plane
+   node. Bài đặt thành yêu cầu riêng: **đảm bảo địa chỉ của load balancer luôn khớp với địa chỉ
+   `ControlPlaneEndpoint` của kubeadm**. Lệch nhau thì các client và các node join sẽ được chỉ
+   tới một endpoint khác cái đang thực sự phân phối lưu lượng, và cluster mất đúng tính chất HA
+   mà bạn vừa dựng.
+4. Thêm ba việc: **dựng cluster etcd trước** (theo bài [07](07-setup-ha-etcd-with-kubeadm-vi.md)),
+   **`scp` ba file** `etcd/ca.crt`, `apiserver-etcd-client.crt` và `apiserver-etcd-client.key`
+   từ một node etcd bất kỳ sang control plane node đầu tiên, và **viết `kubeadm-config.yaml`**
+   khai `etcd.external.endpoints` cùng `caFile`/`certFile`/`keyFile`. Bài ghi chú thẳng: đó
+   **là** khác biệt giữa hai nhánh — với stacked thì "điều này được quản lý tự động". File cấu
+   hình là bắt buộc vì không có cờ dòng lệnh nào khai được khối `etcd.external`; và vì `--config`
+   không dùng chung được với `--certificate-key`, bạn phải chuyển khóa đó vào trường
+   `certificateKey` trong `InitConfiguration` và `JoinConfiguration: controlPlane`.
+5. **Bình thường.** Bài giải thích bằng thứ tự thao tác chứ không phải bằng lỗi: **các node của
+   cluster thường được khởi tạo tuần tự**, nên lúc CoreDNS được lập lịch thì chỉ có node đầu
+   tiên tồn tại, và Pod ở yên đó. Để có tính sẵn sàng cao hơn, bài chỉ **cân bằng lại các Pod
+   CoreDNS bằng `kubectl -n kube-system rollout restart deployment coredns`** sau khi có ít
+   nhất một node mới được join.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

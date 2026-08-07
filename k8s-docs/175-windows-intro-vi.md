@@ -2,6 +2,63 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/concepts/windows/intro/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 15](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
+bài 2/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
+[bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Lộ trình ghi rõ: bỏ qua hoàn toàn giai đoạn 15 nếu cluster của bạn chỉ có Linux.** Cluster lab
+ba VM Ubuntu của bạn không có node Windows, nên toàn bộ bài này là kiến thức đối chiếu, không
+kiểm chứng được trên cluster hiện tại.
+
+Đây là **bài xương sống của giai đoạn**. Lộ trình chỉ định trọng tâm rất hẹp: **những gì trên
+Windows KHÔNG có tương đương Linux**. Đọc theo hướng đó — mỗi lần bài viết "không khả thi",
+"chưa được triển khai", "không được hỗ trợ" là một dòng đáng nhớ; phần liệt kê tương thích thì
+chỉ cần biết là "gần như giống Linux".
+
+**Phải hiểu ở lần đọc này:**
+
+- Ranh giới nền tảng: **control plane chỉ chạy trên Linux**, Windows chỉ làm worker; node phải
+  là **Windows Server 2022 hoặc 2025**; Kubernetes **chỉ hỗ trợ cách ly tiến trình**, không hỗ
+  trợ cách ly Hyper-V. Và **không trộn container Windows với container Linux trong cùng một
+  Pod** — mọi container trong Pod lập lịch lên cùng một Node, mà mỗi Node là một nền tảng cụ thể.
+- `.spec.os.name: windows` **khóa cứng một danh sách trường**: `hostPID`, `hostIPC`,
+  `seLinuxOptions`, `seccompProfile`, `fsGroup`, `sysctls`, `shareProcessNamespace`, `runAsUser`,
+  `runAsGroup`, `capabilities`, `readOnlyRootFilesystem`, `privileged`… Đặt bất kỳ trường nào
+  trong số đó thì **API server không chấp nhận Pod**.
+- Bốn khác biệt khái niệm ở mục *Tương thích API*: **danh tính** (Linux dùng UID/GID số nguyên,
+  Windows dùng SID nhị phân trong cơ sở dữ liệu SAM, và **SAM không chia sẻ giữa host và
+  container**), **quyền file** (ACL theo SID so với bitmask POSIX), **đường dẫn** (`\` thay `/`),
+  **tín hiệu** (WM_CLOSE / Control Handler / Service Control Handler thay cho mô hình signal).
+- Danh sách không có trên Windows: **HugePages**, **privileged container** (thay bằng HostProcess
+  container), **hostNetwork**, `hostIPC`/`hostPID`, `shareProcessNamespace`, `volumeDevices`
+  (thiết bị block thô), `emptyDir` với nguồn `memory`, `mountPropagation`, filesystem `/proc`,
+  `readOnlyRootFilesystem`. Trong `securityContext` của Pod, **chỉ `runAsNonRoot` và
+  `windowsOptions` là hoạt động**.
+- Kubelet trên Windows khác Linux: **không có ràng buộc bộ nhớ hay CPU**, `--kube-reserved` và
+  `--system-reserved` **chỉ trừ vào NodeAllocatable chứ không bảo đảm tài nguyên**;
+  `--enforce-node-allocable` và condition `PIDPressure` **chưa được triển khai**; kubelet
+  **không thực hiện eviction do OOM**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Pause container* — image `pause:3.6` và bản Microsoft ký authenticode | là chi tiết vận hành khi dựng node Windows | khi môi trường thực sự có node Windows |
+| *Các container runtime* — ContainerD, Mirantis Container Runtime | chọn runtime cho node Windows | khi môi trường thực sự có node Windows |
+| *Khuyến nghị và lưu ý về phần cứng*, kích thước image và ổ `C:` ảo 20GB | dùng khi mua máy và tính dung lượng | khi môi trường thực sự có node Windows |
+| *Nhận trợ giúp và khắc phục sự cố*, *Windows Operational Readiness*, *Trình phát hiện sự cố node* | là quy trình nghiệm thu và báo lỗi | khi môi trường thực sự có node Windows |
+| *Công cụ triển khai*, *Các kênh phân phối Windows* | thông tin tham chiếu về vòng đời sản phẩm | khi môi trường thực sự có node Windows |
+| *Truy cập mạng của host* — feature gate `WindowsHostNetwork` | Kubernetes v1.36 đã **không** còn feature gate này | không cần |
+
+---
+
 Các ứng dụng Windows chiếm một phần lớn trong số các dịch vụ và ứng dụng đang chạy tại nhiều tổ chức. [Windows containers](https://aka.ms/windowscontainers) cung cấp một cách để đóng gói các tiến trình (process) cùng các phụ thuộc (dependency) của gói phần mềm, giúp việc áp dụng các thực hành DevOps và tuân theo các mẫu hình cloud native cho ứng dụng Windows trở nên dễ dàng hơn.
 
 Các tổ chức đã đầu tư vào cả ứng dụng chạy trên Windows lẫn ứng dụng chạy trên Linux không cần phải tìm những bộ điều phối (orchestrator) riêng biệt để quản lý workload của mình, nhờ đó tăng hiệu quả vận hành trên toàn bộ các bản triển khai, bất kể hệ điều hành nào.
@@ -372,3 +429,62 @@ Dự án [cluster API](https://cluster-api.sigs.k8s.io/) của Kubernetes cũng 
 Thông tin về các kênh phục vụ (servicing channel) khác nhau của Windows Server,
 bao gồm cả mô hình hỗ trợ của chúng, có thể tìm thấy tại
 [Các kênh phục vụ của Windows Server](https://docs.microsoft.com/en-us/windows-server/get-started/servicing-channels-comparison).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 15:
+
+1. Câu bẫy: bạn lấy một Pod đang chạy tốt trên node Ubuntu, đổi `.spec.os.name` thành `windows`
+   và giữ nguyên `spec.securityContext.runAsUser: 1000`. Chuyện gì xảy ra, và vì sao Windows
+   không có tương đương cho `runAsUser`?
+2. Trên node Ubuntu của cluster lab, một container vượt memory limit bị kernel OOM kill. Trên
+   node Windows, kubelet xử lý tình huống tương đương thế nào?
+3. Bạn cần một container chạy đặc quyền để cấu hình mạng ở mức host. Trên Linux bạn đặt
+   `securityContext.privileged: true`. Trên Windows bài trả lời ra sao và đưa ra thay thế nào?
+4. Bốn khác biệt khái niệm hệ điều hành bài nêu là gì? Với "danh tính", vì sao việc SAM **không
+   được chia sẻ** giữa host và container lại kéo theo hệ quả ở quyền file?
+5. Bạn muốn một Pod gồm một container Linux làm sidecar cho một container Windows. Bài trả lời
+   thế nào, và lý do là gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **API server từ chối Pod.** Bài liệt kê `spec.securityContext.runAsUser` trong danh sách các
+   trường **không được đặt** khi `.spec.os.name` là `windows`, và kết luận: "Nếu bất kỳ trường
+   nào trong số này được chỉ định, Pod sẽ **không được API server chấp nhận**." Nguyên nhân gốc
+   nằm ở mục *Tương thích API*: Linux định danh bằng **UID/GID số nguyên**, còn Windows dùng
+   **SID nhị phân lớn hơn** lưu trong cơ sở dữ liệu SAM — không có con số nào để điền vào
+   `runAsUser`. Bài chỉ sang [`runAsUserName`](https://kubernetes.io/docs/tasks/configure-pod-container/configure-runasusername)
+   làm thay thế. Đây là bẫy điển hình: `.spec.os.name` không phải một nhãn mô tả vô hại, nó
+   **thay đổi tập trường hợp lệ của Pod**.
+2. Bài nói thẳng: **"Kubelet không thực hiện các hành động thu hồi do OOM (OOM eviction)"** trên
+   node Windows, và **eviction bằng `--enforce-node-allocable` chưa được triển khai**; kubelet
+   trên Windows cũng "không có các ràng buộc về bộ nhớ hay CPU", còn `--kube-reserved` và
+   `--system-reserved` **chỉ trừ vào `NodeAllocatable`** chứ không bảo đảm tài nguyên cho
+   workload. Nghĩa là cơ chế bảo vệ node bằng cách giết tiến trình mà bạn quen trên Linux
+   **không tồn tại**. Cơ chế thay thế của hệ điều hành được nói kỹ ở bài
+   [112](112-windows-resource-management-vi.md).
+3. **Windows không hỗ trợ container đặc quyền.** Bài nêu điều này hai lần: trong mục *Tương thích
+   và các hạn chế* và ở dòng `securityContext.privileged`. Thay thế là **HostProcess Container**,
+   thứ mà bài mô tả là "cung cấp chức năng tương tự". Lưu ý cách diễn đạt: *tương tự*, không phải
+   *tương đương* — và `securityContext.privileged` vẫn nằm trong danh sách trường bị cấm khi
+   `.spec.os.name` là `windows`.
+4. **Danh tính, quyền trên file, đường dẫn file, tín hiệu.** Với danh tính: Windows lưu SID trong
+   cơ sở dữ liệu **Security Access Manager (SAM)**, và cơ sở dữ liệu này "**không được chia sẻ
+   giữa host và các container, hay giữa các container với nhau**". Quyền file trên Windows lại là
+   **danh sách kiểm soát truy cập dựa trên SID** — nên nếu SID ở hai bên không cùng một không
+   gian định danh thì **không có ánh xạ quyền nào giữa host và container**. Đây chính là gốc rễ
+   của các hạn chế lưu trữ ở bài [106](106-windows-storage-vi.md) và của việc không có
+   `fsGroup`/`runAsGroup`.
+5. **Không được.** Bài viết: "Bạn **không thể** triển khai container Windows và container Linux
+   trong cùng một Pod." Lý do nêu ngay sau đó: **mọi container trong một Pod được lập lịch lên
+   cùng một Node**, mà mỗi Node "đại diện cho một nền tảng và kiến trúc cụ thể". Không phải hạn
+   chế tạm thời của một tính năng, mà là hệ quả trực tiếp của định nghĩa Pod.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

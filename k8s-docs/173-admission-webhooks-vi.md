@@ -4,6 +4,58 @@
 >
 > Các khuyến nghị khi thiết kế và triển khai admission webhook trong Kubernetes.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 17/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài dài và viết cho người **thiết kế** webhook. Với vai quản trị viên, giá trị lớn nhất nằm ở
+những chỗ một webhook có thể **làm chết cả cluster**: failure policy, tự biến đổi chính mình,
+vòng lặp phụ thuộc, và những object tuyệt đối không được đụng. Đọc kỹ ba mục
+*"Fail open" và kiểm tra hợp lệ trạng thái cuối cùng*, *Tránh tự biến đổi chính mình* và
+*Tránh vòng lặp phụ thuộc*; phần còn lại đọc lấy nguyên tắc. Đây là bài cuối trước Lab 9b.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vị trí trong luồng admission: **mutating webhook được gọi tuần tự**, **validating webhook được
+  gọi song song**, và **toàn bộ mutating chạy xong trước khi bất kỳ validating nào chạy**. Mỗi
+  lần gọi mutating webhook đều cộng thêm độ trễ cho quá trình kết nạp.
+- `failurePolicy`: **mặc định là `Fail`** — webhook timeout hoặc lỗi logic thì API server **từ
+  chối request**, nên một máy chủ webhook chết có thể chặn cả những request hợp lệ. Khuyến nghị
+  của bài: để mutating webhook **"fail open"** bằng `Ignore`, rồi dùng một validating controller
+  kiểm tra **trạng thái cuối cùng** để việc thực thi chính sách vẫn diễn ra.
+- Ba kiểu tự làm chết mình: **tự biến đổi chính mình** — webhook chặn đúng tài nguyên cần để Pod
+  của chính nó khởi động, nên khi node hỏng thì không lập lịch lại được; **vòng lặp phụ thuộc**
+  — hai webhook kiểm tra Pod của nhau, hoặc webhook chặn add-on mà chính nó phụ thuộc; và **vòng
+  lặp do controller cạnh tranh** — webhook thêm một label mà controller khác xóa đi, khiến
+  webhook bị gọi lại mãi. Cách tránh chung: loại trừ bằng `namespaceSelector` và `objectSelector`.
+- Những thứ webhook **không được đụng**: object trong namespace `kube-system`; **node lease**
+  dạng Lease trong `kube-node-lease` — biến đổi chúng **có thể làm nâng cấp node thất bại**;
+  **TokenReview và SubjectAccessReview** vì đây luôn là request chỉ đọc và sửa chúng **có thể
+  làm hỏng cluster**; và các object bất biến như **mirror Pod của static Pod** (nhận ra qua
+  annotation `kubernetes.io/config.mirror`).
+- **Tính lũy đẳng**: mỗi mutating webhook phải chạy lại được trên chính object nó đã sửa mà
+  không tạo thêm thay đổi — và **cả tập hợp webhook trong cluster cũng phải lũy đẳng**, không
+  chỉ từng cái. Đi kèm: **đừng dựa vào thứ tự gọi**, vì mutating webhook không chạy theo thứ tự
+  nhất quán.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Bảng bốn cơ chế mutating/validating, phần so sánh webhook với admission policy dùng CEL | cần biết CEL và các điểm mở rộng API | giai đoạn 14 |
+| *Dùng cơ chế kiểm tra hợp lệ và đặt giá trị mặc định có sẵn cho CustomResourceDefinition* | chưa học CRD | giai đoạn 14 |
+| Chi tiết `matchConditions`, `matchPolicy`, chính sách gọi lại (reinvocation policy) | tra cứu khi cấu hình webhook thật | giai đoạn 9, khi làm Lab 9b |
+| Chính sách audit `RequestResponse` để bắt vòng lặp | cần audit backend | CP7 audit/encryption |
+| Danh sách ví dụ biến đổi lũy đẳng và không lũy đẳng | nắm nguyên tắc là đủ; ví dụ đọc khi tự viết webhook | giai đoạn 14 |
+| *Ví dụ về các bản hiện thực tốt* — cert-manager, Gatekeeper | dự án bên thứ ba | không cần |
+
+---
+
 Trang này cung cấp các thực hành tốt và những điểm cần cân nhắc khi thiết kế
 _admission webhook_ trong Kubernetes. Thông tin này dành cho
 những người vận hành cluster đang chạy máy chủ admission webhook hoặc các ứng dụng bên thứ ba
@@ -634,3 +686,65 @@ thiết kế webhook của bạn sao cho chạy tốt trong môi trường cụ 
 * [Dùng webhook cho xác thực và phân quyền](https://kubernetes.io/docs/reference/access-authn-authz/webhook/)
 * [Tìm hiểu về MutatingAdmissionPolicy](https://kubernetes.io/docs/reference/access-authn-authz/mutating-admission-policy/)
 * [Tìm hiểu về ValidatingAdmissionPolicy](https://kubernetes.io/docs/reference/access-authn-authz/validating-admission-policy/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. `failurePolicy` mặc định là gì? Chuyện gì xảy ra với cluster khi máy chủ webhook chết, và
+   bài khuyên đặt thế nào cho mutating webhook cùng bù lại bằng gì?
+2. Một webhook chạy trong cluster, cấu hình chỉ cho phép request **create** Pod khi Pod có label
+   `env: prod`; nhưng Deployment của chính máy chủ webhook lại không đặt label đó. Cluster đang
+   chạy bình thường. Chuyện gì xảy ra khi node đang chạy Pod webhook trở nên không khỏe mạnh?
+3. Mutating webhook và validating webhook khác nhau thế nào về thứ tự gọi, và điều đó dẫn tới
+   khuyến nghị nào về việc kiểm tra trạng thái cuối cùng?
+4. Trên cluster lab, control plane chạy bằng static Pod nên kubelet tạo mirror Pod trong API
+   server, còn `k8s-worker1` và `k8s-worker2` liên tục gia hạn Lease trong `kube-node-lease`.
+   Nếu bạn cài một mutating webhook khớp mọi object trong cluster, hai chỗ nào bài cảnh báo
+   tuyệt đối không được biến đổi, và hậu quả là gì?
+5. "Lũy đẳng" nghĩa là gì với một mutating webhook, và vì sao từng webhook lũy đẳng vẫn chưa đủ?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Mặc định là **`Fail`**: API server **từ chối request nếu webhook gặp lỗi**, dù lỗi đó chỉ là
+   timeout. Hệ quả là **trong thời gian webhook ngừng hoạt động, các request hợp lệ cũng bị từ
+   chối** — một máy chủ webhook chết có thể chặn việc triển khai trên toàn cluster. Bài khuyên
+   để **mutating webhook "fail open"** bằng cách đặt `failurePolicy: Ignore`, rồi **dùng một
+   validating controller để kiểm tra trạng thái của request**, nhờ đó việc thực thi chính sách
+   chuyển sang giai đoạn validating và thời gian mutating webhook chết không ảnh hưởng tới việc
+   triển khai tài nguyên hợp lệ.
+2. **Deadlock — Pod webhook không bao giờ được lập lịch lại.** Deployment của webhook cố lập
+   lịch Pod sang node khác, nhưng **chính máy chủ webhook hiện có lại từ chối các request đó** vì
+   Pod không có label `env`. Cluster chạy bình thường cho đến khi cần khởi động lại đúng thành
+   phần đó — đó là lý do bài gọi đây là **tự biến đổi chính mình**. Cách tránh: **loại trừ
+   namespace nơi webhook đang chạy bằng `namespaceSelector`**.
+3. **Mutating webhook được gọi tuần tự**, có thể bị gọi nhiều lần, và **không có thứ tự nhất
+   quán**; **validating webhook được gọi song song**, và **toàn bộ mutating chạy xong trước khi
+   bất kỳ validating nào chạy**. Vì không có thứ tự ổn định, **biến đổi của bạn có thể bị một
+   mutating webhook chạy sau ghi đè** — nên bài khuyên thêm một **validating admission
+   controller** (ValidatingAdmissionWebhook hoặc ValidatingAdmissionPolicy) để **đảm bảo các
+   biến đổi vẫn còn nguyên** sau khi mọi biến đổi đã hoàn tất.
+4. **Node lease trong `kube-node-lease`** và **mirror Pod của static Pod**. Bài nói **đừng biến
+   đổi node lease, vì biến đổi chúng có thể dẫn tới việc nâng cấp node thất bại** — chỉ nên áp
+   biện pháp kiểm tra hợp lệ lên Lease trong namespace này khi bạn chắc chắn không đặt cluster
+   vào rủi ro. Với mirror Pod, đây là **object bất biến**: thay đổi lên mirror Pod **không lan
+   truyền tới static Pod**, nên biến đổi nó là vô nghĩa và gây sai lệch; nhận ra mirror Pod qua
+   annotation **`kubernetes.io/config.mirror`**, và để giảm rủi ro của việc bỏ qua theo annotation
+   thì **chỉ cho phép static Pod chạy trong những namespace cụ thể**.
+5. Lũy đẳng nghĩa là webhook **có thể chạy trên một object mà chính nó đã sửa đổi mà không tạo
+   thêm thay đổi nào ngoài thay đổi ban đầu**. Từng webhook lũy đẳng chưa đủ vì bài đòi hỏi
+   **toàn bộ tập mutating webhook trong cluster, xét như một tập hợp, cũng phải lũy đẳng**: sau
+   khi giai đoạn biến đổi kết thúc, **mỗi webhook riêng lẻ đều phải chạy lại được trên object đó
+   mà không tạo thêm thay đổi**. Hai webhook, mỗi cái tự nó ổn định, vẫn có thể liên tục sửa
+   ngược nhau.
+
+</details>
+
+Đây là bài cuối của **phần policy và hardening** trong giai đoạn 9. Câu nào chưa trả lời được
+thì quay lại đúng mục tương ứng trước khi vào **Lab 9b — Pod Security và hardening** (chưa viết,
+xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).

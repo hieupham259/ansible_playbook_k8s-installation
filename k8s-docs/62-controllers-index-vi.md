@@ -2,6 +2,43 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/controllers/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 1/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là **trang mục lục** của cả giai đoạn 4, không phải bài học. Nhiệm vụ của nó là cho bạn
+biết có bao nhiêu loại controller và mỗi loại sinh ra để giải bài toán nào. Đọc mất khoảng
+mười phút; mọi chi tiết cơ chế đều nằm ở các bài sau.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vì sao có tầng workload object: bạn khai báo một object **cao hơn Pod**, rồi control plane
+  tự tạo và xóa Pod thay bạn dựa trên spec đó — thay vì bạn tự trông từng Pod một.
+- Deployment (và gián tiếp là ReplicaSet) dành cho workload **stateless**, nơi mọi Pod hoán
+  đổi được cho nhau và thay thế Pod nào cũng như nhau.
+- StatefulSet dành cho các Pod **dựa vào định danh riêng biệt** — đây đúng là giả định ngược
+  với Deployment; dùng nhiều nhất để gắn mỗi Pod với một khối lưu trữ bền vững của riêng nó.
+- DaemonSet dành cho tiện ích **cấp node** (driver lưu trữ, plugin mạng), chạy trên mọi node
+  hoặc chỉ một tập con node.
+- Job và CronJob dành cho tác vụ **chạy đến khi hoàn tất rồi dừng**: Job là tác vụ một lần,
+  CronJob lặp lại theo lịch.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Đoạn StatefulSet — liên kết Pod với PersistentVolume | chưa học lưu trữ | giai đoạn 6 |
+| Đoạn DaemonSet — plugin cho phép node truy cập mạng của cluster | chưa học mạng và CNI | giai đoạn 5 |
+| Mục *Các chủ đề khác* — dọn dẹp Job và ReplicationController | chỉ là hai dòng mục lục | bài [68](68-ttlafterfinished-vi.md) và [70](70-replicationcontroller-vi.md), cuối giai đoạn 4 |
+
+---
+
 Kubernetes cung cấp một số API tích hợp sẵn để quản lý các workload
 và các thành phần của những workload đó theo cách khai báo (declarative).
 
@@ -54,3 +91,47 @@ Các chủ đề khác trong mục này:
 
 - [Tự động dọn dẹp các Job đã hoàn tất (Automatic Cleanup for Finished Jobs)](https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/)
 - [ReplicationController](https://kubernetes.io/docs/concepts/workloads/controllers/replicationcontroller/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. Bài phân biệt Deployment với StatefulSet bằng đúng một giả định về các Pod. Giả định đó
+   là gì, và vì sao nó khiến bạn không thể thay StatefulSet bằng Deployment?
+2. Trên cluster lab của bạn (1 control plane `k8s-master` + 2 worker), Flannel cần có mặt
+   trên **mọi** node. Theo cách bài mô tả các loại controller, Flannel thuộc loại nào, và vì
+   sao Deployment không làm được việc đó?
+3. Job và CronJob khác nhau ở điểm nào? Điểm chung nào tách cả hai ra khỏi Deployment,
+   StatefulSet và DaemonSet?
+4. Bài nói bạn được lợi gì khi khai báo một workload object thay vì tự tạo từng Pod?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Giả định là **Pod có hoán đổi được cho nhau hay không**. Deployment giả định **mọi Pod
+   hoán đổi cho nhau và có thể được thay thế khi cần** — mất Pod nào cũng như nhau.
+   StatefulSet dành cho các Pod **dựa vào việc có một định danh riêng biệt**, nên một Pod
+   không thể thay bằng một Pod bất kỳ khác. Bài nói thêm: cách dùng phổ biến nhất của
+   StatefulSet là tạo liên kết giữa mỗi Pod và bộ lưu trữ bền vững của riêng nó, và khi một
+   Pod hỏng thì Pod thay thế được nối tới **đúng PersistentVolume cũ**.
+2. **DaemonSet.** Bài nói rõ DaemonSet định nghĩa các Pod cung cấp tiện ích cục bộ cho một
+   node cụ thể, và nêu đúng ví dụ này: "một plugin cho phép node đó truy cập mạng của
+   cluster". Deployment chỉ bảo đảm **tổng số** replica, không bảo đảm **vị trí** — ba
+   replica của một Deployment hoàn toàn có thể cùng nằm trên một worker, để node còn lại
+   không có Pod mạng nào.
+3. Khác nhau: **Job là tác vụ chạy một lần, CronJob lặp lại theo lịch**. Điểm chung tách
+   chúng khỏi ba loại kia: chúng định nghĩa các tác vụ **chạy đến khi hoàn tất rồi dừng
+   lại**, trong khi Deployment, StatefulSet và DaemonSet quản lý các Pod được kỳ vọng chạy
+   mãi.
+4. **Việc quản lý từng Pod riêng lẻ tốn rất nhiều công sức.** Bài lấy ví dụ trực tiếp: nếu
+   một Pod thất bại, bạn muốn có Pod mới thay thế — và Kubernetes làm việc đó cho bạn. Bạn
+   tạo một object đại diện cho **mức trừu tượng cao hơn Pod**, rồi control plane tự quản lý
+   các object Pod thay bạn dựa trên spec bạn đã định nghĩa.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

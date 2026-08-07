@@ -4,6 +4,53 @@
 >
 > StatefulSet chạy một nhóm Pod, và duy trì một định danh cố định (sticky identity) cho mỗi Pod trong số đó. Điều này hữu ích để quản lý các ứng dụng cần lưu trữ bền vững (persistent storage) hoặc một định danh mạng ổn định, duy nhất.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 4/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này đứng chân trên hai thứ bạn **chưa học**: lưu trữ bền vững và Service headless. Đó là
+lý do lộ trình cố ý cắt đôi nó. Ở giai đoạn 4 bạn chỉ thực hành **định danh ổn định và thứ
+tự khởi tạo** — hai thứ chạy được trên cluster baseline. Phần `volumeClaimTemplates` là
+[nợ lab](labs/README.md#5-sổ-nợ-lab) trả ở **Lab 6a** (cần StorageClass và provisioner của
+giai đoạn 6); phần Service quản trị headless là nợ trả ở **Lab 5a** (cần Service headless
+của giai đoạn 5). Đừng cài provisioner sớm để "chạy thử cho đủ".
+
+**Phải hiểu ở lần đọc này:**
+
+- **Định danh cố định**: hostname theo mẫu `$(statefulset name)-$(ordinal)`, số thứ tự chạy
+  từ 0 đến N-1, và định danh này **gắn chặt với Pod bất kể Pod được lập lịch lên node nào**
+  (mục *Định danh của Pod* và *Chỉ số thứ tự*).
+- **Bảo đảm thứ tự** với `podManagementPolicy` mặc định `OrderedReady`: tạo tuần tự 0→N-1 và
+  Pod sau chỉ khởi chạy khi mọi Pod trước đã Running và Ready; kết thúc theo thứ tự ngược
+  N-1→0 (mục *Các đảm bảo về triển khai và mở rộng*). `Parallel` bỏ việc chờ nhưng **vẫn giữ**
+  bảo đảm về tính duy nhất và định danh.
+- **RollingUpdate của StatefulSet đi ngược chiều**: từ ordinal lớn nhất xuống nhỏ nhất, từng
+  Pod một, chờ Pod vừa cập nhật Running và Ready rồi mới sang Pod đứng trước. `partition` giữ
+  mọi Pod có ordinal nhỏ hơn ở phiên bản cũ.
+- Ba ràng buộc trong mục *Hạn chế* phải thuộc: StatefulSet **yêu cầu một Headless Service do
+  bạn tự tạo**; xóa hoặc thu nhỏ StatefulSet **không** xóa volume; và không có bảo đảm nào về
+  việc kết thúc Pod khi xóa StatefulSet — muốn êm thì thu nhỏ về 0 trước.
+- Cái bẫy *Rollback bắt buộc*: template hỏng làm rollout dừng và chờ mãi, và **hoàn nguyên
+  template thôi là chưa đủ** — bạn còn phải xóa tay các Pod đã chạy với cấu hình lỗi.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Template cho volume claim*, *Lưu trữ ổn định*, *Lưu giữ PersistentVolumeClaim* | baseline chưa có StorageClass, chưa học PV/PVC | giai đoạn 6 — [nợ lab](labs/README.md#5-sổ-nợ-lab) trả ở Lab 6a |
+| *Định danh mạng ổn định* — bảng tên DNS, negative caching, CoreDNS | chưa học Service và DNS | giai đoạn 5 — [nợ lab](labs/README.md#5-sổ-nợ-lab) trả ở Lab 5a |
+| *Số Pod không khả dụng tối đa* (`maxUnavailable`) | beta và tắt mặc định | không cần |
+| *Lịch sử revision* — ControllerRevision, *Thực hành tốt*, *Giám sát* | cơ chế revision đã nắm qua Deployment | bài [63](63-deployment-vi.md) |
+| *Số thứ tự bắt đầu* (`.spec.ordinals`) và *Nhãn chỉ số Pod* | tình huống hiếm, phục vụ định tuyến theo index | giai đoạn 5 |
+
+---
+
 StatefulSet là đối tượng API workload được dùng để quản lý các ứng dụng có trạng thái (stateful applications).
 
 StatefulSet quản lý việc triển khai (deployment) và mở rộng (scaling) một tập các Pod, *đồng thời cung cấp các đảm bảo về thứ tự và tính duy nhất* của các Pod này.
@@ -563,3 +610,59 @@ control plane của Kubernetes quản lý trường `.spec.replicas` một cách
   để hiểu API cho stateful set.
 * Đọc về [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/) và cách
   bạn có thể dùng nó để quản lý tính khả dụng của ứng dụng trong các gián đoạn (disruption).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. StatefulSet `web` 3 replica đang chạy trên hai worker của bạn. Bạn xóa `web-1` đang nằm
+   trên `k8s-worker2`. Pod thay thế mang tên gì, và nó có thể được lập lịch sang
+   `k8s-worker1` không?
+2. `podManagementPolicy` để mặc định. `web-0` crash **sau khi** `web-1` đã Running và Ready
+   nhưng **trước khi** `web-2` được khởi chạy. `web-2` khi nào mới lên?
+3. **Câu bẫy.** Bạn thu nhỏ StatefulSet từ 3 xuống 1. Pod nào bị kết thúc trước, và các
+   volume gắn với những Pod đó có bị xóa theo không?
+4. Bạn đổi image sang một tag không tồn tại. Rollout dừng ở Pod có ordinal nào, và vì sao chỉ
+   sửa lại Pod template là chưa đủ để cứu?
+5. Ứng dụng của bạn không cần định danh ổn định, cũng không cần thứ tự khi triển khai hay
+   thu nhỏ. Bài khuyên dùng gì, và vì sao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Pod thay thế vẫn tên là **`web-1`**, và **có**, nó hoàn toàn có thể chạy trên
+   `k8s-worker1`. Đây là điểm cốt lõi của mục *Định danh của Pod*: định danh gồm số thứ tự,
+   định danh mạng ổn định và lưu trữ ổn định, và nó "gắn chặt với Pod, **bất kể Pod được lập
+   lịch (lại) lên node nào**". Định danh ổn định **không** có nghĩa là Pod bị ghim vào một
+   node — nó có nghĩa là tên, hostname và các claim đi theo ordinal chứ không đi theo node.
+2. **`web-2` không được khởi chạy cho tới khi `web-0` được khởi động lại thành công và trở
+   thành Running và Ready.** Bài nêu đúng tình huống này. Quy tắc chung của `OrderedReady`:
+   trước khi một thao tác mở rộng được áp dụng cho một Pod, **tất cả** các Pod đứng trước nó
+   phải Running và Ready — không chỉ Pod liền kề. Nếu `.spec.minReadySeconds` được đặt thì
+   các Pod đứng trước còn phải Ready đủ số giây đó.
+3. **`web-2` bị kết thúc trước**, và `web-1` chỉ bị kết thúc sau khi `web-2` đã tắt hoàn toàn
+   và bị xóa — Pod bị kết thúc theo thứ tự ngược, từ N-1 về 0, và trước khi một Pod bị kết
+   thúc thì mọi Pod đứng sau nó phải đã shutdown hoàn toàn. Còn volume thì **không bị xóa**:
+   mục *Hạn chế* nói thẳng "việc xóa và/hoặc thu nhỏ một StatefulSet sẽ _không_ xóa các
+   volume gắn với StatefulSet đó", vì an toàn dữ liệu được coi trọng hơn việc tự động dọn
+   sạch tài nguyên. Trực giác "scale down thì dọn sạch theo" là sai ở đây, và đây đúng là chỗ
+   khác Deployment nhiều nhất.
+4. Rollout dừng ở **ordinal lớn nhất**, tức Pod đầu tiên được cập nhật (`RollingUpdate` của
+   StatefulSet đi từ số thứ tự lớn nhất xuống nhỏ nhất) — nó không bao giờ Running và Ready
+   nên control plane chờ mãi và không đụng tới các Pod đứng trước. Sửa template là chưa đủ vì
+   một **vấn đề đã biết**: StatefulSet vẫn tiếp tục chờ Pod hỏng trở thành Ready (điều không
+   bao giờ xảy ra) trước khi thử hoàn nguyên Pod đó. Bạn phải **xóa tay mọi Pod đã chạy với
+   cấu hình lỗi**, sau đó StatefulSet mới bắt đầu tạo lại bằng template đã hoàn nguyên.
+5. Bài khuyên dùng **một đối tượng workload cung cấp tập replica stateless — Deployment hoặc
+   ReplicaSet**. Lý do: các bảo đảm của StatefulSet (định danh cố định, thứ tự tuần tự) không
+   miễn phí — chúng làm việc triển khai và thu nhỏ chậm hơn hẳn, thêm ràng buộc phải tự tạo
+   Headless Service, và mở ra trạng thái hỏng cần can thiệp thủ công ở mục *Rollback bắt
+   buộc*. Không cần thì đừng trả giá đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

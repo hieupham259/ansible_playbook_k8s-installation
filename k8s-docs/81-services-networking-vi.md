@@ -4,6 +4,46 @@
 >
 > Các khái niệm và tài nguyên đằng sau hoạt động mạng trong Kubernetes.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 1/16 · Kiểm chứng ở
+Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này là **trang mục lục của cả giai đoạn**, không phải bài kỹ thuật. Nó nêu tên gần như mọi
+khái niệm mạng rồi trỏ sang bài khác. Đừng cố hiểu hết ở đây; thứ duy nhất phải nắm chắc là mô
+hình mạng và ranh giới trách nhiệm giữa Kubernetes và phần mềm bên ngoài.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mỗi Pod có **một địa chỉ IP duy nhất trên toàn cluster** và một network namespace riêng dùng
+  chung cho mọi container trong Pod đó; các container cùng Pod nói với nhau qua `localhost`.
+- Mạng Pod bảo đảm **mọi Pod nói chuyện trực tiếp với mọi Pod khác**, cùng node hay khác node,
+  **không qua proxy và không qua NAT**; agent trên node (system daemon, kubelet) cũng tới được
+  mọi Pod trên node đó.
+- Khác biệt so với hệ container cũ: không cần tạo link giữa container, cũng không cần ánh xạ
+  port container sang port host — Pod được đối xử gần như VM hay host vật lý.
+- Ranh giới trách nhiệm: Kubernetes chỉ hiện thực một vài phần, còn lại chỉ định nghĩa API —
+  network namespace do phần mềm hiện thực [CRI](44-cri-vi.md) dựng, mạng Pod do CNI plugin
+  hiện thực, service proxy mặc định là kube-proxy nhưng có thể bị thay bởi proxy riêng của CNI.
+- Hệ quả trực tiếp của ranh giới đó: NetworkPolicy do chính hiện thực mạng Pod làm, nên trên
+  một CNI không hỗ trợ thì **API vẫn tồn tại nhưng không có tác dụng**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Service API và EndpointSlice | mới là tên gọi, cơ chế nằm ở hai bài kế | bài [82](82-service-vi.md), [83](83-endpoint-slices-vi.md) |
+| Cú pháp và ngữ nghĩa của NetworkPolicy | chưa cần cách viết, chỉ cần biết nó phụ thuộc CNI | bài [84](84-network-policies-vi.md) |
+| Gateway API và `type: LoadBalancer` | cần Service trước, và cần hạ tầng ngoài cluster | bài [11](11-ingress-vi.md), [13](13-gateway-vi.md) |
+| Ghi chú Pod dùng host-network trên Windows | lab không có node Windows | giai đoạn 15 |
+
+---
+
 ## Mô hình mạng của Kubernetes (The Kubernetes network model)
 
 Mô hình mạng của Kubernetes được xây dựng từ nhiều thành phần:
@@ -110,3 +150,47 @@ mạng cho cluster của bạn, đồng thời cung cấp cái nhìn tổng quan
 * [Gateway API](./13-gateway-vi.md) - cấp phát (provision) hạ tầng động và định tuyến lưu lượng nâng cao
 * [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/) - kiểm soát luồng lưu lượng ở mức địa chỉ IP hoặc port (tầng OSI 3 hoặc 4)
 * [DNS cho Service và Pod](./10-dns-pod-service-vi.md) - khám phá các dịch vụ bên trong cluster của bạn bằng DNS
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Trong cluster lab, Pod CIDR là `10.244.0.0/16`. Một Pod trên `k8s-worker1` `curl` thẳng địa
+   chỉ IP của một Pod trên `k8s-worker2`. Theo mô hình mạng, gói tin có bị NAT không, và thành
+   phần nào chịu trách nhiệm làm cho đường đi đó chạy được?
+2. Hai container trong cùng một Pod gọi nhau bằng cách nào, và vì sao chúng không cần Service?
+3. Bạn `kubectl apply` một NetworkPolicy và API server trả lời `created`. Điều đó có nghĩa là
+   traffic đã bị chặn chưa?
+4. Trong danh sách các thành phần của mô hình mạng, phần nào do chính Kubernetes hiện thực, và
+   phần nào Kubernetes chỉ định nghĩa API rồi để bên ngoài làm?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không NAT, và không qua proxy.** Mô hình mạng yêu cầu tất cả các Pod giao tiếp được với
+   mọi Pod khác dù cùng node hay khác node, trực tiếp, không dùng proxy hay chuyển đổi địa chỉ
+   mạng. Thứ làm cho điều đó thành hiện thực **không phải Kubernetes** mà là **hiện thực mạng
+   Pod** — trên cluster lab là CNI plugin đang cài (xem
+   [Lab 00](labs/LAB-00-MOI-TRUONG.md#a13-phiên-bản-được-khóa)).
+2. Qua **`localhost`**. Pod có network namespace riêng và **mọi container trong Pod dùng chung
+   namespace đó**, nên các tiến trình ở những container khác nhau trong cùng Pod thấy nhau như
+   trên cùng một máy. Service là để cho **các Pod khác** tìm tới, không phải để nói chuyện bên
+   trong một Pod.
+3. **Chưa chắc.** NetworkPolicy nói chung được hiện thực bởi hiện thực mạng Pod. Bài ghi rõ:
+   một số hiện thực mạng Pod đơn giản không hiện thực NetworkPolicy, hoặc quản trị viên chọn
+   cấu hình mạng Pod không có hỗ trợ NetworkPolicy — trong những trường hợp đó **API vẫn tồn
+   tại nhưng sẽ không có tác dụng**. Object được lưu vào API server không đồng nghĩa với việc
+   có ai đó thực thi nó.
+4. Kubernetes hiện thực **Service API, EndpointSlice và kube-proxy** (service proxy mặc định).
+   Kubernetes **chỉ định nghĩa API** cho: thiết lập network namespace của Pod (do phần mềm hiện
+   thực Container Runtime Interface làm), bản thân mạng Pod (do hiện thực mạng Pod / CNI plugin
+   làm), NetworkPolicy (cũng do hiện thực mạng Pod làm), và Gateway API (do các bản hiện thực
+   bên ngoài làm).
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

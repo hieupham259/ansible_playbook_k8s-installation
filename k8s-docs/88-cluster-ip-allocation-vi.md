@@ -2,6 +2,43 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/services-networking/cluster-ip-allocation/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 9/16 · Kiểm chứng ở
+Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là bài cuối trước Lab 5a. Nó trả lời một câu hỏi rất cụ thể: **con số cluster IP ở đâu ra**,
+và vì sao DNS service của cluster luôn nằm ở một địa chỉ đoán trước được. Bài ngắn, nhưng phần
+công thức chia băng cần đọc kỹ vì bạn sẽ dùng lại nó mỗi khi phải xin một ClusterIP tĩnh.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hai cách gán ClusterIP: **động** — control plane chọn một IP còn trống trong dải đã cấu hình;
+  và **tĩnh** — bạn tự chỉ định một IP nằm trong dải đó. Mỗi ClusterIP phải **duy nhất trên toàn
+  cluster**, xin trùng thì trả về lỗi.
+- Vì sao cần địa chỉ đoán trước được: một số Service phải nằm ở IP "well-known" để thành phần
+  khác dùng — ví dụ điển hình là DNS Service của cluster, theo **quy ước không chính thức** lấy
+  địa chỉ IP thứ 10 trong dải Service.
+- Công thức chia băng: độ lệch băng = `min(max(16, cidrSize / 16), 256)` — *không bao giờ nhỏ
+  hơn 16 hoặc lớn hơn 256*.
+- Cấp phát động **mặc định dùng băng trên**, chỉ dùng tới băng dưới khi băng trên cạn. Vì vậy
+  hãy đặt các cấp phát tĩnh ở **băng dưới** để hạ rủi ro va chạm.
+- Đọc được ba ví dụ để tự tính băng tĩnh cho một dải cụ thể của mình.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Các trường trong manifest `kube-dns` mẫu (label `kubernetes.io/cluster-service`, hai port `dns`/`dns-tcp`) | là chi tiết của addon DNS, không phải của cơ chế cấp phát IP | giai đoạn 8 |
+| Ba biểu đồ tròn ở mục *Các ví dụ* | chỉ vẽ lại đúng con số vừa tính bằng công thức | không cần |
+
+---
+
 Trong Kubernetes, [Service](https://kubernetes.io/docs/concepts/services-networking/service/) là một cách trừu tượng để expose một ứng dụng đang chạy trên một tập các Pod. Service có thể có một địa chỉ IP ảo phạm vi cluster (dùng Service với `type: ClusterIP`). Client có thể kết nối bằng địa chỉ IP ảo đó, và Kubernetes sau đó cân bằng tải lưu lượng tới Service đó qua các Pod backend khác nhau.
 
 ## ClusterIP của Service được cấp phát như thế nào? (How Service ClusterIPs are allocated?)
@@ -116,3 +153,47 @@ pie showData
 * Đọc về [Chính sách lưu lượng bên ngoài của Service (Service External Traffic Policy)](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip)
 * Đọc về [Kết nối ứng dụng với Service (Connecting Applications with Services)](https://kubernetes.io/docs/tutorials/services/connect-applications-service/)
 * Đọc về [Service](https://kubernetes.io/docs/concepts/services-networking/service/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Cluster lab cấu hình dải Service là `10.96.0.0/12`. Áp công thức trong bài: độ lệch băng
+   bằng bao nhiêu, băng tĩnh chạy từ đâu đến đâu, và bạn nên xin ClusterIP tĩnh ở vùng nào?
+2. Chiến lược chia băng có **bảo đảm** rằng một địa chỉ trong băng tĩnh sẽ không bị Service khác
+   chiếm mất không?
+3. Hai cách một Service nhận ClusterIP là gì, và điều gì xảy ra nếu bạn xin một `clusterIP` đã
+   được cấp phát cho Service khác?
+4. Việc DNS Service của cluster nằm ở địa chỉ IP thứ 10 của dải Service là quy định của
+   Kubernetes hay không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `/12` có kích thước dải 2<sup>20</sup>, nên độ lệch băng là
+   `min(max(16, 1048576/16), 256)` = `min(65536, 256)` = **256**. Băng tĩnh chạy từ **`10.96.0.1`
+   đến `10.96.1.0`**, phần còn lại của dải là băng động. **Xin ClusterIP tĩnh trong băng dưới
+   đó**, vì cấp phát động mặc định dùng băng trên. Đây cũng là lý do `10.96.0.10` — địa chỉ quen
+   thuộc của DNS service — rơi đúng vào băng tĩnh.
+2. **Không.** Bài mở đầu bằng đúng vấn đề đó: địa chỉ `10.96.0.10` "chưa hề được dành riêng".
+   Chiến lược chia băng chỉ **giảm nguy cơ va chạm**: cấp phát động ưu tiên băng trên, **nhưng
+   khi băng trên cạn kiệt nó sẽ dùng đến dải dưới**. Không có cơ chế đặt chỗ thật sự, nên vẫn có
+   thể xảy ra xung đột.
+3. **Động** (control plane tự chọn một IP còn trống trong dải đã cấu hình) và **tĩnh** (bạn chỉ
+   định một IP nằm trong dải đó). Mỗi ClusterIP phải duy nhất trên toàn cluster, nên việc cố tạo
+   một Service với một `ClusterIP` đã được cấp phát **sẽ trả về lỗi** — đúng kịch bản làm DNS
+   Service không tạo được mà bài mô tả.
+4. **Không phải quy định.** Bài gọi đó là một **quy ước không chính thức** mà *một số trình cài
+   đặt Kubernetes* dùng. Đừng viết code hay tài liệu dựa trên giả định địa chỉ đó luôn đúng;
+   hãy đọc từ Service `kube-dns` thật.
+
+</details>
+
+Trả lời trôi chảy cả bốn câu nghĩa là bạn đã đủ nền cho **Lab 5a — Service, EndpointSlice và
+DNS** (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)). Câu nào còn vướng thì quay lại
+đúng mục tương ứng — kể cả ở các bài [82](82-service-vi.md), [83](83-endpoint-slices-vi.md),
+[10](10-dns-pod-service-vi.md) — trước khi bắt đầu lab.

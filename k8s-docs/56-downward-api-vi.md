@@ -6,6 +6,48 @@
 > biến môi trường, và dưới dạng các file được điền bởi một loại volume đặc biệt.
 > Hai cách phơi bày các trường của Pod và container này được gọi chung là downward API.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 10/11 · Kiểm chứng
+ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài chủ yếu là **ba danh sách trường**. Đừng học thuộc chúng; thứ phải nhớ là **ranh giới giữa ba
+danh sách đó** — trường nào dùng được cả hai cơ chế, trường nào chỉ có ở biến môi trường, trường
+nào chỉ có ở volume. Nhầm ranh giới này là lỗi manifest thường gặp.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mục đích: cho container biết thông tin về chính nó **mà không cần Kubernetes client hay API
+  server**, để giữ gắn kết lỏng với Kubernetes.
+- Hai cơ chế phơi bày và chỉ hai: **biến môi trường**, và **file trong một volume `downwardAPI`**.
+  Chỉ một số trường của Kubernetes API là khả dụng qua chúng.
+- Ranh giới theo cấp: **`fieldRef`** lấy các trường **cấp Pod**, **`resourceFieldRef`** lấy các
+  trường **cấp container** (request và limit).
+- Ba nhóm trường của `fieldRef`: dùng được **cả hai cơ chế** (`metadata.name`,
+  `metadata.namespace`, `metadata.uid`, `metadata.annotations['<KEY>']`,
+  `metadata.labels['<KEY>']`); **chỉ biến môi trường** (`spec.serviceAccountName`,
+  `spec.nodeName`, `status.hostIP`, `status.hostIPs`, `status.podIP`, `status.podIPs`); **chỉ
+  volume** (`metadata.labels` và `metadata.annotations` ở dạng đầy đủ, mỗi mục một dòng).
+- Hành vi dự phòng: nếu container không đặt limit CPU/bộ nhớ mà bạn vẫn phơi bày chúng, kubelet
+  trả về **giá trị allocatable tối đa của node**, chứ không phải rỗng.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| `spec.serviceAccountName` | chưa học ServiceAccount | giai đoạn 9 — bài [118](118-service-accounts-vi.md) |
+| Volume `downwardAPI` với tư cách một loại volume | chưa học volume | giai đoạn 6 — bài [91](91-volumes-vi.md), [93](93-projected-volumes-vi.md) |
+| Ghi chú về resize: volume được cập nhật còn biến môi trường thì không | resize dựa trên requests/limits chưa học | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
+| `hugepages-*` và `ephemeral-storage` trong `resourceFieldRef` | là tài nguyên chưa học | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md); lưu trữ tạm ở giai đoạn 6 — bài [95](95-ephemeral-storage-vi.md) |
+| Phép tính *node allocatable* trong phần dự phòng | thuộc phần tài nguyên của node | giai đoạn 7 — bài [142](142-node-pressure-eviction-vi.md) |
+
+---
+
 Đôi khi việc một container có thông tin về chính nó là hữu ích, mà không cần gắn kết
 (coupled) quá chặt với Kubernetes. _Downward API_ cho phép các container sử dụng thông
 tin về chính chúng hoặc về cluster mà không cần dùng Kubernetes client hay API server.
@@ -139,3 +181,43 @@ Bạn có thể đọc về [volume `downwardAPI`](https://kubernetes.io/docs/co
 Bạn có thể thử dùng downward API để phơi bày thông tin cấp container hoặc cấp Pod:
 * dưới dạng [biến môi trường](https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/)
 * dưới dạng [các file trong volume `downwardAPI`](https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Bạn muốn container nhận **tất cả** label của Pod. Dùng biến môi trường được không?
+2. Ứng dụng cần biết nó đang chạy trên `k8s-worker1` hay `k8s-worker2`. Trường nào cho biết điều
+   đó, và nó dùng được qua cơ chế nào?
+3. Vì sao Kubernetes làm downward API, thay vì để container tự gọi API server hỏi về chính nó?
+4. Container không đặt `limits.memory`, nhưng manifest vẫn phơi bày `resource: limits.memory`.
+   Container nhận được giá trị gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** `metadata.labels` ở dạng **đầy đủ** — tất cả label, định dạng
+   `label-key="escaped-label-value"` mỗi label một dòng — **chỉ khả dụng qua `fieldRef` của volume
+   `downwardAPI`, không khả dụng dưới dạng biến môi trường**. Qua biến môi trường bạn chỉ lấy được
+   **từng label một** bằng `metadata.labels['<KEY>']`. `metadata.annotations` cũng chia đôi y hệt.
+   Đây là chỗ dễ nhầm vì hai cơ chế trông như thay thế được cho nhau, nhưng ba nhóm trường của
+   chúng chỉ giao nhau một phần.
+2. Trường **`spec.nodeName`** — tên của node nơi Pod đang thực thi. Nó nằm trong nhóm **chỉ khả
+   dụng qua biến môi trường**, không lấy được bằng `fieldRef` của volume `downwardAPI`. Cùng nhóm
+   đó còn có `status.hostIP` và `status.hostIPs` nếu bạn cần địa chỉ IP của node thay vì tên.
+3. Để **gắn kết lỏng**: downward API cho container dùng thông tin về chính nó **mà không cần
+   Kubernetes client hay API server**. Bài lấy ví dụ một ứng dụng có sẵn giả định một biến môi
+   trường quen thuộc chứa định danh duy nhất — cách bọc ứng dụng lại thì **tẻ nhạt, dễ gây lỗi và
+   vi phạm chính mục tiêu gắn kết lỏng**, còn cách tốt hơn là tiêm thẳng tên Pod vào biến đó.
+4. **Giá trị allocatable tối đa của node cho bộ nhớ.** Khi limit CPU và bộ nhớ không được chỉ định
+   cho container mà bạn vẫn phơi bày chúng, **kubelet mặc định phơi bày giá trị có thể cấp phát
+   tối đa** dựa trên phép tính node allocatable. Hệ quả thực tế: ứng dụng tự chỉnh kích thước
+   heap theo `limits.memory` sẽ tưởng nó được dùng gần hết node.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

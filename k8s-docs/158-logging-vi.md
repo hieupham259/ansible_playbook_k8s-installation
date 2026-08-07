@@ -2,6 +2,53 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/cluster-administration/logging/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 11](LO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 4/6 · Kiểm chứng
+ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài dài, nhưng phần lớn độ dài đến từ các manifest ví dụ lặp đi lặp lại cùng một Pod đếm số.
+Xương sống chỉ có ba tầng: log **container** trên một node, log của **thành phần hệ thống** trên
+node đó, và ba kiến trúc **cấp cluster** để gom log ra khỏi node. Đọc để nắm ba tầng và ranh giới
+giữa chúng.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vòng đời log mặc định **gắn chặt vào container, pod và node**: container restart thì kubelet
+  giữ lại container cũ cùng log của nó, nhưng pod bị trục xuất là log đi theo. Đây chính là lý do
+  tồn tại của ghi log cấp cluster — log cần nơi lưu trữ và vòng đời riêng, và Kubernetes **không**
+  cung cấp backend lưu trữ nào cho việc đó.
+- **kubelet chịu trách nhiệm xoay vòng log container**, qua `containerLogMaxSize` (mặc định
+  `10Mi`) và `containerLogMaxFiles` (mặc định `5`), và chỉ thị cho container runtime qua CRI ghi
+  vào đúng vị trí. Hệ quả trực tiếp: `kubectl logs` **chỉ đọc được file log mới nhất**.
+- Vị trí log trên node Linux: kubelet và container runtime **không** chạy trong container nên ghi
+  vào journald khi có systemd; scheduler, controller manager, API server chạy trong pod nên ghi
+  file `.log` trong `/var/log`, bỏ qua cơ chế log mặc định của container. Log của pod nằm ở
+  `/var/log/pods`.
+- Ba kiến trúc cấp cluster và đánh đổi của chúng: **agent cấp node** (chạy dạng `DaemonSet`, một
+  agent mỗi node, không đụng tới ứng dụng), **sidecar** (hai kiểu, xem dưới), và **đẩy thẳng từ
+  ứng dụng** (nằm ngoài phạm vi Kubernetes).
+- Phân biệt hai kiểu sidecar: sidecar **truyền luồng** đọc file rồi in ra `stdout` của chính nó
+  nên `kubectl logs` vẫn dùng được; sidecar **chạy agent ghi log** thì log không do kubelet kiểm
+  soát nên `kubectl logs` không thấy, và tốn tài nguyên đáng kể.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Các luồng log của container* — feature gate `PodLogsQuerySplitStreams`, `?stream=Stderr` | là tính năng alpha, phải bật feature gate mới có | CP5 cấu hình lại cluster đang chạy |
+| Mục *Windows* trong *Vị trí log* (`C:\var\logs`, `C:\var\log\pods`) | cluster lab chỉ có node Linux | giai đoạn 15 (node Windows) |
+| `containerLogMaxWorkers`, `containerLogMonitorInterval`, `podLogsDir` | là tinh chỉnh cho cluster có khối lượng log rất lớn | CP5 cấu hình lại cluster đang chạy |
+| `kube-log-runner` | là công cụ chuyển hướng output khi không có shell hay systemd | bài [159](159-system-logs-vi.md) |
+| Bốn manifest ví dụ (`counter-pod`, hai file log, ConfigMap fluentd, sidecar agent) | đọc để thấy hình dạng là đủ; chạy chúng là việc của lab | Lab 11a |
+
+---
+
 Log của ứng dụng có thể giúp bạn hiểu điều gì đang diễn ra bên trong ứng dụng của mình. Log
 đặc biệt hữu ích cho việc gỡ lỗi (debug) và giám sát hoạt động của cluster. Hầu hết
 các ứng dụng hiện đại đều có một cơ chế ghi log nào đó. Tương tự, các container engine
@@ -553,3 +600,48 @@ của Kubernetes.
 * Tìm hiểu về [Traces cho các thành phần hệ thống Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/system-traces/)
 * Tìm hiểu cách [tùy chỉnh thông điệp kết thúc (termination message)](https://kubernetes.io/docs/tasks/debug/debug-application/determine-reason-pod-failure/#customizing-the-termination-message)
   mà Kubernetes ghi lại khi một Pod thất bại
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
+
+1. Một Pod trên `k8s-worker2` đã ghi 40 MiB log kể từ lúc khởi động, kubelet giữ nguyên cấu hình
+   mặc định. `kubectl logs` trả về nhiều nhất bao nhiêu dữ liệu, và vì sao?
+2. **Câu bẫy.** Hai kiểu sidecar ghi log — kiểu truyền luồng và kiểu chạy agent — kiểu nào vẫn
+   xem được bằng `kubectl logs`, kiểu nào không? Điều gì quyết định sự khác biệt đó?
+3. `k8s-worker1` chết hẳn và không bật lại được. Log của các Pod từng chạy trên đó còn lấy được
+   không nếu cluster chỉ dựa vào cơ chế mặc định? Cần thêm gì để còn?
+4. Trên node Ubuntu 24.04 có systemd, bạn tìm log của kubelet ở đâu và log của kube-scheduler ở
+   đâu? Vì sao hai thành phần của cùng một cluster lại nằm hai chỗ khác nhau?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Nhiều nhất **10 MiB** — đúng bằng `containerLogMaxSize` mặc định. Bài nêu thẳng ví dụ này:
+   chỉ **nội dung của file log mới nhất** là truy cập được qua `kubectl logs`, nên khi kubelet đã
+   xoay vòng sau mỗi 10 MiB thì phần cũ hơn tuy còn trên đĩa (tối đa `containerLogMaxFiles` = 5
+   file) nhưng `kubectl logs` không trả về.
+2. Sidecar **truyền luồng** thì `kubectl logs` **vẫn dùng được**; sidecar **chạy agent ghi log**
+   thì **không**. Yếu tố quyết định là log có đi qua `stdout`/`stderr` của container hay không:
+   sidecar truyền luồng tail file rồi in ra `stdout` của chính nó, nên rơi vào đường đi thông
+   thường do kubelet xử lý. Sidecar chạy agent thì đọc file rồi đẩy thẳng ra backend, log **không
+   do kubelet kiểm soát** nên `kubectl logs` không thấy — bài ghi rõ điều này trong phần ghi chú,
+   kèm cảnh báo tiêu thụ tài nguyên đáng kể.
+3. **Không.** Log container sống cùng node: khi pod bị trục xuất thì container và log của chúng
+   đi theo, và mất node thì mất luôn file log. Muốn giữ được, phải có **ghi log cấp cluster** —
+   log phải có nơi lưu trữ và vòng đời **độc lập với node, pod và container**, tức một backend
+   riêng cộng với cơ chế đẩy log ra khỏi node, phổ biến nhất là **agent cấp node chạy dạng
+   `DaemonSet`**.
+4. Log kubelet nằm trong **journald** (đọc bằng `journalctl -u kubelet`); log kube-scheduler nằm
+   ở **file `.log` trong `/var/log`**. Lý do là hai loại thành phần khác nhau: kubelet và
+   container runtime **không chạy trong container** nên dùng cơ chế log của hệ điều hành, còn
+   scheduler, controller manager và API server **chạy bên trong pod** (thường là static Pod) và
+   ghi thẳng vào file trong `/var/log`, bỏ qua cơ chế ghi log mặc định của container.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

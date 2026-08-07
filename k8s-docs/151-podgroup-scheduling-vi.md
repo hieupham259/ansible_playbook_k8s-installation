@@ -2,6 +2,56 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+bài 12/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
+hoặc dành cho nền tảng chuyên biệt (AI/HPC, GPU). Chỉ đọc khi đã vững giai đoạn 1–12 hoặc khi
+công việc thực sự cần. Bài này ở trạng thái `alpha` từ v1.36 — **API và tên các điểm mở rộng
+có thể đổi giữa các phiên bản**. Cluster lab 3 VM trên VMware không bật API group cần thiết,
+nên chu trình mô tả ở đây không quan sát được. Đọc để hiểu khái niệm.
+
+Đây là bài **cơ chế** đứng dưới [bài 150](150-gang-scheduling-vi.md): gang scheduling nói
+*luật*, bài này nói *chu trình thực thi luật đó*. Hai mục đáng dừng lại là *Chu trình lập lịch
+PodGroup* và *Hạn chế* — mục sau cho biết thuật toán này **không** vạn năng.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vấn đề bài này giải: scheduler tiêu chuẩn đánh giá Pod **tuần tự**, nên hai workload cạnh
+  tranh có thể mỗi bên lập lịch được một phần, **chiếm dụng dung lượng cluster mà không bên
+  nào đủ tài nguyên để khởi động hoàn chỉnh** — deadlock tài nguyên.
+- Bốn bước của chu trình: gom mọi Pod cùng nhóm đang trong hàng đợi và **sắp xếp tất định** →
+  chụp **một snapshot trạng thái cluster** dùng cho cả chu trình → tìm placement → **quyết
+  định nguyên tử** cho cả nhóm. Thất bại thì tất cả Pod về hàng đợi và áp dụng backoff tiêu
+  chuẩn.
+- Thuật toán mặc định vẫn dựa trên lập lịch từng Pod: filter/score cho từng Pod, Pod vừa chỗ
+  thì được **giả định và giữ chỗ** trên node cho tới hết thuật toán; sau đó điểm mở rộng
+  `Permit` kiểm tra tiêu chí cấp nhóm.
+- Mục *Hạn chế* — phần dễ bỏ qua nhất: vì thứ tự xử lý là tất định, thuật toán **chỉ được kỳ
+  vọng tìm ra placement với nhóm Pod đồng nhất và không có phụ thuộc liên Pod**. Nhóm không
+  đồng nhất, hoặc có affinity/anti-affinity/topology spread, thì **không đảm bảo**. Ngoài ra
+  mọi Pod trong nhóm phải cùng `.spec.schedulerName`, kiểm tra trước khi chu trình bắt đầu.
+- Hai condition và ý nghĩa của reason: `PodGroupScheduled` (`Scheduled`, `Unschedulable`,
+  `SchedulerError`) và `DisruptionTarget` (`PreemptionByScheduler`).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ba pha của *Thuật toán lập lịch theo placement* | mới là khung, plugin cụ thể ở bài sau | [bài 153](153-topology-aware-scheduling-vi.md) |
+| `DisruptionTarget` và việc preempt cả một PodGroup | là bài kế tiếp | [bài 152](152-workload-aware-preemption-vi.md) |
+| Điểm mở rộng `PostFilter`, `Permit`, pha filter/score | nền đã học | giai đoạn 7 — [bài 147](147-scheduling-framework-vi.md) |
+| Ràng buộc phân tán topology, affinity/anti-affinity | nền đã học | giai đoạn 7 — [bài 138](138-assign-pod-node-vi.md), [bài 140](140-topology-spread-constraints-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
 Bộ lập lịch (scheduler) tiêu chuẩn của Kubernetes đánh giá các Pod một cách tuần tự. Khi nhiều workload,
@@ -165,3 +215,44 @@ kubectl get podgroup <name> -o jsonpath='{.status.conditions}'
 * Tìm hiểu về [Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/).
 * Xem cách [tham chiếu một Workload](https://kubernetes.io/docs/concepts/workloads/pods/workload-reference/) trong một Pod.
 * Đọc về [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho một giai đoạn tùy chọn:
+
+1. Vì sao đánh giá Pod tuần tự lại dẫn tới deadlock tài nguyên khi hai job lớn được gửi lên
+   cùng lúc? Việc chụp một snapshot trạng thái cluster cho cả chu trình giải quyết chuyện gì?
+2. Nếu tồn tại một cách sắp đặt hợp lệ cho cả nhóm, chu trình lập lịch PodGroup có chắc chắn
+   tìm ra nó không?
+3. `PodGroupScheduled: False` với reason `Unschedulable` khác với reason `SchedulerError` ở
+   chỗ nào? Đọc được điều gì khác nhau về nguyên nhân?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì mỗi Pod được xét riêng, **hai workload cạnh tranh có thể mỗi bên chỉ lập lịch được một
+   phần các Pod của mình, chiếm dụng dung lượng cluster nhưng không bên nào có đủ tài nguyên để
+   khởi động hoàn chỉnh**. Chu trình PodGroup đổi đơn vị đánh giá từ Pod sang nhóm: nếu không
+   đủ tài nguyên cho cả nhóm thì **không Pod nào được bind**. Snapshot phục vụ mục đích khác:
+   nó **giữ trạng thái cluster cố định trong suốt chu trình**, để việc đánh giá **nhất quán cho
+   cả nhóm** và **không bị race condition với các sự kiện khác** xen vào giữa chừng.
+2. **Không chắc chắn.** Đây là chỗ dễ tưởng bở nhất. Thuật toán **dựa trên một cách sắp xếp Pod
+   cụ thể (tất định)**, nên nó **chỉ được kỳ vọng tìm ra placement với các nhóm Pod đồng nhất**
+   — tất cả Pod có yêu cầu lập lịch giống hệt nhau và không có phụ thuộc liên Pod. Với nhóm
+   **không đồng nhất** hoặc có **phụ thuộc liên Pod** (affinity, anti-affinity, topology spread),
+   việc tìm được placement hợp lệ **không được đảm bảo**; riêng với phụ thuộc *nội nhóm* — khả
+   năng lập lịch của một Pod phụ thuộc vào một thành viên khác qua inter-Pod affinity — thuật
+   toán có thể **không bao giờ** tìm ra placement, bất kể trạng thái cluster.
+3. **`Unschedulable`** nghĩa là quyết định đúng nhưng **cluster không đáp ứng được**: hết tài
+   nguyên, vướng quy tắc affinity/anti-affinity, hoặc không đủ dung lượng cho gang. Đây là tình
+   huống bình thường, nhóm sẽ được thử lại theo backoff. **`SchedulerError`** nghĩa là **lỗi
+   nội bộ của scheduler** — ví dụ khi phân tích các ràng buộc lập lịch như `nodeAffinity`. Cái
+   đầu bảo bạn nhìn vào dung lượng cluster; cái sau bảo bạn nhìn vào manifest và log scheduler.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

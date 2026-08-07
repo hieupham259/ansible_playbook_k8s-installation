@@ -4,6 +4,54 @@
 >
 > Trang này trình bày cách tùy chỉnh các thành phần mà kubeadm triển khai.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 3/9 ·
+Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Hai bài trước bạn dựng cluster bằng **cờ dòng lệnh** — đúng như
+[A5.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a51-init-control-plane) làm. Bài này là cách thứ
+hai: mô tả cluster bằng **file cấu hình** rồi `kubeadm init --config`. Đọc nó như một bảng
+phân vai — mỗi thứ muốn sửa có đúng một chỗ hợp lệ để sửa — chứ không phải để thuộc từng flag
+trong các ví dụ YAML. Các flag cụ thể trong ví dụ (`audit-log-path`, `election-timeout`…) chỉ
+là minh họa cú pháp.
+
+**Phải hiểu ở lần đọc này:**
+
+- *Tùy chỉnh control plane với các flag trong `ClusterConfiguration`*: bốn cấu trúc `apiServer`,
+  `controllerManager`, `scheduler`, `etcd` cùng chia một trường `extraArgs`. `ClusterConfiguration`
+  có **phạm vi toàn cục** — flag bạn thêm áp cho **mọi instance của thành phần đó trên mọi node**.
+- `extraArgs` là danh sách cặp `name` / `value`, và **không hỗ trợ key trùng lặp** hay truyền
+  cùng một flag nhiều lần. Nếu flag trỏ tới một file trên host thì phải mount file đó vào static
+  Pod bằng `extraVolumes`, như ví dụ của scheduler.
+- *Tùy chỉnh với các patch*: patch là **bước tùy chỉnh cuối cùng trước khi cấu hình của thành
+  phần được ghi xuống đĩa**, khai báo bằng `patches.directory` và áp **trên từng node riêng lẻ**.
+  Đây là lối thoát cho cả hai giới hạn ở trên: cấu hình khác nhau theo node, và flag trùng key.
+- Quy ước tên file patch `target[suffix][+patchtype].extension`: `target` chỉ nhận
+  `kube-apiserver`, `kube-controller-manager`, `kube-scheduler`, `etcd`, `kubeletconfiguration`,
+  `corednsdeployment`; `patchtype` mặc định là `strategic`; `extension` là `json` hoặc `yaml`.
+- Ba thứ khác nhau đi qua ba kiểu cấu hình khác nhau: control plane qua `ClusterConfiguration`,
+  kubelet qua `KubeletConfiguration` (hoặc `nodeRegistration.kubeletExtraArgs`), kube-proxy qua
+  `KubeProxyConfiguration` — và vì **kubeadm triển khai kube-proxy dưới dạng DaemonSet** nên
+  `KubeProxyConfiguration` luôn áp cho toàn bộ instance trong cluster.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Nội dung các flag ví dụ: `enable-admission-plugins`, `audit-log-path` | là cấu hình bảo mật và audit | giai đoạn 9, CP7 audit và mã hóa |
+| `UpgradeConfiguration` với `apply:` / `node:` | chỉ dùng khi chạy `kubeadm upgrade` | CP2 nâng cấp |
+| *Các flag của Etcd* (`election-timeout`) | tinh chỉnh etcd cần hiểu Raft và vận hành etcd | CP4 etcd backup |
+| *Tùy chỉnh CoreDNS*, `dns.disabled: true` | thay CoreDNS là việc của vận hành DNS | CP6 DNS, CNI và kube-proxy |
+| Ghi chú "Cấu hình lại một cluster kubeadm" ở đầu bài | sửa cluster **đang chạy** là quy trình khác | CP5 cấu hình lại cluster đang chạy |
+
+---
+
 Trang này trình bày cách tùy chỉnh các thành phần mà kubeadm triển khai. Đối với các thành phần control plane,
 bạn có thể sử dụng các flag trong cấu trúc `ClusterConfiguration` hoặc các patch cho từng node. Đối với kubelet
 và kube-proxy, bạn có thể sử dụng `KubeletConfiguration` và `KubeProxyConfiguration` tương ứng.
@@ -234,3 +282,60 @@ kubeadm init phase addon coredns --print-manifest --config my-config.yaml`
 ```
 
 bạn có thể lấy được file manifest mà kubeadm sẽ tạo cho CoreDNS trên hệ thống của bạn.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
+
+1. Bạn muốn `kube-apiserver` trên control plane node thứ nhất ghi audit log vào
+   `/var/log/a.log`, còn node thứ hai ghi vào `/var/log/b.log`. Đặt hai giá trị đó vào
+   `ClusterConfiguration.apiServer.extraArgs` có ra kết quả mong muốn không? Vì sao?
+2. Bạn thêm `- name: "config"` với `value: "/etc/kubernetes/scheduler-config.yaml"` vào
+   `scheduler.extraArgs`. File đó có thật trên host, nhưng scheduler vẫn không đọc được. Ví dụ
+   trong bài còn có thứ gì mà bạn bỏ sót?
+3. Bạn đặt file `kube-apiserver0+merge.yaml` vào thư mục patch. Nó được áp vào thời điểm nào
+   trong quy trình của kubeadm, và điều gì xảy ra với tùy chỉnh đó khi bạn chạy `kubeadm upgrade`?
+4. Bạn muốn kube-proxy trên `k8s-worker2` chạy cấu hình khác hai node còn lại. Dùng
+   `KubeProxyConfiguration` được không?
+5. Lab 00 dựng cluster bằng cờ dòng lệnh. Nếu viết lại thành file cấu hình, bạn sẽ đặt cgroup
+   driver của kubelet vào `kind` nào, và đặt `enable-admission-plugins` của API server vào
+   `kind` nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** `ClusterConfiguration` **hiện có phạm vi toàn cục trong các cluster kubeadm**:
+   bất kỳ flag nào bạn thêm vào cũng áp dụng cho **tất cả các instance của cùng một thành phần
+   trên các node khác nhau**. Muốn cấu hình riêng cho từng node thì bài chỉ đúng một lối:
+   dùng **patch**. Bẫy ở đây là cái tên — `ClusterConfiguration` nghe như "cấu hình của cluster
+   này", nhưng phạm vi toàn cục nghĩa là bạn **không** mô tả được khác biệt giữa các node bằng nó.
+2. **`extraVolumes`.** Các thành phần control plane chạy dưới dạng static Pod, nên một đường
+   dẫn trên host không tự nhiên nhìn thấy được từ bên trong. Ví dụ scheduler trong bài đi kèm
+   một mục `extraVolumes` với `name`, `hostPath`, `mountPath`, `readOnly` và `pathType: "File"`
+   — chính là phần mount file cấu hình vào Pod. Thiếu nó thì flag trỏ tới một đường dẫn không
+   tồn tại trong Pod.
+3. Nó được áp **như bước tùy chỉnh cuối cùng, ngay trước khi cấu hình của thành phần được ghi
+   xuống đĩa** — nghĩa là patch **thắng** mọi thứ kubeadm sinh ra trước đó, kể cả `extraArgs`.
+   Khi nâng cấp, bài cảnh báo rõ: nếu dùng `kubeadm upgrade apply` và `kubeadm upgrade node`,
+   bạn **phải cung cấp lại chính các patch đó** qua `UpgradeConfiguration`, nếu không phần tùy
+   chỉnh **không được bảo toàn sau khi nâng cấp**. Phần `suffix` trong tên file chỉ để quyết
+   định thứ tự áp theo alpha-numeric khi có nhiều patch cùng target.
+4. **Không, không bằng `KubeProxyConfiguration`.** Bài ghi chú: kubeadm triển khai kube-proxy
+   **dưới dạng một DaemonSet**, nên `KubeProxyConfiguration` sẽ áp dụng cho **tất cả** các
+   instance kube-proxy trong cluster. Lưu ý `kube-proxy` cũng **không** nằm trong danh sách
+   `target` hợp lệ của patch, khác với `kubeletconfiguration` — nên đây là ranh giới thật của
+   cơ chế này, không phải chuyện chọn cú pháp nào cho tiện.
+5. cgroup driver của kubelet nằm ở **`KubeletConfiguration`** — bài nói bạn thêm nó bên cạnh
+   `ClusterConfiguration` hoặc `InitConfiguration`, phân tách bằng `---` trong cùng một file, và
+   kubeadm sẽ áp cùng một `KubeletConfiguration` cơ sở cho mọi node. `enable-admission-plugins`
+   là flag của kube-apiserver nên nằm ở **`ClusterConfiguration.apiServer.extraArgs`**. Hai thứ
+   này không thay thế nhau được: `nodeRegistration.kubeletExtraArgs` cũng chỉnh được kubelet
+   nhưng bài nhắc một số flag kubelet đã deprecated, nên phải kiểm tra tài liệu tham chiếu trước.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

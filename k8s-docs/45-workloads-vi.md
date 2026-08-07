@@ -5,6 +5,45 @@
 > Tìm hiểu về Pod — đối tượng tính toán nhỏ nhất có thể triển khai trong Kubernetes —
 > và các tầng trừu tượng cấp cao hơn giúp bạn chạy chúng.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 1/11 · Kiểm chứng
+ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài mở nhóm, rất ngắn và chỉ là **bản đồ**. Nó liệt kê các tài nguyên workload mà bạn sẽ học
+chi tiết ở giai đoạn 4. Ở lần đọc này chỉ cần nắm vai trò của từng loại và lý do vì sao bạn
+không nên quản Pod bằng tay.
+
+**Phải hiểu ở lần đọc này:**
+
+- Workload là ứng dụng chạy trên Kubernetes, và dù nó gồm bao nhiêu thành phần thì nó luôn chạy
+  **bên trong một tập Pod**. Pod là thứ duy nhất thực sự chạy.
+- Lỗi node là **chung cuộc** đối với Pod trên node đó: Kubernetes không hồi sinh Pod cũ, bạn phải
+  có Pod mới, kể cả khi node sau đó khỏe lại.
+- Vì vậy bạn dùng **tài nguyên workload**: chúng cấu hình controller giữ đúng số lượng Pod đúng
+  loại đang chạy, khớp với trạng thái bạn đã chỉ định.
+- Phân vai bốn nhóm tài nguyên có sẵn: Deployment/ReplicaSet cho ứng dụng phi trạng thái (Pod
+  hoán đổi được cho nhau), StatefulSet cho workload có theo dõi trạng thái, DaemonSet cho mô hình
+  mỗi node một Pod, Job/CronJob cho tác vụ chạy đến khi hoàn tất — một lần hoặc theo lịch.
+- Khi lõi không có hành vi bạn cần, hệ sinh thái mở rộng bằng custom resource definition.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Chi tiết từng controller trong danh sách | ở đây chỉ là bản đồ; mỗi loại có bài riêng | giai đoạn 4 |
+| `PersistentVolume` trong mô tả StatefulSet | chưa học lưu trữ | giai đoạn 6 |
+| *Sắp đặt workload*: Workload API, `PodGroupTemplates`, `spec.schedulingGroup`, gang scheduling | tính năng alpha, cần scheduler nâng cao | giai đoạn 13 — bài [77](77-workload-api-vi.md) và [150](150-gang-scheduling-vi.md) |
+| Custom resource definition | thuộc phần mở rộng Kubernetes | giai đoạn 14 — bài [179](179-custom-resources-vi.md) |
+| Mục *Tiếp theo* nhắc Service và Ingress | chưa học mạng | giai đoạn 5 |
+
+---
+
 Workload là một ứng dụng chạy trên Kubernetes.
 Dù workload của bạn là một thành phần đơn lẻ hay nhiều thành phần phối hợp với nhau,
 trên Kubernetes bạn chạy nó bên trong một tập các [_Pod_](./46-pods-vi.md).
@@ -97,3 +136,39 @@ cho các ứng dụng:
 Khi ứng dụng của bạn đã chạy, bạn có thể muốn đưa nó ra internet dưới dạng
 một [Service](https://kubernetes.io/docs/concepts/services-networking/service/) hoặc, chỉ với ứng dụng web,
 dùng một [Ingress](./11-ingress-vi.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Một Pod đang chạy trên `k8s-worker2` và node đó gặp lỗi nghiêm trọng. Sau khi worker2 khỏe
+   lại, chính Pod đó có chạy tiếp không? Bài dùng từ gì để mô tả mức độ của lỗi này?
+2. Bạn cần mỗi node chạy đúng một Pod thu log. Dùng một Deployment với số replica bằng số node
+   có tương đương DaemonSet không?
+3. Tài nguyên workload cho bạn thêm điều gì so với việc tự tạo từng Pod?
+4. Job và CronJob khác nhau ở đâu, theo đúng cách bài mô tả?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Bài nói Kubernetes coi mức độ thất bại này là **chung cuộc**: khi node lỗi thì mọi
+   Pod trên node đó đều thất bại, và bạn **cần tạo một Pod mới** để khôi phục, kể cả khi node
+   sau này khỏe mạnh trở lại.
+2. **Không tương đương.** DaemonSet gắn với node, không gắn với con số: mỗi khi bạn thêm vào
+   cluster một node khớp với đặc tả trong DaemonSet, control plane **lập lịch một Pod của
+   DaemonSet đó lên node mới**. Một Deployment chỉ giữ đúng số replica bạn khai, không có bảo
+   đảm nào về việc trải đều mỗi node một Pod, và không tự bám theo node mới thêm vào.
+3. Tài nguyên workload **cấu hình các controller** đảm bảo **đúng số lượng Pod thuộc đúng loại
+   đang chạy, khớp với trạng thái mà bạn đã chỉ định**. Nói cách khác nó biến việc "tạo Pod" —
+   một thao tác một lần — thành một trạng thái mong muốn được duy trì liên tục.
+4. **Job định nghĩa một tác vụ chạy đến khi hoàn tất, chỉ một lần; CronJob chạy cùng một Job
+   nhiều lần theo lịch.** Cả hai đều thuộc nhóm "chạy đến khi hoàn tất rồi dừng lại", khác với
+   Deployment/StatefulSet/DaemonSet vốn giữ Pod chạy liên tục.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

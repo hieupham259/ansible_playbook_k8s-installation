@@ -2,6 +2,53 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/topology-aware-scheduling/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+bài 14/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
+hoặc dành cho nền tảng chuyên biệt (AI/HPC, GPU). Chỉ đọc khi đã vững giai đoạn 1–12 hoặc khi
+công việc thực sự cần. Bài này ở trạng thái `alpha` từ v1.36 — **tên plugin và cấu hình có thể
+đổi giữa các phiên bản**. Cluster lab 3 VM trên VMware **chỉ có một miền topology** (không
+rack, không zone), nên việc chấm điểm giữa nhiều placement ứng viên không có gì để so. Đọc để
+hiểu khái niệm.
+
+Đây là mặt **thuật toán** của cặp bài cùng tên; mặt **API** — bạn khai `schedulingConstraints`
+thế nào — đã đọc ở [bài 80](80-workload-topology-scheduling-vi.md). Bài này lấp ba pha còn
+trống của thuật toán lập lịch theo placement ở
+[bài 151](151-podgroup-scheduling-vi.md) bằng những plugin cụ thể.
+
+**Phải hiểu ở lần đọc này:**
+
+- TAS ở đây là **một thuật toán lập lịch theo placement**, tìm placement tối ưu cho PodGroup
+  sao cho **tất cả Pod nằm cùng một miền topology**.
+- Ba plugin và vai trò của từng cái: `TopologyPlacement` sinh placement ứng viên bằng cách
+  **gom node theo các giá trị khác nhau của topology `key`** được yêu cầu; `NodeResourcesFit`
+  chấm điểm placement theo **tỉ lệ cấp phát trên tất cả node trong placement**;
+  `PodGroupPodsCount` chấm điểm theo **tổng số Pod của nhóm lập lịch thành công được**.
+- Hai interface mà chúng cài đặt: `TopologyPlacement` là `PlacementGeneratePlugin`, còn hai
+  plugin kia là `PlacementScorePlugin`.
+- Mặc định `NodeResourcesFit` và `PodGroupPodsCount` **cùng trọng số 1**, để cân bằng giữa
+  bin-packing và việc lập lịch được càng nhiều Pod càng tốt.
+- Ranh giới trong cấu hình: chấm điểm placement **luôn dùng chiến lược `MostAllocated`**;
+  trường `type` của `scoringStrategy` **chỉ được xem xét trong lập lịch theo từng Pod**, trong
+  khi **trọng số tài nguyên áp dụng cho cả hai** thuật toán.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Đoạn `KubeSchedulerConfiguration` chỉnh trọng số | cần cluster nhiều miền topology mới có ý nghĩa | khi công việc thực sự cần |
+| Bin-packing và ý nghĩa của `MostAllocated` / `LeastAllocated` | nền đã học | giai đoạn 7 — [bài 148](148-resource-bin-packing-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
 *Lập lịch nhận biết topology* (Topology-Aware Scheduling — TAS) là một [thuật toán lập lịch theo placement](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/#placement-scheduling-algorithm)
@@ -72,3 +119,44 @@ profiles:
 * Tìm hiểu thêm về [API lập lịch nhận biết topology](https://kubernetes.io/docs/concepts/workloads/workload-api/topology-aware-scheduling/).
 * Đọc về [lập lịch pod group](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/).
 * Đọc về [các chính sách pod group](https://kubernetes.io/docs/concepts/workloads/workload-api/policies/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho một giai đoạn tùy chọn:
+
+1. Ba plugin TAS cài đặt hai interface nào, và mỗi plugin trả lời câu hỏi gì trong quá trình
+   chọn placement?
+2. Bạn đặt `scoringStrategy.type: LeastAllocated` trong cấu hình `NodeResourcesFit`. Việc chấm
+   điểm placement có chuyển sang `LeastAllocated` không? Phần nào của khối `scoringStrategy`
+   thực sự ảnh hưởng tới cả hai thuật toán?
+3. Vì sao mặc định `NodeResourcesFit` và `PodGroupPodsCount` có trọng số bằng nhau — đánh đổi
+   ở đây là gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **`TopologyPlacement` cài `PlacementGeneratePlugin`** — nó trả lời "có những miền nào đáng
+   xét", bằng cách gom nhóm các node theo các giá trị khác nhau của topology `key` được yêu cầu
+   trong PodGroup. **`NodeResourcesFit` và `PodGroupPodsCount` cài `PlacementScorePlugin`** —
+   chúng trả lời "miền nào tốt hơn": cái trước chấm theo **tỉ lệ cấp phát trên tất cả node
+   trong placement** (bin-packing), cái sau chấm theo **số Pod của nhóm lập lịch thành công
+   được**.
+2. **Không.** Bài ghi rõ ngay trong chú thích của ví dụ: **chấm điểm placement luôn dùng chiến
+   lược `MostAllocated`**, còn trường `type` **chỉ được xem xét trong lập lịch theo từng Pod**.
+   Thứ thực sự dùng chung là **danh sách `resources` với trọng số tài nguyên** — đổi trọng số
+   `cpu`/`memory` ở đây thì cả thuật toán chấm điểm theo từng Pod lẫn thuật toán chấm điểm
+   placement đều chịu ảnh hưởng. Đây là bẫy dễ dính vì hai thiết lập nằm trong cùng một khối
+   `scoringStrategy`.
+3. Vì hai plugin đó kéo về hai hướng khác nhau: `NodeResourcesFit` đẩy về phía **dồn chặt tài
+   nguyên** (bin-packing, `MostAllocated`), còn `PodGroupPodsCount` đẩy về phía **lập lịch được
+   càng nhiều Pod càng tốt**. Trọng số mặc định bằng nhau (cả hai là 1) là để **duy trì sự cân
+   bằng tốt giữa hai mục tiêu đó**. Nếu bạn ưu tiên chạy được nhiều Pod hơn là gọn tài nguyên,
+   nâng trọng số `PodGroupPodsCount` lên, và ngược lại.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

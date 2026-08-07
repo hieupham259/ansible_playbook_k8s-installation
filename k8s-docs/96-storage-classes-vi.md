@@ -2,6 +2,52 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/storage/storage-classes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 4/16 · Kiểm chứng ở
+Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Hơn một nửa bài là các mục theo từng nhà cung cấp lưu trữ (AWS, Azure, vSphere, Ceph,
+Portworx). Đó là tài liệu tra cứu, không phải nội dung học. Bốn trường quyết định mọi thứ ở
+lần đọc này là `provisioner`, `reclaimPolicy`, `volumeBindingMode` và annotation đánh dấu
+class mặc định — tất cả đều xuất hiện trong ví dụ YAML đầu bài.
+
+**Phải hiểu ở lần đọc này:**
+
+- StorageClass là bản mô tả một "loại" lưu trữ do admin cung cấp, và `provisioner` là trường
+  **bắt buộc**: nó xác định volume plugin nào sẽ cấp phát PV. Provisioner có thể là loại nội bộ
+  hoặc một chương trình bên ngoài — mục *Đối tượng StorageClass*, *Provisioner*.
+- `reclaimPolicy` của class quyết định reclaim policy của **mọi PV được class đó cấp phát
+  động**; không khai thì mặc định là `Delete`. PV tạo thủ công giữ policy được gán lúc tạo —
+  mục *Chính sách thu hồi*.
+- `volumeBindingMode` quyết định **thời điểm** bind và cấp phát: `Immediate` (mặc định) làm
+  ngay khi PVC được tạo, có thể sinh ra Pod không lập lịch được; `WaitForFirstConsumer` hoãn
+  tới khi có Pod dùng PVC, để scheduler cân nhắc mọi ràng buộc của Pod — mục *Chế độ gắn kết
+  volume*.
+- StorageClass mặc định: đánh dấu bằng annotation `storageclass.kubernetes.io/is-default-class`;
+  PVC không đặt `storageClassName` sẽ dùng nó; nhiều class mặc định thì Kubernetes lấy **cái
+  được tạo gần đây nhất**; và cluster hoàn toàn có thể **không có** class mặc định nào — mục
+  *StorageClass mặc định*.
+- `allowVolumeExpansion: true` trên class là điều kiện để PVC mở rộng được, và chỉ **tăng**
+  chứ không thu nhỏ — mục *Mở rộng volume*.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Bảng provisioner nội bộ và các mục *AWS EBS*, *AWS EFS*, *vSphere*, *Ceph RBD*, *Azure Disk*, *Azure File*, *Portworx volume* | lab không chạy trên các nền tảng đó, phần lớn đã lỗi thời | không cần |
+| *NFS* và *Local* | là hai lựa chọn provisioner khả dĩ cho lab, nhưng chọn cái nào là việc của lab | Lab 6a |
+| *Tùy chọn mount* | phụ thuộc từng volume plugin, không kiểm tra hợp lệ được trước | Lab 6a |
+| *Các topology được phép* | cần cluster nhiều zone | không cần |
+| *Tham số* | đặc thù từng `provisioner`, phải tra tài liệu của driver | Lab 6a |
+
+---
+
 Tài liệu này mô tả khái niệm StorageClass trong Kubernetes. Bạn nên
 làm quen trước với [volume](https://kubernetes.io/docs/concepts/storage/volumes/) và
 [persistent volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes).
@@ -593,3 +639,56 @@ volume `WaitForFirstConsumer`.
 Việc trì hoãn gắn kết volume cho phép bộ lập lịch xem xét tất cả các
 ràng buộc lập lịch của Pod khi chọn một PersistentVolume phù hợp cho một
 PersistentVolumeClaim.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. Cluster lab của bạn có hai worker và chỉ `k8s-worker2` có đĩa dữ liệu dành cho lưu trữ.
+   StorageClass để nguyên `volumeBindingMode` mặc định. Bạn tạo PVC trước rồi mới tạo Pod.
+   Rủi ro là gì, và `WaitForFirstConsumer` sửa được chính xác điều gì?
+2. StorageClass của bạn không khai `reclaimPolicy`. Xóa PVC thì dữ liệu còn không? Muốn giữ
+   lại thì sửa ở đâu, và việc sửa đó có tác dụng với các PV đã được cấp phát trước đó không?
+3. Cluster có hai StorageClass cùng đặt annotation mặc định là true. Bạn tạo một PVC không đặt
+   `storageClassName`. Class nào được dùng, và bài khuyên gì?
+4. `allowVolumeExpansion: true` cho phép bạn làm gì và **không** cho phép làm gì? Trường này
+   đặt ở đâu — trên PVC hay trên StorageClass?
+5. Cluster lab hiện **chưa có StorageClass và chưa có provisioner**. Nếu bạn chỉ `kubectl apply`
+   một đối tượng StorageClass mà không làm gì thêm, cluster đã cấp phát được volume chưa?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Với `Immediate` — chế độ **mặc định khi bạn không khai `volumeBindingMode`** — việc gắn kết
+   và cấp phát diễn ra **ngay khi PVC được tạo**, tức là trước khi Kubernetes biết Pod nào sẽ
+   dùng nó. Với backend bị ràng buộc theo topology và không truy cập được từ mọi node, PV có
+   thể bị cấp phát ở nơi Pod không lập lịch tới được, và **Pod trở thành không lập lịch được**.
+   `WaitForFirstConsumer` **hoãn cả việc bind lẫn việc cấp phát cho tới khi có Pod dùng PVC
+   đó**, nhờ vậy PV được chọn hoặc tạo phù hợp với các ràng buộc lập lịch của Pod: yêu cầu tài
+   nguyên, node selector, pod affinity/anti-affinity, taint và toleration. Lưu ý cái bẫy kèm
+   theo: đã dùng `WaitForFirstConsumer` thì **đừng dùng `nodeName`** trong spec Pod, vì làm vậy
+   là bỏ qua scheduler và PVC sẽ đứng yên ở `pending`; hãy dùng node selector
+   `kubernetes.io/hostname`.
+2. **Dữ liệu mất.** Không khai `reclaimPolicy` thì giá trị mặc định là **`Delete`**, và PV cấp
+   phát động sẽ mang policy đó. Muốn giữ thì đặt `reclaimPolicy: Retain` **trên StorageClass**.
+   Việc sửa đó **chỉ có tác dụng với các PV được cấp phát sau đó**: PV nhận reclaim policy của
+   class tại thời điểm nó được cấp phát, còn PV tạo thủ công thì giữ nguyên policy được gán lúc
+   tạo. Các PV đã tồn tại phải sửa hoặc patch từng cái.
+3. **Class được tạo gần đây nhất.** Bài nói rõ Kubernetes cho phép nhiều class mặc định chỉ để
+   việc chuyển đổi diễn ra liền mạch, và **khuyên bạn cố gắng chỉ giữ đúng một** class được
+   đánh dấu mặc định.
+4. Nó cho phép **tăng** kích thước một volume bằng cách sửa PVC để xin dung lượng lớn hơn. Nó
+   **không** cho phép thu nhỏ volume. Và trường này nằm **trên StorageClass**, không phải trên
+   PVC — PVC chỉ mở rộng được nếu storage class bên dưới nó đã bật cờ này.
+5. **Chưa.** `provisioner` là trường bắt buộc và nó chỉ *khai báo* volume plugin nào sẽ cấp
+   phát PV; bản thân đối tượng StorageClass không cấp phát gì cả. Phải có một provisioner —
+   nội bộ hoặc một external provisioner đang chạy trong cluster — thì mới có thứ đứng ra tạo
+   volume. Đó chính là việc Lab 6a phải làm trước khi bất kỳ PVC nào của bạn được bind.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

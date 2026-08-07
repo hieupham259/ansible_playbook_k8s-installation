@@ -2,6 +2,54 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/cluster-administration/dra/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+bài 2/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
+hoặc dành cho nền tảng chuyên biệt (AI/HPC, GPU). Chỉ đọc khi đã vững giai đoạn 1–12 hoặc khi
+công việc thực sự cần. Cluster lab 3 VM trên VMware, không GPU, **không chạy được** bài này:
+không có phần cứng thì không có DRA driver để triển khai, nâng cấp hay drain. Đọc để hiểu
+khái niệm và ghi nhớ các bẫy vận hành, không phải để làm theo.
+
+Bài này tuy mang tên "quản trị cluster" nhưng lộ trình **không** xếp nó vào giai đoạn 12 cùng
+các bài quản trị khác. Lý do: toàn bộ nội dung phụ thuộc vào DRA — nó nói về quyền trên các
+API DRA, về DRA driver và về tải mà Pod dùng claim DRA đặt lên control plane. Đọc nó trước
+[bài 149](149-dynamic-resource-allocation-vi.md) thì không có gì để móc vào.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ranh giới phân quyền ở mục *Tách quyền truy cập các API liên quan đến DRA*: DeviceClass và
+  ResourceSlice giới hạn cho admin và driver; ResourceClaim và ResourceClaimTemplate — hai API
+  có phạm vi namespace — mở cho người triển khai Pod.
+- DRA driver là **ứng dụng bên thứ ba** chạy trên mỗi node, thường triển khai dạng DaemonSet;
+  Kubernetes không cung cấp sẵn driver nào.
+- Ba hệ quả khi driver ngừng hoạt động để nâng cấp mà không có *nâng cấp liền mạch*: Pod mới
+  không khởi động được trừ khi claim đã được chuẩn bị sẵn, việc dọn dẹp sau Pod cuối cùng bị
+  trì hoãn nên tài nguyên không tái sử dụng được, còn Pod đang chạy vẫn chạy.
+- Quy tắc ở mục *Khi drain một node, hãy drain DRA driver muộn nhất có thể*, và lý do: driver
+  chịu trách nhiệm hủy chuẩn bị thiết bị đã cấp phát cho Pod.
+- Cách đọc ba metric workqueue của controller ResourceClaim để phân biệt hai tình huống: "thiếu
+  QPS/burst hoặc CPU/bộ nhớ" và "mức đồng thời không đủ" — vì mức đồng thời được cố định trong
+  controller, admin chỉ chỉnh được bằng cách giảm QPS tạo pod.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Con số QPS 75 / Burst 150 từ bài kiểm tra 100 node | là điểm khởi đầu tham chiếu, phụ thuộc quy mô cụ thể | khi công việc thực sự cần |
+| Các truy vấn PromQL cho `kube-scheduler`, `kubelet` và DRA kubeletplugin | cần thiết bị thật và stack giám sát để có dữ liệu | khi công việc thực sự cần |
+| Liveness probe qua socket gRPC của driver | cấu hình phụ thuộc từng driver | khi công việc thực sự cần |
+| Vì sao Pod dùng claim làm tăng tải API server | cơ chế cấp phát nằm ở bài trước | [bài 149](149-dynamic-resource-allocation-vi.md) — mục *Luồng công việc của Kubernetes* |
+
+---
+
 Trang này mô tả các thực hành tốt khi cấu hình một cluster Kubernetes sử dụng
 Dynamic Resource Allocation (DRA — cấp phát tài nguyên động). Các hướng dẫn này dành cho
 quản trị viên cluster.
@@ -168,3 +216,44 @@ nhìn của kubeletplugin nội bộ với các metric sau.
 
 * [Tìm hiểu thêm về DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/)
 * Đọc [Tài liệu tham khảo về Metrics của Kubernetes](https://kubernetes.io/docs/reference/instrumentation/metrics/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho một giai đoạn tùy chọn:
+
+1. Trong bốn API chính của DRA, nhóm nào nên giới hạn cho quản trị viên và driver, nhóm nào
+   mở cho người triển khai Pod? Đặc điểm nào của hai API sau khiến ranh giới đó tự nhiên?
+2. Bạn drain một node có DRA driver chạy dạng DaemonSet. Vì sao dừng driver sớm — cùng lúc
+   hoặc trước các Pod có claim — lại là sai, dù trực giác nói rằng dọn DaemonSet trước cho gọn?
+3. Bạn thấy Workqueue Add Rate **cao**, Workqueue Depth **cao**, nhưng Workqueue Work Duration
+   ở mức hợp lý. Kết luận gì, và với tư cách quản trị viên bạn chỉnh được cái gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **DeviceClass và ResourceSlice** nên giới hạn cho quản trị viên và các DRA driver — đó là
+   nơi khai báo danh mục thiết bị và công bố phần cứng của cluster. **ResourceClaim và
+   ResourceClaimTemplate** cần mở cho những người triển khai Pod có claim. Bài chỉ ra đúng đặc
+   điểm khiến ranh giới này gọn: **cả hai API sau đều có phạm vi theo namespace**, nên cấp
+   quyền cho đúng namespace của từng nhóm là đủ, trong khi hai API trước ở phạm vi cluster.
+2. Vì **DRA driver chịu trách nhiệm hủy chuẩn bị (unprepare) mọi thiết bị đã cấp phát cho
+   Pod**. Nếu driver bị drain trước khi các Pod có claim được xóa, nó **không thể hoàn tất việc
+   dọn dẹp**. Bài khuyên drain DRA driver **muộn nhất có thể**, và nếu tự viết logic drain thì
+   kiểm tra không còn ResourceClaim/ResourceClaimTemplate nào đang được cấp phát hoặc đặt trước
+   rồi mới kết thúc driver. Đây cũng chính là triệu chứng mô tả ở phần nâng cấp: khi driver
+   vắng mặt, Pod cuối cùng dùng claim không được đánh dấu đã kết thúc và tài nguyên của nó
+   không tái sử dụng được.
+3. Kết luận: **controller vẫn đang xử lý được công việc, nhưng mức độ đồng thời không đủ** —
+   nếu là vấn đề tài nguyên hay rate limit thì Work Duration đã cao và Add Rate đã thấp. Điều
+   bạn **không** chỉnh được là mức đồng thời: nó **được cố định (hardcoded) trong controller**.
+   Đòn bẩy duy nhất của quản trị viên là **giảm QPS tạo pod**, để tốc độ thêm vào workqueue của
+   resource claim trở nên dễ kiểm soát. Trường hợp ngược lại — Add Rate thấp, Depth cao, Work
+   Duration cao — mới là lúc tinh chỉnh QPS, burst và CPU/bộ nhớ của controller.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

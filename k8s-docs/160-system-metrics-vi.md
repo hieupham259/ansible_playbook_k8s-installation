@@ -2,6 +2,53 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/cluster-administration/system-metrics/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 11](LO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 2/6 · Kiểm chứng
+ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này có hai nửa rất khác nhau. Nửa đầu — *Metric trong Kubernetes*, *Vòng đời metric*,
+*Hiển thị metric ẩn* — là hợp đồng bạn phải nắm để pipeline giám sát không vỡ khi nâng cấp.
+Nửa sau là danh mục metric của từng thành phần, trong đó phần PSI dài và nặng chi tiết kernel;
+phần đó chỉ tra khi cần.
+
+**Phải hiểu ở lần đọc này:**
+
+- Metric nằm ở endpoint `/metrics` của HTTP server từng thành phần; thành phần nào không expose
+  mặc định thì bật bằng cờ `--bind-address`. Kubelet có thêm `/metrics/cadvisor`,
+  `/metrics/resource`, `/metrics/probes` — và bài nói rõ chúng **không cùng vòng đời**.
+- Đọc metric là một hành động **được ủy quyền**: với cluster dùng RBAC, scraper cần một
+  ClusterRole có `nonResourceURLs: ["/metrics"]` với verb `get`.
+- Chuỗi vòng đời alpha → beta → stable → deprecated → hidden → deleted, và bảo đảm của từng mức:
+  stable không đổi tên, không đổi kiểu; beta không mất label nhưng được thêm label; alpha không
+  bảo đảm gì.
+- Phân biệt **ẩn** (không còn được công bố để scrape nhưng vẫn bật lại được) với **bị xóa**
+  (không còn tồn tại). Thời gian chuyển sang ẩn phụ thuộc mức ổn định.
+- `--show-hidden-metrics-for-version` là lối thoát khi bạn lỡ bỏ sót việc di trú — nhưng nó
+  **chỉ nhận phiên bản minor liền trước**, nên chỉ mua được đúng một chu kỳ phát hành.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Metric của kube-controller-manager* — `cloudprovider_gce_api_request_duration_seconds`… | là metric của cloud provider; cluster lab chạy trên VM tự dựng | không cần |
+| *Metric của kube-scheduler* — `kube_pod_resource_request`, `/metrics/resources` | là metric tùy chọn, phải bật bằng cờ hidden metrics mới thấy | CP8 giám sát và cảnh báo |
+| *Metric Pressure Stall Information (PSI) của kubelet* và mục *Yêu cầu* | đọc được số PSI là kỹ năng chẩn đoán, cần cgroup v2 và kernel ≥ 4.20 | CP9 xử lý sự cố |
+| *Tắt metric* (`--disabled-metrics`) và *Cưỡng chế cardinality* (`--allow-metric-labels`) | là tinh chỉnh khi pipeline đã chạy và đang tốn bộ nhớ | CP8 giám sát và cảnh báo |
+
+Nhớ mối liên hệ với lab: **Lab 11a** cài metrics-server và chụp snapshot `04-metrics-ready`;
+**Lab 11b** dùng chính snapshot đó để trả nợ phần thực hành HPA/VPA của giai đoạn 4 — bài
+[72](72-horizontal-pod-autoscale-vi.md) và [73](73-vertical-pod-autoscale-vi.md), xem
+[sổ nợ lab](labs/README.md#5-sổ-nợ-lab). Bài này là phần lý thuyết về nguồn số liệu đứng trước
+cả hai lab đó.
+
+---
+
 Metric của các thành phần hệ thống có thể cho cái nhìn rõ hơn về những gì đang diễn ra bên
 trong chúng. Metric đặc biệt hữu ích để xây dựng dashboard và cảnh báo (alert).
 
@@ -348,3 +395,47 @@ một giá trị nhãn không được phép theo các ràng buộc của allow-
   cho metric
 * Xem danh sách [các metric ổn định của Kubernetes](https://github.com/kubernetes/kubernetes/blob/master/test/instrumentation/testdata/stable-metrics-list.yaml)
 * Đọc về [chính sách loại bỏ dần của Kubernetes](https://kubernetes.io/docs/reference/using-api/deprecation-policy/#deprecating-a-feature-or-behavior)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
+
+1. Bạn dựng một scraper trên `k8s-master` để thu metric từ kubelet của `k8s-worker1`. Ngoài
+   việc thông được mạng tới endpoint, còn cần thứ gì nữa thì request mới không bị từ chối?
+2. `/metrics` của kubelet và `/metrics/cadvisor` của cùng kubelet đó có chịu chung một cam kết
+   ổn định không? Điều đó ảnh hưởng thế nào tới dashboard bạn sắp dựng?
+3. **Câu bẫy.** Một metric **STABLE** bị đánh dấu deprecated ở `1.29`. Sớm nhất nó bị ẩn ở phiên
+   bản nào? Bạn nâng lên đúng phiên bản đó và vẫn cần metric — đặt
+   `--show-hidden-metrics-for-version=1.29` có được không?
+4. Metric "ẩn" và metric "bị xóa" khác nhau ở đâu, xét từ góc nhìn của người vận hành đang cứu
+   một dashboard vừa trống dữ liệu sau khi nâng cấp?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Cần **ủy quyền**. Bài nói rõ: nếu cluster dùng RBAC thì việc đọc metric yêu cầu một user,
+   group hoặc ServiceAccount gắn với **ClusterRole cho phép truy cập `/metrics`** — cụ thể là
+   một rule với `nonResourceURLs: ["/metrics"]` và verb `get`. Không có nó thì kết nối tới được
+   nhưng vẫn bị từ chối.
+2. **Không.** Bài ghi thẳng rằng kubelet cũng expose metric tại `/metrics/cadvisor`,
+   `/metrics/resource` và `/metrics/probes`, và **"các metric đó không có cùng vòng đời"**. Hệ
+   quả thực dụng: một panel dựng trên `/metrics` có thể sống qua nhiều bản phát hành nhờ cam kết
+   của metric stable, còn panel dựng trên các endpoint kia thì phải rà lại mỗi lần nâng cấp.
+3. Sớm nhất nó bị ẩn ở **`1.32`** — metric STABLE trở thành ẩn sau tối thiểu 3 bản phát hành
+   hoặc 9 tháng, tùy mốc nào dài hơn. Và **không**, `--show-hidden-metrics-for-version=1.29`
+   không dùng được khi đang chạy `1.32`: cờ này **chỉ nhận phiên bản minor liền trước**, tức
+   `1.31`. Chỗ dễ sai là tưởng cờ nhận "phiên bản mà metric bị deprecated"; thực ra nó nhận
+   "phiên bản trước phiên bản đang chạy", và dùng phiên bản quá cũ là vi phạm chính sách loại bỏ
+   dần.
+4. Metric **ẩn** thì "không còn được công bố để thu thập nữa, **nhưng vẫn còn dùng được**" — bạn
+   bật lại được bằng cờ dòng lệnh và có thêm một chu kỳ để di trú. Metric **bị xóa** thì "không
+   còn được công bố và **không thể dùng được nữa**" — không có cờ nào cứu, phải viết lại truy
+   vấn. Vì vậy việc đầu tiên khi dashboard trống là xác định metric đang ở trạng thái nào.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

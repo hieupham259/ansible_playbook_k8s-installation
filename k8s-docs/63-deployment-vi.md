@@ -4,6 +4,53 @@
 >
 > Deployment quản lý một tập các Pod để chạy một workload ứng dụng, thường là workload không cần lưu giữ trạng thái (state).
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 3/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là **bài dài nhất bộ tài liệu**. Phần lớn độ dài đến từ các khối output mẫu của
+`kubectl describe` và `kubectl get rs` — chúng là minh họa, không phải quy tắc. Đừng đọc
+tuần tự từ đầu tới cuối như một cuốn sách: đọc lấy cơ chế theo năm gạch đầu dòng dưới đây,
+còn output thì lướt để biết nhìn vào cột nào. Bạn sẽ tạo output thật của chính mình ở Lab 4.
+Bài này giả định bạn đã nắm [ReplicaSet](64-replicaset-vi.md) — nếu chưa, quay lại bài đó.
+
+**Phải hiểu ở lần đọc này:**
+
+- Deployment **không** trực tiếp quản Pod: nó tạo và điều khiển các ReplicaSet, mỗi Pod
+  template sinh một ReplicaSet riêng, phân biệt nhau bằng nhãn `pod-template-hash` băm từ
+  chính template đó. Rollout chỉ là scale ReplicaSet mới lên và ReplicaSet cũ về 0.
+- Rollout — và revision — **chỉ** được kích hoạt khi `.spec.template` thay đổi. Scale không
+  tạo revision mới và không tạo ReplicaSet mới; rollback vì thế chỉ hoàn nguyên phần Pod
+  template (ghi chú ở đầu mục *Cập nhật một Deployment* và *Rollback một Deployment*).
+- Hai núm điều khiển của `RollingUpdate`: `maxUnavailable` (mặc định 25%, làm tròn xuống) và
+  `maxSurge` (mặc định 25%, làm tròn lên) — chúng quy định khoảng dao động của tổng số Pod
+  trong lúc cập nhật. `Recreate` thì kill toàn bộ Pod cũ trước khi tạo Pod mới.
+- Lịch sử revision **được lưu trong chính các ReplicaSet cũ**; `.spec.revisionHistoryLimit`
+  mặc định giữ 10 ReplicaSet cũ, xóa ReplicaSet nào là mất khả năng rollback về revision đó,
+  và đặt bằng 0 là mất hẳn khả năng rollback.
+- Ba trạng thái *Progressing* / *Complete* / *Failed* và `.spec.progressDeadlineSeconds`
+  (mặc định 600): khi vượt deadline, Kubernetes **chỉ đặt condition** `ProgressDeadlineExceeded`
+  và không làm gì thêm — nó **không tự rollback**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Các khối output `kubectl describe deployment` và `kubectl get rs` | là minh họa, không phải quy tắc | Lab 4 sinh output thật |
+| *Cập nhật label selector* | selector bất biến sau khi tạo, tình huống hiếm và phá hủy | không cần |
+| *Scale theo tỷ lệ* | chỉ xảy ra khi một autoscaler scale giữa chừng một rollout | bài [72](72-horizontal-pod-autoscale-vi.md) |
+| *Deployment kiểu canary* | cần nhiều Deployment cùng đứng sau một Service | bài [61](61-management-vi.md) và giai đoạn 5 |
+| *Pod đang kết thúc* và `.status.terminatingReplicas` | cần feature gate `DeploymentReplicaSetTerminatingReplicas` | không cần |
+| Ví dụ `kubectl autoscale deployment/nginx-deployment` trong *Scale một Deployment* | cần metrics-server | bài [72](72-horizontal-pod-autoscale-vi.md), thực hành ở Lab 11b |
+
+---
+
 _Deployment_ cung cấp cơ chế cập nhật khai báo (declarative updates) cho Pod và ReplicaSet.
 
 Bạn mô tả _trạng thái mong muốn_ (desired state) trong một Deployment, và controller của Deployment sẽ thay đổi trạng thái thực tế về trạng thái mong muốn theo một tốc độ có kiểm soát. Bạn có thể định nghĩa các Deployment để tạo ReplicaSet mới, hoặc để xóa các Deployment hiện có và tiếp nhận toàn bộ tài nguyên của chúng bằng các Deployment mới.
@@ -1357,3 +1404,67 @@ khi được tạo.
 * Đọc về [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/) và cách
   bạn có thể dùng nó để quản lý mức sẵn sàng của ứng dụng trong các gián đoạn (disruption).
 * Dùng kubectl để [tạo một Deployment](https://kubernetes.io/docs/tutorials/kubernetes-basics/deploy-app/deploy-intro/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. **Câu bẫy.** Bạn chạy `kubectl scale deployment/web --replicas=5`. Lệnh này có tạo một
+   revision mới không? Có tạo một ReplicaSet mới không? Vì sao?
+2. Một Deployment 4 replica để nguyên `maxUnavailable` và `maxSurge` mặc định. Trong lúc
+   rolling update, tổng số Pod dao động trong khoảng nào, và số Pod sẵn sàng tối thiểu là bao
+   nhiêu?
+3. Bạn `kubectl set image` với một tag gõ nhầm, Pod mới kẹt `ImagePullBackOff`. Vì sao các
+   Pod cũ vẫn phục vụ bình thường, trường nào quyết định điều đó, và sau khi vượt
+   `progressDeadlineSeconds` thì Kubernetes có tự rollback không?
+4. Trên cluster lab của bạn, một Deployment để `revisionHistoryLimit` mặc định và bạn đã đổi
+   image 12 lần. Bạn còn `kubectl rollout undo --to-revision=1` được không? Vì sao?
+5. Bạn đổi `.spec.strategy.type` sang `Recreate` cho một Deployment 3 replica trên hai worker.
+   Điều gì đổi so với `RollingUpdate`, và bảo đảm đó có áp dụng khi bạn **xóa tay** một Pod
+   không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không, cả hai đều không.** Bài nêu quy tắc hai lần: rollout của một Deployment được kích
+   hoạt **khi và chỉ khi** Pod template (`.spec.template`) bị thay đổi — ví dụ đổi nhãn hoặc
+   container image của template. Scale không đụng tới `.spec.template`, nên không sinh
+   ReplicaSet mới (ReplicaSet được phân biệt bằng `pod-template-hash` băm từ template, mà
+   template không đổi) và **không tạo revision mới**. Bài nói rõ đây là chủ ý: nhờ vậy bạn có
+   thể scale thủ công hoặc tự động mà không làm rối lịch sử rollout.
+2. Tổng số Pod nằm trong khoảng **3 đến 5**, và **ít nhất 3 Pod luôn sẵn sàng**. Mặc định
+   `maxUnavailable` là 25% (làm tròn xuống → 1 Pod) nên ít nhất 75% số Pod mong muốn đang
+   chạy, và `maxSurge` là 25% (làm tròn lên → 1 Pod) nên tối đa 125% số Pod mong muốn tồn
+   tại. Bài lấy đúng ví dụ này: "Trong trường hợp Deployment có 4 replica, số Pod sẽ nằm
+   trong khoảng từ 3 đến 5". Lưu ý ghi chú kèm theo: Pod đang kết thúc **không** được tính
+   vào `availableReplicas`, nên trong thực tế bạn có thể thấy nhiều Pod hơn con số này cho
+   tới khi `terminationGracePeriodSeconds` của chúng hết hạn.
+3. Vì Deployment controller **tự động dừng đợt rollout hỏng và ngừng scale up ReplicaSet
+   mới**; nó không kill Pod cũ chừng nào chưa đủ Pod mới chạy lên. Trường quyết định là
+   **`maxUnavailable`** trong tham số `rollingUpdate` — Kubernetes mặc định 25%, nên với 3
+   replica nó chỉ dám hạ ReplicaSet cũ xuống một mức nhất định rồi dừng. Sau khi vượt
+   `progressDeadlineSeconds`, Kubernetes **không tự rollback**: bài nói rõ nó "không thực
+   hiện hành động nào trên một Deployment bị đình trệ ngoài việc báo cáo một condition trạng
+   thái với `reason: ProgressDeadlineExceeded`". Việc rollback do bạn hoặc một bộ điều phối
+   cấp cao hơn quyết định, bằng `kubectl rollout undo`.
+4. **Không.** `.spec.revisionHistoryLimit` mặc định là **10**, nghĩa là chỉ 10 ReplicaSet cũ
+   được giữ lại; phần còn lại bị thu gom rác ở chế độ nền. Mà bài nói rõ "cấu hình của mỗi
+   revision của Deployment được lưu trong các ReplicaSet của nó; do đó, một khi một ReplicaSet
+   cũ bị xóa, bạn mất khả năng rollback về revision đó". Sau 12 lần đổi image, ReplicaSet của
+   revision 1 đã bị dọn. Ngoại lệ cần nhớ: việc dọn dẹp **chỉ bắt đầu sau khi** Deployment
+   đạt trạng thái hoàn tất, nên nếu Pod cứ crash loop bạn có thể thấy nhiều ReplicaSet hơn
+   giới hạn.
+5. Với `Recreate`, **tất cả Pod hiện có bị kill trước khi Pod mới được tạo** — nghĩa là có
+   khoảng thời gian không Pod nào phục vụ, khác hẳn `RollingUpdate` vốn giữ tối thiểu 75% số
+   Pod. Nhưng bảo đảm đó **chỉ áp dụng cho các lần nâng cấp**: ghi chú trong bài nói nếu bạn
+   xóa tay một Pod thì vòng đời của nó do ReplicaSet kiểm soát và **Pod thay thế được tạo
+   ngay lập tức**, kể cả khi Pod cũ vẫn đang `Terminating`. Muốn bảo đảm "tối đa bao nhiêu
+   Pod" thật sự thì bài chỉ sang [StatefulSet](65-statefulset-vi.md).
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

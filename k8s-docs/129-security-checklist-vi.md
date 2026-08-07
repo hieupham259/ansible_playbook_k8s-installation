@@ -4,6 +4,49 @@
 >
 > Danh sách kiểm tra cơ bản (baseline checklist) để đảm bảo bảo mật trong các cluster Kubernetes.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 14/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Đây không phải bài đọc.** Lộ trình xếp nó là **checklist đối chiếu cluster của bạn**: mở nó
+bên cạnh terminal, đi từng nhóm ô, và với mỗi ô hãy **chạy lệnh kiểm chứng trên cluster lab rồi
+ghi lại đạt hay không đạt cùng lý do**. Đọc suông từ đầu đến cuối là dùng sai công cụ. Vì phần
+lớn cơ chế đã được 13 bài trước giải thích, ô nào bạn không đối chiếu được nghĩa là bài tương
+ứng chưa vững — quay lại bài đó chứ đừng bỏ qua ô.
+
+**Phải hiểu ở lần đọc này (cách dùng, không phải nội dung):**
+
+- Cấu trúc **tám nhóm ô**: *Xác thực & Phân quyền*, *Bảo mật mạng*, *Bảo mật Pod*, *Log và kiểm
+  toán*, *Sắp xếp vị trí Pod*, *Secret*, *Image*, *Admission controller*. Biết nhóm nào ở đâu là
+  đủ để tra nhanh.
+- Ba điều kiện sử dụng nêu ngay đầu bài: **thứ tự các chủ đề không phản ánh thứ tự ưu tiên**;
+  một số mục được giải thích chi tiết trong đoạn văn **bên dưới** danh sách của mỗi phần; và
+  **checklist tự nó không đủ** để có một thế trận bảo mật tốt.
+- Hệ quả của điều trên: **đánh dấu hết ô không có nghĩa là cluster đã an toàn**. Một số khuyến
+  nghị có thể **quá chặt hoặc quá lỏng** so với nhu cầu của bạn, nên **mỗi nhóm mục phải được
+  đánh giá theo giá trị riêng của nó**.
+- Mục *Admission controller* chia làm **ba nhóm** để bạn quyết định: nhóm **được bật theo mặc
+  định** (giữ nguyên trừ khi biết rõ mình làm gì), nhóm **đã GA nhưng chưa bật mặc định và được
+  khuyến nghị** (`DenyServiceExternalIPs`, `NodeRestriction`), và nhóm **chỉ cân nhắc cho một số
+  trường hợp** (`AlwaysPullImages`, `ImagePolicyWebhook`).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Các đoạn văn giải thích dài dưới mỗi nhóm ô | là phần bù cho ô tương ứng, chỉ đọc khi ô đó không đạt | giai đoạn 9, đúng bài của ô đó |
+| Ô về cloud metadata API `169.254.169.254`, LoadBalancer và ExternalIPs | cluster lab không chạy trên nhà cung cấp cloud | không cần |
+| Ô *Log và kiểm toán* và ô mã hóa Secret khi lưu trữ | chưa bật audit, và đã ghi trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) | CP7 audit/encryption |
+| `--use-service-account-credentials`, thời hạn certificate, quy trình rà soát quyền định kỳ | thuộc vận hành control plane | CP3 vòng đời chứng chỉ |
+| Ô về quét image, ký image và `sha256` digest | thuộc pipeline CI/CD ngoài cluster | bài [130](130-application-security-checklist-vi.md) |
+
+---
+
 Danh sách kiểm tra (checklist) này nhằm cung cấp một danh sách hướng dẫn cơ bản kèm các liên kết
 đến tài liệu đầy đủ hơn cho từng chủ đề. Nó không tự nhận là đầy đủ
 và sẽ tiếp tục được phát triển theo thời gian.
@@ -390,3 +433,44 @@ có quyền sử dụng image đó.
   các khuyến nghị về tùy chọn cấu hình và thực hành tốt về multi-tenancy.
 - [Bài blog "A Closer Look at NSA/CISA Kubernetes Hardening Guidance"](https://kubernetes.io/blog/2021/10/05/nsa-cisa-kubernetes-hardening-guidance/#building-secure-container-images)
   là tài nguyên bổ trợ về tăng cường bảo mật (hardening) cluster Kubernetes.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Ba câu dưới đây hỏi về **cách dùng** checklist, không phải về nội dung từng ô. Trả lời được mà
+không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Tài liệu này dùng như thế nào cho đúng, và vì sao thứ tự các nhóm ô **không** cho bạn biết
+   nên xử lý ô nào trước?
+2. Bạn đối chiếu xong và đánh dấu hết mọi ô. Theo cảnh báo ngay đầu bài, kết luận "cluster đã
+   an toàn" có đúng không, và bài yêu cầu bạn làm gì với từng nhóm mục thay vì áp dụng nguyên si?
+3. Trên cluster lab một control plane và hai worker, dùng Flannel, chưa bật audit, chưa mã hóa
+   Secret, bạn chắc chắn sẽ có nhiều ô không đạt. Với những ô đó bạn làm gì, và mục *Admission
+   controller* trong bài giúp bạn quyết định điều gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Dùng nó như **danh sách đối chiếu cluster của bạn**: đi từng ô, kiểm chứng trên cluster thật,
+   đánh dấu đạt hoặc không đạt, và đọc đoạn văn giải thích ngay dưới nhóm đó khi cần hiểu vì sao.
+   Thứ tự không nói lên ưu tiên vì bài ghi thẳng ở phần hướng dẫn đọc: **thứ tự các chủ đề không
+   phản ánh thứ tự ưu tiên**. Muốn biết làm gì trước thì phải tự xếp theo rủi ro của môi trường
+   mình, không đọc từ trên xuống rồi làm theo.
+2. **Không đúng.** Bài cảnh báo **danh sách kiểm tra tự nó không đủ để đạt được một thế trận bảo
+   mật tốt**; một thế trận tốt đòi hỏi **sự chú ý và cải thiện liên tục**, và checklist chỉ là
+   bước đầu tiên. Vì bảo mật Kubernetes **không phải "một khuôn mẫu chung cho tất cả"**, một số
+   khuyến nghị có thể **quá chặt chẽ hoặc quá lỏng lẻo** so với nhu cầu của bạn — nên **mỗi nhóm
+   mục phải được đánh giá dựa trên giá trị riêng của nó**.
+3. Với mỗi ô không đạt, **ghi lại lý do và quyết định**: hoặc khắc phục, hoặc chấp nhận rủi ro
+   một cách có ý thức và ghi vào sổ nợ — chứ không bỏ trống. Mục *Admission controller* giúp bạn
+   quyết định **bật thêm cái gì**: nó chia ba nhóm — nhóm **đang bật mặc định** thì giữ nguyên
+   trừ khi biết rõ mình làm gì; nhóm **đã GA nhưng chưa bật mặc định và được khuyến nghị** như
+   `DenyServiceExternalIPs` và `NodeRestriction` là ứng viên bật thêm; nhóm **chỉ dùng cho một
+   số trường hợp** như `AlwaysPullImages` và `ImagePolicyWebhook` thì cân nhắc theo nhu cầu.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

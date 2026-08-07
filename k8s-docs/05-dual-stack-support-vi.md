@@ -4,6 +4,53 @@
 >
 > Trang này hướng dẫn cách tạo cluster Kubernetes dual-stack (IPv4/IPv6) bằng kubeadm: điều kiện tiên quyết, khởi tạo control plane dual-stack, thêm node vào cluster dual-stack, và tạo cluster single-stack.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 8/9 ·
+Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài ngắn, và bạn **không dựng được** nội dung của nó trên cluster lab: mạng
+`192.168.100.0/24` chỉ có IPv4. Vì vậy đọc nó theo một mục đích khác — nhận ra rằng **cấu hình
+họ địa chỉ là quyết định chốt một lần lúc `kubeadm init`**, giống hệt `--control-plane-endpoint`
+ở bài [02](02-create-cluster-kubeadm-vi.md). Phần đáng nhớ chỉ khoảng mười dòng: đổi ở đâu, và
+cái gì **không** đổi được về sau.
+
+**Phải hiểu ở lần đọc này:**
+
+- Dual-stack nghĩa là control plane có thể gán **đồng thời** một địa chỉ IPv4 và một địa chỉ
+  IPv6 cho **cùng một** Pod hoặc Service. Nó không bắt buộc bạn dùng cả hai: mục *Tạo một
+  cluster single-stack* nói rõ có thể triển khai single-stack **mà tính năng dual-stack vẫn được bật**.
+- *Bật chuyển tiếp gói tin IPv6*: mỗi node phải có `net.ipv6.conf.all.forwarding = 1`, kiểm tra
+  bằng `sysctl net.ipv6.conf.all.forwarding` và đặt bền vững qua file trong `/etc/sysctl.d/`.
+  Đây là bản song sinh IPv6 của `net.ipv4.ip_forward` mà
+  [A4.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
+  đã đặt.
+- Cách khai hai dải: `--pod-network-cidr` và `--service-cidr` nhận **danh sách hai dải cách nhau
+  bằng dấu phẩy**, hoặc tương đương là `ClusterConfiguration.networking.podSubnet` /
+  `serviceSubnet`. Ghi chú quan trọng: `kubeadm upgrade` **không hỗ trợ thay đổi** cluster CIDR
+  và Service CIDR của cluster đã có.
+- Mỗi node phải tự khai IP của mình qua `nodeRegistration.kubeletExtraArgs` với
+  `name: "node-ip"` và **hai địa chỉ cách nhau dấu phẩy** — trong `InitConfiguration` với node
+  đầu tiên, trong `JoinConfiguration` với node join sau.
+- Ranh giới dễ nhầm: `advertiseAddress` (tương đương cờ `--apiserver-advertise-address`) chỉ nói
+  API Server quảng bá nó lắng nghe trên địa chỉ nào, và cờ này **không hỗ trợ dual-stack**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Chọn khối IPv6 nào (`2000::/3`) và kích thước dải nên cấp | phụ thuộc dải được cấp cho tổ chức | không cần |
+| `--node-cidr-mask-size-ipv4` / `--node-cidr-mask-size-ipv6` của kube-controller-manager | tinh chỉnh cấp phát CIDR cho từng node | CP6 DNS, CNI và kube-proxy |
+| Giá trị `token` và `caCertHashes` trong ví dụ `JoinConfiguration` | là dữ liệu thật của từng cluster, không phải cú pháp cần nhớ | không cần |
+| Trang *Kiểm chứng mạng dual-stack IPv4/IPv6* ở mục Tiếp theo | mạng lab chỉ có IPv4 | không cần |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.23 [stable]`
 
 Cluster Kubernetes của bạn bao gồm mạng [dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/),
@@ -178,3 +225,54 @@ networking:
 * [Kiểm chứng mạng dual-stack IPv4/IPv6](https://kubernetes.io/docs/tasks/network/validate-dual-stack)
 * Đọc về mạng cluster [Dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/)
 * Tìm hiểu thêm về [định dạng cấu hình](https://kubernetes.io/docs/reference/config-api/kubeadm-config.v1beta4/) của kubeadm
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
+
+1. Cluster lab của bạn đã dựng xong với Pod CIDR `10.244.0.0/16`. Sáu tháng sau bạn muốn thêm
+   một dải IPv6. `kubeadm upgrade` giải quyết được không?
+2. Bạn muốn dựng lại cluster lab ở chế độ dual-stack. Ngoài `net.ipv4.ip_forward` mà
+   [A4.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
+   đã đặt, phải thêm sysctl nào trên **mỗi** node, và kiểm tra bằng lệnh gì?
+3. Bật dual-stack có bắt buộc mọi Pod và Service phải có cả hai họ địa chỉ không?
+4. Trong file cấu hình dual-stack, `advertiseAddress` nhận được mấy địa chỉ? Còn `node-ip`
+   trong `kubeletExtraArgs` thì sao? Hai trường này khai thứ gì khác nhau?
+5. Nếu không dùng cờ dòng lệnh mà dùng file cấu hình, hai dải Pod và Service được khai ở
+   `kind` nào, dưới trường nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Bài ghi chú thẳng: nếu bạn đang nâng cấp một cluster hiện có bằng `kubeadm
+   upgrade`, kubeadm **không hỗ trợ thay đổi dải địa chỉ IP của Pod ("cluster CIDR") cũng như
+   dải địa chỉ Service ("Service CIDR")**. Đây là quyết định chốt tại thời điểm `kubeadm init`,
+   cùng nhóm với `--control-plane-endpoint` ở bài [02](02-create-cluster-kubeadm-vi.md): muốn
+   đổi thì phải dựng lại cluster.
+2. **`net.ipv6.conf.all.forwarding = 1`**, đặt bằng cách ghi vào một file trong `/etc/sysctl.d/`
+   rồi `sudo sysctl --system` để nó **được giữ nguyên qua các lần khởi động lại**. Kiểm tra
+   bằng `sysctl net.ipv6.conf.all.forwarding` — kết quả `net.ipv6.conf.all.forwarding = 1`
+   nghĩa là đã bật. Bài đặt yêu cầu này ở mức **mỗi máy chủ mà bạn muốn dùng làm node**, tức cả
+   ba VM, đúng như A4.1 làm với ba sysctl IPv4.
+3. **Không.** Ghi chú ở mục *Tạo một cluster single-stack* nói rõ: **hỗ trợ dual-stack không có
+   nghĩa là bạn bắt buộc phải dùng địa chỉ dual-stack** — bạn có thể triển khai một cluster
+   single-stack mà tính năng mạng dual-stack vẫn được bật. Chỗ dễ nhầm là coi "cluster
+   dual-stack" và "tính năng dual-stack" là một; cái quyết định là bạn khai **mấy dải** trong
+   `podSubnet`/`serviceSubnet`.
+4. `advertiseAddress` nhận **một** địa chỉ, vì bài ghi chú **cờ `--apiserver-advertise-address`
+   không hỗ trợ dual-stack** (và `advertiseAddress` chính là tương đương của cờ đó). `node-ip`
+   thì nhận **hai** địa chỉ cách nhau dấu phẩy, ví dụ `"10.100.0.2,fd00:1:2:3::2"`. Chúng khai
+   hai thứ khác nhau: `advertiseAddress` là địa chỉ mà **API Server quảng bá rằng nó đang lắng
+   nghe trên đó**, còn `node-ip` là địa chỉ của **node** mà kubelet đăng ký.
+5. Trong **`ClusterConfiguration`**, dưới **`networking`**, với hai trường **`podSubnet`** và
+   **`serviceSubnet`**, mỗi trường nhận danh sách phân tách bằng dấu phẩy — tương đương
+   `--pod-network-cidr` và `--service-cidr`. `InitConfiguration` trong cùng file lo phần riêng
+   của node đầu tiên: `localAPIEndpoint.advertiseAddress`, `bindPort` và `nodeRegistration`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -4,6 +4,45 @@
 >
 > Các hướng dẫn cơ bản (baseline) về việc đảm bảo bảo mật ứng dụng trên Kubernetes, dành cho các nhà phát triển ứng dụng.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 15/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Cũng không phải bài đọc.** Giống bài [129](129-security-checklist-vi.md), đây là checklist để
+đối chiếu — nhưng đối tượng khác: bài 129 rà **cả cluster** dưới góc nhìn quản trị viên, còn bài
+này rà **một workload sắp triển khai** dưới góc nhìn nhà phát triển, và **giả định người dùng
+chỉ làm việc với các đối tượng thuộc phạm vi namespace**. Dùng nó lúc viết manifest, không phải
+lúc kiểm tra cluster.
+
+**Phải hiểu ở lần đọc này (cách dùng, không phải nội dung):**
+
+- Khác biệt về **góc nhìn và phạm vi** so với bài [129](129-security-checklist-vi.md) — nêu ở
+  trên. Biết dùng đúng bài cho đúng việc là mục tiêu chính của lần đọc này.
+- Bài chia hai phần: ***Tăng cường bảo mật cơ bản*** (khuyến nghị áp dụng cho **hầu hết** ứng
+  dụng triển khai lên Kubernetes) và ***Tăng cường bảo mật nâng cao*** (chỉ hữu ích tùy cách
+  thiết lập môi trường).
+- Bảy nhóm ô của phần cơ bản: thiết kế ứng dụng, service account, `securityContext` cấp Pod,
+  `securityContext` cấp container, RBAC, bảo mật image, network policy.
+- Cùng ba điều kiện sử dụng như bài 129: **thứ tự chủ đề không phản ánh ưu tiên**, giải thích
+  nằm trong đoạn văn dưới mỗi danh sách, và **checklist tự nó không đủ** — mỗi nhóm mục phải
+  được đánh giá theo giá trị riêng.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Bảo mật container Linux* — seccomp, AppArmor, SELinux | là nội dung của bài ràng buộc kernel | bài [127](127-linux-kernel-security-vi.md) |
+| *Runtime class* — gVisor, kata-containers, confidential VM | cần RuntimeClass và một runtime thay thế | bài [43](43-runtime-class-vi.md) |
+| ValidatingAdmissionPolicy khuyến nghị cho workload nhạy cảm | cần hiểu admission policy trước | bài [173](173-admission-webhooks-vi.md) |
+| Ô về quét image và ký container | thuộc chuỗi cung ứng và pipeline CI/CD | bài [114](114-cloud-native-security-vi.md) |
+
+---
+
 Danh sách kiểm tra (checklist) này nhằm cung cấp các hướng dẫn cơ bản về việc bảo mật các ứng dụng
 chạy trong Kubernetes từ góc nhìn của nhà phát triển (developer).
 Danh sách này không nhằm mục đích đầy đủ và sẽ tiếp tục được phát triển theo thời gian.
@@ -128,3 +167,40 @@ như [kata-containers](https://katacontainers.io/).
 Trong các môi trường đòi hỏi độ tin cậy cao, hãy cân nhắc sử dụng
 [máy ảo bảo mật (confidential virtual machine)](https://kubernetes.io/blog/2023/07/06/confidential-kubernetes/)
 để nâng cao hơn nữa bảo mật của cluster.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Ba câu dưới đây hỏi về **cách dùng** checklist, không phải về nội dung từng ô. Trả lời được mà
+không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Checklist này khác [129](129-security-checklist-vi.md) ở góc nhìn nào, và nó giả định người
+   dùng làm việc với loại đối tượng nào?
+2. Ứng dụng của bạn đạt hết các ô trong phần *Tăng cường bảo mật cơ bản*. Theo cảnh báo đầu
+   bài, có kết luận được là ứng dụng đã an toàn không, và bài yêu cầu đánh giá theo cách nào?
+3. Bạn sắp triển khai một Deployment vào namespace `default` của cluster lab. Nhóm ô *Service
+   account* yêu cầu bạn làm hai việc gì trước khi apply?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Bài này viết **từ góc nhìn của nhà phát triển (developer)** và nhắm vào **việc bảo mật các
+   ứng dụng chạy trong Kubernetes**, còn [129](129-security-checklist-vi.md) rà **cả cluster**
+   dưới góc nhìn quản trị viên. Bài giả định **`developer` là một người dùng cluster Kubernetes,
+   người tương tác với các đối tượng thuộc phạm vi namespace** — nên mọi ô ở đây đều nằm trong
+   tầm với của một người không có quyền cấp cluster.
+2. **Không.** Cảnh báo giống hệt bài 129: **danh sách kiểm tra tự nó không đủ** để đạt được một
+   thế trận bảo mật tốt; nó chỉ là **bước đầu tiên trên một hành trình không có điểm dừng**. Vì
+   bảo mật Kubernetes **không phải "một khuôn mẫu chung cho tất cả"**, một số khuyến nghị có thể
+   quá chặt hoặc quá lỏng với bạn, nên **mỗi nhóm mục phải được đánh giá dựa trên giá trị riêng
+   của nó**.
+3. Thứ nhất, **tránh dùng ServiceAccount `default`** — tạo một ServiceAccount riêng cho từng
+   workload hoặc microservice. Thứ hai, đặt **`automountServiceAccountToken: false`** trừ khi
+   Pod **thực sự cần truy cập Kubernetes API để hoạt động**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

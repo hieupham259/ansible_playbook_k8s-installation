@@ -2,6 +2,56 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/pods/disruptions/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3b](LO-TRINH-ADMIN.md#3b-cấu-hình-và-tài-nguyên), bài 6/7 ·
+Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này viết cho **hai người đọc khác nhau** — chủ sở hữu ứng dụng và quản trị viên cluster —
+và câu mở đầu nói rõ điều đó. Bạn đang học vai trò thứ hai, nên phần đáng giá nhất là ví dụ
+drain ba node ở giữa bài: nó cho thấy chính xác vì sao một lệnh `kubectl drain` có thể treo.
+Phần *Tách biệt vai trò Chủ sở hữu Cluster và Chủ sở hữu Ứng dụng* là chuyện tổ chức, không
+phải cơ chế.
+
+Bài nhắc nhiều controller (Deployment, StatefulSet) mà bạn chưa học ở giai đoạn 4. Lúc này chỉ
+cần hiểu chúng là thứ giữ cho số replica luôn đúng như khai báo.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ranh giới **tự nguyện / không tự nguyện** và cách phân loại của bài: kernel panic, mất node
+  do phân mảnh mạng, và **eviction do node cạn kiệt tài nguyên** đều là *không tự nguyện*;
+  drain node, xóa Pod, sửa pod template là *tự nguyện*.
+- PDB chỉ chặn được gián đoạn tự nguyện **đi qua Eviction API**. Khối *Thận trọng* nói thẳng:
+  xóa deployment hoặc xóa pod **bỏ qua** PDB. Còn gián đoạn không tự nguyện thì PDB không ngăn
+  được nhưng **vẫn được tính vào ngân sách**.
+- Số Pod "dự kiến" của PDB lấy từ `.spec.replicas` của workload resource sở hữu Pod, tìm ra
+  qua `.metadata.ownerReferences`; nhóm Pod được chọn bằng **label selector**.
+- `kubectl drain` gọi Eviction API và **thử lại các yêu cầu bị từ chối** cho tới khi xong hoặc
+  hết timeout — nên nó có thể bị chặn rất lâu, đúng như ví dụ `pod-d` và `pod-e` ở mục
+  *Ví dụ về PodDisruptionBudget*. Điều gì quyết định tốc độ đó được liệt kê ở cuối mục ấy.
+- Hai ngoại lệ dễ sai: **rolling upgrade của workload resource không bị PDB giới hạn** (việc
+  đó cấu hình trong spec của chính workload), và Pod bị trục xuất qua Eviction API vẫn được
+  kết thúc êm, tôn trọng `terminationGracePeriodSeconds`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Các condition gián đoạn của Pod* — `DisruptionTarget` và các `reason` | mỗi `reason` thuộc một cơ chế chưa học | giai đoạn 7a, bài [141](141-pod-priority-preemption-vi.md) và [142](142-node-pressure-eviction-vi.md) |
+| Dùng condition gián đoạn trong Pod failure policy của Job | chưa học Job | giai đoạn 4, bài [67](67-job-vi.md) |
+| anti-affinity và trải ứng dụng theo zone | chưa học lập lịch | giai đoạn 7a, bài [138](138-assign-pod-node-vi.md) |
+| `PriorityClass` như một nguồn gây gián đoạn | chưa học độ ưu tiên | giai đoạn 7a, bài [141](141-pod-priority-preemption-vi.md) |
+| Unhealthy Pod Eviction Policy (`AlwaysAllow`) | là tùy chọn khi cấu hình PDB thật | CP1 — Vòng đời node |
+| Thực hành cordon / drain / uncordon | cần quy trình bảo trì node | giai đoạn 12, bài [169](169-node-shutdown-vi.md) và CP1 |
+| *Tách biệt vai trò Chủ sở hữu Cluster và Chủ sở hữu Ứng dụng* | là mô hình tổ chức, không phải cơ chế | giai đoạn 9, bài [122](122-multi-tenancy-vi.md) |
+
+---
+
 Hướng dẫn này dành cho các chủ sở hữu ứng dụng (application owner) muốn xây dựng
 các ứng dụng có tính sẵn sàng cao (high availability), và do đó cần hiểu
 những loại gián đoạn (disruption) nào có thể xảy ra với Pod.
@@ -317,3 +367,59 @@ là một số lựa chọn:
 
 * Tìm hiểu về [cập nhật một deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#updating-a-deployment),
   bao gồm các bước để duy trì tính khả dụng của nó trong quá trình rollout.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Một ứng dụng 3 replica có PDB yêu cầu luôn còn ít nhất 2 pod khả dụng. Đồng nghiệp chạy
+   `kubectl delete deployment` lên chính ứng dụng đó. PDB có chặn không?
+2. `k8s-worker2` bị kernel panic và biến mất khỏi cluster. Đó là loại gián đoạn nào, PDB có
+   bảo vệ được không, và nó có ảnh hưởng gì tới các gián đoạn tự nguyện sau đó?
+3. Cluster lab của bạn chỉ có hai worker. Một ứng dụng 3 replica có PDB "ít nhất 2 pod khả
+   dụng", các pod nằm rải trên cả hai worker. Bạn chạy `kubectl drain k8s-worker2`. Những gì
+   quyết định lệnh này chạy xong hay treo lại?
+4. Số pod "dự kiến" mà PDB dùng để tính ngân sách lấy từ đâu? Control plane biết pod nào
+   thuộc workload nào bằng cách nào?
+5. Một Deployment 3 replica có PDB "ít nhất 2 pod khả dụng" đang chạy rolling update, và
+   trong lúc đó có 1 pod tạm thời không khả dụng. Rollout có bị PDB chặn không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không chặn.** Đây là bẫy kinh điển: PDB *trông như* một hàng rào bảo vệ chung cho ứng
+   dụng, nhưng nó chỉ ràng buộc những gì đi qua **Eviction API**. Khối *Thận trọng* nói thẳng:
+   "Không phải mọi gián đoạn tự nguyện đều bị ràng buộc bởi Pod Disruption Budget. Ví dụ, việc
+   xóa deployment hoặc pod sẽ bỏ qua Pod Disruption Budget." Vì vậy bài khuyến nghị người quản
+   lý cluster và nhà cung cấp hosting **dùng công cụ tôn trọng PDB bằng cách gọi Eviction API**
+   thay vì xóa trực tiếp. PDB bảo vệ khỏi tự động hóa cư xử đúng mực, không bảo vệ khỏi
+   `kubectl delete`.
+2. **Gián đoạn không tự nguyện** — kernel panic nằm đúng trong danh sách ví dụ ở đầu bài, cùng
+   với lỗi phần cứng và mất node do phân mảnh mạng. **PDB không ngăn được** chúng: "Gián đoạn
+   không tự nguyện không thể bị PDB ngăn chặn; **tuy nhiên chúng vẫn được tính vào ngân sách**."
+   Hệ quả trực tiếp: sau sự cố đó, ngân sách đã bị tiêu hết, nên một thao tác drain hay nâng
+   cấp *tự nguyện* ngay sau đó sẽ bị từ chối cho tới khi ứng dụng phục hồi đủ replica.
+3. `kubectl drain` gọi Eviction API cho từng pod trên node; yêu cầu bị từ chối sẽ được
+   **thử lại định kỳ** cho tới khi mọi pod trên node kết thúc hoặc **hết timeout cấu hình
+   được**. Nó chỉ đi tiếp khi ứng dụng vẫn còn ≥ 2 pod khả dụng — nghĩa là pod thay thế phải
+   được tạo và trở nên khả dụng trên `k8s-worker1`. Nếu worker còn lại **không đủ tài nguyên**
+   để lập lịch pod thay thế, pod đó nằm `Pending` và drain bị chặn tiếp — đúng tình huống
+   `pod-e` trong ví dụ của bài, và lối thoát ở đó là **thêm node**. Cuối mục ví dụ liệt kê
+   đủ những gì điều tiết tốc độ này: số replica cần, thời gian tắt êm, thời gian một instance
+   mới khởi động, loại controller, và năng lực tài nguyên của cluster.
+4. Lấy từ **`.spec.replicas` của workload resource đang quản lý các pod đó**. Control plane
+   phát hiện workload nào sở hữu một pod bằng cách xem **`.metadata.ownerReferences`** của
+   Pod. Còn nhóm pod hợp thành ứng dụng thì được chỉ định bằng **label selector**, giống
+   selector mà controller của ứng dụng dùng.
+5. **Không.** Các pod bị xóa hoặc không khả dụng trong một đợt nâng cấp cuốn chiếu **vẫn được
+   tính vào ngân sách gián đoạn**, nhưng bản thân workload resource (Deployment, StatefulSet)
+   **không bị PDB giới hạn khi thực hiện nâng cấp cuốn chiếu**. Việc kiểm soát mức không khả
+   dụng trong lúc rollout được cấu hình trong **spec của chính workload**, không phải trong PDB.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

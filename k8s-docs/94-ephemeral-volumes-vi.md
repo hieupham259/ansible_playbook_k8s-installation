@@ -2,6 +2,52 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 7/16 · Kiểm chứng ở
+Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này gom lại thành một khái niệm những thứ bạn đã dùng rời rạc từ giai đoạn 3 (`emptyDir`,
+`configMap`, `secret`) và thêm một loại mới đáng chú ý: **volume tạm thời tổng quát**, thứ
+trông như `emptyDir` nhưng thực chất sinh ra một PVC thật. Đọc kỹ đúng phần đó và phần vòng
+đời của nó.
+
+**Phải hiểu ở lần đọc này:**
+
+- Volume tạm thời được khai **inline** trong spec Pod, được tạo và xóa cùng Pod; nhờ vậy Pod
+  dừng rồi chạy lại mà không bị buộc vào nơi có sẵn một persistent volume — đoạn mở đầu.
+- Ba nhóm và ai cung cấp chúng: `emptyDir`/`configMap`/`downwardAPI`/`secret`/`image` do
+  **kubelet** quản lý cục bộ trên từng node; **volume tạm thời CSI** bắt buộc phải có driver
+  bên thứ ba viết riêng cho chế độ inline; **volume tạm thời tổng quát** dùng được với **mọi**
+  driver hỗ trợ cấp phát động — mục *Các loại volume tạm thời*.
+- Volume tạm thời tổng quát cho thêm những gì `emptyDir` không có: lưu trữ gắn qua mạng, kích
+  thước cố định mà Pod không vượt được, dữ liệu ban đầu, và các thao tác snapshot / nhân bản /
+  thay đổi kích thước / theo dõi dung lượng — mục *Volume tạm thời tổng quát*.
+- Cơ chế thật của nó: ephemeral volume controller tạo một **PersistentVolumeClaim thật** trong
+  cùng namespace, Pod là chủ sở hữu, và garbage collector xóa PVC khi Pod bị xóa; bài khuyến
+  nghị dùng `WaitForFirstConsumer` để scheduler được tự do chọn node — mục *Vòng đời và
+  PersistentVolumeClaim*.
+- Tên PVC sinh ra là **xác định**: `<tên Pod>-<tên volume>`. Điều đó gây khả năng xung đột;
+  PVC đã tồn tại **không bị ghi đè hay sửa đổi**, và Pod sẽ không khởi động được — mục *Đặt tên
+  PersistentVolumeClaim*. Hệ quả bảo mật: ai tạo được Pod thì gián tiếp tạo được PVC, dù quota
+  PVC theo namespace vẫn áp dụng — mục *Bảo mật*.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Volume tạm thời CSI* | cần driver CSI viết riêng cho chế độ inline, cluster lab chưa có | không cần |
+| *Các hạn chế đối với driver CSI* (`volumeLifecycleModes`, admission webhook) | là thao tác hardening | giai đoạn 9 |
+| Nhắc tới snapshot, nhân bản, theo dõi dung lượng trong *Volume tạm thời tổng quát* | mới chỉ cần biết chúng khả dụng | bài [99](99-volume-snapshots-vi.md), [101](101-volume-pvc-datasource-vi.md), [103](103-storage-capacity-vi.md) |
+| Mục *Tiếp theo* với các link KEP | tài liệu thiết kế | không cần |
+
+---
+
 Tài liệu này mô tả *volume tạm thời* (ephemeral volume) trong Kubernetes. Bạn nên
 làm quen trước với [volume](https://kubernetes.io/docs/concepts/storage/volumes/),
 đặc biệt là PersistentVolumeClaim và PersistentVolume.
@@ -261,3 +307,59 @@ Xem [lưu trữ tạm thời cục bộ (local ephemeral storage)](https://kuber
 
 - Để biết thêm thông tin về thiết kế, xem
   [KEP Generic ephemeral inline volumes](https://github.com/kubernetes/enhancements/blob/master/keps/sig-storage/1698-generic-ephemeral-volumes/README.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. `emptyDir` và volume tạm thời tổng quát đều biến mất cùng Pod. Vậy khác biệt thực chất giữa
+   chúng là gì?
+2. Cluster lab của bạn (`k8s-master` + 2 worker) **chưa có StorageClass và chưa có provisioner**.
+   Trong ba nhóm volume tạm thời mà bài liệt kê, nhóm nào bạn dùng được ngay và nhóm nào phải
+   đợi Lab 6a? Vì sao.
+3. Pod tên `my-app` có volume tạm thời tổng quát tên `scratch-volume`. PVC sinh ra tên gì, ai
+   tạo và ai xóa nó? Nếu trong namespace đã có sẵn một PVC trùng tên do bạn tạo tay thì sao?
+4. Bài khuyến nghị dùng `WaitForFirstConsumer` cho volume tạm thời tổng quát. Vì sao, và
+   `Immediate` gây ra chuyện gì?
+5. Vì sao việc cho phép volume tạm thời tổng quát lại là một quyết định **bảo mật**, không chỉ
+   là một lựa chọn tiện lợi?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `emptyDir` chỉ là một thư mục lấy từ **lưu trữ cục bộ do kubelet quản lý** trên chính node
+   đang chạy Pod. Volume tạm thời tổng quát **được cấp phát bởi một storage driver hỗ trợ cấp
+   phát động**, nên nó có thể là **lưu trữ gắn qua mạng**, có **kích thước cố định mà Pod không
+   vượt được**, có thể **có sẵn dữ liệu ban đầu**, và hỗ trợ các thao tác volume thông thường:
+   snapshot, nhân bản, thay đổi kích thước, theo dõi dung lượng. Điểm giống nhau duy nhất là
+   vòng đời gắn với Pod.
+2. Dùng được ngay: **nhóm do kubelet quản lý** — `emptyDir`, `configMap`, `downwardAPI`,
+   `secret`, `image`. Chúng được cấp dưới dạng lưu trữ tạm thời cục bộ, không cần bất kỳ driver
+   nào. Phải đợi: **volume tạm thời tổng quát**, vì nó tạo ra một PVC thật và PVC đó cần một
+   driver hỗ trợ **cấp phát động** mới có volume. **Volume tạm thời CSI** thì còn xa hơn: nó
+   *bắt buộc* phải có driver CSI viết riêng cho chế độ inline, và Lab 6a không hứa điều đó.
+3. PVC tên **`my-app-scratch-volume`** — tên Pod nối tên volume bằng một dấu gạch nối. **Ephemeral
+   volume controller tạo** nó trong cùng namespace với Pod, và vì Pod là chủ sở hữu nên
+   **garbage collector của Kubernetes xóa** nó khi Pod bị xóa. Nếu đã có PVC trùng tên do bạn
+   tạo tay: **PVC đó không bị ghi đè hay sửa đổi** — việc kiểm tra dựa trên quan hệ sở hữu, một
+   PVC chỉ được dùng cho volume tạm thời nếu nó được tạo cho chính Pod đó. Nhưng xung đột không
+   vì thế mà được giải quyết: thiếu đúng PVC cần thiết thì **Pod không khởi động được**.
+4. Vì với `WaitForFirstConsumer`, việc gắn kết và cấp phát chỉ diễn ra khi Pod đã được lập lịch
+   tạm thời lên một node, nên **scheduler được tự do chọn node phù hợp cho Pod**. Với chế độ
+   gắn kết tức thời (`Immediate`), volume được tạo trước và **scheduler bị buộc phải chọn một
+   node có quyền truy cập tới volume đó** — đúng cái bẫy đã gặp ở bài
+   [96](96-storage-classes-vi.md), chỉ khác là ở đây nó xảy ra sau lưng bạn vì PVC do controller
+   sinh ra.
+5. Vì cơ chế này cho phép **người dùng chỉ có quyền tạo Pod gián tiếp tạo được PVC**, kể cả khi
+   họ không có quyền tạo PVC trực tiếp. Quản trị viên phải biết điều đó; nếu nó không hợp với
+   mô hình bảo mật thì bài khuyên dùng admission webhook từ chối các Pod chứa volume tạm thời
+   tổng quát. Điểm trấn an duy nhất là **quota PVC theo namespace vẫn được áp dụng**, nên không
+   ai lách được các chính sách khác bằng đường này.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

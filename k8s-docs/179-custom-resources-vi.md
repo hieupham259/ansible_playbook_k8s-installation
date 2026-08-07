@@ -4,6 +4,53 @@
 >
 > *Custom resource* (tài nguyên tùy chỉnh) là các phần mở rộng của Kubernetes API. Trang này bàn về việc khi nào nên thêm một custom resource vào cluster Kubernetes của bạn và khi nào nên dùng một dịch vụ độc lập. Trang cũng mô tả hai phương pháp để thêm custom resource và cách lựa chọn giữa chúng.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 14](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 3/7 ·
+Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Giai đoạn này lộ trình ghi rõ là **dành cho platform administrator / người phát triển operator**.
+
+Bài này viết cho **hai loại người đọc trộn lẫn**: người thiết kế API (nên chọn API nào) và người
+vận hành cluster (cài custom resource vào có hệ quả gì). Với vai trò admin, **trọng tâm là hai
+bảng so sánh CRD với aggregated API** ở mục *Chọn phương pháp thêm custom resource* — đó là thứ
+lộ trình nhắm tới. Các mục về thiết kế API khai báo đọc lướt được.
+
+**Phải hiểu ở lần đọc này:**
+
+- Custom resource **một mình chỉ cho phép lưu trữ và truy xuất dữ liệu có cấu trúc**. Phải ghép
+  với một **custom controller** thì nó mới thành *API khai báo* thực thụ — bạn khai báo trạng
+  thái mong muốn, controller giữ trạng thái hiện tại đồng bộ với nó.
+- Bảng *So sánh mức độ dễ dùng*: CRD **không đòi hỏi lập trình**, **không thêm dịch vụ nào phải
+  chạy**, vá lỗi đến theo các đợt nâng cấp Kubernetes thông thường. Aggregated API thì phải
+  build binary và image, **thêm một dịch vụ có thể hỏng**, và bạn tự tiếp nhận bản vá upstream.
+- Bảng *Tính năng nâng cao và tính linh hoạt*: bốn thứ **CRD không làm được** — custom storage,
+  subresource ngoài CRUD (`logs`, `exec`), `strategic-merge-patch`, Protocol Buffers. Đổi lại,
+  validation, defaulting, multi-versioning, scale và status subresource thì CRD **có**.
+- Ranh giới ConfigMap ↔ custom resource: ConfigMap khi file cấu hình được chương trình trong Pod
+  đọc để tự cấu hình; custom resource khi bạn muốn `kubectl` hỗ trợ ở mức cao nhất, muốn watch
+  thay đổi để tự động hóa, và muốn dùng quy ước `.spec`/`.status`/`.metadata`.
+- Hệ quả vận hành ở mục *Chuẩn bị cài đặt*: CRD **luôn dùng chung** cơ chế xác thực, phân quyền
+  và audit log với resource dựng sẵn (aggregated API server thì có thể không); và **hầu hết role
+  RBAC sẽ không tự cấp quyền** cho resource mới — phải cấp tường minh.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Bảng *Cân nhắc dùng API aggregation nếu / Ưu tiên một API độc lập nếu* | trả lời câu hỏi "có nên đưa API này vào Kubernetes không", chỉ cần khi bạn tự thiết kế API | Lab 14 |
+| *API khai báo* — danh sách dấu hiệu của API mệnh lệnh | là tiêu chí thiết kế API, không phải việc của admin | Lab 14 |
+| Bảng *Các tính năng chung* | liệt kê thứ bạn được cho không; bạn đã dùng chúng từ lâu trên resource dựng sẵn | giai đoạn 1 — bài [21](21-kubernetes-api-vi.md) |
+| *Lưu trữ* — storage version và các phép chuyển đổi | chỉ gặp khi CRD của bạn đã có nhiều version | Lab 14 |
+| *Field selector cho custom resource* và `selectableFields` | là tinh chỉnh sau khi CRD đã chạy | Lab 14 |
+
+---
+
 *Custom resource* là các phần mở rộng của Kubernetes API. Trang này bàn về việc khi nào nên thêm một custom resource vào cluster Kubernetes của bạn và khi nào nên dùng một dịch vụ độc lập (standalone service). Trang cũng mô tả hai phương pháp để thêm custom resource và cách lựa chọn giữa chúng.
 
 ## Custom resource
@@ -283,3 +330,64 @@ example2   blue   M
 
 * Tìm hiểu cách [Mở rộng Kubernetes API bằng tầng tổng hợp (aggregation layer)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/).
 * Tìm hiểu cách [Mở rộng Kubernetes API bằng CustomResourceDefinition](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 14:
+
+1. Bạn tạo một CRD `SampleDB` và `kubectl apply` một đối tượng của nó, nhưng không triển khai
+   controller nào. Theo bài, bạn vừa có được thứ gì — và **chưa** có thứ gì?
+2. Kể bốn khả năng mà **aggregated API có còn CRD không có**, theo bảng *Tính năng nâng cao và
+   tính linh hoạt*. Còn *validation* và *defaulting* thì sao — CRD làm được không, và bằng cách
+   nào?
+3. Bạn cần một API mới gồm ba trường, dùng nội bộ công ty, không cần kho lưu trữ riêng. Bài
+   khuyên chọn phương pháp nào và vì sao? Nếu sáu tháng sau bạn cần thêm một subresource `logs`
+   thì quyết định đó còn đứng vững không?
+4. Nhóm dev muốn dùng custom resource làm nơi lưu kết quả đo của ứng dụng, mỗi bản ghi vài chục
+   kB và ghi hàng chục lần mỗi giây. Bài phản đối bằng những lập luận nào?
+5. Trên cluster lab v1.35.6, bạn cài một CRD rồi cấp cho một ServiceAccount ClusterRole `view`
+   dựng sẵn. ServiceAccount đó có đọc được custom resource mới không? Bài nói gì về RBAC và
+   resource mới?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Bạn mới có **một kho lưu trữ dữ liệu có cấu trúc**: "Bản thân custom resource chỉ cho phép bạn
+   lưu trữ và truy xuất dữ liệu có cấu trúc." Bạn **chưa có API khai báo**. API khai báo chỉ
+   thành hình khi ghép custom resource với **custom controller** — thứ giữ cho trạng thái hiện
+   tại đồng bộ với trạng thái mong muốn bạn khai báo. Không có controller thì `kubectl apply`
+   chỉ ghi một bản ghi vào etcd và không có gì trong cluster thay đổi.
+2. **Bốn thứ CRD không có:** *Custom Storage* (kho lưu trữ có đặc tính hiệu năng khác hoặc cô
+   lập vì bảo mật), *Other Subresources* (thao tác ngoài CRUD như `logs`, `exec`),
+   *strategic-merge-patch*, và *Protocol Buffers*. Ngoài ra còn một ràng buộc riêng của CRD:
+   **tên đối tượng phải là DNS subdomain hợp lệ**, aggregated API thì không bị ràng buộc này.
+   **Validation và defaulting thì CRD có**: validation khai báo bằng OpenAPI v3.0 (phần còn lại
+   bổ sung bằng Validating Webhook), defaulting bằng từ khóa `default` của OpenAPI v3.0 hoặc
+   Mutating Webhook. Đây là chỗ dễ nhầm — người ta hay tưởng CRD "không validate được".
+3. **CRD.** Bài nêu đúng hai dấu hiệu này: "Bạn chỉ có một vài trường" và "Bạn dùng resource đó
+   trong nội bộ công ty". Nhưng nếu sau này cần subresource `logs` thì quyết định **không còn
+   đứng vững**: subresource ngoài CRUD nằm trong cột "Không" của CRD, chỉ aggregated API mới làm
+   được. Nói cách khác, ràng buộc thực sự không phải số trường mà là **những tính năng API bạn
+   sẽ cần**.
+4. Ba lập luận. **(a)** Ở mục *Thêm custom resource*, bài ghi thẳng: "Tránh dùng Custom Resource
+   làm nơi lưu trữ dữ liệu của ứng dụng, dữ liệu người dùng cuối hay dữ liệu giám sát" — đó là
+   thiết kế **bị ràng buộc quá chặt**, trái với ưa chuộng ràng buộc lỏng của kiến trúc cloud
+   native; workload sẽ phụ thuộc Kubernetes API cho hoạt động bình thường. **(b)** Ở mục *API
+   khai báo*, "lưu trữ trực tiếp lượng dữ liệu lớn (> vài kB mỗi đối tượng)" và "cần truy cập
+   băng thông cao (hàng chục request mỗi giây)" là dấu hiệu API **không mang tính khai báo**.
+   **(c)** Ở mục *Lưu trữ*, custom resource tiêu tốn không gian lưu trữ như ConfigMap, và tạo
+   quá nhiều có thể **làm quá tải không gian lưu trữ của API server**.
+5. **Không.** Bài nói: "hầu hết các role RBAC sẽ không cấp quyền truy cập tới resource mới (ngoại
+   trừ role cluster-admin hoặc bất kỳ role nào được tạo với luật wildcard). Bạn sẽ cần cấp quyền
+   truy cập một cách tường minh cho resource mới." Lý do sâu hơn: **CRD dùng đúng cơ chế xác
+   thực, phân quyền và audit log của API server** như resource dựng sẵn — nên nó cũng thừa hưởng
+   nguyên tắc "không có rule thì không có quyền". Thực tế, CRD và aggregated API thường được
+   đóng gói kèm sẵn các định nghĩa role mới cho kiểu dữ liệu chúng thêm vào.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

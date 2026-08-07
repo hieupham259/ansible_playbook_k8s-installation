@@ -2,6 +2,45 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 9/16 · Kiểm chứng ở
+Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Từ bài này trở đi là phần nâng cao của giai đoạn 6, và **tất cả đều phụ thuộc vào việc CSI
+driver bạn cài ở Lab 6a có hỗ trợ hay không**. Đọc để biết cơ chế và biết cách kiểm tra điều
+kiện, đừng kỳ vọng chạy được ngay. Bài rất ngắn; điều duy nhất đáng nhớ là VolumeAttributesClass
+đổi được **sau khi** volume đã tồn tại — khác hẳn StorageClass.
+
+**Phải hiểu ở lần đọc này:**
+
+- VolumeAttributesClass mô tả các "lớp" lưu trữ **có thể thay đổi được (mutable)**, thường ứng
+  với các mức chất lượng dịch vụ; Kubernetes không áp đặt ý nghĩa cho chúng — đoạn mở đầu.
+- Điều kiện dùng được: **chỉ với lưu trữ qua Container Storage Interface**, và **chỉ khi CSI
+  driver liên quan có triển khai API `ModifyVolume`** — đoạn mở đầu.
+- Cái gì đổi được, cái gì không: **tên** class trong `volumeAttributesClassName` của PVC đổi
+  được, nhưng **các tham số bên trong một class đã tồn tại là bất biến**. Muốn đổi tham số thì
+  tạo class mới rồi trỏ PVC sang, đúng như ví dụ `silver` → `gold` — mục *API
+  VolumeAttributesClass* và *Trình thay đổi kích thước*.
+- Cùng một `driverName` phục vụ hai vai trò ở hai thời điểm: **provisioner** dùng khi PV thuộc
+  lớp đó được cấp phát động, **resizer** dùng khi PV đang có bị chỉnh sửa — mục *Trình cấp
+  phát* và *Trình thay đổi kích thước*.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ví dụ `pd.csi.storage.gke.io`, `provisioned-iops`, `throughput` | tham số đặc thù GCE PD, lab không dùng | không cần |
+| Chi tiết external-provisioner và external-resizer | thuộc phần triển khai CSI | Lab 6b |
+| Giới hạn 512 tham số và 256 KiB trong mục *Tham số* | ngưỡng kỹ thuật, tra khi cần | không cần |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.34 [stable]`
 
 Trang này giả định rằng bạn đã quen thuộc với [StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/),
@@ -122,3 +161,44 @@ Vui lòng tham khảo tài liệu của CSI driver liên quan để biết thêm
 Một VolumeAttributesClass có thể định nghĩa tối đa 512 tham số.
 Tổng độ dài của đối tượng tham số, bao gồm cả các khóa (key) và giá trị (value),
 không được vượt quá 256 KiB.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. StorageClass và VolumeAttributesClass khác nhau ở điểm căn bản nào?
+2. Bạn cần nâng `iops` của lớp `silver` từ 3000 lên 4000 cho một PVC đang chạy. Sửa thẳng đối
+   tượng `silver` được không? Quy trình đúng theo bài là gì?
+3. Cùng một `driverName` được bài nhắc tới trong hai mục khác nhau. Hai vai trò đó là gì và
+   xảy ra vào lúc nào?
+4. Sau Lab 6a cluster lab của bạn sẽ có một provisioner đang chạy. Bạn cần kiểm tra hai điều
+   gì trước khi kết luận VolumeAttributesClass dùng được ở đây?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **StorageClass mô tả lớp lưu trữ lúc cấp phát, VolumeAttributesClass mô tả các lớp *có thể
+   thay đổi được* sau khi volume đã tồn tại.** Đó là lý do bài gọi chúng là "mutable class":
+   bạn đổi mức chất lượng dịch vụ của một volume đang chạy bằng cách trỏ PVC sang một class
+   khác, không cần tạo lại volume.
+2. **Không sửa thẳng được.** Tên class trong PVC thì thay đổi được, nhưng **các tham số trong
+   một lớp đã tồn tại là bất biến**. Quy trình đúng chính là ví dụ của bài: tạo một
+   VolumeAttributesClass mới (`gold`) với tham số mong muốn, rồi cập nhật
+   `volumeAttributesClassName` của PVC từ `silver` sang `gold` và apply.
+3. **Provisioner và resizer.** Với vai trò provisioner, `driverName` xác định volume plugin nào
+   cấp phát PV **khi PV thuộc lớp đó được cấp phát động**. Với vai trò resizer, cũng chính
+   `driverName` đó xác định plugin nào **chỉnh sửa một PV đang có** khi bạn đổi class của PVC.
+   Trường này bắt buộc phải chỉ định trong cả hai trường hợp.
+4. Thứ nhất, **lưu trữ có đi qua Container Storage Interface không** — VolumeAttributesClass
+   chỉ dùng được với CSI. Thứ hai, **CSI driver đó có triển khai API `ModifyVolume` không** —
+   không có thì không đổi được thuộc tính của volume đang chạy. Thiếu một trong hai thì phần
+   này chỉ dừng ở mức đọc, và đó chính là lý do bài được xếp kiểm chứng ở Lab 6b chứ không
+   phải Lab 6a.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

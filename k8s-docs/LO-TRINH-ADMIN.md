@@ -337,7 +337,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 **Mục tiêu:** kiểm soát ai làm được gì, và cô lập workload.
 
 - [ ] [Bảo mật](113-security-vi.md)
-- [ ] [Bảo mật Cloud Native và Kubernetes](114-cloud-native-security-vi.md) — mô hình 4C.
+- [ ] [Bảo mật Cloud Native và Kubernetes](114-cloud-native-security-vi.md) — bốn giai đoạn vòng đời theo sách trắng CNCF: phát triển, phân phối, triển khai, runtime. Bản upstream cũ trình bày cùng ý dưới dạng "mô hình 4C".
 - [ ] [Tài khoản dịch vụ](118-service-accounts-vi.md) — danh tính của Pod khi gọi API.
 - [ ] [Kiểm soát truy cập vào Kubernetes API](119-controlling-access-vi.md) — **bài xương sống**: authentication → authorization (RBAC) → admission control, đúng thứ tự ba chặng.
 - [ ] [Các thực hành tốt về kiểm soát truy cập dựa trên vai trò](120-rbac-good-practices-vi.md) — Role/ClusterRole, binding, nguyên tắc quyền tối thiểu.

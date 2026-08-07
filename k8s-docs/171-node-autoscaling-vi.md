@@ -5,6 +5,51 @@
 > Tự động cấp phát (provision) và hợp nhất (consolidate) các Node trong cluster của bạn
 > để thích ứng với nhu cầu và tối ưu chi phí.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 12](LO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 4/8 ·
+Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này **không kiểm chứng được trên cluster lab**, và đó chính là bài học đầu tiên: autoscaling
+Node cần một cloud provider để tạo và xóa máy đứng sau Node, còn ba VM của bạn là cố định. Đọc để
+nắm **mô hình** — nó phản ứng theo cái gì, quyết định dựa trên con số nào — chứ không để cấu hình
+gì. Nửa sau bài so sánh hai sản phẩm cụ thể; phần đó chỉ có nghĩa khi bạn thực sự chạy trên cloud.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hai thao tác đối xứng: **cấp phát** (provisioning, trước gọi là *scale-up*) khi có Pod không
+  lập lịch được, và **hợp nhất** (consolidation, trước gọi là *scale-down*) khi Node đang dùng
+  dưới mức. Nhớ cả tên cũ vì tài liệu và log của Cluster Autoscaler vẫn dùng chúng.
+- **Cả hai chỉ xét resource request của Pod, không xét mức sử dụng thực tế.** Request đặt sai thì
+  autoscaler quyết định sai — request quá thấp thì cấp Node mới cũng không cứu được Pod, request
+  quá cao thì chặn nhầm việc hợp nhất Node.
+- Autoscaler phải nói chuyện với **API của nhà cung cấp đám mây** để tạo/xóa tài nguyên đứng sau
+  Node, nên nó cần **tích hợp tường minh với từng cloud**. Đây là lý do cluster VM tự dựng không
+  có autoscaling Node.
+- Định nghĩa Node **rỗng**: chỉ còn Pod DaemonSet và static Pod chạy trên đó. Loại bỏ Node rỗng
+  đơn giản; loại bỏ Node **không rỗng** thì gây gián đoạn — Pod bị terminate và phải được tạo lại,
+  dù thông thường không Pod nào rơi vào pending vì việc hợp nhất.
+- Cách kết hợp: **autoscaling workload theo chiều ngang** tạo thêm Pod theo tải, autoscaling Node
+  cấp Node để chứa chúng; **theo chiều dọc** sửa lại request cho đúng, nhờ đó quyết định của
+  autoscaler chính xác — nhưng **không dùng cho Pod DaemonSet**, vì autoscaler phải dự đoán được
+  Pod DaemonSet chiếm bao nhiêu trên một Node mới.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Các ràng buộc Node do cấu hình autoscaler áp đặt* và *Tự động cấp phát* | phụ thuộc hoàn toàn vào sản phẩm autoscaler bạn chọn | không cần |
+| *Cluster Autoscaler*, *Karpenter* và *So sánh các hiện thực* | chọn hiện thực chỉ có nghĩa khi cluster thật sự chạy trên cloud | không cần |
+| *Descheduler* trong *Các thành phần liên quan* | là add-on riêng, hợp nhất theo chính sách tùy chỉnh | CP1 vòng đời node |
+| *Autoscaler cho workload dựa trên kích thước cluster* | co giãn theo số Node, không thuộc autoscaling Node | không cần |
+
+---
+
 Để chạy các workload trong cluster, bạn cần có các Node. Các Node trong cluster có thể
 được _tự động mở rộng_ (autoscaled) — được [_cấp phát_](#provisioning) hoặc
 [_hợp nhất_](#consolidation) một cách linh hoạt nhằm cung cấp năng lực (capacity) cần thiết
@@ -287,3 +332,49 @@ cluster. Bạn có thể đọc thêm trong
 ## Tiếp theo (What's next)
 
 - Đọc về [autoscaling ở cấp độ workload](https://kubernetes.io/docs/concepts/workloads/autoscaling/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 12:
+
+1. Cluster lab có đúng ba VM cố định do bạn tự dựng. Chạy được autoscaling Node ở đây không?
+   Thiếu chính xác thứ gì, chứ không phải "thiếu cấu hình"?
+2. **Câu bẫy.** Một Pod khai `requests.cpu: 2` nhưng thực tế chỉ tiêu thụ `50m`. Autoscaler cấp
+   phát và hợp nhất dựa trên con số nào trong hai con số đó? Điều gì xảy ra với Node đang chạy
+   Pod này khi autoscaler cân nhắc hợp nhất?
+3. Một Node chỉ còn Pod của DaemonSet và static Pod. Autoscaler coi nó là rỗng hay không rỗng, và
+   vì sao ranh giới đó lại đáng nhớ?
+4. Tải ứng dụng tăng vọt, cluster có cả autoscaling workload theo chiều ngang lẫn autoscaling
+   Node. Kể lại thứ tự sự kiện: cái nào phản ứng trước, cái nào phản ứng theo?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Thiếu **một nhà cung cấp đám mây có tích hợp autoscaler**. Bài nói rõ autoscaler
+   cấp phát Node bằng cách **tạo và xóa các tài nguyên của cloud provider đứng sau Node** (phổ
+   biến nhất là máy ảo), và vì vậy chúng **cần được tích hợp tường minh với từng cloud provider
+   được hỗ trợ**. Ba VM bạn tự tạo không có API nào để autoscaler gọi, nên đây là giới hạn về bản
+   chất chứ không phải thiếu một dòng cấu hình.
+2. Dựa trên **`requests.cpu: 2`**. Bài nhấn hai lần: loại ràng buộc lập lịch phổ biến nhất là
+   resource request của container, và **việc hợp nhất, giống như cấp phát, chỉ xét yêu cầu tài
+   nguyên của Pod chứ không xét mức sử dụng thực tế**. Hệ quả với Node này: yêu cầu quá cao **có
+   thể ngăn cản một cách sai lầm việc hợp nhất Node của nó** — Node trông "đầy" trong khi thực tế
+   gần như rỗi, và bạn trả tiền cho nó. Trực giác sai ở chỗ tưởng autoscaler nhìn mức tải thật;
+   nó nhìn con số bạn khai.
+3. **Rỗng.** Bài định nghĩa: một Node được coi là rỗng nếu **chỉ có Pod DaemonSet và static Pod**
+   chạy trên đó. Ranh giới này đáng nhớ vì loại bỏ Node rỗng **đơn giản hơn nhiều** và các
+   autoscaler thường có tối ưu riêng cho nó, còn loại bỏ Node không rỗng **gây gián đoạn**: Pod bị
+   terminate và phải được tạo lại ở nơi khác.
+4. **Autoscaling workload phản ứng trước.** Tải tăng → mức sử dụng trung bình của các Pod tăng →
+   autoscaling workload theo chiều ngang **tạo Pod mới**. Các Pod mới này có thể không lập lịch
+   được → **autoscaling Node cấp phát Node mới** để chứa chúng. Khi tải giảm, trình tự đảo lại:
+   autoscaling workload xóa bớt Pod, rồi autoscaling Node **hợp nhất** những Node không còn cần.
+   Nói cách khác, autoscaling Node luôn **phản ứng theo Pod**, không phản ứng trực tiếp theo tải.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

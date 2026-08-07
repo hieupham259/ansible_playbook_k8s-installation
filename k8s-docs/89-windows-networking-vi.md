@@ -2,6 +2,55 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/services-networking/windows-networking/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 15](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
+bài 4/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
+[bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Lộ trình ghi rõ: bỏ qua hoàn toàn giai đoạn 15 nếu cluster của bạn chỉ có Linux.** Cluster lab
+ba VM Ubuntu chạy Flannel của bạn không có node Windows, nên mọi thứ trong bài là kiến thức đối
+chiếu.
+
+Bài này đọc dễ nhầm thành bài chọn CNI. Với vai trò admin, **hai mục đáng nhớ nhất là *Mạng
+container trên Windows* (vì sao mô hình khác Linux ở gốc) và *Hạn chế* (những gì đơn giản là
+không chạy)**. Bảng năm driver mạng chỉ cần khi bạn thật sự phải chọn plugin.
+
+**Phải hiểu ở lần đọc này:**
+
+- Về mặt mạng, container Windows **hoạt động tương tự máy ảo**: mỗi container có một **vNIC** gắn
+  vào một **vSwitch Hyper-V**. **HCS** quản lý container, **HNS** quản lý tài nguyên mạng — mạng
+  ảo, endpoint/vNIC, namespace, và các policy đóng gói gói tin, cân bằng tải, ACL, NAT.
+- Khác biệt gốc so với Linux: DNS, route và metric được lưu trong **registry của Windows**, không
+  phải file trong `/etc`; **registry của container tách khỏi registry của host**, nên "ánh xạ
+  `/etc/resolv.conf` từ host vào container" **không có cùng tác dụng**. Hệ quả: **CNI phải gọi
+  HNS** thay vì dựa vào ánh xạ file.
+- Windows có **năm chế độ mạng**: L2bridge, L2tunnel, Overlay, Transparent và **NAT — không dùng
+  trong Kubernetes**. Trong cluster hỗn hợp, bạn phải chọn giải pháp **tương thích trên cả
+  Windows lẫn Linux**.
+- Bốn loại Service dùng được trên cluster có node Windows: **NodePort, ClusterIP, LoadBalancer,
+  ExternalName**.
+- Mục *Hạn chế* — những thứ **không** được hỗ trợ: **host networking**; **truy cập NodePort cục
+  bộ từ chính node đó**; **hơn 64 Pod backend cho một Service**; IPv6 giữa các Pod Windows trên
+  mạng overlay; Local Traffic Policy khi không dùng DSR; và **ICMP đi xuyên mạng ở xa** — ping
+  trong cùng mạng thì được, ping ra internet thì không, nên dùng `curl` để debug.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Bảng năm driver mạng với cột thay đổi gói tin và plugin tương ứng | là bảng chọn CNI cho cluster có node Windows | khi môi trường thực sự có node Windows |
+| *IPAM*, *Direct Server Return*, bảng *Các thiết lập Service trên Windows* | là tinh chỉnh khi vận hành node Windows thật | khi môi trường thực sự có node Windows |
+| Chi tiết Flannel VXLAN / host-gw trên Windows, giới hạn VNI 4096 và UDP port 4789 | là cấu hình của một CNI cụ thể | khi môi trường thực sự có node Windows |
+| Mô hình mạng Kubernetes và vai trò của CNI nói chung | đã học ở phần mạng | giai đoạn 5 — bài [81](81-services-networking-vi.md) và [183](183-network-plugins-vi.md) |
+
+---
+
 Kubernetes hỗ trợ chạy node trên Linux hoặc Windows. Bạn có thể trộn cả hai loại node
 trong cùng một cluster.
 Trang này cung cấp cái nhìn tổng quan về mạng dành riêng cho hệ điều hành Windows.
@@ -151,3 +200,51 @@ Các hạn chế khác:
   * Flannel bị giới hạn chỉ dùng VNI 4096 và UDP port 4789. Xem tài liệu chính thức về backend
     [Flannel VXLAN](https://github.com/coreos/flannel/blob/master/Documentation/backends.md#vxlan)
     để biết thêm chi tiết về các tham số này.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 15:
+
+1. Câu bẫy: trên node Ubuntu, CNI plugin ghi cấu hình DNS vào `/etc/resolv.conf` trong network
+   namespace của Pod. Vì sao cách làm đó không dùng được trên Windows, và CNI phải làm gì thay
+   thế?
+2. Từ trong một Pod Windows, `ping` sang Pod khác cùng mạng thì được nhưng `ping 8.8.8.8` thì
+   không. Bài giải thích thế nào, và khuyên dùng lệnh gì để debug kết nối ra ngoài?
+3. Trên node Ubuntu bạn `curl <NodeIP>:<NodePort>` ngay trên chính node đó và nó chạy. Trên node
+   Windows thì sao? Còn từ node khác hoặc client bên ngoài?
+4. Một Service trong cluster Windows có 80 Pod backend. Bài nói gì? Trong năm chế độ mạng bài
+   liệt kê, chế độ nào **không** dùng trong Kubernetes?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì trên Windows, **DNS, route và metric được lưu trong cơ sở dữ liệu registry**, không phải
+   dưới dạng file trong `/etc` như Linux. Hơn nữa **registry của container tách biệt với registry
+   của host**, nên "những khái niệm như ánh xạ `/etc/resolv.conf` từ host vào container **không
+   có cùng tác dụng** như trên Linux". Các cấu hình này phải được đặt bằng **API của Windows chạy
+   trong ngữ cảnh của chính container đó** — vì vậy "các hiện thực CNI cần **gọi HNS** thay vì
+   dựa vào ánh xạ file để truyền thông tin mạng vào Pod hoặc container". Đây là khác biệt gốc,
+   không phải thiếu sót của một plugin cụ thể.
+2. Data plane của Windows (**VFP**) **không hỗ trợ chuyển vị (transposition) gói tin ICMP**. Hệ
+   quả bài liệt kê rất rõ ràng: gói ICMP tới đích **trong cùng một mạng** (Pod tới Pod) hoạt động
+   như mong đợi; gói **TCP/UDP** hoạt động như mong đợi; nhưng gói ICMP **cần đi xuyên qua một
+   mạng ở xa** thì không chuyển vị được nên **không định tuyến ngược về nguồn**. Bài khuyên thay
+   `ping <destination>` bằng **`curl <destination>`** khi debug kết nối với thế giới bên ngoài —
+   vì TCP/UDP vẫn chuyển vị được.
+3. **Không chạy.** Mục *Hạn chế* ghi "truy cập NodePort cục bộ từ chính node đó" nằm trong danh
+   sách chức năng mạng **không được hỗ trợ** trên node Windows — nhưng bài nói thêm ngay trong
+   ngoặc rằng nó "**vẫn hoạt động với các node khác hoặc client bên ngoài**". Nói cách khác, đây
+   là lỗi của phép thử chứ không phải của Service: đứng đúng trên node Windows mà tự gọi NodePort
+   của mình là tình huống duy nhất hỏng.
+4. Bài liệt kê "**nhiều hơn 64 Pod backend (hoặc địa chỉ đích duy nhất) cho một Service**" là
+   không được hỗ trợ trên node Windows — 80 backend vượt trần đó. Chế độ mạng **NAT** được đánh
+   dấu thẳng trong bảng là "*không dùng trong Kubernetes*"; nó chỉ được liệt kê cho đầy đủ, dùng
+   vSwitch nội bộ và WinNAT.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

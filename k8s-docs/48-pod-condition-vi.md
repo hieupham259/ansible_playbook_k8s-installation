@@ -2,6 +2,52 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/pods/pod-condition/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 4/11 · Kiểm chứng
+ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài ngắn, và phần lớn nội dung đã xuất hiện dạng rút gọn ở [bài 47](47-pod-lifecycle-vi.md). Giá
+trị của nó là **thứ tự năm condition vòng đời** — đây là công cụ chẩn đoán chính khi một Pod
+không lên `Ready` mà `kubectl get pod` chưa nói được vì sao.
+
+**Phải hiểu ở lần đọc này:**
+
+- Condition **bổ trợ** cho phase, không thay thế nó: một Pod có thể ở phase `Running` mà vẫn chưa
+  sẵn sàng phục vụ lưu lượng. Phase là một giá trị đơn lẻ; condition theo dõi độc lập nhiều khía
+  cạnh cùng lúc.
+- Năm condition vòng đời và **thứ tự đại thể** của chúng: `PodScheduled` →
+  `PodReadyToStartContainers` → `Initialized` → `ContainersReady` → `Ready`. Kubelet đặt tất cả,
+  nhưng sandbox và mạng phía sau `PodReadyToStartContainers` là do container runtime và CNI
+  plugin dựng.
+- Ranh giới `ContainersReady` với `Ready`: `Ready` còn phụ thuộc `readinessGates`. Container đã
+  Ready mà một condition tùy chỉnh thiếu hoặc `False` thì kubelet đặt `Ready` là `"False"` với
+  `reason: ReadinessGatesNotReady`.
+- Ngoại lệ về thứ tự của `Initialized`: Pod **không có** init container thì `Initialized` là
+  `True` **trước** khi tạo sandbox; Pod **có** init container thì `True` **sau** khi các init
+  container hoàn tất, tức là sau khi sandbox và mạng đã dựng xong.
+- `DisruptionTarget` cho biết Pod sắp bị xóa vì một gián đoạn, và `reason` chỉ đích danh thủ
+  phạm: `PreemptionByScheduler`, `DeletionByTaintManager`, `EvictionByEvictionAPI`,
+  `DeletionByPodGC`, `TerminationByKubelet`. Pod bị trục xuất vì tự vượt giới hạn tài nguyên thì
+  **không** nhận condition này.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Trường `observedGeneration` của condition | là chi tiết API của Pod generation | bài [46](46-pods-vi.md), mục *Generation của Pod* |
+| Việc Pod không `Ready` bị loại khỏi endpoint của Service | chưa học Service | giai đoạn 5 — bài [82](82-service-vi.md) |
+| `PodResizePending` và `PodResizeInProgress` | dựa trên requests/limits chưa học | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
+| Cơ chế đứng sau từng `reason` của `DisruptionTarget` | mỗi cơ chế là một bài riêng | giai đoạn 7 — bài [139](139-taint-and-toleration-vi.md), [141](141-pod-priority-preemption-vi.md), [143](143-api-eviction-vi.md) |
+| *Độ sẵn sàng nâng cao của Pod* — tự viết controller quản condition tùy chỉnh | cần biết viết controller | giai đoạn 14 — bài [181](181-operator-vi.md) |
+
+---
+
 Trong Kubernetes, nhiều đối tượng có các _condition_ (điều kiện/trạng thái).
 Condition là các dấu mốc cho một khía cạnh nào đó của trạng thái thực tế của thứ mà đối tượng đại diện.
 Pod có các condition, và các Pod condition của Kubernetes là một khía cạnh quan trọng giúp các controller
@@ -249,3 +295,52 @@ kubelet đặt condition `Ready` của Pod thành `status: "False"` với `reaso
 - Tìm hiểu về [Disruptions](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/).
 - Tìm hiểu về [container probe](https://kubernetes.io/docs/concepts/workloads/pods/probes/) và cách chúng ảnh hưởng đến độ sẵn sàng của Pod.
 - Tìm hiểu cách [thay đổi tài nguyên Pod tại chỗ](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Vì sao chỉ nhìn `phase` không đủ để biết một Pod có đang phục vụ được hay không?
+2. Pod của bạn **không có** init container. Kubelet đặt `Initialized: True` trước hay sau khi
+   sandbox và mạng được dựng? Còn nếu Pod **có** init container?
+3. Trên cluster lab, Flannel dựng mạng cho Pod. Condition nào phản ánh trực tiếp việc sandbox và
+   mạng của Pod đã sẵn sàng, thành phần nào đặt nó, và thành phần nào thực sự làm việc đó?
+4. `ContainersReady` là `True` mà `Ready` vẫn `False`. Bài nêu nguyên nhân nào, và `reason` ghi gì?
+5. Một Pod bị xóa vì taint `NoExecute` mà nó không dung thứ. Condition nào xuất hiện, `reason` là
+   gì? Còn một Pod bị kill vì vượt giới hạn bộ nhớ của chính nó thì sao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì **phase chỉ là một bản tóm tắt ở mức cao** về vị trí của Pod trong vòng đời, và **một giá
+   trị đơn lẻ không nắm được bức tranh toàn cảnh**. Bài lấy đúng ví dụ này: một Pod có thể đang ở
+   phase `Running` **nhưng chưa sẵn sàng phục vụ lưu lượng**. Condition mới là thứ theo dõi độc
+   lập từng khía cạnh: đã lập lịch chưa, container đã sẵn sàng chưa, có đang resize không, có sắp
+   bị gián đoạn không.
+2. **Không có init container thì `Initialized` là `True` *trước* khi việc tạo sandbox và cấu hình
+   mạng bắt đầu.** Có init container thì ngược lại: `True` **sau** khi các init container hoàn tất
+   thành công, mà điều đó lại xảy ra **sau** khi runtime plugin tạo sandbox và cấu hình mạng xong.
+   Đây là chỗ trực giác hay sai, vì danh sách thứ tự trong bài xếp `PodReadyToStartContainers`
+   trước `Initialized` — thứ tự đó chỉ đúng **đại thể**, và Pod không init container là ngoại lệ.
+3. Condition **`PodReadyToStartContainers`**. **Kubelet đặt** nó: `False` khi phát hiện Pod chưa
+   có runtime sandbox với mạng đã cấu hình, `True` sau khi runtime plugin hoàn tất tạo sandbox và
+   cấu hình mạng. Nhưng người thực sự làm việc là **container runtime và CNI plugin** — trên
+   cluster lab là containerd và Flannel. Chỉ sau khi condition này là `True`, kubelet mới bắt đầu
+   kéo image và tạo container.
+4. Pod có chỉ định **`readinessGates`**, và ít nhất một condition tùy chỉnh trong đó **bị thiếu
+   hoặc đang là `False`**. Pod chỉ được đánh giá là sẵn sàng khi **cả hai** điều cùng đúng: mọi
+   container đều sẵn sàng, **và** mọi condition trong `readinessGates` đều `True`. Khi chỉ vế đầu
+   đúng, kubelet đặt `Ready` thành `status: "False"` với **`reason: ReadinessGatesNotReady`**.
+5. Trường hợp taint: condition **`DisruptionTarget`** với **`reason: DeletionByTaintManager`** —
+   Taint Manager là một phần của node lifecycle controller bên trong `kube-controller-manager`.
+   Trường hợp vượt giới hạn tài nguyên: **không có condition `DisruptionTarget`**. Bài giải thích
+   lý do: các gián đoạn kiểu đó **nhiều khả năng do chính Pod gây ra và sẽ tái diễn khi thử lại**,
+   nên không được xếp vào nhóm gián đoạn từ bên ngoài.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

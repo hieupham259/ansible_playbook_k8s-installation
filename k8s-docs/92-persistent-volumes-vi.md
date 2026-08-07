@@ -6,6 +6,58 @@
 > dù đó là lưu trữ cục bộ (local storage), từ một nhà cung cấp cloud công cộng,
 > hay một hệ thống lưu trữ mạng như iSCSI hoặc NFS.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 3/16 · Kiểm chứng ở
+Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là **bài xương sống của cả giai đoạn 6**. Bốn bài sau (StorageClass, cấp phát động,
+snapshot, clone) đều chỉ là các nhánh mọc ra từ vòng đời PV/PVC mô tả ở đây. Bài dài, nhưng
+phần lớn độ dài nằm ở các bảng liệt kê plugin và các mục ví dụ YAML; khung khái niệm thật sự
+gói gọn trong mục *Vòng đời của một volume và claim* cộng hai mục *Persistent Volumes* và
+*PersistentVolumeClaims*.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vòng đời đầy đủ: cấp phát **tĩnh** (admin tạo sẵn PV) hay **động** (theo StorageClass) →
+  ràng buộc → sử dụng → thu hồi. Ràng buộc PVC↔PV là **một-một và độc quyền** qua `claimRef`;
+  không có volume khớp thì claim nằm unbound **vô thời hạn**. Ngoài ra PVC đang được Pod dùng
+  thì việc xóa bị hoãn bằng finalizer — mục *Vòng đời của một volume và claim*.
+- Bốn access mode và ý nghĩa thật của chúng: `ReadWriteOnce` là ràng buộc **theo node** chứ
+  không phải theo Pod (nhiều Pod trên cùng node vẫn dùng chung được), chỉ `ReadWriteOncePod`
+  mới giới hạn còn một Pod; access mode dùng để **khớp** PVC với PV chứ **không** cưỡng chế
+  chống ghi — mục *Các chế độ truy cập*.
+- Ba reclaim policy và khác biệt khi bạn xóa PVC: `Retain` giữ PV lại ở pha `Released` và phải
+  dọn tay, `Delete` xóa cả đối tượng PV lẫn tài sản lưu trữ bên ngoài; PV cấp phát động **kế
+  thừa** reclaim policy của StorageClass, mặc định là `Delete` — mục *Thu hồi*, *Chính sách thu
+  hồi*, *Pha*.
+- Mở rộng dung lượng: chỉ được khi `allowVolumeExpansion: true` trên storage class, thao tác là
+  **sửa PVC** chứ không sửa PV, không bao giờ sinh PV mới, và **không thu nhỏ** được xuống dưới
+  `.status.capacity` — mục *Mở rộng Persistent Volume Claim*.
+- Ba trạng thái khác nhau của `storageClassName` trên PVC: đặt tên một class, đặt `""` (tự vô
+  hiệu hóa cấp phát động, chỉ bind PV không class), và **bỏ trống** (có thể được gán class mặc
+  định về sau) — mục *Lớp* của PVC và *Gán StorageClass mặc định hồi tố*.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Recycle* và mẫu Pod tái chế | đã lỗi thời, chỉ còn `nfs` và `hostPath` hỗ trợ | không cần |
+| *Finalizer bảo vệ việc xóa PersistentVolume* | chi tiết của external provisioner | Lab 6a, khi đã có provisioner thật |
+| *Các loại Persistent Volume* | phần lớn là plugin cloud đã bị gỡ hoặc đã di trú sang CSI | không cần |
+| *Node Affinity* và *Cập nhật node affinity* | chỉ cần cho volume `local`, và affinity chưa học | giai đoạn 7, bài [138](138-assign-pod-node-vi.md) |
+| *Hỗ trợ raw block volume* | ứng dụng phải tự xử lý thiết bị khối thô | không cần |
+| *Hỗ trợ Volume Snapshot…*, *Nhân bản volume*, *Volume populator và nguồn dữ liệu* | cần CSI driver hỗ trợ | bài [99](99-volume-snapshots-vi.md)–[102](102-volume-populators-vi.md), Lab 6b |
+| *Theo dõi PVC không được sử dụng* | tính năng alpha, chưa bật trong cluster lab | không cần |
+| *Viết cấu hình khả chuyển* | lời khuyên cho người đóng gói ứng dụng, không phải cho admin | không cần |
+
+---
+
 Tài liệu này mô tả _persistent volume_ (volume bền vững) trong Kubernetes. Bạn nên làm quen trước với
 [volume](https://kubernetes.io/docs/concepts/storage/volumes/), [StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/)
 và [VolumeAttributesClass](https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/).
@@ -1193,3 +1245,62 @@ và cần lưu trữ bền vững, khuyến nghị bạn dùng mẫu hình sau:
 
 * [`PersistentVolume`](https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-v1/)
 * [`PersistentVolumeClaim`](https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. Cluster chỉ có các PV 50Gi đã cấp phát tĩnh. Bạn tạo một PVC xin 100Gi. Chuyện gì xảy ra,
+   và trạng thái đó kéo dài bao lâu?
+2. Một PV có `persistentVolumeReclaimPolicy: Retain`. Bạn xóa PVC đang bind với nó. PV chuyển
+   sang pha nào, PVC khác dùng lại được ngay không? Câu trả lời khác thế nào nếu policy là
+   `Delete`? Và PV được cấp phát động lấy policy từ đâu?
+3. Hai Pod cùng mount một PVC có access mode `ReadWriteOnce`. Chúng chạy được không? Nếu bạn
+   muốn chắc chắn chỉ đúng một Pod trong cả cluster ghi vào volume thì dùng gì?
+4. PVC của bạn đang là 5Gi và bạn cần 10Gi. Sửa ở đâu, cần điều kiện gì, có PV mới được tạo
+   không? Sau đó đổi ý muốn về 5Gi thì sao?
+5. Cluster lab của bạn **chưa có StorageClass và chưa có provisioner**. Bạn `kubectl apply` một
+   PVC không đặt `storageClassName`. Nó ở trạng thái nào? Sau khi Lab 6a cài xong một
+   StorageClass mặc định thì điều gì tự động xảy ra với PVC đó?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. PVC **ở trạng thái chưa ràng buộc (unbound) vô thời hạn**. Bài lấy đúng ví dụ này: một
+   cluster có nhiều PV 50Gi sẽ không khớp với PVC xin 100Gi, và claim chỉ được bind khi một PV
+   100Gi được thêm vào cluster. Vòng lặp điều khiển bảo đảm người dùng **luôn nhận được ít
+   nhất** những gì họ yêu cầu, nên nó không ghép một PV nhỏ hơn cho đủ.
+2. Với `Retain`: PV **vẫn tồn tại** và chuyển sang pha **`Released`** — nghĩa là claim đã bị
+   xóa nhưng tài nguyên chưa được thu hồi. Nó **chưa sẵn sàng cho claim khác** vì dữ liệu của
+   người dùng trước vẫn còn; admin phải tự xóa PV, tự dọn dữ liệu, tự xóa tài sản lưu trữ, rồi
+   tạo lại PV mới nếu muốn tái sử dụng. Với `Delete`: **cả đối tượng PV lẫn tài sản lưu trữ
+   bên ngoài đều bị xóa** — dữ liệu đi luôn. PV cấp phát động **kế thừa reclaim policy của
+   StorageClass**, và mặc định của StorageClass là `Delete`; muốn khác thì phải cấu hình
+   StorageClass từ đầu, nếu không phải sửa hoặc patch từng PV sau khi tạo.
+3. **Chạy được, nhưng chỉ khi hai Pod nằm trên cùng một node.** Đây là chỗ dễ nhầm nhất:
+   `ReadWriteOnce` nghĩa là volume mount đọc-ghi bởi **một node duy nhất**, không phải một Pod
+   duy nhất; nhiều Pod trên cùng node vẫn cùng đọc/ghi được. Muốn đúng một Pod trong toàn
+   cluster thì dùng **`ReadWriteOncePod`**. Cũng nhớ rằng access mode chỉ dùng để khớp PVC với
+   PV và ràng buộc nơi mount, nó **không** áp đặt bảo vệ ghi: một PV khai `ReadOnlyMany` không
+   vì thế mà trở thành chỉ đọc.
+4. **Sửa `.spec.resources` của PVC** và xin kích thước lớn hơn. Điều kiện: storage class của
+   PVC phải có **`allowVolumeExpansion: true`**. **Không có PV mới nào được tạo** — volume hiện
+   có được thay đổi kích thước tại chỗ. Đừng sửa thẳng `capacity` của PV: control plane sẽ thấy
+   trạng thái mong muốn của PV và PVC đã khớp, kết luận là không cần resize, và việc tự động mở
+   rộng bị chặn lại. Còn về 5Gi: **không được**. Bạn có thể hạ giá trị yêu cầu xuống thấp hơn
+   lần thử trước (hữu ích khi lần mở rộng trước thất bại vì hết dung lượng), nhưng giá trị mới
+   vẫn phải **cao hơn `.status.capacity`**; Kubernetes không hỗ trợ thu nhỏ PVC.
+5. PVC **được tạo đúng như bạn định nghĩa** và `storageClassName` **vẫn để trống**, còn bản
+   thân PVC nằm chờ vì không có PV nào khớp. Đây là điểm khác biệt then chốt với `""`: bỏ trống
+   không có nghĩa là "không class". Khi một StorageClass mặc định trở nên khả dụng, control
+   plane rà các PVC hiện có không có `storageClassName` và **cập nhật chúng để trỏ tới class
+   mặc định mới** — đó là *gán StorageClass mặc định hồi tố*. Nếu bạn đã đặt `storageClassName:
+   ""` thì PVC sẽ **không** được cập nhật và tiếp tục chỉ bind được với PV không class.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

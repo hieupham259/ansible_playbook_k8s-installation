@@ -5,6 +5,57 @@
 > Triển khai và cập nhật Secret cùng cấu hình ứng dụng mà không cần build lại image
 > và không làm lộ Secret trong cấu hình stack của bạn.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3b](LO-TRINH-ADMIN.md#3b-cấu-hình-và-tài-nguyên), bài 3/7 ·
+Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài dài, nhưng hơn một nửa độ dài là **danh mục tám loại Secret built-in** — tra cứu khi cần,
+không phải học thuộc. Điều duy nhất bắt buộc phải khắc vào đầu ở lần đọc này nằm ngay trong
+khối *Thận trọng* đầu bài: **Secret mặc định KHÔNG được mã hóa**. Nếu đọc xong mà vẫn nghĩ
+"đã là Secret thì an toàn" thì coi như chưa đọc.
+
+Việc bật *Encryption at Rest* phải sửa cấu hình kube-apiserver nên không làm ở giai đoạn này;
+nó là [nợ lab](labs/README.md#5-sổ-nợ-lab) và được trả ở CP7 trong phần checkpoint tasks.
+
+**Phải hiểu ở lần đọc này:**
+
+- Secret **lưu không mã hóa** trong etcd; `data` chỉ được mã hóa **base64**, mà base64 —
+  đúng như bài viết ở mục *Secret cấu hình Docker* — "bị che mờ nhưng không hề bí mật". Bốn
+  bước tối thiểu để dùng Secret an toàn nằm trong khối *Thận trọng* đầu bài.
+- Ranh giới quyền, mục *An toàn thông tin cho Secret*: ai được phép **tạo Pod** trong một
+  namespace đều có thể lợi dụng quyền đó để đọc mọi Secret trong namespace; cấp quyền **list**
+  hoặc **watch** trên Secret là cho đọc toàn bộ Secret của namespace chứ không riêng Secret nào.
+- `data` phải là chuỗi base64, `stringData` nhận chuỗi thuần; mọi cặp trong `stringData` được
+  gộp nội bộ vào `data`, và khi trùng key thì **`stringData` thắng** (mục *Ràng buộc về tên và
+  dữ liệu của Secret*). Trần kích thước mỗi Secret là 1MiB.
+- Trường `type` chỉ quyết định **validation và quy ước tên key**, không quyết định mức bảo
+  vệ: `Opaque` là mặc định, và bài lặp lại nhiều lần rằng các loại built-in "chỉ được cung cấp
+  để thuận tiện".
+- Cách kubelet xử lý (cùng mục *An toàn thông tin cho Secret*): Secret chỉ được gửi tới node
+  có Pod cần nó, kubelet lưu bản sao vào `tmpfs` để không ghi xuống lưu trữ bền vững, và xóa
+  bản sao khi Pod bị xóa. Secret phải tồn tại trước Pod, trừ khi đánh dấu `optional: true`.
+  Static Pod thì **không dùng được** Secret lẫn ConfigMap.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Secret token ServiceAccount*, API `TokenRequest`, projected volume | chưa học ServiceAccount và danh tính của Pod | giai đoạn 9, bài [118](118-service-accounts-vi.md) |
+| *Secret bootstrap token* | là cơ chế đăng ký node lúc `kubeadm join` | giai đoạn 8, bài [02](02-create-cluster-kubeadm-vi.md) |
+| *Secret TLS* và việc dùng nó cho Ingress | chưa học Ingress | giai đoạn 5 |
+| *Secret để kéo container image*, `imagePullSecrets`, credential provider | phần gắn vào ServiceAccount cần RBAC | giai đoạn 9, bài [118](118-service-accounts-vi.md) |
+| Bật *Encryption at Rest* cho Secret | phải sửa cấu hình kube-apiserver | [nợ lab](labs/README.md#5-sổ-nợ-lab), trả ở CP7 |
+| *Các lựa chọn thay thế cho Secret* — CSI provider, device plugin, CertificateSigningRequest | cần CSI và các cơ chế mở rộng | giai đoạn 6 và 14 |
+| *Các thực hành tốt cho Kubernetes Secret* (link cuối bài) | là checklist hardening | giai đoạn 9, bài [121](121-secrets-good-practices-vi.md) |
+
+---
+
 Secret là một đối tượng chứa một lượng nhỏ dữ liệu nhạy cảm như mật khẩu,
 token, hoặc khóa (key). Nếu không dùng Secret, những thông tin như vậy có thể
 sẽ bị đặt trong đặc tả (specification) của Pod hoặc trong container image.
@@ -801,3 +852,59 @@ Do đó, một Pod không có quyền truy cập vào Secret của Pod khác.
 - Tìm hiểu cách [quản lý Secret bằng file cấu hình](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-config-file/)
 - Tìm hiểu cách [quản lý Secret bằng kustomize](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kustomize/)
 - Đọc [tài liệu tham chiếu API](https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/secret-v1/) cho `Secret`
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Bạn chạy `kubectl get secret db-cred -o yaml` và thấy `password: dDBwLVNlY3JldA==`. Giá
+   trị đó đã được mã hóa chưa? Người có quyền đọc etcd của `k8s-master` thấy được gì?
+2. Bạn muốn một nhóm chỉ đọc được đúng một Secret trong namespace của họ, nên chỉ cấp quyền
+   `get` trên đúng Secret đó — nhưng vẫn cho họ quyền tạo Deployment trong namespace. Ranh
+   giới đó có giữ được không?
+3. Control plane trên `k8s-master` chạy bằng các file manifest trong `/etc/kubernetes/manifests/`
+   mà bạn đã xem ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md#b2-kiểm-kê-component).
+   Bạn có thể cho một Pod loại đó đọc mật khẩu từ một Secret không?
+4. `data` và `stringData` khác nhau ở chỗ nào? Nếu cùng một key xuất hiện ở cả hai trường thì
+   giá trị nào thắng?
+5. Một Pod trên `k8s-worker1` mount Secret `db-cred`. Dữ liệu Secret đó nằm ở đâu trên node,
+   và một Pod khác cũng đang chạy trên `k8s-worker1` có đọc được nó không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Chưa mã hóa gì cả.** `dDBwLVNlY3JldA==` chỉ là base64 của một chuỗi thường; bất kỳ ai
+   cũng giải ngược được bằng `base64 -d`. Bài nói rõ hai lần: Secret "được lưu trữ **không mã
+   hóa** trong kho dữ liệu nền của API server (etcd)", và giá trị base64 "bị che mờ nhưng
+   không hề bí mật". Vì vậy **bất kỳ ai có quyền truy cập etcd đều đọc được mật khẩu thật**,
+   y như người có quyền truy cập API. Muốn dữ liệu thật sự được mã hóa trong etcd thì phải
+   bật *Encryption at Rest* — thao tác thuộc CP7.
+2. **Không giữ được.** Bài nêu thẳng trong khối *Thận trọng* đầu bài: "bất kỳ ai được phép tạo
+   Pod trong một namespace đều có thể lợi dụng quyền đó để đọc **bất kỳ Secret nào** trong
+   namespace đó; điều này bao gồm cả quyền truy cập gián tiếp như khả năng tạo một Deployment".
+   Chỉ cần tạo một Pod mount Secret rồi in ra là xong. Muốn cô lập thật thì phải **tách
+   namespace** — đúng như mục *Cấu hình quyền truy cập tối thiểu tới Secret* khuyến nghị.
+   Cùng lý do đó, cấp `list` hoặc `watch` trên Secret cũng đồng nghĩa cho đọc toàn bộ Secret
+   của namespace.
+3. **Không.** Mục *Sử dụng Secret với static Pod* nói một câu duy nhất và dứt khoát: "Bạn
+   không thể dùng ConfigMap hay Secret với static Pod." Các Pod đó do kubelet quản lý trực
+   tiếp từ file trên đĩa, nên spec của chúng không tham chiếu được đối tượng API nào. Bài
+   [58](58-static-pods-vi.md) sẽ giải thích vì sao.
+4. **`data` bắt buộc là chuỗi đã mã hóa base64; `stringData` nhận chuỗi tùy ý** để bạn khỏi
+   phải tự base64. Mọi cặp key-value trong `stringData` được gộp nội bộ vào `data`, và nếu
+   một key có ở cả hai thì **giá trị trong `stringData` được ưu tiên**. Lưu ý bài nhắc hai
+   lần: `stringData` không hoạt động tốt với server-side apply.
+5. Kubelet lưu bản sao dữ liệu vào **`tmpfs`** — tức trong bộ nhớ, cố ý để dữ liệu bí mật
+   không bị ghi xuống lưu trữ bền vững — và xóa bản sao đó khi Pod phụ thuộc bị xóa. Pod khác
+   trên cùng node **không đọc được**: "chỉ những Secret mà một Pod yêu cầu mới có khả năng
+   hiển thị bên trong các container của Pod đó… một Pod không có quyền truy cập vào Secret của
+   Pod khác". Ngoại lệ duy nhất bài nêu là container chạy với `privileged: true` — nó truy cập
+   được mọi Secret đang dùng trên node đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -5,6 +5,50 @@
 > API cũ (legacy) để quản lý các workload có thể scale theo chiều ngang.
 > Đã được thay thế bởi các API Deployment và ReplicaSet.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 14/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Lộ trình đánh dấu bài này là **tài liệu lịch sử**: ReplicationController là tiền thân của
+ReplicaSet và **không dùng cho hệ thống mới**. Đọc nó với đúng một mục đích — **nhận diện
+khi gặp cluster cũ**: một `kubectl get rc` ra kết quả, một manifest `apiVersion: v1` với
+`kind: ReplicationController`, một quy trình rolling update viết tay trong runbook của người
+đi trước. Đừng tạo `rc` trên cluster lab, và đừng học các mục thiết kế cuối bài. Ghi chú
+ngay dưới đây đã nói thay tất cả: Deployment cấu hình một ReplicaSet mới là cách được khuyến
+nghị. Vì là bài đọc để nhận diện, phần tự kiểm tra chỉ có ba câu.
+
+**Phải hiểu ở lần đọc này:**
+
+- ReplicationController làm **đúng việc** mà ReplicaSet làm: giữ số pod khớp label selector
+  luôn hoạt động, chấm dứt pod thừa, khởi động thêm khi thiếu, và thay thế pod bị lỗi, bị
+  xóa hay mất theo node. Viết tắt là **`rc`** trong `kubectl`.
+- Khác biệt kỹ thuật duy nhất đáng nhớ: **ReplicationController không hỗ trợ selector dựa
+  trên tập hợp (set-based)**. `.spec.selector` của nó là một map phẳng và
+  `.spec.template.metadata.labels` phải **bằng** nó (không đặt selector thì mặc định lấy theo
+  labels) — trong khi [ReplicaSet](64-replicaset-vi.md) có `matchLabels` và `matchExpressions`.
+- **Rolling update ở đây là quy trình thủ công**: tạo một `rc` mới với 1 replica, rồi scale
+  cái mới +1 và cái cũ -1 từng bước, rồi xóa cái cũ khi nó về 0. So sánh với một lệnh
+  `kubectl set image` của [Deployment](63-deployment-vi.md) là thấy Deployment thay thế cái
+  gì.
+- Vì sao chỉ đọc chứ không dùng: mục *Các lựa chọn thay thế* trong chính bài xếp
+  **Deployment là khuyến nghị**, và nói ReplicaSet là "ReplicationController thế hệ kế tiếp".
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Chạy một ReplicationController mẫu* — các khối output `kubectl describe` | chỉ minh họa; đừng tạo `rc` trên cluster mới | không cần |
+| *Nhiều track phát hành* và *Dùng ReplicationController với Service* | cần Service; bản hiện đại của mẫu canary nằm ở bài [61](61-management-vi.md) | giai đoạn 5 |
+| *Viết chương trình cho việc nhân bản* và *Trách nhiệm của ReplicationController* | là ghi chép thiết kế thời kỳ đầu, dẫn các issue GitHub cũ | không cần |
+
+---
+
 > **Ghi chú:**
 > Một [`Deployment`](./63-deployment-vi.md) cấu hình một [`ReplicaSet`](./64-replicaset-vi.md)
 > hiện là cách được khuyến nghị để thiết lập việc nhân bản (replication).
@@ -398,3 +442,52 @@ trước khi các pod khác khởi động, và an toàn để chấm dứt khi 
   Đọc định nghĩa object
   [ReplicationController](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/replication-controller-v1/)
   để hiểu API dành cho replication controller.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4. Bài này chỉ
+đọc để nhận diện, nên chỉ có ba câu:
+
+1. **Câu bẫy.** Bài [64](64-replicaset-vi.md) nói ReplicaSet là thế hệ kế nhiệm của
+   ReplicationController. Khác biệt kỹ thuật giữa hai cái là gì — và điều gì **không** khác?
+2. Trên cluster lab của bạn (Kubernetes v1.35.6, 2 worker), bạn tiếp quản một manifest
+   `apiVersion: v1` / `kind: ReplicationController` đang chạy 3 pod và cần đổi container
+   image. Bài này hướng dẫn làm thế nào, và bạn nên làm gì thay vào đó?
+3. Nếu ReplicationController và ReplicaSet làm cùng một việc, vì sao lộ trình vẫn giữ bài này
+   thay vì bỏ hẳn?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Khác biệt duy nhất: **ReplicationController không hỗ trợ các yêu cầu selector dựa trên tập
+   hợp (set-based)**, thứ mà ReplicaSet có qua `matchExpressions`. Kèm theo đó là hệ quả về
+   cú pháp: `.spec.selector` của `rc` là một map phẳng và `.spec.template.metadata.labels`
+   phải **bằng** nó, còn ReplicaSet dùng `matchLabels`. Thứ **không** khác chính là phần lớn:
+   bài 64 nói "cả hai phục vụ cùng một mục đích và hành xử tương tự nhau" — cùng giữ số pod
+   khớp selector, cùng thay thế pod mất, cùng ủy quyền việc khởi động lại container cục bộ
+   cho kubelet, cùng cho `--cascade=orphan` để giữ pod lại, cùng tách pod ra bằng cách đổi
+   label. Trực giác "thế hệ kế nhiệm nghĩa là viết lại toàn bộ" là sai; khoảng cách thực sự
+   lớn nằm ở tầng trên — Deployment — chứ không nằm giữa `rc` và `rs`.
+2. Bài hướng dẫn quy trình **thủ công**: tạo một ReplicationController **mới** với 1 replica,
+   scale controller mới **+1** và controller cũ **-1** từng bước một, rồi xóa controller cũ
+   sau khi nó về 0 replica; hai `rc` phải tạo pod với **ít nhất một label khác biệt**, thường
+   là image tag. Việc bạn nên làm thay vào đó: **chuyển sang Deployment** — chính bài nói
+   Deployment "được khuyến nghị nếu bạn muốn chức năng rolling update, vì chúng có tính khai
+   báo, hoạt động phía server, và có thêm nhiều tính năng khác". Sau đó một lệnh
+   `kubectl set image` là đủ, kèm `kubectl rollout status` và `kubectl rollout undo`.
+3. Vì bạn vẫn có thể **gặp** nó. API `v1` ReplicationController chưa bị gỡ, nên trên một
+   cluster được kế thừa, `kubectl get rc` có thể ra kết quả và manifest cũ vẫn apply được.
+   Mục tiêu của lần đọc này là **nhận ra nó và biết nó tương đương ReplicaSet**, để bạn không
+   mất thời gian đoán nó là gì và biết ngay hướng xử lý là di trú sang Deployment. Ghi chú
+   ngay đầu bài đã chốt: một Deployment cấu hình một ReplicaSet là cách được khuyến nghị hiện
+   nay để thiết lập việc nhân bản.
+
+</details>
+
+Bạn đã đọc xong toàn bộ 14 bài của giai đoạn 4. Câu nào chưa trả lời được thì quay lại đúng
+mục tương ứng, sau đó chuyển sang **Lab 4 — Workload controller** (chưa viết, xem
+[bản đồ lab](labs/README.md#4-bản-đồ-lab)).

@@ -4,6 +4,54 @@
 >
 > Các cách khác nhau để thay đổi hành vi của cluster Kubernetes của bạn.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 14](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 1/7 ·
+Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Lộ trình ghi rõ giai đoạn này **dành cho platform administrator / người phát triển operator**.
+Nếu bạn chỉ vận hành cluster và chạy workload có sẵn, bảy bài này không bắt buộc — nhưng bài 1
+thì nên đọc, vì nó là **bản đồ tất cả các điểm mở rộng**: sáu bài sau chỉ là phóng to từng ô
+trên bản đồ đó. Đọc bài này để biết mỗi thứ bạn đã cài (CNI, CSI driver, admission webhook)
+nằm ở ô nào, chứ chưa cần biết cách tự viết chúng.
+
+**Phải hiểu ở lần đọc này:**
+
+- Thứ tự ưu tiên khi tùy biến: **policy API có sẵn** (ResourceQuota, NetworkPolicy, RBAC) đứng
+  trước, còn *file cấu hình* và *tham số dòng lệnh* chỉ dùng khi không còn lựa chọn nào khác —
+  vì chúng có thể không sửa được trên cluster được quản lý, có thể đổi giữa các phiên bản, và
+  đòi khởi động lại tiến trình.
+- Hai mô hình gọi ra ngoài, khác nhau ở chỗ **Kubernetes gọi qua mạng hay thực thi một binary**:
+  *webhook* là request mạng tới một dịch vụ từ xa, *binary plugin* là chương trình nhị phân do
+  kubelet hoặc kubectl thực thi (CSI, CNI, kubectl plugin). Cả hai đều **thêm một điểm lỗi**.
+- Mẫu controller = một custom resource API ghép với một **vòng lặp điều khiển**; nếu vòng lặp đó
+  thay vai trò của người vận hành triển khai hạ tầng theo trạng thái mong muốn thì nó là
+  **mẫu operator**.
+- Ranh giới quan trọng ở mục *Thay đổi các resource có sẵn*: custom resource luôn nằm trong
+  **API group mới**; bạn **không thay thế hay thay đổi được API group hiện có**. Muốn tác động
+  vào hành vi của các API sẵn có (như Pod) thì phải dùng *phần mở rộng truy cập API*.
+- Bảy điểm mở rộng trong *Chú giải cho hình vẽ*, và ai là bên gọi ở mỗi điểm: client, API server,
+  loại resource, scheduler, controller, network plugin, device/storage plugin.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Phần mở rộng API* — chi tiết CRD và tầng tổng hợp | là trọng tâm của hai bài ngay sau | bài [179](179-custom-resources-vi.md) và [180](180-apiserver-aggregation-vi.md) |
+| *Phần mở rộng truy cập API* — webhook xác thực, phân quyền, admission | ba chặng này đã học rồi, ở đây chỉ liệt kê điểm móc | giai đoạn 9 — bài [119](119-controlling-access-vi.md) và [173](173-admission-webhooks-vi.md) |
+| *Phần mở rộng lập lịch* — scheduler profile, scheduling plugin, scheduler extender | thuộc phần lập lịch | giai đoạn 7 — bài [147](147-scheduling-framework-vi.md) |
+| *Storage plugin* — CSI và FlexVolume | đã học ở phần lưu trữ | giai đoạn 6 — bài [91](91-volumes-vi.md) |
+| *Network plugin* | lộ trình đặt bài đó chính ở giai đoạn 5 | bài [183](183-network-plugins-vi.md) |
+| *Device plugin* | có bài riêng cuối giai đoạn này | bài [184](184-device-plugins-vi.md) |
+| *Lưu đồ chọn điểm mở rộng*, plugin credential image cho kubelet | là công cụ tra khi thực sự bắt tay làm | Lab 14 |
+
+---
+
 Kubernetes có khả năng cấu hình và mở rộng rất cao. Do đó, hiếm khi bạn cần fork
 hoặc gửi bản vá (patch) cho mã nguồn của dự án Kubernetes.
 
@@ -314,3 +362,54 @@ các node mà kube-scheduler chọn cho một pod.
 * Tìm hiểu thêm về [Extension API Servers](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/)
 * Tìm hiểu về [kiểm soát chấp nhận động (Dynamic admission control)](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/)
 * Tìm hiểu về [mẫu Operator (Operator pattern)](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 14:
+
+1. Bạn cần giới hạn tổng CPU mà một nhóm được dùng trong cluster. Bài xếp *policy API có sẵn*
+   và *tham số dòng lệnh* theo thứ tự ưu tiên nào, và nêu ba lý do gì để không ưu tiên tham số
+   dòng lệnh?
+2. Cluster lab của bạn cài Flannel làm CNI. Theo bản đồ điểm mở rộng của bài, Flannel là
+   *webhook* hay *binary plugin*, thành phần nào của Kubernetes gọi tới nó, và nó nằm ở điểm mở
+   rộng số mấy trong chú giải hình vẽ?
+3. Bạn muốn cấm mọi Pod trong cluster chạy image có tag `:latest`. Thêm một CRD mới có làm được
+   việc đó không? Bài nói gì về khả năng tác động lên các API có sẵn?
+4. Một controller tùy chỉnh và một operator khác nhau ở điểm nào theo cách bài định nghĩa? Cả
+   hai có phải là client của Kubernetes API không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Policy API có sẵn đứng trước** — ở đây là ResourceQuota. Bài viết thẳng rằng file cấu hình
+   và tham số dòng lệnh "chỉ nên được sử dụng khi không còn lựa chọn nào khác", vì ba lý do:
+   **(a)** trên dịch vụ được host sẵn hoặc bản phân phối được quản lý, chúng thường không thay
+   đổi được, và khi thay đổi được thì chỉ người vận hành cluster làm được; **(b)** chúng có thể
+   bị thay đổi trong các phiên bản Kubernetes tương lai; **(c)** thiết lập chúng có thể **yêu cầu
+   khởi động lại tiến trình**. Ngược lại, policy API đã stable được hưởng chính sách hỗ trợ và
+   chính sách ngừng hỗ trợ rõ ràng như mọi API Kubernetes khác.
+2. Flannel là một **binary plugin**, không phải webhook: bài nói binary plugin "được sử dụng bởi
+   kubelet (ví dụ, CSI storage plugin và CNI network plugin)". Bên gọi là **kubelet**, và nó
+   nằm ở **điểm mở rộng số 6** trong chú giải — kubelet chạy trên node và "giúp các pod xuất
+   hiện như những server ảo với IP riêng trên mạng của cluster"; network plugin cho phép có các
+   cách hiện thực khác nhau cho mạng của pod. Khác biệt cốt lõi với webhook: ở đây Kubernetes
+   **thực thi một chương trình nhị phân**, không mở request mạng tới dịch vụ từ xa.
+3. **Không.** Đây là chỗ dễ nhầm nhất của bài. Khi bạn mở rộng API bằng custom resource, các
+   resource được thêm **luôn nằm trong API group mới**, và bạn **không thể thay thế hay thay đổi
+   các API group hiện có**. Bài nói rõ: "Việc thêm một API không trực tiếp cho phép bạn tác động
+   đến hành vi của các API hiện có (chẳng hạn như Pod), trong khi *Phần mở rộng truy cập API*
+   thì có." Muốn chặn Pod theo nội dung, bạn cần một **admission webhook** — nó "có thể từ chối
+   việc tạo mới hoặc cập nhật".
+4. **Cả hai đều là client của Kubernetes API** và đều theo mẫu controller: đọc `.spec`, làm gì
+   đó, cập nhật `.status`. Khác biệt bài đưa ra nằm ở *vai trò*: khi controller của bạn
+   **thay vai trò của một người vận hành triển khai hạ tầng dựa trên trạng thái mong muốn**, thì
+   nó cũng đang tuân theo **mẫu operator**. Operator được dùng để quản lý các ứng dụng cụ thể,
+   thường là ứng dụng duy trì trạng thái và đòi hỏi sự cẩn trọng khi quản lý.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

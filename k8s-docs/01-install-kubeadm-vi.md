@@ -4,6 +4,56 @@
 >
 > Trang này hướng dẫn cách cài đặt bộ công cụ `kubeadm`.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 1/9 ·
+Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bạn **đã chạy đúng các bước của bài này rồi** — mục A4 của
+[Lab 00](labs/LAB-00-MOI-TRUONG.md#a4-chuẩn-bị-os-và-container-runtime) là bản copy-paste của
+nó: [A4.1](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) tắt
+swap và bật sysctl, [A4.2](labs/LAB-00-MOI-TRUONG.md#a42-cài-containerd-và-runc-đúng-version)
+cài containerd, [A4.3](labs/LAB-00-MOI-TRUONG.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl) cài
+ba binary. Lần này bạn đọc để **biết vì sao từng bước tồn tại**, không phải để gõ lại lệnh.
+Trang gốc viết cho v1.36; cluster lab khóa ở v1.35.6, nên số minor trong URL kho `pkgs.k8s.io`
+khác nhau — đó là khác biệt duy nhất về nội dung.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ba gói có ba vai trò tách biệt (*Cài đặt kubeadm, kubelet và kubectl*): `kubeadm` chỉ bootstrap,
+  `kubelet` là daemon chạy trên mọi máy, `kubectl` là CLI. kubeadm **không** cài và **không**
+  quản lý `kubelet`/`kubectl`, nên việc khớp phiên bản là trách nhiệm của bạn.
+- Quy tắc lệch phiên bản ở mục đó: lệch một minor giữa kubelet và control plane thì được, nhưng
+  **kubelet không bao giờ được cao hơn API server**.
+- *Cấu hình swap*: kubelet mặc định **không khởi động** khi thấy swap. Hai lối thoát là tắt swap
+  hoặc `failSwapOn: false`; và ngay cả khi đã tolerate, workload vẫn không dùng được swap trừ
+  khi đổi `swapBehavior` khác mặc định `NoSwap`. `swapoff -a` chỉ có tác dụng tới lần reboot kế.
+- *Cấu hình cgroup driver*: cgroup driver của container runtime và của kubelet **bắt buộc khớp**,
+  lệch là kubelet fail. Đây là lý do Lab 00 kiểm tra `SystemdCgroup` sau khi cài containerd.
+- *Cài đặt container runtime*: kubeadm tự dò runtime bằng cách quét danh sách endpoint đã biết;
+  phát hiện **nhiều hơn một** hoặc **không có cái nào** thì nó báo lỗi và bắt bạn chỉ định
+  `--cri-socket`. Cộng với điều kiện ở *Trước khi bạn bắt đầu*: 2 GB RAM, 2 CPU cho control
+  plane, và hostname / MAC / `product_uuid` phải duy nhất vì Kubernetes dùng chúng để định danh
+  node.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Kiểm tra phiên bản hệ điều hành* — phần Windows | node Windows là giai đoạn riêng | giai đoạn 15 |
+| *Các bản phân phối dựa trên Red Hat*, SELinux `permissive` | lab chạy Ubuntu 24.04.4 | không cần |
+| *Không dùng trình quản lý gói* | Lab 00 cài bằng `apt` có ghim version | không cần |
+| Cảnh báo "chú ý đặc biệt khi nâng cấp" và `apt-mark hold` | nâng cấp là quy trình riêng | CP2 nâng cấp |
+| Docker Engine và `cri-dockerd` | cluster lab nói CRI thẳng với containerd | CP12 di chuyển khỏi dockershim |
+| *Kiểm tra các network adapter* (nhiều adapter, thêm IP route) | ba VM lab chỉ có một default route | không cần |
+
+---
+
 <img src="https://kubernetes.io/images/kubeadm-stacked-color.png" align="right" width="150px"></img>
 Trang này hướng dẫn cách cài đặt bộ công cụ `kubeadm`.
 Để biết thông tin về cách tạo một cluster bằng kubeadm sau khi bạn đã hoàn tất quá trình cài đặt này,
@@ -382,3 +432,54 @@ Nếu bạn gặp khó khăn với kubeadm, vui lòng tham khảo
 ## Tiếp theo (What's next)
 
 * [Sử dụng kubeadm để tạo cluster](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
+
+1. Bạn cài `kubeadm` v1.35.6 trên một máy mới. Nó có tự kéo về `kubelet` và `kubectl` đúng
+   phiên bản không? Nếu bạn để `apt` tự chọn version cho ba gói này thì rủi ro là gì?
+2. Control plane của cluster lab chạy v1.35.6. Bạn được phép để kubelet trên `k8s-worker2` ở
+   v1.36.0 không? Còn v1.34 thì sao?
+3. Trên một VM mới bạn chạy `swapoff -a` rồi `kubeadm init` thành công. Sau lần reboot đầu
+   tiên kubelet không lên nữa. Chuyện gì đã xảy ra, và
+   [A4.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
+   đã làm thêm gì để tránh?
+4. Bạn để containerd ở `SystemdCgroup = false` nhưng kubelet dùng cgroup driver `systemd`. Node
+   vẫn có RAM và CPU dư. Bài này nói điều gì sẽ xảy ra?
+5. `kubeadm init` dừng lại và yêu cầu bạn chỉ định container runtime. Trước đó nó đã cố làm gì,
+   và có mấy tình huống dẫn tới thông báo này?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Bài nói thẳng: kubeadm **sẽ không** cài đặt hay quản lý `kubelet` hoặc `kubectl`
+   cho bạn, vì vậy bạn phải tự đảm bảo chúng khớp với phiên bản control plane mà kubeadm sắp
+   dựng. Để `apt` tự chọn thì ba gói có thể lệch nhau và lệch với control plane, dẫn tới
+   **version skew** — bài mô tả hậu quả là "hành vi lỗi và không mong muốn". Đó là lý do
+   [A4.3 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl) ghim
+   cả ba gói ở đúng một chuỗi version rồi `apt-mark hold`.
+2. **v1.36.0: không. v1.34: được.** Bài cho phép lệch *một* phiên bản minor giữa kubelet và
+   control plane, nhưng nêu rõ **phiên bản kubelet không bao giờ được vượt quá phiên bản của
+   API server**. Ví dụ của chính bài: kubelet 1.7.0 chạy được với API server 1.8.0, chiều ngược
+   lại thì không. Trực giác "cứ mới hơn là an toàn" sai ở đây vì quan hệ này **bất đối xứng**.
+3. `swapoff -a` chỉ **tắt swap tạm thời**; sau reboot swap bật lại, và **hành vi mặc định của
+   kubelet là không khởi động nếu phát hiện swap trên node**. Bài yêu cầu đảm bảo swap bị vô
+   hiệu hóa trong các file cấu hình như `/etc/fstab` để thay đổi được duy trì qua các lần khởi
+   động lại — đúng việc mà A4.1 làm bằng cách comment dòng swap trong `/etc/fstab`, và gate của
+   nó kiểm tra `swapon --show` rỗng **sau khi đã reboot**.
+4. **Tiến trình kubelet sẽ thất bại.** Bài đặt cảnh báo riêng cho việc này: cgroup driver của
+   container runtime và của kubelet *bắt buộc* phải khớp nhau. Đây là thuộc tính quản lý cgroup
+   trên máy Linux, không phải chuyện đủ hay thiếu tài nguyên — nên RAM/CPU còn dư không cứu được.
+5. Nó vừa **quét qua một danh sách các endpoint đã biết** (các Unix domain socket trong bảng
+   *Các container runtime trên Linux*) để tự phát hiện runtime. Có **hai** tình huống làm nó
+   báo lỗi: **phát hiện nhiều hơn một** runtime, hoặc **không phát hiện được cái nào**. Cả hai
+   đều được xử lý bằng cách chỉ định `--cri-socket`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

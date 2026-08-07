@@ -2,6 +2,48 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/storage/volume-populators-and-data-sources/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 13/16 · Kiểm chứng ở
+Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này khái quát hóa hai thứ bạn vừa học: nhân bản volume và khôi phục từ snapshot chỉ là hai
+**nguồn dữ liệu tích hợp sẵn**, còn volume populator là cơ chế mở để cắm thêm nguồn khác. Với
+vai trò admin, phần đáng nhớ nhất không phải populator mà là **khác biệt giữa hai trường
+`dataSource` và `dataSourceRef`** — đó là thứ bạn sẽ gặp khi đọc manifest của người khác.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bài toán: PVC mới thường được cấp một volume rỗng; *nguồn dữ liệu* cho phép yêu cầu volume
+  được điền sẵn, còn *volume populator* là các **controller bên ngoài** thực hiện việc điền đó
+  dựa trên một custom resource mà PVC tham chiếu — đoạn mở đầu.
+- Hai nguồn dữ liệu **tích hợp sẵn** đã có từ trước: nhân bản một volume có sẵn và khôi phục
+  một volume snapshot — đoạn mở đầu.
+- Khác biệt giữa hai trường: `dataSource` **chỉ nhận PVC hoặc VolumeSnapshot** và **âm thầm bỏ
+  qua giá trị không hợp lệ** như thể trường đó để trống; `dataSourceRef` **nhận mọi kiểu đối
+  tượng** trong cùng namespace (trừ đối tượng core không phải PVC) và **báo lỗi** khi giá trị
+  không hợp lệ. Cả hai bất biến sau khi tạo, được API server gán cho khớp nhau, và đặt hai giá
+  trị khác nhau sẽ gây lỗi xác thực — mục *Tham chiếu nguồn dữ liệu*.
+- Điều kiện dùng populator tùy chỉnh: bật feature gate `AnyVolumeDataSource` cho **cả
+  kube-apiserver và kube-controller-manager**; vì populator là thành phần bên ngoài nên thiếu
+  nó thì việc tạo PVC có thể thất bại, và controller bên ngoài nên sinh Event trên PVC để báo
+  trạng thái — mục *Volume populator và nguồn dữ liệu*, *Sử dụng volume populator*.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Nguồn dữ liệu giữa các namespace* và *Sử dụng nguồn dữ liệu volume giữa các namespace* | alpha; cần thêm gate `CrossNamespaceVolumeDataSource` và ReferenceGrant của Gateway API | không cần |
+| Controller `volume data source validator` | alpha, là thành phần phụ trợ để cảnh báo | không cần |
+| Custom resource và CustomResourceDefinition làm nguồn dữ liệu | chưa học CRD | giai đoạn 14, bài [179](179-custom-resources-vi.md) |
+
+---
+
 Tài liệu này mô tả *volume populator* và *nguồn dữ liệu* (data source) trong Kubernetes.
 Bạn nên làm quen trước với [persistent volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/).
 
@@ -175,3 +217,48 @@ spec:
 * Tìm hiểu về [Volume Snapshot](https://kubernetes.io/docs/concepts/storage/volume-snapshots/).
 * Đọc về các [feature gate](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/)
   được nhắc đến trong trang này.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. Bạn đặt `dataSource` trỏ tới một đối tượng không hợp lệ, nhưng PVC vẫn được tạo ra như thể
+   trường đó trống. Vì sao? `dataSourceRef` sẽ hành xử khác thế nào?
+2. Bạn khai cả `dataSource` lẫn `dataSourceRef` với hai giá trị khác nhau trong cùng một PVC.
+   Kết quả là gì? Còn nếu chỉ khai một trong hai?
+3. Trước bài này bạn đã dùng hai nguồn dữ liệu mà Kubernetes hỗ trợ sẵn, không cần cài
+   populator nào. Đó là hai nguồn nào?
+4. Cluster lab của bạn chưa bật feature gate nào ngoài mặc định. Bạn dùng được `dataSourceRef`
+   với một custom resource không? Cần bật gate nào và ở những thành phần nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì **`dataSource` bỏ qua các giá trị không hợp lệ**, đối xử với chúng như thể trường để
+   trống — bạn không nhận được lỗi nào và chỉ phát hiện ra khi volume hóa ra rỗng. Giá trị
+   không hợp lệ ở đây là bất kỳ đối tượng core nào (đối tượng không có apiGroup) ngoại trừ PVC.
+   Ngược lại, **`dataSourceRef` không bao giờ bỏ qua giá trị và sẽ gây lỗi** khi giá trị không
+   hợp lệ. Đó chính là lý do bài khuyên ưu tiên `dataSourceRef` trên các cluster đã bật feature
+   gate.
+2. Đặt hai giá trị khác nhau sẽ **gây lỗi xác thực (validation error)**. Nếu chỉ khai một
+   trường còn trường kia để trống thì **API server gán cùng một giá trị cho cả hai**, nên trong
+   thực tế hai trường luôn có nội dung giống nhau. Cả hai đều **không thay đổi được sau khi
+   tạo**. Hai trường trùng lặp với ngữ nghĩa hơi khác nhau tồn tại chỉ vì tương thích ngược,
+   để controller cũ và mới làm việc được với nhau — bạn **không cần đọc cả hai trường** bao giờ.
+3. **Nhân bản một volume có sẵn** và **khôi phục một volume snapshot**. Bài mở đầu bằng đúng
+   hai nguồn dữ liệu tích hợp sẵn này, rồi nói volume populator tùy chỉnh là phần mở rộng của
+   chính cơ chế đó.
+4. **Không.** Muốn dùng volume populator tùy chỉnh, bạn phải bật feature gate
+   **`AnyVolumeDataSource`** cho **kube-apiserver và kube-controller-manager**. Trên cluster
+   chưa bật gate, bài khuyên quay về dùng `dataSource` — nhưng `dataSource` chỉ nhận PVC và
+   VolumeSnapshot, nên custom resource thì vẫn không dùng được. Ngoài ra populator là thành
+   phần bên ngoài: thiếu nó thì việc tạo PVC có thể thất bại, và bạn nên tìm nguyên nhân trong
+   các Event trên chính PVC đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

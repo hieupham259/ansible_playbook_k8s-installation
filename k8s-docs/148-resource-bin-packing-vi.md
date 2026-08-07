@@ -2,6 +2,49 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/resource-bin-packing/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 13/13 ·
+Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài cuối của nhóm, và cũng là bài duy nhất **thay đổi cách chấm điểm mặc định** thay vì thêm
+ràng buộc cho Pod. Mọi thứ ở đây là cấu hình cấp cluster trong `KubeSchedulerConfiguration`,
+không phải trường trong Pod spec — nên bạn không thử được bằng một manifest.
+
+Ví dụ trong bài dùng extended resource `intel.com/foo` và `intel.com/bar`; cluster lab không
+có phần cứng như vậy, nhưng cú pháp và ý nghĩa `resources` + `weight` vẫn đọc như thường, chỉ
+cần thay bằng `cpu` và `memory` khi hình dung.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bin packing là **chiến lược chấm điểm** của plugin `NodeResourcesFit`, tức là nó chỉ tác động
+  vào **bước chấm điểm** của bài [137](137-kube-scheduler-vi.md), không đụng vào bước lọc.
+- `MostAllocated` chấm điểm cao cho node **đã cấp phát nhiều**, nhằm dồn Pod lên ít node nhất
+  có thể — mục đích bài nêu là **chuẩn bị cho việc thu hẹp (scale-down) các node ít dùng**.
+- `RequestedToCapacityRatio` cho bạn tự vẽ đường cong qua `shape`: điểm **tăng** theo
+  `utilization` là bin packing; đảo ngược lại (`utilization: 0 → score: 10`) là chế độ **ưu
+  tiên yêu cầu ít nhất**, tức trải Pod ra.
+- Danh sách `resources` quyết định **tài nguyên nào được tính điểm**: tài nguyên không nằm
+  trong danh sách **không đóng góp gì** vào điểm của plugin này. Mặc định là `cpu` và `memory`
+  với `weight: 1`; `weight` không được âm, và **mọi tài nguyên trong danh sách dùng chung một
+  `shape`**.
+- Đây là cấu hình cấp cluster, nạp bằng cờ `--config=/path/to/config/file` của kube-scheduler.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Chấm điểm node cho việc phân bổ dung lượng* — phép tính điểm Node 1 và Node 2 | chính bài nói đây là chi tiết nội bộ | không cần |
+| Ghi chú đầu bài về đóng gói khi lập lịch nhóm pod | thuộc lập lịch nâng cao | giai đoạn 13, bài [153](153-topology-aware-scheduling-vi.md) |
+| Ý nghĩa vận hành của extended resource `intel.com/*` | cluster lab không có thiết bị chuyên dụng | giai đoạn 14, bài [184](184-device-plugins-vi.md) |
+
+---
+
 > **Ghi chú:**
 >
 > Bài viết này áp dụng cho việc đóng gói tài nguyên (resource bin packing) trong ngữ cảnh lập lịch một pod đơn lẻ. Đối với việc đóng gói khi lập lịch các nhóm pod (pod group), vui lòng đọc [bài viết về Lập lịch nhận biết topology (Topology-aware Scheduling)](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-aware-scheduling/).
@@ -263,3 +306,50 @@ NodeScore   =  ((5 * 5) + (7 * 1) + (10 * 3)) / (5 + 1 + 3)
 
 - Đọc thêm về [scheduling framework](https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/)
 - Đọc thêm về [cấu hình bộ lập lịch (scheduler configuration)](https://kubernetes.io/docs/reference/scheduling/config/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Bin packing tác động vào bước nào của kube-scheduler? Bật `MostAllocated` có làm một node
+   vốn không đủ tài nguyên trở nên nhận được Pod không?
+2. Hai `shape` sau khác nhau ra sao về hành vi: `{utilization: 0 → score: 0, utilization: 100
+   → score: 10}` và `{utilization: 0 → score: 10, utilization: 100 → score: 0}`?
+3. Trong ví dụ `RequestedToCapacityRatio` của bài, `resources` chỉ liệt kê `intel.com/foo` và
+   `intel.com/bar`. CPU và memory có ảnh hưởng tới điểm số từ plugin `NodeResourcesFit` không?
+4. Trên cluster lab hai worker 2 vCPU / 6 GB RAM, giả sử bạn bật `MostAllocated` rồi tạo lần
+   lượt nhiều Pod nhỏ. Chúng có xu hướng nằm ở đâu, và điều đó tốt hay xấu cho cluster này?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Chỉ tác động vào **bước chấm điểm** — cả `MostAllocated` lẫn `RequestedToCapacityRatio` đều
+   là **chiến lược chấm điểm (scoring strategy)** của plugin `NodeResourcesFit`. **Không**:
+   node không đủ tài nguyên đã bị loại từ bước lọc và không bao giờ đi tới bước chấm điểm.
+   Bin packing chỉ đổi **thứ tự ưu tiên giữa các node vốn đã khả thi**.
+2. Cái thứ nhất **bật đóng gói tài nguyên**: điểm tăng theo mức sử dụng, nên node càng đầy càng
+   được ưu tiên, và Pod bị dồn lên càng ít node càng tốt. Cái thứ hai là bản **đảo ngược**, cho
+   chế độ **ưu tiên yêu cầu ít nhất (least requested)**: node càng rỗng càng được ưu tiên, tức
+   là trải Pod ra. Cùng một plugin, chỉ đổi đường cong là đảo ngược hoàn toàn ý đồ.
+3. **Không.** Plugin chấm điểm các node **chỉ dựa trên mức sử dụng của hai tài nguyên được liệt
+   kê**; CPU và memory không đóng góp vào điểm số từ plugin này. Muốn tính chúng thì phải thêm
+   vào danh sách `resources` — và khi thêm, hãy nhớ **tất cả tài nguyên trong danh sách dùng
+   chung cùng một `shape`**, nên cùng một đường cong đóng gói sẽ áp lên chúng. Đây là chỗ dễ
+   nhầm: `resources` để trống mới lấy mặc định `cpu`/`memory` weight 1, chứ liệt kê tài nguyên
+   khác **không** có nghĩa là "thêm vào bên cạnh mặc định".
+4. Chúng **dồn về một worker** cho tới khi worker đó không còn khả thi, thay vì rải đều hai
+   worker. Với cluster lab thì điều này **xấu**: lợi ích mà bài nêu cho `MostAllocated` là
+   "chuẩn bị cho việc thu hẹp (scale-down) các node có mức sử dụng thấp nhất" — cluster lab
+   không co giãn node nên bạn không thu được lợi ích đó, mà lại mất khả năng chịu lỗi vì gần
+   như toàn bộ workload nằm trên một máy. Đây chính là lý do bin packing là lựa chọn cần cân
+   nhắc theo bối cảnh, không phải mặc định tốt hơn.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của nhóm 7a — khi
+trả lời được hết cả 13 bài, bạn sẵn sàng vào Lab 7a (chưa viết, xem
+[bản đồ lab](labs/README.md#4-bản-đồ-lab)).

@@ -2,6 +2,53 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/podgroup-api/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+bài 5/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
+hoặc dành cho nền tảng chuyên biệt (AI/HPC, GPU). Chỉ đọc khi đã vững giai đoạn 1–12 hoặc khi
+công việc thực sự cần. Bài này ở trạng thái `alpha` từ v1.36, nằm trong API group
+`scheduling.k8s.io/v1alpha2` và cần feature gate `GenericWorkload` — **API có thể đổi giữa các
+phiên bản**. Cluster lab 3 VM trên VMware chạy cấu hình mặc định nên hai thứ đó đều tắt: các
+lệnh `kubectl get podgroups` trong bài sẽ không chạy được. Đọc để hiểu khái niệm.
+
+Điều dễ lẫn nhất ở bài này là **hai đối tượng na ná nhau**: Workload và PodGroup. Giữ chặt một
+câu: Workload là *mẫu chính sách* tồn tại lâu dài, PodGroup là *thực thể runtime*.
+
+**Phải hiểu ở lần đọc này:**
+
+- PodGroup là đơn vị lập lịch **khép kín**: nó mang chính sách lập lịch chi phối việc sắp đặt
+  và ghi lại trạng thái runtime của quyết định lập lịch đó.
+- `spec.schedulingPolicy` (`basic` hoặc `gang`) được **sao chép** từ PodGroupTemplate của
+  Workload tại thời điểm tạo; với PodGroup độc lập thì bạn đặt trực tiếp.
+- Vì sao tách Workload và PodGroup: Workload là định nghĩa chính sách dùng chung, còn cập nhật
+  status của từng PodGroup **không tranh chấp** trên đối tượng dùng chung đó.
+- Chuỗi ba bước ở mục *Cách các thành phần khớp với nhau*: controller tạo Workload → tạo
+  PodGroup từ một PodGroupTemplate → tạo Pod trỏ về PodGroup qua
+  `spec.schedulingGroup.podGroupName`. **Job là workload controller tích hợp sẵn duy nhất**
+  tuân theo mẫu này.
+- Ranh giới của status: condition `PodGroupScheduled` **chỉ phản ánh quyết định lập lịch ban
+  đầu**, scheduler không cập nhật nó khi Pod lỗi hay bị trục xuất về sau.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Quyền sở hữu*, thứ tự tạo, bảo vệ khi xóa | là nội dung của bài kế tiếp | [bài 76](76-podgroup-lifecycle-vi.md) |
+| `spec.podGroupTemplateRef` và cấu trúc Workload | chưa học đối tượng Workload | [bài 77](77-workload-api-vi.md) |
+| Chi tiết `basic` và `gang` | ở đây mới chỉ là tên chính sách | [bài 79](79-workload-policies-vi.md) |
+| Danh sách đầy đủ condition và reason | sinh ra bởi chu trình lập lịch | [bài 151](151-podgroup-scheduling-vi.md) |
+| *Yêu cầu thiết bị DRA cho một PodGroup* | tính năng alpha riêng, cần thiết bị thật | khi công việc thực sự cần |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
 PodGroup là một đối tượng runtime đại diện cho một nhóm các Pod được lập lịch cùng nhau
@@ -194,3 +241,39 @@ các cập nhật status của từng PodGroup riêng lẻ không tranh chấp t
 * Đọc về [Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/) — API cung cấp các PodGroupTemplate.
 * Xem cách các Pod tham chiếu đến PodGroup của chúng thông qua trường [scheduling group](https://kubernetes.io/docs/concepts/workloads/pods/scheduling-group/).
 * Hiểu về thuật toán [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho một giai đoạn tùy chọn:
+
+1. Workload và PodGroup, cái nào mang chính sách và cái nào mang trạng thái runtime? Bài nêu
+   lợi ích gì của việc tách hai đối tượng này?
+2. Bạn thấy một PodGroup có condition `PodGroupScheduled: True`. Kết luận được rằng nhóm đó
+   hiện đang chạy đủ Pod không?
+3. Trên cluster lab mặc định của bạn, `kubectl get podgroups` sẽ không trả về gì hữu ích. Hai
+   thứ nào phải được bật trước thì API này mới dùng được?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Workload mang chính sách, PodGroup mang trạng thái runtime.** Workload đóng vai trò định
+   nghĩa chính sách **tĩnh, tồn tại lâu dài** qua các PodGroupTemplate; PodGroup là **thực thể
+   runtime** cho từng lần chạy, mang bản sao của chính sách cộng với trạng thái lập lịch. Lợi
+   ích bài nêu rất cụ thể: **các cập nhật status của từng PodGroup riêng lẻ không tranh chấp
+   trên đối tượng Workload dùng chung**. Hệ quả kèm theo là PodGroup tự chứa — chính sách được
+   sao chép vào nó lúc tạo, chứ không phải tra ngược về Workload mỗi lần lập lịch.
+2. **Không.** Đây đúng là chỗ dễ nhầm nhất của bài: `PodGroupScheduled` **chỉ phản ánh quyết
+   định lập lịch ban đầu**. Một khi được đặt thành `True`, **scheduler sẽ không cập nhật lại
+   nó** nếu sau đó các Pod bị lỗi, bị trục xuất hay ngừng chạy. Nó trả lời câu hỏi "nhóm này
+   đã từng được sắp đặt thành công chưa", không phải "nhóm này có đang khỏe không".
+3. **API group `scheduling.k8s.io/v1alpha2`** và **feature gate `GenericWorkload`**. Bài nhắc
+   điều kiện này hai lần — ở mục *PodGroup là gì?* và ở mục *Tạo một PodGroup* — vì thiếu một
+   trong hai thì đối tượng PodGroup không tồn tại trong cluster.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

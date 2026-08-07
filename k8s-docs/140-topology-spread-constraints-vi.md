@@ -2,6 +2,54 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 5/13 ·
+Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này là **bản nâng cấp của `podAntiAffinity`**: thay vì "một miền tối đa một Pod" hoặc
+"không ép được gì cả", nó cho bạn chỉnh mức lệch được phép bằng một con số. Toàn bộ ví dụ dùng
+cluster 4–5 node chia zone A/B/C; cluster lab chỉ có hai worker và **không node nào mang label
+zone**, nên hãy đọc mọi ví dụ với `topologyKey: zone` như thể nó là
+`topologyKey: kubernetes.io/hostname` — logic không đổi, chỉ đổi miền topology.
+
+Ba mục cần đọc chậm là *Định nghĩa ràng buộc phân bố*, *Các quy ước ngầm định* và *Các hạn chế
+đã biết*. Phần lớn lỗi thực tế nằm ở hai mục sau, không nằm ở cú pháp.
+
+**Phải hiểu ở lần đọc này:**
+
+- **Miền (domain)** là một cặp `<key, value>` của label node; `topologyKey` quyết định bạn
+  đang trải Pod theo chiều nào. Scheduler cố đặt số Pod cân bằng vào mỗi miền.
+- `maxSkew` là chênh lệch tối đa cho phép giữa số Pod khớp trong miền đích và **mức tối thiểu
+  toàn cục**. `whenUnsatisfiable: DoNotSchedule` giữ Pod ở `Pending` khi không thỏa;
+  `ScheduleAnyway` vẫn lập lịch nhưng ưu tiên miền ít Pod hơn.
+- `labelSelector` quyết định **Pod nào được đếm**. Mục *Các hạn chế đã biết* cảnh báo: Pod
+  không khớp chính selector của mình trở thành "pod ma" — nó không tự tính vào phép đo phân
+  bố, nên ràng buộc chạy sai kỳ vọng.
+- Mục *Các quy ước ngầm định*: chỉ Pod **cùng namespace** mới được đếm; và scheduler **bỏ qua
+  hoàn toàn** node thiếu bất kỳ `topologyKey` nào được nêu — Pod trên node đó không được tính,
+  đồng thời Pod mới cũng không có cơ hội lên node đó.
+- Nhiều ràng buộc được **AND** với nhau. Giao của chúng có thể rỗng, và khi đó Pod kẹt ở
+  `Pending` — đúng như mục *ví dụ các ràng buộc phân bố theo topology xung đột nhau*.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| `minDomains` | chỉ có nghĩa khi số miền hợp lệ ít hơn kỳ vọng, gắn với node pool co giãn | giai đoạn 12, bài [171](171-node-autoscaling-vi.md) |
+| `matchLabelKeys` và `pod-template-hash` | dành cho workload có nhiều revision cùng tồn tại | bài [63](63-deployment-vi.md) |
+| `nodeAffinityPolicy`, `nodeTaintsPolicy` | tinh chỉnh node nào được đưa vào phép tính skew | Lab 7a |
+| *Ràng buộc mặc định ở cấp cluster* và *Ràng buộc mặc định tích hợp sẵn* | phải sửa `KubeSchedulerConfiguration` | bài [147](147-scheduling-framework-vi.md) |
+| Hạn chế về cluster autoscaling khi node pool co về 0 | cluster lab không co giãn node | giai đoạn 12, bài [171](171-node-autoscaling-vi.md) |
+| Các sơ đồ zoneA/zoneB/zoneC và ví dụ `two-constraints.yaml` | cluster lab không có label zone | Lab 7a, thay `zone` bằng `kubernetes.io/hostname` |
+
+---
+
 Bạn có thể dùng _ràng buộc phân bố theo topology_ (topology spread constraints) để kiểm soát
 cách các Pod được phân bố trên cluster của bạn giữa các miền lỗi (failure-domain)
 như region, zone, node và các miền topology khác do người dùng tự định nghĩa.
@@ -709,3 +757,54 @@ của đề xuất cải tiến (enhancement proposal) về ràng buộc phân b
   giải thích khá chi tiết về `maxSkew`, đồng thời đề cập một số ví dụ sử dụng nâng cao.
 - Đọc mục [scheduling](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling) trong
   tài liệu tham chiếu API của Pod.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Cluster lab có hai node nhận Pod thường. Bạn đặt một ràng buộc `maxSkew: 1`,
+   `topologyKey: kubernetes.io/hostname`, `whenUnsatisfiable: DoNotSchedule`, rồi scale
+   Deployment lên 5 replica. Phân bố Pod cuối cùng ra sao?
+2. Vẫn cluster đó, bạn đổi `topologyKey` thành `topology.kubernetes.io/zone` — label mà không
+   node nào của bạn có. Pod sẽ được trải đều trên hai worker, hay chuyện gì khác xảy ra?
+3. `podAntiAffinity` loại `requiredDuringSchedulingIgnoredDuringExecution` và một ràng buộc
+   phân bố theo topology khác nhau thế nào về mức độ cưỡng chế?
+4. Pod template gắn label `app: web`, nhưng `labelSelector` trong ràng buộc phân bố lại khớp
+   `app: api`. Ràng buộc còn tác dụng gì không, và hiện tượng đó tên là gì?
+5. Ràng buộc đang được thỏa mãn. Bạn scale down Deployment. Kubernetes có tự sắp lại Pod để
+   giữ phân bố cân bằng không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **3 Pod trên một worker và 2 Pod trên worker kia** (không xác định trước worker nào nhận 3).
+   Mỗi node là một miền của `kubernetes.io/hostname`; độ lệch thực tế là `3 - 2 = 1`, đúng bằng
+   `maxSkew: 1` nên hợp lệ. Phân bố 4/1 sẽ cho độ lệch 3 và bị từ chối.
+2. **Không Pod nào được lập lịch — tất cả kẹt ở `Pending`.** Mục *Các quy ước ngầm định* nói:
+   scheduler **chỉ xem xét những node có đầy đủ tất cả các `topologyKey`** được nêu, node
+   thiếu bất kỳ key nào sẽ **bị bỏ qua**, và **Pod mới đến không có cơ hội được lập lịch lên
+   loại node như vậy**. Đây đúng là bẫy "gõ sai tên label `zone-typo`" mà bài nêu: cluster
+   trông vẫn khỏe, node vẫn `Ready`, mà Pod thì không đi đâu được. Trực giác "không có miền nào
+   thì ràng buộc coi như vô hiệu" là sai — ngược lại, nó loại sạch node.
+3. `podAntiAffinity` `required` là **nhị phân**: một miền topology chỉ chứa được **đúng một
+   Pod**; muốn nới thì phải chuyển sang `preferred` và khi đó **mất hẳn khả năng cưỡng chế**.
+   Ràng buộc phân bố theo topology cho bạn **mức trung gian định lượng được** bằng `maxSkew`, và
+   vẫn giữ được cưỡng chế qua `DoNotSchedule`. Đó là lý do mục *So sánh với podAffinity và
+   podAntiAffinity* gọi nó là "kiểm soát tinh vi hơn".
+4. **Ràng buộc vẫn chạy nhưng đo nhầm đối tượng, và các Pod của bạn trở thành "pod ma"**. Vì
+   nhãn của pod không khớp `labelSelector` trong ràng buộc của chính nó, **pod đó không tự tính
+   mình vào các phép tính phân bố** — nên nhiều pod như vậy cứ dồn tích lên cùng một topology
+   mà kết quả tính toán không đổi. Bài kết luận thẳng: hãy đảm bảo nhãn của pod khớp với
+   `labelSelector` trong ràng buộc phân bố.
+5. **Không.** Mục *Các hạn chế đã biết* nói rõ: **không có gì đảm bảo các ràng buộc vẫn được
+   thỏa mãn khi các Pod bị xóa**, và việc scale down một Deployment có thể dẫn tới phân bố mất
+   cân bằng. Ràng buộc chỉ được đánh giá **lúc lập lịch**. Muốn tái cân bằng thì cần một công
+   cụ ngoài như Descheduler.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -4,6 +4,55 @@
 >
 > Tổng quan về các module bảo mật và các ràng buộc của Linux kernel mà bạn có thể dùng để tăng cường bảo mật (harden) cho Pod và container của mình.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 12/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là bài giải thích **ý nghĩa** của những cái tên đã xuất hiện trong bảng Baseline và
+Restricted ở bài [115](115-pod-security-standards-vi.md): seccomp, AppArmor, SELinux,
+capability, `allowPrivilegeEscalation`, `privileged`. Đọc để hiểu mỗi cơ chế hạn chế **cái gì**
+và ai cưỡng chế nó. Cách viết profile cụ thể là tutorial riêng, không cần ở lần đọc này.
+
+**Phải hiểu ở lần đọc này:**
+
+- Biện pháp đầu tiên và rẻ nhất là **chạy workload không cần đặc quyền root**: đặt user và group
+  Linux trong `securityContext` của Pod. Giá trị trong **manifest được ưu tiên hơn** giá trị
+  trong container image — hữu ích khi bạn chạy image không do mình sở hữu. Chạy non-root làm
+  **giảm khả năng bạn phải cưỡng chế các cơ chế bảo mật kernel** đã cấu hình.
+- Ba cơ chế hạn chế ba thứ khác nhau: **seccomp** lọc **từng lời gọi hệ thống**; **AppArmor**
+  hạn chế **tài nguyên mà một chương trình được truy cập**, định nghĩa tài nguyên bằng **đường
+  dẫn file**; **SELinux** hạn chế truy cập bằng **nhãn và chính sách**, định danh tài nguyên
+  bằng **inode**. Node Linux thường chỉ có **một trong hai** AppArmor hoặc SELinux, và tính năng
+  phải được bật sẵn trong kernel của hệ điều hành bạn chọn.
+- Khuyến nghị của bài về seccomp: **dùng seccomp profile mặc định đi kèm container runtime**.
+  Tự viết profile chỉ khi thật sự cần kiểm soát chi tiết syscall, vì ba rủi ro: cấu hình có thể
+  hỏng khi ứng dụng được cập nhật, kẻ tấn công vẫn lợi dụng được các syscall **được phép**, và
+  quản lý profile cho từng ứng dụng rất khó ở quy mô lớn.
+- Linux dùng **capability** để chia nhỏ đặc quyền root thành từng nhóm; nên cấp đúng capability
+  cần qua trường `capabilities` trong `securityContext` thay vì bật chế độ đặc quyền.
+- **Container đặc quyền ghi đè cả ba cơ chế cùng lúc**: seccomp chạy với profile `Unconfined`,
+  AppArmor profile bị bỏ qua, SELinux chạy trong domain `unconfined_t`; và container đó **được
+  cấp toàn bộ Linux capability**. Ngược lại, `allowPrivilegeEscalation: false` ngăn tiến trình
+  **giành thêm capability mới** và ngăn người dùng không đặc quyền **đổi sang seccomp profile dễ
+  dãi hơn**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cách viết seccomp profile, AppArmor profile hay chính sách SELinux cụ thể | là tutorial riêng của kubernetes.io | giai đoạn 9, khi làm Lab 9b |
+| Kubernetes Security Profiles Operator | là mẫu operator để quản lý ở quy mô lớn | giai đoạn 14 |
+| *User namespace* — `hostUsers: false` | tính năng còn ở giai đoạn phát triển ban đầu | bài [55](55-user-namespaces-vi.md) |
+| `windowsOptions.hostProcess` và Pod HostProcess trên Windows | cluster lab chỉ có node Linux | giai đoạn 15 |
+| Khuyến nghị làm cô lập ở tầng mạng trước | NetworkPolicy đã học rồi | bài [84](84-network-policies-vi.md) |
+
+---
+
 Trang này mô tả một số tính năng bảo mật được tích hợp sẵn trong Linux kernel mà bạn có thể
 sử dụng cho các workload Kubernetes của mình. Để tìm hiểu cách áp dụng các tính năng này
 cho Pod và container, tham khảo
@@ -246,3 +295,54 @@ mức hỗ trợ mà bạn cần. Để biết hướng dẫn, tham khảo
 * [Tìm hiểu cách dùng seccomp](https://kubernetes.io/docs/tutorials/security/seccomp/)
 * [Tìm hiểu cách dùng SELinux](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#assign-selinux-labels-to-a-container)
 * [Tài liệu tham khảo seccomp cho node](https://kubernetes.io/docs/reference/node/seccomp/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. seccomp, AppArmor và SELinux hạn chế **cái gì** — mỗi cơ chế nhắm vào một đối tượng khác
+   nhau. Nói luôn AppArmor và SELinux định danh tài nguyên bằng gì.
+2. Bạn đã gán một seccomp profile chặt và một AppArmor profile riêng cho container, rồi thêm
+   `privileged: true` vì ứng dụng cần thao tác với network stack. Hai cấu hình bảo mật kia còn
+   tác dụng không?
+3. Ba VM của cluster lab chạy Ubuntu Server. Theo bài, node của bạn nhiều khả năng đã bật sẵn
+   cơ chế kiểm soát truy cập bắt buộc nào, và điều đó ảnh hưởng gì tới lựa chọn giữa AppArmor
+   và SELinux?
+4. Vì sao bài khuyên dùng seccomp profile mặc định của container runtime thay vì tự viết? Nêu
+   ba rủi ro mà bài liệt kê.
+5. `allowPrivilegeEscalation: false` chặn đúng hai việc gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **seccomp** hạn chế **các lời gọi hệ thống (syscall)** mà một tiến trình được phép thực hiện
+   từ userspace vào kernel. **AppArmor** hạn chế **quyền truy cập của từng chương trình** tới
+   một tập tài nguyên — Linux capability, truy cập mạng, quyền trên file — và **định nghĩa tài
+   nguyên bằng đường dẫn file**. **SELinux** hạn chế quyền truy cập mà một **chủ thể** (ví dụ
+   một tiến trình) có được đối với tài nguyên, dựa trên **nhãn bảo mật và chính sách**, và
+   **định danh tài nguyên bằng inode**.
+2. **Không.** Đây là bẫy đáng nhớ nhất của bài: **container đặc quyền ghi đè một cách tường minh
+   cả ba ràng buộc** — seccomp chạy với profile **`Unconfined`**, ghi đè profile bạn chỉ định
+   trong manifest; **mọi AppArmor profile đang áp dụng đều bị bỏ qua**; SELinux chạy trong domain
+   **`unconfined_t`**. Container đó còn được cấp **toàn bộ Linux capability**, kể cả những cái
+   nó không cần. Đúng cách là **cấp đúng capability cần qua trường `capabilities`**, và chỉ dùng
+   chế độ đặc quyền khi cần một capability không cấp được qua `securityContext`.
+3. **AppArmor**, vì bài nói **Ubuntu 7.10 trở lên bật AppArmor theo mặc định**. Điều đó quyết
+   định luôn lựa chọn: bài nói hệ điều hành trên node Linux **thường chỉ bao gồm một trong hai**
+   AppArmor hoặc SELinux, và muốn cấu hình một tính năng thì **kernel của hệ điều hành đó phải
+   bật tính năng ấy**. Nên trên cluster lab, bạn viết AppArmor profile chứ không viết chính sách
+   SELinux.
+4. Vì seccomp là **cấu hình bảo mật ở tầng thấp**, chỉ nên tự cấu hình khi thật sự cần kiểm soát
+   chi tiết syscall. Ba rủi ro: **cấu hình có thể bị hỏng khi ứng dụng được cập nhật**; **kẻ tấn
+   công vẫn có thể lợi dụng các syscall được phép để khai thác lỗ hổng**; và **việc quản lý
+   profile cho từng ứng dụng riêng lẻ trở nên khó khăn ở quy mô lớn**.
+5. Nó **ngăn các tiến trình giành thêm capability mới**, và **hạn chế người dùng không có đặc
+   quyền thay đổi seccomp profile đang được áp dụng sang một profile dễ dãi hơn**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

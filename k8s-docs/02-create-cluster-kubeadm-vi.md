@@ -4,6 +4,60 @@
 >
 > Tài liệu gốc thuộc Kubernetes Documentation, phát hành theo giấy phép CC BY 4.0.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 2/9 ·
+Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là **bài trung tâm của giai đoạn 8**. Mục
+[A5 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a5-khởi-tạo-cluster) là bản rút gọn của nó:
+[A5.1](labs/LAB-00-MOI-TRUONG.md#a51-init-control-plane) chạy `kubeadm init`,
+[A5.2](labs/LAB-00-MOI-TRUONG.md#a52-cài-flannel-v0287) cài CNI,
+[A5.3](labs/LAB-00-MOI-TRUONG.md#a53-join-hai-worker) join hai worker. Bài dài, nhưng phần
+thực sự quyết định nằm ở ba mục: khởi tạo control-plane node, cài Pod network add-on, và cách
+ly control plane node. Mọi thứ khác là tùy chọn hoặc tra cứu.
+
+**Phải hiểu ở lần đọc này:**
+
+- *Những lưu ý về apiserver-advertise-address và ControlPlaneEndpoint*: `--apiserver-advertise-address`
+  chỉ đặt địa chỉ quảng bá **của riêng node này**, còn `--control-plane-endpoint` đặt endpoint
+  **dùng chung cho mọi control-plane node**. Quan trọng nhất: chuyển một cluster đã tạo **không
+  có** `--control-plane-endpoint` thành HA **không được kubeadm hỗ trợ** — đây là quyết định
+  một chiều, phải chốt ngay lúc `kubeadm init`.
+- *Cài đặt Pod network add-on*: CNI là bắt buộc và có thứ tự — **CoreDNS không khởi động trước
+  khi mạng được cài**. Pod network không được trùng với mạng của máy chủ, và giá trị
+  `--pod-network-cidr` phải khớp với YAML của plugin. Mỗi cluster chỉ cài được **một** Pod network.
+- Kubeconfig mà `kubeadm init` sinh ra: `admin.conf` mang `O = kubeadm:cluster-admins`,
+  `super-admin.conf` mang `O = system:masters` — nhóm break-glass **bỏ qua RBAC**. Không chia sẻ
+  cả hai. Token trong lệnh `kubeadm join` cũng là bí mật: ai có nó đều thêm node được vào cluster.
+- *Cách ly control plane node* và *Các label node được quản lý*: control plane mặc định mang
+  taint `node-role.kubernetes.io/control-plane:NoSchedule` nên Pod thường không lên đó; gỡ bằng
+  `kubectl taint nodes --all node-role.kubernetes.io/control-plane-`. Ngược lại, admission
+  controller `NodeRestriction` khiến kubelet **không** tự gán được label `node-role.kubernetes.io/*`
+  qua `--node-labels`; phải gán bằng `kubectl label` sau khi node đã join.
+- *Gỡ bỏ node*: đúng thứ tự là `kubectl drain` → `kubeadm reset` trên chính node đó →
+  `kubectl delete node`. `kubeadm reset` là dọn dẹp **best-effort** và **không** đặt lại các
+  quy tắc iptables hay bảng IPVS.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Chuẩn bị các container image cần thiết* | chỉ cần khi node không có Internet egress | không cần |
+| *(Tùy chọn) Điều khiển cluster từ các máy khác*, `kubeadm kubeconfig user` | cần RBAC và ClusterRoleBinding | giai đoạn 9 |
+| *(Tùy chọn) Proxy API Server về localhost* | tiện ích, không đổi cách cluster chạy | không cần |
+| *Chính sách chênh lệch phiên bản* — phần `kubeadm upgrade` | quy trình nâng cấp là chủ đề riêng | CP2 nâng cấp |
+| *Khả năng chống chịu của cluster* — sao lưu `/var/lib/etcd` | cần `etcdctl` và quy trình khôi phục | CP4 etcd backup |
+| *Thêm control plane node* | là topology HA, có bài riêng | bài [06](06-ha-topology-vi.md) và [08](08-high-availability-vi.md) |
+| *Tương thích nền tảng* (arm64, ppc64le, s390x) | ba VM lab đều là amd64 | không cần |
+
+---
+
 <img src="https://kubernetes.io/images/kubeadm-stacked-color.png" align="right" width="150px"></img>
 Với `kubeadm`, bạn có thể tạo một Kubernetes cluster tối thiểu khả dụng (minimum viable) tuân theo các thực hành tốt nhất.
 Trên thực tế, bạn có thể dùng `kubeadm` để dựng một cluster vượt qua được các
@@ -609,3 +663,63 @@ Nếu bạn đang gặp khó khăn với kubeadm, vui lòng tham khảo
 * [Thông tin SIG](https://github.com/kubernetes/community/tree/main/sig-cluster-lifecycle#readme) của SIG Cluster Lifecycle
 * Danh sách thư (mailing list) của SIG Cluster Lifecycle:
   [kubernetes-sig-cluster-lifecycle](https://groups.google.com/forum/#!forum/kubernetes-sig-cluster-lifecycle)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
+
+1. [A5.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a51-init-control-plane) truyền cả
+   `--control-plane-endpoint 'k8s-master:6443'` lẫn `--apiserver-advertise-address 192.168.100.111`.
+   Hai cờ này khác nhau chỗ nào? Nếu bỏ cờ thứ nhất thì sau này bạn mất khả năng gì, và sửa
+   được bằng cách chạy lại lệnh không?
+2. Ngay sau `kubeadm init` trên `k8s-master`, `kubectl get pods -A` cho thấy Pod CoreDNS ở
+   trạng thái `Pending`. Đây có phải sự cố không? Điều gì làm nó chạy?
+3. Vì sao Lab 00 phải truyền `--pod-network-cidr 10.244.0.0/16` chứ không để kubeadm tự chọn?
+   Nếu bạn đặt giá trị này lệch với manifest Flannel v0.28.7 thì hỏng ở đâu?
+4. Trên cluster lab, Deployment của bạn không bao giờ có Pod chạy trên `k8s-master`, dù node đó
+   `Ready`. Cơ chế nào gây ra điều đó? Và tại sao bạn **không** dùng được `--node-labels` của
+   kubelet để tự gắn nhãn `node-role.kubernetes.io/worker` cho hai worker?
+5. Bạn muốn bỏ hẳn `k8s-worker2` khỏi cluster. Ba lệnh theo đúng thứ tự là gì, chạy ở đâu, và
+   sau khi xong thì trên máy đó còn sót lại thứ gì mà kubeadm không dọn?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `--apiserver-advertise-address` đặt địa chỉ quảng bá **cho API server của riêng
+   control-plane node này**; `--control-plane-endpoint` đặt **endpoint dùng chung cho tất cả
+   các control-plane node**, có thể là tên DNS hoặc IP của load balancer. Bỏ cờ thứ nhất thì
+   bạn mất đường nâng cấp lên HA: bài nói rõ **việc chuyển một cluster một control plane được
+   tạo mà không có `--control-plane-endpoint` thành cluster HA không được kubeadm hỗ trợ**.
+   Chạy lại `kubeadm init` thì trước đó phải **gỡ bỏ cluster** — nên đây là quyết định phải
+   chốt đúng một lần, và Lab 00 chốt sẵn bằng tên DNS `k8s-master`.
+2. **Không phải sự cố.** Bài viết rõ trong khối cảnh báo của mục *Cài đặt Pod network add-on*:
+   **DNS của cluster (CoreDNS) sẽ không khởi động trước khi một mạng được cài đặt**. Chỉ khi
+   bạn `kubectl apply` manifest CNI — với lab là Flannel — thì CoreDNS mới chuyển sang
+   `Running`; và bài dùng chính điều đó làm phép kiểm chứng rằng Pod network đã hoạt động,
+   trước khi cho phép join node.
+3. Vì **Pod network add-on quyết định tham số cần truyền cho `kubeadm init`**: bài dặn kiểm tra
+   plugin có yêu cầu tham số nào không, và tùy nhà cung cấp mà phải đặt `--pod-network-cidr`
+   theo giá trị đặc thù của họ. Nếu đặt lệch, bạn rơi vào đúng tình huống bài cảnh báo — dải
+   Pod network mà kubeadm cấp phát và dải mà YAML của plugin dùng không còn là một, nên phải
+   sửa **cả hai chỗ cùng lúc** thì mới nhất quán. Bài cũng nhắc dải này **không được trùng với
+   mạng của máy chủ**; `10.244.0.0/16` không đụng LAN `192.168.100.0/24` của lab.
+4. Taint. **Theo mặc định cluster không lập lịch Pod trên control plane node vì lý do bảo mật**;
+   cụ thể là taint `node-role.kubernetes.io/control-plane:NoSchedule`, gỡ bằng
+   `kubectl taint nodes --all node-role.kubernetes.io/control-plane-`. Còn label thì ngược lại:
+   admission controller **`NodeRestriction`** (kubeadm bật mặc định) giới hạn label mà kubelet
+   tự gán cho mình, và `node-role.kubernetes.io/*` nằm trong nhóm bị cấm — cố gán qua
+   `--node-labels` thì **node sẽ không đăng ký được với API server**. Phải dùng `kubectl label`
+   sau khi node đã join, với kubeconfig đặc quyền như `/etc/kubernetes/admin.conf`.
+5. `kubectl drain k8s-worker2 --delete-emptydir-data --force --ignore-daemonsets` (trên
+   control-plane node) → `kubeadm reset` (**trên chính `k8s-worker2`**) → `kubectl delete node
+   k8s-worker2`. Sau đó máy vẫn còn **các quy tắc iptables và bảng IPVS**: bài nói rõ quá trình
+   reset không đặt lại hay dọn dẹp chúng, muốn sạch thì phải tự chạy `iptables -F …` và
+   `ipvsadm -C`. Bỏ bước drain là bỏ mất phần "đảm bảo node đã trống" mà bài yêu cầu làm trước.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

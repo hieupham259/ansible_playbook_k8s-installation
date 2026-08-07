@@ -2,6 +2,51 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/policy/limit-range/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
+bài 2/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này và bài [134](134-resource-quotas-vi.md) ngay sau tạo thành một cặp rất dễ lẫn. Giữ
+chặt một câu phân biệt ngay từ đầu: **LimitRange đặt trần cho từng đối tượng, ResourceQuota
+đặt trần cho tổng cả namespace.** Bài mở đầu bằng đúng ý đó — quota giới hạn cả namespace, còn
+LimitRange có mặt để "một đối tượng đơn lẻ không thể chiếm dụng toàn bộ tài nguyên khả dụng
+trong một namespace". Bạn đã có `requests`/`limits` từ bài
+[110](110-manage-resources-containers-vi.md) ở giai đoạn 3, nên bài này đọc nhanh được.
+
+**Phải hiểu ở lần đọc này:**
+
+- LimitRange là chính sách **cấp từng đối tượng** trong một namespace: ép min/max tài nguyên
+  tính toán cho mỗi Pod hoặc Container, ép min/max storage request cho mỗi PersistentVolumeClaim,
+  ép tỷ lệ request/limit, và **đặt request/limit mặc định** rồi tự chèn vào Container lúc chạy.
+- Đúng thứ tự hai bước trong mục *Ràng buộc đối với limit và request tài nguyên*: admission
+  controller LimitRange **trước hết** điền giá trị mặc định cho Pod chưa khai tài nguyên tính
+  toán, **sau đó** mới soi mức sử dụng so với min/max/tỷ lệ. Vi phạm thì yêu cầu gửi tới API
+  server thất bại với `403 Forbidden` kèm thông báo nói rõ ràng buộc nào bị vi phạm.
+- Ranh giới thời điểm: việc kiểm tra **chỉ diễn ra ở giai đoạn admission của Pod**. Thêm hay
+  sửa LimitRange không đụng tới các Pod đã tồn tại — chúng chạy tiếp không đổi.
+- Cái bẫy ở mục *LimitRange và kiểm tra admission cho Pod*: LimitRange **không** kiểm tra tính
+  nhất quán của giá trị mặc định nó áp. `default` limit có thể nhỏ hơn `requests` mà client
+  gửi lên, và Pod cuối cùng không xếp lịch được với lỗi `must be less than or equal to cpu limit`.
+- Hai hệ quả vận hành: namespace đã có LimitRange cho `cpu`/`memory` thì bạn **phải** chỉ định
+  request hoặc limit, nếu không hệ thống có thể từ chối tạo Pod; và nếu có **từ hai LimitRange
+  trở lên** trong cùng namespace thì giá trị mặc định nào được áp là **không xác định**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ràng buộc tỷ lệ request/limit, và min/max storage request cho PersistentVolumeClaim | bài chỉ liệt kê một dòng, không có ví dụ; trọng tâm nhóm 7b là `cpu` và `memory` | nhóm task CP10 *Quản trị tài nguyên theo namespace* ở cuối lộ trình |
+| Câu "tổng limit của namespace nhỏ hơn tổng các limit của các Pod/Container" ở cuối mục *Ví dụ về ràng buộc tài nguyên* | đây đã là chuyện trần tổng, tức địa hạt của ResourceQuota | bài [134](134-resource-quotas-vi.md), ngay sau bài này |
+| Toàn bộ mục *Tiếp theo* | là loạt trang task hướng dẫn từng bước, không phải khái niệm | nhóm task CP10 ở cuối lộ trình |
+
+---
+
 Theo mặc định, các container chạy với [tài nguyên tính toán](./110-manage-resources-containers-vi.md)
 không bị giới hạn trên một cluster Kubernetes.
 Bằng cách sử dụng [hạn ngạch tài nguyên (resource quota)](./134-resource-quotas-vi.md) của Kubernetes,
@@ -154,3 +199,63 @@ Cả tranh chấp lẫn các thay đổi đối với một LimitRange đều kh
 
 Tham khảo [tài liệu thiết kế LimitRanger](https://git.k8s.io/design-proposals-archive/resource-management/admission_control_limit_range.md)
 để biết bối cảnh và thông tin lịch sử.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Namespace có đúng một LimitRange đặt `defaultRequest.cpu` và `default.cpu` cho
+   `type: Container`. Bạn tạo một Pod không khai `requests` lẫn `limits`. Pod có bị từ chối
+   không? Ai điền giá trị vào, và ở bước nào của vòng đời yêu cầu?
+2. Bài đưa ra một LimitRange hoàn toàn hợp lệ nhưng vẫn khiến một Pod không chạy được. Kể lại
+   tình huống đó, giải thích cơ chế, và nêu cách sửa **từ phía Pod** mà không đụng LimitRange.
+3. Bạn hạ `max` của một LimitRange xuống thấp hơn mức các Pod đang chạy trong namespace đó
+   đang dùng. Những Pod đó bị từ chối, bị sửa lại, hay bị khởi động lại?
+4. Cluster lab của bạn có hai worker, mỗi máy 2 vCPU / 6 GB RAM. Bạn đặt cho namespace một
+   LimitRange với `max.cpu: "1"`. Điều đó có ngăn được namespace ấy tạo 4 Pod cùng lúc và
+   chiếm hết 4 vCPU của cả cluster không?
+5. Có hai đối tượng LimitRange trong cùng một namespace, mỗi cái đặt `defaultRequest.cpu` một
+   giá trị khác nhau. Pod không khai `requests` sẽ nhận giá trị nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Pod được tạo bình thường, và admission controller LimitRange là thứ điền giá trị vào.**
+   Bài mô tả rõ trình tự: *trước hết*, admission controller LimitRange áp các giá trị request
+   và limit mặc định cho tất cả Pod (và container của chúng) chưa đặt yêu cầu tài nguyên tính
+   toán; *sau đó* mới theo dõi mức sử dụng để đảm bảo không vượt min, max và tỷ lệ. Nghĩa là
+   việc điền mặc định xảy ra **ở giai đoạn admission, trước khi Pod được lưu**, và Pod cuối
+   cùng chạy với giá trị đã bị chèn vào chứ không phải với ô trống. Lưu ý mặt trái: nếu
+   LimitRange đó chỉ ràng buộc `cpu`/`memory` mà không cung cấp mặc định, bài cảnh báo bạn
+   **phải** tự chỉ định request hoặc limit, nếu không hệ thống có thể từ chối tạo Pod.
+2. **Tình huống: `default.cpu: 500m` gặp một Pod khai `requests.cpu: 700m` mà không khai limit.**
+   Cơ chế: LimitRange **không kiểm tra tính nhất quán của các giá trị mặc định mà nó áp**, nên
+   nó cứ chèn limit `500m` vào cạnh request `700m` do client gửi. Kết quả là một Pod tự mâu
+   thuẫn — request lớn hơn limit — và nó không xếp lịch được, lỗi
+   `must be less than or equal to cpu limit`. Cách sửa từ phía Pod: **khai cả `requests` lẫn
+   `limits`**. Bài chỉ rõ Pod đặt cả hai bằng `700m` sẽ được xếp lịch thành công ngay cả khi
+   vẫn còn nguyên LimitRange đó, vì lúc này không còn chỗ trống nào để giá trị mặc định chen vào.
+3. **Không cái nào cả — chúng chạy tiếp không thay đổi.** Việc kiểm tra LimitRange **chỉ diễn ra
+   ở giai đoạn admission của Pod**, không áp dụng trên Pod đang chạy. Bài nói thẳng: thêm hoặc
+   sửa một LimitRange thì các Pod đã tồn tại từ trước trong namespace vẫn tiếp tục chạy không
+   thay đổi, và cả tranh chấp lẫn thay đổi LimitRange đều không ảnh hưởng đến tài nguyên đã tạo
+   trước đó. Ràng buộc mới chỉ có hiệu lực với Pod tạo hoặc cập nhật sau đó.
+4. **Không.** `max.cpu: "1"` là trần **cho từng Container/Pod**, không phải trần tổng. Bốn Pod
+   mỗi Pod 1 CPU đều hợp lệ với LimitRange này. Đây đúng là ranh giới bài vạch ra ngay đoạn mở
+   đầu: LimitRange tồn tại để đảm bảo **một đối tượng đơn lẻ** không chiếm dụng toàn bộ tài
+   nguyên khả dụng trong namespace, còn việc hạn chế **mức tiêu thụ và việc tạo mới tài nguyên
+   của cả namespace** là việc của ResourceQuota. Trực giác "đặt max là chặn được namespace" sai
+   vì nó nhầm trần đơn vị với trần tổng. Trên cluster hai worker 2 vCPU của bạn, muốn chặn
+   namespace ăn hết cluster thì phải thêm ResourceQuota ở bài [134](134-resource-quotas-vi.md).
+5. **Không xác định được** — bài ghi rõ: nếu có hai hoặc nhiều đối tượng LimitRange tồn tại
+   trong namespace, việc giá trị mặc định nào sẽ được áp là **không xác định (not deterministic)**.
+   Đây không phải "cái nào chặt hơn thắng" hay "cái tạo sau thắng"; đơn giản là đừng đặt hai
+   LimitRange chồng nhau trong một namespace.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

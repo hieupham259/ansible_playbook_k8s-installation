@@ -7,6 +7,45 @@
 > Bạn cần chọn ít nhất một ingress controller và đảm bảo nó đã được thiết lập trong cluster của bạn.
 > Trang này liệt kê các ingress controller phổ biến mà bạn có thể triển khai.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 11/16 · Kiểm chứng
+ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Phần lớn bài này là **một danh mục nhà cung cấp** dài. Đừng đọc từng dòng. Giá trị của bài nằm
+ở ba đoạn đầu và mục cuối: ai chịu trách nhiệm cho controller nào, và nhiều controller sống
+chung trong một cluster bằng cách nào. Bạn sẽ quay lại danh sách khi phải chọn controller để
+cài ở Lab 5b.
+
+**Phải hiểu ở lần đọc này:**
+
+- Không có ingress controller đang chạy thì Ingress vô nghĩa; bạn phải **chọn ít nhất một** và
+  bảo đảm nó đã được thiết lập trong cluster.
+- Dự án Kubernetes chỉ hỗ trợ và bảo trì **hai** controller (AWS và GCE). Tất cả phần còn lại
+  là **bên thứ ba** — bài ghi rõ tác giả dự án Kubernetes không chịu trách nhiệm về chúng.
+- Bạn có thể triển khai **bao nhiêu controller cũng được** trong một cluster; thứ tách chúng ra
+  là **ingress class**. Nhớ `.metadata.name` của tài nguyên IngressClass và điền vào trường
+  `ingressClassName` của Ingress.
+- Nếu Ingress không chỉ định IngressClass **và** cluster có **đúng một** IngressClass được đánh
+  dấu mặc định (annotation `ingressclass.kubernetes.io/is-default-class` với giá trị `"true"`),
+  Kubernetes sẽ áp class mặc định đó.
+- `ingressClassName` là **thay thế** cho cách dùng annotation cũ. Và dù đặc tả có sẵn, **các
+  controller khác nhau hoạt động hơi khác nhau** — phải đọc tài liệu của controller mình chọn.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ danh sách *Các ingress controller của bên thứ ba* | là danh mục để tra khi chọn sản phẩm, không phải kiến thức cần nhớ | Lab 5b |
+| Ghi chú Ingress API đã bị đóng băng và khuyến nghị dùng Gateway | đã nêu ở bài trước; lý do đầy đủ nằm ở bài Gateway | bài [13](13-gateway-vi.md) |
+
+---
+
 > **Ghi chú:**
 >
 > Dự án Kubernetes khuyến nghị sử dụng [Gateway](https://gateway-api.sigs.k8s.io/) thay cho
@@ -89,3 +128,40 @@ controller khác nhau hoạt động hơi khác nhau một chút.
 ## Tiếp theo (What's next)
 
 * Tìm hiểu thêm về [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Ở Lab 5b bạn sẽ cài một ingress controller vào cluster lab. Một Ingress đã tồn tại từ trước
+   và **không** ghi `ingressClassName` có tự động được controller mới nhận không?
+2. Cài hai ingress controller vào cùng một cluster có gây xung đột không? Thứ gì tách chúng ra,
+   và bạn phải nhớ giá trị nào để điền vào Ingress?
+3. Dự án Kubernetes bảo trì những ingress controller nào, và điều đó nói gì về phần còn lại của
+   danh sách?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Chỉ khi cluster có đúng một IngressClass được đánh dấu mặc định.** Bài nói: nếu bạn không
+   chỉ định IngressClass cho một Ingress và cluster có đúng một IngressClass được đánh dấu là
+   mặc định, Kubernetes sẽ áp IngressClass mặc định đó cho Ingress. Việc đánh dấu là đặt
+   annotation `ingressclass.kubernetes.io/is-default-class` thành chuỗi `"true"`. Nếu bản cài
+   đặt controller không tạo hoặc không đánh dấu class mặc định, Ingress cũ vẫn nằm im.
+2. **Không xung đột.** Bài nói bạn có thể triển khai **bất kỳ số lượng ingress controller nào**
+   bằng cách dùng **ingress class**. Thứ phải nhớ là **`.metadata.name` của tài nguyên
+   IngressClass**, và bạn điền tên đó vào trường **`ingressClassName`** trên đối tượng Ingress —
+   cách thay thế cho phương pháp dùng annotation cũ.
+3. Chỉ **AWS và GCE**. Mọi controller còn lại trong trang là **của bên thứ ba**: bài ghi rõ đây
+   là các dự án bên thứ ba cung cấp chức năng mà Kubernetes cần, và **tác giả dự án Kubernetes
+   không chịu trách nhiệm về chúng** — chúng được liệt kê theo thứ tự bảng chữ cái chứ không
+   theo mức độ khuyến nghị. Hệ quả thực tế: trách nhiệm thẩm định và vận hành controller là của
+   bạn, và phải đọc kỹ tài liệu của nó vì các controller hoạt động hơi khác nhau.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -5,6 +5,51 @@
 > Kubernetes cho phép bạn cấu hình mạng single-stack IPv4, mạng single-stack IPv6,
 > hoặc mạng dual-stack với cả hai họ địa chỉ mạng cùng hoạt động. Trang này giải thích cách làm.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 13/16 · Kiểm chứng
+ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Cluster lab là **single-stack IPv4** (Pod CIDR `10.244.0.0/16`, Service CIDR `10.96.0.0/12`),
+nên bạn không dựng được dual-stack ở đây. Đọc bài này vì hai lý do rất thực tế: nó giải thích
+tại sao Service có trường `clusterIPs` **số nhiều** mà bạn đã thấy trong `kubectl get svc -o
+yaml`, và nó cho bạn dấu hiệu để nhận ra một cluster dual-stack khi gặp.
+
+**Phải hiểu ở lần đọc này:**
+
+- Dual-stack = cấp phát **đồng thời** IPv4 và IPv6 cho **Pod và Service**; được bật mặc định từ
+  1.21, nhưng vẫn cần nhà cung cấp và **network plugin có hỗ trợ** thì mới dùng được.
+- Bốn thành phần phải được cấu hình khớp nhau: kube-apiserver (`--service-cluster-ip-range`),
+  kube-controller-manager (`--cluster-cidr` và `--service-cluster-ip-range`), kube-proxy
+  (`--cluster-cidr`), kubelet (`--node-ip`, **bắt buộc** với node bare metal không khai cloud
+  provider).
+- Ba giá trị `.spec.ipFamilyPolicy`: `SingleStack`; `PreferDualStack` — **quay về single-stack**
+  nếu cluster không bật dual-stack; `RequireDualStack` — **việc tạo Service qua API sẽ thất bại**
+  nếu cluster không bật dual-stack.
+- Quan hệ giữa `.spec.clusterIPs` (trường **chính**, dạng mảng) và `.spec.clusterIP` (trường
+  **thứ cấp**, tính từ mảng theo phần tử đầu của `.spec.ipFamilies`). `.spec.ipFamilies` chỉ
+  thay đổi **có điều kiện**: thêm hoặc bớt họ thứ cấp thì được, **đổi họ chính của một Service
+  đang tồn tại thì không**.
+- Một ngoại lệ dễ quên: **headless Service không có selector** và không đặt tường minh
+  `.spec.ipFamilyPolicy` thì mặc định là **`RequireDualStack`**, khác với mặc định `SingleStack`
+  của mọi trường hợp còn lại.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Các kịch bản cấu hình Service dual-stack* — từng ví dụ YAML một | chỉ quan sát được trên cluster đã bật dual-stack | không cần |
+| *Traffic chiều đi* — IP masquerading cho IPv6 không định tuyến công khai được | cần địa chỉ IPv6 thật ngoài lab | không cần |
+| *Hỗ trợ Windows* (`l2bridge`, overlay VXLAN không hỗ trợ) | lab không có node Windows | giai đoạn 15 |
+| Link *Bật mạng dual-stack bằng kubeadm* ở mục *Tiếp theo* | là thao tác dựng cluster | giai đoạn 8, bài [05](05-dual-stack-support-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.23 [stable]`
 
 Mạng dual-stack IPv4/IPv6 cho phép cấp phát đồng thời cả địa chỉ IPv4 và IPv6 cho các
@@ -366,3 +411,42 @@ Bạn có thể đọc thêm về các chế độ mạng khác nhau cho Windows
 
 * [Kiểm chứng mạng dual-stack IPv4/IPv6](https://kubernetes.io/docs/tasks/network/validate-dual-stack)
 * [Bật mạng dual-stack bằng kubeadm](./05-dual-stack-support-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Cluster lab chỉ cấu hình một dải Service IPv4 (`10.96.0.0/12`). Bạn tạo một Service với
+   `ipFamilyPolicy: RequireDualStack` thì kết quả ra sao? Còn `PreferDualStack`?
+2. Trên một cluster single-stack, `.spec.clusterIPs` của một Service chứa mấy phần tử, và
+   `.spec.clusterIP` có bị bỏ trống không?
+3. Một headless Service **không có selector** và không đặt `.spec.ipFamilyPolicy` thì mặc định
+   là gì? So với một Service thường trong cùng tình huống?
+4. Bạn muốn đổi họ IP **chính** của một Service đang chạy từ IPv4 sang IPv6. Làm được không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `RequireDualStack`: **việc tạo object Service qua API sẽ thất bại** — bài nói rõ nếu
+   dual-stack không được bật hoặc không được hỗ trợ thì API từ chối. `PreferDualStack`: Service
+   **vẫn tạo được**, nó **quay về hành vi single-stack** và nhận một cluster IP IPv4. Đây là
+   khác biệt then chốt giữa "ưu tiên" và "bắt buộc".
+2. **Một phần tử**, và `.spec.clusterIP` **không** bị bỏ trống. Bài nói: trên một cluster
+   single-stack, cả `.spec.clusterIPs` lẫn `.spec.clusterIP` **đều chỉ liệt kê một địa chỉ**.
+   Cần nhớ đúng vai: `clusterIPs` là trường chính, `clusterIP` là trường thứ cấp có giá trị được
+   tính từ `clusterIPs` theo phần tử đầu của `.spec.ipFamilies`.
+3. Mặc định của nó là **`RequireDualStack`** — đây là ngoại lệ duy nhất trong bài. Mọi trường
+   hợp còn lại, kể cả Service thường và headless Service **có** selector, được control plane đặt
+   `.spec.ipFamilyPolicy` thành **`SingleStack`** khi bạn không khai tường minh. Trực giác "mặc
+   định thì luôn là SingleStack" sẽ dẫn bạn đi sai đúng ở chỗ này.
+4. **Không.** `.spec.ipFamilies` chỉ **thay đổi có điều kiện**: bạn có thể thêm hoặc bớt **họ
+   địa chỉ IP thứ cấp**, nhưng **không thể thay đổi họ địa chỉ IP chính của một Service đang tồn
+   tại**. Muốn đổi họ chính thì phải tạo Service mới.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

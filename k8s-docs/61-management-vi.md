@@ -2,6 +2,52 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/management/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 10/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là bài **vận hành**, không phải bài khái niệm: nó trả lời câu hỏi "biết controller rồi
+thì gõ gì hằng ngày". Câu mở đầu bài giả định bạn đã expose ứng dụng qua một Service — bạn
+chưa học Service, và không sao cả: mọi thứ trong bài trừ mục canary đều chạy được mà không
+cần Service. Bài trùng nội dung một phần với [Deployment](63-deployment-vi.md); ở đây chỉ
+cần rút ra các thói quen tổ chức manifest và bộ lệnh cập nhật.
+
+**Phải hiểu ở lần đọc này:**
+
+- Gộp nhiều tài nguyên vào một file bằng `---`, và **thứ tự trong manifest là thứ tự tạo** —
+  vì thế nên khai báo Service trước Deployment. `kubectl apply` nhận nhiều tham số `-f`, và
+  nhận cả URL.
+- Thao tác hàng loạt: lọc bằng `-l`/`--selector` theo label thay vì liệt kê tên; và
+  `--recursive`/`-R` để xử lý thư mục con — **mặc định thao tác dừng ở cấp thư mục đầu tiên**
+  và báo lỗi nếu cấp đó không có manifest nào.
+- Bốn cách sửa tài nguyên và ranh giới giữa chúng: `kubectl apply` (khai báo, chỉ đổi thứ bạn
+  chỉ định, không ghi đè thay đổi tự động), `kubectl edit` (đúng bằng get → sửa → apply),
+  `kubectl patch` (JSON patch, JSON merge patch, strategic merge patch), và
+  `kubectl replace --force` — cái cuối là **cập nhật gây gián đoạn** vì nó xóa rồi tạo lại.
+- Quản lý rollout bằng `kubectl rollout status` với `--timeout` khi cần chờ và `--watch=false`
+  khi chỉ muốn xem trạng thái; rollout dùng được với **DaemonSet, Deployment và StatefulSet**.
+- Canary thủ công: hai bản phát hành khác nhau ở **một label riêng** (bài dùng `track` với giá
+  trị `stable` và `canary`), còn các label kia giữ nguyên; **tỷ lệ lưu lượng do số replica
+  quyết định** — 3 và 1 trong ví dụ là tỷ lệ 3:1.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ví dụ mở đầu dùng Service `type: LoadBalancer` | cluster lab không có load balancer bên ngoài | giai đoạn 5 |
+| Đoạn `selector:` của Service frontend trong *Triển khai canary* | cách Service chọn Pod theo tập con label | giai đoạn 5 |
+| Lệnh `kubectl autoscale deployment/my-nginx --min=1 --max=3` trong *Scale ứng dụng của bạn* | chính bài đã ghi: cần sẵn một nguồn metric | bài [72](72-horizontal-pod-autoscale-vi.md) — [nợ lab](labs/README.md#5-sổ-nợ-lab) trả ở Lab 11b |
+| *Công cụ bên ngoài* — Helm và Kustomize | công cụ bên thứ ba, không nằm trong lộ trình | không cần |
+| Link *server-side apply* trong mục *kubectl apply* | cơ chế quản lý quyền sở hữu field | không cần |
+
+---
+
 Bạn đã triển khai ứng dụng của mình và công bố (expose) nó qua một Service. Giờ thì sao? Kubernetes cung cấp
 một số công cụ giúp bạn quản lý việc triển khai ứng dụng, bao gồm scale và cập nhật.
 
@@ -520,3 +566,55 @@ deployment.apps/my-nginx replaced
 ## Tiếp theo (What's next)
 
 - Tìm hiểu [cách dùng `kubectl` để khảo sát (introspect) và debug ứng dụng](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. Trong một file gộp cả Service và Deployment, vì sao bài khuyên khai báo Service trước?
+2. `kubectl apply -f project/k8s/development` trả về
+   `error: you must provide one or more resources by argument or filename`, dù thư mục đó có
+   đủ manifest trong các thư mục con. Vì sao, và sửa thế nào?
+3. **Câu bẫy.** `kubectl apply` và `kubectl replace --force` khác nhau ở đâu về mặt gián đoạn
+   dịch vụ, và khi nào bạn buộc phải dùng cái sau?
+4. Bạn muốn khoảng 25% lưu lượng production đi vào bản mới theo cách canary thủ công trong
+   bài. Bạn chỉnh cái gì, label nào phải khác nhau và label nào phải giữ giống nhau?
+5. Trên `k8s-master`, bạn viết một script apply Deployment rồi phải **dừng chờ** tới khi
+   rollout xong, tối đa 10 phút. Lệnh nào? Nếu chỉ muốn xem trạng thái mà không chờ thì sao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì **các tài nguyên được tạo theo đúng thứ tự chúng xuất hiện trong manifest**. Bài nêu lý
+   do cụ thể: khai báo Service trước "đảm bảo scheduler có thể phân tán các pod gắn với
+   Service ngay khi chúng được các controller (chẳng hạn Deployment) tạo ra". Làm ngược lại
+   thì Pod đã được lập lịch xong trước khi Service tồn tại.
+2. Vì **mặc định, thao tác hàng loạt dừng ở cấp đầu tiên của thư mục và không xử lý thư mục
+   con nào** — cấp đầu tiên chỉ có thư mục, không có file manifest, nên `kubectl` báo không
+   tìm thấy tài nguyên. Sửa bằng cách thêm **`--recursive` hoặc `-R`** cùng tham số
+   `--filename`/`-f`. Tham số này hoạt động với mọi thao tác nhận `-f` — `create`, `get`,
+   `delete`, `describe`, kể cả `rollout` — và hoạt động cả khi bạn truyền nhiều `-f`.
+3. `kubectl apply` **so sánh phiên bản cấu hình bạn đẩy lên với phiên bản trước đó và chỉ áp
+   dụng phần thay đổi**, không ghi đè các thuộc tính bạn không chỉ định — tài nguyên vẫn sống,
+   Deployment tự lo rollout êm. `kubectl replace --force` thì **xóa và tạo lại tài nguyên** —
+   bài in ra đúng hai dòng `deleted` rồi `replaced`. Trực giác "force chỉ là apply mạnh tay
+   hơn" là sai: đây là cập nhật **gây gián đoạn**. Bạn buộc phải dùng nó khi cần sửa các
+   trường **không thể cập nhật sau khi đã khởi tạo**, hoặc khi muốn ép ngay một thay đổi đệ
+   quy, chẳng hạn để sửa các Pod hỏng do một Deployment tạo ra.
+4. Bạn **chỉnh số replica của hai bản phát hành** — bài dùng 3 cho `stable` và 1 cho `canary`
+   để được tỷ lệ 3:1, tức khoảng 25% cho bản mới. Label **phải khác nhau** là label phân biệt
+   bản phát hành, ở đây là `track` (`stable` với `canary`), và hai Deployment cũng mang tên
+   khác nhau (`frontend`, `frontend-canary`). Các label **phải giữ giống nhau** là phần chung
+   mà Service dùng để bao phủ cả hai tập Pod — trong ví dụ là `app: guestbook` và
+   `tier: frontend`. Khi đã tự tin, bạn cập nhật track `stable` lên bản mới rồi gỡ bản canary.
+5. `kubectl rollout status deployment/my-deployment --timeout 10m`. Nếu chỉ muốn xem trạng
+   thái mà không chờ, thêm `--watch=false` — bài đưa đúng ví dụ đó cho một StatefulSet. Ngoài
+   ra bạn còn có thể tạm dừng, tiếp tục hoặc hủy một rollout bằng `kubectl rollout`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

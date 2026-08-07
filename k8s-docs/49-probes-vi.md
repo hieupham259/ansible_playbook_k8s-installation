@@ -2,6 +2,52 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/pods/probes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 5/11 · Kiểm chứng
+ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Trọng tâm của bài là **phân biệt ba loại probe**. Ba cái tên nghe giống nhau nhưng hậu quả khi
+thất bại thì hoàn toàn khác: một cái giết container, một cái chỉ cắt lưu lượng, một cái chỉ tồn
+tại lúc khởi động. Cấu hình liveness sai là nguyên nhân kinh điển của restart loop, và bài dành
+hẳn một khối *Thận trọng* để cảnh báo điều đó.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vai trò riêng của ba loại: **startup** chỉ chạy lúc khởi động và **chặn** liveness lẫn readiness
+  cho tới khi nó thành công; **liveness** quyết định khi nào **khởi động lại** container;
+  **readiness** quyết định khi nào container **nhận lưu lượng**.
+- Hậu quả của kết quả `Failure` khác nhau theo loại: liveness và startup → **kubelet kill
+  container**, container chịu chi phối của `restartPolicy`; readiness → **container vẫn chạy**,
+  kubelet tiếp tục probe và chỉ đặt condition `Ready` của Pod thành `false`.
+- Vì sao liveness cấu hình sai gây **lỗi dây chuyền**: container bị khởi động lại đúng lúc tải
+  cao, request của client thất bại, tải dồn sang các pod còn lại. Và khi tiến trình đã tự crash
+  mỗi khi hỏng thì bạn **không cần** liveness probe — kubelet đã hành động theo `restartPolicy`.
+- Bốn cơ chế kiểm tra và điều kiện thành công của từng cái: `exec` (mã thoát 0), `grpc`
+  (`status` là `SERVING`), `httpGet` (mã trạng thái từ 200 đến dưới 400), `tcpSocket` (port mở).
+  `exec` là cơ chế duy nhất fork tiến trình mỗi lần chạy nên tốn CPU node.
+- Các trường điều khiển thời gian và mặc định của chúng: `periodSeconds` 10, `timeoutSeconds` 1,
+  `failureThreshold` 3, `successThreshold` **phải là 1** với liveness và startup. Ngưỡng để quyết
+  định dùng startup probe: container thường khởi động lâu hơn
+  `initialDelaySeconds + failureThreshold × periodSeconds`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Readiness thất bại làm controller EndpointSlice gỡ IP của Pod khỏi các EndpointSlice | chưa học Service và EndpointSlice | giai đoạn 5 — bài [82](82-service-vi.md), [83](83-endpoint-slices-vi.md) |
+| Ghi chú về việc thoát dần request khi Pod bị xóa | thuộc luồng kết thúc Pod và endpoint | giai đoạn 5 — bài [83](83-endpoint-slices-vi.md) |
+| *gRPC probes* | cần ứng dụng hiện thực gRPC Health Checking Protocol | không cần cho lộ trình này |
+| *Xử lý redirect* và giới hạn đọc 10KiB của `httpGet` | là chi tiết gỡ lỗi khi probe cho kết quả lạ | Lab 3a |
+| `terminationGracePeriodSeconds` cấp probe | chỉ có nghĩa sau khi nắm chắc bản cấp Pod ở bài [47](47-pod-lifecycle-vi.md) | Lab 3a |
+
+---
+
 Kubernetes cho phép bạn định nghĩa các _probe_ (đầu dò) để liên tục giám sát sức khỏe
 của các container trong một Pod. Probe là một phép chẩn đoán được kubelet thực hiện
 định kỳ trên một container. Để thực hiện phép chẩn đoán, kubelet hoặc thực thi mã bên
@@ -486,3 +532,54 @@ và TCP probe.
   [Pod](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/),
   [Container](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#Container),
   [Probe](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#Probe)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Readiness probe thất bại và liveness probe thất bại — kubelet làm gì với container trong từng
+   trường hợp?
+2. Ứng dụng của bạn cần khoảng 90 giây để nạp dữ liệu khởi động. Nên đặt `initialDelaySeconds`
+   thật lớn cho liveness probe, hay thêm startup probe? Bài lập luận thế nào?
+3. Trên cluster lab, bạn đặt cho một ứng dụng hay chậm dưới tải một liveness probe `httpGet` với
+   `timeoutSeconds: 1` và `failureThreshold: 3`. Bài cảnh báo hậu quả gì, và vì sao hậu quả đó
+   lan sang cả các Pod đang khỏe trên `k8s-worker1` và `k8s-worker2`?
+4. Container của bạn không khai báo probe nào. Kubelet coi kết quả probe là gì? Có ngoại lệ không?
+5. Vì sao bài khuyên cân nhắc trước khi dùng cơ chế `exec` trên cluster có mật độ pod cao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Liveness thất bại quá mức chịu đựng đã cấu hình → kubelet khởi động lại container**, cụ thể
+   là kill container rồi để nó chịu chi phối của `restartPolicy`. **Readiness thất bại → container
+   vẫn tiếp tục chạy**: kubelet đánh dấu container là chưa sẵn sàng, đặt condition `Ready` của Pod
+   thành `false`, Pod ngừng nhận lưu lượng từ các Service khớp với nó, và kubelet **vẫn tiếp tục
+   chạy thêm probe**. Một cái là hình phạt tử; một cái chỉ là tạm rút khỏi vòng phục vụ.
+2. **Thêm startup probe.** Bài nói thẳng: thay vì đặt một khoảng liveness dài, hãy cấu hình riêng
+   việc probe container lúc khởi động, vì startup probe **cho phép thời gian dài hơn mức mà
+   khoảng liveness cho phép**. Nếu container thường khởi động lâu hơn
+   `initialDelaySeconds + failureThreshold × periodSeconds` thì nên có startup probe kiểm tra
+   **cùng endpoint với liveness probe**, rồi đặt `failureThreshold` của nó đủ cao — nhờ vậy bạn
+   **không phải nới các giá trị mặc định của liveness probe**, tức là vẫn giữ được khả năng phát
+   hiện deadlock nhanh sau khi ứng dụng đã lên.
+3. Hậu quả là **lỗi dây chuyền (cascading failures)**: probe hết hạn 1 giây sẽ thất bại đúng lúc
+   ứng dụng chậm nhất, tức **lúc tải cao**, nên container bị **khởi động lại giữa lúc đang bận**.
+   Bài mô tả chuỗi lan: container bị restart khi tải cao → **request của client thất bại** vì ứng
+   dụng giảm khả năng mở rộng → **khối lượng công việc dồn lên các pod còn lại**, khiến chúng
+   cũng chậm và cũng trượt probe. Đây là lý do bài yêu cầu liveness probe phải được cấu hình sao
+   cho nó **chỉ báo lỗi không thể khôi phục**, ví dụ deadlock.
+4. **`Success`.** Nếu một container không cung cấp một probe cụ thể, kubelet luôn coi kết quả là
+   `Success`. **Ngoại lệ duy nhất là readiness probe: kết quả được coi là `Failure` trước khoảng
+   trễ ban đầu.**
+5. Vì **khác ba cơ chế còn lại, phần triển khai của `exec` phải tạo/fork nhiều tiến trình mỗi lần
+   thực thi**. Với cluster mật độ pod cao và `initialDelaySeconds`, `periodSeconds` nhỏ, chi phí
+   này cộng dồn thành **overhead đáng kể lên mức sử dụng CPU của node**. Bài khuyên cân nhắc cơ
+   chế probe khác trong tình huống đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

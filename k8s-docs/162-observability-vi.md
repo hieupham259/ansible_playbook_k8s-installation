@@ -4,6 +4,53 @@
 >
 > Hiểu cách đạt được khả năng nhìn thấy đầu-cuối (end-to-end visibility) một cluster Kubernetes thông qua việc thu thập metrics, logs và traces.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 11](LO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 1/6 · Kiểm chứng
+ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là **trang bản đồ**, cố ý nông. Mỗi trụ cột nó nhắc tới đều có một bài riêng ngay sau
+trong giai đoạn này. Nhiệm vụ của lần đọc này là biết ba loại tín hiệu tồn tại, mỗi loại trả
+lời câu hỏi gì và ai sinh ra chúng — không phải đọc kỹ từng dòng.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ba trụ cột **metrics, logs, traces** trả lời ba câu khác nhau: số đo theo thời gian, bản ghi
+  sự kiện theo trình tự thời gian, và độ trễ cùng quan hệ giữa các thao tác.
+- Metric do chính các thành phần phát ra ở endpoint `/metrics` theo định dạng Prometheus;
+  kubelet còn có thêm `/metrics/cadvisor`, `/metrics/resource` và `/metrics/probes`.
+- **kube-state-metrics là add-on**, không phải thành phần core: nó làm giàu tín hiệu control
+  plane bằng trạng thái của các đối tượng Kubernetes.
+- Đường đi của log container: container runtime bắt `stdout`/`stderr` → chuẩn hóa qua *định
+  dạng log CRI* → kubelet phục vụ qua `kubectl logs`. Thành phần hệ thống chia hai loại: chạy
+  trong container thì ghi file `.log` ở `/var/log`, không chạy trong container thì ghi journald.
+- Hình dạng chung của một pipeline: nguồn phát → bộ thu thập (scraper / node log agent /
+  OTLP exporter) → kho lưu trữ → dashboard, cảnh báo, tự động hóa.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Chi tiết endpoint và mức ổn định của metric trong mục *Metrics* | ở đây mới là danh sách tên | bài [160](160-system-metrics-vi.md) |
+| Xoay vòng log và agent ghi log cấp node trong mục *Logs* | mới gói trong một câu | bài [158](158-logging-vi.md), [159](159-system-logs-vi.md) |
+| OpenTelemetry Collector, sampling và che dữ liệu trong mục *Traces* | cần cấu hình tracing thật trên thành phần | bài [161](161-system-traces-vi.md) |
+| Ghi log kiểm toán (audit logging) | audit policy và backend là chủ đề riêng | CP7 audit và mã hóa dữ liệu |
+| *Các công cụ quan sát phổ biến* — Cortex, Thanos, Loki, Jaeger… | danh mục bên thứ ba, chỉ tra khi đã phải chọn công cụ | CP8 giám sát và cảnh báo |
+| Các khối *Xem thêm (See also)* và *Tiếp theo* | trỏ sang nhánh `/docs/tasks/` chưa dịch | CP8 giám sát và cảnh báo |
+
+Giai đoạn này là chỗ cluster lab thay đổi hạ tầng: **Lab 11a cài metrics-server và chụp
+snapshot `04-metrics-ready`**. Ngay sau đó **Lab 11b trả nợ phần thực hành HPA/VPA** mà bạn chỉ
+mới đọc lý thuyết ở giai đoạn 4 qua bài [72](72-horizontal-pod-autoscale-vi.md) và
+[73](73-vertical-pod-autoscale-vi.md) — xem [sổ nợ lab](labs/README.md#5-sổ-nợ-lab). Đọc bài
+này với ý thức đó: từ đây trở đi cluster mới có nguồn metric để autoscaling dựa vào.
+
+---
+
 Trong Kubernetes, khả năng quan sát (observability) là quá trình thu thập và phân tích metrics, logs và traces — thường được gọi là ba trụ cột của khả năng quan sát — nhằm hiểu rõ hơn về trạng thái bên trong, hiệu năng và tình trạng của cluster.
 
 Các thành phần control plane của Kubernetes, cũng như nhiều add-on, sinh ra và phát ra các tín hiệu này. Bằng cách tổng hợp và đối chiếu chúng, bạn có thể có được một bức tranh thống nhất về control plane, các add-on và các ứng dụng trên toàn cluster.
@@ -176,3 +223,45 @@ Ghi chú: Mục này liên kết đến các dự án bên thứ ba cung cấp c
 - Làm theo [các hướng dẫn tác vụ giám sát và tracing](https://kubernetes.io/docs/tasks/debug/monitoring/)
 - Xem lại [hướng dẫn về metrics hệ thống](https://kubernetes.io/docs/concepts/cluster-administration/system-metrics/) để biết các endpoint của từng thành phần và mức độ ổn định của chúng
 - Xem lại mục [các công cụ quan sát phổ biến](#common-observability-tools) để biết các lựa chọn bên thứ ba đã được thẩm định
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
+
+1. Một Pod trên `k8s-worker2` khởi động lại lúc 2 giờ sáng. Trong ba trụ cột, trụ cột nào cho
+   bạn biết **việc đó đã xảy ra và xảy ra bao nhiêu lần**, trụ cột nào cho bạn biết **ứng dụng
+   đã in ra gì ngay trước đó**?
+2. Trên cluster lab, những thành phần nào phát metric ở endpoint `/metrics` của chính chúng?
+   Ngoài `/metrics`, kubelet còn expose metric ở những endpoint nào?
+3. **Câu bẫy.** Bạn cần biết một Deployment đang có bao nhiêu replica ở trạng thái sẵn sàng.
+   Con số đó đến từ metric của kubelet hay từ kube-state-metrics? Vì sao?
+4. Khi bạn chạy `kubectl logs`, ai là bên đã bắt lấy output của ứng dụng ngay từ đầu, và cái gì
+   khiến kubelet đọc được log của mọi container runtime theo cùng một cách?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Metrics** cho biết sự kiện đã xảy ra và đếm được nó theo thời gian — đó là các số đo được
+   thu thập định kỳ rồi lưu vào cơ sở dữ liệu chuỗi thời gian. **Logs** cho biết ứng dụng đã in
+   ra gì, vì log là "bản ghi theo trình tự thời gian về các sự kiện bên trong ứng dụng". Traces
+   không trả lời câu này: chúng ghi độ trễ và quan hệ giữa các thao tác của một request.
+2. **kube-controller-manager, kube-proxy, kube-apiserver, kube-scheduler và kubelet** — đúng
+   danh sách bài liệt kê, và trên cluster lab thì bốn thành phần đầu nằm ở `k8s-master` (trừ
+   kube-proxy chạy trên cả ba node), còn kubelet chạy trên cả ba. Kubelet expose thêm
+   **`/metrics/cadvisor`, `/metrics/resource` và `/metrics/probes`**.
+3. Từ **kube-state-metrics**. Kubelet phát metric về *tài nguyên và container đang chạy trên
+   node của nó*; còn kube-state-metrics là **add-on kết nối tới API server** và sinh metric **từ
+   trạng thái của các đối tượng Kubernetes** — đúng loại thông tin "Deployment này có mấy replica
+   sẵn sàng". Trực giác sai ở chỗ tưởng cứ là metric thì kubelet phát hết; bài nói rõ
+   kube-state-metrics *làm giàu* các tín hiệu control plane, tức là nó bù vào phần còn thiếu.
+4. **Container runtime** bắt output từ luồng `stdout` và `stderr` của ứng dụng. Mỗi runtime hiện
+   thực khác nhau, nhưng phần tích hợp với kubelet được chuẩn hóa bằng **định dạng log CRI**, nên
+   kubelet phục vụ log cho `kubectl logs` theo cùng một cách bất kể runtime nào bên dưới.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

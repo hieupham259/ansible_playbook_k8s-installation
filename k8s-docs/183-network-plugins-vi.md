@@ -2,6 +2,45 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 15/16 · Kiểm chứng
+ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Trên trang gốc bài này nằm trong nhánh *Mở rộng Kubernetes*, nên các ví dụ dùng JSON cấu hình
+của Calico. **Lộ trình đặt bài ở đây, không phải ở giai đoạn 14**, vì bạn cần hiểu CNI **trước
+khi** dựng cluster bằng kubeadm ở giai đoạn 8 và trước khi đổi CNI ở Lab 5b; giai đoạn 14 chỉ
+tham chiếu lại bài này. Cluster lab đã chạy sẵn một CNI — đọc bài để biết thứ đó thực sự là gì
+và ai nạp nó.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hợp đồng duy nhất Kubernetes đặt ra: một CNI plugin **bắt buộc phải hiện thực mô hình mạng
+  Kubernetes**. Ngoài ra plugin phải tương thích đặc tả CNI từ v0.4.0 trở lên, và dự án khuyến
+  nghị v1.0.0.
+- **Ai nạp CNI plugin: container runtime**, tức daemon chạy trên node cung cấp dịch vụ CRI cho
+  kubelet. Từ Kubernetes 1.24, `cni-bin-dir` và `network-plugin` đã bị gỡ và **việc quản lý CNI
+  không còn thuộc trách nhiệm của kubelet**.
+- Hai yêu cầu bổ sung với plugin: cung cấp interface loopback **`lo`** cho mỗi sandbox, và hỗ
+  trợ **`hostPort`** — muốn bật thì phải khai `portMappings capability` trong `cni-conf-dir`.
+- Hai đường dẫn phải thuộc lòng khi gỡ lỗi mạng node: file cấu hình CNI mặc định ở
+  **`/etc/cni/net.d`**, binary của plugin ở **`/opt/cni/bin`**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Nội dung chi tiết hai file JSON ví dụ (cấu hình Calico) | chỉ cần đọc cấu trúc, không cần thuộc từng trường | Lab 5b |
+| *Hỗ trợ điều tiết lưu lượng* — plugin `bandwidth`, annotation `kubernetes.io/ingress-bandwidth` | vẫn là tính năng thử nghiệm | không cần |
+| Link *Xử lý sự cố các lỗi liên quan đến CNI plugin* | là runbook sự cố khi dựng node | giai đoạn 8 |
+
+---
+
 Kubernetes (từ phiên bản 1.3 cho đến bản mới nhất v1.36, và nhiều khả năng là cả về sau) cho phép
 bạn dùng các plugin [Container Network Interface](https://github.com/containernetworking/cni)
 (CNI) cho mạng của cluster. Bạn phải dùng một CNI plugin tương thích với cluster của mình và phù
@@ -151,3 +190,43 @@ metadata:
 - Tìm hiểu thêm về [Mạng trong Cluster (Cluster Networking)](https://kubernetes.io/docs/concepts/cluster-administration/networking/)
 - Tìm hiểu thêm về [Network Policy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)
 - Tìm hiểu về [Xử lý sự cố các lỗi liên quan đến CNI plugin](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/troubleshooting-cni-plugin-related-errors/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Trên `k8s-worker2` của cluster lab, thành phần nào thực sự đi nạp CNI plugin — kubelet hay
+   containerd? Bạn nhìn vào hai thư mục nào để kiểm tra?
+2. Một plugin quảng cáo "tương thích đặc tả CNI v1.0.0". Điều đó có bảo đảm nó thực thi
+   NetworkPolicy không?
+3. Một Pod dùng `hostPort` nhưng không nhận được kết nối. Theo bài, cấu hình CNI đang thiếu gì?
+4. Ngoài việc hiện thực mô hình mạng Kubernetes, Kubernetes còn đòi container runtime cung cấp
+   thứ gì cho mỗi sandbox?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **containerd** — tức container runtime cung cấp dịch vụ CRI cho kubelet. Bài nói rõ:
+   Container Runtime phải được cấu hình để nạp các CNI plugin cần thiết, và **trước** Kubernetes
+   1.24 kubelet còn quản lý CNI qua `cni-bin-dir` và `network-plugin`, nhưng **các tham số đó đã
+   bị loại bỏ trong 1.24 và việc quản lý CNI không còn nằm trong phạm vi trách nhiệm của
+   kubelet**. Hai thư mục cần nhìn: **`/etc/cni/net.d`** (cấu hình) và **`/opt/cni/bin`**
+   (binary).
+2. **Không.** Thứ duy nhất đặc tả bắt buộc là plugin **hiện thực mô hình mạng Kubernetes**, cộng
+   với hai yêu cầu bổ sung mà bài liệt kê: interface loopback và hỗ trợ `hostPort`. **NetworkPolicy
+   không nằm trong danh sách đó** — nó chỉ được nhắc ở mục *Tiếp theo* như một chủ đề riêng. Đây
+   đúng là tình huống của baseline lab: CNI hợp lệ, mạng Pod chạy tốt, nhưng NetworkPolicy không
+   được thực thi (xem [sổ nợ lab](labs/README.md#5-sổ-nợ-lab)).
+3. Thiếu khai báo **`portMappings capability` trong `cni-conf-dir`**. Bài nói: muốn bật hỗ trợ
+   `hostPort` thì phải chỉ định `portMappings capability`, và bạn có thể dùng plugin **`portmap`**
+   chính thức của nhóm CNI plugin hoặc plugin của riêng bạn có chức năng portMapping.
+4. Một **interface loopback `lo`** cho mỗi sandbox (pod sandbox, vm sandbox…). Có thể đạt được
+   bằng cách tái sử dụng CNI loopback plugin, hoặc tự viết mã của riêng bạn.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

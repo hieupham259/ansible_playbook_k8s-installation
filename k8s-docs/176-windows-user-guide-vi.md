@@ -2,6 +2,57 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/windows/user-guide/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 15](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
+bài 3/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
+[bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Lộ trình ghi rõ: bỏ qua hoàn toàn giai đoạn 15 nếu cluster của bạn chỉ có Linux.** Bài này còn
+ghi ngay ở mục *Trước khi bạn bắt đầu* rằng bạn cần một cluster **có worker node chạy Windows
+Server** — cluster lab ba VM Ubuntu của bạn không có, nên phần thực hành không chạy được.
+
+Bài vốn là **hướng dẫn từng bước**, nhưng phần đáng đọc với admin không phải các lệnh mà là
+**quy tắc lập lịch**: làm sao workload Windows và Linux không lạc sang nhầm node. Bỏ qua manifest
+và lệnh PowerShell, đọc kỹ ba mục cuối.
+
+**Phải hiểu ở lần đọc này:**
+
+- **`.spec.os.name` không được scheduler dùng để chọn node.** Bài nói thẳng: bộ lập lịch không
+  dùng giá trị đó khi gán Pod vào node, và "giá trị `.spec.os.name` không có tác dụng đối với
+  việc lập lịch các pod Windows". Nó chỉ khai báo Pod được thiết kế cho hệ điều hành nào.
+- Cơ chế thật là **`nodeSelector` `kubernetes.io/os: windows`** — thực hành tốt nhất mà bài
+  khuyến nghị. Mọi node đều có sẵn label `kubernetes.io/os` và `kubernetes.io/arch`.
+- Vì hệ sinh thái manifest Linux có sẵn (Helm chart, Pod sinh bằng operator) không thể sửa hết,
+  giải pháp thay thế là **taint node Windows ngay khi đăng ký**:
+  `--register-with-taints='os=windows:NoSchedule'`. Khi đó Pod Windows cần **cả `nodeSelector`
+  lẫn toleration khớp**.
+- Cùng cluster có nhiều phiên bản Windows Server thì `kubernetes.io/os` là chưa đủ: phiên bản của
+  Pod phải khớp phiên bản node, và Kubernetes tự thêm label
+  **`node.kubernetes.io/windows-build`** (Server 2022 = `10.0.20348`, Server 2025 = `10.0.26100`).
+  **RuntimeClass** đóng gói sẵn `nodeSelector` + toleration để Pod chỉ cần khai
+  `runtimeClassName`.
+- Khả năng quan sát khác Linux: workload Windows thường ghi log vào **ETW hoặc event log của ứng
+  dụng**, không ra STDOUT — nên `kubectl logs <pod>` không thấy gì. Cách được khuyến nghị là dùng
+  **LogMonitor** chuyển tiếp các nguồn log đó ra STDOUT.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Manifest `win-webserver.yaml` và lệnh PowerShell dài trong `command` | là ví dụ để chạy trên cluster có node Windows | khi môi trường thực sự có node Windows |
+| Danh sách bảy phép kiểm chứng kết nối (pod↔pod, service, NodePort, DNS…) | là quy trình nghiệm thu trên cluster thật | khi môi trường thực sự có node Windows |
+| Ghi chú "host container Windows không truy cập được IP service lập lịch trên chính nó" | là hạn chế của ngăn xếp mạng Windows | bài [89](89-windows-networking-vi.md) |
+| *Sử dụng username có thể cấu hình* và *GMSA* | là chủ đề danh tính và bảo mật Windows | bài [131](131-windows-security-vi.md) |
+| Feature gate `IdentifyPodOS` cho bản Kubernetes cũ hơn 1.24 | cluster hiện đại không cần | không cần |
+
+---
+
 Trang này cung cấp hướng dẫn từng bước để bạn chạy Windows container bằng Kubernetes.
 Trang này cũng làm nổi bật một số chức năng dành riêng cho Windows trong Kubernetes.
 
@@ -301,3 +352,54 @@ Quản trị viên cluster có thể tạo một object `RuntimeClass` dùng đ�
    ```
 
 [RuntimeClass]: https://kubernetes.io/docs/concepts/containers/runtime-class/
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 15:
+
+1. Câu bẫy: bạn đặt `.spec.os.name: windows` cho một Pod và không đặt gì thêm. Scheduler có nhờ
+   đó mà đưa Pod lên node Windows không? Vậy trường đó dùng để làm gì?
+2. Trên cluster lab hiện tại, mọi Deployment Linux của bạn đều không có `nodeSelector`. Nếu thêm
+   một node Windows vào cluster, chuyện gì có thể xảy ra, và bài đề xuất cách nào để không phải
+   sửa toàn bộ manifest cũ?
+3. Cluster có cả node Windows Server 2022 và 2025. Vì sao `nodeSelector` với
+   `kubernetes.io/os: windows` là chưa đủ, và Kubernetes cung cấp label nào để giải quyết?
+4. Ứng dụng .NET của bạn ghi log vào event log của Windows. `kubectl logs` thấy gì, và bài khuyến
+   nghị cách nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Bài viết: "Bộ lập lịch (scheduler) **không sử dụng giá trị của `.spec.os.name`** khi
+   gán Pod vào node", và nhắc lại "giá trị `.spec.os.name` không có tác dụng đối với việc lập
+   lịch các pod Windows, vì vậy taint và toleration (hoặc node selector) vẫn cần thiết". Trường
+   này chỉ **khai báo** hệ điều hành mà các container trong Pod được thiết kế để chạy trên đó —
+   và như bài [175](175-windows-intro-vi.md) cho thấy, khai báo đó khóa một loạt trường `spec`
+   khác. Đây là bẫy kinh điển: cái tên `os` khiến người ta tưởng nó là điều kiện lập lịch.
+2. Pod Linux **có thể bị lập lịch lên node Windows** (và ngược lại), vì "nếu đặc tả của Pod không
+   chỉ định `nodeSelector` chẳng hạn như `"kubernetes.io/os": windows`, Pod đó có thể bị lập lịch
+   lên **bất kỳ host nào**" — mà Linux container chỉ chạy được trên Linux. Cách bài đề xuất khi
+   không muốn sửa hàng loạt manifest và Helm chart có sẵn: **dùng taint**. Kubelet có thể đặt
+   taint ngay khi đăng ký node, ví dụ `--register-with-taints='os=windows:NoSchedule'`. Sau đó
+   **không gì được lập lịch lên node Windows** trừ Pod có **cả `nodeSelector` lẫn toleration
+   khớp**.
+3. Vì "phiên bản Windows Server mà mỗi pod sử dụng **phải khớp với phiên bản của node**" — chọn
+   đúng "là Windows" chưa đủ, còn phải đúng bản build. Kubernetes tự động thêm label
+   **`node.kubernetes.io/windows-build`**, phản ánh số major, minor và build: Windows Server 2022
+   là `10.0.20348`, Windows Server 2025 là `10.0.26100`. Bạn đưa label này vào `nodeSelector`,
+   hoặc gói cả `nodeSelector` lẫn toleration vào một **RuntimeClass** và Pod chỉ cần khai
+   `runtimeClassName`.
+4. **Không thấy gì**, vì log không đi qua STDOUT. Bài nêu rõ workload Windows "thường được cấu
+   hình để ghi log vào **ETW (Event Tracing for Windows)** hoặc đẩy các mục log vào **event log
+   của ứng dụng**", và đó là lý do người dùng từng gặp khó khi thu thập log. Cách được khuyến
+   nghị là **LogMonitor** — công cụ mã nguồn mở của Microsoft giám sát event log, ETW provider và
+   log ứng dụng tùy chỉnh rồi **chuyển tiếp chúng tới STDOUT để `kubectl logs <pod>` đọc được**.
+   Bạn phải chép binary và cấu hình của nó vào container rồi sửa entrypoint.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

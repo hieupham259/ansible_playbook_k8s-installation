@@ -4,6 +4,50 @@
 >
 > Cách Kubernetes sử dụng bộ nhớ swap trên node, các hành vi swap, khả năng quan sát, rủi ro và thực hành tốt.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 12](LO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 3/8 ·
+Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này **trả lời một câu hỏi bạn đã ôm từ Lab 00**. Ở mục
+[A4.1](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) bạn đã chạy
+`swapoff -a` theo kiểu copy-paste, không cần hiểu vì sao. Đây là chỗ hiểu: swap từng bị cấm hoàn
+toàn, nay đã có hỗ trợ nhưng kèm rất nhiều điều kiện. Cluster lab vẫn **tắt swap**, nên đọc bài
+này để nắm ranh giới chứ chưa phải để bật nó lên.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mặc định trên Linux, **kubelet không khởi động trên node đang bật swap**; muốn chạy phải đặt
+  `failSwapOn: false`. (Node Windows thì ngược lại: kubelet không khởi động khi swap **tắt**.)
+- Cho kubelet chạy được với swap **chưa** đồng nghĩa workload dùng được swap: mặc định kubelet
+  chỉ thị cho CRI cấp phát **0 byte swap** cho workload, và hành vi mặc định là **`NoSwap`**. Chỉ
+  `LimitedSwap` mới cho workload đụng vào swap.
+- Ngay cả với `NoSwap`, các tiến trình **ngoài** container do Kubernetes quản lý — dịch vụ
+  systemd, và cả bản thân kubelet — **vẫn có thể** bị swap.
+- Với `LimitedSwap`, chỉ Pod QoS **Burstable** được dùng swap; `BestEffort` và `Guaranteed` bị
+  cấm. Giới hạn tính theo tỉ lệ:
+  (`containerMemoryRequest` / `nodeTotalMemory`) × `totalPodsSwapAvailable`. Đặt memory request
+  bằng đúng memory limit là cách **chủ động không dùng swap**.
+- **Scheduler không xét swap** khi đặt Pod — Pod chỉ request `memory`, không request swap. Hệ quả
+  là rủi ro "hàng xóm ồn ào", và cách phòng mà bài đề xuất là **gắn taint cho node có swap**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Khả năng quan sát việc dùng swap* — `/metrics/resource`, `machine_swap_bytes`, `kubectl top --show-swap`, `node.status.nodeInfo.swap.capacity` | cần metrics-server và pipeline metric mới đọc được | Lab 11a, CP8 giám sát và cảnh báo |
+| *Khám phá swap bằng Node Feature Discovery* | là add-on riêng phải cài thêm, không thuộc core | không cần |
+| *Volume dựa trên bộ nhớ* — tùy chọn tmpfs `noswap`, kernel 6.3 | chi tiết kernel, chỉ quan trọng khi thật sự bật swap | CP5 cấu hình lại cluster đang chạy |
+| *Trục xuất Pod* — quan hệ giữa eviction threshold và `vm.min_free_kbytes` | là bài toán chỉnh ngưỡng trên node đã bật swap | CP5 cấu hình lại cluster đang chạy |
+| *Thực hành tốt khi dùng swap* — `memory.swap.max=0` cho system slice, `io.latency`, chọn đĩa | là runbook cho ngày bạn quyết định bật swap thật | CP1 vòng đời node |
+
+---
+
 Kubernetes có thể được cấu hình để sử dụng bộ nhớ swap trên một node,
 cho phép kernel giải phóng bộ nhớ vật lý bằng cách hoán đổi (swap out) các trang bộ nhớ ra thiết bị lưu trữ nền.
 Điều này hữu ích cho nhiều tình huống sử dụng khác nhau.
@@ -378,3 +422,50 @@ Các container được cấu hình theo cách này sẽ không có quyền truy
 - Bạn có thể xem [bài blog về Kubernetes và swap](https://kubernetes.io/blog/2025/03/25/swap-linux-improvements/)
 - Để có thông tin nền tảng, vui lòng xem KEP gốc, [KEP-2400](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/2400-node-swap),
 và [thiết kế](https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/2400-node-swap/README.md) của nó.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 12:
+
+1. Ở [Lab 00 mục A4.1](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
+   bạn đã chạy `swapoff -a` trên cả ba node trước khi `kubeadm init`. Bài này giải thích vì sao
+   bước đó là bắt buộc? Nếu muốn giữ swap trên `k8s-worker1` thì phải đổi gì?
+2. **Câu bẫy.** Bạn đặt `failSwapOn: false` trên `k8s-worker1`, khởi động lại kubelet, node lên
+   `Ready`. Workload đã dùng được swap chưa? Còn kubelet và các dịch vụ systemd trên node đó thì
+   sao?
+3. **Câu bẫy.** Một Pod QoS `Guaranteed` chạy trên node đã bật `LimitedSwap`. Nó được cấp bao
+   nhiêu swap, và vì sao kết quả đó ngược với trực giác "Pod quan trọng nhất thì được nhiều nhất"?
+4. Bạn bật swap trên `k8s-worker1` nhưng không bật trên `k8s-worker2`. kube-scheduler có tính đến
+   khác biệt đó khi đặt Pod không? Bài đề xuất làm gì để Pod không vô tình rơi lên node có swap?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì **theo mặc định kubelet sẽ không khởi động trên một node Linux đang bật swap**. Không tắt
+   swap thì kubelet chết ngay và node không bao giờ vào được cluster. Muốn giữ swap, phải đặt
+   **`failSwapOn: false`** trong cấu hình kubelet rồi khởi động lại kubelet — và bài nhắc thêm:
+   nếu kubelet đã chạy sẵn thì phải khởi động lại nó **sau khi** swap được cấp phát thì nó mới
+   nhận diện được swap.
+2. **Chưa dùng được.** Khi kubelet khởi động trên node có swap với `failSwapOn: false`, nó **chỉ
+   thị cho CRI cấp phát mặc định 0 bộ nhớ swap cho workload Kubernetes**, và hành vi mặc định là
+   **`NoSwap`** — workload "không dùng và không thể dùng swap". Nhưng **kubelet và các dịch vụ
+   systemd thì vẫn có thể swap**, vì chúng nằm ngoài các container do Kubernetes quản lý. Chỗ dễ
+   nhầm chính là gộp hai việc "kubelet chịu chạy khi có swap" và "Pod được dùng swap" làm một.
+3. **Không được cấp swap nào.** Với `LimitedSwap`, các Pod **không** thuộc QoS Burstable — tức
+   `BestEffort` và `Guaranteed` — **bị cấm sử dụng swap**. Lý do bài đưa ra lật ngược trực giác:
+   chính vì Pod `Guaranteed` thường dành cho ứng dụng dựa vào việc cấp phát chính xác tài nguyên
+   đã chỉ định, **với bộ nhớ phải khả dụng ngay lập tức**, nên cho nó swap là phá đúng thứ nó cần.
+   Hệ quả kèm theo: phần swap tỉ lệ với memory request của các Pod Guaranteed sẽ **không được
+   workload Kubernetes dùng tới**.
+4. **Không.** Kubernetes v1.36 **không hỗ trợ phân bổ Pod theo mức sử dụng swap**: scheduler dựa
+   vào resource request, mà Pod chỉ request `memory` chứ không request swap. Bài đề xuất quản trị
+   viên **gắn taint cho các node có swap**, để chỉ workload chủ đích dùng swap (và có toleration
+   tương ứng) mới rơi vào đó, đồng thời chúng không tràn sang node không có swap khi chịu tải.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -2,6 +2,54 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/resource-managers/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
+bài 5/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài dài gần 700 dòng nhưng **quá nửa cuối là tính năng alpha của v1.36** — các trình quản lý
+tài nguyên cấp Pod — không tồn tại trên cluster baseline của bạn. Phần phải đọc là bốn mục đầu
+cộng mục *Chính sách static*, khoảng 180 dòng. Bài cũng vốn viết cho phần cứng bare-metal nhiều
+NUMA node và socket; worker của bạn là VM 2 vCPU nên phần lớn tùy chọn tinh chỉnh ở đây không
+có chỗ áp dụng. Đọc để biết **cơ chế và điều kiện kích hoạt**, không phải để cấu hình ngay.
+
+**Phải hiểu ở lần đọc này:**
+
+- Cả bốn trình quản lý đều là **thành phần của kubelet**, chạy trên node, sau khi Pod đã được
+  gán vào node — không phải việc của scheduler. Topology Manager là trình điều phối trung tâm;
+  CPU Manager, Memory Manager và Device Manager đều **tham vấn Topology Manager** để ra quyết
+  định gán tài nguyên.
+- Hành vi mặc định: kubelet cưỡng chế giới hạn CPU của pod bằng **CFS quota**, và workload có
+  thể bị di chuyển giữa các CPU core. Bài nói rõ nhiều workload không nhạy cảm với chuyện này
+  và vẫn chạy tốt — chỉ workload mà độ bám cache CPU và độ trễ lập lịch ảnh hưởng đáng kể mới
+  cần đổi chính sách.
+- Hai chính sách của CPU Manager: `none` (giữ nguyên cơ chế CPU affinity mặc định, cưỡng chế
+  bằng CFS quota) và `static` (cấp CPU độc quyền, cưỡng chế bằng cpuset cgroup controller).
+- Điều kiện **rất hẹp** để được cấp CPU độc quyền dưới chính sách `static`: container phải nằm
+  trong pod QoS `Guaranteed` **và** CPU `requests` phải là **số nguyên**. Pod `Guaranteed` với
+  `cpu: "1.5"` vẫn chạy trong pool dùng chung; `BestEffort` và `Burstable` luôn ở pool dùng
+  chung. Đọc kỹ loạt sáu ví dụ YAML — chúng chính là bài kiểm tra hiểu.
+- Số CPU cấp phát độc quyền được = tổng CPU của node **trừ** phần dự trữ trong cấu hình kubelet;
+  và kubelet **yêu cầu mức dự trữ CPU lớn hơn 0** khi bật `static`, vì dự trữ bằng 0 sẽ cho
+  phép pool dùng chung trở nên rỗng. Memory Manager cũng chỉ cấp phát cho pod `Guaranteed`, và
+  nó không tự quyết — nó gửi gợi ý NUMA affinity cho Topology Manager.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ *Các trình quản lý tài nguyên cấp Pod* — `.spec.resources`, pool dùng chung của pod, scope `pod` vs `container`, metrics, checkpoint | alpha ở v1.36 và cần feature gate `PodLevelResources` + `PodLevelResourceManagers`; cluster baseline của bạn chưa có | không cần |
+| *Các tùy chọn của chính sách static* — `full-pcpus-only`, `distribute-cpus-across-numa`, `align-by-socket`, `distribute-cpus-across-cores`, `strict-cpu-reservation`, `prefer-align-cpus-by-uncorecache` | đều là tinh chỉnh theo topology NUMA / socket / uncore cache của phần cứng thật; worker VM 2 vCPU không có các ranh giới đó | nhóm task CP10 ở cuối lộ trình (*Control CPU Management Policies*) |
+| Các chính sách cụ thể của Topology Manager, ví dụ `single-numa-node` | bài chỉ nêu tên khi nói về `align-by-socket`, chi tiết nằm ở trang task | nhóm task CP10 ở cuối lộ trình (*Control Topology Management Policies*) |
+| *Trình quản lý thiết bị* và device plugin API | chưa học device plugin | giai đoạn 14, bài [184](184-device-plugins-vi.md) |
+
+---
+
 Để hỗ trợ các workload nhạy cảm với độ trễ (latency-critical) và có thông lượng cao
 (high-throughput), Kubernetes cung cấp một bộ các Trình quản lý tài nguyên (Resource
 Manager). Các trình quản lý này có mục tiêu điều phối và tối ưu việc căn chỉnh
@@ -687,3 +735,62 @@ feature gate `PodLevelResourceManagers`):
 cấp pod, xem:
 
 *   [Gán tài nguyên CPU và memory ở cấp Pod (Assign Pod-level CPU and memory resources)](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pod-level-resources/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Bốn trình quản lý tài nguyên trong bài chạy ở đâu — control plane hay node? Cái nào đóng vai
+   trò điều phối, và ba cái còn lại quan hệ với nó thế nào?
+2. Một pod có `requests` bằng `limits`, `cpu: "1.5"` cho cả hai. Dưới chính sách `static`, nó có
+   được cấp CPU độc quyền không? Còn pod chỉ khai `limits` với `cpu: "2"` mà không khai
+   `requests` thì sao?
+3. Mặc định, kubelet cưỡng chế giới hạn CPU của pod bằng cơ chế nào? Với container đã được gán
+   CPU độc quyền, cơ chế đó còn được dùng nữa không, và vì sao?
+4. Worker của bạn chỉ có 2 vCPU. Bạn bật chính sách `static` và đặt mức dự trữ CPU bằng 0.
+   Kubelet phản ứng ra sao, và lý do của ràng buộc đó là gì?
+5. Memory Manager cấp phát tài nguyên độc quyền cho lớp QoS nào? Nó tự quyết định hay phải hỏi
+   ai, và ai là bên cuối cùng quyết định pod được chấp nhận hay bị từ chối vào node?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Cả bốn đều là thành phần của kubelet, tức chạy trên node.** Bài nói rõ chúng hành động sau
+   khi pod đã được **gán (bound) vào một Node** — đây là chuyện xảy ra *sau* lập lịch, không phải
+   trong lúc lập lịch. **Topology Manager là thành phần điều phối**: nó điều phối tập hợp các
+   thành phần chịu trách nhiệm tối ưu hóa. CPU Manager, Memory Manager và Device Manager đều
+   **tham vấn Topology Manager để đưa ra các quyết định gán tài nguyên** — Memory Manager còn
+   được mô tả cụ thể là gửi gợi ý NUMA affinity lên "trình quản lý trung tâm" đó.
+2. **Không, và có.** Pod `cpu: "1.5"` đúng là `Guaranteed` vì `requests` bằng `limits`, nhưng
+   **giới hạn CPU là một số lẻ nên nó chạy trong pool dùng chung** — chính sách static chỉ gán CPU
+   độc quyền cho container thuộc pod `Guaranteed` **và có CPU `requests` là số nguyên**. Đây là
+   chỗ dễ sai nhất: `Guaranteed` là điều kiện cần, không phải điều kiện đủ. Trường hợp thứ hai
+   ngược lại: chỉ khai `limits` với `cpu: "2"` thì **`requests` được đặt bằng `limits` khi không
+   chỉ định tường minh**, nên pod vẫn là `Guaranteed` với CPU nguyên — container **được cấp 2 CPU
+   độc quyền**.
+3. **Mặc định là CFS quota.** Bài mở đầu mục chính sách bằng đúng ý đó: theo mặc định kubelet
+   dùng CFS quota để cưỡng chế giới hạn CPU của pod, và dưới chính sách `none`, giới hạn cho cả
+   pod `Guaranteed` lẫn `Burstable` đều được cưỡng chế bằng CFS quota. Với container được gán CPU
+   độc quyền thì **CFS quota không được dùng nữa**, vì mức sử dụng của chúng **đã bị giới hạn bởi
+   chính miền lập lịch (scheduling domain)** — số CPU trong cpuset của container bằng đúng giá
+   trị CPU `limit` nguyên trong spec, nên không còn gì để quota siết thêm.
+4. **Kubelet không chấp nhận: nó yêu cầu mức dự trữ CPU lớn hơn 0 khi chính sách static được
+   bật.** Lý do bài đưa ra: mức dự trữ bằng 0 sẽ cho phép **pool dùng chung trở nên rỗng**. Pool
+   dùng chung là nơi mọi container của pod `BestEffort`, `Burstable` và cả pod `Guaranteed` có
+   CPU `requests` số lẻ phải chạy — để nó cạn là hỏng. Trên worker 2 vCPU của bạn ràng buộc này
+   càng gắt: số CPU cấp phát độc quyền được bằng tổng CPU của node trừ phần dự trữ, nên sau khi
+   dự trữ, phần còn lại để gán độc quyền gần như không đáng kể. Đây là lý do thực tế khiến chính
+   sách `static` không có ý nghĩa trên cluster lab hiện tại.
+5. **Chỉ cho pod thuộc lớp QoS `Guaranteed`.** Nó **không tự quyết**: Memory Manager dùng giao
+   thức sinh gợi ý để đưa ra NUMA affinity phù hợp nhất rồi **cung cấp các gợi ý đó cho Topology
+   Manager**. Bên quyết định cuối cùng là **Topology Manager** — bài ghi rõ: dựa trên cả các gợi
+   ý lẫn chính sách của Topology Manager, pod sẽ bị từ chối hoặc được chấp nhận vào node. Ngoài
+   ra Memory Manager còn đảm bảo lượng memory pod yêu cầu được cấp từ **số NUMA node tối thiểu**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

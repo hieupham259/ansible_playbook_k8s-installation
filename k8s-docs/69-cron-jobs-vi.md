@@ -4,6 +4,52 @@
 >
 > CronJob khởi chạy các Job chạy-một-lần (one-time Job) theo một lịch lặp lại.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 8/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+CronJob chỉ là một tầng mỏng đặt trên [Job](67-job-vi.md): nó tạo Job theo lịch, còn Job mới
+là thứ quản lý Pod. Vì vậy nếu bài 67 chưa vững thì quay lại đó trước. Cú pháp cron thì tra
+khi cần, không cần thuộc; cái phải hiểu là **hai trường quyết định hành vi khi mọi thứ chạy
+chậm hoặc control plane gián đoạn**: `concurrencyPolicy` và `startingDeadlineSeconds`.
+
+**Phải hiểu ở lần đọc này:**
+
+- Phân tầng trách nhiệm: CronJob **chỉ chịu trách nhiệm tạo các Job khớp với lịch của nó**,
+  còn Job chịu trách nhiệm quản lý Pod. Hai trường bắt buộc là `.spec.schedule` và
+  `.spec.jobTemplate`.
+- `.spec.concurrencyPolicy`: `Allow` (mặc định, cho chạy chồng), `Forbid` (bỏ qua lần mới nếu
+  lần trước chưa xong), `Replace` (thay lần đang chạy bằng lần mới). Chính sách này **chỉ áp
+  dụng trong phạm vi cùng một CronJob**.
+- `.spec.startingDeadlineSeconds`: nếu lỡ mốc lịch quá số giây này thì lần chạy đó bị bỏ qua
+  và **được tính là Job thất bại**; không đặt thì các lần chạy không có thời hạn. Đặt nhỏ hơn
+  10 giây thì CronJob có thể **không được lập lịch**, vì controller chỉ kiểm tra mỗi 10 giây.
+- Cửa sổ đếm số lịch bị lỡ **đổi theo trường trên**: không đặt thì đếm từ lần lập lịch cuối
+  tới hiện tại, và **quá 100 lịch bị lỡ** thì controller ngừng khởi động Job và ghi log lỗi;
+  có đặt thì chỉ đếm trong khoảng `startingDeadlineSeconds` gần nhất. Đây chính là ví dụ
+  `08:29:00`–`10:21:00` trong bài.
+- Việc tạo Job chỉ là **xấp xỉ** một lần cho mỗi mốc lịch — có thể hai Job, có thể không Job
+  nào — nên Job bạn viết phải **idempotent**. Và sửa một CronJob **không** đụng tới các Job
+  đã khởi động, kể cả khi chúng đang chạy.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Cú pháp schedule* — bước nhảy kiểu Vixie cron, dấu `?`, bảng macro `@daily` và các dòng khác | chỉ là cú pháp, tra khi cần | không cần |
+| *Múi giờ* và *Chỉ định TimeZone không được hỗ trợ* | chỉ cần nhớ: mặc định theo múi giờ của kube-controller-manager, và `CRON_TZ`/`TZ` trong `schedule` bị API từ chối | không cần |
+| *Giới hạn lịch sử Job* | chỉ là hai con số mặc định: giữ 3 Job thành công và 1 Job thất bại | không cần |
+| *Tạm ngưng lập lịch* (`.spec.suspend`) | thao tác vận hành, chỉ cần khi đã quen CronJob | không cần |
+| Annotation `batch.kubernetes.io/cronjob-scheduled-timestamp` | dùng để truy vết, không đổi hành vi | không cần |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.21 [stable]`
 
 Một _CronJob_ tạo các Job theo một lịch lặp lại.
@@ -291,3 +337,56 @@ trách nhiệm quản lý các Pod mà nó đại diện.
   Đọc tài liệu tham khảo API
   [CronJob](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/cron-job-v1/)
   để biết thêm chi tiết.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. Một CronJob `schedule: "* * * * *"` với `concurrencyPolicy: Forbid`, mỗi Job chạy mất 3
+   phút. Trong ba phút đó có mấy Job được tạo, và các mốc lịch bị bỏ qua được tính là gì?
+2. **Câu bẫy.** Hai CronJob khác nhau, cả hai cùng đặt `concurrencyPolicy: Forbid`. Job của
+   CronJob A có bị chặn vì Job của CronJob B đang chạy không?
+3. `k8s-master` — nơi kube-controller-manager chạy — ngừng hoạt động từ `08:29:00` tới
+   `10:21:00`. Bạn có một CronJob chạy mỗi phút. Khi control plane trở lại, Job có được khởi
+   động không? Câu trả lời đổi thế nào nếu `startingDeadlineSeconds: 200`?
+4. Vì sao bài cảnh báo không đặt `startingDeadlineSeconds` nhỏ hơn 10 giây?
+5. Vì sao bài yêu cầu Job do CronJob tạo phải idempotent?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Chỉ **một Job** — Job đang chạy. Với `Forbid`, "nếu đã đến thời điểm chạy Job mới mà lần
+   chạy Job trước đó chưa kết thúc, CronJob sẽ bỏ qua lần chạy Job mới". Các mốc bị bỏ qua
+   được **tính là bị lỡ (missed)**: bài nói "nếu `concurrencyPolicy` được đặt thành `Forbid`
+   và một CronJob được thử lập lịch trong khi một lần chạy theo lịch trước đó vẫn đang chạy,
+   thì lần đó sẽ được tính là bị lỡ". Lưu ý thêm: khi Job trước kết thúc,
+   `startingDeadlineSeconds` vẫn được tính đến và có thể dẫn tới một lần chạy mới ngay.
+2. **Không.** Bài nói rõ: "chính sách đồng thời chỉ áp dụng cho các Job được tạo bởi **cùng
+   một CronJob**. Nếu có nhiều CronJob, các Job tương ứng của chúng **luôn được phép chạy đồng
+   thời**." Trực giác sai ở chỗ hiểu `Forbid` như một khóa toàn cluster; nó chỉ là khóa trong
+   phạm vi một object CronJob. Muốn hai CronJob không giẫm chân nhau thì phải tự xử lý ở tầng
+   ứng dụng.
+3. **Không đặt `startingDeadlineSeconds`: Job sẽ không được khởi động.** Controller đếm số
+   lịch bị lỡ từ lần được lập lịch cuối tới hiện tại, ở đây là hơn 100 lịch, và bài nói khi
+   quá 100 lịch bị lỡ thì controller không khởi động Job mà ghi log
+   `too many missed start times...`. **Với `startingDeadlineSeconds: 200`: Job vẫn khởi động
+   lúc 10:22:00**, vì lúc này controller chỉ đếm số lịch bị lỡ **trong 200 giây gần nhất** —
+   tức 3 lịch — thay vì từ lần lập lịch cuối. Hành vi này chỉ liên quan tới việc lập lịch bù,
+   không có nghĩa CronJob ngừng chạy hẳn.
+4. Vì **CronJob controller kiểm tra mọi thứ mỗi 10 giây một lần**. Đặt thời hạn ngắn hơn chu
+   kỳ kiểm tra thì mốc lịch có thể đã quá hạn trước khi controller kịp nhìn tới, và CronJob
+   **có thể không được lập lịch** chút nào.
+5. Vì **việc lập lịch chỉ là xấp xỉ**: bài nói một CronJob tạo một object Job "xấp xỉ một lần
+   cho mỗi thời điểm thực thi trong lịch của nó", và có những trường hợp **hai Job được tạo,
+   hoặc không Job nào được tạo cả**. Kubernetes cố tránh nhưng không ngăn được hoàn toàn. Do
+   đó Job phải chạy lại nhiều lần vẫn cho cùng kết quả. Ngoài ra, nếu `startingDeadlineSeconds`
+   lớn hoặc không đặt và `concurrencyPolicy` là `Allow`, các Job sẽ luôn chạy **ít nhất một
+   lần** — "ít nhất", không phải "đúng một lần".
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

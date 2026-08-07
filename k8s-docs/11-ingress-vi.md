@@ -4,6 +4,52 @@
 >
 > Làm cho dịch vụ mạng HTTP (hoặc HTTPS) của bạn khả dụng bằng một cơ chế cấu hình hiểu giao thức (protocol-aware), nắm được các khái niệm web như URI, hostname, path, v.v. Khái niệm Ingress cho phép bạn ánh xạ lưu lượng (traffic) đến các backend khác nhau dựa trên các quy tắc bạn định nghĩa thông qua Kubernetes API.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 10/16 · Kiểm chứng
+ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Hai điều cần biết trước khi đọc. Thứ nhất, **Ingress API đã bị đóng băng** và dự án Kubernetes
+khuyến nghị dùng Gateway thay thế — nhưng bạn vẫn phải học nó, vì phần lớn cluster đang chạy
+đều dùng Ingress. Thứ hai, **cluster lab chưa có ingress controller**, nên mọi Ingress bạn tạo
+lúc này sẽ nằm im. Controller được cài ở Lab 5b, cùng lúc với việc đổi CNI.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ingress mở **route HTTP và HTTPS** từ ngoài vào Service trong cluster; nó **không** mở port
+  hay giao thức tùy ý — thứ đó thuộc về `type: NodePort` và `type: LoadBalancer`. Và **phải có
+  ingress controller đang chạy**: chỉ tạo tài nguyên Ingress thì không có tác dụng gì.
+- Cấu trúc một quy tắc: `host` (tùy chọn) + danh sách `path`, mỗi path có backend là
+  `service.name` cộng `service.port`. **Cả host lẫn path đều phải khớp** thì request mới được
+  chuyển đi; request không khớp quy tắc nào rơi về `defaultBackend`.
+- Ba `pathType`: `Exact`, `Prefix` và `ImplementationSpecific`. `Prefix` so khớp **theo từng
+  phần tử path tách bởi `/`**, không phải theo tiền tố chuỗi — `/foo/bar` khớp `/foo/bar/baz`
+  nhưng không khớp `/foo/barbaz`. Khai thiếu `pathType` thì manifest không qua được validation.
+- Khi nhiều path cùng khớp: **path khớp dài nhất thắng**; hòa thì `Exact` thắng `Prefix`.
+- IngressClass và `ingressClassName`: mỗi Ingress nên chỉ định class. Đánh dấu class mặc định
+  bằng annotation `ingressclass.kubernetes.io/is-default-class: "true"`, và **nếu có nhiều hơn
+  một class mặc định thì admission controller chặn việc tạo Ingress không ghi `ingressClassName`**.
+- TLS: dùng Secret kiểu `kubernetes.io/tls` với hai khóa `tls.crt` và `tls.key`; chỉ hỗ trợ một
+  port TLS là 443; **TLS kết thúc tại điểm ingress**, đoạn tới Service và Pod là plaintext; và
+  `hosts` trong phần `tls` phải khớp tường minh `host` trong `rules`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Resource backend* | trỏ tới một tài nguyên tùy chỉnh qua CRD | giai đoạn 14 |
+| *Phạm vi của IngressClass* (`parameters.scope`, Cluster và Namespaced) | là cách ủy quyền cấu hình giữa các đội, cần RBAC | giai đoạn 9 |
+| *Annotation đã bị loại bỏ* `kubernetes.io/ingress.class` | chỉ cần khi gặp manifest cũ | không cần |
+| *Wildcard cho hostname* | chỉ có ý nghĩa khi đã có tên miền thật trỏ vào cluster | Lab 5b |
+| *Cân bằng tải* và *Chịu lỗi giữa các availability zone* | phụ thuộc hoàn toàn vào từng controller và nhà cung cấp cloud | không cần |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.19 [stable]`
 
 Ingress là một đối tượng API quản lý truy cập từ bên ngoài vào các service trong một cluster, thường là HTTP. Ingress có thể cung cấp cân bằng tải (load balancing), kết thúc phiên SSL (SSL termination) và virtual hosting dựa trên tên (name-based virtual hosting).
@@ -839,3 +885,50 @@ Bạn có thể expose một Service theo nhiều cách không trực tiếp li�
 
 * Tìm hiểu về [Ingress API](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/ingress-v1/)
 * Tìm hiểu về [Ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Cluster lab chưa có ingress controller. Bạn `kubectl apply` một Ingress hợp lệ và thấy nó
+   được tạo. Gọi từ ngoài vào có tới ứng dụng không? Cột `ADDRESS` của `kubectl get ingress` sẽ
+   hiển thị gì?
+2. Một quy tắc dùng `pathType: Prefix` với `path: /foo/bar`. Request `/foo/barbaz` có khớp
+   không? Còn `/foo/bar/baz`?
+3. Một Ingress khai cả `/foo` kiểu `Prefix` lẫn `/foo` kiểu `Exact`. Request `/foo` đi tới
+   backend nào?
+4. Bạn để trống `ingressClassName` trên một Ingress mới. Điều gì quyết định nó có được xử lý
+   hay không, và trường hợp nào việc tạo Ingress bị chặn thẳng?
+5. Secret dùng cho TLS của Ingress phải có những khóa nào, và sau khi qua ingress thì traffic
+   tới Pod có còn được mã hóa không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không tới đâu cả.** Bài nói thẳng ở mục *Điều kiện tiên quyết*: bạn phải có một Ingress
+   controller để Ingress hoạt động, và "việc chỉ tạo tài nguyên Ingress mà thôi sẽ không có tác
+   dụng gì". Địa chỉ trong cột `ADDRESS` do **controller cấp phát**, nên khi chưa có controller
+   nó nằm ở **`<pending>`** — trạng thái mà bài mô tả cho khoảng thời gian controller chưa cấp
+   xong IP. Controller sẽ được cài ở Lab 5b.
+2. `/foo/barbaz` **không khớp**; `/foo/bar/baz` **khớp**. `Prefix` khớp dựa trên tiền tố của
+   đường dẫn **được tách bởi dấu `/` và so khớp trên từng phần tử một**. Bài nêu đúng cặp ví dụ
+   này: nếu phần tử cuối của path chỉ là một chuỗi con của phần tử cuối trong path của request
+   thì đó **không** phải kết quả khớp. Đây là chỗ trực giác "so khớp chuỗi" dẫn người ta đi sai.
+3. Tới backend của **`Exact`**. Khi nhiều path cùng khớp một request, ưu tiên trước hết dành cho
+   **path khớp dài nhất**; nếu vẫn khớp ngang nhau thì **loại `Exact` được ưu tiên hơn `Prefix`**.
+4. Phải tồn tại một **IngressClass mặc định** — được đánh dấu bằng annotation
+   `ingressclass.kubernetes.io/is-default-class: "true"` — thì Kubernetes mới gán class đó cho
+   Ingress không chỉ định `ingressClassName`. Nếu cluster có **nhiều hơn một** IngressClass được
+   đánh dấu mặc định, **admission controller sẽ chặn việc tạo** các Ingress không ghi
+   `ingressClassName`. Chỉ có tối đa một class mặc định là cách xử lý.
+5. Secret kiểu `kubernetes.io/tls`, chứa hai khóa tên **`tls.crt`** và **`tls.key`**. **Không
+   còn mã hóa.** Tài nguyên Ingress hỗ trợ đúng một port TLS là 443 và **giả định TLS kết thúc
+   tại điểm ingress** — lưu lượng đi tiếp tới Service và các Pod của nó ở dạng plaintext.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

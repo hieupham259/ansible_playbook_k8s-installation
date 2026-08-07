@@ -2,6 +2,49 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/pod-scheduling-readiness/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 10/13 ·
+Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Mọi bài trước trong nhóm đều trả lời câu hỏi "Pod này lên node nào". Bài này trả lời một câu
+khác: "**khi nào** thì được phép bắt đầu hỏi câu đó". Nó là một công tắc chặn ở ngay đầu hàng
+đợi, do bên ngoài bật tắt.
+
+Ví dụ trong bài chạy được nguyên văn trên cluster lab — `test-pod` chỉ dùng image `pause` và
+không xin tài nguyên gì, nên đây là một trong số ít bài của nhóm bạn thử được ngay mà không
+cần dựng tình huống.
+
+**Phải hiểu ở lần đọc này:**
+
+- `.spec.schedulingGates` là danh sách chuỗi; còn ít nhất một gate thì Pod ở trạng thái
+  **`SchedulingGated`** và scheduler **chưa xét tới nó**.
+- Trường này **chỉ được khởi tạo lúc tạo Pod** (bởi client hoặc do admission mutate). Sau khi
+  tạo, các gate có thể được **gỡ theo thứ tự tùy ý**, nhưng **không được thêm gate mới**.
+- Gỡ **hết** gate thì Pod mới vào hàng đợi lập lịch bình thường. Kiểm chứng bằng
+  `kubectl get pod` (cột STATUS) và `kubectl get pod <tên> -o jsonpath='{.spec.schedulingGates}'`
+  — kết quả rỗng là đã sạch gate.
+- Lý do tính năng tồn tại: Pod "thiếu tài nguyên thiết yếu" nằm chờ lâu gây **xáo trộn (churn)
+  không cần thiết** cho scheduler và cho các thành phần hạ nguồn như Cluster AutoScaler. Gate
+  tách bạch "chưa sẵn sàng để xét" khỏi "đã xét và không lập lịch được".
+- Trong lúc Pod còn gate, bạn chỉ được **siết chặt** các chỉ thị lập lịch — thêm
+  `nodeSelector`, thêm biểu thức vào node affinity `required` — chứ không được nới lỏng hay
+  sửa cái đã có; riêng phần `preferredDuringSchedulingIgnoredDuringExecution` thì sửa tùy ý.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Khả năng quan sát* — `scheduler_pending_pods{queue="gated"}` | cần stack thu thập metric | giai đoạn 11, bài [160](160-system-metrics-vi.md) |
+| Bốn quy tắc chi tiết trong *Các chỉ thị lập lịch có thể thay đổi của Pod* và lý giải OR/AND | chỉ cần khi tự viết controller đặt và gỡ gate | giai đoạn 14, bài [181](181-operator-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.30 [stable]`
 
 Trước đây, các Pod được coi là sẵn sàng để lập lịch ngay khi được tạo. Kubernetes scheduler
@@ -134,3 +177,47 @@ mà trước đó nó có thể khớp. Cụ thể hơn, các quy tắc cập nh
 ## Tiếp theo (What's next)
 
 * Đọc [KEP PodSchedulingReadiness](https://github.com/kubernetes/enhancements/blob/master/keps/sig-scheduling/3521-pod-scheduling-readiness) để biết thêm chi tiết
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Một Pod `SchedulingGated` và một Pod `Pending` vì không node nào đủ tài nguyên — cả hai đều
+   chưa chạy. Khác nhau ở chỗ nào từ góc nhìn của scheduler?
+2. Bạn đã tạo một Pod không có gate và giờ muốn giữ nó lại bằng cách thêm `schedulingGates`.
+   Làm được không? Vì sao?
+3. Trên cluster lab, bạn tạo `test-pod` theo đúng manifest của bài với hai gate
+   `example.com/foo` và `example.com/bar`, rồi apply lại một manifest chỉ bỏ gate
+   `example.com/foo`. Pod chạy chưa? Cần làm gì và kiểm chứng bằng lệnh nào?
+4. Vì sao Kubernetes thêm cơ chế này thay vì cứ để Pod nằm `Pending` như trước?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Pod `SchedulingGated` là Pod **được đánh dấu tường minh là chưa sẵn sàng để lập lịch** —
+   scheduler **chưa hề thử** đặt nó. Pod `Pending` vì thiếu tài nguyên là Pod **đã được thử
+   lập lịch nhưng bị kết luận là không thể lập lịch (unschedulable)**. Đây đúng là hai giá trị
+   mà metric `scheduler_pending_pods` phải tách ra bằng nhãn `gated`. Nhầm hai trạng thái này
+   dẫn tới chẩn đoán sai: một bên phải sửa tài nguyên/ràng buộc, một bên phải đi tìm ai chưa gỡ
+   gate.
+2. **Không.** Trường `schedulingGates` **chỉ có thể được khởi tạo khi Pod được tạo** — bởi
+   client hoặc do bị mutate trong quá trình admission. Sau khi tạo, **không được phép thêm
+   scheduling gate mới**; bạn chỉ được gỡ. Muốn chặn thì phải chặn từ lúc tạo Pod.
+3. **Chưa chạy.** Mỗi gate có thể gỡ theo thứ tự tùy ý, nhưng Pod chỉ được xem xét lập lịch khi
+   **không còn gate nào** — ở đây `example.com/bar` vẫn còn. Cần **gỡ bỏ hoàn toàn**
+   `schedulingGates` rồi apply lại. Kiểm chứng:
+   `kubectl get pod test-pod -o jsonpath='{.spec.schedulingGates}'` phải trả về **rỗng**, và
+   `kubectl get pod test-pod` chuyển từ `SchedulingGated` sang `Running` — `test-pod` không xin
+   tài nguyên CPU/bộ nhớ nào nên nó lên được ngay.
+4. Vì các Pod ở trạng thái "thiếu tài nguyên thiết yếu" trong thời gian dài **gây xáo trộn
+   (churn) không cần thiết cho scheduler** và cho các thành phần tích hợp hạ nguồn như Cluster
+   AutoScaler: scheduler cứ thử đi thử lại một Pod mà bên ngoài biết chắc là chưa thể chạy.
+   `schedulingGates` chuyển quyền quyết định thời điểm sang cho bên đang giữ điều kiện đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

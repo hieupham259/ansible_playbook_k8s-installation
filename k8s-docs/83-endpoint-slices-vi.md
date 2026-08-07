@@ -6,6 +6,49 @@
 > mở rộng quy mô nhằm xử lý số lượng lớn backend, đồng thời cho phép cluster
 > cập nhật danh sách các backend khỏe mạnh của nó một cách hiệu quả.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 3/16 · Kiểm chứng ở
+Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài trước cho biết Service chọn Pod bằng selector. Bài này là **chỗ kết quả của việc chọn đó
+được ghi ra**. Đọc nó như phần bên trong của bài [82](82-service-vi.md), không phải một chủ đề
+độc lập.
+
+**Phải hiểu ở lần đọc này:**
+
+- Control plane **tự động tạo EndpointSlice cho mọi Service có selector**, chứa tham chiếu tới
+  tất cả Pod khớp selector; endpoint được nhóm theo tổ hợp duy nhất của họ địa chỉ IP, giao
+  thức, số port và tên Service.
+- EndpointSlice là **nguồn dữ liệu tin cậy của kube-proxy**. kube-proxy chạy trên mỗi node và
+  watch EndpointSlice, nên mỗi thay đổi phải truyền tới mọi node — đó là lý do có giới hạn 100
+  endpoint mỗi slice theo mặc định.
+- Ba condition `serving`, `terminating`, `ready`: service proxy thông thường **bỏ qua endpoint
+  đang `terminating`**, nhưng vẫn dùng endpoint vừa `serving` vừa `terminating` **nếu tất cả
+  endpoint khả dụng đều đang terminating**; `ready` là cách viết tắt cho "`serving` và không
+  `terminating`".
+- Cách lần ngược từ một EndpointSlice về Service: owner reference cộng với label
+  `kubernetes.io/service-name`; label `endpointslice.kubernetes.io/managed-by` cho biết **ai**
+  đang quản lý slice đó.
+- Endpoint **có thể bị trùng lặp giữa nhiều EndpointSlice**, nên client phải gộp tất cả slice
+  của một Service rồi khử trùng lặp, không được đọc một slice rồi kết luận.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Thông tin topology* (`nodeName`, `zone`) | chỉ có tác dụng trên cluster nhiều zone | bài [86](86-topology-aware-routing-vi.md) |
+| *Phân bổ các EndpointSlice* — ba bước lặp cụ thể của controller | là chi tiết hiện thực, không đổi cách bạn dùng | không cần |
+| *Phản chiếu EndpointSlice* | là cơ chế tương thích ngược cho Endpoints API đã deprecated | không cần |
+| Flag `--max-endpoints-per-slice` của kube-controller-manager | là tinh chỉnh cấu hình control plane | giai đoạn 8 |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.21 [stable]`
 
 EndpointSlice theo dõi địa chỉ IP của các endpoint backend.
@@ -223,3 +266,46 @@ subset sẽ được phản chiếu sang các EndpointSlice.
 * Làm theo hướng dẫn thực hành [Kết nối ứng dụng với Service (Connecting Applications with Services)](https://kubernetes.io/docs/tutorials/services/connect-applications-service/)
 * Đọc [tài liệu tham khảo API](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/endpoint-slice-v1/) cho EndpointSlice API
 * Đọc [tài liệu tham khảo API](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/endpoints-v1/) cho Endpoints API
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Service có selector thì EndpointSlice tự sinh. Nếu bạn tạo một Service **không có** selector
+   thì ai tạo EndpointSlice cho nó?
+2. Trên cluster lab, bạn rolling update một Deployment đứng sau một Service. Trong lúc một Pod
+   cũ đang bị xóa, endpoint của nó mang condition nào, và kube-proxy có còn gửi traffic tới nó
+   không?
+3. Bạn `kubectl get endpointslice -l kubernetes.io/service-name=web` và đọc được một slice có 3
+   endpoint. Kết luận "Service `web` có đúng 3 backend" đúng hay sai?
+4. Vì sao control plane thà tạo một EndpointSlice mới còn hơn lấp đầy hai slice đang còn chỗ?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Bạn, hoặc một controller của bạn.** Control plane chỉ tự tạo EndpointSlice cho Service
+   **có chỉ định selector**. Không selector thì không có gì để khớp, nên bạn phải tự tạo
+   EndpointSlice, gắn label `kubernetes.io/service-name` trỏ về Service, và nên đặt một giá trị
+   riêng cho label `endpointslice.kubernetes.io/managed-by` — tránh giá trị dành riêng
+   `"controller"` vốn để đánh dấu slice do chính control plane quản lý.
+2. Condition `terminating` được đặt **ngay khi Pod nhận timestamp xóa**, thường là trước khi
+   container thoát. **Service proxy thông thường bỏ qua endpoint đang `terminating`** — trừ khi
+   *tất cả* endpoint khả dụng đều đang terminating, khi đó nó vẫn định tuyến tới endpoint vừa
+   `serving` vừa `terminating`. Chính ngoại lệ này giữ cho traffic không bị mất trong lúc rolling
+   update.
+3. **Sai.** Một Service có thể có nhiều EndpointSlice, và **cùng một endpoint có thể xuất hiện
+   trong nhiều slice cùng lúc** do các thay đổi tới watch/cache của client ở những thời điểm
+   khác nhau. Bài nói rõ: client phải lặp qua **tất cả** EndpointSlice gắn với Service rồi tự
+   xây danh sách endpoint duy nhất.
+4. Vì **kube-proxy chạy trên mỗi node và watch EndpointSlice**, nên mỗi thay đổi của một slice
+   là tương đối tốn kém — nó phải được truyền tới **mọi node** trong cluster. Cách tiếp cận này
+   **ưu tiên hạn chế số lần cập nhật** hơn là một sự phân bổ được lấp đầy hoàn hảo: tạo một
+   slice mới rẻ hơn cập nhật nhiều slice hiện có.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -4,6 +4,50 @@
 >
 > Tìm hiểu về các object ServiceAccount trong Kubernetes.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 3/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là bài trả lời câu hỏi bạn đã gặp hai lần trước đó. Bài
+[24](24-control-plane-node-communication-vi.md) nói Pod kết nối an toàn tới API server bằng
+cách "tận dụng service account" mà không giải thích; còn [Lab 1a phần
+B8](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) cho bạn xóa ServiceAccount `default` rồi
+xem controller tạo lại nó. Bài này là chỗ hai mảnh đó khớp vào nhau.
+
+**Phải hiểu ở lần đọc này:**
+
+- ServiceAccount là **tài khoản phi con người**, có object thật trong API server, thuộc phạm vi
+  namespace. Đối lập: tài khoản người dùng **không tồn tại** trong API server — API server coi
+  danh tính người dùng là dữ liệu mờ (opaque). Bảng so sánh trong bài chốt điểm này.
+- Mỗi namespace có ServiceAccount `default`; xóa đi thì **control plane thay thế nó bằng một
+  object mới**. Pod không được gán ServiceAccount thủ công thì nhận `default`, và `default`
+  mặc định **không có quyền hạn nào** ngoài các quyền API discovery.
+- Ba bước dùng một service account: tạo object → **cấp quyền bằng cơ chế phân quyền như RBAC**
+  → gán cho Pod qua `spec.serviceAccountName`.
+- Từ v1.22, Kubernetes cấp cho Pod một token **ngắn hạn, tự động xoay vòng** lấy qua API
+  `TokenRequest` và mount bằng projected volume — khác hẳn token tĩnh dạng Secret của các bản
+  trước. Tắt việc tự động tiêm bằng `automountServiceAccountToken: false`.
+- Cách API server kiểm tra bearer token: chữ ký → hết hạn → tham chiếu object trong claim còn
+  hợp lệ → token còn hiệu lực → claim về audience. Token của `TokenRequest` là **bound token**,
+  gắn với vòng đời của Pod đang dùng nó.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Truy cập liên namespace bằng ServiceAccount* | cần Role và RoleBinding trước | bài [120](120-rbac-good-practices-vi.md) |
+| *Giới hạn audience trên node đối với service account token* | là hardening cho danh tính kubelet | bài [128](128-api-server-bypass-risks-vi.md) |
+| *Hạn chế truy cập Secret (đã lỗi thời)* — `kubernetes.io/enforce-mountable-secrets` | đã deprecated từ v1.32, thay bằng namespace riêng | bài [121](121-secrets-good-practices-vi.md) |
+| *Xác thực credentials trong mã của riêng bạn* — TokenReview, OIDC discovery | dành cho người viết dịch vụ, không phải quản trị viên | không cần |
+| *Các phương án thay thế* — SPIFFE, service mesh, OIDC, IAM của cloud | là phần so sánh cơ chế xác thực | bài [123](123-hardening-authentication-vi.md) |
+
+---
+
 Trang này giới thiệu object ServiceAccount trong Kubernetes, cung cấp
 thông tin về cách service account hoạt động, các trường hợp sử dụng, những hạn chế,
 các phương án thay thế, cùng những liên kết đến tài nguyên hướng dẫn bổ sung.
@@ -314,3 +358,52 @@ dùng trong ứng dụng của bạn và không ở bất kỳ nơi nào khác.
 * Tìm hiểu cách [quản lý các ServiceAccount với vai trò quản trị viên cluster](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/).
 * Tìm hiểu cách [gán một ServiceAccount cho một Pod](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/).
 * Đọc [tài liệu tham khảo API ServiceAccount](https://kubernetes.io/docs/reference/kubernetes-api/authentication-resources/service-account-v1/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Ở [Lab 1a phần B8](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) bạn xóa ServiceAccount
+   `default` trong một namespace rồi thấy nó xuất hiện lại. Bài này giải thích hành vi đó bằng
+   câu nào? Và nếu bạn tạo một namespace mới trên `k8s-master`, nó có sẵn ServiceAccount nào?
+2. ServiceAccount và tài khoản người dùng — cái nào là object trong Kubernetes API? Bạn có thể
+   liệt kê toàn bộ người dùng là con người của cluster bằng `kubectl` không, vì sao?
+3. Bài [24](24-control-plane-node-communication-vi.md) nói Pod gọi API server "bằng cách tận
+   dụng service account". Cụ thể Kubernetes đưa cái gì vào Pod, ở dạng nào, và cách làm từ
+   v1.22 khác các bản trước ở điểm nào?
+4. Bạn tạo một Pod mà không đặt `spec.serviceAccountName`. Pod đó gọi API server dưới danh tính
+   nào, và danh tính đó có sẵn quyền gì? Muốn Pod hoàn toàn không nhận credential thì đặt gì?
+5. Vì sao dự án Kubernetes khuyến nghị dùng TokenReview API thay vì xác minh bằng OIDC
+   discovery khi dịch vụ của bạn cần kiểm tra một service account token?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Bài nói: nếu bạn xóa object ServiceAccount `default` trong một namespace, **control plane sẽ
+   thay thế nó bằng một object mới**. Đó chính là vòng lặp điều hòa bạn quan sát ở B8. Và
+   **mỗi namespace khi được tạo đều có một ServiceAccount `default`** — namespace mới cũng vậy,
+   bạn không phải tạo gì thêm.
+2. **Chỉ ServiceAccount** là object trong Kubernetes API. **Không liệt kê được người dùng bằng
+   `kubectl`**: mặc định tài khoản người dùng **không tồn tại trong API server**, API server
+   coi danh tính người dùng là **dữ liệu mờ (opaque)** và không lưu username hay thông tin nào
+   khác về người dùng trong API của mình.
+3. Kubernetes tự động tiêm **certificate gốc công khai của cluster và một bearer token hợp lệ**
+   vào Pod. Từ v1.22, token đó là **token ngắn hạn, tự động xoay vòng**, lấy qua API
+   `TokenRequest` và **mount dưới dạng projected volume**. Trước v1.22, Pod nhận một **token
+   tĩnh, tồn tại lâu dài, lưu dưới dạng Secret** — không hết hạn, không xoay vòng.
+4. Pod chạy dưới **ServiceAccount `default` của namespace đó**. Danh tính này **mặc định không
+   có quyền hạn nào** ngoài các quyền API discovery mặc định mà Kubernetes cấp cho mọi
+   principal đã xác thực khi RBAC được bật. Muốn không nhận credential: đặt
+   **`automountServiceAccountToken: false`** trong đặc tả Pod.
+5. Vì **TokenReview vô hiệu hóa ngay các token bị ràng buộc với object API đã bị xóa.** Xóa Pod
+   đang giữ một projected token thì cluster vô hiệu token đó lập tức và TokenReview thất bại
+   ngay. Ngược lại, với xác minh **OIDC**, client vẫn tiếp tục coi token là hợp lệ **cho đến khi
+   token chạm mốc hết hạn** — tức là còn một khoảng thời gian token đã bị thu hồi vẫn dùng được.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

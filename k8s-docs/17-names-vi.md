@@ -72,7 +72,7 @@ vì server sẽ thực hiện tối đa 8 lần thử sinh một tên duy nhất
 
 Dưới đây là bốn loại ràng buộc tên (name constraint) thường dùng cho các tài nguyên.
 
-### Tên DNS Subdomain (DNS Subdomain Names)
+### Tên DNS Subdomain (DNS Subdomain Names) {#dns-subdomain-names}
 
 Hầu hết các loại tài nguyên yêu cầu tên có thể dùng làm tên DNS subdomain
 như định nghĩa trong [RFC 1123](https://tools.ietf.org/html/rfc1123).

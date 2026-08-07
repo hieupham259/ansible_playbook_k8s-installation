@@ -210,16 +210,13 @@ Nội dung bản dịch nằm liền mạch giữa hai khối, không bị cắt
 
 ### Tiến độ
 
-| Nhóm | Bài | Trạng thái |
-| --- | --- | --- |
-| 1a | 14, 15, 22, 16, 21, 23, 24, 25 | ✅ đủ ba khối |
-| 1b | 17, 18, 20, 19, 31, 26, 111, 27, 28 | ✅ đủ ba khối |
-| 1c | 29, 30, 36, 35, 32, 37, 34 | ✅ đủ ba khối |
-| Giai đoạn 2 | 39, 40, 41, 42, 44, 33, 43, 00 | ✅ đủ ba khối |
-| Còn lại | 153 bài, từ giai đoạn 3 trở đi | ⬜ |
+**Toàn bộ 185 bài dịch đã có đủ ba khối** (hướng dẫn đọc, tự kiểm tra, đáp án). Hoàn tất
+07/08/2026.
 
-**Làm tiếp từ:** giai đoạn 3, nhóm 3a — bài 45, 46, 47, 48, 49, 50, 51, 52, 55, 56, 60. Sau đó
-nhóm 3b: 107, 108, 109, 110, 54, 53, 58.
+Việc còn lại của dự án không nằm ở đây mà ở [thư mục labs](k8s-docs/labs/README.md): 23 lab
+chưa viết, xem cột Trạng thái trong bản đồ lab.
+
+Khi thêm bài dịch mới vào `k8s-docs/`, viết đủ hai khối cho bài đó ngay, đừng để tồn.
 
 ## Dịch tài liệu kubernetes.io
 

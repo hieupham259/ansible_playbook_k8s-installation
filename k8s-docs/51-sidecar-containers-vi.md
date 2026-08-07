@@ -2,6 +2,51 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 7/11 · Kiểm chứng
+ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này chỉ có nghĩa khi bạn vừa đọc xong [bài 50](50-init-containers-vi.md), vì sidecar trong
+Kubernetes **không phải một loại container mới**: nó là init container có một trường được đặt
+khác đi. Hai ví dụ trong bài dùng Deployment và Job của giai đoạn 4 — chỉ cần đọc phần
+`spec.template` bên trong.
+
+**Phải hiểu ở lần đọc này:**
+
+- Sidecar của Kubernetes = **một mục trong `initContainers` có `restartPolicy: Always`**. Nó khởi
+  động trước app container và **tiếp tục chạy suốt vòng đời Pod**, thay vì chạy đến khi hoàn
+  thành như init container thông thường.
+- Thứ tự **khởi động**: sidecar hưởng cùng đảm bảo tuần tự như init container. Kubelet chỉ khởi
+  động mục kế tiếp trong `.spec.initContainers` sau khi trạng thái `started` của sidecar thành
+  true — true khi có tiến trình đang chạy và **không** có startup probe, hoặc khi `startupProbe`
+  của nó thành công. Kubelet **không** chờ sidecar kết thúc, vì nó không kết thúc.
+- Thứ tự **kết thúc**: kubelet **trì hoãn** việc gửi TERM cho sidecar cho tới khi container ứng
+  dụng chính đã dừng hoàn toàn, rồi tắt các sidecar theo **thứ tự ngược** với thứ tự khai báo.
+- Sidecar **hỗ trợ probe**, khác init container thông thường; nếu sidecar có `readinessProbe` thì
+  kết quả của nó tham gia quyết định trạng thái `ready` của Pod. Đổi image của sidecar **không**
+  khởi động lại Pod, chỉ khởi động lại chính container đó.
+- Kết thúc êm của sidecar là thứ yếu: khi các container khác dùng hết thời gian ân hạn, sidecar
+  nhận `SIGTERM` rồi `SIGKILL` trước khi kịp kết thúc êm, nên **mã thoát khác 0 là bình thường**
+  và công cụ bên ngoài nên bỏ qua.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ví dụ dùng Deployment ở mục *Ứng dụng ví dụ* | controller chưa học; ở đây chỉ đọc phần `spec.template` | giai đoạn 4 — bài [63](63-deployment-vi.md) |
+| *Job với sidecar container* | Job học ở giai đoạn sau | giai đoạn 4 — bài [67](67-job-vi.md) |
+| Phần *hạng QoS hiệu dụng* trong mục chia sẻ tài nguyên | chưa học QoS | giai đoạn 3, nhóm 3b — bài [54](54-pod-qos-vi.md) |
+| *pod overhead* trong công thức request/limit hiệu dụng | là chủ đề riêng của phần lập lịch | giai đoạn 7 — bài [144](144-pod-overhead-vi.md) |
+| *Sidecar container và cgroup trên Linux*, quota và limit | phần cấp phát thuộc quản lý tài nguyên | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.33 [stable]`
 
 Sidecar container là các container phụ chạy cùng với container ứng dụng chính bên trong
@@ -233,3 +278,53 @@ request và limit hiệu dụng của Pod, giống như scheduler.
 * Đọc về [tạo một Pod có init container](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-initialization/#create-a-pod-that-has-an-init-container).
 * Tìm hiểu về [các loại probe](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#types-of-probe): liveness probe, readiness probe, startup probe.
 * Tìm hiểu về [pod overhead](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-overhead/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Sidecar được khai báo ở đâu trong Pod spec, và trường nào biến một init container thành
+   sidecar? Trường đó đổi điều gì về vòng đời?
+2. Pod khai báo `initContainers` gồm `A` là sidecar rồi `B` là init container thông thường. Kubelet
+   chờ điều gì ở `A` trước khi chạy `B`?
+3. Bạn chạy trên `k8s-worker1` một Pod gồm một app container và hai sidecar gom log, rồi
+   `kubectl delete pod`. Container nào nhận TERM trước, và hai sidecar tắt theo thứ tự nào?
+4. Sau khi xóa Pod, công cụ giám sát báo sidecar thoát với mã khác 0. Có phải sự cố không?
+5. Init container thông thường và sidecar khác nhau thế nào về khả năng trao đổi dữ liệu với app
+   container?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Khai trong **`initContainers`**, không phải `containers`. Trường biến nó thành sidecar là
+   **`restartPolicy: Always` ở cấp container**. Bình thường một mục trong `initContainers` phải
+   chạy đến khi hoàn thành; đặt trường đó khiến nó **khởi động rồi tiếp tục chạy trong suốt vòng
+   đời của Pod**, và có vòng đời độc lập — khởi động, dừng, khởi động lại mà không ảnh hưởng app
+   container hay các init container khác.
+2. Kubelet chờ **trạng thái `started` của `A` thành true**, chứ **không** chờ `A` kết thúc — đây
+   chính là chỗ khác init container thông thường, và cũng là lý do một sidecar không chặn đứng
+   luồng khởi tạo dù nó không bao giờ dừng. Trạng thái đó thành true khi **có tiến trình đang
+   chạy trong container và không có startup probe nào được định nghĩa**, hoặc khi **`startupProbe`
+   của nó thành công**.
+3. **App container nhận TERM trước.** Kubelet **trì hoãn việc kết thúc các sidecar cho đến khi
+   container ứng dụng chính đã dừng hoàn toàn**, để sidecar còn phục vụ các container khác đến
+   khi không cần nữa. Sau đó hai sidecar bị tắt **theo thứ tự ngược với thứ tự chúng xuất hiện
+   trong Pod spec**. Hệ quả cần nhớ: một app container tắt chậm sẽ **kéo dài luôn việc tắt của
+   sidecar**, và nếu hết thời gian ân hạn thì tất cả container còn lại bị kết thúc đồng thời với
+   một khoảng ân hạn ngắn.
+4. **Không.** Bài nói rõ việc sidecar có mã thoát khác 0 khi Pod kết thúc là **bình thường và nhìn
+   chung nên được các công cụ bên ngoài bỏ qua**. Lý do: từ góc nhìn Kubernetes, kết thúc êm của
+   sidecar ít quan trọng hơn — khi các container khác đã dùng hết thời gian kết thúc êm được cấp,
+   sidecar nhận `SIGTERM` rồi `SIGKILL` **trước khi kịp kết thúc một cách êm thấm**.
+5. **Init container thông thường chỉ truyền được dữ liệu một chiều**, ví dụ đặt thông tin vào một
+   volume `emptyDir`, vì **nó dừng trước khi các container chính khởi động** nên không thể trao
+   đổi thông điệp với app container. **Sidecar chạy đồng thời** với app container, **luôn chia sẻ
+   cùng một mạng** và tùy chọn chia sẻ volume, nên **tương tác trực tiếp được** với app container.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

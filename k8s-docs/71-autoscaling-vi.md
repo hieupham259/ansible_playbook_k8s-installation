@@ -6,6 +6,47 @@
 > theo cách này hay cách khác. Điều này cho phép cluster của bạn phản ứng với các thay đổi
 > về nhu cầu tài nguyên một cách linh hoạt và hiệu quả hơn.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 11/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này là **bản đồ** của ba bài cuối giai đoạn: nó đặt tên cho hai trục co giãn rồi trỏ
+sang [HPA](72-horizontal-pod-autoscale-vi.md) và [VPA](73-vertical-pod-autoscale-vi.md).
+Quá nửa nội dung là các dự án **ngoài lõi Kubernetes** — KEDA, Cluster Proportional
+Autoscaler — chỉ cần biết chúng tồn tại. Lab 4 không cài autoscaler nào: cluster baseline
+chưa có metrics-server, và phần thực hành autoscaling là
+[nợ lab](labs/README.md#5-sổ-nợ-lab) trả ở Lab 11b.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hai trục và ý nghĩa của từng trục: **co giãn ngang** là tăng giảm **số lượng replica**;
+  **co giãn dọc** là điều chỉnh **lượng tài nguyên cấp cho các replica đó**. Mỗi trục có bản
+  thủ công và bản tự động.
+- Định nghĩa autoscaling trong Kubernetes: tự động cập nhật **một đối tượng quản lý một tập
+  các Pod** (ví dụ một Deployment) — chứ không phải can thiệp vào từng Pod rời.
+- Khác biệt nền tảng giữa HPA và VPA: **HPA là tài nguyên API và controller có sẵn** trong
+  Kubernetes; **VPA không có sẵn**, nó là một add-on mà bạn hoặc quản trị viên phải triển
+  khai trước khi dùng, và bài ghi rõ VPA cần cài **Metrics Server**.
+- Co giãn **workload** khác co giãn **hạ tầng cluster**: nếu co giãn workload chưa đủ, việc
+  tiếp theo là thêm hoặc bớt node — một tầng khác hẳn.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Tự động co giãn dựa trên kích thước cluster* — Cluster Proportional (Vertical) Autoscaler | dự án ngoài lõi, không cài trong lộ trình | không cần |
+| *Tự động co giãn theo sự kiện* (KEDA) và *Tự động co giãn theo lịch* | dự án CNCF ngoài lõi | không cần |
+| *Co giãn dọc Pod tại chỗ* | VPA chưa hỗ trợ resize tại chỗ, phần tích hợp đang phát triển | bài [73](73-vertical-pod-autoscale-vi.md) |
+| *Co giãn hạ tầng cluster* và link node autoscaling | thuộc vận hành vòng đời node | giai đoạn 12 |
+
+---
+
 Trong Kubernetes, bạn có thể _co giãn_ (scale) một workload tùy theo nhu cầu tài nguyên hiện tại.
 Điều này cho phép cluster của bạn phản ứng với các thay đổi về nhu cầu tài nguyên
 một cách linh hoạt và hiệu quả hơn.
@@ -130,3 +171,53 @@ Co giãn hạ tầng cluster thường có nghĩa là thêm hoặc bớt node.
 - [Thay đổi kích thước tài nguyên container tại chỗ](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/)
 - [Tự động co giãn Service DNS trong một cluster](https://kubernetes.io/docs/tasks/administer-cluster/dns-horizontal-autoscaling/)
 - Tìm hiểu về [tự động co giãn node (Node autoscaling)](https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. **Câu bẫy.** HPA và VPA đều "tự động thay đổi Pod". Cái gì thực sự thay đổi ở mỗi bên, và
+   vì sao gọi chúng là hai *trục* chứ không phải hai mức mạnh yếu của cùng một việc?
+2. Trên cluster lab của bạn (1 control plane + 2 worker, chưa có metrics-server), bạn muốn
+   dùng HPA và muốn dùng VPA. Với mỗi cái, bạn còn thiếu những gì?
+3. Bài nói autoscaling tác động lên cái gì — từng Pod hay đối tượng quản lý Pod? Hệ quả với
+   một Pod bạn tạo trực tiếp là gì?
+4. Co giãn workload và co giãn hạ tầng cluster khác nhau ở đâu, và khi nào bài bảo phải
+   chuyển sang cái thứ hai?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **HPA đổi *số lượng* replica; VPA đổi *lượng tài nguyên* của các replica đang chạy.** Bài
+   định nghĩa: co giãn ngang là "tăng hoặc giảm số lượng bản sao do workload quản lý", co
+   giãn dọc là "điều chỉnh tại chỗ lượng tài nguyên khả dụng cho các bản sao đó". Gọi là hai
+   trục vì chúng giải hai bài toán khác nhau — thêm replica không cứu được một tiến trình
+   đơn luồng thiếu CPU, và tăng CPU cho một Pod không thay được việc phân tán tải ra nhiều
+   Pod. Chúng cũng không thay thế nhau: một cái tác động vào `replicas`, cái kia vào
+   `requests`/`limits`.
+2. **HPA**: bản thân HorizontalPodAutoscaler là **một tài nguyên API Kubernetes và một
+   controller** đã có sẵn trong control plane, nên bạn không phải cài gì thêm cho nó — nhưng
+   controller phải "điều chỉnh số lượng replica sao cho khớp với **mức sử dụng tài nguyên
+   quan sát được**", mà nguồn quan sát đó là metrics-server, thứ cluster của bạn chưa có.
+   **VPA**: thiếu **hai** thứ — chính bản thân VPA, vì bài nói rõ "khác với HPA, VPA không có
+   sẵn cùng Kubernetes theo mặc định, mà là một add-on mà bạn hoặc quản trị viên cluster có
+   thể cần triển khai trước khi sử dụng"; và Metrics Server, theo đúng ghi chú trong bài. Cả
+   hai đều là [nợ lab](labs/README.md#5-sổ-nợ-lab) trả ở Lab 11b — đừng cài metrics-server
+   sớm để chạy thử.
+3. Tác động lên **đối tượng quản lý một tập các Pod**. Bài viết: "Khái niệm _Autoscaling_
+   trong Kubernetes chỉ khả năng tự động cập nhật một đối tượng quản lý một tập các Pod (ví
+   dụ một Deployment)". Hệ quả: một Pod bạn tạo trực tiếp **không có gì để autoscaler tác
+   động vào** — không có `replicas` để sửa, không có controller nào tạo lại. Muốn co giãn thì
+   phải có một workload object đứng trên.
+4. Co giãn **workload** là thêm bớt replica hoặc thêm bớt tài nguyên cho Pod **trong phạm vi
+   cluster hiện có**; co giãn **hạ tầng cluster** thường có nghĩa là **thêm hoặc bớt node**.
+   Bài nói phải chuyển sang cái thứ hai khi "việc co giãn workload là chưa đủ để đáp ứng nhu
+   cầu" — tức khi cluster đã hết chỗ để đặt thêm Pod.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

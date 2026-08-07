@@ -6,6 +6,50 @@
 > facilities). Đó có thể là các thành phần thiết yếu cho hoạt động của cluster, chẳng hạn
 > một công cụ hỗ trợ mạng, hoặc là một phần của add-on.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 5/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này mô tả đúng thứ đang chạy trên cluster của bạn: Flannel là một DaemonSet. Đọc xong,
+chạy `kubectl get ds -n kube-system` trên `k8s-master` để nhìn thấy nó. Bài có nhắc tới
+`nodeSelector`, `affinity`, taint, PriorityClass và Service — toàn thứ của giai đoạn 5 và 7;
+mơ hồ ở những đoạn đó là bình thường.
+
+**Phải hiểu ở lần đọc này:**
+
+- DaemonSet bảo đảm **tất cả (hoặc một tập con) node chạy một bản sao của một Pod**, và nó
+  bám theo tập node: node thêm vào thì Pod thêm theo, node bị gỡ thì Pod bị thu gom rác.
+- Tập node được chọn bằng `.spec.template.spec.nodeSelector` hoặc `.spec.template.spec.affinity`;
+  **không chỉ định cả hai thì Pod được tạo trên tất cả các node**.
+- DaemonSet controller **không tự gán node**: nó tạo Pod kèm `spec.affinity.nodeAffinity`
+  khớp host mục tiêu, rồi **scheduler mặc định** mới bind Pod bằng cách đặt `.spec.nodeName`
+  (mục *Cách các Daemon Pod được lập lịch*).
+- Controller **tự thêm** một bộ toleration cho Pod của DaemonSet. Hai cái quan trọng nhất là
+  `node.kubernetes.io/not-ready` và `node.kubernetes.io/network-unavailable`: nhờ chúng, Pod
+  mạng lên được node **trước khi** node Ready — nếu không sẽ bế tắc, vì node không Ready do
+  chưa có network plugin, còn network plugin không chạy do node chưa Ready.
+- `.spec.selector` phải khớp `.spec.template.metadata.labels` và **bất biến sau khi tạo**;
+  xóa với `--cascade=orphan` để Pod ở lại trên node, và một DaemonSet mới cùng selector sẽ
+  nhận nuôi chúng.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cú pháp đầy đủ của `nodeSelector` và `nodeAffinity`, kể cả khối `matchFields` mẫu | chưa học lập lịch | giai đoạn 7 |
+| Các key `disk-pressure`, `memory-pressure`, `pid-pressure`, `unschedulable` trong bảng toleration | thuộc cơ chế eviction theo áp lực tài nguyên | giai đoạn 7 |
+| Ghi chú về `priorityClassName` và việc chiếm chỗ (preempt) | chưa học PriorityClass | giai đoạn 7 |
+| *Giao tiếp với các Daemon Pod* — `hostPort`, headless Service, Service Internal Traffic Policy | chưa học Service và DNS | giai đoạn 5 |
+| *Cập nhật một DaemonSet* — rolling update và rollback của DaemonSet | link ra trang tasks, không có trong bộ tài liệu | Lab 4 chỉ làm phần tạo, quan sát và xóa |
+
+---
+
 Một _DaemonSet_ đảm bảo rằng tất cả (hoặc một số) Node chạy một bản sao của một Pod. Khi
 các node được thêm vào cluster, Pod cũng được thêm vào các node đó. Khi các node bị gỡ
 khỏi cluster, những Pod này sẽ bị thu gom rác (garbage collected). Xóa một DaemonSet sẽ
@@ -308,3 +352,58 @@ node nơi nó đang chạy có mạng cluster hoạt động bình thường.
   Đọc định nghĩa object
   [DaemonSet](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/)
   để hiểu API dành cho daemon set.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. Cluster lab của bạn có 1 control plane `k8s-master` và 2 worker. Bạn apply **nguyên văn**
+   file `daemonset.yaml` fluentd trong bài. Có mấy Pod được tạo, và điều gì trong manifest
+   quyết định con số đó?
+2. **Câu bẫy.** DaemonSet controller có tự đặt `.spec.nodeName` cho các Pod nó tạo không? Nếu
+   không thì ai bind Pod vào node, và controller làm gì để chỉ định đúng node?
+3. Flannel trên cluster của bạn chạy dưới dạng DaemonSet. Vì sao Pod của nó lên được node
+   ngay cả khi node còn `NotReady`, và điều gì xảy ra nếu không có cơ chế đó?
+4. Bạn thêm `k8s-worker3` vào cluster. Cần làm gì để DaemonSet có Pod trên node mới, và nếu
+   sau này bạn gỡ node đó thì Pod ra sao?
+5. Bài phân biệt DaemonSet với Deployment bằng tiêu chí nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Ba Pod** — một trên mỗi node, kể cả `k8s-master`. Quyết định nằm ở hai toleration được
+   viết sẵn trong Pod template của ví dụ: `node-role.kubernetes.io/control-plane` và
+   `node-role.kubernetes.io/master`, cả hai với `effect: NoSchedule`. Chính comment trong file
+   nói rõ "hãy xóa chúng nếu control plane node của bạn không nên chạy pod". Bỏ hai toleration
+   đó đi thì chỉ còn 2 Pod trên hai worker, vì control plane node do kubeadm dựng mang taint
+   `NoSchedule`.
+2. **Không.** Bài nói DaemonSet controller "tạo một Pod cho mỗi node đủ điều kiện và **thêm
+   trường `spec.affinity.nodeAffinity` của Pod để khớp với host mục tiêu**". Sau đó
+   **scheduler mặc định** mới tiếp quản và gắn Pod vào host bằng cách **đặt trường
+   `.spec.nodeName`**. Trực giác thường thấy — "DaemonSet ghim Pod vào node, không cần
+   scheduler" — là sai, và hệ quả rất thật: nếu Pod mới không vừa trên node, scheduler có thể
+   phải chiếm chỗ (preempt) các Pod hiện có dựa trên độ ưu tiên, và bạn cũng có thể thay
+   scheduler khác bằng `.spec.template.spec.schedulerName`.
+3. Vì DaemonSet controller **tự động thêm toleration** `node.kubernetes.io/not-ready` với
+   effect `NoExecute` (và `node.kubernetes.io/network-unavailable` cho Pod dùng
+   `spec.hostNetwork: true`), nên Pod của DaemonSet **được lập lịch lên node chưa sẵn sàng và
+   không bị trục xuất khỏi đó**. Không có cơ chế này thì rơi vào **bế tắc** đúng như bài mô
+   tả: node không được đánh dấu Ready vì network plugin chưa chạy trên đó, còn network plugin
+   không chạy vì node chưa Ready.
+4. **Không cần làm gì.** Bài mở đầu bằng đúng bảo đảm này: khi các node được thêm vào cluster,
+   Pod cũng được thêm vào các node đó; khi các node bị gỡ khỏi cluster, những Pod này sẽ **bị
+   thu gom rác**. Cùng cơ chế đó áp dụng cho label: nếu label của node thay đổi, DaemonSet
+   nhanh chóng thêm Pod vào node mới khớp và xóa Pod khỏi node không còn khớp.
+5. Tiêu chí là **điều gì quan trọng hơn: số lượng hay vị trí**. Bài viết: dùng Deployment cho
+   service stateless "nơi việc tăng giảm số lượng replica và tung ra các bản cập nhật quan
+   trọng hơn việc kiểm soát chính xác Pod chạy trên host nào"; dùng DaemonSet khi "điều quan
+   trọng là một bản sao của Pod phải luôn chạy trên tất cả hoặc một số host nhất định". Ví dụ
+   chuẩn mà bài đưa ra chính là network plugin.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

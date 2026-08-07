@@ -133,7 +133,7 @@ spec:
     - containerPort: 80
 ```
 
-## Bộ chọn label (Label selectors)
+## Bộ chọn label (Label selectors) {#label-selectors}
 
 Không giống như [name và UID](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/), label
 không đảm bảo tính duy nhất. Nói chung, chúng ta kỳ vọng nhiều object cùng mang một (hoặc nhiều) label giống nhau.
@@ -197,7 +197,7 @@ spec:
     accelerator: nvidia-tesla-p100
 ```
 
-### Yêu cầu _dựa trên tập hợp_ (Set-based requirement)
+### Yêu cầu _dựa trên tập hợp_ (Set-based requirement) {#set-based-requirement}
 
 Yêu cầu label _dựa trên tập hợp_ (set-based) cho phép lọc key theo một tập các giá trị.
 Ba loại toán tử được hỗ trợ: `in`, `notin` và `exists` (chỉ áp dụng cho định danh key).

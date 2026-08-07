@@ -4,6 +4,57 @@
 >
 > Trang này mô tả cách kubeadm quản lý cấu hình kubelet: các mẫu cấu hình cấp cluster và cấu hình riêng cho từng máy, quy trình khi chạy `kubeadm init` / `kubeadm join`, file drop-in của systemd cho kubelet, và nội dung các gói DEB/RPM của Kubernetes.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 4/9 ·
+Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này trả lời một câu hỏi rất cụ thể: **`kubeadm init` và `kubeadm join` thực sự ghi những
+file nào cho kubelet, và ai thắng khi các file đó mâu thuẫn nhau**. Nó là bài giải thích hậu
+trường của hai lệnh bạn đã chạy ở
+[A5.1](labs/LAB-00-MOI-TRUONG.md#a51-init-control-plane) và
+[A5.3](labs/LAB-00-MOI-TRUONG.md#a53-join-hai-worker) của Lab 00 — và cũng giải thích vì sao
+A4.3 dặn rằng kubelet restart liên tục **trước** `kubeadm init/join` là trạng thái dự kiến.
+Đọc kèm một phiên SSH mở sẵn vào `k8s-master` để `ls` từng đường dẫn được nhắc tên.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hai mẫu cấu hình đối lập nhau, ở hai mục đầu bài: phần **giống nhau toàn cluster** đi qua
+  `KubeletConfiguration` (ví dụ `clusterDNS`), còn phần **riêng từng máy** — `--resolv-conf`,
+  `--hostname-override`, `--cgroup-driver`, `--container-runtime-endpoint` — không thể nhét vào
+  đó. Bài khuyến nghị dùng **patch `KubeletConfiguration`** cho nhóm thứ hai.
+- *Quy trình khi dùng `kubeadm init`* ghi ra bốn thứ: `/var/lib/kubelet/config.yaml` (đồng thời
+  tải lên ConfigMap `kubelet-config` trong namespace `kube-system`),
+  `/var/lib/kubelet/instance-config.yaml` (CRI socket phát hiện được),
+  `/etc/kubernetes/kubelet.conf`, và `/var/lib/kubelet/kubeadm-flags.env`. Rồi mới
+  `systemctl daemon-reload && systemctl restart kubelet`.
+- *Quy trình khi dùng `kubeadm join`* khác ở chiều dữ liệu: node **tải xuống** ConfigMap
+  `kubelet-config` thay vì sinh ra nó. `/etc/kubernetes/bootstrap-kubelet.conf` chỉ là bước
+  đệm và **bị kubeadm xóa** sau khi TLS Bootstrap sinh ra `/etc/kubernetes/kubelet.conf`.
+- *File drop-in của kubelet cho systemd*: thứ tự biến trong `ExecStart` chính là thứ tự ưu
+  tiên — `KUBELET_EXTRA_ARGS` (nạp từ `/etc/default/kubelet`) đứng **cuối cùng** nên **thắng
+  khi xung đột**. Lệnh kubeadm CLI **không bao giờ đụng** vào file drop-in này; muốn ghi đè thì
+  đặt file riêng trong `/etc/systemd/system/kubelet.service.d/`, **không phải** `/usr/lib/...`.
+- *Các file thực thi và nội dung gói*: gói `kubeadm` cài cả binary lẫn **file drop-in cho
+  kubelet**; `cri-tools` cài `crictl`; `kubernetes-cni` cài binary vào `/opt/cni/bin`. Đây đúng
+  là năm gói mà A4.3 của Lab 00 ghim version.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ghi chú Dockershim ở đầu bài | cluster lab nói CRI thẳng với containerd | CP12 di chuyển khỏi dockershim |
+| Cơ chế TLS Bootstrap sinh ra "thông tin xác thực duy nhất" thế nào | chưa học cách cấp và xoay certificate | giai đoạn 9, CP3 certificate |
+| Toàn bộ field của `KubeletConfiguration` (`kubeadm config print init-defaults --component-configs`) | hàng chục field, chỉ tra khi cần | CP5 cấu hình lại cluster đang chạy |
+| File `kubelet.service` cơ bản và cách cài không dùng package manager | Lab 00 cài bằng gói DEB | không cần |
+
+---
+
 > **Ghi chú:** Dockershim đã bị xóa khỏi dự án Kubernetes kể từ bản phát hành 1.24. Đọc [Câu hỏi thường gặp về việc xóa Dockershim (Dockershim Removal FAQ)](https://kubernetes.io/dockershim) để biết thêm chi tiết.
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.11 [stable]`
@@ -211,3 +262,61 @@ Các gói DEB và RPM đi kèm với các bản phát hành Kubernetes gồm:
 | `kubectl`    | Cài đặt file thực thi `/usr/bin/kubectl`. |
 | `cri-tools` | Cài đặt file thực thi `/usr/bin/crictl` từ [kho git cri-tools](https://github.com/kubernetes-sigs/cri-tools). |
 | `kubernetes-cni` | Cài đặt các file thực thi trong `/opt/cni/bin` từ [kho git plugins](https://github.com/containernetworking/plugins). |
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
+
+1. Bạn muốn `k8s-worker1` và `k8s-worker2` mỗi máy dùng một `--resolv-conf` khác nhau. Nhét
+   giá trị đó vào `KubeletConfiguration` cấp cluster có được không? Bài khuyến nghị cách nào?
+2. Sau `kubeadm join`, bạn SSH vào `k8s-worker2` và không tìm thấy
+   `/etc/kubernetes/bootstrap-kubelet.conf`. Có phải node đã join hỏng không? File nào phải tồn
+   tại thay cho nó?
+3. Bạn thêm một cờ vào `/var/lib/kubelet/kubeadm-flags.env` rồi restart kubelet, nhưng kubelet
+   vẫn chạy với giá trị cũ vì cùng cờ đó cũng có trong `/etc/default/kubelet`. File nào thắng,
+   và bài giải thích bằng cái gì?
+4. `kubeadm init` trên `k8s-master` ghi những file nào cho kubelet, và file nào trong số đó
+   được đưa lên chính cluster để node join sau này lấy về?
+5. Bạn cần ghi đè một thiết lập systemd unit của kubelet mà kubeadm đã cấu hình. Đặt file ở đâu,
+   và vì sao bài dặn không sửa thẳng `10-kubeadm.conf`?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** `--resolv-conf` nằm đúng trong danh sách ví dụ của mục *Cung cấp chi tiết cấu hình
+   riêng cho từng máy*: đường dẫn tới file phân giải DNS khác nhau giữa các hệ điều hành và tùy
+   việc có dùng `systemd-resolved` hay không; đặt sai thì **phân giải DNS thất bại trên node
+   đó**. `KubeletConfiguration` là chỗ cho phần **giống nhau trên mọi kubelet**. Cách được
+   **khuyến nghị** cho phần riêng từng máy là **các bản vá `KubeletConfiguration`** — chính cơ
+   chế patch của bài [03](03-control-plane-flags-vi.md), với target `kubeletconfiguration`.
+2. **Không hỏng — đó là kết thúc bình thường.** `bootstrap-kubelet.conf` chỉ chứa CA certificate
+   và Bootstrap Token, dùng để kubelet thực hiện TLS Bootstrap. Khi TLS Bootstrap xong, kubelet
+   đã có thông tin xác thực **duy nhất** của riêng nó, lưu tại **`/etc/kubernetes/kubelet.conf`**,
+   và **kubeadm xóa `bootstrap-kubelet.conf` sau khi hoàn thành**. Drop-in cũng nói cùng điều
+   theo hướng khác: file bootstrap **chỉ được dùng nếu `/etc/kubernetes/kubelet.conf` không tồn tại**.
+3. **`/etc/default/kubelet` thắng.** Bài giải thích bằng chính dòng `ExecStart` của drop-in:
+   `$KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS`.
+   `KUBELET_EXTRA_ARGS` được nạp từ `/etc/default/kubelet` (gói DEB) hoặc `/etc/sysconfig/kubelet`
+   (gói RPM), **đứng cuối cùng trong chuỗi cờ và có độ ưu tiên cao nhất khi có xung đột thiết
+   lập**. Còn `kubeadm-flags.env` là **file môi trường động** do kubeadm sinh lúc chạy — sửa tay
+   vào đó cũng dễ bị `kubeadm init/join` ghi đè.
+4. Bốn file: **`/var/lib/kubelet/config.yaml`** (ComponentConfig của kubelet),
+   **`/var/lib/kubelet/instance-config.yaml`** (chi tiết CRI socket phát hiện được trên node),
+   **`/etc/kubernetes/kubelet.conf`** (KubeConfig trỏ tới client certificate để nói chuyện với
+   API server), và **`/var/lib/kubelet/kubeadm-flags.env`** (các cờ động, gồm cả cgroup driver).
+   Thứ được đưa lên cluster là nội dung của `config.yaml`, dưới dạng **ConfigMap `kubelet-config`
+   trong namespace `kube-system`** — đúng thứ mà `kubeadm join` tải xuống trên node mới.
+5. Tạo thư mục **`/etc/systemd/system/kubelet.service.d/`** và đặt tùy chỉnh vào một file trong
+   đó, ví dụ `local-overrides.conf`. Bài nêu rõ đường dẫn này **không phải**
+   `/usr/lib/systemd/system/kubelet.service.d/` — nơi chứa `10-kubeadm.conf` do **gói `kubeadm`
+   cài đặt**. Bẫy nằm ở chỗ dễ đọc câu "kubeadm CLI không bao giờ đụng đến file drop-in này"
+   thành "sửa file đó là an toàn": nó nói CLI không ghi đè, chứ file vẫn thuộc quyền quản lý của
+   gói, và cơ chế ghi đè đúng mà bài chỉ ra là đặt file riêng dưới `/etc/systemd/system/`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

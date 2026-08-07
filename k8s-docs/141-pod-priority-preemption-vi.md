@@ -2,6 +2,54 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 6/13 ·
+Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là bài đầu tiên của nhóm nói về việc **lấy chỗ của Pod đang chạy**. Bốn bài trước chỉ mô
+tả cách chọn chỗ trống; từ đây trở đi cluster bắt đầu chấm dứt Pod. Bài chia làm hai nửa rõ
+rệt: nửa đầu là cấu hình (PriorityClass, `priorityClassName`), nửa sau là **các ranh giới của
+preemption** — đó mới là phần đáng đọc kỹ, vì nó giải thích những hành vi trông như lỗi.
+
+Mục cuối *Tương tác giữa độ ưu tiên của Pod và chất lượng dịch vụ* nối thẳng sang bài
+[142](142-node-pressure-eviction-vi.md); đọc nó như phần mở đầu của bài kế tiếp.
+
+**Phải hiểu ở lần đọc này:**
+
+- PriorityClass là object **không thuộc namespace**, ánh xạ tên → số nguyên (tối đa 1 tỷ; số
+  lớn hơn dành cho `system-cluster-critical` và `system-node-critical`). Pod trỏ tới bằng
+  `priorityClassName`; Pod không có thì độ ưu tiên bằng 0, trừ khi có một PriorityClass đặt
+  `globalDefault`.
+- Priority tác động ở **hai chỗ khác nhau**: sắp xếp **hàng đợi lập lịch** (Pod ưu tiên cao
+  đứng trước), và chỉ khi Pod đó vẫn không lập lịch được thì logic **preemption** mới khởi
+  động.
+- Cơ chế preemption: tìm một Node mà việc loại bỏ một hoặc nhiều Pod có độ ưu tiên **thấp hơn**
+  sẽ khiến Pod đang chờ lập lịch được; các nạn nhân bị evict và nhận grace period của mình;
+  `nominatedNodeName` ghi node được đề cử — nhưng Pod **không chắc** lên đúng node đó.
+- Các ranh giới trong mục *Hạn chế của preemption*: PDB được **tôn trọng ở mức nỗ lực tốt
+  nhất**, không đảm bảo; **không có preemption xuyên node**; và nếu Pod đang chờ có inter-pod
+  affinity tới chính các Pod độ ưu tiên thấp trên node đó, scheduler **không preempt node đó**.
+- Priority và QoS class là hai thứ **trực giao**: logic preemption của bộ lập lịch **không xem
+  xét QoS**. Ngược lại, kubelet **có** dùng Priority khi xếp thứ tự eviction do áp lực node —
+  và không evict Pod đang dùng dưới `requests` của nó.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cảnh báo đầu bài về người dùng tạo Pod ưu tiên cao, và ResourceQuota giới hạn PriorityClass | cần ResourceQuota | nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên), bài [134](134-resource-quotas-vi.md) |
+| *PriorityClass không preempt* (`preemptionPolicy: Never`) | dành cho workload dạng job/batch | giai đoạn 13, bài [150](150-gang-scheduling-vi.md) |
+| *Lưu ý về PodPriority và các cluster hiện có* | chỉ liên quan khi tiếp quản cluster cũ | không cần |
+| *Xử lý sự cố* — ba tình huống preempt bất thường | là tài liệu tra cứu khi gặp hiện tượng | tra khi cần |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.14 [stable]`
 
 [Pod](https://kubernetes.io/docs/concepts/workloads/pods/) có thể có _độ ưu tiên_ (priority).
@@ -362,3 +410,58 @@ nhưng vượt quá requests của nó thì có thể bị evict.
 * Tìm hiểu về [Pod Disruption](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/)
 * Tìm hiểu về [Eviction khởi phát qua API (API-initiated Eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/)
 * Tìm hiểu về [Eviction do áp lực node (Node-pressure Eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Độ ưu tiên của Pod can thiệp vào hai chỗ khác nhau của quá trình lập lịch. Kể ra, và cho
+   biết chỗ nào xảy ra trước.
+2. Một Pod có QoS class `Guaranteed` (requests bằng limits cho mọi container) nhưng
+   `priorityClassName` để trống. Nó có được bảo vệ khỏi preemption không?
+3. Trên cluster lab, hai worker 2 vCPU / 6 GB RAM đã bị lấp đầy bởi các Pod độ ưu tiên 0. Bạn
+   tạo một Pod với `priorityClassName: high-priority`. Mô tả những gì xảy ra, và cho biết
+   `nominatedNodeName` của Pod đó nghĩa là gì.
+4. Ứng dụng của bạn có PodDisruptionBudget. PDB đó có chặn được preemption không?
+5. Pod đang chờ P có `podAffinity` tới các Pod độ ưu tiên thấp đang chạy trên node N.
+   Scheduler có preempt các Pod đó để nhét P vào N không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Trước hết là hàng đợi lập lịch**: bộ lập lịch sắp xếp các Pod đang chờ theo độ ưu tiên, và
+   Pod ưu tiên cao được đặt trước các Pod ưu tiên thấp hơn trong hàng đợi — nhờ đó nó có thể
+   được lập lịch sớm hơn **nếu** các yêu cầu lập lịch của nó được đáp ứng. **Sau đó mới tới
+   preemption**: chỉ khi không tìm được Node nào thỏa mãn mọi yêu cầu của Pod thì logic
+   preemption mới kích hoạt. Nếu Pod ưu tiên cao vẫn không lập lịch được, bộ lập lịch đi tiếp
+   và thử các Pod ưu tiên thấp hơn.
+2. **Không.** Độ ưu tiên và QoS class là **hai tính năng trực giao** — bài nói thẳng: "Logic
+   preemption của bộ lập lịch **không xem xét QoS** khi chọn các mục tiêu preemption. Preemption
+   xem xét độ ưu tiên của Pod". Pod này có độ ưu tiên 0, tức là nạn nhân dễ bị chọn nhất, dù
+   QoS của nó là hạng cao nhất. Đây là chỗ trực giác sai: `Guaranteed` bảo vệ bạn khỏi **eviction
+   do áp lực node**, chứ không bảo vệ khỏi **preemption**.
+3. Pod không lập lịch được ngay, nên logic preemption khởi động: nó tìm một Node mà việc loại
+   bỏ một hoặc vài Pod độ ưu tiên thấp hơn đủ để Pod mới vừa chỗ, rồi **evict các Pod nạn nhân
+   đó**; các nạn nhân nhận grace period của mình rồi mới biến mất. `nominatedNodeName` được đặt
+   bằng tên Node vừa bị preempt — nó **là node được đề cử, không phải cam kết**: bộ lập lịch
+   luôn thử node đề cử trước, nhưng nếu trong lúc chờ nạn nhân chấm dứt mà một node khác trống
+   ra, Pod có thể được lập lịch ở đó; và nếu xuất hiện một Pod ưu tiên còn cao hơn, node đề cử
+   có thể bị trao cho Pod kia và `nominatedNodeName` bị xóa. Lưu ý preemption **không nhất
+   thiết loại bỏ tất cả** Pod ưu tiên thấp trên node — chỉ loại đủ để Pod mới vừa chỗ.
+4. **Không chắc chắn — PDB chỉ được tôn trọng ở mức nỗ lực tốt nhất (best effort).** Bộ lập
+   lịch cố tìm nạn nhân sao cho PDB không bị vi phạm, nhưng nếu không tìm được nạn nhân nào như
+   vậy thì **preemption vẫn xảy ra** và Pod độ ưu tiên thấp hơn vẫn bị loại bỏ bất chấp PDB bị
+   vi phạm. Điều PDB thực sự làm được là khiến bộ lập lịch **ưu tiên chọn node khác**, kể cả
+   node đó có các Pod độ ưu tiên cao hơn.
+5. **Không.** Quy tắc inter-Pod affinity của P không thể được thỏa mãn khi thiếu chính các Pod
+   độ ưu tiên thấp đó, nên bộ lập lịch **không preempt bất kỳ Pod nào trên node N** mà đi tìm
+   node khác — và không có gì đảm bảo nó tìm được. Khuyến nghị của bài: chỉ tạo inter-Pod
+   affinity hướng tới các Pod có độ ưu tiên **bằng hoặc cao hơn**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

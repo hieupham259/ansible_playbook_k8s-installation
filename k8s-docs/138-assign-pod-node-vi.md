@@ -2,6 +2,58 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 3/13 ·
+Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Bài dài nhất nhóm 7a.** Nó gộp bốn cơ chế độc lập vào một trang — `nodeSelector`, affinity,
+`nodeName`, và một mục dẫn sang topology spread — cộng thêm nhiều trường ở mức beta. Ngoài ra
+gần như mọi ví dụ đều dùng label zone (`topology.kubernetes.io/zone`, `antarctica-east1`,
+"Zone V"): cluster lab của bạn **không có node nào mang label zone**, nên khi đọc hãy tự thay
+zone bằng `kubernetes.io/hostname` — quy tắc y hệt, chỉ đổi miền topology từ zone sang node.
+
+**Phải hiểu ở lần đọc này:**
+
+- `nodeSelector` khớp theo **label của node** và Pod chỉ lên node có **đủ tất cả** các label
+  bạn liệt kê. Đây là dạng ràng buộc đơn giản nhất, và là dạng được khuyến nghị khi đủ dùng.
+- Node affinity có hai loại: `requiredDuringSchedulingIgnoredDuringExecution` (cứng — không
+  thỏa thì không lập lịch) và `preferredDuringSchedulingIgnoredDuringExecution` (mềm — không
+  tìm được node phù hợp thì **vẫn lập lịch**, `weight` 1–100 cộng vào điểm ở bước chấm điểm).
+  `IgnoredDuringExecution` nghĩa là label node đổi sau khi Pod đã được lập lịch thì **Pod vẫn
+  chạy tiếp**.
+- Quy tắc kết hợp trong ghi chú ở mục *Node affinity*: nhiều `nodeSelectorTerms` được **OR**;
+  nhiều biểu thức trong cùng một `matchExpressions` được **AND**; đặt cả `nodeSelector` lẫn
+  `nodeAffinity` thì **cả hai** phải thỏa. Toán tử dùng được: `In`, `NotIn`, `Exists`,
+  `DoesNotExist` (và `Gt`, `Lt` chỉ cho node affinity).
+- **Inter-pod affinity/anti-affinity** ràng buộc theo label của **các Pod khác** đang chạy
+  trong một miền topology do `topologyKey` chỉ ra, không phải label node. Ví dụ redis-cache +
+  web-server ở mục *Các trường hợp sử dụng thực tế hơn* là mẫu cần nhớ: anti-affinity `required`
+  với `topologyKey: kubernetes.io/hostname` cho mỗi node đúng một bản sao.
+- `nodeName` **bỏ qua scheduler hoàn toàn** và ghi đè `nodeSelector` lẫn affinity; nếu node
+  không đủ tài nguyên thì Pod thất bại với lý do `OutOfmemory`/`OutOfcpu` chứ không được sắp
+  xếp lại. Bài xếp nó vào diện dành cho scheduler tùy biến, kèm cảnh báo rõ ràng.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Cô lập/hạn chế node* — `NodeRestriction`, Node authorizer, tiền tố `node-restriction.kubernetes.io/` | là thao tác hardening, cần authn/authz | giai đoạn 9, bài [119](119-controlling-access-vi.md) |
+| *Node affinity theo từng scheduling profile* (`addedAffinity`) | cần biết scheduling profile trước | bài [147](147-scheduling-framework-vi.md) |
+| *Bộ chọn namespace*, `matchLabelKeys`, `mismatchLabelKeys` | tinh chỉnh cho rollout nhiều revision và multi-tenant | giai đoạn 9, bài [122](122-multi-tenancy-vi.md) |
+| *Hành vi lập lịch* mục 3 — các trường `preferred` của Pod hiện có bị bỏ qua | là chi tiết biên của thuật toán | Lab 7a |
+| `nominatedNodeName` | là hệ quả của preemption | bài [141](141-pod-priority-preemption-vi.md) |
+| *Ràng buộc phân bố Pod theo topology* (chỉ là mục dẫn) | có bài riêng ngay sau | bài [140](140-topology-spread-constraints-vi.md) |
+| *Label topology của Pod* qua Downward API | cluster lab không có label zone/region | không cần |
+| Hai dòng `Gt`/`Lt` trong bảng *Toán tử* | chỉ dùng với label node có giá trị số | không cần |
+
+---
+
 Bạn có thể ràng buộc một Pod sao cho nó bị _giới hạn_ chỉ chạy trên (các) node cụ thể,
 hoặc _ưu tiên_ chạy trên các node cụ thể.
 Có nhiều cách để làm điều này và các cách tiếp cận được khuyến nghị đều dùng
@@ -799,3 +851,57 @@ Các toán tử sau chỉ có thể dùng với `nodeAffinity`.
   các quyết định phân bổ tài nguyên ở cấp node.
 - Tìm hiểu cách dùng [nodeSelector](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/).
 - Tìm hiểu cách dùng [affinity và anti-affinity](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes-using-node-affinity/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. `nodeSelector` và node affinity `requiredDuringSchedulingIgnoredDuringExecution` khác nhau
+   ở điểm nào? Nếu một Pod đặt **cả hai**, khi nào Pod mới được lập lịch?
+2. Một Pod đang chạy nhờ node affinity `required` khớp label `disktype=ssd` của node. Bạn gỡ
+   label đó khỏi node. Pod có bị đuổi đi không?
+3. Trong một `nodeAffinity`, hai phần tử của `nodeSelectorTerms` quan hệ với nhau thế nào, còn
+   hai biểu thức trong cùng một `matchExpressions` thì thế nào?
+4. Cluster lab có `k8s-worker1` và `k8s-worker2` nhận Pod thường. Bạn tạo một Deployment 3
+   replica với `podAntiAffinity` loại `requiredDuringSchedulingIgnoredDuringExecution`,
+   `topologyKey: kubernetes.io/hostname`, `labelSelector` khớp chính label của các replica đó.
+   Bao nhiêu Pod chạy được, và replica còn lại ở đâu?
+5. Bạn muốn một Pod chạy đúng trên `k8s-worker1`. Đặt `nodeName: k8s-worker1` và đặt
+   `nodeSelector` khớp label của riêng node đó khác nhau ra sao? Vì sao bài cảnh báo về cách
+   thứ nhất?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Về **hiệu lực** thì giống nhau — cả hai đều là ràng buộc cứng dựa trên label node. Khác ở
+   **khả năng biểu đạt**: `nodeSelector` chỉ chọn node có tất cả các label được chỉ định, còn
+   node affinity có cú pháp phong phú hơn với `operator` (`In`, `NotIn`, `Exists`,
+   `DoesNotExist`, `Gt`, `Lt`) và cho phép cả quy tắc mềm. Nếu đặt cả hai thì **cả hai phải
+   được thỏa mãn** thì Pod mới lên node.
+2. **Không.** `IgnoredDuringExecution` nghĩa là **nếu label của node thay đổi sau khi
+   Kubernetes đã lập lịch Pod, Pod vẫn tiếp tục chạy**. Affinity chỉ được đánh giá tại thời
+   điểm lập lịch. Muốn có hành vi đẩy Pod đang chạy ra khỏi node thì phải dùng cơ chế khác —
+   taint effect `NoExecute` ở bài [139](139-taint-and-toleration-vi.md).
+3. Các **term** trong `nodeSelectorTerms` được **OR**: thỏa một term là đủ. Các **biểu thức**
+   trong cùng một `matchExpressions` được **AND**: phải thỏa tất cả. Đây đúng là chỗ dễ nhầm
+   ngược, vì cả hai cùng nằm trong một khối YAML lồng nhau.
+4. **Hai Pod chạy, Pod thứ ba `Pending`.** Anti-affinity `required` với
+   `topologyKey: kubernetes.io/hostname` yêu cầu bộ lập lịch **tránh đặt nhiều bản sao khớp
+   selector lên cùng một node** — đúng mẫu Deployment `redis-cache` trong bài, "tạo mỗi cache
+   trên một node riêng biệt". Cluster lab chỉ có hai node nhận Pod thường, nên chỉ có hai miền
+   topology `hostname` dùng được. Vì đây là loại **cứng**, Pod thứ ba không được lập lịch chứ
+   không dồn lên node đã có Pod. Nếu đổi sang `preferred`, nó sẽ vẫn được lập lịch.
+5. `nodeSelector` **vẫn đi qua bộ lập lịch**: scheduler lọc, chấm điểm rồi bind. `nodeName`
+   **bỏ qua bộ lập lịch** — scheduler bỏ qua Pod, kubelet trên node có tên đó cố đặt Pod lên
+   node. Hệ quả: nếu node không tồn tại, Pod không chạy và trong một số trường hợp bị tự động
+   xóa; nếu node không đủ tài nguyên, Pod **thất bại** với lý do `OutOfmemory` hoặc `OutOfcpu`
+   thay vì được sắp đặt lại chỗ khác. Bài nói thẳng: `nodeName` dành cho bộ lập lịch tùy biến,
+   còn để gán Pod vào một Node cụ thể thì dùng node affinity hoặc `nodeSelector`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

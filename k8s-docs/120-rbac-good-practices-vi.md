@@ -4,6 +4,52 @@
 >
 > Các nguyên tắc và thực hành thiết kế RBAC tốt dành cho người vận hành cluster.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 5/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này **không dạy cú pháp RBAC**. Nó giả định bạn đã biết Role, ClusterRole, RoleBinding và
+ClusterRoleBinding là gì, rồi đi thẳng vào chỗ RBAC dễ bị dùng sai: các quyền nghe vô hại nhưng
+thực chất cho phép leo thang đặc quyền. Cú pháp cụ thể nằm ở trang RBAC gốc mà bài liên kết —
+bạn sẽ gõ nó ở Lab 9a. Đây là bài cuối của phần truy cập trong giai đoạn 9.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bốn quy tắc đặc quyền tối thiểu: ưu tiên **RoleBinding phạm vi namespace** hơn
+  ClusterRoleBinding; **tránh wildcard** vì Kubernetes mở rộng được nên wildcard cấp cả trên
+  những loại đối tượng **sẽ được tạo trong tương lai**; hạn chế dùng `cluster-admin`; và tuyệt
+  đối tránh thêm người dùng vào nhóm `system:masters`.
+- Vì sao `system:masters` là trường hợp đặc biệt: thành viên nhóm này **bỏ qua mọi kiểm tra
+  RBAC**, có quyền superuser không giới hạn, **không thu hồi được bằng cách xóa binding**, và
+  request của họ **không bao giờ được gửi tới webhook phân quyền**.
+- Quyền `list` và `watch` trên Secret **cũng làm lộ nội dung** Secret, không riêng gì `get` —
+  vì phản hồi List chứa luôn nội dung của tất cả Secret.
+- Quyền **tạo workload** trong một namespace ngầm cấp truy cập vào Secret, ConfigMap và
+  PersistentVolume mount được trong namespace đó, **và mức truy cập API của mọi service
+  account** trong namespace đó. Hệ quả: **ranh giới bên trong một namespace là yếu**; namespace
+  mới là đơn vị tách các mức tin cậy khác nhau.
+- Các đường leo thang đặc quyền cần thuộc tên: `nodes/proxy` (quyền **get** ở đây **không phải
+  quyền chỉ đọc**, và nó **bỏ qua audit logging lẫn admission control**), verb `escalate`,
+  verb `bind`, verb `impersonate`, quyền phê duyệt CSR, quyền `create` trên
+  `serviceaccounts/token`, và quyền tạo PersistentVolume (kéo theo `hostPath`).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Taint/Toleration, NodeAffinity, PodAntiAffinity trong mục *Giảm thiểu việc phân phối các token đặc quyền* | đã học ở giai đoạn 7; ở đây chỉ là gợi ý bố trí Pod | giai đoạn 7 |
+| Pod Security Standard mức **Baseline**/**Restricted** được nhắc tên | chưa học ba profile | bài [115](115-pod-security-standards-vi.md) |
+| *Kiểm soát các admission webhook* | cần hiểu webhook trước | bài [173](173-admission-webhooks-vi.md) |
+| *Sửa đổi Namespace* — patch label của namespace | rủi ro này chỉ có nghĩa khi đã bật Pod Security Admission | bài [116](116-pod-security-admission-vi.md) |
+| *Các rủi ro từ chối dịch vụ* — quota số lượng đối tượng | ResourceQuota đã học rồi | giai đoạn 7 |
+
+---
+
 Kubernetes RBAC là một cơ chế kiểm soát bảo mật then chốt
 để đảm bảo rằng người dùng và workload của cluster chỉ có quyền truy cập vào các tài nguyên cần thiết
 để thực hiện vai trò của họ. Điều quan trọng là, khi thiết kế quyền cho người dùng
@@ -209,3 +255,55 @@ Một phương án giảm thiểu vấn đề này là sử dụng
 ## Tiếp theo (What's next)
 
 * Để tìm hiểu thêm về RBAC, xem [tài liệu RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Bạn cấp cho một service account quyền `list` trên Secret nhưng cố ý **không** cấp `get`, vì
+   nghĩ như vậy nó chỉ thấy được tên Secret. Sai ở đâu?
+2. Vì sao bài nói các ranh giới **bên trong** một namespace nên được xem là yếu? Cụ thể, cấp
+   quyền tạo Deployment trong một namespace thì ngầm cấp thêm những gì?
+3. Trên cluster lab, bạn định cấp cho một tài khoản giám sát quyền **get** trên `nodes/proxy`
+   để nó đọc dữ liệu từ `k8s-worker1` và `k8s-worker2`. Theo bài, bạn vừa cấp thêm khả năng gì,
+   và hai cơ chế kiểm soát nào bị vượt qua?
+4. Thu hồi quyền của một tài khoản đã được gán `cluster-admin` khác gì thu hồi quyền của một
+   tài khoản đã được thêm vào nhóm `system:masters`?
+5. Vì sao bài coi việc cấp quyền dạng wildcard trong Kubernetes là nguy hiểm hơn trong một hệ
+   thống thông thường?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không có khác biệt về mức lộ dữ liệu.** Trực giác "list chỉ ra tên" là sai vì trong
+   Kubernetes, một phản hồi List **bao gồm nội dung của tất cả các Secret** — ví dụ
+   `kubectl get secrets -A -o yaml`. Bài nói rõ `list` và `watch` trên thực tế **cũng cho phép
+   người dùng xem được nội dung Secret**, ngang với `get`.
+2. Vì **quyền tạo workload ngầm cấp truy cập vào nhiều tài nguyên khác trong cùng namespace**:
+   các Secret, ConfigMap và PersistentVolume có thể được mount vào Pod. Nặng hơn, vì Pod có thể
+   chạy dưới **bất kỳ ServiceAccount nào** trong namespace, quyền tạo workload còn ngầm cấp
+   **mức truy cập API của mọi service account trong namespace đó**. Vì vậy namespace phải được
+   dùng để tách các mức tin cậy khác nhau; **đặc quyền tối thiểu vẫn cần, nhưng đừng trông cậy
+   vào ranh giới bên trong một namespace**.
+3. Bạn vừa cấp quyền **thực thi lệnh trong mọi Pod trên hai node đó**, cộng với việc lấy log và
+   attach vào tiến trình của Pod — vì các endpoint này chạy qua websocket trên HTTP `GET`, nên
+   **`get` trên `nodes/proxy` không phải là một quyền chỉ đọc**. Hai cơ chế bị vượt qua: **ghi
+   log kiểm toán (audit logging)** và **admission control**. Người gọi làm được việc này **ngay
+   cả khi không có quyền tương đương qua Kubernetes API**.
+4. `cluster-admin` được cấp qua một ClusterRoleBinding, nên **xóa binding là thu hồi xong**.
+   Còn thành viên `system:masters` **bỏ qua toàn bộ kiểm tra RBAC** và quyền superuser đó
+   **không thể bị thu hồi bằng cách xóa RoleBinding hay ClusterRoleBinding**; ngoài ra request
+   của họ **không bao giờ được gửi tới webhook phân quyền**, nên webhook cũng không chặn được.
+5. Vì **Kubernetes là một hệ thống có thể mở rộng**. Cấp quyền wildcard không chỉ cấp trên tất
+   cả loại đối tượng **hiện có**, mà còn trên **tất cả loại đối tượng sẽ được tạo ra trong
+   tương lai** — nghĩa là quyền tự nới rộng theo thời gian mà bạn không hề sửa gì trong Role.
+
+</details>
+
+Đây là bài cuối của **phần truy cập** trong giai đoạn 9. Câu nào chưa trả lời được thì quay lại
+đúng mục tương ứng trước khi vào **Lab 9a — ServiceAccount, authn/authz và RBAC** (chưa viết,
+xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).

@@ -4,6 +4,45 @@
 >
 > Cơ chế time-to-live (TTL) để dọn dẹp các Job cũ đã chạy xong.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 7/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài ngắn nhất giai đoạn, và nó trả lời trực tiếp câu hỏi mà bài [67](67-job-vi.md) để mở:
+Job xong rồi thì ai dọn? Đọc mất năm phút. Toàn bộ giá trị nằm ở hai chỗ dễ hiểu sai — mốc
+tính giờ và hành vi khi TTL đã hết hạn.
+
+**Phải hiểu ở lần đọc này:**
+
+- Controller TTL-after-finished **chỉ hỗ trợ Job**, và được kích hoạt bằng đúng một trường:
+  `.spec.ttlSecondsAfterFinished`.
+- **Đồng hồ bắt đầu chạy khi status condition của Job chuyển sang `Complete` hoặc `Failed`**,
+  không phải từ lúc tạo Job.
+- Khi dọn, controller xóa Job **theo tầng** — các object phụ thuộc, tức các Pod, bị xóa cùng
+  — và các bảo đảm vòng đời như [finalizer](29-finalizers-vi.md) vẫn được tôn trọng.
+- Bạn có thể đặt trường này bất cứ lúc nào: trong manifest, đặt tay cho Job đã chạy xong, hay
+  để một mutating admission webhook đặt tự động — cách cuối là cách quản trị viên **áp một
+  chính sách TTL cho toàn cluster**.
+- Hai điểm lưu ý phải nhớ: kéo dài TTL **sau khi** TTL cũ đã hết hạn thì Kubernetes **không
+  bảo đảm** giữ Job lại, dù API trả về thành công; và cơ chế này **nhạy với lệch thời gian**
+  giữa các máy vì nó dựa trên timestamp lưu trong Job.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Hai gạch đầu dòng về *mutating admission webhook* | chưa học admission controller | giai đoạn 9 |
+| "Tự viết controller của riêng bạn để quản lý TTL" | cần biết viết controller | giai đoạn 14 |
+| Link tới KEP ở mục *Tiếp theo* | là tài liệu thiết kế của tính năng | không cần |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.23 [stable]`
 
 Khi Job của bạn đã chạy xong, việc giữ lại Job đó trong API (thay vì xóa Job ngay lập tức)
@@ -74,3 +113,45 @@ ro này khi đặt một giá trị TTL khác không.
 
 * Tham khảo [Kubernetes Enhancement Proposal](https://github.com/kubernetes/enhancements/blob/master/keps/sig-apps/592-ttl-after-finish/README.md)
   (KEP) về việc bổ sung cơ chế này.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. Bạn đặt `ttlSecondsAfterFinished: 100` cho một Job chạy mất 10 phút. Job đủ điều kiện bị
+   xóa vào thời điểm nào tính từ lúc bạn `kubectl apply`?
+2. **Câu bẫy.** TTL của một Job đã hết hạn nhưng bạn thấy Job vẫn còn, nên `kubectl patch`
+   nâng `ttlSecondsAfterFinished` lên và API trả về thành công. Job có chắc còn không?
+3. Cluster lab của bạn gồm ba VM `k8s-master`, `k8s-worker1`, `k8s-worker2`. Vì sao bài cảnh
+   báo về lệch thời gian, và hậu quả cụ thể là gì?
+4. Khi controller dọn một Job hết TTL, các Pod của Job đó ra sao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Khoảng 10 phút 100 giây** sau khi apply — tức **100 giây sau khi Job kết thúc**, không
+   phải 100 giây sau khi tạo. Bài nói rõ: "Bộ đếm thời gian bắt đầu chạy khi status condition
+   của Job thay đổi để cho thấy Job đang ở trạng thái `Complete` hoặc `Failed`". Nếu đặt
+   trường này bằng `0` thì Job đủ điều kiện bị xóa **ngay sau khi hoàn tất**; nếu không đặt
+   thì controller **không bao giờ** dọn Job đó.
+2. **Không.** Bài nói thẳng: nếu bạn kéo dài khoảng TTL **sau khi** khoảng
+   `ttlSecondsAfterFinished` hiện có đã hết hạn, "Kubernetes **không bảo đảm** sẽ giữ lại Job
+   đó, **ngay cả khi yêu cầu cập nhật để kéo dài TTL trả về phản hồi API thành công**". Trực
+   giác sai ở chỗ coi `200 OK` là bằng chứng Job sẽ sống — Job đã vào diện đủ điều kiện bị
+   xóa từ trước, và việc controller chưa kịp xóa chỉ là vấn đề thời điểm.
+3. Vì controller TTL-after-finished **dùng các timestamp lưu trong chính object Job** để xác
+   định TTL đã hết hạn hay chưa. Đồng hồ ba máy lệch nhau thì hậu quả là **control plane dọn
+   các object Job vào sai thời điểm** — xóa sớm hơn hoặc muộn hơn mong đợi. Bài lưu ý chênh
+   lệch thường rất nhỏ, nhưng đây là rủi ro cần cân nhắc mỗi khi đặt một giá trị TTL khác
+   không, đặc biệt với TTL ngắn.
+4. **Chúng bị xóa cùng.** Controller xóa Job **theo tầng** (cascading), nghĩa là nó xóa cả các
+   object phụ thuộc của Job. Việc xóa vẫn tôn trọng các bảo đảm về vòng đời object, chẳng hạn
+   chờ các [finalizer](29-finalizers-vi.md) được gỡ.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

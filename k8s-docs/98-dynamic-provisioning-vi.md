@@ -2,6 +2,44 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 5/16 · Kiểm chứng ở
+Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài ngắn và gần như không có khái niệm mới sau bài [92](92-persistent-volumes-vi.md) và
+[96](96-storage-classes-vi.md). Giá trị của nó nằm ở chỗ nói rõ **ranh giới trách nhiệm** giữa
+quản trị viên và người dùng, và ở mục *Hành vi mặc định* — nơi nêu điều kiện thứ hai mà rất
+nhiều người quên.
+
+**Phải hiểu ở lần đọc này:**
+
+- Cấp phát động giải quyết cái gì: bỏ hẳn bước admin gọi tay tới hệ thống lưu trữ rồi tạo đối
+  tượng `PersistentVolume`; volume được tạo **khi người dùng tạo PVC** — đoạn mở đầu.
+- Ranh giới trách nhiệm: **admin** tạo sẵn một hoặc nhiều StorageClass (mỗi class chỉ định
+  provisioner và tham số, tên phải là DNS subdomain hợp lệ); **người dùng** chỉ chọn class qua
+  trường `storageClassName` của PVC — mục *Bật cấp phát động*, *Sử dụng cấp phát động*.
+- Xóa claim thì volume bị hủy — mục *Sử dụng cấp phát động*.
+- Hành vi mặc định cần **hai** điều kiện cùng lúc: đánh dấu một StorageClass là mặc định bằng
+  annotation `storageclass.kubernetes.io/is-default-class`, **và** bật admission controller
+  `DefaultStorageClass` trên API server. Nhiều class mặc định thì Kubernetes lấy cái tạo gần
+  đây nhất — mục *Hành vi mặc định*.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Hai ví dụ `provisioner: kubernetes.io/gce-pd` với `pd-standard` / `pd-ssd` | provisioner in-tree của GCE, lab không dùng | không cần |
+| Annotation cũ `volume.beta.kubernetes.io/storage-class` | đã lỗi thời, chỉ còn gặp ở manifest cũ | không cần |
+| *Nhận biết topology* | cần cluster nhiều zone; cơ chế thật nằm ở `volumeBindingMode` | bài [103](103-storage-capacity-vi.md) |
+
+---
+
 Cấp phát volume động (dynamic volume provisioning) cho phép các volume lưu trữ được tạo
 theo nhu cầu (on-demand). Nếu không có cấp phát động, quản trị viên cluster phải tự tay
 gọi tới nhà cung cấp cloud hoặc nhà cung cấp lưu trữ của họ để tạo các volume lưu trữ mới,
@@ -119,3 +157,43 @@ Trong các cluster [nhiều Zone (Multi-Zone)](https://kubernetes.io/docs/setup/
 Zone trong một Region. Các backend lưu trữ chỉ nằm trong một Zone (Single-Zone) nên được cấp phát tại các Zone nơi
 Pod được lập lịch (schedule). Điều này có thể đạt được bằng cách đặt
 [Volume Binding Mode](https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. Trong quy trình cấp phát động, quản trị viên làm gì và người dùng làm gì? Ranh giới nằm ở
+   trường nào của PVC?
+2. Bạn đã đánh dấu một StorageClass là mặc định bằng annotation, nhưng PVC không đặt
+   `storageClassName` vẫn không được cấp phát gì. Bài này nói bạn còn thiếu điều kiện nào?
+3. Cluster có hai StorageClass cùng được đánh dấu mặc định. PVC không đặt `storageClassName`
+   sẽ đi theo class nào?
+4. Cluster lab của bạn **chưa có StorageClass và chưa có provisioner**, và bạn cần một volume
+   bền vững ngay hôm nay, trước khi chạy Lab 6a. Theo bài này, cách còn lại là gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Quản trị viên tạo sẵn các đối tượng StorageClass**, mỗi class chỉ định provisioner nào sẽ
+   cấp phát và tham số nào được truyền cho provisioner đó. **Người dùng chỉ chọn class** bằng
+   cách đưa tên class vào trường **`storageClassName`** của PersistentVolumeClaim. Đó chính là
+   ranh giới: người dùng không phải biết lưu trữ được cấp phát ra sao, nhưng vẫn chọn được
+   giữa nhiều "hương vị" lưu trữ.
+2. Thiếu **admission controller `DefaultStorageClass` được bật trên API server**. Bài liệt kê
+   hai việc phải làm cùng nhau: đánh dấu class là mặc định, *và* bảo đảm admission controller
+   đó đang bật. Chính admission controller này mới là thứ tự động điền `storageClassName` vào
+   PVC không khai gì; chỉ đặt annotation thôi thì không đủ.
+3. **Class được tạo gần đây nhất.** Kubernetes không báo lỗi và cũng không chọn ngẫu nhiên —
+   nó dùng StorageClass mặc định mới nhất.
+4. Quay lại **cấp phát tĩnh**: tự tay gọi tới hệ thống lưu trữ để tạo volume, rồi tự tạo đối
+   tượng `PersistentVolume` đại diện cho nó trong Kubernetes. Đó đúng là công việc mà cấp phát
+   động sinh ra để loại bỏ, và cũng là lý do Lab 6a phải cài provisioner trước khi giai đoạn 6
+   thực hành được.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

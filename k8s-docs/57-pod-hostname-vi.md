@@ -2,6 +2,44 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/pods/pod-hostname/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 5/16 · Kiểm chứng ở
+Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này thuộc nhánh *Workloads* của trang gốc nhưng lộ trình đặt nó ngay sau bài DNS, vì nó chỉ
+có nghĩa khi đọc cùng headless Service. Điều cần rút ra: **hostname bên trong Pod và bản ghi
+DNS của Pod là hai thứ khác nhau**, và không phải trường nào cũng đổi cả hai.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mặc định, hostname nhìn từ bên trong Pod **và** FQDN tương ứng đều lấy giá trị
+  `metadata.name` của Pod.
+- `spec.hostname` được ưu tiên hơn `metadata.name`; thêm `spec.subdomain` thì FQDN trở thành
+  `hostname.subdomain.namespace.svc.cluster-domain.example`, và **chỉ khi cả hai cùng được đặt**
+  thì DNS server của cluster mới tạo bản ghi A/AAAA theo chúng.
+- `setHostnameAsFQDN: true` (cùng với `subdomain`) khiến kubelet ghi FQDN vào hostname, nên cả
+  `hostname` lẫn `hostname --fqdn` đều trả về FQDN. Kèm theo là bẫy vận hành: hostname của kernel
+  Linux giới hạn **64 ký tự**, FQDN dài hơn thì Pod kẹt ở `Pending` / `ContainerCreating`.
+- `hostnameOverride` đặt **vô điều kiện** cả hostname lẫn FQDN bên trong Pod, nhưng **không
+  ảnh hưởng tới bản ghi A/AAAA của Pod trong DNS server của cluster** — bản ghi vẫn sinh theo
+  `hostname` và `subdomain`. Đặt nó thì không được đặt kèm `hostNetwork` và `setHostnameAsFQDN`;
+  API server từ chối tường minh tổ hợp đó.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Bản ghi DNS sinh ra từ `hostname`/`subdomain` | bài này chỉ trỏ sang, nội dung nằm ở bài trước | bài [10](10-dns-pod-service-vi.md) |
+| Bảng tổ hợp hành vi trong *chi tiết thiết kế của KEP-4762* | là ma trận đầy đủ của một tính năng còn beta | không cần |
+
+---
+
 Trang này giải thích cách đặt hostname cho một Pod, các tác dụng phụ tiềm ẩn sau khi cấu
 hình, và cơ chế hoạt động bên dưới.
 
@@ -117,3 +155,46 @@ request tạo (create) có ý định dùng tổ hợp này.
 Để biết chi tiết về hành vi khi `hostnameOverride` được đặt kết hợp với các trường khác
 (hostname, subdomain, setHostnameAsFQDN, hostNetwork), hãy xem bảng trong
 [chi tiết thiết kế của KEP-4762](https://github.com/kubernetes/enhancements/blob/master/keps/sig-network/4762-allow-arbitrary-fqdn-as-pod-hostname/README.md#design-details).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Một Pod tên `busybox-1` không đặt `hostname` cũng không đặt `subdomain`. Bên trong Pod,
+   `hostname` trả về gì và `hostname --fqdn` trả về gì?
+2. Bạn đặt `hostnameOverride: db-0.prod.example.domain` cho một Pod trên cluster lab. Từ một
+   Pod khác, tra cứu DNS tên đó có ra IP của Pod kia không? Vì sao?
+3. Bạn muốn mỗi Pod của một nhóm có FQDN riêng phân giải được trong cluster. Phải đặt những
+   trường nào trên Pod, và cần thêm object gì bên cạnh?
+4. Vì sao `setHostnameAsFQDN: true` có thể khiến Pod không khởi động được, và bạn kiểm soát rủi
+   ro đó bằng cách nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Cả hai đều trả về **`busybox-1`**. Khi Pod được tạo, hostname nhìn từ bên trong Pod được suy
+   ra từ `metadata.name`, và **cả hostname lẫn FQDN đều được đặt thành chính giá trị đó**.
+2. **Không.** Bài ghi rõ: `hostnameOverride` **chỉ ảnh hưởng đến hostname bên trong Pod; nó
+   không ảnh hưởng đến các bản ghi A hoặc AAAA của Pod trong DNS server của cluster**. Nếu đặt
+   nó cùng `hostname` và `subdomain` thì hostname bên trong bị ghi đè, còn bản ghi DNS **vẫn
+   được sinh theo `hostname` và `subdomain`**. Đây đúng là chỗ dễ nhầm: đổi tên thấy trong Pod
+   không có nghĩa là đổi tên mà cluster phân giải được.
+3. Đặt **`spec.hostname`** (hoặc để nguyên `metadata.name`) **và `spec.subdomain`** trên từng
+   Pod. Khi cả hostname lẫn subdomain đều được đặt, DNS server của cluster sẽ tạo bản ghi A
+   và/hoặc AAAA dựa trên các trường này; chi tiết về object đi kèm — một **headless Service
+   cùng namespace trùng tên với subdomain** — nằm ở
+   [bài 10](10-dns-pod-service-vi.md#pod-hostname-and-subdomain-field) mà bài này trỏ tới.
+4. Vì trường hostname của kernel Linux (`nodename` trong `struct utsname`) **giới hạn 64 ký
+   tự**. Khi bật tính năng này mà FQDN dài hơn 64 ký tự, **Pod sẽ không khởi động được**: nó ở
+   trạng thái `Pending` (hiển thị `ContainerCreating` khi xem bằng `kubectl`) và sinh event lỗi
+   kiểu "Failed to construct FQDN from Pod hostname and cluster domain". Cách kiểm soát: bảo
+   đảm tổng độ dài `metadata.name` (hoặc `spec.hostname`) cộng `spec.subdomain` tạo ra một FQDN
+   không vượt quá 64 ký tự.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

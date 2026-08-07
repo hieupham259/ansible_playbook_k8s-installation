@@ -2,6 +2,60 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+bài 1/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Giai đoạn 13 không bắt buộc với admin mới.** Đây là nhóm bài dành cho nền tảng chuyên biệt
+(AI/HPC, GPU) và phần lớn nội dung còn ở trạng thái alpha hoặc beta. Chỉ đọc khi đã vững giai
+đoạn 1–12, hoặc khi công việc thực sự cần. Cluster lab của bạn — 3 VM trên VMware, không GPU,
+không thiết bị chuyên dụng — **không chạy được** phần lớn những gì bài này mô tả: không có
+driver DRA thì cluster không có ResourceSlice nào để cấp phát. Mục tiêu của lần đọc này là
+hiểu khái niệm, không phải thao tác.
+
+Bản thân DRA đã `stable` từ v1.35, nhưng gần như mọi mục con trong bài vẫn là alpha/beta và
+phụ thuộc feature gate riêng — **API của những phần đó có thể đổi giữa các phiên bản**. Bài
+rất dài (hơn 1600 dòng); hơn một nửa độ dài nằm ở hai mục *Các tính năng beta của DRA* và
+*Các tính năng alpha của DRA*, vốn viết cho tác giả driver chứ không phải quản trị viên.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mô hình của DRA, qua phép so sánh ở mục *Giới thiệu về DRA*: DeviceClass đứng ở vị trí của
+  StorageClass, ResourceClaim đứng ở vị trí của PersistentVolumeClaim. Pod tham chiếu claim,
+  không tự khai số lượng thiết bị.
+- Bốn kind API ở mục *Thuật ngữ DRA* và ai tạo cái nào: driver tạo **ResourceSlice** (công bố
+  phần cứng), admin hoặc driver tạo **DeviceClass** (danh mục), người vận hành workload tạo
+  **ResourceClaim** / **ResourceClaimTemplate**.
+- Bốn lợi ích ở mục *Lợi ích của DRA* và đúng ba điểm bài nói device plugin không làm được:
+  khai báo theo từng container, không chia sẻ thiết bị, không lọc theo biểu thức.
+- Năm bước ở mục *Luồng công việc của Kubernetes*: tạo ResourceSlice → kiểm tra claim của
+  workload → lọc ResourceSlice → cấp phát (first-fit) → lập lịch Pod lên node truy cập được
+  thiết bị đã cấp phát.
+- Mục *Hạn chế*: scheduler **không** hỗ trợ preemption cho tài nguyên DRA. Pod ưu tiên cao
+  phải chờ Pod đang giữ thiết bị kết thúc hoặc bị xóa thủ công.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *ResourceClaim cho Workload* (`spec.resourceClaims` của PodGroup) | chưa học PodGroup và Workload | [bài 75](75-podgroup-api-vi.md) và [bài 77](77-workload-api-vi.md) cùng giai đoạn |
+| *Ủy quyền trạng thái chi tiết*, các subresource tổng hợp | là phần hardening RBAC | [bài 125](125-hardening-dra-vi.md) cùng giai đoạn |
+| *Danh sách ưu tiên*, *Đặt tên và mức ưu tiên* | là chi tiết tinh chỉnh cấp phát | khi công việc thực sự cần |
+| *Khả năng quan sát tài nguyên động*, *Pod được lập lịch sẵn* | cần thiết bị thật để quan sát | khi công việc thực sự cần |
+| Toàn bộ *Các tính năng beta của DRA* và *Các tính năng alpha của DRA* | viết cho tác giả driver, lab không có thiết bị | khi công việc thực sự cần |
+
+Cách cũ để expose GPU và thiết bị — device plugin — nằm ở
+[bài 184](184-device-plugins-vi.md) của giai đoạn 14. Nếu muốn so sánh hai cơ chế cạnh nhau,
+đọc bài đó sau, đừng nhảy sang ngay.
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.35 [stable]`
 
 Trang này mô tả cơ chế _cấp phát tài nguyên động (dynamic resource allocation — DRA)_ trong Kubernetes.
@@ -1609,3 +1663,47 @@ Thuộc tính kiểu danh sách là một *tính năng alpha* và chỉ được
 - [Truy cập metadata thiết bị DRA](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/access-dra-device-metadata/)
 - Để biết thêm thông tin về thiết kế, xem KEP
   [Dynamic Resource Allocation with Structured Parameters](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/4381-dra-structured-parameters).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho một giai đoạn tùy chọn:
+
+1. Trong bốn kind API của DRA, kind nào do driver thiết bị tạo ra để công bố phần cứng, và
+   kind nào do người vận hành workload tạo ra để xin dùng phần cứng đó?
+2. DRA khác device plugin truyền thống ở những điểm nào? Vì sao viết `example.com/gpu: 2` vào
+   `resources.limits` của container **không** phải là cách làm việc của DRA?
+3. Cluster lab của bạn không có GPU và không cài driver DRA nào. Nếu bạn vẫn tạo một Pod tham
+   chiếu ResourceClaim, Pod đó ra sao? Và nếu sau này cluster có GPU, một Pod ưu tiên cao có
+   giành được GPU từ một Pod ưu tiên thấp đang giữ nó không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Driver tạo **ResourceSlice** — mỗi ResourceSlice đại diện cho một hoặc nhiều thiết bị trong
+   một pool, kèm thuộc tính, dung lượng và danh sách node truy cập được; driver cũng chạy một
+   controller đối chiếu và **ghi đè mọi thay đổi thủ công** lên ResourceSlice. Người vận hành
+   workload tạo **ResourceClaim** hoặc **ResourceClaimTemplate**. **DeviceClass** ở giữa: do
+   admin *hoặc* driver tạo, định nghĩa danh mục thiết bị và cách chọn thuộc tính.
+2. Bài liệt kê đúng ba thiếu sót của device plugin: nó **yêu cầu khai báo thiết bị theo từng
+   container**, **không hỗ trợ chia sẻ thiết bị**, và **không lọc thiết bị dựa trên biểu
+   thức**. DRA lật cả ba: lọc chi tiết bằng CEL theo thuộc tính thiết bị, chia sẻ một claim
+   cho nhiều container hoặc nhiều Pod, và **Pod không chỉ định số lượng thiết bị** — Pod chỉ
+   tham chiếu một ResourceClaim, còn cấu hình thiết bị nằm trong claim đó. Đếm số trong
+   `resources.limits` chính là mô hình device plugin, tức là thứ DRA thay thế. (Ngoại lệ duy
+   nhất — *Cấp phát extended resource bằng DRA* — là một tính năng beta riêng dựng cầu nối
+   ngược lại cho người dùng cũ, không phải đường đi mặc định.)
+3. Pod sẽ **không được lập lịch**. Ở bước *Lọc ResourceSlice*, Kubernetes phải tìm được một
+   ResourceSlice có tài nguyên chưa cấp phát khớp yêu cầu của claim; không driver thì không
+   ResourceSlice, nên không có gì để khớp. (Nếu ResourceClaim được tham chiếu trực tiếp mà
+   không tồn tại trong đúng namespace của Pod, Pod cũng không được lập lịch — hệt như
+   PersistentVolumeClaim.) Câu sau: **không**. Mục *Hạn chế* nói rõ scheduler không hỗ trợ
+   preemption cho tài nguyên DRA; Pod ưu tiên cao nằm pending cho tới khi Pod đang giữ thiết
+   bị kết thúc hoặc bị xóa thủ công.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

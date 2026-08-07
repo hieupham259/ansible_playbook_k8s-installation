@@ -2,6 +2,54 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 12/13 ·
+Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này **viết cho người phát triển plugin**, không phải cho quản trị viên. Nhưng đọc ở vị trí
+này thì nó có một giá trị khác: nó là **bản đồ ghép mọi cơ chế bạn vừa học vào một khung duy
+nhất**. Bước lọc và chấm điểm của bài [137](137-kube-scheduler-vi.md), preemption của bài
+[141](141-pod-priority-preemption-vi.md), scheduling gate của bài
+[145](145-pod-scheduling-readiness-vi.md) — mỗi thứ có một chỗ đứng tên riêng ở đây.
+
+Bỏ qua toàn bộ mã Go. Điều cần lấy về là **thứ tự các điểm mở rộng** và **hai chu trình**.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mỗi lần thử lập lịch một Pod gồm **chu trình lập lịch** (chọn node) rồi **chu trình binding**
+  (áp quyết định lên cluster); gộp lại gọi là một _ngữ cảnh lập lịch_. Các chu trình lập lịch
+  chạy **tuần tự**, các chu trình binding có thể chạy **song song**.
+- Chu trình nào cũng có thể **bị hủy** khi Pod được xác định là không thể lập lịch hoặc có lỗi
+  nội bộ; khi đó **Pod được trả về hàng đợi và thử lại**.
+- Ánh xạ những gì đã học: **Filter** là bước lọc, **Score** + **NormalizeScore** là bước chấm
+  điểm, **PostFilter** là nơi preemption sống — và nó **chỉ chạy khi không tìm thấy node khả
+  thi nào**. **QueueSort** là nơi độ ưu tiên sắp thứ tự hàng đợi (chỉ bật được **một** plugin
+  loại này), **PreEnqueue** là chốt chặn Pod vào hàng đợi active — chính là chỗ scheduling gate
+  giữ Pod lại mà **không** gán điều kiện `Unschedulable`.
+- **Reserve/Unreserve** giữ chỗ để tránh tranh chấp trong lúc chờ bind; `Unreserve` chạy theo
+  **thứ tự ngược** với `Reserve`, phải **lũy đẳng** và **không được phép thất bại**.
+- **Permit** có ba lựa chọn: approve, deny (Pod về lại hàng đợi và kích hoạt Unreserve), hoặc
+  wait có timeout (hết giờ thì thành deny). **PreBind** là nơi làm việc chuẩn bị trước khi
+  bind, ví dụ cấp phát và mount volume; **Bind** thì plugin đầu tiên nhận xử lý sẽ khiến các
+  plugin bind còn lại **bị bỏ qua**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| `EnqueueExtension` và `QueueingHint` | chi tiết dành cho người viết plugin | giai đoạn 14, bài [177](177-extend-kubernetes-vi.md) |
+| *Chấm điểm theo dung lượng* — `StorageCapacityScoring` | alpha, gắn với CSI | giai đoạn 6, bài [103](103-storage-capacity-vi.md) |
+| Mã Go `BlinkingLightScorer`, `NormalizeScores` và mục *Plugin API* | chỉ cần khi tự viết plugin | giai đoạn 14, bài [177](177-extend-kubernetes-vi.md) |
+| *Cấu hình plugin* và nhiều scheduler profile | chỉ đổi khi cần chạy nhiều scheduler | giai đoạn 14, bài [177](177-extend-kubernetes-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.19 [stable]`
 
 _Scheduling framework_ là một kiến trúc dạng plugin (pluggable architecture) cho scheduler của Kubernetes.
@@ -283,3 +331,51 @@ của riêng mình và cấu hình chúng cùng với các plugin mặc định.
 Nếu bạn đang dùng Kubernetes v1.18 trở lên, bạn có thể cấu hình một tập các plugin thành
 một scheduler profile rồi định nghĩa nhiều profile để phù hợp với nhiều loại workload khác nhau.
 Tìm hiểu thêm tại [nhiều profile (multiple profiles)](https://kubernetes.io/docs/reference/scheduling/config/#multiple-profiles).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
+
+1. Trên cluster lab, `k8s-master` mang taint `NoSchedule` (bài
+   [139](139-taint-and-toleration-vi.md)) và bạn đặt thêm `nodeSelector` cho Pod (bài
+   [138](138-assign-pod-node-vi.md)). Hai ràng buộc đó được thực thi ở điểm mở rộng nào? Còn
+   preemption của bài [141](141-pod-priority-preemption-vi.md) chạy ở đâu, và khi nào?
+2. Chu trình lập lịch và chu trình binding — chu trình nào chạy tuần tự, chu trình nào chạy
+   song song? Một Pod đã chọn được node rồi thì có còn khả năng quay lại hàng đợi không?
+3. Scheduling gate của bài [145](145-pod-scheduling-readiness-vi.md) chặn Pod ở điểm mở rộng
+   nào, và vì sao Pod bị chặn ở đó **không** mang điều kiện `Unschedulable`?
+4. Pod của bạn cần một volume được cấp phát và mount lên node đích trước khi chạy. Theo bài,
+   việc đó thuộc điểm mở rộng nào, và nếu nó lỗi thì Pod đi đâu?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Cả taint lẫn `nodeSelector` đều được thực thi ở **Filter** — các plugin Filter "loại bỏ
+   những node không thể chạy Pod", được gọi cho từng node theo thứ tự đã cấu hình, và node nào
+   bị một plugin đánh dấu không khả thi thì các plugin còn lại không chạy cho node đó nữa.
+   Preemption là một triển khai điển hình của **PostFilter**, và PostFilter **chỉ được gọi khi
+   giai đoạn Filter không tìm thấy node khả thi nào** — đúng khớp với mô tả ở bài 141: logic
+   preemption chỉ kích hoạt khi không có Node nào thỏa mãn yêu cầu của Pod.
+2. **Chu trình lập lịch chạy tuần tự; chu trình binding có thể chạy song song. Có** — Pod vẫn
+   có thể quay lại hàng đợi sau khi đã chọn được node: một chu trình lập lịch **hoặc binding**
+   đều có thể bị hủy bỏ nếu Pod bị xác định là không thể lập lịch hoặc có lỗi nội bộ, và khi đó
+   Pod được trả về hàng đợi để thử lại. Cụ thể hơn, một plugin **Permit** trả về deny (hoặc
+   wait rồi timeout) và một plugin **PreBind** trả lỗi đều đẩy Pod về hàng đợi và kích hoạt
+   giai đoạn Unreserve. Trực giác "chọn xong node là xong" sai ở chỗ này.
+3. Ở **PreEnqueue** — các plugin này chạy **trước khi** thêm Pod vào hàng đợi active. Chỉ khi
+   tất cả plugin PreEnqueue trả về `Success` thì Pod mới được vào hàng đợi active; nếu không,
+   nó được đặt vào danh sách nội bộ các Pod không thể lập lịch **và không nhận điều kiện
+   `Unschedulable`**. Lý do đúng bằng lập luận của bài 145: Pod chưa hề được thử lập lịch, nên
+   gán `Unschedulable` cho nó sẽ là báo sai.
+4. **PreBind.** Bài lấy đúng ví dụ đó: một plugin pre-bind có thể cấp phát một network volume
+   và mount nó lên node đích trước khi cho phép Pod chạy ở đó. Nếu **bất kỳ plugin PreBind nào
+   trả về lỗi**, Pod **bị từ chối và được trả về hàng đợi lập lịch** — kéo theo giai đoạn
+   Unreserve của các plugin Reserve để dọn trạng thái đã giữ chỗ.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

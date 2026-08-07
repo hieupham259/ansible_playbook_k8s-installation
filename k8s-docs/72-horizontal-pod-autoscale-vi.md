@@ -6,6 +6,59 @@
 > (chẳng hạn Deployment hoặc StatefulSet), với mục tiêu tự động co giãn năng lực xử lý
 > cho khớp với nhu cầu.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 12/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+**Ở đây bạn chỉ đọc lý thuyết.** HPA cần metrics-server để có API `metrics.k8s.io`, mà
+metrics-server thuộc **giai đoạn 11** — cluster baseline chưa có nó. Vì vậy toàn bộ phần
+thực hành HPA là [nợ lab](labs/README.md#5-sổ-nợ-lab), trả ở **Lab 11b**, sau khi Lab 11a
+tạo mốc `04-metrics-ready`. **Đừng cài metrics-server sớm để "chạy thử"**: làm vậy là nhảy
+cóc hạ tầng của giai đoạn sau, và Lab 4 sẽ không còn trả cluster về đúng snapshot đầu vào.
+Lần đọc này, mục tiêu là hiểu **HPA quyết định số replica như thế nào**, để khi tới Lab 11b
+bạn đã biết mình đang nhìn cái gì.
+
+**Phải hiểu ở lần đọc này:**
+
+- HPA là một **vòng lặp điều khiển chạy theo chu kỳ**, không phải tiến trình liên tục — chu
+  kỳ đặt bằng `--horizontal-pod-autoscaler-sync-period` của kube-controller-manager, mặc định
+  15 giây. Mỗi chu kỳ nó tìm `scaleTargetRef`, chọn Pod theo `.spec.selector` của đối tượng
+  đích, lấy metric, rồi ghi số replica mới qua subresource **`scale`**.
+- Công thức cốt lõi:
+  `desiredReplicas = ceil(currentReplicas × currentMetricValue / desiredMetricValue)`, và
+  control plane **bỏ qua mọi hành động co giãn nếu tỷ lệ đủ gần 1.0** — trong phạm vi dung
+  sai, mặc định 0.1.
+- `Utilization` được tính theo **phần trăm so với `requests`** của container. Hệ quả bài nêu
+  thẳng: nếu một số container không đặt resource request tương ứng, mức sử dụng CPU của Pod
+  đó **không xác định được** và autoscaler **không hành động** theo metric đó.
+- Vì sao mở rộng nhanh mà thu hẹp chậm: khuyến nghị co giãn được ghi lại và controller lấy
+  **giá trị cao nhất trong cửa sổ ổn định**; mặc định cửa sổ thu hẹp là 300 giây
+  (`--horizontal-pod-autoscaler-downscale-stabilization`) còn mở rộng là 0 giây.
+- Hai ranh giới sử dụng: HPA **không áp dụng cho đối tượng không co giãn được** (bài lấy ví
+  dụ DaemonSet); và khi HPA quản lý một Deployment hay StatefulSet thì **đừng để `spec.replicas`
+  trong manifest**, nếu không mỗi lần `kubectl apply` sẽ kéo số Pod về giá trị đó và gây
+  thrashing.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ phần thao tác thật — `kubectl autoscale`, `kubectl get hpa` | cần metrics-server của giai đoạn 11 | [nợ lab](labs/README.md#5-sổ-nợ-lab), trả ở Lab 11b |
+| *Trạng thái sẵn sàng của Pod và các metric tự động co giãn* — hai tùy chọn dòng lệnh | chỉ đặt được ở phạm vi toàn cluster, phải sửa kube-controller-manager | giai đoạn 11 |
+| *Co giãn dựa trên metric tùy chỉnh*, *Co giãn dựa trên nhiều metric*, *Hỗ trợ các API metric* | cần adapter metric của bên thứ ba | giai đoạn 11 |
+| *Metric tài nguyên theo container* | tinh chỉnh dựng trên metric theo Pod | giai đoạn 11 |
+| *Hành vi co giãn có thể cấu hình* — `policies`, `selectPolicy`, `tolerance` và bốn ví dụ | chỉ chỉnh được khi đã có một HPA chạy thật | Lab 11b |
+| *Chuyển Deployment và StatefulSet sang tự động co giãn theo chiều ngang* — quy trình client-side / server-side apply | là thao tác di trú, cần HPA thật | Lab 11b |
+| Khối `math` chi tiết về metric bị thiếu và Pod chưa-sẵn-sàng | là phần hiệu chỉnh thận trọng quanh công thức chính | giai đoạn 11 |
+
+---
+
 Trong Kubernetes, một _HorizontalPodAutoscaler_ tự động cập nhật một tài nguyên workload
 (chẳng hạn một Deployment hoặc StatefulSet), với mục tiêu tự động co giãn năng lực xử lý
 (capacity) cho khớp với nhu cầu.
@@ -677,3 +730,59 @@ Bạn cũng có thể đọc thêm về [tự động co giãn Pod theo chiều 
 - Nếu bạn muốn viết adapter metric tùy chỉnh của riêng mình, hãy xem
   [boilerplate](https://github.com/kubernetes-sigs/custom-metrics-apiserver) để bắt đầu.
 - Đọc [tài liệu tham khảo API](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/horizontal-pod-autoscaler-v2/) cho HorizontalPodAutoscaler.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4. Đây là bài
+chỉ đọc lý thuyết; phần thực hành nằm ở [Lab 11b](labs/README.md#5-sổ-nợ-lab).
+
+1. Một HPA giữ mức sử dụng CPU trung bình mục tiêu 60%. Hiện có 4 replica và mức đo được là
+   90%. Theo công thức trong bài, HPA đặt bao nhiêu replica? Nếu mức đo được là 63% thì sao?
+2. **Câu bẫy.** Bạn tạo HPA theo `type: Utilization` cho một Deployment mà container không
+   khai báo `resources.requests.cpu`. HPA có co giãn không? Vì sao?
+3. Vì sao HPA mở rộng gần như tức thì nhưng thu hẹp thì chậm? Cơ chế nào tạo ra sự bất đối
+   xứng đó?
+4. Trên cluster lab của bạn (1 control plane + 2 worker, **chưa có metrics-server**), bạn
+   apply một Deployment có `spec.replicas: 3` kèm một HPA `min=2 max=10`. Hai vấn đề nào sẽ
+   xảy ra?
+5. Bạn muốn HPA tự tăng số Pod Flannel khi mạng bận. Được không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **6 replica**: `ceil(4 × 90 / 60) = ceil(6.0) = 6`. Với mức đo 63% thì **giữ nguyên 4** —
+   tỷ lệ là `63/60 = 1.05`, nằm trong **dung sai mặc định 0.1**, và bài nói "control plane bỏ
+   qua mọi hành động co giãn nếu tỷ lệ này đủ gần 1.0". Đây là lý do HPA không rung theo từng
+   dao động nhỏ của metric.
+2. **Không.** Bài nói thẳng: "nếu một số container của Pod không đặt yêu cầu tài nguyên liên
+   quan, mức sử dụng CPU của Pod đó sẽ **không được xác định** và autoscaler sẽ **không thực
+   hiện hành động nào** đối với metric đó". Trực giác sai là nghĩ HPA đo mức tiêu thụ tuyệt
+   đối; với `type: Utilization` nó đo **tỷ lệ giữa lượng đang dùng và lượng được `requests`**,
+   nên không có mẫu số thì không có phép chia. Đây là lỗi cấu hình kinh điển: HPA hiện diện,
+   `kubectl get hpa` hiện `<unknown>`, và không có gì xảy ra cả.
+3. Vì **cửa sổ ổn định** áp dụng bất đối xứng. Trước khi co giãn, khuyến nghị được ghi lại;
+   controller xem tất cả khuyến nghị trong một cửa sổ thời gian và **chọn khuyến nghị cao
+   nhất** trong đó. Mặc định cửa sổ cho thu hẹp là **300 giây** (`scaleDown.stabilizationWindowSeconds`,
+   hay `--horizontal-pod-autoscaler-downscale-stabilization`), còn cho mở rộng là **0 giây**.
+   Lấy giá trị cao nhất trong 5 phút gần nhất tức là một đợt tải cao vừa qua vẫn "giữ" số Pod
+   ở mức cũ — bài mô tả đó là một phép **lấy giá trị lớn nhất trượt**, tránh việc xóa Pod đi
+   rồi phải tạo lại ngay sau đó. Chiều mở rộng không có cửa sổ nên phản ứng ngay lập tức.
+4. Thứ nhất, **HPA không lấy được metric**: bài nói controller lấy metric tài nguyên từ API
+   `metrics.k8s.io`, "thường được cung cấp bởi metrics-server", và quản trị viên phải bảo đảm
+   API đó đã được đăng ký. Chưa có metrics-server thì HPA không tính được `desiredReplicas` và
+   không hành động. Thứ hai, **để `spec.replicas` trong manifest sẽ đánh nhau với HPA**: bài
+   khuyến nghị gỡ `spec.replicas` khỏi manifest của Deployment và StatefulSet khi bật HPA, vì
+   mỗi lần `kubectl apply -f deployment.yaml` Kubernetes lại được chỉ thị kéo số Pod về giá
+   trị đó, "dẫn đến hành vi thrashing hoặc flapping".
+5. **Không.** Flannel chạy dưới dạng DaemonSet, và bài nói rõ ngay đầu: "Tự động co giãn Pod
+   theo chiều ngang **không áp dụng cho các đối tượng không thể co giãn** (ví dụ: một
+   DaemonSet)". DaemonSet không có subresource `scale` để HPA ghi vào — số Pod của nó do số
+   node quyết định, không phải do một trường `replicas`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

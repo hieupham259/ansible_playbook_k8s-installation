@@ -2,6 +2,55 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3b](LO-TRINH-ADMIN.md#3b-cấu-hình-và-tài-nguyên), bài 4/7 ·
+Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là **bài bắt buộc phải chắc** của cả nhóm 3b. QoS class ở bài kế tiếp, eviction do áp lực
+node ở giai đoạn 7a, ResourceQuota và LimitRange ở 7b, HPA và VPA ở giai đoạn 4 — tất cả đều
+đọc lại đúng hai trường `requests` và `limits` này. Đọc lướt ở đây thì mọi bài sau đều mơ hồ.
+
+Cả bài xoay quanh **một sự phân đôi duy nhất**: `requests` nói chuyện với scheduler,
+`limits` nói chuyện với kernel. Đọc xong mỗi mục, tự hỏi mục vừa rồi thuộc vế nào.
+
+**Phải hiểu ở lần đọc này:**
+
+- `requests` là đầu vào của **lập lịch**: scheduler bảo đảm tổng request của các container đã
+  lập lịch nhỏ hơn dung lượng node, và nó **từ chối theo request chứ không theo mức dùng thực
+  tế** — mục *Cách các Pod có yêu cầu tài nguyên được lập lịch* nói rõ điều này.
+- `limits` là đầu vào của **thực thi**, do kubelet chuyển cho runtime rồi kernel áp bằng
+  cgroups (mục *Yêu cầu và giới hạn* và *Cách Kubernetes áp dụng request và limit tài nguyên*).
+- Hai loại limit hành xử khác nhau: limit `cpu` là giới hạn cứng thực thi bằng **throttling**
+  và không bao giờ khiến container bị chấm dứt; limit `memory` thực thi **bị động** bằng
+  **OOM kill**, nên container có thể vượt limit một lúc rồi mới bị kill.
+- Bất đối xứng của request: request `cpu` biến thành **trọng số** khi có tranh chấp, còn
+  request `memory` chủ yếu chỉ dùng lúc lập lịch. Và nếu bạn chỉ đặt limit mà không đặt
+  request, Kubernetes **sao chép limit thành request** (ghi chú ở cuối mục *Yêu cầu và giới hạn*).
+- Đọc được hai triệu chứng ở mục *Khắc phục sự cố*: Pod `Pending` kèm event `FailedScheduling`
+  … `insufficient cpu` là lỗi phía request; `OOMKilled` kèm `Restart Count` là lỗi phía limit.
+  Kèm theo đó, `.status.allocatable` luôn nhỏ hơn capacity vì daemon hệ thống chiếm một phần.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Chỉ định tài nguyên ở cấp Pod* và *Ví dụ về tài nguyên Pod* | beta, cần feature gate `PodLevelResources` mà cluster lab không bật | không cần |
+| *Huge pages* | tính năng riêng của kernel Linux, không dùng trong lộ trình | không cần |
+| *Thay đổi kích thước tài nguyên của container* — `/resize`, `resizePolicy`, VPA | co giãn dọc gắn với autoscaling | giai đoạn 4, bài [73](73-vertical-pod-autoscale-vi.md); thực hành là [nợ lab](labs/README.md#5-sổ-nợ-lab) trả ở Lab 11b |
+| Ghi chú *Memory QoS với cgroup v2* | alpha, phải bật riêng | giai đoạn 7b, bài [74](74-resource-managers-vi.md) |
+| *Những điều cần cân nhắc với volume `emptyDir` dựa trên bộ nhớ* | chưa học volume | giai đoạn 6, bài [91](91-volumes-vi.md) |
+| *Lưu trữ tạm thời cục bộ* và *Giới hạn PID* | tài nguyên ngoài CPU/memory | giai đoạn 6, bài [95](95-ephemeral-storage-vi.md); giai đoạn 7b, bài [135](135-pid-limiting-vi.md) |
+| *Tài nguyên mở rộng*, device plugin, scheduler extender, DRA | cần cơ chế mở rộng scheduler | giai đoạn 13 và 14 |
+| ResourceQuota và LimitRange nhắc ở mục *Khắc phục sự cố* | là chính sách cấp namespace | giai đoạn 7b, bài [133](133-limit-range-vi.md) và [134](134-resource-quotas-vi.md) |
+
+---
+
 Khi bạn chỉ định một Pod, bạn có thể tùy chọn chỉ định lượng tài nguyên mà mỗi
 container cần. Các tài nguyên phổ biến nhất để chỉ định là CPU và bộ nhớ (RAM);
 ngoài ra còn có những tài nguyên khác.
@@ -718,3 +767,61 @@ bộ nhớ cao hơn (và có thể cả request) cho container đó.
 * Đọc thêm về [tài liệu tham chiếu cấu hình kube-scheduler (v1)](https://kubernetes.io/docs/reference/config-api/kube-scheduler-config.v1/)
 * Đọc thêm về [các lớp Quality of Service cho Pod](./54-pod-qos-vi.md)
 * Đọc thêm về [Cấp phát tài nguyên mở rộng bằng DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#extended-resource)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Mỗi worker trong cluster lab của bạn chỉ có 2 vCPU. Bạn tạo một Pod có
+   `requests.cpu: 3`. Pod ở trạng thái nào, bạn đọc ở đâu để biết lý do, và thêm một worker
+   thứ ba giống hệt hai worker kia có giải quyết được không?
+2. Container X có `limits.cpu: 500m` và chạy một vòng lặp bận. Container Y có
+   `limits.memory: 100Mi` và cấp phát dần tới 200Mi. Container nào bị chấm dứt, container
+   nào không, và vì sao?
+3. `kubectl describe nodes k8s-worker1` cho thấy CPU thực dùng rất thấp, nhưng scheduler vẫn
+   từ chối đặt Pod mới lên node đó. Điều gì đang xảy ra, và scheduler thực sự so sánh với
+   con số nào của node?
+4. Bạn khai báo `limits.memory: 128Mi` cho một container và không viết `requests` gì cả.
+   Request memory của container đó là bao nhiêu?
+5. Một Pod có hai container, mỗi container `requests.cpu: 250m` và `limits.cpu: 500m`.
+   Request và limit CPU của cả Pod là bao nhiêu?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Pod ở trạng thái **`Pending`** (bài gọi là trạng thái chưa được lập lịch). Xem bằng
+   `kubectl describe pod <tên>` rồi đọc phần **Events**, sẽ thấy
+   `Warning FailedScheduling ... insufficient cpu`. **Thêm worker thứ ba không giải quyết được
+   gì**: mục *Khắc phục sự cố* liệt kê đúng tình huống này — "kiểm tra xem Pod có lớn hơn tất
+   cả các node hay không. Ví dụ, nếu tất cả các node có dung lượng `cpu: 1`, thì một Pod có
+   request `cpu: 1.1` sẽ không bao giờ được lập lịch". Node mới cũng chỉ có 2 vCPU, mà
+   `.status.allocatable` còn nhỏ hơn 2 vì daemon hệ thống đã chiếm một phần.
+2. **Container Y bị kill, container X thì không.** Limit `cpu` được thực thi bằng **điều tiết
+   CPU (throttling)**: kernel chỉ hạn chế quyền truy cập CPU, và bài nói rõ "container runtime
+   không chấm dứt Pod hoặc container vì sử dụng CPU quá mức" — X chạy chậm lại chứ không chết.
+   Limit `memory` thì được thực thi bằng **OOM kill**. Điểm dễ nhầm: việc kill là **bị động**
+   — "việc chấm dứt chỉ xảy ra khi kernel phát hiện áp lực bộ nhớ", nên Y có thể vượt 100Mi
+   một lúc rồi mới bị kill, chứ không bị chặn ngay tại mốc limit như trực giác thường nghĩ.
+   Dấu hiệu nhận ra sau đó là `Reason: OOMKilled` và `Restart Count` tăng dần trong
+   `kubectl describe pod`.
+3. Scheduler **không nhìn mức sử dụng thực tế**. Nó chỉ bảo đảm rằng tổng các **request** của
+   các container đã được lập lịch nhỏ hơn dung lượng node — bài nói thẳng: "mặc dù mức sử dụng
+   bộ nhớ hoặc CPU thực tế trên các node rất thấp, scheduler vẫn từ chối đặt một Pod lên node
+   nếu việc kiểm tra dung lượng thất bại", vì đó là cách bảo vệ khỏi thiếu hụt tài nguyên khi
+   tải tăng về sau. Con số nó so sánh là **`.status.allocatable`** của node, không phải
+   `Capacity`: phần chênh là tài nguyên các daemon hệ thống đã dùng.
+4. **128Mi.** Ghi chú ở mục *Yêu cầu và giới hạn*: nếu bạn chỉ định limit cho một tài nguyên
+   nhưng không chỉ định request, và không có cơ chế nào ở thời điểm admission áp request mặc
+   định, thì Kubernetes **sao chép limit đó thành giá trị request**. Hệ quả trực tiếp cho bài
+   sau: chiều ngược lại **không** đúng — đặt request mà thiếu limit thì không có gì được sinh ra.
+5. **Request 500m, limit 1 CPU.** Với một tài nguyên cụ thể, request/limit của Pod là **tổng**
+   request/limit của từng container trong Pod — đúng như ví dụ `frontend` ở mục *Ví dụ về tài
+   nguyên container*.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

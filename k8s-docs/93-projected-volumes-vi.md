@@ -2,6 +2,49 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/storage/projected-volumes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 6/16 · Kiểm chứng ở
+Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này không phải về lưu trữ bền vững — nó là về cách gộp nhiều nguồn dữ liệu của Kubernetes
+vào **một thư mục duy nhất** trong container. Bạn đã dùng ConfigMap và Secret ở giai đoạn 3,
+nên phần cần hiểu ở đây chỉ là phần trên của bài. Ba mục cuối (`clusterTrustBundle`,
+`podCertificate`, Windows) đều là tính năng beta cần feature gate, đọc để biết là đủ.
+
+**Phải hiểu ở lần đọc này:**
+
+- Volume `projected` ánh xạ **nhiều nguồn** vào cùng một thư mục, và **mọi nguồn phải nằm cùng
+  namespace với Pod** — mục *Giới thiệu*.
+- Hai khác biệt cú pháp so với volume rời: với secret, trường `secretName` đổi thành `name`;
+  và `defaultMode` chỉ đặt được ở **cấp projected**, còn `mode` thì đặt được cho từng projection
+  — đoạn ngay sau hai ví dụ cấu hình.
+- `serviceAccountToken` tiêm token của ServiceAccount vào một đường dẫn để container xác thực
+  với API server; ba trường cần nắm là `audience` (bên nhận phải tự nhận đúng định danh này,
+  nếu không phải từ chối token), `expirationSeconds` (mặc định 1 giờ, **tối thiểu 600 giây**)
+  và `path` (tương đối so với điểm mount) — mục *Volume projected serviceAccountToken*.
+- Bẫy `subPath`: container mount một nguồn projected qua `subPath` sẽ **không nhận được cập
+  nhật** cho nguồn đó — ghi chú cuối mục *Volume projected serviceAccountToken*.
+- Trên Linux, khi mọi container trong Pod dùng cùng `runAsUser`, kubelet đặt nội dung volume
+  `serviceAccountToken` thuộc sở hữu user đó với quyền `0600`; ephemeral container thêm sau
+  **không** làm đổi quyền đã đặt và phải dùng đúng `runAsUser` đó mới đọc được token — mục
+  *Tương tác với SecurityContext*, phần *Linux*.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Volume projected clusterTrustBundle* | beta, cần feature gate và `--runtime-config` riêng của kube-apiserver | giai đoạn 9 |
+| *Volume projected podCertificate* | beta, cần feature gate; thuộc mảng quản lý certificate | giai đoạn 12, bài [156](156-certificates-vi.md) |
+| Phần *Windows* trong *Tương tác với SecurityContext* | cluster lab không có node Windows | giai đoạn 15 |
+
+---
+
 Tài liệu này mô tả *volume dạng projected* (projected volume) trong Kubernetes. Bạn nên làm quen trước với [volume](https://kubernetes.io/docs/concepts/storage/volumes/).
 
 ## Giới thiệu (Introduction)
@@ -380,3 +423,46 @@ thực thi.
 > Tạo một Pod Windows với `RunAsUser` trong `SecurityContext` của nó sẽ khiến
 > Pod bị kẹt mãi ở trạng thái `ContainerCreating`. Vì vậy, khuyến cáo không dùng
 > tùy chọn `RunAsUser` (vốn chỉ dành cho Linux) với các Pod Windows.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. Bạn đang mount một ConfigMap và một Secret bằng hai volume riêng. Chuyển sang một volume
+   `projected` duy nhất thì đổi được gì, và ràng buộc nào **không** đổi?
+2. Khi bê nguyên khối `secret:` từ một volume `secret` sang `projected.sources`, trường nào bắt
+   buộc phải đổi tên? Còn `defaultMode` bạn từng đặt cho volume secret thì giờ đặt ở đâu, và
+   muốn đặt quyền riêng cho một file thì dùng gì?
+3. Một Pod trên worker của bạn cần gọi API server bằng danh tính ServiceAccount của chính nó.
+   Bạn khai `expirationSeconds: 300` cho gọn. Có hợp lệ không? `audience` dùng để làm gì?
+4. Bạn mount nguồn projected bằng `subPath` để lấy đúng một file cho gọn thư mục. Hệ quả là gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Đổi được: **cả hai nguồn xuất hiện trong cùng một thư mục** thay vì hai điểm mount riêng, và
+   bạn kiểm soát được đường dẫn của từng mục qua `items[].path`. **Không đổi**: mọi nguồn vẫn
+   **phải nằm cùng namespace với Pod** — projected volume không cho phép lấy ConfigMap hay
+   Secret từ namespace khác.
+2. Trường **`secretName` phải đổi thành `name`**, để nhất quán với cách đặt tên của ConfigMap.
+   `defaultMode` **chỉ đặt được ở cấp `projected`**, không đặt được cho từng nguồn; muốn quyền
+   riêng cho một file thì đặt tường minh **`mode` cho từng projection** trong `items`, đúng như
+   ví dụ `mode: 0777` của bài.
+3. **Không hợp lệ.** `expirationSeconds` mặc định là 1 giờ và **phải ít nhất 600 giây** (10
+   phút); quản trị viên còn có thể giới hạn thêm giá trị tối đa bằng
+   `--service-account-max-token-expiration` trên API server. `audience` khai **bên nhận dự kiến
+   của token**: bên nhận phải tự định danh bằng một định danh nằm trong audience của token, nếu
+   không thì phải từ chối token đó. Bỏ trống thì mặc định là định danh của API server.
+4. **Container đó sẽ không nhận được các cập nhật cho nguồn projected.** Đây là cùng một cái
+   bẫy đã gặp với `configMap` và `secret` ở bài [91](91-volumes-vi.md): `subPath` cho bạn một
+   file tĩnh chứ không phải một file được kubelet giữ đồng bộ. Với token của service account
+   hay với `clusterTrustBundle` — vốn được thiết kế để tự làm mới — thì đây là lỗi nghiêm
+   trọng, không chỉ là bất tiện.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

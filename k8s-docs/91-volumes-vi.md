@@ -2,6 +2,52 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/storage/volumes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 2/16 · Kiểm chứng ở
+Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này rất dài vì mục *Các loại volume* liệt kê **toàn bộ** loại volume Kubernetes từng hỗ
+trợ, kể cả những loại đã bị gỡ bỏ hoặc vô hiệu hóa. Bạn chỉ cần đọc kỹ năm loại: `emptyDir`,
+`hostPath`, `configMap`, `secret`, `persistentVolumeClaim`. Phần còn lại của danh sách lướt
+qua để biết nó tồn tại, đừng học thuộc tham số.
+
+**Phải hiểu ở lần đọc này:**
+
+- Cách khai báo và mount: volume liệt kê ở `.spec.volumes`, còn nơi mount khai riêng cho
+  **từng container** ở `.spec.containers[*].volumeMounts`; volume không mount lồng trong volume
+  khác — mục *Cách volume hoạt động*.
+- Ranh giới vòng đời của `emptyDir`: container crash rồi khởi động lại thì dữ liệu còn, nhưng
+  Pod bị gỡ khỏi node thì dữ liệu **xóa vĩnh viễn** — mục *emptyDir*.
+- `emptyDir.medium: "Memory"` đổi backing sang tmpfs, và file ghi vào đó bị tính vào **memory
+  limit** của container; không đặt `sizeLimit` thì volume lấy bằng allocatable memory của node.
+- Vì sao `hostPath` là lối thoát nguy hiểm: lộ credential và API đặc quyền của node, cùng một
+  PodTemplate chạy khác nhau trên các node khác nhau, và dung lượng nó dùng **không** được tính
+  vào ephemeral storage — mục *hostPath*.
+- `configMap` và `secret` luôn được mount `readOnly` (secret nằm trên tmpfs), và container mount
+  chúng qua `subPath` sẽ **không nhận cập nhật**; `persistentVolumeClaim` chỉ là một loại volume
+  nữa, nó là cửa dẫn sang bài [92](92-persistent-volumes-vi.md).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| `gcePersistentDisk`, `gitRepo`, `portworxVolume`, *flexVolume* | driver in-tree đã lỗi thời, bị gỡ hoặc bị vô hiệu hóa | không cần |
+| `fc`, `iscsi`, `nfs`, `image` | cluster lab chưa có backend lưu trữ nào loại này | không cần |
+| `local` | chỉ dùng được dưới dạng PersistentVolume tạo tĩnh | bài [92](92-persistent-volumes-vi.md), [96](96-storage-classes-vi.md) |
+| `downwardAPI`, `projected` | đã gặp ở giai đoạn 3; bản đầy đủ là một bài riêng | bài [93](93-projected-volumes-vi.md) |
+| *csi* và *Di trú từ plugin in-tree sang driver CSI* | lúc này chỉ cần biết CSI là cách nối lưu trữ ngoài vào cluster | bài [96](96-storage-classes-vi.md) và Lab 6a |
+| *Sử dụng subPath với biến môi trường được mở rộng* | mẹo cấu hình, không phải cơ chế lưu trữ | không cần |
+| *Lan truyền mount* | tính năng cấp thấp, chỉ dành cho driver lưu trữ và container đặc quyền | giai đoạn 9 |
+| *Mount chỉ đọc đệ quy* | phụ thuộc kernel và container runtime | giai đoạn 9 |
+
+---
+
 _Volume_ trong Kubernetes cung cấp một cách để các container trong một Pod
 truy cập và chia sẻ dữ liệu thông qua hệ thống file (filesystem). Có nhiều loại volume khác nhau
 mà bạn có thể dùng cho các mục đích khác nhau, chẳng hạn:
@@ -1235,3 +1281,56 @@ Cấp OCI:
 ## Tiếp theo (What's next)
 
 Xem ví dụ về [triển khai WordPress và MySQL với Persistent Volumes](https://kubernetes.io/docs/tutorials/stateful-application/mysql-wordpress-persistent-volume/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. Một container trong Pod bị crash và kubelet khởi động lại nó. Dữ liệu trong `emptyDir` còn
+   không? Nếu bạn `kubectl delete pod` rồi Deployment tạo Pod mới thì sao?
+2. Bạn đặt `emptyDir.medium: "Memory"` và quên đặt `sizeLimit`. Hai hệ quả nào xảy ra?
+3. `hostPath` và `local` cùng lấy đĩa của node. Vì sao bài khuyên tránh `hostPath` và dùng
+   `local` thay thế?
+4. Cluster lab của bạn (`k8s-master` + 2 worker) **chưa có StorageClass và chưa có provisioner**.
+   Trong các loại volume bài này liệt kê, những loại nào bạn mount được ngay hôm nay mà không
+   cần cài thêm gì, và vì sao `persistentVolumeClaim` chưa dùng được?
+5. Bạn mount một ConfigMap bằng `subPath` để chỉ lấy đúng một file. Điều gì sẽ không còn hoạt
+   động nữa?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Crash container: **dữ liệu vẫn còn**. Bài nói rõ container bị crash *không* làm Pod bị gỡ
+   khỏi node, nên volume `emptyDir` vẫn an toàn. Xóa Pod: **dữ liệu mất vĩnh viễn**, vì
+   `emptyDir` được tạo khi Pod được gán vào node và bị xóa khi Pod bị gỡ khỏi node. Pod mới
+   nhận một `emptyDir` rỗng, thậm chí có thể trên node khác.
+2. Thứ nhất, volume nằm trên **tmpfs**, nên mọi file bạn ghi vào đó **được tính vào memory
+   limit của chính container đã ghi** — rất dễ khiến container bị giết vì hết bộ nhớ chứ không
+   phải vì hết đĩa. Thứ hai, do không đặt `sizeLimit`, volume dựa trên bộ nhớ sẽ có **kích
+   thước bằng allocatable memory của node**, tức gần như không có trần.
+3. Vì `hostPath` mở filesystem của host cho Pod: nó có thể **làm lộ credential đặc quyền của
+   hệ thống (chẳng hạn của kubelet) hoặc các API đặc quyền như socket của container runtime**,
+   và từ đó bị lợi dụng để thoát khỏi container. Thêm hai điểm nữa: Pod cùng một PodTemplate
+   hành xử khác nhau trên các node khác nhau vì file trên mỗi node khác nhau, và dung lượng
+   `hostPath` chiếm **không được tính là ephemeral storage** nên bạn phải tự giám sát. `local`
+   thì được dùng qua PersistentVolume và hệ thống tự biết ràng buộc node qua `nodeAffinity`,
+   nên bền vững và di động mà không phải gán Pod vào node bằng tay.
+4. Dùng được ngay: **`emptyDir`, `configMap`, `secret`, `downwardAPI`, `projected`** — chúng
+   do kubelet dựng tại chỗ từ dữ liệu đã có trong API, không cần backend lưu trữ nào. `hostPath`
+   về kỹ thuật cũng chạy được nhưng kèm đúng những rủi ro ở câu 3. Chưa dùng được:
+   `nfs`, `iscsi`, `fc` vì **phải có server lưu trữ riêng đang chạy**, và
+   **`persistentVolumeClaim` vì nó chỉ mount một PersistentVolume đã tồn tại** — bài này nói
+   nó là cách "yêu cầu" lưu trữ bền vững, còn PV đó ở đâu ra là việc của bài
+   [92](92-persistent-volumes-vi.md). Cluster lab chưa có provisioner nên chưa có PV nào để
+   claim; Lab 6a mới lấp chỗ trống này.
+5. **Container đó sẽ không nhận được cập nhật khi ConfigMap thay đổi.** Bài ghi rõ điều này
+   cho cả `configMap`, `secret` và `downwardAPI`: mount qua `subPath` là ảnh chụp một lần, khác
+   với mount cả volume vốn được kubelet cập nhật khi nguồn đổi.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

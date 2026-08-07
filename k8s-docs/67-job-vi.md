@@ -4,6 +4,55 @@
 >
 > Job đại diện cho các tác vụ một lần (one-off task): chạy đến khi hoàn thành rồi dừng lại.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 6/14 ·
+Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này dài thứ hai trong bộ tài liệu, nhưng phần lõi thì nhỏ. Lý do dài là nó gom cả một
+loạt tính năng alpha/beta của các bản mới — gang scheduling, success policy, pod failure
+policy, mutable scheduling directives — vốn sinh ra cho các nền tảng batch quy mô lớn. Lần
+đọc này bạn chỉ cần **ba núm điều khiển**: `completions`, `parallelism`, `backoffLimit`. Đọc
+xong ba thứ đó là đủ để làm Lab 4 và để hiểu [CronJob](69-cron-jobs-vi.md) ở bài sau.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ba loại tác vụ trong mục *Thực thi song song cho Job* và cách đặt trường cho từng loại:
+  không song song (để trống cả hai, đều mặc định 1); **số lần hoàn thành cố định** (đặt
+  `.spec.completions`); **hàng đợi công việc** (bỏ trống `.spec.completions`, chỉ đặt
+  `.spec.parallelism`).
+- Mức song song **thực tế** có thể lệch `parallelism` vì các lý do bài liệt kê — số lần hoàn
+  thành còn lại, quota, controller hạn chế tạo Pod sau nhiều lần thất bại; và
+  `parallelism: 0` thực chất **tạm dừng Job**.
+- `restartPolicy` của pod template chỉ được là `Never` hoặc `OnFailure`, và hai giá trị này
+  cho hai hành vi khác nhau: `OnFailure` giữ Pod trên node và **chạy lại container tại chỗ**,
+  `Never` khiến Job controller **tạo một Pod mới**.
+- `.spec.backoffLimit` mặc định **6**; Pod thất bại được tạo lại với backoff tăng theo cấp số
+  nhân (10s, 20s, 40s…) trần sáu phút; đếm theo hai cách (số Pod `Failed`, và với
+  `OnFailure` là số lần restart container). Đạt giới hạn là Job **thất bại vĩnh viễn** — không
+  có việc tự khởi động lại Job, phải can thiệp thủ công.
+- `.spec.activeDeadlineSeconds` có **quyền ưu tiên cao hơn** `backoffLimit`; và Job xong thì
+  Pod lẫn object Job **không tự biến mất** — bạn phải tự xóa hoặc đặt `ttlSecondsAfterFinished`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Tích hợp với các Workload API* — Workload, PodGroup, gang scheduling | alpha, cần feature gate `WorkloadWithJob` | không cần |
+| *Chính sách lỗi Pod* và *Giới hạn backoff theo từng index* | tinh chỉnh dựng trên `backoffLimit` đã hiểu | không cần |
+| *Chính sách thành công* và *Elastic Indexed Jobs* | chỉ dùng cho Indexed Job và workload huấn luyện phân tán | không cần |
+| *Chế độ hoàn thành* `Indexed` và bảng *Các mẫu sử dụng Job* | phần lớn các mẫu cần Service hoặc một hàng đợi bên ngoài | giai đoạn 5 |
+| *Tạm dừng một Job*, *Chỉ thị lập lịch có thể thay đổi*, *Ủy quyền quản lý đối tượng Job* | phục vụ controller hàng đợi bên ngoài | không cần |
+| *Chỉ định Pod selector của riêng bạn* và *Theo dõi Job bằng finalizer* | tình huống vận hành hiếm | không cần |
+| *Trì hoãn việc tạo Pod thay thế* (`podReplacementPolicy`) | chỉ đổi thời điểm tạo Pod thay thế | không cần |
+
+---
+
 Một Job tạo ra một hoặc nhiều Pod và sẽ tiếp tục thử lại việc thực thi các Pod cho đến
 khi một số lượng Pod xác định kết thúc thành công. Khi các Pod hoàn thành thành công,
 Job theo dõi các lần hoàn thành thành công đó. Khi đạt đủ số lần hoàn thành thành công
@@ -1430,3 +1479,63 @@ tạo ra và cách phân công công việc cho chúng.
 [Job với giao tiếp Pod-to-Pod]: https://kubernetes.io/docs/tasks/job/job-with-pod-to-pod-communication/
 [Hàng đợi với một Pod cho mỗi work item]: https://kubernetes.io/docs/tasks/job/coarse-parallel-processing-work-queue/
 [Hàng đợi với số lượng Pod thay đổi]: https://kubernetes.io/docs/tasks/job/fine-parallel-processing-work-queue/
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. Một Job đặt `completions: 6` và `parallelism: 2`. Trên hai worker của bạn, tối đa mấy Pod
+   chạy cùng lúc, Job hoàn tất khi nào, và khi chỉ còn 1 lần hoàn thành thiếu thì `parallelism`
+   còn tác dụng gì?
+2. **Câu bẫy.** Container trong Job thoát với mã khác 0. Với `restartPolicy: OnFailure` và với
+   `restartPolicy: Never`, chuyện gì xảy ra khác nhau? Cái nào tạo Pod mới?
+3. Job của bạn đã đạt `backoffLimit`. Nó có tự chạy lại sau một lúc không? Muốn nó chạy lại
+   thì phải làm gì?
+4. Bạn đặt `backoffLimit: 5` và `activeDeadlineSeconds: 100`. Job mới thất bại 2 lần và vừa
+   chạy sang giây thứ 100. Điều gì xảy ra, và trường nào thắng?
+5. Job `pi` đã `Completed` nhưng `kubectl get pods` vẫn thấy Pod của nó và `kubectl get jobs`
+   vẫn thấy Job. Đó là lỗi hay thiết kế? Làm sao để chúng tự biến mất?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Tối đa **2 Pod** chạy cùng lúc. Job hoàn tất khi có **6 Pod kết thúc thành công** — đây là
+   Job "số lần hoàn thành cố định", và bài định nghĩa: Job hoàn tất khi có `.spec.completions`
+   Pod thành công. Khi chỉ còn 1 lần hoàn thành thiếu, `parallelism` **bị giới hạn xuống theo
+   số lần hoàn thành còn lại**: bài nói "số pod thực tế chạy song song sẽ không vượt quá số
+   lần hoàn thành còn lại. Các giá trị `.spec.parallelism` cao hơn thực tế bị bỏ qua."
+2. Với **`OnFailure`**, **Pod vẫn ở lại trên node nhưng container được chạy lại** — chương
+   trình của bạn phải chịu được việc bị khởi động lại tại chỗ. Với **`Never`**, container hỏng
+   làm **cả Pod thất bại**, và khi đó **Job controller khởi động một Pod mới**. Trực giác
+   "Never nghĩa là không thử lại" là sai: `restartPolicy` áp dụng cho **Pod**, không phải cho
+   Job — việc thử lại ở cấp Job vẫn diễn ra, chỉ khác là nó tạo Pod mới thay vì restart
+   container cũ. Số lần thử lại được đếm khác nhau tương ứng: với `Never` là số Pod
+   `.status.phase = "Failed"`, còn với `OnFailure` là số lần restart trong tất cả các container
+   của các Pod đang `Pending` hoặc `Running`. Bài cũng khuyên đặt `Never` khi debug, vì với
+   `OnFailure` Pod bị chấm dứt ngay lúc chạm giới hạn backoff nên khó lấy log.
+3. **Không.** Bài nói rõ: "`restartPolicy` áp dụng cho Pod, chứ không áp dụng cho chính Job:
+   **không có việc tự động khởi động lại Job** khi status của Job là `type: Failed`". Các cơ
+   chế chấm dứt do `backoffLimit` và `activeDeadlineSeconds` kích hoạt "dẫn đến sự thất bại
+   vĩnh viễn của Job, **đòi hỏi can thiệp thủ công**". Muốn chạy lại thì bạn phải xóa Job và
+   tạo lại (hoặc để một controller cấp cao hơn như CronJob tạo Job mới ở lần lịch kế tiếp).
+4. Job bị chấm dứt vì hết **`activeDeadlineSeconds`**: mọi Pod đang chạy bị chấm dứt và status
+   chuyển sang `type: Failed` với `reason: DeadlineExceeded`. **`activeDeadlineSeconds` thắng**
+   — bài nói nó "có quyền ưu tiên cao hơn `.spec.backoffLimit`", nên Job sẽ không triển khai
+   thêm Pod nào nữa dù mới thất bại 2 trên 5 lần cho phép. Lưu ý `activeDeadlineSeconds` áp
+   dụng cho **toàn bộ thời gian tồn tại của Job**, bất kể đã tạo bao nhiêu Pod, và cả Job spec
+   lẫn Pod template spec đều có trường cùng tên — phải đặt đúng cấp.
+5. **Thiết kế.** Bài giải thích: khi một Job hoàn tất, không Pod nào được tạo thêm nhưng các
+   Pod cũng không bị xóa, để bạn vẫn xem được log kiểm tra lỗi và cảnh báo; object Job cũng ở
+   lại để bạn xem status. "Người dùng có trách nhiệm xóa các job cũ". Để chúng tự biến mất,
+   đặt **`.spec.ttlSecondsAfterFinished`** — cơ chế TTL của bài
+   [68](68-ttlafterfinished-vi.md) — hoặc xóa tay bằng `kubectl delete jobs/pi`, khi đó mọi
+   Pod nó đã tạo cũng bị xóa theo. Bài khuyến nghị luôn đặt TTL, vì Job bạn tạo trực tiếp có
+   chính sách xóa mặc định là `orphanDependents`, dễ để lại Pod mồ côi làm nặng cluster.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -4,6 +4,50 @@
 >
 > Các khái niệm để giữ an toàn cho workload cloud native của bạn.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 2/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Lộ trình gọi bài này là "mô hình 4C". Bản hiện tại của trang gốc **không còn mục 4C**; nó chia
+theo **bốn giai đoạn vòng đời** của sách trắng CNCF. Đừng đi tìm mục 4C — ý tương đương nằm ở
+chỗ bài chia bảo mật thành nhiều tầng nối tiếp nhau, từ lúc viết code tới lúc chạy trong
+cluster. Bài này vẫn là bài khung; phần bạn thực sự thao tác được nằm ở giai đoạn Runtime.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bốn giai đoạn vòng đời: *Phát triển*, *Phân phối*, *Triển khai*, *Runtime*. Cluster admin chỉ
+  đứng ở hai giai đoạn cuối, nhưng phải biết hai giai đoạn đầu tồn tại để không tưởng rằng bảo
+  mật cluster là đủ.
+- Giai đoạn *Triển khai*: container và namespace **đều** là cơ chế cô lập, và hạ tầng bên dưới
+  phải cung cấp những đảm bảo bảo mật mà các tầng cao hơn mong đợi.
+- Giai đoạn *Runtime* gồm đúng **ba lĩnh vực**: truy cập, tính toán, lưu trữ. Với lĩnh vực truy
+  cập, bài nói bảo vệ Kubernetes API là **chìa khóa**, và ServiceAccount là cách cấp cùng quản
+  lý danh tính bảo mật cho workload — nối thẳng sang bài [118](118-service-accounts-vi.md).
+- *Bảo vệ runtime: tính toán* — container cung cấp **hai thứ**: cô lập giữa các ứng dụng, và
+  cơ chế gom các ứng dụng đã cô lập đó lên cùng một máy chủ. Chính hai mặt này khiến bảo mật
+  runtime là bài toán **đánh đổi**, không phải bật hết mọi cơ chế.
+- Danh sách biện pháp cụ thể cho phần tính toán: thực thi Pod Security Standards, dùng hệ điều
+  hành chuyên cho container (immutable image), đặt ResourceQuota và LimitRange, **phân chia
+  workload lên các nhóm node tách biệt** theo bối cảnh tin cậy, chọn runtime có hạn chế bảo
+  mật, và dùng module bảo mật Linux như AppArmor hoặc seccomp.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Giai đoạn *Phát triển* và *Phân phối* | thuộc quy trình phát triển và chuỗi cung ứng, không phải thao tác trên cluster | bài [130](130-application-security-checklist-vi.md) |
+| Mã hóa khi lưu trữ cho đối tượng API, khóa sinh trong HSM | là thao tác cấu hình API server | CP7 audit/encryption |
+| CertificateSigningRequests và việc hạn chế lạm dụng | chưa học các cơ chế xác thực | bài [123](123-hardening-authentication-vi.md) |
+| *Mạng và bảo mật* — service mesh, mã hóa của network plugin | NetworkPolicy đã học rồi; service mesh ngoài lộ trình | bài [84](84-network-policies-vi.md) |
+| *Khả năng quan sát và bảo mật runtime* | chưa học ba trụ cột observability | giai đoạn 11 |
+
+---
+
 Kubernetes được xây dựng trên kiến trúc cloud native và tham khảo các khuyến nghị từ
 CNCF về những thực hành tốt cho bảo mật thông tin cloud native.
 
@@ -212,3 +256,44 @@ phân phối thời gian có xác thực (giúp đảm bảo độ tin cậy c�
 * [Network policy](./84-network-policies-vi.md) cho các Pod
 * [Chuẩn bảo mật Pod (Pod security standards)](./115-pod-security-standards-vi.md)
 * [RuntimeClasses](./43-runtime-class-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Bài chia vòng đời thành bốn giai đoạn nào? Theo cách chia đó, vì sao "cluster của tôi đã
+   được hardening" chưa phải câu trả lời đầy đủ cho câu hỏi hệ thống có an toàn không?
+2. Giai đoạn *Runtime* gồm ba lĩnh vực nào, và bài gọi việc bảo vệ thứ gì là "chìa khóa" để
+   bảo mật cluster một cách hiệu quả?
+3. Container cung cấp **hai** thứ theo bài. Hai thứ đó là gì, và vì sao chúng khiến bảo mật
+   runtime trở thành chuyện tìm điểm cân bằng chứ không phải bật càng nhiều cơ chế càng tốt?
+4. Cluster lab của bạn có hai worker chạy hệ điều hành đa dụng, và mọi workload đều trộn chung
+   trên hai node đó. Trong mục *Bảo vệ runtime: tính toán*, bài đề xuất hai biện pháp nào nhắm
+   đúng vào bố cục này để giảm thiệt hại nếu xảy ra container escape?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Phát triển → Phân phối → Triển khai → Runtime.** Hardening cluster chỉ chạm vào hai giai
+   đoạn cuối. Một container image đã nhiễm lỗ hổng từ giai đoạn *Phát triển*, hoặc bị thay đổi
+   trên đường ở giai đoạn *Phân phối*, vẫn sẽ chạy trong một cluster được cấu hình hoàn hảo —
+   nên **bảo mật phải phủ cả bốn giai đoạn**, mỗi giai đoạn có nhóm biện pháp riêng.
+2. **Truy cập, tính toán, lưu trữ.** Bài nói **API của Kubernetes** là thứ khiến cluster hoạt
+   động, nên **bảo vệ API này là chìa khóa** để bảo mật cluster một cách hiệu quả.
+3. Container cung cấp **sự cô lập giữa các ứng dụng** *và* **một cơ chế để gom các ứng dụng đã
+   cô lập đó chạy trên cùng một máy chủ vật lý**. Trực giác thông thường chỉ nhớ vế cô lập.
+   Nhưng chính vế gom nhóm mới là thứ tạo rủi ro, và vì hai vế đi kèm nhau nên bài nói **bảo
+   mật runtime đòi hỏi nhận diện các đánh đổi và tìm điểm cân bằng phù hợp** — siết tối đa thì
+   mất đi lợi ích gom nhóm mà container sinh ra để phục vụ.
+4. **Dùng hệ điều hành chuyên cho container trên node** — thường dựa trên một image chỉ đọc,
+   chỉ cung cấp dịch vụ thiết yếu, nhờ đó cô lập thành phần hệ thống và thu hẹp bề mặt tấn công
+   khi xảy ra container escape. Và **phân chia workload trên các node khác nhau** bằng cơ chế
+   cô lập node, để các Pod có bối cảnh tin cậy khác nhau không nằm chung một node.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

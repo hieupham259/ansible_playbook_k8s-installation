@@ -2,6 +2,52 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 9/11 · Kiểm chứng
+ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài này **vốn viết cho người hardening node**, không phải bài giới thiệu Pod. Nó tham chiếu
+capability của Linux, Pod Security Standards và cấu hình kubelet — toàn thứ của giai đoạn 8 và 9.
+Ở lần đọc này chỉ cần hiểu tính năng làm gì, bật bằng trường nào, và nó cấm những gì; các mục
+thiết lập node để **đọc lướt**.
+
+**Phải hiểu ở lần đọc này:**
+
+- Cách bật: đặt `pod.spec.hostUsers` thành `false`. Kubelet tự chọn dải UID/GID trên host cho Pod
+  và bảo đảm **không hai Pod nào trên cùng một node dùng chung một ánh xạ**.
+- Điều nó mua được: tiến trình chạy root **bên trong** container được ánh xạ sang một người dùng
+  **không đặc quyền trên host**, nên khi container thoát ra host thì thiệt hại bị giới hạn.
+  Capability cũng chỉ có hiệu lực trong namespace — `CAP_SYS_MODULE` mất tác dụng hoàn toàn,
+  `CAP_SYS_ADMIN` bị giới hạn trong user namespace của Pod.
+- Ranh giới dễ nhầm: `runAsUser`, `runAsGroup`, `fsGroup` **luôn trỏ tới người dùng bên trong
+  container**. Vì vậy bật hay tắt user namespace **không đổi quyền sở hữu file trên volume**, và
+  Pod vẫn chia sẻ được volume với Pod không dùng user namespace.
+- Điều kiện tiên quyết là ở tầng hạ tầng chứ không phải Kubernetes: kernel Linux hỗ trợ idmap
+  mount cho `/var/lib/kubelet/pods/` **và** cho mọi filesystem dùng trong volume của Pod, cộng
+  với OCI runtime và CRI runtime đủ mới.
+- Hạn chế cứng: đặt `hostUsers: false` thì **không được** đặt `hostNetwork: true`, `hostIPC: true`
+  hay `hostPID: true`; không container nào trong `containers`, `initContainers`,
+  `ephemeralContainers` được dùng `volumeDevices`; volume NFS không mount được.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Thiết lập node để hỗ trợ user namespace* — người dùng `kubelet`, `getsubids`, `/etc/subuid`, `/etc/subgid`, ràng buộc bội số 65536 | là thao tác cấu hình node | giai đoạn 8 — bài [04](04-kubelet-integration-vi.md) |
+| *Số lượng ID cho mỗi Pod* (`idsPerPod` trong `KubeletConfiguration`) | cũng là cấu hình kubelet | giai đoạn 8 — bài [04](04-kubelet-integration-vi.md) |
+| Chi tiết từng capability được nhắc tới | capability, seccomp, AppArmor học thành bài riêng | giai đoạn 9 — bài [127](127-linux-kernel-security-vi.md) |
+| *Tích hợp với kiểm tra Pod security admission* và danh sách trường được nới lỏng | chưa học Pod Security Standards | giai đoạn 9 — bài [115](115-pod-security-standards-vi.md), [116](116-pod-security-admission-vi.md) |
+| *Metric và khả năng quan sát* | chưa học metric của kubelet | giai đoạn 11 — bài [160](160-system-metrics-vi.md) |
+| CVE và KEP được dẫn link | là bối cảnh, không phải nội dung phải nắm | không cần |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [stable]`
 
 Trang này giải thích cách user namespace (không gian tên người dùng) được sử dụng trong
@@ -299,3 +345,55 @@ Kubelet xuất hai metric prometheus dành riêng cho user namespace:
 ## Tiếp theo (What's next)
 
 * Hãy xem [Dùng User Namespace với một Pod](https://kubernetes.io/docs/tasks/configure-pod-container/user-namespaces/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Trường nào bật user namespace cho một Pod, và ai quyết định Pod được ánh xạ sang dải UID/GID
+   nào trên host?
+2. Bạn đặt `runAsUser: 1000` cho một Pod rồi bật user namespace cho nó. Quyền sở hữu file mà Pod
+   ghi vào volume có đổi không?
+3. Trước khi thử tính năng này trên `k8s-worker2`, bạn phải kiểm những gì trên node? Ở đâu tra
+   được phiên bản đang chạy của cluster lab?
+4. Một Pod đang dùng `hostNetwork: true` để lấy IP của node. Bật thêm `hostUsers: false` cho nó
+   được không?
+5. Nếu kẻ tấn công thoát được khỏi container của một Pod có user namespace, vì sao hắn vẫn không
+   nạp được kernel module trên node?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Trường **`pod.spec.hostUsers`**, đặt thành **`false`**. **Kubelet** là bên chọn UID/GID trên
+   host mà Pod được ánh xạ tới, và nó làm việc đó theo cách bảo đảm **không có hai Pod nào trên
+   cùng một node dùng chung một ánh xạ** — chính điều này giới hạn thứ một Pod có thể làm với các
+   Pod khác trên cùng node.
+2. **Không đổi.** `runAsUser`, `runAsGroup`, `fsGroup` **luôn tham chiếu người dùng bên trong
+   container**, và chính những người dùng đó được dùng cho các volume mount, nên **UID/GID trên
+   host không ảnh hưởng gì tới việc đọc/ghi trên volume**. Bài nói rõ hệ quả: các inode được
+   tạo/đọc trong volume **giống hệt như khi Pod không dùng user namespace**, nhờ vậy bạn bật tắt
+   tính năng này tùy ý và vẫn chia sẻ được volume với Pod không dùng user namespace.
+3. Ba tầng, và **không tầng nào thuộc Kubernetes**: (a) **kernel Linux hỗ trợ idmap mount** cho
+   filesystem của `/var/lib/kubelet/pods/` và cho **mọi** filesystem dùng trong volume của Pod —
+   thực tế nghĩa là kernel đủ mới, vì tmpfs mới hỗ trợ từ một mốc nhất định và Kubernetes dùng
+   tmpfs cho token service account lẫn Secret; (b) **OCI runtime** đủ mới — `runc` hoặc `crun`;
+   (c) **CRI runtime** đủ mới — containerd hoặc CRI-O. Phiên bản thật của cluster lab tra ở
+   [bảng phiên bản được khóa của Lab 00](labs/LAB-00-MOI-TRUONG.md#a13-phiên-bản-được-khóa); phần
+   kernel thì kiểm trực tiếp trên node bằng `uname -r`.
+4. **Không.** Bài liệt kê hạn chế cứng: khi dùng user namespace cho Pod thì **không được phép dùng
+   các namespace khác của host** — đặt `hostUsers: false` thì **không được** đặt
+   `hostNetwork: true`, `hostIPC: true` hay `hostPID: true`. Điều đó hợp lý: mục đích của tính
+   năng là cắt đường tới host, còn ba trường kia là mở đường tới host. Nếu Pod cần biết IP của
+   node thì dùng downward API (bài [56](56-downward-api-vi.md)) thay vì `hostNetwork`.
+5. Vì **capability được cấp cho một Pod chỉ có hiệu lực bên trong user namespace của nó**. Bài lấy
+   đúng ví dụ này: **`CAP_SYS_MODULE` không có tác dụng gì** nếu được cấp cho Pod dùng user
+   namespace — Pod đó không thể nạp kernel module. Tiến trình nghĩ nó là root, nhưng trên host nó
+   là một người dùng không có đặc quyền, nên **những gì nó làm được với host là có giới hạn**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

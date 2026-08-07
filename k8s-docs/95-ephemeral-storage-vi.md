@@ -2,6 +2,54 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/storage/ephemeral-storage/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 8/16 · Kiểm chứng ở
+Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Đây là bài cuối của phần cốt lõi giai đoạn 6, và nó **không nói về volume** mà nói về đĩa của
+node: `emptyDir`, log container, lớp ghi được và container image đều ăn chung một chỗ. Bài này
+là cầu nối trực tiếp sang eviction ở giai đoạn 7 — mọi thứ ở đây kết thúc bằng một tín hiệu
+trục xuất, nên đọc nó với con mắt "khi nào Pod của tôi bị giết vì đầy đĩa".
+
+**Phải hiểu ở lần đọc này:**
+
+- Lưu trữ tạm thời cục bộ gồm những gì và không bảo đảm gì: `emptyDir`, log container cấp node,
+  lớp ghi được của container, container image; node hỏng thì dữ liệu có thể mất và không có SLA
+  hiệu năng nào — đoạn mở đầu.
+- Kubelet **chỉ đo được** khi node theo một trong các bố cục được hỗ trợ; dùng bố cục khác thì
+  kubelet **không áp giới hạn tài nguyên nào** cho lưu trữ tạm thời cục bộ — mục *Các cấu hình
+  cho lưu trữ tạm thời cục bộ*. Riêng `emptyDir` dạng `tmpfs` được tính là **bộ nhớ** của
+  container, không phải lưu trữ tạm thời.
+- Cách khai `requests`/`limits.ephemeral-storage` theo từng container, đơn vị là **byte**, và
+  cái bẫy hoa/thường của hậu tố (`400m` là 0.4 byte chứ không phải 400 mebibyte); limit của Pod
+  là tổng limit các container, và `emptyDir.sizeLimit` tiêu vào chính limit đó — mục *Thiết lập
+  request và limit*.
+- Vượt limit thì kubelet **đặt một tín hiệu trục xuất và trục xuất Pod**; phân biệt cách ly cấp
+  container (lớp ghi được + log của một container vượt limit của nó) với cách ly cấp pod (tổng
+  của tất cả container cộng các volume `emptyDir` vượt limit tổng) — mục *Quản lý mức tiêu thụ
+  lưu trữ tạm thời*.
+- Ranh giới quan trọng nhất của bài: nếu kubelet **không** đo lưu trữ tạm thời cục bộ thì Pod
+  vượt limit **sẽ không bị trục xuất vì lý do đó**; nhưng khi filesystem xuống thấp, node **tự
+  taint chính nó** là đang thiếu lưu trữ cục bộ và taint đó trục xuất mọi Pod không tolerate —
+  khối *Thận trọng* trong cùng mục.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Tách filesystem cho image* và các tên `nodefs` / `imagefs` / `containerfs` | là ngưỡng và tín hiệu của cơ chế eviction | giai đoạn 7, bài [142](142-node-pressure-eviction-vi.md) |
+| Ghi chú về resource quota cho `ephemeral-storage` ở đầu bài | chưa học ResourceQuota | giai đoạn 7, bài [134](134-resource-quotas-vi.md) |
+| *Quét định kỳ* — phần file descriptor còn mở của file đã xóa | chi tiết đo đạc của kubelet | không cần |
+| *Hạn ngạch project của filesystem* | beta và tắt mặc định; cần user namespace, `prjquota` và cấu hình filesystem | không cần |
+
+---
+
 Các node có lưu trữ tạm thời cục bộ (local ephemeral storage), được hỗ trợ bởi
 các thiết bị ghi được gắn cục bộ hoặc, đôi khi, bởi RAM.
 "Tạm thời" (ephemeral) nghĩa là không có bảo đảm dài hạn nào về độ bền của dữ liệu.
@@ -296,3 +344,55 @@ Nếu bạn không muốn dùng hạn ngạch project, bạn nên:
 ## Tiếp theo (What's next)
 
 * Đọc về [hạn ngạch project](https://www.linux.org/docs/man8/xfs_quota.html) trong XFS
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. Hai worker của bạn cài Ubuntu với một filesystem gốc duy nhất; `/var/lib/kubelet`, `/var/log`
+   và thư mục lưu trữ của containerd đều nằm trên đó. Đó là bố cục nào trong bài, và kubelet có
+   đo được lưu trữ tạm thời không?
+2. Bạn khai `requests.ephemeral-storage: 400m`. Bạn vừa xin bao nhiêu?
+3. Pod có hai container, mỗi container `limits.ephemeral-storage: 4Gi`, cộng một volume
+   `emptyDir` với `sizeLimit: 500Mi`. Limit tổng của Pod là bao nhiêu, và kubelet đánh dấu Pod
+   để trục xuất trong hai tình huống nào?
+4. Node của bạn dùng một bố cục kubelet không đo được. Một Pod ghi đầy `emptyDir` vượt xa limit
+   của nó. Nó có bị trục xuất vì vượt limit không? Vậy điều gì mới thực sự xảy ra?
+5. Bạn đổi `emptyDir` sang `medium: Memory`. Dung lượng nó chiếm được kubelet tính vào đâu?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Đó là bố cục **một filesystem duy nhất**: mọi loại dữ liệu tạm thời cục bộ — volume
+   `emptyDir`, lớp ghi được, container image, log — nằm chung một filesystem. Bài nói rõ thông
+   thường cả `/var/lib/kubelet` và `/var/log` đều nằm trên filesystem gốc và **kubelet được
+   thiết kế với bố cục đó**. Vậy nên **có, kubelet đo được** và áp được giới hạn tài nguyên.
+   Cảnh báo kèm theo: nếu sau này bạn mount thêm filesystem riêng dưới những đường dẫn đó,
+   kubelet có thể báo cáo sai.
+2. **0.4 byte.** Hậu tố phân biệt hoa thường: `m` là mili, không phải mega. Người gõ như vậy
+   gần như chắc chắn muốn `400Mi` (400 mebibyte) hoặc `400M` (400 megabyte).
+3. Limit tổng của Pod là **8Gi** — kubelet cộng limit của các container trong Pod; trong 8Gi
+   đó, **500Mi có thể bị volume `emptyDir` tiêu thụ**. Hai tình huống: với **cách ly cấp
+   container**, một container có lớp ghi được cộng log vượt limit **của chính nó** thì Pod bị
+   đánh dấu trục xuất; với **cách ly cấp pod**, tổng mức dùng của tất cả container cộng các
+   volume `emptyDir` vượt **limit tổng thể của Pod** thì Pod cũng bị đánh dấu trục xuất.
+4. **Không.** Đây là chỗ trực giác hay sai: limit chỉ có hiệu lực khi kubelet thực sự đo được.
+   Bài nói thẳng — nếu kubelet không đo lưu trữ tạm thời cục bộ thì Pod vượt limit **sẽ không
+   bị trục xuất vì vi phạm giới hạn đó**. Cái thực sự xảy ra là ở tầng khác: khi filesystem
+   chứa lớp ghi được, log cấp node hoặc `emptyDir` xuống thấp, **node tự taint chính nó là đang
+   thiếu lưu trữ cục bộ**, và taint đó kích hoạt trục xuất với **mọi** Pod không tolerate nó —
+   kể cả những Pod hoàn toàn vô can.
+5. Vào **bộ nhớ**, không vào lưu trữ tạm thời. Kubelet theo dõi volume `emptyDir` dạng `tmpfs`
+   như là mức sử dụng bộ nhớ của container, và mục *Quản lý mức tiêu thụ* cũng loại `emptyDir`
+   dạng tmpfs ra khỏi phần lưu trữ mà nó đo. Hệ quả thực tế: đặt `ephemeral-storage` cao đến
+   mấy cũng không cứu được container, thứ giết nó sẽ là memory limit.
+
+</details>
+
+Đây là bài cuối của phần cốt lõi giai đoạn 6. Trả lời trôi cả năm câu thì chuyển sang **Lab 6a
+— PV, PVC và StorageClass** (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)); câu nào
+còn vướng thì quay lại đúng mục tương ứng trước khi vào lab.

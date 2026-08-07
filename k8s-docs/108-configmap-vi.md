@@ -2,6 +2,47 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/configuration/configmap/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3b](LO-TRINH-ADMIN.md#3b-cấu-hình-và-tài-nguyên), bài 2/7 ·
+Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+
+Bài vừa đủ ngắn để đọc hết trong một lượt, nhưng phần dễ bỏ sót lại là phần quan trọng nhất
+khi vận hành: **ranh giới cập nhật**. Ba cách tiêu thụ ConfigMap có ba hành vi cập nhật khác
+nhau, và đó là nguồn của loại sự cố "tôi đã sửa cấu hình rồi mà ứng dụng không đổi".
+
+**Phải hiểu ở lần đọc này:**
+
+- ConfigMap là dữ liệu **không bí mật** dạng key-value, và khác hầu hết object Kubernetes, nó
+  không có `spec` mà có `data` (chuỗi UTF-8) và `binaryData` (base64) — mục *Đối tượng
+  ConfigMap*. Trần dữ liệu là 1 MiB, nêu ở mục *Động lực*.
+- Bốn cách một Pod tiêu thụ ConfigMap (mục *ConfigMap và Pod*), và với ba cách đầu thì
+  **kubelet nạp dữ liệu lúc khởi chạy container**.
+- Ranh giới cập nhật, mục *ConfigMap đã mount được cập nhật tự động*: mount làm volume thì
+  được cập nhật (trễ bằng chu kỳ đồng bộ của kubelet cộng độ trễ lan truyền cache); dùng làm
+  biến môi trường thì **không**, phải khởi động lại Pod; mount kiểu `subPath` cũng không.
+- Pod và ConfigMap phải **cùng namespace**; static Pod không tham chiếu được ConfigMap. Cách
+  duy nhất đọc ConfigMap ở namespace khác là cách thứ tư — tự gọi Kubernetes API từ trong Pod.
+- Mảng `items` trong `.spec.volumes[].configMap` quyết định key nào thành file; bỏ hẳn `items`
+  thì mọi key đều thành file. `immutable: true` là thay đổi một chiều, muốn sửa phải xóa và
+  tạo lại.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cách thứ tư — viết mã trong Pod gọi Kubernetes API để đọc và subscribe ConfigMap | cần ServiceAccount và RBAC để Pod có quyền đọc | giai đoạn 9, bài [118](118-service-accounts-vi.md) |
+| `configMapAndSecretChangeDetectionStrategy` và các loại cache của kubelet | là tham số cấu hình kubelet | giai đoạn 8, bài [04](04-kubelet-integration-vi.md) |
+| Volume mount kiểu [subPath](./91-volumes-vi.md#using-subpath) | chưa học volume | giai đoạn 6, bài [91](91-volumes-vi.md) |
+| Lợi ích hiệu năng của ConfigMap bất biến (đóng watch, giảm tải kube-apiserver) | chỉ có nghĩa ở cluster hàng chục nghìn lượt mount | không cần |
+
+---
+
 ConfigMap là một API object dùng để lưu dữ liệu không bí mật (non-confidential) dưới
 dạng các cặp key-value. Các Pod có thể tiêu thụ ConfigMap dưới dạng biến môi trường
 (environment variable), đối số dòng lệnh (command-line argument), hoặc dưới dạng các
@@ -362,3 +403,53 @@ nên khuyến nghị tạo lại các pod này.
 * Đọc về [thay đổi một ConfigMap (hoặc bất kỳ object Kubernetes nào khác)](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/).
 * Đọc [The Twelve-Factor App](https://12factor.net/) để hiểu động lực của việc tách mã
   nguồn khỏi cấu hình.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Bạn sửa giá trị một key trong ConfigMap `game-demo`. Pod A mount ConfigMap đó làm volume,
+   Pod B nạp nó bằng `envFrom`. Sau vài phút, Pod nào thấy giá trị mới, Pod nào không, và
+   phải làm gì với Pod không thấy?
+2. Trong ví dụ `game-demo`, ConfigMap có bốn key nhưng container `demo` chỉ thấy hai file
+   trong `/config`. Vì sao? Sửa gì để có đủ bốn file?
+3. Trên cluster lab, bạn tạo ConfigMap trong namespace `default` rồi tạo một Pod ở namespace
+   khác, Pod này chạy trên `k8s-worker2` và mount ConfigMap đó theo tên. Kết quả thế nào?
+   Có cách nào để một Pod đọc được ConfigMap ở namespace khác không?
+4. `binaryData` lưu giá trị dưới dạng chuỗi base64. Vậy đặt mật khẩu vào `binaryData` thì
+   ConfigMap có giấu được mật khẩu không?
+5. Bạn đã đặt `immutable: true` cho một ConfigMap, giờ cần đổi một giá trị trong `data`.
+   Làm thế nào, và phải lưu ý gì với các Pod đang mount nó?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Pod A thấy, Pod B không.** ConfigMap được tiêu thụ trong volume thì các key đã chiếu
+   (project) cũng được cập nhật theo — kubelet kiểm tra độ mới trong mỗi chu kỳ đồng bộ định
+   kỳ, nên có độ trễ bằng chu kỳ đồng bộ của kubelet cộng độ trễ lan truyền cache. Còn
+   "ConfigMap được tiêu thụ dưới dạng biến môi trường **không được cập nhật tự động và đòi
+   hỏi phải khởi động lại pod**". Với Pod B phải khởi động lại Pod. (Ngoại lệ cùng chiều:
+   container mount kiểu `subPath` cũng không nhận cập nhật.)
+2. Vì định nghĩa Pod chỉ định mảng **`items`** trong phần `volumes`, và mảng đó chỉ liệt kê
+   hai key `game.properties` và `user-interface.properties`. **Bỏ hẳn mảng `items`** thì mỗi
+   key trong ConfigMap trở thành một file có tên trùng với key, và bạn nhận được đủ bốn file.
+3. **Không mount được: Pod và ConfigMap phải nằm trong cùng một namespace.** Tham chiếu
+   `.spec.volumes[].configMap.name` chỉ tìm trong namespace của chính Pod, nên kubelet trên
+   `k8s-worker2` không có gì để chiếu vào container. Cách duy nhất bài nêu để đọc ConfigMap ở
+   namespace khác là **cách thứ tư**: viết mã trong Pod dùng trực tiếp Kubernetes API — và khi
+   đó việc Pod có được phép đọc hay không lại là chuyện phân quyền, thuộc giai đoạn 9.
+4. **Không.** base64 chỉ là cách biểu diễn dữ liệu nhị phân dưới dạng chuỗi, không phải mã
+   hóa. Bài nói thẳng ngay đầu: "ConfigMap không cung cấp khả năng giữ bí mật hay mã hóa. Nếu
+   dữ liệu bạn muốn lưu là dữ liệu mật, hãy dùng Secret thay vì ConfigMap." Trực giác "nhìn
+   không đọc được thì là bí mật" sai ở đây — và sẽ còn sai đúng y như vậy ở bài Secret.
+5. **Không sửa được — phải xóa và tạo lại ConfigMap.** Một khi đã đánh dấu bất biến thì không
+   thể hoàn tác thay đổi đó, cũng không thể sửa `data` hay `binaryData`. Lưu ý: các Pod hiện
+   có vẫn giữ mount point trỏ tới ConfigMap đã bị xóa, nên **khuyến nghị tạo lại các Pod đó**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

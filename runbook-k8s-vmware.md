@@ -1903,13 +1903,193 @@ Mua ở bất kỳ registrar nào (Cloudflare Registrar, Namecheap, GoDaddy, PA 
 
 ### 11.2. Thêm domain vào Cloudflare
 
-1. Tạo tài khoản [https://dash.cloudflare.com](https://dash.cloudflare.com) → **Add a site** → nhập domain.
-2. Chọn plan **Free**.
-3. Cloudflare cấp **2 nameserver** (vd `xxx.ns.cloudflare.com`).
-4. Vào trang quản trị của **registrar** → đổi **nameservers** của domain sang 2 NS Cloudflare vừa cấp.
-5. Đợi DNS propagate (vài phút → tối đa 24h). Khi domain ở Cloudflare hiện **Active** là xong.
+Mục này dùng **Primary DNS / Full Setup**: Hostinger vẫn là **registrar** (giữ đăng ký, gia hạn và thông tin chủ thể), còn Cloudflare trở thành **authoritative DNS provider** (quản lý DNS, proxy, HTTPS và Tunnel). Đây là cấu hình đủ cho toàn bộ runbook; **không cần chuyển registrar sang Cloudflare**.
 
-> Nếu mua luôn bằng **Cloudflare Registrar** thì bước đổi nameserver được làm sẵn.
+> **Phân biệt hai lựa chọn trên màn hình “Add a site”:**
+>
+> | Lựa chọn | Thay đổi | Dùng trong runbook? |
+> | --- | --- | --- |
+> | **Connect a domain** | Chuyển DNS authoritative sang Cloudflare; registrar và việc gia hạn vẫn ở Hostinger | **Có — chọn mục này** |
+> | **Transfer a domain** | Chuyển cả đăng ký/gia hạn domain từ Hostinger sang Cloudflare Registrar | Không cần; chỉ là tùy chọn sau này |
+>
+> Cloudflare yêu cầu domain phải **Active trên Cloudflare trước khi transfer** và domain mới đăng ký/transfer thường bị khóa transfer **60 ngày**. Vì vậy ngay cả khi sau này muốn chuyển registrar, vẫn phải hoàn tất luồng **Connect a domain** bên dưới trước. Không tắt *domain/transfer lock* và không lấy mã EPP trong mục này.
+
+#### 11.2.1. Gate trước thay đổi — kiểm tra domain, DNSSEC và bản ghi hiện có tại Hostinger
+
+Trong **Hostinger hPanel → Domains → Domain portfolio → Manage → DNS / Nameservers**:
+
+1. Xác nhận domain có trạng thái **Hoạt động/Active** và chưa hết hạn.
+2. Giữ **Khóa tên miền / Domain lock** ở trạng thái bật; khóa transfer không cản trở đổi nameserver.
+3. Mở tab **DNSSEC**:
+   - Nếu trang chỉ có form trống `Key Tag / Algorithm / Digest Type / Digest`, không có DS record đã lưu → DNSSEC đang **tắt**, không cần làm gì.
+   - Nếu có DS record → xóa/tắt DNSSEC tại Hostinger, đợi DS TTL hết rồi mới đổi nameserver. Đổi NS khi DS cũ còn tồn tại có thể làm resolver trả `SERVFAIL`.
+4. Mở tab **DNS records**, ghi lại mọi record đang thực sự dùng. Đặc biệt không được bỏ sót `MX`, SPF (`TXT`), DKIM (`TXT`/`CNAME`) và DMARC (`TXT`) nếu đang dùng email theo domain. Cloudflare Quick Scan **không bảo đảm** tìm đủ mọi record.
+
+**Verify trên máy host Windows** — thay giá trị bằng domain thật, không thêm `https://` hoặc subdomain:
+
+```powershell
+$DomainName = "hieupn.site"
+
+# NS hiện tại trước migration; với domain mua ở Hostinger thường là *.dns-parking.com
+Resolve-DnsName -Name $DomainName -Type NS -Server 1.1.1.1
+
+# Gate DNSSEC: trước khi đổi NS không được còn DS record cũ
+$OldDs = @(
+  Resolve-DnsName -Name $DomainName -Type DS -Server 1.1.1.1 -DnsOnly -ErrorAction SilentlyContinue |
+    Where-Object Type -eq 'DS'
+)
+if ($OldDs) {
+  $OldDs
+  throw "STOP: còn DS record cũ; xóa/tắt DNSSEC tại Hostinger và đợi DS TTL hết"
+} else {
+  "PASS: không có DS record cũ"
+}
+```
+
+PASS khi domain `Active` ở Hostinger, NS hiện tại resolve được, danh sách DNS cần giữ đã được đối chiếu và lệnh DS in `PASS`. Nếu có DS cũ, **dừng tại đây**; Cloudflare hướng dẫn thường phải đợi TTL của DS hết (có thể 24–48 giờ) trước khi thay NS.
+
+#### 11.2.2. Thêm domain tại Cloudflare — chọn Connect, scan và review DNS
+
+1. Đăng nhập [https://dash.cloudflare.com](https://dash.cloudflare.com).
+2. Vào **Domains → Overview** → bấm **Add a site / Add a domain**. Tài liệu Cloudflare gọi thao tác này là *Onboard a domain*; đây là nút trong trang Overview, không nhất thiết là tên menu bên trái.
+3. Chọn **Connect a domain**.
+4. Nhập **apex/root domain**, ví dụ `hieupn.site`; không nhập `https://hieupn.site`, `www.hieupn.site` hoặc `app.hieupn.site`.
+5. Chọn **Quick scan / Scan automatically / Import existing DNS records**.
+6. Chọn plan **Free** — đủ cho DNS, Universal SSL và Cloudflare Tunnel của lab.
+7. Tại trang review DNS records, so sánh từng `Type`, `Name`, `Content`, `Priority` với danh sách đã ghi ở §11.2.1; tự thêm record bị thiếu trước khi đổi nameserver.
+
+Quy tắc review:
+
+- Record web `A`/`AAAA`/`CNAME` có thể để **Proxied** (mây cam) khi cần đi qua Cloudflare.
+- Record email và record xác minh (`MX`, mail host, SPF/DKIM/DMARC) phải theo đúng chỉ dẫn của nhà cung cấp email; `MX` và các hostname mail thường để **DNS only**.
+- Domain mới chỉ dùng cho lab có thể chỉ có record parking của Hostinger. Có thể giữ tạm trong lúc kích hoạt rồi xóa khi không dùng.
+- **Không** tạo `A` record trỏ vào IP LAN `192.168.x.x`, ClusterIP `10.x.x.x` hoặc IP động của router. §12 sẽ tạo hostname cho Tunnel mà không phơi IP nhà.
+- Chưa cần tự tạo `app.<domain>`: khi thêm Published application route ở §12.3, Cloudflare sẽ tạo DNS record cho Tunnel trong Full Setup.
+
+**Checkpoint Cloudflare DNS:** chỉ bấm tiếp tục khi không còn record website/email cần giữ bị thiếu. Với domain lab mới không dùng email, PASS khi xác nhận không có MX/DKIM/SPF/DMARC cần migrate và không có record nào trỏ nhầm IP private.
+
+#### 11.2.3. Lấy đúng hai nameserver Cloudflare
+
+Cloudflare cấp đúng **hai authoritative nameserver** riêng cho zone, dạng:
+
+```text
+<ns-thu-nhat>.ns.cloudflare.com
+<ns-thu-hai>.ns.cloudflare.com
+```
+
+Copy nguyên văn cả hai từ onboarding flow hoặc **domain → Overview**. Không dùng tên ví dụ trong runbook, không thêm `https://`, IP hay dấu `/`; không dùng cặp NS của domain/tài khoản khác.
+
+**Checkpoint NS được cấp:** PASS khi Cloudflare hiển thị đúng hai hostname kết thúc bằng `.ns.cloudflare.com` và zone đang ở trạng thái **Pending Nameserver Update**. Trạng thái Pending là đúng ở thời điểm này nhưng **chưa đủ** để chạy §12.
+
+#### 11.2.4. Thay nameserver ở Hostinger
+
+Quay lại **Hostinger hPanel**:
+
+1. **Domains → Domain portfolio → Manage** domain.
+2. Trong card **DNS/Máy chủ tên miền**, bấm **Chỉnh sửa**.
+3. Chọn **Change nameservers / Use custom nameservers / Thay đổi máy chủ tên miền**.
+4. Xóa **toàn bộ** nameserver Hostinger hiện tại (thường là hai tên `*.dns-parking.com`).
+5. Dán đúng hai NS Cloudflare ở §11.2.3 vào hai ô nameserver và lưu.
+
+Không thao tác ở tab **Bản ghi DNS**, **Máy chủ tên miền con/Child nameservers** hoặc **DNSSEC**. Không giữ lẫn một NS Hostinger và một NS Cloudflare; Full Setup gói Free chỉ được kích hoạt khi registrar chỉ liệt kê cặp NS Cloudflare được cấp.
+
+**Checkpoint Hostinger:** mở lại trang tổng quan domain và xác nhận card **DNS/Máy chủ tên miền** chỉ hiển thị hai NS Cloudflare, không còn `*.dns-parking.com`. Giữ domain lock bật. Nếu Hostinger yêu cầu xác nhận bảo mật/email, hoàn tất rồi kiểm tra lại card này.
+
+#### 11.2.5. Verify propagation và trạng thái Active
+
+Quay lại Cloudflare, cuộn xuống cuối trang hướng dẫn thay NS và bấm **I updated my nameservers** (một số phiên bản UI dùng **Done, check nameservers / Check nameservers now**). Nút này chỉ báo cho Cloudflare bắt đầu/ưu tiên kiểm tra; propagation thường mất vài phút nhưng có thể tới 24 giờ. Zone `Pending Nameserver Update` chưa được coi là sẵn sàng để proxy traffic.
+
+Trên máy host Windows, thay hai giá trị `$ExpectedNs` bằng đúng NS Cloudflare của zone:
+
+```powershell
+$DomainName = "hieupn.site"
+$ExpectedNs = @(
+  "<ns-thu-nhat>.ns.cloudflare.com",
+  "<ns-thu-hai>.ns.cloudflare.com"
+) | ForEach-Object { $_.TrimEnd('.').ToLowerInvariant() } | Sort-Object -Unique
+
+$ObservedNs = @(
+  Resolve-DnsName -Name $DomainName -Type NS -Server 1.1.1.1 |
+    Where-Object Type -eq 'NS' |
+    ForEach-Object { $_.NameHost.TrimEnd('.').ToLowerInvariant() } |
+    Sort-Object -Unique
+)
+
+"Expected: $($ExpectedNs -join ', ')"
+"Observed: $($ObservedNs -join ', ')"
+$NsDiff = Compare-Object -ReferenceObject $ExpectedNs -DifferenceObject $ObservedNs
+if ($ObservedNs.Count -eq 2 -and -not $NsDiff) {
+  "PASS: public DNS chỉ trả về đúng hai NS Cloudflare"
+} else {
+  $NsDiff
+  throw "STOP: NS public chưa khớp hoàn toàn"
+}
+
+# Cross-check bằng resolver độc lập thứ hai theo hướng dẫn Cloudflare
+nslookup -type=ns $DomainName 8.8.8.8
+```
+
+PASS cuối bước khi **đồng thời** thỏa cả ba điều kiện:
+
+1. Script với resolver `1.1.1.1` in `PASS`.
+2. `nslookup` qua `8.8.8.8` chỉ thấy đúng hai NS Cloudflare.
+3. Cloudflare **Domains → Overview** hiển thị zone **Active** (không chỉ `Pending`).
+
+Nếu Cloudflare đã **Active** và một resolver đã trả NS Cloudflare nhưng resolver còn lại vẫn trả `*.dns-parking.com` với TTL đang đếm xuống, delegation tại registrar đã đúng; resolver kia chỉ còn cache NS cũ. Không đổi NS lại, không xóa/re-add zone và không cố xóa cache trên máy (không thể xóa cache của resolver công cộng). Đợi TTL cũ hết rồi chạy lại cả hai truy vấn. Để tránh cửa sổ `SERVFAIL` khi resolver vẫn dùng NS cũ nhưng registry đã có DS mới, chỉ sang §11.2.6 bật DNSSEC sau khi **cả `1.1.1.1` và `8.8.8.8`** đều trả đúng cặp NS Cloudflare.
+
+Nếu quá 24 giờ vẫn Pending, kiểm tra lại: registrar có đúng **chỉ hai** NS Cloudflare hay chưa, còn NS Hostinger nào không, tên NS có bị gõ sai không và `Resolve-DnsName -Type DS` có còn DS record cũ không.
+
+#### 11.2.6. Bật DNSSEC mới sau khi Cloudflare Active
+
+Chỉ làm bước này **sau** khi §11.2.5 PASS. Vì registrar vẫn là Hostinger, Cloudflare ký zone và sinh DS record; Hostinger đăng DS đó lên registry.
+
+1. Cloudflare → chọn domain → **DNS → Settings → DNSSEC → Enable DNSSEC**.
+2. Mở **DS record** và giữ màn hình chứa `Key Tag`, `Algorithm`, `Digest Type`, `Digest`.
+3. Hostinger → domain → **DNS / Nameservers → DNSSEC**.
+4. Nhập đúng ánh xạ, không tự biến đổi giá trị:
+
+   | Cloudflare DS record | Ô Hostinger |
+   | --- | --- |
+   | Key Tag | Key Tag |
+   | Algorithm | Algorithm |
+   | Digest Type | Digest Type |
+   | Digest | Digest |
+
+5. Bấm **Thêm/Add**, chờ DS propagate và Cloudflare xác nhận DNSSEC.
+
+**Verify DNSSEC trên Windows:**
+
+```powershell
+$DomainName = "hieupn.site"
+
+$NewDs = @(
+  Resolve-DnsName -Name $DomainName -Type DS -Server 1.1.1.1 -DnsOnly -ErrorAction SilentlyContinue |
+    Where-Object Type -eq 'DS'
+)
+if ($NewDs) {
+  $NewDs | Format-Table Name, Type, KeyTag, Algorithm, DigestType, Digest -AutoSize
+  "PASS: DS record mới đã được publish"
+} else {
+  throw "STOP: chưa thấy DS record mới; chưa coi DNSSEC là hoàn tất"
+}
+
+# 1.1.1.1 là validating resolver; truy vấn SOA phải trả kết quả, không được SERVFAIL
+Resolve-DnsName -Name $DomainName -Type SOA -Server 1.1.1.1 -DnssecOk
+```
+
+PASS khi Hostinger hiển thị DS record đã lưu, truy vấn `DS` trả đúng `KeyTag/Algorithm/DigestType/Digest` Cloudflare cấp, truy vấn `SOA` không `SERVFAIL`, và Cloudflare DNSSEC hiển thị **Active/Confirmed**. Nếu chưa PASS, **không xóa/disable DNSSEC theo thứ tự tùy ý**; khi rollback phải xóa DS ở registrar trước rồi chờ DS TTL hết, sau đó mới tắt signing tại Cloudflare.
+
+#### 11.2.7. Gate hoàn thành mục 11
+
+Chỉ chuyển sang §12 khi:
+
+- Hostinger vẫn quản lý đăng ký/gia hạn; domain lock bật.
+- DNS authoritative public chỉ có đúng hai NS Cloudflare.
+- Cloudflare zone là **Active**.
+- DNS records website/email cần giữ đã có đầy đủ ở Cloudflare.
+- DNSSEC mới là **Active/Confirmed** và kiểm tra không `SERVFAIL`.
+
+> **Checkpoint — gửi để kiểm tra trước §12:** ảnh Cloudflare Overview chỉ cần thấy `Active` (che account/email), output hai lệnh NS qua `1.1.1.1` và `8.8.8.8`, cùng output verify DNSSEC. Nameserver/DS record là dữ liệu public; không gửi mật khẩu Hostinger/Cloudflare, mã EPP, API token, tunnel token hoặc thông tin liên hệ chủ domain.
 
 ---
 
@@ -2435,6 +2615,12 @@ kubectl get events -A --sort-by=.lastTimestamp | tail -30
 - Rancher — *local-path-provisioner stable install*: [https://github.com/rancher/local-path-provisioner](https://github.com/rancher/local-path-provisioner)
 - MetalLB — *Installation*: [https://metallb.io/installation/](https://metallb.io/installation/)
 - MetalLB — *Configuration và Usage*: [https://metallb.io/configuration/](https://metallb.io/configuration/), [https://metallb.io/usage/](https://metallb.io/usage/)
+- Cloudflare — *Primary DNS / Full setup (add domain, review records, replace NS, verify Active)*: [https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/](https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/)
+- Cloudflare — *Zone status (Pending vs Active)*: [https://developers.cloudflare.com/dns/zone-setups/reference/domain-status/](https://developers.cloudflare.com/dns/zone-setups/reference/domain-status/)
+- Cloudflare — *DNSSEC (disable before migration, enable and publish DS after Active)*: [https://developers.cloudflare.com/dns/dnssec/](https://developers.cloudflare.com/dns/dnssec/)
+- Cloudflare — *Transfer domain to Cloudflare Registrar*: [https://developers.cloudflare.com/registrar/get-started/transfer-domain-to-cloudflare/](https://developers.cloudflare.com/registrar/get-started/transfer-domain-to-cloudflare/)
+- Hostinger — *Point a domain to external services*: [https://support.hostinger.com/en/articles/4737652-how-to-point-a-domain-to-external-services](https://support.hostinger.com/en/articles/4737652-how-to-point-a-domain-to-external-services)
+- Hostinger — *Manage DNS records / DNSSEC in hPanel*: [https://support.hostinger.com/en/articles/1583249-how-to-manage-dns-records-at-hostinger](https://support.hostinger.com/en/articles/1583249-how-to-manage-dns-records-at-hostinger)
 - Cloudflare — *Tunnel setup*: [https://developers.cloudflare.com/tunnel/setup/](https://developers.cloudflare.com/tunnel/setup/)
 - Cloudflare — *Deploy cloudflared in Kubernetes*: [https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/](https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/)
 - Cloudflare — *Tunnel with firewall*: [https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/)
@@ -2564,4 +2750,4 @@ sudo systemctl restart containerd kubelet
 
 ---
 
-*Runbook tạo ngày 2026-06-26; cập nhật đồng bộ ngày 2026-08-01. Baseline: Ubuntu 24.04 amd64, Kubernetes **v1.35.6** (`1.35.6-1.1`), containerd **2.x** từ Ubuntu, Flannel **v0.28.7**, Traefik chart **41.0.2** / Proxy **v3.7.6**, cert-manager **v1.21.0**, Rancher **2.14.3**. Đây là homelab baseline, không phải SLA/certification production end-to-end cho kubeadm.*
+*Runbook tạo ngày 2026-06-26; cập nhật đồng bộ ngày 2026-08-09. Baseline: Ubuntu 24.04 amd64, Kubernetes **v1.35.6** (`1.35.6-1.1`), containerd **2.x** từ Ubuntu, Flannel **v0.28.7**, Traefik chart **41.0.2** / Proxy **v3.7.6**, cert-manager **v1.21.0**, Rancher **2.14.3**. Đây là homelab baseline, không phải SLA/certification production end-to-end cho kubeadm.*

@@ -1999,7 +1999,7 @@ Không thao tác ở tab **Bản ghi DNS**, **Máy chủ tên miền con/Child n
 
 Quay lại Cloudflare, cuộn xuống cuối trang hướng dẫn thay NS và bấm **I updated my nameservers** (một số phiên bản UI dùng **Done, check nameservers / Check nameservers now**). Nút này chỉ báo cho Cloudflare bắt đầu/ưu tiên kiểm tra; propagation thường mất vài phút nhưng có thể tới 24 giờ. Zone `Pending Nameserver Update` chưa được coi là sẵn sàng để proxy traffic.
 
-Trên máy host Windows, thay hai giá trị `$ExpectedNs` bằng đúng NS Cloudflare của zone:
+Trên máy host Windows, thay hai giá trị `$ExpectedNs` bằng đúng NS Cloudflare của zone. Block vừa hiển thị `NameHost/TTL` để quan sát cache, vừa tự so sánh **cả hai resolver** với cặp NS mong đợi:
 
 ```powershell
 $DomainName = "hieupn.site"
@@ -2008,31 +2008,49 @@ $ExpectedNs = @(
   "<ns-thu-hai>.ns.cloudflare.com"
 ) | ForEach-Object { $_.TrimEnd('.').ToLowerInvariant() } | Sort-Object -Unique
 
-$ObservedNs = @(
-  Resolve-DnsName -Name $DomainName -Type NS -Server 1.1.1.1 |
-    Where-Object Type -eq 'NS' |
-    ForEach-Object { $_.NameHost.TrimEnd('.').ToLowerInvariant() } |
-    Sort-Object -Unique
-)
+$Resolvers = @('1.1.1.1', '8.8.8.8')
+$AllResolversPassed = $true
 
-"Expected: $($ExpectedNs -join ', ')"
-"Observed: $($ObservedNs -join ', ')"
-$NsDiff = Compare-Object -ReferenceObject $ExpectedNs -DifferenceObject $ObservedNs
-if ($ObservedNs.Count -eq 2 -and -not $NsDiff) {
-  "PASS: public DNS chỉ trả về đúng hai NS Cloudflare"
-} else {
-  $NsDiff
-  throw "STOP: NS public chưa khớp hoàn toàn"
+foreach ($Resolver in $Resolvers) {
+  $RawNs = @(
+    Resolve-DnsName -Name $DomainName -Type NS -Server $Resolver -DnsOnly -ErrorAction SilentlyContinue |
+      Where-Object Type -eq 'NS'
+  )
+
+  "`n=== Resolver $Resolver ==="
+  $RawNs | Select-Object NameHost, TTL | Format-Table -AutoSize
+
+  $ObservedNs = @(
+    $RawNs |
+      ForEach-Object { $_.NameHost.TrimEnd('.').ToLowerInvariant() } |
+      Sort-Object -Unique
+  )
+  if ($ObservedNs.Count -gt 0) {
+    $NsDiff = @(Compare-Object -ReferenceObject $ExpectedNs -DifferenceObject $ObservedNs)
+  } else {
+    $NsDiff = @("Không nhận được NS answer từ $Resolver")
+  }
+
+  if ($ObservedNs.Count -eq 2 -and -not $NsDiff) {
+    "PASS: $Resolver trả đúng hai NS Cloudflare"
+  } else {
+    $AllResolversPassed = $false
+    "Expected: $($ExpectedNs -join ', ')"
+    "Observed: $($ObservedNs -join ', ')"
+    $NsDiff
+  }
 }
 
-# Cross-check bằng resolver độc lập thứ hai theo hướng dẫn Cloudflare
-nslookup -type=ns $DomainName 8.8.8.8
+if (-not $AllResolversPassed) {
+  throw "STOP: ít nhất một resolver công cộng chưa trả đúng cặp NS Cloudflare"
+}
+"PASS: cả 1.1.1.1 và 8.8.8.8 đều trả đúng cặp NS Cloudflare"
 ```
 
 PASS cuối bước khi **đồng thời** thỏa cả ba điều kiện:
 
-1. Script với resolver `1.1.1.1` in `PASS`.
-2. `nslookup` qua `8.8.8.8` chỉ thấy đúng hai NS Cloudflare.
+1. Block in `PASS` riêng cho `1.1.1.1` và `8.8.8.8`, rồi in PASS tổng.
+2. Bảng của cả hai resolver chỉ thấy đúng hai NS Cloudflare; TTL không còn gắn với NS Hostinger.
 3. Cloudflare **Domains → Overview** hiển thị zone **Active** (không chỉ `Pending`).
 
 Nếu Cloudflare đã **Active** và một resolver đã trả NS Cloudflare nhưng resolver còn lại vẫn trả `*.dns-parking.com` với TTL đang đếm xuống, delegation tại registrar đã đúng; resolver kia chỉ còn cache NS cũ. Không đổi NS lại, không xóa/re-add zone và không cố xóa cache trên máy (không thể xóa cache của resolver công cộng). Đợi TTL cũ hết rồi chạy lại cả hai truy vấn. Để tránh cửa sổ `SERVFAIL` khi resolver vẫn dùng NS cũ nhưng registry đã có DS mới, chỉ sang §11.2.6 bật DNSSEC sau khi **cả `1.1.1.1` và `8.8.8.8`** đều trả đúng cặp NS Cloudflare.

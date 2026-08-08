@@ -2100,6 +2100,8 @@ Nếu quá 24 giờ vẫn Pending, kiểm tra lại: registrar có đúng **ch�
 
 Chỉ làm bước này **sau** khi §11.2.5 PASS. Vì registrar vẫn là Hostinger, Cloudflare ký zone và sinh DS record; Hostinger đăng DS đó lên registry.
 
+**Vì sao phải qua Hostinger dù DNS đã ở Cloudflare.** DNSSEC là chuỗi tin cậy `. → .site → hieupn.site`, mỗi tầng giữ hash khóa của tầng dưới. DS của `hieupn.site` vì vậy phải nằm trong zone cha `.site`, không nằm trong zone của chính nó — nếu không thì Cloudflare vừa ký vừa tự xác nhận mình, thành vòng tròn và mất hết ý nghĩa xác thực. Chỉ **registrar** mới ghi được vào registry `.site` qua EPP, và registrar ở đây là Hostinger (§11.2 chọn *Connect a domain*, không transfer). Badge **DNS Setup: Full** trên dashboard chỉ nói Cloudflare là authoritative DNS đầy đủ, **không** nói Cloudflare là registrar.
+
 **Điều kiện để Hostinger nhận DS:** tab **DNSSEC** ở hPanel chỉ dùng được khi domain trỏ nameserver ra nhà cung cấp ngoài — đúng trạng thái sau §11.2.4 — và khi TLD/registrar hỗ trợ DNSSEC. Hostinger nói rõ giá trị DS **phải do nhà cung cấp đang giữ nameserver sinh ra**, ở đây là Cloudflare; không tự tạo, không lấy từ nguồn khác. Nếu tab DNSSEC không xuất hiện hoặc bị khóa, **STOP**: xác nhận lại domain đã dùng NS Cloudflare, kiểm tra TLD có hỗ trợ DNSSEC và liên hệ Hostinger nếu cần. Không tự kết luận chỉ từ trạng thái UI và không bỏ qua, vì gate §11.2.7 của baseline này yêu cầu DNSSEC **Active/Confirmed**.
 
 ##### Bước 1 — Lấy giá trị tại Cloudflare
@@ -2132,9 +2134,16 @@ Panel Cloudflare hiển thị bốn giá trị này thành từng dòng riêng, 
 Chạy trên máy host Windows. Block này chỉ đọc chuỗi đã copy, không gọi mạng, và chặn sẵn ba lỗi copy hay gặp nhất:
 
 ```powershell
-# Dán nguyên văn dòng DS Record của Cloudflare vào giữa hai dấu nháy đơn.
-# Panel chỉ hiện bốn số rời cũng dán được, ví dụ: '2371 13 2 32996839...3826F2B9'
+# Chọn đúng MỘT trong hai option khởi tạo $DsRecord dưới đây.
+
+# OPTION 1 — Dán thủ công: giữ dòng này và để OPTION 2 ở trạng thái comment.
+# Dán nguyên văn DS Record giữa hai dấu nháy đơn. Panel chỉ hiện bốn số rời cũng dán được,
+# ví dụ: '2371 13 2 32996839...3826F2B9'.
 $DsRecord = '<dán DS Record của Cloudflare vào đây>'
+
+# OPTION 2 — Đọc clipboard: sau khi bấm icon Copy cạnh DS Record trên Cloudflare,
+# comment dòng OPTION 1 ở trên rồi bỏ dấu # ở dòng dưới. Out-String dùng được với Windows PowerShell 5.1.
+# $DsRecord = (Get-Clipboard | Out-String).Trim()
 
 $Parts = ($DsRecord -replace '(?i)^.*\sIN\s+DS\s+', '').Trim() -split '\s+' | Where-Object { $_ }
 if ($Parts.Count -ne 4) {

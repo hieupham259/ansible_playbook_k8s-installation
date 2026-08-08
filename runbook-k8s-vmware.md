@@ -2053,7 +2053,46 @@ PASS cuối bước khi **đồng thời** thỏa cả ba điều kiện:
 2. Bảng của cả hai resolver chỉ thấy đúng hai NS Cloudflare; TTL không còn gắn với NS Hostinger.
 3. Cloudflare **Domains → Overview** hiển thị zone **Active** (không chỉ `Pending`).
 
-Nếu Cloudflare đã **Active** và một resolver đã trả NS Cloudflare nhưng resolver còn lại vẫn trả `*.dns-parking.com` với TTL đang đếm xuống, delegation tại registrar đã đúng; resolver kia chỉ còn cache NS cũ. Không đổi NS lại, không xóa/re-add zone và không cố xóa cache trên máy (không thể xóa cache của resolver công cộng). Đợi TTL cũ hết rồi chạy lại cả hai truy vấn. Để tránh cửa sổ `SERVFAIL` khi resolver vẫn dùng NS cũ nhưng registry đã có DS mới, chỉ sang §11.2.6 bật DNSSEC sau khi **cả `1.1.1.1` và `8.8.8.8`** đều trả đúng cặp NS Cloudflare.
+Nếu Cloudflare đã **Active** và một resolver đã trả NS Cloudflare nhưng resolver còn lại vẫn trả `*.dns-parking.com` với TTL đang đếm xuống, delegation tại registrar đã đúng; resolver kia chỉ còn cache NS cũ. Không đổi NS lại, không xóa/re-add zone.
+
+**Đọc TTL đang đếm xuống.** Giá trị `TTL` trong output là thời gian **còn lại** của bản ghi trong cache resolver, không phải TTL gốc của zone. Lấy TTL gốc trừ đi giá trị này ra thời điểm resolver đã cache. Ví dụ NS có TTL gốc `86400` mà `1.1.1.1` trả `80288` nghĩa là bản ghi được cache cách đây `86400 - 80288 = 6112` giây (1 giờ 42 phút) và còn 22 giờ 18 phút nữa mới tự hết hạn.
+
+**Rút ngắn thời gian chờ bằng DNS cache purge (tùy chọn).** Trong ngữ cảnh này, *purge/flush cache* nghĩa là yêu cầu một **recursive DNS resolver** xóa RRset `NS` đang cache cho domain và tra cứu lại từ hệ thống DNS authoritative. Nó không xóa domain hay DNS record tại nguồn. Ví dụ khi `1.1.1.1` còn giữ NS Hostinger:
+
+```text
+Purge NS cache của hieupn.site tại 1.1.1.1
+  → 1.1.1.1 bỏ bản sao orbit/horizon.dns-parking.com đang cache
+  → hỏi lại delegation public
+  → nhận donna/ian.ns.cloudflare.com
+  → cache cặp NS mới với TTL mới
+```
+
+Cache trên máy (`Clear-DnsClientCache`) không giúp trường hợp này vì block kiểm tra truy vấn thẳng resolver công cộng bằng `-Server`. Hai resolver dùng trong runbook có công cụ refresh công khai — nhập **apex domain** và chọn record type **`NS`**:
+
+| Resolver | Công cụ purge |
+| --- | --- |
+| `1.1.1.1` | [https://one.one.one.one/purge-cache/](https://one.one.one.one/purge-cache/) |
+| `8.8.8.8` | [https://dns.google/cache](https://dns.google/cache) |
+
+Purge DNS resolver **không**:
+
+- xóa DNS record trong zone Cloudflare, đổi nameserver tại Hostinger hoặc xóa domain;
+- xóa cache trình duyệt/Windows hay cache của resolver ISP và máy khác;
+- xóa nội dung website/CDN. Không dùng **Caching → Purge Everything** trong Cloudflare Dashboard — đó là HTTP/CDN cache, không phải DNS resolver cache;
+- ép toàn bộ Internet cập nhật ngay lập tức.
+
+Chỉ purge khi Cloudflare đã báo **Active**. Purge sớm hơn, khi registry vẫn trả NS Hostinger, sẽ làm resolver nạp và cache lại đúng NS cũ thêm một chu kỳ TTL. Ngay cả sau `Active`, purge vẫn là **best-effort**: hạ tầng resolver phân tán có thể chưa cập nhật mọi node ngay và công cụ không tác động resolver của bên thứ ba.
+
+Thao tác tùy chọn:
+
+1. Mở công cụ tương ứng trong bảng.
+2. Nhập domain gốc, ví dụ `hieupn.site` — không nhập `https://` hoặc `app.hieupn.site`.
+3. Chọn record type `NS` → bấm **Purge Cache** (`1.1.1.1`) hoặc **Flush Cache** (`8.8.8.8`). Chỉ cần purge resolver còn trả NS cũ; resolver đã trả NS Cloudflare không cần purge.
+4. Chờ vài phút rồi chạy lại toàn bộ block PowerShell kiểm tra hai resolver ở trên.
+
+**PASS sau purge** chỉ khi block PowerShell in PASS riêng cho `1.1.1.1`, `8.8.8.8` và PASS tổng. Thông báo thành công trên trang purge **không phải** bằng chứng DNS đã đúng. Nếu không muốn purge hoặc purge chưa đổi kết quả, đợi TTL cũ hết rồi chạy lại block; không sửa lại nameserver.
+
+Để tránh cửa sổ `SERVFAIL` khi resolver vẫn dùng NS cũ nhưng registry đã có DS mới, chỉ sang §11.2.6 bật DNSSEC sau khi **cả `1.1.1.1` và `8.8.8.8`** đều trả đúng cặp NS Cloudflare.
 
 Nếu quá 24 giờ vẫn Pending, kiểm tra lại: registrar có đúng **chỉ hai** NS Cloudflare hay chưa, còn NS Hostinger nào không, tên NS có bị gõ sai không và `Resolve-DnsName -Type DS` có còn DS record cũ không.
 
@@ -2061,41 +2100,163 @@ Nếu quá 24 giờ vẫn Pending, kiểm tra lại: registrar có đúng **ch�
 
 Chỉ làm bước này **sau** khi §11.2.5 PASS. Vì registrar vẫn là Hostinger, Cloudflare ký zone và sinh DS record; Hostinger đăng DS đó lên registry.
 
-1. Cloudflare → chọn domain → **DNS → Settings → DNSSEC → Enable DNSSEC**.
-2. Mở **DS record** và giữ màn hình chứa `Key Tag`, `Algorithm`, `Digest Type`, `Digest`.
-3. Hostinger → domain → **DNS / Nameservers → DNSSEC**.
-4. Nhập đúng ánh xạ, không tự biến đổi giá trị:
+**Điều kiện để Hostinger nhận DS:** tab **DNSSEC** ở hPanel chỉ dùng được khi domain trỏ nameserver ra nhà cung cấp ngoài — đúng trạng thái sau §11.2.4 — và khi TLD/registrar hỗ trợ DNSSEC. Hostinger nói rõ giá trị DS **phải do nhà cung cấp đang giữ nameserver sinh ra**, ở đây là Cloudflare; không tự tạo, không lấy từ nguồn khác. Nếu tab DNSSEC không xuất hiện hoặc bị khóa, **STOP**: xác nhận lại domain đã dùng NS Cloudflare, kiểm tra TLD có hỗ trợ DNSSEC và liên hệ Hostinger nếu cần. Không tự kết luận chỉ từ trạng thái UI và không bỏ qua, vì gate §11.2.7 của baseline này yêu cầu DNSSEC **Active/Confirmed**.
 
-   | Cloudflare DS record | Ô Hostinger |
-   | --- | --- |
-   | Key Tag | Key Tag |
-   | Algorithm | Algorithm |
-   | Digest Type | Digest Type |
-   | Digest | Digest |
+##### Bước 1 — Lấy giá trị tại Cloudflare
 
-5. Bấm **Thêm/Add**, chờ DS propagate và Cloudflare xác nhận DNSSEC.
+1. Cloudflare → chọn domain → thanh điều hướng **bên trái** → mở mục **DNS** → chọn mục con **Settings** → cuộn tới thẻ **DNSSEC** → **Enable DNSSEC**.
 
-**Verify DNSSEC trên Windows:**
+   Mục `DNS` ở sidebar bung ra ba mục con; DNSSEC nằm ở `Settings`, không nằm ở `Records`:
+
+   ```text
+   ⌄ DNS
+     ├─ Records      ← trang "DNS records for <domain>"; KHÔNG có DNSSEC ở đây
+     ├─ Analytics
+     └─ Settings     ← vào đây, cuộn xuống thẻ DNSSEC
+   ```
+
+   Đi thẳng bằng link cũng được: `https://dash.cloudflare.com/?to=/:account/:zone/dns/settings`
+2. Cloudflare bắt đầu ký zone và mở panel **DS record**. Panel này là **nguồn duy nhất** của bốn giá trị cần điền. Giữ tab mở cho tới khi Hostinger lưu xong.
+3. Copy dòng **DS Record** — chuỗi dài chứa đủ cả bốn giá trị theo đúng thứ tự chuẩn:
+
+```
+hieupn.site.   3600   IN   DS   <Key Tag>   <Algorithm>   <Digest Type>   <Digest>
+```
+
+Ví dụ minh họa thứ tự lấy từ tài liệu Cloudflare — **không phải giá trị của bạn**: `2371 13 2 32996839A6D808AFE3EB4A795A0E6A7A39A76FC52FF228B22B76F6D63826F2B9` nghĩa là `Key Tag = 2371`, `Algorithm = 13`, `Digest Type = 2`, `Digest = 32996839…3826F2B9`.
+
+Panel Cloudflare hiển thị bốn giá trị này thành từng dòng riêng, kèm cả `Public Key` và `Flags`. Tùy phiên bản UI, `Algorithm` và `Digest Type` có thể hiện **tên** thay vì **số** — xem bảng quy đổi ở bước 3. Khi hai nguồn khác nhau về hình thức, lấy chuỗi `DS Record` làm chuẩn vì nó luôn là số.
+
+##### Bước 2 — Tách và kiểm tra bốn giá trị trước khi nhập
+
+Chạy trên máy host Windows. Block này chỉ đọc chuỗi đã copy, không gọi mạng, và chặn sẵn ba lỗi copy hay gặp nhất:
+
+```powershell
+# Dán nguyên văn dòng DS Record của Cloudflare vào giữa hai dấu nháy đơn.
+# Panel chỉ hiện bốn số rời cũng dán được, ví dụ: '2371 13 2 32996839...3826F2B9'
+$DsRecord = '<dán DS Record của Cloudflare vào đây>'
+
+$Parts = ($DsRecord -replace '(?i)^.*\sIN\s+DS\s+', '').Trim() -split '\s+' | Where-Object { $_ }
+if ($Parts.Count -ne 4) {
+  throw "STOP: tách được $($Parts.Count) trường, cần đúng 4; copy lại nguyên văn DS Record từ Cloudflare"
+}
+
+$Ds = [pscustomobject][ordered]@{
+  KeyTag     = $Parts[0]
+  Algorithm  = $Parts[1]
+  DigestType = $Parts[2]
+  Digest     = $Parts[3].ToUpperInvariant()
+}
+
+$KeyTagNum = 0
+if (-not [int]::TryParse($Ds.KeyTag, [ref]$KeyTagNum) -or $KeyTagNum -lt 0 -or $KeyTagNum -gt 65535) {
+  throw "STOP: Key Tag '$($Ds.KeyTag)' không phải số nguyên unsigned 16-bit (0-65535); nhiều khả năng đã copy nhầm Flags hoặc dính ký tự thừa"
+}
+$AlgorithmNum = 0
+if (-not [int]::TryParse($Ds.Algorithm, [ref]$AlgorithmNum) -or $AlgorithmNum -lt 0 -or $AlgorithmNum -gt 255) {
+  throw "STOP: Algorithm '$($Ds.Algorithm)' không phải số nguyên unsigned 8-bit (0-255); copy lại chuỗi DS Record dạng số"
+}
+$DigestTypeNum = 0
+if (-not [int]::TryParse($Ds.DigestType, [ref]$DigestTypeNum) -or $DigestTypeNum -lt 0 -or $DigestTypeNum -gt 255) {
+  throw "STOP: Digest Type '$($Ds.DigestType)' không phải số nguyên unsigned 8-bit (0-255); copy lại chuỗi DS Record dạng số"
+}
+if ($Ds.Digest -notmatch '^[0-9A-F]+$') {
+  throw "STOP: Digest chứa ký tự không phải hex; nhiều khả năng đã copy nhầm Public Key sang ô Digest"
+}
+if ($Ds.DigestType -eq '2' -and $Ds.Digest.Length -ne 64) {
+  throw "STOP: Digest Type 2 (SHA-256) phải đúng 64 ký tự hex, đang có $($Ds.Digest.Length); copy thiếu hoặc dính xuống dòng"
+}
+if ($Ds.Algorithm -eq '13' -and $Ds.DigestType -eq '2') {
+  "INFO: Algorithm 13 / Digest Type 2 là cặp Cloudflare thường cấp"
+} else {
+  "INFO: DS dùng Algorithm/Digest Type $($Ds.Algorithm)/$($Ds.DigestType); chỉ tiếp tục nếu đúng nguyên văn DS Record trên panel Cloudflare"
+}
+
+$Ds | Format-List
+"PASS: bốn giá trị tách đúng định dạng; nhập vào Hostinger theo đúng nhãn ở trên"
+```
+
+**PASS Bước 2** khi block không ném `STOP`, output `Format-List` có đúng bốn trường `KeyTag/Algorithm/DigestType/Digest`, rồi kết thúc bằng dòng `PASS`. Dòng `INFO` về `13/2` chỉ mô tả giá trị thường gặp; giá trị quyết định luôn là chuỗi `DS Record` Cloudflare vừa cấp.
+
+Giữ nguyên phiên PowerShell này; biến `$Ds` sẽ được dùng lại ở bước verify.
+
+##### Bước 3 — Nhập tại Hostinger, đúng ánh xạ một-một
+
+Hostinger hPanel → **Domains → Domain portfolio → Manage** domain → **DNS / Nameservers → DNSSEC**. Form có đúng bốn ô:
+
+| Ô ở Hostinger | Lấy từ đâu trên panel Cloudflare | Vị trí trong chuỗi `DS Record` | Dạng giá trị hợp lệ |
+| --- | --- | --- | --- |
+| `Key Tag` | dòng **Key Tag** | trường thứ 1 sau `DS` | số nguyên 0–65535, ví dụ `2371` |
+| `Algorithm` | dòng **Algorithm** | trường thứ 2 | lấy đúng số Cloudflare cấp; thường là `13` |
+| `Digest Type` | dòng **Digest Type** | trường thứ 3 | lấy đúng số Cloudflare cấp; thường là `2` |
+| `Digest` | dòng **Digest** | trường thứ 4 | chuỗi hex liền, 64 ký tự khi Digest Type là `2` |
+
+Khi panel Cloudflare hoặc dropdown Hostinger ghi tên thay vì số, quy đổi theo bảng này — **quy đổi tên sang số, không đổi giá trị**:
+
+| Trường | Số | Tên tương đương có thể gặp |
+| --- | --- | --- |
+| `Algorithm` | `13` | `ECDSAP256SHA256`, `ECDSA Curve P-256 with SHA-256` |
+| `Digest Type` | `2` | `SHA256`, `SHA-256` |
+
+**Hai giá trị trên panel Cloudflare không có ô tương ứng ở Hostinger — không nhét vào ô nào:**
+
+- `Public Key` — chuỗi base64 của bản ghi `DNSKEY`, chỉ dùng cho registrar nhập theo dạng DNSKEY. Nhầm nó vào ô `Digest` là lỗi phổ biến nhất; phân biệt nhanh: `Digest` chỉ gồm `0-9` và `A-F`, còn `Public Key` có chữ thường và các dấu `+` `/` `=`.
+- `Flags` (`257`) — thuộc bản ghi `DNSKEY`, không thuộc DS. Đừng điền vào `Key Tag`.
+
+Thao tác nhập:
+
+1. Dán bốn giá trị từ output block bước 2 vào đúng bốn ô cùng tên.
+2. `Digest` hex không phân biệt hoa/thường; block bước 2 đã chuẩn hóa thành chữ hoa. Không sửa nội dung, không thêm khoảng trắng/dấu chấm cuối và không bọc nháy khi nhập form.
+3. Bấm **Thêm/Add**. Nếu form báo sai định dạng, kiểm tra lại độ dài `Digest` và ký tự thừa ở `Key Tag` — **không** sửa giá trị cho vừa form.
+4. Chờ DS propagate lên registry và Cloudflare chuyển DNSSEC sang **Active**. Trong lúc chờ, không bấm **Enable DNSSEC** lần nữa và không xóa rồi tạo lại DS ở Hostinger: mỗi lần bật lại, Cloudflare có thể sinh khóa mới làm DS vừa đăng trở thành sai.
+
+**Verify DNSSEC trên Windows** — chạy tiếp trong cùng phiên PowerShell với block ở bước 2:
 
 ```powershell
 $DomainName = "hieupn.site"
+
+# $Ds đến từ block bước 2. Mở phiên PowerShell mới thì chạy lại block đó trước.
+if (-not $Ds) { throw "STOP: chưa có `$Ds; chạy lại block tách DS record ở bước 2" }
 
 $NewDs = @(
   Resolve-DnsName -Name $DomainName -Type DS -Server 1.1.1.1 -DnsOnly -ErrorAction SilentlyContinue |
     Where-Object Type -eq 'DS'
 )
-if ($NewDs) {
-  $NewDs | Format-Table Name, Type, KeyTag, Algorithm, DigestType, Digest -AutoSize
-  "PASS: DS record mới đã được publish"
-} else {
-  throw "STOP: chưa thấy DS record mới; chưa coi DNSSEC là hoàn tất"
+if (-not $NewDs) { throw "STOP: chưa thấy DS record mới; chưa coi DNSSEC là hoàn tất" }
+
+$NewDs | Format-Table Name, Type, KeyTag, Algorithm, DigestType, Digest -AutoSize
+
+# So khớp đủ bốn trường DS đang publish với giá trị Cloudflare cấp.
+# Resolve-DnsName trả Algorithm/DigestType dạng enum nhưng ép [int] cho đúng mã số;
+# Digest có thể là byte[] nên được chuẩn hóa thành chuỗi hex chữ hoa.
+$Published = $NewDs | ForEach-Object {
+  $Raw = $_.Digest
+  if ($Raw -is [byte[]]) { $Hex = (($Raw | ForEach-Object { $_.ToString('X2') }) -join '') }
+  else { $Hex = ((($Raw -join '') -replace '[^0-9A-Fa-f]', '')).ToUpperInvariant() }
+  [pscustomobject][ordered]@{
+    KeyTag     = "$([int]$_.KeyTag)"
+    Algorithm  = "$([int]$_.Algorithm)"
+    DigestType = "$([int]$_.DigestType)"
+    Digest     = $Hex
+  }
 }
+
+if (-not ($Published | Where-Object {
+  $_.KeyTag -eq $Ds.KeyTag -and
+  $_.Algorithm -eq $Ds.Algorithm -and
+  $_.DigestType -eq $Ds.DigestType -and
+  $_.Digest -eq $Ds.Digest
+})) {
+  $Published | Format-List
+  throw "STOP: DS đang publish không khớp đủ bốn trường Cloudflare cấp; sửa record ở Hostinger, không đổi gì ở Cloudflare"
+}
+"PASS: DS record publish khớp đủ Key Tag/Algorithm/Digest Type/Digest Cloudflare cấp"
 
 # 1.1.1.1 là validating resolver; truy vấn SOA phải trả kết quả, không được SERVFAIL
 Resolve-DnsName -Name $DomainName -Type SOA -Server 1.1.1.1 -DnssecOk
 ```
 
-PASS khi Hostinger hiển thị DS record đã lưu, truy vấn `DS` trả đúng `KeyTag/Algorithm/DigestType/Digest` Cloudflare cấp, truy vấn `SOA` không `SERVFAIL`, và Cloudflare DNSSEC hiển thị **Active/Confirmed**. Nếu chưa PASS, **không xóa/disable DNSSEC theo thứ tự tùy ý**; khi rollback phải xóa DS ở registrar trước rồi chờ DS TTL hết, sau đó mới tắt signing tại Cloudflare.
+PASS khi Hostinger hiển thị DS record đã lưu, block trên xác nhận DS public khớp đủ cả bốn trường, truy vấn `SOA` không `SERVFAIL`, và Cloudflare DNSSEC hiển thị **Active/Confirmed**. Nếu chưa PASS, **không xóa/disable DNSSEC theo thứ tự tùy ý**; khi rollback phải xóa DS ở registrar trước rồi chờ DS TTL hết, sau đó mới tắt signing tại Cloudflare.
 
 #### 11.2.7. Gate hoàn thành mục 11
 
@@ -2635,10 +2796,13 @@ kubectl get events -A --sort-by=.lastTimestamp | tail -30
 - MetalLB — *Configuration và Usage*: [https://metallb.io/configuration/](https://metallb.io/configuration/), [https://metallb.io/usage/](https://metallb.io/usage/)
 - Cloudflare — *Primary DNS / Full setup (add domain, review records, replace NS, verify Active)*: [https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/](https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/)
 - Cloudflare — *Zone status (Pending vs Active)*: [https://developers.cloudflare.com/dns/zone-setups/reference/domain-status/](https://developers.cloudflare.com/dns/zone-setups/reference/domain-status/)
+- Cloudflare — *1.1.1.1 Purge Cache tool* (xóa cache NS/DS cũ trên `1.1.1.1`): [https://one.one.one.one/purge-cache/](https://one.one.one.one/purge-cache/)
+- Google Public DNS — *Flush Cache tool* (xóa cache NS/DS cũ trên `8.8.8.8`): [https://dns.google/cache](https://dns.google/cache)
 - Cloudflare — *DNSSEC (disable before migration, enable and publish DS after Active)*: [https://developers.cloudflare.com/dns/dnssec/](https://developers.cloudflare.com/dns/dnssec/)
 - Cloudflare — *Transfer domain to Cloudflare Registrar*: [https://developers.cloudflare.com/registrar/get-started/transfer-domain-to-cloudflare/](https://developers.cloudflare.com/registrar/get-started/transfer-domain-to-cloudflare/)
 - Hostinger — *Point a domain to external services*: [https://support.hostinger.com/en/articles/4737652-how-to-point-a-domain-to-external-services](https://support.hostinger.com/en/articles/4737652-how-to-point-a-domain-to-external-services)
 - Hostinger — *Manage DNS records / DNSSEC in hPanel*: [https://support.hostinger.com/en/articles/1583249-how-to-manage-dns-records-at-hostinger](https://support.hostinger.com/en/articles/1583249-how-to-manage-dns-records-at-hostinger)
+- Hostinger — *How to use DNSSEC records at Hostinger* (bốn ô Key Tag/Algorithm/Digest Type/Digest, giá trị do provider giữ nameserver sinh ra): [https://www.hostinger.com/support/3667267-how-to-use-dnssec-records-at-hostinger/](https://www.hostinger.com/support/3667267-how-to-use-dnssec-records-at-hostinger/)
 - Cloudflare — *Tunnel setup*: [https://developers.cloudflare.com/tunnel/setup/](https://developers.cloudflare.com/tunnel/setup/)
 - Cloudflare — *Deploy cloudflared in Kubernetes*: [https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/](https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/)
 - Cloudflare — *Tunnel with firewall*: [https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/)

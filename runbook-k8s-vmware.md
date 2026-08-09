@@ -2753,11 +2753,22 @@ ClusterIP là địa chỉ ảo ổn định đại diện cho các endpoint, kh
 
 Traefik đã watch Kubernetes API và nạp rule từ Ingress trước khi request đến. Object Ingress là cấu hình control plane, không phải một hop mà packet phải đi xuyên qua.
 
-Request vẫn mang:
+Hostname bắt nguồn từ URL người dùng nhập và được giữ qua từng chặng:
 
-```http
-Host: app.hieupn.site
+```text
+Browser
+  Host: app.hieupn.site
+        ↓
+Cloudflare Edge
+  hostname: app.hieupn.site
+        ↓ tunnel
+cloudflared
+  Host: app.hieupn.site
+        ↓ HTTP origin request
+Traefik
 ```
+
+`cloudflared` kết nối mạng tới `http://<Traefik-ClusterIP>:80`, nhưng HTTP request bên trong connection vẫn mang `Host: app.hieupn.site`. ClusterIP/port giúp Kubernetes đưa connection tới Traefik Pod; Host header giúp Traefik chọn đúng Router. Vì Published application không đặt `HTTP Host Header` override nên hostname public không bị đổi thành `traefik.traefik.svc.cluster.local`.
 
 Traefik so sánh hostname/path với rule:
 

@@ -82,18 +82,18 @@
 
 ### 2.1. Phiên bản (ghim để khỏi lệch version-skew)
 
-| Thành phần | Phiên bản dùng trong runbook | Ghi chú |
-| --- | --- | --- |
-| Ubuntu Server | **24.04.x LTS (Noble), amd64** | Cài bản Server, không cần GUI |
-| Kubernetes | **v1.35.6**; gói Debian **`1.35.6-1.1`** | Repo `pkgs.k8s.io` theo minor `v1.35`; 1.35 còn được Kubernetes duy trì tới **28/02/2027** |
-| Container runtime | **containerd 2.x từ Ubuntu 24.04** | Giữ gói Ubuntu đã backport bản vá; cấu hình plugin 2.x và cgroup driver `systemd` |
-| CNI | **Flannel v0.28.7**; pod CIDR `10.244.0.0/16` | Dùng manifest release-pinned, không dùng nhánh `master`/`latest` |
-| Ingress | **Traefik chart 41.0.2** → Proxy **v3.7.6** | Chart khai `kubeVersion: >=1.25.0-0`; xem [§9](#9-cài-ingress-controller-traefik) |
-| Tunnel | **cloudflared `latest`** | Official manifest của Cloudflare cũng dùng tag này; chạy 2 replica + liveness probe |
-| Cluster management | **Rancher 2.14.3** từ `rancher-stable` | Support matrix liệt kê Kubernetes **1.33–1.35** cho imported/other clusters |
-| cert-manager | **v1.21.0** | Hỗ trợ và test với Kubernetes 1.33–1.36; dùng cho `ingress.tls.source=rancher` |
-| Storage | **local-path-provisioner v0.0.36** | Phù hợp homelab; dữ liệu gắn với node, không phải storage HA |
-| MetalLB (tuỳ chọn) | **v0.16.1** | Chỉ cần khi muốn IP `LoadBalancer` trong LAN |
+| Thành phần         | Phiên bản dùng trong runbook                          | Ghi chú                                                                                                  |
+| -------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Ubuntu Server        | **24.04.x LTS (Noble), amd64**                     | Cài bản Server, không cần GUI                                                                         |
+| Kubernetes           | **v1.35.6**; gói Debian **`1.35.6-1.1`**  | Repo`pkgs.k8s.io` theo minor `v1.35`; 1.35 còn được Kubernetes duy trì tới **28/02/2027** |
+| Container runtime    | **containerd 2.x từ Ubuntu 24.04**                | Giữ gói Ubuntu đã backport bản vá; cấu hình plugin 2.x và cgroup driver`systemd`               |
+| CNI                  | **Flannel v0.28.7**; pod CIDR `10.244.0.0/16`    | Dùng manifest release-pinned, không dùng nhánh`master`/`latest`                                   |
+| Ingress              | **Traefik chart 41.0.2** → Proxy **v3.7.6** | Chart khai`kubeVersion: >=1.25.0-0`; xem [§9](#9-cài-ingress-controller-traefik)                       |
+| Tunnel               | **cloudflared `latest`**                         | Official manifest của Cloudflare cũng dùng tag này; chạy 2 replica + liveness probe                  |
+| Cluster management   | **Rancher 2.14.3** từ `rancher-stable`          | Support matrix liệt kê Kubernetes**1.33–1.35** cho imported/other clusters                       |
+| cert-manager         | **v1.21.0**                                        | Hỗ trợ và test với Kubernetes 1.33–1.36; dùng cho`ingress.tls.source=rancher`                     |
+| Storage              | **local-path-provisioner v0.0.36**                 | Phù hợp homelab; dữ liệu gắn với node, không phải storage HA                                      |
+| MetalLB (tuỳ chọn) | **v0.16.1**                                        | Chỉ cần khi muốn IP`LoadBalancer` trong LAN                                                          |
 
 > ⚠️ **Version-skew:** runbook chủ động cài `kubelet`/`kubeadm`/`kubectl` cùng bản `1.35.6-1.1` trên cả 3 node. Chính sách Kubernetes hiện cho phép `kubelet` thấp hơn `kube-apiserver` tối đa **3 minor** và không được cao hơn; đó là biên tương thích, không phải lý do để cố tình để các node lệch bản trong một lab mới.
 >
@@ -103,11 +103,11 @@
 
 Giả sử LAN nhà bạn là `192.168.100.0/24`, gateway `192.168.100.1`. Chọn IP tĩnh **ngoài dải DHCP** của router.
 
-| Vai trò | Hostname | IP tĩnh | vCPU | RAM | Disk SSD |
-| --- | --- | --- | --- | --- | --- |
-| Control plane | `k8s-master` | `192.168.100.111` | **4** | **8 GB** | 40 GB |
-| Worker 1 | `k8s-worker1` | `192.168.100.112` | 2 | **6 GB** | 40 GB |
-| Worker 2 | `k8s-worker2` | `192.168.100.113` | 2 | **6 GB** | 40 GB |
+| Vai trò      | Hostname        | IP tĩnh            | vCPU        | RAM            | Disk SSD |
+| ------------- | --------------- | ------------------- | ----------- | -------------- | -------- |
+| Control plane | `k8s-master`  | `192.168.100.111` | **4** | **8 GB** | 40 GB    |
+| Worker 1      | `k8s-worker1` | `192.168.100.112` | 2           | **6 GB** | 40 GB    |
+| Worker 2      | `k8s-worker2` | `192.168.100.113` | 2           | **6 GB** | 40 GB    |
 
 > Pod CIDR `10.244.0.0/16` và Service CIDR mặc định `10.96.0.0/12` **không** được trùng dải LAN `192.168.100.0/24` → an toàn.
 >
@@ -568,11 +568,11 @@ Lệnh trên chỉ đọc loại filesystem tại `/sys/fs/cgroup`; kết quả 
 
 Phân biệt ba khái niệm dễ nhầm:
 
-| Thành phần | Giá trị mong muốn | Ý nghĩa |
-| --- | --- | --- |
-| Linux kernel | cgroup v2 (`cgroup2fs`) | Phiên bản API cgroup của kernel |
-| kubelet | driver `systemd` | kubelet nhờ systemd quản lý cây cgroup |
-| containerd/runc | `SystemdCgroup = true` | runtime cũng dùng systemd quản lý cgroup |
+| Thành phần    | Giá trị mong muốn      | Ý nghĩa                                    |
+| --------------- | ------------------------- | -------------------------------------------- |
+| Linux kernel    | cgroup v2 (`cgroup2fs`) | Phiên bản API cgroup của kernel           |
+| kubelet         | driver`systemd`         | kubelet nhờ systemd quản lý cây cgroup   |
+| containerd/runc | `SystemdCgroup = true`  | runtime cũng dùng systemd quản lý cgroup |
 
 Kubelet và containerd phải dùng **cùng cgroup driver**. Kubeadm hiện mặc định cấu hình kubelet theo `systemd`, vì vậy cấu hình containerd bên dưới cũng đặt `SystemdCgroup = true`.
 
@@ -695,14 +695,14 @@ sudo ufw disable
 
 **Hoặc** mở đúng cổng nếu muốn giữ firewall:
 
-| Phạm vi | Cổng cần mở |
-| --- | --- |
-| Control plane | TCP `6443` từ các node/client quản trị; TCP `10250` từ control plane |
-| Worker | TCP `10250` từ control plane |
-| Tất cả node dùng Flannel VXLAN | UDP `8472` **giữa các node** |
-| Chỉ khi dùng NodePort từ LAN | TCP **và UDP** `30000-32767` từ LAN |
-| Chỉ khi load balancer cần health check kube-proxy | TCP `10256` |
-| Cụm nhiều control plane | TCP `2379-2380` chỉ giữa các control-plane/etcd member |
+| Phạm vi                                            | Cổng cần mở                                                               |
+| --------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Control plane                                       | TCP`6443` từ các node/client quản trị; TCP `10250` từ control plane |
+| Worker                                              | TCP`10250` từ control plane                                               |
+| Tất cả node dùng Flannel VXLAN                   | UDP`8472` **giữa các node**                                        |
+| Chỉ khi dùng NodePort từ LAN                     | TCP**và UDP** `30000-32767` từ LAN                                 |
+| Chỉ khi load balancer cần health check kube-proxy | TCP`10256`                                                                 |
+| Cụm nhiều control plane                           | TCP`2379-2380` chỉ giữa các control-plane/etcd member                   |
 
 `10257` (controller-manager) và `10259` (scheduler) mặc định chỉ cần từ chính control plane, không mở rộng ra LAN. UFW mặc định cho outbound; nếu môi trường chặn egress, cho phép DNS/NTP, HTTPS `443`, và Cloudflare Tunnel **TCP+UDP `7844`**. Kiến trúc tunnel không cần mở inbound `80/443` trên router hay VM.
 
@@ -1314,20 +1314,20 @@ dung lượng claim hiện hữu bằng cách sửa `requests.storage`.
 
 ### 8.8. Gate cụm nền — trước khi cài các add-on
 
-| #  | Kiểm tra                     | Lệnh                                                                                | PASS                                               |
-| -- | ----------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| 1  | Helm đúng baseline | `helm version --short` | **≥ v3.18** |
-| 2  | Kubernetes đúng baseline | `kubectl version` | Client/Server **v1.35.6** |
-| 3  | 3 node Ready, worker 0 taint  | [§8.2](#82-tầng-2--node--tài-nguyên)                                              | 3/3                                                |
-| 4  | Pod cross-node thông         | [§8.3](#83-tầng-3--pod-networking-cross-node)                                       | 0% packet loss                                     |
-| 5  | DNS nội + ngoại             | [§8.4](#84-tầng-4--dns)                                                             | cả 2 resolve                                      |
-| 6  | RAM còn headroom | `kubectl describe nodes \| grep -A6 Allocated` | Requests < 50% trước Rancher |
-| 7  | quyền cluster-admin | `kubectl auth can-i '*' '*' --all-namespaces` | `yes` |
-| 8  | exec / logs / port-forward | [§8.6](#86-tầng-6--đường-control-plane--kubelet-rancher-ui-sống-chết-ở-đây) | cả 3 lệnh OK |
-| 9  | metrics-server | `kubectl top nodes` | đủ số liệu 3 node |
-| 10 | Default StorageClass | `kubectl get storageclass` | `local-path` có `(default)` |
-| 11 | Storage provisioner | `kubectl -n local-path-storage rollout status deploy/local-path-provisioner` | `successfully rolled out` |
-| 12 | Pull image Traefik | Trên **từng worker**: `sudo crictl pull docker.io/traefik:v3.7.6` | cả 2 worker trả về image reference/ID |
+| #  | Kiểm tra                    | Lệnh                                                                                | PASS                                     |
+| -- | ---------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------- |
+| 1  | Helm đúng baseline         | `helm version --short`                                                             | **≥ v3.18**                       |
+| 2  | Kubernetes đúng baseline   | `kubectl version`                                                                  | Client/Server**v1.35.6**           |
+| 3  | 3 node Ready, worker 0 taint | [§8.2](#82-tầng-2--node--tài-nguyên)                                              | 3/3                                      |
+| 4  | Pod cross-node thông        | [§8.3](#83-tầng-3--pod-networking-cross-node)                                       | 0% packet loss                           |
+| 5  | DNS nội + ngoại            | [§8.4](#84-tầng-4--dns)                                                             | cả 2 resolve                            |
+| 6  | RAM còn headroom            | `kubectl describe nodes \| grep -A6 Allocated`                                      | Requests < 50% trước Rancher           |
+| 7  | quyền cluster-admin         | `kubectl auth can-i '*' '*' --all-namespaces`                                      | `yes`                                  |
+| 8  | exec / logs / port-forward   | [§8.6](#86-tầng-6--đường-control-plane--kubelet-rancher-ui-sống-chết-ở-đây) | cả 3 lệnh OK                           |
+| 9  | metrics-server               | `kubectl top nodes`                                                                | đủ số liệu 3 node                    |
+| 10 | Default StorageClass         | `kubectl get storageclass`                                                         | `local-path` có `(default)`         |
+| 11 | Storage provisioner          | `kubectl -n local-path-storage rollout status deploy/local-path-provisioner`       | `successfully rolled out`              |
+| 12 | Pull image Traefik           | Trên**từng worker**: `sudo crictl pull docker.io/traefik:v3.7.6`           | cả 2 worker trả về image reference/ID |
 
 Gate nhanh chạy trên `k8s-master` bằng user `ubuntu` ngay trước §9:
 
@@ -1388,11 +1388,11 @@ client → web.default.svc.cluster.local:80
 
 Ba trường port thường gặp:
 
-| Trường | Ý nghĩa |
-| --- | --- |
-| `port` | Cổng mà client dùng trên Service |
-| `targetPort` | Cổng ứng dụng lắng nghe trong Pod; mặc định bằng `port` |
-| `nodePort` | Cổng được mở trên mỗi node, chỉ có với `NodePort` hoặc khi một `LoadBalancer` có cấp NodePort |
+| Trường       | Ý nghĩa                                                                                                      |
+| -------------- | -------------------------------------------------------------------------------------------------------------- |
+| `port`       | Cổng mà client dùng trên Service                                                                           |
+| `targetPort` | Cổng ứng dụng lắng nghe trong Pod; mặc định bằng`port`                                               |
+| `nodePort`   | Cổng được mở trên mỗi node, chỉ có với`NodePort` hoặc khi một `LoadBalancer` có cấp NodePort |
 
 > Dùng `kubectl get endpointslice -l kubernetes.io/service-name=<service>` để kiểm tra Service đã tìm thấy Pod backend hay chưa. API `Endpoints` cũ đã deprecated từ Kubernetes 1.33; runbook ưu tiên `EndpointSlice`.
 
@@ -1404,10 +1404,10 @@ Tình huống phổ biến nhất trong cluster: ứng dụng A gọi ứng dụ
 2. **Service = địa chỉ ổn định + load balancing.** Bạn tạo Service `b` với selector trỏ vào label của các Pod B. Kubernetes cấp cho nó một ClusterIP cố định và tự duy trì danh sách IP của 2–3 Pod B đang **Ready** trong EndpointSlice. Khi Pod A mở kết nối tới ClusterIP đó, kube-proxy (iptables/IPVS trên node) DNAT kết nối tới **một trong các Pod B** — mỗi connection được phân phối sang một backend, đó là load balancing ở tầng **L4** (tầng kết nối TCP/UDP: hệ thống chỉ nhìn thấy IP và port, không đọc được nội dung HTTP bên trong).
 3. **CoreDNS.** Mỗi Service có tên DNS — DNS nội bộ đã verify ở [§8.4](#84-tầng-4--dns). Code trong Pod A chỉ cần biết tên:
 
-| Cách gọi | Khi nào dùng |
-| --- | --- |
-| `http://b` | A và B cùng namespace |
-| `http://b.other-ns` | B ở namespace khác |
+| Cách gọi                                   | Khi nào dùng                                                         |
+| -------------------------------------------- | ---------------------------------------------------------------------- |
+| `http://b`                                 | A và B cùng namespace                                                |
+| `http://b.other-ns`                        | B ở namespace khác                                                   |
 | `http://b.other-ns.svc.cluster.local:8080` | Dạng đầy đủ, tường minh nhất; nên dùng trong manifest/config |
 
 Luồng đầy đủ khi A gọi B:
@@ -1432,11 +1432,11 @@ Trong runbook, chính cơ chế này xuất hiện ở [§12](#12-tạo-cloudfla
 
 Đây là **các kiểu Service ở tầng mạng L4**, không phải các loại Ingress:
 
-| Kiểu Service | Có thể truy cập từ đâu | Cơ chế và mục đích phù hợp |
-| --- | --- | --- |
-| `ClusterIP` | Trong cluster | Mặc định. Cấp IP/DNS nội bộ ổn định; phù hợp cho giao tiếp service-to-service và cho `cloudflared` gọi Traefik trong runbook này. |
-| `NodePort` | Qua `<NodeIP>:<nodePort>` trên mỗi node, ngoài việc vẫn có ClusterIP | Phù hợp test từ LAN hoặc làm tầng dưới cho một LB bên ngoài. Không tự cung cấp hostname routing hay TLS; ứng dụng/controller vẫn có thể tự phục vụ TLS. Dải mặc định là `30000–32767`. |
-| `LoadBalancer` | Qua địa chỉ do một implementation LB cấp; có thể là public hoặc private/LAN | Kubernetes chỉ khai báo nhu cầu. Cloud provider, MetalLB hoặc implementation khác phải cấp/quảng bá địa chỉ. Thông thường nó xây trên NodePort, nhưng có thể tắt cấp NodePort bằng `allocateLoadBalancerNodePorts: false` nếu implementation hỗ trợ đường đi trực tiếp. |
+| Kiểu Service    | Có thể truy cập từ đâu                                                         | Cơ chế và mục đích phù hợp                                                                                                                                                                                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ClusterIP`    | Trong cluster                                                                        | Mặc định. Cấp IP/DNS nội bộ ổn định; phù hợp cho giao tiếp service-to-service và cho`cloudflared` gọi Traefik trong runbook này.                                                                                                                                                         |
+| `NodePort`     | Qua`<NodeIP>:<nodePort>` trên mỗi node, ngoài việc vẫn có ClusterIP          | Phù hợp test từ LAN hoặc làm tầng dưới cho một LB bên ngoài. Không tự cung cấp hostname routing hay TLS; ứng dụng/controller vẫn có thể tự phục vụ TLS. Dải mặc định là`30000–32767`.                                                                                       |
+| `LoadBalancer` | Qua địa chỉ do một implementation LB cấp; có thể là public hoặc private/LAN | Kubernetes chỉ khai báo nhu cầu. Cloud provider, MetalLB hoặc implementation khác phải cấp/quảng bá địa chỉ. Thông thường nó xây trên NodePort, nhưng có thể tắt cấp NodePort bằng`allocateLoadBalancerNodePorts: false` nếu implementation hỗ trợ đường đi trực tiếp. |
 
 `EXTERNAL-IP: <pending>` không có nghĩa CNI hỏng. Nó thường có nghĩa Service `LoadBalancer` chưa được implementation nào xử lý. Trên VMware/bare-metal, **MetalLB** có thể cấp IP từ pool LAN và quảng bá IP đó bằng L2/BGP; MetalLB là một implementation cho Service `LoadBalancer`, **không phải cloud-controller-manager**.
 
@@ -1456,11 +1456,11 @@ mọi request ──► Traefik ──┼─ Host: api.example.com     → Servi
 
 Nói gọn: Service trả lời câu hỏi **“làm sao tới một nhóm Pod ổn định?”**, Ingress trả lời câu hỏi **“request HTTP có host/path này phải tới Service nào?”**. Kubernetes chia lời giải reverse proxy thành các mảnh có tên riêng — đọc bảng theo đúng thứ tự này:
 
-| Thành phần | Vai trò khi triển khai |
-| --- | --- |
-| `Ingress` | **Bản khai báo luật định tuyến của một ứng dụng**, viết bằng YAML: “request có hostname `app.example.com`, path `/` → giao cho Service `web` port 80”. Nó chỉ là *dữ liệu* lưu trong cluster — tự nó không nhận và không xử lý request nào. Lợi ích khi vận hành: mỗi app tự mang luật của mình; thêm app mới = thêm một Ingress, không phải sửa file cấu hình tập trung nào. |
-| Ingress Controller | **Phần mềm thật sự làm việc**: chạy như Pod trong cluster, liên tục theo dõi các object Ingress/Service/EndpointSlice qua Kubernetes API, rồi tự cấu hình reverse proxy bên trong nó theo các luật đọc được. Không cài controller thì mọi Ingress chỉ nằm im vô hại — đây là lý do mục 9 tồn tại. Runbook dùng **Traefik**. |
-| `IngressClass` | **Tấm biển tên gắn cho mỗi controller.** Một cluster có thể chạy nhiều controller cùng lúc (Traefik cho app nội bộ, một controller khác cho app public…), nên mỗi Ingress phải chỉ rõ nó thuộc về ai bằng trường `ingressClassName`. Runbook tạo class tên `traefik`; chi tiết và khái niệm *default class* ở [§9.1.7](#917-provider-của-traefik-và-default-ingressclass). |
+| Thành phần            | Vai trò khi triển khai                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Ingress`             | **Bản khai báo luật định tuyến của một ứng dụng**, viết bằng YAML: “request có hostname `app.example.com`, path `/` → giao cho Service `web` port 80”. Nó chỉ là *dữ liệu* lưu trong cluster — tự nó không nhận và không xử lý request nào. Lợi ích khi vận hành: mỗi app tự mang luật của mình; thêm app mới = thêm một Ingress, không phải sửa file cấu hình tập trung nào.                                                                                      |
+| Ingress Controller      | **Phần mềm thật sự làm việc**: chạy như Pod trong cluster, liên tục theo dõi các object Ingress/Service/EndpointSlice qua Kubernetes API, rồi tự cấu hình reverse proxy bên trong nó theo các luật đọc được. Không cài controller thì mọi Ingress chỉ nằm im vô hại — đây là lý do mục 9 tồn tại. Runbook dùng **Traefik**.                                                                                                                                                    |
+| `IngressClass`        | **Tấm biển tên gắn cho mỗi controller.** Một cluster có thể chạy nhiều controller cùng lúc (Traefik cho app nội bộ, một controller khác cho app public…), nên mỗi Ingress phải chỉ rõ nó thuộc về ai bằng trường `ingressClassName`. Runbook tạo class tên `traefik`; chi tiết và khái niệm *default class* ở [§9.1.7](#917-provider-của-traefik-và-default-ingressclass).                                                                                                          |
 | Service của controller | **Đường để client tới được chính Traefik.** Traefik cũng chỉ là Pod chạy trong cluster — quy tắc [§9.1.1](#911-từ-pod-đến-một-địa-chỉ-ổn-định-service-và-endpointslice) áp dụng cho chính nó — nên nó cũng cần một Service đứng trước. Kiểu `ClusterIP`/`NodePort`/`LoadBalancer` ([§9.1.3](#913-clusterip-nodeport-và-loadbalancer)) của Service này quyết định *ai gọi được vào proxy*; lựa chọn đó độc lập với các Service của ứng dụng phía sau. |
 
 Ingress chuẩn chỉ định tuyến **HTTP/HTTPS (L7)** theo hostname/path; nó không expose TCP/UDP bất kỳ. Kubernetes vẫn duy trì Ingress API ổn định nhưng đã **freeze** API này và khuyến nghị Gateway API cho phát triển mới. Runbook vẫn dùng Ingress vì đơn giản, phổ biến và đủ cho lab; muốn dùng Gateway API với Traefik phải cài Gateway API CRDs và bật provider riêng — mục 9 không làm việc đó.
@@ -1491,11 +1491,11 @@ spec:
 
 `pathType` quyết định cách so trường `path` với URL của request — trường bắt buộc và hay bị chép máy móc mà không hiểu:
 
-| `pathType` | Cách khớp | Ví dụ với `path: /api` |
-| --- | --- | --- |
-| `Prefix` | Theo **segment** của URL, tách bằng `/` | Khớp `/api`, `/api/`, `/api/v1`; **không** khớp `/apixyz` |
-| `Exact` | Đúng tuyệt đối, phân biệt cả dấu `/` cuối | Khớp `/api`; không khớp `/api/` |
-| `ImplementationSpecific` | Tùy controller tự định nghĩa | Tránh dùng khi cần manifest portable |
+| `pathType`               | Cách khớp                                          | Ví dụ với`path: /api`                                                |
+| -------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| `Prefix`                 | Theo**segment** của URL, tách bằng `/`    | Khớp`/api`, `/api/`, `/api/v1`; **không** khớp `/apixyz` |
+| `Exact`                  | Đúng tuyệt đối, phân biệt cả dấu`/` cuối | Khớp`/api`; không khớp `/api/`                                     |
+| `ImplementationSpecific` | Tùy controller tự định nghĩa                    | Tránh dùng khi cần manifest portable                                   |
 
 Quy tắc khớp một request:
 
@@ -1537,10 +1537,10 @@ Hai nhóm flag quan trọng của lệnh cài ở [§9.3](#93-cài-đặt-traefi
 
 **Provider là khái niệm của Traefik, không phải của Kubernetes.** Traefik là reverse proxy **động**: không có file config tĩnh liệt kê sẵn route. Nó theo dõi các nguồn cấu hình — mỗi nguồn là một *provider* — rồi tự dựng bảng định tuyến từ những gì đọc được và cập nhật nóng khi nguồn thay đổi, không cần restart. Chạy trong Kubernetes, "bật một provider" nghĩa là: Traefik mở watch tới Kubernetes API server và theo dõi một nhóm resource nhất định (RBAC của chart cấp quyền đọc tương ứng). Hai provider trong lệnh cài khác nhau ở *loại resource được theo dõi*:
 
-| Provider | Theo dõi resource | Đặc điểm |
-| --- | --- | --- |
-| `kubernetesIngress` | `Ingress` chuẩn (`networking.k8s.io/v1`) | API chính thức của Kubernetes, controller nào cũng hiểu → manifest **portable** sang controller khác. Chỉ định tuyến HTTP theo host/path. |
-| `kubernetesCRD` | CRD riêng của Traefik: `IngressRoute`, `Middleware`, `TraefikService`, `TLSOption`… | Chỉ Traefik hiểu → **không portable**; đổi lại rule match phức tạp hơn, có middleware, route được cả TCP/UDP. |
+| Provider              | Theo dõi resource                                                                            | Đặc điểm                                                                                                                                               |
+| --------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kubernetesIngress` | `Ingress` chuẩn (`networking.k8s.io/v1`)                                                 | API chính thức của Kubernetes, controller nào cũng hiểu → manifest**portable** sang controller khác. Chỉ định tuyến HTTP theo host/path. |
+| `kubernetesCRD`     | CRD riêng của Traefik:`IngressRoute`, `Middleware`, `TraefikService`, `TLSOption`… | Chỉ Traefik hiểu →**không portable**; đổi lại rule match phức tạp hơn, có middleware, route được cả TCP/UDP.                          |
 
 **CRD (CustomResourceDefinition)** là cơ chế "dạy" API server một kiểu resource mới ngoài bộ chuẩn (Pod, Service…). Chart Traefik cài các CRD này ở lần install đầu; sau đó `kubectl get ingressroute -A` chạy được như với resource chuẩn và object được lưu trong etcd như mọi object khác. Bản thân CRD chỉ là *định nghĩa kiểu dữ liệu* — phải có phần mềm đọc nó (ở đây là Traefik với provider `kubernetesCRD` bật) thì object mới có tác dụng.
 
@@ -1576,13 +1576,13 @@ Runbook vẫn khai tường minh `ingressClassName: traefik` trong mọi Ingress
 
 #### 9.1.8. Các khái niệm Helm xuất hiện trong lệnh cài
 
-| Khái niệm | Nghĩa trong mục 9 |
-| --- | --- |
-| Helm chart | Gói template Kubernetes của Traefik |
-| Helm release `traefik` | Một lần cài chart có tên `traefik`; `upgrade --install` tạo mới nếu chưa có và cập nhật nếu đã có |
-| Namespace `traefik` | Phạm vi chứa Deployment, Pod, Service và phần lớn tài nguyên của release; `IngressClass` và CRD là tài nguyên cấp cluster |
-| Values / `--set` | Giá trị làm thay đổi template. Runbook khai tường minh các quyết định quan trọng thay vì phụ thuộc hoàn toàn vào default của phiên bản chart tương lai |
-| `--version 41.0.2` | Ghim chart để lần chạy sau không tự lấy chart mới có hành vi khác |
+| Khái niệm             | Nghĩa trong mục 9                                                                                                                                                           |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Helm chart              | Gói template Kubernetes của Traefik                                                                                                                                         |
+| Helm release`traefik` | Một lần cài chart có tên`traefik`; `upgrade --install` tạo mới nếu chưa có và cập nhật nếu đã có                                                         |
+| Namespace`traefik`    | Phạm vi chứa Deployment, Pod, Service và phần lớn tài nguyên của release;`IngressClass` và CRD là tài nguyên cấp cluster                                       |
+| Values /`--set`       | Giá trị làm thay đổi template. Runbook khai tường minh các quyết định quan trọng thay vì phụ thuộc hoàn toàn vào default của phiên bản chart tương lai |
+| `--version 41.0.2`    | Ghim chart để lần chạy sau không tự lấy chart mới có hành vi khác                                                                                                  |
 
 **Kết quả mong đợi sau mục 9:** có một Deployment Traefik Ready, một IngressClass `traefik`, một Service Traefik kiểu `ClusterIP` với cổng 80/443, và dashboard chỉ truy cập cục bộ qua `kubectl port-forward`. Mục 10 mới tạo ứng dụng và rule Ingress để kiểm tra đường đi end-to-end.
 
@@ -1622,15 +1622,15 @@ helm upgrade --install traefik traefik/traefik \
 
 Các giá trị chính:
 
-| Giá trị | Ý nghĩa |
-| --- | --- |
-| `providers.kubernetesIngress.enabled=true` | Đọc object Ingress chuẩn mà mục 10 sẽ tạo |
-| `providers.kubernetesCRD.enabled=true` | Cài/đọc CRD Traefik; dashboard chart dùng `IngressRoute` nội bộ |
-| `ingressClass.*` | Tạo class `traefik` và đặt làm default duy nhất của cluster ([§9.1.7](#917-provider-của-traefik-và-default-ingressclass)) |
-| `service.spec.type=ClusterIP` | Chỉ expose Traefik trong cluster; đúng với cloudflared in-cluster và không sinh NodePort/`EXTERNAL-IP: <pending>` |
-| `ports.web` / `ports.websecure` | Container lắng nghe 8000/8443; Service cung cấp cổng 80/443 |
-| `ingressRoute.dashboard.enabled=true` | Bật route dashboard trên entrypoint admin nội bộ, không công khai nó qua Service 80/443 |
-| `--wait --timeout 5m` | Helm chỉ trả thành công sau khi tài nguyên sẵn sàng hoặc báo timeout |
+| Giá trị                                    | Ý nghĩa                                                                                                                           |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `providers.kubernetesIngress.enabled=true` | Đọc object Ingress chuẩn mà mục 10 sẽ tạo                                                                                    |
+| `providers.kubernetesCRD.enabled=true`     | Cài/đọc CRD Traefik; dashboard chart dùng`IngressRoute` nội bộ                                                              |
+| `ingressClass.*`                           | Tạo class`traefik` và đặt làm default duy nhất của cluster ([§9.1.7](#917-provider-của-traefik-và-default-ingressclass)) |
+| `service.spec.type=ClusterIP`              | Chỉ expose Traefik trong cluster; đúng với cloudflared in-cluster và không sinh NodePort/`EXTERNAL-IP: <pending>`           |
+| `ports.web` / `ports.websecure`          | Container lắng nghe 8000/8443; Service cung cấp cổng 80/443                                                                      |
+| `ingressRoute.dashboard.enabled=true`      | Bật route dashboard trên entrypoint admin nội bộ, không công khai nó qua Service 80/443                                      |
+| `--wait --timeout 5m`                      | Helm chỉ trả thành công sau khi tài nguyên sẵn sàng hoặc báo timeout                                                      |
 
 > ⚠️ Với chart 41.0.2 phải dùng `service.spec.type`. Key cũ `service.type` vẫn có thể được Helm/schema
 > chấp nhận nhưng chart bỏ qua; Service khi đó giữ mặc định `LoadBalancer` và `EXTERNAL-IP` có thể ở
@@ -1707,12 +1707,12 @@ Internet → Cloudflare edge → Pod cloudflared
         → Traefik → Service/Pod ứng dụng
 ```
 
-| Nhu cầu | Kiểu Service Traefik | Xử lý |
-| --- | --- | --- |
-| Cloudflare Tunnel chạy trong cluster như runbook | `ClusterIP` | Giữ nguyên; không mở cổng LAN và không cần external IP |
-| Test nhanh từ máy trong LAN bằng IP node và port cao | `NodePort` | Đổi type; firewall phải cho phép nodePort cần dùng |
-| Một IP LAN cố định trên VMware/bare-metal | `LoadBalancer` + MetalLB | Cài/cấu hình MetalLB, dành pool IP ngoài DHCP, rồi đổi Traefik sang `LoadBalancer` |
-| Kubernetes trên cloud có integration LB | `LoadBalancer` | Controller/provider của cloud cấp địa chỉ và hạ tầng LB; địa chỉ public hay private tùy cấu hình provider |
+| Nhu cầu                                                 | Kiểu Service Traefik      | Xử lý                                                                                                                 |
+| -------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Cloudflare Tunnel chạy trong cluster như runbook       | `ClusterIP`              | Giữ nguyên; không mở cổng LAN và không cần external IP                                                          |
+| Test nhanh từ máy trong LAN bằng IP node và port cao | `NodePort`               | Đổi type; firewall phải cho phép nodePort cần dùng                                                                |
+| Một IP LAN cố định trên VMware/bare-metal           | `LoadBalancer` + MetalLB | Cài/cấu hình MetalLB, dành pool IP ngoài DHCP, rồi đổi Traefik sang`LoadBalancer`                             |
+| Kubernetes trên cloud có integration LB                | `LoadBalancer`           | Controller/provider của cloud cấp địa chỉ và hạ tầng LB; địa chỉ public hay private tùy cấu hình provider |
 
 Đổi sang NodePort khi thật sự cần truy cập trực tiếp từ LAN:
 
@@ -1737,7 +1737,7 @@ Muốn IP LAN cố định, làm theo [Phụ lục B](#phụ-lục-b--metallb-tu
 
 > Toàn bộ [§10] chạy **trên master** (nơi có `kubectl`). File `.yaml` tạo ở thư mục home của user (vd `~/demo-app.yaml`).
 
-Tạo file `demo-app.yaml` (đổi `app.example.com` thành domain thật của bạn — sẽ mua ở [§11]). Ý nghĩa từng trường của phần `Ingress` đã giải thích ở [§9.1.5](#915-đọc-một-object-ingress-rules-host-path-và-pathtype):
+Tạo file `demo-app.yaml` và **giữ nguyên hostname tạm `app.example.com` trong §10** vì domain thật chưa được mua/cấu hình cho tới [§11](#11-mua-domain--đưa-dns-về-cloudflare). Hostname tạm đủ để test định tuyến nội bộ bằng Host header; [§12.3](#123-chốt-hostname-thật-trong-ingress--thêm-published-application) sẽ có bước bắt buộc đổi sang hostname thật trước khi tạo route Cloudflare. Ý nghĩa từng trường của phần `Ingress` đã giải thích ở [§9.1.5](#915-đọc-một-object-ingress-rules-host-path-và-pathtype):
 
 ```yaml
 apiVersion: apps/v1
@@ -1775,7 +1775,7 @@ metadata:
 spec:
   ingressClassName: traefik      # Traefik không redirect HTTP→HTTPS mặc định
   rules:                         # → không cần annotation ssl-redirect như ingress-nginx
-    - host: app.example.com          # ⚠️ domain thật của bạn
+    - host: app.example.com          # hostname tạm cho §10; đổi sang domain thật ở §12.3.1
       http:
         paths:
           - path: /
@@ -1825,10 +1825,10 @@ namespace, nên `Ingress web` tham chiếu đúng `Service web` trong `default`.
 
 Cần phân biệt hai Service mà các lệnh bên dưới sử dụng:
 
-| Service | Namespace | Vai trò |
-| --- | --- | --- |
+| Service     | Namespace   | Vai trò                                                              |
+| ----------- | ----------- | --------------------------------------------------------------------- |
 | `traefik` | `traefik` | Điểm vào của ingress controller; nhận request test trước tiên |
-| `web` | `default` | Backend ứng dụng; được Ingress `web` chuyển request tới |
+| `web`     | `default` | Backend ứng dụng; được Ingress`web` chuyển request tới       |
 
 ### 10.2. Apply manifest và kiểm tra rule Ingress
 
@@ -1846,6 +1846,8 @@ kubectl get ingress
 ```
 
 PASS khi thấy `NAME=web`, `CLASS=traefik`, `HOSTS=app.example.com` và `PORTS=80`.
+
+`app.example.com` ở gate này chỉ là hostname tạm phục vụ test nội bộ, **không phải domain public cuối cùng**. Không đổi hostname tại §10; sau khi domain thật PASS §11, thực hiện bước chuyển hostname có verify riêng tại §12.3.1.
 
 > Chart bật sẵn `providers.kubernetesIngress.publishedService.enabled=true`. Với Service Traefik kiểu
 > `ClusterIP` và không khai `spec.externalIPs`, cột `ADDRESS` của `kubectl get ingress` để trống là
@@ -1907,10 +1909,10 @@ Mục này dùng **Primary DNS / Full Setup**: Hostinger vẫn là **registrar**
 
 > **Phân biệt hai lựa chọn trên màn hình “Add a site”:**
 >
-> | Lựa chọn | Thay đổi | Dùng trong runbook? |
-> | --- | --- | --- |
-> | **Connect a domain** | Chuyển DNS authoritative sang Cloudflare; registrar và việc gia hạn vẫn ở Hostinger | **Có — chọn mục này** |
-> | **Transfer a domain** | Chuyển cả đăng ký/gia hạn domain từ Hostinger sang Cloudflare Registrar | Không cần; chỉ là tùy chọn sau này |
+> | Lựa chọn                  | Thay đổi                                                                                | Dùng trong runbook?                      |
+> | --------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------- |
+> | **Connect a domain**  | Chuyển DNS authoritative sang Cloudflare; registrar và việc gia hạn vẫn ở Hostinger | **Có — chọn mục này**          |
+> | **Transfer a domain** | Chuyển cả đăng ký/gia hạn domain từ Hostinger sang Cloudflare Registrar            | Không cần; chỉ là tùy chọn sau này |
 >
 > Cloudflare yêu cầu domain phải **Active trên Cloudflare trước khi transfer** và domain mới đăng ký/transfer thường bị khóa transfer **60 ngày**. Vì vậy ngay cả khi sau này muốn chuyển registrar, vẫn phải hoàn tất luồng **Connect a domain** bên dưới trước. Không tắt *domain/transfer lock* và không lấy mã EPP trong mục này.
 
@@ -2069,10 +2071,10 @@ Purge NS cache của hieupn.site tại 1.1.1.1
 
 Cache trên máy (`Clear-DnsClientCache`) không giúp trường hợp này vì block kiểm tra truy vấn thẳng resolver công cộng bằng `-Server`. Hai resolver dùng trong runbook có công cụ refresh công khai — nhập **apex domain** và chọn record type **`NS`**:
 
-| Resolver | Công cụ purge |
-| --- | --- |
+| Resolver    | Công cụ purge                                                             |
+| ----------- | --------------------------------------------------------------------------- |
 | `1.1.1.1` | [https://one.one.one.one/purge-cache/](https://one.one.one.one/purge-cache/) |
-| `8.8.8.8` | [https://dns.google/cache](https://dns.google/cache) |
+| `8.8.8.8` | [https://dns.google/cache](https://dns.google/cache)                         |
 
 Purge DNS resolver **không**:
 
@@ -2193,19 +2195,19 @@ Giữ nguyên phiên PowerShell này; biến `$Ds` sẽ được dùng lại ở
 
 Hostinger hPanel → **Domains → Domain portfolio → Manage** domain → **DNS / Nameservers → DNSSEC**. Form có đúng bốn ô:
 
-| Ô ở Hostinger | Lấy từ đâu trên panel Cloudflare | Vị trí trong chuỗi `DS Record` | Dạng giá trị hợp lệ |
-| --- | --- | --- | --- |
-| `Key Tag` | dòng **Key Tag** | trường thứ 1 sau `DS` | số nguyên 0–65535, ví dụ `2371` |
-| `Algorithm` | dòng **Algorithm** | trường thứ 2 | lấy đúng số Cloudflare cấp; thường là `13` |
-| `Digest Type` | dòng **Digest Type** | trường thứ 3 | lấy đúng số Cloudflare cấp; thường là `2` |
-| `Digest` | dòng **Digest** | trường thứ 4 | chuỗi hex liền, 64 ký tự khi Digest Type là `2` |
+| Ô ở Hostinger | Lấy từ đâu trên panel Cloudflare | Vị trí trong chuỗi`DS Record` | Dạng giá trị hợp lệ                              |
+| --------------- | ------------------------------------- | ---------------------------------- | ----------------------------------------------------- |
+| `Key Tag`     | dòng**Key Tag**                | trường thứ 1 sau`DS`          | số nguyên 0–65535, ví dụ`2371`                 |
+| `Algorithm`   | dòng**Algorithm**              | trường thứ 2                    | lấy đúng số Cloudflare cấp; thường là`13`   |
+| `Digest Type` | dòng**Digest Type**            | trường thứ 3                    | lấy đúng số Cloudflare cấp; thường là`2`    |
+| `Digest`      | dòng**Digest**                 | trường thứ 4                    | chuỗi hex liền, 64 ký tự khi Digest Type là`2` |
 
 Khi panel Cloudflare hoặc dropdown Hostinger ghi tên thay vì số, quy đổi theo bảng này — **quy đổi tên sang số, không đổi giá trị**:
 
-| Trường | Số | Tên tương đương có thể gặp |
-| --- | --- | --- |
-| `Algorithm` | `13` | `ECDSAP256SHA256`, `ECDSA Curve P-256 with SHA-256` |
-| `Digest Type` | `2` | `SHA256`, `SHA-256` |
+| Trường        | Số    | Tên tương đương có thể gặp                     |
+| --------------- | ------ | ------------------------------------------------------- |
+| `Algorithm`   | `13` | `ECDSAP256SHA256`, `ECDSA Curve P-256 with SHA-256` |
+| `Digest Type` | `2`  | `SHA256`, `SHA-256`                                 |
 
 **Hai giá trị trên panel Cloudflare không có ô tương ứng ở Hostinger — không nhét vào ô nào:**
 
@@ -2285,11 +2287,24 @@ Chỉ chuyển sang §12 khi:
 
 Dùng **remotely-managed tunnel** (quản lý qua dashboard bằng *token*) — đơn giản, hợp với cụm k8s và đúng theo deployment guide của Cloudflare. (Cách CLI `config.yml` xem [Phụ lục A](#phụ-lục-a--locally-managed-tunnel-cli--configyml).)
 
-### 12.1. Tạo tunnel trên dashboard → lấy token
+Thực hiện đúng thứ tự `§12.1 → §12.2 → §12.3`. Ở giao diện hiện tại, nút **Continue** chỉ được bật sau khi Cloudflare phát hiện connector đã kết nối; vì vậy không cố hoàn tất wizard ở §12.1 và không chạy lệnh Docker mà dashboard hiển thị.
+
+### 12.1. Tạo tunnel trên dashboard → lấy token (chưa bấm Continue)
 
 1. Cloudflare dashboard → **Networking → Tunnels** → **Create Tunnel**.
-2. Chọn loại **Cloudflared** → đặt tên (vd `homelab-k8s`) → **Save**.
-3. Màn hình *Install and run* hiện lệnh có dạng `cloudflared ... run --token eyJh...`. **Copy chuỗi token `eyJh...`** (rất dài). Chưa cần chạy lệnh đó — ta sẽ nhúng token vào k8s.
+2. Giao diện hiện tại đi thẳng đến form **Create a Tunnel**; đây đã là luồng tạo connector `cloudflared`, nên không còn bước chọn loại **Cloudflared** riêng.
+3. Tại **Tunnel name**, nhập `homelab-k8s` → **Create Tunnel**.
+4. Tại màn hình **Setup Environment** / *Install and run*, chọn **Docker**. Lựa chọn này chỉ để dashboard hiển thị lệnh có token ở dạng dễ nhận biết; **không chạy** lệnh `docker run` vì connector sẽ được deploy vào Kubernetes ở §12.2.
+5. Bấm biểu tượng copy cạnh lệnh, rồi lấy riêng chuỗi nằm sau `--token` trong lệnh có dạng `cloudflared ... run --token eyJh...`. Token rất dài; không chụp, gửi vào chat hoặc ghi vào lịch sử lệnh shell.
+6. Giữ nguyên trang wizard. **Connection Status** hiển thị `Waiting for your Tunnel to connect` / `No connection detected yet` và nút **Continue** đang bị khóa là trạng thái dự kiến lúc này.
+
+**Verify §12.1:** kiểm tra đủ ba dấu hiệu trên dashboard:
+
+- **Tunnel name** là `homelab-k8s`.
+- **Operating System** đang chọn **Docker**.
+- Lệnh *Run tunnel with Docker* có tham số `--token` và đã copy được token, nhưng chưa chạy lệnh.
+
+**PASS §12.1:** đủ ba dấu hiệu trên. Nút **Continue** chưa bật không phải lỗi; chuyển thẳng xuống §12.2. **STOP** nếu dashboard không sinh lệnh chứa `--token` hoặc token đã bị lộ — khi đó không deploy và phải rotate token trước.
 
 ### 12.2. Deploy cloudflared vào cụm
 
@@ -2350,48 +2365,486 @@ spec:
 
 ```bash
 kubectl apply -f cloudflared.yaml
-kubectl get pods -n cloudflare
+kubectl -n cloudflare rollout status deployment/cloudflared --timeout=180s
+kubectl -n cloudflare get deployment cloudflared
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
 ```
 
-Quay lại dashboard tunnel → trạng thái phải chuyển **Healthy** (2 connector).
+Output mong đợi:
 
-### 12.3. Thêm Published application (route domain → ingress nội bộ)
+- `rollout status` kết thúc bằng `successfully rolled out`.
+- Deployment có `READY 2/2` và `AVAILABLE 2`.
+- Cả hai Pod có `STATUS Running`, cột `READY` là `1/1` và không restart lặp lại.
 
-Trong tunnel vừa tạo → **Published application routes** → **Add a published application** (một số tài khoản/UI cũ còn hiện “Public Hostname”):
+Nếu rollout không PASS, chưa quay lại wizard và chưa tạo route. Chẩn đoán trước bằng:
 
-| Trường            | Giá trị                                    |
-| ------------------- | -------------------------------------------- |
-| **Subdomain** | `app` (để trống nếu dùng root domain) |
-| **Domain**    | `example.com` (chọn từ dropdown)         |
-| **Type**      | `HTTP`                                     |
-| **URL**       | `traefik.traefik.svc.cluster.local:80`     |
+```bash
+kubectl -n cloudflare describe deployment cloudflared
+kubectl -n cloudflare describe pods -l app=cloudflared
+kubectl -n cloudflare logs deployment/cloudflared --tail=100
+```
+
+Không gửi log nếu log làm lộ token. Sửa lỗi Pod/egress trước rồi chạy lại ba lệnh verify ở trên.
+
+Sau khi Kubernetes PASS:
+
+1. Quay lại đúng trang wizard đang giữ ở §12.1.
+2. Chờ **Connection Status** phát hiện connector; nút **Continue** sẽ được bật. Nếu UI chưa cập nhật, đợi ngắn rồi refresh đúng một lần, không tạo tunnel mới và không chạy thêm lệnh Docker.
+3. Chọn **Continue** để kết thúc bước kết nối và mở trang cấu hình route/tunnel.
+4. Vào **Networking → Tunnels** nếu dashboard chuyển về trang khác; tunnel `homelab-k8s` phải hiển thị **Healthy** với hai connector/replica.
+
+**Verify §12.2:** chạy lại:
+
+```bash
+kubectl -n cloudflare get deployment cloudflared
+kubectl -n cloudflare get pods -l app=cloudflared
+```
+
+Đồng thời xác nhận dashboard hiển thị tunnel `homelab-k8s` là **Healthy**.
+
+**PASS §12.2:** Deployment vẫn `READY 2/2`, hai Pod vẫn `Running 1/1`, dashboard đã phát hiện connector, đã bấm được **Continue**, và tunnel là **Healthy**. Chỉ khi đủ các điều kiện này mới chuyển sang §12.3.
+
+### 12.3. Chốt hostname thật trong Ingress → thêm Published application
+
+#### 12.3.1. Đổi Ingress từ hostname tạm sang hostname thật
+
+Domain đã PASS §11 là `hieupn.site`, nên hostname public của app trong lab này là `app.hieupn.site`. Kubernetes không tự lấy domain từ Cloudflare: phải đổi `spec.rules[].host` trong manifest rồi apply lại trước khi tạo route.
+
+**Trên master**, kiểm tra hostname hiện tại:
+
+```bash
+kubectl get ingress web -o jsonpath='{.spec.rules[*].host}{"\n"}'
+```
+
+Nếu đã làm đúng §10, output lúc này là `app.example.com`; đây là trạng thái tạm dự kiến, **chưa phải PASS §12.3.1**.
+
+Mở source manifest:
+
+```bash
+nano ~/demo-app.yaml
+```
+
+Trong phần `kind: Ingress`, chỉ đổi:
+
+```yaml
+- host: app.example.com
+```
+
+thành:
+
+```yaml
+- host: app.hieupn.site
+```
+
+Lưu file, dry-run rồi apply:
+
+```bash
+kubectl apply --dry-run=client -f ~/demo-app.yaml
+kubectl apply -f ~/demo-app.yaml
+```
+
+Verify object đang chạy và test lại toàn bộ đường nội bộ qua Traefik bằng Host header mới:
+
+```bash
+kubectl get ingress web -o jsonpath='{.spec.rules[*].host}{"\n"}'
+ING_IP=$(kubectl get svc -n traefik traefik -o jsonpath='{.spec.clusterIP}')
+curl -sS -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+**PASS §12.3.1:** lệnh đầu in đúng `app.hieupn.site` và `curl` trả nội dung `nginxdemos/hello` như test §10.3. **STOP** nếu hostname còn là `app.example.com`, `curl` trả `404`, hoặc không có nội dung ứng dụng; chưa tạo route Cloudflare cho tới khi gate này PASS.
+
+#### 12.3.2. Hiểu đầy đủ luồng Cloudflare Tunnel → Kubernetes
+
+Điểm cốt lõi: **Cloudflare không chủ động mở một kết nối mới từ Internet vào IP của lab**. Chính các Pod `cloudflared` đang nằm trong Kubernetes đã mở kết nối outbound tới Cloudflare và giữ các kết nối đó hoạt động. Khi có request, Cloudflare truyền request xuống chính đường kết nối đã được mở sẵn.
+
+```mermaid
+flowchart LR
+    subgraph INTERNET["Internet và Cloudflare"]
+        USER["Browser<br/>https://app.hieupn.site"]
+        EDGE["Cloudflare Edge<br/>DNS, TLS, WAF và Tunnel routing"]
+    end
+
+    subgraph LAB["Mạng lab sau router / NAT"]
+        subgraph K8S["Kubernetes cluster"]
+            CF1["cloudflared Pod 1"]
+            CF2["cloudflared Pod 2"]
+            DNS["CoreDNS"]
+            TSVC["Service traefik<br/>ClusterIP, port 80"]
+            TPOD["Traefik Pod"]
+            INGRESS["Ingress web<br/>Host: app.hieupn.site"]
+            WSVC["Service web, port 80"]
+            WPOD["Pod web"]
+        end
+    end
+
+    CF1 ==>|"Mở kết nối outbound mã hóa<br/>QUIC hoặc HTTP/2, port 7844"| EDGE
+    CF2 ==>|"Mở kết nối outbound mã hóa<br/>QUIC hoặc HTTP/2, port 7844"| EDGE
+    USER -->|"HTTPS request"| EDGE
+    EDGE -.->|"Gửi request xuống<br/>kết nối đã mở sẵn"| CF1
+    CF1 -->|"Resolve traefik.traefik.svc.cluster.local"| DNS
+    DNS -->|"Trả ClusterIP của Service"| CF1
+    CF1 -->|"HTTP tới Service port 80"| TSVC
+    TSVC --> TPOD
+    TPOD -->|"Khớp Host header"| INGRESS
+    INGRESS --> WSVC
+    WSVC --> WPOD
+```
+
+##### 12.3.2.1. `cloudflared` đã nằm bên trong cluster
+
+Deployment ở §12.2 tạo hai Pod `cloudflared` trong namespace `cloudflare`. Vì là Pod Kubernetes, mỗi replica:
+
+- dùng được mạng nội bộ của cluster;
+- dùng CoreDNS để phân giải tên `*.svc.cluster.local`;
+- truy cập được các Kubernetes Service;
+- có egress ra Internet;
+- dùng `TUNNEL_TOKEN` để đăng ký với cùng tunnel `homelab-k8s`.
+
+Hai replica không cần hai tunnel riêng. Chúng cùng gắn vào một tunnel UUID để dự phòng: nếu một connector/worker lỗi, replica còn lại tiếp tục phục vụ. Replica `cloudflared` là cơ chế HA cho đường hầm, không phải bộ cân bằng tải backend ứng dụng; Kubernetes Service và Traefik đảm nhiệm việc phân phối request ở phía cluster. Xem [Cloudflare — Kubernetes deployment guide](https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/).
+
+##### 12.3.2.2. Pod chủ động mở đường outbound qua router/NAT
+
+Khi container khởi động, `cloudflared` đọc token và mở các kết nối outbound dài hạn tới Cloudflare. Với `--protocol auto` mặc định, nó có thể dùng QUIC qua UDP `7844` hoặc HTTP/2 qua TCP `7844`. Cloudflare duy trì nhiều kết nối tới ít nhất hai data center để có dự phòng. Xem [Cloudflare Tunnel configuration](https://developers.cloudflare.com/tunnel/configuration/) và [Tunnel with firewall](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/).
+
+Router chỉ thấy chiều khởi tạo:
+
+```text
+cloudflared Pod → router/NAT → Cloudflare
+```
+
+NAT/firewall tạo state cho session outbound. Sau khi session tồn tại, dữ liệu đi được hai chiều trong chính session đó. Cloudflare **không** quay lại mở kết nối trực tiếp tới IP riêng của master/worker, nên kiến trúc này không cần:
+
+- IP public cho Kubernetes;
+- port-forward trên router;
+- mở inbound `80`, `443` hoặc `7844` vào lab;
+- công bố IP worker hay ClusterIP ra Internet.
+
+Dashboard `Healthy` với `Replicas = 2` chứng minh hai Pod đã đăng ký và giữ được đường kết nối từ cluster tới Cloudflare.
+
+##### 12.3.2.3. Published application là bảng ánh xạ hostname → origin nội bộ
+
+Khai báo ở bước kế tiếp có ý nghĩa:
+
+```text
+Public hostname: app.hieupn.site
+Tunnel:          homelab-k8s
+Service URL:     http://traefik.traefik.svc.cluster.local:80
+```
+
+Tức là:
+
+```text
+Nếu Cloudflare nhận request cho app.hieupn.site
+→ chọn tunnel homelab-k8s
+→ gửi request xuống một connector Healthy
+→ cloudflared gọi http://traefik.traefik.svc.cluster.local:80
+```
+
+Đây là cấu hình của **remotely-managed tunnel**, được lưu ở Cloudflare và áp dụng cho các connector của tunnel. Có thể publish nhiều hostname qua cùng một tunnel, mỗi hostname ánh xạ tới một service nội bộ khác nhau. Xem [Cloudflare — Published application routing](https://developers.cloudflare.com/tunnel/routing/).
+
+##### 12.3.2.4. Có hai hệ DNS độc lập
+
+Khi lưu Published application trong Full Setup, Cloudflare tự tạo DNS record public tương đương:
+
+```text
+app.hieupn.site → <TUNNEL-UUID>.cfargotunnel.com
+```
+
+Record được proxy qua Cloudflare. Người dùng ngoài Internet nhận địa chỉ Anycast của Cloudflare, không nhận ClusterIP, Pod IP, worker IP hoặc IP router của lab.
+
+Ở phía trong cluster, `cloudflared` lại dùng CoreDNS để phân giải origin:
+
+| Hệ DNS               | Tên được phân giải              | Người dùng kết quả                                |
+| --------------------- | ------------------------------------- | ------------------------------------------------------ |
+| Cloudflare public DNS | `app.hieupn.site`                   | Browser ngoài Internet tìm tới Cloudflare Edge      |
+| Kubernetes CoreDNS    | `traefik.traefik.svc.cluster.local` | Pod`cloudflared` tìm ClusterIP của Service Traefik |
+
+Cloudflare Edge không phân giải và không truy cập trực tiếp tên `*.svc.cluster.local`; tên này chỉ có nghĩa sau khi request đã xuống Pod `cloudflared` bên trong cluster. Kubernetes định nghĩa DNS Service theo dạng `<service>.<namespace>.svc.<cluster-domain>`; xem [Kubernetes — DNS for Services and Pods](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/).
+
+##### 12.3.2.5. Request từ browser tới Cloudflare Edge
+
+Khi người dùng mở:
+
+```text
+https://app.hieupn.site
+```
+
+trình duyệt thực hiện:
+
+1. Hỏi DNS public và nhận địa chỉ Cloudflare.
+2. Mở HTTPS tới Cloudflare Edge trên port `443`.
+3. Nhận certificate cho `app.hieupn.site` từ Cloudflare.
+4. Gửi request có HTTP Host header `app.hieupn.site`.
+5. Cloudflare có thể áp dụng TLS termination, WAF, DDoS protection, cache và các rule ở edge.
+
+Browser kết nối tới Cloudflare, **không** kết nối tới router hay worker của lab.
+
+##### 12.3.2.6. Cloudflare gửi request xuống đường hầm đã tồn tại
+
+Cloudflare dùng hostname và DNS/tunnel route để xác định tunnel UUID. Nó chọn một connector đang Healthy rồi multiplex request xuống kết nối mã hóa mà connector đó đã mở từ trước:
+
+```text
+Không phải: Cloudflare → mở kết nối mới vào IP lab
+
+Mà là:     cloudflared → mở kết nối outbound tới Cloudflare
+            Cloudflare → trả request xuống kết nối đang mở
+```
+
+Nếu một Pod `cloudflared` chết, replica còn lại có thể tiếp tục. Nếu không còn connector nào Healthy nhưng DNS record vẫn tồn tại, Cloudflare không tới được origin; DNS record không tự biến mất chỉ vì tunnel dừng. Xem [Cloudflare Tunnel overview](https://developers.cloudflare.com/tunnel/) và [Cloudflare routing](https://developers.cloudflare.com/tunnel/routing/).
+
+##### 12.3.2.7. Tunnel kết thúc tại Pod `cloudflared`
+
+Tunnel không kết thúc tại Traefik. Điểm cuối trong lab là Pod `cloudflared`, và Pod này tiếp tục đóng vai trò reverse proxy/client cho origin nội bộ:
+
+```text
+Cloudflare Edge ══ tunnel mã hóa ══> cloudflared Pod
+cloudflared Pod ── HTTP nội bộ ──> Traefik Service
+```
+
+Service URL không phải địa chỉ mà Cloudflare Edge truy cập trực tiếp. Nó là chỉ dẫn để `cloudflared`, sau khi nhận request trong cluster, mở một connection mới tới origin.
+
+##### 12.3.2.8. `cloudflared` dùng CoreDNS tìm Service Traefik
+
+Tên origin được tách như sau:
+
+```text
+traefik.traefik.svc.cluster.local:80
+│       │       │   │             │
+│       │       │   │             └─ Service port HTTP
+│       │       │   └─ DNS domain nội bộ mặc định
+│       │       └─ đối tượng Kubernetes Service
+│       └─ namespace
+└─ tên Service
+```
+
+CoreDNS trả ClusterIP của Service `traefik`. `cloudflared` gọi Service port `80`; cơ chế dataplane của Kubernetes chuyển connection tới một Pod Traefik đang Ready. Dùng Service DNS thay vì Pod IP giúp origin ổn định khi Pod Traefik bị tạo lại hoặc đổi IP.
+
+##### 12.3.2.9. Traefik dùng Host header chọn đúng ứng dụng
+
+Request đến Traefik vẫn mang:
+
+```http
+Host: app.hieupn.site
+```
+
+Ta không đặt **HTTP Host Header override**, nên không yêu cầu `cloudflared` thay hostname gửi tới origin. Traefik so sánh Host header với Ingress đã PASS §12.3.1:
+
+```yaml
+spec:
+  rules:
+    - host: app.hieupn.site
+      http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
+```
+
+Khi hostname khớp, Traefik chuyển request tới Service `web:80`. Nếu Ingress còn `app.example.com`, Traefik không tìm thấy Router phù hợp và thường trả `404`. Tùy chọn `httpHostHeader` chỉ cần khi muốn chủ động ghi đè Host gửi tới origin; xem [Cloudflare — Origin parameters](https://developers.cloudflare.com/tunnel/advanced/origin-parameters/).
+
+##### 12.3.2.10. Service `web` chọn Pod và response quay ngược lại
+
+Service `web` chọn các Pod có label `app=web` rồi chuyển request tới một backend. Pod tạo response có thể chứa:
+
+```text
+Server address: <Pod-IP>:80
+Server name: web-<replicaset-hash>-<pod-suffix>
+```
+
+Response đi ngược đúng chuỗi:
+
+```text
+Pod web
+→ Service web
+→ Traefik
+→ cloudflared
+→ tunnel mã hóa
+→ Cloudflare Edge
+→ Browser
+```
+
+Chạy request nhiều lần có thể thấy `Server name`/`Server address` thay đổi giữa hai Pod web; việc chọn backend thuộc tầng Kubernetes Service/Traefik, không phải hai replica `cloudflared`.
+
+##### 12.3.2.11. Vì sao browser dùng HTTPS nhưng Service URL dùng HTTP?
+
+Hai trường này thuộc hai chặng khác nhau:
+
+```text
+Browser ── HTTPS ──> Cloudflare Edge
+Cloudflare Edge ══ tunnel mã hóa ══> cloudflared
+cloudflared ── HTTP nội bộ ──> Traefik:80
+```
+
+Cloudflare xử lý certificate và TLS public ở edge; kết nối Edge ↔ `cloudflared` được tunnel bảo vệ. `Type=HTTP` hoặc scheme `http://` chỉ mô tả chặng cuối từ Pod `cloudflared` tới Traefik bên trong cluster. Nếu threat model yêu cầu mã hóa cả chặng nội bộ, có thể cấu hình HTTPS origin riêng; lab này dùng HTTP để tránh quản lý thêm certificate nội bộ.
+
+##### 12.3.2.12. Ba liên kết mà bước Published application tạo ra
+
+```text
+1. Public DNS
+   app.hieupn.site → Cloudflare
+
+2. Tunnel routing
+   app.hieupn.site → homelab-k8s
+
+3. Internal origin
+   homelab-k8s → http://traefik.traefik.svc.cluster.local:80
+```
+
+Điều đưa traffic từ Cloudflare vào Kubernetes là tổ hợp của **các Pod `cloudflared` nằm trong cluster**, **kết nối outbound dài hạn do chúng mở**, và **route ánh xạ hostname public tới Kubernetes Service nội bộ** — không phải port-forward hay public IP của lab.
+
+#### 12.3.3. Thêm Published application
+
+Chỉ sau khi §12.3.1 PASS, mở tunnel `homelab-k8s` → **Routes** / **Published application routes** → **Add route** → **Published application** (một số tài khoản/UI cũ còn hiện “Public Hostname”):
+
+| Trường              | Giá trị                                       |
+| --------------------- | ----------------------------------------------- |
+| **Subdomain**   | `app` (để trống nếu dùng root domain)    |
+| **Domain**      | `hieupn.site` (chọn từ dropdown)            |
+| **Service URL** | `http://traefik.traefik.svc.cluster.local:80` |
+
+> **UI Cloudflare có hai biến thể.** Bản mới gộp `Type` và `URL` thành **một ô `Service URL`**, và scheme phải nằm trong chuỗi — thiếu `http://` sẽ báo *Invalid service URL format (must start with protocol like https://, tcp://, etc.)*. Bản cũ tách thành dropdown `Type` = `HTTP` và ô `URL` = `traefik.traefik.svc.cluster.local:80` (không scheme). Hai cách khai báo cùng một đích; điền theo đúng biến thể đang hiện trên màn hình.
 
 → **Save**. Với DNS **Full Setup** như [§11.2](#112-thêm-domain-vào-cloudflare), Cloudflare tự tạo DNS record cho hostname. Nếu zone dùng **Partial/CNAME Setup**, phải tự tạo CNAME tại DNS provider theo hướng dẫn Cloudflare.
 
-> Vì cloudflared chạy *trong* cụm, nó resolve được tên DNS nội bộ `*.svc.cluster.local` và gọi thẳng ClusterIP của Traefik. Hostname `app.example.com` được giữ nguyên trong Host header → Traefik khớp đúng Router sinh từ `Ingress` ở [§10].
+> Vì cloudflared chạy *trong* cụm, nó resolve được tên DNS nội bộ `*.svc.cluster.local` và gọi thẳng ClusterIP của Traefik. Hostname `app.hieupn.site` được giữ nguyên trong Host header → Traefik khớp đúng Router đã verify ở §12.3.1.
 >
-> (Tuỳ chọn) Nếu cần ép Host header, mở **Additional application settings → HTTP Settings → HTTP Host Header** = `app.example.com`.
+> (Tuỳ chọn) Nếu cần ép Host header, mở **Additional application settings → HTTP Settings → HTTP Host Header** = `app.hieupn.site`.
+
+**Verify §12.3.3:**
+
+1. Trong tunnel `homelab-k8s`, tab **Routes** / **Published application routes** phải có route `app.hieupn.site` trỏ tới `http://traefik.traefik.svc.cluster.local:80`.
+2. Cloudflare → **DNS → Records** phải có record cho `app.hieupn.site` ở trạng thái **Proxied**; không tự tạo record thứ hai nếu dashboard đã tạo tự động.
+3. Tunnel vẫn **Healthy** và hai Pod `cloudflared` vẫn `Running`:
+
+```bash
+kubectl -n cloudflare get pods -l app=cloudflared
+```
+
+**PASS §12.3.3 / hoàn thành §12:** route và DNS record `app.hieupn.site` tồn tại đúng một lần, tunnel vẫn **Healthy**, và hai Pod vẫn `Running 1/1`. Sau đó mới chuyển sang §13 để kiểm tra DNS public và HTTPS từ Internet.
 
 ---
 
 ## 13. Trỏ domain & kiểm tra trên Internet
 
+### 13.1. Verify DNS public và hiểu vì sao kết quả là IP Cloudflare
+
+Chạy từ master hoặc một máy khác có Internet:
+
 ```bash
-# 1) DNS đã có CNAME chưa
-nslookup app.example.com        # phải trả về IP của Cloudflare (proxied)
-
-# 2) Truy cập (TLS do Cloudflare cấp tự động ở edge)
-curl -I https://app.example.com
+nslookup app.hieupn.site
 ```
 
-Mở trình duyệt → `https://app.example.com` → thấy trang `nginxdemos/hello` ⇒ **toàn bộ chuỗi đã thông**:
+Lệnh này hỏi DNS: “client phải kết nối tới địa chỉ nào khi truy cập `app.hieupn.site`?”. Vì record Tunnel đang **Proxied**, câu trả lời phải là một hoặc nhiều IPv4/IPv6 của Cloudflare Edge, không phải IP router, master, worker, ClusterIP Traefik hoặc Pod IP của lab.
 
-```
-Browser → Cloudflare edge (HTTPS) → Tunnel → cloudflared(pod) →
-Traefik(ClusterIP) → Router(host match) → Service web → Pod web
+```text
+app.hieupn.site
+→ Cloudflare Edge IP
+→ tunnel homelab-k8s
+→ cloudflared trong Kubernetes
+→ Traefik
+→ ứng dụng web
 ```
 
-> **TLS:** Cloudflare tự lo cert ở edge (Internet ⇄ Cloudflare = HTTPS). Đoạn Cloudflare ⇄ cụm đi trong tunnel mã hoá; ingress để HTTP (không cần cert nội bộ). Traefik **không** tự redirect HTTP→HTTPS nên không cần cấu hình gì thêm — với `ingress-nginx` thì đây là chỗ phải thêm annotation `ssl-redirect: "false"`.
+Ví dụ output có thể chứa:
+
+```text
+Server:  127.0.0.53
+Address: 127.0.0.53#53
+
+Non-authoritative answer:
+Name:    app.hieupn.site
+Address: 104.x.x.x
+Name:    app.hieupn.site
+Address: 172.x.x.x
+Name:    app.hieupn.site
+Address: 2606:4700:...
+```
+
+Cần phân biệt:
+
+- `Server: 127.0.0.53` là DNS stub resolver cục bộ trên Ubuntu master (`systemd-resolved`), không phải web server hay Cloudflare origin. Xem DNS upstream thật bằng `resolvectl status`.
+- Các địa chỉ trong phần `Non-authoritative answer` mới là kết quả phân giải `app.hieupn.site`.
+- Nhiều IPv4/IPv6 là bình thường vì Cloudflare dùng mạng Anycast và nhiều địa chỉ để tăng tính sẵn sàng; không coi một IP cụ thể là một máy chủ Cloudflare cố định.
+
+Dashboard lưu ánh xạ tương đương `app.hieupn.site → <TUNNEL-UUID>.cfargotunnel.com`, nhưng khi record được Proxied, DNS public thường trả Cloudflare Edge IP thay vì công bố CNAME tunnel hoặc bất kỳ IP nội bộ nào. Xem [Cloudflare — Tunnel DNS records](https://developers.cloudflare.com/tunnel/routing/#dns-records).
+
+`nslookup` PASS chứng minh:
+
+- hostname public đã có DNS record và resolver nhìn thấy record;
+- proxy Cloudflare đang được áp dụng;
+- client sẽ tới Cloudflare Edge thay vì kết nối thẳng vào lab.
+
+`nslookup` **chưa** chứng minh tunnel đang Healthy, `cloudflared` gọi được Traefik, Ingress khớp Host header hay Pod web trả response. Các tầng đó được kiểm tra ở §13.2.
+
+**PASS §13.1:** `app.hieupn.site` trả Cloudflare Edge IPv4/IPv6, không trả IP riêng/IP public của lab và không có `NXDOMAIN`/timeout.
+
+### 13.2. Verify HTTPS end-to-end bằng response headers
+
+```bash
+curl -I https://app.hieupn.site
+```
+
+`-I` yêu cầu `curl` gửi HTTP `HEAD` và chỉ in response headers, không tải body trang. Trong một lệnh, `curl` lần lượt kiểm tra:
+
+1. DNS phân giải được `app.hieupn.site`.
+2. Kết nối được tới Cloudflare Edge qua HTTPS port `443`.
+3. TLS certificate hợp lệ và khớp hostname `app.hieupn.site`.
+4. Cloudflare tìm thấy Published application route.
+5. Cloudflare truyền request xuống tunnel `homelab-k8s` qua connector đang Healthy.
+6. Pod `cloudflared` gọi được `traefik.traefik.svc.cluster.local:80`.
+7. Traefik nhận `Host: app.hieupn.site` và khớp Ingress `web`.
+8. Service/Pod web xử lý được request `HEAD` và trả response.
+
+Lệnh này khác test nội bộ ở §12.3.1:
+
+| Lệnh | Phạm vi được kiểm tra |
+| --- | --- |
+| `curl -H 'Host: app.hieupn.site' "http://$ING_IP/"` | Traefik → Ingress → Service web → Pod; bỏ qua DNS public, Cloudflare và Tunnel |
+| `curl -I https://app.hieupn.site` | DNS public → Cloudflare Edge/TLS → Tunnel → `cloudflared` → Traefik → ứng dụng |
+
+Output PASS dự kiến có status thành công, tùy phiên bản `curl` có thể hiển thị HTTP/2 hoặc HTTP/1.1:
+
+```text
+HTTP/2 200
+server: cloudflare
+cf-ray: ...
+```
+
+`server: cloudflare` cho biết response đi qua Cloudflare Edge, không phải tên Pod backend. `cf-ray` là định danh request tại Cloudflare. Một số lỗi giúp khoanh vùng:
+
+| Kết quả | Tầng cần kiểm tra trước |
+| --- | --- |
+| `Could not resolve host` | DNS public/resolver |
+| lỗi certificate | TLS/Universal SSL/hostname |
+| HTTP `404` | Published route hoặc Host của Ingress không khớp |
+| HTTP `502`/`504` | `cloudflared` không gọi được Traefik/backend hoặc origin không trả lời |
+| Cloudflare `1016` | DNS còn record nhưng tunnel/origin route không dùng được |
+
+**PASS §13.2:** `curl` không có lỗi DNS/TLS/connection và nhận HTTP `200` qua Cloudflare. Nếu nhận redirect `301`/`302`, phải xác nhận đích redirect đúng rồi chạy lại URL đích; với cấu hình hiện tại dự kiến trả thẳng `200`.
+
+### 13.3. Verify response body và trình duyệt
+
+`curl -I` không tải nội dung nên sau khi header PASS, kiểm tra body thật:
+
+```bash
+curl -sS https://app.hieupn.site
+```
+
+Output phải chứa thông tin từ `nginxdemos/hello`, ví dụ `Server address`, `Server name`, `URI` và `Request ID`. `Server address` là Pod IP/port của backend web; `Server name` là tên Pod web đã phục vụ request, không phải Cloudflare Edge hay Traefik.
+
+Cuối cùng mở trình duyệt → `https://app.hieupn.site` → thấy trang `nginxdemos/hello`. Khi đó toàn bộ chuỗi đã thông:
+
+```text
+Browser → Cloudflare Edge (HTTPS/TLS) → Tunnel mã hóa → cloudflared Pod →
+Traefik Service/Pod → Ingress Router (Host match) → Service web → Pod web
+```
+
+**PASS §13 / hoàn thành public app:** §13.1 DNS PASS, §13.2 HTTPS headers trả `200`, §13.3 body/trình duyệt hiển thị ứng dụng.
+
+> **TLS:** Cloudflare lo certificate ở edge (Internet ⇄ Cloudflare = HTTPS). Đoạn Cloudflare ⇄ cluster đi trong tunnel mã hóa; chặng `cloudflared` ⇄ Traefik của lab dùng HTTP nội bộ nên không cần cert nội bộ. Traefik không tự redirect HTTP→HTTPS trong cấu hình này; với `ingress-nginx` thì đây là chỗ thường phải thêm annotation `ssl-redirect: "false"`.
 
 ---
 
@@ -2503,18 +2956,17 @@ Rancher là giao diện quản trị cụm, không nên chỉ dựa vào màn h�
 4. Tạo policy **Allow** chỉ cho email/email domain quản trị; bật MFA nếu IdP hỗ trợ. Không tạo policy `Bypass Everyone`.
 5. Save. Access mặc định deny người không khớp policy.
 
-Sau đó thêm một **Published application route** trong tunnel đã tạo ở [§12.3](#123-thêm-published-application-route-domain--ingress-nội-bộ):
+Sau đó thêm một **Published application route** theo [§12.3.3](#1233-thêm-published-application):
 
-| Trường                                              | Giá trị                                       |
-| ----------------------------------------------------- | ----------------------------------------------- |
-| **Subdomain**                                   | `rancher`                                     |
-| **Domain**                                      | `example.com`                                 |
-| **Type**                                        | **HTTPS**                                 |
-| **URL**                                         | `traefik.traefik.svc.cluster.local:443`       |
-| **Additional settings → TLS → No TLS Verify** | **ON** (vì cert Rancher là self-signed) |
-| **Additional settings → HTTP Host Header**     | `rancher.example.com`                         |
+| Trường                                              | Giá trị                                                                                                                                                                                                  |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Subdomain**                                   | `rancher`                                                                                                                                                                                                |
+| **Domain**                                      | `example.com`                                                                                                                                                                                            |
+| **Service URL**                                 | `https://traefik.traefik.svc.cluster.local:443` (UI cũ: `Type` = **HTTPS**, `URL` = `traefik.traefik.svc.cluster.local:443` — xem lưu ý ở [§12.3.3](#1233-thêm-published-application)) |
+| **Additional settings → TLS → No TLS Verify** | **ON** (vì cert Rancher là self-signed)                                                                                                                                                            |
+| **Additional settings → HTTP Host Header**     | `rancher.example.com`                                                                                                                                                                                    |
 
-→ **Save**. Với zone Full Setup, Cloudflare tự tạo DNS record cho `rancher.example.com`; với Partial/CNAME Setup, tạo record tại DNS provider như lưu ý ở [§12.3](#123-thêm-published-application-route-domain--ingress-nội-bộ).
+→ **Save**. Với zone Full Setup, Cloudflare tự tạo DNS record cho `rancher.example.com`; với Partial/CNAME Setup, tạo record tại DNS provider như lưu ý ở [§12.3.3](#1233-thêm-published-application).
 
 > `HTTP Host Header` được Traefik dùng để chọn HTTP router **sau** khi TLS handshake hoàn tất. SNI/certificate được xử lý trong handshake trước khi có Host header; `No TLS Verify` cho phép cloudflared chấp nhận certificate do Rancher tự ký. Đây là hai cơ chế khác nhau.
 >
@@ -2753,19 +3205,19 @@ trình này trực tiếp trên master bằng `sudo`; **không** chạy lại `k
 | Bridge**vẫn** không ra IP dù chọn đúng card  | Host bật**Hyper-V** làm VMware bridge xung đột (danh sách "Bridged to" có "Hyper-V Virtual Ethernet Adapter"). Kiểm tra host: `bcdedit /enum \| findstr -i hypervisorlaunchtype`. Xử lý: tắt Hyper-V cho lab (`bcdedit /set hypervisorlaunchtype off` + reboot — **lưu ý sẽ tắt WSL2/Docker Desktop/Sandbox**), **hoặc** chuyển Network Adapter sang **NAT** (vẫn ra Internet; khi đó IP tĩnh phải theo dải NAT của VMnet8, vd `192.168.71.x`, và đổi đồng bộ toàn runbook). |
 | Node`NotReady`                                         | CNI chưa chạy →`kubectl get pods -n kube-flannel`; kiểm tra UDP 8472 mở; `--pod-network-cidr` đúng `10.244.0.0/16`                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `kubeadm join` timeout                                 | Worker không resolve`k8s-master` (thiếu `/etc/hosts`); hoặc cổng `6443` master bị firewall chặn                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Pod kẹt`ContainerCreating`/CNI lỗi                   | sai cgroup driver →`sudo crictl info \| grep -i -A2 systemdCgroup` phải `true`, rồi `systemctl restart containerd kubelet`                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Pod kẹt`ContainerCreating`/CNI lỗi                   | sai cgroup driver →`sudo crictl info \| grep -i -A2 systemdCgroup` phải `true`, rồi `systemctl restart containerd kubelet`                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `kubelet` crashloop sau init                           | còn swap →`swapoff -a` + check `/etc/fstab`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | Tunnel không**Healthy**                           | token sai/thiếu →`kubectl logs -n cloudflare deploy/cloudflared`; pod phải `Running`                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Domain mở ra**502/error 1033**                    | URL route sai tên service; thử đúng`traefik.traefik.svc.cluster.local:80` (hoặc `:443` cho Rancher); kiểm tra `kubectl get svc -n traefik`                                                                                                                                                                                                                                                                                                                                                                                   |
-| Mở domain ra**404 page not found**                | Host header không khớp Ingress`host:` → set HTTP Host Header trong tunnel, hoặc sửa `host:` trong Ingress. Soi Router thực tế ở dashboard Traefik ([§9.3](#93-cài-đặt-traefik))                                                                                                                                                                                                                                                                                                                                                   |
+| Mở domain ra**404 page not found**                | Host header không khớp Ingress`host:` → set HTTP Host Header trong tunnel, hoặc sửa `host:` trong Ingress. Soi Router thực tế ở dashboard Traefik ([§9.3](#93-cài-đặt-traefik))                                                                                                                                                                                                                                                                                                                                           |
 | Ingress apply xong nhưng**không được route**  | Thiếu/sai`ingressClassName` → phải là `traefik`; kiểm tra `kubectl get ingress -A` cột CLASS và `kubectl get ingressclass`                                                                                                                                                                                                                                                                                                                                                                                                |
 | **UI Rancher 404** dù pod Running                 | Chart Rancher mặc định nhắm`ingress-nginx` → cài lại/upgrade với `--set ingress.ingressClassName=traefik` ([§14.2](#142-cài-rancher-helm-pin-2143))                                                                                                                                                                                                                                                                                                                                                                         |
 | `rancher.example.com` lỗi **TLS/redirect-loop** | thiếu**No TLS Verify=ON** + **Host Header**=`rancher.example.com` ở route HTTPS; hoặc cert-manager chưa Ready (`kubectl get pods -n cert-manager`)                                                                                                                                                                                                                                                                                                                                                                   |
-| Rancher pod`CrashLoop`/Pending                         | thiếu RAM/headroom; hoặc cert-manager CRDs chưa cài (`--set crds.enabled=true`)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Rancher `cattle-cluster-agent` CrashLoop/không connect | kiểm `rancher.example.com` trong pod có resolve về ClusterIP Traefik theo split DNS ở §14.2; nếu đi ra Cloudflare Access sẽ bị chặn |
-| Rancher Shell/exec/attach/port-forward bị `forbidden` | Kubernetes 1.35 WebSocket upgrade cần verb RBAC `create` trên `pods/exec`, `pods/attach`, `pods/portforward`; kiểm Role/ClusterRole của user trước khi nghi firewall |
-| Rancher Shell/log stream rớt sau khi idle | WebSocket qua Cloudflare bị idle timeout; reconnect, phân biệt với lỗi RBAC/10250 |
-| Pull image private đã cache vẫn lỗi credential | Kubernetes 1.35 bật beta `KubeletEnsureSecretPulledImages`; kiểm `imagePullSecrets` hợp lệ thay vì dựa vào image đã cache |
+| Rancher pod`CrashLoop`/Pending                         | thiếu RAM/headroom; hoặc cert-manager CRDs chưa cài (`--set crds.enabled=true`)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Rancher`cattle-cluster-agent` CrashLoop/không connect | kiểm`rancher.example.com` trong pod có resolve về ClusterIP Traefik theo split DNS ở §14.2; nếu đi ra Cloudflare Access sẽ bị chặn                                                                                                                                                                                                                                                                                                                                                                                           |
+| Rancher Shell/exec/attach/port-forward bị`forbidden`  | Kubernetes 1.35 WebSocket upgrade cần verb RBAC`create` trên `pods/exec`, `pods/attach`, `pods/portforward`; kiểm Role/ClusterRole của user trước khi nghi firewall                                                                                                                                                                                                                                                                                                                                                        |
+| Rancher Shell/log stream rớt sau khi idle               | WebSocket qua Cloudflare bị idle timeout; reconnect, phân biệt với lỗi RBAC/10250                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Pull image private đã cache vẫn lỗi credential       | Kubernetes 1.35 bật beta`KubeletEnsureSecretPulledImages`; kiểm `imagePullSecrets` hợp lệ thay vì dựa vào image đã cache                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `curl -H Host` nội bộ OK nhưng Internet lỗi        | vấn đề ở tunnel/DNS, không phải cụm → soi log cloudflared + trạng thái tunnel                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ### Lệnh chẩn đoán nhanh

@@ -2458,37 +2458,105 @@ curl -sS -H 'Host: app.hieupn.site' "http://$ING_IP/"
 Điểm cốt lõi: **Cloudflare không chủ động mở một kết nối mới từ Internet vào IP của lab**. Chính các Pod `cloudflared` đang nằm trong Kubernetes đã mở kết nối outbound tới Cloudflare và giữ các kết nối đó hoạt động. Khi có request, Cloudflare truyền request xuống chính đường kết nối đã được mở sẵn.
 
 ```mermaid
-flowchart LR
-    subgraph INTERNET["Internet và Cloudflare"]
+flowchart TB
+    subgraph PUBLIC["Internet và Cloudflare"]
         USER["Browser<br/>https://app.hieupn.site"]
-        EDGE["Cloudflare Edge<br/>DNS, TLS, WAF và Tunnel routing"]
+        PDNS["Cloudflare public DNS<br/>app.hieupn.site → Edge Anycast IP"]
+        EDGE["Cloudflare Edge<br/>TLS · WAF · Tunnel routing"]
+        ROUTE["Published application route<br/>app.hieupn.site →<br/>http://traefik.traefik.svc.cluster.local:80"]
     end
 
-    subgraph LAB["Mạng lab sau router / NAT"]
+    subgraph LAB["Mạng lab sau router/NAT — không mở inbound"]
         subgraph K8S["Kubernetes cluster"]
-            CF1["cloudflared Pod 1"]
-            CF2["cloudflared Pod 2"]
+            CF1["cloudflared connector replica 1<br/>Active / Healthy"]
+            CF2["cloudflared connector replica 2<br/>Active / Healthy"]
             DNS["CoreDNS"]
-            TSVC["Service traefik<br/>ClusterIP, port 80"]
+            TSVC["Service traefik<br/>ClusterIP :80"]
             TPOD["Traefik Pod"]
-            INGRESS["Ingress web<br/>Host: app.hieupn.site"]
-            WSVC["Service web, port 80"]
-            WPOD["Pod web"]
+            ING["Ingress web — object cấu hình<br/>Host: app.hieupn.site"]
+            WSVC["Service web :80"]
+            WPOD1["Pod web replica 1"]
+            WPOD2["Pod web replica 2"]
         end
     end
 
-    CF1 ==>|"Mở kết nối outbound mã hóa<br/>QUIC hoặc HTTP/2, port 7844"| EDGE
-    CF2 ==>|"Mở kết nối outbound mã hóa<br/>QUIC hoặc HTTP/2, port 7844"| EDGE
-    USER -->|"HTTPS request"| EDGE
-    EDGE -.->|"Gửi request xuống<br/>kết nối đã mở sẵn"| CF1
-    CF1 -->|"Resolve traefik.traefik.svc.cluster.local"| DNS
-    DNS -->|"Trả ClusterIP của Service"| CF1
-    CF1 -->|"HTTP tới Service port 80"| TSVC
-    TSVC --> TPOD
-    TPOD -->|"Khớp Host header"| INGRESS
-    INGRESS --> WSVC
-    WSVC --> WPOD
+    USER -->|"1. DNS query"| PDNS
+    USER -->|"2. HTTPS :443 tới Edge IP"| EDGE
+    ROUTE -.->|"Control plane: hostname → tunnel + origin"| EDGE
+
+    CF1 ==>|"A. Outbound mã hóa<br/>QUIC/UDP hoặc HTTP2/TCP :7844"| EDGE
+    CF2 ==>|"A. Outbound mã hóa<br/>QUIC/UDP hoặc HTTP2/TCP :7844"| EDGE
+    EDGE -.->|"3. Request xuống một connector Healthy<br/>qua connection đã mở"| CF1
+    EDGE -.->|"hoặc connector này"| CF2
+
+    CF1 -->|"4a. DNS query origin"| DNS
+    CF2 -->|"4a. DNS query origin"| DNS
+    DNS -->|"4b. Trả ClusterIP"| CF1
+    DNS -->|"4b. Trả ClusterIP"| CF2
+    CF1 -->|"5. HTTP :80 nếu replica 1 được chọn"| TSVC
+    CF2 -->|"5. HTTP :80 nếu replica 2 được chọn"| TSVC
+
+    TSVC -->|"6. Chọn Traefik endpoint"| TPOD
+    ING -.->|"Control plane: Traefik watch và nạp routing rule"| TPOD
+    TPOD -->|"7. Host app.hieupn.site khớp rule"| WSVC
+    WSVC -->|"8. Chọn backend"| WPOD1
+    WSVC -->|"hoặc"| WPOD2
+
+    WPOD1 -.->|"9. Response quay ngược cùng đường"| USER
+    WPOD2 -.->|"9. Response quay ngược cùng đường"| USER
+
+    classDef ext fill:#e8eefc,stroke:#2b4c9b,stroke-width:1px,color:#10203f
+    classDef k8s fill:#ffffff,stroke:#526070,stroke-width:1px,color:#10203f
+    classDef cfg fill:#fdf3e0,stroke:#a8791f,stroke-width:1px,color:#3d2c07
+    class USER,PDNS,EDGE ext
+    class CF1,CF2,DNS,TSVC,TPOD,WSVC,WPOD1,WPOD2 k8s
+    class ROUTE,ING cfg
+    style PUBLIC fill:#f1f5ff,stroke:#8094c4,stroke-width:1px,color:#20345f
+    style LAB fill:#f4f6f9,stroke:#8a97a6,stroke-width:1px,color:#2b3543
+    style K8S fill:#ffffff,stroke:#aab4c0,stroke-width:1px,color:#2b3543
 ```
+
+Nét đậm `==>` là kết nối outbound do cả hai replica `cloudflared` chủ động mở và giữ; chúng đều Active/Healthy, không có replica primary/standby cố định. Nét đứt từ Edge cho biết mỗi request được đẩy xuống **một** connector Healthy qua connection đã mở sẵn. `Published application route` và `Ingress web` là control-plane/configuration, không phải hop mạng: route ánh xạ hostname public sang tunnel/origin, còn Traefik watch Ingress để nạp rule Host → Service. Response từ Pod web quay ngược qua chính chuỗi Traefik → `cloudflared` → Tunnel → Edge → Browser.
+
+**Trình tự đầy đủ của một request và response:**
+
+```mermaid
+%%{init: {"themeVariables": {"noteBkgColor": "#f1f5ff", "noteBorderColor": "#8094c4", "noteTextColor": "#10203f"}}}%%
+sequenceDiagram
+    participant B as Browser
+    participant D as Cloudflare public DNS
+    participant E as Cloudflare Edge
+    participant C as cloudflared Pod
+    participant K as CoreDNS
+    participant TS as Service traefik
+    participant T as Traefik Pod
+    participant WS as Service web
+    participant W as Pod web
+
+    Note over C,E: Tunnel mã hóa đã được cloudflared chủ động mở outbound từ trước
+    Note over E,C: Published route: app.hieupn.site → homelab-k8s → Traefik:80
+
+    B->>D: app.hieupn.site nằm ở đâu?
+    D-->>B: Cloudflare Edge IP
+    B->>E: HTTPS :443, hostname app.hieupn.site
+    E-->>C: Đẩy request xuống tunnel đang mở
+
+    C->>K: Resolve traefik.traefik.svc.cluster.local
+    K-->>C: ClusterIP của Service traefik
+    C->>TS: HTTP :80, Host app.hieupn.site
+    TS->>T: Chọn Traefik Pod đang Ready
+
+    Note over T: Traefik đã đọc Ingress từ Kubernetes API<br/>Ingress là cấu hình, không phải hop mạng
+    T->>WS: Host và path khớp → backend Service web:80
+    WS->>W: Chọn một Pod web
+
+    W-->>T: HTTP response
+    T-->>C: Response qua kết nối nội bộ
+    C-->>E: Response qua tunnel mã hóa
+    E-->>B: HTTPS response
+```
+
+Sơ đồ tuần tự đọc từ trên xuống dưới. Mũi tên đi sang phải là chiều request vào ứng dụng; các mũi tên nét đứt quay sang trái là chiều response trở về browser. `Cloudflare public DNS` chỉ dẫn browser tới Edge, còn `CoreDNS` chỉ được Pod trong cluster dùng để tìm ClusterIP của Service Traefik.
 
 ##### 12.3.2.1. `cloudflared` đã nằm bên trong cluster
 

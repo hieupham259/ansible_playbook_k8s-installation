@@ -138,8 +138,8 @@ Thiết lập mỗi VM:
 2. Firmware: UEFI; Secure Boot có thể giữ bật nếu hypervisor hỗ trợ bình thường.
 3. Network: Bridged để Windows host SSH trực tiếp được tới VM.
 4. Disk: SCSI/NVMe, thin provision, 40 GB.
-5. Không clone một VM đã boot nếu chưa tạo lại `machine-id`, MAC và product UUID. Cách ít
-   lỗi nhất cho lab đầu tiên là cài riêng ba VM.
+5. Nếu dùng full clone, bắt buộc chuẩn hóa identity theo A2.2 trước khi đặt hostname/IP và
+   xác nhận VMware đã sinh MAC cùng product UUID riêng cho từng VM.
 
 Nếu LAN không cho dùng Bridged, dùng một VMnet NAT riêng. Điều kiện bắt buộc là ba VM liên
 lạc hai chiều với nhau, Windows host SSH được tới cả ba VM và cả ba VM có Internet egress.
@@ -192,12 +192,42 @@ Không tiếp tục nếu checksum khác giá trị được Canonical công b�
 
 ## A2. Cài Ubuntu và cấu hình identity
 
-Cài Ubuntu Server 24.04.4 trên cả ba VM:
+Chuẩn bị Ubuntu Server 24.04.4 bằng cách cài riêng từng VM hoặc cài một VM nguồn rồi tạo full
+clone. Bản cài dùng cho các VM phải có:
 
 - Minimal installation, không cài GUI.
 - Bật OpenSSH Server.
 - Tạo cùng một user quản trị, ví dụ `k8sadmin`, có quyền `sudo`.
-- Đặt hostname đúng theo bảng A1.2 ngay trong installer; nếu chưa đúng, chạy lệnh tương ứng:
+
+### A2.1. VM được cài Ubuntu riêng
+
+Không tạo lại `machine-id` hoặc SSH host key. Chuyển thẳng tới A2.3 để đặt hostname và kiểm
+tra identity.
+
+### A2.2. VM được tạo bằng full clone
+
+Khi VMware hỏi VM đã được **move** hay **copy**, chọn **I Copied It** để hypervisor sinh UUID
+và MAC mới. Trên **từng VM clone**, mở console VMware và chạy các lệnh sau trước khi cấu hình
+hostname/IP. Không chạy qua SSH vì các clone đang có thể trùng SSH host key; không chạy lại
+trên VM nguồn:
+
+```bash
+# Tạo machine-id riêng.
+sudo truncate -s 0 /etc/machine-id
+sudo rm -f /var/lib/dbus/machine-id
+sudo systemd-machine-id-setup
+
+# Tạo SSH host key riêng.
+sudo rm -f /etc/ssh/ssh_host_*
+sudo dpkg-reconfigure openssh-server
+```
+
+Chưa reboot tại đây. Tiếp tục A2.3 để đặt hostname, hoàn tất cấu hình IP tĩnh ở A3, rồi reboot
+một lần. Nếu VM clone đã được chuẩn hóa identity trước đó thì không chạy lại các lệnh trên.
+
+### A2.3. Đặt hostname và kiểm tra identity
+
+Đặt hostname đúng theo bảng A1.2; chỉ chạy một lệnh phù hợp trên từng VM:
 
 ```bash
 # Chỉ chạy đúng một lệnh phù hợp trên từng VM
@@ -206,16 +236,19 @@ sudo hostnamectl set-hostname lab-k8s-worker1
 sudo hostnamectl set-hostname lab-k8s-worker2
 ```
 
-Sau reboot, chạy trên từng VM:
+Chạy trên từng VM và đối chiếu kết quả của cả ba máy:
 
 ```bash
 hostnamectl --static
 cat /etc/machine-id
 sudo cat /sys/class/dmi/id/product_uuid
+sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
 ip -br link
 ```
 
-**PASS:** hostname đúng; `machine-id`, product UUID và MAC khác nhau giữa ba VM.
+**PASS:** hostname đúng; `machine-id`, product UUID, SSH host-key fingerprint và MAC khác nhau
+giữa ba VM. Nếu product UUID hoặc MAC trùng, dừng tại đây và để VMware sinh giá trị mới;
+không thể sửa hai giá trị này bằng lệnh bên trong Ubuntu.
 
 ## A3. Đặt IP tĩnh và phân giải tên
 
@@ -225,15 +258,36 @@ DHCP reservation theo MAC hoặc chọn ba IP khác.
 Trên mỗi VM, tìm interface đang giữ default route:
 
 ```bash
+ip -br a
+# PASS: interface ens33/ens160 ở trạng thái UP và có IP DHCP cùng dải LAN.
+
 ip route
+# PASS: có "default via <gateway> dev ens33/ens160".
+
 ip route | awk '/default/ {print $5; exit}'
+# PASS: chỉ in tên interface, ví dụ ens33; dùng đúng tên này trong 01-static.yaml.
 ```
 
-Ví dụ interface là `ens33`. Tạo netplan riêng trên từng VM; thay gateway/DNS cho đúng LAN.
-Ví dụ cho master:
+Trên **cả ba VM**, chặn cloud-init quản lý mạng trước khi tạo cấu hình IP tĩnh. Nếu bỏ qua,
+cloud-init có thể sinh lại cấu hình DHCP và ghi đè IP tĩnh sau reboot:
 
 ```bash
-sudo tee /etc/netplan/99-k8s-lab.yaml >/dev/null <<'EOF'
+echo 'network: {config: disabled}' \
+  | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+
+# Bỏ file DHCP do cloud-init sinh để tránh hai file Netplan cùng quản lý một interface.
+sudo mv /etc/netplan/50-cloud-init.yaml \
+  /etc/netplan/50-cloud-init.yaml.bak 2>/dev/null || true
+```
+
+Lệnh `mv` không báo lỗi nếu image Ubuntu không có file `50-cloud-init.yaml`; tiếp tục tạo file
+Netplan tĩnh riêng như bên dưới.
+
+Ví dụ interface là `ens33`. Tạo `/etc/netplan/01-static.yaml` riêng trên từng VM; thay
+gateway/DNS cho đúng LAN. Ví dụ cho master:
+
+```bash
+sudo tee /etc/netplan/01-static.yaml >/dev/null <<'EOF'
 network:
   version: 2
   ethernets:
@@ -246,7 +300,7 @@ network:
       nameservers:
         addresses: [192.168.100.1, 1.1.1.1]
 EOF
-sudo chmod 600 /etc/netplan/99-k8s-lab.yaml
+sudo chmod 600 /etc/netplan/01-static.yaml
 sudo netplan try
 ```
 
@@ -264,9 +318,19 @@ sudo tee -a /etc/hosts >/dev/null <<'EOF'
 EOF
 ```
 
-Verify trên cả ba VM:
+Sau khi đã xác nhận `netplan try` và cập nhật `/etc/hosts` trên đủ ba VM, reboot từng VM để
+chứng minh cloud-init không đưa interface về DHCP:
 
 ```bash
+sudo reboot
+```
+
+Kết nối lại bằng IP tĩnh tương ứng rồi verify trên cả ba VM:
+
+```bash
+grep -Fx 'network: {config: disabled}' \
+  /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+test ! -e /etc/netplan/50-cloud-init.yaml
 ip -br address
 ip route
 getent hosts lab-k8s-master lab-k8s-worker1 lab-k8s-worker2
@@ -276,7 +340,9 @@ ping -c 2 lab-k8s-worker2
 curl -I --max-time 10 https://pkgs.k8s.io/
 ```
 
-**PASS:** tên trả đúng IP; ping giữa mọi node thành công; HTTPS egress hoạt động.
+**PASS:** file chặn cloud-init tồn tại; `50-cloud-init.yaml` không bị sinh lại; IP `.221–.223`
+vẫn giữ nguyên sau reboot; tên trả đúng IP; ping giữa mọi node thành công; HTTPS egress hoạt
+động.
 
 ## A4. Chuẩn bị OS và container runtime
 
@@ -287,7 +353,16 @@ Chạy toàn bộ mục A4 trên **cả ba VM**.
 ```bash
 sudo apt-get update
 sudo apt-get upgrade -y
+
+# Không tiếp tục nếu upgrade để lại package lỗi hoặc dependency chưa hoàn chỉnh.
+sudo dpkg --audit
+sudo apt-get check
+
 sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+
+# Bật đồng bộ thời gian; lệch giờ có thể làm lỗi certificate và etcd.
+sudo timedatectl set-ntp true
+timedatectl
 
 sudo swapoff -a
 sudo sed -ri '/\sswap\s/s/^#?/#/' /etc/fstab
@@ -300,7 +375,7 @@ EOF
 sudo modprobe overlay
 sudo modprobe br_netfilter
 
-cat <<'EOF' | sudo tee /etc/sysctl.d/99-kubernetes-cri.conf
+cat <<'EOF' | sudo tee /etc/sysctl.d/k8s.conf
 net.bridge.bridge-nf-call-iptables  = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.ipv4.ip_forward                 = 1
@@ -315,6 +390,7 @@ Chờ VM boot lại, SSH vào đúng node rồi verify:
 ```bash
 swapon --show
 free -h | grep -i swap
+timedatectl
 lsmod | grep -E '^(overlay|br_netfilter)'
 sysctl net.bridge.bridge-nf-call-iptables \
   net.bridge.bridge-nf-call-ip6tables \
@@ -322,8 +398,9 @@ sysctl net.bridge.bridge-nf-call-iptables \
 stat -fc %T /sys/fs/cgroup
 ```
 
-**PASS:** `swapon --show` rỗng, Swap là `0B`, hai module có mặt, ba sysctl bằng `1`, cgroup
-filesystem là `cgroup2fs`.
+**PASS:** `dpkg --audit` không có output; `apt-get check` không báo lỗi; `timedatectl` hiển thị
+`System clock synchronized: yes` và `NTP service: active`; `swapon --show` rỗng; Swap là
+`0B`; hai module có mặt; ba sysctl bằng `1`; cgroup filesystem là `cgroup2fs`.
 
 ### A4.2. Cài containerd và runc đúng version
 

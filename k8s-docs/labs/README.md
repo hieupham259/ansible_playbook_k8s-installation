@@ -122,7 +122,7 @@ bài gốc.
 ## 6. Quy ước chung trong mọi lab
 
 - Bằng chứng ghi vào `~/lab-evidence/<mã lab>/`, ví dụ `~/lab-evidence/1a/`.
-- Fault injection chỉ chạy trên `k8s-worker2`.
+- Fault injection chỉ chạy trên `lab-k8s-worker2`.
 - Dòng bắt đầu bằng `PASS:` là điều kiện phải đạt; không đi tiếp khi gate fail.
 - Số phiên bản chỉ tồn tại ở [bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG.md#a13-phiên-bản-được-khóa);
   lab khác link về đó thay vì chép lại.

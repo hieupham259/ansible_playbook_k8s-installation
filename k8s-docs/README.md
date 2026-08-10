@@ -304,6 +304,81 @@ Ghi chú: các bài 10–13 (DNS, Ingress, Ingress Controllers, Gateway API) cũ
 | 210 | [Guaranteed Scheduling cho Critical Add-on Pods](210-guaranteed-scheduling-critical-addon-pods-vi.md) | 141 (priority) |
 | 211 | [Tăng cường bảo mật DRA (tasks)](211-hardening-dra-tasks-vi.md) | 149, 125 (DRA) |
 | 212 | [IP Masquerade Agent](212-ip-masq-agent-vi.md) | 157, 84 (mạng cluster) |
+| 213 | [KMS provider cho mã hóa dữ liệu](213-kms-provider-vi.md) | 208 (encrypt-data) |
+| 214 | [Quản trị với kubeadm](214-kubeadm-tasks-vi.md) | — (trang mục) |
+| 215 | [Thêm node Linux](215-adding-linux-nodes-vi.md) | 02 (kubeadm join) |
+| 216 | [Thêm node Windows](216-adding-windows-nodes-vi.md) | 175–176, 215 |
+| 217 | [Đổi kho gói Kubernetes](217-change-package-repository-vi.md) | 01 (cài kubeadm) |
+| 218 | [Cấu hình cgroup driver bằng kubeadm](218-configure-cgroup-driver-vi.md) | 00, 33 (runtime, cgroup) |
+| 219 | [Quản lý certificate với kubeadm](219-kubeadm-certs-vi.md) | 191, Giai đoạn 0 (TLS) |
+| 220 | [Cấu hình lại cluster kubeadm](220-kubeadm-reconfigure-vi.md) | 03–04 (kubeadm API) |
+| 221 | [Nâng cấp cluster kubeadm](221-kubeadm-upgrade-vi.md) | 195, 02 |
+| 222 | [Nâng cấp node Linux](222-upgrading-linux-nodes-vi.md) | 221 |
+| 223 | [Nâng cấp node Windows](223-upgrading-windows-nodes-vi.md) | 221 |
+| 224 | [Cấu hình kubelet qua file cấu hình](224-kubelet-config-file-vi.md) | 04 (kubelet) |
+| 225 | [Kubelet credential provider](225-kubelet-credential-provider-vi.md) | 40 (kéo image) |
+| 226 | [Chạy kubelet trong user namespace](226-kubelet-in-userns-vi.md) | 55 (user namespaces) |
+| 227 | [Giới hạn tiêu thụ lưu trữ](227-limit-storage-consumption-vi.md) | 134, 92 (quota, PVC) |
+| 228 | [Quản lý tài nguyên Memory/CPU/API](228-manage-resources-tasks-vi.md) | — (trang mục) |
+| 229 | [Ràng buộc CPU min/max cho namespace](229-cpu-constraint-namespace-vi.md) | 133 (LimitRange) |
+| 230 | [CPU request/limit mặc định cho namespace](230-cpu-default-namespace-vi.md) | 133 |
+| 231 | [Ràng buộc memory min/max cho namespace](231-memory-constraint-namespace-vi.md) | 133 |
+| 232 | [Memory request/limit mặc định cho namespace](232-memory-default-namespace-vi.md) | 133 |
+| 233 | [Quota memory/CPU cho namespace](233-quota-memory-cpu-namespace-vi.md) | 134 (ResourceQuota) |
+| 234 | [Quota số Pod cho namespace](234-quota-pod-namespace-vi.md) | 134 |
+| 235 | [Memory Manager (NUMA)](235-memory-manager-vi.md) | 74, 200 (resource managers) |
+| 236 | [Di chuyển khỏi dockershim](236-migrating-from-dockershim-vi.md) | 00 (trang mục nhóm) |
+| 237 | [Đổi runtime sang containerd](237-change-runtime-containerd-vi.md) | 236, 00 |
+| 238 | [Kiểm tra ảnh hưởng của việc gỡ dockershim](238-check-dockershim-removal-vi.md) | 236 |
+| 239 | [Tìm container runtime đang dùng trên node](239-find-out-runtime-vi.md) | 236, 44 (CRI) |
+| 240 | [Di chuyển agent telemetry và bảo mật](240-migrating-telemetry-agents-vi.md) | 236 |
+| 241 | [Xử lý lỗi liên quan CNI plugin](241-troubleshooting-cni-errors-vi.md) | 236, 183 (CNI) |
+| 242 | [Thao tác với Namespaces](242-namespaces-tasks-vi.md) | 19 (namespace) |
+| 243 | [Network Policy Providers](243-network-policy-provider-vi.md) | — (trang mục) |
+| 244 | [Antrea cho NetworkPolicy](244-antrea-network-policy-vi.md) | 84, 243 |
+| 245 | [Calico cho NetworkPolicy](245-calico-network-policy-vi.md) | 84, 243 |
+| 246 | [Cilium cho NetworkPolicy](246-cilium-network-policy-vi.md) | 84, 243 |
+| 247 | [kube-router cho NetworkPolicy](247-kube-router-network-policy-vi.md) | 84, 243 |
+| 248 | [Romana cho NetworkPolicy](248-romana-network-policy-vi.md) | 84, 243 |
+| 249 | [Weave Net cho NetworkPolicy](249-weave-network-policy-vi.md) | 84, 243 |
+| 250 | [Node Overprovisioning](250-node-overprovisioning-vi.md) | 141, 171 (priority, autoscaling) |
+| 251 | [NodeLocal DNSCache](251-nodelocaldns-vi.md) | 10, 204 (DNS) |
+| 252 | [Quota cho API object](252-quota-api-object-vi.md) | 134 (ResourceQuota) |
+| 253 | [Dự trữ tài nguyên cho system daemons](253-reserve-compute-resources-vi.md) | 110, 142 |
+| 254 | [Chạy Cloud Controller Manager](254-running-cloud-controller-vi.md) | 34 (CCM) |
+| 255 | [Drain node an toàn](255-safely-drain-node-vi.md) | 53, 143 (disruption, eviction API) |
+| 256 | [Bảo mật một cluster](256-securing-a-cluster-vi.md) | 129, 119 (checklist, kiểm soát truy cập) |
+| 257 | [Chuyển sang Evented PLEG](257-switch-to-evented-pleg-vi.md) | 23, 44 (kubelet, CRI) |
+| 258 | [Sử dụng sysctl trong cluster](258-sysctl-cluster-vi.md) | 46, 127 (Pod, kernel) |
+| 259 | [Topology Manager](259-topology-manager-vi.md) | 74, 200, 235 (resource managers) |
+| 260 | [Cascading deletion](260-use-cascading-deletion-vi.md) | 30, 36 (owner, thu gom rác) |
+| 261 | [Xác minh artifact có chữ ký](261-verify-signed-artifacts-vi.md) | 40 (image) |
+
+## Phần 17 — Tasks: Configure Pods and Containers
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 262 | [Configure Pods and Containers](262-configure-pod-container-vi.md) | — (trang mục) |
+| 263 | [Gán tài nguyên CPU cho container](263-assign-cpu-resource-vi.md) | 110 (requests/limits) |
+| 264 | [Gán tài nguyên memory cho container](264-assign-memory-resource-vi.md) | 110 |
+| 265 | [Tài nguyên cấp Pod](265-assign-pod-level-resources-vi.md) | 110 |
+| 266 | [Gán Pod vào Node bằng Node Affinity](266-assign-pods-nodes-node-affinity-vi.md) | 138 (affinity) |
+| 267 | [Gán Pod vào Node](267-assign-pods-nodes-vi.md) | 138 (nodeSelector) |
+| 268 | [Assign Resources (DRA)](268-assign-resources-vi.md) | 149 (trang mục nhóm) |
+| 269 | [Đọc metadata thiết bị DRA](269-access-dra-device-metadata-vi.md) | 149, 268 |
+| 270 | [Cấp phát thiết bị cho workload bằng DRA](270-allocate-devices-dra-vi.md) | 271 |
+| 271 | [Dựng cluster có DRA](271-set-up-dra-cluster-vi.md) | 149, 268 |
+| 272 | [Gắn handler vào lifecycle event](272-attach-handler-lifecycle-event-vi.md) | 42 (hooks) |
+| 273 | [Cấu hình GMSA cho Windows Pod](273-configure-gmsa-vi.md) | 175–176 (Windows) |
+| 274 | [Cấu hình Liveness/Readiness/Startup Probes](274-configure-probes-vi.md) | 49 (probes) |
+| 275 | [Cấu hình Pod dùng ConfigMap](275-configure-pod-configmap-vi.md) | 108 (ConfigMap) |
+| 276 | [Cấu hình khởi tạo Pod](276-configure-pod-initialization-vi.md) | 50 (init containers) |
+| 277 | [Cấu hình projected volume](277-configure-projected-volume-vi.md) | 93 |
+| 278 | [Cấu hình RunAsUserName (Windows)](278-configure-runasusername-vi.md) | 175 |
+| 279 | [Cấu hình Service Account cho Pod](279-configure-service-account-vi.md) | 118 |
+| 280 | [Cấu hình volume cho lưu trữ](280-configure-volume-storage-vi.md) | 91 |
+| 281 | [Tạo HostProcess Pod (Windows)](281-create-hostprocess-pod-vi.md) | 175–176 |
+| 282 | [Áp Pod Security Standards ở admission controller](282-enforce-standards-admission-controller-vi.md) | 116 |
 
 ## Checkpoint — Những phần còn thiếu quan trọng
 

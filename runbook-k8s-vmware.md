@@ -436,7 +436,14 @@ EOF
 **1) Tìm tên card mạng:**
 
 ```bash
-ip -br a        # trên VMware thường là ens33 hoặc ens160 — nhớ tên này để điền vào YAML
+ip -br a
+# PASS: interface ens33/ens160 ở trạng thái UP và có IP DHCP cùng dải LAN.
+
+ip route
+# PASS: có "default via <gateway> dev ens33/ens160".
+
+ip route | awk '/default/ {print $5; exit}'
+# PASS: chỉ in tên interface, ví dụ ens33; dùng đúng tên này trong 01-static.yaml.
 ```
 
 **2) Chặn cloud-init quản mạng** (BẮT BUỘC — nếu bỏ qua, IP tĩnh có thể bị ghi đè về DHCP sau reboot):

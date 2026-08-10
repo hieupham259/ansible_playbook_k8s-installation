@@ -197,7 +197,7 @@ clone. Bản cài dùng cho các VM phải có:
 
 - Minimal installation, không cài GUI.
 - Bật OpenSSH Server.
-- Tạo cùng một user quản trị, ví dụ `k8sadmin`, có quyền `sudo`.
+- Tạo cùng user quản trị `ubuntu`, có quyền `sudo`.
 
 ### A2.1. VM được cài Ubuntu riêng
 
@@ -225,7 +225,7 @@ sudo dpkg-reconfigure openssh-server
 Chưa reboot tại đây. Tiếp tục A2.3 để đặt hostname, hoàn tất cấu hình IP tĩnh ở A3, rồi reboot
 một lần. Nếu VM clone đã được chuẩn hóa identity trước đó thì không chạy lại các lệnh trên.
 
-### A2.3. Đặt hostname và kiểm tra identity
+### A2.3. Đặt hostname, `/etc/hosts` và kiểm tra identity
 
 Đặt hostname đúng theo bảng A1.2; chỉ chạy một lệnh phù hợp trên từng VM:
 
@@ -250,12 +250,23 @@ ip -br link
 giữa ba VM. Nếu product UUID hoặc MAC trùng, dừng tại đây và để VMware sinh giá trị mới;
 không thể sửa hai giá trị này bằng lệnh bên trong Ubuntu.
 
+Thêm giống nhau trên **cả ba VM**:
+
+```bash
+sudo tee -a /etc/hosts >/dev/null <<'EOF'
+192.168.100.221 lab-k8s-master
+192.168.100.222 lab-k8s-worker1
+192.168.100.223 lab-k8s-worker2
+EOF
+```
+
 ## A3. Đặt IP tĩnh và phân giải tên
 
 Trước khi gán IP, kiểm tra `.221–.223` nằm ngoài DHCP pool của router. Nếu không chắc, tạo
 DHCP reservation theo MAC hoặc chọn ba IP khác.
 
-Trên mỗi VM, tìm interface đang giữ default route:
+Chạy trên từng VM qua console VMware để tránh mất phiên SSH khi đổi IP. Tìm interface đang giữ
+default route:
 
 ```bash
 ip -br a
@@ -272,54 +283,48 @@ Trên **cả ba VM**, chặn cloud-init quản lý mạng trước khi tạo c�
 cloud-init có thể sinh lại cấu hình DHCP và ghi đè IP tĩnh sau reboot:
 
 ```bash
-echo 'network: {config: disabled}' \
-  | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
-
-# Bỏ file DHCP do cloud-init sinh để tránh hai file Netplan cùng quản lý một interface.
-sudo mv /etc/netplan/50-cloud-init.yaml \
-  /etc/netplan/50-cloud-init.yaml.bak 2>/dev/null || true
+echo 'network: {config: disabled}' | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+# bỏ file netplan do cloud-init sinh (đang để DHCP) để tránh xung đột:
+sudo mv /etc/netplan/50-cloud-init.yaml /etc/netplan/50-cloud-init.yaml.bak 2>/dev/null || true
 ```
 
 Lệnh `mv` không báo lỗi nếu image Ubuntu không có file `50-cloud-init.yaml`; tiếp tục tạo file
 Netplan tĩnh riêng như bên dưới.
 
-Ví dụ interface là `ens33`. Tạo `/etc/netplan/01-static.yaml` riêng trên từng VM; thay
-gateway/DNS cho đúng LAN. Ví dụ cho master:
+Ví dụ interface là `ens33`. Tạo file tĩnh `/etc/netplan/01-static.yaml` bằng
+`sudo nano /etc/netplan/01-static.yaml`; thay IP và tên card trên từng VM. Nội dung cho master:
 
-```bash
-sudo tee /etc/netplan/01-static.yaml >/dev/null <<'EOF'
+```yaml
 network:
   version: 2
   ethernets:
     ens33:
-      dhcp4: false
+      dhcp4: no
       addresses: [192.168.100.221/24]
       routes:
         - to: default
           via: 192.168.100.1
       nameservers:
-        addresses: [192.168.100.1, 1.1.1.1]
-EOF
+        addresses: [1.1.1.1, 8.8.8.8]
+```
+
+Áp dụng:
+
+```bash
 sudo chmod 600 /etc/netplan/01-static.yaml
-sudo netplan try
+sudo netplan apply
 ```
 
 Với worker 1 và worker 2, giữ nguyên cấu trúc nhưng đổi `addresses` lần lượt thành
 `192.168.100.222/24` và `192.168.100.223/24`. Nếu interface không phải `ens33`, thay đúng
-tên đã tìm ở trên. Xác nhận cấu hình trong thời gian `netplan try` yêu cầu.
+tên đã tìm ở trên.
 
-Thêm trên **cả ba VM**:
+> Nếu đang làm qua SSH, sau `netplan apply` phiên sẽ đứng/rớt vì IP đã đổi; kết nối lại bằng IP
+> mới tương ứng. Khi chỉ chỉnh nhỏ, có thể dùng `sudo netplan try` để tự hoàn tác sau 120 giây
+> nếu mất mạng.
 
-```bash
-sudo tee -a /etc/hosts >/dev/null <<'EOF'
-192.168.100.221 lab-k8s-master
-192.168.100.222 lab-k8s-worker1
-192.168.100.223 lab-k8s-worker2
-EOF
-```
-
-Sau khi đã xác nhận `netplan try` và cập nhật `/etc/hosts` trên đủ ba VM, reboot từng VM để
-chứng minh cloud-init không đưa interface về DHCP:
+Sau khi đã áp dụng Netplan trên đủ ba VM, reboot từng VM để chứng minh cloud-init không đưa
+interface về DHCP:
 
 ```bash
 sudo reboot
@@ -330,19 +335,30 @@ Kết nối lại bằng IP tĩnh tương ứng rồi verify trên cả ba VM:
 ```bash
 grep -Fx 'network: {config: disabled}' \
   /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
-test ! -e /etc/netplan/50-cloud-init.yaml
-ip -br address
-ip route
+
+if test -e /etc/netplan/50-cloud-init.yaml; then
+  echo 'FAIL: cloud-init regenerated 50-cloud-init.yaml'
+else
+  echo 'PASS: 50-cloud-init.yaml is absent'
+fi
+
+ip -br address                 # card hiển thị đúng IP tĩnh .221/.222/.223
+ip route                       # có default route qua gateway LAN
+
 getent hosts lab-k8s-master lab-k8s-worker1 lab-k8s-worker2
 ping -c 2 lab-k8s-master
 ping -c 2 lab-k8s-worker1
 ping -c 2 lab-k8s-worker2
+
+ping -c 2 192.168.100.1        # tới gateway → phải có reply
+ping -c 2 8.8.8.8              # ra Internet bằng IP, không phụ thuộc DNS
+getent hosts pkgs.k8s.io       # DNS phải phân giải được
 curl -I --max-time 10 https://pkgs.k8s.io/
 ```
 
-**PASS:** file chặn cloud-init tồn tại; `50-cloud-init.yaml` không bị sinh lại; IP `.221–.223`
-vẫn giữ nguyên sau reboot; tên trả đúng IP; ping giữa mọi node thành công; HTTPS egress hoạt
-động.
+**PASS:** file chặn cloud-init tồn tại; output có `PASS: 50-cloud-init.yaml is absent`; IP
+`.221–.223` vẫn giữ nguyên sau reboot; default route đúng; tên trả đúng IP; ping giữa mọi
+node, gateway và Internet thành công; DNS cùng HTTPS egress hoạt động.
 
 ## A4. Chuẩn bị OS và container runtime
 

@@ -379,6 +379,38 @@ Ghi chú: các bài 10–13 (DNS, Ingress, Ingress Controllers, Gateway API) cũ
 | 280 | [Cấu hình volume cho lưu trữ](280-configure-volume-storage-vi.md) | 91 |
 | 281 | [Tạo HostProcess Pod (Windows)](281-create-hostprocess-pod-vi.md) | 175–176 |
 | 282 | [Áp Pod Security Standards ở admission controller](282-enforce-standards-admission-controller-vi.md) | 116 |
+| 283 | [Áp PSS bằng label namespace](283-enforce-standards-namespace-labels-vi.md) | 116 |
+| 284 | [Gán extended resource cho container](284-extended-resource-vi.md) | 209 |
+| 285 | [Dùng image volume trong Pod](285-image-volumes-vi.md) | 91, 40 |
+| 286 | [Di chuyển từ PodSecurityPolicy](286-migrate-from-psp-vi.md) | 117, 116 |
+| 287 | [Kéo image từ private registry](287-pull-image-private-registry-vi.md) | 40, 109 |
+| 288 | [Cấu hình QoS cho Pod](288-quality-service-pod-vi.md) | 54, 110 |
+| 289 | [Thay đổi tài nguyên container tại chỗ](289-resize-container-resources-vi.md) | 110 |
+| 290 | [Thay đổi tài nguyên cấp Pod](290-resize-pod-resources-vi.md) | 265, 289 |
+| 291 | [Cấu hình Security Context](291-security-context-vi.md) | 115, 127 |
+| 292 | [Chia sẻ process namespace giữa các container](292-share-process-namespace-vi.md) | 46 |
+| 293 | [Tạo static Pod](293-static-pod-tasks-vi.md) | 58 |
+| 294 | [Chuyển Docker Compose sang Kubernetes (Kompose)](294-translate-compose-kubernetes-vi.md) | 63, 82 |
+| 295 | [Dùng user namespace cho Pod](295-user-namespaces-tasks-vi.md) | 55 |
+
+## Phần 18 — Tasks: Monitoring, Logging và Debugging
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 296 | [Monitoring, Logging và Debugging](296-debug-vi.md) | — (trang mục) |
+| 297 | [Debug ứng dụng](297-debug-application-vi.md) | — (trang mục nhóm) |
+| 298 | [Debug Init Containers](298-debug-init-containers-vi.md) | 50, 276 |
+| 299 | [Debug Pods](299-debug-pods-vi.md) | 47, 110 (vòng đời, tài nguyên) |
+| 300 | [Debug Pod đang chạy](300-debug-running-pod-vi.md) | 52, 299 (ephemeral container) |
+| 301 | [Debug Services](301-debug-service-vi.md) | 82, 10 (Service, DNS) |
+| 302 | [Debug StatefulSet](302-debug-statefulset-vi.md) | 65, 299 |
+| 303 | [Xác định lý do Pod fail](303-determine-reason-pod-failure-vi.md) | 47–48 |
+| 304 | [Lấy shell vào container đang chạy](304-get-shell-running-container-vi.md) | 26, 46 |
+| 305 | [Debug Cluster](305-debug-cluster-vi.md) | 09, 23 (troubleshooting, node) |
+| 306 | [Auditing](306-audit-vi.md) | 119, 256 (kiểm soát truy cập) |
+| 307 | [Debug node bằng crictl](307-crictl-vi.md) | 44, 00 (CRI, runtime) |
+| 308 | [Debug node bằng kubectl](308-kubectl-node-debug-vi.md) | 300, 23 |
+| 309 | [Local debugging](309-local-debugging-vi.md) | 26, 82 |
 
 ## Checkpoint — Những phần còn thiếu quan trọng
 

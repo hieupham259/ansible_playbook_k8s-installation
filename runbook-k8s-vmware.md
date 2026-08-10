@@ -180,12 +180,12 @@ Làm **3 lần** (master, worker1, worker2), chỉ khác tên + tài nguyên the
 5. Power On → cài Ubuntu Server:
    - Chọn **Ubuntu Server (minimized hoặc full)**.
    - Network: cứ để DHCP khi cài, ta sẽ đặt IP tĩnh sau ([§5.2](#52-ip-tĩnh-netplan)).
-   - **Profile**: tạo user (vd `k8sadmin`), đặt hostname đúng (`k8s-master`…).
+   - **Profile**: tạo user `ubuntu`, đặt hostname đúng (`k8s-master`…).
    - **Tick "Install OpenSSH server"** để SSH vào cho tiện.
    - Bỏ qua các snap đề xuất.
 6. Cài xong → reboot → đăng nhập.
 
-> 💡 Sau khi cài, nên SSH từ máy host vào từng VM (`ssh k8sadmin@192.168.100.111`) để copy-paste lệnh dễ hơn.
+> 💡 Sau khi cài, nên SSH từ máy host vào từng VM (`ssh ubuntu@192.168.100.111`) để copy-paste lệnh dễ hơn.
 
 ---
 
@@ -364,7 +364,8 @@ Ba node Kubernetes phải có **hostname, IP, MAC address, `product_uuid`, `mach
 
 #### Trường hợp A — 3 VM được cài Ubuntu riêng
 
-Không cần tạo lại `machine-id` hoặc SSH host key. Chỉ chạy phần **Verify identity** bên dưới để xác nhận mỗi VM thực sự có định danh riêng.
+Không cần tạo lại `machine-id` hoặc SSH host key. Chuyển sang [§5.1](#51-hostname--etchosts)
+để đặt hostname rồi chạy phần **Verify identity** tại đó.
 
 #### Trường hợp B — 3 VM được tạo bằng snapshot/full clone
 
@@ -381,30 +382,11 @@ sudo rm -f /etc/ssh/ssh_host_*
 sudo dpkg-reconfigure openssh-server
 ```
 
-> **Chưa reboot tại đây.** Tiếp tục đặt hostname ở [§5.1](#51-hostname--etchosts), cấu hình IP tĩnh ở [§5.2](#52-ip-tĩnh-netplan), rồi reboot một lần sau `netplan apply`. Nếu VM đã được reset identity trước đó thì không cần chạy lại; chuyển thẳng sang phần verify. Reset SSH host key sẽ làm fingerprint của máy thay đổi, vì vậy client SSH có thể phải xóa entry cũ bằng `ssh-keygen -R <IP-cu>`.
-
-#### Verify identity — bắt buộc cho cả hai trường hợp
-
-Sau khi reset identity, chạy trên cả 3 VM và lưu kết quả để đối chiếu. Reboot cuối cùng sau khi đặt hostname/IP sẽ bảo đảm toàn bộ thay đổi có hiệu lực đồng thời:
-
-```bash
-echo "hostname:     $(hostnamectl --static)"
-echo "machine-id:   $(cat /etc/machine-id)"
-echo "product_uuid: $(sudo cat /sys/class/dmi/id/product_uuid)"
-echo "SSH host key:"
-sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
-echo "Network interfaces:"
-ip -br link
-```
-
-Gate trước khi tiếp tục:
-
-- `machine-id` của 3 VM phải khác nhau.
-- SSH host-key fingerprint của 3 VM phải khác nhau.
-- MAC address của card mạng trên 3 VM phải khác nhau.
-- `product_uuid` của 3 VM phải khác nhau.
-- Nếu MAC hoặc `product_uuid` bị trùng, **dừng tại đây** và để VMware sinh UUID/MAC mới; reset file trong Ubuntu không sửa được hai giá trị này.
-- Hostname có thể còn là tên của golden VM ở bước này; [§5.1](#51-hostname--etchosts) sẽ đặt tên riêng cho từng K8s node.
+> **Chưa reboot tại đây.** Tiếp tục đặt hostname ở [§5.1](#51-hostname--etchosts), chạy gate
+> identity ngay sau đó, cấu hình IP tĩnh ở [§5.2](#52-ip-tĩnh-netplan), rồi reboot một lần sau
+> `netplan apply`. Nếu VM đã được reset identity trước đó thì không chạy lại. Reset SSH host key
+> sẽ làm fingerprint của máy thay đổi, vì vậy client SSH có thể phải xóa entry cũ bằng
+> `ssh-keygen -R <IP-cu>`.
 
 ### 5.1. Hostname + /etc/hosts
 
@@ -418,6 +400,28 @@ sudo hostnamectl set-hostname k8s-worker1
 # worker2:
 sudo hostnamectl set-hostname k8s-worker2
 ```
+
+#### Verify identity — bắt buộc cho cả hai trường hợp
+
+Sau khi đặt hostname, chạy trên cả ba VM và đối chiếu kết quả:
+
+```bash
+hostnamectl --static
+cat /etc/machine-id
+sudo cat /sys/class/dmi/id/product_uuid
+sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+ip -br link
+```
+
+Gate trước khi tiếp tục:
+
+- Hostname của mỗi VM phải đúng theo bảng §2.2.
+- `machine-id` của ba VM phải khác nhau.
+- SSH host-key fingerprint của ba VM phải khác nhau.
+- MAC address của card mạng trên ba VM phải khác nhau.
+- `product_uuid` của ba VM phải khác nhau.
+- Nếu MAC hoặc `product_uuid` bị trùng, **dừng tại đây** và để VMware sinh UUID/MAC mới;
+  reset file trong Ubuntu không sửa được hai giá trị này.
 
 Thêm **giống nhau trên CẢ 3 máy** vào cuối `/etc/hosts` (bao gồm cả tên endpoint `k8s-master` dùng cho `--control-plane-endpoint`):
 
@@ -490,12 +494,32 @@ sudo reboot
 **6) Kiểm tra sau reboot (cả 3 máy đều phải đạt):**
 
 ```bash
-ip -br a                       # card hiển thị đúng IP tĩnh .111/.112/.113
-ping -c2 192.168.100.1         # tới gateway → phải có reply
-ping -c2 8.8.8.8               # ra Internet bằng IP → phải có reply
-ping -c2 google.com            # phân giải DNS → phải có reply
-                               #   (nếu ping 8.8.8.8 OK mà google.com fail = lỗi DNS → xem lại nameservers)
+grep -Fx 'network: {config: disabled}' \
+  /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+
+if test -e /etc/netplan/50-cloud-init.yaml; then
+  echo 'FAIL: cloud-init regenerated 50-cloud-init.yaml'
+else
+  echo 'PASS: 50-cloud-init.yaml is absent'
+fi
+
+ip -br address                 # card hiển thị đúng IP tĩnh .111/.112/.113
+ip route                       # có default route qua gateway LAN
+
+getent hosts k8s-master k8s-worker1 k8s-worker2
+ping -c 2 k8s-master
+ping -c 2 k8s-worker1
+ping -c 2 k8s-worker2
+
+ping -c 2 192.168.100.1        # tới gateway → phải có reply
+ping -c 2 8.8.8.8              # ra Internet bằng IP, không phụ thuộc DNS
+getent hosts pkgs.k8s.io       # DNS phải phân giải được
+curl -I --max-time 10 https://pkgs.k8s.io/
 ```
+
+**PASS:** file chặn cloud-init tồn tại; output có `PASS: 50-cloud-init.yaml is absent`; IP
+`.111–.113` vẫn giữ nguyên sau reboot; default route đúng; tên trả đúng IP; ping giữa mọi
+node, gateway và Internet thành công; DNS cùng HTTPS egress hoạt động.
 
 > Dùng `routes:` thay cho `gateway4` (đã deprecated từ Ubuntu 22.04+).
 
@@ -785,7 +809,7 @@ ssh root@192.168.100.111        # vào được shell root là đạt (.112/.113
 
 > Nếu vẫn bị từ chối, chạy `sudo sshd -T` như trên và kiểm tra vị trí hai dòng vừa thêm: chúng phải đứng trước `Include`. Có thể dùng `sudo grep -RniE '^[[:space:]]*(PermitRootLogin|PasswordAuthentication)' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/` để tìm mọi cấu hình liên quan.
 
-> 💡 **Dùng cho Ansible:** sau khi bật, inventory chỉ cần `ansible_user=root` (Cách A thêm `ansible_ssh_private_key_file=~/.ssh/id_ed25519`). Nếu để user thường thì dùng `ansible_user=k8sadmin` + `become: true`.
+> 💡 **Dùng cho Ansible:** sau khi bật, inventory chỉ cần `ansible_user=root` (Cách A thêm `ansible_ssh_private_key_file=~/.ssh/id_ed25519`). Nếu để user thường thì dùng `ansible_user=ubuntu` + `become: true`.
 
 **🔁 Reboot chốt trước khi sang [§6]** (làm trên **cả 3 node**): sau khi xong [§5] — nhất là `apt-get upgrade` ở [§5.3] có thể đã cập nhật **kernel mới** — reboot rồi xác nhận cấu hình *sống sót qua reboot*:
 

@@ -12,11 +12,11 @@
 
 ## 2. Kubernetes Cluster Inventory
 
-| # | Node / Role   | Hostname      | IP                | RAM (GB) | vCPU | Disk SSD (GB) |
-|---|---------------|---------------|-------------------|----------|------|---------------|
-| 1 | Control plane | k8s-master    | 192.168.100.111   | 8        | 4    | 40            |
-| 2 | Worker        | k8s-worker1   | 192.168.100.112   | 6        | 2    | 40            |
-| 3 | Worker        | k8s-worker2   | 192.168.100.113   | 6        | 2    | 40            |
+| # | Node / Role   | Hostname      | IP                | RAM (GB) | vCPU | Disk SSD (GB) | Connect                        |
+|---|---------------|---------------|-------------------|----------|------|---------------|--------------------------------|
+| 1 | Control plane | k8s-master    | 192.168.100.111   | 8        | 4    | 40            | `ssh ubuntu@192.168.100.111`   |
+| 2 | Worker        | k8s-worker1   | 192.168.100.112   | 6        | 2    | 40            |                                |
+| 3 | Worker        | k8s-worker2   | 192.168.100.113   | 6        | 2    | 40            |                                |
 
 ## 3. Kubernetes Labs Cluster Inventory
 

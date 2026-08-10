@@ -1,2739 +1,2213 @@
-# Runbook: Lab trên VMware — (A) 3 server hạ tầng + (B) Cụm K8s → Rancher → Cloudflare Tunnel → Domain
+# Runbook xây dựng baseline phiên bản Kubernetes/Rancher
 
-> **Runbook này gồm 2 lab độc lập** trên VMware (máy host Windows), đều dùng Ubuntu Server 24.04:
+> **Mục tiêu duy nhất:** nghiên cứu, kiểm chứng và phát hành một bảng phiên bản tương tự mục **§2.1. Phiên bản** của runbook triển khai. Runbook này **không cài cluster** và không thay thế runbook cài đặt.
 >
-> - **Lab A — 3 server hạ tầng** ([§4](#4-tạo-và-nhân-bản-3-server-theo-serversmd)): dựng 1 VM gốc → snapshot → full-clone ra 3 server (`ubuntu-2404` / `load-balancer` / `teleport`) theo [`servers.md`](servers.md).
-> - **Lab B — Cụm Kubernetes** ([§3](#3-tạo-3-vm-ubuntu-2404-trên-vmware) + [§5](#5-cấu-hình-os-chung-chạy-trên-cả-3-k8s-node)→[§17](#17-phụ-lục)): từ con số 0 dựng cụm k8s (1 master + 2 worker) bằng `kubeadm`, cài **Rancher** quản trị bằng UI, mua + cấu hình domain, tạo **Cloudflare Tunnel** trỏ domain vào ứng dụng trong cụm — **không cần IP public, không cần port-forward, không cần gọi nhà mạng**.
->
-> ✅ Hai lab dùng hai nhóm IP riêng: Lab A dùng `.100/.101/.103`, cụm Kubernetes dùng `.111/.112/.113`. Có thể chạy đồng thời nếu cả sáu IP đều nằm ngoài DHCP pool hoặc đã được router giữ chỗ theo MAC.
->
-> **Đối tượng:** lab/homelab cá nhân. Các bước có thể copy-paste.
->
-> **Nguồn chính thức đã tham chiếu** (xem [§16](#16-nguồn-official)): kubeadm, container runtimes, Traefik, MetalLB, Cloudflare Tunnel, Rancher.
+> **Nguyên tắc:** bảng phiên bản là kết quả của một lần nghiên cứu có ngày hết hạn, không phải danh sách version được chép lại vĩnh viễn.
 
 ---
 
-## Mục lục
+## 0. Khởi tạo phiên nghiên cứu
 
-1. [Tổng quan &amp; kiến trúc](#1-tổng-quan--kiến-trúc)
-2. [Quy hoạch (versions, IP, hostname)](#2-quy-hoạch)
-3. [Tạo 3 VM Ubuntu 24.04 trên VMware](#3-tạo-3-vm-ubuntu-2404-trên-vmware)
-4. [Tạo và nhân bản 3 server theo servers.md](#4-tạo-và-nhân-bản-3-server-theo-serversmd)
-5. [Cấu hình OS chung (CHẠY TRÊN CẢ 3 K8S NODE)](#5-cấu-hình-os-chung-chạy-trên-cả-3-k8s-node)
-6. [Khởi tạo control plane (CHỈ MASTER)](#6-khởi-tạo-control-plane-chỉ-master)
-7. [Join worker (CHỈ 2 WORKER)](#7-join-worker-chỉ-2-worker)
-8. [Verify cụm](#8-verify-cụm)
-9. [Cài Ingress Controller (Traefik)](#9-cài-ingress-controller-traefik)
-10. [Deploy app mẫu + Ingress](#10-deploy-app-mẫu--ingress)
-11. [Mua &amp; cấu hình domain trên Cloudflare](#section-11)
-12. [Tạo Cloudflare Tunnel (chạy trong cụm)](#12-tạo-cloudflare-tunnel-chạy-trong-cụm)
-13. [Trỏ domain &amp; kiểm tra trên Internet](#13-trỏ-domain--kiểm-tra-trên-internet)
-14. [Cài Rancher 2.14.3 &amp; quản lý cụm](#14-cài-rancher-2143--quản-lý-cụm)
-15. [Vận hành &amp; troubleshooting](#15-vận-hành--troubleshooting)
-16. [Nguồn official](#16-nguồn-official)
-17. [Phụ lục](#17-phụ-lục)
+### 0.1. Chạy ở đâu và không được làm gì
 
----
+Chạy runbook trên một **research host Ubuntu cùng major release và architecture với node mục tiêu**. Host này có thể là VM dùng riêng; không chạy các lệnh `helm install`, `kubectl apply` hoặc thay đổi cluster production. Các lệnh trong tài liệu chỉ đọc nguồn official, đọc package index, tải metadata/chart/manifest vào thư mục evidence và render cục bộ.
 
-## 1. Tổng quan & kiến trúc
+Mọi block có `exit 1` đều phải nằm trong subshell `( ... )`. Khi gate fail, **STOP tại mục đó**; không tự sửa bảng thành `PASS`, không tiếp tục dựa trên phỏng đoán.
 
-```
-                Internet (người dùng gõ https://app.hieupn.site)
-                          │
-                          ▼
-                 ┌──────────────────┐
-                 │  Cloudflare Edge │  (TLS/HTTPS, WAF, DNS)
-                 └────────┬─────────┘
-                          │  kết nối OUTBOUND do cloudflared mở ra
-                          │  (không có cổng inbound nào ở nhà bạn)
-   ════════════ NAT/CGNAT nhà mạng + router nhà ════════════
-                          │
-   Máy host Windows ──────┼──────── VMware (Bridged) ───────────────┐
-                          ▼                                          │
-   ┌──────────────────────────────────────────────────────────┐    │
-   │                  Kubernetes cluster                        │    │
-   │                                                            │    │
-   │   [Pod cloudflared] ──► Service: traefik (ClusterIP)       │    │
-   │                              │                             │    │
-   │                              ▼                             │    │
-   │           ┌──────────────────┴───────────────────┐        │    │
-   │           ▼                                       ▼        │    │
-   │  [Ingress host=app.hieupn.site]      [Ingress host=rancher.hieupn.site]
-   │           │                                       │        │    │
-   │           ▼                                       ▼        │    │
-   │   Service app ──► [Pod app]            [Rancher UI] (cattle-system)
-   │                                                            │    │
-   │   master (control plane) + worker1 + worker2               │    │
-   └──────────────────────────────────────────────────────────┘    │
-                                                                     │
-   └─────────────────────────────────────────────────────────────────┘
-```
+### 0.2. Gate công cụ và kết nối nguồn official
 
-**Vì sao kiến trúc này:**
-
-- **Cloudflare Tunnel** mở kết nối **outbound** từ trong cụm ra Cloudflare → vượt CGNAT, không phơi IP nhà, không mở cổng router. Đây là lý do **không cần gọi nhà mạng tắt NAT / mua IP public**.
-- **cloudflared chạy *trong* cụm** và trỏ thẳng vào **Service ClusterIP** của Traefik qua DNS nội bộ → **không cần MetalLB, không cần NodePort, không cần LoadBalancer external IP**.
-- **Traefik** làm điểm vào duy nhất, định tuyến theo hostname → host nhiều app/nhiều domain (kể cả **UI Rancher**) chỉ bằng cách thêm `Ingress` + một public hostname trong tunnel. (Runbook **không** dùng `ingress-nginx` — dự án đó đã bị khai tử 03/2026, lý do ở [§9.2](#92-vì-sao-chọn-traefik-thay-cho-ingress-nginx).)
-- **Rancher** cài *vào chính cụm kubeadm*, quản trị cụm đó (hiện trong UI là cụm `local`) bằng giao diện. Runbook dùng **Kubernetes 1.35.6 + Rancher 2.14.3**, nằm trong dải Kubernetes `1.33–1.35` của support matrix Rancher 2.14.3. Tuy nhiên, `kubeadm` thuộc nhóm “Any/imported cluster”, không phải một distro được SUSE chứng nhận riêng như RKE2/K3s.
-
----
-
-## 2. Quy hoạch
-
-### 2.1. Phiên bản (ghim để khỏi lệch version-skew)
-
-| Thành phần         | Phiên bản dùng trong runbook                          | Ghi chú                                                                                                  |
-| -------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Ubuntu Server        | **24.04.x LTS (Noble), amd64**                     | Cài bản Server, không cần GUI                                                                         |
-| Kubernetes           | **v1.35.6**; gói Debian **`1.35.6-1.1`**  | Repo`pkgs.k8s.io` theo minor `v1.35`; 1.35 còn được Kubernetes duy trì tới **28/02/2027** |
-| Container runtime    | **containerd 2.x từ Ubuntu 24.04**                | Giữ gói Ubuntu đã backport bản vá; cấu hình plugin 2.x và cgroup driver`systemd`               |
-| CNI                  | **Flannel v0.28.7**; pod CIDR `10.244.0.0/16`    | Dùng manifest release-pinned, không dùng nhánh`master`/`latest`                                   |
-| Ingress              | **Traefik chart 41.0.2** → Proxy **v3.7.6** | Chart khai`kubeVersion: >=1.25.0-0`; xem [§9](#9-cài-ingress-controller-traefik)                       |
-| Tunnel               | **cloudflared `latest`**                         | Official manifest của Cloudflare cũng dùng tag này; chạy 2 replica + liveness probe                  |
-| Cluster management   | **Rancher 2.14.3** từ `rancher-stable`          | Support matrix liệt kê Kubernetes**1.33–1.35** cho imported/other clusters                       |
-| cert-manager         | **v1.21.1**                                        | Hỗ trợ và test với Kubernetes 1.33–1.36; dùng cho`ingress.tls.source=rancher`                     |
-| Storage              | **local-path-provisioner v0.0.36**                 | Phù hợp homelab; dữ liệu gắn với node, không phải storage HA                                      |
-| MetalLB (tuỳ chọn) | **v0.16.1**                                        | Chỉ cần khi muốn IP`LoadBalancer` trong LAN                                                          |
-
-> ⚠️ **Version-skew:** runbook chủ động cài `kubelet`/`kubeadm`/`kubectl` cùng bản `1.35.6-1.1` trên cả 3 node. Chính sách Kubernetes hiện cho phép `kubelet` thấp hơn `kube-apiserver` tối đa **3 minor** và không được cao hơn; đó là biên tương thích, không phải lý do để cố tình để các node lệch bản trong một lab mới.
->
-> **Phạm vi cam kết:** đây là baseline **tương thích và cài được cho homelab**, không phải bảo đảm “stable 100%” hay cấu hình Rancher production được SUSE chứng nhận end-to-end. Support matrix của Rancher ghi “Any” cho imported cluster; tài liệu production của Rancher khởi điểm ở 4 vCPU/16 GB **mỗi node** và yêu cầu upstream cluster HA 3 node.
-
-### 2.2. IP & hostname (ví dụ — đổi theo dải LAN của bạn)
-
-Giả sử LAN nhà bạn là `192.168.100.0/24`, gateway `192.168.100.1`. Chọn IP tĩnh **ngoài dải DHCP** của router.
-
-| Vai trò      | Hostname        | IP tĩnh            | vCPU        | RAM            | Disk SSD |
-| ------------- | --------------- | ------------------- | ----------- | -------------- | -------- |
-| Control plane | `k8s-master`  | `192.168.100.111` | **4** | **8 GB** | 40 GB    |
-| Worker 1      | `k8s-worker1` | `192.168.100.112` | 2           | **6 GB** | 40 GB    |
-| Worker 2      | `k8s-worker2` | `192.168.100.113` | 2           | **6 GB** | 40 GB    |
-
-> Pod CIDR `10.244.0.0/16` và Service CIDR mặc định `10.96.0.0/12` **không** được trùng dải LAN `192.168.100.0/24` → an toàn.
->
-> ⚠️ Đây là cấu hình **homelab có chủ đích**, đồng bộ với [`servers.md`](servers.md), thấp hơn sizing production chính thức của Rancher. Disk 40 GB đủ để học và chạy workload nhẹ; cần tăng disk hoặc gắn storage riêng nếu giữ nhiều image, log, backup hay PVC.
-
-### 2.2.1. Kiểm tra IP tĩnh KHÔNG trùng dải DHCP của router (làm 1 lần, trước khi cài)
-
-> Vì sao: IP tĩnh `.111–.113` ở trên là **ví dụ**. Nếu chúng vô tình rơi **trong** dải mà router tự cấp (DHCP pool), router có thể cấp cùng IP đó cho một thiết bị khác → **trùng IP, cụm chập chờn**. Phải đảm bảo `.111/.112/.113` nằm **ngoài** dải DHCP. Làm **một** trong hai cách dưới (Cách A chắc chắn hơn).
-
-**Trước tiên — xác định gateway router** (trên máy host Windows):
-
-```powershell
-ipconfig | findstr /i "Default Gateway"
-# vd: Default Gateway . . . : 192.168.100.1   ← đây là địa chỉ trang quản trị router
-```
-
-**Cách A — Xem trực tiếp dải DHCP trên router (khuyến nghị):**
-
-1. Mở trình duyệt trên host → vào `http://192.168.100.1` (đúng IP gateway vừa tìm).
-2. Đăng nhập admin router (tài khoản/mật khẩu thường in ở **đáy router** hoặc theo nhà mạng Viettel/VNPT/FPT).
-3. Tìm mục **LAN → DHCP Server / DHCP Settings** (tên tuỳ hãng TP-Link, Tenda, Asus…).
-4. Ghi lại **Start IP** và **End IP** của dải DHCP — ví dụ `192.168.100.2 – 192.168.100.200`.
-5. Đối chiếu `.111 / .112 / .113`:
-   - **Nằm NGOÀI** dải đó → dùng được luôn, sang [§2.3](#23-yêu-cầu-máy-host).
-   - **Nằm TRONG** dải (vd pool `.100–.200` thì `.111–.113` bị dính) → chọn 1 trong 2:
-     - **(a)** Đổi IP tĩnh sang dải cao ngoài pool, vd `.201/.202/.203`, **rồi sửa đồng bộ** ở [bảng §2.2](#22-ip--hostname-ví-dụ--đổi-theo-dải-lan-của-bạn), [§5.1 `/etc/hosts`](#51-hostname--etchosts), [§5.2 netplan](#52-ip-tĩnh-netplan), [§6 `kubeadm init`](#6-khởi-tạo-control-plane-chỉ-master). **Hoặc**
-     - **(b)** Thu hẹp **End IP** của pool trên router (vd kéo về `.110`) để chừa `.111–.113` ra ngoài.
-
-**Cách B — Không vào được router? Ping thử xem IP có đang bị dùng (nhanh, kém chắc hơn):**
-
-Trên host, ping từng IP định gán — IP "không ai trả lời" là khả năng đang trống:
-
-```powershell
-ping -n 2 192.168.100.111
-ping -n 2 192.168.100.112
-ping -n 2 192.168.100.113
-```
-
-- **"Request timed out" / "Destination host unreachable"** trên cả 2 gói → IP đang trống, nhiều khả năng dùng được.
-- **"Reply from 192.168.100.x..."** → IP đang bị thiết bị khác chiếm → chọn IP khác.
-
-> ⚠️ Cách B chỉ kiểm tra phụ: một thiết bị đang **tắt** sẽ không trả lời ping nhưng router vẫn có thể đã giữ/cấp lại IP đó. Cách chắc chắn nhất vẫn là **Cách A**. Chắc ăn nhất: chọn IP **ngoài pool** (Cách A) *hoặc* tạo **DHCP Reservation** trên router (gán cứng `.111–.113` theo MAC của từng VM) để router không bao giờ cấp trùng.
-
-> ✅ Sau khi chốt được dải IP an toàn, ghi đè lại 3 IP đó vào [bảng §2.2](#22-ip--hostname-ví-dụ--đổi-theo-dải-lan-của-bạn) và dùng xuyên suốt runbook. **Tất cả** chỗ có `192.168.100.11x` phải khớp nhau.
-
-### 2.3. Yêu cầu máy host
-
-- RAM host nên **≥ 32 GB** (3 VM dùng tổng 20 GB, phần còn lại cho Windows/VMware và headroom).
-- VMware Workstation Pro/Player (Player đủ dùng cho lab).
-- ISO Ubuntu Server 24.04: [https://ubuntu.com/download/server](https://ubuntu.com/download/server)
-
----
-
-## 3. Tạo 3 VM Ubuntu 24.04 trên VMware
-
-Làm **3 lần** (master, worker1, worker2), chỉ khác tên + tài nguyên theo bảng [§2.2](#22-ip--hostname-ví-dụ--đổi-theo-dải-lan-của-bạn).
-
-1. **Create a New Virtual Machine** → *Typical* → chọn ISO Ubuntu Server 24.04.
-2. Đặt tên VM (vd `k8s-master`), chọn thư mục lưu.
-3. Disk size 40 GB, *Store as a single file*.
-4. **Customize Hardware** theo đúng từng dòng ở [§2.2](#22-ip--hostname-ví-dụ--đổi-theo-dải-lan-của-bạn):
-   - `k8s-master`: 8192 MB, 4 vCPU.
-   - `k8s-worker1` / `k8s-worker2`: 6144 MB, 2 vCPU mỗi máy.
-   - **Network Adapter** → **Bridged** → tick *Replicate physical network connection state*.
-     - ⚠️ **Virtual Network Editor là cửa sổ KHÁC với VM Settings.** Mở từ **menu cửa sổ chính VMware → Edit → Virtual Network Editor** (KHÔNG phải trong Settings của VM). Nếu các ô bị mờ → bấm **Change Settings** (cần quyền admin/UAC).
-     - Chọn dòng **VMnet0** (Type = *Bridged*) → ở mục **"Bridged to:"** đổi từ *Automatic* sang **đúng tên card vật lý đang có mạng** (vd `Realtek PCIe GbE Family Controller` nếu dùng dây LAN, hoặc card `...Wi-Fi...` nếu dùng Wi-Fi) → **Apply → OK**. Để *Automatic* dễ bị bind nhầm card sau reboot.
-     - **KHÔNG chọn** các card ảo trong danh sách: `Hyper-V Virtual Ethernet Adapter`, `TAP-Windows Adapter ... OpenVPN`… (không phải card mạng thật).
-     - Không chắc card nào đang chạy? Trên host chạy `ipconfig /all`, tìm adapter có **IPv4 Address** dạng `192.168.x.x` + có **Default Gateway** → lấy đúng tên ở dòng *Description*.
-     - 💡 **Nếu host bật Hyper-V** (thấy "Hyper-V Virtual Ethernet Adapter" trong danh sách "Bridged to") thì bridge VMware có thể bị Hyper-V chiếm card → DHCP không ra IP dù chọn đúng card. Cách xử lý ở [§15](#15-vận-hành--troubleshooting).
-5. Power On → cài Ubuntu Server:
-   - Chọn **Ubuntu Server (minimized hoặc full)**.
-   - Network: cứ để DHCP khi cài, ta sẽ đặt IP tĩnh sau ([§5.2](#52-ip-tĩnh-netplan)).
-   - **Profile**: tạo user (vd `k8sadmin`), đặt hostname đúng (`k8s-master`…).
-   - **Tick "Install OpenSSH server"** để SSH vào cho tiện.
-   - Bỏ qua các snap đề xuất.
-6. Cài xong → reboot → đăng nhập.
-
-> 💡 Sau khi cài, nên SSH từ máy host vào từng VM (`ssh k8sadmin@192.168.100.111`) để copy-paste lệnh dễ hơn.
-
----
-
-## 4. Tạo và nhân bản 3 server theo servers.md
-
-> **Mục tiêu:** từ con số 0, dựng **1 VM Ubuntu 24.04 "gốc" (golden)** → **snapshot** → **full-clone** ra đủ 3 server trong [`servers.md`](servers.md), rồi tách mỗi bản thành **hostname + IP tĩnh riêng**. Nhanh hơn cài Ubuntu 3 lần (cách cài lặp xem [§3](#3-tạo-3-vm-ubuntu-2404-trên-vmware)).
->
-> ⚠️ **Vì sao có phần này:** ngay sau khi clone, các VM còn trùng hostname, `machine-id` và SSH host key. VMware thường sinh MAC mới nên DHCP **có thể** cấp IP khác nhau; không được mặc định rằng IP chắc chắn trùng hay chắc chắn khác. [§4.4](#44-gỡ-trùng-lặp-trên-mỗi-bản-clone-machine-id--ssh-host-key) + [§4.5](#45-đặt-hostname--ip-tĩnh-riêng-cho-từng-server) chuẩn hoá từng máy.
-
-**Bảng đích (theo [`servers.md`](servers.md) — cả 3 dùng Ubuntu Server 24.04):**
-
-| # | Server / Hostname           | IP tĩnh            | RAM  | vCPU | Disk  | Domain                                      |
-| - | --------------------------- | ------------------- | ---- | ---- | ----- | ------------------------------------------- |
-| 1 | `ubuntu-2404` (bản gốc) | `192.168.100.100` | 4 GB | 2    | 40 GB | —                                          |
-| 2 | `load-balancer`           | `192.168.100.101` | 2 GB | 1    | 40 GB | —                                          |
-| 3 | `teleport`                | `192.168.100.103` | 2 GB | 1    | 40 GB | `https://teleport-onpre.devopseduvn.live` |
-
-> ℹ️ Đây là inventory của **lab này** (theo `servers.md`). Nếu bạn dựng **cụm k8s** thì dùng tên/IP ở [§2.2](#22-ip--hostname-ví-dụ--đổi-theo-dải-lan-của-bạn) (`k8s-master/worker1/worker2`, `.111–.113`) — quy trình clone bên dưới **giống hệt**, chỉ đổi bảng đích.
-
-### 4.1. Dựng VM gốc (golden) Ubuntu 24.04
-
-1. Tạo **1** VM theo [§3](#3-tạo-3-vm-ubuntu-2404-trên-vmware) (bản gốc: 4 GB / 2 vCPU / 40 GB), đặt tên VMware là `ubuntu-2404`.
-2. Cài Ubuntu Server 24.04, tạo user, **tick Install OpenSSH server**.
-3. (Tùy chọn, chỉ cho LAN lab) Nếu muốn SSH trực tiếp bằng `root` và mật khẩu, đặt mật khẩu cho root rồi mở file cấu hình SSH:
+Các công cụ sau phải có sẵn trên research host. Runbook này không cài công cụ; nếu thiếu, chuẩn bị host theo quy trình quản trị phần mềm của tổ chức rồi chạy lại gate.
 
 ```bash
-sudo passwd root                 # đặt mật khẩu cho root; Ubuntu khóa mật khẩu root mặc định
-sudo nano /etc/ssh/sshd_config   # mở cấu hình chính của SSH server
+set -o pipefail
+PRECHECK_LOG="$(mktemp)"
+export PRECHECK_LOG
+
+(
+  for cmd in bash curl jq grep sed awk tar sha256sum python3 rg helm kubectl nano; do
+    command -v "${cmd}" >/dev/null 2>&1 || {
+      echo "FAIL: thiếu công cụ ${cmd}"; exit 1;
+    }
+  done
+
+  bash --version | head -n1
+  curl --version | head -n1
+  jq --version
+  python3 --version
+  rg --version | head -n1
+  helm version --short
+  kubectl version --client
+
+  for url in \
+    'https://kubernetes.io/releases/' \
+    'https://releases.rancher.com/server-charts/stable/index.yaml' \
+    'https://cert-manager.io/docs/releases/' \
+    'https://github.com/traefik/traefik-helm-chart/releases'; do
+    curl -fsSL --connect-timeout 10 --max-time 30 \
+      --range 0-0 -o /dev/null "${url}" || {
+      echo "FAIL: không đọc được nguồn official ${url}"; exit 1;
+    }
+  done
+
+  echo 'PASS: đủ công cụ nghiên cứu và đọc được các nguồn official bắt buộc'
+) 2>&1 | tee "${PRECHECK_LOG}"
+PRECHECK_RC=${PIPESTATUS[0]}
+echo "precheck rc=${PRECHECK_RC}"
 ```
 
-Trong file, thêm **trước dòng** `Include /etc/ssh/sshd_config.d/*.conf`:
+**PASS:** có dòng `PASS` và `precheck rc=0`.
+
+**FAIL/STOP:** thiếu công cụ hoặc không đọc được một nguồn. Không chuyển sang §0.3 cho tới khi chạy lại đạt.
+
+> `kubeadm` được kiểm riêng ở §4.5 vì chỉ cần sau khi đã chốt Kubernetes candidate. Công cụ đọc image digest được kiểm ở §7.5.
+
+### 0.3. Tạo workspace và state file
+
+Mỗi lần nghiên cứu dùng một thư mục mới. Không tái sử dụng evidence của baseline cũ.
+
+```bash
+export RESEARCH_DATE="$(date +%F)"
+export BASELINE_ROOT="$(mktemp -d "${PWD}/version-baseline-${RESEARCH_DATE}-XXXXXX")"
+export RESEARCH_RUN_ID="$(basename "${BASELINE_ROOT}")"
+
+mkdir -p \
+  "${BASELINE_ROOT}/evidence/00-preflight" \
+  "${BASELINE_ROOT}/evidence/04-kubernetes" \
+  "${BASELINE_ROOT}/evidence/05-runtime" \
+  "${BASELINE_ROOT}/evidence/06-cni" \
+  "${BASELINE_ROOT}/evidence/07-charts" \
+  "${BASELINE_ROOT}/evidence/09-render" \
+  "${BASELINE_ROOT}/evidence/12-final"
+
+mv "${PRECHECK_LOG}" \
+  "${BASELINE_ROOT}/evidence/00-preflight/gate-02-tools.txt"
+
+touch \
+  "${BASELINE_ROOT}/baseline-versions.md" \
+  "${BASELINE_ROOT}/compatibility-matrix.md" \
+  "${BASELINE_ROOT}/sources.md" \
+  "${BASELINE_ROOT}/decision-log.md"
+
+printf 'export RESEARCH_DATE=%q\nexport BASELINE_ROOT=%q\nexport K8S_EVIDENCE=%q\nexport RUNTIME_EVIDENCE=%q\nexport CNI_EVIDENCE=%q\nexport CHART_EVIDENCE=%q\nexport RENDER_EVIDENCE=%q\nexport FINAL_EVIDENCE=%q\n' \
+  "${RESEARCH_DATE}" "${BASELINE_ROOT}" \
+  "${BASELINE_ROOT}/evidence/04-kubernetes" \
+  "${BASELINE_ROOT}/evidence/05-runtime" \
+  "${BASELINE_ROOT}/evidence/06-cni" \
+  "${BASELINE_ROOT}/evidence/07-charts" \
+  "${BASELINE_ROOT}/evidence/09-render" \
+  "${BASELINE_ROOT}/evidence/12-final" \
+  > "${BASELINE_ROOT}/research-session.env"
+
+cd "${BASELINE_ROOT}"
+```
+
+Gate workspace:
+
+```bash
+set -o pipefail
+(
+  test -d "${BASELINE_ROOT}/evidence/09-render" || {
+    echo 'FAIL: thiếu cây evidence'; exit 1;
+  }
+
+  for file in baseline-versions.md compatibility-matrix.md sources.md decision-log.md; do
+    test -f "${BASELINE_ROOT}/${file}" || {
+      echo "FAIL: thiếu ${file}"; exit 1;
+    }
+  done
+
+  test "${PWD}" = "${BASELINE_ROOT}" || {
+    echo "FAIL: shell chưa đứng trong ${BASELINE_ROOT}"; exit 1;
+  }
+
+  echo "PASS: workspace mới sẵn sàng tại ${BASELINE_ROOT}"
+) 2>&1 | tee "${BASELINE_ROOT}/evidence/00-preflight/gate-03-workspace.txt"
+WORKSPACE_RC=${PIPESTATUS[0]}
+echo "workspace gate rc=${WORKSPACE_RC}"
+```
+
+Khi mở phiên SSH mới, khôi phục state bằng:
+
+```bash
+source '/đường/dẫn/tới/version-baseline-YYYY-MM-DD-XXXXXX/research-session.env'
+cd "${BASELINE_ROOT}"
+```
+
+**PASS:** `workspace gate rc=0`. **FAIL/STOP:** thiếu bất kỳ file/thư mục nào hoặc đang đứng sai thư mục.
+
+### 0.4. Đầu ra bắt buộc
+
+Mỗi lần chạy runbook này phải tạo đủ các đầu ra:
+
+1. `baseline-versions.md`: bảng phiên bản cuối cùng để đưa vào runbook triển khai.
+2. `baseline-detailed.md` và `baseline-data.tsv`: source of truth chi tiết và dữ liệu máy kiểm được.
+3. `compatibility-matrix.md`/`.tsv`: giao của các dải tương thích và lý do chọn/loại từng candidate.
+4. `sources.md`/`.tsv`: URL official, ngày truy cập, claim và evidence dùng để ra quyết định.
+5. `decision-log.md`, `config-contract.tsv`, `resource-ownership.tsv` và `baseline-metadata.env`.
+6. `evidence/`: metadata chart, values, manifest đã render, lab report, checksum và kết quả mọi gate.
+
+Baseline chỉ được gắn trạng thái `APPROVED` khi tất cả gate trong tài liệu này đạt. Nếu chưa đủ bằng chứng, dùng `DRAFT`, `BLOCKED` hoặc `LAB-ONLY`; không dùng từ “supported” theo suy đoán. Tất cả dòng component khởi tạo ở trạng thái `NOT-TESTED`, không điền sẵn `PASS`.
+
+### 0.5. Trạng thái mong đợi ngay sau khi xong mục 0
+
+Bốn block của mục 0 theo thứ tự: §0.2 kiểm công cụ có mặt và nguồn official truy cập được (log tạm bằng `mktemp` vì workspace chưa tồn tại); §0.3 tạo workspace mới, chuyển log tạm về `gate-02-tools.txt`, ghi state vào `research-session.env`, rồi gate xác nhận cây thư mục và shell đang đứng đúng chỗ; cuối cùng là snippet source lại state khi mở phiên SSH mới. Mọi gate dùng chung khung: subshell (`exit 1` không đóng SSH) + `tee` ra file evidence + `${PIPESTATUS[0]}` lấy exit code trước `tee`.
+
+Output mong đợi trên terminal:
 
 ```text
-PermitRootLogin yes
-PasswordAuthentication yes
+PASS: đủ công cụ nghiên cứu và đọc được các nguồn official bắt buộc
+precheck rc=0
+PASS: workspace mới sẵn sàng tại /home/<user>/version-baseline-2026-08-10-Ab3XyZ
+workspace gate rc=0
 ```
 
-- `PermitRootLogin yes`: cho phép user `root` đăng nhập trực tiếp qua SSH.
-- `PasswordAuthentication yes`: cho phép SSH xác thực bằng mật khẩu.
-- Đặt hai dòng trước `Include` để chúng là giá trị đầu tiên `sshd` đọc, tránh bị một file trong `sshd_config.d` đặt giá trị khác.
+Cấu trúc thư mục mong đợi (ví dụ chạy ngày 2026-08-10):
 
-Lưu file (`Ctrl+O`, `Enter`, `Ctrl+X`), kiểm tra cú pháp rồi nạp lại dịch vụ:
-
-```bash
-sudo sshd -t                         # không có output = cú pháp hợp lệ
-sudo systemctl restart ssh.service   # áp dụng cấu hình mới
-sudo sshd -T | grep -Ei '^(permitrootlogin|passwordauthentication)'
-# PASS: permitrootlogin yes  +  passwordauthentication yes
+```text
+version-baseline-2026-08-10-Ab3XyZ/
+├── baseline-versions.md          # rỗng — bảng §2.1, điền ở §10
+├── compatibility-matrix.md       # rỗng — điền ở §4
+├── sources.md                    # rỗng — điền ở §10
+├── decision-log.md               # rỗng — append từ §3.3
+├── research-session.env          # state file để khôi phục phiên SSH
+└── evidence/
+    ├── 00-preflight/
+    │   ├── gate-02-tools.txt     # log gate §0.2
+    │   └── gate-03-workspace.txt # log gate workspace
+    ├── 04-kubernetes/            # rỗng — evidence §4
+    ├── 05-runtime/               # rỗng — evidence §5
+    ├── 06-cni/                   # rỗng — evidence §6
+    ├── 07-charts/                # rỗng — evidence §7–8 (addons/, audit/ tạo sau)
+    ├── 09-render/                # rỗng — evidence §9
+    └── 12-final/                 # rỗng — evidence §10–12
 ```
 
-> ⚠️ `PermitRootLogin yes` làm tăng rủi ro dò mật khẩu. Chỉ dùng trong mạng lab tin cậy; với môi trường thật, dùng `PermitRootLogin prohibit-password` và SSH key theo [§5.8](#58-tùy-chọn-cho-phép-ssh-bằng-root-từ-client-cho-ansible--quản-trị). Giữ phiên SSH hiện tại mở và test `ssh root@<IP>` trong terminal khác trước khi đăng xuất.
-
-4. **BẮT BUỘC trước khi snapshot/clone** — chặn cloud-init quản mạng để bản clone không bị revert DHCP (chi tiết ở [§5.2](#52-ip-tĩnh-netplan) bước 2):
-
-```bash
-echo 'network: {config: disabled}' | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
-```
-
-5. (Khuyến nghị) Làm luôn các bước dùng chung ở [§5](#5-cấu-hình-os-chung-chạy-trên-cả-3-k8s-node) trên bản gốc **trước khi clone** để khỏi lặp 3 lần (update, tắt swap…). Nếu 3 server này **không** dùng làm k8s node thì bỏ qua các bước k8s-specific.
-
-### 4.2. Snapshot VM gốc
-
-VMware → chuột phải VM `ubuntu-2404` → **Snapshot → Take Snapshot** → đặt tên `golden-base`.
-
-> Snapshot này vừa là mốc an toàn để revert, vừa là điểm gốc sạch trước khi nhân bản.
-
-### 4.3. Full Clone ra 2 VM còn lại
-
-VMware → chuột phải `ubuntu-2404` → **Manage → Clone** → nguồn **An existing snapshot (`golden-base`)** → **Create a full clone** (KHÔNG dùng *linked clone* để 3 VM độc lập):
-
-- Clone lần 1 → đặt tên VM `load-balancer`.
-- Clone lần 2 → đặt tên VM `teleport`.
-
-> Xong bước này bạn có 3 VM còn trùng hostname, `machine-id` và SSH host key. IP DHCP có thể khác do MAC mới, nhưng chưa phải IP tĩnh trong inventory. [§4.4](#44-gỡ-trùng-lặp-trên-mỗi-bản-clone-machine-id--ssh-host-key) và [§4.5](#45-đặt-hostname--ip-tĩnh-riêng-cho-từng-server) sẽ tách chúng ra.
-
-### 4.4. Gỡ trùng lặp trên MỖI bản clone (machine-id + SSH host key)
-
-Chạy trên **`load-balancer`** và **`teleport`** (KHÔNG chạy trên bản gốc). Vào bằng **console VMware** (đừng SSH vì IP đang trùng):
-
-```bash
-# reset machine-id (tránh trùng DHCP DUID / định danh trùng nhau):
-sudo truncate -s 0 /etc/machine-id
-sudo rm -f /var/lib/dbus/machine-id
-sudo systemd-machine-id-setup
-
-# reset SSH host key (tránh cảnh báo host key trùng khi SSH):
-sudo rm -f /etc/ssh/ssh_host_*
-sudo dpkg-reconfigure openssh-server
-```
-
-### 4.5. Đặt hostname + IP tĩnh riêng cho từng server
-
-Làm trên **từng VM** qua console, theo bảng đích:
-
-```bash
-# 1) hostname — đổi theo từng máy:
-sudo hostnamectl set-hostname ubuntu-2404       # bản gốc
-#   hoặc:  load-balancer   /   teleport
-
-# 2) xác định tên card mạng (thường là ens33 hoặc ens160):
-ip -br a
-
-# 3) bỏ cấu hình DHCP cũ do cloud-init đã sinh:
-sudo mv /etc/netplan/50-cloud-init.yaml /etc/netplan/50-cloud-init.yaml.bak 2>/dev/null || true
-
-# 4) tạo cấu hình IP tĩnh:
-sudo nano /etc/netplan/01-static.yaml
-```
-
-Nội dung mẫu — đổi tên card và `addresses` theo từng VM:
-
-```yaml
-network:
-  version: 2
-  ethernets:
-    ens33:                              # đổi theo kết quả `ip -br a`
-      dhcp4: no
-      addresses: [192.168.100.100/24]   # .100 / .101 / .103 theo bảng đích
-      routes:
-        - to: default
-          via: 192.168.100.1
-      nameservers:
-        addresses: [1.1.1.1, 8.8.8.8]
-```
-
-```bash
-sudo chmod 600 /etc/netplan/01-static.yaml
-sudo netplan apply
-```
-
-> Đặt `.100` cho bản gốc, `.101` cho `load-balancer`, `.103` cho `teleport` theo `servers.md`. Không suy IP DHCP tạm thời thành IP đích.
-
-(Tuỳ chọn) Muốn 3 máy gọi nhau bằng tên → thêm vào `/etc/hosts` trên **cả 3**:
-
-```bash
-sudo tee -a /etc/hosts >/dev/null <<'EOF'
-192.168.100.100 ubuntu-2404
-192.168.100.101 load-balancer
-192.168.100.103 teleport
-EOF
-```
-
-**Reboot mỗi VM** (bắt buộc sau khi gỡ trùng ở [§4.4] + đổi hostname/IP) — để `machine-id` mới có hiệu lực hẳn và hostname áp dụng đầy đủ:
-
-```bash
-sudo reboot
-```
-
-### 4.6. Verify 3 server
-
-Sau reboot, trên **từng** VM:
-
-```bash
-hostnamectl                 # Static hostname đúng tên máy
-ip -br a                    # đúng IP tĩnh .100 / .101 / .103, chỉ 1 IPv4
-sudo netplan get            # dhcp4: false → xác nhận là tĩnh
-```
-
-Kiểm tra thông nhau (từ 1 máy bất kỳ hoặc từ client):
-
-```bash
-ping -c2 192.168.100.100 && ping -c2 192.168.100.101 && ping -c2 192.168.100.103
-```
-
-> ✅ Cả 3 có IP **khác nhau**, ping thông, và **giữ đúng IP sau reboot** (bằng chứng IP tĩnh thật) → xong phần hạ tầng. Nên chụp snapshot mới cho từng máy (vd `ip-ready`).
+Số thứ tự thư mục evidence khớp số mục của tài liệu; các mục không có thư mục riêng ghi vào `00-preflight` hoặc thư mục con của `07-charts`. `baseline.env` chưa tồn tại ở bước này — nó được tạo ở §2.1.
 
 ---
 
-## 5. Cấu hình OS chung (CHẠY TRÊN CẢ 3 K8S NODE)
+## 1. Các khái niệm không được đánh đồng
 
-> Toàn bộ [§5] phải chạy **giống nhau trên cả 3 máy** (trừ phần hostname/IP là riêng từng máy). Chạy bằng `sudo` hoặc `sudo -i`.
+### 1.1. “Mới”, “stable”, “supported” và “work được”
 
-### 5.0. Chuẩn hóa identity của 3 K8s node
+| Khái niệm | Nghĩa dùng trong runbook |
+| --- | --- |
+| Latest release | Release mới nhất upstream đã phát hành; có thể là RC, channel thử nghiệm hoặc chưa được thành phần khác hỗ trợ. |
+| Stable channel | Channel được vendor chỉ định cho production-like usage, ví dụ `rancher-stable`; vẫn phải kiểm tra support matrix và release notes. |
+| Maintained | Nhánh còn nhận bản vá lỗi/bảo mật theo lifecycle upstream. |
+| Supported | Vendor tuyên bố hỗ trợ đúng tổ hợp sản phẩm, phiên bản, distro và vai trò đang xét. |
+| Tested | Upstream chạy test định kỳ trên version đó. `tested` có thể hẹp hơn hoặc khác `supported`. |
+| Metadata-compatible | Chart/package cho phép version đó, ví dụ `Chart.yaml.kubeVersion`; đây chưa phải chứng nhận của vendor. |
+| Render-compatible | Template render đúng với cấu hình dự kiến; chưa chứng minh controller chạy đúng lúc runtime. |
+| Lab-validated | Tổ hợp đã qua test trên môi trường thử tương đương; vẫn không đồng nghĩa vendor-certified. |
 
-Ba node Kubernetes phải có **hostname, IP, MAC address, `product_uuid`, `machine-id` và SSH host key riêng**. Làm trọn mục này ngay tại đây; không cần quay lại quy trình clone ở chương trước.
+Một baseline “stable” phải đồng thời:
 
-#### Trường hợp A — 3 VM được cài Ubuntu riêng
+- không dùng alpha, beta, RC hoặc prerelease;
+- nằm trên nhánh còn được duy trì;
+- nằm trong giao support của các thành phần bắt buộc;
+- dùng patch release được upstream còn hỗ trợ;
+- không có cảnh báo breaking change/CVE/regression chưa được xử lý trong release notes;
+- pin được artifact cụ thể, không để `latest`, `stable`, `master` hoặc version range trong bảng cuối;
+- render đúng và vượt qua các gate tĩnh;
+- ghi rõ cấp cam kết: `VENDOR-SUPPORTED`, `TECHNICALLY-COMPATIBLE` hay `LAB-ONLY`.
 
-Không cần tạo lại `machine-id` hoặc SSH host key. Chỉ chạy phần **Verify identity** bên dưới để xác nhận mỗi VM thực sự có định danh riêng.
+### 1.2. Thứ tự ưu tiên bằng chứng
 
-#### Trường hợp B — 3 VM được tạo bằng snapshot/full clone
+Khi nguồn mâu thuẫn, dùng thứ tự sau và ghi mâu thuẫn vào decision log:
 
-Chạy trên **mỗi bản clone** qua console VMware trước khi cấu hình hostname/IP. Không chạy qua SSH vì các clone có thể đang trùng IP và SSH host key:
+1. Support/certification matrix đúng version của vendor.
+2. Lifecycle, release policy, security advisory và release notes chính thức.
+3. Metadata của đúng artifact: `Chart.yaml`, package index, image manifest.
+4. `values.yaml`, schema, template và CRD của đúng chart version.
+5. Kết quả render/dry-run.
+6. Kết quả test trên lab dùng topology tương đương.
 
-```bash
-# tạo machine-id mới:
-sudo truncate -s 0 /etc/machine-id
-sudo rm -f /var/lib/dbus/machine-id
-sudo systemd-machine-id-setup
+Blog, diễn đàn, issue và câu trả lời cộng đồng chỉ dùng để tìm hướng điều tra. Chúng không thay thế nguồn official ở các bước 1–4.
 
-# tạo SSH host key mới:
-sudo rm -f /etc/ssh/ssh_host_*
-sudo dpkg-reconfigure openssh-server
-```
+> **Quy tắc quan trọng:** trang “Helm chart options” có thể không liệt kê mọi key mới. `values.yaml` và template của **đúng chart version** mới là hợp đồng thực thi cần audit.
 
-> **Chưa reboot tại đây.** Tiếp tục đặt hostname ở [§5.1](#51-hostname--etchosts), cấu hình IP tĩnh ở [§5.2](#52-ip-tĩnh-netplan), rồi reboot một lần sau `netplan apply`. Nếu VM đã được reset identity trước đó thì không cần chạy lại; chuyển thẳng sang phần verify. Reset SSH host key sẽ làm fingerprint của máy thay đổi, vì vậy client SSH có thể phải xóa entry cũ bằng `ssh-keygen -R <IP-cu>`.
+### 1.3. Phân biệt các loại version
 
-#### Verify identity — bắt buộc cho cả hai trường hợp
+Không gộp các trường sau thành một cột mơ hồ:
 
-Sau khi reset identity, chạy trên cả 3 VM và lưu kết quả để đối chiếu. Reboot cuối cùng sau khi đặt hostname/IP sẽ bảo đảm toàn bộ thay đổi có hiệu lực đồng thời:
+| Loại | Ví dụ | Cách pin |
+| --- | --- | --- |
+| Product/app version | Rancher `2.x.y`, Traefik Proxy `3.x.y` | Exact SemVer |
+| Helm chart version | Traefik chart `4x.y.z` | Exact chart version |
+| Debian package version | kubeadm `1.xx.y-1.1` | Exact package string |
+| Container image | `repo/name:vX.Y.Z` | Exact tag; production nên lưu thêm digest |
+| Kubernetes minor | `1.xx` | Dùng để chọn repo và xét support window |
+| Kubernetes patch | `1.xx.y` | Version thực tế của control plane/node tools |
+| Git source | tag/release/commit | Tag immutable hoặc commit SHA, không dùng branch động |
 
-```bash
-echo "hostname:     $(hostnamectl --static)"
-echo "machine-id:   $(cat /etc/machine-id)"
-echo "product_uuid: $(sudo cat /sys/class/dmi/id/product_uuid)"
-echo "SSH host key:"
-sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
-echo "Network interfaces:"
-ip -br link
-```
+---
 
-Gate trước khi tiếp tục:
+## 2. Khai báo và kiểm chứng yêu cầu
 
-- `machine-id` của 3 VM phải khác nhau.
-- SSH host-key fingerprint của 3 VM phải khác nhau.
-- MAC address của card mạng trên 3 VM phải khác nhau.
-- `product_uuid` của 3 VM phải khác nhau.
-- Nếu MAC hoặc `product_uuid` bị trùng, **dừng tại đây** và để VMware sinh UUID/MAC mới; reset file trong Ubuntu không sửa được hai giá trị này.
-- Hostname có thể còn là tên của golden VM ở bước này; [§5.1](#51-hostname--etchosts) sẽ đặt tên riêng cho từng K8s node.
+### 2.1. Tạo input contract
 
-### 5.1. Hostname + /etc/hosts
-
-Trên **mỗi** máy, đặt đúng hostname:
-
-```bash
-# master:
-sudo hostnamectl set-hostname k8s-master
-# worker1:
-sudo hostnamectl set-hostname k8s-worker1
-# worker2:
-sudo hostnamectl set-hostname k8s-worker2
-```
-
-Thêm **giống nhau trên CẢ 3 máy** vào cuối `/etc/hosts` (bao gồm cả tên endpoint `k8s-master` dùng cho `--control-plane-endpoint`):
+Tạo `baseline.env`; file này không chứa mật khẩu/token:
 
 ```bash
-sudo tee -a /etc/hosts >/dev/null <<'EOF'
-192.168.100.111 k8s-master
-192.168.100.112 k8s-worker1
-192.168.100.113 k8s-worker2
-EOF
-```
-
-### 5.2. IP tĩnh (netplan)
-
-**Chạy trên TỪNG máy** (đổi IP theo bảng [§2.2](#22-ip--hostname-ví-dụ--đổi-theo-dải-lan-của-bạn)). Nên làm qua **console của VM trong cửa sổ VMware** (không qua SSH), vì khi đổi IP phiên SSH sẽ rớt.
-
-**1) Tìm tên card mạng:**
-
-```bash
-ip -br a        # trên VMware thường là ens33 hoặc ens160 — nhớ tên này để điền vào YAML
-```
-
-**2) Chặn cloud-init quản mạng** (BẮT BUỘC — nếu bỏ qua, IP tĩnh có thể bị ghi đè về DHCP sau reboot):
-
-```bash
-echo 'network: {config: disabled}' | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
-# bỏ file netplan do cloud-init sinh (đang để DHCP) để tránh xung đột:
-sudo mv /etc/netplan/50-cloud-init.yaml /etc/netplan/50-cloud-init.yaml.bak 2>/dev/null || true
-```
-
-**3) Tạo file tĩnh** `/etc/netplan/01-static.yaml` (vd `sudo nano /etc/netplan/01-static.yaml`) — **đổi IP & tên card theo từng máy**:
-
-```yaml
-network:
-  version: 2
-  ethernets:
-    ens33:                          # ⚠️ đổi cho khớp tên ở bước 1
-      dhcp4: no
-      addresses: [192.168.100.111/24]   # ⚠️ .111 master / .112 w1 / .113 w2
-      routes:
-        - to: default
-          via: 192.168.100.1            # gateway router (= Default Gateway của host)
-      nameservers:
-        addresses: [1.1.1.1, 8.8.8.8]
-```
-
-**4) Áp dụng:**
-
-```bash
-sudo chmod 600 /etc/netplan/01-static.yaml   # tránh cảnh báo permission
-sudo netplan apply
-```
-
-> ⚠️ Nếu đang làm qua SSH, sau `netplan apply` phiên sẽ **đứng/rớt** vì IP đã đổi — kết nối lại bằng IP mới: `ssh <user>@192.168.100.111`. Khi chỉ chỉnh nhỏ, có thể dùng `sudo netplan try` (tự hoàn tác sau 120s nếu mất mạng).
-
-**5) Reboot một lần sau khi hoàn tất identity + hostname + IP:**
-
-```bash
-sudo reboot
-```
-
-> Bước reboot này đặc biệt bắt buộc với VM clone để `machine-id` mới, hostname mới và cấu hình mạng tĩnh có hiệu lực đầy đủ cùng lúc.
-
-**6) Kiểm tra sau reboot (cả 3 máy đều phải đạt):**
-
-```bash
-ip -br a                       # card hiển thị đúng IP tĩnh .111/.112/.113
-ping -c2 192.168.100.1         # tới gateway → phải có reply
-ping -c2 8.8.8.8               # ra Internet bằng IP → phải có reply
-ping -c2 google.com            # phân giải DNS → phải có reply
-                               #   (nếu ping 8.8.8.8 OK mà google.com fail = lỗi DNS → xem lại nameservers)
-```
-
-> Dùng `routes:` thay cho `gateway4` (đã deprecated từ Ubuntu 22.04+).
-
-### 5.3. Cập nhật hệ thống & tắt swap
-
-`kubeadm` yêu cầu **tắt swap**:
-
-```bash
-sudo apt-get update && sudo apt-get upgrade -y
-
-# xác nhận quá trình nâng cấp không để lại gói lỗi/chưa cấu hình:
-sudo dpkg --audit              # không trả dòng nào
-sudo apt-get check             # hoàn tất mà không báo lỗi dependency
-
-sudo swapoff -a
-# tắt swap vĩnh viễn (comment dòng swap trong fstab):
-sudo sed -ri '/^[^#].*[[:space:]]swap[[:space:]]/s/^/#/' /etc/fstab
-
-# xác nhận swap đã tắt cả ở runtime và cấu hình khởi động:
-swapon --show                  # không trả dòng nào
-free -h                        # dòng Swap phải có Total = 0B
-grep -nE '^[^#].*[[:space:]]swap[[:space:]]' /etc/fstab
-                                # không trả dòng nào
-```
-
-Chỉ tiếp tục khi hai lệnh kiểm tra APT không báo lỗi, `swapon --show` và `grep` không trả dòng nào, đồng thời `free -h` có Swap = 0B. Nếu hệ thống có một swap unit riêng, xem tên bằng `systemctl --type=swap` rồi `disable --now` đúng unit đó; không mask toàn bộ `swap.target`.
-
-**Đồng bộ thời gian (quan trọng cho etcd/cert):** lệch giờ giữa các node làm hỏng TLS handshake & etcd. Ubuntu bật `systemd-timesyncd` sẵn — chỉ cần xác nhận:
-
-```bash
-timedatectl                 # phải thấy: System clock synchronized: yes  +  NTP service: active
-sudo timedatectl set-ntp true   # bật nếu chưa active
-```
-
-### 5.4. Kernel modules + sysctl (cho CRI & bridge networking)
-
-```bash
-cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
-overlay
-br_netfilter
-EOF
-sudo modprobe overlay
-sudo modprobe br_netfilter
-
-cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
-net.bridge.bridge-nf-call-iptables  = 1
-net.bridge.bridge-nf-call-ip6tables = 1
-net.ipv4.ip_forward                 = 1
-EOF
-sudo sysctl --system
-
-# verify: 2 module phải có mặt, cả 3 sysctl phải = 1
-lsmod | grep -E 'br_netfilter|overlay'
-sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables net.ipv4.ip_forward
-```
-
-> ⚠️ Flannel cần `br_netfilter`, nhưng kubeadm mới không còn đảm bảo preflight sẽ bắt thiếu module này. Nếu `lsmod` không có `br_netfilter` sau reboot, dừng lại sửa [§5.4] trước khi debug CNI.
-
-### 5.5. Cài containerd + bật SystemdCgroup
-
-**Cgroup là gì và vì sao Kubernetes cần nó?**
-
-Container thực chất vẫn là các process Linux. **Cgroup** (*control group*) là cơ chế của kernel dùng để gom các process thành nhóm, theo dõi và cưỡng chế tài nguyên của từng nhóm: CPU, RAM, số process và I/O. Trong Kubernetes:
-
-- scheduler dùng `resources.requests` để chọn node còn đủ tài nguyên;
-- kubelet chuyển `requests`/`limits` của Pod cho container runtime;
-- containerd/runc đưa process của container vào đúng cgroup;
-- kernel mới là tầng thực sự throttle CPU hoặc kết thúc process vượt giới hạn RAM (`OOMKilled`).
-
-Linux có cgroup v1 và v2. **Cgroup v2** dùng một hierarchy thống nhất cho CPU, memory, PID... nên quản lý và phân quyền nhất quán hơn v1. Ubuntu 24.04 bật cgroup v2 mặc định; Kubernetes hiện khuyến nghị v2 và một số tính năng quản lý tài nguyên mới chỉ có trên v2.
-
-```bash
-stat -fc %T /sys/fs/cgroup
-```
-
-Lệnh trên chỉ đọc loại filesystem tại `/sys/fs/cgroup`; kết quả mong muốn là `cgroup2fs`, nghĩa là OS đang dùng cgroup v2. Nếu không phải `cgroup2fs`, dừng lại kiểm tra `mount | grep cgroup` và `cat /proc/cmdline`; không tự ý sửa GRUB chỉ để vượt qua bước này.
-
-Phân biệt ba khái niệm dễ nhầm:
-
-| Thành phần    | Giá trị mong muốn      | Ý nghĩa                                    |
-| --------------- | ------------------------- | -------------------------------------------- |
-| Linux kernel    | cgroup v2 (`cgroup2fs`) | Phiên bản API cgroup của kernel           |
-| kubelet         | driver`systemd`         | kubelet nhờ systemd quản lý cây cgroup   |
-| containerd/runc | `SystemdCgroup = true`  | runtime cũng dùng systemd quản lý cgroup |
-
-Kubelet và containerd phải dùng **cùng cgroup driver**. Kubeadm hiện mặc định cấu hình kubelet theo `systemd`, vì vậy cấu hình containerd bên dưới cũng đặt `SystemdCgroup = true`.
-
-```bash
-sudo apt-get install -y containerd
-
-# Ubuntu 24.04 amd64 hiện cung cấp containerd 2.x.
-# Ghi cấu hình tối thiểu theo đúng plugin path của containerd 2.x:
-containerd --version
-stat -fc %T /sys/fs/cgroup     # PASS trên Ubuntu 24.04: cgroup2fs
-sudo mkdir -p /etc/containerd
-cat <<'EOF' | sudo tee /etc/containerd/config.toml
-version = 3
-
-[plugins.'io.containerd.cri.v1.runtime'.containerd]
-  default_runtime_name = 'runc'
-
-[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc]
-  runtime_type = 'io.containerd.runc.v2'
-
-[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc.options]
-  SystemdCgroup = true
+tee "${BASELINE_ROOT}/baseline.env" >/dev/null <<'EOF'
+TARGET_INSTALL_DATE=YYYY-MM-DD
+SUPPORT_GOAL=technically-compatible
+ARCHITECTURE=amd64
+OS_ID=ubuntu
+OS_VERSION=24.04
+CLUSTER_BOOTSTRAP=kubeadm
+RANCHER_REQUIRED=true
+RANCHER_ROLE=manager-host
+POD_CIDR=10.244.0.0/16
+SERVICE_CIDR=10.96.0.0/12
+LAN_CIDR=192.168.100.0/24
+CNI=flannel
+INGRESS_CONTROLLER=traefik
+RANCHER_EXPOSURE=ingress
+GATEWAY_API_INSTALLED=false
+TLS_CONTROLLER=cert-manager
+OPTIONAL_ADDONS=local-path-provisioner,metallb,cloudflared
 EOF
 
-sudo systemctl restart containerd
-sudo systemctl enable --now containerd
-
-# verify sớm: daemon active, CRI plugin không bị disable/fail
-systemctl is-active containerd
-sudo ctr plugins ls | grep 'io.containerd.cri.v1'
-grep -n 'SystemdCgroup = true' /etc/containerd/config.toml
+nano "${BASELINE_ROOT}/baseline.env"
 ```
 
-> ⚠️ **Bắt buộc:** cgroup driver của containerd phải trùng kubelet. Đường dẫn plugin của containerd 2.x là `io.containerd.cri.v1.runtime`; lệnh `sed` tìm `SystemdCgroup = false` theo cấu hình 1.x có thể không sửa gì mà vẫn exit 0. Kubernetes đã đưa cgroup v1 vào chế độ duy trì từ v1.31 và khuyến nghị cgroup v2; với Ubuntu 24.04 trong runbook này, nếu `stat` không trả `cgroup2fs` thì không tiếp tục `kubeadm init` cho đến khi xác định được vì sao OS không chạy mặc định cgroup v2.
->
-> Runbook giữ **gói containerd của Ubuntu** để nhận backport bảo mật. Không thay bằng binary upstream chỉ vì số upstream cao hơn nếu chưa đối chiếu Ubuntu Security Notices/changelog.
+Thay `TARGET_INSTALL_DATE` và mọi giá trị khác theo hệ thống thực. Nếu có nhiều dải LAN/VPN, bổ sung chúng vào kiểm tra overlap hoặc ghi trong `decision-log.md`.
 
-### 5.6. Cài kubeadm, kubelet, kubectl (repo pkgs.k8s.io, pin v1.35.6)
+#### Giải thích `SUPPORT_GOAL`
 
-> Repo cũ `apt.kubernetes.io` đã **deprecated từ 13/09/2023** — bắt buộc dùng `pkgs.k8s.io`.
+Hãy quên Kubernetes đi một chút và nghĩ bằng một ví dụ đời thường: bạn độ xe.
+
+- Mua xe chính hãng, bảo dưỡng đúng hãng chỉ định → **còn bảo hành**, hỏng thì hãng phải chịu trách nhiệm.
+- Lắp phụ tùng ngoài nhưng đúng chuẩn kỹ thuật, xe chạy tốt → **xe vẫn chạy, nhưng mất bảo hành**, hỏng thì tự sửa, hãng có quyền từ chối.
+- Chế thử một món chưa ai lắp bao giờ, mới chạy thử trong sân nhà → **chỉ dám nói "trong sân nhà tôi thì nó chạy"**, chưa dám mang ra đường cam kết gì.
+
+`SUPPORT_GOAL` chính là câu trả lời cho câu hỏi: **"Khi hệ thống hỏng, bạn định dựa vào ai — và bạn dám hứa với người khác đến mức nào?"** Nó không thay đổi việc phần mềm có chạy được hay không; nó thay đổi **bằng chứng bạn phải có** và **nhãn bạn được phép dán** lên baseline.
+
+**Ba giá trị:**
+
+**`vendor-supported` — "hãng phải chống lưng cho tôi".**
+Bạn chỉ chấp nhận những tổ hợp mà vendor (SUSE) **ghi rõ trong support matrix** là được chứng nhận. Nếu sự cố xảy ra, bạn muốn quyền mở ticket và bắt vendor xử lý. Cái giá phải trả: tập lựa chọn bị **thu hẹp mạnh** — ví dụ SUSE chỉ chứng nhận Rancher Manager chạy trên RKE2/K3s/managed K8s; bạn muốn chạy Rancher trên kubeadm thì matrix không chứng nhận → gate §4.2 loại hết candidate → baseline BLOCKED. Muốn đi tiếp bạn buộc phải đổi topology hoặc hạ mục tiêu.
+
+**`technically-compatible` — "tôi tự chịu trách nhiệm, nhưng tôi có bằng chứng nó chạy đúng".**
+Bạn chấp nhận tổ hợp vendor **không chứng nhận**, miễn là tự chứng minh được về mặt kỹ thuật: metadata cho phép (chart khai `kubeVersion` chứa K8s target), render đúng, qua lab gate. Hỏng thì tự sửa, không gọi được vendor. Đây là mức phù hợp cho homelab/staging. Luật quan trọng: dù mọi test đều PASS, nhãn cuối **vẫn phải ghi `TECHNICALLY-COMPATIBLE`** — cấm tự nâng thành "vendor-supported", vì test của bạn không thay được tuyên bố của hãng.
+
+**`lab-only` — "mới chỉ chứng minh được trong phòng thí nghiệm của tôi".**
+Mức cam kết thấp nhất: tổ hợp chỉ được xác nhận trên môi trường thử tương đương. Bạn không hứa gì về production, chỉ ghi nhận "trong điều kiện lab X thì chạy". Dùng khi thử nghiệm, đánh giá công nghệ mới.
+
+**Cùng một tình huống, ba kết cục khác nhau.** Giả sử matrix của SUSE không chứng nhận Rancher Manager trên kubeadm (thực tế thường vậy):
+
+| SUPPORT_GOAL | Chuyện gì xảy ra trong runbook | Nhãn trên bảng baseline cuối |
+| --- | --- | --- |
+| `vendor-supported` | Gate §4.2 đòi cột `rancher_manager=PASS` → không có → **không candidate nào KEEP → dừng** | Không có baseline để dán nhãn |
+| `technically-compatible` | Cột đó `NOT-CERTIFIED` vẫn được KEEP → đi tiếp qua render/lab gate → **ra baseline** | `TECHNICALLY-COMPATIBLE` |
+| `lab-only` | Như trên | `LAB-ONLY` |
+
+**Quy tắc nhớ nhanh:**
+
+- **Mục tiêu càng cao → càng ít lựa chọn, càng cần bằng chứng từ vendor.** Mục tiêu càng thấp → càng nhiều lựa chọn, nhưng lời hứa trên nhãn càng yếu.
+- `SUPPORT_GOAL` là **trần của lời hứa**: test giỏi đến đâu cũng không được ghi nhãn cao hơn mức đã khai.
+- Chọn thế nào: production có hợp đồng support với SUSE → `vendor-supported`; homelab/staging tự vận hành → `technically-compatible`; đang thử nghiệm → `lab-only`.
+
+Và đó là lý do NOTICE ở §3.3 tồn tại: khai `vendor-supported` (đòi hãng chống lưng) nhưng lại chọn topology hãng không chứng nhận (Rancher trên kubeadm) — hai điều này va nhau, runbook nhắc bạn ngay từ đầu thay vì để bạn chạy đến §4.2 mới phát hiện ngõ cụt.
+
+#### Giải thích `RANCHER_ROLE`
+
+`RANCHER_ROLE` trả lời một câu hỏi khác với `SUPPORT_GOAL`, và hai biến này **ghép cặp** với nhau tại gate §4.2. Tách bạch như sau:
+
+**Cluster bạn đang lập baseline đóng vai gì với Rancher?** Cùng một cluster kubeadm, có hai quan hệ hoàn toàn khác nhau với Rancher:
+
+- **`manager-host`** — cluster này là nơi **cài Rancher server lên** (helm install chart rancher vào chính nó). Nó "cõng" Rancher.
+- **`downstream-imported`** — Rancher server chạy **ở nơi khác**; cluster này chỉ được **import vào** Rancher để được quản lý từ xa.
+- **`both`** — cluster kiêm cả hai vai.
+- **`none`** — cluster không dính gì tới Rancher (chỉ hợp lệ khi `RANCHER_REQUIRED=false`; §2.2 đã có check chéo: required=true mà role=none là FAIL ngay).
+
+Vì sao phải tách vai? Vì support matrix của SUSE có **các bảng riêng cho từng vai** (đúng nội dung §3.2): bảng "Supported Kubernetes Platforms for Rancher Manager" trả lời *"được cài Rancher lên nền tảng nào"*, còn bảng Downstream/Imported trả lời *"Rancher quản lý được cluster nào"*. Cùng một cluster kubeadm có thể **không được chứng nhận làm chỗ cõng Rancher** nhưng lại **được chứng nhận để import** (bảng imported rất rộng, có dòng "Any"). Giống một người có thể đủ điều kiện ngồi ghế hành khách nhưng không có bằng lái — hai câu hỏi khác nhau về cùng một người.
+
+**Hai biến ghép nhau thế nào:**
+
+- `SUPPORT_GOAL` quyết định **độ khắt khe** (đòi vendor chứng nhận hay chỉ cần tự chứng minh).
+- `RANCHER_ROLE` quyết định **cột nào của matrix bị soi** theo độ khắt khe đó.
+
+Nhìn thẳng vào code gate §4.2:
+
+```python
+if required and goal == 'vendor-supported':
+    if role in {'manager-host', 'both'} and row['rancher_manager'] != 'PASS':
+        FAIL
+    if role in {'downstream-imported', 'both'} and row['rancher_imported'] != 'PASS':
+        FAIL
+```
+
+Tức là: chỉ khi mục tiêu là `vendor-supported` thì role mới trở thành điều kiện chặn, và role chọn đúng cột phải `PASS`:
+
+| RANCHER_ROLE | Goal = `vendor-supported` đòi gì | Với cluster kubeadm, thực tế ra sao |
+| --- | --- | --- |
+| `manager-host` | Cột `rancher_manager` phải PASS | Matrix không chứng nhận kubeadm làm Manager host → thường **ngõ cụt** → NOTICE ở §3.3 |
+| `downstream-imported` | Cột `rancher_imported` phải PASS | Bảng imported rộng ("Any") → **hoàn toàn đạt được** → không NOTICE |
+| `both` | **Cả hai cột** phải PASS | Khắt khe nhất — chết ở vế manager như trên → NOTICE |
+| `none` | Không soi cột nào | Chỉ tồn tại khi không cần Rancher; anchor chuyển thành `kubernetes`, các cột Rancher điền `N/A` |
+
+Còn khi goal là `technically-compatible`/`lab-only`: role **không chặn KEEP nữa**, nhưng vẫn có tác dụng — nó cho biết bạn phải đọc **bảng nào** của matrix để điền ô `rancher_manager`/`rancher_imported` một cách trung thực (PASS hay NOT-CERTIFIED), và giá trị đó đi vào evidence dù không chặn. Role cũng được dùng lại ở §5.1: ô `rancher_role_support` của OS phải lấy "từ đúng matrix và **đúng vai trò**".
+
+**Ghép về câu chuyện NOTICE ở §3.3:** NOTICE chỉ bắn khi tổ hợp là `vendor-supported` **+ role `manager-host`/`both`** + kubeadm — vì đó là tổ hợp duy nhất mà cột bị soi (`rancher_manager`) gần như chắc chắn không PASS được. Cùng goal `vendor-supported` nhưng role `downstream-imported` thì không NOTICE, vì cột bị soi lúc đó (`rancher_imported`) có đường đạt PASS chính đáng.
+
+Tóm một câu: **`SUPPORT_GOAL` là "đòi hỏi khắt khe đến đâu", `RANCHER_ROLE` là "đòi hỏi đó áp lên bảng nào của support matrix"** — một cái chọn mức, một cái chọn cột.
+
+### 2.2. Gate cú pháp, enum và CIDR
 
 ```bash
-sudo apt-get install -y apt-transport-https ca-certificates curl gpg
-sudo mkdir -p -m 755 /etc/apt/keyrings
+set -o pipefail
+set -a
+source "${BASELINE_ROOT}/baseline.env"
+set +a
 
-# Repo theo MINOR v1.35
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.35/deb/Release.key \
-  | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+(
+  required_vars=(
+    TARGET_INSTALL_DATE SUPPORT_GOAL ARCHITECTURE OS_ID OS_VERSION
+    CLUSTER_BOOTSTRAP RANCHER_REQUIRED RANCHER_ROLE POD_CIDR SERVICE_CIDR
+    LAN_CIDR CNI INGRESS_CONTROLLER RANCHER_EXPOSURE GATEWAY_API_INSTALLED
+    TLS_CONTROLLER OPTIONAL_ADDONS
+  )
 
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.35/deb/ /' \
-  | sudo tee /etc/apt/sources.list.d/kubernetes.list
+  for name in "${required_vars[@]}"; do
+    test -n "${!name:-}" || {
+      echo "FAIL: biến ${name} đang rỗng"; exit 1;
+    }
+    [[ "${!name}" != *'YYYY'* ]] || {
+      echo "FAIL: biến ${name} còn placeholder ${!name}"; exit 1;
+    }
+  done
+
+  date -d "${TARGET_INSTALL_DATE}" '+%F' >/dev/null 2>&1 || {
+    echo 'FAIL: TARGET_INSTALL_DATE không đúng YYYY-MM-DD'; exit 1;
+  }
+
+  [[ "${SUPPORT_GOAL}" =~ ^(vendor-supported|technically-compatible|lab-only)$ ]] || {
+    echo 'FAIL: SUPPORT_GOAL không hợp lệ'; exit 1;
+  }
+  [[ "${ARCHITECTURE}" =~ ^(amd64|arm64)$ ]] || {
+    echo 'FAIL: ARCHITECTURE không hợp lệ'; exit 1;
+  }
+  [[ "${CLUSTER_BOOTSTRAP}" =~ ^(kubeadm|rke2|k3s|managed-kubernetes)$ ]] || {
+    echo 'FAIL: CLUSTER_BOOTSTRAP không hợp lệ'; exit 1;
+  }
+  [[ "${RANCHER_REQUIRED}" =~ ^(true|false)$ ]] || {
+    echo 'FAIL: RANCHER_REQUIRED phải là true/false'; exit 1;
+  }
+  [[ "${RANCHER_ROLE}" =~ ^(manager-host|downstream-imported|both|none)$ ]] || {
+    echo 'FAIL: RANCHER_ROLE không hợp lệ'; exit 1;
+  }
+  [[ "${RANCHER_EXPOSURE}" =~ ^(ingress|gateway|none)$ ]] || {
+    echo 'FAIL: RANCHER_EXPOSURE không hợp lệ'; exit 1;
+  }
+
+  if [[ "${RANCHER_REQUIRED}" == true && "${RANCHER_ROLE}" == none ]]; then
+    echo 'FAIL: Rancher required nhưng role=none'; exit 1
+  fi
+  if [[ "${RANCHER_EXPOSURE}" == gateway && "${GATEWAY_API_INSTALLED}" != true ]]; then
+    echo 'FAIL: chọn Gateway nhưng chưa khai Gateway API'; exit 1
+  fi
+  if [[ "${CLUSTER_BOOTSTRAP}" != kubeadm || "${RANCHER_REQUIRED}" != true || \
+        "${CNI}" != flannel || "${INGRESS_CONTROLLER}" != traefik || \
+        "${RANCHER_EXPOSURE}" != ingress || "${GATEWAY_API_INSTALLED}" != false || \
+        "${TLS_CONTROLLER}" != cert-manager ]]; then
+    echo 'FAIL: runbook này chỉ bao phủ baseline kubeadm + Flannel + Traefik Ingress + cert-manager + Rancher'; exit 1
+  fi
+
+  python3 - <<'PY'
+import ipaddress
+import os
+import sys
+
+names = ('POD_CIDR', 'SERVICE_CIDR', 'LAN_CIDR')
+nets = {}
+for name in names:
+    try:
+        nets[name] = ipaddress.ip_network(os.environ[name], strict=False)
+    except ValueError as exc:
+        print(f'FAIL: {name} không hợp lệ: {exc}')
+        sys.exit(1)
+
+for index, left in enumerate(names):
+    for right in names[index + 1:]:
+        if nets[left].overlaps(nets[right]):
+            print(f'FAIL: {left}={nets[left]} overlap {right}={nets[right]}')
+            sys.exit(1)
+
+print('PASS: ba CIDR hợp lệ và không overlap')
+PY
+
+  echo 'PASS: input contract đầy đủ, enum hợp lệ và không mâu thuẫn'
+) 2>&1 | tee "${BASELINE_ROOT}/evidence/00-preflight/gate-02-input.txt"
+INPUT_RC=${PIPESTATUS[0]}
+echo "input gate rc=${INPUT_RC}"
+```
+
+**PASS:** hai dòng `PASS` và `input gate rc=0`.
+
+**FAIL/STOP:** sửa `baseline.env`, source lại file và chạy lại toàn bộ §2.2. Chỉ sang §3 khi gate này đạt.
+
+---
+
+## 3. Xây dependency graph và chọn “anchor”
+
+### 3.1. Thứ tự nghiên cứu chuẩn
+
+```text
+Topology + support goal + OS/architecture
+                  |
+                  v
+Rancher stable candidate (nếu Rancher là bắt buộc)
+                  |
+                  v
+Giao: Rancher support matrix ∩ Kubernetes còn maintained
+                  |
+                  v
+Kubernetes exact patch + kubeadm/kubelet/kubectl package
+                  |
+                  v
+Container runtime + CNI
+                  |
+                  v
+Helm + cert-manager + ingress controller
+                  |
+                  v
+Storage / LoadBalancer / tunnel / addon khác
+                  |
+                  v
+Audit chart + render gate + bảng baseline
+```
+
+Nếu Rancher là thành phần bắt buộc, bắt đầu từ Rancher stable vì cửa sổ Kubernetes do Rancher hỗ trợ thường hẹp hơn cửa sổ upstream Kubernetes. Nếu không cần Rancher, Kubernetes maintained minor có thể là anchor.
+
+### 3.2. Rancher Manager host khác downstream/imported
+
+Trong [SUSE Rancher Support Matrix](https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/), luôn đọc riêng:
+
+- **Supported Kubernetes Platforms for Rancher Manager**: cluster thực sự chạy Rancher Server.
+- **Downstream Cluster Support**: cluster Rancher tạo hoặc quản lý.
+- **All Other Distros / Imported**: cluster có sẵn được import vào Rancher.
+
+Không dùng dòng “Any” của imported cluster để tuyên bố kubeadm là một distro được chứng nhận làm Rancher Manager host. Nếu cài Rancher trực tiếp lên kubeadm cho homelab, có thể chốt `TECHNICALLY-COMPATIBLE` sau render/lab gate, nhưng không được ghi `VENDOR-SUPPORTED` nếu support matrix không chứng nhận topology đó.
+
+Rancher khuyến nghị `rancher-latest` cho thử nghiệm và `rancher-stable` cho production; xem [Choosing a Rancher Version](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/choose-a-rancher-version). Stable channel chỉ tạo candidate, không miễn bước kiểm tra support matrix và release notes.
+
+### 3.3. Gate chốt anchor và cấp cam kết dự kiến
+
+```bash
+set -a
+source "${BASELINE_ROOT}/baseline.env"
+set +a
+
+set -o pipefail
+(
+  if [[ "${RANCHER_REQUIRED}" == true ]]; then
+    ANCHOR_COMPONENT=rancher
+  else
+    ANCHOR_COMPONENT=kubernetes
+  fi
+
+  case "${SUPPORT_GOAL}:${RANCHER_ROLE}:${CLUSTER_BOOTSTRAP}" in
+    vendor-supported:manager-host:kubeadm|vendor-supported:both:kubeadm)
+      echo 'NOTICE: kubeadm Manager host chỉ được giữ nếu support matrix exact Rancher version chứng nhận topology này.'
+      echo 'NOTICE: dòng All Other Distros/Imported không đủ làm bằng chứng Manager host.'
+      ;;
+  esac
+
+  printf 'ANCHOR_COMPONENT=%s\n' "${ANCHOR_COMPONENT}" \
+    > "${BASELINE_ROOT}/research-state.env"
+
+  printf '| %s | %s | %s | %s | %s | %s |\n' \
+    "${RESEARCH_DATE}" 'Anchor' "${ANCHOR_COMPONENT}" 'KEEP' \
+    "Rancher required=${RANCHER_REQUIRED}; support goal=${SUPPORT_GOAL}" 'khi topology đổi' \
+    >> "${BASELINE_ROOT}/decision-log.md"
+
+  grep -Eq '^ANCHOR_COMPONENT=(rancher|kubernetes)$' \
+    "${BASELINE_ROOT}/research-state.env" || {
+    echo 'FAIL: không ghi được anchor'; exit 1;
+  }
+
+  echo "PASS: anchor=${ANCHOR_COMPONENT}; chuyển sang lập giao version"
+) 2>&1 | tee "${BASELINE_ROOT}/evidence/00-preflight/gate-33-anchor.txt"
+ANCHOR_RC=${PIPESTATUS[0]}
+echo "anchor gate rc=${ANCHOR_RC}"
+```
+
+**PASS:** `anchor gate rc=0`. **FAIL/STOP:** chưa có `research-state.env` hợp lệ.
+
+### 3.4. Trạng thái mong đợi ngay sau khi xong mục 3
+
+Output mong đợi trên terminal (hai dòng NOTICE chỉ xuất hiện với tổ hợp `vendor-supported` + role `manager-host`/`both` + `kubeadm`):
+
+```text
+NOTICE: kubeadm Manager host chỉ được giữ nếu support matrix exact Rancher version chứng nhận topology này.
+NOTICE: dòng All Other Distros/Imported không đủ làm bằng chứng Manager host.
+PASS: anchor=rancher; chuyển sang lập giao version
+anchor gate rc=0
+```
+
+File thay đổi so với cuối mục 2:
+
+```text
+version-baseline-2026-08-10-Ab3XyZ/
+├── baseline.env                  # từ §2.1
+├── research-state.env            # MỚI — đúng một dòng: ANCHOR_COMPONENT=rancher
+├── decision-log.md               # có dòng đầu tiên — quyết định Anchor
+└── evidence/00-preflight/
+    ├── gate-02-tools.txt         # từ §0.2
+    ├── gate-03-workspace.txt     # từ §0.3
+    ├── gate-02-input.txt         # từ §2.2
+    └── gate-33-anchor.txt        # MỚI — log gate, gồm cả NOTICE nếu có
+```
+
+`research-state.env` lúc này chỉ có một dòng anchor; các mục §4–§7 sẽ append thêm `K8S_VERSION`, `RANCHER_CANDIDATE`, `HELM_VERSION`... Dòng đầu trong `decision-log.md` (header bảng được chèn ở §10.1):
+
+```text
+| 2026-08-10 | Anchor | rancher | KEEP | Rancher required=true; support goal=technically-compatible | khi topology đổi |
+```
+
+> **Cảnh báo re-run:** §3.3 ghi `research-state.env` bằng `>` (ghi đè). Nếu đã chạy qua §4 trở đi mà quay lại chạy §3.3, file state bị reset về một dòng anchor, mọi giá trị đã append mất hết — khi đó phải chạy lại tuần tự từ §4.
+
+---
+
+## 4. Chọn Kubernetes minor và patch
+
+### 4.1. Thu snapshot release và lập danh sách minor maintained
+
+Đọc [Kubernetes Releases](https://kubernetes.io/releases/). Kubernetes duy trì ba minor gần nhất và các release từ 1.19 nhận khoảng một năm patch support. Lưu cả trang lifecycle và release metadata từ repository official:
+
+```bash
+K8S_EVIDENCE="${BASELINE_ROOT}/evidence/04-kubernetes"
+
+curl -fsSL 'https://kubernetes.io/releases/' \
+  -o "${K8S_EVIDENCE}/kubernetes-releases.html"
+
+curl -fsSL 'https://api.github.com/repos/kubernetes/kubernetes/releases?per_page=100' \
+  -o "${K8S_EVIDENCE}/kubernetes-github-releases.json"
+
+curl -fsSL 'https://kubernetes.io/releases/version-skew-policy/' \
+  -o "${K8S_EVIDENCE}/version-skew-policy.html"
+
+jq -r '
+  .[]
+  | select(.draft == false and .prerelease == false)
+  | .tag_name
+  | select(test("^v1\\.[0-9]+\\.[0-9]+$"))
+' "${K8S_EVIDENCE}/kubernetes-github-releases.json" \
+  | sort -Vr \
+  | awk -F. '!seen[$1 "." $2]++ {print}' \
+  | head -n3 \
+  > "${K8S_EVIDENCE}/maintained-latest-patches.txt"
+
+sha256sum "${K8S_EVIDENCE}"/* \
+  > "${K8S_EVIDENCE}/SHA256SUMS"
+
+cat "${K8S_EVIDENCE}/maintained-latest-patches.txt"
+```
+
+Giải thích block trên: gán lại `K8S_EVIDENCE` dù `research-session.env` đã có là để block tự đủ khi chạy ở phiên SSH mới. Ba lần `curl` phục vụ ba mục đích khác nhau: trang lifecycle (nguồn để **người** đọc EOL ở block sau, và để gate đối chiếu), JSON GitHub API (nguồn để **máy** rút danh sách release), trang skew policy (§4.4 mới dùng — tải trước để evidence có cùng ngày truy cập). Pipeline 4 tầng rút danh sách:
+
+- **`jq`**: loại draft/prerelease và chỉ giữ tag đúng dạng `v1.X.Y` — regex đồng thời loại `v1.36.0-rc.1`, `v1.37.0-beta.0` (có suffix nên không khớp).
+- **`sort -Vr`**: sort theo version giảm dần (`-V` hiểu `v1.36.10 > v1.36.9`; sort thường sẽ xếp sai).
+- **`awk -F. '!seen[$1"."$2]++'`**: tách theo dấu chấm nên `$1="v1"`, `$2="36"` → key `v1.36`; chỉ in **lần xuất hiện đầu tiên** của mỗi key — vì danh sách đang giảm dần, đó chính là patch cao nhất của minor.
+- **`head -n3`**: giữ 3 minor mới nhất.
+
+`sha256sum` chốt checksum toàn bộ evidence vừa tải để về sau chứng minh file không bị sửa. Output ví dụ của lệnh `cat` (số minh họa, không phải giá trị để chép):
+
+```text
+v1.36.3
+v1.35.7
+v1.34.11
+```
+
+Mở trang lifecycle đã lưu hoặc trang official trực tiếp, rồi tạo file TSV với đúng ba minor và EOL tương ứng:
+
+```bash
+{
+  printf 'minor\tlatest_patch\teol\tmaintained\tsource\n'
+  printf '1.__\tv1.__.__\tYYYY-MM-DD\tYES\thttps://kubernetes.io/releases/\n'
+  printf '1.__\tv1.__.__\tYYYY-MM-DD\tYES\thttps://kubernetes.io/releases/\n'
+  printf '1.__\tv1.__.__\tYYYY-MM-DD\tYES\thttps://kubernetes.io/releases/\n'
+} > "${K8S_EVIDENCE}/kubernetes-candidates.tsv"
+
+nano "${K8S_EVIDENCE}/kubernetes-candidates.tsv"
+```
+
+Bước này bắt buộc có người vì **EOL không có trong GitHub API** — nó chỉ nằm trên trang lifecycle: mở `kubernetes-releases.html` đã lưu (hoặc trang official), đọc ngày End of Life của từng minor rồi thay các placeholder `1.__`/`YYYY-MM-DD`. Template in sẵn ba dòng khớp với ba minor máy đã rút. Nội dung file ví dụ sau khi điền xong (trong file thật các cột cách nhau bằng ký tự tab — ví dụ dưới hiển thị bằng khoảng trắng cho dễ đọc; số minh họa):
+
+```text
+minor  latest_patch  eol         maintained  source
+1.36   v1.36.3       2027-06-28  YES         https://kubernetes.io/releases/
+1.35   v1.35.7       2027-02-28  YES         https://kubernetes.io/releases/
+1.34   v1.34.11      2026-10-28  YES         https://kubernetes.io/releases/
+```
+
+Gate candidate upstream:
+
+```bash
+set -o pipefail
+(
+  FILE="${K8S_EVIDENCE}/kubernetes-candidates.tsv"
+  test "$(awk 'NR>1 && NF {count++} END {print count+0}' "${FILE}")" -eq 3 || {
+    echo 'FAIL: bảng phải có đúng ba minor maintained'; exit 1;
+  }
+
+  while IFS=$'\t' read -r minor patch eol maintained source; do
+    [[ "${minor}" =~ ^1\.[0-9]+$ ]] || {
+      echo "FAIL: minor không hợp lệ ${minor}"; exit 1;
+    }
+    [[ "${patch}" =~ ^v1\.[0-9]+\.[0-9]+$ ]] || {
+      echo "FAIL: patch không hợp lệ ${patch}"; exit 1;
+    }
+    [[ "${patch%.*}" == "v${minor}" ]] || {
+      echo "FAIL: ${patch} không thuộc minor ${minor}"; exit 1;
+    }
+    grep -Fxq "${patch}" "${K8S_EVIDENCE}/maintained-latest-patches.txt" || {
+      echo "FAIL: ${patch} không khớp latest patch đã thu từ official release"; exit 1;
+    }
+    date -d "${eol}" '+%F' >/dev/null 2>&1 || {
+      echo "FAIL: EOL không hợp lệ ${eol}"; exit 1;
+    }
+    grep -Fq "${eol}" "${K8S_EVIDENCE}/kubernetes-releases.html" || {
+      echo "FAIL: EOL ${eol} không xuất hiện trong official release snapshot"; exit 1;
+    }
+    [[ "${maintained}" == YES ]] || {
+      echo "FAIL: minor ${minor} không maintained"; exit 1;
+    }
+    [[ "${source}" == 'https://kubernetes.io/releases/' ]] || {
+      echo "FAIL: source lifecycle không đúng official URL"; exit 1;
+    }
+  done < <(tail -n +2 "${FILE}")
+
+  echo 'PASS: có đúng ba minor maintained, latest patch và EOL hợp lệ'
+) 2>&1 | tee "${K8S_EVIDENCE}/gate-41-upstream.txt"
+K8S_UPSTREAM_RC=${PIPESTATUS[0]}
+echo "Kubernetes upstream gate rc=${K8S_UPSTREAM_RC}"
+```
+
+Nguyên tắc thiết kế của gate: **mỗi ô người điền phải bị neo vào hoặc một file máy đã thu, hoặc một quy tắc format** — không ô nào được tin suông. `test ... -eq 3` đếm dòng dữ liệu (bỏ header và dòng rỗng); vòng `while` đọc từng dòng, tách 5 cột theo tab, rồi áp các check:
+
+| Check | Chống lỗi gì | Cơ chế |
+| --- | --- | --- |
+| `minor =~ ^1\.[0-9]+$`, `patch =~ ^v1\.[0-9]+\.[0-9]+$` | gõ sai format | regex |
+| `${patch%.*} == v${minor}` | patch lạc minor (điền `v1.35.7` vào dòng `1.34`) | `%.*` cắt phần sau dấu chấm cuối: `v1.36.3` → `v1.36` |
+| `grep -Fxq "${patch}" maintained-latest-patches.txt` | điền patch cũ hoặc bịa | `-F` literal, `-x` khớp nguyên dòng với file máy rút ở block đầu |
+| `date -d "${eol}"` | ngày không parse được | GNU date |
+| `grep -Fq "${eol}" kubernetes-releases.html` | bịa EOL | ngày phải xuất hiện nguyên văn trong snapshot lifecycle |
+| `maintained == YES`, `source` đúng official URL | đưa minor đã EOL vào, dẫn nguồn không official | so sánh cứng |
+
+Output ví dụ — PASS:
+
+```text
+PASS: có đúng ba minor maintained, latest patch và EOL hợp lệ
+Kubernetes upstream gate rc=0
+```
+
+Output ví dụ — điền sai patch (gõ `v1.35.6` trong khi máy thu được `v1.35.7`):
+
+```text
+FAIL: v1.35.6 không khớp latest patch đã thu từ official release
+Kubernetes upstream gate rc=1
+```
+
+Output ví dụ — bịa EOL không có trên trang:
+
+```text
+FAIL: EOL 2027-03-15 không xuất hiện trong official release snapshot
+Kubernetes upstream gate rc=1
+```
+
+**PASS:** `rc=0`. **FAIL/STOP:** không lập ma trận support cho tới khi ba dòng khớp official release page.
+
+Tóm lại §4.1 là vòng khép kín **máy thu → người điền → máy kiểm người bằng chính cái máy đã thu**: block đầu chốt "sự thật upstream" vào file bất biến có checksum, block giữa để người bổ sung phần máy không tự lấy được (EOL), gate bảo đảm phần người điền không mâu thuẫn với phần máy thu. Đến hết §4.1 **chưa có quyết định nào** — mới chỉ có danh sách ứng viên đã kiểm chứng làm đầu vào cho ma trận giao ở §4.2.
+
+### 4.2. Thu Rancher/cert-manager/Helm evidence và lập giao version
+
+Lưu các nguồn quyết định dải tương thích:
+
+```bash
+set -a
+source "${BASELINE_ROOT}/baseline.env"
+set +a
+
+curl -fsSL 'https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/' \
+  -o "${K8S_EVIDENCE}/rancher-support-matrix.html"
+
+curl -fsSL 'https://cert-manager.io/docs/releases/' \
+  -o "${K8S_EVIDENCE}/cert-manager-supported-releases.html"
+
+curl -fsSL 'https://helm.sh/docs/v3/topics/version_skew/' \
+  -o "${K8S_EVIDENCE}/helm-version-support.html"
+
+helm repo add rancher-stable \
+  'https://releases.rancher.com/server-charts/stable' \
+  --force-update
+
+helm search repo rancher-stable/rancher --versions \
+  > "${K8S_EVIDENCE}/rancher-stable-versions.txt"
+
+RANCHER_CANDIDATE="$(awk 'NR>1 && $2 !~ /-/ {print $2; exit}' \
+  "${K8S_EVIDENCE}/rancher-stable-versions.txt")"
+
+set -o pipefail
+(
+  test -n "${RANCHER_CANDIDATE}" || {
+    echo 'FAIL: rancher-stable không có candidate final release'; exit 1;
+  }
+
+  helm show chart rancher-stable/rancher \
+    --version "${RANCHER_CANDIDATE}" \
+    > "${K8S_EVIDENCE}/rancher-${RANCHER_CANDIDATE}-Chart.yaml" || {
+    echo 'FAIL: không đọc được metadata của Rancher candidate'; exit 1;
+  }
+
+  grep -E '^(version|appVersion|kubeVersion):' \
+    "${K8S_EVIDENCE}/rancher-${RANCHER_CANDIDATE}-Chart.yaml" || {
+    echo 'FAIL: Rancher Chart.yaml thiếu version/appVersion/kubeVersion'; exit 1;
+  }
+
+  echo "PASS: Rancher stable candidate và chart metadata hợp lệ = ${RANCHER_CANDIDATE}"
+) 2>&1 | tee "${K8S_EVIDENCE}/gate-421-rancher-discovery.txt"
+RANCHER_DISCOVERY_RC=${PIPESTATUS[0]}
+echo "Rancher discovery gate rc=${RANCHER_DISCOVERY_RC}"
+
+if [[ "${RANCHER_DISCOVERY_RC}" -eq 0 ]]; then
+  printf 'RANCHER_CANDIDATE=%q\n' "${RANCHER_CANDIDATE}" \
+    >> "${BASELINE_ROOT}/research-state.env"
+else
+  echo 'STOP: sửa Rancher repository/candidate rồi chạy lại mục này; không chạy §4.2 tiếp theo'
+fi
+```
+
+**PASS:** `Rancher discovery gate rc=0`. **FAIL/STOP:** không thực hiện các block còn lại của §4.2; subshell chỉ đóng gate, không đóng phiên SSH.
+
+Mở bốn evidence files, đọc đúng các bảng `Manager host`, `Downstream/Imported`, cert-manager `Supported/Tested` và Helm version support. Sau đó tạo matrix; không dùng `UNKNOWN` để lách gate:
+
+```bash
+{
+  printf 'k8s_minor\tupstream\trancher_manager\trancher_imported\tcert_manager\thelm\trancher_chart\tdecision\treason\n'
+  while IFS=$'\t' read -r minor _; do
+    [[ "${minor}" == minor ]] && continue
+    printf '%s\tPASS\tUNKNOWN\tUNKNOWN\tUNKNOWN\tUNKNOWN\tUNKNOWN\tREJECT\tchưa đánh giá\n' "${minor}"
+  done < "${K8S_EVIDENCE}/kubernetes-candidates.tsv"
+} > "${BASELINE_ROOT}/compatibility-matrix.tsv"
+
+nano "${BASELINE_ROOT}/compatibility-matrix.tsv"
+```
+
+Quy ước ô: `PASS`, `FAIL`, `N/A`, `NOT-CERTIFIED`; decision chỉ là `KEEP` hoặc `REJECT`. Với support goal `vendor-supported`, `NOT-CERTIFIED` ở vai trò Rancher đang dùng không được `KEEP`. Với `technically-compatible`/`lab-only`, có thể `KEEP` nhưng support class cuối không được ghi vendor-supported.
+
+Gate ma trận:
+
+```bash
+set -o pipefail
+(
+  python3 - "${BASELINE_ROOT}/compatibility-matrix.tsv" <<'PY'
+import csv
+import os
+import sys
+
+path = sys.argv[1]
+allowed = {'PASS', 'FAIL', 'N/A', 'NOT-CERTIFIED'}
+rows = list(csv.DictReader(open(path, encoding='utf-8'), delimiter='\t'))
+if len(rows) != 3:
+    raise SystemExit('FAIL: compatibility matrix phải có đúng ba candidate upstream')
+
+keep = []
+for row in rows:
+    for key in ('upstream', 'rancher_manager', 'rancher_imported',
+                'cert_manager', 'helm', 'rancher_chart'):
+        if row[key] not in allowed:
+            raise SystemExit(f'FAIL: {row["k8s_minor"]} cột {key}={row[key]} không hợp lệ')
+    if row['decision'] not in {'KEEP', 'REJECT'}:
+        raise SystemExit(f'FAIL: decision không hợp lệ cho {row["k8s_minor"]}')
+    if not row['reason'].strip() or row['reason'] == 'chưa đánh giá':
+        raise SystemExit(f'FAIL: thiếu reason cho {row["k8s_minor"]}')
+    if row['decision'] == 'KEEP':
+        if any(row[key] != 'PASS' for key in ('upstream', 'cert_manager', 'helm', 'rancher_chart')):
+            raise SystemExit(f'FAIL: {row["k8s_minor"]} KEEP nhưng gate bắt buộc chưa PASS')
+        goal = os.environ['SUPPORT_GOAL']
+        role = os.environ['RANCHER_ROLE']
+        required = os.environ['RANCHER_REQUIRED'] == 'true'
+        if required and goal == 'vendor-supported':
+            if role in {'manager-host', 'both'} and row['rancher_manager'] != 'PASS':
+                raise SystemExit(f'FAIL: {row["k8s_minor"]} không vendor-supported cho Manager host')
+            if role in {'downstream-imported', 'both'} and row['rancher_imported'] != 'PASS':
+                raise SystemExit(f'FAIL: {row["k8s_minor"]} không vendor-supported cho imported role')
+        keep.append(row['k8s_minor'])
+
+if not keep:
+    raise SystemExit('FAIL: giao version rỗng; không có candidate KEEP')
+print('PASS: candidate KEEP = ' + ', '.join(keep))
+PY
+) 2>&1 | tee "${K8S_EVIDENCE}/gate-42-intersection.txt"
+INTERSECTION_RC=${PIPESTATUS[0]}
+echo "intersection gate rc=${INTERSECTION_RC}"
+```
+
+**PASS:** có ít nhất một candidate `KEEP` và `rc=0`. **FAIL/STOP:** không được tự chọn version ngoài giao.
+
+### 4.3. Chọn minor, exact patch và exact Debian package
+
+Liệt kê các dòng KEEP rồi nhập minor được chọn. Nếu có nhiều KEEP, ưu tiên thời gian tới EOL, support class và mức trưởng thành; ghi lý do vào decision log.
+
+```bash
+awk -F'\t' 'NR==1 || $8=="KEEP"' "${BASELINE_ROOT}/compatibility-matrix.tsv"
+read -r -p 'Nhập K8S_MINOR từ dòng KEEP (vd 1.35): ' K8S_MINOR
+
+while ! grep -Eq "^${K8S_MINOR}"$'\t.*\tKEEP\t' \
+  "${BASELINE_ROOT}/compatibility-matrix.tsv"; do
+  echo "FAIL: ${K8S_MINOR} không phải candidate KEEP"
+  read -r -p 'Nhập lại K8S_MINOR từ dòng KEEP: ' K8S_MINOR
+done
+
+K8S_VERSION="$(awk -F'\t' -v minor="${K8S_MINOR}" \
+  '$1==minor {sub(/^v/, "", $2); print $2}' \
+  "${K8S_EVIDENCE}/kubernetes-candidates.tsv")"
+
+printf 'K8S_MINOR=%q\nK8S_VERSION=%q\n' \
+  "${K8S_MINOR}" "${K8S_VERSION}" \
+  >> "${BASELINE_ROOT}/research-state.env"
+
+printf '| %s | %s | %s | %s | %s | %s |\n' \
+  "${RESEARCH_DATE}" 'Kubernetes' "${K8S_MINOR}" 'KEEP' \
+  "selected from KEEP; exact patch ${K8S_VERSION}" 'khi support matrix/lifecycle đổi' \
+  >> "${BASELINE_ROOT}/decision-log.md"
+```
+
+Theo [Installing kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/), research host phải dùng repository `pkgs.k8s.io` riêng cho minor đã chọn. Xác nhận repo, làm mới index rồi thu package inventory; không cần cài cluster:
+
+```bash
+set -o pipefail
+(
+  grep -R "core:/stable:/v${K8S_MINOR}/deb" \
+    /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null || {
+    echo "FAIL: chưa cấu hình repo Kubernetes v${K8S_MINOR}"; exit 1;
+  }
+  echo "PASS: research host dùng đúng pkgs.k8s.io repo minor v${K8S_MINOR}"
+) 2>&1 | tee "${K8S_EVIDENCE}/gate-431-repository.txt"
+K8S_REPO_RC=${PIPESTATUS[0]}
+echo "Kubernetes repo gate rc=${K8S_REPO_RC}"
+```
+
+**FAIL/STOP:** làm đúng mục Debian-based trong official Installing kubeadm rồi chạy lại gate. Chỉ khi `rc=0` mới chạy:
+
+```bash
 
 sudo apt-get update
 
-# Xem Installed/Candidate và toàn bộ version cri-tools repo đang cung cấp:
-apt-cache policy cri-tools
-apt-cache madison cri-tools
-
-# Gate version: chỉ gán/cài các version đã thấy trong output phía trên
-apt-cache madison kubeadm | grep '1.35.6-1.1'
-apt-cache madison cri-tools | grep '1.35.0-1.1'
-VER='1.35.6-1.1'
-CRI_TOOLS_VER='1.35.0-1.1'
-sudo apt-get install -y \
-  kubelet="$VER" \
-  kubeadm="$VER" \
-  kubectl="$VER" \
-  cri-tools="$CRI_TOOLS_VER"
-
-sudo apt-mark hold kubelet kubeadm kubectl cri-tools   # ghim version, tránh apt upgrade làm vỡ skew
-sudo systemctl enable --now kubelet
-
-# cấu hình crictl trỏ tường minh tới containerd
-cat <<'EOF' | sudo tee /etc/crictl.yaml
-runtime-endpoint: unix:///run/containerd/containerd.sock
-image-endpoint: unix:///run/containerd/containerd.sock
-timeout: 10
-debug: false
-EOF
-
-# verify package/binary vừa cài
-kubeadm version -o short
-kubelet --version
-kubectl version --client
-crictl --version
-apt-mark showhold | grep -E '^(kubeadm|kubelet|kubectl|cri-tools)$'
-systemctl is-enabled kubelet
-
-# verify crictl kết nối được tới containerd và runtime thực sự dùng systemd cgroup
-sudo crictl version
-sudo crictl info | grep -i -A2 systemdCgroup
-
-# verify lại toàn bộ prereq OS/runtime ở trạng thái hiện tại
-free -h | grep -i swap
-lsmod | grep -E 'br_netfilter|overlay'
-sysctl \
-  net.bridge.bridge-nf-call-iptables \
-  net.bridge.bridge-nf-call-ip6tables \
-  net.ipv4.ip_forward
-systemctl is-active containerd
-```
-
-Kết quả PASS trước khi rời §5.6:
-
-- `kubeadm`/`kubelet`/`kubectl`: `v1.35.6`; `crictl`: `v1.35.0`;
-- cả `kubeadm`, `kubelet`, `kubectl`, `cri-tools` có trong danh sách hold; kubelet là `enabled`;
-- `crictl version` kết nối được tới `containerd`, CRI API là `v1`;
-- `SystemdCgroup: true`, containerd `active`;
-- Swap = `0B`, có cả `br_netfilter` + `overlay`, ba sysctl đều bằng `1`.
-
-> `kubelet` lúc này có thể restart/crashloop cho tới khi `kubeadm init`/`join` vì chưa có `/var/lib/kubelet/config.yaml` — **bình thường**. Không yêu cầu `systemctl is-active kubelet` phải PASS ở bước này. Nếu `crictl: command not found`, kiểm tra `apt-cache policy cri-tools`; không tiếp tục cho đến khi package `cri-tools` đã cài đúng. Nếu `crictl info` không cho thấy `SystemdCgroup: true`, sửa containerd trước khi tiếp tục.
-
-### 5.7. Firewall
-
-**Lab nhanh:** có thể tắt cho đỡ vướng (mạng nội bộ tin cậy):
-
-```bash
-sudo ufw disable
-```
-
-**Hoặc** mở đúng cổng nếu muốn giữ firewall:
-
-| Phạm vi                                            | Cổng cần mở                                                               |
-| --------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Control plane                                       | TCP`6443` từ các node/client quản trị; TCP `10250` từ control plane |
-| Worker                                              | TCP`10250` từ control plane                                               |
-| Tất cả node dùng Flannel VXLAN                   | UDP`8472` **giữa các node**                                        |
-| Chỉ khi dùng NodePort từ LAN                     | TCP**và UDP** `30000-32767` từ LAN                                 |
-| Chỉ khi load balancer cần health check kube-proxy | TCP`10256`                                                                 |
-| Cụm nhiều control plane                           | TCP`2379-2380` chỉ giữa các control-plane/etcd member                   |
-
-`10257` (controller-manager) và `10259` (scheduler) mặc định chỉ cần từ chính control plane, không mở rộng ra LAN. UFW mặc định cho outbound; nếu môi trường chặn egress, cho phép DNS/NTP, HTTPS `443`, và Cloudflare Tunnel **TCP+UDP `7844`**. Kiến trúc tunnel không cần mở inbound `80/443` trên router hay VM.
-
-### 5.8. (Tùy chọn) Cho phép SSH bằng `root` từ client (cho Ansible / quản trị)
-
-> ⚠️ **Bảo mật:** SSH thẳng bằng `root` tiện cho lab/Ansible nhưng kém an toàn hơn. Ưu tiên **root + SSH key** (Cách A); chỉ dùng **root + mật khẩu** (Cách B) trong mạng LAN tin cậy. Cách "chuẩn Ansible" hơn là SSH bằng user thường rồi `become: true` (sudo) — nhưng root vẫn chạy tốt cho homelab.
->
-> **Chạy trên CẢ 3 node.**
-
-⚙️ **Cái bẫy của Ubuntu 24.04:** đầu file `/etc/ssh/sshd_config` thường có dòng `Include /etc/ssh/sshd_config.d/*.conf`. Với phần lớn directive, `sshd` dùng **giá trị đầu tiên đọc được**; vì `Include` nằm đầu file nên một giá trị trong drop-in có thể được chốt trước dòng tương ứng ở phần dưới file chính. Trong các drop-in, file `00-...conf` được đọc trước `50-...conf` và `99-...conf`.
-
-**Cách A — root + SSH key (khuyến nghị):**
-
-1) Trên **máy client** (nơi chạy Ansible), tạo key nếu chưa có và xem public key:
-
-```bash
-ssh-keygen -t ed25519 -C "ansible@client"     # Enter hết các câu hỏi
-cat ~/.ssh/id_ed25519.pub                      # copy nguyên dòng này
-```
-
-2) Trên **mỗi node**, nạp public key cho root + bật root login bằng key:
-
-```bash
-sudo mkdir -p /root/.ssh && sudo chmod 700 /root/.ssh
-echo 'ssh-ed25519 AAAA...dán-key-từ-bước-1... ansible@client' | sudo tee -a /root/.ssh/authorized_keys
-sudo chmod 600 /root/.ssh/authorized_keys
-# 'prohibit-password' = cho login bằng key, CẤM mật khẩu (cũng là mặc định Ubuntu — ghi rõ cho chắc):
-echo 'PermitRootLogin prohibit-password' | sudo tee /etc/ssh/sshd_config.d/00-root-login.conf
-sudo sshd -t && sudo systemctl restart ssh     # sshd -t kiểm tra cú pháp trước khi restart
-```
-
-**Cách B — root + mật khẩu (đơn giản nhất, chỉ dùng trong LAN tin cậy):**
-
-Trên **mỗi node**:
-
-```bash
-# 1) đặt mật khẩu cho root (mặc định Ubuntu root CHƯA có mật khẩu → không login được)
-sudo passwd root
-
-# 2) mở file cấu hình chính của SSH server
-sudo nano /etc/ssh/sshd_config
-```
-
-Trong file, thêm hai dòng sau **trước dòng** `Include /etc/ssh/sshd_config.d/*.conf`:
-
-```text
-PermitRootLogin yes
-PasswordAuthentication yes
-```
-
-- `PermitRootLogin yes`: cho phép đăng nhập trực tiếp bằng user `root`.
-- `PasswordAuthentication yes`: cho phép xác thực bằng mật khẩu vừa đặt ở bước 1.
-- Đặt trước `Include`: bảo đảm đây là giá trị đầu tiên được đọc, không bị drop-in của cloud-init chốt một giá trị khác trước đó.
-
-Lưu bằng `Ctrl+O`, `Enter`, thoát bằng `Ctrl+X`, sau đó chạy:
-
-```bash
-# 3) kiểm tra cú pháp rồi nạp lại sshd
-sudo sshd -t && sudo systemctl restart ssh
-```
-
-**Kiểm tra hiệu lực cuối cùng (trên node) và test (từ client):**
-
-```bash
-# trên node — xem giá trị THỰC SỰ đang áp dụng (sau khi gộp mọi drop-in):
-sudo sshd -T | grep -Ei 'permitrootlogin|passwordauthentication'
-#   Cách A → permitrootlogin prohibit-password
-#   Cách B → permitrootlogin yes  +  passwordauthentication yes
-
-# từ client:
-ssh root@192.168.100.111        # vào được shell root là đạt (.112/.113 cho worker)
-```
-
-> Nếu vẫn bị từ chối, chạy `sudo sshd -T` như trên và kiểm tra vị trí hai dòng vừa thêm: chúng phải đứng trước `Include`. Có thể dùng `sudo grep -RniE '^[[:space:]]*(PermitRootLogin|PasswordAuthentication)' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/` để tìm mọi cấu hình liên quan.
-
-> 💡 **Dùng cho Ansible:** sau khi bật, inventory chỉ cần `ansible_user=root` (Cách A thêm `ansible_ssh_private_key_file=~/.ssh/id_ed25519`). Nếu để user thường thì dùng `ansible_user=k8sadmin` + `become: true`.
-
-**🔁 Reboot chốt trước khi sang [§6]** (làm trên **cả 3 node**): sau khi xong [§5] — nhất là `apt-get upgrade` ở [§5.3] có thể đã cập nhật **kernel mới** — reboot rồi xác nhận cấu hình *sống sót qua reboot*:
-
-```bash
-sudo reboot
-# sau khi node lên lại, kiểm tra:
-uname -r
-free -h | grep -i swap
-lsmod | grep -E 'br_netfilter|overlay'
-sysctl \
-  net.bridge.bridge-nf-call-iptables \
-  net.bridge.bridge-nf-call-ip6tables \
-  net.ipv4.ip_forward
-systemctl is-active containerd
-sudo crictl info | grep -i -A2 systemdCgroup
-```
-
-**Quality gate trước §6 — cả 3 node đều phải PASS:**
-
-- `uname -r` là kernel mới đã được APT cài (không còn cảnh báo *Pending kernel upgrade*);
-- Swap = `0B`;
-- có cả `br_netfilter` và `overlay`;
-- `net.bridge.bridge-nf-call-iptables`, `net.bridge.bridge-nf-call-ip6tables`, `net.ipv4.ip_forward` đều bằng `1`;
-- containerd là `active`;
-- `crictl` kết nối được tới containerd và trả `SystemdCgroup: true`.
-
-Nếu bất kỳ điều kiện nào FAIL, sửa lại [§5.3]/[§5.4]/[§5.5]/[§5.6] trên node đó **trước khi** `kubeadm init` hoặc `join`, tránh lỗi giữa chừng. (`kubelet` vẫn có thể crashloop tới khi init/join là **bình thường**.)
-
----
-
-## 6. Khởi tạo control plane (CHỈ MASTER)
-
-Chạy **chỉ trên `k8s-master`**.
-
-(Tùy chọn) Kéo image trước để lộ sớm lỗi mạng/registry và để `init` nhanh hơn. **Không chạy**
-`sudo kubeadm config images pull` mà không chỉ định version: kubeadm có thể dò remote và tự chọn một
-patch mới hơn package đang cài (ví dụ binary `v1.35.6` nhưng image `v1.35.7`).
-
-```bash
-# Lấy đúng version từ binary kubeadm đã pin ở §5.6
-KUBERNETES_VERSION="$(kubeadm version -o short)"
-echo "$KUBERNETES_VERSION"                    # PASS: v1.35.6
-
-# Gate của baseline này: dừng nếu node đang cài sai version
-test "$KUBERNETES_VERSION" = "v1.35.6" || {
-  echo "FAIL: expected kubeadm v1.35.6, got $KUBERNETES_VERSION" >&2
-  exit 1
-}
-
-# Xem trước và pull đúng bộ image của version vừa xác nhận
-sudo kubeadm config images list --kubernetes-version "$KUBERNETES_VERSION"
-sudo kubeadm config images pull --kubernetes-version "$KUBERNETES_VERSION"
-```
-
-Khởi tạo control plane (lệnh chạy **vài phút** — kéo image + dựng etcd/control plane, **đừng ngắt giữa chừng**):
-
-```bash
-sudo kubeadm init \
-  --kubernetes-version "$KUBERNETES_VERSION" \
-  --control-plane-endpoint "k8s-master:6443" \
-  --apiserver-advertise-address 192.168.100.111 \
-  --pod-network-cidr 10.244.0.0/16
-```
-
-> Phải giữ `--kubernetes-version` ở cả lệnh `images pull` và `init`; nếu bỏ ở lệnh `init`, kubeadm vẫn
-> có thể dò remote và chọn patch khác. Các image patch khác đã pull trước đó có thể giữ lại, chúng
-> không được dùng khi `init` đã pin `v1.35.6`.
-
-- `--control-plane-endpoint k8s-master:6443`: dùng tên (đã map trong `/etc/hosts`) → thuận lợi cho HA/đổi IP sau này.
-- `--apiserver-advertise-address`: IP master (tránh kubeadm tự đoán nhầm card).
-- `--pod-network-cidr 10.244.0.0/16`: **bắt buộc cho Flannel**.
-
-Khi xong, kubeadm in ra các bước tiếp theo.
-
-1. **Cấu hình kubeconfig** — chọn **một** trong hai cách sau.
-
-   **Cách A — user thường (khuyến nghị, dùng lâu dài):** thoát khỏi phiên `root`, đăng nhập lại bằng
-   user quản trị rồi chạy:
-
-```bash
-mkdir -p "$HOME/.kube"
-sudo cp -i /etc/kubernetes/admin.conf "$HOME/.kube/config"
-sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
-```
-
-   **Cách B — đang thao tác bằng `root` (chỉ có hiệu lực trong terminal hiện tại):**
-
-```bash
-export KUBECONFIG=/etc/kubernetes/admin.conf
-```
-
-   Không cần chạy cả hai cách. Nếu dùng cách B, sau khi logout hoặc mở phiên SSH mới phải chạy lại
-   lệnh `export`. Kiểm tra kubeconfig trước khi tiếp tục:
-
-```bash
-kubectl get nodes
-```
-
-2. **Lệnh `kubeadm join ...`** cho worker — **COPY LƯU LẠI** (sẽ dùng ở [§7](#7-join-worker-chỉ-2-worker)). Mất thì sinh lại bằng:
-
-```bash
-kubeadm token create --print-join-command
-```
-
-### 6.1. Cài CNI (Flannel) — chỉ master
-
-```bash
-kubectl apply -f https://github.com/flannel-io/flannel/releases/download/v0.28.7/kube-flannel.yml
-```
-
-Đợi ~1 phút rồi kiểm tra master chuyển `Ready`:
-
-```bash
-kubectl get nodes
-kubectl get pods -n kube-flannel
-```
-
-> Flannel mặc định dùng pod CIDR `10.244.0.0/16` → khớp `--pod-network-cidr` ở trên. Nếu muốn dùng **Calico** thì phải đặt pod CIDR custom (vd `10.244.0.0/16`) để **không trùng** LAN `192.168.x`.
-
----
-
-## 7. Join worker (CHỈ 2 WORKER)
-
-Trên **`k8s-worker1`** và **`k8s-worker2`**:
-
-**Kiểm tra trước khi join** (bắt sớm lỗi `/etc/hosts`/firewall — không cần cài thêm gói):
-
-```bash
-ping -c2 k8s-master
-timeout 3 bash -c 'echo > /dev/tcp/k8s-master/6443' && echo "API 6443 reachable" || echo "API 6443 UNREACHABLE"
-```
-
-Rồi chạy lệnh join đã lưu ở [§6] (dạng):
-
-```bash
-sudo kubeadm join k8s-master:6443 \
-  --token <token> \
-  --discovery-token-ca-cert-hash sha256:<hash>
-```
-
-> Worker phải resolve được `k8s-master` (đã thêm ở `/etc/hosts` [§5.1]).
-
----
-
-## 8. Verify cụm
-
-> **Nguyên tắc:** `STATUS = Ready` **không** có nghĩa là cụm chạy được app. Node vẫn báo Ready trong khi pod-to-pod giữa 2 worker đứt, DNS hỏng, hoặc `kubectl exec` chết. Ba thứ đó không hiện ra ở `kubectl get nodes` — phải test riêng.
->
-> Verify theo **8 tầng dưới lên**: tầng dưới fail thì tầng trên chắc chắn fail, nên **đừng nhảy cóc**. Trừ [§8.0](#80-tầng-0--prereq-os-cả-3-node) chạy trên cả 3 node, còn lại chạy **trên master**.
-
-### 8.0. Tầng 0 — Prereq OS (cả 3 node)
-
-```bash
-# swap phải rỗng hoàn toàn (kubelet từ chối khởi động nếu còn swap)
-swapon --show ; free -h | grep -i swap        # PASS: không output / Swap = 0B
-
-# kernel modules
-lsmod | grep -E 'br_netfilter|overlay'        # PASS: cả 2 có mặt
-
-# sysctl — cả 3 phải = 1
-sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables net.ipv4.ip_forward
-
-# containerd cgroup driver thực tế qua CRI
-sudo crictl info | grep -i -A2 systemdCgroup     # PASS: systemdCgroup: true
-systemctl is-active containerd kubelet           # PASS: active / active
-
-# version-skew — runbook yêu cầu cả 3 node cùng v1.35.6 ([§2.1])
-kubelet --version ; kubeadm version -o short
-
-# đồng bộ giờ — lệch giờ làm TLS/etcd chết ngầm, rất khó lần ra
-timedatectl | grep -E 'synchronized|Time zone'   # PASS: System clock synchronized: yes
-```
-
-> ⚠️ **Bẫy của Full Clone:** kubeadm định danh node bằng `product_uuid` + `machine-id`. Clone VM mà chưa chuẩn hóa identity theo [§5.0](#50-chuẩn-hóa-identity-của-3-k8s-node) thì 2 worker có thể "đè" lên nhau trong cụm — node thứ 2 join xong thì node thứ 1 biến mất. Chạy trên **từng node** rồi so, **3 giá trị phải khác nhau**:
->
-> ```bash
-> sudo cat /sys/class/dmi/id/product_uuid
-> cat /etc/machine-id
-> ip link show | grep link/ether        # MAC cũng phải khác
-> ```
-
-### 8.1. Tầng 1 — Control plane khỏe thật
-
-```bash
-kubectl get --raw='/readyz?verbose'
-# PASS: mọi check "ok" + dòng cuối "readyz check passed"
-
-kubectl get --raw='/livez?verbose' | grep -v ok    # PASS: không còn dòng nào
-
-kubectl get pods -n kube-system -o wide
-# PASS: etcd-, kube-apiserver-, kube-controller-manager-, kube-scheduler- đều Running, RESTARTS thấp
-```
-
-etcd health (etcd chạy dạng static pod trên master):
-
-```bash
-kubectl -n kube-system exec etcd-k8s-master -- etcdctl \
-  --endpoints=https://127.0.0.1:2379 \
-  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
-  --cert=/etc/kubernetes/pki/etcd/server.crt \
-  --key=/etc/kubernetes/pki/etcd/server.key endpoint health
-# PASS: "is healthy"
-```
-
-Hạn cert — kubeadm cấp **1 năm**, biết trước còn hơn cụm chết đột ngột sau 12 tháng:
-
-```bash
-sudo kubeadm certs check-expiration
-```
-
-### 8.2. Tầng 2 — Node & tài nguyên
-
-```bash
-kubectl get nodes -o wide
-# PASS: 3 node Ready, ROLES = control-plane / <none> / <none>, VERSION giống nhau
-
-# conditions: 3 cái *Pressure phải False, Ready phải True
-kubectl get nodes -o custom-columns='NODE:.metadata.name,TYPE:.status.conditions[*].type,VAL:.status.conditions[*].status'
-
-# taint — 2 worker KHÔNG được có taint nào
-kubectl get nodes -o custom-columns='NODE:.metadata.name,TAINTS:.spec.taints'
-
-# podCIDR phải được cấp đủ cho 3 node (Flannel dựa vào đây để dựng route)
-kubectl get nodes -o custom-columns='NODE:.metadata.name,PODCIDR:.spec.podCIDR'
-# PASS: 10.244.0.0/24, 10.244.1.0/24, 10.244.2.0/24
-```
-
-**Headroom cho Rancher** — sizing của lab đã tăng lên 8 GB cho master và 6 GB cho mỗi worker, nhưng vẫn thấp hơn sizing production chính thức. Đo mức dùng thực tế trước khi cài Rancher:
-
-```bash
-kubectl describe nodes | grep -A6 'Allocated resources'
-# PASS: Memory Requests < ~50% ở thời điểm TRƯỚC khi cài Rancher
-```
-
-Giữ nguyên taint `NoSchedule` trên `k8s-master` để etcd/API server không tranh tài nguyên với Rancher và app. Với sizing ở [§2.2](#22-ip--hostname-ví-dụ--đổi-theo-dải-lan-của-bạn), không cần gỡ taint control plane.
-
-### 8.3. Tầng 3 — Pod networking cross-node
-
-> ⭐ Tầng **quan trọng nhất** và hay bị bỏ qua nhất. Cụm hỏng ở đây vẫn hiện `Ready` đủ 3 node.
-
-```bash
-kubectl get pods -n kube-flannel -o wide     # PASS: đúng 3 pod, mỗi node 1, Running
-```
-
-Lệnh trên xác nhận Flannel DaemonSet có đúng một pod trên mỗi node. Các pod này thiết lập interface,
-route và VXLAN để các PodCIDR khác nhau liên lạc xuyên node. Cột `NODE` phải có `k8s-master`,
-`k8s-worker1`, `k8s-worker2`; cả ba pod phải `Running`.
-
-Test thật — tạo tường minh hai pod trên **hai worker khác nhau**, không dựa vào thứ tự mảng trả về từ
-`kubectl`:
-
-```yaml
-# nettest.yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nettest-w1
-  labels: { app: nettest }
-spec:
-  nodeName: k8s-worker1
-  containers:
-    - name: netshoot
-      image: nicolaka/netshoot
-      command: ["sleep", "3600"]
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nettest-w2
-  labels: { app: nettest }
-spec:
-  nodeName: k8s-worker2
-  containers:
-    - name: netshoot
-      image: nicolaka/netshoot
-      command: ["sleep", "3600"]
-```
-
-- `nodeName` ép `nettest-w1` lên worker1 và `nettest-w2` lên worker2. Nếu để scheduler tự chọn, hai
-  pod có thể cùng nằm trên một node; ping thành công khi đó không chứng minh cross-node networking.
-- Label `app: nettest` cho phép chọn đồng thời cả hai pod bằng `-l app=nettest`.
-- Image `netshoot` có sẵn các công cụ mạng như `ping`, `curl`, `dig`; `sleep 3600` giữ container chạy
-  một giờ để có thể `kubectl exec` vào kiểm tra.
-
-Tạo pod, đợi cả hai thật sự `Ready`, rồi xác nhận vị trí và Pod IP:
-
-```bash
-kubectl apply -f nettest.yaml
-kubectl wait --for=condition=Ready pod/nettest-w1 pod/nettest-w2 --timeout=180s
-kubectl get pod -l app=nettest -o wide
-```
-
-PASS khi:
-
-- `kubectl wait` trả `condition met` cho cả hai pod;
-- hai pod đều `1/1 Running`;
-- `nettest-w1` nằm trên `k8s-worker1`, IP thuộc `10.244.1.0/24`;
-- `nettest-w2` nằm trên `k8s-worker2`, IP thuộc `10.244.2.0/24`.
-
-Lấy Pod IP hiện tại của `nettest-w2` bằng JSONPath, rồi chạy `ping` **từ bên trong** `nettest-w1`.
-Dùng biến thay vì copy IP thủ công vì Pod IP có thể đổi khi pod được tạo lại:
-
-```bash
-BIP=$(kubectl get pod nettest-w2 -o jsonpath='{.status.podIP}')
-kubectl exec nettest-w1 -- ping -c3 "$BIP"    # PASS: 0% packet loss
-```
-
-Luồng được kiểm tra:
-
-```text
-nettest-w1 (10.244.1.x, worker1)
-  → Flannel/VXLAN giữa các node (UDP 8472)
-  → nettest-w2 (10.244.2.x, worker2)
-```
-
-`3 packets transmitted, 3 received, 0% packet loss` chứng minh đường Pod network theo chiều
-worker1 → worker2 hoạt động. Đây là kiểm tra kết nối IP/ICMP layer 3; nó chưa kiểm tra DNS, Service
-hay kube-proxy — các tầng tiếp theo sẽ kiểm tra riêng.
-
-> ❌ **Fail ở đây** = VXLAN **UDP 8472** bị chặn giữa các node ([§5.7](#57-firewall)), hoặc Flannel bind nhầm interface, hoặc `--pod-network-cidr` lúc `kubeadm init` không phải `10.244.0.0/16`. Đây là nguyên nhân số 1 của triệu chứng *"cụm nhìn Ready mà app không gọi được nhau"*.
-
-Giữ nguyên hai pod sau bước này: §8.4–§8.6 còn dùng `nettest-w1` để kiểm tra DNS, Service và
-`kubectl exec`. Dọn chúng cùng các resource test khác tại [§8.9](#89-dọn-dẹp-resource-test).
-
-### 8.4. Tầng 4 — DNS
-
-```bash
-kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide   # PASS: 2 pod CoreDNS Running
-
-TEST_POD=nettest-w1
-
-# DNS nội bộ cụm
-kubectl exec "$TEST_POD" -- nslookup kubernetes.default.svc.cluster.local   # PASS: trả 10.96.0.1
-
-# DNS ra ngoài Internet
-kubectl exec "$TEST_POD" -- nslookup releases.rancher.com           # PASS: resolve ra IP public
-```
-
-> DNS ngoại **bắt buộc** phải chạy: không có nó thì Helm không tải được chart và kubelet không kéo nổi image cho Traefik / cert-manager / Rancher.
-
-### 8.5. Tầng 5 — Service & kube-proxy
-
-Mục đích của tầng này là kiểm tra toàn bộ data path của Kubernetes Service:
-
-```text
-client → tên Service/ClusterIP hoặc NodeIP:NodePort → kube-proxy → EndpointSlice → backend Pod
-```
-
-Một cluster có thể có node `Ready`, Pod network và DNS đều tốt nhưng Service vẫn hỏng nếu kube-proxy
-không lập được rule chuyển tiếp. Trước tiên xác nhận kube-proxy có đúng một pod trên mỗi node:
-
-```bash
-kubectl get pods -n kube-system -l k8s-app=kube-proxy -o wide   # PASS: 3 pod Running
-```
-
-Tạo ba nginx backend. `rollout status` chỉ PASS khi Deployment có đủ replica sẵn sàng phục vụ:
-
-```bash
-kubectl create deploy web --image=nginx --replicas=3
-kubectl rollout status deploy/web
-```
-
-Tạo Service `web` loại mặc định `ClusterIP`. EndpointSlice là danh sách Pod IP thật đứng sau Service;
-nếu cột `ENDPOINTS` rỗng thì selector không chọn được backend và Service không thể chuyển traffic:
-
-```bash
-kubectl expose deploy web --port=80
-kubectl get endpointslice -l kubernetes.io/service-name=web
-# PASS: cột ENDPOINTS liệt kê các Pod IP
-```
-
-Gọi Service bằng tên ngắn `web` từ pod test. Lệnh này đồng thời xác nhận DNS Service, ClusterIP,
-kube-proxy load-balancing và đường mạng tới một backend; HTTP `200` là PASS:
-
-```bash
-TEST_POD=nettest-w1
-kubectl exec "$TEST_POD" -- curl -s -o /dev/null -w '%{http_code}\n' http://web
-# PASS: 200
-```
-
-Tạo thêm Service `NodePort`, lấy port được Kubernetes cấp động rồi gọi qua IP của cả ba node:
-
-```bash
-kubectl expose deploy web --name=web-np --type=NodePort --port=80
-NP=$(kubectl get svc web-np -o jsonpath='{.spec.ports[0].nodePort}')
-for ip in 192.168.100.111 192.168.100.112 192.168.100.113; do
-  curl -s -o /dev/null -w "$ip -> %{http_code}\n" http://$ip:$NP
-done                                   # PASS: cả 3 IP đều trả 200
-```
-
-NodePort mở trên **mọi** node, kể cả node không có backend Pod; kube-proxy nhận traffic rồi forward tới
-một endpoint có thể nằm trên node khác. Cả ba IP trả `200` chứng minh NodePort và đường forward
-xuyên node hoạt động. Nếu chỉ 1/3 IP trả `200`, kiểm tra kube-proxy, firewall và CNI
-([§8.3](#83-tầng-3--pod-networking-cross-node)).
-
-> Chạy vòng `curl` trên master kiểm tra data path NodePort qua các Node IP. Muốn xác nhận thêm firewall
-> và khả năng truy cập từ LAN, chạy `curl http://<NodeIP>:<NP>` từ một máy khác cùng mạng.
-
-### 8.6. Tầng 6 — Đường control plane → kubelet (Rancher UI sống chết ở đây)
-
-Rancher UI dùng **exec / logs / port-forward**, tất cả đi qua apiserver → **kubelet cổng 10250**. Tầng này đứt thì cụm vẫn deploy app bình thường, nhưng tab *Shell* và *Logs* trong Rancher sẽ trắng — và rất dễ mất hàng giờ đi tìm nhầm chỗ.
-
-```bash
-kubectl logs deploy/web                      # PASS: ra log nginx
-TEST_POD=nettest-w1
-kubectl exec "$TEST_POD" -- hostname          # PASS: ra tên pod
-
-kubectl port-forward svc/web 18080:80 >/tmp/web-port-forward.log 2>&1 &
-PF_PID=$!
-for i in {1..20}; do
-  curl -fsS http://127.0.0.1:18080 >/dev/null && break
-  sleep 1
+for package in kubeadm kubelet kubectl; do
+  apt-cache madison "${package}" \
+    > "${K8S_EVIDENCE}/${package}-madison.txt"
 done
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:18080   # PASS: 200
-kill "$PF_PID"
 ```
 
-### 8.7. Tầng 7 — Công cụ và add-on kubeadm KHÔNG cài sẵn
-
-**Cài Helm trước khi dùng** — các bước metrics-server, Traefik, cert-manager và Rancher phía sau đều cần Helm 3. Rancher yêu cầu chọn Helm 3 tương thích với dải Kubernetes đang dùng; baseline này đặt gate thực dụng **Helm ≥ 3.18**:
+Gate exact package:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-helm version --short
-# PASS: v3.18.0 trở lên
+set -o pipefail
+(
+  versions=()
+  for package in kubeadm kubelet kubectl; do
+    version="$(awk -F'|' -v prefix="${K8S_VERSION}-" \
+      '{gsub(/ /, "", $2); if (index($2, prefix)==1) {print $2; exit}}' \
+      "${K8S_EVIDENCE}/${package}-madison.txt")"
+    test -n "${version}" || {
+      echo "FAIL: repo không có ${package} ${K8S_VERSION}-*"; exit 1;
+    }
+    echo "${package}=${version}"
+    versions+=("${version}")
+  done
+
+  unique_count="$(printf '%s\n' "${versions[@]}" | sort -u | wc -l)"
+  [[ "${unique_count}" -eq 1 ]] || {
+    echo 'FAIL: kubeadm/kubelet/kubectl không có cùng exact Debian version'; exit 1;
+  }
+
+  K8S_DEB_VERSION="${versions[0]}"
+  printf 'K8S_DEB_VERSION=%q\n' "${K8S_DEB_VERSION}" \
+    >> "${BASELINE_ROOT}/research-state.env"
+  echo "PASS: ba package cùng version ${K8S_DEB_VERSION}"
+) 2>&1 | tee "${K8S_EVIDENCE}/gate-43-packages.txt"
+PACKAGE_RC=${PIPESTATUS[0]}
+echo "package gate rc=${PACKAGE_RC}"
 ```
 
-**a) metrics-server** — thiếu nó thì `kubectl top` lỗi, HPA không hoạt động, và dashboard Rancher không vẽ được đồ thị CPU/RAM. Trên kubeadm phải thêm `--kubelet-insecure-tls` vì kubelet dùng serving cert self-signed:
+**PASS:** ba package cùng exact version và `rc=0`. **FAIL/STOP:** không chốt Kubernetes patch.
+
+`stable.txt` có thể nhảy sang minor khác; không dùng nó thay cho candidate đã chọn từ giao support.
+
+### 4.4. Gate version-skew decision
+
+Theo [Kubernetes Version Skew Policy](https://kubernetes.io/releases/version-skew-policy/), kubelet không được mới hơn API server, còn kubectl có dải skew riêng. Với cluster mới, baseline này yêu cầu ba package cùng exact version dù policy cho phép biên rộng hơn.
 
 ```bash
-helm upgrade --install metrics-server metrics-server \
-  --repo https://kubernetes-sigs.github.io/metrics-server/ \
-  -n kube-system --set 'args={--kubelet-insecure-tls}'
+source "${BASELINE_ROOT}/research-state.env"
 
-kubectl -n kube-system rollout status deploy/metrics-server
-kubectl top nodes ; kubectl top pods -A      # PASS: ra số liệu, không "metrics not available"
+set -o pipefail
+(
+  grep -Fq "PASS: ba package cùng version ${K8S_DEB_VERSION}" \
+    "${K8S_EVIDENCE}/gate-43-packages.txt" || {
+    echo 'FAIL: package equality gate chưa PASS'; exit 1;
+  }
+
+  grep -Fq 'Version Skew Policy' \
+    "${K8S_EVIDENCE}/version-skew-policy.html" || {
+    echo 'FAIL: chưa lưu được official skew policy'; exit 1;
+  }
+
+  echo "PASS: baseline pin kubeadm/kubelet/kubectl=${K8S_DEB_VERSION}; không chủ động dùng skew"
+) 2>&1 | tee "${K8S_EVIDENCE}/gate-44-version-skew.txt"
+SKEW_RC=${PIPESTATUS[0]}
+echo "skew gate rc=${SKEW_RC}"
 ```
 
-**b) Default StorageClass** — Rancher core lưu dữ liệu trong etcd nên **không** cần PVC, nhưng mọi app có state và các chart trong Rancher marketplace (**Monitoring, Logging, Longhorn**) đều cần:
+**PASS:** `skew gate rc=0`. **FAIL/STOP:** evidence skew hoặc package equality chưa đạt.
+
+### 4.5. Ghi inventory image do đúng kubeadm version chọn
+
+Kubeadm chọn `kube-apiserver`, controller, scheduler, kube-proxy, CoreDNS, etcd và pause image. Không tự nâng riêng các image này.
+
+Trên **research VM**, bảo đảm kubeadm đúng exact candidate. Nếu chưa có, có thể cài đúng package candidate trên VM nghiên cứu; thao tác này không khởi tạo cluster:
 
 ```bash
-kubectl get storageclass          # cụm kubeadm thuần: RỖNG
+source "${BASELINE_ROOT}/research-state.env"
+
+if ! command -v kubeadm >/dev/null 2>&1 || \
+   [[ "$(kubeadm version -o short 2>/dev/null)" != "v${K8S_VERSION}" ]]; then
+  echo "Research VM cần kubeadm=${K8S_DEB_VERSION} để sinh inventory chính xác."
+  echo "Sau khi được phê duyệt theo chính sách phần mềm, cài đúng package rồi chạy lại §4.5:"
+  echo "sudo apt-get install kubeadm='${K8S_DEB_VERSION}'"
+fi
 ```
 
-Lab 1 master 2 worker thì `local-path-provisioner` của Rancher là lựa chọn gọn. Cài bản stable được upstream hướng dẫn, đặt `local-path` làm mặc định, rồi verify:
-
-**Mô hình Pod → PVC → StorageClass → PV:**
-
-```text
-Pod tham chiếu PVC
-  → PVC yêu cầu dung lượng và access mode từ StorageClass
-  → provisioner tạo PV trên disk của node đã chọn
-  → PVC bind với PV
-  → kubelet mount PV vào mountPath bên trong container
-```
-
-- **PVC (PersistentVolumeClaim)** là yêu cầu của ứng dụng, ví dụ “cần `1Gi`, `ReadWriteOnce`”. Pod
-  chỉ tham chiếu tên PVC và thấy đường dẫn như `/data` trong container; Pod không cần biết thư mục thật
-  trên disk của worker.
-- **StorageClass** là chính sách cấp volume. PVC có thể chỉ định `storageClassName`; nếu bỏ trống thì
-  dùng class có `(default)`. Trong runbook này, `local-path` gọi provisioner `rancher.io/local-path`.
-- **PV (PersistentVolume)** là volume Kubernetes tạo để đáp ứng PVC. Với `local-path`, PV là dữ liệu
-  nằm cục bộ trên disk của một node, không phải storage dùng chung giữa ba node.
-
-Do `local-path` dùng `WaitForFirstConsumer`, provisioner không chọn worker ngẫu nhiên ngay lúc tạo
-PVC. Scheduler chọn node phù hợp cho Pod consumer trước, rồi PV được tạo trên node đó và Pod được
-mount volume. Nếu Pod được tạo lại, Kubernetes phải đặt Pod về node giữ PV; node hoặc disk đó hỏng thì
-dữ liệu không tự failover sang worker khác. Dung lượng `1Gi` của local-path cũng không nhất thiết là
-quota filesystem cứng; phải tiếp tục giám sát dung lượng disk thật của worker.
+Chỉ chạy block tiếp theo khi `kubeadm version -o short` khớp:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.36/deploy/local-path-storage.yaml
-kubectl -n local-path-storage rollout status deploy/local-path-provisioner
-kubectl patch storageclass local-path \
-  -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-kubectl get storageclass
+set -o pipefail
+(
+  command -v kubeadm >/dev/null 2>&1 || {
+    echo 'FAIL: chưa có kubeadm'; exit 1;
+  }
+  [[ "$(kubeadm version -o short)" == "v${K8S_VERSION}" ]] || {
+    echo "FAIL: kubeadm hiện tại không phải v${K8S_VERSION}"; exit 1;
+  }
 
-kubectl create -f - <<'EOF'
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata: { name: pvc-test }
-spec:
-  storageClassName: local-path
-  accessModes: [ReadWriteOnce]
-  resources: { requests: { storage: 1Gi } }
+  kubeadm config images list \
+    --kubernetes-version "v${K8S_VERSION}" \
+    > "${K8S_EVIDENCE}/kubeadm-images-${K8S_VERSION}.txt"
+
+  for component in kube-apiserver kube-controller-manager kube-scheduler kube-proxy coredns etcd pause; do
+    grep -qi "${component}" "${K8S_EVIDENCE}/kubeadm-images-${K8S_VERSION}.txt" || {
+      echo "FAIL: inventory thiếu ${component}"; exit 1;
+    }
+  done
+
+  if grep -Eq ':(latest|stable)(@|$)' \
+    "${K8S_EVIDENCE}/kubeadm-images-${K8S_VERSION}.txt"; then
+    echo 'FAIL: kubeadm inventory có tag động'; exit 1
+  fi
+
+  echo "PASS: kubeadm v${K8S_VERSION} sinh đủ inventory và không có tag động"
+) 2>&1 | tee "${K8S_EVIDENCE}/gate-45-images.txt"
+KUBEADM_IMAGES_RC=${PIPESTATUS[0]}
+echo "kubeadm image gate rc=${KUBEADM_IMAGES_RC}"
+```
+
+**PASS:** `rc=0`. Digest được resolve ở §7.5 bằng cùng image-inspection tool với các addon. **FAIL/STOP:** không sang runtime/CNI.
+
+---
+
+## 5. Chọn OS và container runtime
+
+### 5.1. Thu OS evidence và gate đúng research host
+
+```bash
+RUNTIME_EVIDENCE="${BASELINE_ROOT}/evidence/05-runtime"
+set -a
+source "${BASELINE_ROOT}/baseline.env"
+set +a
+
+curl -fsSL 'https://ubuntu.com/about/release-cycle' \
+  -o "${RUNTIME_EVIDENCE}/ubuntu-release-cycle.html"
+
+cp /etc/os-release "${RUNTIME_EVIDENCE}/research-host-os-release.txt"
+uname -a > "${RUNTIME_EVIDENCE}/research-host-uname.txt"
+dpkg --print-architecture \
+  > "${RUNTIME_EVIDENCE}/research-host-dpkg-architecture.txt"
+```
+
+Đọc Ubuntu lifecycle và điền ngày kết thúc standard security maintenance của OS target:
+
+```bash
+{
+  printf 'os_id\tos_version\tarchitecture\tstandard_support_end\trancher_role_support\n'
+  printf '%s\t%s\t%s\tYYYY-MM-DD\tUNKNOWN\n' \
+    "${OS_ID}" "${OS_VERSION}" "${ARCHITECTURE}"
+} > "${RUNTIME_EVIDENCE}/os-candidate.tsv"
+
+nano "${RUNTIME_EVIDENCE}/os-candidate.tsv"
+```
+
+`rancher_role_support` dùng `PASS`, `NOT-CERTIFIED` hoặc `N/A`, lấy từ đúng Rancher support matrix và đúng vai trò. Gate:
+
+```bash
+set -o pipefail
+(
+  source /etc/os-release
+  [[ "${ID}" == "${OS_ID}" ]] || {
+    echo "FAIL: research host ID=${ID}, target=${OS_ID}"; exit 1;
+  }
+  [[ "${VERSION_ID}" == "${OS_VERSION}" ]] || {
+    echo "FAIL: research host VERSION_ID=${VERSION_ID}, target=${OS_VERSION}"; exit 1;
+  }
+  [[ "$(dpkg --print-architecture)" == "${ARCHITECTURE}" ]] || {
+    echo "FAIL: architecture research host không khớp target"; exit 1;
+  }
+
+  IFS=$'\t' read -r _ os_version architecture support_end rancher_support \
+    < <(tail -n1 "${RUNTIME_EVIDENCE}/os-candidate.tsv")
+  [[ "${os_version}" == "${OS_VERSION}" && "${architecture}" == "${ARCHITECTURE}" ]] || {
+    echo 'FAIL: os-candidate.tsv không khớp input contract'; exit 1;
+  }
+  date -d "${support_end}" '+%F' >/dev/null 2>&1 || {
+    echo 'FAIL: standard_support_end chưa hợp lệ'; exit 1;
+  }
+  [[ "$(date -d "${support_end}" +%s)" -gt "$(date -d "${TARGET_INSTALL_DATE}" +%s)" ]] || {
+    echo 'FAIL: OS hết standard support trước ngày cài dự kiến'; exit 1;
+  }
+  [[ "${rancher_support}" =~ ^(PASS|NOT-CERTIFIED|N/A)$ ]] || {
+    echo 'FAIL: rancher_role_support chưa đánh giá'; exit 1;
+  }
+  if [[ "${SUPPORT_GOAL}" == vendor-supported && "${RANCHER_REQUIRED}" == true && \
+        "${rancher_support}" != PASS ]]; then
+    echo 'FAIL: OS/topology không đạt vendor-supported cho Rancher role'; exit 1
+  fi
+
+  echo "PASS: research host khớp ${OS_ID} ${OS_VERSION}/${ARCHITECTURE}; lifecycle và Rancher role đã đánh giá"
+) 2>&1 | tee "${RUNTIME_EVIDENCE}/gate-51-os.txt"
+OS_RC=${PIPESTATUS[0]}
+echo "OS gate rc=${OS_RC}"
+```
+
+**PASS:** `OS gate rc=0`. **FAIL/STOP:** không dùng package inventory từ một OS/architecture khác.
+
+### 5.2. Chọn exact containerd package và branch
+
+Đọc [Kubernetes Container Runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/) và [containerd release lifecycle](https://github.com/containerd/containerd/blob/main/RELEASES.md), rồi lưu evidence:
+
+```bash
+curl -fsSL \
+  'https://kubernetes.io/docs/setup/production-environment/container-runtimes/' \
+  -o "${RUNTIME_EVIDENCE}/kubernetes-container-runtimes.html"
+
+curl -fsSL \
+  'https://raw.githubusercontent.com/containerd/containerd/main/RELEASES.md' \
+  -o "${RUNTIME_EVIDENCE}/containerd-RELEASES.md"
+
+apt-cache policy containerd \
+  > "${RUNTIME_EVIDENCE}/containerd-policy.txt"
+apt-cache madison containerd \
+  > "${RUNTIME_EVIDENCE}/containerd-madison.txt"
+
+CONTAINERD_DEB_VERSION="$(awk '/Candidate:/ {print $2}' \
+  "${RUNTIME_EVIDENCE}/containerd-policy.txt")"
+
+apt-cache show "containerd=${CONTAINERD_DEB_VERSION}" \
+  > "${RUNTIME_EVIDENCE}/containerd-package.txt"
+
+grep -E '^(Package|Version|Architecture|Source):' \
+  "${RUNTIME_EVIDENCE}/containerd-package.txt" | head
+```
+
+Từ exact Debian version và `RELEASES.md`, điền config generation và branch status:
+
+```bash
+{
+  printf 'deb_version\tupstream_version\tconfig_generation\tbranch_status\tcri_api\tcgroup_driver\n'
+  printf '%s\tX.Y.Z\t1.x-or-2.x\tSUPPORTED-or-EOL\tv1\tsystemd\n' \
+    "${CONTAINERD_DEB_VERSION}"
+} > "${RUNTIME_EVIDENCE}/containerd-candidate.tsv"
+
+nano "${RUNTIME_EVIDENCE}/containerd-candidate.tsv"
+```
+
+Gate metadata:
+
+```bash
+set -o pipefail
+(
+  test -n "${CONTAINERD_DEB_VERSION}" && \
+    [[ "${CONTAINERD_DEB_VERSION}" != '(none)' ]] || {
+    echo 'FAIL: Ubuntu repo không có containerd candidate'; exit 1;
+  }
+
+  IFS=$'\t' read -r deb upstream generation branch cri cgroup \
+    < <(tail -n1 "${RUNTIME_EVIDENCE}/containerd-candidate.tsv")
+
+  [[ "${deb}" == "${CONTAINERD_DEB_VERSION}" ]] || {
+    echo 'FAIL: Debian version không khớp apt candidate'; exit 1;
+  }
+  [[ "${upstream}" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || {
+    echo 'FAIL: upstream version còn placeholder'; exit 1;
+  }
+  [[ "${generation}" =~ ^(1\.x|2\.x)$ ]] || {
+    echo 'FAIL: config_generation phải là 1.x hoặc 2.x'; exit 1;
+  }
+  [[ "${branch}" == SUPPORTED ]] || {
+    echo 'FAIL: containerd branch đã EOL hoặc chưa xác nhận'; exit 1;
+  }
+  [[ "${cri}" == v1 && "${cgroup}" == systemd ]] || {
+    echo 'FAIL: contract phải là CRI v1 + systemd'; exit 1;
+  }
+
+  printf 'CONTAINERD_DEB_VERSION=%q\nCONTAINERD_UPSTREAM_VERSION=%q\nCONTAINERD_CONFIG_GENERATION=%q\n' \
+    "${deb}" "${upstream}" "${generation}" \
+    >> "${BASELINE_ROOT}/research-state.env"
+
+  echo "PASS: containerd ${deb} -> upstream ${upstream}, ${generation}, CRI v1, systemd"
+) 2>&1 | tee "${RUNTIME_EVIDENCE}/gate-52-containerd-metadata.txt"
+CONTAINERD_METADATA_RC=${PIPESTATUS[0]}
+echo "containerd metadata gate rc=${CONTAINERD_METADATA_RC}"
+```
+
+**PASS:** `rc=0`. Không để baseline ghi chung chung “containerd 2.x”.
+
+### 5.3. Gate runtime configuration trên disposable research VM
+
+Gate này cần exact package candidate đang chạy trên VM nghiên cứu; không chạy trên cluster production. Nếu package chưa được phê duyệt/cài, trạng thái component chỉ là `METADATA-PASS`, baseline chưa được `APPROVED`.
+
+```bash
+source "${BASELINE_ROOT}/research-state.env"
+
+set -o pipefail
+(
+  command -v containerd >/dev/null 2>&1 || {
+    echo 'FAIL: containerd chưa có trên research VM'; exit 1;
+  }
+  command -v crictl >/dev/null 2>&1 || {
+    echo 'FAIL: thiếu crictl để kiểm CRI runtime'; exit 1;
+  }
+  [[ "$(dpkg-query -W -f='${Version}' containerd 2>/dev/null)" == \
+      "${CONTAINERD_DEB_VERSION}" ]] || {
+    echo 'FAIL: containerd đang chạy không đúng exact package candidate'; exit 1;
+  }
+  systemctl is-active --quiet containerd || {
+    echo 'FAIL: containerd không active'; exit 1;
+  }
+  ! grep -Eq '^\s*disabled_plugins\s*=.*"cri"' /etc/containerd/config.toml || {
+    echo 'FAIL: CRI đang bị disable'; exit 1;
+  }
+  crictl info > "${RUNTIME_EVIDENCE}/crictl-info.json"
+  jq -e '.. | objects | select(.SystemdCgroup? == true)' \
+    "${RUNTIME_EVIDENCE}/crictl-info.json" >/dev/null || {
+      echo 'FAIL: crictl info không chứng minh SystemdCgroup=true'; exit 1;
+    }
+
+  echo 'PASS: exact containerd package active, CRI hoạt động và systemd cgroup được xác nhận'
+) 2>&1 | tee "${RUNTIME_EVIDENCE}/gate-53-runtime.txt"
+RUNTIME_RC=${PIPESTATUS[0]}
+echo "runtime gate rc=${RUNTIME_RC}"
+```
+
+**PASS:** `runtime gate rc=0`. **FAIL/STOP:** sửa research VM hoặc đổi candidate; không chuyển CNI khi runtime gate chưa đạt.
+
+---
+
+## 6. Chọn CNI
+
+[Kubernetes Network Plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) yêu cầu một CNI plugin, tối thiểu tương thích CNI spec `v0.4.0` và khuyến nghị tương thích `v1.0.0`. Kubernetes không vì thế chứng nhận mọi release của mọi CNI.
+
+### 6.1. Discovery exact Flannel release
+
+```bash
+CNI_EVIDENCE="${BASELINE_ROOT}/evidence/06-cni"
+set -a
+source "${BASELINE_ROOT}/baseline.env"
+set +a
+source "${BASELINE_ROOT}/research-state.env"
+
+curl -fsSL 'https://api.github.com/repos/flannel-io/flannel/releases?per_page=30' \
+  -o "${CNI_EVIDENCE}/flannel-releases.json"
+
+jq -r '
+  .[]
+  | select(.draft == false and .prerelease == false)
+  | [.tag_name, .published_at, .html_url]
+  | @tsv
+' "${CNI_EVIDENCE}/flannel-releases.json" \
+  > "${CNI_EVIDENCE}/flannel-final-releases.tsv"
+
+head "${CNI_EVIDENCE}/flannel-final-releases.tsv"
+read -r -p 'Nhập exact FLANNEL_VERSION từ final release (vd v0.xx.y): ' FLANNEL_VERSION
+```
+
+Gate release candidate trước khi tải manifest:
+
+```bash
+set -o pipefail
+(
+  [[ "${FLANNEL_VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    echo 'FAIL: FLANNEL_VERSION không phải exact final SemVer'; exit 1;
+  }
+  awk -F'\t' -v v="${FLANNEL_VERSION}" '$1==v {found=1} END {exit !found}' \
+    "${CNI_EVIDENCE}/flannel-final-releases.tsv" || {
+    echo 'FAIL: version không có trong official final releases'; exit 1;
+  }
+  echo "PASS: Flannel candidate ${FLANNEL_VERSION} là final release"
+) 2>&1 | tee "${CNI_EVIDENCE}/gate-61-flannel-discovery.txt"
+FLANNEL_DISCOVERY_RC=${PIPESTATUS[0]}
+echo "Flannel discovery gate rc=${FLANNEL_DISCOVERY_RC}"
+```
+
+**PASS:** `rc=0`. **FAIL/STOP:** không dùng URL `latest/download` để thay thế.
+
+### 6.2. Thu manifest exact tag và audit tĩnh
+
+```bash
+curl -fsSL \
+  "https://github.com/flannel-io/flannel/releases/download/${FLANNEL_VERSION}/kube-flannel.yml" \
+  -o "${CNI_EVIDENCE}/kube-flannel-${FLANNEL_VERSION}.yml"
+
+curl -fsSL \
+  "https://raw.githubusercontent.com/flannel-io/flannel/${FLANNEL_VERSION}/Documentation/kubernetes.md" \
+  -o "${CNI_EVIDENCE}/flannel-kubernetes-${FLANNEL_VERSION}.md"
+
+sha256sum "${CNI_EVIDENCE}/kube-flannel-${FLANNEL_VERSION}.yml" \
+  > "${CNI_EVIDENCE}/kube-flannel-${FLANNEL_VERSION}.sha256"
+
+grep -E '^apiVersion:|^kind:|^[[:space:]]+image:|"cniVersion"|"Network"' \
+  "${CNI_EVIDENCE}/kube-flannel-${FLANNEL_VERSION}.yml" \
+  > "${CNI_EVIDENCE}/flannel-manifest-inventory.txt"
+```
+
+Nếu `POD_CIDR` khác manifest release, tạo một bản candidate riêng trong evidence, chỉ đổi trường `Network` và lưu diff. Không sửa file release gốc:
+
+```bash
+cp "${CNI_EVIDENCE}/kube-flannel-${FLANNEL_VERSION}.yml" \
+  "${CNI_EVIDENCE}/kube-flannel-candidate.yml"
+
+# Chỉ chạy sed nếu POD_CIDR không phải default đang có trong manifest.
+CURRENT_FLANNEL_CIDR="$(grep -oE '"Network"[[:space:]]*:[[:space:]]*"[^"]+"' \
+  "${CNI_EVIDENCE}/kube-flannel-candidate.yml" | head -n1 | cut -d'"' -f4)"
+
+if [[ "${CURRENT_FLANNEL_CIDR}" != "${POD_CIDR}" ]]; then
+  sed -i "s#\"Network\": \"${CURRENT_FLANNEL_CIDR}\"#\"Network\": \"${POD_CIDR}\"#" \
+    "${CNI_EVIDENCE}/kube-flannel-candidate.yml"
+fi
+
+diff -u \
+  "${CNI_EVIDENCE}/kube-flannel-${FLANNEL_VERSION}.yml" \
+  "${CNI_EVIDENCE}/kube-flannel-candidate.yml" \
+  > "${CNI_EVIDENCE}/flannel-cidr.patch" || true
+```
+
+Gate static:
+
+```bash
+set -o pipefail
+(
+  MANIFEST="${CNI_EVIDENCE}/kube-flannel-candidate.yml"
+
+  ! grep -Eqi '(latest|/master/|:master)' "${MANIFEST}" || {
+    echo 'FAIL: manifest còn tag/branch động'; exit 1;
+  }
+  grep -Fq "\"Network\": \"${POD_CIDR}\"" "${MANIFEST}" || {
+    echo "FAIL: Flannel Network không khớp POD_CIDR=${POD_CIDR}"; exit 1;
+  }
+  grep -q 'kind: DaemonSet' "${MANIFEST}" || {
+    echo 'FAIL: thiếu Flannel DaemonSet'; exit 1;
+  }
+  grep -q 'kind: ClusterRole' "${MANIFEST}" || {
+    echo 'FAIL: thiếu Flannel RBAC'; exit 1;
+  }
+  grep -Eq '"cniVersion"[[:space:]]*:[[:space:]]*"(0\.[4-9]|1\.)' \
+    "${MANIFEST}" || {
+    echo 'FAIL: CNI spec thấp hơn v0.4 hoặc không đọc được'; exit 1;
+  }
+
+  kubectl apply --dry-run=client --validate=false -f "${MANIFEST}" \
+    > "${CNI_EVIDENCE}/flannel-client-dry-run.txt"
+
+  FLANNEL_CNI_SPEC="$(grep -oE '"cniVersion"[[:space:]]*:[[:space:]]*"[^"]+"' \
+    "${MANIFEST}" | head -n1 | cut -d'"' -f4)"
+
+  printf 'FLANNEL_VERSION=%q\nFLANNEL_CNI_SPEC=%q\nFLANNEL_SUPPORT_CLASS=%q\n' \
+    "${FLANNEL_VERSION}" "${FLANNEL_CNI_SPEC}" 'UPSTREAM-RANGE-NOT-STATED' \
+    >> "${BASELINE_ROOT}/research-state.env"
+
+  echo "PASS: Flannel ${FLANNEL_VERSION}, CNI spec ${FLANNEL_CNI_SPEC}, podCIDR ${POD_CIDR}, client dry-run đạt"
+) 2>&1 | tee "${CNI_EVIDENCE}/gate-62-flannel-static.txt"
+FLANNEL_STATIC_RC=${PIPESTATUS[0]}
+echo "Flannel static gate rc=${FLANNEL_STATIC_RC}"
+```
+
+**PASS:** `rc=0`, nhưng support class vẫn là `UPSTREAM-RANGE-NOT-STATED` nếu release docs không công bố exact Kubernetes matrix.
+
+### 6.3. Server dry-run/lab gate
+
+Chỉ chạy trên disposable cluster có đúng `K8S_VERSION`, runtime và topology target:
+
+```bash
+kubectl version \
+  > "${CNI_EVIDENCE}/lab-kubectl-version.txt"
+
+kubectl apply --dry-run=server \
+  -f "${CNI_EVIDENCE}/kube-flannel-candidate.yml" \
+  > "${CNI_EVIDENCE}/flannel-server-dry-run.txt"
+```
+
+Gate:
+
+```bash
+set -o pipefail
+(
+  grep -Fq "Server Version: v${K8S_VERSION}" \
+    "${CNI_EVIDENCE}/lab-kubectl-version.txt" || {
+    echo "FAIL: disposable cluster không chạy v${K8S_VERSION}"; exit 1;
+  }
+  test -s "${CNI_EVIDENCE}/flannel-server-dry-run.txt" || {
+    echo 'FAIL: thiếu server dry-run evidence'; exit 1;
+  }
+  echo 'PASS: Flannel server dry-run đạt trên exact Kubernetes candidate'
+) 2>&1 | tee "${CNI_EVIDENCE}/gate-63-flannel-server.txt"
+FLANNEL_SERVER_RC=${PIPESTATUS[0]}
+echo "Flannel server gate rc=${FLANNEL_SERVER_RC}"
+```
+
+**PASS:** `rc=0`. **FAIL/STOP:** candidate không được `LAB-PASS`. Phân biệt release Flannel, CNI spec và version CNI binaries trên node trong bảng cuối.
+
+---
+
+## 7. Chọn Helm và các chart
+
+### 7.1. Helm
+
+Đọc [Helm Version Support Policy](https://helm.sh/docs/v3/topics/version_skew/) và [Rancher Helm Version Requirements](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/helm-version-requirements).
+
+```bash
+CHART_EVIDENCE="${BASELINE_ROOT}/evidence/07-charts"
+source "${BASELINE_ROOT}/research-state.env"
+
+curl -fsSL 'https://helm.sh/docs/v3/topics/version_skew/' \
+  -o "${CHART_EVIDENCE}/helm-version-support.html"
+curl -fsSL \
+  'https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/helm-version-requirements' \
+  -o "${CHART_EVIDENCE}/rancher-helm-requirements.html"
+curl -fsSL 'https://api.github.com/repos/helm/helm/releases?per_page=30' \
+  -o "${CHART_EVIDENCE}/helm-releases.json"
+
+jq -r '.[] | select(.draft==false and .prerelease==false) | [.tag_name,.published_at,.html_url] | @tsv' \
+  "${CHART_EVIDENCE}/helm-releases.json" \
+  > "${CHART_EVIDENCE}/helm-final-releases.tsv"
+
+head "${CHART_EVIDENCE}/helm-final-releases.tsv"
+read -r -p 'Nhập HELM_VERSION exact final release (vd v3.xx.y): ' HELM_VERSION
+```
+
+Đọc support table, xác định dải Kubernetes của Helm minor và Rancher minimum, rồi điền:
+
+```bash
+{
+  printf 'helm_version\tk8s_min\tk8s_max\trancher_requirement\n'
+  printf '%s\t1.__\t1.__\tPASS-or-FAIL\n' "${HELM_VERSION}"
+} > "${CHART_EVIDENCE}/helm-candidate.tsv"
+
+nano "${CHART_EVIDENCE}/helm-candidate.tsv"
+```
+
+Gate Helm:
+
+```bash
+set -o pipefail
+(
+  awk -F'\t' -v v="${HELM_VERSION}" '$1==v {found=1} END {exit !found}' \
+    "${CHART_EVIDENCE}/helm-final-releases.tsv" || {
+    echo 'FAIL: HELM_VERSION không phải official final release'; exit 1;
+  }
+
+  IFS=$'\t' read -r version k8s_min k8s_max rancher_req \
+    < <(tail -n1 "${CHART_EVIDENCE}/helm-candidate.tsv")
+  [[ "${version}" == "${HELM_VERSION}" ]] || {
+    echo 'FAIL: helm-candidate.tsv không khớp selection'; exit 1;
+  }
+  [[ "${rancher_req}" == PASS ]] || {
+    echo 'FAIL: Helm không đạt Rancher minimum'; exit 1;
+  }
+
+  python3 - "${K8S_MINOR}" "${k8s_min}" "${k8s_max}" <<'PY'
+import sys
+def minor(value):
+    major, minor_value = value.split('.')[:2]
+    return int(major), int(minor_value)
+target, low, high = map(minor, sys.argv[1:])
+if not low <= target <= high:
+    raise SystemExit(f'FAIL: Kubernetes {sys.argv[1]} ngoài dải Helm {sys.argv[2]}-{sys.argv[3]}')
+print(f'PASS: Kubernetes {sys.argv[1]} nằm trong dải Helm {sys.argv[2]}-{sys.argv[3]}')
+PY
+
+  [[ "$(helm version --template '{{.Version}}')" == "${HELM_VERSION}" ]] || {
+    echo "FAIL: Helm đang chạy không phải ${HELM_VERSION}"; exit 1;
+  }
+
+  helm version --template '{{.Version}} {{.GitCommit}} {{.GoVersion}}{{"\n"}}' \
+    > "${CHART_EVIDENCE}/helm-build.txt"
+  printf 'HELM_VERSION=%q\n' "${HELM_VERSION}" \
+    >> "${BASELINE_ROOT}/research-state.env"
+  echo "PASS: Helm ${HELM_VERSION} đạt Kubernetes range, Rancher minimum và đúng binary đang chạy"
+) 2>&1 | tee "${CHART_EVIDENCE}/gate-71-helm.txt"
+HELM_RC=${PIPESTATUS[0]}
+echo "Helm gate rc=${HELM_RC}"
+```
+
+**PASS:** `Helm gate rc=0`. **FAIL/STOP:** chuẩn bị đúng Helm candidate rồi chạy lại; không render chart bằng một Helm version khác baseline.
+
+### 7.2. cert-manager
+
+Đọc [cert-manager Supported Releases](https://cert-manager.io/docs/releases/) và [official Helm installation](https://cert-manager.io/docs/installation/helm/).
+
+Thu final releases và chọn một minor đang nằm trong bảng Supported Releases. Không lấy version từ command ví dụ của trang cài đặt làm “mới nhất”.
+
+```bash
+curl -fsSL 'https://cert-manager.io/docs/releases/' \
+  -o "${CHART_EVIDENCE}/cert-manager-supported-releases.html"
+curl -fsSL 'https://cert-manager.io/docs/installation/helm/' \
+  -o "${CHART_EVIDENCE}/cert-manager-helm.html"
+curl -fsSL 'https://api.github.com/repos/cert-manager/cert-manager/releases?per_page=50' \
+  -o "${CHART_EVIDENCE}/cert-manager-releases.json"
+
+jq -r '.[] | select(.draft==false and .prerelease==false) | [.tag_name,.published_at,.html_url] | @tsv' \
+  "${CHART_EVIDENCE}/cert-manager-releases.json" \
+  > "${CHART_EVIDENCE}/cert-manager-final-releases.tsv"
+
+head "${CHART_EVIDENCE}/cert-manager-final-releases.tsv"
+read -r -p 'Nhập CERT_MANAGER_VERSION exact patch thuộc supported minor: ' CERT_MANAGER_VERSION
+```
+
+Điền range đúng từ trang Supported Releases:
+
+```bash
+{
+  printf 'version\tk8s_supported_min\tk8s_supported_max\tk8s_tested_min\tk8s_tested_max\tbranch_status\n'
+  printf '%s\t1.__\t1.__\t1.__\t1.__\tSUPPORTED\n' "${CERT_MANAGER_VERSION}"
+} > "${CHART_EVIDENCE}/cert-manager-candidate.tsv"
+
+nano "${CHART_EVIDENCE}/cert-manager-candidate.tsv"
+```
+
+Gate release/range và chart metadata:
+
+```bash
+set -o pipefail
+(
+  [[ "${CERT_MANAGER_VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    echo 'FAIL: cert-manager version không phải exact SemVer'; exit 1;
+  }
+  awk -F'\t' -v v="${CERT_MANAGER_VERSION}" '$1==v {found=1} END {exit !found}' \
+    "${CHART_EVIDENCE}/cert-manager-final-releases.tsv" || {
+    echo 'FAIL: cert-manager candidate không phải official final release'; exit 1;
+  }
+
+  CM_MINOR="$(sed -E 's/^v([0-9]+\.[0-9]+)\..*/v\1/' <<<"${CERT_MANAGER_VERSION}")"
+  LATEST_IN_MINOR="$(awk -F'\t' -v prefix="${CM_MINOR}." \
+    'index($1,prefix)==1 {print $1}' \
+    "${CHART_EVIDENCE}/cert-manager-final-releases.tsv" | sort -Vr | head -n1)"
+  [[ "${CERT_MANAGER_VERSION}" == "${LATEST_IN_MINOR}" ]] || {
+    echo "FAIL: policy chỉ hỗ trợ patch cuối; latest của ${CM_MINOR} là ${LATEST_IN_MINOR}"; exit 1;
+  }
+
+  IFS=$'\t' read -r _ supported_min supported_max tested_min tested_max branch_status \
+    < <(tail -n1 "${CHART_EVIDENCE}/cert-manager-candidate.tsv")
+  [[ "${branch_status}" == SUPPORTED ]] || {
+    echo 'FAIL: cert-manager branch không còn supported'; exit 1;
+  }
+
+  python3 - "${K8S_MINOR}" "${supported_min}" "${supported_max}" \
+    "${tested_min}" "${tested_max}" <<'PY'
+import sys
+def value(text):
+    a, b = text.split('.')[:2]
+    return int(a), int(b)
+target, supported_min, supported_max, tested_min, tested_max = map(value, sys.argv[1:])
+if not supported_min <= target <= supported_max:
+    raise SystemExit('FAIL: Kubernetes target ngoài cert-manager Supported range')
+if not tested_min <= target <= tested_max:
+    print('NOTICE: Kubernetes target supported nhưng ngoài Tested range')
+else:
+    print('PASS: Kubernetes target nằm trong cả Supported và Tested range')
+PY
+
+  helm show chart oci://quay.io/jetstack/charts/cert-manager \
+    --version "${CERT_MANAGER_VERSION}" \
+    > "${CHART_EVIDENCE}/cert-manager-${CERT_MANAGER_VERSION}-Chart.yaml"
+  helm show values oci://quay.io/jetstack/charts/cert-manager \
+    --version "${CERT_MANAGER_VERSION}" \
+    > "${CHART_EVIDENCE}/cert-manager-${CERT_MANAGER_VERSION}-values.yaml"
+
+  grep -Eq '^version: ' "${CHART_EVIDENCE}/cert-manager-${CERT_MANAGER_VERSION}-Chart.yaml" || {
+    echo 'FAIL: cert-manager Chart metadata thiếu version'; exit 1;
+  }
+  printf 'CERT_MANAGER_VERSION=%q\n' "${CERT_MANAGER_VERSION}" \
+    >> "${BASELINE_ROOT}/research-state.env"
+  echo "PASS: cert-manager ${CERT_MANAGER_VERSION} là latest supported patch và chart metadata đọc được"
+) 2>&1 | tee "${CHART_EVIDENCE}/gate-72-cert-manager.txt"
+CERT_MANAGER_RC=${PIPESTATUS[0]}
+echo "cert-manager gate rc=${CERT_MANAGER_RC}"
+```
+
+**PASS:** `rc=0`. Nếu chỉ Supported mà không Tested, ghi rõ trong support class và bắt buộc lab gate; không tự ghi `TESTED`.
+
+### 7.3. Traefik
+
+Dùng [Traefik Helm chart releases](https://github.com/traefik/traefik-helm-chart/releases) và [Traefik Kubernetes documentation](https://doc.traefik.io/traefik/setup/kubernetes/) làm điểm vào official.
+
+```bash
+helm repo add traefik 'https://traefik.github.io/charts' --force-update
+helm search repo traefik/traefik --versions \
+  > "${CHART_EVIDENCE}/traefik-chart-versions.txt"
+
+curl -fsSL 'https://api.github.com/repos/traefik/traefik-helm-chart/releases?per_page=50' \
+  -o "${CHART_EVIDENCE}/traefik-chart-releases.json"
+curl -fsSL 'https://doc.traefik.io/traefik/setup/kubernetes/' \
+  -o "${CHART_EVIDENCE}/traefik-kubernetes-docs.html"
+
+head "${CHART_EVIDENCE}/traefik-chart-versions.txt"
+read -r -p 'Nhập TRAEFIK_CHART_VERSION exact final chart: ' TRAEFIK_CHART_VERSION
+
+helm show chart traefik/traefik \
+  --version "${TRAEFIK_CHART_VERSION}" \
+  > "${CHART_EVIDENCE}/traefik-${TRAEFIK_CHART_VERSION}-Chart.yaml"
+helm show values traefik/traefik \
+  --version "${TRAEFIK_CHART_VERSION}" \
+  > "${CHART_EVIDENCE}/traefik-${TRAEFIK_CHART_VERSION}-values.yaml"
+helm pull traefik/traefik \
+  --version "${TRAEFIK_CHART_VERSION}" \
+  --destination "${CHART_EVIDENCE}"
+
+TRAEFIK_APP_VERSION="$(awk '/^appVersion:/ {gsub(/"/, "", $2); print $2}' \
+  "${CHART_EVIDENCE}/traefik-${TRAEFIK_CHART_VERSION}-Chart.yaml")"
+TRAEFIK_KUBE_RANGE="$(sed -n 's/^kubeVersion:[[:space:]]*//p' \
+  "${CHART_EVIDENCE}/traefik-${TRAEFIK_CHART_VERSION}-Chart.yaml")"
+```
+
+Gate metadata/source archive:
+
+```bash
+set -o pipefail
+(
+  awk -v v="${TRAEFIK_CHART_VERSION}" 'NR>1 && $2==v {found=1} END {exit !found}' \
+    "${CHART_EVIDENCE}/traefik-chart-versions.txt" || {
+    echo 'FAIL: Traefik chart version không có trong official repo'; exit 1;
+  }
+  [[ "${TRAEFIK_CHART_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    echo 'FAIL: Traefik chart không phải exact final SemVer'; exit 1;
+  }
+  [[ "${TRAEFIK_APP_VERSION}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]] || {
+    echo 'FAIL: không lấy được Traefik appVersion'; exit 1;
+  }
+  test -n "${TRAEFIK_KUBE_RANGE}" || {
+    echo 'FAIL: Chart.yaml không khai kubeVersion'; exit 1;
+  }
+  test -s "${CHART_EVIDENCE}/traefik-${TRAEFIK_CHART_VERSION}.tgz" || {
+    echo 'FAIL: thiếu exact chart archive'; exit 1;
+  }
+
+  sha256sum "${CHART_EVIDENCE}/traefik-${TRAEFIK_CHART_VERSION}.tgz" \
+    > "${CHART_EVIDENCE}/traefik-${TRAEFIK_CHART_VERSION}.sha256"
+  tar -xzf "${CHART_EVIDENCE}/traefik-${TRAEFIK_CHART_VERSION}.tgz" \
+    -C "${CHART_EVIDENCE}"
+
+  printf 'TRAEFIK_CHART_VERSION=%q\nTRAEFIK_APP_VERSION=%q\nTRAEFIK_KUBE_RANGE=%q\n' \
+    "${TRAEFIK_CHART_VERSION}" "${TRAEFIK_APP_VERSION}" "${TRAEFIK_KUBE_RANGE}" \
+    >> "${BASELINE_ROOT}/research-state.env"
+  echo "PASS: Traefik chart=${TRAEFIK_CHART_VERSION}, app=${TRAEFIK_APP_VERSION}, kubeVersion=${TRAEFIK_KUBE_RANGE}"
+) 2>&1 | tee "${CHART_EVIDENCE}/gate-73-traefik-metadata.txt"
+TRAEFIK_METADATA_RC=${PIPESTATUS[0]}
+echo "Traefik metadata gate rc=${TRAEFIK_METADATA_RC}"
+```
+
+**PASS:** `rc=0`. Provider, IngressClass, Service exposure, CRDs và Gateway API được kiểm bằng exact values/render ở §9. Không suy diễn annotation nginx có tác dụng với Traefik.
+
+### 7.4. Rancher
+
+§4.2 đã chọn candidate từ stable channel và dùng nó để lập giao Kubernetes. Không được đổi Rancher version sau đó mà không chạy lại §4.2.
+
+```bash
+source "${BASELINE_ROOT}/research-state.env"
+RANCHER_VERSION="${RANCHER_CANDIDATE}"
+
+curl -fsSL "https://api.github.com/repos/rancher/rancher/releases/tags/v${RANCHER_VERSION}" \
+  -o "${CHART_EVIDENCE}/rancher-${RANCHER_VERSION}-release.json"
+
+helm show chart rancher-stable/rancher \
+  --version "${RANCHER_VERSION}" \
+  > "${CHART_EVIDENCE}/rancher-${RANCHER_VERSION}-Chart.yaml"
+helm show values rancher-stable/rancher \
+  --version "${RANCHER_VERSION}" \
+  > "${CHART_EVIDENCE}/rancher-${RANCHER_VERSION}-values.yaml"
+helm pull rancher-stable/rancher \
+  --version "${RANCHER_VERSION}" \
+  --destination "${CHART_EVIDENCE}"
+```
+
+Gate exact stable chart/release:
+
+```bash
+set -o pipefail
+(
+  [[ "${RANCHER_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    echo 'FAIL: Rancher version không phải exact final SemVer'; exit 1;
+  }
+  awk -v v="${RANCHER_VERSION}" 'NR>1 && $2==v {found=1} END {exit !found}' \
+    "${K8S_EVIDENCE}/rancher-stable-versions.txt" || {
+    echo 'FAIL: Rancher version không có trong stable repository'; exit 1;
+  }
+  [[ "$(jq -r '.draft' "${CHART_EVIDENCE}/rancher-${RANCHER_VERSION}-release.json")" == false ]] || {
+    echo 'FAIL: Rancher release là draft'; exit 1;
+  }
+  [[ "$(jq -r '.prerelease' "${CHART_EVIDENCE}/rancher-${RANCHER_VERSION}-release.json")" == false ]] || {
+    echo 'FAIL: Rancher release là prerelease'; exit 1;
+  }
+
+  CHART_VERSION="$(awk '/^version:/ {print $2}' \
+    "${CHART_EVIDENCE}/rancher-${RANCHER_VERSION}-Chart.yaml")"
+  APP_VERSION="$(awk '/^appVersion:/ {gsub(/"/, "", $2); sub(/^v/, "", $2); print $2}' \
+    "${CHART_EVIDENCE}/rancher-${RANCHER_VERSION}-Chart.yaml")"
+  KUBE_RANGE="$(sed -n 's/^kubeVersion:[[:space:]]*//p' \
+    "${CHART_EVIDENCE}/rancher-${RANCHER_VERSION}-Chart.yaml")"
+
+  [[ "${CHART_VERSION}" == "${RANCHER_VERSION}" && \
+      "${APP_VERSION}" == "${RANCHER_VERSION}" ]] || {
+    echo 'FAIL: Rancher chart version/appVersion không khớp product version'; exit 1;
+  }
+  test -n "${KUBE_RANGE}" || {
+    echo 'FAIL: Rancher chart không khai kubeVersion'; exit 1;
+  }
+
+  sha256sum "${CHART_EVIDENCE}/rancher-${RANCHER_VERSION}.tgz" \
+    > "${CHART_EVIDENCE}/rancher-${RANCHER_VERSION}.sha256"
+  tar -xzf "${CHART_EVIDENCE}/rancher-${RANCHER_VERSION}.tgz" \
+    -C "${CHART_EVIDENCE}"
+
+  printf 'RANCHER_VERSION=%q\nRANCHER_KUBE_RANGE=%q\n' \
+    "${RANCHER_VERSION}" "${KUBE_RANGE}" \
+    >> "${BASELINE_ROOT}/research-state.env"
+  echo "PASS: Rancher ${RANCHER_VERSION} final release, stable chart/app khớp, kubeVersion=${KUBE_RANGE}"
+) 2>&1 | tee "${CHART_EVIDENCE}/gate-74-rancher-metadata.txt"
+RANCHER_METADATA_RC=${PIPESTATUS[0]}
+echo "Rancher metadata gate rc=${RANCHER_METADATA_RC}"
+```
+
+**PASS:** `rc=0`. Audit full values/templates ở §8 và render ở §9. Không dừng ở [Rancher Helm Chart Options](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-references/helm-chart-options), vì trang đó có thể thiếu key mới.
+
+### 7.5. Addon còn lại
+
+### 7.5.1. Gate công cụ đọc image digest
+
+Baseline `APPROVED` phải lưu digest. Dùng một công cụ đã được tổ chức phê duyệt và có sẵn; runbook không tự cài:
+
+```bash
+ADDON_EVIDENCE="${CHART_EVIDENCE}/addons"
+mkdir -p "${ADDON_EVIDENCE}"
+
+set -o pipefail
+(
+  if command -v crane >/dev/null 2>&1; then
+    IMAGE_INSPECTOR=crane
+  elif command -v skopeo >/dev/null 2>&1; then
+    IMAGE_INSPECTOR=skopeo
+  else
+    echo 'FAIL: cần crane hoặc skopeo để resolve digest'; exit 1
+  fi
+
+  printf 'IMAGE_INSPECTOR=%q\n' "${IMAGE_INSPECTOR}" \
+    >> "${BASELINE_ROOT}/research-state.env"
+  echo "PASS: image inspector=${IMAGE_INSPECTOR}"
+) 2>&1 | tee "${ADDON_EVIDENCE}/gate-751-image-tool.txt"
+IMAGE_TOOL_RC=${PIPESTATUS[0]}
+echo "image tool gate rc=${IMAGE_TOOL_RC}"
+```
+
+**FAIL/STOP:** không được để digest trống hoặc thay bằng `latest`.
+
+Tạo helper dùng lại ở §9:
+
+```bash
+tee "${BASELINE_ROOT}/resolve-image-digest.sh" >/dev/null <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+image_ref="${1:?usage: resolve-image-digest.sh IMAGE}"
+inspector="${IMAGE_INSPECTOR:?source research-state.env first}"
+
+if [[ "${image_ref}" == *@sha256:* ]]; then
+  printf '%s\n' "${image_ref##*@}"
+elif [[ "${inspector}" == crane ]]; then
+  crane digest "${image_ref}"
+else
+  skopeo inspect --format '{{.Digest}}' "docker://${image_ref}"
+fi
 EOF
-
-# local-path dùng WaitForFirstConsumer nên PVC vẫn Pending cho tới khi có Pod sử dụng
-kubectl get pvc pvc-test          # EXPECTED ở bước này: STATUS = Pending
-
-kubectl create -f - <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: pvc-test-pod
-spec:
-  containers:
-    - name: test
-      image: busybox:1.37
-      command:
-        - sh
-        - -c
-        - echo "local-path works" > /data/test.txt && sleep 3600
-      volumeMounts:
-        - name: data
-          mountPath: /data
-  volumes:
-    - name: data
-      persistentVolumeClaim:
-        claimName: pvc-test
-EOF
-
-kubectl wait --for=condition=Ready pod/pvc-test-pod --timeout=180s
-kubectl get pvc pvc-test          # PASS: STATUS = Bound
-kubectl get pv
-kubectl get pod pvc-test-pod -o wide
-kubectl exec pvc-test-pod -- cat /data/test.txt
-# PASS: local-path works
-
-# cleanup: xóa consumer trước, sau đó mới xóa claim
-kubectl delete pod pvc-test-pod
-kubectl delete pvc pvc-test
+chmod 0755 "${BASELINE_ROOT}/resolve-image-digest.sh"
 ```
 
-`VOLUMEBINDINGMODE=WaitForFirstConsumer` trì hoãn việc tạo/bind PV cho tới khi scheduler biết Pod consumer
-sẽ chạy trên node nào; vì vậy PVC `Pending` trước khi tạo `pvc-test-pod` là **đúng thiết kế**, không
-phải lỗi. `ALLOWVOLUMEEXPANSION=false` cũng là giá trị mong đợi của StorageClass này: không thể tăng
-dung lượng claim hiện hữu bằng cách sửa `requests.storage`.
-
-> ⚠️ `local-path` lưu dữ liệu trên disk của node được chọn. Node mất disk thì volume không tự failover;
-> chỉ dùng cho lab hoặc workload chấp nhận rủi ro này. Xóa Pod không làm mất PVC ngay, nhưng
-> `RECLAIMPOLICY=Delete` sẽ xóa PV và dữ liệu local tương ứng khi PVC bị xóa.
-
-### 8.8. Gate cụm nền — trước khi cài các add-on
-
-| #  | Kiểm tra                    | Lệnh                                                                                | PASS                                     |
-| -- | ---------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------- |
-| 1  | Helm đúng baseline         | `helm version --short`                                                             | **≥ v3.18**                       |
-| 2  | Kubernetes đúng baseline   | `kubectl version`                                                                  | Client/Server**v1.35.6**           |
-| 3  | 3 node Ready, worker 0 taint | [§8.2](#82-tầng-2--node--tài-nguyên)                                              | 3/3                                      |
-| 4  | Pod cross-node thông        | [§8.3](#83-tầng-3--pod-networking-cross-node)                                       | 0% packet loss                           |
-| 5  | DNS nội + ngoại            | [§8.4](#84-tầng-4--dns)                                                             | cả 2 resolve                            |
-| 6  | RAM còn headroom            | `kubectl describe nodes \| grep -A6 Allocated`                                      | Requests < 50% trước Rancher           |
-| 7  | quyền cluster-admin         | `kubectl auth can-i '*' '*' --all-namespaces`                                      | `yes`                                  |
-| 8  | exec / logs / port-forward   | [§8.6](#86-tầng-6--đường-control-plane--kubelet-rancher-ui-sống-chết-ở-đây) | cả 3 lệnh OK                           |
-| 9  | metrics-server               | `kubectl top nodes`                                                                | đủ số liệu 3 node                    |
-| 10 | Default StorageClass         | `kubectl get storageclass`                                                         | `local-path` có `(default)`         |
-| 11 | Storage provisioner          | `kubectl -n local-path-storage rollout status deploy/local-path-provisioner`       | `successfully rolled out`              |
-| 12 | Pull image Traefik           | Trên**từng worker**: `sudo crictl pull docker.io/traefik:v3.7.6`           | cả 2 worker trả về image reference/ID |
-
-Gate nhanh chạy trên `k8s-master` bằng user `ubuntu` ngay trước §9:
+### 7.5.2. Discovery exact addon releases
 
 ```bash
-helm version --short                                      # PASS: >= v3.18
-kubectl version                                           # PASS: Client/Server v1.35.6
-kubectl get nodes                                         # PASS: 3/3 Ready
-kubectl auth can-i '*' '*' --all-namespaces               # PASS: yes
-kubectl top nodes                                         # PASS: có CPU/RAM của cả 3 node
-kubectl get storageclass                                  # PASS: local-path (default)
-kubectl -n local-path-storage rollout status \
-  deploy/local-path-provisioner                           # PASS: successfully rolled out
+set -a
+source "${BASELINE_ROOT}/baseline.env"
+set +a
+
+for spec in \
+  'cloudflared cloudflare/cloudflared' \
+  'local-path-provisioner rancher/local-path-provisioner' \
+  'metallb metallb/metallb'; do
+  name="${spec%% *}"
+  repo="${spec#* }"
+  curl -fsSL "https://api.github.com/repos/${repo}/releases?per_page=30" \
+    -o "${ADDON_EVIDENCE}/${name}-releases.json"
+  jq -r '.[] | select(.draft==false and .prerelease==false) | [.tag_name,.published_at,.html_url] | @tsv' \
+    "${ADDON_EVIDENCE}/${name}-releases.json" \
+    > "${ADDON_EVIDENCE}/${name}-final-releases.tsv"
+done
+
+echo '--- cloudflared ---'; head "${ADDON_EVIDENCE}/cloudflared-final-releases.tsv"
+echo '--- local-path-provisioner ---'; head "${ADDON_EVIDENCE}/local-path-provisioner-final-releases.tsv"
+echo '--- MetalLB ---'; head "${ADDON_EVIDENCE}/metallb-final-releases.tsv"
+
+read -r -p 'CLOUDFLARED_VERSION exact final release (hoặc N/A): ' CLOUDFLARED_VERSION
+read -r -p 'LOCAL_PATH_VERSION exact final release (hoặc N/A): ' LOCAL_PATH_VERSION
+read -r -p 'METALLB_VERSION exact final release (hoặc N/A): ' METALLB_VERSION
 ```
 
-Khả năng pull image là trạng thái riêng của runtime trên từng node. Master đang giữ taint `NoSchedule`,
-nên chạy lệnh sau **trực tiếp trên `k8s-worker1`, rồi lặp lại trên `k8s-worker2`**; chỉ chạy trên master
-không chứng minh node có thể chạy Pod Traefik:
+Gate selection khớp `OPTIONAL_ADDONS`:
 
 ```bash
-sudo crictl pull docker.io/traefik:v3.7.6
-# PASS: trả về image reference/ID; không có lỗi DNS, TLS, timeout hoặc rate-limit
-```
-
-Chỉ tiếp tục khi Helm đạt baseline, server Kubernetes đúng version, đủ 3 node `Ready`, quyền trả
-`yes`, metrics có số liệu, `local-path` có `(default)`, provisioner `successfully rolled out` và cả
-hai worker pull được image Traefik.
-`WaitForFirstConsumer` và `ALLOWVOLUMEEXPANSION=false` của `local-path` là giá trị mong đợi, không
-phải lỗi.
-
-### 8.9. Dọn dẹp resource test
-
-```bash
-kubectl delete pod nettest-w1 nettest-w2
-kubectl delete deploy web
-kubectl delete svc web web-np
-```
-
----
-
-## 9. Cài Ingress Controller (Traefik)
-
-> **Đọc §9.1 trước khi cài.** Mục tiêu của mục 9 không chỉ là tạo một Pod Traefik, mà là tạo **điểm vào HTTP/HTTPS chung** cho nhiều ứng dụng. Trong kiến trúc của runbook, Cloudflare Tunnel chạy trong cluster và gọi Traefik qua mạng nội bộ, nên Traefik được cài với Service `ClusterIP`; **không cần NodePort, external IP hay MetalLB** cho luồng Internet chính.
-
-### 9.1. Kiến thức nền và mục đích của mục 9
-
-#### 9.1.1. Từ Pod đến một địa chỉ ổn định: Service và EndpointSlice
-
-Pod có IP riêng nhưng Pod là tài nguyên tạm thời: khi bị tạo lại, IP có thể đổi. Client vì vậy không nên nhớ IP của từng Pod. **Service** tạo một tên DNS và địa chỉ ổn định phía trước một nhóm Pod; selector của Service chọn các Pod backend. Control plane ghi danh sách IP/port backend hiện tại vào **EndpointSlice** và tự cập nhật khi Pod thêm, mất hoặc đổi trạng thái.
-
-Ví dụ đường đi bên trong cluster:
-
-```text
-client → web.default.svc.cluster.local:80
-       → Service web, port 80
-       → EndpointSlice: 10.244.1.2:80, 10.244.2.3:80, ...
-       → một Pod web đang Ready
-```
-
-Ba trường port thường gặp:
-
-| Trường       | Ý nghĩa                                                                                                      |
-| -------------- | -------------------------------------------------------------------------------------------------------------- |
-| `port`       | Cổng mà client dùng trên Service                                                                           |
-| `targetPort` | Cổng ứng dụng lắng nghe trong Pod; mặc định bằng`port`                                               |
-| `nodePort`   | Cổng được mở trên mỗi node, chỉ có với`NodePort` hoặc khi một `LoadBalancer` có cấp NodePort |
-
-> Dùng `kubectl get endpointslice -l kubernetes.io/service-name=<service>` để kiểm tra Service đã tìm thấy Pod backend hay chưa. API `Endpoints` cũ đã deprecated từ Kubernetes 1.33; runbook ưu tiên `EndpointSlice`.
-
-#### 9.1.2. Pod gọi Pod: DNS, kube-proxy và load balancing theo kết nối
-
-Tình huống phổ biến nhất trong cluster: ứng dụng A gọi ứng dụng B, mỗi bên chạy 2–3 Pod. A **không gọi thẳng IP của một Pod B** mà gọi qua Service của B. Cơ chế gồm ba tầng:
-
-1. **Mạng phẳng của CNI.** Flannel cấp mỗi Pod một IP trong `10.244.0.0/16` và mọi Pod tới được IP của mọi Pod khác, kể cả khác node — chính là điều đã verify ở [§8.3](#83-tầng-3--pod-networking-cross-node). Đây là nền tảng bắt buộc, nhưng IP Pod là tạm thời ([§9.1.1](#911-từ-pod-đến-một-địa-chỉ-ổn-định-service-và-endpointslice)) nên không dùng trực tiếp.
-2. **Service = địa chỉ ổn định + load balancing.** Bạn tạo Service `b` với selector trỏ vào label của các Pod B. Kubernetes cấp cho nó một ClusterIP cố định và tự duy trì danh sách IP của 2–3 Pod B đang **Ready** trong EndpointSlice. Khi Pod A mở kết nối tới ClusterIP đó, kube-proxy (iptables/IPVS trên node) DNAT kết nối tới **một trong các Pod B** — mỗi connection được phân phối sang một backend, đó là load balancing ở tầng **L4** (tầng kết nối TCP/UDP: hệ thống chỉ nhìn thấy IP và port, không đọc được nội dung HTTP bên trong).
-3. **CoreDNS.** Mỗi Service có tên DNS — DNS nội bộ đã verify ở [§8.4](#84-tầng-4--dns). Code trong Pod A chỉ cần biết tên:
-
-| Cách gọi                                   | Khi nào dùng                                                         |
-| -------------------------------------------- | ---------------------------------------------------------------------- |
-| `http://b`                                 | A và B cùng namespace                                                |
-| `http://b.other-ns`                        | B ở namespace khác                                                   |
-| `http://b.other-ns.svc.cluster.local:8080` | Dạng đầy đủ, tường minh nhất; nên dùng trong manifest/config |
-
-Luồng đầy đủ khi A gọi B:
-
-```text
-Pod A ──► http://b:80
-      → CoreDNS: "b" → ClusterIP của Service b (vd 10.96.34.12)
-      → kube-proxy DNAT → chọn một Pod B: 10.244.1.5 / 10.244.2.7 / 10.244.2.9
-      → Pod B xử lý và trả response trên đúng kết nối đó
-```
-
-Các điểm hay nhầm:
-
-- **Chỉ bên nhận cần Service.** A gọi ra ngoài bằng chính network của Pod; A chỉ cần Service khi có bên khác muốn gọi *vào* A.
-- **Load balancing theo kết nối, không theo request.** Nếu A giữ kết nối keep-alive hoặc gRPC lâu dài tới B, mọi request trên kết nối đó dồn vào đúng một Pod B. Muốn cân bằng theo từng request phải xử lý ở **L7** — tầng nội dung HTTP, nơi phần mềm đọc được hostname, path, header: client-side load balancing, service mesh, hoặc một **reverse proxy** (máy chủ trung gian đứng về phía server, nhận request thay cho backend rồi chuyển tiếp) như Traefik — đúng vai trò Traefik sẽ đảm nhận ở [§9.1.4](#914-service-khác-ingress-như-thế-nào).
-- **Resolve được chưa chắc gọi được.** Service sai selector hoặc Pod chưa Ready thì DNS vẫn trả ClusterIP nhưng kết nối thất bại; kiểm tra bằng lệnh EndpointSlice ở [§9.1.1](#911-từ-pod-đến-một-địa-chỉ-ổn-định-service-và-endpointslice).
-- **Headless Service** (`clusterIP: None`) dành cho trường hợp cần gọi *từng Pod cụ thể* (database primary/replica, Kafka…): DNS trả thẳng IP từng Pod thay vì một địa chỉ chung, thường đi cùng StatefulSet. Runbook không cần nó cho luồng chính.
-
-Trong runbook, chính cơ chế này xuất hiện ở [§12](#12-tạo-cloudflare-tunnel-chạy-trong-cụm): Pod `cloudflared` gọi `traefik.traefik.svc.cluster.local:80` — một lời gọi service-to-service qua DNS + ClusterIP, không khác gì A gọi B.
-
-#### 9.1.3. `ClusterIP`, `NodePort` và `LoadBalancer`
-
-Đây là **các kiểu Service ở tầng mạng L4**, không phải các loại Ingress:
-
-| Kiểu Service    | Có thể truy cập từ đâu                                                         | Cơ chế và mục đích phù hợp                                                                                                                                                                                                                                                                        |
-| ---------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ClusterIP`    | Trong cluster                                                                        | Mặc định. Cấp IP/DNS nội bộ ổn định; phù hợp cho giao tiếp service-to-service và cho`cloudflared` gọi Traefik trong runbook này.                                                                                                                                                         |
-| `NodePort`     | Qua`<NodeIP>:<nodePort>` trên mỗi node, ngoài việc vẫn có ClusterIP          | Phù hợp test từ LAN hoặc làm tầng dưới cho một LB bên ngoài. Không tự cung cấp hostname routing hay TLS; ứng dụng/controller vẫn có thể tự phục vụ TLS. Dải mặc định là`30000–32767`.                                                                                       |
-| `LoadBalancer` | Qua địa chỉ do một implementation LB cấp; có thể là public hoặc private/LAN | Kubernetes chỉ khai báo nhu cầu. Cloud provider, MetalLB hoặc implementation khác phải cấp/quảng bá địa chỉ. Thông thường nó xây trên NodePort, nhưng có thể tắt cấp NodePort bằng`allocateLoadBalancerNodePorts: false` nếu implementation hỗ trợ đường đi trực tiếp. |
-
-`EXTERNAL-IP: <pending>` không có nghĩa CNI hỏng. Nó thường có nghĩa Service `LoadBalancer` chưa được implementation nào xử lý. Trên VMware/bare-metal, **MetalLB** có thể cấp IP từ pool LAN và quảng bá IP đó bằng L2/BGP; MetalLB là một implementation cho Service `LoadBalancer`, **không phải cloud-controller-manager**.
-
-Từ “load balancing” xuất hiện ở nhiều tầng nhưng không cùng một đối tượng: Service/kube-proxy phân phối kết nối tới endpoint; Traefik chọn backend theo rule HTTP rồi cân bằng request; Service `type: LoadBalancer` yêu cầu thêm một điểm vào bên ngoài cluster. Đừng suy ra rằng cứ có cân bằng tải nội bộ thì Service phải mang type `LoadBalancer`.
-
-#### 9.1.4. Service khác Ingress như thế nào?
-
-Đến đây bạn đã đưa được traffic tới một nhóm Pod qua Service. Nhưng khi triển khai thật, cluster chạy **nhiều ứng dụng cùng lúc** — web app, API, rồi cả UI Rancher — mỗi ứng dụng một Service riêng. Bài toán mới xuất hiện: muốn **một điểm vào duy nhất** cho tất cả, và phân request theo **tên miền / đường dẫn**: `app.hieupn.site` vào Service `web`, `rancher.hieupn.site` vào Service của Rancher. Service không tự làm được việc này vì nó hoạt động ở L4 — chỉ thấy IP và port, không đọc được hostname hay path nằm bên trong request HTTP.
-
-Lời giải kinh điển (có từ trước cả Kubernetes) là đặt một **reverse proxy** ở cửa: một server nhận *mọi* request HTTP thay cho các ứng dụng, mở request ra đọc hostname/path, rồi chuyển tiếp tới đúng ứng dụng. Gọi là *reverse* vì nó đứng về phía server, đại diện cho backend — ngược với proxy phía client:
-
-```text
-                          ┌─ Host: app.hieupn.site     → Service web     → Pod web
-mọi request ──► Traefik ──┼─ Host: api.example.com     → Service api     → Pod api
-   (một reverse proxy)    └─ Host: rancher.hieupn.site → Service rancher → Pod rancher
-```
-
-Nói gọn: Service trả lời câu hỏi **“làm sao tới một nhóm Pod ổn định?”**, Ingress trả lời câu hỏi **“request HTTP có host/path này phải tới Service nào?”**. Kubernetes chia lời giải reverse proxy thành các mảnh có tên riêng — đọc bảng theo đúng thứ tự này:
-
-| Thành phần            | Vai trò khi triển khai                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Ingress`             | **Bản khai báo luật định tuyến của một ứng dụng**, viết bằng YAML: “request có hostname `app.example.com`, path `/` → giao cho Service `web` port 80”. Nó chỉ là *dữ liệu* lưu trong cluster — tự nó không nhận và không xử lý request nào. Lợi ích khi vận hành: mỗi app tự mang luật của mình; thêm app mới = thêm một Ingress, không phải sửa file cấu hình tập trung nào.                                                                                      |
-| Ingress Controller      | **Phần mềm thật sự làm việc**: chạy như Pod trong cluster, liên tục theo dõi các object Ingress/Service/EndpointSlice qua Kubernetes API, rồi tự cấu hình reverse proxy bên trong nó theo các luật đọc được. Không cài controller thì mọi Ingress chỉ nằm im vô hại — đây là lý do mục 9 tồn tại. Runbook dùng **Traefik**.                                                                                                                                                    |
-| `IngressClass`        | **Tấm biển tên gắn cho mỗi controller.** Một cluster có thể chạy nhiều controller cùng lúc (Traefik cho app nội bộ, một controller khác cho app public…), nên mỗi Ingress phải chỉ rõ nó thuộc về ai bằng trường `ingressClassName`. Runbook tạo class tên `traefik`; chi tiết và khái niệm *default class* ở [§9.1.7](#917-provider-của-traefik-và-default-ingressclass).                                                                                                          |
-| Service của controller | **Đường để client tới được chính Traefik.** Traefik cũng chỉ là Pod chạy trong cluster — quy tắc [§9.1.1](#911-từ-pod-đến-một-địa-chỉ-ổn-định-service-và-endpointslice) áp dụng cho chính nó — nên nó cũng cần một Service đứng trước. Kiểu `ClusterIP`/`NodePort`/`LoadBalancer` ([§9.1.3](#913-clusterip-nodeport-và-loadbalancer)) của Service này quyết định *ai gọi được vào proxy*; lựa chọn đó độc lập với các Service của ứng dụng phía sau. |
-
-Ingress chuẩn chỉ định tuyến **HTTP/HTTPS (L7)** theo hostname/path; nó không expose TCP/UDP bất kỳ. Kubernetes vẫn duy trì Ingress API ổn định nhưng đã **freeze** API này và khuyến nghị Gateway API cho phát triển mới. Runbook vẫn dùng Ingress vì đơn giản, phổ biến và đủ cho lab; muốn dùng Gateway API với Traefik phải cài Gateway API CRDs và bật provider riêng — mục 9 không làm việc đó.
-
-#### 9.1.5. Đọc một object `Ingress`: rules, host, path và pathType
-
-Đây là dạng manifest sẽ gõ ở mục 10 — đọc kỹ từng trường một lần ở đây để lúc đó chỉ việc gõ. Mỗi trường được chú thích ngay tại chỗ:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: web
-spec:
-  ingressClassName: traefik   # controller chịu trách nhiệm — IngressClass, chi tiết ở §9.1.7
-  rules:                      # danh sách rule L7; mỗi rule = 1 host + nhiều path
-    - host: app.example.com   # so với Host header của request
-      http:
-        paths:                # cùng 1 host có thể tách nhiều path về nhiều Service
-          - path: /
-            pathType: Prefix  # cách hiểu trường path — bảng ngay dưới
-            backend:
-              service:
-                name: web     # Service đích (§9.1.1); phải cùng namespace với Ingress
-                port:
-                  number: 80  # port của Service; hoặc dùng name: <tên-port> thay số
-```
-
-`pathType` quyết định cách so trường `path` với URL của request — trường bắt buộc và hay bị chép máy móc mà không hiểu:
-
-| `pathType`               | Cách khớp                                          | Ví dụ với`path: /api`                                                |
-| -------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
-| `Prefix`                 | Theo**segment** của URL, tách bằng `/`    | Khớp`/api`, `/api/`, `/api/v1`; **không** khớp `/apixyz` |
-| `Exact`                  | Đúng tuyệt đối, phân biệt cả dấu`/` cuối | Khớp`/api`; không khớp `/api/`                                     |
-| `ImplementationSpecific` | Tùy controller tự định nghĩa                    | Tránh dùng khi cần manifest portable                                   |
-
-Quy tắc khớp một request:
-
-- **`host` so với cái gì?** Mỗi request HTTP luôn mang theo tên miền đang truy cập trong header `Host` — trình duyệt và `curl` tự thêm. Nhờ header này, một điểm vào duy nhất phục vụ được nhiều domain: controller chỉ việc đọc `Host` rồi chọn rule tương ứng. Các lệnh test ở mục 10 và 13 giả lập chính nó bằng `curl -H "Host: ..."`.
-- Controller so **host trước, path sau**. Rule không khai `host` thì khớp mọi hostname (catch-all).
-- Host wildcard `*.example.com` chỉ khớp **đúng một label**: `a.example.com` khớp, `a.b.example.com` và `example.com` không.
-- Nhiều path cùng khớp một request → **path dài nhất thắng**; nếu vẫn hòa, `Exact` được ưu tiên hơn `Prefix`.
-- Hai object `Ingress` cùng host nhưng khác path → controller **gộp chung** thành một bảng route; nhờ vậy nhiều app/team chia nhau được một domain, mỗi app giữ Ingress riêng.
-- Request không khớp rule nào → rơi vào `defaultBackend` nếu có khai; runbook không khai, nên Traefik trả **404**. Đây chính là lý do smoke test ở [§9.3.1](#931-verify--tất-cả-phải-pass-trước-mục-10) coi 404 là PASS: nó chứng minh Traefik sống và chỉ đơn giản chưa có rule nào — không phải lỗi.
-
-Còn `tls:`? Ingress chuẩn có block `tls: [{hosts, secretName}]` để controller terminate HTTPS bằng cert lấy từ Secret. Runbook **cố ý không dùng**: TLS terminate ở Cloudflare edge, đoạn đường trong cluster đi HTTP ([§13](#13-trỏ-domain--kiểm-tra-trên-internet)). Gặp tutorial bên ngoài có `tls:` thì hiểu đó là kiến trúc không có tunnel đứng trước.
-
-Tiểu mục tiếp theo trả lời: Traefik đọc object này và biến nó thành cấu hình proxy như thế nào.
-
-#### 9.1.6. Traefik sẽ làm gì trong cluster này?
-
-Traefik vừa theo dõi Kubernetes API vừa làm reverse proxy. Một request đi qua các khái niệm sau:
-
-```text
-Internet → Cloudflare edge → tunnel outbound → Pod cloudflared
-        → traefik.traefik.svc.cluster.local:80 (ClusterIP)
-        → EntryPoint web (:80)
-        → Router khớp Host/Path từ object Ingress
-        → Middleware tùy chọn
-        → Traefik Service nội bộ → Pod IP lấy từ EndpointSlice
-```
-
-- **EntryPoint**: cổng Traefik lắng nghe, trong chart là `web` và `websecure`.
-- **Router**: rule chọn request theo host/path.
-- **Middleware**: bước xử lý tùy chọn như redirect, auth, rate limit hoặc sửa path.
-- **Traefik Service**: khái niệm nội bộ của Traefik chứa các backend; đừng nhầm với object Kubernetes `Service`.
-- **Provider**: nguồn cấu hình mà Traefik theo dõi. `kubernetesIngress` đọc Ingress chuẩn; `kubernetesCRD` đọc CRD riêng như `IngressRoute` và `Middleware`. Chi tiết ở [§9.1.7](#917-provider-của-traefik-và-default-ingressclass).
-
-Với `nativeLBByDefault: false` của chart, Traefik thường resolve EndpointSlice rồi proxy trực tiếp tới Pod IP thay vì coi ClusterIP của Service backend là một đích duy nhất. Ta dùng `Ingress` chuẩn trong [§10](#10-deploy-app-mẫu--ingress) để kiến thức dễ chuyển sang controller khác; chỉ dùng CRD riêng khi thật sự cần tính năng đặc thù của Traefik.
-
-#### 9.1.7. Provider của Traefik và default IngressClass
-
-Hai nhóm flag quan trọng của lệnh cài ở [§9.3](#93-cài-đặt-traefik) xoay quanh hai khái niệm này.
-
-**Provider là khái niệm của Traefik, không phải của Kubernetes.** Traefik là reverse proxy **động**: không có file config tĩnh liệt kê sẵn route. Nó theo dõi các nguồn cấu hình — mỗi nguồn là một *provider* — rồi tự dựng bảng định tuyến từ những gì đọc được và cập nhật nóng khi nguồn thay đổi, không cần restart. Chạy trong Kubernetes, "bật một provider" nghĩa là: Traefik mở watch tới Kubernetes API server và theo dõi một nhóm resource nhất định (RBAC của chart cấp quyền đọc tương ứng). Hai provider trong lệnh cài khác nhau ở *loại resource được theo dõi*:
-
-| Provider              | Theo dõi resource                                                                            | Đặc điểm                                                                                                                                               |
-| --------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kubernetesIngress` | `Ingress` chuẩn (`networking.k8s.io/v1`)                                                 | API chính thức của Kubernetes, controller nào cũng hiểu → manifest**portable** sang controller khác. Chỉ định tuyến HTTP theo host/path. |
-| `kubernetesCRD`     | CRD riêng của Traefik:`IngressRoute`, `Middleware`, `TraefikService`, `TLSOption`… | Chỉ Traefik hiểu →**không portable**; đổi lại rule match phức tạp hơn, có middleware, route được cả TCP/UDP.                          |
-
-**CRD (CustomResourceDefinition)** là cơ chế "dạy" API server một kiểu resource mới ngoài bộ chuẩn (Pod, Service…). Chart Traefik cài các CRD này ở lần install đầu; sau đó `kubectl get ingressroute -A` chạy được như với resource chuẩn và object được lưu trong etcd như mọi object khác. Bản thân CRD chỉ là *định nghĩa kiểu dữ liệu* — phải có phần mềm đọc nó (ở đây là Traefik với provider `kubernetesCRD` bật) thì object mới có tác dụng.
-
-Runbook bật **cả hai** provider vì: ứng dụng ở [§10](#10-deploy-app-mẫu--ingress) dùng `Ingress` chuẩn, còn route dashboard mà chart tạo là một `IngressRoute` (CRD). Thiếu provider nào thì YAML tương ứng thành object "nằm im trong etcd, không ai đọc". Cả hai provider cùng đổ cấu hình vào một bảng routing nội bộ duy nhất của Traefik.
-
-**Default IngressClass giải bài toán "Ingress này của ai?".** Một cluster có thể chạy nhiều ingress controller cùng lúc; khi tạo một `Ingress` phải có cách chỉ định controller chịu trách nhiệm — nếu không, hoặc không ai xử lý, hoặc hai controller tranh nhau xử lý. `IngressClass` là object cấp cluster làm "danh thiếp" cho mỗi controller:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: IngressClass
-metadata:
-  name: traefik                                          # tên mà Ingress tham chiếu
-  annotations:
-    ingressclass.kubernetes.io/is-default-class: "true"  # phần "default"
-spec:
-  controller: traefik.io/ingress-controller              # định danh phần mềm xử lý
-```
-
-Mỗi `Ingress` khai `spec.ingressClassName: traefik`; controller thấy class không phải của mình thì bỏ qua. **Default** nghĩa là: khi một Ingress *không khai* `ingressClassName`, admission controller của Kubernetes tự điền tên class default vào object ngay lúc tạo. Đây là lưới an toàn cho manifest thiếu sót — và là lý do chỉ nên có **một** class default: từ hai default trở lên, Kubernetes từ chối tạo Ingress không khai class vì không biết chọn ai. Đây là cùng một pattern với StorageClass default đã gặp ở [§8.7](#87-tầng-7--công-cụ-và-add-on-kubeadm-không-cài-sẵn): PVC không khai `storageClassName` thì dùng class có `(default)`.
-
-Luồng đầy đủ khi hai khái niệm gặp nhau:
-
-```text
-Bạn tạo Ingress (giả sử quên khai class)
-  → admission controller điền ingressClassName: traefik (vì class traefik là default)
-Traefik (provider kubernetesIngress đang watch Ingress)
-  → thấy ingressClassName trỏ tới IngressClass có controller traefik.io/ingress-controller
-  → nhận trách nhiệm → sinh Router → bắt đầu nhận traffic cho host/path đó
-Controller khác (nếu có) → class không phải của mình → bỏ qua
-```
-
-Runbook vẫn khai tường minh `ingressClassName: traefik` trong mọi Ingress dù đã có default — khai rõ tốt hơn dựa vào lưới an toàn; default chỉ để đỡ các manifest quên khai.
-
-#### 9.1.8. Các khái niệm Helm xuất hiện trong lệnh cài
-
-| Khái niệm             | Nghĩa trong mục 9                                                                                                                                                           |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Helm chart              | Gói template Kubernetes của Traefik                                                                                                                                         |
-| Helm release`traefik` | Một lần cài chart có tên`traefik`; `upgrade --install` tạo mới nếu chưa có và cập nhật nếu đã có                                                         |
-| Namespace`traefik`    | Phạm vi chứa Deployment, Pod, Service và phần lớn tài nguyên của release;`IngressClass` và CRD là tài nguyên cấp cluster                                       |
-| Values /`--set`       | Giá trị làm thay đổi template. Runbook khai tường minh các quyết định quan trọng thay vì phụ thuộc hoàn toàn vào default của phiên bản chart tương lai |
-| `--version 41.0.2`    | Ghim chart để lần chạy sau không tự lấy chart mới có hành vi khác                                                                                                  |
-
-**Kết quả mong đợi sau mục 9:** có một Deployment Traefik Ready, một IngressClass `traefik`, một Service Traefik kiểu `ClusterIP` với cổng 80/443, và dashboard chỉ truy cập cục bộ qua `kubectl port-forward`. Mục 10 mới tạo ứng dụng và rule Ingress để kiểm tra đường đi end-to-end.
-
-### 9.2. Vì sao chọn Traefik thay cho `ingress-nginx`
-
-> ⚠️ `kubernetes/ingress-nginx` đã **retired và archive trong tháng 03/2026**; bản cuối là `v1.15.1` và dự án không còn release, bugfix hay bản vá bảo mật. Đây là lý do đủ để không dùng nó cho một cài đặt mới. Không nhầm dự án này với web server nginx hoặc F5 NGINX Ingress Controller — đó là các sản phẩm/dự án khác. Khi đánh giá CVE, luôn đối chiếu đúng sản phẩm và phiên bản; không tự động gán advisory của nginx upstream cho mọi ingress controller có chữ “nginx”.
-
-Traefik phù hợp ở đây vì:
-
-- Traefik vẫn được duy trì và chart **41.0.2** phát hành ngày 06/07/2026, dùng Traefik Proxy `v3.7.6`; chart yêu cầu Kubernetes `>=1.25`, phù hợp Kubernetes `1.35.6` của runbook.
-- SUSE/Rancher có [hướng dẫn migration từ ingress-nginx sang Traefik](https://ranchermanager.docs.rancher.com/v2.14/how-to-guides/new-user-guides/kubernetes-resources-setup/load-balancer-and-ingress-controller/guide-to-ingress-nginx-retirement); đích tiếp theo của runbook là Rancher.
-- Hỗ trợ cả Ingress chuẩn và CRD riêng. Traefik cũng hỗ trợ Gateway API, nhưng chart không cài Gateway API CRDs và runbook chưa bật provider đó.
-- Một replica là đủ cho lab hiện tại; production cần đánh giá thêm replica, PodDisruptionBudget, anti-affinity, tài nguyên và đường vào HA.
-
-Nguồn kiểm chứng: [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/), [Kubernetes Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/), [thông báo retirement ingress-nginx](https://v1-35.docs.kubernetes.io/blog/2026/01/29/ingress-nginx-statement/), [Traefik chart 41.0.2](https://github.com/traefik/traefik-helm-chart/releases/tag/v41.0.2).
-
-### 9.3. Cài đặt Traefik
-
-Chạy trên master bằng user `ubuntu` đã có kubeconfig. Helm đã được chuẩn bị ở [§8.7](#87-tầng-7--công-cụ-và-add-on-kubeadm-không-cài-sẵn). Ghim chart và các lựa chọn kiến trúc quan trọng để lần sau không bị thay đổi theo default mới:
-
-```bash
-helm repo add traefik https://traefik.github.io/charts
-helm repo update
-
-helm upgrade --install traefik traefik/traefik \
-  --namespace traefik --create-namespace \
-  --version 41.0.2 \
-  --set providers.kubernetesIngress.enabled=true \
-  --set providers.kubernetesCRD.enabled=true \
-  --set ingressClass.enabled=true \
-  --set ingressClass.name=traefik \
-  --set ingressClass.isDefaultClass=true \
-  --set ingressRoute.dashboard.enabled=true \
-  --set service.spec.type=ClusterIP \
-  --wait --timeout 5m
-```
-
-Các giá trị chính:
-
-| Giá trị                                    | Ý nghĩa                                                                                                                           |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `providers.kubernetesIngress.enabled=true` | Đọc object Ingress chuẩn mà mục 10 sẽ tạo                                                                                    |
-| `providers.kubernetesCRD.enabled=true`     | Cài/đọc CRD Traefik; dashboard chart dùng`IngressRoute` nội bộ                                                              |
-| `ingressClass.*`                           | Tạo class`traefik` và đặt làm default duy nhất của cluster ([§9.1.7](#917-provider-của-traefik-và-default-ingressclass)) |
-| `service.spec.type=ClusterIP`              | Chỉ expose Traefik trong cluster; đúng với cloudflared in-cluster và không sinh NodePort/`EXTERNAL-IP: <pending>`           |
-| `ports.web` / `ports.websecure`          | Container lắng nghe 8000/8443; Service cung cấp cổng 80/443                                                                      |
-| `ingressRoute.dashboard.enabled=true`      | Bật route dashboard trên entrypoint admin nội bộ, không công khai nó qua Service 80/443                                      |
-| `--wait --timeout 5m`                      | Helm chỉ trả thành công sau khi tài nguyên sẵn sàng hoặc báo timeout                                                      |
-
-> ⚠️ Với chart 41.0.2 phải dùng `service.spec.type`. Key cũ `service.type` vẫn có thể được Helm/schema
-> chấp nhận nhưng chart bỏ qua; Service khi đó giữ mặc định `LoadBalancer` và `EXTERNAL-IP` có thể ở
-> `<pending>`.
-
-#### 9.3.1. Verify — tất cả phải PASS trước mục 10
-
-```bash
-helm status traefik -n traefik
-kubectl -n traefik rollout status deploy/traefik --timeout=180s
-kubectl -n traefik get deploy,pod,svc,endpointslice -o wide
-kubectl get ingressclass -o custom-columns='NAME:.metadata.name,CONTROLLER:.spec.controller,DEFAULT:.metadata.annotations.ingressclass\.kubernetes\.io/is-default-class'
-kubectl -n traefik logs deploy/traefik --tail=50
-```
-
-PASS khi:
-
-- Helm báo `STATUS: deployed`; Deployment rollout thành công, Pod `Running` và `READY 1/1`.
-- Service `traefik` có `TYPE=ClusterIP`, một `CLUSTER-IP`, cổng `80/TCP,443/TCP`; không cần cột `EXTERNAL-IP` có giá trị.
-- EndpointSlice của Service Traefik có endpoint Ready trỏ tới Pod Traefik.
-- `IngressClass` có tên `traefik`, controller `traefik.io/ingress-controller` và cột `DEFAULT=true`. Cluster chỉ nên có **một** default IngressClass.
-- Log không có lỗi lặp lại; warning đơn lẻ phải được đọc theo ngữ cảnh trước khi kết luận fail.
-
-Nếu Service không có endpoint, kiểm tra selector/Pod:
-
-```bash
-kubectl -n traefik describe svc traefik
-kubectl -n traefik get endpointslice \
-  -l kubernetes.io/service-name=traefik -o yaml
-kubectl -n traefik describe pod \
-  -l app.kubernetes.io/name=traefik
-```
-
-Smoke test HTTP trước khi tạo app/Ingress ở mục 10; bước này tách lỗi Traefik khỏi lỗi manifest ứng
-dụng. Dùng `trap` để tiến trình `port-forward` vẫn được dọn nếu `curl` bị lỗi:
-
-```bash
-kubectl -n traefik port-forward svc/traefik 8081:80 \
-  >/tmp/traefik-port-forward.log 2>&1 &
-PF_PID=$!
-trap 'kill "$PF_PID" 2>/dev/null' EXIT
-
-HTTP_CODE=$(curl -sS --retry 10 --retry-connrefused --retry-delay 1 \
-  -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/)
-echo "$HTTP_CODE"                 # PASS: 404 — Traefik sống, chưa có Router ứng dụng
-
-kill "$PF_PID"
-trap - EXIT
-```
-
-Ở thời điểm này chưa có Ingress ứng dụng, nên HTTP `404` là kết quả mong đợi. Mã `000`, lỗi kết nối
-hoặc timeout mới là FAIL; xem `/tmp/traefik-port-forward.log` và kiểm tra lại Pod, Service,
-EndpointSlice.
-
-#### 9.3.2. Dashboard nội bộ (tuỳ chọn)
-
-```bash
-TRAEFIK_POD=$(kubectl -n traefik get pod \
-  -l app.kubernetes.io/name=traefik \
-  -o jsonpath='{.items[0].metadata.name}')
-kubectl -n traefik port-forward "pod/$TRAEFIK_POD" 8080:8080
-# Mở http://127.0.0.1:8080/dashboard/ — bắt buộc có dấu / cuối.
-```
-
-Lệnh `port-forward` giữ terminal; nhấn `Ctrl+C` để dừng. Dashboard không có mục đích public trong runbook này. Không tạo Ingress Internet cho dashboard và không dùng `api.insecure=true`.
-
-### 9.4. Khi nào dùng `ClusterIP`, `NodePort`, `LoadBalancer` hoặc MetalLB cho Traefik?
-
-Runbook chọn `ClusterIP` vì đường vào Internet là tunnel outbound:
-
-```text
-Internet → Cloudflare edge → Pod cloudflared
-        → http://traefik.traefik.svc.cluster.local:80
-        → Traefik → Service/Pod ứng dụng
-```
-
-| Nhu cầu                                                 | Kiểu Service Traefik      | Xử lý                                                                                                                 |
-| -------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Cloudflare Tunnel chạy trong cluster như runbook       | `ClusterIP`              | Giữ nguyên; không mở cổng LAN và không cần external IP                                                          |
-| Test nhanh từ máy trong LAN bằng IP node và port cao | `NodePort`               | Đổi type; firewall phải cho phép nodePort cần dùng                                                                |
-| Một IP LAN cố định trên VMware/bare-metal           | `LoadBalancer` + MetalLB | Cài/cấu hình MetalLB, dành pool IP ngoài DHCP, rồi đổi Traefik sang`LoadBalancer`                             |
-| Kubernetes trên cloud có integration LB                | `LoadBalancer`           | Controller/provider của cloud cấp địa chỉ và hạ tầng LB; địa chỉ public hay private tùy cấu hình provider |
-
-Đổi sang NodePort khi thật sự cần truy cập trực tiếp từ LAN:
-
-```bash
-helm upgrade traefik traefik/traefik \
-  -n traefik --version 41.0.2 --reuse-values \
-  --set service.spec.type=NodePort \
-  --wait --timeout 5m
-kubectl -n traefik get svc traefik
-```
-
-> Lệnh trên giữ nguyên `--version 41.0.2`, nên không thay đổi CRD. Khi bump chart về sau, đọc release
-> notes và apply CRD của đúng phiên bản đích **trước** `helm upgrade`, ví dụ:
-> `helm show crds traefik/traefik --version <phiên-bản-đích> | kubectl apply --server-side --force-conflicts -f -`.
-> Helm không tự nâng cấp các CRD nằm trong thư mục `crds/`.
-
-Muốn IP LAN cố định, làm theo [Phụ lục B](#phụ-lục-b--metallb-tuỳ-chọn-loadbalancer-ip-trong-lan). Nếu tạo Service `LoadBalancer` trước khi có implementation phù hợp, `EXTERNAL-IP` có thể ở `<pending>`; đó là yêu cầu chưa được cấp địa chỉ, không tự động chứng minh CNI hay Traefik lỗi.
-
----
-
-## 10. Deploy app mẫu + Ingress
-
-> Toàn bộ [§10] chạy **trên master** (nơi có `kubectl`). File `.yaml` tạo ở thư mục home của user (vd `~/demo-app.yaml`).
-
-Tạo file `demo-app.yaml` và **giữ nguyên hostname tạm `app.example.com` trong §10** vì domain thật chưa được mua/cấu hình cho tới [§11](#section-11). Hostname tạm đủ để test định tuyến nội bộ bằng Host header; [§12.3](#123-chốt-hostname-thật-trong-ingress--thêm-published-application) sẽ có bước bắt buộc đổi sang hostname thật trước khi tạo route Cloudflare. Ý nghĩa từng trường của phần `Ingress` đã giải thích ở [§9.1.5](#915-đọc-một-object-ingress-rules-host-path-và-pathtype):
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: web
-spec:
-  replicas: 2
-  selector:
-    matchLabels: { app: web }
-  template:
-    metadata:
-      labels: { app: web }
-    spec:
-      containers:
-        - name: web
-          image: nginxdemos/hello:plain-text
-          ports:
-            - containerPort: 80
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: web
-spec:
-  selector: { app: web }
-  ports:
-    - port: 80
-      targetPort: 80
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: web
-spec:
-  ingressClassName: traefik      # Traefik không redirect HTTP→HTTPS mặc định
-  rules:                         # → không cần annotation ssl-redirect như ingress-nginx
-    - host: app.example.com          # hostname tạm cho §10; đổi sang domain thật ở §12.3.1
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: web
-                port:
-                  number: 80
-```
-
-### 10.1. Đọc manifest: Deployment → Service → Ingress
-
-File trên chứa ba document YAML, ngăn cách bằng `---`. Chúng tạo thành một chuỗi nhưng đảm nhiệm ba
-vai trò khác nhau:
-
-```text
-Deployment web → tạo 2 Pod có label app=web
-Service web:80 → chọn các Pod app=web và chuyển tới Pod port 80
-Ingress web    → với Host app.example.com, chuyển request tới Service web:80
-```
-
-**Deployment `web`:** `replicas: 2` yêu cầu Kubernetes duy trì hai Pod ứng dụng. Hai chỗ
-`matchLabels: { app: web }` và `labels: { app: web }` phải khớp nhau để Deployment nhận đúng Pod do
-nó tạo. Container chạy image `nginxdemos/hello:plain-text` và lắng nghe cổng 80. Khai báo
-`containerPort: 80` chỉ mô tả cổng của container; nó không tự expose Pod và không tạo địa chỉ ổn định.
-
-**Service `web`:** selector `{ app: web }` tìm đúng hai Pod trên. `port: 80` là cổng ổn định của
-Service, còn `targetPort: 80` là cổng nhận request trên Pod:
-
-```text
-Service web:80 → một trong các Pod app=web:80
-```
-
-Manifest không khai `spec.type`, nên Kubernetes dùng mặc định `ClusterIP`. Pod có thể bị tạo lại và
-đổi IP nhưng Traefik vẫn gọi tên Service `web` ổn định; EndpointSlice của Service sẽ được Kubernetes
-cập nhật theo các Pod Ready hiện tại.
-
-**Ingress `web`:** `ingressClassName: traefik` giao object này cho controller đã cài ở §9. Rule chỉ
-khớp request có Host header `app.example.com`; `path: /` với `pathType: Prefix` nhận mọi đường dẫn bắt
-đầu bằng `/`, rồi gửi tới backend `Service web:80`. Manifest không cấu hình TLS hay redirect
-HTTP→HTTPS, nên test nội bộ bên dưới dùng HTTP.
-
-Không resource nào trong file khai `metadata.namespace`, vì vậy Deployment, Service và Ingress
-`web` đều được tạo trong namespace `default`. Backend của một Ingress chuẩn phải là Service cùng
-namespace, nên `Ingress web` tham chiếu đúng `Service web` trong `default`.
-
-Cần phân biệt hai Service mà các lệnh bên dưới sử dụng:
-
-| Service     | Namespace   | Vai trò                                                              |
-| ----------- | ----------- | --------------------------------------------------------------------- |
-| `traefik` | `traefik` | Điểm vào của ingress controller; nhận request test trước tiên |
-| `web`     | `default` | Backend ứng dụng; được Ingress`web` chuyển request tới       |
-
-### 10.2. Apply manifest và kiểm tra rule Ingress
-
-`kubectl apply` đọc cả ba document trong file và tạo mới hoặc cập nhật chúng theo kiểu idempotent.
-Output `created`, `configured` hoặc `unchanged` đều cho biết API server đã chấp nhận resource:
-
-```bash
-kubectl apply -f demo-app.yaml
-```
-
-Sau đó kiểm tra object Ingress mà Traefik sẽ theo dõi:
-
-```bash
-kubectl get ingress
-```
-
-PASS khi thấy `NAME=web`, `CLASS=traefik`, `HOSTS=app.example.com` và `PORTS=80`.
-
-`app.example.com` ở gate này chỉ là hostname tạm phục vụ test nội bộ, **không phải domain public cuối cùng**. Không đổi hostname tại §10; sau khi domain thật PASS §11, thực hiện bước chuyển hostname có verify riêng tại §12.3.1.
-
-> Chart bật sẵn `providers.kubernetesIngress.publishedService.enabled=true`. Với Service Traefik kiểu
-> `ClusterIP` và không khai `spec.externalIPs`, cột `ADDRESS` của `kubectl get ingress` để trống là
-> **PASS**, không phải lỗi. Tiếp tục kiểm tra `CLASS=traefik`, hostname và test HTTP bên dưới.
-
-### 10.3. Test nội bộ end-to-end qua ClusterIP Traefik
-
-Test này chưa cần DNS hay domain thật. Lệnh đầu lấy ClusterIP của **Service `traefik` trong namespace
-`traefik`** và lưu vào biến shell `ING_IP`. Phép gán biến thành công sẽ không in output:
-
-```bash
-# lấy ClusterIP của ingress controller:
-ING_IP=$(kubectl get svc -n traefik traefik -o jsonpath='{.spec.clusterIP}')
-```
-
-Lệnh tiếp theo gửi request tới cổng HTTP 80 của Traefik. `-H "Host: app.example.com"` giả lập Host
-header mà trình duyệt sẽ gửi khi DNS thật đã trỏ vào hệ thống; Traefik dùng giá trị này để khớp rule
-trong `Ingress web`. `-s` chỉ ẩn progress meter của `curl`:
-
-```bash
-curl -s -H "Host: app.example.com" http://$ING_IP/
-# → phải thấy "Server address..." từ nginx hello
-```
-
-Đường đi đầy đủ của request:
-
-```text
-curl trên master
-  → Service traefik:80 (namespace traefik)
-  → Pod Traefik:8000
-  → khớp Ingress web vì Host=app.example.com
-  → Service web:80 (namespace default)
-  → một trong hai Pod web:80
-```
-
-Output `Server address` và `Server name` từ nginx demo chứng minh toàn bộ chuỗi đã chạy, không chỉ
-riêng Pod hay Service. Chạy lại `curl` có thể thấy Pod khác vì Deployment có hai replica. Nếu bỏ Host
-header hoặc dùng hostname không khớp, Traefik không tìm thấy Router phù hợp và thường trả `404`.
-
-> Nếu lệnh `curl` đúng như trên vẫn trả `404`, kiểm tra Host header có khớp chính xác
-> `app.example.com` và `kubectl get ingress` có `CLASS=traefik`; sau đó chạy
-> `kubectl describe ingress web` hoặc mở dashboard ([§9.3](#93-cài-đặt-traefik)) xem tab
-> **HTTP → Routers**. Chủ động bỏ Host header hoặc dùng hostname khác thì `404` lại là kết quả mong đợi
-> vì không có rule nào khớp.
-
-Thấy output nghĩa là chuỗi **ingress → service → pod** đã chạy. Giờ chỉ còn nối Internet vào.
-
----
-
-<a id="section-11"></a>
-
-## 11. Mua & cấu hình domain trên Cloudflare
-
-### 11.1. Mua domain
-
-Mua ở bất kỳ registrar nào (Cloudflare Registrar, Namecheap, GoDaddy, PA Vietnam…). Domain rẻ (`.com`, `.dev`, `.xyz`) đều được.
-
-### 11.2. Thêm domain vào Cloudflare
-
-Mục này dùng **Primary DNS / Full Setup**: Hostinger vẫn là **registrar** (giữ đăng ký, gia hạn và thông tin chủ thể), còn Cloudflare trở thành **authoritative DNS provider** (quản lý DNS, proxy, HTTPS và Tunnel). Đây là cấu hình đủ cho toàn bộ runbook; **không cần chuyển registrar sang Cloudflare**.
-
-> **Phân biệt hai lựa chọn trên màn hình “Add a site”:**
->
-> | Lựa chọn                  | Thay đổi                                                                                | Dùng trong runbook?                      |
-> | --------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------- |
-> | **Connect a domain**  | Chuyển DNS authoritative sang Cloudflare; registrar và việc gia hạn vẫn ở Hostinger | **Có — chọn mục này**          |
-> | **Transfer a domain** | Chuyển cả đăng ký/gia hạn domain từ Hostinger sang Cloudflare Registrar            | Không cần; chỉ là tùy chọn sau này |
->
-> Cloudflare yêu cầu domain phải **Active trên Cloudflare trước khi transfer** và domain mới đăng ký/transfer thường bị khóa transfer **60 ngày**. Vì vậy ngay cả khi sau này muốn chuyển registrar, vẫn phải hoàn tất luồng **Connect a domain** bên dưới trước. Không tắt *domain/transfer lock* và không lấy mã EPP trong mục này.
-
-#### 11.2.1. Gate trước thay đổi — kiểm tra domain, DNSSEC và bản ghi hiện có tại Hostinger
-
-Trong **Hostinger hPanel → Domains → Domain portfolio → Manage → DNS / Nameservers**:
-
-1. Xác nhận domain có trạng thái **Hoạt động/Active** và chưa hết hạn.
-2. Giữ **Khóa tên miền / Domain lock** ở trạng thái bật; khóa transfer không cản trở đổi nameserver.
-3. Mở tab **DNSSEC**:
-   - Nếu trang chỉ có form trống `Key Tag / Algorithm / Digest Type / Digest`, không có DS record đã lưu → DNSSEC đang **tắt**, không cần làm gì.
-   - Nếu có DS record → xóa/tắt DNSSEC tại Hostinger, đợi DS TTL hết rồi mới đổi nameserver. Đổi NS khi DS cũ còn tồn tại có thể làm resolver trả `SERVFAIL`.
-4. Mở tab **DNS records**, ghi lại mọi record đang thực sự dùng. Đặc biệt không được bỏ sót `MX`, SPF (`TXT`), DKIM (`TXT`/`CNAME`) và DMARC (`TXT`) nếu đang dùng email theo domain. Cloudflare Quick Scan **không bảo đảm** tìm đủ mọi record.
-
-**Verify trên máy host Windows** — thay giá trị bằng domain thật, không thêm `https://` hoặc subdomain:
-
-```powershell
-$DomainName = "hieupn.site"
-
-# NS hiện tại trước migration; với domain mua ở Hostinger thường là *.dns-parking.com
-Resolve-DnsName -Name $DomainName -Type NS -Server 1.1.1.1
-
-# Gate DNSSEC: trước khi đổi NS không được còn DS record cũ
-$OldDs = @(
-  Resolve-DnsName -Name $DomainName -Type DS -Server 1.1.1.1 -DnsOnly -ErrorAction SilentlyContinue |
-    Where-Object Type -eq 'DS'
-)
-if ($OldDs) {
-  $OldDs
-  throw "STOP: còn DS record cũ; xóa/tắt DNSSEC tại Hostinger và đợi DS TTL hết"
-} else {
-  "PASS: không có DS record cũ"
-}
-```
-
-PASS khi domain `Active` ở Hostinger, NS hiện tại resolve được, danh sách DNS cần giữ đã được đối chiếu và lệnh DS in `PASS`. Nếu có DS cũ, **dừng tại đây**; Cloudflare hướng dẫn thường phải đợi TTL của DS hết (có thể 24–48 giờ) trước khi thay NS.
-
-#### 11.2.2. Thêm domain tại Cloudflare — chọn Connect, scan và review DNS
-
-1. Đăng nhập [https://dash.cloudflare.com](https://dash.cloudflare.com).
-2. Vào **Domains → Overview** → bấm **Add a site / Add a domain**. Tài liệu Cloudflare gọi thao tác này là *Onboard a domain*; đây là nút trong trang Overview, không nhất thiết là tên menu bên trái.
-3. Chọn **Connect a domain**.
-4. Nhập **apex/root domain**, ví dụ `hieupn.site`; không nhập `https://hieupn.site`, `www.hieupn.site` hoặc `app.hieupn.site`.
-5. Chọn **Quick scan / Scan automatically / Import existing DNS records**.
-6. Chọn plan **Free** — đủ cho DNS, Universal SSL và Cloudflare Tunnel của lab.
-7. Tại trang review DNS records, so sánh từng `Type`, `Name`, `Content`, `Priority` với danh sách đã ghi ở §11.2.1; tự thêm record bị thiếu trước khi đổi nameserver.
-
-Quy tắc review:
-
-- Record web `A`/`AAAA`/`CNAME` có thể để **Proxied** (mây cam) khi cần đi qua Cloudflare.
-- Record email và record xác minh (`MX`, mail host, SPF/DKIM/DMARC) phải theo đúng chỉ dẫn của nhà cung cấp email; `MX` và các hostname mail thường để **DNS only**.
-- Domain mới chỉ dùng cho lab có thể chỉ có record parking của Hostinger. Có thể giữ tạm trong lúc kích hoạt rồi xóa khi không dùng.
-- **Không** tạo `A` record trỏ vào IP LAN `192.168.x.x`, ClusterIP `10.x.x.x` hoặc IP động của router. §12 sẽ tạo hostname cho Tunnel mà không phơi IP nhà.
-- Chưa cần tự tạo `app.<domain>`: khi thêm Published application route ở §12.3, Cloudflare sẽ tạo DNS record cho Tunnel trong Full Setup.
-
-**Checkpoint Cloudflare DNS:** chỉ bấm tiếp tục khi không còn record website/email cần giữ bị thiếu. Với domain lab mới không dùng email, PASS khi xác nhận không có MX/DKIM/SPF/DMARC cần migrate và không có record nào trỏ nhầm IP private.
-
-#### 11.2.3. Lấy đúng hai nameserver Cloudflare
-
-Cloudflare cấp đúng **hai authoritative nameserver** riêng cho zone, dạng:
-
-```text
-<ns-thu-nhat>.ns.cloudflare.com
-<ns-thu-hai>.ns.cloudflare.com
-```
-
-Copy nguyên văn cả hai từ onboarding flow hoặc **domain → Overview**. Không dùng tên ví dụ trong runbook, không thêm `https://`, IP hay dấu `/`; không dùng cặp NS của domain/tài khoản khác.
-
-**Checkpoint NS được cấp:** PASS khi Cloudflare hiển thị đúng hai hostname kết thúc bằng `.ns.cloudflare.com` và zone đang ở trạng thái **Pending Nameserver Update**. Trạng thái Pending là đúng ở thời điểm này nhưng **chưa đủ** để chạy §12.
-
-#### 11.2.4. Thay nameserver ở Hostinger
-
-Quay lại **Hostinger hPanel**:
-
-1. **Domains → Domain portfolio → Manage** domain.
-2. Trong card **DNS/Máy chủ tên miền**, bấm **Chỉnh sửa**.
-3. Chọn **Change nameservers / Use custom nameservers / Thay đổi máy chủ tên miền**.
-4. Xóa **toàn bộ** nameserver Hostinger hiện tại (thường là hai tên `*.dns-parking.com`).
-5. Dán đúng hai NS Cloudflare ở §11.2.3 vào hai ô nameserver và lưu.
-
-Không thao tác ở tab **Bản ghi DNS**, **Máy chủ tên miền con/Child nameservers** hoặc **DNSSEC**. Không giữ lẫn một NS Hostinger và một NS Cloudflare; Full Setup gói Free chỉ được kích hoạt khi registrar chỉ liệt kê cặp NS Cloudflare được cấp.
-
-**Checkpoint Hostinger:** mở lại trang tổng quan domain và xác nhận card **DNS/Máy chủ tên miền** chỉ hiển thị hai NS Cloudflare, không còn `*.dns-parking.com`. Giữ domain lock bật. Nếu Hostinger yêu cầu xác nhận bảo mật/email, hoàn tất rồi kiểm tra lại card này.
-
-#### 11.2.5. Verify propagation và trạng thái Active
-
-Quay lại Cloudflare, cuộn xuống cuối trang hướng dẫn thay NS và bấm **I updated my nameservers** (một số phiên bản UI dùng **Done, check nameservers / Check nameservers now**). Nút này chỉ báo cho Cloudflare bắt đầu/ưu tiên kiểm tra; propagation thường mất vài phút nhưng có thể tới 24 giờ. Zone `Pending Nameserver Update` chưa được coi là sẵn sàng để proxy traffic.
-
-Trên máy host Windows, thay hai giá trị `$ExpectedNs` bằng đúng NS Cloudflare của zone. Block vừa hiển thị `NameHost/TTL` để quan sát cache, vừa tự so sánh **cả hai resolver** với cặp NS mong đợi:
-
-```powershell
-$DomainName = "hieupn.site"
-$ExpectedNs = @(
-  "<ns-thu-nhat>.ns.cloudflare.com",
-  "<ns-thu-hai>.ns.cloudflare.com"
-) | ForEach-Object { $_.TrimEnd('.').ToLowerInvariant() } | Sort-Object -Unique
-
-$Resolvers = @('1.1.1.1', '8.8.8.8')
-$AllResolversPassed = $true
-
-foreach ($Resolver in $Resolvers) {
-  $RawNs = @(
-    Resolve-DnsName -Name $DomainName -Type NS -Server $Resolver -DnsOnly -ErrorAction SilentlyContinue |
-      Where-Object Type -eq 'NS'
-  )
-
-  "`n=== Resolver $Resolver ==="
-  $RawNs | Select-Object NameHost, TTL | Format-Table -AutoSize
-
-  $ObservedNs = @(
-    $RawNs |
-      ForEach-Object { $_.NameHost.TrimEnd('.').ToLowerInvariant() } |
-      Sort-Object -Unique
-  )
-  if ($ObservedNs.Count -gt 0) {
-    $NsDiff = @(Compare-Object -ReferenceObject $ExpectedNs -DifferenceObject $ObservedNs)
-  } else {
-    $NsDiff = @("Không nhận được NS answer từ $Resolver")
+set -o pipefail
+(
+  check_addon() {
+    local addon="$1" version="$2" release_file="$3"
+    if [[ ",${OPTIONAL_ADDONS}," == *",${addon},"* ]]; then
+      [[ "${version}" != N/A ]] || {
+        echo "FAIL: ${addon} được yêu cầu nhưng version=N/A"; return 1;
+      }
+      awk -F'\t' -v v="${version}" '$1==v {found=1} END {exit !found}' \
+        "${release_file}" || {
+        echo "FAIL: ${addon} ${version} không phải official final release"; return 1;
+      }
+    else
+      [[ "${version}" == N/A ]] || {
+        echo "FAIL: ${addon} không nằm trong OPTIONAL_ADDONS nhưng đã chọn ${version}"; return 1;
+      }
+    fi
   }
 
-  if ($ObservedNs.Count -eq 2 -and -not $NsDiff) {
-    "PASS: $Resolver trả đúng hai NS Cloudflare"
-  } else {
-    $AllResolversPassed = $false
-    "Expected: $($ExpectedNs -join ', ')"
-    "Observed: $($ObservedNs -join ', ')"
-    $NsDiff
+  check_addon cloudflared "${CLOUDFLARED_VERSION}" \
+    "${ADDON_EVIDENCE}/cloudflared-final-releases.tsv"
+  check_addon local-path-provisioner "${LOCAL_PATH_VERSION}" \
+    "${ADDON_EVIDENCE}/local-path-provisioner-final-releases.tsv"
+  check_addon metallb "${METALLB_VERSION}" \
+    "${ADDON_EVIDENCE}/metallb-final-releases.tsv"
+
+  printf 'CLOUDFLARED_VERSION=%q\nLOCAL_PATH_VERSION=%q\nMETALLB_VERSION=%q\n' \
+    "${CLOUDFLARED_VERSION}" "${LOCAL_PATH_VERSION}" "${METALLB_VERSION}" \
+    >> "${BASELINE_ROOT}/research-state.env"
+  echo 'PASS: addon selections khớp input contract và official final releases'
+) 2>&1 | tee "${ADDON_EVIDENCE}/gate-752-addon-selection.txt"
+ADDON_SELECTION_RC=${PIPESTATUS[0]}
+echo "addon selection gate rc=${ADDON_SELECTION_RC}"
+```
+
+### 7.5.3. Manifest, static gate và digest
+
+```bash
+source "${BASELINE_ROOT}/research-state.env"
+
+if [[ "${LOCAL_PATH_VERSION}" != N/A ]]; then
+  curl -fsSL \
+    "https://raw.githubusercontent.com/rancher/local-path-provisioner/${LOCAL_PATH_VERSION}/deploy/local-path-storage.yaml" \
+    -o "${ADDON_EVIDENCE}/local-path-${LOCAL_PATH_VERSION}.yaml"
+fi
+
+if [[ "${METALLB_VERSION}" != N/A ]]; then
+  curl -fsSL \
+    "https://raw.githubusercontent.com/metallb/metallb/${METALLB_VERSION}/config/manifests/metallb-native.yaml" \
+    -o "${ADDON_EVIDENCE}/metallb-${METALLB_VERSION}.yaml"
+fi
+
+: > "${ADDON_EVIDENCE}/addon-image-digests.tsv"
+printf 'component\timage\tdigest\n' \
+  > "${ADDON_EVIDENCE}/addon-image-digests.tsv"
+
+if [[ "${CLOUDFLARED_VERSION}" != N/A ]]; then
+  CLOUDFLARED_TAG="${CLOUDFLARED_VERSION#v}"
+  image="docker.io/cloudflare/cloudflared:${CLOUDFLARED_TAG}"
+  digest="$(IMAGE_INSPECTOR="${IMAGE_INSPECTOR}" \
+    "${BASELINE_ROOT}/resolve-image-digest.sh" "${image}")"
+  printf 'cloudflared\t%s\t%s\n' "${image}" "${digest}" \
+    >> "${ADDON_EVIDENCE}/addon-image-digests.tsv"
+fi
+
+for manifest in "${ADDON_EVIDENCE}"/*.yaml; do
+  [[ -e "${manifest}" ]] || continue
+  sed -n -E "s/^[[:space:]]*image:[[:space:]]*['\"]?([^'\"[:space:]]+)['\"]?.*/\1/p" \
+    "${manifest}" \
+    | sort -u \
+    | while read -r image; do
+        digest="$(IMAGE_INSPECTOR="${IMAGE_INSPECTOR}" \
+          "${BASELINE_ROOT}/resolve-image-digest.sh" "${image}")"
+        printf '%s\t%s\t%s\n' "$(basename "${manifest}")" "${image}" "${digest}" \
+          >> "${ADDON_EVIDENCE}/addon-image-digests.tsv"
+      done
+done
+```
+
+Gate static:
+
+```bash
+set -o pipefail
+(
+  for manifest in "${ADDON_EVIDENCE}"/*.yaml; do
+    [[ -e "${manifest}" ]] || continue
+    ! grep -Eqi '(latest|/master/|:master)' "${manifest}" || {
+      echo "FAIL: ${manifest} còn tag/branch động"; exit 1;
+    }
+    kubectl apply --dry-run=client --validate=false -f "${manifest}" \
+      > "${manifest}.client-dry-run.txt"
+    sha256sum "${manifest}" > "${manifest}.sha256"
+  done
+
+  awk -F'\t' 'NR>1 && $3 !~ /^sha256:[0-9a-f]{64}$/ {bad=1} END {exit bad}' \
+    "${ADDON_EVIDENCE}/addon-image-digests.tsv" || {
+    echo 'FAIL: có image chưa resolve được SHA256 digest'; exit 1;
   }
-}
 
-if (-not $AllResolversPassed) {
-  throw "STOP: ít nhất một resolver công cộng chưa trả đúng cặp NS Cloudflare"
-}
-"PASS: cả 1.1.1.1 và 8.8.8.8 đều trả đúng cặp NS Cloudflare"
+  echo 'PASS: addon manifests pin exact tag, client dry-run đạt và mọi image có digest'
+) 2>&1 | tee "${ADDON_EVIDENCE}/gate-753-addon-static.txt"
+ADDON_STATIC_RC=${PIPESTATUS[0]}
+echo "addon static gate rc=${ADDON_STATIC_RC}"
 ```
 
-PASS cuối bước khi **đồng thời** thỏa cả ba điều kiện:
-
-1. Block in `PASS` riêng cho `1.1.1.1` và `8.8.8.8`, rồi in PASS tổng.
-2. Bảng của cả hai resolver chỉ thấy đúng hai NS Cloudflare; TTL không còn gắn với NS Hostinger.
-3. Cloudflare **Domains → Overview** hiển thị zone **Active** (không chỉ `Pending`).
-
-Nếu Cloudflare đã **Active** và một resolver đã trả NS Cloudflare nhưng resolver còn lại vẫn trả `*.dns-parking.com` với TTL đang đếm xuống, delegation tại registrar đã đúng; resolver kia chỉ còn cache NS cũ. Không đổi NS lại, không xóa/re-add zone.
-
-**Đọc TTL đang đếm xuống.** Giá trị `TTL` trong output là thời gian **còn lại** của bản ghi trong cache resolver, không phải TTL gốc của zone. Lấy TTL gốc trừ đi giá trị này ra thời điểm resolver đã cache. Ví dụ NS có TTL gốc `86400` mà `1.1.1.1` trả `80288` nghĩa là bản ghi được cache cách đây `86400 - 80288 = 6112` giây (1 giờ 42 phút) và còn 22 giờ 18 phút nữa mới tự hết hạn.
-
-**Rút ngắn thời gian chờ bằng DNS cache purge (tùy chọn).** Trong ngữ cảnh này, *purge/flush cache* nghĩa là yêu cầu một **recursive DNS resolver** xóa RRset `NS` đang cache cho domain và tra cứu lại từ hệ thống DNS authoritative. Nó không xóa domain hay DNS record tại nguồn. Ví dụ khi `1.1.1.1` còn giữ NS Hostinger:
-
-```text
-Purge NS cache của hieupn.site tại 1.1.1.1
-  → 1.1.1.1 bỏ bản sao orbit/horizon.dns-parking.com đang cache
-  → hỏi lại delegation public
-  → nhận donna/ian.ns.cloudflare.com
-  → cache cặp NS mới với TTL mới
-```
-
-Cache trên máy (`Clear-DnsClientCache`) không giúp trường hợp này vì block kiểm tra truy vấn thẳng resolver công cộng bằng `-Server`. Hai resolver dùng trong runbook có công cụ refresh công khai — nhập **apex domain** và chọn record type **`NS`**:
-
-| Resolver    | Công cụ purge                                                             |
-| ----------- | --------------------------------------------------------------------------- |
-| `1.1.1.1` | [https://one.one.one.one/purge-cache/](https://one.one.one.one/purge-cache/) |
-| `8.8.8.8` | [https://dns.google/cache](https://dns.google/cache)                         |
-
-Purge DNS resolver **không**:
-
-- xóa DNS record trong zone Cloudflare, đổi nameserver tại Hostinger hoặc xóa domain;
-- xóa cache trình duyệt/Windows hay cache của resolver ISP và máy khác;
-- xóa nội dung website/CDN. Không dùng **Caching → Purge Everything** trong Cloudflare Dashboard — đó là HTTP/CDN cache, không phải DNS resolver cache;
-- ép toàn bộ Internet cập nhật ngay lập tức.
-
-Chỉ purge khi Cloudflare đã báo **Active**. Purge sớm hơn, khi registry vẫn trả NS Hostinger, sẽ làm resolver nạp và cache lại đúng NS cũ thêm một chu kỳ TTL. Ngay cả sau `Active`, purge vẫn là **best-effort**: hạ tầng resolver phân tán có thể chưa cập nhật mọi node ngay và công cụ không tác động resolver của bên thứ ba.
-
-Thao tác tùy chọn:
-
-1. Mở công cụ tương ứng trong bảng.
-2. Nhập domain gốc, ví dụ `hieupn.site` — không nhập `https://` hoặc `app.hieupn.site`.
-3. Chọn record type `NS` → bấm **Purge Cache** (`1.1.1.1`) hoặc **Flush Cache** (`8.8.8.8`). Chỉ cần purge resolver còn trả NS cũ; resolver đã trả NS Cloudflare không cần purge.
-4. Chờ vài phút rồi chạy lại toàn bộ block PowerShell kiểm tra hai resolver ở trên.
-
-**PASS sau purge** chỉ khi block PowerShell in PASS riêng cho `1.1.1.1`, `8.8.8.8` và PASS tổng. Thông báo thành công trên trang purge **không phải** bằng chứng DNS đã đúng. Nếu không muốn purge hoặc purge chưa đổi kết quả, đợi TTL cũ hết rồi chạy lại block; không sửa lại nameserver.
-
-Để tránh cửa sổ `SERVFAIL` khi resolver vẫn dùng NS cũ nhưng registry đã có DS mới, chỉ sang §11.2.6 bật DNSSEC sau khi **cả `1.1.1.1` và `8.8.8.8`** đều trả đúng cặp NS Cloudflare.
-
-Nếu quá 24 giờ vẫn Pending, kiểm tra lại: registrar có đúng **chỉ hai** NS Cloudflare hay chưa, còn NS Hostinger nào không, tên NS có bị gõ sai không và `Resolve-DnsName -Type DS` có còn DS record cũ không.
-
-#### 11.2.6. Bật DNSSEC mới sau khi Cloudflare Active
-
-Chỉ làm bước này **sau** khi §11.2.5 PASS. Vì registrar vẫn là Hostinger, Cloudflare ký zone và sinh DS record; Hostinger đăng DS đó lên registry.
-
-**Vì sao phải qua Hostinger dù DNS đã ở Cloudflare.** DNSSEC là chuỗi tin cậy `. → .site → hieupn.site`, mỗi tầng giữ hash khóa của tầng dưới. DS của `hieupn.site` vì vậy phải nằm trong zone cha `.site`, không nằm trong zone của chính nó — nếu không thì Cloudflare vừa ký vừa tự xác nhận mình, thành vòng tròn và mất hết ý nghĩa xác thực. Chỉ **registrar** mới ghi được vào registry `.site` qua EPP, và registrar ở đây là Hostinger (§11.2 chọn *Connect a domain*, không transfer). Badge **DNS Setup: Full** trên dashboard chỉ nói Cloudflare là authoritative DNS đầy đủ, **không** nói Cloudflare là registrar.
-
-**Điều kiện để Hostinger nhận DS:** tab **DNSSEC** ở hPanel chỉ dùng được khi domain trỏ nameserver ra nhà cung cấp ngoài — đúng trạng thái sau §11.2.4 — và khi TLD/registrar hỗ trợ DNSSEC. Hostinger nói rõ giá trị DS **phải do nhà cung cấp đang giữ nameserver sinh ra**, ở đây là Cloudflare; không tự tạo, không lấy từ nguồn khác. Nếu tab DNSSEC không xuất hiện hoặc bị khóa, **STOP**: xác nhận lại domain đã dùng NS Cloudflare, kiểm tra TLD có hỗ trợ DNSSEC và liên hệ Hostinger nếu cần. Không tự kết luận chỉ từ trạng thái UI và không bỏ qua, vì gate §11.2.7 của baseline này yêu cầu DNSSEC **Active/Confirmed**.
-
-##### Bước 1 — Lấy giá trị tại Cloudflare
-
-1. Cloudflare → chọn domain → thanh điều hướng **bên trái** → mở mục **DNS** → chọn mục con **Settings** → cuộn tới thẻ **DNSSEC** → **Enable DNSSEC**.
-
-   Mục `DNS` ở sidebar bung ra ba mục con; DNSSEC nằm ở `Settings`, không nằm ở `Records`:
-
-   ```text
-   ⌄ DNS
-     ├─ Records      ← trang "DNS records for <domain>"; KHÔNG có DNSSEC ở đây
-     ├─ Analytics
-     └─ Settings     ← vào đây, cuộn xuống thẻ DNSSEC
-   ```
-
-   Đi thẳng bằng link cũng được: `https://dash.cloudflare.com/?to=/:account/:zone/dns/settings`
-2. Cloudflare bắt đầu ký zone và mở panel **DS record**. Panel này là **nguồn duy nhất** của bốn giá trị cần điền. Giữ tab mở cho tới khi Hostinger lưu xong.
-3. Copy dòng **DS Record** — chuỗi dài chứa đủ cả bốn giá trị theo đúng thứ tự chuẩn:
-
-```
-hieupn.site.   3600   IN   DS   <Key Tag>   <Algorithm>   <Digest Type>   <Digest>
-```
-
-Ví dụ minh họa thứ tự lấy từ tài liệu Cloudflare — **không phải giá trị của bạn**: `2371 13 2 32996839A6D808AFE3EB4A795A0E6A7A39A76FC52FF228B22B76F6D63826F2B9` nghĩa là `Key Tag = 2371`, `Algorithm = 13`, `Digest Type = 2`, `Digest = 32996839…3826F2B9`.
-
-Panel Cloudflare hiển thị bốn giá trị này thành từng dòng riêng, kèm cả `Public Key` và `Flags`. Tùy phiên bản UI, `Algorithm` và `Digest Type` có thể hiện **tên** thay vì **số** — xem bảng quy đổi ở bước 3. Khi hai nguồn khác nhau về hình thức, lấy chuỗi `DS Record` làm chuẩn vì nó luôn là số.
-
-##### Bước 2 — Tách và kiểm tra bốn giá trị trước khi nhập
-
-Chạy trên máy host Windows. Block này chỉ đọc chuỗi đã copy, không gọi mạng, và chặn sẵn ba lỗi copy hay gặp nhất:
-
-```powershell
-# Chọn đúng MỘT trong hai option khởi tạo $DsRecord dưới đây.
-
-# OPTION 1 — Dán thủ công: giữ dòng này và để OPTION 2 ở trạng thái comment.
-# Dán nguyên văn DS Record giữa hai dấu nháy đơn. Panel chỉ hiện bốn số rời cũng dán được,
-# ví dụ: '2371 13 2 32996839...3826F2B9'.
-$DsRecord = '<dán DS Record của Cloudflare vào đây>'
-
-# OPTION 2 — Đọc clipboard: sau khi bấm icon Copy cạnh DS Record trên Cloudflare,
-# comment dòng OPTION 1 ở trên rồi bỏ dấu # ở dòng dưới. Out-String dùng được với Windows PowerShell 5.1.
-# $DsRecord = (Get-Clipboard | Out-String).Trim()
-
-$Parts = ($DsRecord -replace '(?i)^.*\sIN\s+DS\s+', '').Trim() -split '\s+' | Where-Object { $_ }
-if ($Parts.Count -ne 4) {
-  throw "STOP: tách được $($Parts.Count) trường, cần đúng 4; copy lại nguyên văn DS Record từ Cloudflare"
-}
-
-$Ds = [pscustomobject][ordered]@{
-  KeyTag     = $Parts[0]
-  Algorithm  = $Parts[1]
-  DigestType = $Parts[2]
-  Digest     = $Parts[3].ToUpperInvariant()
-}
-
-$KeyTagNum = 0
-if (-not [int]::TryParse($Ds.KeyTag, [ref]$KeyTagNum) -or $KeyTagNum -lt 0 -or $KeyTagNum -gt 65535) {
-  throw "STOP: Key Tag '$($Ds.KeyTag)' không phải số nguyên unsigned 16-bit (0-65535); nhiều khả năng đã copy nhầm Flags hoặc dính ký tự thừa"
-}
-$AlgorithmNum = 0
-if (-not [int]::TryParse($Ds.Algorithm, [ref]$AlgorithmNum) -or $AlgorithmNum -lt 0 -or $AlgorithmNum -gt 255) {
-  throw "STOP: Algorithm '$($Ds.Algorithm)' không phải số nguyên unsigned 8-bit (0-255); copy lại chuỗi DS Record dạng số"
-}
-$DigestTypeNum = 0
-if (-not [int]::TryParse($Ds.DigestType, [ref]$DigestTypeNum) -or $DigestTypeNum -lt 0 -or $DigestTypeNum -gt 255) {
-  throw "STOP: Digest Type '$($Ds.DigestType)' không phải số nguyên unsigned 8-bit (0-255); copy lại chuỗi DS Record dạng số"
-}
-if ($Ds.Digest -notmatch '^[0-9A-F]+$') {
-  throw "STOP: Digest chứa ký tự không phải hex; nhiều khả năng đã copy nhầm Public Key sang ô Digest"
-}
-if ($Ds.DigestType -eq '2' -and $Ds.Digest.Length -ne 64) {
-  throw "STOP: Digest Type 2 (SHA-256) phải đúng 64 ký tự hex, đang có $($Ds.Digest.Length); copy thiếu hoặc dính xuống dòng"
-}
-if ($Ds.Algorithm -eq '13' -and $Ds.DigestType -eq '2') {
-  "INFO: Algorithm 13 / Digest Type 2 là cặp Cloudflare thường cấp"
-} else {
-  "INFO: DS dùng Algorithm/Digest Type $($Ds.Algorithm)/$($Ds.DigestType); chỉ tiếp tục nếu đúng nguyên văn DS Record trên panel Cloudflare"
-}
-
-$Ds | Format-List
-"PASS: bốn giá trị tách đúng định dạng; nhập vào Hostinger theo đúng nhãn ở trên"
-```
-
-**PASS Bước 2** khi block không ném `STOP`, output `Format-List` có đúng bốn trường `KeyTag/Algorithm/DigestType/Digest`, rồi kết thúc bằng dòng `PASS`. Dòng `INFO` về `13/2` chỉ mô tả giá trị thường gặp; giá trị quyết định luôn là chuỗi `DS Record` Cloudflare vừa cấp.
-
-Giữ nguyên phiên PowerShell này; biến `$Ds` sẽ được dùng lại ở bước verify.
-
-##### Bước 3 — Nhập tại Hostinger, đúng ánh xạ một-một
-
-Hostinger hPanel → **Domains → Domain portfolio → Manage** domain → **DNS / Nameservers → DNSSEC**. Form có đúng bốn ô:
-
-| Ô ở Hostinger | Lấy từ đâu trên panel Cloudflare | Vị trí trong chuỗi`DS Record` | Dạng giá trị hợp lệ                              |
-| --------------- | ------------------------------------- | ---------------------------------- | ----------------------------------------------------- |
-| `Key Tag`     | dòng**Key Tag**                | trường thứ 1 sau`DS`          | số nguyên 0–65535, ví dụ`2371`                 |
-| `Algorithm`   | dòng**Algorithm**              | trường thứ 2                    | lấy đúng số Cloudflare cấp; thường là`13`   |
-| `Digest Type` | dòng**Digest Type**            | trường thứ 3                    | lấy đúng số Cloudflare cấp; thường là`2`    |
-| `Digest`      | dòng**Digest**                 | trường thứ 4                    | chuỗi hex liền, 64 ký tự khi Digest Type là`2` |
-
-Khi panel Cloudflare hoặc dropdown Hostinger ghi tên thay vì số, quy đổi theo bảng này — **quy đổi tên sang số, không đổi giá trị**:
-
-| Trường        | Số    | Tên tương đương có thể gặp                     |
-| --------------- | ------ | ------------------------------------------------------- |
-| `Algorithm`   | `13` | `ECDSAP256SHA256`, `ECDSA Curve P-256 with SHA-256` |
-| `Digest Type` | `2`  | `SHA256`, `SHA-256`                                 |
-
-**Hai giá trị trên panel Cloudflare không có ô tương ứng ở Hostinger — không nhét vào ô nào:**
-
-- `Public Key` — chuỗi base64 của bản ghi `DNSKEY`, chỉ dùng cho registrar nhập theo dạng DNSKEY. Nhầm nó vào ô `Digest` là lỗi phổ biến nhất; phân biệt nhanh: `Digest` chỉ gồm `0-9` và `A-F`, còn `Public Key` có chữ thường và các dấu `+` `/` `=`.
-- `Flags` (`257`) — thuộc bản ghi `DNSKEY`, không thuộc DS. Đừng điền vào `Key Tag`.
-
-Thao tác nhập:
-
-1. Dán bốn giá trị từ output block bước 2 vào đúng bốn ô cùng tên.
-2. `Digest` hex không phân biệt hoa/thường; block bước 2 đã chuẩn hóa thành chữ hoa. Không sửa nội dung, không thêm khoảng trắng/dấu chấm cuối và không bọc nháy khi nhập form.
-3. Bấm **Thêm/Add**. Nếu form báo sai định dạng, kiểm tra lại độ dài `Digest` và ký tự thừa ở `Key Tag` — **không** sửa giá trị cho vừa form.
-4. Chờ DS propagate lên registry và Cloudflare chuyển DNSSEC sang **Active**. Trong lúc chờ, không bấm **Enable DNSSEC** lần nữa và không xóa rồi tạo lại DS ở Hostinger: mỗi lần bật lại, Cloudflare có thể sinh khóa mới làm DS vừa đăng trở thành sai.
-
-**Verify DNSSEC trên Windows** — chạy tiếp trong cùng phiên PowerShell với block ở bước 2:
-
-```powershell
-$DomainName = "hieupn.site"
-
-# $Ds đến từ block bước 2. Mở phiên PowerShell mới thì chạy lại block đó trước.
-if (-not $Ds) { throw "STOP: chưa có `$Ds; chạy lại block tách DS record ở bước 2" }
-
-$NewDs = @(
-  Resolve-DnsName -Name $DomainName -Type DS -Server 1.1.1.1 -DnsOnly -ErrorAction SilentlyContinue |
-    Where-Object Type -eq 'DS'
-)
-if (-not $NewDs) { throw "STOP: chưa thấy DS record mới; chưa coi DNSSEC là hoàn tất" }
-
-$NewDs | Format-Table Name, Type, KeyTag, Algorithm, DigestType, Digest -AutoSize
-
-# So khớp đủ bốn trường DS đang publish với giá trị Cloudflare cấp.
-# Resolve-DnsName trả Algorithm/DigestType dạng enum nhưng ép [int] cho đúng mã số;
-# Digest có thể là byte[] nên được chuẩn hóa thành chuỗi hex chữ hoa.
-$Published = $NewDs | ForEach-Object {
-  $Raw = $_.Digest
-  if ($Raw -is [byte[]]) { $Hex = (($Raw | ForEach-Object { $_.ToString('X2') }) -join '') }
-  else { $Hex = ((($Raw -join '') -replace '[^0-9A-Fa-f]', '')).ToUpperInvariant() }
-  [pscustomobject][ordered]@{
-    KeyTag     = "$([int]$_.KeyTag)"
-    Algorithm  = "$([int]$_.Algorithm)"
-    DigestType = "$([int]$_.DigestType)"
-    Digest     = $Hex
-  }
-}
-
-if (-not ($Published | Where-Object {
-  $_.KeyTag -eq $Ds.KeyTag -and
-  $_.Algorithm -eq $Ds.Algorithm -and
-  $_.DigestType -eq $Ds.DigestType -and
-  $_.Digest -eq $Ds.Digest
-})) {
-  $Published | Format-List
-  throw "STOP: DS đang publish không khớp đủ bốn trường Cloudflare cấp; sửa record ở Hostinger, không đổi gì ở Cloudflare"
-}
-"PASS: DS record publish khớp đủ Key Tag/Algorithm/Digest Type/Digest Cloudflare cấp"
-
-# 1.1.1.1 là validating resolver; truy vấn SOA phải trả kết quả, không được SERVFAIL
-Resolve-DnsName -Name $DomainName -Type SOA -Server 1.1.1.1 -DnssecOk
-```
-
-PASS khi Hostinger hiển thị DS record đã lưu, block trên xác nhận DS public khớp đủ cả bốn trường, truy vấn `SOA` không `SERVFAIL`, và Cloudflare DNSSEC hiển thị **Active/Confirmed**. Nếu chưa PASS, **không xóa/disable DNSSEC theo thứ tự tùy ý**; khi rollback phải xóa DS ở registrar trước rồi chờ DS TTL hết, sau đó mới tắt signing tại Cloudflare.
-
-#### 11.2.7. Gate hoàn thành mục 11
-
-Chỉ chuyển sang §12 khi:
-
-- Hostinger vẫn quản lý đăng ký/gia hạn; domain lock bật.
-- DNS authoritative public chỉ có đúng hai NS Cloudflare.
-- Cloudflare zone là **Active**.
-- DNS records website/email cần giữ đã có đầy đủ ở Cloudflare.
-- DNSSEC mới là **Active/Confirmed** và kiểm tra không `SERVFAIL`.
-
-> **Checkpoint — gửi để kiểm tra trước §12:** ảnh Cloudflare Overview chỉ cần thấy `Active` (che account/email), output hai lệnh NS qua `1.1.1.1` và `8.8.8.8`, cùng output verify DNSSEC. Nameserver/DS record là dữ liệu public; không gửi mật khẩu Hostinger/Cloudflare, mã EPP, API token, tunnel token hoặc thông tin liên hệ chủ domain.
+Nếu project không công bố Kubernetes compatibility range, ghi `UPSTREAM-RANGE-NOT-STATED` và yêu cầu server/lab gate ở §9. Không dùng manifest `latest` dù official quick-start dùng nó.
 
 ---
 
-## 12. Tạo Cloudflare Tunnel (chạy trong cụm)
+## 8. Audit chart để phát hiện hidden defaults và nhánh tính năng
 
-Dùng **remotely-managed tunnel** (quản lý qua dashboard bằng *token*) — đơn giản, hợp với cụm k8s và đúng theo deployment guide của Cloudflare. (Cách CLI `config.yml` xem [Phụ lục A](#phụ-lục-a--locally-managed-tunnel-cli--configyml).)
+### 8.1. Thu bằng chứng của đúng version
 
-Thực hiện đúng thứ tự `§12.1 → §12.2 → §12.3`. Ở giao diện hiện tại, nút **Continue** chỉ được bật sau khi Cloudflare phát hiện connector đã kết nối; vì vậy không cố hoàn tất wizard ở §12.1 và không chạy lệnh Docker mà dashboard hiển thị.
+§7 đã lưu Rancher và Traefik archives. Thu thêm exact cert-manager OCI archive vào thư mục riêng; không đọc branch `main` để kết luận về release đã pin:
 
-### 12.1. Tạo tunnel trên dashboard → lấy token (chưa bấm Continue)
+```bash
+source "${BASELINE_ROOT}/research-state.env"
+AUDIT_EVIDENCE="${CHART_EVIDENCE}/audit"
+mkdir -p "${AUDIT_EVIDENCE}/cert-manager-bundle"
 
-1. Cloudflare dashboard → **Networking → Tunnels** → **Create Tunnel**.
-2. Giao diện hiện tại đi thẳng đến form **Create a Tunnel**; đây đã là luồng tạo connector `cloudflared`, nên không còn bước chọn loại **Cloudflared** riêng.
-3. Tại **Tunnel name**, nhập `homelab-k8s` → **Create Tunnel**.
-4. Tại màn hình **Setup Environment** / *Install and run*, chọn **Docker**. Lựa chọn này chỉ để dashboard hiển thị lệnh có token ở dạng dễ nhận biết; **không chạy** lệnh `docker run` vì connector sẽ được deploy vào Kubernetes ở §12.2.
-5. Bấm biểu tượng copy cạnh lệnh, rồi lấy riêng chuỗi nằm sau `--token` trong lệnh có dạng `cloudflared ... run --token eyJh...`. Token rất dài; không chụp, gửi vào chat hoặc ghi vào lịch sử lệnh shell.
-6. Giữ nguyên trang wizard. **Connection Status** hiển thị `Waiting for your Tunnel to connect` / `No connection detected yet` và nút **Continue** đang bị khóa là trạng thái dự kiến lúc này.
+helm pull oci://quay.io/jetstack/charts/cert-manager \
+  --version "${CERT_MANAGER_VERSION}" \
+  --destination "${AUDIT_EVIDENCE}/cert-manager-bundle"
 
-**Verify §12.1:** kiểm tra đủ ba dấu hiệu trên dashboard:
+CM_ARCHIVE="$(find "${AUDIT_EVIDENCE}/cert-manager-bundle" \
+  -maxdepth 1 -type f -name '*.tgz' -print -quit)"
+test -n "${CM_ARCHIVE}" || echo 'FAIL: không tìm thấy cert-manager archive'
+sha256sum "${CM_ARCHIVE}" \
+  > "${AUDIT_EVIDENCE}/cert-manager-bundle/SHA256SUMS"
+tar -xzf "${CM_ARCHIVE}" -C "${AUDIT_EVIDENCE}/cert-manager-bundle"
 
-- **Tunnel name** là `homelab-k8s`.
-- **Operating System** đang chọn **Docker**.
-- Lệnh *Run tunnel with Docker* có tham số `--token` và đã copy được token, nhưng chưa chạy lệnh.
+CERT_MANAGER_SOURCE="${AUDIT_EVIDENCE}/cert-manager-bundle/cert-manager"
+TRAEFIK_SOURCE="${CHART_EVIDENCE}/traefik"
+RANCHER_SOURCE="${CHART_EVIDENCE}/rancher"
 
-**PASS §12.1:** đủ ba dấu hiệu trên. Nút **Continue** chưa bật không phải lỗi; chuyển thẳng xuống §12.2. **STOP** nếu dashboard không sinh lệnh chứa `--token` hoặc token đã bị lộ — khi đó không deploy và phải rotate token trước.
+printf 'CERT_MANAGER_SOURCE=%q\nTRAEFIK_SOURCE=%q\nRANCHER_SOURCE=%q\n' \
+  "${CERT_MANAGER_SOURCE}" "${TRAEFIK_SOURCE}" "${RANCHER_SOURCE}" \
+  >> "${BASELINE_ROOT}/research-state.env"
+```
 
-### 12.2. Deploy cloudflared vào cụm
+Gate source tree và tạo inventory:
 
-**Trên master**, tạo `cloudflared.yaml` (dán token vào):
+```bash
+set -o pipefail
+(
+  for entry in \
+    "cert-manager:${CERT_MANAGER_SOURCE}" \
+    "traefik:${TRAEFIK_SOURCE}" \
+    "rancher:${RANCHER_SOURCE}"; do
+    component="${entry%%:*}"
+    directory="${entry#*:}"
+    test -f "${directory}/Chart.yaml" || {
+      echo "FAIL: ${component} thiếu Chart.yaml"; exit 1;
+    }
+    test -f "${directory}/values.yaml" || {
+      echo "FAIL: ${component} thiếu values.yaml"; exit 1;
+    }
+    test -d "${directory}/templates" || {
+      echo "FAIL: ${component} thiếu templates/"; exit 1;
+    }
+
+    rg -n '\.Values\.|Capabilities\.APIVersions|lookup|kind:|apiVersion:' \
+      "${directory}" \
+      > "${AUDIT_EVIDENCE}/${component}-values-capabilities-kinds.txt" || true
+    rg -n '{{-?\s*(if|with|range)|include|define' \
+      "${directory}/templates" \
+      > "${AUDIT_EVIDENCE}/${component}-template-branches.txt" || true
+
+    test -s "${AUDIT_EVIDENCE}/${component}-values-capabilities-kinds.txt" || {
+      echo "FAIL: ${component} audit inventory rỗng"; exit 1;
+    }
+  done
+
+  echo 'PASS: đã lưu exact source tree và audit inventory cho cả ba chart'
+) 2>&1 | tee "${AUDIT_EVIDENCE}/gate-81-source-trees.txt"
+SOURCE_TREE_RC=${PIPESTATUS[0]}
+echo "source tree gate rc=${SOURCE_TREE_RC}"
+```
+
+**PASS:** `rc=0`. **FAIL/STOP:** không tạo config contract từ docs/options page thay cho source chart.
+
+### 8.2. Tạo “config contract”
+
+Với mọi key có khả năng đổi loại resource, controller, TLS, storage, network exposure hoặc security behavior, điền bảng:
+
+```bash
+set -a
+source "${BASELINE_ROOT}/baseline.env"
+set +a
+```
+
+Tạo bảng TSV. Các giá trị `UNKNOWN` phải được thay bằng kết quả đọc exact `values.yaml`/template. Cột `evidence` dùng đường dẫn tương đối dưới `evidence/07-charts`, có thể kèm `:line`:
+
+```bash
+{
+  printf 'component\tkey_path\tdefault\ttemplate_gate\tpinned_value\tdependency\tfailure_mode\tevidence\n'
+  printf 'cert-manager\tcrds.enabled\tUNKNOWN\tUNKNOWN\ttrue\tKubernetes CRDs\tCRDs không được render\tUNKNOWN\n'
+  printf 'traefik\tproviders.kubernetesIngress.enabled\tUNKNOWN\tUNKNOWN\ttrue\tIngress API\tIngress không được reconcile\tUNKNOWN\n'
+  printf 'traefik\tproviders.kubernetesGateway.enabled\tUNKNOWN\tUNKNOWN\tfalse\tGateway API CRDs\tnhầm feature branch\tUNKNOWN\n'
+  printf 'traefik\tingressClass.enabled\tUNKNOWN\tUNKNOWN\ttrue\tIngressClass\tclass không tồn tại\tUNKNOWN\n'
+  printf 'rancher\tnetworkExposure.type\tUNKNOWN\tUNKNOWN\t%s\tIngress hoặc Gateway API\tRancher không có route\tUNKNOWN\n' "${RANCHER_EXPOSURE}"
+  printf 'rancher\tingress.enabled\tUNKNOWN\tUNKNOWN\ttrue\tnetworkExposure.type=ingress\tIngress không render\tUNKNOWN\n'
+  printf 'rancher\tingress.ingressClassName\tUNKNOWN\tUNKNOWN\ttraefik\tTraefik IngressClass\tIngress bị bỏ qua\tUNKNOWN\n'
+  printf 'rancher\tingress.includeDefaultExtraAnnotations\tUNKNOWN\tUNKNOWN\tfalse\tIngress controller\tannotation nginx vô tác dụng\tUNKNOWN\n'
+  printf 'rancher\tingress.tls.source\tUNKNOWN\tUNKNOWN\trancher\tcert-manager\tTLS resource sai owner\tUNKNOWN\n'
+  printf 'rancher\tingress.tls.secretName\tUNKNOWN\tUNKNOWN\ttls-rancher-ingress\tcert-manager ingress-shim\tgate chờ sai resource\tUNKNOWN\n'
+  printf 'rancher\tagentTLSMode\tUNKNOWN\tUNKNOWN\tstrict\tCA trust\tagent TLS không đúng policy\tUNKNOWN\n'
+  printf 'rancher\tgateway.gatewayClass.name\tUNKNOWN\tUNKNOWN\tN/A\tGateway API CRDs và GatewayClass\tnhầm Gateway branch\tUNKNOWN\n'
+} > "${BASELINE_ROOT}/config-contract.tsv"
+
+nano "${BASELINE_ROOT}/config-contract.tsv"
+```
+
+Phải trả lời được cho từng dòng:
+
+- Key nào gate việc có/không render resource?
+- Default mới nào đang khiến manifest “tình cờ đúng”?
+- Nhánh thay thế cần CRD/controller/GatewayClass nào?
+- Resource do Helm render hay controller khác tạo bất đồng bộ?
+- Template có `lookup` và phụ thuộc state cluster không?
+- Chart pin image hay ghép tag từ `appVersion`?
+- Annotation có dành riêng cho ingress controller khác không?
+
+Gate contract:
+
+```bash
+set -o pipefail
+(
+  python3 - "${BASELINE_ROOT}/config-contract.tsv" "${CHART_EVIDENCE}" <<'PY'
+import csv
+import os
+import sys
+
+contract_file, evidence_root = sys.argv[1:]
+rows = list(csv.DictReader(open(contract_file, encoding='utf-8'), delimiter='\t'))
+required = {
+    ('cert-manager', 'crds.enabled'),
+    ('traefik', 'providers.kubernetesIngress.enabled'),
+    ('traefik', 'providers.kubernetesGateway.enabled'),
+    ('traefik', 'ingressClass.enabled'),
+    ('rancher', 'networkExposure.type'),
+    ('rancher', 'ingress.enabled'),
+    ('rancher', 'ingress.ingressClassName'),
+    ('rancher', 'ingress.includeDefaultExtraAnnotations'),
+    ('rancher', 'ingress.tls.source'),
+    ('rancher', 'ingress.tls.secretName'),
+    ('rancher', 'agentTLSMode'),
+    ('rancher', 'gateway.gatewayClass.name'),
+}
+found = {(row['component'], row['key_path']) for row in rows}
+missing = required - found
+if missing:
+    raise SystemExit('FAIL: config contract thiếu ' + repr(sorted(missing)))
+
+for row in rows:
+    for key, value in row.items():
+        if not value.strip() or 'UNKNOWN' in value:
+            raise SystemExit(f'FAIL: {row["component"]}.{row["key_path"]} cột {key} chưa audit')
+    evidence_ref = row['evidence']
+    path_part, separator, line_part = evidence_ref.rpartition(':')
+    if not separator or not line_part.isdigit():
+        path_part = evidence_ref
+    evidence_path = os.path.realpath(os.path.join(evidence_root, path_part))
+    root_path = os.path.realpath(evidence_root)
+    if os.path.commonpath([root_path, evidence_path]) != root_path:
+        raise SystemExit(f'FAIL: evidence thoát chart workspace: {evidence_ref}')
+    if not os.path.isfile(evidence_path):
+        raise SystemExit(f'FAIL: evidence file không tồn tại: {evidence_ref}')
+
+lookup = {(r['component'], r['key_path']): r for r in rows}
+if lookup[('cert-manager', 'crds.enabled')]['pinned_value'] != 'true':
+    raise SystemExit('FAIL: baseline yêu cầu cert-manager crds.enabled=true')
+if lookup[('traefik', 'providers.kubernetesIngress.enabled')]['pinned_value'] != 'true':
+    raise SystemExit('FAIL: baseline yêu cầu Traefik KubernetesIngress provider')
+if lookup[('traefik', 'providers.kubernetesGateway.enabled')]['pinned_value'] != 'false':
+    raise SystemExit('FAIL: baseline Ingress không được bật Gateway provider ngầm')
+exposure = os.environ['RANCHER_EXPOSURE']
+if lookup[('rancher', 'networkExposure.type')]['pinned_value'] != exposure:
+    raise SystemExit('FAIL: Rancher exposure contract không khớp input')
+if exposure == 'ingress' and lookup[('rancher', 'ingress.enabled')]['pinned_value'] != 'true':
+    raise SystemExit('FAIL: ingress exposure nhưng ingress.enabled không true')
+
+print('PASS: config contract đủ key, không còn UNKNOWN và khớp input architecture')
+PY
+) 2>&1 | tee "${AUDIT_EVIDENCE}/gate-82-config-contract.txt"
+CONTRACT_RC=${PIPESTATUS[0]}
+echo "config contract gate rc=${CONTRACT_RC}"
+```
+
+**PASS:** `rc=0`. **FAIL/STOP:** chưa tạo candidate values hoặc render.
+
+Nếu exact chart đã đổi tên/xóa một key bắt buộc, giữ gate ở trạng thái FAIL, ghi breaking change vào decision log và cập nhật cả contract, candidate values lẫn render assertion dựa trên source official mới. Không xóa assertion chỉ để chart mới đi qua.
+
+### 8.3. Case study bắt buộc: Rancher 2.14 và `networkExposure.type`
+
+Đây là ví dụ lịch sử để học cách audit, **không phải khuyến nghị chọn Rancher 2.14.3 trong tương lai**.
+
+Trong [`values.yaml` của Rancher chart v2.14.3](https://github.com/rancher/rancher/blob/v2.14.3/chart/values.yaml), `networkExposure.type` mặc định là `ingress`. [Helper của đúng tag v2.14.3](https://github.com/rancher/rancher/blob/v2.14.3/chart/templates/_helpers.tpl) chỉ bật nhánh Ingress khi đồng thời:
+
+```gotemplate
+eq .Values.networkExposure.type "ingress"
+.Values.ingress.enabled
+```
+
+Nếu chỉ set `ingress.enabled: true`, manifest hiện vẫn đúng nhờ default mới. Đó là dependency ngầm và phải pin:
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: cloudflare
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: tunnel-token
-  namespace: cloudflare
-stringData:
-  token: <DÁN_TUNNEL_TOKEN_eyJh...>
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: cloudflared
-  namespace: cloudflare
-spec:
-  replicas: 2                       # HA (cloudflared KHÔNG load-balance giữa replica, chỉ để dự phòng)
-  selector:
-    matchLabels: { app: cloudflared }
-  template:
-    metadata:
-      labels: { app: cloudflared }
-    spec:
-      containers:
-        - name: cloudflared
-          image: cloudflare/cloudflared:latest
-          args:
-            - tunnel
-            - --no-autoupdate
-            - --loglevel
-            - info
-            - --metrics
-            - 0.0.0.0:2000
-            - run
-          env:
-            - name: TUNNEL_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: tunnel-token
-                  key: token
-          livenessProbe:
-            httpGet:
-              path: /ready
-              port: 2000
-            failureThreshold: 1
-            initialDelaySeconds: 10
-            periodSeconds: 10
-```
+networkExposure:
+  type: ingress
+
+ingress:
+  enabled: true
+  includeDefaultExtraAnnotations: false
+  ingressClassName: traefik
+  servicePort: 80
+  tls:
+    source: rancher
+    secretName: tls-rancher-ingress
 
-```bash
-kubectl apply -f cloudflared.yaml
-kubectl -n cloudflare rollout status deployment/cloudflared --timeout=180s
-kubectl -n cloudflare get deployment cloudflared
-kubectl -n cloudflare get pods -l app=cloudflared -o wide
-```
-
-Output mong đợi:
-
-- `rollout status` kết thúc bằng `successfully rolled out`.
-- Deployment có `READY 2/2` và `AVAILABLE 2`.
-- Cả hai Pod có `STATUS Running`, cột `READY` là `1/1` và không restart lặp lại.
-
-Nếu rollout không PASS, chưa quay lại wizard và chưa tạo route. Chẩn đoán trước bằng:
-
-```bash
-kubectl -n cloudflare describe deployment cloudflared
-kubectl -n cloudflare describe pods -l app=cloudflared
-kubectl -n cloudflare logs deployment/cloudflared --tail=100
-```
-
-Không gửi log nếu log làm lộ token. Sửa lỗi Pod/egress trước rồi chạy lại ba lệnh verify ở trên.
-
-Sau khi Kubernetes PASS:
-
-1. Quay lại đúng trang wizard đang giữ ở §12.1.
-2. Chờ **Connection Status** phát hiện connector; nút **Continue** sẽ được bật. Nếu UI chưa cập nhật, đợi ngắn rồi refresh đúng một lần, không tạo tunnel mới và không chạy thêm lệnh Docker.
-3. Chọn **Continue** để kết thúc bước kết nối và mở trang cấu hình route/tunnel.
-4. Vào **Networking → Tunnels** nếu dashboard chuyển về trang khác; tunnel `homelab-k8s` phải hiển thị **Healthy** với hai connector/replica.
-
-**Verify §12.2:** chạy lại:
-
-```bash
-kubectl -n cloudflare get deployment cloudflared
-kubectl -n cloudflare get pods -l app=cloudflared
-```
-
-Đồng thời xác nhận dashboard hiển thị tunnel `homelab-k8s` là **Healthy**.
-
-**PASS §12.2:** Deployment vẫn `READY 2/2`, hai Pod vẫn `Running 1/1`, dashboard đã phát hiện connector, đã bấm được **Continue**, và tunnel là **Healthy**. Chỉ khi đủ các điều kiện này mới chuyển sang §12.3.
-
-### 12.3. Chốt hostname thật trong Ingress → thêm Published application
-
-#### 12.3.1. Đổi Ingress từ hostname tạm sang hostname thật
-
-Domain đã PASS §11 là `hieupn.site`, nên hostname public của app trong lab này là `app.hieupn.site`. Kubernetes không tự lấy domain từ Cloudflare: phải đổi `spec.rules[].host` trong manifest rồi apply lại trước khi tạo route.
-
-**Trên master**, kiểm tra hostname hiện tại:
-
-```bash
-kubectl get ingress web -o jsonpath='{.spec.rules[*].host}{"\n"}'
-```
-
-Nếu đã làm đúng §10, output lúc này là `app.example.com`; đây là trạng thái tạm dự kiến, **chưa phải PASS §12.3.1**.
-
-Mở source manifest:
-
-```bash
-nano ~/demo-app.yaml
-```
-
-Trong phần `kind: Ingress`, chỉ đổi:
-
-```yaml
-- host: app.example.com
-```
-
-thành:
-
-```yaml
-- host: app.hieupn.site
-```
-
-Lưu file, dry-run rồi apply:
-
-```bash
-kubectl apply --dry-run=client -f ~/demo-app.yaml
-kubectl apply -f ~/demo-app.yaml
-```
-
-Verify object đang chạy và test lại toàn bộ đường nội bộ qua Traefik bằng Host header mới:
-
-```bash
-kubectl get ingress web -o jsonpath='{.spec.rules[*].host}{"\n"}'
-ING_IP=$(kubectl get svc -n traefik traefik -o jsonpath='{.spec.clusterIP}')
-curl -sS -H 'Host: app.hieupn.site' "http://$ING_IP/"
-```
-
-**PASS §12.3.1:** lệnh đầu in đúng `app.hieupn.site` và `curl` trả nội dung `nginxdemos/hello` như test §10.3. **STOP** nếu hostname còn là `app.example.com`, `curl` trả `404`, hoặc không có nội dung ứng dụng; chưa tạo route Cloudflare cho tới khi gate này PASS.
-
-#### 12.3.2. Hiểu đầy đủ luồng Cloudflare Tunnel → Kubernetes
-
-Điểm cốt lõi: **Cloudflare không chủ động mở một kết nối mới từ Internet vào IP của lab**. Chính các Pod `cloudflared` đang nằm trong Kubernetes đã mở kết nối outbound tới Cloudflare và giữ các kết nối đó hoạt động. Khi có request, Cloudflare truyền request xuống chính đường kết nối đã được mở sẵn.
-
-Phần giải thích đầy đủ đã tách sang [`cloudflare-docs/tunnel-traefik.md`](cloudflare-docs/tunnel-traefik.md) để runbook không phình dài. Tài liệu đó gồm:
-
-- sơ đồ tổng quan và sơ đồ tuần tự của toàn bộ chuỗi request/response;
-- bản kể lại luồng §12 → §13 bằng ngôn ngữ đơn giản, kèm bảng phân biệt bốn lớp “route”;
-- luồng end-to-end theo 14 bước, từ lúc gõ URL tới lúc Pod web trả response;
-- 12 mục đào sâu từng hop: connector outbound qua NAT, hai hệ DNS độc lập, Host header đi xuyên các chặng, cách Service chọn Pod backend, và vì sao browser dùng HTTPS trong khi Service URL dùng HTTP.
-
-File đó không chứa lệnh hay gate nào. Đọc để hiểu cơ chế, rồi quay lại [§12.3.3](#1233-thêm-published-application) để thao tác.
-
-#### 12.3.3. Thêm Published application
-
-Chỉ sau khi §12.3.1 PASS, mở tunnel `homelab-k8s` → **Routes** / **Published application routes** → **Add route** → **Published application** (một số tài khoản/UI cũ còn hiện “Public Hostname”):
-
-| Trường              | Giá trị                                       |
-| --------------------- | ----------------------------------------------- |
-| **Subdomain**   | `app` (để trống nếu dùng root domain)    |
-| **Domain**      | `hieupn.site` (chọn từ dropdown)            |
-| **Service URL** | `http://traefik.traefik.svc.cluster.local:80` |
-
-> **UI Cloudflare có hai biến thể.** Bản mới gộp `Type` và `URL` thành **một ô `Service URL`**, và scheme phải nằm trong chuỗi — thiếu `http://` sẽ báo *Invalid service URL format (must start with protocol like https://, tcp://, etc.)*. Bản cũ tách thành dropdown `Type` = `HTTP` và ô `URL` = `traefik.traefik.svc.cluster.local:80` (không scheme). Hai cách khai báo cùng một đích; điền theo đúng biến thể đang hiện trên màn hình.
-
-→ **Save**. Với DNS **Full Setup** như [§11.2](#112-thêm-domain-vào-cloudflare), Cloudflare tự tạo DNS record cho hostname. Nếu zone dùng **Partial/CNAME Setup**, phải tự tạo CNAME tại DNS provider theo hướng dẫn Cloudflare.
-
-> Vì cloudflared chạy *trong* cụm, nó resolve được tên DNS nội bộ `*.svc.cluster.local` và gọi thẳng ClusterIP của Traefik. Hostname `app.hieupn.site` được giữ nguyên trong Host header → Traefik khớp đúng Router đã verify ở §12.3.1.
->
-> (Tuỳ chọn) Nếu cần ép Host header, mở **Additional application settings → HTTP Settings → HTTP Host Header** = `app.hieupn.site`.
-
-**Verify §12.3.3:**
-
-1. Trong tunnel `homelab-k8s`, tab **Routes** / **Published application routes** phải có route `app.hieupn.site` trỏ tới `http://traefik.traefik.svc.cluster.local:80`.
-2. Cloudflare → **DNS → Records** phải có record cho `app.hieupn.site` ở trạng thái **Proxied**; không tự tạo record thứ hai nếu dashboard đã tạo tự động.
-3. Tunnel vẫn **Healthy** và hai Pod `cloudflared` vẫn `Running`:
-
-```bash
-kubectl -n cloudflare get pods -l app=cloudflared
-```
-
-**PASS §12.3.3 / hoàn thành §12:** route và DNS record `app.hieupn.site` tồn tại đúng một lần, tunnel vẫn **Healthy**, và hai Pod vẫn `Running 1/1`. Sau đó mới chuyển sang §13 để kiểm tra DNS public và HTTPS từ Internet.
-
----
-
-## 13. Trỏ domain & kiểm tra trên Internet
-
-### 13.1. Verify DNS public và hiểu vì sao kết quả là IP Cloudflare
-
-Chạy từ master hoặc một máy khác có Internet:
-
-```bash
-nslookup app.hieupn.site
-```
-
-Lệnh này hỏi DNS: “client phải kết nối tới địa chỉ nào khi truy cập `app.hieupn.site`?”. Vì record Tunnel đang **Proxied**, câu trả lời phải là một hoặc nhiều IPv4/IPv6 của Cloudflare Edge, không phải IP router, master, worker, ClusterIP Traefik hoặc Pod IP của lab.
-
-```text
-app.hieupn.site
-→ Cloudflare Edge IP
-→ tunnel homelab-k8s
-→ cloudflared trong Kubernetes
-→ Traefik
-→ ứng dụng web
-```
-
-Ví dụ output có thể chứa:
-
-```text
-Server:  127.0.0.53
-Address: 127.0.0.53#53
-
-Non-authoritative answer:
-Name:    app.hieupn.site
-Address: 104.x.x.x
-Name:    app.hieupn.site
-Address: 172.x.x.x
-Name:    app.hieupn.site
-Address: 2606:4700:...
-```
-
-Cần phân biệt:
-
-- `Server: 127.0.0.53` là DNS stub resolver cục bộ trên Ubuntu master (`systemd-resolved`), không phải web server hay Cloudflare origin. Xem DNS upstream thật bằng `resolvectl status`.
-- Các địa chỉ trong phần `Non-authoritative answer` mới là kết quả phân giải `app.hieupn.site`.
-- Nhiều IPv4/IPv6 là bình thường vì Cloudflare dùng mạng Anycast và nhiều địa chỉ để tăng tính sẵn sàng; không coi một IP cụ thể là một máy chủ Cloudflare cố định.
-
-Dashboard lưu ánh xạ tương đương `app.hieupn.site → <TUNNEL-UUID>.cfargotunnel.com`, nhưng khi record được Proxied, DNS public thường trả Cloudflare Edge IP thay vì công bố CNAME tunnel hoặc bất kỳ IP nội bộ nào. Xem [Cloudflare — Tunnel DNS records](https://developers.cloudflare.com/tunnel/routing/#dns-records).
-
-`nslookup` PASS chứng minh:
-
-- hostname public đã có DNS record và resolver nhìn thấy record;
-- proxy Cloudflare đang được áp dụng;
-- client sẽ tới Cloudflare Edge thay vì kết nối thẳng vào lab.
-
-`nslookup` **chưa** chứng minh tunnel đang Healthy, `cloudflared` gọi được Traefik, Ingress khớp Host header hay Pod web trả response. Các tầng đó được kiểm tra ở §13.2.
-
-**PASS §13.1:** `app.hieupn.site` trả Cloudflare Edge IPv4/IPv6, không trả IP riêng/IP public của lab và không có `NXDOMAIN`/timeout.
-
-### 13.2. Verify HTTPS end-to-end bằng response headers
-
-```bash
-curl -I https://app.hieupn.site
-```
-
-`-I` yêu cầu `curl` gửi HTTP `HEAD` và chỉ in response headers, không tải body trang. Trong một lệnh, `curl` lần lượt kiểm tra:
-
-1. DNS phân giải được `app.hieupn.site`.
-2. Kết nối được tới Cloudflare Edge qua HTTPS port `443`.
-3. TLS certificate hợp lệ và khớp hostname `app.hieupn.site`.
-4. Cloudflare tìm thấy Published application route.
-5. Cloudflare truyền request xuống tunnel `homelab-k8s` qua connector đang Healthy.
-6. Pod `cloudflared` gọi được `traefik.traefik.svc.cluster.local:80`.
-7. Traefik nhận `Host: app.hieupn.site` và khớp Ingress `web`.
-8. Service/Pod web xử lý được request `HEAD` và trả response.
-
-Lệnh này khác test nội bộ ở §12.3.1:
-
-| Lệnh | Phạm vi được kiểm tra |
-| --- | --- |
-| `curl -H 'Host: app.hieupn.site' "http://$ING_IP/"` | Traefik → Ingress → Service web → Pod; bỏ qua DNS public, Cloudflare và Tunnel |
-| `curl -I https://app.hieupn.site` | DNS public → Cloudflare Edge/TLS → Tunnel → `cloudflared` → Traefik → ứng dụng |
-
-Output PASS dự kiến có status thành công, tùy phiên bản `curl` có thể hiển thị HTTP/2 hoặc HTTP/1.1:
-
-```text
-HTTP/2 200
-server: cloudflare
-cf-ray: ...
-```
-
-`server: cloudflare` cho biết response đi qua Cloudflare Edge, không phải tên Pod backend. `cf-ray` là định danh request tại Cloudflare. Một số lỗi giúp khoanh vùng:
-
-| Kết quả | Tầng cần kiểm tra trước |
-| --- | --- |
-| `Could not resolve host` | DNS public/resolver |
-| lỗi certificate | TLS/Universal SSL/hostname |
-| HTTP `404` | Published route hoặc Host của Ingress không khớp |
-| HTTP `502`/`504` | `cloudflared` không gọi được Traefik/backend hoặc origin không trả lời |
-| Cloudflare `1016` | DNS còn record nhưng tunnel/origin route không dùng được |
-
-**PASS §13.2:** `curl` không có lỗi DNS/TLS/connection và nhận HTTP `200` qua Cloudflare. Nếu nhận redirect `301`/`302`, phải xác nhận đích redirect đúng rồi chạy lại URL đích; với cấu hình hiện tại dự kiến trả thẳng `200`.
-
-### 13.3. Verify response body và trình duyệt
-
-`curl -I` không tải nội dung nên sau khi header PASS, kiểm tra body thật:
-
-```bash
-curl -sS https://app.hieupn.site
-```
-
-Output phải chứa thông tin từ `nginxdemos/hello`, ví dụ `Server address`, `Server name`, `URI` và `Request ID`. `Server address` là Pod IP/port của backend web; `Server name` là tên Pod web đã phục vụ request, không phải Cloudflare Edge hay Traefik.
-
-Cuối cùng mở trình duyệt → `https://app.hieupn.site` → thấy trang `nginxdemos/hello`. Khi đó toàn bộ chuỗi đã thông:
-
-```text
-Browser → Cloudflare Edge (HTTPS/TLS) → Tunnel mã hóa → cloudflared Pod →
-Traefik Service/Pod → Ingress Router (Host match) → Service web → Pod web
-```
-
-**PASS §13 / hoàn thành public app:** §13.1 DNS PASS, §13.2 HTTPS headers trả `200`, §13.3 body/trình duyệt hiển thị ứng dụng.
-
-> **TLS:** Cloudflare lo certificate ở edge (Internet ⇄ Cloudflare = HTTPS). Đoạn Cloudflare ⇄ cluster đi trong tunnel mã hóa; chặng `cloudflared` ⇄ Traefik của lab dùng HTTP nội bộ nên không cần cert nội bộ. Traefik không tự redirect HTTP→HTTPS trong cấu hình này; với `ingress-nginx` thì đây là chỗ thường phải thêm annotation `ssl-redirect: "false"`.
-
----
-
-## 14. Cài Rancher 2.14.3 & quản lý cụm
-
-> Cài Rancher **vào chính cụm kubeadm** vừa dựng (Rancher chạy như workload trong namespace `cattle-system`). Cụm host nó sẽ tự xuất hiện trong UI Rancher dưới tên **`local`** — **không cần import thủ công**. Muốn quản thêm cụm khác sau này thì dùng **Cluster Management → Import Existing**.
->
-> **Hostname đã chốt:** `rancher.hieupn.site`. Chưa tạo Published application route/DNS public cho hostname này cho tới khi Rancher, certificate và phép thử HTTPS nội bộ ở §14.4 đều PASS.
->
-> **Phạm vi hỗ trợ:** chart Rancher `2.14.3` khai báo `kubeVersion: < 1.36.0-0`; support matrix v2.14.3 bao phủ Kubernetes `1.33–1.35` cho imported/other clusters, nên Kubernetes `1.35.6` của lab nằm trong dải tương thích. Tuy nhiên kubeadm tự dựng không nằm trong danh sách nền tảng **Rancher Manager host** được SUSE chứng nhận (RKE2, K3s và các managed Kubernetes được liệt kê riêng). Đây là cấu hình homelab tương thích về kỹ thuật, không phải topology Rancher production được chứng nhận end-to-end.
-
-### 14.0. Gate trước khi thay đổi cluster
-
-Trên **master**, chạy toàn bộ gate read-only trước. §14 này giả định cài mới; nếu đã có release/namespace `cert-manager` hoặc `rancher`, **STOP** và dùng quy trình upgrade/repair thay vì chạy lại lệnh install:
-
-```bash
-helm version --short
-kubectl version
-kubectl get nodes -o wide
-kubectl auth can-i '*' '*' --all-namespaces
-kubectl top nodes
-kubectl describe nodes | grep -A6 'Allocated resources'
-kubectl get pods,svc -n traefik
-kubectl get ingressclass traefik
-kubectl get pods -n cloudflare
-helm list -A | grep -E '(^|[[:space:]])(cert-manager|rancher)([[:space:]]|$)' || true
-kubectl get namespace cert-manager cattle-system --ignore-not-found
-```
-
-**PASS §14.0** khi:
-
-- Helm ≥ `3.18`; Kubernetes Client/Server = `v1.35.6`.
-- Cả 3 node `Ready`, metrics trả đủ 3 node và memory requests còn dưới khoảng 50% trước khi cài.
-- Tài khoản hiện tại có `cluster-admin` (`yes`).
-- Traefik và hai Pod `cloudflared` đều `Running`; IngressClass `traefik` tồn tại.
-- Hai lệnh cuối không phát hiện cài đặt Rancher/cert-manager cũ. Namespace tồn tại nhưng Helm release không tồn tại cũng phải được điều tra trước, không mặc định tái sử dụng.
-- Snapshot etcd và `/etc/kubernetes` theo §15 đã được xác nhận và copy ra ngoài VM.
-
-Sau khi gate read-only PASS và **trước §14.1**, bắt buộc chạy [quy trình backup etcd và cấu hình ở §15](#backup-etcd-và-cấu-hình-trước-thay-đổi-lớn), rồi copy thư mục backup ra khỏi VM/disk chứa etcd. File `coredns-before-rancher.yaml` ở §14.2 chỉ rollback được ConfigMap CoreDNS; nó không hoàn tác CRD, webhook, controller và toàn bộ state mà cert-manager/Rancher sẽ ghi vào cluster. Chỉ tiếp tục khi đã xác nhận snapshot etcd tồn tại, đọc được và có bản copy ngoài VM.
-
-### 14.1. Cài cert-manager (Rancher cần để cấp TLS nội bộ)
-
-cert-manager `1.21` hỗ trợ và được test với Kubernetes `1.33–1.36`. Pin patch `v1.21.1` vì đây là patch hiện hành trong cùng minor và sửa các regression của `v1.21.0`. Dùng OCI chart chính thức — đây là nguồn được cert-manager khuyến nghị cho các bản mới:
-
-```bash
-helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
-  --namespace cert-manager --create-namespace \
-  --version v1.21.1 \
-  --set crds.enabled=true \
-  --wait --timeout 10m
-
-helm status cert-manager -n cert-manager
-kubectl wait --for=condition=Available deployment --all \
-  -n cert-manager --timeout=300s
-kubectl get pods -n cert-manager
-kubectl get crd | grep cert-manager.io
-```
-
-**PASS §14.1:** Helm release `deployed`, ba Deployment/Pod `cert-manager`, `cert-manager-cainjector`, `cert-manager-webhook` đều Ready và các CRD `cert-manager.io` tồn tại. STOP nếu webhook chưa Ready; Rancher chưa thể tạo certificate an toàn.
-
-### 14.2. Cấu hình split DNS cho Rancher agent
-
-Agent trong cluster phải gọi Server URL `https://rancher.hieupn.site`. Cho hostname này phân giải **nội bộ** thẳng tới ClusterIP Traefik để agent không đi vòng ra Cloudflare và không bị Cloudflare Access chặn:
-
-```bash
-TRAEFIK_IP=$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.clusterIP}')
-printf 'Traefik ClusterIP: %s\n' "$TRAEFIK_IP"
-kubectl -n kube-system get configmap coredns -o yaml > coredns-before-rancher.yaml
-kubectl -n kube-system edit configmap coredns
-```
-
-Trong `Corefile`, thêm khối sau **bên trong** server block `.:53`, trước `forward . /etc/resolv.conf`; thay `<TRAEFIK_CLUSTER_IP>` bằng giá trị vừa in:
-
-```text
-hosts {
-    <TRAEFIK_CLUSTER_IP> rancher.hieupn.site
-    ttl 60
-    fallthrough
-}
-```
-
-Plugin `hosts` chỉ được xuất hiện **một lần trong mỗi server block**. Nếu Corefile đã có khối `hosts`, chỉ thêm dòng `<TRAEFIK_CLUSTER_IP> rancher.hieupn.site` và `ttl 60` vào khối hiện hữu, không tạo khối thứ hai.
-
-Áp dụng và kiểm tra từ một Pod dùng cluster DNS:
-
-```bash
-kubectl -n kube-system rollout restart deployment coredns
-kubectl -n kube-system rollout status deployment coredns
-kubectl -n kube-system logs deployment/coredns --tail=50
-
-kubectl run dns-check --rm -i --restart=Never --image=busybox:1.36 \
-  -- nslookup rancher.hieupn.site
-# PASS: trả đúng ClusterIP Traefik, không phải IP Cloudflare
-```
-
-**PASS §14.2:** CoreDNS rollout thành công, log không có lỗi parse/reload và lookup trong Pod trả đúng `$TRAEFIK_IP`. Giữ `coredns-before-rancher.yaml` để rollback bằng `kubectl apply -f coredns-before-rancher.yaml` rồi rollout lại CoreDNS. Nếu Service Traefik bị xoá/tạo lại và đổi ClusterIP, phải cập nhật entry này.
-
-### 14.3. Cài Rancher (Helm, pin 2.14.3)
-
-Thêm repo stable rồi xác nhận chart pin tồn tại trước khi render hoặc cài:
-
-```bash
-helm repo add rancher-stable \
-  https://releases.rancher.com/server-charts/stable --force-update
-helm repo update rancher-stable
-helm show chart rancher-stable/rancher --version 2.14.3
-# PASS: version: 2.14.3, appVersion: v2.14.3, kubeVersion: < 1.36.0-0
-```
-
-Tạo values file không chứa mật khẩu. Không đặt `bootstrapPassword` trực tiếp trên command line để tránh ghi literal vào shell history. Khi giá trị này rỗng và Secret chưa tồn tại, template Helm **không render** `bootstrap-secret`; Rancher Server sẽ sinh mật khẩu ngẫu nhiên trong lần khởi động đầu tiên rồi ghi Secret đó lúc runtime. Vì vậy chỉ đọc mật khẩu sau khi Deployment Rancher Ready và Secret đã được tạo như §14.6.
-
-```bash
-cat > rancher-values.yaml <<'EOF'
-hostname: rancher.hieupn.site
-replicas: 1
 agentTLSMode: strict
+```
+
+`servicePort: 80` trong ví dụ là contract cho kiến trúc Traefik chuyển tiếp HTTP tới Rancher Service. Nếu baseline bật `service.disableHTTP`, chart yêu cầu backend port `443`; phải đổi contract và render gate tương ứng, không copy nguyên ví dụ.
+
+Cùng chart còn có nhánh Gateway API và default `gateway.gatewayClass.name: traefik`. Tên này **không tự cài** Gateway API CRDs, GatewayClass hoặc một controller đã bật provider Gateway. Nếu kiến trúc chỉ cài Traefik Kubernetes Ingress, chọn nhầm `networkExposure.type: gateway` có thể render/fail vì thiếu dependency. Vì vậy contract phải pin `ingress` và render gate phải cấm `Gateway`/`HTTPRoute` ngoài dự kiến.
+
+Case study này rút ra quy tắc tổng quát:
+
+> Pin mọi value quyết định **loại resource hoặc nhánh controller**, kể cả khi default hiện tại đúng. Mỗi lần nâng chart, diff `values.yaml` và template trước khi tái sử dụng file values cũ.
+
+### 8.4. Resource render-time khác runtime-time
+
+Audit phải ghi owner và thời điểm xuất hiện của resource:
+
+| Loại | Ví dụ | Hệ quả với gate |
+| --- | --- | --- |
+| Helm-rendered | Deployment/Ingress nằm trong output `helm template` | Có thể kiểm tra tĩnh ngay. |
+| Controller-generated | cert-manager ingress-shim tạo `Certificate` từ annotation trên Ingress | Không được kỳ vọng có trong chart render; cần wait theo tên resource sau khi controller chạy. |
+| Application-generated | Rancher server tạo bootstrap secret khi khởi động lần đầu nếu chart không render sẵn | Lệnh đọc secret sớm có thể `NotFound`, không chứng minh install fail. |
+| Runtime-managed | `cattle-cluster-agent` do Rancher tạo/quản lý theo runtime | Không được giả định luôn tồn tại trong chart; phải discovery trước khi đặt log gate. |
+
+Phân loại này không trực tiếp chọn version, nhưng nó ngăn một candidate tốt bị loại bởi gate sai và ngăn candidate xấu vượt qua vì Helm `--wait` không theo dõi controller khác.
+
+Tạo resource ownership contract cho exact baseline:
+
+```bash
+{
+  printf 'resource\towner\texpected_phase\tverification\n'
+  printf 'Rancher Deployment/Ingress\tHelm\trender-time\thelm template inventory\n'
+  printf 'Certificate tls-rancher-ingress\tcert-manager ingress-shim\truntime-after-Ingress\twait for create then Ready\n'
+  printf 'bootstrap-secret\tRancher application when bootstrapPassword is unset\truntime-after-Rancher-ready\tget secret only after Pod Ready\n'
+  printf 'cattle-cluster-agent\tRancher runtime controller\truntime/discovery\tget deployment inventory before logs\n'
+} > "${BASELINE_ROOT}/resource-ownership.tsv"
+```
+
+### 8.5. Gate hoàn thành chart audit
+
+```bash
+set -o pipefail
+(
+  for gate in \
+    gate-81-source-trees.txt \
+    gate-82-config-contract.txt; do
+    grep -Fq 'PASS:' "${AUDIT_EVIDENCE}/${gate}" || {
+      echo "FAIL: ${gate} chưa PASS"; exit 1;
+    }
+  done
+
+  test "$(awk 'NR>1 && NF {count++} END {print count+0}' \
+    "${BASELINE_ROOT}/resource-ownership.tsv")" -ge 4 || {
+    echo 'FAIL: resource ownership contract thiếu dòng'; exit 1;
+  }
+  ! grep -Eq 'UNKNOWN|TBD|YYYY|X\.Y' \
+    "${BASELINE_ROOT}/config-contract.tsv" \
+    "${BASELINE_ROOT}/resource-ownership.tsv" || {
+    echo 'FAIL: chart audit còn placeholder'; exit 1;
+  }
+
+  echo 'PASS: exact chart sources, config contract và resource ownership đã audit xong'
+) 2>&1 | tee "${AUDIT_EVIDENCE}/gate-85-chart-audit-complete.txt"
+CHART_AUDIT_RC=${PIPESTATUS[0]}
+echo "chart audit gate rc=${CHART_AUDIT_RC}"
+```
+
+**PASS:** `rc=0`. **FAIL/STOP:** không sang render gate.
+
+---
+
+## 9. Render gate trước khi phê duyệt baseline
+
+### 9.1. Tạo exact candidate values
+
+Baseline tham chiếu dùng Traefik Kubernetes Ingress, không bật Gateway API. Tạo ba values files từ config contract:
+
+```bash
+RENDER_EVIDENCE="${BASELINE_ROOT}/evidence/09-render"
+set -a
+source "${BASELINE_ROOT}/baseline.env"
+set +a
+source "${BASELINE_ROOT}/research-state.env"
+
+tee "${RENDER_EVIDENCE}/cert-manager-values.yaml" >/dev/null <<'EOF'
+crds:
+  enabled: true
+prometheus:
+  enabled: false
+EOF
+
+tee "${RENDER_EVIDENCE}/traefik-values.yaml" >/dev/null <<'EOF'
+providers:
+  kubernetesIngress:
+    enabled: true
+  kubernetesGateway:
+    enabled: false
+ingressClass:
+  enabled: true
+  isDefaultClass: false
+service:
+  type: ClusterIP
+EOF
+
+tee "${RENDER_EVIDENCE}/rancher-values.yaml" >/dev/null <<'EOF'
+hostname: rancher.example.com
+replicas: 3
 networkExposure:
   type: ingress
 ingress:
@@ -2744,566 +2218,878 @@ ingress:
   tls:
     source: rancher
     secretName: tls-rancher-ingress
+agentTLSMode: strict
 EOF
 ```
 
-Render read-only để xác nhận chart tạo đúng Ingress, hostname, IngressClass và tên TLS Secret, đồng thời không đi vào nhánh Gateway:
+Gate values khớp contract:
 
 ```bash
+set -o pipefail
+(
+  grep -Fq 'enabled: true' "${RENDER_EVIDENCE}/cert-manager-values.yaml" || {
+    echo 'FAIL: cert-manager CRD contract thiếu'; exit 1;
+  }
+  grep -A2 'kubernetesGateway:' "${RENDER_EVIDENCE}/traefik-values.yaml" \
+    | grep -Fq 'enabled: false' || {
+    echo 'FAIL: Traefik Gateway provider chưa tắt'; exit 1;
+  }
+  grep -A1 'networkExposure:' "${RENDER_EVIDENCE}/rancher-values.yaml" \
+    | grep -Fq 'type: ingress' || {
+    echo 'FAIL: Rancher chưa pin networkExposure.type=ingress'; exit 1;
+  }
+  grep -Fq 'ingressClassName: traefik' "${RENDER_EVIDENCE}/rancher-values.yaml" || {
+    echo 'FAIL: Rancher chưa pin Traefik IngressClass'; exit 1;
+  }
+  echo 'PASS: ba candidate values files khớp kiến trúc Ingress đã audit'
+) 2>&1 | tee "${RENDER_EVIDENCE}/gate-91-candidate-values.txt"
+VALUES_RC=${PIPESTATUS[0]}
+echo "candidate values gate rc=${VALUES_RC}"
+```
+
+### 9.2. Render cả ba chart bằng exact Kubernetes version
+
+```bash
+helm template cert-manager oci://quay.io/jetstack/charts/cert-manager \
+  --namespace cert-manager \
+  --version "${CERT_MANAGER_VERSION}" \
+  --kube-version "${K8S_VERSION}" \
+  --values "${RENDER_EVIDENCE}/cert-manager-values.yaml" \
+  > "${RENDER_EVIDENCE}/cert-manager-rendered.yaml"
+
+helm template traefik traefik/traefik \
+  --namespace traefik \
+  --version "${TRAEFIK_CHART_VERSION}" \
+  --kube-version "${K8S_VERSION}" \
+  --values "${RENDER_EVIDENCE}/traefik-values.yaml" \
+  > "${RENDER_EVIDENCE}/traefik-rendered.yaml"
+
 helm template rancher rancher-stable/rancher \
   --namespace cattle-system \
-  --version 2.14.3 \
-  -f rancher-values.yaml \
-  > rancher-rendered.yaml
+  --version "${RANCHER_VERSION}" \
+  --kube-version "${K8S_VERSION}" \
+  --values "${RENDER_EVIDENCE}/rancher-values.yaml" \
+  > "${RENDER_EVIDENCE}/rancher-rendered.yaml"
 
-grep -q '^kind: Ingress$' rancher-rendered.yaml || {
-  echo 'FAIL: chart không render Ingress'; exit 1;
-}
-for expected in \
-  'ingressClassName: traefik' \
-  'host: rancher.hieupn.site' \
-  'secretName: tls-rancher-ingress'; do
-  grep -Fq "$expected" rancher-rendered.yaml || {
-    echo "FAIL: manifest thiếu $expected"; exit 1;
-  }
+for manifest in "${RENDER_EVIDENCE}"/*-rendered.yaml; do
+  sha256sum "${manifest}" > "${manifest}.sha256"
+  awk '/^apiVersion:|^kind:|^[[:space:]]+image:/' "${manifest}" \
+    > "${manifest}.inventory.txt"
 done
-if grep -Eq '^kind: (Gateway|HTTPRoute)$' rancher-rendered.yaml; then
-  echo 'FAIL: chart đã đi vào nhánh Gateway API'; exit 1
-fi
-echo 'PASS: Ingress mode, class/host/TLS Secret đúng, không có Gateway/HTTPRoute'
 ```
 
-Cài khi render gate đã PASS:
+`helm template` thành công là `RENDER-PASS`, không thay support matrix hoặc lab gate.
+
+### 9.3. Gate cert-manager render
 
 ```bash
-helm install rancher rancher-stable/rancher \
-  --namespace cattle-system --create-namespace \
-  --version 2.14.3 \
-  -f rancher-values.yaml \
-  --wait --timeout 15m
-
-helm status rancher -n cattle-system
-kubectl -n cattle-system rollout status deploy/rancher
-kubectl -n cattle-system get pods,svc,ingress
+set -o pipefail
+(
+  MANIFEST="${RENDER_EVIDENCE}/cert-manager-rendered.yaml"
+  test -s "${MANIFEST}" || { echo 'FAIL: cert-manager render rỗng'; exit 1; }
+  for expected in \
+    'kind: CustomResourceDefinition' \
+    'kind: Deployment' \
+    'name: cert-manager-webhook' \
+    'name: cert-manager-cainjector'; do
+    grep -Fq "${expected}" "${MANIFEST}" || {
+      echo "FAIL: cert-manager thiếu ${expected}"; exit 1;
+    }
+  done
+  [[ "$(grep -c '^kind: CustomResourceDefinition$' "${MANIFEST}")" -ge 6 ]] || {
+    echo 'FAIL: số cert-manager CRD thấp bất thường'; exit 1;
+  }
+  ! grep -Eqi 'image:.*:(latest|stable)(@|$)' "${MANIFEST}" || {
+    echo 'FAIL: cert-manager render có tag động'; exit 1;
+  }
+  echo 'PASS: cert-manager render có CRDs/controllers/webhook và không có tag động'
+) 2>&1 | tee "${RENDER_EVIDENCE}/gate-93-cert-manager-render.txt"
+CM_RENDER_RC=${PIPESTATUS[0]}
+echo "cert-manager render gate rc=${CM_RENDER_RC}"
 ```
 
-- `--version 2.14.3`: ghim đúng chart/app `2.14.3`; không vô tình lấy patch mới hơn từ stable.
-- `replicas: 1`: phù hợp mức tài nguyên homelab nhưng **không HA**; chart mặc định là 3 replica.
-- `networkExposure.type: ingress`: đây là **mode selector cấp cao nhất** của chart `2.14.3`, không chỉ là thông tin mô tả. Helper `rancher.ingressEnabled` chỉ render Ingress khi đồng thời `networkExposure.type == "ingress"` và `ingress.enabled == true`. Chart hiện mặc định `networkExposure.type: ingress`, nên bỏ key này vẫn có thể chạy, nhưng đó là phụ thuộc ngầm vào default mới của dòng 2.14; runbook ghim rõ cả hai key để một lần đổi default/values không âm thầm làm biến mất Ingress.
-- Không đổi `networkExposure.type` thành `gateway` trong lab này. Nhánh đó render tài nguyên Gateway API và mặc định tham chiếu `gateway.gatewayClass.name: traefik`; tên mặc định này **không cài** Gateway API CRD hay tự tạo một GatewayClass/controller tương thích. §9 chỉ bật Traefik Kubernetes Ingress/CRD provider, không cài Gateway API CRD, nên bật nhầm nhánh Gateway có thể làm Helm lỗi vì không nhận ra resource hoặc để Rancher không có route hoạt động.
-- `ingress.enabled: true`: ghim vế thứ hai của điều kiện render Ingress; `ingress.servicePort: 80` và `ingress.tls.secretName: tls-rancher-ingress` ghim đúng backend/tên Secret mà các gate bên dưới kiểm tra.
-- `ingress.includeDefaultExtraAnnotations: false`: không render bộ annotation dành cho ingress-nginx. Traefik provider chuẩn của §9 không diễn giải các annotation NGINX; không bật chúng để cố sửa timeout.
-- `ingress.ingressClassName: traefik`: ghi rõ `spec.ingressClassName=traefik`, không phụ thuộc default IngressClass. Chart `2.14.3` thực tế để giá trị này trống mặc định; nó không mặc định nhắm `ingress-nginx`.
-- `ingress.tls.source: rancher`: Rancher tạo CA/certificate self-signed qua cert-manager cho `rancher.hieupn.site`; Traefik terminate TLS ở cổng 443.
-- `agentTLSMode: strict`: agent chỉ tin CA do Rancher công bố. Với certificate do chính chart Rancher sinh, không cần tự tạo `tls-ca` hay đặt `privateCA=true`; hai bước đó dành cho CA riêng do người vận hành cung cấp.
-
-> **Traefik + Rancher UI:** Rancher dùng **WebSocket** rất nhiều (shell, log, cluster events). Traefik hỗ trợ WebSocket sẵn, không cần annotation gì thêm. Nó cũng tự set `X-Forwarded-Proto` — thứ mà Rancher cần để không rơi vào redirect-loop.
->
-> Chart Rancher chỉ thêm `nginx.ingress.kubernetes.io/proxy-{connect,read,send}-timeout` khi bật `ingress.includeDefaultExtraAnnotations`; runbook chủ động pin `false`. Kể cả render chúng, Traefik `kubernetesIngress` chuẩn ở §9 cũng bỏ qua vì chúng thuộc NGINX; chỉ provider tương thích `kubernetesIngressNGINX` mới dịch các annotation này. Nếu Shell/Logs ngắt khi idle, kiểm tra từng hop Cloudflare và timeout `transport.respondingTimeouts` của entrypoint Traefik; không kết luận nguyên nhân hoặc thêm annotation NGINX chỉ từ hiện tượng rớt WebSocket.
-
-> **Không trộn hai mô hình TLS:** runbook này dùng `tls=ingress` mặc định + `ingress.tls.source=rancher`. Chỉ dùng `tls=external` khi chủ động chuyển sang termination bên ngoài và đã cấu hình đủ `Host`, `X-Forwarded-Proto`, `X-Forwarded-Port`, `X-Forwarded-For` cùng timeout WebSocket dài.
-
-### 14.4. Gate origin HTTPS nội bộ trước khi publish
-
-Xác nhận cert-manager đã phát certificate, Ingress mang đúng host/class và Traefik phục vụ health endpoint. Chưa tạo route Cloudflare nếu bất kỳ lệnh nào thất bại:
+### 9.4. Gate Traefik render
 
 ```bash
-kubectl -n cattle-system wait --for=create \
-  certificate/tls-rancher-ingress --timeout=120s
-kubectl -n cattle-system wait --for=condition=Ready \
-  certificate/tls-rancher-ingress --timeout=300s
-kubectl -n cattle-system get issuer,certificate
-kubectl -n cattle-system get secret tls-rancher-ingress
-kubectl -n cattle-system get ingress rancher \
-  -o jsonpath='{.spec.ingressClassName}{"\t"}{.spec.rules[0].host}{"\n"}'
-# PASS: traefik    rancher.hieupn.site
-
-TRAEFIK_IP=$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.clusterIP}')
-curl -skS --resolve "rancher.hieupn.site:443:$TRAEFIK_IP" \
-  -o /dev/null -w 'HTTP %{http_code}\n' \
-  https://rancher.hieupn.site/healthz
-# PASS: HTTP 200
+set -o pipefail
+(
+  MANIFEST="${RENDER_EVIDENCE}/traefik-rendered.yaml"
+  for expected in 'kind: Deployment' 'kind: Service' 'kind: IngressClass'; do
+    grep -Fq "${expected}" "${MANIFEST}" || {
+      echo "FAIL: Traefik thiếu ${expected}"; exit 1;
+    }
+  done
+  grep -Fqi 'kubernetesingress' "${MANIFEST}" || {
+    echo 'FAIL: Traefik chưa bật Kubernetes Ingress provider'; exit 1;
+  }
+  if grep -Eqi -- '--providers\.kubernetesgateway($|=true)' "${MANIFEST}" || \
+     grep -Eq '^kind: (Gateway|GatewayClass|HTTPRoute)$' "${MANIFEST}"; then
+    echo 'FAIL: Traefik render có Gateway API ngoài contract'; exit 1
+  fi
+  ! grep -Eqi 'image:.*:(latest|stable)(@|$)' "${MANIFEST}" || {
+    echo 'FAIL: Traefik render có tag động'; exit 1;
+  }
+  echo 'PASS: Traefik Ingress provider/class/service đúng, Gateway API tắt, image pin'
+) 2>&1 | tee "${RENDER_EVIDENCE}/gate-94-traefik-render.txt"
+TRAEFIK_RENDER_RC=${PIPESTATUS[0]}
+echo "Traefik render gate rc=${TRAEFIK_RENDER_RC}"
 ```
 
-Trong mode Ingress, chart Rancher render `Issuer` và Ingress có annotation `cert-manager.io/issuer`; chart không trực tiếp render Certificate cho nhánh này. Controller `ingress-shim` của cert-manager quan sát Ingress rồi tạo Certificate theo `spec.tls[].secretName`, nên tên đã pin là `tls-rancher-ingress`. Đây là resource sinh bất đồng bộ bởi controller khác và `helm --wait` không chờ nó. Không dùng `kubectl wait certificate --all`: nếu Certificate chưa xuất hiện, lệnh đó thoát ngay với `no matching resources found` thay vì đợi. Baseline `kubectl 1.35.6` hỗ trợ `--for=create`.
-
-`--resolve` buộc kết nối tới ClusterIP Traefik nhưng vẫn gửi SNI/Host `rancher.hieupn.site`. `-k` chỉ dùng ở gate nội bộ vì certificate được CA riêng của Rancher ký, chưa nằm trong trust store của máy master.
-
-**PASS §14.4:** certificate `Ready=True`, Secret TLS tồn tại, Ingress in `traefik rancher.hieupn.site` và `/healthz` trả `HTTP 200`.
-
-### 14.5. Bảo vệ Rancher bằng Cloudflare Access rồi publish qua tunnel
-
-Rancher là giao diện quản trị cụm, không nên chỉ dựa vào màn hình đăng nhập Rancher. Tạo lớp xác thực Cloudflare Access **trước khi** publish:
-
-1. Cloudflare dashboard → **Zero Trust → Access controls → Applications**.
-2. **Create new application → Self-hosted and private → Add public hostname**.
-3. Hostname: `rancher.hieupn.site`.
-4. Tạo policy **Allow** chỉ cho email/email domain quản trị; bật MFA nếu IdP hỗ trợ. Không tạo policy `Bypass Everyone`.
-5. Save. Access mặc định deny người không khớp policy.
-
-Sau đó thêm một **Published application route** theo [§12.3.3](#1233-thêm-published-application):
-
-| Trường                                              | Giá trị                                                                                                                                                                                                  |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Subdomain**                                   | `rancher`                                                                                                                                                                                                |
-| **Domain**                                      | `hieupn.site`                                                                                                                                                                                            |
-| **Service URL**                                 | `https://traefik.traefik.svc.cluster.local:443` (UI cũ: `Type` = **HTTPS**, `URL` = `traefik.traefik.svc.cluster.local:443` — xem lưu ý ở [§12.3.3](#1233-thêm-published-application)) |
-| **Additional settings → TLS → No TLS Verify** | **ON** (vì cert Rancher là self-signed)                                                                                                                                                            |
-| **Additional settings → TLS → Origin Server Name** | `rancher.hieupn.site` (đặt đúng SNI về Traefik)                                                                                                                                                     |
-| **Additional settings → HTTP Host Header**     | `rancher.hieupn.site`                                                                                                                                                                                    |
-
-→ **Save**. Với zone Full Setup, Cloudflare tự tạo DNS record cho `rancher.hieupn.site`; với Partial/CNAME Setup, tạo record tại DNS provider như lưu ý ở [§12.3.3](#1233-thêm-published-application).
-
-> `Origin Server Name` đặt SNI trong TLS handshake; `HTTP Host Header` được Traefik dùng để chọn HTTP router sau handshake. `No TLS Verify` cho phép `cloudflared` chấp nhận CA self-signed của Rancher nhưng cũng tắt xác minh danh tính origin — chấp nhận được cho homelab này, không phải lựa chọn ưu tiên cho production.
->
-> Cloudflare Access hỗ trợ WebSocket. Rancher Shell/Logs vẫn có thể ngắt nếu kết nối WebSocket idle quá lâu; reconnect trước khi kết luận cụm hỏng.
-
-Kiểm tra lớp bảo vệ trước khi đăng nhập:
+### 9.5. Gate Rancher render an toàn cho SSH
 
 ```bash
-nslookup rancher.hieupn.site
-curl -I https://rancher.hieupn.site
-```
+set -o pipefail
+(
+  MANIFEST="${RENDER_EVIDENCE}/rancher-rendered.yaml"
+  grep -q '^kind: Ingress$' "${MANIFEST}" || {
+    echo 'FAIL: chart không render Ingress'; exit 1;
+  }
 
-Public DNS phải trả IP Cloudflare. Khi chưa có Access session, `curl -I` phải bị chuyển tới trang đăng nhập Access hoặc bị từ chối (`302`, `401` hay `403` tùy policy), **không** được trả thẳng Rancher UI `200`.
-
-### 14.6. Đăng nhập lần đầu
-
-```bash
-# Chạy trong terminal riêng tư; đây là secret dùng một lần và phải đổi ngay.
-kubectl -n cattle-system rollout status deployment/rancher --timeout=300s
-kubectl -n cattle-system wait --for=create secret/bootstrap-secret --timeout=120s
-kubectl get secret --namespace cattle-system bootstrap-secret \
-  -o go-template='{{ .data.bootstrapPassword | base64decode }}{{ "\n" }}'
-```
-
-Nếu đọc Secret trước khi Rancher khởi tạo xong, `NotFound` chỉ có nghĩa resource runtime chưa được tạo; không phải bằng chứng Helm install hỏng. Chỉ điều tra cài đặt khi Deployment không Ready, timeout chờ Secret hoặc log Rancher có lỗi.
-
-1. Mở `https://rancher.hieupn.site` → đăng nhập Cloudflare Access, sau đó đăng nhập Rancher bằng bootstrap password.
-2. Đặt mật khẩu admin mới.
-3. Xác nhận **Server URL** = `https://rancher.hieupn.site` (Rancher gợi ý sẵn). Không đổi hostname sau khi agent đã đăng ký nếu chưa có kế hoạch migration.
-4. Vào **Cluster Management** → thấy cụm **`local`** = chính cụm kubeadm của bạn, trạng thái **Active**.
-
-### 14.7. Gate hoàn thành
-
-- UI hiện cụm `local` Active, đủ 3 node.
-- Quản lý workload / Helm app / monitoring qua UI; cụm vẫn dùng song song bằng `kubectl`.
-
-Kiểm tra agent và đường nội bộ:
-
-```bash
-kubectl -n cattle-system get pods
-kubectl -n cattle-system get deploy
-kubectl -n cattle-system get pods -l app=cattle-cluster-agent -o wide
-# Chỉ chạy sau khi output trên xác nhận Pod agent thực sự tồn tại:
-kubectl -n cattle-system logs -l app=cattle-cluster-agent --tail=30 --prefix
-kubectl get settings.management.cattle.io server-url \
-  -o jsonpath='{.value}{"\n"}'
-kubectl get settings.management.cattle.io agent-tls-mode \
-  -o jsonpath='{.value}{"\n"}'
-```
-
-`cattle-cluster-agent` không nằm trong Helm chart Rancher; Rancher tạo nó lúc runtime khi quản lý cluster. Vì vậy phải xem inventory Deployment/Pod thật trước, không hard-code `logs deploy/cattle-cluster-agent` như một gate độc lập. Nếu agent tồn tại, nó phải Ready và log không có lỗi DNS/TLS. Nếu không thấy agent nhưng UI `local` đã Active, ghi nhận đúng inventory thay vì kết luận Helm install thất bại chỉ từ tên Deployment giả định; nếu UI chưa Active thì kiểm tra log `deploy/rancher` và chờ controller reconcile.
-
-**PASS §14:** Pod Rancher Ready; agent runtime nếu tồn tại thì Ready và log không có lỗi DNS/TLS; `server-url` là `https://rancher.hieupn.site`; `agent-tls-mode` là `strict`; UI `local` Active đủ 3 node; truy cập public bắt buộc đi qua Cloudflare Access.
-
-> ⚠️ Chart Rancher 2.14.3 chặn Kubernetes `1.36`. Không nâng cluster lên `1.36` cho tới khi support matrix và `kubeVersion` của **chart Rancher sẽ nâng tới** đều cho phép; luôn nâng Rancher trước Kubernetes theo vùng version-skew chung.
-
----
-
-## 15. Vận hành & troubleshooting
-
-### Thêm app/domain mới sau này
-
-Chỉ cần: (1) `Deployment`+`Service`+`Ingress` mới với `host: app2.example.com`; (2) thêm **Published application route** mới trong cùng tunnel trỏ về cùng `traefik.traefik.svc.cluster.local:80`. Không đụng gì tới VM/router.
-
-### Vì sao phải tôn trọng EOL & upgrade đúng nhịp
-
-Cụm **vẫn chạy** sau ngày EOL của k8s, nhưng dừng nhận **patch bảo mật (CVE)** + bug fix; kubeadm **không skip được minor** (phải nhảy từng bậc) nên để càng lâu càng khó nâng; và hệ sinh thái (CNI/ingress/cloudflared/**Rancher**) dần bỏ hỗ trợ bản cũ. Với cụm **phơi ra Internet qua tunnel**, rủi ro CVE chưa vá là nghiêm trọng nhất → nâng đều, luôn nằm trong vùng Rancher support.
-
-### Backup etcd và cấu hình trước thay đổi lớn
-
-Với 1 control plane, etcd là nơi giữ toàn bộ state Kubernetes và Rancher. Chạy trên `k8s-master` trước upgrade hoặc thay đổi quan trọng:
-
-```bash
-STAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP_DIR="$HOME/k8s-backups/$STAMP"
-mkdir -p "$BACKUP_DIR"
-
-# snapshot etcd vào volume đã mount của static pod
-kubectl -n kube-system exec etcd-k8s-master -- etcdctl \
-  --endpoints=https://127.0.0.1:2379 \
-  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
-  --cert=/etc/kubernetes/pki/etcd/server.crt \
-  --key=/etc/kubernetes/pki/etcd/server.key \
-  snapshot save /var/lib/etcd/kubeadm-snapshot.db
-
-# lấy snapshot và toàn bộ cấu hình/certificate kubeadm ra thư mục backup
-sudo cp /var/lib/etcd/kubeadm-snapshot.db "$BACKUP_DIR/etcd-snapshot.db"
-sudo cp -a /etc/kubernetes "$BACKUP_DIR/etc-kubernetes"
-sudo chown -R "$(id -u):$(id -g)" "$BACKUP_DIR"
-sudo rm -f /var/lib/etcd/kubeadm-snapshot.db
-
-ls -lh "$BACKUP_DIR/etcd-snapshot.db"
-```
-
-> **Bắt buộc:** copy thư mục backup ra khỏi VM/disk chứa etcd (NAS, máy host hoặc storage backup). Snapshot nằm cùng disk không giúp được khi disk VM hỏng. Việc restore etcd là thao tác sự cố riêng; làm theo tài liệu kubeadm/etcd của đúng phiên bản và dừng control plane trước khi restore.
-
-### Nâng patch Kubernetes 1.35 bằng kubeadm
-
-Ví dụ nâng `1.35.6` lên một patch `1.35.X` mới hơn. Đọc release notes, backup trước, và thay đúng hai biến sau bằng version có thật từ `apt-cache madison kubeadm`:
-
-```bash
-TARGET_DEB='1.35.X-1.1'
-TARGET_K8S='v1.35.X'
-```
-
-Trên **control plane**:
-
-```bash
-sudo apt-mark unhold kubeadm
-sudo apt-get update
-apt-cache madison kubeadm
-sudo apt-get install -y kubeadm="$TARGET_DEB"
-sudo apt-mark hold kubeadm
-
-sudo kubeadm upgrade plan
-sudo kubeadm upgrade apply "$TARGET_K8S"
-
-kubectl drain k8s-master --ignore-daemonsets
-sudo apt-mark unhold kubelet kubectl
-sudo apt-get install -y kubelet="$TARGET_DEB" kubectl="$TARGET_DEB"
-sudo apt-mark hold kubelet kubectl
-sudo systemctl daemon-reload
-sudo systemctl restart kubelet
-kubectl uncordon k8s-master
-```
-
-Nâng **từng worker một**. Từ master, drain worker; trên chính worker nâng package và node config; quay lại master để uncordon:
-
-```bash
-# trên master:
-kubectl drain k8s-worker1 --ignore-daemonsets
-
-# trên k8s-worker1:
-TARGET_DEB='1.35.X-1.1'    # đặt lại vì đây là phiên SSH khác
-sudo apt-mark unhold kubeadm kubelet kubectl
-sudo apt-get update
-sudo apt-get install -y kubeadm="$TARGET_DEB"
-sudo kubeadm upgrade node
-sudo apt-get install -y kubelet="$TARGET_DEB" kubectl="$TARGET_DEB"
-sudo apt-mark hold kubeadm kubelet kubectl
-sudo systemctl daemon-reload
-sudo systemctl restart kubelet
-
-# trở lại master:
-kubectl uncordon k8s-worker1
-kubectl get nodes
-```
-
-Lặp lại cho `k8s-worker2`, sau đó:
-
-```bash
-kubectl get nodes -o wide
-kubectl get pods -A
-sudo kubeadm certs check-expiration
-```
-
-> Với nâng **minor**, không được skip minor; phải đổi repo `pkgs.k8s.io` sang minor đích, nâng từng bậc và làm theo đúng trang upgrade của phiên bản nguồn. Luôn kiểm support matrix Rancher **trước**; Rancher 2.14.3 chưa cho phép nâng cụm này vượt 1.35.
-
-### Quản lý và gia hạn certificate kubeadm
-
-Các certificate control plane do kubeadm cấp mặc định có hạn khoảng **1 năm**; CA có hạn dài hơn và
-không được `kubeadm certs renew all` xoay vòng. Không chờ certificate hết hạn mới xử lý.
-
-**Cơ chế chính (phổ biến):** nâng Kubernetes bằng kubeadm định kỳ, khoảng cách giữa hai lần nâng
-control plane phải **dưới 1 năm**. `kubeadm upgrade apply` mặc định tự gia hạn các certificate do
-kubeadm quản lý trên control-plane node. Không thêm `--certificate-renewal=false`.
-
-**Gate vận hành:** chạy trên master mỗi tháng và trước mọi đợt bảo trì:
-
-```bash
-sudo kubeadm certs check-expiration
-```
-
-- Còn **trên 60 ngày**: tiếp tục theo dõi hoặc gia hạn qua đợt upgrade định kỳ.
-- Còn **60 ngày trở xuống** và đã sẵn sàng upgrade: backup rồi làm quy trình upgrade ở trên.
-- Còn **60 ngày trở xuống** nhưng chưa thể upgrade: dùng manual renew bên dưới; không trì hoãn tới
-  ngày hết hạn.
-
-#### Manual renew dự phòng (single control plane)
-
-Quy trình này làm API tạm gián đoạn vì runbook chỉ có một control plane. Thực hiện trong maintenance
-window trên `k8s-master`; backup etcd và `/etc/kubernetes` theo mục **Backup etcd và cấu hình trước
-thay đổi lớn** ở trên trước khi tiếp tục.
-
-Gia hạn và xác nhận hạn mới:
-
-```bash
-sudo kubeadm certs check-expiration
-sudo kubeadm certs renew all
-sudo kubeadm certs check-expiration
-```
-
-Renew không tự reload certificate cho mọi control-plane component. Restart từng static Pod tuần tự;
-thư mục tạm phải nằm **ngoài** `/etc/kubernetes/manifests`, nếu không kubelet vẫn đọc file tạm như
-một manifest:
-
-```bash
-STAMP=$(date +%Y%m%d-%H%M%S)
-MANIFEST_HOLD="$HOME/k8s-maintenance/static-pods-$STAMP"
-mkdir -p "$MANIFEST_HOLD"
-
-for component in etcd kube-apiserver kube-controller-manager kube-scheduler; do
-  OLD_ID="$(sudo crictl ps --name "$component" -q)"
-  sudo mv "/etc/kubernetes/manifests/${component}.yaml" "$MANIFEST_HOLD/"
-  sleep 25
-  sudo mv "$MANIFEST_HOLD/${component}.yaml" /etc/kubernetes/manifests/
-
-  NEW_ID=""
-  for attempt in {1..12}; do
-    NEW_ID="$(sudo crictl ps --name "$component" -q)"
-    if [ -n "$NEW_ID" ] && [ "$NEW_ID" != "$OLD_ID" ]; then
-      break
-    fi
-    sleep 5
+  for expected in \
+    'ingressClassName: traefik' \
+    'host: rancher.example.com' \
+    'secretName: tls-rancher-ingress'; do
+    grep -Fq "${expected}" "${MANIFEST}" || {
+      echo "FAIL: Rancher manifest thiếu ${expected}"; exit 1;
+    }
   done
 
-  test -n "$NEW_ID" && test "$NEW_ID" != "$OLD_ID" || {
-    echo "FAIL: $component chưa được tạo lại; dừng để kiểm tra kubelet/crictl" >&2
-    exit 1
+  if grep -Eq '^kind: (Gateway|HTTPRoute)$' "${MANIFEST}"; then
+    echo 'FAIL: Rancher chart đã đi vào nhánh Gateway API'; exit 1
+  fi
+  ! grep -Eqi 'image:.*:(latest|stable)(@|$)' "${MANIFEST}" || {
+    echo 'FAIL: Rancher render có tag động'; exit 1;
   }
-  echo "PASS: $component restarted ($NEW_ID)"
+
+  echo 'PASS: Rancher Ingress mode, class/host/TLS đúng; không có Gateway/HTTPRoute'
+) 2>&1 | tee "${RENDER_EVIDENCE}/gate-95-rancher-render.txt"
+RANCHER_RENDER_RC=${PIPESTATUS[0]}
+echo "Rancher render gate rc=${RANCHER_RENDER_RC}"
+```
+
+`exit 1` chỉ thoát subshell; phiên SSH còn nguyên và exit code vẫn được lưu.
+
+### 9.6. Resolve digest cho toàn bộ stack
+
+```bash
+source "${BASELINE_ROOT}/research-state.env"
+ALL_DIGESTS="${RENDER_EVIDENCE}/all-image-digests.tsv"
+printf 'component\timage\tdigest\n' > "${ALL_DIGESTS}"
+
+record_image() {
+  local component="$1" image="$2" digest
+  digest="$(IMAGE_INSPECTOR="${IMAGE_INSPECTOR}" \
+    "${BASELINE_ROOT}/resolve-image-digest.sh" "${image}")" || return 1
+  printf '%s\t%s\t%s\n' "${component}" "${image}" "${digest}" \
+    >> "${ALL_DIGESTS}"
+}
+
+while read -r image; do
+  [[ -n "${image}" ]] && record_image kubeadm "${image}"
+done < "${K8S_EVIDENCE}/kubeadm-images-${K8S_VERSION}.txt"
+
+for spec in \
+  "flannel:${CNI_EVIDENCE}/kube-flannel-candidate.yml" \
+  "cert-manager:${RENDER_EVIDENCE}/cert-manager-rendered.yaml" \
+  "traefik:${RENDER_EVIDENCE}/traefik-rendered.yaml" \
+  "rancher:${RENDER_EVIDENCE}/rancher-rendered.yaml"; do
+  component="${spec%%:*}"
+  manifest="${spec#*:}"
+  sed -n -E "s/^[[:space:]]*image:[[:space:]]*['\"]?([^'\"[:space:]]+)['\"]?.*/\1/p" \
+    "${manifest}" | sort -u | while read -r image; do
+      record_image "${component}" "${image}"
+    done
+done
+
+if [[ -f "${ADDON_EVIDENCE}/addon-image-digests.tsv" ]]; then
+  tail -n +2 "${ADDON_EVIDENCE}/addon-image-digests.tsv" \
+    >> "${ALL_DIGESTS}"
+fi
+```
+
+Gate digest:
+
+```bash
+set -o pipefail
+(
+  test "$(awk 'NR>1 && NF {count++} END {print count+0}' "${ALL_DIGESTS}")" -gt 0 || {
+    echo 'FAIL: image inventory rỗng'; exit 1;
+  }
+  while IFS=$'\t' read -r component image digest; do
+    [[ "${component}" == component ]] && continue
+    [[ "${image}" != *':latest' && "${image}" != *':stable' ]] || {
+      echo "FAIL: ${component} dùng tag động ${image}"; exit 1;
+    }
+    [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+      echo "FAIL: digest không hợp lệ ${component} ${image} ${digest}"; exit 1;
+    }
+  done < "${ALL_DIGESTS}"
+  echo 'PASS: mọi image của kubeadm/CNI/charts/addons có exact ref và SHA256 digest'
+) 2>&1 | tee "${RENDER_EVIDENCE}/gate-96-image-digests.txt"
+DIGEST_RC=${PIPESTATUS[0]}
+echo "image digest gate rc=${DIGEST_RC}"
+```
+
+### 9.7. Server dry-run và lab-status gate
+
+Chạy trên disposable cluster đúng `K8S_VERSION`. Không dùng cluster production. Cluster phải có dependency CRDs/controller theo đúng thứ tự của runbook lab; server dry-run không tự persist CRDs từ document trước.
+
+```bash
+kubectl version > "${RENDER_EVIDENCE}/lab-kubectl-version.txt"
+
+for manifest in \
+  "${RENDER_EVIDENCE}/cert-manager-rendered.yaml" \
+  "${RENDER_EVIDENCE}/traefik-rendered.yaml" \
+  "${RENDER_EVIDENCE}/rancher-rendered.yaml"; do
+  kubectl apply --dry-run=server -f "${manifest}" \
+    > "${manifest}.server-dry-run.txt"
 done
 ```
 
-`admin.conf` đã được renew nhưng user `ubuntu` đang dùng một bản copy trong `$HOME/.kube/config`;
-chép lại bản mới rồi verify:
+Sau khi workflow lab đã cài đúng candidates, chạy gate read-only sau. `set -e` nằm trong subshell nên lỗi không đóng SSH và không thể in `OVERALL: PASS` giả:
 
 ```bash
-sudo cp /etc/kubernetes/admin.conf "$HOME/.kube/config"
-sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
+set -o pipefail
+(
+  set -euo pipefail
 
-kubectl get --raw='/readyz?verbose'
-kubectl get nodes
-kubectl get pods -A
-sudo kubeadm certs check-expiration
+  echo '== Kubernetes/node versions =='
+  kubectl get nodes -o wide
+  BAD_KUBELETS="$(kubectl get nodes \
+    -o jsonpath='{range .items[*]}{.status.nodeInfo.kubeletVersion}{"\n"}{end}' \
+    | awk -v expected="v${K8S_VERSION}" '$0 != expected {bad++} END {print bad+0}')"
+  test "${BAD_KUBELETS}" -eq 0
+  kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.nodeInfo.containerRuntimeVersion}{"\n"}{end}'
+
+  echo '== Flannel =='
+  kubectl -n kube-flannel rollout status daemonset/kube-flannel-ds --timeout=300s
+
+  echo '== cert-manager =='
+  kubectl -n cert-manager rollout status deploy/cert-manager --timeout=300s
+  kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=300s
+  kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=300s
+
+  echo '== Traefik =='
+  kubectl -n traefik rollout status deploy/traefik --timeout=300s
+  kubectl get ingressclass traefik
+
+  echo '== Rancher =='
+  kubectl -n cattle-system rollout status deploy/rancher --timeout=600s
+  kubectl -n cattle-system get ingress rancher \
+    -o custom-columns=CLASS:.spec.ingressClassName,HOST:.spec.rules[0].host,TLS:.spec.tls[0].secretName
+  kubectl -n cattle-system wait --for=create \
+    certificate/tls-rancher-ingress --timeout=120s
+  kubectl -n cattle-system wait --for=condition=Ready \
+    certificate/tls-rancher-ingress --timeout=300s
+
+  if [[ "${LOCAL_PATH_VERSION}" != N/A ]]; then
+    kubectl -n local-path-storage rollout status \
+      deploy/local-path-provisioner --timeout=300s
+  fi
+  if [[ "${METALLB_VERSION}" != N/A ]]; then
+    kubectl -n metallb-system rollout status deploy/controller --timeout=300s
+    kubectl -n metallb-system rollout status daemonset/speaker --timeout=300s
+  fi
+
+  echo 'OVERALL: PASS'
+) 2>&1 | tee "${RENDER_EVIDENCE}/lab-smoke-report.txt"
+LAB_SMOKE_RC=${PIPESTATUS[0]}
+echo "lab smoke gate rc=${LAB_SMOKE_RC}"
 ```
 
-PASS khi `readyz` kết thúc bằng `readyz check passed`, mọi node `Ready`, các system pod `Running`,
-và certificate có `RESIDUAL TIME` mới gần 1 năm. Nếu certificate đã hết hạn thì vẫn thực hiện quy
-trình này trực tiếp trên master bằng `sudo`; **không** chạy lại `kubeadm init` và không
-`kubeadm reset`.
-
-> Với nhiều control-plane node, phải renew và restart tuần tự trên **từng** control-plane node. Kubeadm
-> không hỗ trợ CA rotation/replacement tự động; đó là một quy trình PKI riêng, không thay bằng
-> `kubeadm certs renew all`. Tham khảo
-> [Certificate Management with kubeadm](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/)
-> và [`kubeadm certs`](https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-certs/).
-
-### Giới hạn Cloudflare cần biết
-
-- Upload qua hostname proxied bị giới hạn theo plan: Free/Pro 100 MB, Business 200 MB, Enterprise 500+ MB. Upload chart/backup lớn qua Rancher UI có thể nhận HTTP 413 dù cluster khỏe.
-- Cloudflare hỗ trợ WebSocket, nhưng Rancher Shell/log stream để lâu vẫn có thể bị đóng ở một hop trên đường đi (Cloudflare, Traefik hoặc backend). Reconnect rồi xác định đúng hop; dùng keepalive/timeout phù hợp và không dùng annotation NGINX để chỉnh Traefik `kubernetesIngress` chuẩn.
-- Tunnel cần outbound TCP/UDP `7844`; nếu UDP bị chặn cloudflared có thể fallback HTTP/2 qua TCP. Nếu cả hai bị chặn, tunnel không lên.
-
-### Bảng lỗi thường gặp
-
-| Triệu chứng                                            | Nguyên nhân & cách xử lý                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cài Ubuntu:**DHCPv4 quay mãi, không ra IP**     | VMnet0 bridge bind nhầm card →**Edit → Virtual Network Editor → VMnet0**, đổi *Automatic* sang đúng card vật lý ([§3](#3-tạo-3-vm-ubuntu-2404-trên-vmware)). Xác nhận card đang chạy bằng `ipconfig /all` trên host. Tạm thời có thể đặt IP tĩnh ngay tại màn hình installer.                                                                                                                                                                                                                      |
-| Bridge**vẫn** không ra IP dù chọn đúng card  | Host bật**Hyper-V** làm VMware bridge xung đột (danh sách "Bridged to" có "Hyper-V Virtual Ethernet Adapter"). Kiểm tra host: `bcdedit /enum \| findstr -i hypervisorlaunchtype`. Xử lý: tắt Hyper-V cho lab (`bcdedit /set hypervisorlaunchtype off` + reboot — **lưu ý sẽ tắt WSL2/Docker Desktop/Sandbox**), **hoặc** chuyển Network Adapter sang **NAT** (vẫn ra Internet; khi đó IP tĩnh phải theo dải NAT của VMnet8, vd `192.168.71.x`, và đổi đồng bộ toàn runbook). |
-| Node`NotReady`                                         | CNI chưa chạy →`kubectl get pods -n kube-flannel`; kiểm tra UDP 8472 mở; `--pod-network-cidr` đúng `10.244.0.0/16`                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `kubeadm join` timeout                                 | Worker không resolve`k8s-master` (thiếu `/etc/hosts`); hoặc cổng `6443` master bị firewall chặn                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Pod kẹt`ContainerCreating`/CNI lỗi                   | sai cgroup driver →`sudo crictl info \| grep -i -A2 systemdCgroup` phải `true`, rồi `systemctl restart containerd kubelet`                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `kubelet` crashloop sau init                           | còn swap →`swapoff -a` + check `/etc/fstab`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Tunnel không**Healthy**                           | token sai/thiếu →`kubectl logs -n cloudflare deploy/cloudflared`; pod phải `Running`                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Domain mở ra**502/error 1033**                    | URL route sai tên service; thử đúng`traefik.traefik.svc.cluster.local:80` (hoặc `:443` cho Rancher); kiểm tra `kubectl get svc -n traefik`                                                                                                                                                                                                                                                                                                                                                                                   |
-| Mở domain ra**404 page not found**                | Host header không khớp Ingress`host:` → set HTTP Host Header trong tunnel, hoặc sửa `host:` trong Ingress. Soi Router thực tế ở dashboard Traefik ([§9.3](#93-cài-đặt-traefik))                                                                                                                                                                                                                                                                                                                                           |
-| Ingress apply xong nhưng**không được route**  | Thiếu/sai`ingressClassName` → phải là `traefik`; kiểm tra `kubectl get ingress -A` cột CLASS và `kubectl get ingressclass`                                                                                                                                                                                                                                                                                                                                                                                                |
-| **UI Rancher 404** dù pod Running                 | `Ingress` không có/sai class hoặc host → kiểm tra `spec.ingressClassName=traefik` và `rancher.hieupn.site`; chart để class trống mặc định nên runbook đặt rõ trong [§14.3](#143-cài-rancher-helm-pin-2143)                                                                                                                                                                                                                                                                                                           |
-| `rancher.hieupn.site` lỗi **TLS/redirect-loop** | kiểm certificate Ready; route HTTPS phải có **Origin Server Name** + **HTTP Host Header**=`rancher.hieupn.site` và **No TLS Verify=ON** cho CA self-signed của homelab                                                                                                                                                                                                                                                                                                                                     |
-| Rancher pod`CrashLoop`/Pending                         | thiếu RAM/headroom; hoặc cert-manager CRDs chưa cài (`--set crds.enabled=true`)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Rancher`cattle-cluster-agent` CrashLoop/không connect | kiểm `rancher.hieupn.site` trong Pod có resolve về ClusterIP Traefik theo split DNS ở §14.2 và `agent-tls-mode=strict`; nếu đi ra Cloudflare Access sẽ bị chặn                                                                                                                                                                                                                                                                                                                                              |
-| Rancher Shell/exec/attach/port-forward bị`forbidden`  | Kubernetes 1.35 WebSocket upgrade cần verb RBAC`create` trên `pods/exec`, `pods/attach`, `pods/portforward`; kiểm Role/ClusterRole của user trước khi nghi firewall                                                                                                                                                                                                                                                                                                                                                        |
-| Rancher Shell/log stream rớt sau khi idle               | Reconnect rồi xác định hop đóng kết nối: Cloudflare, Traefik entrypoint `transport.respondingTimeouts` hay backend; annotation `nginx.ingress.kubernetes.io/proxy-*-timeout` không có tác dụng với Traefik `kubernetesIngress` chuẩn ở §9; phân biệt thêm với lỗi RBAC/10250                                                                                                                                                                                                                                                                |
-| Pull image private đã cache vẫn lỗi credential       | Kubernetes 1.35 bật beta`KubeletEnsureSecretPulledImages`; kiểm `imagePullSecrets` hợp lệ thay vì dựa vào image đã cache                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `curl -H Host` nội bộ OK nhưng Internet lỗi        | vấn đề ở tunnel/DNS, không phải cụm → soi log cloudflared + trạng thái tunnel                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-
-### Lệnh chẩn đoán nhanh
+Gate:
 
 ```bash
-kubectl get nodes,pods -A -o wide
-kubectl logs -n cloudflare deploy/cloudflared --tail=50
-kubectl -n cattle-system rollout status deploy/rancher
-kubectl describe ingress web
-kubectl get events -A --sort-by=.lastTimestamp | tail -30
+set -o pipefail
+(
+  grep -Fq "Server Version: v${K8S_VERSION}" \
+    "${RENDER_EVIDENCE}/lab-kubectl-version.txt" || {
+    echo 'FAIL: lab Kubernetes version không khớp candidate'; exit 1;
+  }
+  for report in "${RENDER_EVIDENCE}"/*.server-dry-run.txt; do
+    test -s "${report}" || {
+      echo "FAIL: server dry-run evidence rỗng ${report}"; exit 1;
+    }
+  done
+  test -s "${RENDER_EVIDENCE}/lab-smoke-report.txt" || {
+    echo 'FAIL: thiếu lab-smoke-report.txt'; exit 1;
+  }
+  grep -Fq 'OVERALL: PASS' "${RENDER_EVIDENCE}/lab-smoke-report.txt" || {
+    echo 'FAIL: lab smoke report chưa OVERALL: PASS'; exit 1;
+  }
+  echo 'PASS: exact-version server dry-run và lab smoke report đều đạt'
+) 2>&1 | tee "${RENDER_EVIDENCE}/gate-97-lab.txt"
+LAB_RC=${PIPESTATUS[0]}
+echo "lab gate rc=${LAB_RC}"
 ```
+
+Trạng thái evidence chỉ được đi theo thứ tự `NOT-TESTED` → `METADATA-PASS` → `RENDER-PASS` → `SERVER-DRY-RUN-PASS` → `LAB-PASS`. `LAB-PASS` không tự biến thành `VENDOR-SUPPORTED`.
 
 ---
 
-## 16. Nguồn official
+## 10. Bảng quyết định và bảng baseline
 
-- Kubernetes — *Creating a cluster with kubeadm*: [https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/)
-- Kubernetes — *Installing kubeadm* (repo pkgs.k8s.io): [https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
-- Kubernetes — *Container runtimes* (containerd, SystemdCgroup, sysctl): [https://kubernetes.io/docs/setup/production-environment/container-runtimes/](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
-- Kubernetes — *Kubernetes 1.35 lifecycle/patch releases*: [https://kubernetes.io/releases/1.35/](https://kubernetes.io/releases/1.35/)
-- Kubernetes — *Version skew policy*: [https://kubernetes.io/releases/version-skew-policy/](https://kubernetes.io/releases/version-skew-policy/)
-- Kubernetes — *Ports and Protocols*: [https://kubernetes.io/docs/reference/networking/ports-and-protocols/](https://kubernetes.io/docs/reference/networking/ports-and-protocols/)
-- Kubernetes — *Upgrading kubeadm clusters*: [https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/)
-- Kubernetes — *pkgs.k8s.io* (repo mới): [https://kubernetes.io/blog/2023/08/15/pkgs-k8s-io-introduction/](https://kubernetes.io/blog/2023/08/15/pkgs-k8s-io-introduction/)
-- Ubuntu — *containerd package for Noble*: [https://packages.ubuntu.com/noble-updates/containerd](https://packages.ubuntu.com/noble-updates/containerd)
-- Ubuntu — *Configuring networks with Netplan*: [https://ubuntu.com/server/docs/explanation/networking/configuring-networks/](https://ubuntu.com/server/docs/explanation/networking/configuring-networks/)
-- Traefik — *Setup on Kubernetes*: [https://doc.traefik.io/traefik/setup/kubernetes/](https://doc.traefik.io/traefik/setup/kubernetes/)
-- Traefik — *Helm chart 41.0.2 release*: [https://github.com/traefik/traefik-helm-chart/releases/tag/v41.0.2](https://github.com/traefik/traefik-helm-chart/releases/tag/v41.0.2)
-- Traefik — *Chart 41.0.2 metadata/values*: [Chart.yaml](https://raw.githubusercontent.com/traefik/traefik-helm-chart/v41.0.2/traefik/Chart.yaml), [values.yaml](https://raw.githubusercontent.com/traefik/traefik-helm-chart/v41.0.2/traefik/values.yaml)
-- Kubernetes — *Service, Service types và EndpointSlice*: [https://kubernetes.io/docs/concepts/services-networking/service/](https://kubernetes.io/docs/concepts/services-networking/service/)
-- Kubernetes — *Ingress và IngressClass*: [https://kubernetes.io/docs/concepts/services-networking/ingress/](https://kubernetes.io/docs/concepts/services-networking/ingress/)
-- Kubernetes — *Ingress NGINX Retirement: What You Need to Know* (11/2025): [https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/](https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/)
-- Kubernetes — *Statement from the Steering and Security Response Committees* (01/2026): [https://kubernetes.io/blog/2026/01/29/ingress-nginx-statement/](https://kubernetes.io/blog/2026/01/29/ingress-nginx-statement/)
-- Rancher — *Guide to Ingress NGINX Retirement* (migration sang Traefik): [https://ranchermanager.docs.rancher.com/v2.14/how-to-guides/new-user-guides/kubernetes-resources-setup/load-balancer-and-ingress-controller/guide-to-ingress-nginx-retirement](https://ranchermanager.docs.rancher.com/v2.14/how-to-guides/new-user-guides/kubernetes-resources-setup/load-balancer-and-ingress-controller/guide-to-ingress-nginx-retirement)
-- Rancher — *local-path-provisioner stable install*: [https://github.com/rancher/local-path-provisioner](https://github.com/rancher/local-path-provisioner)
-- MetalLB — *Installation*: [https://metallb.io/installation/](https://metallb.io/installation/)
-- MetalLB — *Configuration và Usage*: [https://metallb.io/configuration/](https://metallb.io/configuration/), [https://metallb.io/usage/](https://metallb.io/usage/)
-- Cloudflare — *Primary DNS / Full setup (add domain, review records, replace NS, verify Active)*: [https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/](https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/)
-- Cloudflare — *Zone status (Pending vs Active)*: [https://developers.cloudflare.com/dns/zone-setups/reference/domain-status/](https://developers.cloudflare.com/dns/zone-setups/reference/domain-status/)
-- Cloudflare — *1.1.1.1 Purge Cache tool* (xóa cache NS/DS cũ trên `1.1.1.1`): [https://one.one.one.one/purge-cache/](https://one.one.one.one/purge-cache/)
-- Google Public DNS — *Flush Cache tool* (xóa cache NS/DS cũ trên `8.8.8.8`): [https://dns.google/cache](https://dns.google/cache)
-- Cloudflare — *DNSSEC (disable before migration, enable and publish DS after Active)*: [https://developers.cloudflare.com/dns/dnssec/](https://developers.cloudflare.com/dns/dnssec/)
-- Cloudflare — *Transfer domain to Cloudflare Registrar*: [https://developers.cloudflare.com/registrar/get-started/transfer-domain-to-cloudflare/](https://developers.cloudflare.com/registrar/get-started/transfer-domain-to-cloudflare/)
-- Hostinger — *Point a domain to external services*: [https://support.hostinger.com/en/articles/4737652-how-to-point-a-domain-to-external-services](https://support.hostinger.com/en/articles/4737652-how-to-point-a-domain-to-external-services)
-- Hostinger — *Manage DNS records / DNSSEC in hPanel*: [https://support.hostinger.com/en/articles/1583249-how-to-manage-dns-records-at-hostinger](https://support.hostinger.com/en/articles/1583249-how-to-manage-dns-records-at-hostinger)
-- Hostinger — *How to use DNSSEC records at Hostinger* (bốn ô Key Tag/Algorithm/Digest Type/Digest, giá trị do provider giữ nameserver sinh ra): [https://www.hostinger.com/support/3667267-how-to-use-dnssec-records-at-hostinger/](https://www.hostinger.com/support/3667267-how-to-use-dnssec-records-at-hostinger/)
-- Cloudflare — *Tunnel setup*: [https://developers.cloudflare.com/tunnel/setup/](https://developers.cloudflare.com/tunnel/setup/)
-- Cloudflare — *Deploy cloudflared in Kubernetes*: [https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/](https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/)
-- Cloudflare — *Tunnel with firewall*: [https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/)
-- Cloudflare — *Tunnel origin parameters (`originServerName`, `noTLSVerify`, `httpHostHeader`)*: [https://developers.cloudflare.com/tunnel/configuration/](https://developers.cloudflare.com/tunnel/configuration/)
-- Cloudflare — *Self-hosted public application/Access*: [https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/)
-- Cloudflare — *WebSockets*: [https://developers.cloudflare.com/network/websockets/](https://developers.cloudflare.com/network/websockets/)
-- Cloudflare — *HTTP 413/upload limits*: [https://developers.cloudflare.com/support/troubleshooting/http-status-codes/4xx-client-error/error-413/](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/4xx-client-error/error-413/)
-- Rancher/SUSE — *Support matrix v2.14.3*: [https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/rancher-v2-14-3/](https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/rancher-v2-14-3/)
-- Rancher — *Installation requirements*: [https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-requirements](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-requirements)
-- Rancher — *Helm version requirements*: [https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/helm-version-requirements](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/helm-version-requirements)
-- Rancher — *Install/upgrade on a Kubernetes cluster*: [https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/install-upgrade-on-a-kubernetes-cluster/](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/install-upgrade-on-a-kubernetes-cluster/)
-- Rancher — *Helm chart options v2.14*: [https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/helm-chart-options](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/helm-chart-options)
-- cert-manager — *Supported releases*: [https://cert-manager.io/docs/releases/](https://cert-manager.io/docs/releases/)
-- cert-manager — *Installation bằng OCI Helm chart*: [https://cert-manager.io/docs/installation/helm/](https://cert-manager.io/docs/installation/helm/)
-- CoreDNS — *hosts plugin*: [https://coredns.io/plugins/hosts/](https://coredns.io/plugins/hosts/)
+### 10.1. Hoàn thiện decision/rejection log
+
+Không xóa candidate bị loại. Bảo đảm file có header và ít nhất một decision cho mỗi component:
+
+```bash
+if ! grep -Fq '| Date | Component | Candidate | Decision | Reason | Revisit when |' \
+  "${BASELINE_ROOT}/decision-log.md"; then
+  tmp="${BASELINE_ROOT}/decision-log.tmp"
+  {
+    printf '| Date | Component | Candidate | Decision | Reason | Revisit when |\n'
+    printf '| --- | --- | --- | --- | --- | --- |\n'
+    cat "${BASELINE_ROOT}/decision-log.md"
+  } > "${tmp}"
+  mv "${tmp}" "${BASELINE_ROOT}/decision-log.md"
+fi
+
+nano "${BASELINE_ROOT}/decision-log.md"
+```
+
+Gate:
+
+```bash
+set -o pipefail
+(
+  for component in Kubernetes containerd Flannel Helm cert-manager Traefik Rancher; do
+    grep -Fqi "| ${component} " "${BASELINE_ROOT}/decision-log.md" || {
+      echo "FAIL: decision log thiếu ${component}"; exit 1;
+    }
+  done
+  ! grep -Eq '\.\.\.|UNKNOWN|TBD|chưa đánh giá' \
+    "${BASELINE_ROOT}/decision-log.md" || {
+    echo 'FAIL: decision log còn placeholder'; exit 1;
+  }
+  echo 'PASS: decision/rejection log đủ component và không còn placeholder'
+) 2>&1 | tee "${BASELINE_ROOT}/evidence/12-final/gate-101-decision-log.txt"
+DECISION_LOG_RC=${PIPESTATUS[0]}
+echo "decision log gate rc=${DECISION_LOG_RC}"
+```
+
+### 10.2. Tạo và kiểm chứng source registry
+
+Tạo machine-readable source registry; một URL chỉ được tính khi có claim và evidence file:
+
+```bash
+{
+  printf 'component\tevidence_type\tofficial_url\tpage_version\taccessed_at\tclaim\tevidence_file\n'
+  for component in Kubernetes Rancher containerd Flannel Helm cert-manager Traefik cloudflared local-path-provisioner MetalLB; do
+    printf '%s\tNOT-RECORDED\thttps://NOT-RECORDED\tNOT-RECORDED\t%s\tNOT-RECORDED\tNOT-RECORDED\n' \
+      "${component}" "${RESEARCH_DATE}"
+  done
+} > "${BASELINE_ROOT}/sources.tsv"
+
+nano "${BASELINE_ROOT}/sources.tsv"
+```
+
+`evidence_file` là đường dẫn tương đối dưới `${BASELINE_ROOT}`. Gate:
+
+```bash
+set -o pipefail
+(
+  python3 - "${BASELINE_ROOT}/sources.tsv" "${BASELINE_ROOT}" <<'PY'
+import csv
+import os
+import sys
+from urllib.parse import urlparse
+
+source_file, root = sys.argv[1:]
+rows = list(csv.DictReader(open(source_file, encoding='utf-8'), delimiter='\t'))
+required = {'Kubernetes','Rancher','containerd','Flannel','Helm','cert-manager','Traefik'}
+found = {row['component'] for row in rows}
+if not required <= found:
+    raise SystemExit('FAIL: sources.tsv thiếu component bắt buộc')
+for row in rows:
+    if any(not value.strip() or 'NOT-RECORDED' in value for value in row.values()):
+        raise SystemExit(f'FAIL: source row {row["component"]} chưa hoàn thiện')
+    parsed = urlparse(row['official_url'])
+    if parsed.scheme != 'https' or not parsed.netloc:
+        raise SystemExit(f'FAIL: URL không phải HTTPS {row["component"]}')
+    evidence = os.path.realpath(os.path.join(root, row['evidence_file']))
+    if os.path.commonpath([os.path.realpath(root), evidence]) != os.path.realpath(root):
+        raise SystemExit(f'FAIL: evidence path thoát workspace {row["component"]}')
+    if not os.path.isfile(evidence) or os.path.getsize(evidence) == 0:
+        raise SystemExit(f'FAIL: evidence file thiếu/rỗng {row["component"]}: {evidence}')
+print('PASS: source registry đủ official URL, claim và evidence file')
+PY
+) 2>&1 | tee "${BASELINE_ROOT}/evidence/12-final/gate-102-sources.txt"
+SOURCES_RC=${PIPESTATUS[0]}
+echo "sources gate rc=${SOURCES_RC}"
+```
+
+Sinh `sources.md`:
+
+```bash
+python3 - "${BASELINE_ROOT}/sources.tsv" "${BASELINE_ROOT}/sources.md" <<'PY'
+import csv, sys
+rows = list(csv.DictReader(open(sys.argv[1], encoding='utf-8'), delimiter='\t'))
+with open(sys.argv[2], 'w', encoding='utf-8') as out:
+    out.write('| Component | Evidence type | Official URL | Page/release | Accessed | Claim | Evidence |\n')
+    out.write('| --- | --- | --- | --- | --- | --- | --- |\n')
+    for r in rows:
+        out.write(f'| {r["component"]} | {r["evidence_type"]} | {r["official_url"]} | {r["page_version"]} | {r["accessed_at"]} | {r["claim"]} | {r["evidence_file"]} |\n')
+PY
+```
+
+### 10.3. Tạo source-of-truth baseline data
+
+Khởi tạo trạng thái `NOT-TESTED`; không copy bảng có `PASS` sẵn:
+
+```bash
+{
+  printf 'component\trole\texact_version\tartifact\tk8s_range\tlifecycle\tsupport_class\texplicit_contract\tevidence\tofficial_source\n'
+  printf 'OS\tNode OS\tNOT-SET\tNOT-SET\tN/A\tNOT-SET\tNOT-SET\tarch/kernel/cgroup\tNOT-TESTED\tNOT-SET\n'
+  printf 'Kubernetes\tControl plane/node\tNOT-SET\tNOT-SET\tN/A\tNOT-SET\tUPSTREAM-MAINTAINED\tsame exact patch\tNOT-TESTED\tNOT-SET\n'
+  printf 'kubeadm-images\tControl-plane dependencies\tNOT-SET\tNOT-SET\tN/A\tKubernetes lifecycle\tKUBEADM-SELECTED\tno independent upgrade\tNOT-TESTED\tNOT-SET\n'
+  printf 'containerd\tCRI runtime\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\tCRI v1/systemd\tNOT-TESTED\tNOT-SET\n'
+  printf 'Flannel\tPod network\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\tUPSTREAM-RANGE-NOT-STATED\tpodCIDR/CNI spec\tNOT-TESTED\tNOT-SET\n'
+  printf 'Helm\tChart client\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\tSUPPORTED\ttoolchain exact version\tNOT-TESTED\tNOT-SET\n'
+  printf 'Traefik\tIngress\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\tIngress provider/class\tNOT-TESTED\tNOT-SET\n'
+  printf 'cert-manager\tTLS controller\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\tCRDs/webhook\tNOT-TESTED\tNOT-SET\n'
+  printf 'Rancher\tCluster manager\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\texposure/TLS/agent mode\tNOT-TESTED\tNOT-SET\n'
+  printf 'cloudflared\tTunnel\tNOT-SET\tNOT-SET\tN/A\tNOT-SET\tUPSTREAM-RANGE-NOT-STATED\texact image digest\tNOT-TESTED\tNOT-SET\n'
+  printf 'local-path-provisioner\tStorage\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\tUPSTREAM-RANGE-NOT-STATED\tclass/path\tNOT-TESTED\tNOT-SET\n'
+  printf 'MetalLB\tLAN LoadBalancer\tNOT-SET\tNOT-SET\tNOT-SET\tNOT-SET\tUPSTREAM-RANGE-NOT-STATED\tCRDs/IP pool\tNOT-TESTED\tNOT-SET\n'
+} > "${BASELINE_ROOT}/baseline-data.tsv"
+
+nano "${BASELINE_ROOT}/baseline-data.tsv"
+```
+
+Điền từ `research-state.env`, `all-image-digests.tsv`, lifecycle evidence và các gate. Component không được chọn phải dùng `N/A` ở mọi field thích hợp và `evidence=N/A`; không xóa row.
+
+### 10.4. Gate dữ liệu và sinh bảng §2.1
+
+```bash
+set -a
+source "${BASELINE_ROOT}/baseline.env"
+source "${BASELINE_ROOT}/research-state.env"
+set +a
+
+set -o pipefail
+(
+  python3 - "${BASELINE_ROOT}/baseline-data.tsv" <<'PY'
+import csv
+import os
+import re
+import sys
+
+rows = list(csv.DictReader(open(sys.argv[1], encoding='utf-8'), delimiter='\t'))
+expected = {'OS','Kubernetes','kubeadm-images','containerd','Flannel','Helm',
+            'Traefik','cert-manager','Rancher','cloudflared',
+            'local-path-provisioner','MetalLB'}
+if {r['component'] for r in rows} != expected:
+    raise SystemExit('FAIL: baseline-data.tsv thiếu/thừa component')
+
+bad_markers = ('NOT-SET','NOT-TESTED','UNKNOWN','TBD','YYYY','...')
+for row in rows:
+    if any(marker in value for value in row.values() for marker in bad_markers):
+        raise SystemExit(f'FAIL: {row["component"]} còn placeholder')
+    if re.search(r'(^|[:/])(latest|stable|master)(@|$|/)', row['artifact'], re.I):
+        raise SystemExit(f'FAIL: {row["component"]} còn tag/branch động')
+    if row['evidence'] != 'N/A' and not row['evidence'].endswith('-PASS'):
+        raise SystemExit(f'FAIL: evidence status không PASS cho {row["component"]}')
+    if row['official_source'] != 'N/A' and not row['official_source'].startswith('https://'):
+        raise SystemExit(f'FAIL: official source không phải HTTPS cho {row["component"]}')
+
+lookup = {r['component']: r for r in rows}
+checks = {
+    'Kubernetes': 'v' + os.environ['K8S_VERSION'],
+    'containerd': os.environ['CONTAINERD_UPSTREAM_VERSION'],
+    'Flannel': os.environ['FLANNEL_VERSION'],
+    'Helm': os.environ['HELM_VERSION'],
+    'Traefik': os.environ['TRAEFIK_CHART_VERSION'],
+    'cert-manager': os.environ['CERT_MANAGER_VERSION'],
+    'Rancher': os.environ['RANCHER_VERSION'],
+}
+for component, selected in checks.items():
+    if lookup[component]['exact_version'] != selected:
+        raise SystemExit(f'FAIL: {component} baseline={lookup[component]["exact_version"]}, selected={selected}')
+
+print('PASS: baseline data đủ exact versions, support/evidence/source và khớp research state')
+PY
+) 2>&1 | tee "${BASELINE_ROOT}/evidence/12-final/gate-104-baseline-data.txt"
+BASELINE_DATA_RC=${PIPESTATUS[0]}
+echo "baseline data gate rc=${BASELINE_DATA_RC}"
+```
+
+Sinh bảng Markdown chi tiết và bảng rút gọn dùng cho §2.1:
+
+```bash
+python3 - "${BASELINE_ROOT}/baseline-data.tsv" \
+  "${BASELINE_ROOT}/baseline-detailed.md" \
+  "${BASELINE_ROOT}/baseline-versions.md" <<'PY'
+import csv, os, sys
+rows = list(csv.DictReader(open(sys.argv[1], encoding='utf-8'), delimiter='\t'))
+
+with open(sys.argv[2], 'w', encoding='utf-8') as out:
+    out.write('| Component | Role | Exact version | Artifact | K8s range | Lifecycle | Support class | Contract | Evidence | Official source |\n')
+    out.write('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n')
+    for r in rows:
+        out.write('| ' + ' | '.join(r[k] for k in r) + ' |\n')
+
+with open(sys.argv[3], 'w', encoding='utf-8') as out:
+    out.write('## 2.1. Phiên bản\n\n')
+    out.write('| Thành phần | Phiên bản dùng trong runbook | Ghi chú tương thích |\n')
+    out.write('| --- | --- | --- |\n')
+    for r in rows:
+        if r['exact_version'] == 'N/A':
+            continue
+        note = f'{r["artifact"]}; {r["support_class"]}; {r["evidence"]}'
+        out.write(f'| {r["component"]} | **{r["exact_version"]}** | {note} |\n')
+    out.write('\n> Version skew: kubeadm/kubelet/kubectl được pin cùng exact Debian version.\n')
+    out.write(f'> Phạm vi cam kết: {os.environ.get("SUPPORT_GOAL", "UNSET")}.\n')
+PY
+
+python3 - "${BASELINE_ROOT}/compatibility-matrix.tsv" \
+  "${BASELINE_ROOT}/compatibility-matrix.md" <<'PY'
+import csv, sys
+rows = list(csv.DictReader(open(sys.argv[1], encoding='utf-8'), delimiter='\t'))
+with open(sys.argv[2], 'w', encoding='utf-8') as out:
+    out.write('| K8s minor | Upstream | Rancher Manager | Rancher imported | cert-manager | Helm | Rancher chart | Decision | Reason |\n')
+    out.write('| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n')
+    for r in rows:
+        out.write('| ' + ' | '.join(r[k] for k in r) + ' |\n')
+PY
+```
+
+**PASS:** `baseline data gate rc=0`, hai bảng được sinh từ cùng TSV. Không sửa tay bảng Markdown; sửa TSV, chạy gate rồi sinh lại.
 
 ---
 
-## 17. Phụ lục
+## 11. Freshness gate
 
-### Phụ lục A — Locally-managed tunnel (CLI / config.yml)
+### 11.1. Tính review date
 
-Phương án thay thế cho [§12], chạy `cloudflared` **trực tiếp trên 1 máy** (vd master) thay vì bằng token trong cụm. Dùng khi muốn quản lý cấu hình tunnel bằng file thay vì dashboard.
-
-```bash
-# cài cloudflared (Ubuntu)
-sudo mkdir -p --mode=0755 /usr/share/keyrings
-curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg \
-  | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
-echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" \
-  | sudo tee /etc/apt/sources.list.d/cloudflared.list
-sudo apt-get update && sudo apt-get install -y cloudflared
-
-# 1) đăng nhập (mở trình duyệt, chọn domain) → lưu cert.pem vào ~/.cloudflared
-cloudflared tunnel login
-
-# 2) tạo tunnel → sinh credentials JSON ~/.cloudflared/<UUID>.json
-cloudflared tunnel create homelab-k8s
-cloudflared tunnel list                 # lấy <UUID>
-```
-
-Tạo `~/.cloudflared/config.yml`:
-
-```yaml
-tunnel: <UUID>
-credentials-file: /home/<user>/.cloudflared/<UUID>.json
-ingress:
-  - hostname: app.example.com
-    service: http://<node-ip>:<nodePort>   # xem ghi chú bên dưới
-  - hostname: rancher.hieupn.site
-    service: https://<node-ip>:<nodePort-https>
-    originRequest:
-      noTLSVerify: true
-  - service: http_status:404          # catch-all BẮT BUỘC ở cuối
-```
+Nhập EOL gần nhất trong các component có lifecycle. Policy mẫu yêu cầu review lại ít nhất 90 ngày trước EOL và trong vòng 30 ngày trước ngày cài nếu baseline được lập quá sớm.
 
 ```bash
-# tạo DNS record cho từng hostname
-cloudflared tunnel route dns homelab-k8s app.example.com
-cloudflared tunnel route dns homelab-k8s rancher.hieupn.site
-# chạy thử
-cloudflared tunnel run homelab-k8s
-# chạy như service
-sudo cloudflared service install
+read -r -p 'Nhập NEAREST_EOL (YYYY-MM-DD): ' NEAREST_EOL
+EOL_REVIEW_BUFFER_DAYS=90
+
+TARGET_MINUS_30="$(date -d "${TARGET_INSTALL_DATE} -30 days" +%F)"
+if [[ "$(date -d "${TARGET_MINUS_30}" +%s)" -gt "$(date -d "${RESEARCH_DATE}" +%s)" ]]; then
+  INSTALL_REVIEW_DATE="${TARGET_MINUS_30}"
+else
+  INSTALL_REVIEW_DATE="${TARGET_INSTALL_DATE}"
+fi
+
+EOL_REVIEW_DATE="$(date -d "${NEAREST_EOL} -${EOL_REVIEW_BUFFER_DAYS} days" +%F)"
+
+REVIEW_BY="$(printf '%s\n%s\n' "${INSTALL_REVIEW_DATE}" "${EOL_REVIEW_DATE}" \
+  | sort | head -n1)"
+
+{
+  printf 'BASELINE_STATUS=DRAFT\n'
+  printf 'RESEARCHED_AT=%s\n' "${RESEARCH_DATE}"
+  printf 'APPROVED_AT=NOT-APPROVED\n'
+  printf 'TARGET_INSTALL_DATE=%s\n' "${TARGET_INSTALL_DATE}"
+  printf 'REVIEW_BY=%s\n' "${REVIEW_BY}"
+  printf 'NEAREST_EOL=%s\n' "${NEAREST_EOL}"
+  printf 'SUPPORT_GOAL=%s\n' "${SUPPORT_GOAL}"
+} > "${BASELINE_ROOT}/baseline-metadata.env"
+
+cat "${BASELINE_ROOT}/baseline-metadata.env"
 ```
 
-> ⚠️ Khi cloudflared chạy **ngoài** cụm, nó **không** resolve được `*.svc.cluster.local`. Khi đó phải expose ingress qua **NodePort** (`service: http://<node-ip>:<nodePort>`) hoặc **MetalLB IP** (Phụ lục B). Đây chính là lý do cách in-cluster ([§12]) gọn hơn — nên ưu tiên [§12].
-
-### Phụ lục B — MetalLB (tuỳ chọn: LoadBalancer IP trong LAN)
-
-Chỉ cần nếu bạn **cũng** muốn truy cập ingress từ LAN bằng một IP cố định. Cloudflare Tunnel in-cluster vẫn chỉ cần `ClusterIP`.
-
-MetalLB gồm controller cấp IP cho Service `LoadBalancer` và speaker quảng bá IP đó ra mạng. Với L2 mode bên dưới, một node trả lời ARP cho IP dịch vụ; traffic tới node đó rồi được chuyển đến backend. Dải IP phải thuộc LAN, chưa được thiết bị nào dùng và nên nằm ngoài pool DHCP để tránh trùng IP.
+### 11.2. Gate freshness
 
 ```bash
-# kubeadm mặc định dùng kube-proxy mode iptables: không cần bật strictARP.
-# Chỉ bật strictARP nếu bạn đã chủ động chuyển kube-proxy sang IPVS.
+set -o pipefail
+(
+  set -a
+  source "${BASELINE_ROOT}/baseline-metadata.env"
+  set +a
 
-# cài bản đã pin
-kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.16.1/config/manifests/metallb-native.yaml
-kubectl -n metallb-system rollout status deploy/controller --timeout=180s
-kubectl -n metallb-system rollout status daemonset/speaker --timeout=180s
+  for value in RESEARCHED_AT TARGET_INSTALL_DATE REVIEW_BY NEAREST_EOL; do
+    date -d "${!value}" '+%F' >/dev/null 2>&1 || {
+      echo "FAIL: ${value} không phải ngày hợp lệ"; exit 1;
+    }
+  done
+  [[ "${BASELINE_STATUS}" == DRAFT ]] || {
+    echo 'FAIL: status phải là DRAFT trước final approval'; exit 1;
+  }
+  [[ "$(date -d "${NEAREST_EOL}" +%s)" -gt "$(date -d "${TARGET_INSTALL_DATE}" +%s)" ]] || {
+    echo 'FAIL: component hết hạn trước ngày cài dự kiến'; exit 1;
+  }
+  [[ "$(date -d "${REVIEW_BY}" +%s)" -ge "$(date -d "${RESEARCHED_AT}" +%s)" ]] || {
+    echo 'FAIL: baseline đã stale ngay khi lập; chọn candidate có lifecycle dài hơn'; exit 1;
+  }
+  [[ "$(date -d "${REVIEW_BY}" +%s)" -le "$(date -d "${TARGET_INSTALL_DATE}" +%s)" ]] || {
+    echo 'FAIL: review_by nằm sau ngày cài'; exit 1;
+  }
+  echo "PASS: baseline DRAFT hợp lệ tới ${REVIEW_BY}; nearest EOL=${NEAREST_EOL}"
+) 2>&1 | tee "${BASELINE_ROOT}/evidence/12-final/gate-112-freshness.txt"
+FRESHNESS_RC=${PIPESTATUS[0]}
+echo "freshness gate rc=${FRESHNESS_RC}"
 ```
 
-Sau đó cấp một dải IP **trong LAN nhưng ngoài DHCP** (vd `192.168.100.200-192.168.100.210`):
-
-```yaml
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: lan-pool
-  namespace: metallb-system
-spec:
-  addresses:
-    - 192.168.100.200-192.168.100.210
----
-apiVersion: metallb.io/v1beta1
-kind: L2Advertisement
-metadata:
-  name: lan-l2
-  namespace: metallb-system
-spec:
-  ipAddressPools: [lan-pool]
-```
-
-```bash
-kubectl apply -f metallb-config.yaml
-
-# §9 cài Traefik là ClusterIP; đổi sang LoadBalancer sau khi MetalLB đã sẵn sàng.
-helm upgrade traefik traefik/traefik \
-  -n traefik --version 41.0.2 --reuse-values \
-  --set service.spec.type=LoadBalancer \
-  --wait --timeout 5m
-
-kubectl -n traefik get svc traefik
-# PASS: TYPE=LoadBalancer và EXTERNAL-IP nhận một IP trong lan-pool.
-
-kubectl -n traefik describe svc traefik
-# PASS: Events không báo lỗi cấp/quảng bá IP; test curl IP đó từ một máy khác trong LAN.
-```
-
-### Phụ lục C — Reset / làm lại một node
-
-```bash
-sudo kubeadm reset -f
-sudo rm -rf /etc/cni/net.d $HOME/.kube/config
-sudo systemctl restart containerd kubelet
-# worker xong có thể join lại; master init lại từ §6
-```
+Sau khi phát hành, nếu ngày hiện tại lớn hơn `REVIEW_BY`, trạng thái vận hành phải coi là `STALE` dù file vẫn ghi `APPROVED`. Phải chạy lại toàn bộ giao version và chart audit, không chỉ sửa một ô patch.
 
 ---
 
-*Runbook tạo ngày 2026-06-26; cập nhật đồng bộ ngày 2026-08-09. Baseline: Ubuntu 24.04 amd64, Kubernetes **v1.35.6** (`1.35.6-1.1`), containerd **2.x** từ Ubuntu, Flannel **v0.28.7**, Traefik chart **41.0.2** / Proxy **v3.7.6**, cert-manager **v1.21.1**, Rancher **2.14.3**. Đây là homelab baseline, không phải SLA/certification production end-to-end cho kubeadm.*
+## 12. Phê duyệt và phát hành
+
+### 12.1. Checklist phê duyệt cuối
+
+### Nguồn và lifecycle
+
+- [ ] Mọi row có ít nhất một official source và ngày truy cập.
+- [ ] Kubernetes minor còn maintained và exact patch đã kiểm release notes.
+- [ ] Mọi component có lifecycle/EOL hoặc ghi rõ upstream không công bố.
+- [ ] Không có prerelease, `latest`, `stable`, `master`, version range hoặc image tag rỗng trong baseline cuối.
+- [ ] Chart version, appVersion, package version và image digest không bị gộp.
+
+### Compatibility
+
+- [ ] Rancher Manager host và downstream/imported được đánh giá riêng.
+- [ ] Kubernetes target nằm trong giao của Rancher, cert-manager, Helm và chart metadata.
+- [ ] kubeadm/kubelet/kubectl có cùng exact package version cho cluster mới.
+- [ ] Đã lưu inventory và digest của etcd/CoreDNS/pause/control-plane images do đúng kubeadm version chọn.
+- [ ] Runtime hỗ trợ CRI v1; CRI enabled; cgroup driver đồng nhất.
+- [ ] CNI release, CNI spec, CNI binaries và podCIDR đã được kiểm riêng.
+- [ ] Component không có official compatibility range được gắn nhãn, không được suy diễn “supported”.
+
+### Chart/config contract
+
+- [ ] Đã lưu `Chart.yaml`, full `values.yaml`, templates/CRDs và checksum đúng version.
+- [ ] Đã audit các nhánh `if`, `Capabilities`, `lookup` và cross-controller resources.
+- [ ] Mọi key quyết định exposure/controller/TLS/storage/security đều pin rõ.
+- [ ] Rancher pin `networkExposure.type` và render gate cấm nhánh Gateway ngoài dự kiến.
+- [ ] Không giả định annotation của nginx có tác dụng với Traefik.
+- [ ] Đã phân biệt resource do Helm, controller và application tạo.
+
+### Validation và phát hành
+
+- [ ] Tất cả chart render bằng exact `--kube-version` và exact values.
+- [ ] Gate lỗi chạy trong subshell, trả non-zero mà không đóng SSH.
+- [ ] Candidate/rejection log đầy đủ.
+- [ ] Lab report tồn tại cho mọi tổ hợp cần `LAB-PASS`.
+- [ ] Bảng chi tiết và bảng §2.1 rút gọn khớp nhau.
+- [ ] Có `researched_at`, `review_by`, `nearest_eol` và support class.
+
+Chỉ khi toàn bộ mục bắt buộc đạt mới đổi `baseline_status` thành `APPROVED`.
+
+Sao chép checklist trên thành `${BASELINE_ROOT}/approval-checklist.md`, đánh dấu `[x]` sau khi đối chiếu evidence. Gate human checklist:
+
+```bash
+set -o pipefail
+(
+  test -s "${BASELINE_ROOT}/approval-checklist.md" || {
+    echo 'FAIL: thiếu approval-checklist.md'; exit 1;
+  }
+  ! grep -Fq -- '- [ ]' "${BASELINE_ROOT}/approval-checklist.md" || {
+    echo 'FAIL: checklist còn mục chưa xác nhận'; exit 1;
+  }
+  echo 'PASS: human approval checklist đã hoàn tất'
+) 2>&1 | tee "${BASELINE_ROOT}/evidence/12-final/gate-121-checklist.txt"
+CHECKLIST_RC=${PIPESTATUS[0]}
+echo "checklist gate rc=${CHECKLIST_RC}"
+```
+
+### 12.2. Gate tự động toàn bộ pipeline
+
+```bash
+source "${BASELINE_ROOT}/research-session.env"
+set -a
+source "${BASELINE_ROOT}/baseline.env"
+source "${BASELINE_ROOT}/research-state.env"
+set +a
+ADDON_EVIDENCE="${CHART_EVIDENCE}/addons"
+AUDIT_EVIDENCE="${CHART_EVIDENCE}/audit"
+
+set -o pipefail
+(
+  required_gates=(
+    "${BASELINE_ROOT}/evidence/00-preflight/gate-02-tools.txt"
+    "${BASELINE_ROOT}/evidence/00-preflight/gate-03-workspace.txt"
+    "${BASELINE_ROOT}/evidence/00-preflight/gate-02-input.txt"
+    "${BASELINE_ROOT}/evidence/00-preflight/gate-33-anchor.txt"
+    "${K8S_EVIDENCE}/gate-41-upstream.txt"
+    "${K8S_EVIDENCE}/gate-42-intersection.txt"
+    "${K8S_EVIDENCE}/gate-421-rancher-discovery.txt"
+    "${K8S_EVIDENCE}/gate-431-repository.txt"
+    "${K8S_EVIDENCE}/gate-43-packages.txt"
+    "${K8S_EVIDENCE}/gate-44-version-skew.txt"
+    "${K8S_EVIDENCE}/gate-45-images.txt"
+    "${RUNTIME_EVIDENCE}/gate-51-os.txt"
+    "${RUNTIME_EVIDENCE}/gate-52-containerd-metadata.txt"
+    "${RUNTIME_EVIDENCE}/gate-53-runtime.txt"
+    "${CNI_EVIDENCE}/gate-61-flannel-discovery.txt"
+    "${CNI_EVIDENCE}/gate-62-flannel-static.txt"
+    "${CNI_EVIDENCE}/gate-63-flannel-server.txt"
+    "${CHART_EVIDENCE}/gate-71-helm.txt"
+    "${CHART_EVIDENCE}/gate-72-cert-manager.txt"
+    "${CHART_EVIDENCE}/gate-73-traefik-metadata.txt"
+    "${CHART_EVIDENCE}/gate-74-rancher-metadata.txt"
+    "${ADDON_EVIDENCE}/gate-751-image-tool.txt"
+    "${ADDON_EVIDENCE}/gate-752-addon-selection.txt"
+    "${ADDON_EVIDENCE}/gate-753-addon-static.txt"
+    "${AUDIT_EVIDENCE}/gate-85-chart-audit-complete.txt"
+    "${RENDER_EVIDENCE}/gate-91-candidate-values.txt"
+    "${RENDER_EVIDENCE}/gate-93-cert-manager-render.txt"
+    "${RENDER_EVIDENCE}/gate-94-traefik-render.txt"
+    "${RENDER_EVIDENCE}/gate-95-rancher-render.txt"
+    "${RENDER_EVIDENCE}/gate-96-image-digests.txt"
+    "${RENDER_EVIDENCE}/gate-97-lab.txt"
+    "${FINAL_EVIDENCE}/gate-101-decision-log.txt"
+    "${FINAL_EVIDENCE}/gate-102-sources.txt"
+    "${FINAL_EVIDENCE}/gate-104-baseline-data.txt"
+    "${FINAL_EVIDENCE}/gate-112-freshness.txt"
+    "${FINAL_EVIDENCE}/gate-121-checklist.txt"
+  )
+
+  for gate in "${required_gates[@]}"; do
+    test -s "${gate}" || {
+      echo "FAIL: gate file thiếu/rỗng ${gate}"; exit 1;
+    }
+    grep -Fq 'PASS:' "${gate}" || {
+      echo "FAIL: gate chưa PASS ${gate}"; exit 1;
+    }
+  done
+
+  for final_file in \
+    baseline-versions.md baseline-detailed.md compatibility-matrix.tsv compatibility-matrix.md \
+    sources.md sources.tsv decision-log.md config-contract.tsv \
+    resource-ownership.tsv baseline-metadata.env approval-checklist.md; do
+    test -s "${BASELINE_ROOT}/${final_file}" || {
+      echo "FAIL: final artifact thiếu/rỗng ${final_file}"; exit 1;
+    }
+  done
+
+  ! grep -Eqi 'NOT-SET|NOT-TESTED|NOT-RECORDED|UNKNOWN|TBD|YYYY|\.\.\.' \
+    "${BASELINE_ROOT}/baseline-versions.md" \
+    "${BASELINE_ROOT}/baseline-detailed.md" \
+    "${BASELINE_ROOT}/sources.md" \
+    "${BASELINE_ROOT}/decision-log.md" \
+    "${BASELINE_ROOT}/config-contract.tsv" || {
+    echo 'FAIL: final artifacts còn placeholder'; exit 1;
+  }
+
+  echo 'PASS: toàn bộ discovery/compatibility/runtime/CNI/chart/render/lab/freshness gates đạt'
+) 2>&1 | tee "${FINAL_EVIDENCE}/gate-122-pipeline.txt"
+PIPELINE_RC=${PIPESTATUS[0]}
+echo "pipeline gate rc=${PIPELINE_RC}"
+```
+
+**PASS:** `pipeline gate rc=0`. Bất kỳ file thiếu hoặc không có `PASS:` đều là **STOP**.
+
+### 12.3. Đổi trạng thái APPROVED và đóng gói
+
+Chỉ chạy sau §12.2 PASS:
+
+```bash
+source "${BASELINE_ROOT}/research-session.env"
+set -a
+source "${BASELINE_ROOT}/baseline-metadata.env"
+set +a
+
+(
+  grep -Fq 'PASS: toàn bộ discovery/compatibility/runtime/CNI/chart/render/lab/freshness gates đạt' \
+    "${FINAL_EVIDENCE}/gate-122-pipeline.txt" || {
+    echo 'FAIL: pipeline chưa PASS'; exit 1;
+  }
+
+  sed -i 's/^BASELINE_STATUS=.*/BASELINE_STATUS=APPROVED/' \
+    "${BASELINE_ROOT}/baseline-metadata.env"
+  sed -i "s/^APPROVED_AT=.*/APPROVED_AT=${RESEARCH_DATE}/" \
+    "${BASELINE_ROOT}/baseline-metadata.env"
+
+  find "${BASELINE_ROOT}" -type f \
+    ! -path '*/evidence/12-final/FINAL-SHA256SUMS' \
+    -print0 | sort -z | xargs -0 sha256sum \
+    > "${FINAL_EVIDENCE}/FINAL-SHA256SUMS"
+
+  grep -Fq 'BASELINE_STATUS=APPROVED' \
+    "${BASELINE_ROOT}/baseline-metadata.env" || {
+    echo 'FAIL: không đổi được APPROVED'; exit 1;
+  }
+  test -s "${FINAL_EVIDENCE}/FINAL-SHA256SUMS" || {
+    echo 'FAIL: checksum bundle rỗng'; exit 1;
+  }
+
+  echo "PASS: baseline APPROVED; review_by=${REVIEW_BY}; checksum bundle hoàn tất"
+)
+APPROVAL_RC=$?
+echo "approval gate rc=${APPROVAL_RC}"
+```
+
+Đầu ra dùng để cập nhật runbook triển khai là `baseline-versions.md`. Giữ nguyên toàn bộ workspace/evidence để lần sau tái dựng được quyết định.
+
+---
+
+## 13. Danh mục nguồn official tối thiểu
+
+| Thành phần | Nguồn bắt buộc |
+| --- | --- |
+| Kubernetes lifecycle | [Releases](https://kubernetes.io/releases/) |
+| Kubernetes skew | [Version Skew Policy](https://kubernetes.io/releases/version-skew-policy/) |
+| kubeadm packages | [Installing kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/) |
+| Runtime/CRI/cgroup | [Container Runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/) |
+| CNI requirement | [Network Plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) |
+| containerd lifecycle | [containerd RELEASES.md](https://github.com/containerd/containerd/blob/main/RELEASES.md) |
+| Flannel | [Repository](https://github.com/flannel-io/flannel), [Releases](https://github.com/flannel-io/flannel/releases) |
+| Helm | [Version Support Policy](https://helm.sh/docs/v3/topics/version_skew/) |
+| Rancher release channel | [Choosing a Rancher Version](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/choose-a-rancher-version) |
+| Rancher compatibility | [SUSE Rancher Support Matrix](https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/) |
+| Rancher requirements | [Installation Requirements](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-requirements) |
+| Rancher Helm | [Helm Version Requirements](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/helm-version-requirements) |
+| Rancher chart behavior | Exact release `Chart.yaml`, `values.yaml`, schema, templates and CRDs; ví dụ [v2.14.3 values](https://github.com/rancher/rancher/blob/v2.14.3/chart/values.yaml) |
+| cert-manager | [Supported Releases](https://cert-manager.io/docs/releases/), [Helm](https://cert-manager.io/docs/installation/helm/) |
+| Traefik | [Helm chart releases](https://github.com/traefik/traefik-helm-chart/releases), [Kubernetes docs](https://doc.traefik.io/traefik/setup/kubernetes/) |
+| cloudflared | [Official downloads/releases](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/) |
+| local-path-provisioner | [Official releases](https://github.com/rancher/local-path-provisioner/releases) |
+| MetalLB | [Official releases](https://github.com/metallb/metallb/releases), [documentation](https://metallb.io/) |
+
+Nếu một URL “current” đổi nội dung theo thời gian, `sources.md` phải lưu ngày truy cập, version đang hiển thị và URL/tag immutable của artifact đã dùng. Đó là điều kiện để người sau tái dựng được quyết định thay vì chỉ thấy một danh sách số phiên bản.
+
+---
+
+## 14. Phụ lục: Các lỗi đã phát hiện khi review (chưa sửa — đợi research và confirm)
+
+> **Trạng thái:** các mục dưới đây được phát hiện khi review tĩnh toàn bộ runbook (2026-08-10). Nội dung các mục phía trên (§0–§13) **chưa được sửa** theo danh sách này; chỉ sửa sau khi từng mục được kiểm chứng trên research host thật và được confirm. Khi sửa một mục, cập nhật trạng thái tại đây kèm evidence.
+
+### 14.1. Regex `rg` sai cú pháp và bị `|| true` che lỗi
+
+- **Vị trí:** §8.1, block tạo `${AUDIT_EVIDENCE}/${component}-template-branches.txt`.
+- **Mô tả:** pattern `'{{-?\s*(if|with|range)|include|define'` mở đầu bằng `{{`. Regex engine của ripgrep (Rust) coi `{` không hợp lệ ở vị trí này là lỗi parse (“repetition quantifier expects a valid decimal”), không coi là literal. Lệnh có `|| true` nên lỗi bị nuốt, file template-branches rỗng, và gate §8.1 chỉ `test -s` file `*-values-capabilities-kinds.txt` — nghĩa là bước audit nhánh template **âm thầm không chạy**.
+- **Hướng sửa dự kiến:** escape thành `\{\{-?...` và thêm `test -s` cho cả file template-branches trong gate.
+- **Trạng thái:** CHƯA SỬA — cần chạy thử `rg` trên research host để confirm thông báo lỗi.
+
+### 14.2. `kubectl apply --dry-run=client` nhiều khả năng không chạy được offline
+
+- **Vị trí:** §6.2 (Flannel static gate) và §7.5.3 (addon static gate).
+- **Mô tả:** `kubectl apply` — kể cả `--dry-run=client` và `--validate=false` — vẫn cần discovery tới một API server để map GVK/RESTMapper. Trên research host “không cài cluster, chỉ render cục bộ” như §0.1 tuyên bố, lệnh thường fail với “connection refused”, làm gate 62 và 753 fail dù manifest đúng.
+- **Hướng sửa dự kiến:** thay bằng `kubeconform` hoặc `kubectl create --dry-run=client -o yaml`, hoặc ghi rõ hai gate này yêu cầu kubeconfig trỏ tới lab cluster.
+- **Trạng thái:** CHƯA SỬA — cần chạy thử trên host không có kubeconfig để confirm hành vi của đúng kubectl version trong baseline.
+
+### 14.3. Ràng buộc “đúng ba minor maintained” cứng quá mức, có giai đoạn sai
+
+- **Vị trí:** §4.1 — `head -n3` khi lập `maintained-latest-patches.txt` và gate `-eq 3` trong `gate-41-upstream.txt`.
+- **Mô tả:** Kubernetes có giai đoạn chuyển tiếp tồn tại **bốn** minor còn maintained (khoảng chồng lấn sau khi minor mới phát hành, trước khi minor cũ nhất EOL). `head -n3` loại minor cũ nhất — thường lại là minor duy nhất nằm trong Rancher support matrix vì Rancher đi sau upstream. Rủi ro: giao version rỗng giả tạo, ép người chạy lách runbook.
+- **Hướng sửa dự kiến:** cho phép 3–4 dòng, đối chiếu số minor maintained thực tế từ trang lifecycle thay vì hằng số 3.
+- **Trạng thái:** CHƯA SỬA — cần đối chiếu lịch release/EOL tại thời điểm chạy để xác nhận có đang trong khoảng chồng lấn hay không.
+
+### 14.4. Các đối chiếu HTML giòn (format trang và trang render bằng JS)
+
+- **Vị trí:** §4.1 — grep ngày EOL dạng ISO trong `kubernetes-releases.html`; §4.2 — curl `https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/`.
+- **Mô tả:** gate EOL phụ thuộc việc trang kubernetes.io hiển thị ngày đúng định dạng `YYYY-MM-DD` trong HTML tĩnh — đổi format trang là gate fail sai. Trang SUSE support matrix render nội dung bằng JavaScript: file HTML curl về nhiều khả năng **không chứa các bảng** Manager host/Downstream cần đọc; evidence lưu được nhưng vô dụng, người chạy vẫn phải mở browser và evidence không tái dựng được quyết định.
+- **Hướng sửa dự kiến:** với SUSE matrix, lưu thêm screenshot/PDF hoặc nguồn dữ liệu máy đọc được (nếu SUSE có); với EOL, chấp nhận đối chiếu tay và ghi claim vào `sources.tsv` thay vì grep format.
+- **Trạng thái:** CHƯA SỬA — cần curl thử hai URL và xem nội dung thực tế để confirm.
+
+### 14.5. `crictl info` chạy không sudo dễ bị permission denied
+
+- **Vị trí:** §5.3, gate `gate-53-runtime.txt`.
+- **Mô tả:** `crictl info` cần quyền truy cập socket containerd (`/run/containerd/containerd.sock`); chạy bằng user thường sẽ fail vì quyền, làm gate fail dù runtime cấu hình đúng. Runbook chưa nói rõ block này cần chạy bằng root/sudo hay cần cấu hình `/etc/crictl.yaml`.
+- **Hướng sửa dự kiến:** ghi rõ yêu cầu quyền (sudo hoặc group phù hợp) và endpoint crictl ngay trước block.
+- **Trạng thái:** CHƯA SỬA — cần chạy thử trên research VM để confirm thông báo lỗi và cách cấp quyền theo chính sách của tổ chức.
+
+### 14.6. `research-session.env` không persist đủ biến, khôi phục phiên giữa chừng bị hụt state
+
+- **Vị trí:** §0.3 (danh sách biến export vào `research-session.env`) so với §7.5.1 (`ADDON_EVIDENCE`), §8.1 (`AUDIT_EVIDENCE`) và §9.6.
+- **Mô tả:** `ADDON_EVIDENCE` và `AUDIT_EVIDENCE` chỉ được gán trong phiên shell tại §7.5.1/§8.1, không được ghi vào `research-session.env`. Nếu mở phiên SSH mới và source lại state theo hướng dẫn §0.3 rồi chạy tiếp §9.6, check `[[ -f "${ADDON_EVIDENCE}/addon-image-digests.tsv" ]]` chạy trên biến rỗng → điều kiện false → **lặng lẽ bỏ qua** digest của addon, bảng `all-image-digests.tsv` thiếu dòng mà không có gate nào báo. (§12.2 có tự gán lại hai biến này nhưng các mục §9–§11 thì không.)
+- **Hướng sửa dự kiến:** thêm `ADDON_EVIDENCE`, `AUDIT_EVIDENCE` vào `research-session.env` ngay tại §0.3, hoặc gán lại từ `CHART_EVIDENCE` ở đầu §9.6 giống cách §12.2 làm.
+- **Trạng thái:** CHƯA SỬA — lỗi xác nhận được bằng đọc code (đã trace các block gán biến), nhưng chờ sửa cùng đợt với các mục trên để chạy lại toàn bộ pipeline một lần.
+
+> Ngoài sáu mục trên, review còn ghi nhận các điểm nhỏ chưa xếp loại lỗi: Traefik dùng chart version làm `exact_version` trong `baseline-data.tsv` (hơi mâu thuẫn §1.3 — cần quyết định quy ước); hai gate trùng tiền tố tên file `gate-02-*` trong `00-preflight` (tools và input); gate §8.2 hard-code bộ key theo schema Rancher chart thế hệ 2.14 (`networkExposure.type`) — chart đổi schema là phải sửa code gate trong chính runbook (đã có ghi chú xử lý ở cuối §8.2). Các điểm này xử lý cùng đợt research nói trên.

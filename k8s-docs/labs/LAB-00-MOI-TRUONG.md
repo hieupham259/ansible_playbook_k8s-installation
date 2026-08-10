@@ -125,9 +125,9 @@ Get-Volume |
 
 | Vai trò | Hostname | IP ví dụ | vCPU | RAM | Disk thin-provisioned |
 | --- | --- | --- | --- | --- | --- |
-| Control plane | `k8s-master` | `192.168.100.111` | 4 | 8 GB | 40 GB |
-| Worker 1 | `k8s-worker1` | `192.168.100.112` | 2 | 6 GB | 40 GB |
-| Worker 2 / fault target | `k8s-worker2` | `192.168.100.113` | 2 | 6 GB | 40 GB |
+| Control plane | `k8s-master` | `192.168.100.221` | 4 | 8 GB | 40 GB |
+| Worker 1 | `k8s-worker1` | `192.168.100.222` | 2 | 6 GB | 40 GB |
+| Worker 2 / fault target | `k8s-worker2` | `192.168.100.223` | 2 | 6 GB | 40 GB |
 
 Thiết lập mỗi VM:
 
@@ -216,7 +216,7 @@ ip -br link
 
 ## A3. Đặt IP tĩnh và phân giải tên
 
-Trước khi gán IP, kiểm tra `.111–.113` nằm ngoài DHCP pool của router. Nếu không chắc, tạo
+Trước khi gán IP, kiểm tra `.221–.223` nằm ngoài DHCP pool của router. Nếu không chắc, tạo
 DHCP reservation theo MAC hoặc chọn ba IP khác.
 
 Trên mỗi VM, tìm interface đang giữ default route:
@@ -236,7 +236,7 @@ network:
   ethernets:
     ens33:
       dhcp4: false
-      addresses: [192.168.100.111/24]
+      addresses: [192.168.100.221/24]
       routes:
         - to: default
           via: 192.168.100.1
@@ -248,16 +248,16 @@ sudo netplan try
 ```
 
 Với worker 1 và worker 2, giữ nguyên cấu trúc nhưng đổi `addresses` lần lượt thành
-`192.168.100.112/24` và `192.168.100.113/24`. Nếu interface không phải `ens33`, thay đúng
+`192.168.100.222/24` và `192.168.100.223/24`. Nếu interface không phải `ens33`, thay đúng
 tên đã tìm ở trên. Xác nhận cấu hình trong thời gian `netplan try` yêu cầu.
 
 Thêm trên **cả ba VM**:
 
 ```bash
 sudo tee -a /etc/hosts >/dev/null <<'EOF'
-192.168.100.111 k8s-master
-192.168.100.112 k8s-worker1
-192.168.100.113 k8s-worker2
+192.168.100.221 k8s-master
+192.168.100.222 k8s-worker1
+192.168.100.223 k8s-worker2
 EOF
 ```
 
@@ -462,7 +462,7 @@ sudo kubeadm config images pull --kubernetes-version "$KUBERNETES_VERSION"
 sudo kubeadm init \
   --kubernetes-version "$KUBERNETES_VERSION" \
   --control-plane-endpoint 'k8s-master:6443' \
-  --apiserver-advertise-address 192.168.100.111 \
+  --apiserver-advertise-address 192.168.100.221 \
   --pod-network-cidr 10.244.0.0/16
 ```
 

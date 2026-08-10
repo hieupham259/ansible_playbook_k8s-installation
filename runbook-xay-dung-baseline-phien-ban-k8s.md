@@ -148,6 +148,42 @@ Mỗi lần chạy runbook này phải tạo đủ các đầu ra:
 
 Baseline chỉ được gắn trạng thái `APPROVED` khi tất cả gate trong tài liệu này đạt. Nếu chưa đủ bằng chứng, dùng `DRAFT`, `BLOCKED` hoặc `LAB-ONLY`; không dùng từ “supported” theo suy đoán. Tất cả dòng component khởi tạo ở trạng thái `NOT-TESTED`, không điền sẵn `PASS`.
 
+### 0.5. Trạng thái mong đợi ngay sau khi xong mục 0
+
+Bốn block của mục 0 theo thứ tự: §0.2 kiểm công cụ có mặt và nguồn official truy cập được (log tạm bằng `mktemp` vì workspace chưa tồn tại); §0.3 tạo workspace mới, chuyển log tạm về `gate-02-tools.txt`, ghi state vào `research-session.env`, rồi gate xác nhận cây thư mục và shell đang đứng đúng chỗ; cuối cùng là snippet source lại state khi mở phiên SSH mới. Mọi gate dùng chung khung: subshell (`exit 1` không đóng SSH) + `tee` ra file evidence + `${PIPESTATUS[0]}` lấy exit code trước `tee`.
+
+Output mong đợi trên terminal:
+
+```text
+PASS: đủ công cụ nghiên cứu và đọc được các nguồn official bắt buộc
+precheck rc=0
+PASS: workspace mới sẵn sàng tại /home/<user>/version-baseline-2026-08-10-Ab3XyZ
+workspace gate rc=0
+```
+
+Cấu trúc thư mục mong đợi (ví dụ chạy ngày 2026-08-10):
+
+```text
+version-baseline-2026-08-10-Ab3XyZ/
+├── baseline-versions.md          # rỗng — bảng §2.1, điền ở §10
+├── compatibility-matrix.md       # rỗng — điền ở §4
+├── sources.md                    # rỗng — điền ở §10
+├── decision-log.md               # rỗng — append từ §3.3
+├── research-session.env          # state file để khôi phục phiên SSH
+└── evidence/
+    ├── 00-preflight/
+    │   ├── gate-02-tools.txt     # log gate §0.2
+    │   └── gate-03-workspace.txt # log gate workspace
+    ├── 04-kubernetes/            # rỗng — evidence §4
+    ├── 05-runtime/               # rỗng — evidence §5
+    ├── 06-cni/                   # rỗng — evidence §6
+    ├── 07-charts/                # rỗng — evidence §7–8 (addons/, audit/ tạo sau)
+    ├── 09-render/                # rỗng — evidence §9
+    └── 12-final/                 # rỗng — evidence §10–12
+```
+
+Số thứ tự thư mục evidence khớp số mục của tài liệu; các mục không có thư mục riêng ghi vào `00-preflight` hoặc thư mục con của `07-charts`. `baseline.env` chưa tồn tại ở bước này — nó được tạo ở §2.1.
+
 ---
 
 ## 1. Các khái niệm không được đánh đồng
@@ -216,7 +252,6 @@ Tạo `baseline.env`; file này không chứa mật khẩu/token:
 ```bash
 tee "${BASELINE_ROOT}/baseline.env" >/dev/null <<'EOF'
 TARGET_INSTALL_DATE=YYYY-MM-DD
-ENVIRONMENT=homelab
 SUPPORT_GOAL=technically-compatible
 ARCHITECTURE=amd64
 OS_ID=ubuntu
@@ -240,6 +275,86 @@ nano "${BASELINE_ROOT}/baseline.env"
 
 Thay `TARGET_INSTALL_DATE` và mọi giá trị khác theo hệ thống thực. Nếu có nhiều dải LAN/VPN, bổ sung chúng vào kiểm tra overlap hoặc ghi trong `decision-log.md`.
 
+#### Giải thích `SUPPORT_GOAL`
+
+Hãy quên Kubernetes đi một chút và nghĩ bằng một ví dụ đời thường: bạn độ xe.
+
+- Mua xe chính hãng, bảo dưỡng đúng hãng chỉ định → **còn bảo hành**, hỏng thì hãng phải chịu trách nhiệm.
+- Lắp phụ tùng ngoài nhưng đúng chuẩn kỹ thuật, xe chạy tốt → **xe vẫn chạy, nhưng mất bảo hành**, hỏng thì tự sửa, hãng có quyền từ chối.
+- Chế thử một món chưa ai lắp bao giờ, mới chạy thử trong sân nhà → **chỉ dám nói "trong sân nhà tôi thì nó chạy"**, chưa dám mang ra đường cam kết gì.
+
+`SUPPORT_GOAL` chính là câu trả lời cho câu hỏi: **"Khi hệ thống hỏng, bạn định dựa vào ai — và bạn dám hứa với người khác đến mức nào?"** Nó không thay đổi việc phần mềm có chạy được hay không; nó thay đổi **bằng chứng bạn phải có** và **nhãn bạn được phép dán** lên baseline.
+
+**Ba giá trị:**
+
+**`vendor-supported` — "hãng phải chống lưng cho tôi".**
+Bạn chỉ chấp nhận những tổ hợp mà vendor (SUSE) **ghi rõ trong support matrix** là được chứng nhận. Nếu sự cố xảy ra, bạn muốn quyền mở ticket và bắt vendor xử lý. Cái giá phải trả: tập lựa chọn bị **thu hẹp mạnh** — ví dụ SUSE chỉ chứng nhận Rancher Manager chạy trên RKE2/K3s/managed K8s; bạn muốn chạy Rancher trên kubeadm thì matrix không chứng nhận → gate §4.2 loại hết candidate → baseline BLOCKED. Muốn đi tiếp bạn buộc phải đổi topology hoặc hạ mục tiêu.
+
+**`technically-compatible` — "tôi tự chịu trách nhiệm, nhưng tôi có bằng chứng nó chạy đúng".**
+Bạn chấp nhận tổ hợp vendor **không chứng nhận**, miễn là tự chứng minh được về mặt kỹ thuật: metadata cho phép (chart khai `kubeVersion` chứa K8s target), render đúng, qua lab gate. Hỏng thì tự sửa, không gọi được vendor. Đây là mức phù hợp cho homelab/staging. Luật quan trọng: dù mọi test đều PASS, nhãn cuối **vẫn phải ghi `TECHNICALLY-COMPATIBLE`** — cấm tự nâng thành "vendor-supported", vì test của bạn không thay được tuyên bố của hãng.
+
+**`lab-only` — "mới chỉ chứng minh được trong phòng thí nghiệm của tôi".**
+Mức cam kết thấp nhất: tổ hợp chỉ được xác nhận trên môi trường thử tương đương. Bạn không hứa gì về production, chỉ ghi nhận "trong điều kiện lab X thì chạy". Dùng khi thử nghiệm, đánh giá công nghệ mới.
+
+**Cùng một tình huống, ba kết cục khác nhau.** Giả sử matrix của SUSE không chứng nhận Rancher Manager trên kubeadm (thực tế thường vậy):
+
+| SUPPORT_GOAL | Chuyện gì xảy ra trong runbook | Nhãn trên bảng baseline cuối |
+| --- | --- | --- |
+| `vendor-supported` | Gate §4.2 đòi cột `rancher_manager=PASS` → không có → **không candidate nào KEEP → dừng** | Không có baseline để dán nhãn |
+| `technically-compatible` | Cột đó `NOT-CERTIFIED` vẫn được KEEP → đi tiếp qua render/lab gate → **ra baseline** | `TECHNICALLY-COMPATIBLE` |
+| `lab-only` | Như trên | `LAB-ONLY` |
+
+**Quy tắc nhớ nhanh:**
+
+- **Mục tiêu càng cao → càng ít lựa chọn, càng cần bằng chứng từ vendor.** Mục tiêu càng thấp → càng nhiều lựa chọn, nhưng lời hứa trên nhãn càng yếu.
+- `SUPPORT_GOAL` là **trần của lời hứa**: test giỏi đến đâu cũng không được ghi nhãn cao hơn mức đã khai.
+- Chọn thế nào: production có hợp đồng support với SUSE → `vendor-supported`; homelab/staging tự vận hành → `technically-compatible`; đang thử nghiệm → `lab-only`.
+
+Và đó là lý do NOTICE ở §3.3 tồn tại: khai `vendor-supported` (đòi hãng chống lưng) nhưng lại chọn topology hãng không chứng nhận (Rancher trên kubeadm) — hai điều này va nhau, runbook nhắc bạn ngay từ đầu thay vì để bạn chạy đến §4.2 mới phát hiện ngõ cụt.
+
+#### Giải thích `RANCHER_ROLE`
+
+`RANCHER_ROLE` trả lời một câu hỏi khác với `SUPPORT_GOAL`, và hai biến này **ghép cặp** với nhau tại gate §4.2. Tách bạch như sau:
+
+**Cluster bạn đang lập baseline đóng vai gì với Rancher?** Cùng một cluster kubeadm, có hai quan hệ hoàn toàn khác nhau với Rancher:
+
+- **`manager-host`** — cluster này là nơi **cài Rancher server lên** (helm install chart rancher vào chính nó). Nó "cõng" Rancher.
+- **`downstream-imported`** — Rancher server chạy **ở nơi khác**; cluster này chỉ được **import vào** Rancher để được quản lý từ xa.
+- **`both`** — cluster kiêm cả hai vai.
+- **`none`** — cluster không dính gì tới Rancher (chỉ hợp lệ khi `RANCHER_REQUIRED=false`; §2.2 đã có check chéo: required=true mà role=none là FAIL ngay).
+
+Vì sao phải tách vai? Vì support matrix của SUSE có **các bảng riêng cho từng vai** (đúng nội dung §3.2): bảng "Supported Kubernetes Platforms for Rancher Manager" trả lời *"được cài Rancher lên nền tảng nào"*, còn bảng Downstream/Imported trả lời *"Rancher quản lý được cluster nào"*. Cùng một cluster kubeadm có thể **không được chứng nhận làm chỗ cõng Rancher** nhưng lại **được chứng nhận để import** (bảng imported rất rộng, có dòng "Any"). Giống một người có thể đủ điều kiện ngồi ghế hành khách nhưng không có bằng lái — hai câu hỏi khác nhau về cùng một người.
+
+**Hai biến ghép nhau thế nào:**
+
+- `SUPPORT_GOAL` quyết định **độ khắt khe** (đòi vendor chứng nhận hay chỉ cần tự chứng minh).
+- `RANCHER_ROLE` quyết định **cột nào của matrix bị soi** theo độ khắt khe đó.
+
+Nhìn thẳng vào code gate §4.2:
+
+```python
+if required and goal == 'vendor-supported':
+    if role in {'manager-host', 'both'} and row['rancher_manager'] != 'PASS':
+        FAIL
+    if role in {'downstream-imported', 'both'} and row['rancher_imported'] != 'PASS':
+        FAIL
+```
+
+Tức là: chỉ khi mục tiêu là `vendor-supported` thì role mới trở thành điều kiện chặn, và role chọn đúng cột phải `PASS`:
+
+| RANCHER_ROLE | Goal = `vendor-supported` đòi gì | Với cluster kubeadm, thực tế ra sao |
+| --- | --- | --- |
+| `manager-host` | Cột `rancher_manager` phải PASS | Matrix không chứng nhận kubeadm làm Manager host → thường **ngõ cụt** → NOTICE ở §3.3 |
+| `downstream-imported` | Cột `rancher_imported` phải PASS | Bảng imported rộng ("Any") → **hoàn toàn đạt được** → không NOTICE |
+| `both` | **Cả hai cột** phải PASS | Khắt khe nhất — chết ở vế manager như trên → NOTICE |
+| `none` | Không soi cột nào | Chỉ tồn tại khi không cần Rancher; anchor chuyển thành `kubernetes`, các cột Rancher điền `N/A` |
+
+Còn khi goal là `technically-compatible`/`lab-only`: role **không chặn KEEP nữa**, nhưng vẫn có tác dụng — nó cho biết bạn phải đọc **bảng nào** của matrix để điền ô `rancher_manager`/`rancher_imported` một cách trung thực (PASS hay NOT-CERTIFIED), và giá trị đó đi vào evidence dù không chặn. Role cũng được dùng lại ở §5.1: ô `rancher_role_support` của OS phải lấy "từ đúng matrix và **đúng vai trò**".
+
+**Ghép về câu chuyện NOTICE ở §3.3:** NOTICE chỉ bắn khi tổ hợp là `vendor-supported` **+ role `manager-host`/`both`** + kubeadm — vì đó là tổ hợp duy nhất mà cột bị soi (`rancher_manager`) gần như chắc chắn không PASS được. Cùng goal `vendor-supported` nhưng role `downstream-imported` thì không NOTICE, vì cột bị soi lúc đó (`rancher_imported`) có đường đạt PASS chính đáng.
+
+Tóm một câu: **`SUPPORT_GOAL` là "đòi hỏi khắt khe đến đâu", `RANCHER_ROLE` là "đòi hỏi đó áp lên bảng nào của support matrix"** — một cái chọn mức, một cái chọn cột.
+
 ### 2.2. Gate cú pháp, enum và CIDR
 
 ```bash
@@ -250,7 +365,7 @@ set +a
 
 (
   required_vars=(
-    TARGET_INSTALL_DATE ENVIRONMENT SUPPORT_GOAL ARCHITECTURE OS_ID OS_VERSION
+    TARGET_INSTALL_DATE SUPPORT_GOAL ARCHITECTURE OS_ID OS_VERSION
     CLUSTER_BOOTSTRAP RANCHER_REQUIRED RANCHER_ROLE POD_CIDR SERVICE_CIDR
     LAN_CIDR CNI INGRESS_CONTROLLER RANCHER_EXPOSURE GATEWAY_API_INSTALLED
     TLS_CONTROLLER OPTIONAL_ADDONS
@@ -269,9 +384,6 @@ set +a
     echo 'FAIL: TARGET_INSTALL_DATE không đúng YYYY-MM-DD'; exit 1;
   }
 
-  [[ "${ENVIRONMENT}" =~ ^(homelab|staging|production)$ ]] || {
-    echo 'FAIL: ENVIRONMENT không hợp lệ'; exit 1;
-  }
   [[ "${SUPPORT_GOAL}" =~ ^(vendor-supported|technically-compatible|lab-only)$ ]] || {
     echo 'FAIL: SUPPORT_GOAL không hợp lệ'; exit 1;
   }
@@ -424,6 +536,39 @@ echo "anchor gate rc=${ANCHOR_RC}"
 ```
 
 **PASS:** `anchor gate rc=0`. **FAIL/STOP:** chưa có `research-state.env` hợp lệ.
+
+### 3.4. Trạng thái mong đợi ngay sau khi xong mục 3
+
+Output mong đợi trên terminal (hai dòng NOTICE chỉ xuất hiện với tổ hợp `vendor-supported` + role `manager-host`/`both` + `kubeadm`):
+
+```text
+NOTICE: kubeadm Manager host chỉ được giữ nếu support matrix exact Rancher version chứng nhận topology này.
+NOTICE: dòng All Other Distros/Imported không đủ làm bằng chứng Manager host.
+PASS: anchor=rancher; chuyển sang lập giao version
+anchor gate rc=0
+```
+
+File thay đổi so với cuối mục 2:
+
+```text
+version-baseline-2026-08-10-Ab3XyZ/
+├── baseline.env                  # từ §2.1
+├── research-state.env            # MỚI — đúng một dòng: ANCHOR_COMPONENT=rancher
+├── decision-log.md               # có dòng đầu tiên — quyết định Anchor
+└── evidence/00-preflight/
+    ├── gate-02-tools.txt         # từ §0.2
+    ├── gate-03-workspace.txt     # từ §0.3
+    ├── gate-02-input.txt         # từ §2.2
+    └── gate-33-anchor.txt        # MỚI — log gate, gồm cả NOTICE nếu có
+```
+
+`research-state.env` lúc này chỉ có một dòng anchor; các mục §4–§7 sẽ append thêm `K8S_VERSION`, `RANCHER_CANDIDATE`, `HELM_VERSION`... Dòng đầu trong `decision-log.md` (header bảng được chèn ở §10.1):
+
+```text
+| 2026-08-10 | Anchor | rancher | KEEP | Rancher required=true; support goal=technically-compatible | khi topology đổi |
+```
+
+> **Cảnh báo re-run:** §3.3 ghi `research-state.env` bằng `>` (ghi đè). Nếu đã chạy qua §4 trở đi mà quay lại chạy §3.3, file state bị reset về một dòng anchor, mọi giá trị đã append mất hết — khi đó phải chạy lại tuần tự từ §4.
 
 ---
 

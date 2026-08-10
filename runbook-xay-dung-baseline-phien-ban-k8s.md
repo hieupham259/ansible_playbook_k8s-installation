@@ -607,6 +607,21 @@ sha256sum "${K8S_EVIDENCE}"/* \
 cat "${K8S_EVIDENCE}/maintained-latest-patches.txt"
 ```
 
+Giải thích block trên: gán lại `K8S_EVIDENCE` dù `research-session.env` đã có là để block tự đủ khi chạy ở phiên SSH mới. Ba lần `curl` phục vụ ba mục đích khác nhau: trang lifecycle (nguồn để **người** đọc EOL ở block sau, và để gate đối chiếu), JSON GitHub API (nguồn để **máy** rút danh sách release), trang skew policy (§4.4 mới dùng — tải trước để evidence có cùng ngày truy cập). Pipeline 4 tầng rút danh sách:
+
+- **`jq`**: loại draft/prerelease và chỉ giữ tag đúng dạng `v1.X.Y` — regex đồng thời loại `v1.36.0-rc.1`, `v1.37.0-beta.0` (có suffix nên không khớp).
+- **`sort -Vr`**: sort theo version giảm dần (`-V` hiểu `v1.36.10 > v1.36.9`; sort thường sẽ xếp sai).
+- **`awk -F. '!seen[$1"."$2]++'`**: tách theo dấu chấm nên `$1="v1"`, `$2="36"` → key `v1.36`; chỉ in **lần xuất hiện đầu tiên** của mỗi key — vì danh sách đang giảm dần, đó chính là patch cao nhất của minor.
+- **`head -n3`**: giữ 3 minor mới nhất.
+
+`sha256sum` chốt checksum toàn bộ evidence vừa tải để về sau chứng minh file không bị sửa. Output ví dụ của lệnh `cat` (số minh họa, không phải giá trị để chép):
+
+```text
+v1.36.3
+v1.35.7
+v1.34.11
+```
+
 Mở trang lifecycle đã lưu hoặc trang official trực tiếp, rồi tạo file TSV với đúng ba minor và EOL tương ứng:
 
 ```bash
@@ -618,6 +633,15 @@ Mở trang lifecycle đã lưu hoặc trang official trực tiếp, rồi tạo 
 } > "${K8S_EVIDENCE}/kubernetes-candidates.tsv"
 
 nano "${K8S_EVIDENCE}/kubernetes-candidates.tsv"
+```
+
+Bước này bắt buộc có người vì **EOL không có trong GitHub API** — nó chỉ nằm trên trang lifecycle: mở `kubernetes-releases.html` đã lưu (hoặc trang official), đọc ngày End of Life của từng minor rồi thay các placeholder `1.__`/`YYYY-MM-DD`. Template in sẵn ba dòng khớp với ba minor máy đã rút. Nội dung file ví dụ sau khi điền xong (trong file thật các cột cách nhau bằng ký tự tab — ví dụ dưới hiển thị bằng khoảng trắng cho dễ đọc; số minh họa):
+
+```text
+minor  latest_patch  eol         maintained  source
+1.36   v1.36.3       2027-06-28  YES         https://kubernetes.io/releases/
+1.35   v1.35.7       2027-02-28  YES         https://kubernetes.io/releases/
+1.34   v1.34.11      2026-10-28  YES         https://kubernetes.io/releases/
 ```
 
 Gate candidate upstream:
@@ -663,7 +687,41 @@ K8S_UPSTREAM_RC=${PIPESTATUS[0]}
 echo "Kubernetes upstream gate rc=${K8S_UPSTREAM_RC}"
 ```
 
+Nguyên tắc thiết kế của gate: **mỗi ô người điền phải bị neo vào hoặc một file máy đã thu, hoặc một quy tắc format** — không ô nào được tin suông. `test ... -eq 3` đếm dòng dữ liệu (bỏ header và dòng rỗng); vòng `while` đọc từng dòng, tách 5 cột theo tab, rồi áp các check:
+
+| Check | Chống lỗi gì | Cơ chế |
+| --- | --- | --- |
+| `minor =~ ^1\.[0-9]+$`, `patch =~ ^v1\.[0-9]+\.[0-9]+$` | gõ sai format | regex |
+| `${patch%.*} == v${minor}` | patch lạc minor (điền `v1.35.7` vào dòng `1.34`) | `%.*` cắt phần sau dấu chấm cuối: `v1.36.3` → `v1.36` |
+| `grep -Fxq "${patch}" maintained-latest-patches.txt` | điền patch cũ hoặc bịa | `-F` literal, `-x` khớp nguyên dòng với file máy rút ở block đầu |
+| `date -d "${eol}"` | ngày không parse được | GNU date |
+| `grep -Fq "${eol}" kubernetes-releases.html` | bịa EOL | ngày phải xuất hiện nguyên văn trong snapshot lifecycle |
+| `maintained == YES`, `source` đúng official URL | đưa minor đã EOL vào, dẫn nguồn không official | so sánh cứng |
+
+Output ví dụ — PASS:
+
+```text
+PASS: có đúng ba minor maintained, latest patch và EOL hợp lệ
+Kubernetes upstream gate rc=0
+```
+
+Output ví dụ — điền sai patch (gõ `v1.35.6` trong khi máy thu được `v1.35.7`):
+
+```text
+FAIL: v1.35.6 không khớp latest patch đã thu từ official release
+Kubernetes upstream gate rc=1
+```
+
+Output ví dụ — bịa EOL không có trên trang:
+
+```text
+FAIL: EOL 2027-03-15 không xuất hiện trong official release snapshot
+Kubernetes upstream gate rc=1
+```
+
 **PASS:** `rc=0`. **FAIL/STOP:** không lập ma trận support cho tới khi ba dòng khớp official release page.
+
+Tóm lại §4.1 là vòng khép kín **máy thu → người điền → máy kiểm người bằng chính cái máy đã thu**: block đầu chốt "sự thật upstream" vào file bất biến có checksum, block giữa để người bổ sung phần máy không tự lấy được (EOL), gate bảo đảm phần người điền không mâu thuẫn với phần máy thu. Đến hết §4.1 **chưa có quyết định nào** — mới chỉ có danh sách ứng viên đã kiểm chứng làm đầu vào cho ma trận giao ở §4.2.
 
 ### 4.2. Thu Rancher/cert-manager/Helm evidence và lập giao version
 

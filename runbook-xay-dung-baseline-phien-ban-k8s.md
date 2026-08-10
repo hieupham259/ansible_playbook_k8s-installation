@@ -2840,3 +2840,53 @@ echo "approval gate rc=${APPROVAL_RC}"
 | MetalLB | [Official releases](https://github.com/metallb/metallb/releases), [documentation](https://metallb.io/) |
 
 Nếu một URL “current” đổi nội dung theo thời gian, `sources.md` phải lưu ngày truy cập, version đang hiển thị và URL/tag immutable của artifact đã dùng. Đó là điều kiện để người sau tái dựng được quyết định thay vì chỉ thấy một danh sách số phiên bản.
+
+---
+
+## 14. Phụ lục: Các lỗi đã phát hiện khi review (chưa sửa — đợi research và confirm)
+
+> **Trạng thái:** các mục dưới đây được phát hiện khi review tĩnh toàn bộ runbook (2026-08-10). Nội dung các mục phía trên (§0–§13) **chưa được sửa** theo danh sách này; chỉ sửa sau khi từng mục được kiểm chứng trên research host thật và được confirm. Khi sửa một mục, cập nhật trạng thái tại đây kèm evidence.
+
+### 14.1. Regex `rg` sai cú pháp và bị `|| true` che lỗi
+
+- **Vị trí:** §8.1, block tạo `${AUDIT_EVIDENCE}/${component}-template-branches.txt`.
+- **Mô tả:** pattern `'{{-?\s*(if|with|range)|include|define'` mở đầu bằng `{{`. Regex engine của ripgrep (Rust) coi `{` không hợp lệ ở vị trí này là lỗi parse (“repetition quantifier expects a valid decimal”), không coi là literal. Lệnh có `|| true` nên lỗi bị nuốt, file template-branches rỗng, và gate §8.1 chỉ `test -s` file `*-values-capabilities-kinds.txt` — nghĩa là bước audit nhánh template **âm thầm không chạy**.
+- **Hướng sửa dự kiến:** escape thành `\{\{-?...` và thêm `test -s` cho cả file template-branches trong gate.
+- **Trạng thái:** CHƯA SỬA — cần chạy thử `rg` trên research host để confirm thông báo lỗi.
+
+### 14.2. `kubectl apply --dry-run=client` nhiều khả năng không chạy được offline
+
+- **Vị trí:** §6.2 (Flannel static gate) và §7.5.3 (addon static gate).
+- **Mô tả:** `kubectl apply` — kể cả `--dry-run=client` và `--validate=false` — vẫn cần discovery tới một API server để map GVK/RESTMapper. Trên research host “không cài cluster, chỉ render cục bộ” như §0.1 tuyên bố, lệnh thường fail với “connection refused”, làm gate 62 và 753 fail dù manifest đúng.
+- **Hướng sửa dự kiến:** thay bằng `kubeconform` hoặc `kubectl create --dry-run=client -o yaml`, hoặc ghi rõ hai gate này yêu cầu kubeconfig trỏ tới lab cluster.
+- **Trạng thái:** CHƯA SỬA — cần chạy thử trên host không có kubeconfig để confirm hành vi của đúng kubectl version trong baseline.
+
+### 14.3. Ràng buộc “đúng ba minor maintained” cứng quá mức, có giai đoạn sai
+
+- **Vị trí:** §4.1 — `head -n3` khi lập `maintained-latest-patches.txt` và gate `-eq 3` trong `gate-41-upstream.txt`.
+- **Mô tả:** Kubernetes có giai đoạn chuyển tiếp tồn tại **bốn** minor còn maintained (khoảng chồng lấn sau khi minor mới phát hành, trước khi minor cũ nhất EOL). `head -n3` loại minor cũ nhất — thường lại là minor duy nhất nằm trong Rancher support matrix vì Rancher đi sau upstream. Rủi ro: giao version rỗng giả tạo, ép người chạy lách runbook.
+- **Hướng sửa dự kiến:** cho phép 3–4 dòng, đối chiếu số minor maintained thực tế từ trang lifecycle thay vì hằng số 3.
+- **Trạng thái:** CHƯA SỬA — cần đối chiếu lịch release/EOL tại thời điểm chạy để xác nhận có đang trong khoảng chồng lấn hay không.
+
+### 14.4. Các đối chiếu HTML giòn (format trang và trang render bằng JS)
+
+- **Vị trí:** §4.1 — grep ngày EOL dạng ISO trong `kubernetes-releases.html`; §4.2 — curl `https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/`.
+- **Mô tả:** gate EOL phụ thuộc việc trang kubernetes.io hiển thị ngày đúng định dạng `YYYY-MM-DD` trong HTML tĩnh — đổi format trang là gate fail sai. Trang SUSE support matrix render nội dung bằng JavaScript: file HTML curl về nhiều khả năng **không chứa các bảng** Manager host/Downstream cần đọc; evidence lưu được nhưng vô dụng, người chạy vẫn phải mở browser và evidence không tái dựng được quyết định.
+- **Hướng sửa dự kiến:** với SUSE matrix, lưu thêm screenshot/PDF hoặc nguồn dữ liệu máy đọc được (nếu SUSE có); với EOL, chấp nhận đối chiếu tay và ghi claim vào `sources.tsv` thay vì grep format.
+- **Trạng thái:** CHƯA SỬA — cần curl thử hai URL và xem nội dung thực tế để confirm.
+
+### 14.5. `crictl info` chạy không sudo dễ bị permission denied
+
+- **Vị trí:** §5.3, gate `gate-53-runtime.txt`.
+- **Mô tả:** `crictl info` cần quyền truy cập socket containerd (`/run/containerd/containerd.sock`); chạy bằng user thường sẽ fail vì quyền, làm gate fail dù runtime cấu hình đúng. Runbook chưa nói rõ block này cần chạy bằng root/sudo hay cần cấu hình `/etc/crictl.yaml`.
+- **Hướng sửa dự kiến:** ghi rõ yêu cầu quyền (sudo hoặc group phù hợp) và endpoint crictl ngay trước block.
+- **Trạng thái:** CHƯA SỬA — cần chạy thử trên research VM để confirm thông báo lỗi và cách cấp quyền theo chính sách của tổ chức.
+
+### 14.6. `research-session.env` không persist đủ biến, khôi phục phiên giữa chừng bị hụt state
+
+- **Vị trí:** §0.3 (danh sách biến export vào `research-session.env`) so với §7.5.1 (`ADDON_EVIDENCE`), §8.1 (`AUDIT_EVIDENCE`) và §9.6.
+- **Mô tả:** `ADDON_EVIDENCE` và `AUDIT_EVIDENCE` chỉ được gán trong phiên shell tại §7.5.1/§8.1, không được ghi vào `research-session.env`. Nếu mở phiên SSH mới và source lại state theo hướng dẫn §0.3 rồi chạy tiếp §9.6, check `[[ -f "${ADDON_EVIDENCE}/addon-image-digests.tsv" ]]` chạy trên biến rỗng → điều kiện false → **lặng lẽ bỏ qua** digest của addon, bảng `all-image-digests.tsv` thiếu dòng mà không có gate nào báo. (§12.2 có tự gán lại hai biến này nhưng các mục §9–§11 thì không.)
+- **Hướng sửa dự kiến:** thêm `ADDON_EVIDENCE`, `AUDIT_EVIDENCE` vào `research-session.env` ngay tại §0.3, hoặc gán lại từ `CHART_EVIDENCE` ở đầu §9.6 giống cách §12.2 làm.
+- **Trạng thái:** CHƯA SỬA — lỗi xác nhận được bằng đọc code (đã trace các block gán biến), nhưng chờ sửa cùng đợt với các mục trên để chạy lại toàn bộ pipeline một lần.
+
+> Ngoài sáu mục trên, review còn ghi nhận các điểm nhỏ chưa xếp loại lỗi: Traefik dùng chart version làm `exact_version` trong `baseline-data.tsv` (hơi mâu thuẫn §1.3 — cần quyết định quy ước); hai gate trùng tiền tố tên file `gate-02-*` trong `00-preflight` (tools và input); gate §8.2 hard-code bộ key theo schema Rancher chart thế hệ 2.14 (`networkExposure.type`) — chart đổi schema là phải sửa code gate trong chính runbook (đã có ghi chú xử lý ở cuối §8.2). Các điểm này xử lý cùng đợt research nói trên.

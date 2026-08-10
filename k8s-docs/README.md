@@ -267,6 +267,44 @@ Ghi chú: các bài 10–13 (DNS, Ingress, Ingress Controllers, Gateway API) cũ
 | 183 | [Network Plugins](183-network-plugins-vi.md) | 182, 157 (networking) |
 | 184 | [Device Plugins](184-device-plugins-vi.md) | 182, 110 (tài nguyên) |
 
+## Phần 15 — Tasks: Install Tools
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 185 | [Install Tools](185-tools-vi.md) | — (trang mục) |
+| 186 | [Cài kubectl trên Linux](186-install-kubectl-linux-vi.md) | 26 (kubectl là gì) |
+| 187 | [Cài kubectl trên macOS](187-install-kubectl-macos-vi.md) | 26 |
+| 188 | [Cài kubectl trên Windows](188-install-kubectl-windows-vi.md) | 26 |
+
+## Phần 16 — Tasks: Administer a Cluster
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 189 | [Administer a Cluster](189-administer-cluster-vi.md) | — (trang mục) |
+| 190 | [Truy cập Kubernetes API của cluster](190-access-cluster-api-vi.md) | 21, 111 (API, kubeconfig) |
+| 191 | [Tạo certificate thủ công](191-certificates-manual-vi.md) | Giai đoạn 0 (TLS/openssl), 119 |
+| 192 | [Đổi StorageClass mặc định](192-change-default-storage-class-vi.md) | 96 (StorageClass) |
+| 193 | [Đổi access mode PV sang ReadWriteOncePod](193-change-pv-access-mode-vi.md) | 92 (PV/PVC) |
+| 194 | [Đổi Reclaim Policy của PersistentVolume](194-change-pv-reclaim-policy-vi.md) | 92 |
+| 195 | [Nâng cấp một cluster](195-cluster-upgrade-vi.md) | 02, 22 (chi tiết kubeadm ở 221) |
+| 196 | [Cấu hình Feature Gates](196-configure-feature-gates-vi.md) | 15, 21 |
+| 197 | [Vận hành cluster etcd — backup/restore/upgrade](197-configure-upgrade-etcd-vi.md) | 06–07, 22 (etcd, HA) |
+| 198 | [Migration leader của Controller Manager](198-controller-manager-leader-migration-vi.md) | 34–35 (CCM, lease) |
+| 199 | [Sử dụng CoreDNS cho Service Discovery](199-coredns-vi.md) | 10, 15 (DNS, components) |
+| 200 | [CPU Management Policies](200-cpu-management-policies-vi.md) | 74 (resource managers) |
+| 201 | [Khai báo Network Policy](201-declare-network-policy-vi.md) | 84 (NetworkPolicy) |
+| 202 | [Giải mã dữ liệu đã mã hóa at rest](202-decrypt-data-vi.md) | 208 (encrypt-data) |
+| 203 | [Phát triển Cloud Controller Manager](203-developing-cloud-controller-manager-vi.md) | 34 (CCM) |
+| 204 | [Tùy chỉnh DNS Service (CoreDNS)](204-dns-custom-nameservers-vi.md) | 10, 199 |
+| 205 | [Debug phân giải DNS](205-dns-debugging-resolution-vi.md) | 10, 204 |
+| 206 | [Tự động co giãn DNS Service](206-dns-horizontal-autoscaling-vi.md) | 10, 63 (DNS, Deployment) |
+| 207 | [Bật/tắt một Kubernetes API](207-enable-disable-api-vi.md) | 21 (API groups) |
+| 208 | [Mã hóa dữ liệu bí mật at rest](208-encrypt-data-vi.md) | 109, 121 (Secret) |
+| 209 | [Quảng bá Extended Resources cho Node](209-extended-resource-node-vi.md) | 110 (tài nguyên) |
+| 210 | [Guaranteed Scheduling cho Critical Add-on Pods](210-guaranteed-scheduling-critical-addon-pods-vi.md) | 141 (priority) |
+| 211 | [Tăng cường bảo mật DRA (tasks)](211-hardening-dra-tasks-vi.md) | 149, 125 (DRA) |
+| 212 | [IP Masquerade Agent](212-ip-masq-agent-vi.md) | 157, 84 (mạng cluster) |
+
 ## Checkpoint — Những phần còn thiếu quan trọng
 
 Phần này theo dõi các khoảng trống cần bổ sung để bộ tài liệu không chỉ bao phủ

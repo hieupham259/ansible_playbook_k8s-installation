@@ -80,7 +80,7 @@ Quy tắc:
 ## 3. Quy ước và an toàn
 
 - Mở ít nhất ba terminal SSH: master, worker 1 và worker 2.
-- Các lệnh không ghi rõ node được chạy trên `k8s-master` bằng user quản trị có kubeconfig.
+- Các lệnh không ghi rõ node được chạy trên `lab-k8s-master` bằng user quản trị có kubeconfig.
 - Dòng bắt đầu bằng `PASS:` mô tả điều kiện phải đạt; không tiếp tục nếu gate tương ứng fail.
 - Thay dải `192.168.100.0/24` nếu trùng LAN, VPN, Pod CIDR hoặc Service CIDR của máy host.
 
@@ -123,11 +123,14 @@ Get-Volume |
 
 ### A1.2. Ba VM
 
-| Vai trò | Hostname | IP ví dụ | vCPU | RAM | Disk thin-provisioned |
+| Vai trò | Tên VM / hostname | IP ví dụ | vCPU | RAM | Disk thin-provisioned |
 | --- | --- | --- | --- | --- | --- |
-| Control plane | `k8s-master` | `192.168.100.221` | 4 | 8 GB | 40 GB |
-| Worker 1 | `k8s-worker1` | `192.168.100.222` | 2 | 6 GB | 40 GB |
-| Worker 2 / fault target | `k8s-worker2` | `192.168.100.223` | 2 | 6 GB | 40 GB |
+| Control plane | `lab-k8s-master` | `192.168.100.221` | 4 | 8 GB | 40 GB |
+| Worker 1 | `lab-k8s-worker1` | `192.168.100.222` | 2 | 6 GB | 40 GB |
+| Worker 2 / fault target | `lab-k8s-worker2` | `192.168.100.223` | 2 | 6 GB | 40 GB |
+
+Tiền tố `lab-` dành riêng cho chuỗi lab này, giúp tên VM, hostname, Kubernetes Node và API
+endpoint không trùng với cluster được dựng trong runbook VMware.
 
 Thiết lập mỗi VM:
 
@@ -198,9 +201,9 @@ Cài Ubuntu Server 24.04.4 trên cả ba VM:
 
 ```bash
 # Chỉ chạy đúng một lệnh phù hợp trên từng VM
-sudo hostnamectl set-hostname k8s-master
-sudo hostnamectl set-hostname k8s-worker1
-sudo hostnamectl set-hostname k8s-worker2
+sudo hostnamectl set-hostname lab-k8s-master
+sudo hostnamectl set-hostname lab-k8s-worker1
+sudo hostnamectl set-hostname lab-k8s-worker2
 ```
 
 Sau reboot, chạy trên từng VM:
@@ -255,9 +258,9 @@ Thêm trên **cả ba VM**:
 
 ```bash
 sudo tee -a /etc/hosts >/dev/null <<'EOF'
-192.168.100.221 k8s-master
-192.168.100.222 k8s-worker1
-192.168.100.223 k8s-worker2
+192.168.100.221 lab-k8s-master
+192.168.100.222 lab-k8s-worker1
+192.168.100.223 lab-k8s-worker2
 EOF
 ```
 
@@ -266,10 +269,10 @@ Verify trên cả ba VM:
 ```bash
 ip -br address
 ip route
-getent hosts k8s-master k8s-worker1 k8s-worker2
-ping -c 2 k8s-master
-ping -c 2 k8s-worker1
-ping -c 2 k8s-worker2
+getent hosts lab-k8s-master lab-k8s-worker1 lab-k8s-worker2
+ping -c 2 lab-k8s-master
+ping -c 2 lab-k8s-worker1
+ping -c 2 lab-k8s-worker2
 curl -I --max-time 10 https://pkgs.k8s.io/
 ```
 
@@ -450,7 +453,7 @@ sudo ufw status
 
 ### A5.1. Init control plane
 
-Chạy chỉ trên `k8s-master`:
+Chạy chỉ trên `lab-k8s-master`:
 
 ```bash
 KUBERNETES_VERSION="$(kubeadm version -o short)"
@@ -461,7 +464,7 @@ sudo kubeadm config images pull --kubernetes-version "$KUBERNETES_VERSION"
 
 sudo kubeadm init \
   --kubernetes-version "$KUBERNETES_VERSION" \
-  --control-plane-endpoint 'k8s-master:6443' \
+  --control-plane-endpoint 'lab-k8s-master:6443' \
   --apiserver-advertise-address 192.168.100.221 \
   --pod-network-cidr 10.244.0.0/16
 ```
@@ -475,14 +478,22 @@ sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
 chmod 600 "$HOME/.kube/config"
 
 kubectl version
+kubectl config current-context
 kubectl get nodes -o wide
 ```
 
-Master có thể còn `NotReady` trước khi cài CNI.
+**PASS:** current context mặc định là `kubernetes-admin@kubernetes`; Node control plane có
+tên `lab-k8s-master`. Node có thể còn `NotReady` trước khi cài CNI.
+
+> Nếu sau này cần gộp kubeconfig của hai cluster, hãy làm trên **bản sao** và đổi tên các
+> entry `clusters[].name`, `users[].name`, `contexts[].name` cùng các tham chiếu
+> `context.cluster`/`context.user` của một file **trước khi merge**. Đây chỉ là metadata cục
+> bộ của kubeconfig, có thể đổi lúc đó mà không cần chạy lại `kubeadm init` hoặc dựng lại
+> cluster.
 
 ### A5.2. Cài Flannel v0.28.7
 
-Chạy trên `k8s-master`:
+Chạy trên `lab-k8s-master`:
 
 ```bash
 kubectl apply -f \
@@ -503,12 +514,13 @@ Trên master, sinh lệnh join mới:
 kubeadm token create --print-join-command
 ```
 
-Copy nguyên lệnh được sinh và chạy bằng `sudo` trên `k8s-worker1`, rồi `k8s-worker2`.
+Copy nguyên lệnh được sinh và chạy bằng `sudo` trên `lab-k8s-worker1`, rồi
+`lab-k8s-worker2`.
 Trước khi join, verify trên từng worker:
 
 ```bash
-getent hosts k8s-master
-timeout 3 bash -c 'echo > /dev/tcp/k8s-master/6443' \
+getent hosts lab-k8s-master
+timeout 3 bash -c 'echo > /dev/tcp/lab-k8s-master/6443' \
   && echo 'PASS: API 6443 reachable' \
   || echo 'FAIL: API 6443 unreachable'
 ```
@@ -516,7 +528,7 @@ timeout 3 bash -c 'echo > /dev/tcp/k8s-master/6443' \
 Ví dụ hình dạng lệnh, không copy placeholder dưới đây:
 
 ```bash
-sudo kubeadm join k8s-master:6443 \
+sudo kubeadm join lab-k8s-master:6443 \
   --token <token-thật> \
   --discovery-token-ca-cert-hash sha256:<hash-thật>
 ```

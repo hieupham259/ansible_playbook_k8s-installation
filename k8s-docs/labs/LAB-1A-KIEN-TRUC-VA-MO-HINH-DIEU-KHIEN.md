@@ -56,10 +56,10 @@ Khoảng 2–3 giờ, tính từ lúc cluster đã `Ready`.
 
 ## 2. Quy ước và an toàn
 
-- Chỉ chạy fault injection trên `k8s-worker2`.
+- Chỉ chạy fault injection trên `lab-k8s-worker2`.
 - Không dừng `kube-apiserver`, `etcd` hoặc sửa manifest control plane trong lab 1a.
 - Mở ít nhất ba terminal SSH: master, worker 1 và worker 2.
-- Các lệnh không ghi rõ node được chạy trên `k8s-master` bằng user quản trị có kubeconfig.
+- Các lệnh không ghi rõ node được chạy trên `lab-k8s-master` bằng user quản trị có kubeconfig.
 - Dòng bắt đầu bằng `PASS:` mô tả điều kiện phải đạt; không tiếp tục nếu gate tương ứng fail.
 - Bằng chứng của lab ghi vào `~/lab-evidence/1a/`.
 
@@ -190,9 +190,9 @@ kubectl create namespace lab-1a
 kubectl get namespace lab-1a -o yaml \
   | tee ~/lab-evidence/1a/04-namespace.yaml
 
-kubectl get node k8s-worker1 -o jsonpath='{"metadata.name: "}{.metadata.name}{"\n"}{"spec.podCIDR: "}{.spec.podCIDR}{"\n"}{"status.capacity.cpu: "}{.status.capacity.cpu}{"\n"}{"status.allocatable.cpu: "}{.status.allocatable.cpu}{"\n"}{"status.nodeInfo.kubeletVersion: "}{.status.nodeInfo.kubeletVersion}{"\n"}'
+kubectl get node lab-k8s-worker1 -o jsonpath='{"metadata.name: "}{.metadata.name}{"\n"}{"spec.podCIDR: "}{.spec.podCIDR}{"\n"}{"status.capacity.cpu: "}{.status.capacity.cpu}{"\n"}{"status.allocatable.cpu: "}{.status.allocatable.cpu}{"\n"}{"status.nodeInfo.kubeletVersion: "}{.status.nodeInfo.kubeletVersion}{"\n"}'
 
-kubectl get node k8s-worker1 -o jsonpath='{range .status.conditions[*]}{.type}{"\t"}{.status}{"\t"}{.reason}{"\n"}{end}'
+kubectl get node lab-k8s-worker1 -o jsonpath='{range .status.conditions[*]}{.type}{"\t"}{.status}{"\t"}{.reason}{"\n"}{end}'
 ```
 
 Trả lời:
@@ -277,14 +277,14 @@ diện cơ chế này.
 ### B6.1. Quan sát Node object
 
 ```bash
-kubectl describe node k8s-worker2 \
+kubectl describe node lab-k8s-worker2 \
   | tee ~/lab-evidence/1a/06-worker2-describe.txt
 
-kubectl get node k8s-worker2 -o jsonpath='{"UID: "}{.metadata.uid}{"\n"}{"PodCIDR: "}{.spec.podCIDR}{"\n"}{"InternalIP: "}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{"Capacity CPU: "}{.status.capacity.cpu}{"\n"}{"Allocatable CPU: "}{.status.allocatable.cpu}{"\n"}{"Kubelet: "}{.status.nodeInfo.kubeletVersion}{"\n"}'
+kubectl get node lab-k8s-worker2 -o jsonpath='{"UID: "}{.metadata.uid}{"\n"}{"PodCIDR: "}{.spec.podCIDR}{"\n"}{"InternalIP: "}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{"Capacity CPU: "}{.status.capacity.cpu}{"\n"}{"Allocatable CPU: "}{.status.allocatable.cpu}{"\n"}{"Kubelet: "}{.status.nodeInfo.kubeletVersion}{"\n"}'
 
-kubectl get node k8s-worker2 -o jsonpath='{range .status.conditions[*]}{.type}{"\t"}{.status}{"\t"}{.lastHeartbeatTime}{"\t"}{.reason}{"\n"}{end}'
+kubectl get node lab-k8s-worker2 -o jsonpath='{range .status.conditions[*]}{.type}{"\t"}{.status}{"\t"}{.lastHeartbeatTime}{"\t"}{.reason}{"\n"}{end}'
 
-kubectl -n kube-node-lease get lease k8s-worker2 -o yaml \
+kubectl -n kube-node-lease get lease lab-k8s-worker2 -o yaml \
   | tee ~/lab-evidence/1a/06-worker2-lease-before.yaml
 ```
 
@@ -296,7 +296,7 @@ Node registration do kubelet thực hiện khi join; API server lưu Node object
 Terminal 1 trên master:
 
 ```bash
-kubectl -n kube-node-lease get lease k8s-worker2 -w
+kubectl -n kube-node-lease get lease lab-k8s-worker2 -w
 ```
 
 Terminal 2 trên worker 2:
@@ -310,7 +310,7 @@ Terminal 3 trên master:
 
 ```bash
 for i in {1..18}; do
-  READY="$(kubectl get node k8s-worker2 -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
+  READY="$(kubectl get node lab-k8s-worker2 -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
   printf '%s Ready=%s\n' "$(date -Is)" "$READY"
   if [ "$READY" != 'True' ]; then
     echo 'PASS: control plane detected missing heartbeat'
@@ -320,7 +320,7 @@ for i in {1..18}; do
 done
 
 test "$READY" != 'True'
-kubectl describe node k8s-worker2 | sed -n '/Conditions:/,/Addresses:/p'
+kubectl describe node lab-k8s-worker2 | sed -n '/Conditions:/,/Addresses:/p'
 ```
 
 **PASS:** `renewTime` của Lease ngừng thay đổi; sau khoảng một phút Node controller đổi
@@ -340,9 +340,9 @@ journalctl -u kubelet --since '-5 minutes' --no-pager | tail -n 50
 Trên master:
 
 ```bash
-kubectl wait --for=condition=Ready node/k8s-worker2 --timeout=120s
-kubectl get node k8s-worker2
-kubectl -n kube-node-lease get lease k8s-worker2 -o jsonpath='{.spec.renewTime}{"\n"}'
+kubectl wait --for=condition=Ready node/lab-k8s-worker2 --timeout=120s
+kubectl get node lab-k8s-worker2
+kubectl -n kube-node-lease get lease lab-k8s-worker2 -o jsonpath='{.spec.renewTime}{"\n"}'
 ```
 
 **PASS:** kubelet `active`, worker 2 trở lại `Ready`, `renewTime` tiếp tục tăng.
@@ -374,10 +374,10 @@ sudo ss -tnp | grep ':6443' || true
 Trên master, xác nhận Lease của worker 1 đổi theo thời gian:
 
 ```bash
-kubectl -n kube-node-lease get lease k8s-worker1 \
+kubectl -n kube-node-lease get lease lab-k8s-worker1 \
   -o jsonpath='{.spec.renewTime}{"\n"}'
 sleep 12
-kubectl -n kube-node-lease get lease k8s-worker1 \
+kubectl -n kube-node-lease get lease lab-k8s-worker1 \
   -o jsonpath='{.spec.renewTime}{"\n"}'
 ```
 
@@ -389,7 +389,7 @@ chiều node chủ động kết nối tới control plane.
 Từ master, yêu cầu API server proxy tới health endpoint của kubelet trên worker 1:
 
 ```bash
-kubectl get --raw '/api/v1/nodes/k8s-worker1/proxy/healthz'
+kubectl get --raw '/api/v1/nodes/lab-k8s-worker1/proxy/healthz'
 ```
 
 **PASS:** output là `ok`. Request đi `kubectl → API server → kubelet`; client không mở

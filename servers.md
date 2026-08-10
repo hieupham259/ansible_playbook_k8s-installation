@@ -22,8 +22,8 @@
 
 | # | Node / Role   | Hostname      | IP                | RAM (GB) | vCPU | Disk SSD (GB) |
 |---|---------------|---------------|-------------------|----------|------|---------------|
-| 1 | Control plane | k8s-master    | 192.168.100.221   | 8        | 4    | 40            |
-| 2 | Worker        | k8s-worker1   | 192.168.100.222   | 6        | 2    | 40            |
-| 3 | Worker        | k8s-worker2   | 192.168.100.223   | 6        | 2    | 40            |
+| 1 | Control plane | lab-k8s-master  | 192.168.100.221 | 8        | 4    | 40            |
+| 2 | Worker        | lab-k8s-worker1 | 192.168.100.222 | 6        | 2    | 40            |
+| 3 | Worker        | lab-k8s-worker2 | 192.168.100.223 | 6        | 2    | 40            |
 
 > Ba nhóm VM dùng các IP riêng biệt nên có thể chạy đồng thời, miễn toàn bộ địa chỉ đều nằm ngoài DHCP pool hoặc đã được router giữ chỗ theo MAC.

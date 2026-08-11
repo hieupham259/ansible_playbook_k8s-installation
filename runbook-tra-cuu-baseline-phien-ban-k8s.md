@@ -18,12 +18,38 @@
 - Hai hướng cam kết chạy song song trong cùng tài liệu: **VENDOR-SUPPORTED** và **TECHNICALLY-COMPATIBLE**. Bạn chọn một hướng ở Bước 1; các đoạn đánh dấu **[Theo hướng]** chỉ ra chỗ hai hướng đọc nguồn khác nhau. Các bước không có đánh dấu thì hai hướng làm giống hệt nhau.
 - Script chạy trên máy Linux/WSL bất kỳ có internet và các công cụ ở Bước 0. Riêng Bước 4 và Bước 5 (tra gói `.deb`) cần chạy trên **Ubuntu cùng bản và cùng kiến trúc với node mục tiêu**.
 - Khi một bước kết luận "tắc" (ví dụ hướng VENDOR-SUPPORTED không có tổ hợp hợp lệ), **dừng và ghi lý do vào phiếu** thay vì đổi số liệu cho qua.
+- Cam kết đi hết Bước 0–12 áp dụng cho hướng **TECHNICALLY-COMPATIBLE**. Hướng **VENDOR-SUPPORTED** có thể kết thúc hợp lệ ở Bước 2.4 nếu topology kubeadm không nằm trong support matrix; đây là kết quả nghiên cứu, không phải lỗi thao tác.
+- Mỗi lần mở một phiên làm việc mới, phải tạo lại biến ngày ở Bước 0.1 từ đồng hồ của máy đang chạy. Không chép ngày từ ví dụ, phiên trước hay nội dung cũ trong phiếu.
 
 ---
 
 ## Bước 0 — Chuẩn bị
 
-### 0.1. Công cụ
+### 0.1. Neo thời gian của phiên làm việc
+
+Chạy đoạn này **ở đầu mỗi phiên làm việc mới** và chạy lại nếu phiên kéo dài qua nửa đêm:
+
+```bash
+unset BASELINE_TODAY BASELINE_SESSION_STARTED_AT BASELINE_TIMEZONE
+export BASELINE_TODAY="$(date +%F)"
+export BASELINE_SESSION_STARTED_AT="$(date --iso-8601=seconds)"
+export BASELINE_TIMEZONE="$(date +%Z%z)"
+printf 'Ngày tra hiện tại: %s\nBắt đầu phiên: %s\nMúi giờ: %s\n' \
+  "$BASELINE_TODAY" "$BASELINE_SESSION_STARTED_AT" "$BASELINE_TIMEZONE"
+```
+
+`BASELINE_TODAY` là nguồn duy nhất cho khái niệm “hôm nay” trong runbook. Ngày cài dự kiến là đầu vào riêng của người làm, không được gán bằng ngày hiện tại.
+
+Nếu tiếp tục một phiếu từ phiên trước:
+
+- chạy lại đoạn trên;
+- ghi phiên mới vào mục “Lịch sử phiên tra” của phiếu;
+- mỗi dòng nguồn ghi ngày thực sự mở/kiểm nguồn trong phiên hiện tại;
+- nếu quyết định version thay đổi, cập nhật dữ liệu và lý do, không chỉ sửa cột ngày.
+
+**Đi tiếp khi:** giá trị in ra khớp ngày, giờ và múi giờ của máy đang dùng.
+
+### 0.2. Công cụ
 
 Cần: một **browser** (nhiều trang tra cứu render bằng JavaScript, `curl` không đọc được), và một shell có `curl`, `jq`, `helm`, `python3`. Kiểm:
 
@@ -36,12 +62,25 @@ echo "Kiểm công cụ xong — không có dòng THIẾU nào là đạt."
 
 **Đi tiếp khi:** không in ra dòng `THIẾU` nào.
 
-### 0.2. Tạo phiếu ghi
+### 0.3. Tạo phiếu ghi
 
-Tạo một file mới `phieu-ghi-baseline-<YYYY-MM-DD>.md` (ngày là ngày bắt đầu tra cứu) và dán nguyên template sau. Mọi ô `___` sẽ được điền dần khi đi qua các bước; ô nào không áp dụng thì ghi `N/A`, **không để trống**:
+Tên phiếu của phiên đầu tiên được tạo từ ngày hiện tại, không gõ tay:
+
+```bash
+test -n "${BASELINE_TODAY:-}" || { echo 'FAIL: chưa chạy Bước 0.1'; exit 1; }
+export BASELINE_SHEET="phieu-ghi-baseline-${BASELINE_TODAY}.md"
+printf '%s\n' "$BASELINE_SHEET"
+```
+
+Tạo file có tên vừa in và dán template sau. Thay `<BASELINE_TODAY>` và `<BASELINE_SESSION_STARTED_AT>` bằng đúng giá trị Bước 0.1. Mọi ô `___` sẽ được điền dần; ô không áp dụng ghi `N/A`, **không để trống**:
 
 ```markdown
-# Phiếu ghi baseline — ngày tra cứu: ___
+# Phiếu ghi baseline — ngày bắt đầu: <BASELINE_TODAY>
+
+## Lịch sử phiên tra
+| Bắt đầu phiên | Ngày hiện tại | Múi giờ | Phạm vi tra/cập nhật |
+| --- | --- | --- | --- |
+| <BASELINE_SESSION_STARTED_AT> | <BASELINE_TODAY> | ___ | Khởi tạo phiếu |
 
 ## A. Đầu vào
 - Ngày cài đặt dự kiến: ___
@@ -52,13 +91,13 @@ Tạo một file mới `phieu-ghi-baseline-<YYYY-MM-DD>.md` (ngày là ngày b�
 - Addon tuỳ chọn (local-path-provisioner / MetalLB / cloudflared): ___
 
 ## B. Kết quả tra cứu từng thành phần
-| # | Thành phần | Loại version | Giá trị chốt | Dải K8s liên quan | EOL / hết support | Nguồn (URL) | Ngày tra |
+| # | Thành phần | Loại version | Giá trị chốt | Dải K8s liên quan | Lifecycle (DATE/EVENT + giá trị) | Nguồn (URL) | Ngày tra |
 | - | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Rancher (chart + app) | chart = app | ___ | ___ | ___ | ___ | ___ |
 | 2 | Kubernetes | exact patch | ___ | N/A | ___ | ___ | ___ |
 | 3 | kubeadm/kubelet/kubectl | Debian package | ___ | = K8s patch | theo K8s | ___ | ___ |
 | 4 | Ubuntu | OS release | ___ | N/A | ___ | ___ | ___ |
-| 5 | containerd | Debian package + upstream | ___ | ___ | ___ | ___ | ___ |
+| 5 | containerd | Debian package + upstream | ___ | ___ | package: ___; upstream: ___ | ___ | ___ |
 | 6 | Flannel | release tag | ___ | không công bố | ___ | ___ | ___ |
 | 7 | Helm | release tag | ___ | ___ | N/A | ___ | ___ |
 | 8 | cert-manager | release tag | ___ | ___ | ___ | ___ | ___ |
@@ -83,6 +122,7 @@ Tạo một file mới `phieu-ghi-baseline-<YYYY-MM-DD>.md` (ngày là ngày b�
 | --- | --- | --- | --- |
 
 - Ngày phải review lại baseline: ___
+- Các lifecycle EVENT và review proxy nội bộ: ___
 - Quyết định/tắc nghẽn đáng nhớ trong lần tra này: ___
 ```
 
@@ -164,17 +204,13 @@ Mở [Rancher releases trên GitHub](https://github.com/rancher/rancher/releases
 
 ```bash
 helm repo add rancher-stable https://releases.rancher.com/server-charts/stable --force-update
-helm search repo rancher-stable/rancher --versions | head -n 5
+helm search repo rancher-stable/rancher --versions --output json \
+  | jq '.[0] | {name, version, app_version, description}'
 ```
 
-Dòng đầu tiên (không có hậu tố `-rc`...) là candidate. Ví dụ output (số minh họa):
+Object đầu tiên trong mảng JSON là candidate. `helm search repo` mặc định không lấy pre-release; không thêm `--devel`. Dùng JSON để không nhầm dòng header của output dạng bảng là dữ liệu.
 
-```text
-NAME                    CHART VERSION  APP VERSION  DESCRIPTION
-rancher-stable/rancher  2.14.3         v2.14.3      Install Rancher Server...
-```
-
-**Ghi:** dòng 1 phần B — giá trị chốt (ví dụ `2.14.3`; với chart Rancher, chart version = app version), nguồn, ngày tra.
+**Ghi:** dòng 1 phần B — chart version và app version chính xác, nguồn, `BASELINE_TODAY`. Với chart Rancher hai giá trị thường cùng số nhưng vẫn phải ghi đúng output, không tự suy ra.
 
 ### 2.3. Đọc — support matrix của đúng phiên bản đó
 
@@ -186,7 +222,9 @@ Mở [SUSE Rancher Support Matrix](https://www.suse.com/suse-rancher/support-mat
 
 Cũng trong matrix, đọc bảng **OS được chứng nhận** và ghi lại Ubuntu bản nào được liệt kê.
 
-**Ghi:** vào cột "Dải K8s liên quan" của dòng 1 phần B — các phiên bản/nền tảng K8s mà bảng (1) liệt kê; kèm ghi chú OS được chứng nhận. Nên chụp màn hình bảng và lưu cạnh phiếu (trang này đổi nội dung theo thời gian).
+Mở thêm [SUSE Product Support Lifecycle — Rancher](https://www.suse.com/lifecycle/#rancher), tìm đúng minor Rancher vừa chốt và đọc riêng **EOM** và **EOL**. EOM là mốc giảm mức code maintenance; EOL là mốc hết support. Không suy EOL từ ngày phát hành hoặc từ support matrix.
+
+**Ghi:** vào cột "Dải K8s liên quan" của dòng 1 phần B — các phiên bản/nền tảng K8s mà bảng (1) liệt kê; kèm ghi chú OS được chứng nhận. Cột lifecycle ghi `DATE: EOM=...; EOL=...`. Nên chụp màn hình matrix và lifecycle rồi lưu cạnh phiếu vì hai trang có thể đổi theo thời gian.
 
 ### 2.4. Điểm rẽ theo hướng
 
@@ -195,15 +233,12 @@ Cũng trong matrix, đọc bảng **OS được chứng nhận** và ghi lại U
 **[Theo hướng TECHNICALLY-COMPATIBLE]** — hợp đồng kỹ thuật là `kubeVersion` trong `Chart.yaml` của **đúng chart version**. Tra bằng:
 
 ```bash
-helm show chart rancher-stable/rancher --version 2.14.3 | grep -E '^(version|appVersion|kubeVersion):'
-```
-
-(thay `2.14.3` bằng giá trị đã chốt). Ví dụ output (số minh họa):
-
-```text
-appVersion: v2.14.3
-kubeVersion: '>=1.32.0-0 < 1.36.0-0'
-version: 2.14.3
+RANCHER_VERSION='<chart-version-chốt-ở-bước-2.2>'
+test "$RANCHER_VERSION" != '<chart-version-chốt-ở-bước-2.2>' \
+  || { echo 'FAIL: chưa điền RANCHER_VERSION'; exit 1; }
+export RANCHER_VERSION
+helm show chart rancher-stable/rancher --version "$RANCHER_VERSION" \
+  | grep -E '^(version|appVersion|kubeVersion):'
 ```
 
 **Ghi:** dải `kubeVersion` vào cột "Dải K8s liên quan" dòng 1 phần B, kết quả lệnh vào phần D. Support matrix vẫn đáng đọc để biết SUSE test Rancher này với K8s nào — nhưng ở hướng này nó là tham khảo, không phải điều kiện chặn.
@@ -234,7 +269,10 @@ Chốt: minor được chọn + **patch mới nhất của minor đó** (đọc 
 ### 3.3. Kiểm nhanh — patch là release final có thật
 
 ```bash
-K8S_VERSION=1.35.7   # thay bằng patch đã chốt, không có tiền tố v
+K8S_VERSION='<exact-patch-không-có-tiền-tố-v>'
+test "$K8S_VERSION" != '<exact-patch-không-có-tiền-tố-v>' \
+  || { echo 'FAIL: chưa điền K8S_VERSION'; exit 1; }
+export K8S_VERSION
 curl -fsSL "https://api.github.com/repos/kubernetes/kubernetes/releases/tags/v${K8S_VERSION}" \
   | jq '{tag: .tag_name, prerelease, draft}'
 ```
@@ -255,7 +293,7 @@ Mở [Kubernetes Version Skew Policy](https://kubernetes.io/releases/version-ske
 
 ### 4.1. Đọc — Ubuntu còn được bảo trì đến khi nào
 
-Mở [Ubuntu release cycle](https://ubuntu.com/about/release-cycle). Tìm bản LTS đang dùng (ví dụ 24.04), đọc ngày kết thúc **standard support**. Ngày này phải **sau** ngày cài dự kiến.
+Mở [Ubuntu release cycle](https://ubuntu.com/about/release-cycle). Tìm đúng bản LTS đã ghi trong phần A, đọc ngày kết thúc **standard support**. Ngày này phải **sau** ngày cài dự kiến.
 
 **[Theo hướng VENDOR-SUPPORTED]** — đối chiếu thêm: bản Ubuntu này có trong bảng OS của support matrix (đã đọc ở Bước 2.3) không. Không có → đổi OS hoặc ghi nhận không đạt hướng.
 
@@ -263,7 +301,7 @@ Mở [Ubuntu release cycle](https://ubuntu.com/about/release-cycle). Tìm bản 
 
 ### 4.2. Đọc — repo gói theo minor
 
-Mở [Installing kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/), mục dành cho Debian-based. Điểm cần hiểu: `pkgs.k8s.io` tách **repo riêng cho từng minor** (`.../core:/stable:/v1.35/deb/`) — đổi minor là phải đổi dòng repo, và repo minor này không chứa gói minor khác. Làm theo đúng trang đó để khai repo của minor đã chọn trên máy Ubuntu cùng bản với node.
+Mở [Installing kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/), mục dành cho Debian-based. Điểm cần hiểu: `pkgs.k8s.io` tách **repo riêng cho từng minor** (`.../core:/stable:/v<K8S_MINOR>/deb/`) — đổi minor là phải đổi dòng repo, và repo minor này không chứa gói minor khác. Làm theo đúng trang đó để khai repo của minor đã chọn trên máy Ubuntu cùng bản với node.
 
 ### 4.3. Kiểm nhanh — repo có đúng gói của patch đã chọn
 
@@ -276,7 +314,7 @@ for p in kubeadm kubelet kubectl; do
 done
 ```
 
-Cách đọc: cột thứ hai là Debian package version, dạng `1.35.7-1.1`. Đạt khi **cả ba gói** đều có dòng bắt đầu bằng đúng patch đã chốt, và bạn ghi lại **nguyên chuỗi** đó (ví dụ `1.35.7-1.1`) — đây là giá trị pin khi cài, không phải `1.35.7`.
+Cách đọc: cột thứ hai là Debian package version, dạng `<K8S_PATCH>-<DEBIAN_REVISION>`. Đạt khi **cả ba gói** đều có dòng bắt đầu bằng đúng patch đã chốt, và bạn ghi lại **nguyên chuỗi** đó — đây là giá trị pin khi cài, không chỉ là upstream patch.
 
 **Ghi:** dòng 3 phần B (chuỗi package đầy đủ); kết quả vào phần D.
 
@@ -290,9 +328,14 @@ Cách đọc: cột thứ hai là Debian package version, dạng `1.35.7-1.1`. �
 
 Mở [Container Runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/). Ba điều cần rút ra: runtime phải nói chuyện qua **CRI**; cgroup driver nên là **systemd** (và phải khớp giữa kubelet với runtime); trang có mục riêng cho containerd với các bước cấu hình chuẩn.
 
-### 5.2. Đọc — nhánh containerd nào còn được hỗ trợ
+### 5.2. Đọc — tương thích và lifecycle upstream
 
-Mở [containerd RELEASES.md](https://github.com/containerd/containerd/blob/main/RELEASES.md). Đọc hai bảng: bảng **branch status** (nhánh nào Active/LTS, end-of-support khi nào) và bảng **Kubernetes support** (nhánh containerd nào được khuyến nghị với K8s minor nào). Minor K8s đã chọn phải nằm trong hàng của nhánh còn được hỗ trợ — điền kết quả này vào cột `containerd` của bảng C.
+Mở [containerd RELEASES.md](https://github.com/containerd/containerd/blob/main/RELEASES.md). Đọc hai bảng riêng biệt:
+
+- **Current State of containerd Releases**: status và upstream EOL của từng nhánh;
+- **Kubernetes Support**: version containerd được khuyến nghị/kiểm thử kỹ với từng minor Kubernetes.
+
+Không gộp hai bảng thành một khái niệm. Bảng Kubernetes Support quyết định giao tương thích; upstream EOL mô tả lifecycle của nhánh upstream và còn phải được đặt cạnh lifecycle của nguồn package ở Bước 5.4.
 
 ### 5.3. Tra + kiểm nhanh — Ubuntu repo có gì
 
@@ -302,11 +345,27 @@ Chạy trên máy Ubuntu cùng bản với node:
 apt-cache policy containerd
 ```
 
-Cách đọc: dòng `Candidate:` là Debian package version sẽ được cài (ví dụ `2.0.5-1ubuntu1` — số minh họa). Phần đầu chuỗi cho biết upstream version → đối chiếu ngược lại RELEASES.md xem nhánh đó (ví dụ 2.0) còn được hỗ trợ và có trong bảng Kubernetes support không. Lưu ý cấu hình mặc định: containerd 1.x và 2.x khác **thế hệ file config** (`version = 2` / `version = 3`) — ghi chú lại thế hệ config để runbook cài đặt dùng đúng mẫu.
+Cách đọc: dòng `Candidate:` là Debian package version sẽ được cài. Phần đầu chuỗi cho biết upstream version; đối chiếu version đó với hàng Kubernetes Support cho minor đã chọn. Lưu ý containerd 1.x và 2.x có thể dùng khác **thế hệ file config** (`version = 2` / `version = 3`) — phải đọc tài liệu của đúng candidate và ghi lại thế hệ config, không suy từ ví dụ cũ.
 
-**Ghi:** dòng 5 phần B (cả chuỗi Debian package lẫn upstream version, nhánh, ngày end-of-support); cột `containerd` bảng C; kết quả lệnh vào phần D.
+### 5.4. Chọn nguồn lifecycle có thẩm quyền
 
-**Đi tiếp khi:** nhánh containerd còn hỗ trợ, có trong bảng Kubernetes support cho minor đã chọn.
+Lifecycle chặn phải đi theo **artifact thực sự sẽ cài**:
+
+- nếu cài binary/package từ upstream containerd: dùng upstream EOL trong `RELEASES.md`;
+- nếu cài gói `.deb` từ Ubuntu archive: dùng coverage của Ubuntu/Canonical cho đúng release, repository component và subscription; vẫn ghi upstream EOL như rủi ro và mốc cần tái kiểm, nhưng không tự động thay thế lifecycle của package downstream;
+- nếu đổi nguồn package, phải tra lại toàn bộ version, compatibility và lifecycle của nguồn mới.
+
+Trên node mục tiêu, kiểm coverage thực tế:
+
+```bash
+pro security-status
+```
+
+Đối chiếu thêm [Ubuntu release cycle](https://ubuntu.com/about/release-cycle) và [Ubuntu security maintenance](https://ubuntu.com/security/esm). Không mặc định “Ubuntu LTS” đồng nghĩa mọi package đều có cùng coverage: Main và Universe, hệ thống có hoặc không có Ubuntu Pro, có thể khác nhau.
+
+**Ghi:** dòng 5 phần B phải có cả chuỗi Debian package, upstream version/branch/status/EOL, nguồn package, coverage downstream và ngày tra. Cột `containerd` bảng C ghi PASS/FAIL theo bảng Kubernetes Support; kết quả `apt-cache policy` và coverage ghi vào phần D.
+
+**Đi tiếp khi:** candidate chính xác đã được xác định trên đúng OS/architecture; version upstream của candidate nằm trong hàng Kubernetes Support cho minor đã chọn; lifecycle của đúng nguồn package còn hiệu lực qua ngày cài dự kiến. Nếu review bị stale, phải xử lý đúng thành phần gây stale — không mặc định đổi Kubernetes minor sẽ làm candidate containerd thay đổi.
 
 ---
 
@@ -316,12 +375,15 @@ Cách đọc: dòng `Candidate:` là Debian package version sẽ được cài (
 
 Mở [Flannel releases](https://github.com/flannel-io/flannel/releases). Lấy release **final** mới nhất (bỏ pre-release). Đọc release notes của bản đó; lưu ý trung thực: Flannel **không công bố** ma trận tương thích Kubernetes chính thức — vì vậy trong phiếu, dải K8s của Flannel ghi `không công bố`, và độ tin cậy dựa vào render/dựng thử (Bước 11) chứ không dựa vào tuyên bố vendor.
 
-Tham chiếu nền: [Kubernetes Network Plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) — cluster cần CNI plugin tương thích spec từ `v0.4.0` trở lên.
+Tham chiếu nền: [Kubernetes Network Plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) — cluster cần **plugin binary** tương thích spec từ `v0.4.0` trở lên. Không được diễn giải yêu cầu này thành “trường `cniVersion` trong conflist phải ≥0.4”. Theo [CNI specification](https://www.cni.dev/docs/spec/#version-considerations), runtime, plugin và network configuration có thể hỗ trợ các phiên bản độc lập; plugin công bố khả năng qua thao tác `VERSION`.
 
 ### 6.2. Kiểm nhanh — manifest của đúng tag
 
 ```bash
-FLANNEL_VERSION=v0.27.4   # thay bằng tag đã chốt
+FLANNEL_VERSION='<release-tag-final-vừa-tra>'
+test "$FLANNEL_VERSION" != '<release-tag-final-vừa-tra>' \
+  || { echo 'FAIL: chưa điền FLANNEL_VERSION'; exit 1; }
+export FLANNEL_VERSION
 curl -fsSL -o kube-flannel.yml \
   "https://github.com/flannel-io/flannel/releases/download/${FLANNEL_VERSION}/kube-flannel.yml"
 grep -E '^[[:space:]]+image:|"Network"|"cniVersion"' kube-flannel.yml
@@ -329,13 +391,24 @@ grep -E '^[[:space:]]+image:|"Network"|"cniVersion"' kube-flannel.yml
 
 Cách đọc output:
 
-- Các dòng `image:` phải pin tag cụ thể (ví dụ `flannel/flannel:v0.27.4`), **không** có `latest`/`master`.
+- Các dòng `image:` phải pin tag cụ thể, **không** có `latest`/`master`; ghi riêng tag của `flannel` và `flannel-cni-plugin`.
 - Dòng `"Network"` là Pod CIDR mặc định của manifest (thường `10.244.0.0/16`). Nếu khác Pod CIDR ở phần A của phiếu, ghi chú rõ: *khi cài phải sửa trường Network* — việc sửa thuộc runbook cài đặt, không sửa ở đây.
-- Dòng `"cniVersion"` phải từ `0.4` trở lên hoặc `1.x`.
+- Dòng `"cniVersion"` chỉ được **ghi nhận** là version của network configuration; giá trị `0.3.1` vẫn có thể hợp lệ khi plugin binary hỗ trợ các spec mới hơn. Không áp threshold vào trường này.
+
+Sau khi binary đã có trên node, phép kiểm đúng theo CNI protocol là:
+
+```bash
+printf '{"cniVersion":"1.0.0"}' \
+  | CNI_COMMAND=VERSION /opt/cni/bin/flannel | jq
+printf '{"cniVersion":"1.0.0"}' \
+  | CNI_COMMAND=VERSION /opt/cni/bin/portmap | jq
+```
+
+`supportedVersions` phải chứa `0.4.0` hoặc `1.x`. Nếu Bước 6 chỉ là tra cứu và node chưa có binary, ghi kiểm này là `DEFERRED-TO-INSTALL-TEST`; không được đổi thành FAIL chỉ vì conflist khai `0.3.1`.
 
 **Ghi:** dòng 6 phần B; kết quả ba ý trên vào phần D.
 
-**Đi tiếp khi:** tag final tải được manifest, image pin cụ thể, cniVersion đạt.
+**Đi tiếp khi:** tag final tải được manifest; mọi image đều pin tag cụ thể; Pod CIDR đã được đối chiếu; `cniVersion` đã được ghi nhận nhưng không bị áp threshold sai. Kiểm `VERSION` của binary phải đạt trong runbook dựng thử trước khi phát hành cluster.
 
 ---
 
@@ -353,9 +426,11 @@ Cách chọn: lấy Helm minor mới nhất mà bảng skew ghi hỗ trợ minor
 helm version --short
 ```
 
-Đạt khi version in ra đúng bản đã chốt (nếu chưa cài đúng bản, cài lại theo trang official trước khi làm Bước 11 — mọi lần render phải chạy bằng đúng Helm của baseline).
+Đạt khi version in ra **đúng exact version đã chốt**. Nếu chưa đúng, cài lại ngay tại đây theo trang official; không đi tiếp sang Bước 8. OCI được bật mặc định từ Helm 3.8.0, trong khi Bước 8 dùng OCI chart. Mọi lệnh `helm show` và render từ đây trở đi phải chạy bằng đúng Helm của baseline.
 
 **Ghi:** dòng 7 phần B; cột `Helm` bảng C; kết quả vào phần D.
+
+**Đi tiếp khi:** `helm version --short` khớp exact version đã chốt và version đó đạt cả Helm↔Kubernetes skew lẫn yêu cầu Rancher.
 
 ---
 
@@ -363,7 +438,9 @@ helm version --short
 
 ### 8.1. Đọc
 
-Mở [cert-manager Supported Releases](https://cert-manager.io/docs/releases/). Trang có bảng: minor nào đang supported, EOL khi nào, và **hai dải Kubernetes riêng biệt** — *Supported* và *Tested*. Chọn minor đang supported có dải Supported chứa minor K8s đã chọn; trong minor đó lấy **patch mới nhất**. Nếu K8s của bạn nằm trong Supported nhưng ngoài Tested, vẫn dùng được nhưng ghi chú rõ điều đó vào phiếu — đừng tự ghi "tested".
+Mở [cert-manager Supported Releases](https://cert-manager.io/docs/releases/). Trang có bảng: minor nào đang supported, lifecycle và **hai dải Kubernetes riêng biệt** — *Supported* và *Tested*. Chọn minor đang supported có dải Supported chứa minor K8s đã chọn; trong minor đó lấy **patch mới nhất**. Nếu K8s nằm trong Supported nhưng ngoài Tested, vẫn có thể dùng nhưng phải ghi rõ, không tự ghi “tested”.
+
+Lifecycle cert-manager có thể là ngày (`DATE`) hoặc sự kiện (`EVENT`, ví dụ “Release of X.Y”). Ghi nguyên kiểu và giá trị official; không tự đổi một sự kiện chưa có lịch chắc chắn thành ngày EOL giả. Cách tạo review proxy cho EVENT nằm ở Bước 12.2.
 
 Đừng lấy số version từ command ví dụ trong [trang cài đặt Helm](https://cert-manager.io/docs/installation/helm/) làm "mới nhất" — trang ví dụ có thể cũ hơn trang releases.
 
@@ -372,7 +449,10 @@ Mở [cert-manager Supported Releases](https://cert-manager.io/docs/releases/). 
 ### 8.2. Kiểm nhanh — release và chart có thật
 
 ```bash
-CERT_MANAGER_VERSION=v1.19.1   # thay bằng version đã chốt
+CERT_MANAGER_VERSION='<release-tag-final-vừa-tra>'
+test "$CERT_MANAGER_VERSION" != '<release-tag-final-vừa-tra>' \
+  || { echo 'FAIL: chưa điền CERT_MANAGER_VERSION'; exit 1; }
+export CERT_MANAGER_VERSION
 curl -fsSL "https://api.github.com/repos/cert-manager/cert-manager/releases/tags/${CERT_MANAGER_VERSION}" \
   | jq '{tag: .tag_name, prerelease, draft}'
 helm show chart "oci://quay.io/jetstack/charts/cert-manager" \
@@ -398,7 +478,10 @@ Ba nguồn:
 ### 9.2. Kiểm nhanh — metadata của đúng chart version
 
 ```bash
-TRAEFIK_CHART_VERSION=37.1.2   # thay bằng chart version đã chốt
+TRAEFIK_CHART_VERSION='<chart-version-final-vừa-tra>'
+test "$TRAEFIK_CHART_VERSION" != '<chart-version-final-vừa-tra>' \
+  || { echo 'FAIL: chưa điền TRAEFIK_CHART_VERSION'; exit 1; }
+export TRAEFIK_CHART_VERSION
 helm repo add traefik https://traefik.github.io/charts --force-update
 helm show chart traefik/traefik --version "${TRAEFIK_CHART_VERSION}" \
   | grep -E '^(version|appVersion|kubeVersion):'
@@ -420,10 +503,15 @@ Chỉ làm với addon đã khai ở phần A; addon không dùng thì ghi `N/A`
 | MetalLB | [Releases](https://github.com/metallb/metallb/releases) và [metallb.io](https://metallb.io/) (mục requirements — có ghi yêu cầu phiên bản Kubernetes) | tag final + yêu cầu K8s nếu có |
 | cloudflared | [Cloudflare Tunnel downloads](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/) và [Releases](https://github.com/cloudflare/cloudflared/releases) | tag final mới nhất |
 
-Kiểm nhanh (chạy cho từng addon đã chọn, thay repo/tag tương ứng):
+Kiểm nhanh (chạy cho từng addon đã chọn bằng repo và tag vừa tra, không dùng version mẫu):
 
 ```bash
-curl -fsSL "https://api.github.com/repos/rancher/local-path-provisioner/releases/tags/v0.0.34" \
+ADDON_REPO='<owner/repository>'
+ADDON_TAG='<release-tag-final-vừa-tra>'
+test "$ADDON_REPO" != '<owner/repository>' \
+  && test "$ADDON_TAG" != '<release-tag-final-vừa-tra>' \
+  || { echo 'FAIL: chưa điền ADDON_REPO/ADDON_TAG'; exit 1; }
+curl -fsSL "https://api.github.com/repos/${ADDON_REPO}/releases/tags/${ADDON_TAG}" \
   | jq '{tag: .tag_name, prerelease, draft}'
 ```
 
@@ -477,13 +565,16 @@ Vì sao phải pin mấy key này dù default hiện tại có thể đã đúng
 
 ### 11.2. Render và kiểm
 
-Thay bốn biến bằng giá trị đã chốt trong phiếu:
+Các biến phải đến từ kết quả đã chốt trong chính phiên nghiên cứu hiện tại. Không gán version minh họa. Nếu mở shell mới, export lại từ phiếu rồi chạy gate sau:
 
 ```bash
-K8S_VERSION=1.35.7
-CERT_MANAGER_VERSION=v1.19.1
-TRAEFIK_CHART_VERSION=37.1.2
-RANCHER_VERSION=2.14.3
+: "${K8S_VERSION:?export K8S_VERSION từ Bước 3}"
+: "${CERT_MANAGER_VERSION:?export CERT_MANAGER_VERSION từ Bước 8}"
+: "${TRAEFIK_CHART_VERSION:?export TRAEFIK_CHART_VERSION từ Bước 9}"
+: "${RANCHER_VERSION:?export RANCHER_VERSION từ Bước 2}"
+: "${BASELINE_TODAY:?chạy lại Bước 0.1 trong phiên hiện tại}"
+test "$BASELINE_TODAY" = "$(date +%F)" \
+  || { echo 'FAIL: ngày phiên đã đổi; chạy lại Bước 0.1 và cập nhật lịch sử phiên'; exit 1; }
 
 helm template cert-manager "oci://quay.io/jetstack/charts/cert-manager" \
   --namespace cert-manager --version "${CERT_MANAGER_VERSION}" \
@@ -543,26 +634,101 @@ Không dùng `latest`, `stable`, `master`, version range hay ô trống trong b�
 
 ### 12.2. Tính ngày review lại
 
-Ngày review trả lời câu hỏi: *"đến ngày nào thì phiếu này không còn tin được nữa và phải tra lại?"*. Tính bằng ba bước:
+Ngày review trả lời câu hỏi: *"đến ngày nào thì phiếu này không còn tin được nữa và phải tra lại?"*. Không được ép mọi lifecycle thành một ngày giả. Trước tiên phân loại từng giá trị trong phần B:
 
-1. **Tiên quyết:** EOL gần nhất (trong các thành phần có lifecycle) phải **sau ngày cài dự kiến**. Thành phần hết hạn trước khi cài thì quay lại bảng C loại nó ngay — không cần tính tiếp.
-2. **Mốc lifecycle** = `EOL gần nhất − 90 ngày`.
-3. **Mốc cài đặt** = `ngày cài dự kiến − 30 ngày`. Nếu mốc này **đã qua** (tức bạn đang tra cứu trong vòng 30 ngày trước ngày cài), lấy chính **ngày cài dự kiến** làm mốc. Lý do: buffer 30 ngày tồn tại để ép tra lại khi phiếu được lập quá sớm trước ngày cài; còn khi đang tra ngay trong cửa sổ 30 ngày đó thì chính lần tra này đã là lần tra "sát ngày cài", phiếu hợp lệ đến ngày cài.
+- `DATE`: nguồn official công bố ngày hết support/EOL cụ thể.
+- `EVENT`: nguồn official chỉ công bố một sự kiện, ví dụ `Release of 1.x`, chưa có ngày chắc chắn.
 
-`ngày review = min( mốc lifecycle , mốc cài đặt )`. Nếu kết quả **sớm hơn ngày tra cứu hôm nay** → baseline stale ngay khi lập → quay lại bảng C chọn minor có EOL xa hơn. Với cách tính ở bước 3, tình huống stale chỉ có thể do vế lifecycle gây ra — nên lời khuyên "đổi minor" luôn thực hiện được (vế cài đặt không phụ thuộc minor, đổi minor không cứu được nó).
+Chọn đúng **cơ quan chịu trách nhiệm cho artifact được cài**:
 
-Ví dụ tính tay (số minh họa), ngày cài dự kiến 2026-09-15:
+- Gói `deb` do Ubuntu cung cấp: lifecycle bắt buộc để ra quyết định là thời hạn security maintenance của đúng package/pocket theo Canonical. Ghi EOL upstream ở một trường riêng để theo dõi, nhưng không thay thế lifecycle downstream bằng EOL upstream.
+- Binary/chart/manifest lấy trực tiếp từ upstream: dùng lifecycle upstream.
+- Nếu chưa chứng minh được package thuộc pocket nào hoặc có được security coverage hay không, ghi `CHƯA XÁC MINH` và chưa phát hành baseline.
 
-- Tra cứu 2026-08-11, chọn K8s 1.34 (EOL 2026-10-28): tiên quyết đạt (EOL sau ngày cài). Mốc lifecycle = 2026-07-30; mốc cài đặt = 2026-08-16 (chưa qua, giữ nguyên); min = **2026-07-30** — sớm hơn hôm nay → 1.34 bị loại vì lifecycle, dù mọi cột tương thích đều đạt.
-- Tra cứu 2026-08-11, chọn K8s 1.35 (EOL 2027-02-28): mốc lifecycle = 2026-11-30; mốc cài đặt = 2026-08-16; min = **2026-08-16** — hợp lệ, ghi vào phiếu.
-- Tra cứu 2026-09-05 (sát ngày cài), chọn K8s 1.35 (EOL 2027-02-28): mốc lifecycle = 2026-11-30; `cài − 30 = 2026-08-16` **đã qua** → mốc cài đặt = ngày cài = 2026-09-15; min = **2026-09-15** — hợp lệ. Nếu cứ giữ 2026-08-16 làm mốc, phiếu bị coi là stale ngay khi lập mà không minor nào cứu được — đó chính là trường hợp bước 3 tồn tại để xử lý.
+Tính các mốc như sau:
+
+1. **Tiên quyết với `DATE`:** mọi ngày EOL bắt buộc phải **sau ngày cài dự kiến**. Thành phần hết hạn vào hoặc trước ngày cài phải bị loại hoặc đổi nguồn cung cấp.
+2. Với mỗi `DATE`, tạo mốc review `EOL − 90 ngày`.
+3. Với mỗi `EVENT`, tạo **mốc rà soát nội bộ**, không gọi là EOL:
+   - nếu upstream công bố lịch tháng/quý cho release kích hoạt sự kiện, lấy ngày đầu của tháng/quý đó làm proxy bảo thủ và ghi rõ `PROXY`;
+   - nếu chưa có lịch chính thức, lấy `BASELINE_TODAY + 90 ngày` làm mốc kiểm lại tạm thời;
+   - khi sự kiện có ngày chính thức, đổi hàng đó sang `DATE` và tính lại.
+4. **Mốc cài đặt** = `ngày cài dự kiến − 30 ngày`. Nếu mốc này đã qua, dùng chính `ngày cài dự kiến`; lần tra hiện tại đã nằm trong cửa sổ 30 ngày trước khi cài.
+5. `ngày review = min(tất cả mốc DATE, tất cả proxy EVENT, mốc cài đặt)`.
+
+Dùng đoạn dưới để tính theo ngày của **phiên hiện tại** và đồng thời chỉ ra thành phần tạo mốc sớm nhất. Không điền ngày mẫu vào runbook:
+
+```bash
+: "${BASELINE_TODAY:?chạy Bước 0.1 trong phiên hiện tại}"
+test "$BASELINE_TODAY" = "$(date +%F)" \
+  || { echo 'FAIL: BASELINE_TODAY không còn là ngày hiện tại'; exit 1; }
+
+export PLANNED_INSTALL_DATE='<YYYY-MM-DD>'
+export DATE_EOL_VALUES='<component=YYYY-MM-DD,component=YYYY-MM-DD>'
+# Để chuỗi rỗng nếu không có EVENT. Giá trị ở đây là proxy review, không phải EOL.
+export EVENT_REVIEW_PROXIES='<component=YYYY-MM-DD>'
+
+python3 - <<'PY'
+import os
+from datetime import date, timedelta
+
+today = date.fromisoformat(os.environ["BASELINE_TODAY"])
+if today != date.today():
+    raise SystemExit("FAIL: ngày phiên đã đổi; chạy lại Bước 0.1")
+
+install_raw = os.environ["PLANNED_INSTALL_DATE"]
+if install_raw.startswith("<"):
+    raise SystemExit("FAIL: chưa điền PLANNED_INSTALL_DATE")
+install = date.fromisoformat(install_raw)
+
+def parse_pairs(name, required=False):
+    raw = os.environ.get(name, "").strip()
+    if not raw or raw.startswith("<"):
+        if required:
+            raise SystemExit(f"FAIL: chưa điền {name}")
+        return {}
+    result = {}
+    for item in raw.split(","):
+        component, value = item.strip().split("=", 1)
+        result[component.strip()] = date.fromisoformat(value.strip())
+    return result
+
+hard_eols = parse_pairs("DATE_EOL_VALUES", required=True)
+event_proxies = parse_pairs("EVENT_REVIEW_PROXIES")
+
+expired = {name: value for name, value in hard_eols.items() if value <= install}
+if expired:
+    detail = ", ".join(f"{name}={value}" for name, value in expired.items())
+    raise SystemExit(f"FAIL: EOL không sau ngày cài: {detail}")
+
+candidates = {
+    f"{name} (EOL-90)": value - timedelta(days=90)
+    for name, value in hard_eols.items()
+}
+candidates.update({f"{name} (EVENT proxy)": value for name, value in event_proxies.items()})
+
+install_minus_30 = install - timedelta(days=30)
+candidates["installation"] = install if install_minus_30 < today else install_minus_30
+
+cause, review = min(candidates.items(), key=lambda item: item[1])
+print(f"BASELINE_TODAY={today}")
+print(f"REVIEW_DATE={review}")
+print(f"LIMITING_CAUSE={cause}")
+if review < today:
+    raise SystemExit("FAIL: baseline stale ngay khi lập")
+print("OK: baseline chưa stale")
+PY
+```
+
+Nếu baseline stale, sửa **đúng nguyên nhân trong `LIMITING_CAUSE`**: đổi phiên bản của thành phần đó, đổi kênh/nguồn cung cấp có lifecycle phù hợp, hoặc đổi ngày cài. Chỉ đổi minor Kubernetes khi chính Kubernetes hoặc giao của các dải tương thích là nguyên nhân. Nếu repository chỉ có một candidate và không có nguồn được hỗ trợ nào khác, ghi `BLOCKED` và dừng; không được tiếp tục thay version không liên quan cho tới khi phép tính tình cờ đạt.
 
 Sau ngày review, bảng phải được tra cứu lại toàn bộ (ít nhất từ Bước 2) — không chỉ sửa một ô patch.
 
 ### 12.3. Kiểm nhanh — phiếu không còn ô bỏ trống
 
 ```bash
-grep -n '___' phieu-ghi-baseline-*.md && echo "FAIL: còn ô chưa điền" || echo "OK: phiếu đã điền đủ"
+: "${BASELINE_SHEET:?chạy Bước 0.3 trong phiên hiện tại}"
+grep -n '___' "$BASELINE_SHEET" && echo "FAIL: còn ô chưa điền" || echo "OK: phiếu đã điền đủ"
 ```
 
 ### 12.4. Phát hành
@@ -577,16 +743,20 @@ Bảng E + ngày review chính là nội dung đưa vào mục "Phiên bản" c�
 | --- | --- | --- |
 | Rancher — channel | [Choosing a Rancher Version](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/choose-a-rancher-version) | 2.1 |
 | Rancher — compatibility | [SUSE Rancher Support Matrix](https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/) (mở bằng browser) | 2.3 |
+| Rancher — lifecycle | [SUSE Product Support Lifecycle](https://www.suse.com/lifecycle/) | 2.3, 12.2 |
 | Rancher — yêu cầu cài | [Installation Requirements](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-requirements) | 2, 4 |
 | Kubernetes — lifecycle | [Releases](https://kubernetes.io/releases/) | 3.1 |
 | Kubernetes — skew | [Version Skew Policy](https://kubernetes.io/releases/version-skew-policy/) | 3.4 |
 | kubeadm — gói | [Installing kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/) | 4.2 |
 | Runtime — yêu cầu | [Container Runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/) | 5.1 |
 | containerd — lifecycle | [RELEASES.md](https://github.com/containerd/containerd/blob/main/RELEASES.md) | 5.2 |
+| Ubuntu — package security/lifecycle | [`pro security-status`](https://documentation.ubuntu.com/pro-client/en/latest/explanations/how_to_interpret_the_security_status_command/) và [Ubuntu release cycle](https://ubuntu.com/about/release-cycle) | 5.4, 12.2 |
 | CNI — yêu cầu | [Network Plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) | 6.1 |
+| CNI — lệnh `VERSION` | [CNI Specification](https://www.cni.dev/docs/spec/) | 6.2 |
 | Flannel | [Releases](https://github.com/flannel-io/flannel/releases) | 6 |
 | Helm — skew | [Version Support Policy](https://helm.sh/docs/v3/topics/version_skew/) | 7.1 |
 | Helm — theo Rancher | [Helm Version Requirements](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/helm-version-requirements) | 7.1 |
+| Helm — OCI | [Use OCI-based registries](https://helm.sh/docs/topics/registries/) | 7.2, 8.2 |
 | cert-manager | [Supported Releases](https://cert-manager.io/docs/releases/), [Helm install](https://cert-manager.io/docs/installation/helm/) | 8 |
 | Traefik | [Chart releases](https://github.com/traefik/traefik-helm-chart/releases), [Kubernetes docs](https://doc.traefik.io/traefik/setup/kubernetes/) | 9 |
 | local-path-provisioner | [Releases](https://github.com/rancher/local-path-provisioner/releases) | 10 |
@@ -597,28 +767,27 @@ Trang "current" đổi nội dung theo thời gian — vì vậy phiếu luôn g
 
 ---
 
-## Phụ lục B — Ví dụ phiếu đã điền (toàn bộ số là minh họa, không chép lại)
+## Phụ lục B — Mẫu mức chi tiết, không chứa snapshot
 
-Trích phần B và E của một phiếu giả định tra ngày 2026-08-11, để hình dung mức chi tiết cần đạt:
+Phụ lục này chỉ mô tả **cách ghi**. Mọi giá trị phải được tra lại trong phiên hiện tại; không chọn version từ phụ lục.
 
 **Phần B (trích):**
 
-| # | Thành phần | Loại version | Giá trị chốt | Dải K8s liên quan | EOL / hết support | Nguồn | Ngày tra |
-| - | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Rancher | chart = app | 2.14.3 | kubeVersion `>=1.32 <1.36` (chart) | theo minor 2.14 | releases.rancher.com + Chart.yaml | 2026-08-11 |
-| 2 | Kubernetes | exact patch | 1.35.7 | N/A | minor 1.35 EOL 2027-02-28 | kubernetes.io/releases | 2026-08-11 |
-| 3 | kubeadm/kubelet/kubectl | Debian package | 1.35.7-1.1 | = K8s patch | theo K8s | pkgs.k8s.io (madison) | 2026-08-11 |
-| 5 | containerd | deb + upstream | 2.0.5-1ubuntu1 (2.0.5, nhánh 2.0 Active) | có trong bảng K8s support | theo RELEASES.md | Ubuntu repo + RELEASES.md | 2026-08-11 |
-| 8 | cert-manager | release tag | v1.19.1 | Supported 1.32–1.35; Tested 1.33–1.35 | minor 1.19 theo trang releases | cert-manager.io/docs/releases | 2026-08-11 |
+| Thành phần | Giá trị phải ghi |
+| --- | --- |
+| Rancher | exact chart/app version; dải `kubeVersion`; EOM và EOL loại `DATE`; URL SUSE; `$BASELINE_TODAY` |
+| Kubernetes | exact patch; ngày EOL minor loại `DATE`; URL releases; `$BASELINE_TODAY` |
+| kubeadm/kubelet/kubectl | exact Debian version; candidate từ repo minor đã chọn; `$BASELINE_TODAY` |
+| containerd từ Ubuntu | exact Debian version + upstream version; pocket; Canonical security coverage loại `DATE`; upstream EOL ở trường riêng; `$BASELINE_TODAY` |
+| cert-manager | exact release/chart version; dải Supported/Tested; lifecycle loại `DATE` hoặc `EVENT`; URL official; `$BASELINE_TODAY` |
 
 **Phần E (trích):**
 
 | Thành phần | Phiên bản | Nhãn cam kết | Ghi chú |
 | --- | --- | --- | --- |
-| Kubernetes | 1.35.7 | TECHNICALLY-COMPATIBLE | kubeadm/kubelet/kubectl pin `1.35.7-1.1`, cùng version |
-| Rancher | 2.14.3 | TECHNICALLY-COMPATIBLE | manager trên kubeadm — matrix không chứng nhận; render đạt |
-| Flannel | v0.27.4 | TECHNICALLY-COMPATIBLE | upstream không công bố dải K8s; Network sửa theo Pod CIDR khi cài |
-| cert-manager | v1.19.1 | TECHNICALLY-COMPATIBLE | K8s 1.35 nằm trong cả Supported và Tested |
+| Kubernetes | `<exact patch vừa tra>` | `TECHNICALLY-COMPATIBLE` hoặc `VENDOR-SUPPORTED` | package pin cùng patch |
+| Rancher | `<exact chart/app vừa tra>` | theo Bước 12.1 | ghi topology và kết quả render |
+| Flannel | `<exact tag vừa tra>` | theo Bước 12.1 | upstream không công bố dải K8s; ghi kết quả CNI `VERSION` |
+| cert-manager | `<exact version vừa tra>` | theo Bước 12.1 | ghi dải Supported/Tested và lifecycle `DATE`/`EVENT` |
 
-- Ngày phải review lại baseline: 2026-08-16 (= ngày cài 2026-09-15 − 30, sớm hơn EOL 1.35 − 90 = 2026-11-30)
-- Quyết định đáng nhớ: loại K8s 1.34 vì ngày review tính ra 2026-07-30 — sớm hơn ngày tra cứu.
+Cuối phiếu ghi `BASELINE_TODAY`, ngày cài dự kiến, `REVIEW_DATE`, `LIMITING_CAUSE` và quyết định loại/giữ. Những giá trị này phải do Bước 0.1 và 12.2 tạo trong phiên đang làm việc.

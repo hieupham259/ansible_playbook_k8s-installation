@@ -63,7 +63,7 @@ printf 'Ngày tra: %s\nBắt đầu: %s\nMúi giờ: %s\n' \
   "$BASELINE_TODAY" "$BASELINE_SESSION_STARTED_AT" "$BASELINE_TIMEZONE"
 ```
 
-Nếu phiên qua nửa đêm, chạy lại và thêm một dòng lịch sử phiên. Ngày cài dự kiến là đầu vào riêng, không tự gán bằng `BASELINE_TODAY`.
+Phiên tra cứu được phép kéo dài nhiều ngày. Mỗi ngày làm việc chạy lại khối trên để `BASELINE_TODAY` luôn đúng là ngày hiện tại; dòng `- Ngày bắt đầu:` của phiếu giữ nguyên ngày mở phiếu, không sửa theo. Bảng C ghi ngày tra thật của từng dòng bằng chứng, và Bước 12.2 chỉ nhận ngày nằm trong khoảng `[Ngày bắt đầu, BASELINE_TODAY]` dài tối đa **14 ngày** — quá hạn thì phải tra lại bằng chứng cũ, không được sửa ngày cho vừa. Ngày cài dự kiến là đầu vào riêng, không tự gán bằng `BASELINE_TODAY`.
 
 ### 0.2. Công cụ
 
@@ -72,7 +72,7 @@ Cần browser và shell Linux/WSL có các lệnh sau:
 ```bash
 (
   missing=0
-  for c in curl jq helm python3 grep sed sort awk tr uniq date cat find mkdir rm tail touch wc; do
+  for c in curl jq helm python3 grep sed sort awk tr uniq date cat find mkdir rm tail wc; do
     command -v "$c" >/dev/null || { echo "THIẾU: $c"; missing=$((missing + 1)); }
   done
   test "${BASH_VERSINFO[0]:-0}" -ge 4 \
@@ -82,7 +82,12 @@ Cần browser và shell Linux/WSL có các lệnh sau:
 )
 ```
 
-Helm phải đạt **tối thiểu 3.8.0**: từ bản đó OCI mới được bật mặc định, mà Bước 6 đọc chart cert-manager qua `oci://`. Đây là gate bootstrap, khác với gate ở Bước 11 (Helm phải đúng exact version của candidate `SELECTED`).
+Helm phải là **3.x** và **tối thiểu 3.8.0**. Hai ràng buộc, hai lý do khác nhau — đừng gộp:
+
+- **major = 3** là ràng buộc của **vendor**, không phải của Helm. [Rancher Helm Version Requirements](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/helm-version-requirements) chỉ công nhận "any Helm v3 version that is officially compatible with the Kubernetes version range you are using". Helm 4 đã GA và là nhánh hiện hành của upstream, nhưng Rancher chưa công bố nó, nên topology của file này vẫn khóa ở 3.x. Khi Rancher công bố Helm 4, sửa gate này trước; không lách bằng cách bỏ qua nó.
+- **>= 3.8.0** là ràng buộc kỹ thuật: từ bản đó OCI mới được bật mặc định (release notes v3.8.0 — *"OCI registry support for charts is now generally available. It has graduated out of being an experiment"*, kèm commit "Removing all the checks for oci experimental flag"), mà Bước 6 đọc chart cert-manager qua `oci://`.
+
+Đây là gate bootstrap, khác với gate ở Bước 11 (Helm phải đúng exact version của candidate `SELECTED`).
 
 ```bash
 (
@@ -104,7 +109,7 @@ Bước 4 phải chạy trên Ubuntu **cùng release và architecture với node
 ```bash
 (
   missing=0
-  for c in apt-get apt-cache dpkg; do
+  for c in sudo apt-get apt-cache dpkg; do
     command -v "$c" >/dev/null || { echo "THIẾU: $c"; missing=$((missing + 1)); }
   done
   test "$missing" -eq 0 || { echo "FAIL: thiếu $missing công cụ cho Bước 4"; exit 1; }
@@ -138,7 +143,7 @@ Tạo file trên từ template sau. Ô không áp dụng ghi `N/A`; không xóa 
 - Hướng: TECHNICALLY-COMPATIBLE
 - OS: Ubuntu ___ | Architecture: ___
 - Topology: kubeadm + Flannel + Traefik Ingress + cert-manager + Rancher trên cùng cluster
-- Pod CIDR: ___ | Service CIDR: ___ | LAN CIDR: ___
+- Network/CIDR: OUT-OF-SCOPE — kiểm tra không chồng lấn trong runbook cài đặt
 - Addon: ___
 
 ## B. Candidate pipeline
@@ -196,7 +201,11 @@ Gate=FINAL-RENDER
 
 Cột `Kết quả` của bảng C chỉ nhận **đúng một** trong ba chuỗi: `PASS`, `N/A`, `ELIMINATED`. Sắc thái — `Supported-not-tested`, `NO-PUBLISHED-K8S-RANGE`, `MONTH-PROXY`, `DEFERRED-TO-INSTALL-TEST` — ghi ở cột `Ghi chú`. Ghép sắc thái vào cột `Kết quả` (ví dụ `PASS (Supported-not-tested)`) sẽ làm semantic gate ở Bước 12 báo thiếu gate, vì nó so cột này bằng chuỗi chính xác.
 
-Ô chứa nhiều giá trị dùng đúng dấu phân tách ` / ` (khoảng trắng — gạch chéo — khoảng trắng) và đúng thứ tự nêu ở tiêu đề cột: `chart / app`, `package / upstream`. Bước 12 đối chiếu bảng D với dòng `SELECTED` bằng chuỗi chính xác, nên `2.14.3 / v2.14.3` và `2.14.3/v2.14.3` là hai giá trị khác nhau. Thông tin **không** nằm trong tiêu đề cột — config generation của containerd, trạng thái Tested của cert-manager — ghi ở cột `Ghi chú`, không nhét vào ô version.
+Ô chứa nhiều giá trị dùng đúng dấu phân tách ` / ` (khoảng trắng — gạch chéo — khoảng trắng) và đúng thứ tự nêu ở tiêu đề cột: `chart / app` cho Rancher và Traefik, `package / upstream` cho containerd, `flannel / addon` cho cột `Flannel/addon`. Cột `Flannel/addon` **luôn** có hai phần; không dùng addon thì ghi `<flannel tag> / N/A`. Bước 12 đối chiếu bảng D với dòng `SELECTED` bằng chuỗi chính xác, nên `2.14.3 / v2.14.3` và `2.14.3/v2.14.3` là hai giá trị khác nhau. Thông tin **không** nằm trong tiêu đề cột — config generation của containerd, trạng thái Tested của cert-manager — ghi ở cột `Ghi chú`, không nhét vào ô version.
+
+Không ô nào của bảng B và bảng C được để trống, kể cả cột `Ghi chú`: gate ở Bước 9.2 và 12.2 coi ô rỗng là lỗi schema. Ô không áp dụng ghi `N/A`.
+
+Khi một candidate bị loại, hai ô cuối của dòng nhận `State` = `ELIMINATED` và `Gate/lý do` = `Gate=<TÊN> — <lý do>`. Bảng B chỉ có hai cột cho phần này, nên **không** được gõ `ELIMINATED | Gate=<TÊN> | <lý do>` thành một chuỗi: mỗi `|` tạo thêm một ô và gate schema sẽ báo `số-cột=15`. Dùng em dash để ngăn tên gate với lý do.
 
 **Đi tiếp khi:** phần A đầy đủ, mọi candidate row có ID duy nhất, chưa có dòng nào mang trạng thái `SELECTED`.
 
@@ -231,7 +240,7 @@ Không dùng một mảng chung cho cả ba chart: lúc render cert-manager, CRD
 
 ---
 
-## Bước 1 — Chọn mức cam kết và kiểm đầu vào mạng
+## Bước 1 — Chọn mức cam kết và chốt phạm vi
 
 ### 1.1. Không đánh đồng các khái niệm
 
@@ -245,26 +254,11 @@ Không dùng một mảng chung cho cả ba chart: lúc render cert-manager, CRD
 
 Topology cố định của file này là Rancher Manager trên kubeadm. Nếu yêu cầu `VENDOR-SUPPORTED` và SUSE support matrix không liệt kê kubeadm làm Manager host, ghi `HANDOFF-TO-RKE2/K3S-RUNBOOK` và kết thúc. Không đổi topology rồi tiếp tục các bước kubeadm.
 
-### 1.2. CIDR không chồng lấn
+### 1.2. Không dùng ngoại cảnh để lọc version
 
-Thay giá trị bằng đầu vào thật:
+CIDR, DNS, firewall, registry, tài nguyên VM và khả năng kết nối runtime không tham gia phép giao version của file này. Chúng được kiểm trong runbook cài đặt. Không được loại candidate hoặc kết luận `BLOCKED` ở đây vì một trong các đầu vào ngoại cảnh đó chưa sẵn sàng.
 
-```bash
-python3 - <<'PY'
-import ipaddress
-nets = {
-    "POD": "10.244.0.0/16",
-    "SERVICE": "10.96.0.0/12",
-    "LAN": "192.168.100.0/24",
-}
-parsed = {name: ipaddress.ip_network(value, strict=False) for name, value in nets.items()}
-for left, right in (("POD", "SERVICE"), ("POD", "LAN"), ("SERVICE", "LAN")):
-    result = "FAIL" if parsed[left].overlaps(parsed[right]) else "PASS"
-    print(left, right, result)
-PY
-```
-
-Đây là gate đầu vào toàn cục: có một dòng `FAIL` thì `BLOCKED`, vì đổi component version không giải quyết được.
+**Đi tiếp khi:** hướng đã chốt là `TECHNICALLY-COMPATIBLE`; topology vẫn là Rancher Manager trên kubeadm; không đưa điều kiện ngoài phạm vi vào bảng candidate.
 
 ---
 
@@ -308,7 +302,7 @@ Kiểm mọi patch là release final có thật:
 
 Nếu source official liệt kê patch nhưng API tạm thời không đọc được, dùng trang changelog/release official thứ hai để xác minh. Không loại candidate vì lỗi mạng; ghi `BLOCKED-UNVERIFIED` nếu không thể lấy bất kỳ bằng chứng official nào.
 
-**Ghi:** minor/patch/EOL vào bảng B; **và** mỗi candidate một dòng bảng C với `Kiểm tra` bắt đầu bằng `Gate=K8S-RELEASE`, `Kết quả` là `PASS`, kèm URL và `$BASELINE_TODAY`.
+**Ghi:** minor/patch/EOL vào bảng B; **và** mỗi candidate một dòng bảng C với `Kiểm tra` bắt đầu bằng `Gate=K8S-RELEASE`, `Kết quả` là `PASS`, `URL/artifact` là link release official, `Ngày tra` là ngày chạy khối trên. Cột `Ghi chú` ghi minor, exact patch và ngày EOL đọc được — không được để trống, Bước 12.2 coi ghi chú rỗng là evidence không hợp lệ.
 
 **Đi tiếp khi:** mỗi minor maintained có một ID, exact patch, EOL và bằng chứng final release; tất cả vẫn là `SURVIVE`.
 
@@ -362,10 +356,11 @@ helm template rancher rancher-stable/rancher \
 
 Điều kiện 4 (`kubeVersion` chứa candidate) phải đọc **bằng mắt** từ output `helm show chart`, không giao khoán cho lệnh `helm template`. Ràng buộc `kubeVersion` của chart Rancher trong thực tế thường chỉ có cận trên dạng `< 1.xx.0-0`; `--kube-version` vì vậy chỉ bắt được K8s quá mới, không bắt được K8s quá cũ. Điều kiện 5 đóng nửa dải còn thiếu. Việc dùng K8s range của matrix ở đây là một ràng buộc kỹ thuật bảo thủ; nó **không** nâng topology Rancher-on-kubeadm thành vendor-supported.
 
-Gặp chart đầu tiên đạt thì ghi chart/app vào dòng candidate và dừng duyệt Rancher cho dòng đó. Nếu không chart Rancher nào trong danh sách đạt, đổi candidate thành:
+Gặp chart đầu tiên đạt thì ghi chart/app vào dòng candidate và dừng duyệt Rancher cho dòng đó. Nếu không chart Rancher nào trong danh sách đạt, điền **hai ô cuối** của dòng candidate theo quy ước ở Bước 0.3:
 
 ```text
-ELIMINATED | Gate=RANCHER | không có Rancher stable còn lifecycle, kubeVersion và Manager K8s range cùng chứa K8s <version>
+State:       ELIMINATED
+Gate/lý do:  Gate=RANCHER — không có Rancher stable còn lifecycle, kubeVersion và Manager K8s range cùng chứa K8s <version>
 ```
 
 Không dừng pipeline nếu vẫn còn dòng `SURVIVE`.
@@ -374,25 +369,25 @@ Không dừng pipeline nếu vẫn còn dòng `SURVIVE`.
 
 #### Lưu evidence trang matrix bằng curl
 
-Trang matrix **không** render bằng JavaScript. URL gốc `.../support-matrix/all-supported-versions/` chỉ là stub vài trăm byte chứa meta-refresh redirect sang URL theo từng Rancher version (ví dụ `.../all-supported-versions/rancher-v2-14-3/`), và `curl -L` không follow meta-refresh — curl URL gốc vì vậy chỉ lưu được stub không có dữ liệu bảng. Trang đích là HTML tĩnh: curl thẳng URL theo version của **đúng exact Rancher minor đang kiểm** thì lưu được đầy đủ.
+Trang matrix **không** render bằng JavaScript. URL gốc `.../support-matrix/all-supported-versions/` hiện trả redirect sang một version mặc định; dùng URL đó làm evidence có thể lưu đúng HTML nhưng của **version khác candidate**. Vì vậy luôn dựng URL trang đích từ exact `RANCHER_VERSION`, rồi kiểm tiêu đề exact trong HTML.
 
 ```bash
 (
   : "${BASELINE_DIR:?chạy Bước 0.3}"
   : "${BASELINE_TODAY:?chạy Bước 0.1}"
-  # Slug theo đúng exact Rancher version đang kiểm, ví dụ rancher-v2-14-3;
-  # đọc từ thanh địa chỉ browser sau redirect, hoặc suy từ version: 2.14.3 -> rancher-v2-14-3.
-  RANCHER_MATRIX_SLUG='<rancher-v2-xx-y>'
-  case "$RANCHER_MATRIX_SLUG" in
-    '<'*) echo 'FAIL: chưa điền RANCHER_MATRIX_SLUG'; exit 1 ;;
-  esac
+  : "${RANCHER_VERSION:?export exact Rancher chart version đang kiểm ở Bước 3.2}"
+  [[ "$RANCHER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    || { echo "FAIL: RANCHER_VERSION không phải exact x.y.z: $RANCHER_VERSION"; exit 1; }
+  RANCHER_MATRIX_SLUG="rancher-v${RANCHER_VERSION//./-}"
   out="$BASELINE_DIR/suse-matrix-${RANCHER_MATRIX_SLUG}-${BASELINE_TODAY}.html"
   curl -fsSL \
     "https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/${RANCHER_MATRIX_SLUG}/" \
     -o "$out" || { echo 'FAIL: không tải được trang matrix'; exit 1; }
-  # Stub meta-refresh nghĩa là slug sai hoặc SUSE đổi cấu trúc URL — không giữ làm evidence.
-  if grep -qi 'http-equiv="refresh"' "$out" || ! grep -qi 'Rancher Manager' "$out"; then
-    echo "FAIL: $out là stub redirect hoặc không chứa bảng matrix; kiểm lại slug"
+  expected_heading="Rancher Manager v${RANCHER_VERSION}"
+  # Chỉ chuỗi chung "Rancher Manager" là chưa đủ: một trang hợp lệ của version khác
+  # vẫn có chuỗi đó và sẽ tạo PASS giả.
+  if grep -qi 'http-equiv="refresh"' "$out" || ! grep -Fqi "$expected_heading" "$out"; then
+    echo "FAIL: $out không chứa exact heading '$expected_heading'"
     rm -f "$out"
     exit 1
   fi
@@ -401,7 +396,7 @@ Trang matrix **không** render bằng JavaScript. URL gốc `.../support-matrix/
 )
 ```
 
-Ghi tên file evidence này vào cột `Ghi chú` của dòng `Gate=RANCHER`. Nếu khối trên FAIL kể cả với slug đúng (SUSE đổi cấu trúc URL/trang), rơi về cách thủ công: mở bằng browser, lưu screenshot cạnh phiếu và ghi tên file screenshot — đừng lưu HTML stub làm bằng chứng.
+Ghi tên file evidence này vào cột `Ghi chú` của dòng `Gate=RANCHER`. Nếu khối trên FAIL dù `RANCHER_VERSION` đúng (SUSE đổi cấu trúc URL/trang), rơi về cách thủ công: mở bằng browser, lưu screenshot cạnh phiếu và ghi tên file screenshot — đừng lưu HTML redirect hoặc matrix của version khác làm bằng chứng.
 
 **Đi tiếp khi:** mọi dòng `SURVIVE` đã có exact Rancher chart/app; mọi dòng không tìm được Rancher đã bị `ELIMINATED` với lý do.
 
@@ -471,7 +466,7 @@ Ba gói phải có version bắt đầu bằng exact K8s patch của candidate v
 
 Đọc đồng thời:
 
-- [Helm v3 Version Support Policy](https://helm.sh/docs/v3/topics/version_skew/);
+- [Helm v3 Version Support Policy](https://helm.sh/docs/v3/topics/version_skew/) — **giữ nguyên đoạn `/docs/v3/` trong URL**. URL không có `v3` nay trỏ sang tài liệu Helm 4 và bảng ở đó chỉ còn các dòng `4.x`; đọc nhầm bảng đó rồi chọn Helm cho một baseline khóa ở 3.x là sai nguồn ngay từ đầu;
 - [Rancher Helm Version Requirements](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/resources/helm-version-requirements);
 - release notes của exact Rancher chart/app đang gắn với candidate.
 
@@ -486,11 +481,28 @@ Tra exact patch theo minor đã chọn:
 
 ```bash
 export HELM_MINOR='<3.xx>'
-curl -fsSL 'https://api.github.com/repos/helm/helm/releases?per_page=100' \
-  | jq -r --arg prefix "v${HELM_MINOR}." \
-      '.[] | select((.prerelease or .draft) | not) | .tag_name | select(startswith($prefix))' \
-  | sort -V \
-  | tail -n 1
+```
+
+```bash
+(
+  set -u
+  case "$HELM_MINOR" in
+    '<'*) echo 'FAIL: chưa điền HELM_MINOR'; exit 1 ;;
+  esac
+  latest=''
+  # Một trang 100 release chỉ phủ khoảng hai năm gần nhất; minor cũ hơn sẽ rơi ra
+  # ngoài và lệnh cũ im lặng trả chuỗi rỗng thay vì FAIL.
+  for page in 1 2 3; do
+    batch="$(curl -fsSL "https://api.github.com/repos/helm/helm/releases?per_page=100&page=${page}" \
+      | jq -r --arg prefix "v${HELM_MINOR}." \
+          '.[] | select((.prerelease or .draft) | not) | .tag_name | select(startswith($prefix))')" \
+      || { echo "FAIL: không đọc được trang release $page"; exit 1; }
+    latest="$(printf '%s\n%s\n' "$latest" "$batch" | grep -v '^[[:space:]]*$' | sort -V | tail -n 1)"
+  done
+  test -n "$latest" \
+    || { echo "FAIL: không có release final nào của Helm $HELM_MINOR trong 300 release gần nhất"; exit 1; }
+  echo "PASS: Helm exact = $latest"
+)
 ```
 
 Không có Helm exact version thỏa cả K8s và Rancher thì `ELIMINATED | Gate=HELM`.
@@ -618,9 +630,9 @@ printf '{"cniVersion":"1.0.0"}' | CNI_COMMAND=VERSION /opt/cni/bin/portmap | jq
 
 (`/opt/cni/bin/portmap` đến từ bundle `containernetworking/plugins`, không do manifest Flannel cài. Nếu runbook cài đặt dùng portmap thì version bundle đó là một artifact phải chốt ở runbook ấy, không phải ở đây.)
 
-Bảng B **không** có cột riêng cho CNI VERSION: ô `Flannel/addon` chỉ giữ version. Token `DEFERRED-TO-INSTALL-TEST` nằm ở cột `Ghi chú` của dòng bảng C `Gate=FLANNEL` và ở cột `Ghi chú` dòng Flannel của bảng D.
+Bảng B **không** có cột riêng cho CNI VERSION: ô `Flannel/addon` chỉ giữ `<flannel tag> / <addon>`. Token `DEFERRED-TO-INSTALL-TEST` nằm ở cột `Ghi chú` của dòng bảng C `Gate=FLANNEL` và ở cột `Ghi chú` dòng Flannel của bảng D.
 
-**Ghi:** ô Flannel/addon của dòng candidate; **và** mỗi candidate một dòng bảng C `Gate=FLANNEL` — `PASS` hoặc `ELIMINATED`, cột `Ghi chú` chứa giá trị `"cniVersion"` đọc được, `NO-PUBLISHED-K8S-RANGE` và `DEFERRED-TO-INSTALL-TEST`.
+**Ghi:** ô Flannel/addon của dòng candidate theo dạng `flannel tag / addon` — phần thứ hai là `N/A` khi phần A không khai addon nào; **và** mỗi candidate một dòng bảng C `Gate=FLANNEL` — `PASS` hoặc `ELIMINATED`, cột `Ghi chú` chứa giá trị `"cniVersion"` đọc được, `NO-PUBLISHED-K8S-RANGE` và `DEFERRED-TO-INSTALL-TEST`.
 
 ### 8.2. Addon
 
@@ -641,7 +653,7 @@ curl -fsSL "https://api.github.com/repos/${ADDON_REPO}/releases/tags/${ADDON_TAG
   | jq '{tag: .tag_name, prerelease, draft}'
 ```
 
-Addon không dùng phải ghi `N/A`; không được để `PENDING`. Addon bắt buộc không tìm được version phù hợp thì loại candidate tại gate addon.
+Addon không dùng phải ghi `N/A` ở **phần thứ hai** của ô `Flannel/addon` trong bảng B và ở dòng `addon` của bảng D; không được để `PENDING`. Addon bắt buộc không tìm được version phù hợp thì loại candidate tại gate addon.
 
 **Ghi:** mỗi candidate một dòng bảng C `Gate=ADDON`. Dòng này **bắt buộc kể cả khi không dùng addon** — khi đó `Kết quả` là `N/A` và cột `Ghi chú` nêu phần A không khai addon nào. Bước 12 coi thiếu dòng này là lỗi.
 
@@ -660,29 +672,52 @@ Addon không dùng phải ghi `N/A`; không được để `PENDING`. Addon bắ
   : "${BASELINE_SHEET:?chưa chạy Bước 0.3}"
   test -f "$BASELINE_SHEET" || { echo "FAIL: không mở được phiếu $BASELINE_SHEET"; exit 1; }
 
-  rows="$(grep -Ec '^\| K[0-9][0-9] ' "$BASELINE_SHEET" || true)"
+  rows="$(awk -F'|' '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    /^## B[.] / { inside=1; next }
+    /^## C[.] / { inside=0 }
+    inside && /^\|/ && trim($2) ~ /^K[0-9][0-9]$/ { count++ }
+    END { print count + 0 }
+  ' "$BASELINE_SHEET")"
   test "${rows:-0}" -ge 1 \
     || { echo 'FAIL: không tìm thấy dòng candidate nào trong bảng B'; exit 1; }
 
   # ID trùng làm hai candidate dùng chung bằng chứng và RENDER_DIR — gate sau sẽ
   # đối chiếu nhầm dòng mà vẫn PASS. Bắt ở đây, trước khi tốn công xếp hạng.
-  dup_ids="$(grep -Eo '^\| K[0-9][0-9] ' "$BASELINE_SHEET" | tr -d '| ' | sort | uniq -d | tr '\n' ' ')"
+  dup_ids="$(awk -F'|' '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    /^## B[.] / { inside=1; next }
+    /^## C[.] / { inside=0 }
+    inside && /^\|/ && trim($2) ~ /^K[0-9][0-9]$/ { print trim($2) }
+  ' "$BASELINE_SHEET" | sort | uniq -d | tr '\n' ' ')"
   test -z "$dup_ids" \
     || { echo "FAIL: candidate ID trùng trong bảng B: $dup_ids"; exit 1; }
 
   # Bảng B có 14 cột; -F'|' đẩy chỉ số lên 1 vì dòng mở đầu bằng '|'.
-  # $6..$13 = Rancher, containerd, kube packages, Helm, cert-manager, Traefik,
-  # Flannel/addon, Lifecycle limit. $14 = State, $15 = Gate/lý do.
+  # $6..$12 = Rancher, containerd, kube packages, Helm, cert-manager, Traefik,
+  # Flannel/addon — đúng tập gate của Bước 3–8, và là tập duy nhất được quét ở đây.
+  # $13 = Lifecycle limit chỉ được tính ở Bước 9.2, tức là SAU gate này, nên quét nó
+  # sẽ làm mọi survivor luôn còn PENDING và Bước 9.1 không bao giờ PASS được.
+  # $14 = State, $15 = Gate/lý do.
   pending_gates="$(awk -F'|' '
-    /^\| K[0-9][0-9] / {
-      for (column = 6; column <= 13; column++) {
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    /^## B[.] / { inside=1; next }
+    /^## C[.] / { inside=0 }
+    inside && /^\|/ && trim($2) ~ /^K[0-9][0-9]$/ {
+      for (column = 6; column <= 12; column++) {
         if ($column ~ /PENDING/) count++
       }
     }
     END { print count + 0 }
   ' "$BASELINE_SHEET")"
 
-  survivors="$(grep -Ec '\|[[:space:]]*SURVIVE[[:space:]]*\|' "$BASELINE_SHEET" || true)"
+  survivors="$(awk -F'|' '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    /^## B[.] / { inside=1; next }
+    /^## C[.] / { inside=0 }
+    inside && /^\|/ && trim($14) == "SURVIVE" { count++ }
+    END { print count + 0 }
+  ' "$BASELINE_SHEET")"
   # Token bàn giao hợp lệ của gate CNI được gỡ trước khi đếm, xem quy tắc cứng số 4.
   blocked="$(sed 's/DEFERRED-TO-INSTALL-TEST//g' "$BASELINE_SHEET" \
     | grep -Ec 'BLOCKED-UNVERIFIED|CHƯA XÁC MINH|DEFERRED' || true)"
@@ -706,12 +741,17 @@ Nếu không còn candidate, kết luận `BLOCKED` phải kèm bảng loại đ
 
 Tính `Lifecycle limit` cho từng survivor bằng mốc sớm nhất trong:
 
-- Kubernetes EOL;
-- **Ubuntu standard support hoặc ESM của đúng subscription node sẽ có** (Bước 4.1);
-- Rancher EOL;
-- containerd/package coverage;
-- cert-manager EOL hoặc event proxy;
-- lifecycle bắt buộc khác của artifact đã chọn.
+- Kubernetes EOL — key `k8s`;
+- **Ubuntu standard support hoặc ESM của đúng subscription node sẽ có** (Bước 4.1) — key `ubuntu`;
+- Rancher EOL — key `rancher`;
+- containerd/package coverage — key `containerd`;
+- cert-manager EOL hoặc event proxy — key `cert-manager`;
+- coverage của ba gói `kubeadm/kubelet/kubectl` — key `kube-packages`;
+- maintenance của chart Traefik — key `traefik`;
+- maintenance của Flannel — key `flannel`;
+- lifecycle của addon đã khai — key `addon`.
+
+Năm key đầu là **bắt buộc**. Bốn key sau là **bắt buộc khi và chỉ khi** dòng tương ứng của bảng D có mốc lifecycle khác `N/A`; artifact không công bố mốc nào thì ghi `N/A` ở bảng D và không đưa key đó vào phép tính. Helm không có lifecycle riêng nên dòng Helm của bảng D luôn là `N/A` và không có key. Bước 12.1 chỉ nhận đúng chín key này, còn Bước 12.2 kiểm cả hai chiều: có mốc ở bảng D mà không tham gia phép tính là FAIL, và khai key cho một dòng ghi `N/A` cũng là FAIL. Không có ràng buộc hai chiều đó thì EOL của Traefik/Flannel/addon vẫn nằm trong bản phát hành nhưng không bao giờ ảnh hưởng tới `REVIEW_DATE`.
 
 Mốc Ubuntu giống nhau ở mọi candidate nên không phá được thế hòa, nhưng bỏ nó ra khỏi phép `min` là phát hành một baseline có OS hết support trước phần còn lại.
 
@@ -734,10 +774,38 @@ Xếp hạng theo thứ tự:
 ```bash
 (
   test -f "$BASELINE_SHEET" || { echo "FAIL: không mở được phiếu $BASELINE_SHEET"; exit 1; }
-  selected="$(grep -Ec '\|[[:space:]]*SELECTED[[:space:]]*\|' "$BASELINE_SHEET" || true)"
+  invalid_candidates="$(awk -F'|' '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    /^## B[.] / { inside=1; next }
+    /^## C[.] / { inside=0 }
+    inside && /^\|/ {
+      id=trim($2)
+      if (id == "ID" || id ~ /^---$/) next
+      errors=""
+      if (NF != 16) errors=errors " số-cột=" NF-2
+      if (id !~ /^K[0-9][0-9]$/) errors=errors " ID-sai"
+      for (column=2; column<=15; column++) if (trim($column) == "") errors=errors " cột-" column "-rỗng"
+      state=trim($14)
+      if (state != "SELECTED" && state != "RESERVE" && state != "ELIMINATED") errors=errors " state-sai=" state
+      if (errors != "") print "line " NR ":" errors
+    }
+  ' "$BASELINE_SHEET")"
+  if test -n "$invalid_candidates"; then
+    printf '%s\n' "$invalid_candidates"
+    echo 'FAIL: bảng B có candidate sai schema/trạng thái sau xếp hạng'
+    exit 1
+  fi
+
+  selected="$(awk -F'|' '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    /^## B[.] / { inside=1; next }
+    /^## C[.] / { inside=0 }
+    inside && /^\|/ && trim($14) == "SELECTED" { count++ }
+    END { print count + 0 }
+  ' "$BASELINE_SHEET")"
   test "${selected:-0}" -eq 1 \
     || { echo "FAIL: phải có đúng một SELECTED, hiện có ${selected:-0}"; exit 1; }
-  echo 'PASS: đúng một candidate SELECTED'
+  echo 'PASS: bảng B đúng schema; đúng một SELECTED; các dòng khác RESERVE/ELIMINATED'
 )
 ```
 
@@ -754,7 +822,7 @@ Chép từ dòng `SELECTED` sang bảng D, không tra/chọn version mới tại
 | Ubuntu | exact release + architecture | loại coverage (standard / ESM) |
 | containerd | `Debian package / upstream version` | **config generation** (`version = 2` hay `3`) và pocket |
 | Flannel | release tag | image tag flannel và CNI plugin; `CNI VERSION: DEFERRED-TO-INSTALL-TEST` |
-| Helm | exact release tag | — |
+| Helm | exact release tag | nhánh 3.x theo yêu cầu Rancher, và ghi rõ 3.x không còn là major hiện hành của upstream Helm |
 | cert-manager | exact release/chart tag | `Tested` hay `Supported-not-tested` |
 | Traefik | `chart version / appVersion` | provider đang dùng |
 | Rancher | `chart version / appVersion` | topology và kết quả render |
@@ -899,9 +967,54 @@ import sys
 
 src = Path(sys.argv[1]).resolve()
 out = Path(sys.argv[2]).resolve()
+api_versions_ref = re.compile(r"Capabilities\.APIVersions\b")
 has_token = re.compile(r"\bAPIVersions\.Has\b")
-has_literal = re.compile(r'APIVersions\.Has\s*(?:\(\s*)?"([^"]+)"')
+has_literal = re.compile(r'APIVersions\.Has\s*(?:\(\s*)?"([^"]+)"', re.DOTALL)
 lookup_token = re.compile(r"(?<![A-Za-z0-9_.])lookup\b")
+
+def template_actions(text, rel):
+    """Yield (start, action), ignoring }} inside Go-template strings/comments."""
+    pos = 0
+    while True:
+        start = text.find("{{", pos)
+        if start < 0:
+            return
+        i = start + 2
+        quote = None
+        escaped = False
+        comment = False
+        while i < len(text):
+            if comment:
+                if text.startswith("*/", i):
+                    comment = False
+                    i += 2
+                else:
+                    i += 1
+                continue
+            char = text[i]
+            if quote is not None:
+                if quote == '"' and escaped:
+                    escaped = False
+                elif quote == '"' and char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = None
+                i += 1
+                continue
+            if text.startswith("/*", i):
+                comment = True
+                i += 2
+                continue
+            if text.startswith("}}", i):
+                yield start, text[start:i + 2]
+                pos = i + 2
+                break
+            if char in ('"', '`'):
+                quote = char
+            i += 1
+        else:
+            lineno = text.count("\n", 0, start) + 1
+            raise SystemExit(f"FAIL: template action không đóng tại {rel}:{lineno}")
 
 asked = set()
 capability_sites = []
@@ -919,16 +1032,24 @@ for path in sorted(src.rglob("*")):
     except UnicodeDecodeError:
         continue
     chart = rel.parts[0]
-    for lineno, line in enumerate(text.splitlines(), 1):
-        if has_token.search(line):
-            capability_sites.append(f"{chart}\t{rel}:{lineno}\t{line.strip()}")
-            literals = list(has_literal.finditer(line))
+    # Parse toàn bộ {{ ... }} action thay vì từng dòng. Cách cũ bỏ sót khi
+    # `lookup` hoặc argument của APIVersions.Has nằm ở dòng kế tiếp.
+    for action_start, action in template_actions(text, rel):
+        lineno = text.count("\n", 0, action_start) + 1
+        display = " ".join(action.replace("\t", " ").split())
+        if has_token.search(action):
+            capability_sites.append(f"{chart}\t{rel}:{lineno}\t{display}")
+            literals = list(has_literal.finditer(action))
             for match in literals:
                 asked.add((chart, match.group(1)))
-            if has_token.search(has_literal.sub("", line)):
-                dynamic_sites.append(f"{rel}:{lineno}: {line.strip()}")
-        if "{{" in line and lookup_token.search(line):
-            lookup_sites.append(f"{chart}\t{rel}:{lineno}\t{line.strip()}")
+            if has_token.search(has_literal.sub("", action)):
+                dynamic_sites.append(f"{rel}:{lineno}: {display}")
+        elif api_versions_ref.search(action):
+            # Alias/assignment như `$apis := .Capabilities.APIVersions` có thể
+            # dẫn tới `$apis.Has ...` ở action khác; không đoán, bắt đọc tay.
+            dynamic_sites.append(f"{rel}:{lineno}: tham chiếu APIVersions gián tiếp: {display}")
+        if lookup_token.search(action):
+            lookup_sites.append(f"{chart}\t{rel}:{lineno}\t{display}")
 
 (out / "capability-sites.tsv").write_text(
     "\n".join(capability_sites) + ("\n" if capability_sites else ""), encoding="utf-8"
@@ -1088,6 +1209,7 @@ for key in sorted(lookup_sites):
         raise SystemExit(f"FAIL: {key} còn placeholder lý do")
 
 fingerprint_files = [
+    root / "capability-sites.tsv",
     root / "capabilities-asked.tsv",
     root / "capabilities-effective.tsv",
     root / "capability-expectations.tsv",
@@ -1115,7 +1237,7 @@ PY
 
 Nếu gate yêu cầu sửa một mảng API, **không được tiếp tục thẳng sang 11.3**. Chạy lại Bước 0.4, quay lại Bước 3 cho Rancher hoặc Bước 7 cho Traefik đối với **mọi candidate còn sống**, cập nhật lại bảng C/xếp hạng, rồi chạy lại Bước 10–11. Với cert-manager, chạy lại Bước 6 và Bước 10–11. Chỉ tiếp tục khi audit chạy lần hai mà không cần đổi mảng.
 
-**Ghi:** vào dòng `Gate=FINAL-RENDER` số cặp chart/API, toàn bộ expectation `PRESENT`/`ABSENT` và số điểm `lookup`. Lưu kèm năm artifact `capability-sites.tsv`, `capabilities-asked.tsv`, `capabilities-effective.tsv`, `capability-expectations.tsv`, `lookup-sites.tsv` và `lookup-expectations.tsv`.
+**Ghi:** vào dòng `Gate=FINAL-RENDER` số cặp chart/API, toàn bộ expectation `PRESENT`/`ABSENT` và số điểm `lookup`. Lưu kèm sáu artifact `capability-sites.tsv`, `capabilities-asked.tsv`, `capabilities-effective.tsv`, `capability-expectations.tsv`, `lookup-sites.tsv` và `lookup-expectations.tsv`.
 
 ### 11.3. Render
 
@@ -1123,8 +1245,10 @@ Nếu gate yêu cầu sửa một mảng API, **không được tiếp tục th�
 (
   set -euo pipefail
   : "${RENDER_DIR:?chạy Bước 11.1}"
+  : "${SELECTED_ID:?}"
   : "${K8S_VERSION:?}"; : "${RANCHER_VERSION:?}"
-  : "${CERT_MANAGER_VERSION:?}"; : "${TRAEFIK_CHART_VERSION:?}"
+  : "${HELM_VERSION:?}"; : "${CERT_MANAGER_VERSION:?}"
+  : "${TRAEFIK_CHART_VERSION:?}"
   rm -f "$RENDER_DIR/render-content.ok"
   for name in CERT_MANAGER_API_VERSIONS TRAEFIK_API_VERSIONS RANCHER_API_VERSIONS; do
     declare -p "$name" >/dev/null 2>&1 || { echo "FAIL: chưa có $name — chạy lại Bước 0.4"; exit 1; }
@@ -1140,6 +1264,13 @@ Nếu gate yêu cầu sửa một mảng API, **không được tiếp tục th�
   saved_versions="$(cat "$RENDER_DIR/capability-versions.snapshot")"
   test "$current_versions" = "$saved_versions" \
     || { echo 'FAIL: exact chart version đã đổi sau audit; chạy lại 11.2'; exit 1; }
+  actual_helm="$(helm version --template '{{.Version}}')"
+  test "$actual_helm" = "$HELM_VERSION" \
+    || { echo "FAIL: Helm thực tế $actual_helm khác HELM_VERSION=$HELM_VERSION"; exit 1; }
+  printf 'SELECTED_ID=%s\nK8S_VERSION=%s\nRANCHER_VERSION=%s\nHELM_VERSION=%s\nCERT_MANAGER_VERSION=%s\nTRAEFIK_CHART_VERSION=%s\n' \
+    "$SELECTED_ID" "$K8S_VERSION" "$RANCHER_VERSION" "$HELM_VERSION" \
+    "$CERT_MANAGER_VERSION" "$TRAEFIK_CHART_VERSION" \
+    > "$RENDER_DIR/render-inputs.snapshot"
   python3 - "$RENDER_DIR" <<'PY'
 from pathlib import Path
 import hashlib
@@ -1155,6 +1286,7 @@ if not expected:
     raise SystemExit("FAIL: capability-audit.ok thiếu AUDIT_SHA256")
 
 files = [
+    root / "capability-sites.tsv",
     root / "capabilities-asked.tsv",
     root / "capabilities-effective.tsv",
     root / "capability-expectations.tsv",
@@ -1278,6 +1410,7 @@ names = [
     "traefik-values.yaml",
     "rancher-values.yaml",
     "capability-audit.ok",
+    "render-inputs.snapshot",
 ]
 digest = hashlib.sha256()
 for name in names:
@@ -1300,7 +1433,7 @@ Hai gate "không có" (Gateway API, image tag động) dựa vào việc `grep` 
 
 Đối với Flannel và addon dạng manifest, dùng đúng file/tag đã kiểm ở Bước 8; không thay bằng URL `master` trong runbook cài đặt.
 
-Nếu render fail, đây là lỗi của tổ hợp đã chọn. Đổi dòng `SELECTED` thành `ELIMINATED | Gate=FINAL-RENDER`, nâng dòng `RESERVE` kế tiếp thành `SELECTED` và chạy lại Bước 10–11. Bước 10 export `SELECTED_ID` mới nên 11.1 tạo `RENDER_DIR` riêng cho candidate đó; bằng chứng của candidate vừa loại được giữ nguyên để đối chiếu. Chỉ `BLOCKED` khi đã thử hết reserve theo thứ tự xếp hạng. Khi một candidate render đạt, đổi mọi `RESERVE` còn lại thành `ELIMINATED | Gate=RANKING | thua candidate <ID>`.
+Nếu render fail, đây là lỗi của tổ hợp đã chọn. Đổi dòng `SELECTED` thành `ELIMINATED | Gate=FINAL-RENDER`, nâng dòng `RESERVE` kế tiếp thành `SELECTED` và chạy lại Bước 10–11. Bước 10 export `SELECTED_ID` mới nên 11.1 tạo `RENDER_DIR` riêng cho candidate đó; bằng chứng của candidate vừa loại được giữ nguyên để đối chiếu. Chỉ `BLOCKED` khi đã thử hết reserve theo thứ tự xếp hạng. Khi một candidate render đạt, đổi mọi `RESERVE` còn lại ở bảng B sang `State` = `ELIMINATED` và `Gate/lý do` = `Gate=RANKING — thua candidate <ID>`, đúng quy ước hai ô ở Bước 0.3. `RANKING` không phải gate kỹ thuật và không được thêm thành dòng ở bảng C.
 
 **Ghi:** thêm dòng `Gate=FINAL-RENDER` cho candidate vừa render vào bảng C, kèm `RENDER_DIR` và kết quả 11.2–11.4. Chỉ candidate có dòng bằng chứng này mới được phát hành.
 
@@ -1336,8 +1469,10 @@ export PLANNED_INSTALL_DATE='<YYYY-MM-DD>'
 # Chỉ component có mốc DATE-EXACT của candidate SELECTED.
 export DATE_EXACT_EOLS='<k8s=YYYY-MM-DD,ubuntu=YYYY-MM-DD,rancher=YYYY-MM-DD,containerd=YYYY-MM-DD>'
 # Component có MONTH-PROXY/EVENT-PROXY đã chuẩn hóa ở Bước 9.2.
-# Mỗi component chỉ xuất hiện ở đúng một trong hai biến; năm component bắt buộc là
-# k8s, ubuntu, rancher, containerd và cert-manager.
+# Mỗi component chỉ xuất hiện ở đúng một trong hai biến. Năm key bắt buộc là k8s,
+# ubuntu, rancher, containerd, cert-manager; bốn key tùy chọn là kube-packages,
+# traefik, flannel, addon — bắt buộc khai khi dòng bảng D tương ứng có mốc khác N/A.
+# Helm không có key vì lifecycle của nó luôn là N/A.
 export PROXY_LIMITS='<cert-manager=YYYY-MM-DD>'
 
 (
@@ -1386,9 +1521,15 @@ if duplicated:
                      ", ".join(sorted(duplicated)))
 
 required_limits = {"k8s", "ubuntu", "rancher", "containerd", "cert-manager"}
+# Tùy chọn ở đây chỉ có nghĩa "không phải lúc nào artifact cũng công bố mốc".
+# Bước 12.2 mới là chỗ ép: dòng bảng D nào có mốc khác N/A thì key phải có mặt.
+optional_limits = {"kube-packages", "traefik", "flannel", "addon"}
 missing = required_limits - (set(hard) | set(proxy))
 if missing:
     raise SystemExit("FAIL: thiếu lifecycle limit bắt buộc: " + ", ".join(sorted(missing)))
+unknown = (set(hard) | set(proxy)) - (required_limits | optional_limits)
+if unknown:
+    raise SystemExit("FAIL: lifecycle limit có component không được phép: " + ", ".join(sorted(unknown)))
 
 expired = {k: v for k, v in hard.items() if v <= install}
 if expired:
@@ -1416,6 +1557,10 @@ if review < today:
 # là thứ Bước 12.2 dùng để chứng minh giá trị trong phiếu đúng là giá trị vừa tính.
 computed = os.environ["REVIEW_COMPUTED"]
 with open(computed, "w", encoding="utf-8", newline="\n") as fh:
+    fh.write(f"BASELINE_TODAY={today}\n")
+    fh.write(f"PLANNED_INSTALL_DATE={install}\n")
+    fh.write(f"DATE_EXACT_EOLS={os.environ['DATE_EXACT_EOLS'].strip()}\n")
+    fh.write(f"PROXY_LIMITS={os.environ.get('PROXY_LIMITS', '').strip()}\n")
     fh.write(f"REVIEW_DATE={review}\n")
     fh.write(f"LIMITING_CAUSE={cause}\n")
 print(f"WROTE={computed}")
@@ -1430,19 +1575,24 @@ Baseline stale thì sửa **đúng thành phần trong `LIMITING_CAUSE`**: đổ
 
 Với cert-manager, cả hai minor đang supported thường mang EOL kiểu `EVENT` (`Release of 1.x`) không có lịch chắc chắn, nên `PROXY_LIMITS` của nó rơi về `BASELINE_TODAY + 90` và rất hay trở thành `LIMITING_CAUSE`. Đó là kết quả đúng, không phải lỗi nhập liệu.
 
-**Ghi:** chép nguyên văn `REVIEW_DATE` vào dòng `- Ngày review:` và `LIMITING_CAUSE` vào dòng `- Limiting cause:` ở cuối phần D. Bước 12.2 so hai dòng này với `review-computed.env` bằng chuỗi chính xác, nên gõ lại theo trí nhớ hoặc làm tròn ngày sẽ FAIL — đó là chủ đích.
+**Ghi:** chép nguyên văn `REVIEW_DATE` vào dòng `- Ngày review:` và `LIMITING_CAUSE` vào dòng `- Limiting cause:` ở cuối phần D. Bảng D phải ghi các lifecycle đã truyền vào phép tính theo đúng dạng `DATE-EXACT=YYYY-MM-DD`, `MONTH-PROXY=YYYY-MM-DD` hoặc `EVENT-PROXY=YYYY-MM-DD`; ngày bắt đầu và ngày cài dự kiến cũng phải đúng với input của phép tính. Bước 12.2 đối chiếu tất cả các giá trị này với `review-computed.env`, nên gõ lại theo trí nhớ hoặc làm tròn ngày sẽ FAIL — đó là chủ đích.
 
 ### 12.2. Gate phiếu
 
 ```bash
 (
   : "${BASELINE_SHEET:?chưa chạy Bước 0.3}"
+  : "${BASELINE_DIR:?chưa chạy Bước 0.3}"
+  : "${BASELINE_TODAY:?chưa chạy Bước 0.1}"
   test -f "$BASELINE_SHEET" \
     || { echo "FAIL: không mở được phiếu $BASELINE_SHEET"; exit 1; }
 
   failed=0
   fail() { printf 'FAIL\t%s\n' "$1"; failed=$((failed + 1)); }
   pass() { printf 'PASS\t%s\n' "$1"; }
+  sheet_value() {
+    sed -n "s/^- $1:[[:space:]]*//p" "$BASELINE_SHEET" | tr -d '\r' | sed 's/[[:space:]]*$//'
+  }
 
   if grep -n '___' "$BASELINE_SHEET"; then
     fail 'còn placeholder'
@@ -1451,6 +1601,36 @@ Với cert-manager, cả hai minor đang supported thường mang EOL kiểu `EV
   if grep -n '<BASELINE_TODAY>' "$BASELINE_SHEET"; then
     fail 'chưa thay placeholder ngày'
   fi
+
+  if test "$(sheet_value 'Hướng')" = 'TECHNICALLY-COMPATIBLE'; then
+    pass 'hướng phát hành đúng TECHNICALLY-COMPATIBLE'
+  else
+    fail "Hướng không hợp lệ: '$(sheet_value 'Hướng')'"
+  fi
+  if grep -Eq '^- OS: Ubuntu [^|[:space:]][^|]* \| Architecture: [^[:space:]].*$' "$BASELINE_SHEET"; then
+    pass 'OS release và architecture đã khai'
+  else
+    fail 'dòng OS phải có Ubuntu release và architecture'
+  fi
+  if grep -Fxq -- '- Topology: kubeadm + Flannel + Traefik Ingress + cert-manager + Rancher trên cùng cluster' "$BASELINE_SHEET"; then
+    pass 'topology khớp phạm vi runbook'
+  else
+    fail 'topology đã đổi khỏi phạm vi runbook'
+  fi
+  if grep -Fxq -- '- Network/CIDR: OUT-OF-SCOPE — kiểm tra không chồng lấn trong runbook cài đặt' "$BASELINE_SHEET"; then
+    pass 'CIDR được bàn giao, không tham gia gate version'
+  else
+    fail 'dòng bàn giao Network/CIDR đã bị đổi hoặc thiếu'
+  fi
+  if test -n "$(sheet_value 'Addon')"; then pass 'Addon đã khai'; else fail 'Addon rỗng'; fi
+  if test -n "$(sheet_value 'Candidate bị loại')"; then pass 'Danh sách candidate bị loại đã khai'; else fail 'Candidate bị loại rỗng'; fi
+  if test "$(sheet_value 'Kết luận phiên')" = 'SELECTED-CONDITIONAL'; then
+    pass 'Kết luận phiên là SELECTED-CONDITIONAL'
+  else
+    fail "Kết luận phiên phải là SELECTED-CONDITIONAL, hiện là '$(sheet_value 'Kết luận phiên')'"
+  fi
+  handoff_target="$(sed -n 's/^- HANDOFF: CNI VERSION test .*runbook nhận bàn giao:[[:space:]]*//p' "$BASELINE_SHEET" | tr -d '\r' | sed 's/[[:space:]]*$//')"
+  if test -n "$handoff_target"; then pass 'đã chỉ rõ runbook nhận CNI VERSION handoff'; else fail 'runbook nhận CNI VERSION handoff rỗng'; fi
 
   # Gỡ token bàn giao hợp lệ trước khi quét trạng thái dở dang (quy tắc cứng số 4).
   if sed 's/DEFERRED-TO-INSTALL-TEST//g' "$BASELINE_SHEET" \
@@ -1462,16 +1642,90 @@ Với cert-manager, cả hai minor đang supported thường mang EOL kiểu `EV
     fail 'thiếu dòng bàn giao CNI VERSION test sang runbook cài đặt'
   fi
 
-  # Ngày review và limiting cause phải đúng là giá trị Bước 12.1 vừa tính, không phải gõ tay.
-  sheet_value() {
-    sed -n "s/^- $1:[[:space:]]*//p" "$BASELINE_SHEET" | tr -d '\r' | sed 's/[[:space:]]*$//'
-  }
+  # Cửa sổ phiên: phiếu được mở ở 'Ngày bắt đầu' và phát hành trong ngày hiện tại.
+  # Bằng chứng chỉ hợp lệ khi ngày tra nằm trong cửa sổ đó, và cửa sổ không quá 14
+  # ngày — dài hơn thì trang official đã kịp đổi và phải tra lại, không sửa ngày.
+  got_start="$(sheet_value 'Ngày bắt đầu')"
+  start_epoch="$(date -d "$got_start" +%s 2>/dev/null || true)"
+  today_epoch="$(date -d "$BASELINE_TODAY" +%s 2>/dev/null || true)"
+  if test -n "$start_epoch" && test -n "$today_epoch" \
+     && test "$start_epoch" -le "$today_epoch" \
+     && test "$(( (today_epoch - start_epoch) / 86400 ))" -le 14; then
+    pass "cửa sổ phiên hợp lệ: $got_start → $BASELINE_TODAY"
+  else
+    fail "cửa sổ phiên không hợp lệ: Ngày bắt đầu='$got_start', hôm nay='$BASELINE_TODAY' (phải là ngày hợp lệ, cách nhau tối đa 14 ngày)"
+  fi
+
+  # Kiểm schema cho TOÀN BỘ bảng C, không chỉ ba cột đủ để đếm gate. Nếu bỏ
+  # đoạn này, một dòng PASS nhưng URL/ngày/ghi chú rỗng vẫn được tính là evidence.
+  invalid_evidence="$(awk -F'|' -v today="$BASELINE_TODAY" -v start="$got_start" '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    function gate_token(s, a) { split(s, a, /[[:space:]]+/); return a[1] }
+    BEGIN {
+      canonical["Gate=K8S-RELEASE"]=1; canonical["Gate=RANCHER"]=1
+      canonical["Gate=UBUNTU"]=1; canonical["Gate=CONTAINERD"]=1
+      canonical["Gate=KUBE-PACKAGES"]=1; canonical["Gate=HELM"]=1
+      canonical["Gate=CERT-MANAGER"]=1; canonical["Gate=TRAEFIK"]=1
+      canonical["Gate=FLANNEL"]=1; canonical["Gate=ADDON"]=1
+      canonical["Gate=FINAL-RENDER"]=1
+    }
+    /^## C[.] / { inside=1; next }
+    /^## D[.] / { inside=0 }
+    inside && /^\|/ {
+      step=trim($2); candidate=trim($3); check=trim($4); result=trim($5)
+      artifact=trim($6); checked=trim($7); note=trim($8)
+      if (step == "Bước" || step ~ /^---$/) next
+      gate=gate_token(check)
+      errors=""
+      if (step == "") errors=errors " step-rỗng"
+      if (candidate !~ /^(K[0-9][0-9]|ALL)$/) errors=errors " candidate-sai"
+      if (!(gate in canonical)) errors=errors " gate-không-chuẩn"
+      if (result !~ /^(PASS|N\/A|ELIMINATED)$/) errors=errors " result-sai"
+      if (candidate == "ALL" && gate != "Gate=UBUNTU") errors=errors " ALL-chỉ-dành-cho-UBUNTU"
+      if (result == "N/A" && gate != "Gate=ADDON") errors=errors " N/A-chỉ-dành-cho-ADDON"
+      if (artifact == "") errors=errors " artifact-rỗng"
+      if (start !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/)
+        errors=errors " ngày-bắt-đầu-của-phiếu-sai-định-dạng"
+      else if (checked !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/)
+        errors=errors " ngày-tra-sai-định-dạng"
+      else if (checked < start || checked > today)
+        errors=errors " ngày-tra-ngoài-cửa-sổ[" start ".." today "]"
+      if (note == "") errors=errors " ghi-chú-rỗng"
+      if (errors != "") print "line " NR ":" errors
+    }
+  ' "$BASELINE_SHEET")"
+  if test -z "$invalid_evidence"; then
+    pass 'mọi dòng bảng C đủ schema, artifact, ngày tra và ghi chú'
+  else
+    printf '%s\n' "$invalid_evidence"
+    fail 'bảng C có evidence không hợp lệ'
+  fi
+
+  # Ngày cài, ngày review và limiting cause phải đúng là dữ liệu Bước 12.1 vừa dùng/tính,
+  # không phải các giá trị được gõ độc lập vào phiếu. Bước 12.1 phải chạy trong chính
+  # ngày phát hành, nên BASELINE_TODAY của nó phải bằng BASELINE_TODAY của shell này.
   computed="${BASELINE_DIR:-.}/review-computed.env"
   if test -f "$computed"; then
+    want_today="$(sed -n 's/^BASELINE_TODAY=//p' "$computed" | tr -d '\r')"
+    want_install="$(sed -n 's/^PLANNED_INSTALL_DATE=//p' "$computed" | tr -d '\r')"
+    want_hard="$(sed -n 's/^DATE_EXACT_EOLS=//p' "$computed" | tr -d '\r')"
+    want_proxy="$(sed -n 's/^PROXY_LIMITS=//p' "$computed" | tr -d '\r')"
     want_review="$(sed -n 's/^REVIEW_DATE=//p' "$computed" | tr -d '\r')"
     want_cause="$(sed -n 's/^LIMITING_CAUSE=//p' "$computed" | tr -d '\r')"
+    test -n "$want_hard" || fail 'review-computed.env thiếu DATE_EXACT_EOLS'
+    got_install="$(sheet_value 'Ngày cài dự kiến')"
     got_review="$(sheet_value 'Ngày review')"
     got_cause="$(sheet_value 'Limiting cause')"
+    if test -n "$want_today" && test "$want_today" = "$BASELINE_TODAY"; then
+      pass "Bước 12.1 đã chạy trong chính ngày phát hành ($want_today)"
+    else
+      fail "ngày phát hành: Bước 12.1 tính với '$want_today', shell hiện tại là '$BASELINE_TODAY'"
+    fi
+    if test -n "$want_install" && test "$got_install" = "$want_install"; then
+      pass "Ngày cài dự kiến khớp Bước 12.1 ($want_install)"
+    else
+      fail "Ngày cài dự kiến: phiếu='$got_install' vs tính toán='$want_install'"
+    fi
     if test -n "$want_review" && test "$got_review" = "$want_review"; then
       pass "Ngày review khớp Bước 12.1 ($want_review)"
     else
@@ -1484,21 +1738,56 @@ Với cert-manager, cả hai minor đang supported thường mang EOL kiểu `EV
     fi
   else
     fail "chưa chạy Bước 12.1 — không thấy $computed"
+    want_hard=''
+    want_proxy=''
   fi
 
-  selected="$(grep -Ec '\|[[:space:]]*SELECTED[[:space:]]*\|' "$BASELINE_SHEET" || true)"
+  invalid_candidates="$(awk -F'|' '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    /^## B[.] / { inside=1; next }
+    /^## C[.] / { inside=0 }
+    inside && /^\|/ {
+      id=trim($2)
+      if (id == "ID" || id ~ /^---$/) next
+      errors=""
+      if (NF != 16) errors=errors " số-cột=" NF-2
+      if (id !~ /^K[0-9][0-9]$/) errors=errors " ID-sai"
+      for (column=2; column<=15; column++) if (trim($column) == "") errors=errors " cột-" column "-rỗng"
+      state=trim($14)
+      if (state != "SELECTED" && state != "ELIMINATED") errors=errors " state-sai=" state
+      if (errors != "") print "line " NR ":" errors
+    }
+  ' "$BASELINE_SHEET")"
+  if test -z "$invalid_candidates"; then
+    pass 'mọi dòng bảng B đúng schema và trạng thái phát hành'
+  else
+    printf '%s\n' "$invalid_candidates"
+    fail 'bảng B có candidate sai schema/trạng thái phát hành'
+  fi
+
+  selected="$(awk -F'|' '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    /^## B[.] / { inside=1; next }
+    /^## C[.] / { inside=0 }
+    inside && /^\|/ && trim($14) == "SELECTED" { count++ }
+    END { print count + 0 }
+  ' "$BASELINE_SHEET")"
   if test "${selected:-0}" -ne 1; then
     fail "số dòng SELECTED=${selected:-0}"
   fi
 
   selected_id="$(awk -F'|' '
     function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
-    trim($14) == "SELECTED" { print trim($2) }
+    /^## B[.] / { inside=1; next }
+    /^## C[.] / { inside=0 }
+    inside && /^\|/ && trim($14) == "SELECTED" { print trim($2) }
   ' "$BASELINE_SHEET")"
 
   mapfile -t candidate_ids < <(awk -F'|' '
     function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
-    /^\| K[0-9][0-9] / { print trim($2) }
+    /^## B[.] / { inside=1; next }
+    /^## C[.] / { inside=0 }
+    inside && /^\|/ && trim($2) ~ /^K[0-9][0-9]$/ { print trim($2) }
   ' "$BASELINE_SHEET")
   if test "${#candidate_ids[@]}" -eq 0; then
     fail 'bảng B không có candidate'
@@ -1509,6 +1798,31 @@ Với cert-manager, cả hai minor đang supported thường mang EOL kiểu `EV
     else
       pass "candidate ID duy nhất (${#candidate_ids[@]} dòng)"
     fi
+  fi
+
+  unknown_evidence="$(awk -F'|' '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    /^## B[.] / { section="B"; next }
+    /^## C[.] / { section="C"; next }
+    /^## D[.] / { section="D"; next }
+    section == "B" && /^\|/ && trim($2) ~ /^K[0-9][0-9]$/ { candidates[trim($2)]=1 }
+    section == "C" && /^\|/ {
+      candidate=trim($3)
+      if (candidate ~ /^K[0-9][0-9]$/ && !(candidate in candidates)) print "line " NR ": " candidate
+    }
+  ' "$BASELINE_SHEET")"
+  if test -z "$unknown_evidence"; then
+    pass 'mọi evidence Kxx tham chiếu candidate có thật'
+  else
+    printf '%s\n' "$unknown_evidence"
+    fail 'bảng C tham chiếu candidate không tồn tại'
+  fi
+
+  got_chosen="$(sheet_value 'Candidate được chọn')"
+  if test -n "$selected_id" && test "$got_chosen" = "$selected_id"; then
+    pass "Candidate được chọn khớp dòng SELECTED ($selected_id)"
+  else
+    fail "Candidate được chọn='$got_chosen' khác SELECTED='$selected_id'"
   fi
 
   # Mỗi candidate, kể cả candidate bị loại, phải có ít nhất một dòng bằng chứng.
@@ -1523,22 +1837,32 @@ Với cert-manager, cả hai minor đang supported thường mang EOL kiểu `EV
     if test "$n" -ge 1; then pass "candidate $id có bằng chứng"; else fail "candidate $id không có bằng chứng"; fi
   done
 
-  # Candidate SELECTED phải có đủ toàn bộ gate; Ubuntu có thể dùng Candidate=ALL.
+  # Candidate SELECTED phải có đúng một evidence cho mỗi gate. Chỉ Ubuntu được
+  # dùng Candidate=ALL; chỉ addon được dùng kết quả N/A.
   required_evidence=(K8S-RELEASE RANCHER UBUNTU CONTAINERD KUBE-PACKAGES HELM CERT-MANAGER TRAEFIK FLANNEL ADDON FINAL-RENDER)
   if test -n "$selected_id"; then
     for gate in "${required_evidence[@]}"; do
-      n="$(awk -F'|' -v wanted_id="$selected_id" -v wanted_gate="Gate=$gate" '
+      counts="$(awk -F'|' -v wanted_id="$selected_id" -v wanted_gate="Gate=$gate" -v gate_name="$gate" '
         function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+        function gate_token(s, a) { split(s, a, /[[:space:]]+/); return a[1] }
         /^## C[.] / { inside=1; next }
         /^## D[.] / { inside=0 }
         inside && /^\|/ {
           candidate=trim($3); check=trim($4); result=trim($5)
-          if ((candidate == wanted_id || candidate == "ALL") &&
-              index(check, wanted_gate) == 1 && result ~ /^(PASS|N\/A)$/) count++
+          same_candidate=(candidate == wanted_id || (gate_name == "UBUNTU" && candidate == "ALL"))
+          if (same_candidate && gate_token(check) == wanted_gate) {
+            total++
+            if (result == "PASS" || (gate_name == "ADDON" && result == "N/A")) valid++
+          }
         }
-        END { print count + 0 }
+        END { print total + 0, valid + 0 }
       ' "$BASELINE_SHEET")"
-      if test "$n" -ge 1; then pass "$selected_id có Gate=$gate"; else fail "$selected_id thiếu Gate=$gate PASS/N/A"; fi
+      read -r total valid <<< "$counts"
+      if test "$total" -eq 1 && test "$valid" -eq 1; then
+        pass "$selected_id có đúng một Gate=$gate hợp lệ"
+      else
+        fail "$selected_id Gate=$gate: total=$total valid=$valid (cần 1/1)"
+      fi
     done
   fi
 
@@ -1550,12 +1874,107 @@ Với cert-manager, cả hai minor đang supported thường mang EOL kiểu `EV
       inside && /^\|/ && trim($2) == wanted { print trim($3); exit }
     ' "$BASELINE_SHEET"
   }
+  release_lifecycle() {
+    awk -F'|' -v wanted="$1" '
+      function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+      /^## D[.] / { inside=1; next }
+      inside && /^## / { inside=0 }
+      inside && /^\|/ && trim($2) == wanted { print trim($4); exit }
+    ' "$BASELINE_SHEET"
+  }
   selected_field() {
     awk -F'|' -v column="$1" '
       function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
-      trim($14) == "SELECTED" { print trim($column); exit }
+      /^## B[.] / { inside=1; next }
+      /^## C[.] / { inside=0 }
+      inside && /^\|/ && trim($14) == "SELECTED" { print trim($column); exit }
     ' "$BASELINE_SHEET"
   }
+
+  # Khóa các input lifecycle đã dùng để tính review date vào đúng cột Lifecycle của
+  # bảng D. Nếu không có đối chiếu này, review-computed.env có thể thuộc một bộ ngày
+  # khác với bộ đang được phát hành.
+  lifecycle_component() {
+    case "$1" in
+      k8s) printf '%s\n' 'Kubernetes' ;;
+      kube-packages) printf '%s\n' 'kubeadm/kubelet/kubectl' ;;
+      ubuntu) printf '%s\n' 'Ubuntu' ;;
+      containerd) printf '%s\n' 'containerd' ;;
+      flannel) printf '%s\n' 'Flannel' ;;
+      cert-manager) printf '%s\n' 'cert-manager' ;;
+      traefik) printf '%s\n' 'Traefik' ;;
+      rancher) printf '%s\n' 'Rancher' ;;
+      addon) printf '%s\n' 'addon' ;;
+      *) return 1 ;;
+    esac
+  }
+  trim_ws() { printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
+
+  IFS=',' read -r -a hard_items <<< "$want_hard"
+  for item in "${hard_items[@]}"; do
+    test -n "$(trim_ws "$item")" || continue
+    key="$(trim_ws "${item%%=*}")"
+    value="$(trim_ws "${item#*=}")"
+    if component="$(lifecycle_component "$key")"; then
+      got_lifecycle="$(release_lifecycle "$component")"
+      if test "$got_lifecycle" = "DATE-EXACT=$value"; then
+        pass "$component lifecycle khớp DATE_EXACT_EOLS"
+      else
+        fail "$component lifecycle: D='$got_lifecycle' vs tính toán='DATE-EXACT=$value'"
+      fi
+    else
+      fail "DATE_EXACT_EOLS có component không được phép '$key'"
+    fi
+  done
+
+  IFS=',' read -r -a proxy_items <<< "$want_proxy"
+  for item in "${proxy_items[@]}"; do
+    test -n "$(trim_ws "$item")" || continue
+    key="$(trim_ws "${item%%=*}")"
+    value="$(trim_ws "${item#*=}")"
+    if component="$(lifecycle_component "$key")"; then
+      got_lifecycle="$(release_lifecycle "$component")"
+      if [[ "$got_lifecycle" =~ ^(MONTH-PROXY|EVENT-PROXY)=$value$ ]]; then
+        pass "$component lifecycle khớp PROXY_LIMITS"
+      else
+        fail "$component lifecycle: D='$got_lifecycle' vs proxy='$value'"
+      fi
+    else
+      fail "PROXY_LIMITS có component không được phép '$key'"
+    fi
+  done
+
+  # Chiều ngược lại: dòng bảng D nào có mốc lifecycle thì phải tham gia phép tính
+  # review date. Thiếu chiều này, EOL của kube packages/Traefik/Flannel/addon vẫn được
+  # phát hành nhưng không bao giờ kéo REVIEW_DATE về sớm hơn — xem Bước 9.2.
+  computed_keys=" $(printf '%s,%s' "$want_hard" "$want_proxy" \
+    | tr ',' '\n' | sed 's/=.*//; s/[[:space:]]//g' | grep -v '^$' | tr '\n' ' ')"
+  for spec in k8s:Kubernetes kube-packages:kubeadm/kubelet/kubectl ubuntu:Ubuntu \
+              containerd:containerd flannel:Flannel cert-manager:cert-manager \
+              traefik:Traefik rancher:Rancher addon:addon; do
+    key="${spec%%:*}"; component="${spec#*:}"
+    got_lifecycle="$(release_lifecycle "$component")"
+    case "$computed_keys" in
+      *" $key "*) in_calc=1 ;;
+      *) in_calc=0 ;;
+    esac
+    if test "$got_lifecycle" = 'N/A'; then
+      if test "$in_calc" -eq 0; then
+        pass "$component không công bố mốc lifecycle và không tham gia phép tính"
+      else
+        fail "$component ghi lifecycle N/A ở bảng D nhưng vẫn có key '$key' trong phép tính"
+      fi
+    elif test "$in_calc" -eq 1; then
+      pass "$component có mốc lifecycle và đã tham gia phép tính"
+    else
+      fail "$component có lifecycle '$got_lifecycle' ở bảng D nhưng không có key '$key' trong DATE_EXACT_EOLS/PROXY_LIMITS"
+    fi
+  done
+  if test "$(release_lifecycle Helm)" = 'N/A'; then
+    pass 'Helm không có lifecycle riêng, bảng D ghi N/A'
+  else
+    fail "dòng Helm của bảng D phải ghi lifecycle N/A, hiện là '$(release_lifecycle Helm)'"
+  fi
 
   required_components=(Kubernetes 'kubeadm/kubelet/kubectl' Ubuntu containerd Flannel Helm cert-manager Traefik Rancher addon)
   release_rows="$(awk -F'|' '
@@ -1631,14 +2050,22 @@ Với cert-manager, cả hai minor đang supported thường mang EOL kiểu `EV
   check_equal_to_selected Traefik 11
 
   flannel_addon="$(selected_field 12)"
-  for component in Flannel addon; do
-    release_value="$(release_exact "$component")"
-    if test -n "$release_value" && [[ "$flannel_addon" == *"$release_value"* ]]; then
-      pass "$component có trong ô Flannel/addon của SELECTED"
+  if [[ "$flannel_addon" == *' / '* ]]; then
+    selected_flannel="${flannel_addon%% / *}"
+    selected_addon="${flannel_addon#* / }"
+    if test -n "$selected_flannel" && test "$(release_exact Flannel)" = "$selected_flannel"; then
+      pass 'Flannel khớp chính xác phần thứ nhất của ô Flannel/addon'
     else
-      fail "$component='$release_value' không khớp ô SELECTED='$flannel_addon'"
+      fail "Flannel='$(release_exact Flannel)' khác '$selected_flannel'"
     fi
-  done
+    if test -n "$selected_addon" && test "$(release_exact addon)" = "$selected_addon"; then
+      pass 'addon khớp chính xác phần thứ hai của ô Flannel/addon'
+    else
+      fail "addon='$(release_exact addon)' khác '$selected_addon'"
+    fi
+  else
+    fail "ô Flannel/addon không dùng đúng delimiter ' / ': '$flannel_addon'"
+  fi
 
   # Khóa các biến đã thực sự dùng ở Bước 11 vào bảng D và candidate SELECTED.
   if test "${SELECTED_ID:-}" = "$selected_id"; then pass 'SELECTED_ID khớp phiếu'; else fail "SELECTED_ID='${SELECTED_ID:-}' khác '$selected_id'"; fi
@@ -1646,12 +2073,23 @@ Với cert-manager, cả hai minor đang supported thường mang EOL kiểu `EV
               'cert-manager:CERT_MANAGER_VERSION' 'Traefik:TRAEFIK_CHART_VERSION' 'Flannel:FLANNEL_VERSION'; do
     component="${spec%%:*}"; variable="${spec#*:}"; value="${!variable:-}"
     release_value="$(release_exact "$component")"
+    case "$component" in
+      Rancher|Traefik)
+        if [[ "$release_value" == *' / '* ]]; then
+          expected_value="${release_value%% / *}"
+        else
+          expected_value=''
+          fail "$component không dùng đúng định dạng 'chart / app': '$release_value'"
+        fi
+        ;;
+      *) expected_value="$release_value" ;;
+    esac
     if test -z "$value"; then
       fail "chưa export $variable"
-    elif [[ "$release_value" == *"$value"* ]]; then
-      pass "$variable=$value có trong bảng D"
+    elif test -n "$expected_value" && test "$value" = "$expected_value"; then
+      pass "$variable=$value khớp chính xác bảng D"
     else
-      fail "$variable=$value không khớp bảng D '$release_value'"
+      fail "$variable='$value' khác exact expected='$expected_value' từ bảng D '$release_value'"
     fi
   done
 
@@ -1674,9 +2112,25 @@ Với cert-manager, cả hai minor đang supported thường mang EOL kiểu `EV
   if python3 - "${RENDER_DIR:-/nonexistent}" <<'PY'
 from pathlib import Path
 import hashlib
+import os
 import sys
 
 root = Path(sys.argv[1])
+snapshot = {}
+snapshot_path = root / "render-inputs.snapshot"
+if snapshot_path.is_file():
+    for line in snapshot_path.read_text(encoding="utf-8").splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            snapshot[key] = value
+input_keys = [
+    "SELECTED_ID", "K8S_VERSION", "RANCHER_VERSION", "HELM_VERSION",
+    "CERT_MANAGER_VERSION", "TRAEFIK_CHART_VERSION",
+]
+for key in input_keys:
+    if not snapshot.get(key) or snapshot[key] != os.environ.get(key, ""):
+        raise SystemExit(1)
+
 audit_ok = root / "capability-audit.ok"
 audit_expected = ""
 if audit_ok.is_file():
@@ -1684,6 +2138,7 @@ if audit_ok.is_file():
         if line.startswith("AUDIT_SHA256="):
             audit_expected = line.split("=", 1)[1]
 audit_files = [
+    root / "capability-sites.tsv",
     root / "capabilities-asked.tsv", root / "capabilities-effective.tsv",
     root / "capability-expectations.tsv", root / "lookup-sites.tsv",
     root / "lookup-expectations.tsv", root / "capability-arrays.snapshot",
@@ -1710,7 +2165,7 @@ if ok.is_file():
 names = [
     "cert-manager-rendered.yaml", "traefik-rendered.yaml", "rancher-rendered.yaml",
     "cert-manager-values.yaml", "traefik-values.yaml", "rancher-values.yaml",
-    "capability-audit.ok",
+    "capability-audit.ok", "render-inputs.snapshot",
 ]
 digest = hashlib.sha256()
 for name in names:
@@ -1767,6 +2222,8 @@ Hoặc, sau khi vét hết candidate:
 ```text
 BLOCKED: không còn candidate; xem từng gate loại trong bảng B.
 ```
+
+Hai chuỗi trên là nội dung **bản phát hành**. Dòng `- Kết luận phiên:` trong phiếu chỉ mang đúng token `SELECTED-CONDITIONAL` (hoặc `BLOCKED`) — Bước 12.2 so bằng chuỗi chính xác, nên chép cả câu dài vào đó sẽ FAIL. Candidate ID đã nằm ở dòng `- Candidate được chọn:`, không lặp lại.
 
 ---
 

@@ -370,7 +370,38 @@ ELIMINATED | Gate=RANCHER | không có Rancher stable còn lifecycle, kubeVersio
 
 Không dừng pipeline nếu vẫn còn dòng `SURVIVE`.
 
-**Ghi:** ô Rancher của dòng candidate theo dạng `chart / app`; **và** mỗi candidate một dòng bảng C `Gate=RANCHER` — `PASS` kèm dải `kubeVersion` đọc được và K8s range của support matrix, hoặc `ELIMINATED` kèm lý do. Trang matrix render bằng JavaScript nên lưu screenshot cạnh phiếu và ghi tên file vào cột `Ghi chú`.
+**Ghi:** ô Rancher của dòng candidate theo dạng `chart / app`; **và** mỗi candidate một dòng bảng C `Gate=RANCHER` — `PASS` kèm dải `kubeVersion` đọc được và K8s range của support matrix, hoặc `ELIMINATED` kèm lý do. Lưu evidence của trang matrix cạnh phiếu và ghi tên file vào cột `Ghi chú`.
+
+#### Lưu evidence trang matrix bằng curl
+
+Trang matrix **không** render bằng JavaScript. URL gốc `.../support-matrix/all-supported-versions/` chỉ là stub vài trăm byte chứa meta-refresh redirect sang URL theo từng Rancher version (ví dụ `.../all-supported-versions/rancher-v2-14-3/`), và `curl -L` không follow meta-refresh — curl URL gốc vì vậy chỉ lưu được stub không có dữ liệu bảng. Trang đích là HTML tĩnh: curl thẳng URL theo version của **đúng exact Rancher minor đang kiểm** thì lưu được đầy đủ.
+
+```bash
+(
+  : "${BASELINE_DIR:?chạy Bước 0.3}"
+  : "${BASELINE_TODAY:?chạy Bước 0.1}"
+  # Slug theo đúng exact Rancher version đang kiểm, ví dụ rancher-v2-14-3;
+  # đọc từ thanh địa chỉ browser sau redirect, hoặc suy từ version: 2.14.3 -> rancher-v2-14-3.
+  RANCHER_MATRIX_SLUG='<rancher-v2-xx-y>'
+  case "$RANCHER_MATRIX_SLUG" in
+    '<'*) echo 'FAIL: chưa điền RANCHER_MATRIX_SLUG'; exit 1 ;;
+  esac
+  out="$BASELINE_DIR/suse-matrix-${RANCHER_MATRIX_SLUG}-${BASELINE_TODAY}.html"
+  curl -fsSL \
+    "https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/${RANCHER_MATRIX_SLUG}/" \
+    -o "$out" || { echo 'FAIL: không tải được trang matrix'; exit 1; }
+  # Stub meta-refresh nghĩa là slug sai hoặc SUSE đổi cấu trúc URL — không giữ làm evidence.
+  if grep -qi 'http-equiv="refresh"' "$out" || ! grep -qi 'Rancher Manager' "$out"; then
+    echo "FAIL: $out là stub redirect hoặc không chứa bảng matrix; kiểm lại slug"
+    rm -f "$out"
+    exit 1
+  fi
+  wc -c "$out"
+  echo "PASS: đã lưu evidence matrix $out"
+)
+```
+
+Ghi tên file evidence này vào cột `Ghi chú` của dòng `Gate=RANCHER`. Nếu khối trên FAIL kể cả với slug đúng (SUSE đổi cấu trúc URL/trang), rơi về cách thủ công: mở bằng browser, lưu screenshot cạnh phiếu và ghi tên file screenshot — đừng lưu HTML stub làm bằng chứng.
 
 **Đi tiếp khi:** mọi dòng `SURVIVE` đã có exact Rancher chart/app; mọi dòng không tìm được Rancher đã bị `ELIMINATED` với lý do.
 

@@ -17,16 +17,14 @@ Mỗi thành phần chỉ dùng một trong bốn trạng thái:
 | Trạng thái | Ý nghĩa |
 | --- | --- |
 | `RUNNING` | Đã cài và smoke test thành công trên đúng cluster đích |
-| `VERIFIED` | Chưa cài, nhưng version/range hợp lệ và exact artifact đã được xác minh đúng cách mà Gate B quy định cho **loại artifact đó** |
+| `RENDERED` | Chưa cài, nhưng version/range hợp lệ và manifest hoặc Helm chart render thành công |
 | `PENDING` | Chưa đủ bằng chứng; tiếp tục kiểm đúng thành phần này |
 | `FAIL` | Có xung đột version hoặc phép thử thất bại |
-
-`VERIFIED` áp dụng cho mọi loại artifact, không riêng chart: chart render exit `0`, manifest đọc được tại exact tag, Debian package có trong APT `Packages` của đúng repo/suite/architecture, image resolve được digest. Một thành phần đã xác minh đủ nhưng chưa cài là `VERIFIED`, **không** phải `PENDING` — `PENDING` chỉ dành cho trường hợp còn thiếu bằng chứng. Trạng thái này trước đây tên là `RENDERED`; phiếu cũ ghi `RENDERED` đọc là `VERIFIED`.
 
 Quy tắc kết luận:
 
 - Bộ đang chạy: chấp nhận khi mọi thành phần bắt buộc là `RUNNING`.
-- Bộ chuẩn bị cài: chấp nhận có điều kiện khi mọi thành phần là `RUNNING` hoặc `VERIFIED`; sau khi cài phải đổi thành `RUNNING`.
+- Bộ chuẩn bị cài: chấp nhận có điều kiện khi mọi thành phần là `RUNNING` hoặc `RENDERED`; sau khi cài phải đổi thành `RUNNING`.
 - Một thành phần `PENDING` không làm các thành phần đã chạy trở thành không tương thích.
 - Một thành phần `FAIL` mới buộc đổi version hoặc cấu hình liên quan.
 
@@ -188,7 +186,7 @@ Kết luận cuối bảng dùng một trong ba câu:
 
 ```text
 READY-RUNNING: mọi component bắt buộc đã chạy và smoke test PASS.
-READY-CONDITIONAL: mọi component đã RUNNING/VERIFIED; còn phải install test các dòng VERIFIED.
+READY-CONDITIONAL: mọi component đã RUNNING/RENDERED; còn phải install test các dòng RENDERED.
 PARTIAL: các dòng RUNNING giữ nguyên; chỉ các dòng PENDING/FAIL cần xử lý.
 ```
 
@@ -212,9 +210,6 @@ Kiểm mọi cạnh áp dụng trong bảng sau:
 | Rancher chart → cert-manager | `ingress.tls.source=rancher` hoặc `letsEncrypt` | `S-RANCHER-INSTALL`, exact chart helper/metadata và render |
 | Traefik chart → Kubernetes | Có Traefik | `kubeVersion` từ exact chart |
 | Kubernetes → containerd | Luôn có containerd | `S-K8S-RUNTIME` và metadata/runtime containerd |
-| Flannel → Kubernetes | Có Flannel | `S-FLANNEL-RELEASES` và mọi `apiVersion` trong manifest tại exact tag |
-| local-path-provisioner → Kubernetes | Có local-path | `S-LOCALPATH-RELEASES` và mọi `apiVersion` trong manifest tại exact tag |
-| MetalLB → Kubernetes | Có MetalLB | `S-METALLB-RELEASES` và mọi `apiVersion` trong manifest tại exact tag |
 
 Với mỗi cạnh, ghi bốn trường:
 
@@ -243,7 +238,7 @@ Decision: PASS với Kubernetes 1.35.6
 
 Không ghi chung chung “compatible” hoặc chỉ `PASS`. Nếu upstream chỉ công bố một biên, biên còn lại ghi `NOT-PUBLISHED`; không tự suy diễn. Với ràng buộc capability như CRI v1, hai biên ghi `N/A-CAPABILITY`.
 
-Ba cạnh cuối là ca **upstream không công bố compatibility matrix**. Không tự động FAIL và cũng không bỏ trống cạnh: ghi `NOT-PUBLISHED` cho cả hai biên, rồi lấy bằng chứng thay thế bằng cách đọc mọi `apiVersion` trong manifest tại exact tag và đối chiếu với các API đã bị loại ở Kubernetes minor đang chọn. `Decision: PASS` khi không `apiVersion` nào bị loại; có một cái bị loại thì `FAIL`. Runtime test tương ứng ở Gate E mới chốt cạnh này thành `RUNNING`.
+Flannel không có Kubernetes matrix thì không tự động FAIL; kiểm manifest API và runtime test.
 
 ### Gate B — Exact artifact tồn tại
 
@@ -295,16 +290,6 @@ Chỉ render cert-manager, Traefik và Rancher. Không cần pull chart ra thư 
 
 Trong các lệnh dưới, `<KUBERNETES_VERSION>` dùng dạng `1.x.y` không có tiền tố `v`.
 
-Khai repo trước, vì Gate C và Gate D đều gọi chart qua alias `traefik/` và `rancher-stable/`. Bỏ bước này thì hai gate báo `repo traefik not found` chứ không phải lỗi version:
-
-```bash
-helm repo add traefik https://traefik.github.io/charts
-helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
-helm repo update
-```
-
-`rancher-stable` phải trỏ đúng channel đã chốt ở phiếu. Dùng channel khác thì đổi URL theo `S-RANCHER-CHANNEL`, đừng giữ nguyên alias. cert-manager gọi thẳng bằng OCI URL nên không cần repo.
-
 ```bash
 helm template cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --namespace cert-manager \
@@ -330,7 +315,7 @@ helm template rancher rancher-stable/rancher \
   --set certmanager.version=<CERT_MANAGER_VERSION> >/dev/null
 ```
 
-Exit code `0` là bằng chứng `VERIFIED` cho ba dòng chart. Render không thay thế install test.
+Exit code `0` là `RENDERED`. Render không thay thế install test.
 
 ### Gate D — Kiểm metadata bằng mắt
 
@@ -363,7 +348,7 @@ Thêm đúng một test theo chức năng:
 - cert-manager: ba Deployment Ready và webhook hoạt động;
 - Rancher: Deployment Ready, HTTPS nội bộ qua Traefik thành công và UI mở được.
 
-Khi test đạt, đổi `VERIFIED` thành `RUNNING`.
+Khi test đạt, đổi `RENDERED` thành `RUNNING`.
 
 ---
 
@@ -393,7 +378,7 @@ Chỉ mở nguồn liên quan tới candidate đang xét:
 | `S-LOCALPATH-RELEASES` | local-path exact release | <https://github.com/rancher/local-path-provisioner/releases> |
 | `S-METALLB-RELEASES` | MetalLB exact release | <https://github.com/metallb/metallb/releases> |
 | `S-CLOUDFLARED-K8S` | Cloudflare Kubernetes selector `latest` | <https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/> |
-| `S-CLOUDFLARED-POLICY` | cloudflared support/update policy | <https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/> |
+| `S-CLOUDFLARED-POLICY` | cloudflared support/update policy | <https://developers.cloudflare.com/tunnel/downloads/> |
 
 Quy tắc pin URL:
 

@@ -673,6 +673,9 @@ sudo apt-get install -y \
   kubectl="$VER" \
   cri-tools="$CRI_TOOLS_VER"
 
+# `kubelet` từ repository Kubernetes kéo `kubernetes-cni` vào như dependency nên runbook này
+# không khai báo package đó riêng. Lab 00 khai báo và khóa chính xác version `kubernetes-cni`
+# để baseline của chuỗi lab có thể tái lập hoàn toàn.
 sudo apt-mark hold kubelet kubeadm kubectl cri-tools   # ghim version, tránh apt upgrade làm vỡ skew
 sudo systemctl enable --now kubelet
 

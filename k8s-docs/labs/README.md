@@ -8,8 +8,10 @@ môi trường; tất cả đều bắt đầu từ một snapshot có tên.
 
 Lab 00 có một **biến thể** khóa vào baseline mới hơn:
 [LAB-00-MOI-TRUONG-1.35.7.md](LAB-00-MOI-TRUONG-1.35.7.md) (Kubernetes `v1.35.7`, Flannel
-`v0.28.9`, `runc 1.3.4`). Hai file cùng tạo snapshot `01-cluster-ready` và **loại trừ nhau** —
-chọn đúng một trước khi dựng cluster, rồi tra version ở bảng A1.3 của chính file đã chọn.
+`v0.28.9`, `runc 1.3.4`), kèm gate `01-cluster-ready` mở rộng thành bảy tầng — kiểm tới Pod
+xuyên node, DNS, Service/kube-proxy và `logs`/`exec`/`port-forward`. Hai file cùng tạo snapshot
+`01-cluster-ready` và **loại trừ nhau** — chọn đúng một trước khi dựng cluster, rồi tra version
+ở bảng A1.3 của chính file đã chọn.
 
 ---
 

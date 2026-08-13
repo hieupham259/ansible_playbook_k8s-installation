@@ -7,8 +7,10 @@
 
 File này là **biến thể** của [Lab 00](LAB-00-MOI-TRUONG.md), khóa vào bộ version đã tra bằng
 [runbook baseline](../../kubeadm-rancher-find-version/runbook-tra-cuu-baseline-phien-ban-k8s.md).
-Nội dung, thứ tự bước và tên gate giống hệt bản gốc; chỉ số phiên bản và các kiểm tra phụ
-thuộc phiên bản là khác.
+Các bước cài giữ nguyên thứ tự và tên mục của bản gốc. Khác hai chỗ: số phiên bản, và **gate
+A5.4 được mở rộng thành bảy tầng** theo mức verify của
+[runbook VMware §8](../../runbook-k8s-vmware.md) — bản gốc chỉ kiểm tới `Ready`, không chứng
+minh được Pod xuyên node, DNS, Service hay `exec` còn sống.
 
 ## File này là biến thể, không thay thế Lab 00
 
@@ -20,6 +22,7 @@ trước khi dựng cluster, rồi giữ nguyên lựa chọn đó cho toàn b�
 | Kubernetes | `v1.35.6` | `v1.35.7` |
 | Flannel | `v0.28.7` | `v0.28.9` |
 | `runc` | `1.3.3-0ubuntu1~24.04.3` | `1.3.4-0ubuntu1~24.04.1` |
+| Gate A5.4 | node `Ready` + Pod hệ thống | 7 tầng, tới `logs`/`exec`/`port-forward` |
 | Ngày đối chiếu | 05/08/2026 | 13/08/2026 |
 
 Snapshot giữ **nguyên tên `01-cluster-ready`** vì mọi lab sau đều lấy tên đó làm điểm bắt đầu;
@@ -60,14 +63,18 @@ Không suy ra từ đây rằng lab khác cũng được đi trước kiến th�
 
 - Ba VM chạy Ubuntu Server 24.04.4, liên lạc được hai chiều với nhau và với Windows host.
 - Một cluster Kubernetes v1.35.7 gồm một control plane và hai worker, tất cả `Ready`.
-- Snapshot `01-cluster-ready` trên cả ba VM, khôi phục được bất cứ lúc nào.
+- Cluster qua đủ **bảy tầng gate** ở A5.4: prereq OS, control plane, node/PodCIDR, Pod
+  networking xuyên node, DNS, Service/kube-proxy, và `logs`/`exec`/`port-forward`.
+- Snapshot `01-cluster-ready` trên cả ba VM, không còn resource test, khôi phục được bất cứ
+  lúc nào.
 
 Đây **không phải** bài học kiến thức. Không có checkpoint vấn đáp; chỉ có gate kỹ thuật.
 
 ### 1.1. Thời lượng
 
 - Dựng VM và cluster lần đầu: khoảng 2–4 giờ, phụ thuộc tốc độ tải image.
-- Khôi phục snapshot `01-cluster-ready` và chạy lại gate A5.4: khoảng 10 phút.
+- Chạy đủ bảy tầng gate A5.4 lần đầu: khoảng 20–30 phút.
+- Khôi phục snapshot `01-cluster-ready` và chạy gate ngắn ở A5.5: khoảng 5 phút.
 
 ---
 
@@ -184,6 +191,7 @@ các architecture trong cùng một suite, nên khi đối chiếu phải đọc
 | Image Flannel CNI plugin | `ghcr.io/flannel-io/flannel-cni-plugin:v1.9.1-flannel3` |
 | Pod CIDR | `10.244.0.0/16` |
 | Service CIDR | kubeadm mặc định `10.96.0.0/12` |
+| Image dùng cho gate A5.4 | `busybox:1.37` (digest amd64 list `sha256:9db7b599…`) |
 
 Repo `pkgs.k8s.io/core:/stable:/v1.35` chỉ phát hành **đúng một** version cho `cri-tools`
 (`1.35.0-1.1`) và `kubernetes-cni` (`1.8.0-1.1`); hai gói này không đi theo patch của
@@ -516,6 +524,7 @@ containerd --version
 runc --version | head -n 1
 dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' containerd runc
 systemctl is-active containerd
+systemctl is-enabled containerd
 sudo ctr plugins ls | grep 'io.containerd.cri.v1'
 grep -n 'SystemdCgroup = true' /etc/containerd/config.toml
 
@@ -528,8 +537,9 @@ else
 fi
 ```
 
-**PASS:** package version và `Architecture` khớp bảng A1.3 (`amd64`); containerd `active`;
-CRI plugin trạng thái `ok`; `SystemdCgroup = true`; output có
+**PASS:** package version và `Architecture` khớp bảng A1.3 (`amd64`); containerd vừa `active`
+vừa `enabled` — chưa `enabled` thì sau reboot hoặc sau restore snapshot runtime không lên và
+kubelet chết theo; CRI plugin trạng thái `ok`; `SystemdCgroup = true`; output có
 `PASS: disabled_plugins is not set`.
 
 ### A4.3. Cài kubeadm, kubelet, kubectl và crictl
@@ -581,13 +591,14 @@ dpkg-query -W -f='${Package} ${Version}\n' \
   kubernetes-cni cri-tools kubelet kubeadm kubectl
 apt-mark showhold | grep -E \
   '^(containerd|runc|kubernetes-cni|cri-tools|kubelet|kubeadm|kubectl)$'
+systemctl is-enabled kubelet
 sudo crictl version
 sudo crictl info | grep -i -A2 systemdCgroup
 ```
 
 **PASS:** ba Kubernetes binary là `v1.35.7`, crictl là `v1.35.0`, package CNI là
 `1.8.0-1.1`, `crictl version` báo `RuntimeApiVersion: v1`, `systemdCgroup` là `true` và toàn
-bộ package đã được hold.
+bộ package đã được hold; kubelet trả `enabled` để tự khởi động sau reboot.
 
 Kubelet có thể restart liên tục trước `kubeadm init/join`; đây là trạng thái dự kiến vì chưa
 có `/var/lib/kubelet/config.yaml`.
@@ -612,12 +623,28 @@ Chạy chỉ trên `lab-k8s-master`:
 
 ```bash
 KUBERNETES_VERSION="$(kubeadm version -o short)"
-test "$KUBERNETES_VERSION" = 'v1.35.7'
+echo "$KUBERNETES_VERSION"
 
-sudo kubeadm config images list --kubernetes-version "$KUBERNETES_VERSION"
-sudo kubeadm config images pull --kubernetes-version "$KUBERNETES_VERSION"
+# Gate fail-fast: bắt sai version TRƯỚC khi pull image và init.
+test "$KUBERNETES_VERSION" = 'v1.35.7' \
+  || echo "FAIL: expected kubeadm v1.35.7, got $KUBERNETES_VERSION" >&2
 
-sudo kubeadm init \
+# Hai lệnh dưới chỉ chạy khi gate trên đạt.
+test "$KUBERNETES_VERSION" = 'v1.35.7' \
+  && sudo kubeadm config images list --kubernetes-version "$KUBERNETES_VERSION" \
+  && sudo kubeadm config images pull --kubernetes-version "$KUBERNETES_VERSION"
+```
+
+**PASS:** `echo` in đúng `v1.35.7`; không thấy dòng `FAIL:`; `images pull` kết thúc không lỗi.
+Nếu thấy `FAIL:`, quay lại A4.3 cài đúng package `1.35.7-1.1` — không đi tiếp.
+
+Gate này dùng `&&` thay vì `exit 1`. `exit` trong phiên SSH tương tác sẽ đóng luôn phiên, còn
+`&&` chặn đúng lệnh nguy hiểm mà vẫn giữ session để sửa. Giữ `--kubernetes-version` ở cả
+`images pull` lẫn `init`: bỏ đi thì kubeadm có thể dò remote và chọn một patch khác với package
+đã cài.
+
+```bash
+test "$KUBERNETES_VERSION" = 'v1.35.7' && sudo kubeadm init \
   --kubernetes-version "$KUBERNETES_VERSION" \
   --control-plane-endpoint 'lab-k8s-master:6443' \
   --apiserver-advertise-address 192.168.100.221 \
@@ -676,24 +703,32 @@ chứa `ghcr.io/flannel-io/flannel:v0.28.9` và
 
 ### A5.3. Join hai worker
 
-Trên master, sinh lệnh join mới:
+Ba bước dưới đây chạy **đúng thứ tự này**. Verify trước, join sau — join khi worker chưa
+resolve được master sẽ để lại state bẩn phải `kubeadm reset` mới sửa được.
 
-```bash
-kubeadm token create --print-join-command
-```
-
-Copy nguyên lệnh được sinh và chạy bằng `sudo` trên `lab-k8s-worker1`, rồi
-`lab-k8s-worker2`.
-Trước khi join, verify trên từng worker:
+**Bước 1 — verify trên từng worker.** Chạy trên `lab-k8s-worker1`, rồi lặp lại y hệt trên
+`lab-k8s-worker2`:
 
 ```bash
 getent hosts lab-k8s-master
+ping -c 2 lab-k8s-master
 timeout 3 bash -c 'echo > /dev/tcp/lab-k8s-master/6443' \
   && echo 'PASS: API 6443 reachable' \
   || echo 'FAIL: API 6443 unreachable'
 ```
 
-Ví dụ hình dạng lệnh, không copy placeholder dưới đây:
+**PASS:** `getent` trả `192.168.100.221`; ping không mất gói; xuất hiện dòng
+`PASS: API 6443 reachable`. Nếu FAIL, sửa `/etc/hosts` (A2.3), IP (A3) hoặc firewall (A4.4)
+trước — **chưa chạy `kubeadm join`**.
+
+**Bước 2 — sinh lệnh join.** Chạy trên `lab-k8s-master`:
+
+```bash
+kubeadm token create --print-join-command
+```
+
+**Bước 3 — chạy lệnh vừa sinh bằng `sudo`** trên `lab-k8s-worker1`, rồi `lab-k8s-worker2`.
+Hình dạng lệnh như dưới; không copy placeholder này:
 
 ```bash
 sudo kubeadm join lab-k8s-master:6443 \
@@ -701,31 +736,297 @@ sudo kubeadm join lab-k8s-master:6443 \
   --discovery-token-ca-cert-hash sha256:<hash-thật>
 ```
 
+**PASS:** mỗi worker in `This node has joined the cluster`.
+
 ### A5.4. Gate `01-cluster-ready`
 
-Đây là gate được **mọi lab dùng chuỗi snapshot chính tham chiếu tới**. Chạy trên master:
+Đây là gate được **mọi lab dùng chuỗi snapshot chính tham chiếu tới**, nên nó phải chứng minh
+cluster *chạy được*, không chỉ *báo Ready*.
+
+> `STATUS = Ready` không đồng nghĩa cluster dùng được. Node vẫn `Ready` trong khi Pod ở hai
+> worker không gọi được nhau, DNS hỏng, hoặc `kubectl exec` chết. Ba thứ đó không hiện ra ở
+> `kubectl get nodes` — phải test riêng.
+
+Bảy tầng dưới đây đi **từ dưới lên**: tầng dưới fail thì tầng trên chắc chắn fail, đừng nhảy
+cóc. Chỉ A5.4.1 chạy trên cả ba node; còn lại chạy trên `lab-k8s-master`.
+
+Đây vẫn là gate kỹ thuật copy-paste, không phải bài học — Service, DNS và NodePort xuất hiện ở
+đây chỉ để chứng minh cluster khỏe, và được xoá sạch ở A5.4.8 trước khi chụp snapshot. Phần
+học thật về chúng nằm ở lab 5a và 5b.
+
+Image dùng cho toàn bộ test là `busybox:1.37` đã ghi ở bảng A1.3 — pin theo version, không dùng
+tag `latest`, và có sẵn `ping`, `nslookup`, `wget`, `httpd` nên không cần image thứ hai.
+
+#### A5.4.1. Tầng 0 — prereq OS còn đúng sau khi cluster chạy
+
+Chạy trên **cả ba node**:
+
+```bash
+swapon --show
+free -h | grep -i swap
+grep -nE '^[^#].*[[:space:]]swap[[:space:]]' /etc/fstab
+lsmod | grep -E '^(overlay|br_netfilter)'
+sysctl net.bridge.bridge-nf-call-iptables \
+  net.bridge.bridge-nf-call-ip6tables \
+  net.ipv4.ip_forward
+systemctl is-active containerd kubelet
+systemctl is-enabled containerd kubelet
+sudo crictl info | grep -i -A2 systemdCgroup
+timedatectl | grep -E 'synchronized|NTP service'
+kubelet --version
+kubeadm version -o short
+
+# Recheck identity sau khi cluster chạy; đối chiếu output của cả ba node.
+hostnamectl --static
+cat /etc/machine-id
+sudo cat /sys/class/dmi/id/product_uuid
+DEFAULT_IFACE="$(ip route | awk '/default/ {print $5; exit}')"
+ip -br link show "$DEFAULT_IFACE"
+```
+
+**PASS:** `swapon --show` và lệnh `grep` `/etc/fstab` không có output, Swap là `0B`; hai
+module có mặt; ba sysctl bằng `1`; **cả `containerd` lẫn `kubelet` đều `active` và `enabled`**
+— `active` chứng minh cluster đang chạy, `enabled` chứng minh nó còn chạy sau lần boot sau,
+tức là sau mỗi lần restore snapshot (khác A4.3, nơi kubelet được phép crashloop);
+`systemdCgroup: true`;
+`System clock synchronized: yes`; kubelet và kubeadm đều là `v1.35.7` trên cả ba node.
+Hostname phải đúng; `machine-id`, product UUID và MAC của interface giữ default route phải khác
+nhau giữa ba node.
+
+#### A5.4.2. Tầng 1 — control plane khỏe thật
+
+```bash
+kubectl get --raw='/readyz?verbose'
+kubectl get --raw='/livez?verbose'
+
+test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
+test "$(kubectl get --raw='/livez')"  = 'ok' && echo 'PASS: livez ok'
+
+# Lọc nhanh: bỏ mọi check đã "ok", chỉ còn dòng tổng kết nếu cluster khỏe.
+kubectl get --raw='/readyz?verbose' | grep -v ' ok$'
+
+kubectl -n kube-system get pods -o wide
+kubectl auth can-i '*' '*' --all-namespaces
+```
+
+etcd chạy dạng static pod trên master, tên Pod gắn với tên node:
+
+```bash
+kubectl -n kube-system exec etcd-lab-k8s-master -- etcdctl \
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key endpoint health
+```
+
+kubeadm cấp certificate hạn một năm; biết trước tốt hơn để cluster chết đột ngột:
+
+```bash
+sudo kubeadm certs check-expiration
+```
+
+**PASS:** mọi dòng `[+]<tên check>` trong output verbose kết thúc bằng ` ok`; hai dòng
+`PASS: readyz ok` và `PASS: livez ok` xuất hiện; lệnh lọc chỉ còn đúng một dòng
+`readyz check passed` — dòng tổng kết này không mang chữ `ok` nên còn lại là **bình thường**,
+còn dòng nào khác sót lại mới là check đang lỗi. Các Pod `etcd-`, `kube-apiserver-`,
+`kube-controller-manager-`, `kube-scheduler-` đều `Running` với `RESTARTS` thấp; `can-i` trả
+`yes`; etcd trả `is healthy`; `check-expiration` không có dòng nào đã hết hạn.
+
+#### A5.4.3. Tầng 2 — node, condition, taint và PodCIDR
 
 ```bash
 kubectl wait --for=condition=Ready node --all --timeout=180s
 kubectl get nodes -o wide
-kubectl get pods -A -o wide
 
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.nodeInfo.kubeletVersion}{"\t"}{.status.nodeInfo.containerRuntimeVersion}{"\n"}{end}'
 
-kubectl -n kube-system get deployment coredns
+# condition: ba *Pressure phải False, Ready phải True
+kubectl get nodes -o custom-columns='NODE:.metadata.name,TYPE:.status.conditions[*].type,VAL:.status.conditions[*].status'
+
+# taint: hai worker không được mang taint nào
+kubectl get nodes -o custom-columns='NODE:.metadata.name,TAINTS:.spec.taints'
+
+# PodCIDR: mỗi node phải được cấp một /24 riêng — Flannel dựa vào đây để dựng route
+kubectl get nodes -o custom-columns='NODE:.metadata.name,PODCIDR:.spec.podCIDR'
+
 kubectl -n kube-system get daemonset kube-proxy
 kubectl -n kube-flannel get daemonset kube-flannel-ds
+kubectl -n kube-flannel get pods -o wide
+
+# Headroom trước khi chạy các lab tiếp theo.
+kubectl describe nodes | grep -A6 'Allocated resources'
 ```
 
 **PASS:**
 
 - Cả ba node `Ready` và cùng kubelet `v1.35.7`.
 - `containerRuntimeVersion` của cả ba node bắt đầu bằng `containerd://2.2.1`.
-- Control plane có role `control-plane`; hai worker không mang role này.
-- Tất cả Pod hệ thống `Running`; CoreDNS có đủ replica `READY`.
-- `kube-proxy` và Flannel có một Pod sẵn sàng trên mỗi node.
+- Control plane có role `control-plane` và **vẫn giữ taint**
+  `node-role.kubernetes.io/control-plane:NoSchedule` — đây là giá trị đúng, **không gỡ**; gỡ
+  nó là đổi hành vi scheduling của mọi lab sau.
+- Hai worker không mang role `control-plane` và cột `TAINTS` của chúng là `<none>`.
+- Ba `*Pressure` là `False`, `Ready` là `True` trên cả ba node.
+- Ba node có ba PodCIDR `/24` **khác nhau**, đều nằm trong `10.244.0.0/16`.
+- `kube-proxy` và `kube-flannel-ds` mỗi cái có đúng **một Pod `Running` trên mỗi node**.
+- `Memory Requests` của mỗi node dưới khoảng 50% ở snapshot nền; nếu cao hơn, tìm workload
+  còn sót hoặc tăng RAM trước khi tiếp tục.
 
-Ghi baseline package trên từng node để có thể tái lập:
+#### A5.4.4. Tầng 3 — Pod networking xuyên node
+
+Tầng quan trọng nhất và hay bị bỏ qua nhất: cluster hỏng ở đây vẫn hiện `Ready` đủ ba node.
+
+Tạo file `nettest.yaml` trên master. `nodeName` ép mỗi Pod lên đúng một worker — để scheduler
+tự chọn thì hai Pod có thể rơi vào cùng một node và phép thử mất ý nghĩa:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nettest-w1
+  labels:
+    app: nettest
+spec:
+  nodeName: lab-k8s-worker1
+  containers:
+    - name: shell
+      image: busybox:1.37
+      command: ['sleep', '3600']
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nettest-w2
+  labels:
+    app: nettest
+spec:
+  nodeName: lab-k8s-worker2
+  containers:
+    - name: httpd
+      image: busybox:1.37
+      command:
+        - sh
+        - -c
+        - 'mkdir -p /www && echo nettest-w2-ok > /www/index.html && httpd -f -p 8080 -h /www'
+      ports:
+        - containerPort: 8080
+```
+
+```bash
+kubectl apply -f nettest.yaml
+kubectl wait --for=condition=Ready pod/nettest-w1 pod/nettest-w2 --timeout=180s
+kubectl get pod -l app=nettest -o wide
+
+BIP="$(kubectl get pod nettest-w2 -o jsonpath='{.status.podIP}')"
+echo "$BIP"
+
+# L3 — ICMP xuyên node qua VXLAN
+kubectl exec nettest-w1 -- ping -c 3 "$BIP"
+
+# L4 — TCP xuyên node; không phụ thuộc capability NET_RAW như ping
+kubectl exec nettest-w1 -- wget -q -O- "http://$BIP:8080" \
+  | grep -qx 'nettest-w2-ok' && echo 'PASS: cross-node TCP works'
+```
+
+**PASS:** hai Pod `1/1 Running`, `nettest-w1` trên `lab-k8s-worker1` và `nettest-w2` trên
+`lab-k8s-worker2` với Pod IP thuộc hai `/24` khác nhau; `ping` báo `0% packet loss`; xuất hiện
+dòng `PASS: cross-node TCP works`.
+
+Fail ở tầng này gần như luôn là một trong ba nguyên nhân: UDP `8472` bị chặn giữa các node,
+Flannel bind nhầm interface, hoặc `--pod-network-cidr` lúc `kubeadm init` không phải
+`10.244.0.0/16`.
+
+Giữ nguyên hai Pod này — tầng 4, 5 và 6 còn dùng `nettest-w1`.
+
+#### A5.4.5. Tầng 4 — DNS trong cluster và ra Internet
+
+```bash
+kubectl -n kube-system get deployment coredns
+kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide
+
+kubectl exec nettest-w1 -- nslookup kubernetes.default.svc.cluster.local \
+  | grep -q '10.96.0.1' && echo 'PASS: in-cluster DNS works'
+
+kubectl exec nettest-w1 -- nslookup registry.k8s.io >/dev/null \
+  && echo 'PASS: external DNS works'
+```
+
+**PASS:** CoreDNS đủ replica `READY`; cả hai dòng `PASS: ... DNS works` xuất hiện. DNS ra ngoài
+là bắt buộc — thiếu nó thì kubelet không kéo nổi image cho các lab sau.
+
+#### A5.4.6. Tầng 5 — Service, EndpointSlice và kube-proxy
+
+```bash
+kubectl -n kube-system get pods -l k8s-app=kube-proxy -o wide
+
+kubectl create deployment web --image=busybox:1.37 --replicas=3 \
+  -- sh -c 'mkdir -p /www && echo web-ok > /www/index.html && httpd -f -p 8080 -h /www'
+kubectl rollout status deploy/web --timeout=180s
+
+kubectl expose deploy web --port=80 --target-port=8080
+kubectl get endpointslice -l kubernetes.io/service-name=web
+
+# gọi Service bằng tên ngắn: xác nhận DNS Service + ClusterIP + kube-proxy cùng lúc
+kubectl exec nettest-w1 -- wget -q -O- http://web \
+  | grep -qx 'web-ok' && echo 'PASS: ClusterIP works'
+
+kubectl expose deploy web --name=web-np --type=NodePort --port=80 --target-port=8080
+NP="$(kubectl get svc web-np -o jsonpath='{.spec.ports[0].nodePort}')"
+for ip in 192.168.100.221 192.168.100.222 192.168.100.223; do
+  curl -s -o /dev/null -w "$ip -> %{http_code}\n" "http://$ip:$NP"
+done
+```
+
+**PASS:** `kube-proxy` có ba Pod `Running`; `endpointslice` liệt kê đủ Pod IP ở cột
+`ENDPOINTS`; dòng `PASS: ClusterIP works` xuất hiện; **cả ba IP đều trả `200`**. Chỉ 1/3 IP trả
+`200` nghĩa là NodePort không forward xuyên node — quay lại tầng 3 và A4.4.
+
+#### A5.4.7. Tầng 6 — đường control plane → kubelet
+
+`logs`, `exec` và `port-forward` đều đi qua apiserver → kubelet cổng `10250`. Tầng này đứt thì
+cluster vẫn deploy được app, nhưng mọi thao tác debug trong các lab sau sẽ chết.
+
+```bash
+DNS_POD="$(kubectl -n kube-system get pods -l k8s-app=kube-dns \
+  -o jsonpath='{.items[0].metadata.name}')"
+kubectl -n kube-system logs "$DNS_POD" --tail=5
+
+test "$(kubectl exec nettest-w1 -- hostname)" = 'nettest-w1' \
+  && echo 'PASS: kubectl exec works'
+
+kubectl port-forward svc/web 18080:80 >/tmp/lab00-pf.log 2>&1 &
+PF_PID=$!
+for i in $(seq 1 20); do
+  curl -fsS http://127.0.0.1:18080 >/dev/null 2>&1 && break
+  sleep 1
+done
+curl -s http://127.0.0.1:18080 | grep -qx 'web-ok' && echo 'PASS: port-forward works'
+kill "$PF_PID"
+```
+
+**PASS:** `logs` in ra log CoreDNS; hai dòng `PASS: kubectl exec works` và
+`PASS: port-forward works` xuất hiện.
+
+#### A5.4.8. Dọn resource test, ghi evidence và chụp snapshot
+
+Snapshot `01-cluster-ready` được khai báo là "không có workload", nên phải xoá sạch trước khi
+chụp:
+
+```bash
+kubectl delete -f nettest.yaml
+kubectl delete deploy web
+kubectl delete svc web web-np
+rm -f nettest.yaml /tmp/lab00-pf.log
+
+kubectl get pods -n default
+kubectl get svc -n default
+kubectl get pods -A
+```
+
+**PASS:** `kubectl get pods -n default` trả `No resources found in default namespace.`;
+`kubectl get svc -n default` chỉ còn Service `kubernetes`; `kubectl get pods -A` chỉ còn Pod
+của `kube-system` và `kube-flannel`, tất cả `Running`.
+
+Ghi baseline package trên **từng node** để có thể tái lập:
 
 ```bash
 mkdir -p ~/lab-evidence
@@ -748,8 +1049,25 @@ Tắt ba VM sạch sẽ và tạo snapshot VMware tên **`01-cluster-ready`** ch
 Chạy trước khi bắt đầu bất kỳ lab nào dùng chuỗi snapshot chính:
 
 1. Bật ba VM theo thứ tự master → worker 1 → worker 2.
-2. Chạy lại toàn bộ gate ở A5.4 (hoặc gate của snapshot mà lab đó khai báo là điểm bắt đầu).
+2. Chạy **gate ngắn** dưới đây trên master.
 3. Chỉ khi gate PASS mới sang phần nội dung của lab.
+
+Gate ngắn, không tạo resource nào:
+
+```bash
+kubectl wait --for=condition=Ready node --all --timeout=180s
+test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
+kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
+kubectl -n kube-system get deployment coredns
+kubectl get pods -n default
+```
+
+**PASS:** ba node `Ready`; dòng `PASS: readyz ok` xuất hiện; lệnh `--field-selector` trả
+`No resources found`; CoreDNS đủ replica `READY`; namespace `default` không còn Pod nào.
+
+Chạy **toàn bộ bảy tầng của A5.4** trong ba trường hợp: lần đầu dựng cluster, sau khi restore
+snapshot mà gate ngắn không PASS, và khi lab trước đó đã đụng vào mạng hoặc CNI. Ngoài ba
+trường hợp đó, gate ngắn là đủ.
 
 Nếu gate fail và không sửa được trong vài phút, tắt và restore **cả ba VM** về snapshot đầu
 vào rồi chạy lại. Không debug một cluster đã lệch state — thời gian đó nên dành cho bài học.
@@ -769,6 +1087,10 @@ mục troubleshooting của chính lab đó.
 | kubelet không register Node | `crictl version` | Runtime phải trả `RuntimeApiVersion: v1`; bỏ `cri` khỏi `disabled_plugins` rồi restart containerd |
 | Node `NotReady` sau join | Flannel Pod, kubelet log | Kiểm tra Pod CIDR, egress, module và sysctl |
 | Worker không join | DNS và TCP 6443 | Sửa `/etc/hosts`, IP/firewall; sinh token join mới |
+| Node `Ready` nhưng gate A5.4.4 fail | UDP `8472` giữa các node; interface Flannel bind; `--pod-network-cidr` | Mở UDP `8472` hoặc tắt UFW (A4.4); nếu `--pod-network-cidr` sai thì `kubeadm reset` rồi init lại |
+| Node thiếu PodCIDR ở A5.4.3 | `kubectl get nodes -o custom-columns=...PODCIDR` | `kubeadm init` chạy thiếu `--pod-network-cidr`; reset và init lại — không vá bằng cách sửa tay Node object |
+| `nslookup` ngoài Internet fail ở A5.4.5 | `getent hosts` trên node, egress của LAN | Sửa `nameservers` trong `/etc/netplan/01-static.yaml` (A3) rồi `netplan apply` |
+| NodePort chỉ 1/3 IP trả `200` | kube-proxy Pod, firewall, tầng 3 | Chạy lại A5.4.4 trước; nếu tầng 3 PASS thì kiểm UFW trên hai node còn lại |
 | Package không đúng revision | `apt-cache madison <pkg>` | Dừng; cập nhật bảng A1.3 sau khi đối chiếu changelog |
 | Package đúng tên nhưng khác version | `dpkg-query -W -f='${Architecture}\n'` | Đọc lại đúng dòng `amd64`; version Ubuntu khác nhau theo architecture |
 | Cluster lệch state không rõ nguyên nhân | — | Restore cả ba VM về snapshot đầu vào của lab |
@@ -789,3 +1111,4 @@ lab một control plane, nếu cần quay lại mốc `01-cluster-ready`, tắt 
 - [Ubuntu — runc package cho Noble (amd64)](https://packages.ubuntu.com/noble-updates/amd64/runc/download)
 - [Flannel — release v0.28.9](https://github.com/flannel-io/flannel/releases/tag/v0.28.9)
 - [Runbook tra cứu baseline phiên bản](../../kubeadm-rancher-find-version/runbook-tra-cuu-baseline-phien-ban-k8s.md)
+- [Runbook VMware — §8 Verify cụm](../../runbook-k8s-vmware.md) (nguồn của bảy tầng gate ở A5.4)

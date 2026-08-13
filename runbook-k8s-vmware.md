@@ -676,6 +676,14 @@ sudo apt-get install -y \
 # `kubelet` từ repository Kubernetes kéo `kubernetes-cni` vào như dependency nên runbook này
 # không khai báo package đó riêng. Lab 00 khai báo và khóa chính xác version `kubernetes-cni`
 # để baseline của chuỗi lab có thể tái lập hoàn toàn.
+#
+# Hệ quả nằm ở chính dòng hold bên dưới: nó KHÔNG hold `kubernetes-cni`. Dependency mà kubelet
+# khai chỉ là lower bound — `Depends: iptables (>= 1.4.21),kubernetes-cni (>= 1.2.0),mount,...`
+# — chứ không phải pin, nên khi repo `core:/stable:/v1.35` phát hành một `kubernetes-cni` mới,
+# `apt upgrade` sẽ nâng riêng gói này trong khi bốn gói kia đứng yên vì đã hold. Hiện repo chỉ
+# cung cấp đúng một version (`1.8.0-1.1`) nên chưa xảy ra; đây là rủi ro tái lập, không phải
+# lỗi đang có. Muốn khóa chặt như Lab 00 thì thêm `kubernetes-cni` vào cả lệnh `apt-get install`
+# ở trên, dòng `apt-mark hold` bên dưới, và lệnh `apt-mark showhold` ở phần verify.
 sudo apt-mark hold kubelet kubeadm kubectl cri-tools   # ghim version, tránh apt upgrade làm vỡ skew
 sudo systemctl enable --now kubelet
 

@@ -2817,7 +2817,8 @@ Verify dừng ở mức exit code, `cmp` và checksum là có chủ đích: imag
   # Lấy hai giá trị từ output bước 1.
   $Stamp          = '<STAMP>'
   $ExpectedSha256 = '<SHA256_CUA_FILE_TAR_GZ>'.ToLower()
-  $Dest           = "$env:USERPROFILE\k8s-backups"
+  $ProjectRoot    = 'E:\courses\Ansible\ansible_playbook_k8s-installation'
+  $Dest           = Join-Path $ProjectRoot 'k8s-backups'
   $Target         = Join-Path $Dest "$Stamp.tar.gz"
 
   if ($Stamp -eq '<STAMP>' -or $ExpectedSha256 -notmatch '^[0-9a-f]{64}$') {
@@ -2855,6 +2856,20 @@ Verify dừng ở mức exit code, `cmp` và checksum là có chủ đích: imag
 **PASS §14.0:** gate read-only đạt đủ điều kiện trên **và** bước 1 kết thúc bằng dòng `PASS: backup <STAMP> hợp lệ` với `$? = 0`, **và** bước 2 kết thúc bằng dòng `PASS: backup ngoài VM hợp lệ...`. Chỉ khi đó mới sang §14.1.
 
 ### 14.1. Cài cert-manager (Rancher cần để cấp TLS nội bộ)
+
+#### 14.1.1. Kiến thức nền — cert-manager là gì và vì sao Rancher cần nó
+
+Certificate (chứng chỉ TLS) là nền của HTTPS: một file chứa public key + tên miền, được một **CA** (Certificate Authority) ký xác nhận, nhờ đó client vừa mã hóa được kết nối vừa biết server "đúng là nó". Certificate có hạn dùng; hết hạn phải được cấp lại, không thì dịch vụ mất HTTPS vào một ngày ngẫu nhiên.
+
+Trong cluster, không chỉ trình duyệt của bạn cần HTTPS. Nhiều thành phần nói chuyện với nhau và phải chứng minh danh tính cho nhau: UI Rancher phục vụ HTTPS, agent Rancher phải xác minh server nó gọi có đúng là Rancher thật không, webhook cần certificate để API server tin nó. Làm tay nghĩa là sinh key, xin CA ký, nhét vào Secret, canh ngày hết hạn để làm lại — lặp cho từng thành phần.
+
+cert-manager tự động hóa đúng việc đó. Nó là một **controller** chạy trong cluster — quan sát trạng thái mong muốn rồi tự hành động cho khớp — và thêm vào Kubernetes các kind mới qua CRD: `Issuer`/`ClusterIssuer` khai báo "CA của tôi là ai", `Certificate` khai báo "cần certificate cho tên miền X, lưu vào Secret Y". Bạn chỉ khai báo mong muốn; cert-manager sinh key, xin Issuer ký, ghi kết quả vào Secret và tự gia hạn trước khi hết hạn.
+
+Trong mô hình của runbook này, HTTPS **công khai** (`https://rancher.hieupn.site` từ Internet) do Cloudflare lo ở edge ([§12](#12-tạo-cloudflare-tunnel-chạy-trong-cụm)–[§13](#13-trỏ-domain--kiểm-tra-trên-internet)) — phần đó không liên quan cert-manager. Nhưng **bên trong cluster**, Rancher vẫn phải phục vụ HTTPS thật: nó tạo một CA riêng rồi nhờ cert-manager cấp certificate từ CA đó cho chính nó, và `agentTLSMode: strict` trong values ở §14.3 làm agent **từ chối kết nối** nếu certificate không xác minh được. Chart Rancher vì vậy yêu cầu cert-manager có mặt trước — đó là lý do §14.1 đứng trước §14.3 và là nghĩa của cụm "cấp TLS nội bộ" trong tiêu đề mục.
+
+Release cert-manager gồm ba Deployment: `cert-manager` (controller chính — cấp và gia hạn certificate), `cert-manager-cainjector` (tiêm CA vào cấu hình các webhook cần tin nhau) và `cert-manager-webhook` (cổng validate mọi object `Certificate`/`Issuer` khi chúng được tạo). Mọi yêu cầu cấp certificate đi qua webhook, nên webhook chưa Ready thì yêu cầu của Rancher sẽ treo — vì vậy gate bên dưới bắt STOP khi nó chưa Ready.
+
+#### 14.1.2. Cài đặt và verify
 
 cert-manager `1.21` hỗ trợ và được test với Kubernetes `1.33–1.36`. Pin patch `v1.21.1` vì đây là patch hiện hành trong cùng minor và sửa các regression của `v1.21.0`. Dùng OCI chart chính thức — đây là nguồn được cert-manager khuyến nghị cho các bản mới:
 
@@ -2910,6 +2925,46 @@ kubectl run dns-check --rm -i --restart=Never --image=busybox:1.36 \
 ```
 
 **PASS §14.2:** CoreDNS rollout thành công, log không có lỗi parse/reload và lookup trong Pod trả đúng `$TRAEFIK_IP`. Giữ `coredns-before-rancher.yaml` để rollback bằng `kubectl apply -f coredns-before-rancher.yaml` rồi rollout lại CoreDNS. Nếu Service Traefik bị xoá/tạo lại và đổi ClusterIP, phải cập nhật entry này.
+
+#### 14.2.1. Giải thích sâu — split DNS, ý nghĩa từng lệnh và vì sao PASS phải là ClusterIP Traefik
+
+**Split DNS là gì.** Split DNS (split-horizon DNS) nghĩa là **cùng một hostname nhưng trả lời khác nhau tùy nơi hỏi**. Từ Internet, `rancher.hieupn.site` phân giải ra IP Cloudflare edge vì record được Proxied ([§13.1](#131-verify-dns-public-và-hiểu-vì-sao-kết-quả-là-ip-cloudflare)). Từ bên trong cluster, sau mục này, cùng hostname đó phân giải thẳng ra **ClusterIP của Traefik** — traffic đi tắt trong cluster, không bao giờ ra Internet.
+
+**Vì sao agent cần nó.** Rancher agent chạy **trong cluster** nhưng bắt buộc gọi đúng Server URL `https://rancher.hieupn.site` (giá trị `hostname` trong values [§14.3](#143-cài-rancher-helm-pin-2143)). Không có split DNS, agent hỏi CoreDNS → CoreDNS forward ra resolver công cộng → nhận IP Cloudflare → agent đi vòng ra Internet để gọi... chính cluster của nó. Đường vòng đó chết vì hai lớp độc lập, phân tích ở cuối mục.
+
+**Ý nghĩa từng lệnh chuẩn bị:**
+
+- `TRAEFIK_IP=$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.clusterIP}')` — đọc Service `traefik` trong namespace `traefik` và trích đúng field `.spec.clusterIP` bằng jsonpath (thay vì in cả bảng), gán vào biến shell. Đây là IP ảo ổn định của Traefik trong cluster — đích mà hostname phải trỏ tới. ClusterIP không đổi trong suốt đời Service, nhưng xoá/tạo lại Service là ra IP mới — nguồn gốc câu cảnh báo cuối gate PASS.
+- `printf 'Traefik ClusterIP: %s\n' "$TRAEFIK_IP"` — in IP ra màn hình để copy tay vào Corefile ở bước edit, vì bước đó mở editor tương tác, không tự thay biến được.
+- `kubectl -n kube-system get configmap coredns -o yaml > coredns-before-rancher.yaml` — **backup trước khi sửa.** Toàn bộ cấu hình CoreDNS (file `Corefile`) nằm trong ConfigMap `coredns` ở `kube-system`. File xuất ra chính là đường rollback mà gate PASS yêu cầu giữ; nhớ giới hạn đã nói ở [§14.0.1](#1401-backup-etcd-và-cấu-hình-trước-thay-đổi-lớn) — nó chỉ rollback được ConfigMap CoreDNS.
+- `kubectl -n kube-system edit configmap coredns` — mở ConfigMap trong editor để sửa `Corefile` trực tiếp. Lưu xong là ConfigMap đổi ngay trên API server, nhưng Pod CoreDNS **chưa** chắc đã dùng bản mới — vì thế mới cần rollout restart bên dưới.
+
+**Từng dòng trong khối `hosts`:**
+
+- `hosts` là plugin CoreDNS hoạt động như một bảng `/etc/hosts` tĩnh: query nào khớp tên trong bảng thì trả lời ngay tại chỗ, không hỏi ai nữa. Dòng entry khai báo ánh xạ `rancher.hieupn.site → ClusterIP Traefik`.
+- `ttl 60` — câu trả lời mang TTL 60 giây để client không cache quá lâu. Quan trọng vì nếu ClusterIP Traefik đổi, giá trị cũ chỉ sống tối đa 60 giây trong cache thay vì hàng giờ.
+- `fallthrough` — dòng **sống còn**. Nó bảo plugin: "tên nào *không* có trong bảng thì chuyển tiếp cho plugin phía sau xử lý". Thiếu nó, plugin `hosts` trở thành nguồn trả lời cuối cùng cho mọi tên nó phụ trách — mọi lookup không khớp (tức toàn bộ DNS còn lại của cluster và Internet) nhận NXDOMAIN. Quên dòng này là hỏng DNS cả cluster, không chỉ một hostname.
+- Vị trí "bên trong `.:53`, trước `forward . /etc/resolv.conf`" thể hiện đúng luồng xử lý: query chạm `hosts` trước, chỉ khi không khớp mới rơi xuống `forward` — đường thoát ra resolver ngoài.
+- Cảnh báo "hosts chỉ được xuất hiện một lần": Corefile có hai khối `hosts` trong cùng server block là lỗi parse — Pod CoreDNS crash-loop và DNS cluster sập. Vì vậy đã có khối `hosts` thì chỉ chèn thêm dòng entry vào khối đó.
+
+**Từng lệnh áp dụng và verify:**
+
+- `rollout restart deployment coredns` — buộc Deployment CoreDNS tạo Pod mới để nạp ConfigMap vừa sửa. Restart chủ động thay vì chờ cơ chế tự reload: thay đổi có hiệu lực ngay và xác định, và nếu Corefile sai cú pháp thì lỗi lộ ra **ngay bây giờ** dưới dạng Pod không lên được — không âm thầm phát nổ về sau.
+- `rollout status` — chờ và xác nhận Pod mới Ready. Corefile hỏng thì lệnh này không kết thúc vì Pod mới crash-loop: đây chính là gate phát hiện lỗi cấu hình.
+- `logs deployment/coredns --tail=50` — soát lỗi parse/reload mà rollout status không cho biết chi tiết. Log sạch + Pod Ready mới coi là CoreDNS đã nạp cấu hình mới thành công.
+- `kubectl run dns-check ...` — bài test quyết định, và phải test **từ trong một Pod**: chỉ Pod mới dùng cluster DNS (`/etc/resolv.conf` của Pod trỏ về Service `kube-dns`, tức CoreDNS). Chạy `nslookup` từ máy host hay từ VM sẽ hỏi resolver khác, không chứng minh được đường mà Rancher agent sẽ đi. Flags: `--restart=Never` tạo Pod trần thay vì Deployment; `--rm` tự xoá Pod sau khi lệnh kết thúc; `-i` hiện output ra terminal; `busybox:1.36` là image nhỏ có sẵn applet `nslookup`.
+
+**Vì sao PASS phải là ClusterIP Traefik, không phải IP Cloudflare.** Kết quả nslookup là bằng chứng trực tiếp cho biết entry `hosts` có chặn được query hay không:
+
+- **Trả ClusterIP Traefik** → query đã bị khối `hosts` bắt và trả lời nội bộ. Đường của agent từ giờ: agent → CoreDNS → ClusterIP Traefik → Traefik terminate TLS bằng certificate trong Secret `tls-rancher-ingress` (do CA riêng của Rancher ký, cert-manager cấp — [§14.1](#141-cài-cert-manager-rancher-cần-để-cấp-tls-nội-bộ)/[§14.3](#143-cài-rancher-helm-pin-2143)) → Ingress khớp host → Pod Rancher. Toàn bộ nằm trong cluster.
+- **Trả IP Cloudflare** (dạng `104.x.x.x`, `172.67.x.x`) → entry không có hiệu lực: query đã lọt qua hết bảng hosts (hoặc sửa sai chỗ/sai server block), rơi xuống `forward . /etc/resolv.conf`, ra resolver công cộng và nhận record Proxied của Cloudflare — kết quả y hệt như *chưa làm gì*.
+
+Nếu chấp nhận IP Cloudflare, agent sẽ chết vì hai lớp độc lập:
+
+1. **Cloudflare Access chặn.** [§14.5](#145-bảo-vệ-rancher-bằng-cloudflare-access-rồi-publish-qua-tunnel) đặt Cloudflare Access trước `rancher.hieupn.site` — mọi request phải qua xác thực SSO tương tác dành cho con người. Agent là process, không đăng nhập SSO được; nó nhận trang login HTML thay vì API Rancher, và đăng ký cluster thất bại.
+2. **TLS strict fail.** Values [§14.3](#143-cài-rancher-helm-pin-2143) đặt `agentTLSMode: strict`: agent bắt buộc xác minh certificate của server đúng là cert do CA nội bộ của Rancher ký. Đi qua Cloudflare edge, agent thấy certificate của Cloudflare — không phải cert Rancher — nên tự từ chối kết nối.
+
+Ngoài ra là hệ quả kiến trúc: traffic agent↔server của cùng một cluster mà đi vòng ra WAN thì vòng điều khiển nội bộ phụ thuộc vào Internet — mất mạng ngoài là agent mất liên lạc với server dù cả hai nằm cạnh nhau.
 
 ### 14.3. Cài Rancher (Helm, pin 2.14.3)
 

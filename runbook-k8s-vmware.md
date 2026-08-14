@@ -897,15 +897,28 @@ patch mới hơn package đang cài (ví dụ binary `v1.35.6` nhưng image `v1.
 KUBERNETES_VERSION="$(kubeadm version -o short)"
 echo "$KUBERNETES_VERSION"                    # PASS: v1.35.6
 
-# Gate của baseline này: dừng nếu node đang cài sai version
-test "$KUBERNETES_VERSION" = "v1.35.6" || {
-  echo "FAIL: expected kubeadm v1.35.6, got $KUBERNETES_VERSION" >&2
-  exit 1
-}
+# Subshell dừng gate khi version/list/pull lỗi nhưng không đóng phiên SSH cha.
+(
+  set -e
+  test "$KUBERNETES_VERSION" = "v1.35.6" || {
+    echo "FAIL: expected kubeadm v1.35.6, got $KUBERNETES_VERSION" >&2
+    exit 1
+  }
 
-# Xem trước và pull đúng bộ image của version vừa xác nhận
-sudo kubeadm config images list --kubernetes-version "$KUBERNETES_VERSION"
-sudo kubeadm config images pull --kubernetes-version "$KUBERNETES_VERSION"
+  # Xem trước và pull đúng bộ image của version vừa xác nhận.
+  sudo kubeadm config images list --kubernetes-version "$KUBERNETES_VERSION"
+  sudo kubeadm config images pull --kubernetes-version "$KUBERNETES_VERSION"
+)
+IMAGE_PULL_RC=$?
+
+if [ "$IMAGE_PULL_RC" -eq 0 ]; then
+  echo 'PASS: version kubeadm và bộ control-plane image đúng baseline'
+else
+  echo 'FAIL: gate version/image chưa đạt — KHÔNG chạy kubeadm init'
+fi
+
+# Trả đúng mã lỗi nhưng không đóng phiên SSH.
+( exit "$IMAGE_PULL_RC" )
 ```
 
 Khởi tạo control plane (lệnh chạy **vài phút** — kéo image + dựng etcd/control plane, **đừng ngắt giữa chừng**):
@@ -2722,16 +2735,124 @@ helm list -A | grep -E '(^|[[:space:]])(cert-manager|rancher)([[:space:]]|$)' ||
 kubectl get namespace cert-manager cattle-system --ignore-not-found
 ```
 
-**PASS §14.0** khi:
+**PASS gate read-only** khi:
 
 - Helm ≥ `3.18`; Kubernetes Client/Server = `v1.35.6`.
 - Cả 3 node `Ready`, metrics trả đủ 3 node và memory requests còn dưới khoảng 50% trước khi cài.
 - Tài khoản hiện tại có `cluster-admin` (`yes`).
 - Traefik và hai Pod `cloudflared` đều `Running`; IngressClass `traefik` tồn tại.
 - Hai lệnh cuối không phát hiện cài đặt Rancher/cert-manager cũ. Namespace tồn tại nhưng Helm release không tồn tại cũng phải được điều tra trước, không mặc định tái sử dụng.
-- Snapshot etcd và `/etc/kubernetes` theo §15 đã được xác nhận và copy ra ngoài VM.
 
-Sau khi gate read-only PASS và **trước §14.1**, bắt buộc chạy [quy trình backup etcd và cấu hình ở §15](#backup-etcd-và-cấu-hình-trước-thay-đổi-lớn), rồi copy thư mục backup ra khỏi VM/disk chứa etcd. File `coredns-before-rancher.yaml` ở §14.2 chỉ rollback được ConfigMap CoreDNS; nó không hoàn tác CRD, webhook, controller và toàn bộ state mà cert-manager/Rancher sẽ ghi vào cluster. Chỉ tiếp tục khi đã xác nhận snapshot etcd tồn tại, đọc được và có bản copy ngoài VM.
+#### 14.0.1. Backup etcd và cấu hình trước thay đổi lớn
+
+Gate read-only PASS rồi mới backup. Bước này **bắt buộc trước §14.1**: file `coredns-before-rancher.yaml` ở §14.2 chỉ rollback được ConfigMap CoreDNS; nó không hoàn tác CRD, webhook, controller và toàn bộ state mà cert-manager/Rancher sẽ ghi vào cluster — đường lui duy nhất là snapshot etcd.
+
+Với 1 control plane, etcd là nơi giữ toàn bộ state Kubernetes (và sau §14 là cả state Rancher). Quy trình này được dùng lại cho mọi upgrade hoặc thay đổi quan trọng về sau — [§15](#15-vận-hành--troubleshooting) trỏ về đây.
+
+**Bước 1 — tạo và verify backup, chạy trên `k8s-master`.** Toàn bộ gate chạy trong subshell `( ... )`: `set -e` dừng subshell ngay khi một lệnh lỗi nhưng không đóng shell SSH cha. Mã thoát được giữ lại để in đúng một verdict PASS/FAIL và để `$?` phản ánh đúng kết quả. Backup chứa private key và Secret nên thư mục/file bắt buộc dùng quyền `700/600`.
+
+```bash
+STAMP=$(date +%Y%m%d-%H%M%S)
+BACKUP_ROOT="$HOME/k8s-backups"
+BACKUP_DIR="$BACKUP_ROOT/$STAMP"
+BACKUP_ARCHIVE="$BACKUP_DIR.tar.gz"
+STAGING_FILE="/var/lib/etcd/kubeadm-snapshot-$STAMP.db"
+
+(
+  set -e
+  umask 077
+
+  mkdir -p "$BACKUP_ROOT"
+  chmod 700 "$BACKUP_ROOT"
+  # Không dùng -p: nếu timestamp đích đã tồn tại thì fail thay vì trộn với backup cũ.
+  mkdir -m 700 "$BACKUP_DIR"
+
+  # Snapshot etcd vào volume hostPath của static Pod.
+  kubectl -n kube-system exec etcd-k8s-master -- etcdctl \
+    --endpoints=https://127.0.0.1:2379 \
+    --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+    --cert=/etc/kubernetes/pki/etcd/server.crt \
+    --key=/etc/kubernetes/pki/etcd/server.key \
+    snapshot save "$STAGING_FILE"
+
+  # Copy snapshot + cấu hình kubeadm, rồi so snapshot theo từng byte.
+  sudo cp "$STAGING_FILE" "$BACKUP_DIR/etcd-snapshot.db"
+  sudo cp -a /etc/kubernetes "$BACKUP_DIR/etc-kubernetes"
+  sudo chown -R "$(id -u):$(id -g)" "$BACKUP_DIR"
+  test -s "$BACKUP_DIR/etcd-snapshot.db"
+  sudo cmp -s "$STAGING_FILE" "$BACKUP_DIR/etcd-snapshot.db"
+
+  # Chỉ xóa staging sau khi bản copy tồn tại, khác rỗng và trùng từng byte.
+  sudo rm -f "$STAGING_FILE"
+
+  # Một archive bao phủ cả snapshot và /etc/kubernetes; umask 077 + chmod giữ mode 600.
+  tar -C "$BACKUP_ROOT" -czf "$BACKUP_ARCHIVE" "$STAMP"
+  chmod 600 "$BACKUP_ARCHIVE"
+  test "$(stat -c '%a' "$BACKUP_ROOT")" = 700
+  test "$(stat -c '%a' "$BACKUP_ARCHIVE")" = 600
+  sha256sum "$BACKUP_ARCHIVE"
+)
+BACKUP_RC=$?
+
+if [ "$BACKUP_RC" -eq 0 ]; then
+  echo "PASS: backup $STAMP hợp lệ"
+else
+  echo 'FAIL: backup chưa hợp lệ — xem lệnh lỗi ngay phía trên, KHÔNG sang §14.1'
+fi
+
+# Trả đúng mã lỗi nhưng chỉ thoát subshell này, không đóng phiên SSH.
+( exit "$BACKUP_RC" )
+# PASS: dòng verdict là "PASS: backup <STAMP> hợp lệ"; ngay trước đó có hash SHA-256
+# của file .tar.gz. Ghi lại STAMP và hash để dùng ở bước 2.
+# Lần chạy FAIL để lại file staging của lần đó trong /var/lib/etcd; chẩn đoán xong thì dọn
+# để khỏi chiếm disk của volume etcd:  sudo rm -f /var/lib/etcd/kubeadm-snapshot-*.db
+```
+
+Verify dừng ở mức exit code, `cmp` và checksum là có chủ đích: image etcd mà kubeadm kéo về chỉ đóng gói `etcd` và `etcdctl` (etcd 3.6 đã bỏ `etcdctl snapshot status`), nên không kiểm metadata snapshot tại chỗ được. Hash toàn vẹn nhúng trong snapshot sẽ được `etcdutl snapshot restore` tự kiểm ở thời điểm restore và từ chối chạy nếu file hỏng — backup lỗi sẽ lộ ra, không restore im lặng.
+
+**Bước 2 — copy ra ngoài VM và đối chiếu checksum, chạy trong PowerShell trên máy host Windows.** VM đã chạy `sshd`; gate kiểm tra `scp` đã có sẵn và dừng nếu máy host thiếu công cụ. Đổi user/IP theo môi trường của bạn ([bảng IP ở §2.2](#22-ip--hostname-ví-dụ--đổi-theo-dải-lan-của-bạn)). Chỉ copy một file `.tar.gz` nên một lần so hash phủ trọn gói backup (snapshot + `etc-kubernetes`). Cả block bọc trong `& { ... }` — vai trò như subshell của bước 1: console PowerShell 5.1 chạy nội dung paste theo từng dòng, phải gom thành một script block thì `throw` mới dừng được toàn bộ. Chạy lại block là an toàn: file đích đã có và trùng hash thì PASS ngay, lệch hash (file dở của lần `scp` lỗi) thì được chỉ dẫn xóa trước khi thử lại:
+
+```powershell
+& {
+  # Lấy hai giá trị từ output bước 1.
+  $Stamp          = '<STAMP>'
+  $ExpectedSha256 = '<SHA256_CUA_FILE_TAR_GZ>'.ToLower()
+  $Dest           = "$env:USERPROFILE\k8s-backups"
+  $Target         = Join-Path $Dest "$Stamp.tar.gz"
+
+  if ($Stamp -eq '<STAMP>' -or $ExpectedSha256 -notmatch '^[0-9a-f]{64}$') {
+    throw 'FAIL: chưa thay STAMP/SHA-256 thật từ bước 1'
+  }
+
+  Get-Command scp -ErrorAction Stop | Out-Null
+  New-Item -ItemType Directory -Force $Dest | Out-Null
+
+  # File đích đã tồn tại: trùng hash → lần copy trước đã PASS, không copy lại (idempotent);
+  # lệch hash → file dở của lần scp lỗi, xóa đúng file đó rồi chạy lại block.
+  if (Test-Path -LiteralPath $Target) {
+    $Existing = (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash.ToLower()
+    if ($Existing -eq $ExpectedSha256) {
+      Write-Host "PASS: backup ngoài VM hợp lệ tại $Target (SHA-256 $Existing) — đã copy từ trước"
+      return
+    }
+    throw "FAIL: $Target đã tồn tại nhưng hash lệch (actual=$Existing) — file dở của lần copy lỗi, xóa nó rồi chạy lại block"
+  }
+
+  scp "ubuntu@192.168.100.111:k8s-backups/$Stamp.tar.gz" $Dest
+  if ($LASTEXITCODE -ne 0) { throw 'FAIL: scp lỗi — chưa có bản copy ngoài VM, KHÔNG sang §14.1' }
+
+  $ActualSha256 = (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash.ToLower()
+  if ($ActualSha256 -ne $ExpectedSha256) {
+    throw "FAIL: checksum lệch — expected=$ExpectedSha256 actual=$ActualSha256"
+  }
+
+  Write-Host "PASS: backup ngoài VM hợp lệ tại $Target (SHA-256 $ActualSha256)"
+}
+```
+
+> **Bắt buộc:** giữ ít nhất một bản backup ngoài VM/disk chứa etcd. Bước 2 dùng máy host Windows; NAS hay storage backup khác cũng đạt, miễn checksum tại đích khớp hash ở bước 1. Snapshot nằm cùng disk không giúp được khi disk VM hỏng. Việc restore etcd là thao tác sự cố riêng; làm theo tài liệu kubeadm/etcd của đúng phiên bản và dừng control plane trước khi restore.
+
+**PASS §14.0:** gate read-only đạt đủ điều kiện trên **và** bước 1 kết thúc bằng dòng `PASS: backup <STAMP> hợp lệ` với `$? = 0`, **và** bước 2 kết thúc bằng dòng `PASS: backup ngoài VM hợp lệ...`. Chỉ khi đó mới sang §14.1.
 
 ### 14.1. Cài cert-manager (Rancher cần để cấp TLS nội bộ)
 
@@ -2825,27 +2946,43 @@ EOF
 Render read-only để xác nhận chart tạo đúng Ingress, hostname, IngressClass và tên TLS Secret, đồng thời không đi vào nhánh Gateway:
 
 ```bash
-helm template rancher rancher-stable/rancher \
-  --namespace cattle-system \
-  --version 2.14.3 \
-  -f rancher-values.yaml \
-  > rancher-rendered.yaml
+(
+  set -e
 
-grep -q '^kind: Ingress$' rancher-rendered.yaml || {
-  echo 'FAIL: chart không render Ingress'; exit 1;
-}
-for expected in \
-  'ingressClassName: traefik' \
-  'host: rancher.hieupn.site' \
-  'secretName: tls-rancher-ingress'; do
-  grep -Fq "$expected" rancher-rendered.yaml || {
-    echo "FAIL: manifest thiếu $expected"; exit 1;
+  helm template rancher rancher-stable/rancher \
+    --namespace cattle-system \
+    --version 2.14.3 \
+    -f rancher-values.yaml \
+    > rancher-rendered.yaml
+
+  grep -q '^kind: Ingress$' rancher-rendered.yaml || {
+    echo 'FAIL: chart không render Ingress' >&2
+    exit 1
   }
-done
-if grep -Eq '^kind: (Gateway|HTTPRoute)$' rancher-rendered.yaml; then
-  echo 'FAIL: chart đã đi vào nhánh Gateway API'; exit 1
+  for expected in \
+    'ingressClassName: traefik' \
+    'host: rancher.hieupn.site' \
+    'secretName: tls-rancher-ingress'; do
+    grep -Fq "$expected" rancher-rendered.yaml || {
+      echo "FAIL: manifest thiếu $expected" >&2
+      exit 1
+    }
+  done
+  if grep -Eq '^kind: (Gateway|HTTPRoute)$' rancher-rendered.yaml; then
+    echo 'FAIL: chart đã đi vào nhánh Gateway API' >&2
+    exit 1
+  fi
+)
+RENDER_RC=$?
+
+if [ "$RENDER_RC" -eq 0 ]; then
+  echo 'PASS: Ingress mode, class/host/TLS Secret đúng, không có Gateway/HTTPRoute'
+else
+  echo 'FAIL: render gate chưa đạt — KHÔNG cài Rancher'
 fi
-echo 'PASS: Ingress mode, class/host/TLS Secret đúng, không có Gateway/HTTPRoute'
+
+# Trả đúng mã lỗi nhưng không đóng phiên SSH.
+( exit "$RENDER_RC" )
 ```
 
 Cài khi render gate đã PASS:
@@ -2998,35 +3135,11 @@ Cụm **vẫn chạy** sau ngày EOL của k8s, nhưng dừng nhận **patch b�
 
 ### Backup etcd và cấu hình trước thay đổi lớn
 
-Với 1 control plane, etcd là nơi giữ toàn bộ state Kubernetes và Rancher. Chạy trên `k8s-master` trước upgrade hoặc thay đổi quan trọng:
-
-```bash
-STAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP_DIR="$HOME/k8s-backups/$STAMP"
-mkdir -p "$BACKUP_DIR"
-
-# snapshot etcd vào volume đã mount của static pod
-kubectl -n kube-system exec etcd-k8s-master -- etcdctl \
-  --endpoints=https://127.0.0.1:2379 \
-  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
-  --cert=/etc/kubernetes/pki/etcd/server.crt \
-  --key=/etc/kubernetes/pki/etcd/server.key \
-  snapshot save /var/lib/etcd/kubeadm-snapshot.db
-
-# lấy snapshot và toàn bộ cấu hình/certificate kubeadm ra thư mục backup
-sudo cp /var/lib/etcd/kubeadm-snapshot.db "$BACKUP_DIR/etcd-snapshot.db"
-sudo cp -a /etc/kubernetes "$BACKUP_DIR/etc-kubernetes"
-sudo chown -R "$(id -u):$(id -g)" "$BACKUP_DIR"
-sudo rm -f /var/lib/etcd/kubeadm-snapshot.db
-
-ls -lh "$BACKUP_DIR/etcd-snapshot.db"
-```
-
-> **Bắt buộc:** copy thư mục backup ra khỏi VM/disk chứa etcd (NAS, máy host hoặc storage backup). Snapshot nằm cùng disk không giúp được khi disk VM hỏng. Việc restore etcd là thao tác sự cố riêng; làm theo tài liệu kubeadm/etcd của đúng phiên bản và dừng control plane trước khi restore.
+Quy trình đầy đủ ở [§14.0.1](#1401-backup-etcd-và-cấu-hình-trước-thay-đổi-lớn) — nó nằm trong luồng cài đặt vì lần chạy bắt buộc đầu tiên là ngay trước khi cài cert-manager/Rancher. Chạy lại đúng quy trình đó, kể cả bước copy backup ra ngoài VM, trước mọi upgrade hoặc thay đổi quan trọng.
 
 ### Nâng patch Kubernetes 1.35 bằng kubeadm
 
-Ví dụ nâng `1.35.6` lên một patch `1.35.X` mới hơn. Đọc release notes, backup trước, và thay đúng hai biến sau bằng version có thật từ `apt-cache madison kubeadm`:
+Ví dụ nâng `1.35.6` lên một patch `1.35.X` mới hơn. Đọc release notes, chạy [backup theo §14.0.1](#1401-backup-etcd-và-cấu-hình-trước-thay-đổi-lớn) trước, và thay đúng hai biến sau bằng version có thật từ `apt-cache madison kubeadm`:
 
 ```bash
 TARGET_DEB='1.35.X-1.1'
@@ -3109,8 +3222,8 @@ sudo kubeadm certs check-expiration
 #### Manual renew dự phòng (single control plane)
 
 Quy trình này làm API tạm gián đoạn vì runbook chỉ có một control plane. Thực hiện trong maintenance
-window trên `k8s-master`; backup etcd và `/etc/kubernetes` theo mục **Backup etcd và cấu hình trước
-thay đổi lớn** ở trên trước khi tiếp tục.
+window trên `k8s-master`; backup etcd và `/etc/kubernetes` theo
+[§14.0.1](#1401-backup-etcd-và-cấu-hình-trước-thay-đổi-lớn) trước khi tiếp tục.
 
 Gia hạn và xác nhận hạn mới:
 
@@ -3129,27 +3242,39 @@ STAMP=$(date +%Y%m%d-%H%M%S)
 MANIFEST_HOLD="$HOME/k8s-maintenance/static-pods-$STAMP"
 mkdir -p "$MANIFEST_HOLD"
 
-for component in etcd kube-apiserver kube-controller-manager kube-scheduler; do
-  OLD_ID="$(sudo crictl ps --name "$component" -q)"
-  sudo mv "/etc/kubernetes/manifests/${component}.yaml" "$MANIFEST_HOLD/"
-  sleep 25
-  sudo mv "$MANIFEST_HOLD/${component}.yaml" /etc/kubernetes/manifests/
+(
+  for component in etcd kube-apiserver kube-controller-manager kube-scheduler; do
+    OLD_ID="$(sudo crictl ps --name "$component" -q)"
+    sudo mv "/etc/kubernetes/manifests/${component}.yaml" "$MANIFEST_HOLD/"
+    sleep 25
+    sudo mv "$MANIFEST_HOLD/${component}.yaml" /etc/kubernetes/manifests/
 
-  NEW_ID=""
-  for attempt in {1..12}; do
-    NEW_ID="$(sudo crictl ps --name "$component" -q)"
-    if [ -n "$NEW_ID" ] && [ "$NEW_ID" != "$OLD_ID" ]; then
-      break
-    fi
-    sleep 5
+    NEW_ID=""
+    for attempt in {1..12}; do
+      NEW_ID="$(sudo crictl ps --name "$component" -q)"
+      if [ -n "$NEW_ID" ] && [ "$NEW_ID" != "$OLD_ID" ]; then
+        break
+      fi
+      sleep 5
+    done
+
+    test -n "$NEW_ID" && test "$NEW_ID" != "$OLD_ID" || {
+      echo "FAIL: $component chưa được tạo lại; dừng để kiểm tra kubelet/crictl" >&2
+      exit 1
+    }
+    echo "PASS: $component restarted ($NEW_ID)"
   done
+)
+STATIC_POD_RC=$?
 
-  test -n "$NEW_ID" && test "$NEW_ID" != "$OLD_ID" || {
-    echo "FAIL: $component chưa được tạo lại; dừng để kiểm tra kubelet/crictl" >&2
-    exit 1
-  }
-  echo "PASS: $component restarted ($NEW_ID)"
-done
+if [ "$STATIC_POD_RC" -eq 0 ]; then
+  echo 'PASS: toàn bộ static Pod đã được tạo lại tuần tự'
+else
+  echo 'FAIL: restart static Pod chưa hoàn tất — KHÔNG chạy bước kế tiếp'
+fi
+
+# Trả đúng mã lỗi nhưng không đóng phiên SSH.
+( exit "$STATIC_POD_RC" )
 ```
 
 `admin.conf` đã được renew nhưng user `ubuntu` đang dùng một bản copy trong `$HOME/.kube/config`;

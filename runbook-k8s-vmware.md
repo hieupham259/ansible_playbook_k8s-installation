@@ -641,6 +641,39 @@ grep -n 'SystemdCgroup = true' /etc/containerd/config.toml
 >
 > Runbook giữ **gói containerd của Ubuntu** để nhận backport bảo mật. Không thay bằng binary upstream chỉ vì số upstream cao hơn nếu chưa đối chiếu Ubuntu Security Notices/changelog.
 
+#### "Backport bảo mật" nghĩa là gì
+
+Câu trên nói về **cách lấy containerd**, không phải về một con số version. Nó có nghĩa: cài bằng `apt-get install containerd` từ kho Ubuntu, chứ không tải tarball từ GitHub releases của dự án containerd.
+
+Ubuntu LTS chọn một version upstream rồi **giữ nguyên số version đó suốt vòng đời bản LTS**. Khi upstream sửa một CVE ở version mới hơn, Ubuntu không nhảy lên version mới — họ lấy riêng miếng vá đó ghép vào version đang đóng băng, rồi chỉ tăng phần revision đóng gói. Mổ xẻ chuỗi version mà runbook đang dùng:
+
+```text
+2.2.1 - 0ubuntu1 ~ 24.04.3
+─────   ────────   ────────
+  │        │           └── bản dựng lại cho series 24.04, lần thứ 3
+  │        └── revision đóng gói của Ubuntu
+  └── version upstream của containerd
+```
+
+Khi có CVE, cái đổi là `~24.04.3` → `~24.04.4`; phần `2.2.1` đứng yên. Bạn nhận bản vá mà không nhận thêm thay đổi hành vi, không đổi API, không đổi cú pháp `config.toml` — đúng thứ một LTS cần, và đúng thứ giữ cho cấu hình `io.containerd.cri.v1.runtime` ở trên không bị gãy giữa chừng.
+
+Dấu `~` không phải trang trí: trong quy tắc so sánh version của dpkg, `~` sắp xếp **thấp hơn** cả chuỗi rỗng, nên `2.2.1-0ubuntu1~24.04.3` luôn nhỏ hơn `2.2.1-0ubuntu1`. Đó là cách bản backport không đè lên bản của series mới hơn khi bạn nâng cấp OS.
+
+Nếu thay bằng binary upstream giải nén vào `/usr/local/bin`, ba thứ mất đi cùng lúc: Ubuntu Security Notices không còn áp dụng cho máy, `apt upgrade` không biết file đó tồn tại nên không bao giờ vá nó, và trách nhiệm theo dõi CVE của containerd chuyển hết sang bạn, thủ công, vĩnh viễn.
+
+Xem cơ chế đang chạy trên node:
+
+```bash
+apt-cache policy containerd                # Installed / Candidate và đến từ pocket nào
+apt-get changelog containerd | head -40    # các dòng CVE đã được ghép vào
+```
+
+Pocket `noble-updates` và `noble-security` là nơi các bản `~24.04.N` mới xuất hiện.
+
+> ⚠️ Đánh đổi cần biết trước khi đọc [§5.6](#56-cài-kubeadm-kubelet-kubectl-repo-pkgsk8sio-pin-v1356): `apt-mark hold` **chặn đúng cơ chế này**. Package đã hold thì `apt upgrade` bỏ qua, kể cả khi bản vá CVE đã có trong `noble-security`. Runbook vì vậy hold tầng Kubernetes (`kubelet`/`kubeadm`/`kubectl`/`cri-tools`, nơi version-skew là ràng buộc cứng) nhưng **không** hold `containerd`/`runc` — đổi lại, runbook không biết node đang chạy revision nào cho tới khi chạy `apt-cache policy`. Lab 00 chọn ngược lại: hold cả runtime để snapshot tái lập được, và chấp nhận phải tự rà revision mới bằng tay.
+
+`runc` cũng vào máy ở bước này dù lệnh cài không nhắc tên nó: `containerd` khai `Depends: libc6 (>= 2.34), runc` — **không kèm ràng buộc version nào**, nên apt lấy đúng bản `Candidate` của archive tại thời điểm chạy lệnh. Xem bản thật bằng `dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' runc`.
+
 ### 5.6. Cài kubeadm, kubelet, kubectl (repo pkgs.k8s.io, pin v1.35.6)
 
 > Repo cũ `apt.kubernetes.io` đã **deprecated từ 13/09/2023** — bắt buộc dùng `pkgs.k8s.io`.

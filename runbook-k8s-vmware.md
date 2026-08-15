@@ -2558,7 +2558,7 @@ File đó không chứa lệnh hay gate nào. Đọc để hiểu cơ chế, r�
 
 #### 12.3.3. Thêm Published application
 
-Chỉ sau khi §12.3.1 PASS, mở tunnel `homelab-k8s` → **Routes** / **Published application routes** → **Add route** → **Published application** (một số tài khoản/UI cũ còn hiện “Public Hostname”):
+Chỉ sau khi §12.3.1 PASS, vào **Zero Trust → Networks → Connectors** (UI mới có thể hiện **Tunnels & Mesh**) → tunnel `homelab-k8s` → tab **Published application routes** → **Add route** → **Published application**. Một số tài khoản/UI cũ còn hiện **Routes** hoặc “Public Hostname” cho cùng loại route:
 
 | Trường              | Giá trị                                       |
 | --------------------- | ----------------------------------------------- |
@@ -2567,16 +2567,18 @@ Chỉ sau khi §12.3.1 PASS, mở tunnel `homelab-k8s` → **Routes** / **Publis
 | **Service URL** | `http://traefik.traefik.svc.cluster.local:80` |
 
 > **UI Cloudflare có hai biến thể.** Bản mới gộp `Type` và `URL` thành **một ô `Service URL`**, và scheme phải nằm trong chuỗi — thiếu `http://` sẽ báo *Invalid service URL format (must start with protocol like https://, tcp://, etc.)*. Bản cũ tách thành dropdown `Type` = `HTTP` và ô `URL` = `traefik.traefik.svc.cluster.local:80` (không scheme). Hai cách khai báo cùng một đích; điền theo đúng biến thể đang hiện trên màn hình.
+>
+> Trang **Routes** dùng chung có thể tạo/xem route nhưng modal Edit rút gọn chỉ hiện Hostname, Path và Service URL. Các origin parameter nâng cao như `httpHostHeader`, `originServerName`, `noTLSVerify` phải được chỉnh và kiểm tra từ **trang tunnel cụ thể → Published application routes → chọn route → Edit → Additional application settings**. Route HTTP của app mẫu chưa cần TLS parameter, nhưng phải dùng đúng đường dẫn này khi §14.5 cấu hình HTTPS cho Rancher.
 
 → **Save**. Với DNS **Full Setup** như [§11.2](#112-thêm-domain-vào-cloudflare), Cloudflare tự tạo DNS record cho hostname. Nếu zone dùng **Partial/CNAME Setup**, phải tự tạo CNAME tại DNS provider theo hướng dẫn Cloudflare.
 
 > Vì cloudflared chạy *trong* cụm, nó resolve được tên DNS nội bộ `*.svc.cluster.local` và gọi thẳng ClusterIP của Traefik. Hostname `app.hieupn.site` được giữ nguyên trong Host header → Traefik khớp đúng Router đã verify ở §12.3.1.
 >
-> (Tuỳ chọn) Nếu cần ép Host header, mở **Additional application settings → HTTP Settings → HTTP Host Header** = `app.hieupn.site`.
+> (Tuỳ chọn) Nếu cần ép Host header, mở route từ tab **Published application routes** của tunnel, chọn **Edit → Additional application settings → HTTP Settings → HTTP Host Header** = `app.hieupn.site`.
 
 **Verify §12.3.3:**
 
-1. Trong tunnel `homelab-k8s`, tab **Routes** / **Published application routes** phải có route `app.hieupn.site` trỏ tới `http://traefik.traefik.svc.cluster.local:80`.
+1. Trong tunnel `homelab-k8s`, tab **Published application routes** phải có route `app.hieupn.site` trỏ tới `http://traefik.traefik.svc.cluster.local:80`.
 2. Cloudflare → **DNS → Records** phải có record cho `app.hieupn.site` ở trạng thái **Proxied**; không tự tạo record thứ hai nếu dashboard đã tạo tự động.
 3. Tunnel vẫn **Healthy** và hai Pod `cloudflared` vẫn `Running`:
 
@@ -2681,7 +2683,8 @@ cf-ray: ...
 | `Could not resolve host` | DNS public/resolver |
 | lỗi certificate | TLS/Universal SSL/hostname |
 | HTTP `404` | Published route hoặc Host của Ingress không khớp |
-| HTTP `502`/`504` | `cloudflared` không gọi được Traefik/backend hoặc origin không trả lời |
+| HTTP `502`/`504` | Tunnel đã nhận request nhưng `cloudflared` không gọi được Traefik/backend: kiểm Service URL, Service/port, log `cloudflared`; route HTTPS kiểm thêm origin parameters theo §14.5.1 |
+| Cloudflare `1033` | Không có connector tunnel Healthy/Connected; kiểm Pod `cloudflared`, token và egress |
 | Cloudflare `1016` | DNS còn record nhưng tunnel/origin route không dùng được |
 
 **PASS §13.2:** `curl` không có lỗi DNS/TLS/connection và nhận HTTP `200` qua Cloudflare. Nếu nhận redirect `301`/`302`, phải xác nhận đích redirect đúng rồi chạy lại URL đích; với cấu hình hiện tại dự kiến trả thẳng `200`.
@@ -3000,6 +3003,8 @@ EOF
 
 Render read-only để xác nhận chart tạo đúng Ingress, hostname, IngressClass và tên TLS Secret, đồng thời không đi vào nhánh Gateway:
 
+> ⚠️ `helm template` chạy offline, **không hỏi API server**: constraint `kubeVersion: < 1.36.0-0` của chart được so với phiên bản Kubernetes giả lập gắn sẵn trong binary Helm (bằng bản thư viện Kubernetes mà Helm được build cùng), không phải với cluster thật. Helm cài bằng script latest ở [§8.7](#87-tầng-7--công-cụ-và-add-on-kubeadm-không-cài-sẵn) nên binary mới sẽ giả lập `v1.36.x` và làm render FAIL oan (`chart requires kubeVersion: < 1.36.0-0 which is incompatible with Kubernetes v1.36.0`) dù cluster `v1.35.6` vẫn thỏa constraint. Vì vậy lệnh render ghim `--kube-version` theo đúng bản Kubernetes trong bảng [§2.1](#21-phiên-bản-ghim-để-khỏi-lệch-version-skew); khi nâng cấp Kubernetes phải đổi giá trị này cùng lúc. Lệnh `helm install` phía sau không cần flag này vì nó hỏi API server và dùng version thật của cluster.
+
 ```bash
 (
   set -e
@@ -3007,6 +3012,7 @@ Render read-only để xác nhận chart tạo đúng Ingress, hostname, Ingress
   helm template rancher rancher-stable/rancher \
     --namespace cattle-system \
     --version 2.14.3 \
+    --kube-version v1.35.6 \
     -f rancher-values.yaml \
     > rancher-rendered.yaml
 
@@ -3103,29 +3109,50 @@ Trong mode Ingress, chart Rancher render `Issuer` và Ingress có annotation `ce
 Rancher là giao diện quản trị cụm, không nên chỉ dựa vào màn hình đăng nhập Rancher. Tạo lớp xác thực Cloudflare Access **trước khi** publish:
 
 1. Cloudflare dashboard → **Zero Trust → Access controls → Applications**.
-2. **Create new application → Self-hosted and private → Add public hostname**.
-3. Hostname: `rancher.hieupn.site`.
-4. Tạo policy **Allow** chỉ cho email/email domain quản trị; bật MFA nếu IdP hỗ trợ. Không tạo policy `Bypass Everyone`.
-5. Save. Access mặc định deny người không khớp policy.
+2. Chọn **Create new application**, giữ tab **Self-hosted and private**.
+3. Trong nhóm **Applications only available for your users**, chọn **Public DNS**, rồi bấm **Continue with Self-hosted and private**. UI/tài liệu cũ gọi lựa chọn tương đương này là **Add public hostname**.
+4. Trong **Destinations → Public hostnames**, điền **Subdomain** = `rancher`, **Domain** = `hieupn.site`, **Path** để trống. Giữ **Allow access through browser-based RDP, SSH, or VNC sessions** = **Off**; Rancher là web application bình thường, không dùng browser rendering này.
+5. Trong **Access policies**, chọn **Create new policy**. Đặt tên mô tả, ví dụ `Allow Rancher admins`; **Action** = **Allow**; rule **Include** dùng selector **Emails** với đúng email quản trị (hoặc **Emails ending in** chỉ khi thực sự muốn cho phép cả domain). Không chọn `Everyone`, không tạo policy `Bypass Everyone`; bật MFA nếu IdP hỗ trợ.
+6. **Save policy**, xác nhận policy xuất hiện với Action `Allow`, rồi **Create/Save application**. Trong danh sách Applications phải thấy destination `rancher.hieupn.site`, policy vừa tạo và type `Self-hosted`. Access mặc định deny người không khớp policy.
 
-Sau đó thêm một **Published application route** theo [§12.3.3](#1233-thêm-published-application):
+> **Cả 6 bước trên thuộc về một lớp duy nhất — Access** — và chỉ tạo ra một đối tượng: Access application cho `rancher.hieupn.site` kèm policy của nó. Phân rã: bước 1–3 tạo vỏ application, bước 4 khai báo *cái gì được bảo vệ*, bước 5 khai báo *ai được qua*, bước 6 lưu và xác nhận. Bước 4 dễ nhầm là bước tạo route vì cũng điền Subdomain/Domain, nhưng nó **không tạo routing nào** — chỉ gắn cổng gác vào hostname tại edge của Cloudflare. Đường đi thật của hostname vào cluster là **Published application route** ngay bên dưới, thuộc về tunnel, không thuộc về Access. Hai lớp trả lời hai câu hỏi khác nhau: route trả lời "request tới hostname này đi đường nào vào cluster", Access trả lời "ai được phép gửi request tới đó ngay từ edge". Vì vậy `app.hieupn.site` ([§12.3.3](#1233-thêm-published-application)) chỉ cần route mà không cần Access — app demo cố ý mở cho cả Internet, không có gì để gác. Trình tự "Access trước, publish sau" cũng là chủ đích: dựng cổng gác xong mới mở đường, để không có khoảnh khắc nào Rancher phơi ra Internet mà chưa có ai gác.
 
-| Trường                                              | Giá trị                                                                                                                                                                                                  |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Subdomain**                                   | `rancher`                                                                                                                                                                                                |
-| **Domain**                                      | `hieupn.site`                                                                                                                                                                                            |
-| **Service URL**                                 | `https://traefik.traefik.svc.cluster.local:443` (UI cũ: `Type` = **HTTPS**, `URL` = `traefik.traefik.svc.cluster.local:443` — xem lưu ý ở [§12.3.3](#1233-thêm-published-application)) |
-| **Additional settings → TLS → No TLS Verify** | **ON** (vì cert Rancher là self-signed)                                                                                                                                                            |
-| **Additional settings → TLS → Origin Server Name** | `rancher.hieupn.site` (đặt đúng SNI về Traefik)                                                                                                                                                     |
-| **Additional settings → HTTP Host Header**     | `rancher.hieupn.site`                                                                                                                                                                                    |
+Sau khi Access application đã tồn tại, thêm **Published application route** theo đường dẫn tunnel cụ thể ở [§12.3.3](#1233-thêm-published-application): **Zero Trust → Networks → Connectors** (hoặc **Tunnels & Mesh**) → `homelab-k8s` → **Published application routes** → **Add route → Published application**.
 
-→ **Save**. Với zone Full Setup, Cloudflare tự tạo DNS record cho `rancher.hieupn.site`; với Partial/CNAME Setup, tạo record tại DNS provider như lưu ý ở [§12.3.3](#1233-thêm-published-application).
+| Trường            | Giá trị                                                                                                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Subdomain** | `rancher`                                                                                                                                                                                                  |
+| **Domain**    | `hieupn.site`                                                                                                                                                                                              |
+| **Path**      | để trống (route áp dụng cho mọi path)                                                                                                                                                                  |
+| **Service URL** | `https://traefik.traefik.svc.cluster.local:443` (UI cũ: `Type` = **HTTPS**, `URL` = `traefik.traefik.svc.cluster.local:443` — xem lưu ý ở [§12.3.3](#1233-thêm-published-application)) |
+
+→ **Save** để tạo base route. Với zone Full Setup, Cloudflare tự tạo DNS record cho `rancher.hieupn.site`; với Partial/CNAME Setup, tạo record tại DNS provider như lưu ý ở [§12.3.3](#1233-thêm-published-application).
+
+#### 14.5.1. Bắt buộc cấu hình và verify origin parameters của route Rancher
+
+Modal Edit ở trang **Routes** dùng chung có thể chỉ hiện Hostname, Path và Service URL — **không có nghĩa ba origin parameter bên dưới đã được lưu**. Đóng modal rút gọn đó; vào tunnel `homelab-k8s` → tab **Published application routes** → chọn `rancher.hieupn.site` → **Edit** → mở **Additional application settings**, rồi đặt:
+
+| Trường                                                     | Giá trị                      |
+| ------------------------------------------------------------ | ------------------------------ |
+| **TLS → No TLS Verify**                                | **ON**                         |
+| **TLS → Origin Server Name**                           | `rancher.hieupn.site`          |
+| **HTTP Settings → HTTP Host Header**                   | `rancher.hieupn.site`          |
+
+Save, mở lại route từ chính tab **Published application routes**. Phần **Basic Information** phải hiện Public hostname `rancher.hieupn.site`, Path `*` và Service `https://traefik.traefik.svc.cluster.local:443`. Phần **Origin configurations** chỉ PASS khi hiện đủ:
+
+```text
+noTLSVerify: true
+httpHostHeader: rancher.hieupn.site
+originServerName: rancher.hieupn.site
+```
+
+Nếu UI chỉ hiện `noTLSVerify:` mà không có `true`, flag đang **chưa bật** (mặc định là `false`) — STOP và Edit lại. Đây là trạng thái làm `cloudflared` từ chối CA riêng của Rancher trong TLS handshake và trình duyệt nhận Cloudflare `502 Bad gateway` sau khi đăng nhập Access.
 
 > `Origin Server Name` đặt SNI trong TLS handshake; `HTTP Host Header` được Traefik dùng để chọn HTTP router sau handshake. `No TLS Verify` cho phép `cloudflared` chấp nhận CA self-signed của Rancher nhưng cũng tắt xác minh danh tính origin — chấp nhận được cho homelab này, không phải lựa chọn ưu tiên cho production.
 >
 > Cloudflare Access hỗ trợ WebSocket. Rancher Shell/Logs vẫn có thể ngắt nếu kết nối WebSocket idle quá lâu; reconnect trước khi kết luận cụm hỏng.
 
-Kiểm tra lớp bảo vệ trước khi đăng nhập:
+Trước khi đăng nhập, xác nhận tunnel `homelab-k8s` **Healthy**, các connector **Connected**, rồi kiểm tra DNS public và lớp Access:
 
 ```bash
 nslookup rancher.hieupn.site
@@ -3133,6 +3160,12 @@ curl -I https://rancher.hieupn.site
 ```
 
 Public DNS phải trả IP Cloudflare. Khi chưa có Access session, `curl -I` phải bị chuyển tới trang đăng nhập Access hoặc bị từ chối (`302`, `401` hay `403` tùy policy), **không** được trả thẳng Rancher UI `200`.
+
+> **Giới hạn quan trọng của gate này:** response `302/401/403` được sinh ở Cloudflare Access **trước khi request đi xuống tunnel**, nên nó chỉ chứng minh DNS → Cloudflare Edge → Access application/policy hoạt động. Nó **không chứng minh** `cloudflared` bắt tay TLS được với Traefik hay Rancher origin trả response. Vì vậy không được bỏ qua gate Origin configurations ở §14.5.1; kiểm tra origin end-to-end cuối cùng xảy ra sau khi đăng nhập Access ở §14.6.
+>
+> Output `curl -I` có thể chứa `set-cookie` và URL đăng nhập kèm token/nonce. Khi cần gửi log để review, redact toàn bộ giá trị `set-cookie`, query string và credential; chỉ giữ status code cùng các header không nhạy cảm như `server`/`location` đã bỏ query.
+
+**PASS §14.5:** Access application có đúng destination/policy Allow; route có đúng HTTPS Service URL; Origin configurations hiện đủ ba giá trị trên (đặc biệt `noTLSVerify: true`); tunnel Healthy và connector Connected; public DNS trả Cloudflare IP; request chưa có Access session nhận `302/401/403`, không nhận Rancher UI `200`.
 
 ### 14.6. Đăng nhập lần đầu
 
@@ -3150,6 +3183,20 @@ Nếu đọc Secret trước khi Rancher khởi tạo xong, `NotFound` chỉ có
 2. Đặt mật khẩu admin mới.
 3. Xác nhận **Server URL** = `https://rancher.hieupn.site` (Rancher gợi ý sẵn). Không đổi hostname sau khi agent đã đăng ký nếu chưa có kế hoạch migration.
 4. Vào **Cluster Management** → thấy cụm **`local`** = chính cụm kubeadm của bạn, trạng thái **Active**.
+
+Nếu đăng nhập Cloudflare Access xong nhưng trình duyệt hiện **Cloudflare 502 Bad gateway / Host Error**, chưa rollback Rancher và chưa tạo lại tunnel. Trang lỗi có **Browser Working + Cloudflare Working + Host Error** nghĩa là Access/Edge đã cho request đi qua nhưng `cloudflared` không hoàn tất được chặng tới origin. Kiểm tra lại route detail theo §14.5.1 trước; nếu ba Origin configurations đã đúng mà vẫn 502, chạy trên master:
+
+```bash
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
+kubectl -n cloudflare logs -l app=cloudflared --tail=100 --prefix
+```
+
+- Log `x509: certificate signed by unknown authority` → `noTLSVerify` chưa thực sự là `true` hoặc CA chưa được tin cậy.
+- Log certificate không khớp hostname/SNI → `originServerName` thiếu hoặc sai.
+- Origin trả `404` sau khi tunnel kết nối được → `httpHostHeader` không khớp `rancher.hieupn.site` hoặc Ingress sai host/class.
+- `connection refused`, timeout hoặc DNS lookup lỗi → kiểm Service URL `https://traefik.traefik.svc.cluster.local:443`, Service Traefik và DNS/NetworkPolicy trong cluster.
+
+Không chia sẻ log nếu nó chứa token/credential; chỉ trích đúng dòng lỗi đã redacted.
 
 ### 14.7. Gate hoàn thành
 
@@ -3372,12 +3419,14 @@ trình này trực tiếp trên master bằng `sudo`; **không** chạy lại `k
 | `kubeadm join` timeout                                 | Worker không resolve`k8s-master` (thiếu `/etc/hosts`); hoặc cổng `6443` master bị firewall chặn                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Pod kẹt`ContainerCreating`/CNI lỗi                   | sai cgroup driver →`sudo crictl info \| grep -i -A2 systemdCgroup` phải `true`, rồi `systemctl restart containerd kubelet`                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `kubelet` crashloop sau init                           | còn swap →`swapoff -a` + check `/etc/fstab`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Tunnel không**Healthy**                           | token sai/thiếu →`kubectl logs -n cloudflare deploy/cloudflared`; pod phải `Running`                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Domain mở ra**502/error 1033**                    | URL route sai tên service; thử đúng`traefik.traefik.svc.cluster.local:80` (hoặc `:443` cho Rancher); kiểm tra `kubectl get svc -n traefik`                                                                                                                                                                                                                                                                                                                                                                                   |
+| Tunnel không **Healthy** / connector không **Connected** | token sai/thiếu hoặc connector mất egress → `kubectl logs -n cloudflare deploy/cloudflared`; Pod phải `Running`; kiểm outbound `7844` theo §12.2                                                                                                                                                                                                                                                                                                                                                    |
+| Cloudflare **error 1033**                              | Cloudflare Edge không tìm thấy connector tunnel Healthy; kiểm tunnel dashboard, hai Pod `cloudflared`, token và egress trước — đây khác lỗi 502 khi tunnel vẫn kết nối                                                                                                                                                                                                                                                                                                                                      |
+| Domain mở ra **502 Bad gateway / Host Error**          | Tunnel đã nhận request nhưng `cloudflared` không gọi được origin: kiểm đúng scheme/DNS/port trong Service URL, `kubectl get svc -n traefik` và log `cloudflared`. App HTTP dùng `http://traefik.traefik.svc.cluster.local:80`; Rancher dùng HTTPS `:443` và gate origin parameters §14.5.1                                                                                                                                                 |
 | Mở domain ra**404 page not found**                | Host header không khớp Ingress`host:` → set HTTP Host Header trong tunnel, hoặc sửa `host:` trong Ingress. Soi Router thực tế ở dashboard Traefik ([§9.3](#93-cài-đặt-traefik))                                                                                                                                                                                                                                                                                                                                           |
 | Ingress apply xong nhưng**không được route**  | Thiếu/sai`ingressClassName` → phải là `traefik`; kiểm tra `kubectl get ingress -A` cột CLASS và `kubectl get ingressclass`                                                                                                                                                                                                                                                                                                                                                                                                |
 | **UI Rancher 404** dù pod Running                 | `Ingress` không có/sai class hoặc host → kiểm tra `spec.ingressClassName=traefik` và `rancher.hieupn.site`; chart để class trống mặc định nên runbook đặt rõ trong [§14.3](#143-cài-rancher-helm-pin-2143)                                                                                                                                                                                                                                                                                                           |
-| `rancher.hieupn.site` lỗi **TLS/redirect-loop** | kiểm certificate Ready; route HTTPS phải có **Origin Server Name** + **HTTP Host Header**=`rancher.hieupn.site` và **No TLS Verify=ON** cho CA self-signed của homelab                                                                                                                                                                                                                                                                                                                                     |
+| `rancher.hieupn.site` lỗi **502/TLS/redirect-loop** | kiểm certificate Ready; mở route từ tab tunnel-specific **Published application routes**, không dùng modal Edit rút gọn ở trang Routes chung. Detail phải hiện `noTLSVerify: true`, `httpHostHeader: rancher.hieupn.site`, `originServerName: rancher.hieupn.site`; `noTLSVerify:` trống nghĩa là chưa bật                                                                                                                                              |
+| `curl -I rancher...` trả **302** nhưng đăng nhập xong lại **502** | `302` chỉ chứng minh Cloudflare Access chặn request trước origin; nó không test tunnel→Traefik. Kiểm ba Origin configurations ở §14.5.1 và log `cloudflared`                                                                                                                                                                                                                                                                                                                        |
 | Rancher pod`CrashLoop`/Pending                         | thiếu RAM/headroom; hoặc cert-manager CRDs chưa cài (`--set crds.enabled=true`)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Rancher`cattle-cluster-agent` CrashLoop/không connect | kiểm `rancher.hieupn.site` trong Pod có resolve về ClusterIP Traefik theo split DNS ở §14.2 và `agent-tls-mode=strict`; nếu đi ra Cloudflare Access sẽ bị chặn                                                                                                                                                                                                                                                                                                                                              |
 | Rancher Shell/exec/attach/port-forward bị`forbidden`  | Kubernetes 1.35 WebSocket upgrade cần verb RBAC`create` trên `pods/exec`, `pods/attach`, `pods/portforward`; kiểm Role/ClusterRole của user trước khi nghi firewall                                                                                                                                                                                                                                                                                                                                                        |
@@ -3389,9 +3438,11 @@ trình này trực tiếp trên master bằng `sudo`; **không** chạy lại `k
 
 ```bash
 kubectl get nodes,pods -A -o wide
-kubectl logs -n cloudflare deploy/cloudflared --tail=50
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
+kubectl -n cloudflare logs -l app=cloudflared --tail=50 --prefix
+kubectl -n traefik get svc traefik
 kubectl -n cattle-system rollout status deploy/rancher
-kubectl describe ingress web
+kubectl get ingress -A
 kubectl get events -A --sort-by=.lastTimestamp | tail -30
 ```
 
@@ -3429,10 +3480,11 @@ kubectl get events -A --sort-by=.lastTimestamp | tail -30
 - Hostinger — *Point a domain to external services*: [https://support.hostinger.com/en/articles/4737652-how-to-point-a-domain-to-external-services](https://support.hostinger.com/en/articles/4737652-how-to-point-a-domain-to-external-services)
 - Hostinger — *Manage DNS records / DNSSEC in hPanel*: [https://support.hostinger.com/en/articles/1583249-how-to-manage-dns-records-at-hostinger](https://support.hostinger.com/en/articles/1583249-how-to-manage-dns-records-at-hostinger)
 - Hostinger — *How to use DNSSEC records at Hostinger* (bốn ô Key Tag/Algorithm/Digest Type/Digest, giá trị do provider giữ nameserver sinh ra): [https://www.hostinger.com/support/3667267-how-to-use-dnssec-records-at-hostinger/](https://www.hostinger.com/support/3667267-how-to-use-dnssec-records-at-hostinger/)
-- Cloudflare — *Tunnel setup*: [https://developers.cloudflare.com/tunnel/setup/](https://developers.cloudflare.com/tunnel/setup/)
+- Cloudflare — *Tunnel setup / Published application routes*: [https://developers.cloudflare.com/tunnel/setup/](https://developers.cloudflare.com/tunnel/setup/)
 - Cloudflare — *Deploy cloudflared in Kubernetes*: [https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/](https://developers.cloudflare.com/tunnel/deployment-guides/kubernetes/)
 - Cloudflare — *Tunnel with firewall*: [https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/)
-- Cloudflare — *Tunnel origin parameters (`originServerName`, `noTLSVerify`, `httpHostHeader`)*: [https://developers.cloudflare.com/tunnel/configuration/](https://developers.cloudflare.com/tunnel/configuration/)
+- Cloudflare — *Tunnel origin parameters (`originServerName`, `noTLSVerify`, `httpHostHeader`)*: [https://developers.cloudflare.com/tunnel/advanced/origin-parameters/](https://developers.cloudflare.com/tunnel/advanced/origin-parameters/)
+- Cloudflare — *Tunnel common errors (`1033`, origin `502`, certificate không được tin cậy)*: [https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/troubleshoot-tunnels/common-errors/](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/troubleshoot-tunnels/common-errors/)
 - Cloudflare — *Self-hosted public application/Access*: [https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/)
 - Cloudflare — *WebSockets*: [https://developers.cloudflare.com/network/websockets/](https://developers.cloudflare.com/network/websockets/)
 - Cloudflare — *HTTP 413/upload limits*: [https://developers.cloudflare.com/support/troubleshooting/http-status-codes/4xx-client-error/error-413/](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/4xx-client-error/error-413/)

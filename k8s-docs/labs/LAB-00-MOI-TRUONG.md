@@ -664,7 +664,61 @@ mkdir -p ~/lab-evidence
 } | tee ~/lab-evidence/00-package-baseline.txt
 ```
 
-Tắt ba VM sạch sẽ và tạo snapshot VMware tên **`01-cluster-ready`** cho từng VM.
+Tắt ba VM sạch sẽ rồi mới chụp. Chạy trên **từng node** theo thứ tự worker 2 → worker 1 →
+master (ngược với thứ tự bật ở A5.5):
+
+```bash
+sudo shutdown -h now
+```
+
+Chờ VMware Workstation hiển thị cả ba VM ở trạng thái *Powered off*. Chụp khi VM đã tắt để
+snapshot không kèm trạng thái RAM: restore về sau luôn boot sạch và đi qua quy trình mở đầu
+ở A5.5, không mang theo đồng hồ và tiến trình dở dang của lần chạy trước.
+
+Chụp trên **cả ba VM**, lặp lại y hệt cho `lab-k8s-master`, `lab-k8s-worker1`,
+`lab-k8s-worker2`: chuột phải VM → **Snapshot → Take Snapshot** → ô *Name* điền đúng chuỗi:
+
+```text
+01-cluster-ready
+```
+
+Ô *Description* ghi file đã dựng và ngày chụp, ví dụ
+`dựng bằng LAB-00-MOI-TRUONG.md, chụp <ngày>`. Tên snapshot của bản gốc và
+[biến thể 1.35.7](LAB-00-MOI-TRUONG-1.35.7.md) giống hệt nhau, nên Description là chỗ duy
+nhất trên VM ghi lại cluster được dựng bằng file nào.
+
+Quy tắc tên gọi — tên này là điểm bắt đầu mà mọi lab sau trong
+[chuỗi snapshot](#2-chuỗi-snapshot) tham chiếu:
+
+- Đúng nguyên văn `01-cluster-ready` trên cả ba VM: không hậu tố theo VM
+  (`01-cluster-ready-master` là sai), không thêm ngày, không đổi hoa thường, không thừa
+  khoảng trắng.
+- Snapshot thuộc về từng VM nên ba snapshot trùng tên không xung đột; phần "của VM nào" đã
+  nằm trong tên VM.
+- Lab 00 chỉ tạo đúng một mốc này. Các mốc sau (`02-net-ready`, `03-storage-ready`,
+  `04-metrics-ready`) do lab khai báo **tạo** trong [bản đồ lab](README.md#4-bản-đồ-lab)
+  chụp, không chụp trước ở đây.
+
+Verify từ PowerShell trên máy host bằng `vmrun.exe` (có sẵn trong thư mục cài VMware
+Workstation); sửa đường dẫn `.vmx` theo nơi lưu VM của bạn:
+
+```powershell
+$vmrun = 'C:\Program Files\VMware\VMware Workstation\vmrun.exe'
+$vmx = @(
+  'D:\VMs\lab-k8s-master\lab-k8s-master.vmx'
+  'D:\VMs\lab-k8s-worker1\lab-k8s-worker1.vmx'
+  'D:\VMs\lab-k8s-worker2\lab-k8s-worker2.vmx'
+)
+foreach ($f in $vmx) {
+  $names = & $vmrun -T ws listSnapshots $f | Select-Object -Skip 1
+  if ($names -ccontains '01-cluster-ready') { "PASS: $f" }
+  else { "FAIL: $f -> $($names -join ', ')" }
+}
+```
+
+**PASS:** đúng ba dòng `PASS:`, không có dòng `FAIL:` (`-ccontains` so sánh phân biệt hoa
+thường, nên gate này bắt được cả lỗi gõ sai tên). Lab 00 kết thúc ở đây; để nguyên ba VM ở
+trạng thái tắt — mỗi lab sau tự bật máy theo quy trình mở đầu A5.5.
 
 ### A5.5. Quy trình mở đầu mỗi lab
 

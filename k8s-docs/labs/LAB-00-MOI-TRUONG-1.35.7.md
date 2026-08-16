@@ -664,6 +664,71 @@ kubectl config current-context
 kubectl get nodes -o wide
 ```
 
+**Ý nghĩa của phần cấu hình kubeconfig:**
+
+Bốn lệnh đầu của block trên lấy kubeconfig quản trị mà `kubeadm init` vừa tạo và đặt một bản sao
+vào vị trí mặc định của user thường. `kubectl` mặc định tìm file `config` trong thư mục
+`$HOME/.kube`; từ file này, nó đọc địa chỉ API server, thông tin cluster, danh tính xác thực và
+current context để biết kết nối đến cluster nào bằng user nào. Các lệnh này chỉ tác động đến file
+trên `lab-k8s-master`, chưa tạo hoặc thay đổi Kubernetes object trong cluster.
+[Kubernetes v1.35 — Creating a cluster with kubeadm](https://v1-35.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/),
+[Kubernetes — Organizing Cluster Access Using kubeconfig Files](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/).
+
+- `mkdir -p "$HOME/.kube"`: Bash thay `$HOME` bằng thư mục home của user đang đăng nhập; dấu
+  nháy kép giữ đường dẫn sau khi mở rộng thành một đối số. `mkdir` tạo thư mục `.kube`; `-p` tạo
+  các thư mục cha còn thiếu và không báo lỗi nếu thư mục đích đã tồn tại. Với user `ubuntu`, có thể
+  hình dung đường dẫn kết quả là `/home/ubuntu/.kube`.
+  [GNU Bash — biến `HOME`](https://www.gnu.org/software/bash/manual/html_node/Bourne-Shell-Variables.html),
+  [GNU Coreutils — `mkdir`](https://www.gnu.org/software/coreutils/manual/html_node/mkdir-invocation.html).
+
+- `sudo cp /etc/kubernetes/admin.conf "$HOME/.kube/config"`: đầu vào là
+  `/etc/kubernetes/admin.conf`, kubeconfig quản trị do `kubeadm init` sinh ra. `sudo` cho phép
+  `cp` đọc file được bảo vệ dưới `/etc/kubernetes`; `cp` tạo một bản sao độc lập tại
+  `$HOME/.kube/config`, không xóa hay di chuyển file gốc. Tên đích là `config` vì đây là tên file
+  mặc định mà `kubectl` tìm trong `$HOME/.kube`. Runbook dùng `cp` không có `-i`, nên nếu file
+  đích đã tồn tại, nội dung có thể bị ghi đè mà không hỏi xác nhận; giữ nguyên command của
+  runbook. [GNU Coreutils — `cp`](https://www.gnu.org/software/coreutils/manual/html_node/cp-invocation.html),
+  [Ubuntu 24.04 — `sudo`](https://manpages.ubuntu.com/manpages/noble/man8/sudo.8.html).
+
+- `sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"`: `$(...)` là command substitution;
+  Bash chạy command bên trong rồi thay biểu thức bằng output nhận được. `id -u` trả UID và
+  `id -g` trả primary GID của user đang chạy shell. Hai phép thay thế diễn ra trước khi Bash
+  khởi chạy `sudo chown`, vì vậy khi block được chạy đúng yêu cầu bằng user thường, chúng xác định
+  UID/GID của chính user đó. Dấu `:` tạo đối số dạng `owner:group`; `chown` sau đó đặt cả owner và
+  group của file `config` về user thường. Nhờ vậy user có thể đọc và quản lý kubeconfig mà không
+  phải chạy `kubectl` qua `sudo`.
+  [GNU Bash — Command Substitution](https://www.gnu.org/software/bash/manual/html_node/Command-Substitution.html),
+  [GNU Coreutils — `id`](https://www.gnu.org/software/coreutils/id),
+  [GNU Coreutils — `chown`](https://www.gnu.org/software/coreutils/manual/html_node/chown-invocation.html).
+
+- `chmod 600 "$HOME/.kube/config"`: đặt quyền file theo mode bát phân `600`, tương đương
+  `rw-------`: owner được đọc (`4`) và ghi (`2`), còn group và mọi user khác không có quyền.
+  Lệnh không cần `sudo` vì `chown` ngay trước đó đã giao quyền sở hữu file cho user hiện tại.
+  [GNU Coreutils — Numeric Modes](https://www.gnu.org/software/coreutils/manual/html_node/Numeric-Modes.html),
+  [GNU Coreutils — `chmod`](https://www.gnu.org/software/coreutils/manual/html_node/chmod-invocation.html).
+
+Luồng tác động có thể hình dung như sau:
+
+```text
+/etc/kubernetes/admin.conf
+        │ sao chép bằng quyền root
+        ▼
+$HOME/.kube/config
+        │ chuyển owner/group sang user đang đăng nhập
+        ▼
+chỉ owner được đọc và ghi (600)
+        │
+        ▼
+kubectl tự tìm thấy kubeconfig và truy cập API server
+```
+
+Chỉ chạy phần này sau khi `kubeadm init` thành công và trong shell của user thường. File
+`admin.conf` chứa certificate của `kubernetes-admin`, thuộc nhóm được bind với ClusterRole
+`cluster-admin`; không chia sẻ nội dung của `/etc/kubernetes/admin.conf` hoặc
+`$HOME/.kube/config`. Quyền `600` ngăn các user thường khác đọc file nhưng không làm credential
+bên trong trở nên không nhạy cảm.
+[Kubernetes v1.35 — cảnh báo bảo mật `admin.conf`](https://v1-35.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/).
+
 **PASS:** current context mặc định là `kubernetes-admin@kubernetes`; Node control plane có
 tên `lab-k8s-master`. Node có thể còn `NotReady` trước khi cài CNI.
 

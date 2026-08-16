@@ -16,7 +16,7 @@
 **Vị trí:** Tài liệu tra cứu thuộc nhánh Tasks, không nằm trong 15 giai đoạn của lộ trình;
 liên quan gần nhất tới nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl) (bài
 [26 — kubectl](26-kubectl-vi.md)). Lab của lộ trình chạy `kubectl` ngay trên VM Linux của
-[Lab 00](labs/LAB-00-MOI-TRUONG.md); chỉ cần bài này khi bạn muốn điều khiển cluster từ máy
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md); chỉ cần bài này khi bạn muốn điều khiển cluster từ máy
 Windows cá nhân.
 
 **Phải hiểu ở lần đọc này:**

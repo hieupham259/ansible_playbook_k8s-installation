@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** [Checkpoint tiếp nối — CP5 Cấu hình lại cluster đang chạy](LO-TRINH-ADMIN.md#cp5--cấu-hình-lại-cluster-đang-chạy),
-bài 4/6 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG.md).
+bài 4/6 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này là mặt "thao tác" của khái niệm feature gate mà bạn đã gặp rải rác suốt lộ trình mỗi
 khi thấy dòng **TRẠNG THÁI TÍNH NĂNG**. Điểm cần nắm không phải là một gate cụ thể nào, mà là

@@ -25,7 +25,7 @@ Không sử dụng minikube. Chọn một trong hai phương án sau:
 
 > **Runbook lab:** thư mục [labs/](labs/README.md) chứa bài thực hành chạy được cho từng nhóm
 > bài, kèm bản đồ lab, chuỗi snapshot và sổ nợ lab. Phần dựng môi trường nằm một chỗ duy nhất
-> ở [Lab 00](labs/LAB-00-MOI-TRUONG.md); mọi lab khác bắt đầu từ một snapshot có tên.
+> ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md); mọi lab khác bắt đầu từ một snapshot có tên.
 
 ### Phương án 1 — Dùng cluster đã dựng
 
@@ -47,7 +47,7 @@ control plane trên cluster đang phục vụ người dùng thật.
 
 Nếu cluster hiện tại đang được sử dụng hoặc không được phép thử nghiệm phá lỗi, hãy dựng
 một cluster riêng có kiến trúc tương tự. Bản dựng từng bước có sẵn ở
-[Lab 00 — Môi trường](labs/LAB-00-MOI-TRUONG.md). Nên dùng các máy ảo để có thể snapshot và
+[Lab 00 — Môi trường](labs/LAB-00-MOI-TRUONG-1.35.7.md). Nên dùng các máy ảo để có thể snapshot và
 khôi phục:
 
 - Tối thiểu cho phần lớn bài học: 1 control plane + 2 worker.
@@ -68,7 +68,7 @@ là một phần của bài thực hành, không phải thao tác chuẩn bị c
 - Với bài làm đầy disk, chỉ dùng filesystem/volume dành riêng cho lab và đặt giới hạn rõ ràng;
   không làm đầy filesystem của máy host.
 
-- [ ] 🧪 [Lab 00 — Dựng môi trường lab dùng chung](labs/LAB-00-MOI-TRUONG.md) — làm trước giai đoạn 1; kết thúc bằng snapshot `01-cluster-ready`.
+- [ ] 🧪 [Lab 00 — Dựng môi trường lab dùng chung](labs/LAB-00-MOI-TRUONG-1.35.7.md) — làm trước giai đoạn 1; kết thúc bằng snapshot `01-cluster-ready`.
 
 **Checkpoint môi trường:** chạy được `kubectl get nodes`, tất cả node ở trạng thái `Ready`;
 SSH được vào từng node; xác định được container runtime, CNI, CoreDNS, kube-proxy và
@@ -106,7 +106,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [X] [Các Node](23-nodes-vi.md) — trọng tâm: kubelet đăng ký node, node condition, heartbeat.
 - [X] [Giao tiếp giữa Node và Control Plane](24-control-plane-node-communication-vi.md) — chiều giao tiếp nào đi qua API server, chiều nào không.
 - [X] [Các Controller](25-controllers-vi.md) — vòng lặp điều khiển; đây là ý tưởng cốt lõi của toàn bộ Kubernetes.
-- [ ] 🧪 [Lab 1a — Kiến trúc và mô hình điều khiển](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) — quan sát component/API/Node và thực hành reconciliation. Cần [Lab 00](labs/LAB-00-MOI-TRUONG.md) xong trước.
+- [ ] 🧪 [Lab 1a — Kiến trúc và mô hình điều khiển](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) — quan sát component/API/Node và thực hành reconciliation. Cần [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) xong trước.
 
 ### 1b. Làm việc với object và kubectl
 

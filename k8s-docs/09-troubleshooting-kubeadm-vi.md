@@ -38,7 +38,7 @@ là kỹ năng.
 - **Công cụ mà bài liên tục đẩy về là `crictl`** — dùng để nhìn vào container khi cluster chưa
   lên nên `kubectl` vô dụng. Đúng bộ đôi mà checkpoint giai đoạn 8 yêu cầu đọc được, cùng với
   `journalctl -u kubelet`. Lab 00 đã cài `cri-tools` và cấu hình `/etc/crictl.yaml` sẵn ở
-  [A4.3](labs/LAB-00-MOI-TRUONG.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl).
+  [A4.3](labs/LAB-00-MOI-TRUONG-1.35.7.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl).
 - **Đường thoát khi không mục nào khớp**, nêu ngay đầu bài: tìm issue đã có ở
   `github.com/kubernetes/kubeadm`, chưa có thì mở issue mới theo mẫu; còn nếu chỉ là chưa hiểu
   kubeadm hoạt động thế nào thì hỏi ở Slack `#kubeadm` hoặc StackOverflow với tag phù hợp.

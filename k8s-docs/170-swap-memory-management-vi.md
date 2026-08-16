@@ -15,7 +15,7 @@
 Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này **trả lời một câu hỏi bạn đã ôm từ Lab 00**. Ở mục
-[A4.1](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) bạn đã chạy
+[A4.1](labs/LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) bạn đã chạy
 `swapoff -a` theo kiểu copy-paste, không cần hiểu vì sao. Đây là chỗ hiểu: swap từng bị cấm hoàn
 toàn, nay đã có hỗ trợ nhưng kèm rất nhiều điều kiện. Cluster lab vẫn **tắt swap**, nên đọc bài
 này để nắm ranh giới chứ chưa phải để bật nó lên.
@@ -431,7 +431,7 @@ và [thiết kế](https://github.com/kubernetes/enhancements/blob/master/keps/s
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 12:
 
-1. Ở [Lab 00 mục A4.1](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
+1. Ở [Lab 00 mục A4.1](labs/LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
    bạn đã chạy `swapoff -a` trên cả ba node trước khi `kubeadm init`. Bài này giải thích vì sao
    bước đó là bắt buộc? Nếu muốn giữ swap trên `k8s-worker1` thì phải đổi gì?
 2. **Câu bẫy.** Bạn đặt `failSwapOn: false` trên `k8s-worker1`, khởi động lại kubelet, node lên

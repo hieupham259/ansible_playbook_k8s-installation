@@ -15,10 +15,10 @@
 Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bạn **đã chạy đúng các bước của bài này rồi** — mục A4 của
-[Lab 00](labs/LAB-00-MOI-TRUONG.md#a4-chuẩn-bị-os-và-container-runtime) là bản copy-paste của
-nó: [A4.1](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) tắt
-swap và bật sysctl, [A4.2](labs/LAB-00-MOI-TRUONG.md#a42-cài-containerd-và-runc-đúng-version)
-cài containerd, [A4.3](labs/LAB-00-MOI-TRUONG.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl) cài
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a4-chuẩn-bị-os-và-container-runtime) là bản copy-paste của
+nó: [A4.1](labs/LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) tắt
+swap và bật sysctl, [A4.2](labs/LAB-00-MOI-TRUONG-1.35.7.md#a42-cài-containerd-và-runc-đúng-version)
+cài containerd, [A4.3](labs/LAB-00-MOI-TRUONG-1.35.7.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl) cài
 ba binary. Lần này bạn đọc để **biết vì sao từng bước tồn tại**, không phải để gõ lại lệnh.
 Trang gốc viết cho v1.36; cluster lab khóa ở v1.35.6, nên số minor trong URL kho `pkgs.k8s.io`
 khác nhau — đó là khác biệt duy nhất về nội dung.
@@ -447,7 +447,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    v1.36.0 không? Còn v1.34 thì sao?
 3. Trên một VM mới bạn chạy `swapoff -a` rồi `kubeadm init` thành công. Sau lần reboot đầu
    tiên kubelet không lên nữa. Chuyện gì đã xảy ra, và
-   [A4.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
+   [A4.1 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
    đã làm thêm gì để tránh?
 4. Bạn để containerd ở `SystemdCgroup = false` nhưng kubelet dùng cgroup driver `systemd`. Node
    vẫn có RAM và CPU dư. Bài này nói điều gì sẽ xảy ra?
@@ -461,7 +461,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    cho bạn, vì vậy bạn phải tự đảm bảo chúng khớp với phiên bản control plane mà kubeadm sắp
    dựng. Để `apt` tự chọn thì ba gói có thể lệch nhau và lệch với control plane, dẫn tới
    **version skew** — bài mô tả hậu quả là "hành vi lỗi và không mong muốn". Đó là lý do
-   [A4.3 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl) ghim
+   [A4.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl) ghim
    cả ba gói ở đúng một chuỗi version rồi `apt-mark hold`.
 2. **v1.36.0: không. v1.34: được.** Bài cho phép lệch *một* phiên bản minor giữa kubelet và
    control plane, nhưng nêu rõ **phiên bản kubelet không bao giờ được vượt quá phiên bản của

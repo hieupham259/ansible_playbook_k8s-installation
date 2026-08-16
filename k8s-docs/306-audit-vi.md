@@ -11,7 +11,7 @@
 
 **Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
 → [CP7 — Audit và mã hóa dữ liệu](LO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu), bài 1/6 ·
-thực hành trực tiếp trên `k8s-master` của cluster VM [Lab 00](labs/LAB-00-MOI-TRUONG.md).
+thực hành trực tiếp trên `k8s-master` của cluster VM [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này lấp mảnh cuối của chuỗi xử lý request đã học ở bài
 [119 — Kiểm soát truy cập vào Kubernetes API](119-controlling-access-vi.md): sau authentication →

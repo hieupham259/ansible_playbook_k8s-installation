@@ -1,13 +1,13 @@
 # Lab 1a — Kiến trúc và mô hình điều khiển Kubernetes
 
-> **Điểm bắt đầu:** snapshot `01-cluster-ready` — xem [Lab 00 — Môi trường](LAB-00-MOI-TRUONG.md).
+> **Điểm bắt đầu:** snapshot `01-cluster-ready` — xem [Lab 00 — Môi trường](LAB-00-MOI-TRUONG-1.35.7.md).
 > **Điểm kết thúc:** cleanup trả cluster về đúng `01-cluster-ready`, không tạo snapshot mới.
 >
 > **Cập nhật và đối chiếu phiên bản:** 05/08/2026.
 
 Lab này đi cùng mục [1a. Kiến trúc và mô hình điều khiển](../LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển).
 
-Trước khi bắt đầu, chạy [quy trình mở đầu ở A5.5](LAB-00-MOI-TRUONG.md#a55-quy-trình-mở-đầu-mỗi-lab)
+Trước khi bắt đầu, chạy [quy trình mở đầu ở A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab)
 và xác nhận gate `01-cluster-ready` PASS. Toàn bộ phần dựng VM, cài container runtime,
 kubeadm và CNI nằm ở Lab 00 và **không** thuộc phạm vi bài này; nội dung cài đặt sẽ được học
 tại giai đoạn 2, 5 và 8.
@@ -522,7 +522,7 @@ reference và garbage collection thuộc lab 1c.
 
 ## 4. Troubleshooting của lab này
 
-Sự cố khi dựng môi trường nằm ở [mục 4 của Lab 00](LAB-00-MOI-TRUONG.md#4-troubleshooting-môi-trường).
+Sự cố khi dựng môi trường nằm ở [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường).
 
 | Triệu chứng | Kiểm tra | Cách xử lý trong lab |
 | --- | --- | --- |

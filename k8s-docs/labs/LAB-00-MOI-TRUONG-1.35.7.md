@@ -1,37 +1,28 @@
-# Lab 00 (biến thể 1.35.7) — Dựng môi trường lab dùng chung
+# Lab 00 — Dựng môi trường lab dùng chung
 
 > **Baseline:** Ubuntu Server 24.04.4 LTS, Kubernetes v1.35.7, containerd 2.2.1, runc 1.3.4,
 > Flannel v0.28.9, một control plane và hai worker chạy bằng VM trên Windows.
 >
 > **Cập nhật và đối chiếu phiên bản:** 13/08/2026.
 
-File này là **biến thể** của [Lab 00](LAB-00-MOI-TRUONG.md), khóa vào bộ version đã tra bằng
+File này là **file Lab 00 duy nhất** của chuỗi lab, khóa vào bộ version đã tra bằng
 [runbook baseline](../../kubeadm-rancher-find-version/runbook-tra-cuu-baseline-phien-ban-k8s.md).
-Các bước cài giữ nguyên thứ tự và tên mục của bản gốc. Khác hai chỗ: số phiên bản, và **gate
-A5.4 được mở rộng thành bảy tầng** theo mức verify của
-[runbook VMware §8](../../runbook-k8s-vmware.md) — bản gốc chỉ kiểm tới `Ready`, không chứng
-minh được Pod xuyên node, DNS, Service hay `exec` còn sống.
+Gate A5.4 được mở rộng thành **bảy tầng** theo mức verify của
+[runbook VMware §8](../../runbook-k8s-vmware.md) — kiểm tới Pod xuyên node, DNS, Service và
+`logs`/`exec`/`port-forward`, không dừng ở node `Ready`.
 
-## File này là biến thể, không thay thế Lab 00
+## Lịch sử phiên bản của Lab 00
 
-Hai file cùng tồn tại và **cùng tạo snapshot `01-cluster-ready`**. Chọn đúng một trong hai
-trước khi dựng cluster, rồi giữ nguyên lựa chọn đó cho toàn bộ chuỗi lab:
+File này từng là biến thể của một bản gốc khóa baseline cũ hơn (tên file cũ
+`LAB-00-MOI-TRUONG` không có hậu tố version, Kubernetes `v1.35.6`). Bản gốc đã xoá ngày
+16/08/2026 vì cluster thật của chuỗi lab được dựng bằng file này; cần tra lại thì xem lịch
+sử git. Snapshot giữ **nguyên tên
+`01-cluster-ready`** vì mọi lab sau đều lấy tên đó làm điểm bắt đầu; đổi tên ở đây sẽ làm
+hỏng gate đầu vào của toàn bộ chuỗi.
 
-| | [`LAB-00-MOI-TRUONG.md`](LAB-00-MOI-TRUONG.md) | File này |
-| --- | --- | --- |
-| Kubernetes | `v1.35.6` | `v1.35.7` |
-| Flannel | `v0.28.7` | `v0.28.9` |
-| `runc` | `1.3.3-0ubuntu1~24.04.3` | `1.3.4-0ubuntu1~24.04.1` |
-| Gate A5.4 | node `Ready` + Pod hệ thống | 7 tầng, tới `logs`/`exec`/`port-forward` |
-| Ngày đối chiếu | 05/08/2026 | 13/08/2026 |
-
-Snapshot giữ **nguyên tên `01-cluster-ready`** vì mọi lab sau đều lấy tên đó làm điểm bắt đầu;
-đổi tên ở đây sẽ làm hỏng gate đầu vào của toàn bộ chuỗi. Đổi lại, không được trộn hai bản:
-đã dựng cluster bằng file này thì mọi lần restore, mọi lần đối chiếu version đều tra ở bảng
-[A1.3](#a13-phiên-bản-được-khóa) của **file này**, không tra bảng của bản gốc.
-
-Quy tắc bảo trì giữ nguyên: bảng A1.3 là nơi duy nhất ghi số phiên bản trong nhánh này. Lab
-khác cần nói tới phiên bản thì link về đây, không chép lại con số.
+Quy tắc bảo trì giữ nguyên: bảng [A1.3](#a13-phiên-bản-được-khóa) là nơi duy nhất ghi số
+phiên bản của chuỗi lab. Lab khác cần nói tới phiên bản thì link về đây, không chép lại
+con số.
 
 ## Lab này là ngoại lệ có chủ đích
 
@@ -195,7 +186,7 @@ các architecture trong cùng một suite, nên khi đối chiếu phải đọc
 
 Repo `pkgs.k8s.io/core:/stable:/v1.35` chỉ phát hành **đúng một** version cho `cri-tools`
 (`1.35.0-1.1`) và `kubernetes-cni` (`1.8.0-1.1`); hai gói này không đi theo patch của
-Kubernetes, nên chúng giống hệt bản gốc dù Kubernetes đã lên `1.35.7`.
+Kubernetes.
 
 Hậu tố `~24.04.x` của `containerd` và `runc` là revision package, và **hai gói không dùng
 chung revision**: `containerd` đang ở `~24.04.3` còn `runc` ở `~24.04.1`. Đây là giá trị đọc
@@ -1128,9 +1119,8 @@ Chụp trên **cả ba VM**, lặp lại y hệt cho `lab-k8s-master`, `lab-k8s-
 ```
 
 Ô *Description* ghi file đã dựng và ngày chụp, ví dụ
-`dựng bằng LAB-00-MOI-TRUONG-1.35.7.md, chụp <ngày>`. Tên snapshot của bản gốc và biến thể
-này giống hệt nhau, nên Description là chỗ duy nhất trên VM ghi lại cluster được dựng bằng
-file nào.
+`dựng bằng LAB-00-MOI-TRUONG-1.35.7.md, chụp <ngày>` — đây là chỗ duy nhất trên VM ghi lại
+cluster được dựng bằng file nào.
 
 Quy tắc tên gọi — tên này là điểm bắt đầu mà mọi lab sau trong
 [chuỗi snapshot](#2-chuỗi-snapshot) tham chiếu:
@@ -1145,14 +1135,14 @@ Quy tắc tên gọi — tên này là điểm bắt đầu mà mọi lab sau tr
   chụp, không chụp trước ở đây.
 
 Verify từ PowerShell trên máy host bằng `vmrun.exe` (có sẵn trong thư mục cài VMware
-Workstation); sửa đường dẫn `.vmx` theo nơi lưu VM của bạn:
+Workstation); đường dẫn `.vmx` dưới đây theo máy host đang dùng, sửa lại nếu VM nằm chỗ khác:
 
 ```powershell
 $vmrun = 'C:\Program Files\VMware\VMware Workstation\vmrun.exe'
 $vmx = @(
-  'D:\VMs\lab-k8s-master\lab-k8s-master.vmx'
-  'D:\VMs\lab-k8s-worker1\lab-k8s-worker1.vmx'
-  'D:\VMs\lab-k8s-worker2\lab-k8s-worker2.vmx'
+  'E:\Virtual Machines\lab-k8s-master\lab-k8s-master.vmx'
+  'E:\Virtual Machines\lab-k8s-worker1\lab-k8s-worker1.vmx'
+  'E:\Virtual Machines\lab-k8s-worker2\lab-k8s-worker2.vmx'
 )
 foreach ($f in $vmx) {
   $names = & $vmrun -T ws listSnapshots $f | Select-Object -Skip 1

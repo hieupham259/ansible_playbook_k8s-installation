@@ -14,7 +14,7 @@
 [CP6 — DNS, CNI và kube-proxy](LO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy)), nối tiếp bài
 [84 — Network Policy](84-network-policies-vi.md).
 
-Lưu ý cho cluster lab: snapshot `01-cluster-ready` của [Lab 00](labs/LAB-00-MOI-TRUONG.md)
+Lưu ý cho cluster lab: snapshot `01-cluster-ready` của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md)
 chạy Flannel — CNI **không** hỗ trợ NetworkPolicy. Các bước trong bài chỉ cho kết quả đúng
 sau khi cluster đã chuyển sang CNI hỗ trợ NetworkPolicy (snapshot `02-net-ready` của Lab 5b).
 

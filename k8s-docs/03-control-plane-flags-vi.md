@@ -15,7 +15,7 @@
 Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Hai bài trước bạn dựng cluster bằng **cờ dòng lệnh** — đúng như
-[A5.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a51-init-control-plane) làm. Bài này là cách thứ
+[A5.1 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a51-init-control-plane) làm. Bài này là cách thứ
 hai: mô tả cluster bằng **file cấu hình** rồi `kubeadm init --config`. Đọc nó như một bảng
 phân vai — mỗi thứ muốn sửa có đúng một chỗ hợp lệ để sửa — chứ không phải để thuộc từng flag
 trong các ví dụ YAML. Các flag cụ thể trong ví dụ (`audit-log-path`, `election-timeout`…) chỉ

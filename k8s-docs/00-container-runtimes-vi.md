@@ -19,7 +19,7 @@ thuyết**, đặc biệt là mục *Các cgroup driver*. Phần thao tác cài 
 [giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), khi bạn dựng lại
 cluster có hiểu — xem điều chỉnh số 4 ở cuối lộ trình.
 
-Bạn đã **chạy** phần lớn nội dung bài này ở [Lab 00](labs/LAB-00-MOI-TRUONG.md) mục A4 mà chưa
+Bạn đã **chạy** phần lớn nội dung bài này ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) mục A4 mà chưa
 biết vì sao. Đây là lúc đọc để hiểu những dòng lệnh đã gõ.
 
 **Phải hiểu ở lần đọc này:**

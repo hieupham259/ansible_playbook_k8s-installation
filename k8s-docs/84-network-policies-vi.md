@@ -18,7 +18,7 @@
 Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Cảnh báo về cluster lab:** baseline dùng **Flannel**, và Flannel **không thực thi
-NetworkPolicy** (xem [Lab 00](labs/LAB-00-MOI-TRUONG.md#a13-phiên-bản-được-khóa)). Bạn vẫn tạo
+NetworkPolicy** (xem [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa)). Bạn vẫn tạo
 được object NetworkPolicy — API server chấp nhận và lưu nó — nhưng **không có gì bị chặn**.
 Đây là một [nợ lab](labs/README.md#5-sổ-nợ-lab) có chủ đích, được trả ở **Lab 5b** khi đổi sang
 CNI có thực thi policy. Vì vậy ở lần đọc này bạn học ngữ nghĩa và cú pháp; phần chứng minh

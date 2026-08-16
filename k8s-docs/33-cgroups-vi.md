@@ -13,7 +13,7 @@
 Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Lộ trình gọi đây là **nền tảng của mọi giới hạn tài nguyên học ở giai đoạn 3**. Bạn cũng đã
-chạy `stat -fc %T /sys/fs/cgroup` ở [Lab 00](labs/LAB-00-MOI-TRUONG.md) như một gate mà chưa
+chạy `stat -fc %T /sys/fs/cgroup` ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) như một gate mà chưa
 biết nó kiểm cái gì.
 
 **Phải hiểu ở lần đọc này:**

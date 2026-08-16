@@ -25,7 +25,7 @@ Phần này là bắt buộc với mọi phiên làm việc tạo hoặc sửa f
 Đọc theo đúng thứ tự sau, không bỏ bước:
 
 1. [`k8s-docs/labs/README.md`](k8s-docs/labs/README.md) — bản đồ lab, chuỗi snapshot, sổ nợ lab.
-2. [`k8s-docs/labs/LAB-00-MOI-TRUONG.md`](k8s-docs/labs/LAB-00-MOI-TRUONG.md) — baseline phiên bản và gate môi trường.
+2. [`k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md`](k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md) — baseline phiên bản và gate môi trường.
 3. [`k8s-docs/LO-TRINH-ADMIN.md`](k8s-docs/LO-TRINH-ADMIN.md) — xác định chính xác nhóm bài mà lab phải phủ.
 4. **Toàn bộ** file `.md` của các bài trong nhóm đó. Không viết lab từ kiến thức chung về
    Kubernetes; nội dung lab phải bám đúng những gì bài dịch trình bày.
@@ -76,7 +76,7 @@ Thứ tự các mục:
 2. Blockquote khai báo **điểm bắt đầu** (snapshot nào) và **điểm kết thúc** (trả về snapshot
    cũ hay tạo snapshot mới), kèm ngày đối chiếu phiên bản.
 3. Câu dẫn link tới đúng mục trong `LO-TRINH-ADMIN.md` và tới quy trình mở đầu ở
-   [A5.5 của Lab 00](k8s-docs/labs/LAB-00-MOI-TRUONG.md#a55-quy-trình-mở-đầu-mỗi-lab).
+   [A5.5 của Lab 00](k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab).
 4. `## 1. Kết quả phải đạt` — viết ở dạng "chứng minh và giải thích được…", không phải danh
    sách lệnh.
 5. `### 1.1. Ánh xạ tài liệu sang bài thực hành` — bảng hai cột. **Mỗi bài trong nhóm phải
@@ -97,7 +97,7 @@ Thứ tự các mục:
 
 - **Không lặp lại phần môi trường.** Không chép hướng dẫn cài OS, containerd, kubeadm hay CNI
   vào lab; link về Lab 00.
-- **Số phiên bản chỉ tồn tại ở** [bảng A1.3 của Lab 00](k8s-docs/labs/LAB-00-MOI-TRUONG.md#a13-phiên-bản-được-khóa).
+- **Số phiên bản chỉ tồn tại ở** [bảng A1.3 của Lab 00](k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa).
   Lab khác cần nói tới phiên bản thì link về đó, tuyệt đối không chép lại con số.
 - **Gate `PASS:`** sau mỗi bước có thể sai: một dòng bắt đầu bằng `PASS:` mô tả điều kiện phải
   đạt. Bước nào không kiểm chứng được thì không đưa vào lab.

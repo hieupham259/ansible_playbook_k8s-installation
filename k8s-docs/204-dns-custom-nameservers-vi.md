@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** [Checkpoint tiếp nối — CP6 DNS, CNI và kube-proxy](LO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy),
-bài 1/7 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG.md).
+bài 1/7 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài [10](10-dns-pod-service-vi.md) đã dạy DNS *từ phía Pod* (tên miền nào tra được, `search`
 domain, `ndots`). Bài này là mặt còn lại: *từ phía người vận hành*, CoreDNS được cấu hình ở

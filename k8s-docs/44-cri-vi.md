@@ -12,7 +12,7 @@
 **Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 5/8 ·
 Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
-Ở [Lab 00](labs/LAB-00-MOI-TRUONG.md) bạn đã chạy `crictl info` và kiểm tra "CRI API là `v1`"
+Ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) bạn đã chạy `crictl info` và kiểm tra "CRI API là `v1`"
 mà chưa biết vì sao điều đó quan trọng. Bài này trả lời.
 
 **Phải hiểu ở lần đọc này:**

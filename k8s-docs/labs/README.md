@@ -3,15 +3,12 @@
 Thư mục này chứa các bài lab đi kèm [LO-TRINH-ADMIN.md](../LO-TRINH-ADMIN.md). Mỗi lab là một
 runbook chạy được trên cluster thật, có gate `PASS:` ở từng bước và checkpoint vấn đáp ở cuối.
 
-Bắt đầu ở [Lab 00 — Môi trường](LAB-00-MOI-TRUONG.md). Không lab nào khác lặp lại phần dựng
+Bắt đầu ở [Lab 00 — Môi trường](LAB-00-MOI-TRUONG-1.35.7.md). Không lab nào khác lặp lại phần dựng
 môi trường; tất cả đều bắt đầu từ một snapshot có tên.
 
-Lab 00 có một **biến thể** khóa vào baseline mới hơn:
-[LAB-00-MOI-TRUONG-1.35.7.md](LAB-00-MOI-TRUONG-1.35.7.md) (Kubernetes `v1.35.7`, Flannel
-`v0.28.9`, `runc 1.3.4`), kèm gate `01-cluster-ready` mở rộng thành bảy tầng — kiểm tới Pod
-xuyên node, DNS, Service/kube-proxy và `logs`/`exec`/`port-forward`. Hai file cùng tạo snapshot
-`01-cluster-ready` và **loại trừ nhau** — chọn đúng một trước khi dựng cluster, rồi tra version
-ở bảng A1.3 của chính file đã chọn.
+Lab 00 khóa baseline ở bảng A1.3 của chính nó, và gate `01-cluster-ready` gồm bảy tầng —
+kiểm tới Pod xuyên node, DNS, Service/kube-proxy và `logs`/`exec`/`port-forward`. (Bản gốc
+cũ của Lab 00 khóa baseline thấp hơn đã xoá 16/08/2026; xem lịch sử git nếu cần.)
 
 ---
 
@@ -42,7 +39,7 @@ Không cài trước hạ tầng của giai đoạn sau rồi im lặng dùng. V
 nhưng cần metrics-server của giai đoạn 11, nên phần thực hành HPA nằm ở lab 11b — giai đoạn 4
 không cài metrics-server sớm.
 
-**Ngoại lệ duy nhất: [Lab 00](LAB-00-MOI-TRUONG.md).** Nó dùng kubeadm — nội dung của giai
+**Ngoại lệ duy nhất: [Lab 00](LAB-00-MOI-TRUONG-1.35.7.md).** Nó dùng kubeadm — nội dung của giai
 đoạn 8 — vì lộ trình cần cluster thật ngay từ giai đoạn 1. Lab 00 được miễn trừ vì nó không
 phải bài học: không có checkpoint vấn đáp, người học chạy copy-paste và được dặn rõ là chưa
 cần hiểu. Phần học thật nằm ở Lab 8a. Không lab nào khác được viện dẫn ngoại lệ này.
@@ -54,7 +51,7 @@ về snapshot cũ, hay tạo snapshot mới).
 
 | Snapshot | Tạo bởi | Nội dung thêm |
 | --- | --- | --- |
-| `01-cluster-ready` | [Lab 00](LAB-00-MOI-TRUONG.md) | 1 control plane + 2 worker, Flannel, không workload |
+| `01-cluster-ready` | [Lab 00](LAB-00-MOI-TRUONG-1.35.7.md) | 1 control plane + 2 worker, Flannel, không workload |
 | `02-net-ready` | Lab 5b | CNI hỗ trợ NetworkPolicy thay Flannel, ingress controller |
 | `03-storage-ready` | Lab 6a | StorageClass mặc định và provisioner |
 | `04-metrics-ready` | Lab 11a | metrics-server |
@@ -75,8 +72,7 @@ khi sang lab sau.
 
 | Lab | Giai đoạn / nhóm bài | Bắt đầu từ | Kết thúc | Giờ | Trạng thái |
 | --- | --- | --- | --- | --- | --- |
-| [00 — Môi trường](LAB-00-MOI-TRUONG.md) | chuẩn bị | chưa có cluster | **tạo** `01-cluster-ready` | 2–4 | ✅ đã viết |
-| [00 — Môi trường (biến thể 1.35.7)](LAB-00-MOI-TRUONG-1.35.7.md) | chuẩn bị | chưa có cluster | **tạo** `01-cluster-ready` | 2–4 | ✅ đã viết — thay cho dòng trên, không chạy cả hai |
+| [00 — Môi trường](LAB-00-MOI-TRUONG-1.35.7.md) | chuẩn bị | chưa có cluster | **tạo** `01-cluster-ready` | 2–4 | ✅ đã viết |
 | [1a — Kiến trúc và mô hình điều khiển](LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) | 1a (8 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
 | 1b — Object, label, kubectl và kubeconfig | 1b (9 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
 | 1c — Vòng đời và cơ chế nền của object | 1c (7 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ⬜ chưa viết |
@@ -132,7 +128,6 @@ bài gốc.
 - Bằng chứng ghi vào `~/lab-evidence/<mã lab>/`, ví dụ `~/lab-evidence/1a/`.
 - Fault injection chỉ chạy trên `lab-k8s-worker2`.
 - Dòng bắt đầu bằng `PASS:` là điều kiện phải đạt; không đi tiếp khi gate fail.
-- Số phiên bản chỉ tồn tại ở [bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG.md#a13-phiên-bản-được-khóa)
-  — hoặc ở [bảng A1.3 của biến thể 1.35.7](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa)
-  nếu bạn dựng cluster bằng file đó; lab khác link về một trong hai thay vì chép lại.
+- Số phiên bản chỉ tồn tại ở [bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa);
+  lab khác link về đó thay vì chép lại con số.
 - Checkpoint là vấn đáp không nhìn tài liệu, không phải danh sách lệnh đã chạy.

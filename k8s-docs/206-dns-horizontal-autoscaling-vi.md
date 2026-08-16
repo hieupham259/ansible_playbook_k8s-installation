@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** [Checkpoint tiếp nối — CP6 DNS, CNI và kube-proxy](LO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy),
-bài 4/7 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG.md).
+bài 4/7 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Đừng nhầm bài này với HPA (Horizontal Pod Autoscaler) đã học ở bài
 [72](72-horizontal-pod-autoscale-vi.md): công cụ ở đây là `cluster-proportional-autoscaler`,

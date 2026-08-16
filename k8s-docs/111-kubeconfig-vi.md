@@ -12,7 +12,7 @@
 **Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
 bài 7/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
-Ở [Lab 00](labs/LAB-00-MOI-TRUONG.md) bạn đã copy `/etc/kubernetes/admin.conf` thành
+Ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) bạn đã copy `/etc/kubernetes/admin.conf` thành
 `~/.kube/config` mà chưa biết bên trong có gì. Đây là bài mở file đó ra.
 
 **Phải hiểu ở lần đọc này:**

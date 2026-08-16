@@ -15,10 +15,10 @@
 Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **bài trung tâm của giai đoạn 8**. Mục
-[A5 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a5-khởi-tạo-cluster) là bản rút gọn của nó:
-[A5.1](labs/LAB-00-MOI-TRUONG.md#a51-init-control-plane) chạy `kubeadm init`,
-[A5.2](labs/LAB-00-MOI-TRUONG.md#a52-cài-flannel-v0287) cài CNI,
-[A5.3](labs/LAB-00-MOI-TRUONG.md#a53-join-hai-worker) join hai worker. Bài dài, nhưng phần
+[A5 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a5-khởi-tạo-cluster) là bản rút gọn của nó:
+[A5.1](labs/LAB-00-MOI-TRUONG-1.35.7.md#a51-init-control-plane) chạy `kubeadm init`,
+[A5.2](labs/LAB-00-MOI-TRUONG-1.35.7.md#a52-cài-flannel-v0289) cài CNI,
+[A5.3](labs/LAB-00-MOI-TRUONG-1.35.7.md#a53-join-hai-worker) join hai worker. Bài dài, nhưng phần
 thực sự quyết định nằm ở ba mục: khởi tạo control-plane node, cài Pod network add-on, và cách
 ly control plane node. Mọi thứ khác là tùy chọn hoặc tra cứu.
 
@@ -672,7 +672,7 @@ Nếu bạn đang gặp khó khăn với kubeadm, vui lòng tham khảo
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
 
-1. [A5.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a51-init-control-plane) truyền cả
+1. [A5.1 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a51-init-control-plane) truyền cả
    `--control-plane-endpoint 'k8s-master:6443'` lẫn `--apiserver-advertise-address 192.168.100.111`.
    Hai cờ này khác nhau chỗ nào? Nếu bỏ cờ thứ nhất thì sau này bạn mất khả năng gì, và sửa
    được bằng cách chạy lại lệnh không?

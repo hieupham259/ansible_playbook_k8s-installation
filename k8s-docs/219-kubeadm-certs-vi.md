@@ -14,7 +14,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** [Checkpoint tiếp nối — CP3 Vòng đời chứng chỉ](LO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ),
-bài 1/3 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG.md).
+bài 1/3 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này dài nhưng thực chất là **hai bài trong một**: nửa đầu là quy trình vận hành hằng ngày
 (kiểm tra hạn, gia hạn) mà mọi admin cluster kubeadm phải thuộc; nửa sau là các quy trình cho

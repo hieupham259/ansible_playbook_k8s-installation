@@ -11,7 +11,7 @@
 
 **Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
 → [CP9 — Xử lý sự cố](LO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố), bài 2/10 · thực hành trực tiếp trên
-node của cluster VM [Lab 00](labs/LAB-00-MOI-TRUONG.md).
+node của cluster VM [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này nối tiếp bài [00 — Container runtime](00-container-runtimes-vi.md): ở đó bạn đã dựng
 containerd làm CRI runtime; bài này cho bạn công cụ dòng lệnh để nói chuyện thẳng với runtime đó
@@ -39,7 +39,7 @@ ngay trên node khi cần debug — thay cho lệnh `docker` của thời docker
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Tên image trong output mẫu (`hyperkube-amd64` v1.10, registry `k8s-gcrio.azureedge.net`, `nvidia-device-plugin`) | output từ thời trang gốc được viết, chỉ dùng minh họa định dạng cột | chạy lại từng lệnh trên `k8s-worker2` của cluster lab để thấy output thật của containerd |
-| Mục "Cài đặt crictl" | node dựng theo quy trình [Lab 00](labs/LAB-00-MOI-TRUONG.md) thường đã có sẵn `crictl` (gói `cri-tools` đi kèm kho gói của kubeadm) — kiểm tra bằng `crictl --version` | chỉ quay lại mục này khi node thiếu binary |
+| Mục "Cài đặt crictl" | node dựng theo quy trình [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) thường đã có sẵn `crictl` (gói `cri-tools` đi kèm kho gói của kubeadm) — kiểm tra bằng `crictl --version` | chỉ quay lại mục này khi node thiếu binary |
 
 ---
 

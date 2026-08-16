@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** [Checkpoint tiếp nối — CP2 Nâng cấp cluster](LO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster),
-bài 5/5 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG.md).
+bài 5/5 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Đây là trang tổng quan **không gắn với công cụ nào**: nó cho khung chung của mọi cuộc nâng cấp,
 còn quy trình từng lệnh cho cluster kubeadm nằm ở bài *Upgrading kubeadm clusters* (CP2 bài 1)

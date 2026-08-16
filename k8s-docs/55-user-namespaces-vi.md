@@ -382,7 +382,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    thực tế nghĩa là kernel đủ mới, vì tmpfs mới hỗ trợ từ một mốc nhất định và Kubernetes dùng
    tmpfs cho token service account lẫn Secret; (b) **OCI runtime** đủ mới — `runc` hoặc `crun`;
    (c) **CRI runtime** đủ mới — containerd hoặc CRI-O. Phiên bản thật của cluster lab tra ở
-   [bảng phiên bản được khóa của Lab 00](labs/LAB-00-MOI-TRUONG.md#a13-phiên-bản-được-khóa); phần
+   [bảng phiên bản được khóa của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); phần
    kernel thì kiểm trực tiếp trên node bằng `uname -r`.
 4. **Không.** Bài liệt kê hạn chế cứng: khi dùng user namespace cho Pod thì **không được phép dùng
    các namespace khác của host** — đặt `hostUsers: false` thì **không được** đặt

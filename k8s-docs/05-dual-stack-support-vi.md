@@ -28,7 +28,7 @@ cái gì **không** đổi được về sau.
 - *Bật chuyển tiếp gói tin IPv6*: mỗi node phải có `net.ipv6.conf.all.forwarding = 1`, kiểm tra
   bằng `sysctl net.ipv6.conf.all.forwarding` và đặt bền vững qua file trong `/etc/sysctl.d/`.
   Đây là bản song sinh IPv6 của `net.ipv4.ip_forward` mà
-  [A4.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
+  [A4.1 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
   đã đặt.
 - Cách khai hai dải: `--pod-network-cidr` và `--service-cidr` nhận **danh sách hai dải cách nhau
   bằng dấu phẩy**, hoặc tương đương là `ClusterConfiguration.networking.podSubnet` /
@@ -237,7 +237,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 1. Cluster lab của bạn đã dựng xong với Pod CIDR `10.244.0.0/16`. Sáu tháng sau bạn muốn thêm
    một dải IPv6. `kubeadm upgrade` giải quyết được không?
 2. Bạn muốn dựng lại cluster lab ở chế độ dual-stack. Ngoài `net.ipv4.ip_forward` mà
-   [A4.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
+   [A4.1 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
    đã đặt, phải thêm sysctl nào trên **mỗi** node, và kiểm tra bằng lệnh gì?
 3. Bật dual-stack có bắt buộc mọi Pod và Service phải có cả hai họ địa chỉ không?
 4. Trong file cấu hình dual-stack, `advertiseAddress` nhận được mấy địa chỉ? Còn `node-ip`

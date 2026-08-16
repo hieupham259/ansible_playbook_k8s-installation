@@ -61,7 +61,7 @@ Giá trị `--emulated-version` phải <= `binaryVersion`. Xem thông điệp tr
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 12:
 
 1. Cluster lab đang chạy phiên bản đã khóa ở
-   [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a13-phiên-bản-được-khóa). Bạn đặt
+   [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa). Bạn đặt
    `--emulated-version` cao hơn phiên bản binary đó được không? Vì sao?
 2. **Câu bẫy.** Bạn nâng binary kube-apiserver lên một phiên bản mới nhưng đặt `--emulated-version`
    giữ ở phiên bản cũ. Một API đã bị xóa ở phiên bản mới — còn dùng được không? Một tính năng chỉ

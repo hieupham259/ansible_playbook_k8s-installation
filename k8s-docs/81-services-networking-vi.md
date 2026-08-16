@@ -175,7 +175,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    mọi Pod khác dù cùng node hay khác node, trực tiếp, không dùng proxy hay chuyển đổi địa chỉ
    mạng. Thứ làm cho điều đó thành hiện thực **không phải Kubernetes** mà là **hiện thực mạng
    Pod** — trên cluster lab là CNI plugin đang cài (xem
-   [Lab 00](labs/LAB-00-MOI-TRUONG.md#a13-phiên-bản-được-khóa)).
+   [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa)).
 2. Qua **`localhost`**. Pod có network namespace riêng và **mọi container trong Pod dùng chung
    namespace đó**, nên các tiến trình ở những container khác nhau trong cùng Pod thấy nhau như
    trên cùng một máy. Service là để cho **các Pod khác** tìm tới, không phải để nói chuyện bên

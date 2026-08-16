@@ -457,7 +457,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Bạn `kubeadm init --control-plane-endpoint "lb.lab:6443" --upload-certs` lúc 09:00. Đến
    12:00 mới rảnh để join control plane node thứ hai và lệnh join báo lỗi. Chuyện gì xảy ra, và
    khắc phục thế nào?
-3. So với cluster lab mà [A5.1 của Lab 00](labs/LAB-00-MOI-TRUONG.md#a51-init-control-plane)
+3. So với cluster lab mà [A5.1 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a51-init-control-plane)
    dựng, `--control-plane-endpoint` ở đây phải trỏ tới đâu, và điều gì xảy ra nếu địa chỉ đó
    khác địa chỉ load balancer?
 4. Bạn chọn external etcd. So với quy trình stacked, bạn phải làm thêm đúng những gì trong bài

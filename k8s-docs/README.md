@@ -4,7 +4,7 @@ Các bản dịch tiếng Việt của tài liệu chính thức trên <https://
 
 > **Muốn học theo lộ trình?** Xem [LO-TRINH-ADMIN.md](LO-TRINH-ADMIN.md) — giáo trình 15 giai đoạn dành cho người muốn trở thành Kubernetes administrator, kèm mục tiêu và checkpoint thực hành cho từng giai đoạn, và phần tiếp nối sang nhánh `/docs/tasks/` để vận hành thực tế.
 >
-> **Muốn thực hành?** Xem [labs/](labs/README.md) — runbook chạy được cho từng nhóm bài, bắt đầu ở [Lab 00 — Môi trường](labs/LAB-00-MOI-TRUONG.md).
+> **Muốn thực hành?** Xem [labs/](labs/README.md) — runbook chạy được cho từng nhóm bài, bắt đầu ở [Lab 00 — Môi trường](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 >
 > File README này là **mục lục tra cứu theo chủ đề**. Số trong tên file bám theo cấu trúc mục của kubernetes.io để dễ đối chiếu khi trang gốc cập nhật — **không phải thứ tự đọc**; thứ tự đọc nằm ở file lộ trình.
 

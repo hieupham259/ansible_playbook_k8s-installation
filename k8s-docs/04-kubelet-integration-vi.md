@@ -17,8 +17,8 @@ Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-
 Bài này trả lời một câu hỏi rất cụ thể: **`kubeadm init` và `kubeadm join` thực sự ghi những
 file nào cho kubelet, và ai thắng khi các file đó mâu thuẫn nhau**. Nó là bài giải thích hậu
 trường của hai lệnh bạn đã chạy ở
-[A5.1](labs/LAB-00-MOI-TRUONG.md#a51-init-control-plane) và
-[A5.3](labs/LAB-00-MOI-TRUONG.md#a53-join-hai-worker) của Lab 00 — và cũng giải thích vì sao
+[A5.1](labs/LAB-00-MOI-TRUONG-1.35.7.md#a51-init-control-plane) và
+[A5.3](labs/LAB-00-MOI-TRUONG-1.35.7.md#a53-join-hai-worker) của Lab 00 — và cũng giải thích vì sao
 A4.3 dặn rằng kubelet restart liên tục **trước** `kubeadm init/join` là trạng thái dự kiến.
 Đọc kèm một phiên SSH mở sẵn vào `k8s-master` để `ls` từng đường dẫn được nhắc tên.
 

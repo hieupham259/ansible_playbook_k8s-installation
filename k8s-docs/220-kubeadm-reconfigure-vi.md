@@ -14,7 +14,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** [Checkpoint tiếp nối — CP5 Cấu hình lại cluster đang chạy](LO-TRINH-ADMIN.md#cp5--cấu-hình-lại-cluster-đang-chạy),
-bài 1/6 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG.md).
+bài 1/6 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này ngắn nhưng là **bản đồ tổng** của cả CP5: nó cho biết cấu hình của từng thành phần
 (control plane, kubelet, kube-proxy, CoreDNS) nằm ở đâu, sửa thế nào, và — quan trọng nhất —

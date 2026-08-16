@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** [Checkpoint tiếp nối — CP6 DNS, CNI và kube-proxy](LO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy),
-bài 2/7 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG.md).
+bài 2/7 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Đây là bài runbook: giá trị của nó nằm ở **thứ tự các bước loại trừ**, không phải ở từng lệnh
 riêng lẻ. Đọc xong bạn phải tự vẽ lại được chuỗi chẩn đoán từ trong Pod ra tới RBAC của

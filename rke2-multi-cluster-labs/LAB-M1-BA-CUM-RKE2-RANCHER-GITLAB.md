@@ -11,6 +11,11 @@
 > và ArgoCD deploy app end-to-end. Ngày đối chiếu phiên bản: **17/08/2026**.
 >
 > Lab tiếp theo của track: [Lab M2 — Capstone production HA](LAB-M2-CAPSTONE-PRODUCTION-HA.md).
+>
+> **Trạng thái kiểm chứng:** file chỉ được gắn nhãn runtime `READY` sau khi maintainer chạy từ
+> host trống tới `m1-complete`, restore thử một mốc, sửa mọi deviation, rồi một người học khác
+> chạy lại chỉ bằng tài liệu. Trước khi có hai evidence đó, đây là runbook **READY FOR PILOT**:
+> gate fail phải dừng theo §2.4; không tự bỏ qua, đổi command hoặc ghi output PASS giả định.
 
 ---
 
@@ -33,7 +38,7 @@ flowchart TB
             APP2["mc-app2 — 10.20.30.12<br/>RKE2 agent<br/>Longhorn replica 2"]
         end
         subgraph NET_DATA["VMnet5 — dải DATA 10.20.40.0/24"]
-            DB1["mc-db1 — 10.20.40.11<br/>PostgreSQL 16<br/>(DB ngoài cluster)"]
+            DB1["mc-db1 — 10.20.40.11<br/>PostgreSQL 17<br/>(DB ngoài cluster)"]
         end
         ROUTER["mc-router — .1 của cả 4 dải<br/>NAT ra Internet · dnsmasq DNS *.mc.lab<br/>nftables: chặn mọi dải → DATA,<br/>chỉ mở CICD → DATA:5432"]
     end
@@ -80,15 +85,17 @@ rồi cập nhật bảng — không âm thầm cài bản khác.
 | RKE2 | `v1.35.7+rke2r1` | Kubernetes v1.35.7; ship Traefik v3.7.8; **không lên 1.36** khi còn Rancher 2.14.3 (chart khai `kubeVersion: < 1.36.0-0`) |
 | Rancher | chart `2.14.3` | repo `rancher-stable`; support matrix phủ K8s 1.33–1.35 |
 | cert-manager | chart `v1.21.1` | repo `jetstack` |
-| Helm | 4.x (≥ 4.0) | GitLab chart 10.x yêu cầu Helm ≥ 4.0; Helm 3 hết hỗ trợ ~07/2026. Cài bản stable mới nhất, ghi version thực vào hồ sơ |
+| Helm | `v4.2.3` | GitLab chart 10.x yêu cầu Helm ≥ 4.0; cài bằng script Helm 4 chính thức với `DESIRED_VERSION` pin cứng |
 | Longhorn | chart `1.12.1` | yêu cầu K8s ≥ 1.25; V1 data engine |
 | PostgreSQL | **17** (repo PGDG chính thức) | GitLab 19.x chỉ hỗ trợ PostgreSQL **17.x** (min = max = 17); gói 16 của Ubuntu Noble **không dùng được** |
 | Redis | 7.x (gói Ubuntu Noble) | GitLab chart 10.x **bắt buộc** external Redis |
-| MinIO server | bản mới nhất từ `dl.min.io` tại ngày cài — ghi version vào hồ sơ | GitLab chart 10.x **bắt buộc** external object storage |
+| MinIO server | `RELEASE.2025-09-07T16-13-09Z` | binary + SHA256 chính thức; GitLab chart 10.x **bắt buộc** external object storage |
+| MinIO client `mc` | `RELEASE.2025-08-13T08-35-41Z` | binary + SHA256 chính thức; tạo và verify bucket |
 | GitLab chart | `10.2.2` (GitLab `19.2.2`) | repo `https://charts.gitlab.io`; đối chiếu [version mappings](https://docs.gitlab.com/charts/installation/version_mappings/) nếu repo đã sang bản khác |
 | Argo CD | `v3.5.1` | manifest install pin theo tag, không dùng `stable` trôi nổi |
 | local-path-provisioner | `v0.0.37` | StorageClass cho cụm CICD (Gitaly cần PVC); trùng bản khóa ở [Lab 00 §A1.4](../k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) |
-| gitlab-runner chart / reflector | **không pin cứng ở đây** | lấy bản mới nhất lúc cài bằng `helm search repo`, **ghi version thấy được vào hồ sơ lab** ở gate tương ứng |
+| gitlab-runner chart | `0.91.2` | repo `gitlab`; pin đúng chart version ở §6.4 |
+| Reflector chart | `10.0.65` | repo `emberstack`; pin đúng chart version ở §7.1 |
 
 ### 2.2. VM, mạng và DNS
 
@@ -177,8 +184,9 @@ chưa tính Windows và VMware.
 ### 2.3. Biến đầu vào
 
 Mọi giá trị người học phải tự điền được liệt kê ở đây, một chỗ duy nhất. **Trước khi bắt đầu
-§3**, sinh sẵn toàn bộ nhóm "tự sinh" và ghi vào một file cục bộ ngoài git (ví dụ
-`~/m1-secrets.env`); các mục sau chỉ tra file này. Một secret điền lệch nhau giữa hai mục
+§4** (lúc `mc-admin1` đã SSH được), sinh sẵn toàn bộ nhóm "tự sinh" bằng `openssl` và lưu
+vào password manager hoặc secret note mã hóa trên Windows host; không lưu trong repo, VM hay
+transcript. Các mục sau chỉ tra nguồn này. Một secret điền lệch nhau giữa hai mục
 (ví dụ mật khẩu DB ở §6.2 và secret ở §6.3) sẽ fail ở gate với thông báo không nói thẳng
 nguyên nhân — quy ước một-chỗ-duy-nhất này tồn tại để chặn đúng lỗi đó.
 
@@ -191,12 +199,30 @@ nguyên nhân — quy ước một-chỗ-duy-nhất này tồn tại để chặ
 | `<TOKEN-UI-SINH-RA>` | token import cluster | Rancher UI sinh khi tạo Import Existing | §5.4, §6.1 |
 | `<MẬT-KHẨU-DB>` | mật khẩu role `gitlab` của PostgreSQL | `openssl rand -base64 24` | §6.2 và secret `gitlab-psql` ở §6.3 — **phải trùng** |
 | `<MẬT-KHẨU-REDIS>` | requirepass của Redis | `openssl rand -base64 24` | §6.2 và secret `gitlab-redis` ở §6.3 — **phải trùng** |
-| `<MẬT-KHẨU-MINIO>` | MINIO_ROOT_PASSWORD | `openssl rand -base64 24` | §6.2 (unit + `mc alias`) và hai secret object-storage/registry-storage ở §6.3 — **phải trùng** |
+| `<MẬT-KHẨU-MINIO>` | MINIO_ROOT_PASSWORD | `openssl rand -base64 24` | §6.2 (`minio.env` + `mc alias`) và hai secret object-storage/registry-storage ở §6.3 — **phải trùng** |
 | `glrt-<TOKEN>` | runner authentication token | GitLab UI → Admin → Runners → New instance runner | §6.4 |
 | `<TOKEN-argocd-read>` | deploy token đọc repo | GitLab UI → group `platform` → Deploy tokens, scope `read_repository` | §7.2 |
 | `<TOKEN-registry-pull>` | deploy token pull image | như trên, scope `read_registry` | §7.2 |
-| `<TOKEN-git-push>` | Personal Access Token của `root` để push code | GitLab UI → avatar root → Edit profile → Access tokens, scope `write_repository` | §7.2 |
+| `<TOKEN-git-push>` | Personal Access Token của `root` để push code và đọc trạng thái pipeline | GitLab UI → avatar root → Edit profile → Access tokens, scope `api` và `write_repository` | §7.2, §9 |
 | `<tag từ §6.4>` | tag image demo | chính là `CI_COMMIT_SHORT_SHA` của pipeline xanh đầu tiên | §7.2 |
+
+Trên `mc-admin1`, chạy từng lệnh dưới đây, chép output thẳng vào password manager rồi xóa
+terminal (`clear`); không redirect output ra file:
+
+```bash
+printf 'RKE2_ADMIN_TOKEN='; openssl rand -hex 16
+printf 'RKE2_APP_TOKEN='; openssl rand -hex 16
+printf 'RKE2_CICD_TOKEN='; openssl rand -hex 16
+printf 'RANCHER_BOOTSTRAP='; openssl rand -base64 24
+printf 'POSTGRES_PASSWORD='; openssl rand -base64 24
+printf 'REDIS_PASSWORD='; openssl rand -base64 24
+printf 'MINIO_PASSWORD='; openssl rand -base64 24
+clear
+```
+
+**Gate:** password manager có đủ bảy giá trị không rỗng; ba token RKE2 khác nhau. Nếu thiếu
+hoặc trùng, sinh lại trước §4. Các token UI/PAT ở nửa dưới bảng chỉ tạo khi UI tương ứng đã
+tồn tại.
 
 Sang [Lab M2](LAB-M2-CAPSTONE-PRODUCTION-HA.md), các biến cùng vai trò không nằm rải trong
 tài liệu nữa mà dồn vào `inventories/prod/group_vars/all_vault.yml` (ansible-vault):
@@ -226,6 +252,23 @@ Ba bước, áp cho mọi gate trong lab:
 
 Restore snapshot là thao tác trên **toàn bộ** các VM có trong mốc đó (trạng thái ba cụm đan
 nhau qua Rancher import — restore lệch một VM là lệch mốc).
+
+**Protocol snapshot nhất quán — áp dụng cho mọi mốc `m1-*`:** không chụp riêng lẻ sáu VM
+đang ghi dữ liệu. Trước khi shutdown: không còn pipeline/Helm/Argo sync hoặc Longhorn test
+đang chạy; đã đóng mọi `kubectl port-forward`/SSH tunnel; đã xóa `wildcard.key`, AskPass
+helper và các file secret tạm. `pgrep -af 'kubectl.*port-forward'` phải không có output và
+`test ! -e /tmp/wildcard.key` phải PASS trên Admin/CICD/App. Sau khi gate của mục PASS,
+shutdown guest sạch theo thứ tự
+`mc-cicd1 → mc-app2 → mc-app1 → mc-admin1 → mc-db1 → mc-router`; chờ VMware hiển thị cả sáu
+VM `Powered Off`, rồi chụp cùng một tên snapshot trên **đủ sáu VM**. Khởi động lại theo thứ
+tự `mc-router → mc-db1 → mc-admin1 → mc-app1 → mc-app2 → mc-cicd1`; chờ mỗi máy lên trước
+máy kế và chạy lại gate vừa PASS. Shutdown CICD trước DB làm dừng writer GitLab trước khi
+PostgreSQL/Redis/MinIO flush và tắt; powered-off snapshot tránh lệch filesystem.
+
+Khi restore: power off đủ sáu VM, revert **cả sáu** về cùng tên mốc, khởi động theo thứ tự
+trên và chạy lại gate của mốc. Nếu bất kỳ VM nào thiếu snapshot cùng tên hoặc gate sau restore
+fail, **STOP**; không tiếp tục trên một bộ VM lệch mốc. Snapshot là rollback của lab, không
+thay thế backup ứng dụng production.
 
 ## 3. Hạ tầng: mạng, router và các VM
 
@@ -270,6 +313,35 @@ Settings** (cần quyền admin), thêm 4 mạng host-only. Với **từng** VMn
 | VMnet4 | `10.20.30.0` | `255.255.255.0` | host nhận `10.20.30.254` |
 | VMnet5 | `10.20.40.0` | `255.255.255.0` | host nhận `10.20.40.254` |
 
+VMware thường gán địa chỉ `.1` cho host virtual adapter mới, trong khi `.1` của bốn dải
+được dành cho `mc-router`. Vì vậy phải đặt `.254` tĩnh trên Windows; chỉ tick host adapter
+trong Virtual Network Editor **không** bảo đảm có đúng địa chỉ này. Chạy PowerShell **Run as
+Administrator** sau khi đã tạo đủ bốn VMnet:
+
+```powershell
+$m1HostAdapters = [ordered]@{
+  'VMnet2' = '10.20.10.254'
+  'VMnet3' = '10.20.20.254'
+  'VMnet4' = '10.20.30.254'
+  'VMnet5' = '10.20.40.254'
+}
+
+foreach ($vmnet in $m1HostAdapters.Keys) {
+  $alias = "VMware Network Adapter $vmnet"
+  $adapter = Get-NetAdapter -Name $alias -ErrorAction Stop
+  Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Dhcp Disabled
+
+  $wanted = $m1HostAdapters[$vmnet]
+  $current = @(Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object PrefixOrigin -ne 'WellKnown')
+  $current | Where-Object { $_.IPAddress -ne $wanted -and $_.IPAddress -notlike '169.254.*' } |
+    Remove-NetIPAddress -Confirm:$false
+  if ($current.IPAddress -notcontains $wanted) {
+    New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $wanted -PrefixLength 24 |
+      Out-Null
+  }
+}
+```
+
 Host virtual adapter cho phép Windows host SSH thẳng vào VM của từng dải **không qua router**,
 nên firewall giữa các dải ở §3.4 không bao giờ khóa mất đường quản trị của bạn.
 
@@ -277,11 +349,27 @@ Verify trên PowerShell của host:
 
 ```powershell
 Get-NetIPAddress -AddressFamily IPv4 |
+  Where-Object InterfaceAlias -like 'VMware Network Adapter VMnet*' |
   Where-Object IPAddress -like '10.20.*' |
   Select-Object InterfaceAlias, IPAddress
+$actual = foreach ($vmnet in $m1HostAdapters.Keys) {
+  Get-NetIPAddress -InterfaceAlias "VMware Network Adapter $vmnet" -AddressFamily IPv4 |
+    Where-Object IPAddress -eq $m1HostAdapters[$vmnet]
+}
+if ($actual.Count -ne 4 -or ($actual | Where-Object PrefixLength -ne 24)) {
+  throw 'FAIL: VMnet2..5 chưa có đúng bốn địa chỉ .254/24'
+}
+$badDefault = foreach ($vmnet in $m1HostAdapters.Keys) {
+  Get-NetRoute -InterfaceAlias "VMware Network Adapter $vmnet" `
+    -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue
+}
+if ($badDefault) { throw 'FAIL: host-only adapter không được có default route' }
+'PASS: VMnet2..5 = .254/24 và không có default route'
 ```
 
-**PASS:** thấy đủ 4 adapter `VMware Network Adapter VMnet2..5` với IP `.254` của 4 dải.
+**PASS:** thấy đúng 4 adapter `VMware Network Adapter VMnet2..5`, lần lượt mang
+`10.20.10.254`, `10.20.20.254`, `10.20.30.254`, `10.20.40.254`; không adapter nào mang `.1`.
+Nếu sai, **STOP** tại đây — chưa tạo VM cho tới khi bốn địa chỉ khớp tuyệt đối.
 
 ### 3.2. Dựng VM gốc Ubuntu 24.04 và nhân bản 6 VM
 
@@ -403,34 +491,82 @@ thin lớn hơn con số tối thiểu ở bảng §2.2 — chấp nhận, thin 
 #### 3.2.6. Tách identity từng clone — qua CONSOLE VMware, từng máy một
 
 Các VMnet host-only đã **tắt DHCP** (§3.1) nên clone chưa có IP, chưa SSH được — mọi lệnh
-mục này gõ qua console VMware. Bật **từng VM một**, làm trọn các bước rồi mới sang VM kế:
+mục này gõ qua console VMware. Bật **từng VM một**, đặt `TARGET_NAME` đúng tên VM đang mở rồi
+chạy trọn block. Block tự tạo netplan; không cần nhảy tới §3.3 để tự sửa YAML.
 
 ```bash
-# 1) Reset machine-id (tránh trùng định danh/DHCP DUID giữa các clone):
+# ĐỔI đúng một dòng này trên từng clone:
+TARGET_NAME=mc-router
+# Giá trị hợp lệ: mc-router mc-admin1 mc-cicd1 mc-app1 mc-app2 mc-db1
+
+case "$TARGET_NAME" in
+  mc-router) ROLE=router ;;
+  mc-admin1) ROLE=node; ADDR=10.20.10.11; GW=10.20.10.1 ;;
+  mc-cicd1)  ROLE=node; ADDR=10.20.20.11; GW=10.20.20.1 ;;
+  mc-app1)   ROLE=node; ADDR=10.20.30.11; GW=10.20.30.1 ;;
+  mc-app2)   ROLE=node; ADDR=10.20.30.12; GW=10.20.30.1 ;;
+  mc-db1)    ROLE=node; ADDR=10.20.40.11; GW=10.20.40.1 ;;
+  *) echo "STOP: TARGET_NAME không hợp lệ: $TARGET_NAME"; exit 1 ;;
+esac
+
+# 1) Tách identity của clone:
 sudo truncate -s 0 /etc/machine-id
 sudo rm -f /var/lib/dbus/machine-id
 sudo systemd-machine-id-setup
-
-# 2) Reset SSH host key (tránh cảnh báo trùng key khi SSH từ host):
 sudo rm -f /etc/ssh/ssh_host_*
 sudo dpkg-reconfigure openssh-server
+sudo hostnamectl set-hostname "$TARGET_NAME"
 
-# 3) Hostname — đổi đúng theo tên VM đang làm:
-sudo hostnamectl set-hostname mc-router     # mc-admin1 / mc-cicd1 / mc-app1 / mc-app2 / mc-db1
-
-# 4) Bỏ netplan DHCP do cloud-init sinh từ đời golden:
+# 2) Bỏ netplan DHCP của golden và tạo file xác định:
 sudo mv /etc/netplan/50-cloud-init.yaml /etc/netplan/50-cloud-init.yaml.bak 2>/dev/null || true
+sudo rm -f /etc/netplan/01-static.yaml /etc/netplan/01-router.yaml
 
-# 5) Viết netplan IP tĩnh theo đúng mẫu của VM này ở §3.3 rồi:
-sudo chmod 600 /etc/netplan/01-static.yaml
+if [ "$ROLE" = router ]; then
+  ip -br link
+  echo 'Đối chiếu MAC trong VMware: ens33=NAT, ens34=VMnet2, ens35=VMnet3, ens36=VMnet4, ens37=VMnet5.'
+  echo 'Nếu thứ tự khác, STOP và sửa đúng tên interface trong YAML trước khi netplan apply.'
+  sudo tee /etc/netplan/01-router.yaml >/dev/null <<'EOF'
+network:
+  version: 2
+  ethernets:
+    ens33: {dhcp4: true}
+    ens34: {dhcp4: false, addresses: [10.20.10.1/24]}
+    ens35: {dhcp4: false, addresses: [10.20.20.1/24]}
+    ens36: {dhcp4: false, addresses: [10.20.30.1/24]}
+    ens37: {dhcp4: false, addresses: [10.20.40.1/24]}
+EOF
+  NETPLAN=/etc/netplan/01-router.yaml
+else
+  NIC=$(ip -o link show | awk -F': ' '$2 != "lo" {sub(/@.*/, "", $2); print $2; exit}')
+  test -n "$NIC" || { echo 'STOP: không tìm thấy NIC workload'; exit 1; }
+  sudo tee /etc/netplan/01-static.yaml >/dev/null <<EOF
+network:
+  version: 2
+  ethernets:
+    $NIC:
+      dhcp4: false
+      addresses: [$ADDR/24]
+      routes: [{to: default, via: $GW}]
+      nameservers:
+        addresses: [$GW]
+        search: [mc.lab]
+EOF
+  NETPLAN=/etc/netplan/01-static.yaml
+fi
+
+sudo chmod 600 "$NETPLAN"
+sudo netplan generate
 sudo netplan apply
 
-# 6) Reboot — bắt buộc để machine-id mới và hostname áp dụng trọn:
+# 3) Gate tại console trước reboot:
+ip -br addr
+ip route
+# PASS node: đúng ADDR và default via GW. PASS router: đủ bốn địa chỉ .1 và default qua ens33.
+# Nếu sai, STOP tại console; sửa netplan, chạy lại generate/apply, không reboot sang VM kế.
+
+# 4) Reboot để identity, hostname và network được kiểm lại từ trạng thái sạch:
 sudo reboot
 ```
-
-Riêng `mc-router` dùng mẫu netplan 5 NIC ở §3.3; nhớ đối chiếu MAC trong VM Settings với
-`ip -br link` để gán đúng `ens33..ens37` theo thứ tự adapter.
 
 #### 3.2.7. Verify từng VM sau reboot
 
@@ -445,12 +581,31 @@ timedatectl show -p NTPSynchronized --value   # PASS: yes
 cat /etc/machine-id              # ghi lại — so 6 VM phải ra 6 giá trị KHÁC nhau
 ```
 
+Gate tổng identity, chạy trên Windows host sau khi cả sáu VM đã lên:
+
+```powershell
+$m1Ips = '10.20.10.1','10.20.10.11','10.20.20.11','10.20.30.11','10.20.30.12','10.20.40.11'
+$remoteIdentity = 'printf "%s|%s|" "$(cat /etc/machine-id)" "$(cat /sys/class/dmi/id/product_uuid)"; ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | cut -d " " -f 2'
+$identity = foreach ($ip in $m1Ips) {
+  $parts = (ssh "ubuntu@$ip" $remoteIdentity).Trim() -split '\|'
+  [pscustomobject]@{ IP=$ip; MachineId=$parts[0]; ProductUuid=$parts[1]; SshFingerprint=$parts[2] }
+}
+$identity | Format-Table -AutoSize
+foreach ($field in 'MachineId','ProductUuid','SshFingerprint') {
+  if (($identity.$field | Sort-Object -Unique).Count -ne 6) {
+    throw "FAIL: $field không unique trên đủ sáu VM"
+  }
+}
+'PASS: machine-id, product UUID và SSH host fingerprint đều unique'
+```
+
 Riêng hai máy expand disk, nới partition rồi filesystem (không LVM nên chỉ hai lệnh):
 
 ```bash
 # mc-admin1 và mc-cicd1:
 lsblk                            # xác nhận: sda2 là partition / và disk đã là 50G/60G
-sudo growpart /dev/sda 2
+M1_GROW=$(sudo growpart /dev/sda 2 2>&1) || \
+  printf '%s\n' "$M1_GROW" | grep -q 'NOCHANGE' || { printf '%s\n' "$M1_GROW"; exit 1; }
 sudo resize2fs /dev/sda2
 df -h / | awk 'NR==2 {print $2}' # PASS: ~49G (admin1) / ~59G (cicd1)
 ```
@@ -461,7 +616,10 @@ Riêng hai node App, xác nhận disk Longhorn tồn tại (chưa format — §5
 lsblk | grep -c '^sdb'           # PASS: 1 — disk 20 GB thứ hai hiện diện
 ```
 
-### 3.3. Netplan cho từng VM
+### 3.3. Bảng đối chiếu Netplan — không thao tác lại
+
+§3.2.6 đã tạo và apply file thật. Mục này chỉ để đối chiếu khi gate mạng fail; nếu gate
+§3.2.7 đã PASS thì không sửa hoặc apply lại Netplan ở đây.
 
 Mẫu cho VM một NIC (thay IP theo bảng §2.2; gateway và DNS luôn là `.1` của dải đó):
 
@@ -495,7 +653,7 @@ network:
 ```
 
 Thứ tự `ens33..ens37` phải đối chiếu với thứ tự adapter trong VMware (`ip -br link` +
-so MAC trong VM Settings). Áp dụng: `sudo netplan apply`.
+so MAC trong VM Settings).
 
 **PASS trên mỗi VM:** `ip -br addr` đúng IP; `ip route | grep default` đúng gateway.
 
@@ -509,10 +667,11 @@ echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-forward.conf
 sudo sysctl --system | grep ip_forward     # PASS: net.ipv4.ip_forward = 1
 ```
 
-`/etc/nftables.conf` — NAT ra Internet, các dải nói chuyện với nhau tự do **trừ** dải DATA:
-chỉ CICD được vào cổng 5432:
+Ghi trọn `/etc/nftables.conf` — NAT ra Internet, các dải nói chuyện với nhau tự do **trừ**
+dải DATA; chỉ CICD được vào PostgreSQL/Redis/MinIO:
 
-```text
+```bash
+sudo tee /etc/nftables.conf >/dev/null <<'EOF'
 #!/usr/sbin/nft -f
 flush ruleset
 
@@ -535,16 +694,20 @@ table ip nat {
     oifname $IF_NAT masquerade
   }
 }
-```
+EOF
 
-```bash
+sudo nft -c -f /etc/nftables.conf             # syntax check; không đổi ruleset
 sudo systemctl enable --now nftables
 sudo nft list ruleset | grep -c masquerade    # PASS: 1
+sudo nft list chain inet filter forward | grep -F 'ip daddr 10.20.40.0/24 drop'
+# PASS: thấy rule drop DATA và rule allow CICD tới {5432,6379,9000}.
 ```
 
-`/etc/dnsmasq.conf` — DNS cho toàn bộ lab, forward phần còn lại ra ngoài:
+Ghi trọn `/etc/dnsmasq.conf` — DNS cho toàn bộ lab, forward phần còn lại ra ngoài:
 
-```text
+```bash
+sudo cp -an /etc/dnsmasq.conf /etc/dnsmasq.conf.pre-m1
+sudo tee /etc/dnsmasq.conf >/dev/null <<'EOF'
 domain-needed
 bogus-priv
 listen-address=127.0.0.1,10.20.10.1,10.20.20.1,10.20.30.1,10.20.40.1
@@ -560,6 +723,8 @@ address=/gitlab.mc.lab/10.20.20.11
 address=/registry.mc.lab/10.20.20.11
 address=/minio.mc.lab/10.20.40.11
 address=/app.mc.lab/10.20.30.11
+EOF
+sudo dnsmasq --test                            # PASS: syntax check OK
 ```
 
 Ubuntu đang chạy `systemd-resolved` chiếm cổng 53 — tắt stub listener trước khi start
@@ -568,6 +733,10 @@ dnsmasq. **Bắt buộc sửa cả `/etc/resolv.conf`**: mặc định nó là s
 
 ```bash
 sudo mkdir -p /etc/systemd/resolved.conf.d
+test -L /etc/resolv.conf || {
+  echo 'STOP: /etc/resolv.conf không phải symlink mặc định; chẩn đoán trước khi thay'; exit 1;
+}
+readlink /etc/resolv.conf | sudo tee /etc/resolv.conf.pre-m1-target >/dev/null
 printf '[Resolve]\nDNSStubListener=no\n' |
   sudo tee /etc/systemd/resolved.conf.d/dnsmasq.conf
 sudo systemctl restart systemd-resolved
@@ -582,6 +751,18 @@ getent hosts rancher.mc.lab                       # PASS: 10.20.10.11
 getent hosts get.rke2.io | head -1                # PASS: có IP — forward ra Internet chạy
 ```
 
+Nếu gate DNS fail và cần hoàn tác tại chỗ, chạy nguyên block sau rồi chẩn đoán trước khi thử
+lại; block phục hồi symlink resolver đã ghi ở trên, không để router mất DNS:
+
+```bash
+sudo systemctl disable --now dnsmasq || true
+sudo rm -f /etc/resolv.conf
+sudo ln -s "$(sudo cat /etc/resolv.conf.pre-m1-target)" /etc/resolv.conf
+sudo rm -f /etc/systemd/resolved.conf.d/dnsmasq.conf
+sudo systemctl restart systemd-resolved
+getent hosts get.rke2.io | head -1                # PASS rollback: có IP
+```
+
 ### 3.5. Gate hạ tầng
 
 Chạy từ `mc-admin1` (đại diện; lặp lại nhanh trên các VM khác nếu nghi ngờ):
@@ -592,22 +773,46 @@ getent hosts rancher.mc.lab gitlab.mc.lab app.mc.lab # PASS: đúng IP bảng §
 curl -fsSL -m 10 -o /dev/null https://get.rke2.io && echo PASS-egress
 # PASS: in "PASS-egress" — `-f` fail với mã >= 400, `-L` theo redirect, `-m 10` chặn treo;
 # không so khớp chuỗi "HTTP/2 200" vì phía website đổi protocol/redirect là gate hỏng oan
-nc -vzw3 10.20.40.11 5432; echo "exit=$?"            # PASS: exit KHÁC 0 — ADMIN bị chặn vào DATA
+```
+
+Chưa kiểm port DATA ở đây vì PostgreSQL/Redis/MinIO chưa được cài; một port chưa có listener
+luôn fail kể cả firewall sai và sẽ tạo false PASS. Gate hành vi allow/deny thật nằm ở §6.2,
+sau khi ba service đã nghe cổng. Tại mốc này chỉ kiểm cấu trúc ruleset trên `mc-router`:
+
+```bash
+sudo nft list chain inet filter forward | grep -F 'ip saddr 10.20.20.0/24 ip daddr 10.20.40.0/24'
+sudo nft list chain inet filter forward | grep -F 'ip daddr 10.20.40.0/24 drop'
+# PASS: cả hai lệnh đều có output; nếu thiếu một rule thì STOP, chưa snapshot.
 ```
 
 Từ Windows host, thêm bản ghi hosts để trình duyệt truy cập được các UI
 (PowerShell **Run as Administrator**):
 
 ```powershell
-Add-Content -Path C:\Windows\System32\drivers\etc\hosts -Encoding ascii -Value @(
-  "10.20.10.11 rancher.mc.lab",
-  "10.20.20.11 gitlab.mc.lab registry.mc.lab",
-  "10.20.40.11 minio.mc.lab",
-  "10.20.30.11 app.mc.lab"
-)
+$hostsPath = 'C:\Windows\System32\drivers\etc\hosts'
+$begin = '# BEGIN M1 LAB'
+$end = '# END M1 LAB'
+$raw = Get-Content -LiteralPath $hostsPath -Raw
+$pattern = '(?ms)^# BEGIN M1 LAB\r?\n.*?^# END M1 LAB\r?\n?'
+$clean = [regex]::Replace($raw, $pattern, '').TrimEnd()
+$nl = [Environment]::NewLine
+$block = @(
+  $begin
+  '10.20.10.11 rancher.mc.lab mc-admin1.mc.lab'
+  '10.20.20.11 gitlab.mc.lab registry.mc.lab mc-cicd1.mc.lab'
+  '10.20.40.11 minio.mc.lab mc-db1.mc.lab'
+  '10.20.30.11 app.mc.lab mc-app1.mc.lab'
+  '10.20.30.12 mc-app2.mc.lab'
+  $end
+) -join $nl
+Set-Content -LiteralPath $hostsPath -Encoding ascii -Value ($clean + $nl + $block + $nl)
+ipconfig /flushdns | Out-Null
+[System.Net.Dns]::GetHostAddresses('mc-app1.mc.lab').IPAddressToString
+# PASS: 10.20.30.11; chạy lại block không tạo dòng trùng.
 ```
 
-**Chụp snapshot VMware cho cả 6 VM** với tên `m1-infra-ready` trước khi sang §4.
+Chụp snapshot đủ sáu VM với tên `m1-infra-ready` theo protocol §2.4; khởi động lại và chạy
+lại gate §3.5 trước khi sang §4.
 
 ## 4. Cụm Admin: RKE2 + cert-manager + CA lab + Rancher
 
@@ -618,7 +823,7 @@ Trên `mc-admin1`. Đây là chỗ bài viết gốc vấp: cài mặc định r
 cho chọn bằng đúng key này:
 
 ```bash
-sudo mkdir -p /etc/rancher/rke2
+sudo install -d -m 0755 /etc/rancher/rke2 /var/lib/rancher/rke2/server/manifests
 sudo tee /etc/rancher/rke2/config.yaml >/dev/null <<'EOF'
 token: <SINH-CHUỖI-NGẪU-NHIÊN-DÀI>          # openssl rand -hex 16
 tls-san:
@@ -627,34 +832,7 @@ tls-san:
 ingress-controller: traefik
 EOF
 
-curl -sfL https://get.rke2.io -o /tmp/rke2-install.sh
-sudo INSTALL_RKE2_VERSION="v1.35.7+rke2r1" INSTALL_RKE2_TYPE="server" \
-  sh /tmp/rke2-install.sh
-sudo systemctl enable --now rke2-server.service
-```
-
-`rke2-server` lần đầu kéo image mất vài phút. Chuẩn bị kubectl:
-
-```bash
-mkdir -p ~/.kube && sudo cp /etc/rancher/rke2/rke2.yaml ~/.kube/config
-sudo chown "$(id -u):$(id -g)" ~/.kube/config
-echo 'export PATH=$PATH:/var/lib/rancher/rke2/bin' >> ~/.bashrc && source ~/.bashrc
-
-kubectl get node
-# PASS: mc-admin1 Ready, VERSION v1.35.7+rke2r1
-kubectl -n kube-system get pods | grep -E 'traefik|ingress-nginx'
-# PASS: có pod rke2-traefik-…; KHÔNG có dòng ingress-nginx nào
-```
-
-Ghim hành vi Traefik bằng `HelmChartConfig` (cơ chế tùy biến add-on chuẩn của RKE2 — file đặt
-trong `manifests/` được tự apply): bind cổng 80/443 lên node và **khai tĩnh địa chỉ điền vào
-`Ingress.status`** — fix gốc rễ cho vụ "Argo báo Progressing" trong bài viết, làm ngay từ đầu
-thay vì đợi sự cố. Lưu ý vì sao dùng `ingressendpoint.ip` chứ không phải `publishedService`:
-RKE2 **tắt ServiceLB mặc định**, nên Service của Traefik không bao giờ có LoadBalancer IP —
-`publishedService` chỉ copy một status đang rỗng và Argo vẫn treo Progressing; khai IP tĩnh
-của node cho kết quả xác định trên bare-metal:
-
-```bash
+# Phải có trước lần start đầu tiên để Traefik không lên với cấu hình tạm khác.
 sudo tee /var/lib/rancher/rke2/server/manifests/rke2-traefik-config.yaml >/dev/null <<'EOF'
 apiVersion: helm.cattle.io/v1
 kind: HelmChartConfig
@@ -672,26 +850,83 @@ spec:
       - "--providers.kubernetesingress.ingressendpoint.ip=10.20.10.11"
 EOF
 
-sleep 60 && curl -so /dev/null -w '%{http_code}\n' http://10.20.10.11
-# PASS: 404 — Traefik trả lời trên cổng 80 của node (404 vì chưa có Ingress nào)
+curl -sfL https://get.rke2.io -o /tmp/rke2-install.sh
+sudo INSTALL_RKE2_VERSION="v1.35.7+rke2r1" INSTALL_RKE2_TYPE="server" \
+  sh /tmp/rke2-install.sh
+rm -f /tmp/rke2-install.sh
+sudo systemctl enable --now rke2-server.service
+```
+
+`rke2-server` lần đầu kéo image mất vài phút. Chuẩn bị kubectl:
+
+```bash
+sudo systemctl is-active --quiet rke2-server || {
+  sudo journalctl -u rke2-server -n 100 --no-pager
+  exit 1
+}
+for i in $(seq 1 120); do
+  sudo test -s /etc/rancher/rke2/rke2.yaml && break
+  sleep 5
+done
+sudo test -s /etc/rancher/rke2/rke2.yaml || {
+  echo 'STOP: kubeconfig chưa được tạo sau 10 phút' >&2
+  exit 1
+}
+mkdir -p ~/.kube && sudo cp /etc/rancher/rke2/rke2.yaml ~/.kube/config
+sudo chown "$(id -u):$(id -g)" ~/.kube/config
+grep -qxF 'export PATH=$PATH:/var/lib/rancher/rke2/bin' ~/.bashrc || \
+  echo 'export PATH=$PATH:/var/lib/rancher/rke2/bin' >> ~/.bashrc
+export PATH="$PATH:/var/lib/rancher/rke2/bin"
+
+kubectl wait --for=condition=Ready node/mc-admin1 --timeout=600s
+kubectl -n kube-system wait --for=condition=Ready pod \
+  -l app.kubernetes.io/name=traefik --timeout=600s
+test "$(kubectl -n kube-system get pods --no-headers 2>/dev/null | grep -c ingress-nginx)" -eq 0
+kubectl get node mc-admin1 -o wide
+# PASS: ba lệnh không lỗi; mc-admin1 Ready, Traefik Ready, ingress-nginx = 0.
+```
+
+Ghim hành vi Traefik bằng `HelmChartConfig` (cơ chế tùy biến add-on chuẩn của RKE2 — file đặt
+trong `manifests/` được tự apply): bind cổng 80/443 lên node và **khai tĩnh địa chỉ điền vào
+`Ingress.status`** — fix gốc rễ cho vụ "Argo báo Progressing" trong bài viết, làm ngay từ đầu
+thay vì đợi sự cố. Lưu ý vì sao dùng `ingressendpoint.ip` chứ không phải `publishedService`:
+RKE2 **tắt ServiceLB mặc định**, nên Service của Traefik không bao giờ có LoadBalancer IP —
+`publishedService` chỉ copy một status đang rỗng và Argo vẫn treo Progressing; khai IP tĩnh
+của node cho kết quả xác định trên bare-metal:
+
+Gate hostPort, không dùng `sleep` cố định:
+
+```bash
+for i in $(seq 1 60); do
+  CODE=$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 2 http://10.20.10.11 || true)
+  [ "$CODE" = 404 ] && break
+  sleep 5
+done
+[ "$CODE" = 404 ] || { echo "STOP: Traefik HTTP code=$CODE, cần 404" >&2; exit 1; }
+echo 'PASS: Traefik trả HTTP 404 trên hostPort 80'
 ```
 
 ### 4.2. Helm, cert-manager và CA của lab
 
 ```bash
-# Helm 4 (chart GitLab 10.x yêu cầu ≥ 4.0): cài bản stable mới nhất theo script chính thức
-curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 -o /tmp/get-helm.sh
-sudo bash /tmp/get-helm.sh
-helm version --short
-# PASS: v4.x — GHI LẠI version thực vào hồ sơ lab; nếu script cài ra v3.x thì tải binary
-# Helm 4 theo https://helm.sh/docs/intro/install/ thay vì dùng script
+# Helm 4 pin cứng; script chính thức tự verify checksum archive tải về:
+HELM_VERSION=v4.2.3
+curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 -o /tmp/get-helm-4
+chmod 700 /tmp/get-helm-4
+DESIRED_VERSION="$HELM_VERSION" /tmp/get-helm-4
+rm -f /tmp/get-helm-4
+helm version --short | grep -F "$HELM_VERSION"
+# PASS: output chứa đúng v4.2.3; khác version thì STOP.
 
-helm repo add jetstack https://charts.jetstack.io && helm repo update
-helm install cert-manager jetstack/cert-manager \
+helm repo add jetstack https://charts.jetstack.io --force-update
+helm repo update
+helm upgrade --install cert-manager jetstack/cert-manager \
   --namespace cert-manager --create-namespace \
-  --version v1.21.1 --set crds.enabled=true
-kubectl -n cert-manager get pods
-# PASS: cert-manager, cainjector, webhook đều Running 1/1
+  --version v1.21.1 --set crds.enabled=true --wait --timeout 10m
+for d in cert-manager cert-manager-cainjector cert-manager-webhook; do
+  kubectl -n cert-manager rollout status deployment/$d --timeout=300s
+done
+# PASS: cả ba Deployment successfully rolled out.
 ```
 
 CA gốc của lab — cert-manager tự ký và **tự gia hạn các cert lá** (Rancher, wildcard), đúng
@@ -725,9 +960,11 @@ spec:
   ca: {secretName: mc-lab-root-ca}
 EOF
 
-kubectl get clusterissuer mc-lab-ca \
-  -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{"\n"}'
-# PASS: True
+kubectl -n cert-manager wait certificate/mc-lab-root-ca \
+  --for=condition=Ready --timeout=300s
+kubectl wait clusterissuer/mc-lab-ca --for=condition=Ready --timeout=300s
+test "$(kubectl get clusterissuer mc-lab-ca -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')" = True
+# PASS: cả Certificate và ClusterIssuer Ready=True; khác thì STOP.
 ```
 
 Xuất CA và **trust trên cả 6 VM** — điều kiện bài viết đã nêu để node các cụm khác join về
@@ -737,11 +974,19 @@ Rancher; đồng thời giúp lệnh import ở §5.4 dùng được bản `kube
 ```bash
 kubectl -n cert-manager get secret mc-lab-root-ca \
   -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/mc-lab-ca.crt
-# Copy tới TỪNG VM (scp vào /tmp qua IP host-only), rồi trên từng VM:
-sudo cp /tmp/mc-lab-ca.crt /usr/local/share/ca-certificates/mc-lab-ca.crt
+# Cài trên chính mc-admin1, rồi copy tới đúng năm VM còn lại.
+sudo install -m 0644 /tmp/mc-lab-ca.crt /usr/local/share/ca-certificates/mc-lab-ca.crt
 sudo update-ca-certificates
-test -s /usr/local/share/ca-certificates/mc-lab-ca.crt && echo PASS-ca
-# PASS trên từng VM: "1 added" ở lần đầu và dòng PASS-ca.
+for host in 10.20.10.1 10.20.20.11 10.20.30.11 10.20.30.12 10.20.40.11; do
+  scp /tmp/mc-lab-ca.crt "ubuntu@$host:/tmp/mc-lab-ca.crt"
+  ssh "ubuntu@$host" 'sudo install -m 0644 /tmp/mc-lab-ca.crt /usr/local/share/ca-certificates/mc-lab-ca.crt && sudo update-ca-certificates && rm -f /tmp/mc-lab-ca.crt && test -s /usr/local/share/ca-certificates/mc-lab-ca.crt'
+done
+for host in 10.20.10.1 10.20.10.11 10.20.20.11 10.20.30.11 10.20.30.12 10.20.40.11; do
+  ssh "ubuntu@$host" 'test -s /usr/local/share/ca-certificates/mc-lab-ca.crt' || exit 1
+done
+rm -f /tmp/mc-lab-ca.crt
+echo 'PASS-ca: đủ sáu VM có CA tại đường dẫn chuẩn'
+# Nếu username Ubuntu không phải `ubuntu`, thay username ở cả hai vòng lặp trước khi chạy.
 # `/usr/local/share/ca-certificates/mc-lab-ca.crt` là ĐƯỜNG DẪN CHUẨN của CA trên MỌI node —
 # tất cả các mục sau tham chiếu đúng path này, không dùng lại /tmp.
 ```
@@ -754,7 +999,7 @@ Certification Authorities* (tùy chọn; không ảnh hưởng gate nào).
 Cấp cert cho Rancher từ CA lab rồi cài đúng mô hình bài viết dùng:
 
 ```bash
-kubectl create namespace cattle-system
+kubectl create namespace cattle-system --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f - <<'EOF'
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -764,20 +1009,25 @@ spec:
   dnsNames: [rancher.mc.lab]
   issuerRef: {name: mc-lab-ca, kind: ClusterIssuer}
 EOF
+kubectl -n cattle-system wait certificate/tls-rancher-ingress \
+  --for=condition=Ready --timeout=300s
 # privateCA=true yêu cầu secret tls-ca chứa cacerts.pem là CA đã ký cert trên:
-kubectl -n cattle-system create secret generic tls-ca \
-  --from-file=cacerts.pem=/tmp/mc-lab-ca.crt
+kubectl -n cert-manager get secret mc-lab-root-ca -o jsonpath='{.data.ca\.crt}' | \
+  base64 -d | kubectl -n cattle-system create secret generic tls-ca \
+  --from-file=cacerts.pem=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
 
-helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
+helm repo add rancher-stable https://releases.rancher.com/server-charts/stable --force-update
 helm repo update
-helm install rancher rancher-stable/rancher \
+read -rsp 'Rancher bootstrap password: ' M1_RANCHER_BOOTSTRAP; echo
+helm upgrade --install rancher rancher-stable/rancher \
   --namespace cattle-system --version 2.14.3 \
   --set hostname=rancher.mc.lab \
   --set replicas=1 \
-  --set bootstrapPassword='<ĐẶT-MẬT-KHẨU-BOOTSTRAP>' \
+  --set-string bootstrapPassword="$M1_RANCHER_BOOTSTRAP" \
   --set ingress.ingressClassName=traefik \
   --set ingress.tls.source=secret \
-  --set privateCA=true
+  --set privateCA=true --wait --timeout 10m
+unset M1_RANCHER_BOOTSTRAP
 ```
 
 `replicas=1` là cấu hình homelab có chủ đích — đây chính là SPOF mà nhận xét đã chỉ ra ở bài
@@ -793,7 +1043,8 @@ curl -s --cacert /usr/local/share/ca-certificates/mc-lab-ca.crt https://rancher.
 Mở `https://rancher.mc.lab` từ host, đăng nhập bằng bootstrap password, đổi mật khẩu, xác
 nhận **Server URL** là `https://rancher.mc.lab`. **PASS §4:** cụm `local` Active trong UI.
 
-Snapshot cả 6 VM: `m1-admin-ready`.
+Snapshot đủ sáu VM: `m1-admin-ready`, theo protocol §2.4; sau khởi động lại, gate healthz và
+Rancher `local` Active phải PASS lại.
 
 ## 5. Cụm App: RKE2 hai node + Longhorn + import vào Rancher
 
@@ -803,7 +1054,7 @@ Trên `mc-app1` — thêm `deployment.kind: DaemonSet` cho Traefik để cả 2 
 cổng 80/443:
 
 ```bash
-sudo mkdir -p /etc/rancher/rke2
+sudo install -d -m 0755 /etc/rancher/rke2 /var/lib/rancher/rke2/server/manifests
 sudo tee /etc/rancher/rke2/config.yaml >/dev/null <<'EOF'
 token: <TOKEN-RIÊNG-CỦA-CỤM-APP>
 tls-san: [mc-app1.mc.lab, 10.20.30.11]
@@ -811,7 +1062,7 @@ ingress-controller: traefik
 EOF
 curl -sfL https://get.rke2.io -o /tmp/rke2-install.sh
 sudo INSTALL_RKE2_VERSION="v1.35.7+rke2r1" INSTALL_RKE2_TYPE="server" sh /tmp/rke2-install.sh
-sudo systemctl enable --now rke2-server.service
+rm -f /tmp/rke2-install.sh
 
 # HelmChartConfig Traefik của cụm App — khác §4.1 ở khối `deployment` (DaemonSet để CẢ HAI
 # node đều nhận traffic 80/443) và ingressendpoint trỏ IP của mc-app1 (địa chỉ mà DNS
@@ -834,26 +1085,47 @@ spec:
     additionalArguments:
       - "--providers.kubernetesingress.ingressendpoint.ip=10.20.30.11"
 EOF
+sudo systemctl enable --now rke2-server.service
 ```
 
 Trên `mc-app2` — agent join qua cổng đăng ký 9345:
 
 ```bash
-sudo mkdir -p /etc/rancher/rke2
+sudo install -d -m 0755 /etc/rancher/rke2 /var/lib/rancher/rke2/server/manifests
 sudo tee /etc/rancher/rke2/config.yaml >/dev/null <<'EOF'
 server: https://10.20.30.11:9345
 token: <TOKEN-RIÊNG-CỦA-CỤM-APP>
 EOF
 curl -sfL https://get.rke2.io -o /tmp/rke2-install.sh
 sudo INSTALL_RKE2_TYPE="agent" INSTALL_RKE2_VERSION="v1.35.7+rke2r1" sh /tmp/rke2-install.sh
+rm -f /tmp/rke2-install.sh
 sudo systemctl enable --now rke2-agent.service
+sudo systemctl is-active --quiet rke2-agent || {
+  sudo journalctl -u rke2-agent -n 100 --no-pager
+  exit 1
+}
 ```
 
 Trên `mc-app1` (kubectl cấu hình như §4.1):
 
 ```bash
-kubectl get nodes
-# PASS: mc-app1 (control-plane,etcd,master) và mc-app2 (<none>) đều Ready, cùng v1.35.7
+sudo systemctl is-active --quiet rke2-server || {
+  sudo journalctl -u rke2-server -n 100 --no-pager
+  exit 1
+}
+for i in $(seq 1 120); do
+  sudo test -s /etc/rancher/rke2/rke2.yaml && break
+  sleep 5
+done
+sudo test -s /etc/rancher/rke2/rke2.yaml || { echo 'STOP: thiếu kubeconfig' >&2; exit 1; }
+mkdir -p ~/.kube && sudo cp /etc/rancher/rke2/rke2.yaml ~/.kube/config
+sudo chown "$(id -u):$(id -g)" ~/.kube/config
+export PATH="$PATH:/var/lib/rancher/rke2/bin"
+kubectl wait --for=condition=Ready node/mc-app1 node/mc-app2 --timeout=600s
+kubectl -n kube-system rollout status daemonset/rke2-traefik --timeout=600s
+test "$(kubectl -n kube-system get pods --no-headers 2>/dev/null | grep -c ingress-nginx)" -eq 0
+kubectl get nodes -o wide
+# PASS: hai node Ready, Traefik DaemonSet rolled out trên cả hai, ingress-nginx = 0.
 ```
 
 ### 5.2. Chuẩn bị node cho Longhorn
@@ -861,15 +1133,33 @@ kubectl get nodes
 Trên **cả** `mc-app1` và `mc-app2`:
 
 ```bash
-sudo apt-get install -y open-iscsi nfs-common
+sudo apt-get install -y open-iscsi nfs-common multipath-tools
 sudo systemctl enable --now iscsid
 systemctl is-active iscsid            # PASS: active
 
-# Disk thứ hai cho Longhorn (xác nhận tên disk 20GB bằng: lsblk)
-sudo mkfs.ext4 /dev/sdb
-sudo mkdir -p /var/lib/longhorn
-echo '/dev/sdb /var/lib/longhorn ext4 defaults 0 2' | sudo tee -a /etc/fstab
-sudo mount -a && findmnt /var/lib/longhorn      # PASS: đúng /dev/sdb
+# Disk thứ hai cho Longhorn. Tuyệt đối không format nếu preflight không khớp.
+M1_DISK=/dev/sdb
+[ -b "$M1_DISK" ] || { echo 'STOP: không có /dev/sdb' >&2; exit 1; }
+lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS "$M1_DISK"
+[ "$(lsblk -dn -o TYPE "$M1_DISK")" = disk ] || {
+  echo 'STOP: /dev/sdb không phải whole disk' >&2; exit 1;
+}
+M1_FSTYPE=$(lsblk -dn -o FSTYPE "$M1_DISK")
+M1_LABEL=$(lsblk -dn -o LABEL "$M1_DISK")
+case "$M1_FSTYPE:$M1_LABEL" in
+  :) sudo mkfs.ext4 -L m1-longhorn "$M1_DISK" ;;
+  ext4:m1-longhorn) echo 'INFO: filesystem M1 đã tồn tại; không format lại' ;;
+  *) echo "STOP: $M1_DISK có FSTYPE=$M1_FSTYPE LABEL=$M1_LABEL; không được ghi đè" >&2; exit 1 ;;
+esac
+M1_UUID=$(sudo blkid -s UUID -o value "$M1_DISK")
+[ -n "$M1_UUID" ] || { echo 'STOP: không đọc được UUID /dev/sdb' >&2; exit 1; }
+sudo install -d -m 0755 /var/lib/longhorn
+M1_FSTAB="UUID=$M1_UUID /var/lib/longhorn ext4 defaults 0 2"
+grep -qxF "$M1_FSTAB" /etc/fstab || printf '%s\n' "$M1_FSTAB" | sudo tee -a /etc/fstab
+mountpoint -q /var/lib/longhorn || sudo mount /var/lib/longhorn
+findmnt -rn -S "UUID=$M1_UUID" -T /var/lib/longhorn | grep -q '/var/lib/longhorn' || {
+  echo 'STOP: Longhorn mount không đúng UUID' >&2; exit 1;
+}
 
 # multipathd chiếm device của Longhorn → BLACKLIST theo KB chính thức, không disable service:
 sudo tee /etc/multipath.conf >/dev/null <<'EOF'
@@ -878,6 +1168,10 @@ blacklist {
 }
 EOF
 sudo systemctl restart multipathd 2>/dev/null || true
+sudo multipath -t | grep -A3 'blacklist {' | grep -q 'sd\[a-z0-9\]' || {
+  echo 'STOP: multipath chưa nhận blacklist sd*' >&2; exit 1;
+}
+echo 'PASS: disk Longhorn mount theo UUID và multipath blacklist đã áp dụng'
 ```
 
 Bài viết gốc disable hẳn `multipathd`; KB của Longhorn khuyến nghị blacklist — giữ được
@@ -888,11 +1182,11 @@ multipath cho hệ thống nào thật sự cần nó.
 Trên `mc-app1` (cài Helm 4 bằng đúng khối lệnh ở §4.2):
 
 ```bash
-helm repo add longhorn https://charts.longhorn.io && helm repo update
-helm install longhorn longhorn/longhorn \
+helm repo add longhorn https://charts.longhorn.io --force-update && helm repo update
+helm upgrade --install longhorn longhorn/longhorn \
   --namespace longhorn-system --create-namespace --version 1.12.1 \
   --set defaultSettings.defaultReplicaCount=2 \
-  --set persistence.defaultClassReplicaCount=2
+  --set persistence.defaultClassReplicaCount=2 --wait --timeout 10m
 
 kubectl -n longhorn-system rollout status deploy/longhorn-driver-deployer --timeout=600s
 kubectl get storageclass
@@ -902,7 +1196,9 @@ kubectl get storageclass
 Gate hành vi mà bài viết gặp sự cố — PVC RWO detach/re-attach khi Pod đổi node:
 
 ```bash
-kubectl create ns lh-test
+kubectl create ns lh-test --dry-run=client -o yaml | kubectl apply -f -
+cleanup_lh_test() { kubectl delete ns lh-test --ignore-not-found --wait --timeout=300s; }
+trap cleanup_lh_test EXIT
 kubectl -n lh-test apply -f - <<'EOF'
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -926,15 +1222,27 @@ EOF
 kubectl -n lh-test wait pod/lh-writer --for=condition=Ready --timeout=300s
 kubectl -n lh-test get pod lh-writer -o wide     # ghi lại NODE = mc-app1
 kubectl -n lh-test delete pod lh-writer --wait
-# Tạo pod thứ hai tên lh-reader: cùng manifest trên nhưng đổi name thành lh-reader,
-# đổi nodeName thành mc-app2 (ép sang node còn lại — nếu không ghim, scheduler có thể đặt
-# lại cùng node và phép thử không chứng minh được gì), và đổi command thành:
-# ["sh", "-c", "cat /data/proof && sleep 600"]. Chờ Ready rồi:
-kubectl -n lh-test get pod lh-reader -o wide     # PASS: NODE = mc-app2
-kubectl -n lh-test logs lh-reader | grep -q m1-longhorn-ok && echo PASS
+kubectl -n lh-test apply -f - <<'EOF'
+apiVersion: v1
+kind: Pod
+metadata: {name: lh-reader}
+spec:
+  nodeName: mc-app2
+  containers:
+  - name: r
+    image: busybox:1.37
+    command: [sh, -c, "cat /data/proof && sleep 600"]
+    volumeMounts: [{name: d, mountPath: /data}]
+  volumes: [{name: d, persistentVolumeClaim: {claimName: lh-pvc}}]
+EOF
+kubectl -n lh-test wait pod/lh-reader --for=condition=Ready --timeout=300s
+test "$(kubectl -n lh-test get pod lh-reader -o jsonpath='{.spec.nodeName}')" = mc-app2
+kubectl -n lh-test logs lh-reader | grep -qx m1-longhorn-ok
+echo 'PASS: volume detach mc-app1, attach mc-app2 và giữ nguyên dữ liệu'
 # PASS — volume detach khỏi mc-app1 và re-attach sang mc-app2 sạch,
 # không dính MountVolume.SetUp failed
-kubectl delete ns lh-test
+cleanup_lh_test
+trap - EXIT
 ```
 
 Ghi nhớ vận hành (nợ của lab, trả ở M2 §12): khi rolling update node, volume 1 replica sẽ chặn
@@ -946,7 +1254,9 @@ Rancher UI → **Cluster Management → Import Existing → Generic**, đặt t�
 lệnh; vì CA lab đã được trust trên mọi node (§4.2), dùng bản thường trên `mc-app1`:
 
 ```bash
-kubectl apply -f https://rancher.mc.lab/v3/import/<TOKEN-UI-SINH-RA>.yaml
+read -rsp 'Dán URL import mc-app do Rancher UI sinh: ' M1_IMPORT_URL; echo
+kubectl apply -f "$M1_IMPORT_URL"
+unset M1_IMPORT_URL
 kubectl -n cattle-system rollout status deploy/cattle-cluster-agent --timeout=300s
 # PASS: cattle-cluster-agent rolled out
 kubectl -n cattle-system logs deploy/cattle-cluster-agent | grep -i "connect" | tail -3
@@ -957,7 +1267,8 @@ kubectl -n cattle-system logs deploy/cattle-cluster-agent | grep -i "connect" | 
 **PASS §5:** Rancher UI hiện `mc-app` **Active** với 2 node. Đây chính là mảnh "downstream
 import" mà cả runbook cũ lẫn nhận xét đã đánh dấu là chưa hoàn tất.
 
-Snapshot: `m1-app-ready`.
+Snapshot đủ sáu VM: `m1-app-ready`, theo protocol §2.4; sau khởi động lại, hai node App Ready,
+Longhorn healthy và Rancher `mc-app` Active phải PASS lại.
 
 ## 6. Cụm CICD: PostgreSQL ngoài + GitLab + runner
 
@@ -966,7 +1277,7 @@ Snapshot: `m1-app-ready`.
 Toàn bộ chạy trên `mc-cicd1` — khối đầy đủ, không tham chiếu "làm như §4.1":
 
 ```bash
-sudo mkdir -p /etc/rancher/rke2
+sudo install -d -m 0755 /etc/rancher/rke2 /var/lib/rancher/rke2/server/manifests
 sudo tee /etc/rancher/rke2/config.yaml >/dev/null <<'EOF'
 token: <TOKEN-RIÊNG-CỦA-CỤM-CICD>          # từ bảng biến §2.3, KHÁC token Admin/App
 tls-san: [mc-cicd1.mc.lab, 10.20.20.11]
@@ -974,7 +1285,7 @@ ingress-controller: traefik
 EOF
 curl -sfL https://get.rke2.io -o /tmp/rke2-install.sh
 sudo INSTALL_RKE2_VERSION="v1.35.7+rke2r1" INSTALL_RKE2_TYPE="server" sh /tmp/rke2-install.sh
-sudo systemctl enable --now rke2-server.service
+rm -f /tmp/rke2-install.sh
 
 sudo tee /var/lib/rancher/rke2/server/manifests/rke2-traefik-config.yaml >/dev/null <<'EOF'
 apiVersion: helm.cattle.io/v1
@@ -992,26 +1303,46 @@ spec:
     additionalArguments:
       - "--providers.kubernetesingress.ingressendpoint.ip=10.20.20.11"
 EOF
+sudo systemctl enable --now rke2-server.service
 
+sudo systemctl is-active --quiet rke2-server || {
+  sudo journalctl -u rke2-server -n 100 --no-pager
+  exit 1
+}
+for i in $(seq 1 120); do
+  sudo test -s /etc/rancher/rke2/rke2.yaml && break
+  sleep 5
+done
+sudo test -s /etc/rancher/rke2/rke2.yaml || { echo 'STOP: thiếu kubeconfig' >&2; exit 1; }
 mkdir -p ~/.kube && sudo cp /etc/rancher/rke2/rke2.yaml ~/.kube/config
 sudo chown "$(id -u):$(id -g)" ~/.kube/config
-echo 'export PATH=$PATH:/var/lib/rancher/rke2/bin' >> ~/.bashrc && source ~/.bashrc
+grep -qxF 'export PATH=$PATH:/var/lib/rancher/rke2/bin' ~/.bashrc || \
+  echo 'export PATH=$PATH:/var/lib/rancher/rke2/bin' >> ~/.bashrc
+export PATH="$PATH:/var/lib/rancher/rke2/bin"
 
-kubectl get node
-# PASS: mc-cicd1 Ready, VERSION v1.35.7+rke2r1
-kubectl -n kube-system get pods | grep -c ingress-nginx     # PASS: 0
+kubectl wait --for=condition=Ready node/mc-cicd1 --timeout=600s
+kubectl -n kube-system wait --for=condition=Ready pod \
+  -l app.kubernetes.io/name=traefik --timeout=600s
+test "$(kubectl -n kube-system get pods --no-headers 2>/dev/null | grep -c ingress-nginx)" -eq 0
+kubectl get node mc-cicd1 -o wide
+# PASS: node và Traefik Ready; ingress-nginx = 0.
 
-# Helm 4 — §6.3 cần helm trên chính node này (mỗi cụm thao tác độc lập):
-curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 -o /tmp/get-helm.sh
-sudo bash /tmp/get-helm.sh
-helm version --short           # PASS: v4.x — ghi version vào hồ sơ
+# Helm 4 — §6.3 cần đúng bản pin trên chính node này:
+HELM_VERSION=v4.2.3
+curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 -o /tmp/get-helm-4
+chmod 700 /tmp/get-helm-4
+DESIRED_VERSION="$HELM_VERSION" /tmp/get-helm-4
+rm -f /tmp/get-helm-4
+helm version --short | grep -F "$HELM_VERSION"   # PASS: v4.2.3
 ```
 
 Import vào Rancher: UI → **Cluster Management → Import Existing → Generic**, tên `mc-cicd`,
 rồi trên `mc-cicd1`:
 
 ```bash
-kubectl apply -f https://rancher.mc.lab/v3/import/<TOKEN-UI-SINH-RA>.yaml
+read -rsp 'Dán URL import mc-cicd do Rancher UI sinh: ' M1_IMPORT_URL; echo
+kubectl apply -f "$M1_IMPORT_URL"
+unset M1_IMPORT_URL
 kubectl -n cattle-system rollout status deploy/cattle-cluster-agent --timeout=300s
 # PASS: rolled out
 ```
@@ -1034,90 +1365,155 @@ sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
 sudo apt-get install -y postgresql-17
 psql --version        # PASS: 17.x
 
-sudo -u postgres psql <<'EOF'
-CREATE ROLE gitlab LOGIN PASSWORD '<MẬT-KHẨU-DB>';
-CREATE DATABASE gitlabhq_production OWNER gitlab;
-\c gitlabhq_production
+read -rsp 'PostgreSQL password for gitlab: ' M1_DB_PASSWORD; echo
+sudo -u postgres psql -v ON_ERROR_STOP=1 -v db_password="$M1_DB_PASSWORD" <<'SQL'
+SELECT format('CREATE ROLE gitlab LOGIN PASSWORD %L', :'db_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gitlab')
+\gexec
+SELECT format('ALTER ROLE gitlab PASSWORD %L', :'db_password')
+\gexec
+SELECT 'CREATE DATABASE gitlabhq_production OWNER gitlab'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'gitlabhq_production')
+\gexec
+SQL
+unset M1_DB_PASSWORD
+sudo -u postgres psql -v ON_ERROR_STOP=1 -d gitlabhq_production <<'SQL'
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 CREATE EXTENSION IF NOT EXISTS amcheck;
-EOF
-```
+SQL
 
-`postgresql.conf` (thư mục `/etc/postgresql/17/main/`): nghe trên IP dải DATA và đặt
-`max_connections` **theo tài liệu tuning của GitLab** — docs hiện yêu cầu tối thiểu 400 cho
-external PostgreSQL; đặt 500 để có headroom. Nâng connection phải đi kèm RAM: đây là lý do
-`mc-db1` được cấp 4 GB chứ không phải 2 GB, và vì sao không đặt bừa 1024 như phản xạ đầu
-tiên trong bài viết gốc:
-
-```text
+# Drop-in xác định, không bắt người học tự sửa postgresql.conf.
+sudo install -d -m 0755 /etc/postgresql/17/main/conf.d
+sudo tee /etc/postgresql/17/main/conf.d/99-m1.conf >/dev/null <<'EOF'
 listen_addresses = '10.20.40.11'
 max_connections = 500
 shared_buffers = 1GB
+EOF
+M1_HBA='host gitlabhq_production gitlab 10.20.20.0/24 scram-sha-256'
+grep -qxF "$M1_HBA" /etc/postgresql/17/main/pg_hba.conf || \
+  printf '%s\n' "$M1_HBA" | sudo tee -a /etc/postgresql/17/main/pg_hba.conf
+sudo systemctl restart postgresql
+sudo systemctl is-active --quiet postgresql || {
+  sudo journalctl -u postgresql -n 100 --no-pager; exit 1;
+}
+sudo -u postgres psql -Atqc 'SHOW listen_addresses; SHOW max_connections; SHOW shared_buffers;'
+# PASS theo thứ tự: 10.20.40.11, 500, 1GB.
 ```
 
-`pg_hba.conf` — chỉ nhận từ dải CICD (tầng 2 sau firewall của router):
-
-```text
-host gitlabhq_production gitlab 10.20.20.0/24 scram-sha-256
-```
+Gate hai lớp, chạy đúng nơi ghi trong comment:
 
 ```bash
-sudo systemctl restart postgresql
-# Từ mc-cicd1:
+# Trên mc-cicd1:
 sudo apt-get install -y postgresql-client
-PGPASSWORD='<MẬT-KHẨU-DB>' psql -h 10.20.40.11 -U gitlab -d gitlabhq_production -c 'SHOW max_connections;'
-# PASS: 500
-# Từ mc-app1 (dải APP): lệnh trên phải TIMEOUT/refused — firewall §3.4 đang làm việc.
+read -rsp 'PostgreSQL password for gitlab: ' M1_DB_PASSWORD; echo
+PGPASSWORD="$M1_DB_PASSWORD" psql -h 10.20.40.11 -U gitlab \
+  -d gitlabhq_production -Atqc 'SHOW max_connections' | grep -qx 500
+unset M1_DB_PASSWORD
+echo 'PASS: CICD kết nối PostgreSQL và max_connections=500'
+
+# Trên mc-app1: chỉ dùng netcat; không nhầm lỗi thiếu psql thành firewall PASS.
+if nc -vzw3 10.20.40.11 5432; then
+  echo 'STOP: APP đi được tới PostgreSQL; firewall DATA sai' >&2
+  exit 1
+fi
+echo 'PASS: APP bị chặn tại firewall DATA'
 ```
 
 **Redis:**
 
 ```bash
 sudo apt-get install -y redis-server
-sudo sed -i \
-  -e 's/^bind .*/bind 10.20.40.11 127.0.0.1/' \
-  -e 's/^# requirepass .*/requirepass <MẬT-KHẨU-REDIS>/' \
-  /etc/redis/redis.conf
+read -rsp 'Redis password: ' M1_REDIS_PASSWORD; echo
+printf 'requirepass %s\n' "$M1_REDIS_PASSWORD" | sudo tee /etc/redis/m1-secret.conf >/dev/null
+unset M1_REDIS_PASSWORD
+sudo chown root:redis /etc/redis/m1-secret.conf
+sudo chmod 0640 /etc/redis/m1-secret.conf
+sudo sed -i -E 's/^bind .*/bind 10.20.40.11 127.0.0.1/' /etc/redis/redis.conf
+grep -qxF 'include /etc/redis/m1-secret.conf' /etc/redis/redis.conf || \
+  echo 'include /etc/redis/m1-secret.conf' | sudo tee -a /etc/redis/redis.conf
 sudo systemctl restart redis-server
+sudo systemctl is-active --quiet redis-server || {
+  sudo journalctl -u redis-server -n 100 --no-pager; exit 1;
+}
 # Từ mc-cicd1:
 sudo apt-get install -y redis-tools
-redis-cli -h 10.20.40.11 -a '<MẬT-KHẨU-REDIS>' ping     # PASS: PONG
+read -rsp 'Redis password: ' M1_REDIS_PASSWORD; echo
+REDISCLI_AUTH="$M1_REDIS_PASSWORD" redis-cli -h 10.20.40.11 ping | grep -qx PONG
+unset M1_REDIS_PASSWORD
+# PASS: PONG; mật khẩu không xuất hiện trong history hay argv.
 ```
 
 **MinIO (object storage):**
 
 ```bash
-sudo useradd -r -s /usr/sbin/nologin minio
-sudo mkdir -p /srv/minio && sudo chown minio: /srv/minio
-curl -fLo /tmp/minio https://dl.min.io/server/minio/release/linux-amd64/minio
-sudo install -m 0755 /tmp/minio /usr/local/bin/minio
-minio --version                       # GHI LẠI version vào hồ sơ lab
+id -u minio >/dev/null 2>&1 || sudo useradd -r -s /usr/sbin/nologin minio
+sudo install -d -o minio -g minio -m 0750 /srv/minio
+sudo install -d -o root -g minio -m 0750 /etc/minio
+MINIO_RELEASE=RELEASE.2025-09-07T16-13-09Z
+curl -fLo "/tmp/minio.$MINIO_RELEASE" \
+  "https://dl.min.io/community/server/minio/release/linux-amd64/minio.$MINIO_RELEASE"
+curl -fLo "/tmp/minio.$MINIO_RELEASE.sha256sum" \
+  "https://dl.min.io/community/server/minio/release/linux-amd64/minio.$MINIO_RELEASE.sha256sum"
+(cd /tmp && sha256sum -c "minio.$MINIO_RELEASE.sha256sum")
+sudo install -m 0755 "/tmp/minio.$MINIO_RELEASE" /usr/local/bin/minio
+rm -f "/tmp/minio.$MINIO_RELEASE" "/tmp/minio.$MINIO_RELEASE.sha256sum"
+minio --version | grep -F 'RELEASE.2025-09-07T16-13-09Z'
+
+read -rp 'MinIO root user [minio-admin]: ' M1_MINIO_USER
+M1_MINIO_USER=${M1_MINIO_USER:-minio-admin}
+read -rsp 'MinIO root password: ' M1_MINIO_PASSWORD; echo
+{
+  printf 'MINIO_ROOT_USER=%q\n' "$M1_MINIO_USER"
+  printf 'MINIO_ROOT_PASSWORD=%q\n' "$M1_MINIO_PASSWORD"
+} | sudo tee /etc/minio/minio.env >/dev/null
+sudo chown root:minio /etc/minio/minio.env
+sudo chmod 0640 /etc/minio/minio.env
 
 sudo tee /etc/systemd/system/minio.service >/dev/null <<'EOF'
 [Unit]
 Description=MinIO
+Wants=network-online.target
 After=network-online.target
 [Service]
 User=minio
-Environment=MINIO_ROOT_USER=minio-admin
-Environment=MINIO_ROOT_PASSWORD=<MẬT-KHẨU-MINIO>
+Group=minio
+EnvironmentFile=/etc/minio/minio.env
 ExecStart=/usr/local/bin/minio server /srv/minio --address 10.20.40.11:9000
 Restart=always
 [Install]
 WantedBy=multi-user.target
 EOF
 sudo systemctl daemon-reload && sudo systemctl enable --now minio
+sudo systemctl is-active --quiet minio || {
+  sudo journalctl -u minio -n 100 --no-pager; exit 1;
+}
+for i in $(seq 1 30); do
+  curl -fsS http://10.20.40.11:9000/minio/health/live >/dev/null && break
+  sleep 2
+done
+curl -fsS http://10.20.40.11:9000/minio/health/live >/dev/null || {
+  echo 'STOP: MinIO health chưa PASS' >&2; exit 1;
+}
 
 # Tạo bucket bằng mc (MinIO client) ngay trên mc-db1:
-curl -fLo /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc
-sudo install -m 0755 /tmp/mc /usr/local/bin/mc
-mc alias set lab http://10.20.40.11:9000 minio-admin '<MẬT-KHẨU-MINIO>'
+MC_RELEASE=RELEASE.2025-08-13T08-35-41Z
+curl -fLo "/tmp/mc.$MC_RELEASE" \
+  "https://dl.min.io/client/mc/release/linux-amd64/mc.$MC_RELEASE"
+curl -fLo "/tmp/mc.$MC_RELEASE.sha256sum" \
+  "https://dl.min.io/client/mc/release/linux-amd64/mc.$MC_RELEASE.sha256sum"
+(cd /tmp && sha256sum -c "mc.$MC_RELEASE.sha256sum")
+sudo install -m 0755 "/tmp/mc.$MC_RELEASE" /usr/local/bin/mc
+rm -f "/tmp/mc.$MC_RELEASE" "/tmp/mc.$MC_RELEASE.sha256sum"
+mc --version | grep -F 'RELEASE.2025-08-13T08-35-41Z'
+mc alias set lab http://10.20.40.11:9000 "$M1_MINIO_USER" "$M1_MINIO_PASSWORD"
 for b in gitlab-artifacts gitlab-lfs gitlab-uploads gitlab-packages gitlab-mr-diffs \
          gitlab-terraform-state gitlab-dependency-proxy gitlab-ci-secure-files \
-         gitlab-registry gitlab-backups gitlab-tmp; do mc mb "lab/$b"; done
-mc ls lab | wc -l                     # PASS: 11 bucket — docs chart yêu cầu MỖI loại dữ liệu
-                                      # một bucket riêng, dùng chung sẽ hỏng backup/restore
+         gitlab-registry gitlab-backups gitlab-tmp; do mc mb --ignore-existing "lab/$b"; done
+test "$(mc ls lab | wc -l)" -eq 11 || { echo 'STOP: cần đúng 11 bucket' >&2; exit 1; }
+mc alias remove lab
+unset M1_MINIO_USER M1_MINIO_PASSWORD
+echo 'PASS: MinIO healthy, đúng checksum/version và đủ 11 bucket'
 ```
 
 ### 6.3. GitLab qua Helm, ingress Traefik, DB ngoài
@@ -1137,15 +1533,21 @@ spec:
   dnsNames: ["*.mc.lab", "mc.lab"]
   issuerRef: {name: mc-lab-ca, kind: ClusterIssuer}
 EOF
+kubectl -n cert-manager wait certificate/mc-lab-wildcard \
+  --for=condition=Ready --timeout=300s
 # Xuất cert/key ra file — KHÔNG copy YAML của secret (khỏi phải gọt metadata bằng tay):
 kubectl -n cert-manager get secret mc-lab-wildcard-tls \
   -o jsonpath='{.data.tls\.crt}' | base64 -d > /tmp/wildcard.crt
 kubectl -n cert-manager get secret mc-lab-wildcard-tls \
   -o jsonpath='{.data.tls\.key}' | base64 -d > /tmp/wildcard.key
-# scp hai file vào /tmp của mc-cicd1 và mc-app1; trên máy đích kiểm trước khi dùng:
-#   test -s /tmp/wildcard.crt && test -s /tmp/wildcard.key && echo PASS-files
-# wildcard.key là secret: sau khi mọi secret ở cụm đích tạo xong, xóa trên CẢ nguồn lẫn đích:
-#   shred -u /tmp/wildcard.key && rm -f /tmp/wildcard.crt
+chmod 0600 /tmp/wildcard.key
+for host in 10.20.20.11 10.20.30.11; do
+  scp /tmp/wildcard.crt /tmp/wildcard.key "ubuntu@$host:/tmp/"
+  ssh "ubuntu@$host" 'test -s /tmp/wildcard.crt && test -s /tmp/wildcard.key' || exit 1
+done
+shred -u /tmp/wildcard.key 2>/dev/null || rm -f /tmp/wildcard.key
+rm -f /tmp/wildcard.crt
+# PASS: CICD và App nhận đủ file; Admin đã xóa private key tạm.
 
 # Trên mc-cicd1.
 # BƯỚC 0 — StorageClass: RKE2 không có default StorageClass; không có nó, PVC của Gitaly sẽ
@@ -1154,40 +1556,51 @@ kubectl -n cert-manager get secret mc-lab-wildcard-tls \
 kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.37/deploy/local-path-storage.yaml
 kubectl patch storageclass local-path \
   -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-kubectl get sc
-# PASS: local-path (default)
+kubectl get sc local-path -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}' | grep -qx true
+# PASS: local-path là default; khác thì STOP.
 
-kubectl create ns gitlab
+kubectl create ns gitlab --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n gitlab create secret tls mc-lab-wildcard-tls \
-  --cert=/tmp/wildcard.crt --key=/tmp/wildcard.key
+  --cert=/tmp/wildcard.crt --key=/tmp/wildcard.key \
+  --dry-run=client -o yaml | kubectl apply -f -
 
 # Secrets cho ba dependency ngoài (giá trị khớp §6.2):
+read -rsp 'PostgreSQL password: ' M1_DB_PASSWORD; echo
 kubectl -n gitlab create secret generic gitlab-psql \
-  --from-literal=password='<MẬT-KHẨU-DB>'
+  --from-literal=password="$M1_DB_PASSWORD" --dry-run=client -o yaml | kubectl apply -f -
+unset M1_DB_PASSWORD
+read -rsp 'Redis password: ' M1_REDIS_PASSWORD; echo
 kubectl -n gitlab create secret generic gitlab-redis \
-  --from-literal=password='<MẬT-KHẨU-REDIS>'
-cat > /tmp/objstore.yaml <<'EOF'
+  --from-literal=password="$M1_REDIS_PASSWORD" --dry-run=client -o yaml | kubectl apply -f -
+unset M1_REDIS_PASSWORD
+read -rp 'MinIO root user [minio-admin]: ' M1_MINIO_USER
+M1_MINIO_USER=${M1_MINIO_USER:-minio-admin}
+read -rsp 'MinIO root password: ' M1_MINIO_PASSWORD; echo
+{
+cat <<EOF
 provider: AWS
 region: us-east-1
-aws_access_key_id: minio-admin
-aws_secret_access_key: <MẬT-KHẨU-MINIO>
+aws_access_key_id: $M1_MINIO_USER
+aws_secret_access_key: $M1_MINIO_PASSWORD
 endpoint: "http://10.20.40.11:9000"
 path_style: true
 EOF
-kubectl -n gitlab create secret generic object-storage \
-  --from-file=connection=/tmp/objstore.yaml
-cat > /tmp/registry-storage.yaml <<'EOF'
+} | kubectl -n gitlab create secret generic object-storage \
+  --from-file=connection=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
+{
+cat <<EOF
 s3:
   bucket: gitlab-registry
-  accesskey: minio-admin
-  secretkey: <MẬT-KHẨU-MINIO>
+  accesskey: $M1_MINIO_USER
+  secretkey: $M1_MINIO_PASSWORD
   regionendpoint: http://10.20.40.11:9000
   region: us-east-1
   v4auth: true
   pathstyle: true
 EOF
-kubectl -n gitlab create secret generic registry-storage \
-  --from-file=config=/tmp/registry-storage.yaml
+} | kubectl -n gitlab create secret generic registry-storage \
+  --from-file=config=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
+unset M1_MINIO_USER M1_MINIO_PASSWORD
 
 helm repo add gitlab https://charts.gitlab.io && helm repo update
 helm show chart gitlab/gitlab --version 10.2.2 | grep -E '^(version|appVersion):'
@@ -1195,11 +1608,15 @@ helm show chart gitlab/gitlab --version 10.2.2 | grep -E '^(version|appVersion):
 # https://docs.gitlab.com/charts/installation/version_mappings/ và cập nhật bảng §2.1
 # trước khi đi tiếp, không cài bản trôi nổi.
 
-helm install gitlab gitlab/gitlab --namespace gitlab --version 10.2.2 --timeout 900s -f - <<'EOF'
+helm upgrade --install gitlab gitlab/gitlab --namespace gitlab --version 10.2.2 \
+  --wait --timeout 15m -f - <<'EOF'
 global:
   edition: ce
   hosts: {domain: mc.lab, https: true}
+  gatewayApi:
+    enabled: false
   ingress:
+    enabled: true
     class: traefik
     configureCertmanager: false
     tls: {secretName: mc-lab-wildcard-tls}
@@ -1247,28 +1664,58 @@ EOF
 ```bash
 kubectl -n gitlab get pvc
 # PASS: PVC của Gitaly Bound trên StorageClass local-path
-kubectl -n gitlab get jobs | grep migrations
-# PASS: job …-migrations-… Completed — schema đã vào PostgreSQL ngoài
-kubectl -n gitlab get pods    # chờ webservice 2/2; lần đầu có thể 5–10 phút
+M1_MIGRATION_JOB=$(kubectl -n gitlab get jobs -o name | grep migrations | tail -1)
+[ -n "$M1_MIGRATION_JOB" ] || { echo 'STOP: không thấy migration Job' >&2; exit 1; }
+kubectl -n gitlab wait --for=condition=complete "$M1_MIGRATION_JOB" --timeout=900s
+for r in $(kubectl -n gitlab get deployment,statefulset -o name); do
+  kubectl -n gitlab rollout status "$r" --timeout=900s || exit 1
+done
+kubectl -n gitlab get pods
+kubectl -n gitlab get pods --no-headers | \
+  awk '$3 !~ /^(Running|Completed)$/ {print; bad=1} END {exit bad}'
+# PASS: migration Completed và mọi workload rollout thành công; không pod lỗi.
 curl -s -o /dev/null -w '%{http_code}\n' https://gitlab.mc.lab/users/sign_in
 # PASS: 200 — không có chuỗi 5xx chập chờn vì max_connections đã nâng từ trước
 
 # Gate memory — mc-cicd1 8 GB là mức "memory-constrained" theo requirements chính thức
 # (baseline là 16 GB); hai gate này phát hiện sớm OOM thay vì để nó thành 5xx ngẫu nhiên:
-kubectl -n gitlab get pods \
+test "$(kubectl -n gitlab get pods \
   -o jsonpath='{range .items[*]}{.status.containerStatuses[*].lastState.terminated.reason}{"\n"}{end}' \
-  | grep -c OOMKilled
+  | grep -c OOMKilled)" -eq 0
 # PASS: 0 — chưa container nào bị OOMKilled
-free -m | awk '/Mem:/ {print "available_MB=" $7}'
+M1_AVAILABLE_MB=$(free -m | awk '/Mem:/ {print $7}')
+echo "available_MB=$M1_AVAILABLE_MB"
+[ "$M1_AVAILABLE_MB" -ge 500 ] || {
+  echo 'STOP: RAM available < 500 MB; tăng RAM mc-cicd1 rồi chạy lại gate' >&2
+  exit 1
+}
 # PASS: available >= 500 MB sau khi GitLab lên đủ; thấp hơn thì tăng RAM VM (host cho phép)
 # hoặc dừng ở đây chẩn đoán — đừng chạy tiếp pipeline trên node đang cạn RAM
 
 kubectl -n gitlab get secret gitlab-gitlab-initial-root-password \
   -o jsonpath='{.data.password}' | base64 -d; echo
+shred -u /tmp/wildcard.key 2>/dev/null || rm -f /tmp/wildcard.key
+rm -f /tmp/wildcard.crt
+# PASS cleanup trên mc-cicd1: test ! -e /tmp/wildcard.key -a ! -e /tmp/wildcard.crt
+```
+
+Trên `mc-app1`, lưu cặp cert vào Kubernetes ngay và xóa file tạm **trước** snapshot
+`m1-cicd-ready`; §7.1 sẽ chỉ thêm annotation cho Secret này:
+
+```bash
+kubectl create ns certs --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n certs create secret tls mc-lab-wildcard-tls \
+  --cert=/tmp/wildcard.crt --key=/tmp/wildcard.key \
+  --dry-run=client -o yaml | kubectl apply -f -
+shred -u /tmp/wildcard.key 2>/dev/null || rm -f /tmp/wildcard.key
+rm -f /tmp/wildcard.crt
+test ! -e /tmp/wildcard.key -a ! -e /tmp/wildcard.crt
+# PASS: Secret tồn tại trong namespace certs; không còn private key dạng file.
 ```
 
 Đăng nhập `root`, tạo group `platform`, project `platform/demo-app` và project
-`platform/deploy-config` (chứa manifest cho ArgoCD).
+`platform/deploy-config` (chứa manifest cho ArgoCD). Tạo cả hai project ở trạng thái **blank**,
+không chọn Initialize repository with a README; transcript §7.2 sẽ tạo branch `main`.
 
 ### 6.4. gitlab-runner với Kubernetes executor
 
@@ -1278,15 +1725,18 @@ không bật `log_level = debug`, token khai qua `runnerToken` (field registrati
 deprecated), và ghi rõ cái giá của `privileged`:
 
 ```bash
-kubectl create ns gitlab-runner
+kubectl create ns gitlab-runner --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n gitlab-runner create secret generic mc-lab-ca-cert \
-  --from-file=gitlab.mc.lab.crt=/usr/local/share/ca-certificates/mc-lab-ca.crt
+  --from-file=gitlab.mc.lab.crt=/usr/local/share/ca-certificates/mc-lab-ca.crt \
+  --dry-run=client -o yaml | kubectl apply -f -
 # runner trust GitLab qua CA lab — path chuẩn có sẵn trên mc-cicd1 từ §4.2
 
-helm search repo gitlab/gitlab-runner --versions | head -3   # GHI LẠI version
-helm install gitlab-runner gitlab/gitlab-runner -n gitlab-runner -f - <<'EOF'
+helm show chart gitlab/gitlab-runner --version 0.91.2 | grep -E '^(version|appVersion):'
+read -rsp 'GitLab runner token glrt-...: ' M1_RUNNER_TOKEN; echo
+helm upgrade --install gitlab-runner gitlab/gitlab-runner -n gitlab-runner \
+  --version 0.91.2 --set-string runnerToken="$M1_RUNNER_TOKEN" \
+  --wait --timeout 10m -f - <<'EOF'
 gitlabUrl: https://gitlab.mc.lab
-runnerToken: "glrt-<TOKEN>"
 certsSecretName: mc-lab-ca-cert        # CA cho RUNNER MANAGER xác thực TLS của GitLab
 rbac: {create: true}
 concurrent: 4
@@ -1296,7 +1746,7 @@ runners:
       executor = "kubernetes"
       [runners.kubernetes]
         namespace = "gitlab-runner"
-        image = "quay.io/podman/stable"
+        image = "quay.io/podman/stable:v5.8.2"
         privileged = true
         [runners.kubernetes.pod_security_context]
           run_as_user = 0
@@ -1308,6 +1758,7 @@ runners:
           mount_path = "/custom-certs"
           read_only = true
 EOF
+unset M1_RUNNER_TOKEN
 ```
 
 > ⚠️ `privileged = true` nghĩa là job CI chạy container đặc quyền trên node CICD — rộng quyền
@@ -1315,7 +1766,9 @@ EOF
 > runner ra node/cluster riêng hoặc chuyển buildah/kaniko không đặc quyền.
 
 ```bash
-kubectl -n gitlab-runner get pods      # PASS: gitlab-runner Running
+kubectl -n gitlab-runner rollout status deployment/gitlab-runner --timeout=300s
+kubectl -n gitlab-runner get pods
+# PASS: Deployment rolled out và pod gitlab-runner Running.
 # GitLab UI → Admin → Runners: PASS: runner Online
 ```
 
@@ -1327,7 +1780,7 @@ mount của runner):
 # .gitlab-ci.yml
 build-image:
   stage: build
-  image: quay.io/podman/stable
+  image: quay.io/podman/stable:v5.8.2
   script:
     - mkdir -p /etc/containers/certs.d/registry.mc.lab
     - cp /custom-certs/gitlab.mc.lab.crt /etc/containers/certs.d/registry.mc.lab/ca.crt
@@ -1336,12 +1789,12 @@ build-image:
     - podman push registry.mc.lab/platform/demo-app:$CI_COMMIT_SHORT_SHA
 ```
 
-Dockerfile demo lấy từ [`course-website/`](../course-website/) của repo này (copy vào
-project) hoặc một `FROM nginx:alpine` + `COPY index.html` tối giản.
+Dockerfile demo được tạo chính xác ở transcript §7.2 bằng image pin `nginx:1.27.5-alpine`.
 
 **PASS §6:** job `build-image` xanh; GitLab UI → Packages → Container Registry hiện tag mới.
 
-Snapshot: `m1-cicd-ready`.
+Snapshot đủ sáu VM: `m1-cicd-ready`, theo protocol §2.4; sau khởi động lại, ba cụm Active,
+GitLab health/pipeline và runner Online phải PASS lại.
 
 ## 7. Cert wildcard + reflector và ArgoCD mỗi cụm
 
@@ -1350,22 +1803,30 @@ Snapshot: `m1-cicd-ready`.
 Đúng thủ thuật bài viết: đổi cert một lần, mọi namespace nhận theo. Trên `mc-app1`:
 
 ```bash
-helm repo add emberstack https://emberstack.github.io/helm-charts && helm repo update
-helm search repo emberstack/reflector --versions | head -3    # GHI LẠI version
-helm install reflector emberstack/reflector -n kube-system
+helm repo add emberstack https://emberstack.github.io/helm-charts --force-update
+helm repo update
+helm show chart emberstack/reflector --version 10.0.65 | grep -E '^(version|appVersion):'
+helm upgrade --install reflector emberstack/reflector -n kube-system \
+  --version 10.0.65 --wait --timeout 5m
+kubectl -n kube-system rollout status deployment/reflector --timeout=300s
 
-# Đưa wildcard cert (cặp wildcard.crt/wildcard.key từ §6.3) vào namespace nguồn rồi gắn
-# annotation:
-kubectl create ns certs
-kubectl -n certs create secret tls mc-lab-wildcard-tls \
-  --cert=/tmp/wildcard.crt --key=/tmp/wildcard.key
+# Secret nguồn đã được tạo và file private key đã xóa ở cuối §6.3; chỉ gắn annotation:
+kubectl -n certs get secret mc-lab-wildcard-tls >/dev/null || {
+  echo 'STOP: thiếu Secret nguồn từ §6.3' >&2; exit 1;
+}
 kubectl -n certs annotate secret mc-lab-wildcard-tls \
   reflector.v1.k8s.emberstack.com/reflection-allowed="true" \
   reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces="demo-app,.*-prod" \
-  reflector.v1.k8s.emberstack.com/reflection-auto-enabled="true"
+  reflector.v1.k8s.emberstack.com/reflection-auto-enabled="true" --overwrite
 
 kubectl create ns demo-app --dry-run=client -o yaml | kubectl apply -f -   # idempotent
-kubectl -n demo-app get secret mc-lab-wildcard-tls
+for i in $(seq 1 60); do
+  kubectl -n demo-app get secret mc-lab-wildcard-tls >/dev/null 2>&1 && break
+  sleep 2
+done
+kubectl -n demo-app get secret mc-lab-wildcard-tls >/dev/null || {
+  echo 'STOP: Reflector chưa tạo secret sau 120 giây' >&2; exit 1;
+}
 # PASS: secret xuất hiện trong demo-app mà không phải copy tay
 ```
 
@@ -1380,21 +1841,24 @@ M1). Lời hứa "update một lần, đổi cert mọi nơi" của bài viết 
 Cài trên **cả ba cụm** (lệnh giống nhau; chạy trên node server của từng cụm):
 
 ```bash
-kubectl create namespace argocd
+kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -n argocd \
   -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.1/manifests/install.yaml
 kubectl -n argocd get deploy argocd-server \
   -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
 # PASS: image tag v3.5.1 — đúng bản pin ở bảng §2.1
-kubectl -n argocd rollout status deploy/argocd-server --timeout=300s   # PASS
+kubectl -n argocd wait --for=condition=Available deployment --all --timeout=600s
+# PASS: mọi Argo CD Deployment Available.
 ```
 
 Cho ArgoCD tin GitLab (CA tự ký) — trên từng cụm:
 
 ```bash
-kubectl -n argocd patch configmap argocd-tls-certs-cm --type merge \
-  -p "{\"data\":{\"gitlab.mc.lab\":\"$(sed ':a;N;$!ba;s/\n/\\n/g' /usr/local/share/ca-certificates/mc-lab-ca.crt)\"}}"
+kubectl -n argocd create configmap argocd-tls-certs-cm \
+  --from-file=gitlab.mc.lab=/usr/local/share/ca-certificates/mc-lab-ca.crt \
+  --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n argocd rollout restart deploy argocd-repo-server
+kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=300s
 ```
 
 **Credential trước, Application sau.** Project GitLab mặc định là private: ArgoCD không
@@ -1408,27 +1872,26 @@ Rồi khai báo trên cụm App:
 
 ```bash
 # Repo credential cho ArgoCD (secret kiểu declarative của Argo):
-kubectl -n argocd apply -f - <<'EOF'
-apiVersion: v1
-kind: Secret
-metadata:
-  name: repo-deploy-config
-  namespace: argocd
-  labels: {argocd.argoproj.io/secret-type: repository}
-stringData:
-  type: git
-  url: https://gitlab.mc.lab/platform/deploy-config.git
-  username: argocd-read
-  password: <TOKEN-argocd-read>
-EOF
+read -rsp 'Deploy token argocd-read: ' M1_ARGO_TOKEN; echo
+kubectl -n argocd create secret generic repo-deploy-config \
+  --from-literal=type=git \
+  --from-literal=url=https://gitlab.mc.lab/platform/deploy-config.git \
+  --from-literal=username=argocd-read \
+  --from-literal=password="$M1_ARGO_TOKEN" --dry-run=client -o yaml | \
+  kubectl label --local -f - argocd.argoproj.io/secret-type=repository -o yaml | \
+  kubectl apply -f -
+unset M1_ARGO_TOKEN
 
 # Pull secret cho workload (namespace đã tồn tại từ phép thử reflector §7.1 — dùng dạng
 # idempotent để chạy lại không lỗi AlreadyExists):
 kubectl create ns demo-app --dry-run=client -o yaml | kubectl apply -f -
+read -rsp 'Deploy token registry-pull: ' M1_REGISTRY_TOKEN; echo
 kubectl -n demo-app create secret docker-registry regcred \
   --docker-server=registry.mc.lab \
   --docker-username=registry-pull \
-  --docker-password='<TOKEN-registry-pull>'
+  --docker-password="$M1_REGISTRY_TOKEN" \
+  --dry-run=client -o yaml | kubectl apply -f -
+unset M1_REGISTRY_TOKEN
 ```
 
 Application mẫu trên **cụm App** — trỏ về `platform/deploy-config`, **manual sync +
@@ -1555,6 +2018,8 @@ configs:
       ca_file: /usr/local/share/ca-certificates/mc-lab-ca.crt
 EOF
 sudo systemctl restart rke2-server   # mc-app1; mc-app2 restart rke2-agent
+# Trên mc-app1 sau khi cả hai service restart:
+kubectl wait --for=condition=Ready node/mc-app1 node/mc-app2 --timeout=600s
 ```
 
 **Transcript đưa code và manifest lên GitLab** — chạy trên `mc-admin1` (hoặc bất kỳ VM nào
@@ -1562,42 +2027,163 @@ sudo systemctl restart rke2-server   # mc-app1; mc-app2 restart rke2-agent
 
 ```bash
 sudo apt-get install -y git
-git config --global user.name pilot && git config --global user.email pilot@mc.lab
+git config --global user.name pilot
+git config --global user.email pilot@mc.lab
+read -rsp 'GitLab PAT (api/write_repository): ' M1_GIT_PAT; echo
+M1_ASKPASS=$(mktemp)
+cat > "$M1_ASKPASS" <<'EOF'
+#!/bin/sh
+case "$1" in
+  *Username*) printf '%s\n' root ;;
+  *Password*) printf '%s\n' "$M1_GIT_PAT" ;;
+esac
+EOF
+chmod 0700 "$M1_ASKPASS"
+export M1_GIT_PAT M1_ASKPASS GIT_ASKPASS="$M1_ASKPASS" GIT_TERMINAL_PROMPT=0
 
 # 1) Repo demo-app: source + Dockerfile + CI
-git clone "https://root:<TOKEN-git-push>@gitlab.mc.lab/platform/demo-app.git"
+git clone https://root@gitlab.mc.lab/platform/demo-app.git
 cd demo-app
-echo '<h1>m1 demo v1</h1>' > index.html
+git symbolic-ref HEAD refs/heads/main
+printf '%s\n' '<h1>m1 demo v1</h1>' > index.html
 cat > Dockerfile <<'EOF'
-FROM nginx:alpine
+FROM nginx:1.27.5-alpine
 COPY index.html /usr/share/nginx/html/index.html
 EOF
-# Tạo .gitlab-ci.yml với đúng nội dung khối "build-image" ở §6.4.
-git add -A && git commit -m 'demo-app v1' && git push origin main
+cat > .gitlab-ci.yml <<'EOF'
+build-image:
+  stage: build
+  image: quay.io/podman/stable:v5.8.2
+  script:
+    - mkdir -p /etc/containers/certs.d/registry.mc.lab
+    - cp /custom-certs/gitlab.mc.lab.crt /etc/containers/certs.d/registry.mc.lab/ca.crt
+    - podman login -u gitlab-ci-token -p "$CI_JOB_TOKEN" registry.mc.lab
+    - podman build -t registry.mc.lab/platform/demo-app:$CI_COMMIT_SHORT_SHA .
+    - podman push registry.mc.lab/platform/demo-app:$CI_COMMIT_SHORT_SHA
+EOF
+git add -A
+git commit -m 'demo-app v1'
+git push -u origin main
+git ls-remote --exit-code --heads origin refs/heads/main >/dev/null
 
 # 2) Chờ pipeline xanh (GitLab UI → project → Pipelines), rồi chốt tag một cách xác định:
 TAG=$(git rev-parse --short=8 HEAD)   # CI_COMMIT_SHORT_SHA của GitLab = 8 ký tự đầu SHA
 echo "$TAG"
 # PASS: GitLab UI → Packages → Container Registry có image tag đúng bằng $TAG
 
-# 3) Repo deploy-config: lưu BỐN manifest ở phần trên vào demo-app/ và điền tag thật
-cd .. && git clone "https://root:<TOKEN-git-push>@gitlab.mc.lab/platform/deploy-config.git"
-cd deploy-config && mkdir -p demo-app
-# Tạo demo-app/deployment.yaml, service.yaml, statefulset.yaml, ingress.yaml với đúng nội
-# dung bốn khối YAML ở trên, sau đó thay placeholder tag bằng tag thật:
-sed -i "s|demo-app:<tag từ §6.4>|demo-app:${TAG}|" demo-app/deployment.yaml
-grep -q "demo-app:${TAG}" demo-app/deployment.yaml && echo PASS-tag
-git add -A && git commit -m "demo-app ${TAG}" && git push origin main
+# 3) Repo deploy-config: tạo chính xác bốn file manifest, không copy/paste thủ công.
+cd ..
+git clone https://root@gitlab.mc.lab/platform/deploy-config.git
+cd deploy-config
+git symbolic-ref HEAD refs/heads/main
+mkdir -p demo-app
+cat > demo-app/deployment.yaml <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: demo-web}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: demo-web}}
+  template:
+    metadata: {labels: {app: demo-web}}
+    spec:
+      imagePullSecrets: [{name: regcred}]
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector: {matchLabels: {app: demo-web}}
+      containers:
+      - name: web
+        image: registry.mc.lab/platform/demo-app:${TAG}
+        ports: [{containerPort: 80}]
+        resources:
+          requests: {cpu: 50m, memory: 64Mi}
+          limits: {memory: 128Mi}
+        readinessProbe: {httpGet: {path: /, port: 80}}
+        livenessProbe:
+          httpGet: {path: /, port: 80}
+          initialDelaySeconds: 10
+EOF
+cat > demo-app/service.yaml <<'EOF'
+apiVersion: v1
+kind: Service
+metadata: {name: demo-web}
+spec:
+  selector: {app: demo-web}
+  ports: [{port: 80, targetPort: 80}]
+EOF
+cat > demo-app/statefulset.yaml <<'EOF'
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: demo-data}
+spec:
+  serviceName: demo-data
+  replicas: 1
+  selector: {matchLabels: {app: demo-data}}
+  template:
+    metadata: {labels: {app: demo-data}}
+    spec:
+      containers:
+      - name: recorder
+        image: busybox:1.37
+        command: [sh, -c, "while true; do date >> /data/heartbeat; sleep 30; done"]
+        resources:
+          requests: {cpu: 10m, memory: 16Mi}
+          limits: {memory: 32Mi}
+        volumeMounts: [{name: data, mountPath: /data}]
+  volumeClaimTemplates:
+  - metadata: {name: data}
+    spec:
+      accessModes: [ReadWriteOnce]
+      storageClassName: longhorn
+      resources: {requests: {storage: 1Gi}}
+EOF
+cat > demo-app/ingress.yaml <<'EOF'
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-app
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  tls: [{hosts: [app.mc.lab], secretName: mc-lab-wildcard-tls}]
+  rules:
+  - host: app.mc.lab
+    http:
+      paths:
+      - {path: /, pathType: Prefix, backend: {service: {name: demo-web, port: {number: 80}}}}
+EOF
+grep -q "demo-app:${TAG}" demo-app/deployment.yaml
+git add -A
+git commit -m "demo-app ${TAG}"
+git push -u origin main
+git ls-remote --exit-code --heads origin refs/heads/main >/dev/null
+
+# Không để PAT trong .git/config, command history hoặc snapshot.
+for repo in ../demo-app .; do
+  git -C "$repo" remote -v | grep -F "$M1_GIT_PAT" && {
+    echo "STOP: PAT còn trong remote của $repo" >&2; exit 1;
+  }
+done
+rm -f "$M1_ASKPASS"
+unset M1_GIT_PAT M1_ASKPASS GIT_ASKPASS GIT_TERMINAL_PROMPT
+echo 'PASS: hai repo có branch main; PAT không nằm trong remote'
 ```
 
 **Sync thủ công** (đúng mô hình bài viết — không automated):
 
-1. Trên `mc-app1`: `kubectl -n argocd port-forward svc/argocd-server 8443:443 --address 0.0.0.0`
-   rồi từ host mở `https://mc-app1.mc.lab:8443` (hoặc SSH tunnel nếu muốn gọn).
+1. Trên `mc-app1`: `kubectl -n argocd port-forward svc/argocd-server 8443:443 --address 127.0.0.1`.
+   Từ Windows mở SSH tunnel
+   `ssh -L 8443:127.0.0.1:8443 ubuntu@10.20.30.11`, rồi mở `https://127.0.0.1:8443`.
 2. Đăng nhập `admin`, mật khẩu lấy bằng:
    `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d`
 3. Mở app `demo-app` → **SYNC** → Synchronize. (Tương đương CLI nếu đã cài `argocd`:
    `argocd app sync demo-app`.)
+4. Gate xong phải nhấn `Ctrl-C` ở cả terminal port-forward và SSH tunnel; xác nhận không còn
+   process: `pgrep -af 'kubectl.*port-forward'` phải không có output trước snapshot.
 
 Gates:
 
@@ -1639,26 +2225,154 @@ Chạy tuần tự, tất cả phải PASS:
 ```bash
 # 1) Ba cụm, một UI:      Rancher UI hiện local + mc-app + mc-cicd đều Active
 # 2) Ingress đúng bài học: trên CẢ 3 cụm không tồn tại pod ingress-nginx nào
-kubectl -n kube-system get pods | grep -c ingress-nginx    # PASS: 0 (từng cụm)
+test "$(kubectl -n kube-system get pods --no-headers 2>/dev/null | grep -c ingress-nginx)" -eq 0 || exit 1
+# Chạy trên server của từng cụm; cả ba lần đều phải exit 0.
 # 3) Firewall dải DATA:    từ mc-app1
-nc -vzw3 10.20.40.11 5432; echo "exit=$?"                  # PASS: khác 0
+if nc -vzw3 10.20.40.11 5432; then
+  echo 'STOP: APP vẫn vào được PostgreSQL' >&2; exit 1
+fi
+echo 'PASS-firewall: APP bị chặn khỏi DATA:5432'
 # 4) DB ngoài cluster:     từ mc-db1
-sudo -u postgres psql -d gitlabhq_production -c "SELECT count(*) FROM projects;"
-#                                                          # PASS: >= 2 project đã tạo
-# 5) End-to-end:           đẩy 1 commit đổi index.html → pipeline xanh → sync ArgoCD →
-curl -s --cacert /usr/local/share/ca-certificates/mc-lab-ca.crt https://app.mc.lab \
-  | grep -q '<nội dung mới>'   # PASS
-# 6) Storage — PVC sống qua đời pod (chạy trên mc-app1):
+M1_PROJECTS=$(sudo -u postgres psql -At -d gitlabhq_production \
+  -c 'SELECT count(*) FROM projects;')
+[ "$M1_PROJECTS" -ge 2 ] || { echo "STOP: projects=$M1_PROJECTS, cần >=2" >&2; exit 1; }
+# 5) Storage — PVC sống qua đời pod (chạy trên mc-app1):
 BEFORE=$(kubectl -n demo-app exec demo-data-0 -- sh -c 'wc -l < /data/heartbeat')
 kubectl -n demo-app delete pod demo-data-0 --wait
 kubectl -n demo-app wait pod/demo-data-0 --for=condition=Ready --timeout=300s
 AFTER=$(kubectl -n demo-app exec demo-data-0 -- sh -c 'wc -l < /data/heartbeat')
-[ "$AFTER" -ge "$BEFORE" ] && echo PASS-storage
+[ "$AFTER" -ge "$BEFORE" ] || { echo 'STOP: dữ liệu heartbeat bị mất' >&2; exit 1; }
+echo PASS-storage
 # PASS: in "PASS-storage" — pod thay thế (StatefulSet tạo lại cùng tên) đọc được dữ liệu cũ
 ```
 
-Snapshot cuối: `m1-complete` trên cả 6 VM. Hồ sơ lab phải có: bảng version thực cài (GitLab
-chart, runner chart, reflector, ArgoCD), token/mật khẩu lưu ngoài git.
+Gate 6 kiểm tra end-to-end bằng **một thay đổi thật**, không dùng placeholder. Chạy trên
+`mc-admin1`, từ thư mục home đã chứa hai repo ở §7.2:
+
+```bash
+read -rsp 'GitLab PAT (api/write_repository): ' M1_GIT_PAT; echo
+M1_ASKPASS=$(mktemp)
+cat > "$M1_ASKPASS" <<'EOF'
+#!/bin/sh
+case "$1" in
+  *Username*) printf '%s\n' root ;;
+  *Password*) printf '%s\n' "$M1_GIT_PAT" ;;
+esac
+EOF
+chmod 0700 "$M1_ASKPASS"
+export M1_GIT_PAT M1_ASKPASS GIT_ASKPASS="$M1_ASKPASS" GIT_TERMINAL_PROMPT=0
+
+cd "$HOME/demo-app"
+git pull --ff-only origin main
+printf '%s\n' '<h1>m1 demo v2</h1>' > index.html
+git add index.html
+git commit -m 'demo-app v2 final gate'
+git push origin main
+M1_SOURCE_SHA=$(git rev-parse HEAD)
+M1_NEW_TAG=$(git rev-parse --short=8 HEAD)
+
+# Chờ pipeline của đúng SHA; timeout 15 phút. Python 3 có sẵn trong Ubuntu 24.04.
+M1_PIPELINE_STATUS=missing
+for i in $(seq 1 90); do
+  M1_PIPELINE_STATUS=$(curl -fsS \
+    --header "PRIVATE-TOKEN: $M1_GIT_PAT" \
+    "https://gitlab.mc.lab/api/v4/projects/platform%2Fdemo-app/pipelines?sha=$M1_SOURCE_SHA" | \
+    python3 -c 'import json,sys; x=json.load(sys.stdin); print(x[0]["status"] if x else "missing")')
+  [ "$M1_PIPELINE_STATUS" = success ] && break
+  case "$M1_PIPELINE_STATUS" in failed|canceled|skipped)
+    echo "STOP: pipeline=$M1_PIPELINE_STATUS" >&2; exit 1 ;;
+  esac
+  sleep 10
+done
+[ "$M1_PIPELINE_STATUS" = success ] || {
+  echo "STOP: pipeline chưa success sau 15 phút: $M1_PIPELINE_STATUS" >&2; exit 1;
+}
+
+cd "$HOME/deploy-config"
+git pull --ff-only origin main
+sed -i -E \
+  "s|(image: registry\.mc\.lab/platform/demo-app:).*|\\1${M1_NEW_TAG}|" \
+  demo-app/deployment.yaml
+grep -qx "        image: registry.mc.lab/platform/demo-app:${M1_NEW_TAG}" \
+  demo-app/deployment.yaml
+git add demo-app/deployment.yaml
+git commit -m "deploy demo-app ${M1_NEW_TAG}"
+git push origin main
+M1_DEPLOY_SHA=$(git rev-parse HEAD)
+
+for repo in "$HOME/demo-app" "$HOME/deploy-config"; do
+  git -C "$repo" remote -v | grep -F "$M1_GIT_PAT" && {
+    echo "STOP: PAT còn trong remote của $repo" >&2; exit 1;
+  }
+done
+rm -f "$M1_ASKPASS"
+unset M1_GIT_PAT M1_ASKPASS GIT_ASKPASS GIT_TERMINAL_PROMPT M1_SOURCE_SHA
+echo "PASS-pipeline: image tag $M1_NEW_TAG; deploy revision $M1_DEPLOY_SHA"
+```
+
+Trên `mc-app1`, yêu cầu Argo CD refresh và sync chính revision vừa push, rồi kiểm workload và
+nội dung qua Traefik:
+
+```bash
+read -rp 'Nhập image tag từ dòng PASS-pipeline trên mc-admin1: ' M1_NEW_TAG
+[ -n "$M1_NEW_TAG" ] || { echo 'STOP: thiếu image tag' >&2; exit 1; }
+read -rp 'Nhập deploy revision từ cùng dòng PASS-pipeline: ' M1_DEPLOY_SHA
+[ -n "$M1_DEPLOY_SHA" ] || { echo 'STOP: thiếu deploy revision' >&2; exit 1; }
+kubectl -n argocd annotate application demo-app argocd.argoproj.io/refresh=hard --overwrite
+kubectl -n argocd patch application demo-app --type merge \
+  -p '{"operation":{"sync":{"revision":"main"}}}'
+for i in $(seq 1 90); do
+  M1_SYNC=$(kubectl -n argocd get application demo-app \
+    -o jsonpath='{.status.sync.status}/{.status.health.status}/{.status.sync.revision}')
+  [ "$M1_SYNC" = "Synced/Healthy/$M1_DEPLOY_SHA" ] && break
+  sleep 10
+done
+[ "$M1_SYNC" = "Synced/Healthy/$M1_DEPLOY_SHA" ] || {
+  echo "STOP: Argo CD=$M1_SYNC sau 15 phút" >&2; exit 1;
+}
+kubectl -n demo-app rollout status deployment/demo-web --timeout=300s
+test "$(kubectl -n demo-app get deployment demo-web \
+  -o jsonpath='{.spec.template.spec.containers[0].image}')" = \
+  "registry.mc.lab/platform/demo-app:${M1_NEW_TAG}"
+curl -fsS --cacert /usr/local/share/ca-certificates/mc-lab-ca.crt https://app.mc.lab | \
+  grep -q 'm1 demo v2'
+echo 'PASS-E2E: commit -> pipeline -> registry -> Argo CD -> Traefik -> m1 demo v2'
+unset M1_NEW_TAG M1_DEPLOY_SHA M1_SYNC
+```
+
+Snapshot cuối `m1-complete` trên đủ sáu VM theo protocol §2.4. Sau khi khởi động lại, chạy lại
+toàn bộ gate §9; chỉ khi gate PASS lần nữa mới đánh dấu lab hoàn tất. Hồ sơ lab phải có bảng
+version thực cài (GitLab chart, runner chart, reflector, ArgoCD); token/mật khẩu lưu ngoài git
+và không được chép vào transcript.
+
+### 9.1. Pilot là chính lượt chạy end-to-end của Lab M1
+
+Không có một "pilot setup" riêng trước §3. Pilot nghĩa là lấy host chưa có VM của track này và
+chạy **đúng một lượt từ §2 đến §9**. Người chạy đầu tiên là maintainer/pilot operator; không
+được dùng lệnh ngoài file để cứu một gate mà không ghi deviation. Một lượt chỉ được ghi
+`PILOT PASS` khi đủ tất cả bằng chứng sau:
+
+| Bằng chứng phải lưu (đã redact secret) | Gate PASS |
+| --- | --- |
+| Ngày chạy, CPU/RAM/disk host, VMware version | đủ tài nguyên theo §2.2 |
+| Bảng version thực tế | khớp toàn bộ pin ở §2.1 |
+| Output network/identity/router | toàn bộ gate §3 |
+| Nodes, Traefik, cert-manager, Rancher | toàn bộ gate §4 |
+| Longhorn detach/attach + cleanup | toàn bộ gate §5 |
+| PostgreSQL/Redis/MinIO, migration, OOM/headroom, runner | toàn bộ gate §6 |
+| Reflector, Argo revision, app/PVC/Ingress | toàn bộ gate §7 |
+| `PASS-storage` và `PASS-E2E ... m1 demo v2` | gate §9 |
+| Reboot từ snapshot `m1-complete` | chạy lại §9 vẫn PASS |
+
+Sau `PILOT PASS`, bắt buộc thử rollback: power off và restore **đủ sáu VM** về
+`m1-cicd-ready` theo §2.4, chạy lại §6 gates phù hợp với mốc đó, rồi làm lại §7–§9 tới
+`m1-complete`. Nếu restore hoặc bất kỳ gate nào fail, trạng thái vẫn là `PILOT FAIL`; ghi
+command, output, thời gian và mục bị lệch vào `review.md`, sửa file rồi chạy lại từ snapshot
+đầu vào của mục — không xóa toàn bộ lab nếu snapshot còn hợp lệ.
+
+Runbook chỉ đổi nhãn từ `READY FOR PILOT` thành runtime `READY` sau khi: (1) pilot trên PASS,
+(2) mọi deviation đã được sửa trong file, và (3) một người học khác dựng lại từ đầu chỉ bằng
+tài liệu này và cũng PASS. Không chép output giả định vào hồ sơ để thay cho hai lượt chạy.
 
 Những gì lab này **cố ý chưa làm** (đúng danh sách nhận xét, trả ở
 [Lab M2](LAB-M2-CAPSTONE-PRODUCTION-HA.md)): HA control plane và Rancher HA, NetworkPolicy

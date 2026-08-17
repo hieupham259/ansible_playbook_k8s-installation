@@ -156,11 +156,13 @@ StorageClass `local-path` trong Phase 1 cấp volume nằm trên filesystem củ
 | Kubernetes | Phase 1: v1.35.6 | Không thay đổi trong Phase 2 |
 | Ingress | Traefik chart 41.0.2 / Proxy v3.7.6 | Tái sử dụng Phase 1 |
 | Storage | `local-path` | Đã verify ở Phase 1; homelab, không HA |
-| MongoDB | `docker.io/library/mongo:8.0.28-noble` | Major release 8.0, ghim patch và OS variant |
+| MongoDB | `docker.io/library/mongo:8.0.29-noble` | Major release 8.0, ghim patch và OS variant |
 | Frontend | React + Vite, build thành static files; Nginx unprivileged | Nhẹ, browser chỉ gọi path tương đối `/api` |
 | Backend | FastAPI + official PyMongo Async API | REST CRUD, health probes, connection pooling; không dùng Motor đã deprecated |
 
 > Trước một lần cài mới trong tương lai, kiểm tra MongoDB 8.0 có patch bảo mật mới hơn hay không. Nếu đổi version, cập nhật **đồng thời** bảng này, manifest §8, gate pull image và checklist; không đổi riêng một chỗ.
+>
+> Bảng này cố ý không ghim sẵn version React/Vite/FastAPI/PyMongo: version chính xác được chốt **một lần** tại checkpoint 5.3, bằng lockfile pin đầy đủ cộng danh sách version trong output gửi kiểm tra. Sau checkpoint đó, build lại phải dùng đúng lockfile đã commit; không generate lại source, vì mỗi lần generate có thể sinh dependency khác nhau.
 
 ### 2.2. Sizing cho lab
 
@@ -184,7 +186,12 @@ Chạy trên `k8s-master`:
 
 ```bash
 kubectl get nodes -o wide
+kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{": "}{range .status.conditions[*]}{.type}{"="}{.status}{" "}{end}{"\n"}{end}'
 kubectl top nodes
+kubectl get nodes k8s-worker1 k8s-worker2 \
+  -o custom-columns='NAME:.metadata.name,ALLOCATABLE-CPU:.status.allocatable.cpu,ALLOCATABLE-MEMORY:.status.allocatable.memory'
+kubectl describe node k8s-worker1 | sed -n '/Allocated resources:/,/Events:/p'
+kubectl describe node k8s-worker2 | sed -n '/Allocated resources:/,/Events:/p'
 kubectl get storageclass
 kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=180s
 kubectl -n traefik rollout status deploy/traefik --timeout=180s
@@ -194,27 +201,35 @@ kubectl auth can-i '*' '*' --all-namespaces
 
 PASS khi:
 
-- cả 3 node `Ready`; hai worker không có `MemoryPressure`, `DiskPressure`;
-- `kubectl top nodes` có số liệu và còn headroom theo §2.2;
+- cả 3 node `Ready`; dòng conditions của từng node có `MemoryPressure=False`, `DiskPressure=False`, `PIDPressure=False` và `Ready=True`;
+- `kubectl top nodes` có số liệu để quan sát mức sử dụng hiện tại; không dùng riêng output này để kết luận Pod mới schedule được;
+- trong `Allocated resources`, lấy `Allocatable` trừ tổng `Requests`: **mỗi worker** còn ít nhất `300m CPU / 512Mi RAM`. Gate bảo thủ này bảo đảm một worker đủ chỗ cho MongoDB (`250m/512Mi`) và worker còn lại đủ chỗ cho toàn bộ frontend/backend (`300m/384Mi`) nếu scheduler cần phân bố như vậy;
 - `local-path` có `(default)` và provisioner rolled out;
 - Traefik `1/1`, Pod `Running/Ready`, Service `ClusterIP`;
 - quyền trả `yes`.
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 3.1.** Không tiếp tục nếu thiếu bất kỳ điều kiện PASS nào.
 
-### 3.2. Kiểm tra dung lượng disk thực trên hai worker
+### 3.2. Kiểm tra kernel và dung lượng disk thực trên hai worker
 
-**Mục đích:** PVC 10Gi chỉ là yêu cầu Kubernetes; cần chắc worker còn đủ disk cho MongoDB, container images và log.
+**Mục đích:** hai việc. Thứ nhất, [release notes MongoDB 8.0](https://www.mongodb.com/docs/v8.0/release-notes/8.0/) công bố MongoDB không tương thích Linux kernel **6.19 đến 7.0.13** do xung đột với TCMalloc: `mongod` tự phát hiện dải kernel này và dừng ngay khi startup, ảnh hưởng mọi bản đóng gói kể cả Docker image; kernel ở đây là kernel của worker node, không phải của container image. Thứ hai, PVC 10Gi chỉ là yêu cầu Kubernetes; cần chắc worker còn đủ disk cho MongoDB, container images và log.
 
 Chạy trên `k8s-worker1`, sau đó lặp lại trên `k8s-worker2`:
 
 ```bash
 hostname
+uname -r
 df -h /
 sudo du -sh /var/lib/containerd /opt/local-path-provisioner 2>/dev/null
 ```
 
-PASS khi đúng hostname, filesystem `/` không gần đầy và còn tối thiểu **15 GiB** trống trên mỗi worker trước khi bắt đầu.
+PASS khi:
+
+- đúng hostname;
+- kernel **không** nằm trong dải 6.19–7.0.13;
+- filesystem `/` không gần đầy và còn tối thiểu **15 GiB** trống trên mỗi worker trước khi bắt đầu.
+
+> **STOP kernel:** nếu kernel của bất kỳ worker nào nằm trong dải 6.19–7.0.13, dừng runbook tại đây; §8 chắc chắn fail vì `mongod` từ chối khởi động. Đưa kernel ra ngoài dải cấm (lên 7.0.14 trở lên, hoặc giữ ở 6.18 trở xuống theo chính sách vá của bạn) rồi mới tiếp tục; không "thử apply xem sao".
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 3.2 CỦA CẢ HAI WORKER.**
 
@@ -225,7 +240,7 @@ PASS khi đúng hostname, filesystem `/` không gần đầy và còn tối thi�
 Chạy trên `k8s-worker1`, rồi `k8s-worker2`:
 
 ```bash
-sudo crictl pull docker.io/library/mongo:8.0.28-noble
+sudo crictl pull docker.io/library/mongo:8.0.29-noble
 ```
 
 PASS khi cả hai node trả image reference/ID, không có lỗi DNS, TLS, timeout hay rate-limit.
@@ -241,7 +256,7 @@ PASS khi cả hai node trả image reference/ID, không có lỗi DNS, TLS, time
 | Biến | Giá trị baseline | Được đổi? |
 | --- | --- | --- |
 | Namespace | `three-tier` | Không đổi giữa chừng |
-| App hostname | `crud.example.com` | Bắt buộc đổi thành domain thật trước §11/§13 |
+| App hostname | `crud.example.com` | Placeholder được phép tới hết §12 (test nội bộ bằng Host header); chuyển sang domain thật theo §13.1 trước khi publish |
 | MongoDB database | `cruddb` | Có, nhưng phải đổi mọi chỗ |
 | Collection | `items` | Có, nhưng phải đổi contract API/test |
 | Mongo root user | `root` | Chỉ dùng quản trị DB |
@@ -317,11 +332,15 @@ Supply chain/build:
 Quality:
 - Unit tests backend cho create/read/update/delete, validation, duplicate và not-found.
 - Frontend tests tối thiểu cho API client và một CRUD flow.
-- README nêu rõ lệnh test/build, biến môi trường và API examples.
+- README nêu rõ lệnh test/build, biến môi trường, API examples và danh sách version chính xác
+  đã chọn cho React, Vite, FastAPI, PyMongo, Python và mọi base image xuất hiện trong hai
+  Dockerfile, kể cả base image của build stage.
 - Chỉ tạo thư mục k8s/ rỗng (có thể giữ bằng .gitkeep); không tự thiết kế manifest Kubernetes.
 - Các manifest tại §8–§11 của runbook-k8s-vmware-phase2.md là source of truth. Sau khi source/tests
   hoàn tất, operator sẽ chép nguyên văn các manifest đó vào k8s/ và chỉ thay placeholder image/domain.
 - Không tự push image, không deploy cluster và không cài package trên máy của tôi nếu chưa được cho phép.
+- Kết thúc task với repository Git sạch: git init nếu repo chưa có, commit toàn bộ source vừa tạo;
+  git status --short phải rỗng và git rev-parse HEAD phải trả về commit.
 
 Trước khi sửa file: đọc AGENTS.md và repository hiện có. Sau khi tạo, chạy các test/build có thể chạy bằng
 toolchain đã cài; báo rõ phần nào chưa verify. Không đổi contract nếu chưa hỏi tôi.
@@ -353,17 +372,19 @@ Từ root repository ứng dụng, chạy các lệnh verify đúng theo README 
 
 ```bash
 git status --short
+git rev-parse --short=12 HEAD
 git ls-files | grep -Ei '(^|/)(\.env|.*secret.*|.*credential.*)$' || true
 grep -RInE 'mongodb://[^[:space:]]+:[^[:space:]@]+@|MONGO_INITDB_ROOT_PASSWORD=' . \
   --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude='*.md' || true
 ```
 
-Mục đích: xem toàn bộ file mới và phát hiện credential/MongoDB URI bị commit. Hai lệnh grep phải không trả secret thật. Sau đó gửi:
+Mục đích: chứng minh toàn bộ source đã được commit, xem danh sách file được track và phát hiện credential/MongoDB URI bị commit. `git status --short` phải rỗng và `git rev-parse` phải trả về hash — đây chính là commit sẽ thành tag image ở §6.2; thiếu commit thì §6.2 sinh tag rỗng. Hai lệnh grep phải không trả secret thật. Sau đó gửi:
 
 - cây file;
 - output test frontend/backend;
 - output build frontend/backend;
-- `git status --short`;
+- `git status --short` (rỗng) và hash từ `git rev-parse --short=12 HEAD`;
+- danh sách version đã chốt theo README (React, Vite, FastAPI, PyMongo, Python và mọi base image trong hai Dockerfile, kể cả build stage);
 - kết quả scan secret (che giá trị nếu công cụ in ra).
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 5.3.** Chỉ sang §6 khi source, tests và hai Docker build đều PASS.
@@ -372,7 +393,7 @@ Mục đích: xem toàn bộ file mới và phát hiện credential/MongoDB URI 
 
 ## 6. Build và push image
 
-> Chưa chạy mục này khi source chưa được tạo. Lệnh chạy trên **máy build** đã có Docker và đăng nhập registry. Runbook không tự cài Docker hay tạo tài khoản registry.
+> Chưa chạy mục này khi source chưa được tạo. Lệnh chạy trên **máy build** đã có Docker và đăng nhập registry; mọi khối lệnh của §6 chạy từ **root repository ứng dụng** — `git rev-parse` ở §6.2 đọc commit của repository này và §6.3 dùng đường dẫn tương đối `./frontend`, `./backend`. Runbook không tự cài Docker hay tạo tài khoản registry.
 
 ### 6.1. Verify toolchain máy build
 
@@ -384,22 +405,29 @@ docker buildx version
 docker info
 ```
 
+PASS khi `docker version` hiện đủ cả Client và Server (daemon đang chạy), `docker buildx version` trả về version, và `docker info` không có dòng `ERROR`.
+
 > **DỪNG — GỬI OUTPUT CHECKPOINT 6.1.** Không gửi token/password registry.
 
 ### 6.2. Chốt image coordinates
 
-Thay `<dockerhub-user>` bằng namespace thật. Dùng tag immutable theo Git commit, không dùng `latest`:
+Thay `<dockerhub-user>` bằng namespace thật. Dùng tag Git commit để truy vết, không dùng `latest`; §6.4 sẽ pin digest dùng khi deploy:
 
 ```bash
 export REGISTRY_NAMESPACE='<dockerhub-user>'
 export APP_VERSION="$(git rev-parse --short=12 HEAD)"
 export FRONTEND_IMAGE="docker.io/${REGISTRY_NAMESPACE}/three-tier-frontend:${APP_VERSION}"
 export BACKEND_IMAGE="docker.io/${REGISTRY_NAMESPACE}/three-tier-backend:${APP_VERSION}"
+printf 'export REGISTRY_NAMESPACE=%q\nexport APP_VERSION=%q\nexport FRONTEND_IMAGE=%q\nexport BACKEND_IMAGE=%q\n' \
+  "$REGISTRY_NAMESPACE" "$APP_VERSION" "$FRONTEND_IMAGE" "$BACKEND_IMAGE" > ~/phase2-build.env
+chmod 600 ~/phase2-build.env
 printf 'APP_VERSION=%s\nFRONTEND_IMAGE=%s\nBACKEND_IMAGE=%s\n' \
   "$APP_VERSION" "$FRONTEND_IMAGE" "$BACKEND_IMAGE"
 ```
 
-PASS khi không còn dấu `< >`, tag là commit hiện tại và đúng repository của bạn.
+PASS khi không còn dấu `< >`, `APP_VERSION` không rỗng, tag là commit hiện tại và đúng repository của bạn.
+
+Biến export chỉ sống trong shell hiện tại, trong khi runbook dừng sau mỗi checkpoint và SSH session có thể bị đóng giữa chừng. File `~/phase2-build.env` là nguồn khôi phục: mọi khối lệnh còn lại của §6 mở đầu bằng `source ~/phase2-build.env` nên chạy được trong session mới.
 
 Baseline giả định hai repository Docker Hub ở chế độ **public** để worker pull không cần credential. Nếu repository private, dừng tại đây và bổ sung `imagePullSecret` vào namespace cùng `spec.template.spec.imagePullSecrets` của cả hai Deployment; không paste registry token vào manifest hoặc chat.
 
@@ -410,6 +438,7 @@ Baseline giả định hai repository Docker Hub ở chế độ **public** đ�
 **Mục đích:** tạo image linux/amd64 cho worker VMware và bắt lỗi container khởi động trước khi push.
 
 ```bash
+source ~/phase2-build.env
 docker buildx build --platform linux/amd64 --load \
   -t "$FRONTEND_IMAGE" ./frontend
 docker buildx build --platform linux/amd64 --load \
@@ -425,13 +454,35 @@ PASS khi build thành công, architecture `amd64` và `Config.User` không phả
 ### 6.4. Push và verify digest
 
 ```bash
+source ~/phase2-build.env
+rm -f ~/phase2-deploy.env
 docker push "$FRONTEND_IMAGE"
 docker push "$BACKEND_IMAGE"
-docker buildx imagetools inspect "$FRONTEND_IMAGE"
-docker buildx imagetools inspect "$BACKEND_IMAGE"
+FRONTEND_INSPECT=$(docker buildx imagetools inspect "$FRONTEND_IMAGE")
+BACKEND_INSPECT=$(docker buildx imagetools inspect "$BACKEND_IMAGE")
+printf '%s\n' "$FRONTEND_INSPECT"
+printf '%s\n' "$BACKEND_INSPECT"
+FRONTEND_DIGEST=$(printf '%s\n' "$FRONTEND_INSPECT" | sed -n 's/^Digest:[[:space:]]*//p' | head -1)
+BACKEND_DIGEST=$(printf '%s\n' "$BACKEND_INSPECT" | sed -n 's/^Digest:[[:space:]]*//p' | head -1)
+if [[ "$FRONTEND_DIGEST" == sha256:* && "$BACKEND_DIGEST" == sha256:* ]]; then
+  export FRONTEND_IMAGE_PINNED="${FRONTEND_IMAGE}@${FRONTEND_DIGEST}"
+  export BACKEND_IMAGE_PINNED="${BACKEND_IMAGE}@${BACKEND_DIGEST}"
+  printf 'export FRONTEND_IMAGE_PINNED=%q\nexport BACKEND_IMAGE_PINNED=%q\n' \
+    "$FRONTEND_IMAGE_PINNED" "$BACKEND_IMAGE_PINNED" > ~/phase2-deploy.env
+  chmod 600 ~/phase2-deploy.env
+  printf 'FRONTEND_IMAGE_PINNED=%s\nBACKEND_IMAGE_PINNED=%s\n' \
+    "$FRONTEND_IMAGE_PINNED" "$BACKEND_IMAGE_PINNED"
+else
+  echo 'STOP: could not extract both registry digests'
+fi
+unset FRONTEND_INSPECT BACKEND_INSPECT FRONTEND_DIGEST BACKEND_DIGEST
 ```
 
-Mục đích: registry trở thành nguồn image cho containerd trên worker. PASS khi cả hai có manifest `linux/amd64` và digest `sha256:...`.
+Mục đích: registry trở thành nguồn image cho containerd trên worker và Deployment dùng đúng nội dung đã verify thay vì chỉ dựa vào tag. PASS khi:
+
+- cả hai output inspect có manifest `linux/amd64` và digest `sha256:...`;
+- hai biến `*_IMAGE_PINNED` có dạng `<repository>:<git-sha>@sha256:<digest>`;
+- `~/phase2-deploy.env` tồn tại trên máy build với mode `600`; không commit file này.
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 6.4.**
 
@@ -442,6 +493,20 @@ Mục đích: registry trở thành nguồn image cho containerd trên worker. P
 ### 7.1. Namespace
 
 **Mục đích:** cô lập resource của app khỏi namespace `default` và add-on Phase 1.
+
+Trước hết phân biệt cài mới với resume:
+
+```bash
+if kubectl get namespace three-tier >/dev/null 2>&1; then
+  echo 'STOP: namespace three-tier already exists; inspect and resume from the correct checkpoint'
+  kubectl -n three-tier get \
+    deploy,statefulset,pod,svc,configmap,secret,pvc,ingress -o name
+else
+  echo 'PASS: fresh install; namespace three-tier does not exist'
+fi
+```
+
+Nếu nhận `STOP`, không chạy lại các bước tạo namespace/Secret và không xóa PVC. Gửi danh sách resource để xác định checkpoint resume hoặc kế hoạch cleanup riêng; password mới không làm thay đổi credential đã được MongoDB khởi tạo trong PVC cũ. Chỉ tiếp tục khối sau khi preflight trả về `PASS: fresh install`:
 
 ```bash
 kubectl create namespace three-tier --dry-run=client -o yaml | kubectl apply -f -
@@ -510,6 +575,8 @@ Mục đích: tách config không nhạy cảm khỏi image. PASS khi database/c
 
 ### 8.1. Tạo manifest database
 
+Các lệnh `kubectl apply -f k8s/...` của §8–§11 chạy trên `k8s-master` theo quy ước ở đầu runbook, vì vậy thư mục `k8s/` phải tồn tại trên master: clone repository ứng dụng lên `k8s-master`, hoặc tạo thư mục `k8s/` trên master rồi chép các file manifest về repository để commit. Chạy mọi lệnh của §8–§11 từ thư mục cha của `k8s/`.
+
 Tạo `k8s/10-mongodb.yaml` trong repository ứng dụng bằng cách chép đúng manifest dưới đây; đây là **source of truth**, không hợp nhất với manifest do task tạo source tự sinh. Manifest tạo Service headless, script init app user và StatefulSet. Script trong `/docker-entrypoint-initdb.d` chỉ chạy khi data directory còn rỗng.
 
 ```yaml
@@ -577,7 +644,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: mongodb
-          image: docker.io/library/mongo:8.0.28-noble
+          image: docker.io/library/mongo:8.0.29-noble
           imagePullPolicy: IfNotPresent
           ports:
             - name: mongodb
@@ -715,6 +782,25 @@ URI chứa password nên không đặt trong ConfigMap/YAML/Git. Nhập lại ap
 
 ```bash
 read -rsp 'Mongo app password: ' MONGO_APP_PASSWORD; echo
+if [ -z "$MONGO_APP_PASSWORD" ]; then
+  echo 'STOP: Mongo app password is empty'
+else
+  ENTERED_PASSWORD_HASH=$(printf '%s' "$MONGO_APP_PASSWORD" | sha256sum | awk '{print $1}')
+  STORED_PASSWORD_HASH=$(kubectl -n three-tier get secret mongodb-credentials \
+    -o jsonpath='{.data.MONGO_APP_PASSWORD}' | base64 -d | sha256sum | awk '{print $1}')
+  if [ "$ENTERED_PASSWORD_HASH" = "$STORED_PASSWORD_HASH" ]; then
+    echo 'PASS: Mongo app password matches mongodb-credentials'
+  else
+    echo 'STOP: Mongo app password does not match mongodb-credentials'
+    unset MONGO_APP_PASSWORD
+  fi
+  unset ENTERED_PASSWORD_HASH STORED_PASSWORD_HASH
+fi
+```
+
+Không gửi password hoặc hash. Chỉ chạy khối tạo URI sau khi nhận đúng dòng `PASS`; nếu `STOP`, quay lại credential đã tạo ở §7.2:
+
+```bash
 MONGO_APP_PASSWORD_ENCODED=$(printf '%s' "$MONGO_APP_PASSWORD" | python3 -c \
   'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read(), safe=""))')
 MONGODB_URI="mongodb://crudapp:${MONGO_APP_PASSWORD_ENCODED}@mongodb:27017/cruddb?authSource=cruddb"
@@ -735,7 +821,7 @@ Mục đích: backend kết nối bằng user quyền hẹp, không dùng root. 
 
 ### 9.2. Manifest backend
 
-Tạo `k8s/20-backend.yaml`, thay `CHANGE_ME_BACKEND_IMAGE` bằng giá trị `BACKEND_IMAGE` đã PASS ở §6.2:
+Tạo `k8s/20-backend.yaml`, thay `CHANGE_ME_BACKEND_IMAGE_PINNED` bằng giá trị `BACKEND_IMAGE_PINNED` đã PASS ở §6.4 (lấy từ output checkpoint 6.4 hoặc file `~/phase2-deploy.env` trên máy build):
 
 Readiness và liveness cố ý dùng hai endpoint khác nhau. Readiness phụ thuộc MongoDB để loại Pod khỏi EndpointSlice khi database chưa phục vụ được request. Liveness chỉ kiểm tra process; MongoDB down không được làm Kubernetes restart một process FastAPI vẫn khỏe, vì restart backend không sửa được sự cố database.
 
@@ -775,7 +861,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backend
-          image: CHANGE_ME_BACKEND_IMAGE
+          image: CHANGE_ME_BACKEND_IMAGE_PINNED
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -836,10 +922,11 @@ Kiểm tra placeholder và server-side validation:
 
 ```bash
 grep -n 'CHANGE_ME' k8s/20-backend.yaml || true
+grep -n 'image: .*@sha256:' k8s/20-backend.yaml
 kubectl apply --dry-run=server -f k8s/20-backend.yaml
 ```
 
-PASS khi grep không có output và dry-run không lỗi.
+PASS khi grep placeholder không có output, grep image trả về đúng một dòng có `@sha256:` và dry-run không lỗi.
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 9.2.**
 
@@ -848,6 +935,8 @@ PASS khi grep không có output và dry-run không lỗi.
 ```bash
 kubectl apply -f k8s/20-backend.yaml
 kubectl -n three-tier rollout status deploy/backend --timeout=300s
+kubectl -n three-tier get deploy backend \
+  -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
 kubectl -n three-tier get deploy,pod,svc -l app.kubernetes.io/name=backend -o wide
 kubectl -n three-tier get endpointslice \
   -l kubernetes.io/service-name=backend -o wide
@@ -855,7 +944,7 @@ kubectl -n three-tier logs \
   -l app.kubernetes.io/name=backend --tail=80 --prefix
 ```
 
-PASS khi Deployment `2/2`, hai Pod Ready, EndpointSlice có hai endpoint, Service là `ClusterIP`, log của **cả hai Pod** không lộ URI/password và không có connection/auth error. `topologySpreadConstraints` với `ScheduleAnyway` khiến scheduler ưu tiên đặt hai replica trên hai worker khác nhau nhưng vẫn cho phép co-locate khi chỉ còn một worker; `maxUnavailable: 0` chỉ bảo vệ rolling update, không tự bảo vệ khỏi node failure.
+PASS khi image của Deployment chứa `@sha256:`, Deployment `2/2`, hai Pod Ready, EndpointSlice có hai endpoint, Service là `ClusterIP`, log của **cả hai Pod** không lộ URI/password và không có connection/auth error. `topologySpreadConstraints` với `ScheduleAnyway` khiến scheduler ưu tiên đặt hai replica trên hai worker khác nhau nhưng vẫn cho phép co-locate khi chỉ còn một worker; `maxUnavailable: 0` chỉ bảo vệ rolling update, không tự bảo vệ khỏi node failure.
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 9.3.**
 
@@ -889,7 +978,7 @@ trap - EXIT; unset BACKEND_PF_PID
 
 ### 10.1. Manifest frontend
 
-Tạo `k8s/30-frontend.yaml`, thay `CHANGE_ME_FRONTEND_IMAGE` bằng image §6.2:
+Tạo `k8s/30-frontend.yaml`, thay `CHANGE_ME_FRONTEND_IMAGE_PINNED` bằng giá trị `FRONTEND_IMAGE_PINNED` đã PASS ở §6.4 (lấy từ output checkpoint 6.4 hoặc file `~/phase2-deploy.env` trên máy build):
 
 ```yaml
 apiVersion: apps/v1
@@ -927,7 +1016,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: frontend
-          image: CHANGE_ME_FRONTEND_IMAGE
+          image: CHANGE_ME_FRONTEND_IMAGE_PINNED
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -975,10 +1064,11 @@ spec:
 
 ```bash
 grep -n 'CHANGE_ME' k8s/30-frontend.yaml || true
+grep -n 'image: .*@sha256:' k8s/30-frontend.yaml
 kubectl apply --dry-run=server -f k8s/30-frontend.yaml
 ```
 
-PASS khi không còn placeholder và dry-run không lỗi.
+PASS khi không còn placeholder, grep image trả về đúng một dòng có `@sha256:` và dry-run không lỗi.
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 10.1.**
 
@@ -987,6 +1077,8 @@ PASS khi không còn placeholder và dry-run không lỗi.
 ```bash
 kubectl apply -f k8s/30-frontend.yaml
 kubectl -n three-tier rollout status deploy/frontend --timeout=300s
+kubectl -n three-tier get deploy frontend \
+  -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
 kubectl -n three-tier get deploy,pod,svc -l app.kubernetes.io/name=frontend -o wide
 kubectl -n three-tier get endpointslice \
   -l kubernetes.io/service-name=frontend -o wide
@@ -994,7 +1086,7 @@ kubectl -n three-tier logs \
   -l app.kubernetes.io/name=frontend --tail=50 --prefix
 ```
 
-PASS khi Deployment `2/2`, hai Pod Ready, Service `ClusterIP`, EndpointSlice có hai endpoint và output log có prefix của cả hai Pod. Scheduler nên ưu tiên tách hai replica sang hai worker; vì dùng `ScheduleAnyway`, co-location là fallback hợp lệ khi tài nguyên hoặc số worker không cho phép spread.
+PASS khi image của Deployment chứa `@sha256:`, Deployment `2/2`, hai Pod Ready, Service `ClusterIP`, EndpointSlice có hai endpoint và output log có prefix của cả hai Pod. Scheduler nên ưu tiên tách hai replica sang hai worker; vì dùng `ScheduleAnyway`, co-location là fallback hợp lệ khi tài nguyên hoặc số worker không cho phép spread.
 
 Test Nginx và reverse proxy qua frontend Service:
 
@@ -1025,7 +1117,7 @@ trap - EXIT; unset FRONTEND_PF_PID
 
 ### 11.1. Manifest Ingress
 
-Trước khi tạo file, thay `crud.example.com` bằng domain thật. Nếu chưa có domain vẫn có thể dùng placeholder để test nội bộ bằng Host header, nhưng không làm §13.
+Trước khi tạo file, thay `crud.example.com` bằng domain thật. Nếu chưa có domain vẫn có thể dùng placeholder để test nội bộ bằng Host header; khi có domain thật, chuyển đổi theo §13.1 rồi mới tạo route public ở §13.2.
 
 Tạo `k8s/40-ingress.yaml`:
 
@@ -1069,25 +1161,27 @@ kubectl -n three-tier get ingress three-tier
 kubectl -n three-tier describe ingress three-tier
 kubectl -n three-tier get svc \
   -o custom-columns='NAME:.metadata.name,TYPE:.spec.type,CLUSTER-IP:.spec.clusterIP,PORTS:.spec.ports[*].port'
-kubectl get ingress -A
+kubectl get ingress -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"/"}{.metadata.name}{" default="}{.spec.defaultBackend.service.name}{" backends="}{range .spec.rules[*]}{range .http.paths[*]}{.backend.service.name}{":"}{.backend.service.port.number}{" "}{end}{end}{"\n"}{end}'
 ```
 
 PASS khi:
 
 - Ingress class `traefik`, host đúng, backend `frontend:80`;
 - `frontend`, `backend` là `ClusterIP`; `mongodb` headless (`None`);
-- không có Ingress nào trỏ backend/MongoDB;
+- trong output jsonpath, Ingress `three-tier/three-tier` chỉ có `backends=frontend:80`; không dòng nào có `default=` hay `backends=` chứa `backend` hoặc `mongodb` — đây là bằng chứng cho gate "không có Ingress nào trỏ backend/MongoDB";
 - cột `ADDRESS` của Ingress có thể trống với Traefik Service `ClusterIP`; đây là expectation của Phase 1, không phải fail.
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 11.2.**
 
 ### 11.3. Test nội bộ end-to-end qua Traefik
 
-Đặt hostname đúng như manifest:
+Lấy hostname trực tiếp từ Ingress đã apply — không gõ tay để tránh lệch với manifest:
 
 ```bash
-export APP_HOST='crud.example.com'
-ING_IP=$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.clusterIP}')
+export APP_HOST=$(kubectl -n three-tier get ingress three-tier -o jsonpath='{.spec.rules[0].host}')
+export ING_IP=$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.clusterIP}')
+printf 'export APP_HOST=%q\nexport ING_IP=%q\n' "$APP_HOST" "$ING_IP" > ~/phase2-app.env
+chmod 600 ~/phase2-app.env
 printf 'APP_HOST=%s\nTRAEFIK_CLUSTER_IP=%s\n' "$APP_HOST" "$ING_IP"
 curl -sS -o /dev/null -w 'frontend-via-traefik=%{http_code}\n' \
   -H "Host: $APP_HOST" "http://$ING_IP/"
@@ -1095,7 +1189,7 @@ curl -sS -o /dev/null -w 'api-ready-via-traefik=%{http_code}\n' \
   -H "Host: $APP_HOST" "http://$ING_IP/api/health/ready"
 ```
 
-Mục đích: chứng minh chuỗi master → Traefik → Ingress → frontend → backend → MongoDB. PASS khi cả hai code `200`.
+Mục đích: chứng minh chuỗi master → Traefik → Ingress → frontend → backend → MongoDB. File `~/phase2-app.env` lưu lại `APP_HOST`/`ING_IP` để các khối §12–§13 nạp lại bằng `source` sau mỗi điểm DỪNG, vì SSH session có thể đã bị đóng giữa hai checkpoint. PASS khi `APP_HOST` in ra đúng host của Ingress (placeholder hoặc domain thật theo §11.1), `TRAEFIK_CLUSTER_IP` không rỗng và cả hai code `200`.
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 11.3.**
 
@@ -1103,11 +1197,12 @@ Mục đích: chứng minh chuỗi master → Traefik → Ingress → frontend �
 
 ## 12. Test CRUD end-to-end
 
-Các request dưới đây vẫn đi qua Traefik và frontend Nginx, không gọi trực tiếp backend. Dùng ID cố định để không cần `jq`.
+Các request dưới đây vẫn đi qua Traefik và frontend Nginx, không gọi trực tiếp backend. Dùng ID cố định để không cần `jq`. Mỗi khối lệnh mở đầu bằng `source ~/phase2-app.env` (tạo ở §11.3) để nạp lại `APP_HOST` và `ING_IP`, nhờ đó từng checkpoint chạy được trong SSH session mới.
 
 ### 12.1. Create và duplicate protection
 
 ```bash
+source ~/phase2-app.env
 curl -sS -i -X POST -H "Host: $APP_HOST" \
   -H 'Content-Type: application/json' \
   "http://$ING_IP/api/items" \
@@ -1121,6 +1216,7 @@ PASS lần đầu: `201 Created`, response có đúng `id`. Chạy lại cùng l
 ### 12.2. Read/list
 
 ```bash
+source ~/phase2-app.env
 curl -sS -i -H "Host: $APP_HOST" \
   "http://$ING_IP/api/items/phase2-smoke-001"
 curl -sS -i -H "Host: $APP_HOST" \
@@ -1134,6 +1230,7 @@ PASS khi cả hai trả `200` và item xuất hiện trong list.
 ### 12.3. Update
 
 ```bash
+source ~/phase2-app.env
 curl -sS -i -X PUT -H "Host: $APP_HOST" \
   -H 'Content-Type: application/json' \
   "http://$ING_IP/api/items/phase2-smoke-001" \
@@ -1149,6 +1246,7 @@ PASS khi update trả `200`, lần GET sau có name/description mới và `id` k
 ### 12.4. Delete và not-found
 
 ```bash
+source ~/phase2-app.env
 curl -sS -i -X DELETE -H "Host: $APP_HOST" \
   "http://$ING_IP/api/items/phase2-smoke-001"
 curl -sS -i -H "Host: $APP_HOST" \
@@ -1164,6 +1262,7 @@ PASS khi DELETE trả `204` và GET sau đó trả `404`.
 Tạo lại một record, restart Pod rồi đọc lại:
 
 ```bash
+source ~/phase2-app.env
 curl -sS -X POST -H "Host: $APP_HOST" -H 'Content-Type: application/json' \
   "http://$ING_IP/api/items" \
   -d '{"id":"phase2-persist-001","name":"Persistent item","description":"must survive pod restart"}'
@@ -1190,20 +1289,53 @@ Mục đích: `--for=create` loại race `NotFound` giữa lúc Pod cũ biến m
 
 Chỉ làm khi đã có domain/zone Cloudflare và tunnel Phase 1 đang healthy.
 
-### 13.1. Tạo Published application
+### 13.1. Chuyển Ingress và biến sang domain thật
 
-Trong Cloudflare Zero Trust → Networks → Tunnels → tunnel Phase 1 → Published application routes:
+Chỉ làm mục này nếu §11–§12 đã chạy bằng placeholder `crud.example.com`; nếu Ingress đã dùng domain thật từ §11 thì bỏ qua, sang thẳng §13.2.
+
+Sửa `host` trong `k8s/40-ingress.yaml` thành domain thật, rồi kiểm chứng và apply lại:
+
+```bash
+grep -n 'crud.example.com' k8s/40-ingress.yaml || true
+kubectl apply --dry-run=server -f k8s/40-ingress.yaml
+kubectl apply -f k8s/40-ingress.yaml
+kubectl -n three-tier get ingress three-tier
+```
+
+Nạp lại `APP_HOST` từ Ingress vừa sửa, tạo lại `~/phase2-app.env` rồi lặp lại test nội bộ của §11.3 với domain thật:
+
+```bash
+export APP_HOST=$(kubectl -n three-tier get ingress three-tier -o jsonpath='{.spec.rules[0].host}')
+export ING_IP=$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.clusterIP}')
+printf 'export APP_HOST=%q\nexport ING_IP=%q\n' "$APP_HOST" "$ING_IP" > ~/phase2-app.env
+chmod 600 ~/phase2-app.env
+printf 'APP_HOST=%s\nTRAEFIK_CLUSTER_IP=%s\n' "$APP_HOST" "$ING_IP"
+curl -sS -o /dev/null -w 'frontend-via-traefik=%{http_code}\n' \
+  -H "Host: $APP_HOST" "http://$ING_IP/"
+curl -sS -o /dev/null -w 'api-ready-via-traefik=%{http_code}\n' \
+  -H "Host: $APP_HOST" "http://$ING_IP/api/health/ready"
+```
+
+PASS khi grep không còn thấy placeholder, Ingress hiển thị host mới, `APP_HOST` in ra domain thật (không còn `crud.example.com`) và cả hai code `200`.
+
+> Traefik nạp thay đổi Ingress không đồng bộ với `kubectl apply`; nếu curl đầu tiên trả `404`, chạy lại hai lệnh curl trước khi kết luận FAIL.
+
+> **DỪNG — GỬI OUTPUT CHECKPOINT 13.1.**
+
+### 13.2. Tạo Published application
+
+Trong Cloudflare Zero Trust → Networks → Tunnels (UI mới có thể hiện Tunnels & Mesh) → tunnel Phase 1 → Published application routes:
 
 - Hostname: domain thật đã dùng trong `k8s/40-ingress.yaml`;
-- Service type: `HTTP`;
-- URL: `traefik.traefik.svc.cluster.local:80`;
+- Origin: `http://traefik.traefik.svc.cluster.local:80`. UI Cloudflare có **hai biến thể**: bản mới gộp thành một ô `Service URL` và scheme phải nằm trong chuỗi; bản cũ tách dropdown `Type` = `HTTP` và ô `URL` = `traefik.traefik.svc.cluster.local:80` không scheme. Điền theo biến thể đang hiện trên màn hình; chi tiết và cách chỉnh origin parameter xem [§12.3.3 của Phase 1](runbook-k8s-vmware.md#1233-thêm-published-application);
 - không trỏ tunnel trực tiếp tới `frontend`, `backend` hoặc `mongodb`.
 
 Lý do: Traefik cần nhận đúng Host header để chọn Ingress; giữ một điểm vào chung như Phase 1.
 
-### 13.2. Verify tunnel và public endpoint
+### 13.3. Verify tunnel và public endpoint
 
 ```bash
+source ~/phase2-app.env
 kubectl -n cloudflare rollout status deploy/cloudflared --timeout=180s
 kubectl -n cloudflare logs deploy/cloudflared --tail=80
 curl -sS -o /dev/null -w 'public-frontend=%{http_code}\n' "https://$APP_HOST/"
@@ -1212,7 +1344,7 @@ curl -sS -o /dev/null -w 'public-api-ready=%{http_code}\n' "https://$APP_HOST/ap
 
 PASS khi cloudflared healthy và cả hai public URL trả `200` qua HTTPS.
 
-> **DỪNG — GỬI OUTPUT CHECKPOINT 13.2.**
+> **DỪNG — GỬI OUTPUT CHECKPOINT 13.3.**
 
 ---
 
@@ -1240,7 +1372,12 @@ PASS khi workload Ready, PVC Bound, restart thấp, resource không sát limit, 
 Không coi PVC là backup. `mongodump` đọc password từ YAML config chứa trong `MONGO_TOOLS_CONFIG`; remote shell ghi config vào file tạm mode `0600` và xóa bằng `trap`. Password không được lấy về master hoặc đặt trong CLI arguments:
 
 ```bash
+umask 077
+BACKUP_DIR="$HOME/backups/three-tier"
+install -d -m 0700 "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR"
 BACKUP_TS=$(date -u +%Y%m%dT%H%M%SZ)
+BACKUP_FILE="${BACKUP_DIR}/cruddb-${BACKUP_TS}.archive"
 kubectl -n three-tier exec mongodb-0 -- env BACKUP_TS="$BACKUP_TS" bash -ec '
   umask 077
   CONFIG_FILE=$(mktemp /tmp/mongodb-tools.XXXXXX.yaml)
@@ -1255,14 +1392,18 @@ kubectl -n three-tier exec mongodb-0 -- env BACKUP_TS="$BACKUP_TS" bash -ec '
     --gzip
 '
 kubectl -n three-tier cp \
-  "mongodb-0:/tmp/cruddb-${BACKUP_TS}.archive" "./cruddb-${BACKUP_TS}.archive"
-ls -lh "./cruddb-${BACKUP_TS}.archive"
+  "mongodb-0:/tmp/cruddb-${BACKUP_TS}.archive" "$BACKUP_FILE"
+chmod 600 "$BACKUP_FILE"
+test -s "$BACKUP_FILE" && ls -lh "$BACKUP_FILE"
+stat -c '%a %n' "$BACKUP_DIR" "$BACKUP_FILE"
+printf 'backup file: %s\n' "$BACKUP_FILE"
 ```
 
-PASS khi file archive tồn tại trên master và size lớn hơn 0. Sau khi copy/verify, xóa bản tạm trong Pod:
+PASS khi archive nằm trong `~/backups/three-tier` ngoài Git repository, directory có mode `700`, file có mode `600` và size lớn hơn 0. Sau khi copy/verify, xóa bản tạm trong Pod:
 
 ```bash
 kubectl -n three-tier exec mongodb-0 -- rm -f "/tmp/cruddb-${BACKUP_TS}.archive"
+unset BACKUP_TS BACKUP_FILE BACKUP_DIR
 ```
 
 > Archive trên master vẫn cùng site VMware; sao chép mã hóa sang nơi lưu backup được kiểm soát là bước vận hành riêng. Không upload lên dịch vụ ngoài khi chưa được phép.
@@ -1274,8 +1415,9 @@ kubectl -n three-tier exec mongodb-0 -- rm -f "/tmp/cruddb-${BACKUP_TS}.archive"
 Backup chưa từng restore thì chưa được coi là backup đã kiểm chứng. Bài test này restore archive mới nhất vào `cruddb_restore_test`, không ghi đè `cruddb`:
 
 ```bash
-BACKUP_FILE=$(ls -1t ./cruddb-*.archive | head -1)
-test -s "$BACKUP_FILE" && echo "restore source: $BACKUP_FILE"
+BACKUP_DIR="$HOME/backups/three-tier"
+BACKUP_FILE=$(ls -1t "$BACKUP_DIR"/cruddb-*.archive 2>/dev/null | head -1)
+test -n "$BACKUP_FILE" && test -s "$BACKUP_FILE" && echo "restore source: $BACKUP_FILE"
 kubectl -n three-tier cp "$BACKUP_FILE" mongodb-0:/tmp/restore-test.archive
 kubectl -n three-tier exec mongodb-0 -- bash -ec '
   umask 077
@@ -1318,20 +1460,31 @@ kubectl -n three-tier exec mongodb-0 -- mongosh --quiet --host 127.0.0.1 --eval 
   printjson(db.getSiblingDB("cruddb_restore_test").dropDatabase())
 '
 kubectl -n three-tier exec mongodb-0 -- rm -f /tmp/restore-test.archive
+unset BACKUP_FILE BACKUP_DIR
 ```
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 14.3; KHÔNG GỬI FILE BACKUP HOẶC SECRET.**
 
 ### 14.4. Rollback frontend/backend
 
-Xem revision rồi rollback từng Deployment nếu rollout mới lỗi:
+Xem revision trước, rồi **chỉ rollback Deployment có rollout lỗi**. Hai lệnh `undo` cố ý nằm trong hai khối riêng; không copy-paste cả hai như một khối, vì như vậy sẽ rollback cả Deployment đang chạy tốt:
 
 ```bash
 kubectl -n three-tier rollout history deploy/frontend
 kubectl -n three-tier rollout history deploy/backend
+```
+
+Chỉ khi frontend lỗi:
+
+```bash
 kubectl -n three-tier rollout undo deploy/frontend
-kubectl -n three-tier rollout undo deploy/backend
 kubectl -n three-tier rollout status deploy/frontend --timeout=300s
+```
+
+Chỉ khi backend lỗi:
+
+```bash
+kubectl -n three-tier rollout undo deploy/backend
 kubectl -n three-tier rollout status deploy/backend --timeout=300s
 ```
 
@@ -1350,7 +1503,7 @@ Không rollback MongoDB bằng `rollout undo` một cách máy móc. Upgrade/dow
 - Secret được đưa vào `kubectl` qua stdin; `mongosh` đọc `process.env`; Database Tools đọc config tạm `0600`, tránh password trong process arguments.
 - Frontend/backend chạy non-root, drop Linux capabilities và dùng seccomp RuntimeDefault.
 - Frontend/backend có topology spread mềm theo hostname để ưu tiên tách hai replica sang hai worker.
-- Image và MongoDB patch được pin; không dùng `latest`.
+- Frontend/backend deploy bằng digest; MongoDB ghim patch version; không dùng `latest`.
 - Resource request/limit và health probes được khai báo.
 
 ### 15.2. Những gì baseline chưa giải quyết
@@ -1381,14 +1534,14 @@ mongodb            → không egress ngoài nhu cầu vận hành
 | Triệu chứng | Kiểm tra | Nguyên nhân thường gặp |
 | --- | --- | --- |
 | PVC `Pending` | `kubectl describe pvc -n three-tier data-mongodb-0` | provisioner lỗi; StorageClass sai; scheduler chưa chọn node |
-| MongoDB `CrashLoopBackOff` | `kubectl logs -n three-tier mongodb-0 --previous` | permission volume, init script lỗi, password/Secret thiếu |
+| MongoDB `CrashLoopBackOff` | `kubectl logs -n three-tier mongodb-0 --previous` | permission volume, init script lỗi, password/Secret thiếu; kernel worker nằm trong dải cấm 6.19–7.0.13 (§3.2) |
 | App user auth fail | kiểm tra `authSource=cruddb`, key Secret, app user | dùng nhầm `admin`; password có ký tự chưa URL-encode; PVC cũ khiến init script không chạy lại |
 | Backend `/api/health/live` fail | `kubectl logs -l app.kubernetes.io/name=backend --prefix`; port-forward §9.4 | process/event loop lỗi hoặc endpoint path không khớp source |
 | Backend live 200 nhưng `/api/health/ready` fail | log backend, MongoDB và kiểm tra URI/Service | MongoDB chưa Ready, auth/URI/DNS sai hoặc DB timeout; không restart backend để chữa lỗi DB |
 | Frontend `/` 200 nhưng `/api/health/ready` 502 | log Nginx và EndpointSlice backend | Nginx upstream/path sai; backend không Ready |
 | Traefik trả 404 | `kubectl describe ingress -n three-tier three-tier` | Host header/domain/class không khớp |
 | Public 502/1033 | log cloudflared | route tunnel sai; trỏ trực tiếp app thay vì Traefik; tunnel unhealthy |
-| Pod `ImagePullBackOff` | `kubectl describe pod`; registry permissions | image/tag sai, private registry thiếu imagePullSecret |
+| Pod `ImagePullBackOff` | `kubectl describe pod`; registry permissions | image/tag/digest sai, private registry thiếu imagePullSecret |
 | Record mất sau restart | kiểm tra PVC name/PV/node | ghi nhầm filesystem ngoài `/data/db`; PVC bị xóa; storage node bị mất |
 
 Lệnh chẩn đoán nhanh, không in Secret:
@@ -1411,9 +1564,9 @@ kubectl -n three-tier logs \
 
 ## 17. Checklist hoàn tất
 
-- [ ] Checkpoint 3.1–3.3: cluster, disk, storage, Traefik và pull image PASS.
-- [ ] Checkpoint 5.3: source đã được tạo ở task sau, tests/build PASS, không lộ secret.
-- [ ] Hai image dùng tag immutable và registry digest đã verify.
+- [ ] Checkpoint 3.1–3.3: cluster, node conditions, kernel worker ngoài dải cấm, disk, storage, Traefik và pull image PASS.
+- [ ] Checkpoint 5.3: source đã được tạo và commit (`git rev-parse` có hash), version đã chốt, tests/build PASS, không lộ secret.
+- [ ] Manifest frontend/backend dùng tag Git kèm `@sha256:` đúng digest đã verify ở registry.
 - [ ] MongoDB `Running`, PVC 10Gi `Bound`, app user ping được, unique index tồn tại.
 - [ ] Backend `2/2`, frontend `2/2`, probes và EndpointSlice PASS.
 - [ ] Mọi Service là `ClusterIP`/headless; chỉ frontend xuất hiện trong Ingress.
@@ -1421,7 +1574,7 @@ kubectl -n three-tier logs \
 - [ ] CRUD: create/read/list/update/delete, duplicate và not-found đúng status code.
 - [ ] Record sống qua restart `mongodb-0`.
 - [ ] Nếu publish: HTTPS public 200 qua Cloudflare Tunnel.
-- [ ] Có ít nhất một `mongodump` archive > 0 và đã định vị nơi lưu backup ngoài node.
+- [ ] Có ít nhất một `mongodump` archive > 0 trong `~/backups/three-tier`, directory mode `700`, file mode `600`, và đã định vị nơi lưu backup ngoài node.
 - [ ] Không có credential trong Git, output chat, frontend bundle hay container logs.
 
 ---

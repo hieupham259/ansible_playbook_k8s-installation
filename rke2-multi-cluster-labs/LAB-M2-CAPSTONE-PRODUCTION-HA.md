@@ -4,6 +4,11 @@
 > không dạy lại cách cài từng thành phần — nó **production hóa** kiến trúc M1 theo đúng 10
 > hạng mục capstone trong bản nhận xét, cộng một hạng mục CI validation cho IaC.
 >
+> **Định vị — đọc kỹ trước khi bắt đầu:** M2 là **capstone assignment**, không phải runbook
+> chạy nguyên văn 100% như M1. Tài liệu cung cấp các artifact chịu lực (template, config
+> hoàn chỉnh cho phần khó, gate); việc ráp chúng thành repo IaC chạy được là **phần bài
+> làm** của người học, và §13 chấm bằng gate chứ không bằng việc đã đọc hết tài liệu.
+>
 > **Điểm bắt đầu:** hạ tầng mới (thuê hoặc host lớn, xem §2) — không nâng cấp tại chỗ từ VM
 > của M1; M1 giữ nguyên làm môi trường đối chiếu.
 > **Điểm kết thúc:** nền tảng 3 cụm HA sống sót các bài diễn tập mất node, mất control plane,
@@ -117,7 +122,7 @@ toàn bộ §3 trở đi **không đổi lệnh nào**. Cách tạo VM Ubuntu, c
 theo [runbook VMware §4](../runbook-k8s-vmware.md#4-tạo-và-nhân-bản-3-server-theo-serversmd),
 chỉ thay thao tác GUI VMware bằng thao tác Proxmox tương ứng.
 
-**PASS §2:** đủ 17 VM ping được gateway dải mình, `mc2-fw` có Internet egress.
+**PASS §2:** đủ **18 VM** ping được gateway dải mình, `mc2-fw` có Internet egress.
 
 ## 3. Mạng: ma trận firewall default-deny và DNS
 
@@ -135,12 +140,75 @@ liên dải phải có mặt trong ma trận:
 | CICD, APP | EDGE (VIP `.40`, `.41`) | 443 | cattle-agent về Rancher (`.40`); ArgoCD/runner gọi GitLab/registry (`.41`) |
 | CICD | DATA (`mc2-db1`) | 5432, 6379 | GitLab → PostgreSQL / Redis |
 | ADMIN, APP, CICD | DATA (`mc2-backup1`) | 9000 | đẩy backup vào MinIO |
-| ADMIN | CICD, APP | 6443 qua VIP | Rancher gọi API downstream (đường agent tunnel là outbound, mục này cho kubectl trực tiếp khi cần) |
+| ADMIN | EDGE (VIP `.20`, `.30`) | 6443 | kubectl/Rancher gọi API downstream **qua VIP** — đích là EDGE, không phải subnet CICD/APP (agent tunnel vẫn là outbound) |
+| ADMIN | EDGE (VIP `.40`, `.41`) | 443 | Alertmanager cụm Admin → alert-sink (`.40`); ArgoCD cụm Admin → GitLab (`.41`) |
 
-Triển khai trên `mc2-fw` bằng nftables cùng khung file như
-[M1 §3.4](LAB-M1-BA-CUM-RKE2-RANCHER-GITLAB.md#34-router-nat-dns-và-firewall-giữa-các-dải),
-đổi `policy accept` thành `policy drop` và chép ma trận trên thành rule — mỗi dòng một rule,
-có comment. DNS zone đổi thành `mc2.lab`; hostname dịch vụ trỏ về **VIP ingress của đúng cụm chứa nó**:
+Quy ước IP dùng xuyên suốt (đây là bảng tra khi đọc mọi config): octet cuối của server là
+`.11/.12/.13`, của agent là `.21/.22/.23` trong dải cụm mình; `mc2-lb1/lb2` = `10.30.5.11/.12`;
+`mc2-db1` = `10.30.40.11`; `mc2-backup1` = `10.30.40.12`. `mc2-fw` kiêm **bastion và máy chạy
+Ansible**: nó có chân trong mọi dải nên SSH tới 18 VM không cần rule forward nào; SSH từ ngoài
+vào chỉ được phép tới chính `mc2-fw` (biến `$ADMIN_SRC`).
+
+Ruleset đầy đủ cho `mc2-fw` (qua role `fw`; tên interface pin theo môi trường thật):
+
+```text
+#!/usr/sbin/nft -f
+flush ruleset
+
+define IF_WAN    = "ens33"
+define ADMIN_SRC = <IP/dải máy quản trị SSH vào fw>
+define NET_ADMIN = 10.30.10.0/24
+define NET_CICD  = 10.30.20.0/24
+define NET_APP   = 10.30.30.0/24
+define NET_ALL   = { 10.30.5.0/24, 10.30.10.0/24, 10.30.20.0/24, 10.30.30.0/24, 10.30.40.0/24 }
+
+table inet filter {
+  chain input {
+    type filter hook input priority 0; policy drop;
+    iif lo accept
+    ct state established,related accept
+    ip saddr $NET_ALL udp dport 53 accept
+    ip saddr $NET_ALL tcp dport 53 accept
+    ip saddr $ADMIN_SRC tcp dport 22 accept          # bastion
+    icmp type echo-request accept
+  }
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+    ct state established,related accept
+    ct state invalid drop
+    # Internet egress cho mọi dải nội bộ (HTTP/HTTPS + NTP)
+    oifname $IF_WAN ip saddr $NET_ALL tcp dport { 80, 443 } accept
+    oifname $IF_WAN ip saddr $NET_ALL udp dport 123 accept
+    # LB đẩy về backend ba cụm
+    ip saddr 10.30.5.0/24 ip daddr { $NET_ADMIN, $NET_CICD, $NET_APP } \
+      tcp dport { 6443, 9345, 80, 443 } accept
+    # Node → VIP đăng ký/API của CỤM MÌNH (thiếu là server 2/3 không join)
+    ip saddr $NET_ADMIN ip daddr 10.30.5.10 tcp dport { 6443, 9345 } accept
+    ip saddr $NET_CICD  ip daddr 10.30.5.20 tcp dport { 6443, 9345 } accept
+    ip saddr $NET_APP   ip daddr 10.30.5.30 tcp dport { 6443, 9345 } accept
+    # Agent/ArgoCD/runner/Alertmanager → các VIP ingress
+    ip saddr { $NET_ADMIN, $NET_CICD, $NET_APP } \
+      ip daddr { 10.30.5.40, 10.30.5.41 } tcp dport 443 accept
+    # Quản trị từ ADMIN tới API downstream qua VIP
+    ip saddr $NET_ADMIN ip daddr { 10.30.5.20, 10.30.5.30 } tcp dport 6443 accept
+    # GitLab → PostgreSQL/Redis; ba cụm → MinIO
+    ip saddr $NET_CICD ip daddr 10.30.40.11 tcp dport { 5432, 6379 } accept
+    ip saddr { $NET_ADMIN, $NET_CICD, $NET_APP } ip daddr 10.30.40.12 tcp dport 9000 accept
+    # Mọi thứ khác: ghi log rồi drop — log chính là công cụ debug ma trận
+    log prefix "fw-drop " counter drop
+  }
+}
+table ip nat {
+  chain postrouting {
+    type nat hook postrouting priority 100;
+    oifname $IF_WAN masquerade
+  }
+}
+```
+
+Trong drill §11 cần "cắt mạng tạm", thêm/xóa rule bằng `nft insert rule` / `nft delete rule`
+(có handle từ `nft -a list ruleset`) thay vì sửa file — reboot là ruleset sạch trở lại.
+Gate ruleset chạy **sau một lần reboot `mc2-fw`** để chứng minh cấu hình bền. DNS zone đổi thành `mc2.lab`; hostname dịch vụ trỏ về **VIP ingress của đúng cụm chứa nó**:
 `rancher.mc2.lab`, `alert-sink.mc2.lab` → `.40`; `gitlab.mc2.lab`, `registry.mc2.lab` →
 `.41`; `app.mc2.lab` → `.42`. Ba VIP registration trỏ theo bảng §1. Không gộp ba cụm sau một
 VIP ingress chung: LB đang chạy mode TCP, không đọc Host header/SNI — gộp chung thì request
@@ -171,7 +239,7 @@ Từ M2 trở đi **cấm cài tay ở tầng OS/RKE2/LB**: mọi thứ từ §5
 capstone-iac/
 ├── ansible.cfg
 ├── inventories/prod/
-│   ├── hosts.yml                 # 17 VM chia group: fw, lb, admin_servers, cicd_servers,
+│   ├── hosts.yml                 # 18 VM chia group: fw, lb, admin_servers, cicd_servers,
 │   │                             # app_servers, app_agents, cicd_agents, db, backup
 │   └── group_vars/
 │       ├── all.yml               # dns domain, version pin RKE2/chart, CIDR các dải
@@ -276,9 +344,13 @@ ansible-validate:
   stage: validate
   image: python:3.12-slim
   script:
-    - pip install ansible ansible-lint
+    - pip install -r requirements.txt   # pin ansible + ansible-lint trong file, chốt ở lần
+                                        # chạy đầu và commit — kết quả lint không được trôi
     - ansible-lint
-    - ansible-playbook playbooks/site.yml -i inventories/prod/hosts.yml --syntax-check
+    - echo "$ANSIBLE_VAULT_PASSWORD" > .vault-pass   # CI/CD variable dạng masked
+    - ansible-playbook playbooks/site.yml -i inventories/prod/hosts.yml
+      --vault-password-file .vault-pass --syntax-check
+    - rm -f .vault-pass
     - "! git grep -nE 'ignore_errors: (yes|true)' -- roles playbooks"   # chặn anti-pattern
 ```
 
@@ -289,14 +361,25 @@ không thì capstone "viết toàn bộ bằng IaC" chỉ đúng một nửa:
   manifest (NetworkPolicy, quota, backup CR, AlertmanagerConfig) commit vào thư mục
   `capstone-iac/deploy/`, apply qua **Argo CD của từng cụm** — UI của Rancher/GitLab chỉ dùng
   để đối chiếu, không dùng để tạo.
+- **Bootstrap GitOps** (giải bài toán "ai apply ArgoCD trước khi có ArgoCD"): ArgoCD của
+  từng cụm do **Ansible** cài — role `argocd_bootstrap` apply manifest pin `v3.5.1` và tạo
+  repo credential. Thứ tự cố định: Ansible dựng cụm → Ansible cài ArgoCD + Secrets → ArgoCD
+  sync toàn bộ phần còn lại từ `deploy/`.
+- **Secrets không vào git:** mọi credential (MinIO, DB, Redis, runner, repo, registry) nằm
+  trong vault; Ansible render thành Kubernetes Secret (module `kubernetes.core.k8s`)
+  **trước** khi ArgoCD sync; manifest trong `deploy/` chỉ tham chiếu tên Secret. Mật khẩu
+  vault phải được escrow **ngoài** hạ tầng này — mất vault password sau DR là mất toàn bộ
+  secret, ghi vào hồ sơ nơi giữ.
 - Hai ngoại lệ được phép thao tác UI và phải ghi vào hồ sơ: bootstrap Rancher lần đầu
   (§7) và tạo Project/User của Rancher (§8) — muốn IaC hóa nốt phần này thì dùng Rancher
   Terraform provider, ghi nhận là phần mở rộng.
 
 **PASS §4:** (1) pipeline validate xanh; (2) `ansible-playbook site.yml` chạy lần thứ hai
 kết thúc với `changed=0` trên mọi host — idempotency được chứng minh, không phải tuyên bố;
-(3) đổi `rke2_version` trong `group_vars` rồi chạy `--check --diff` phải hiện đúng các task
-install/restart sẽ chạy — guard version-aware hoạt động cho cả chiều nâng cấp.
+(3) gate chiều nâng cấp kiểm bằng **canary thật**, không bằng `--check`: task `shell` bị
+skip trong check mode nên `--check --diff` không dự báo được install/restart. Đổi
+`rke2_version` rồi chạy `ansible-playbook ... --limit mc2-cicd-w1`; PASS khi node canary lên
+đúng version mới và chạy lại lần nữa cho `changed=0`.
 
 ## 5. Load balancer: haproxy + keepalived
 
@@ -346,14 +429,61 @@ backend admin_ingress_https_be
 # cụm App dùng 10.30.5.42 → node 10.30.30.x (gồm cả agents).
 ```
 
-keepalived: `mc2-lb1` priority 150 (MASTER), `mc2-lb2` 100 (BACKUP), một `vrrp_instance`
-quản cả **6 VIP** (3 API + 3 ingress), `track_script` kiểm haproxy còn sống.
+keepalived — cấu hình đầy đủ (đổi `state`/`priority` giữa hai LB; unicast để không phụ
+thuộc multicast của môi trường ảo hóa):
+
+```text
+# /etc/keepalived/keepalived.conf — trên mc2-lb1 (lb2: state BACKUP, priority 100,
+# unicast_src_ip/unicast_peer đảo lại)
+vrrp_script chk_haproxy {
+    script "/usr/bin/pgrep -x haproxy"
+    interval 2
+    fall 2
+    rise 2
+}
+vrrp_instance VI_EDGE {
+    state MASTER
+    interface ens34                   # NIC dải EDGE — pin theo môi trường
+    virtual_router_id 51
+    priority 150
+    advert_int 1
+    unicast_src_ip 10.30.5.11         # IP chính của lb1
+    unicast_peer { 10.30.5.12 }       # IP chính của lb2
+    authentication {
+        auth_type PASS
+        auth_pass "{{ vault_vrrp_pass }}"
+    }
+    virtual_ipaddress {
+        10.30.5.10/32
+        10.30.5.20/32
+        10.30.5.30/32
+        10.30.5.40/32
+        10.30.5.41/32
+        10.30.5.42/32
+    }
+    track_script { chk_haproxy }
+}
+```
+
+HAProxy trên node BACKUP phải bind được vào VIP chưa sở hữu — bắt buộc sysctl này trên **cả
+hai LB** (thiếu nó haproxy trên lb2 không start):
 
 ```bash
-# Gate LB:
-ip addr | grep -c '10.30.5.'          # trên lb1 PASS: 6 VIP; trên lb2: 0
+echo 'net.ipv4.ip_nonlocal_bind=1' | sudo tee /etc/sysctl.d/99-haproxy-vip.conf
+sudo sysctl --system | grep nonlocal_bind      # PASS: = 1
+sudo haproxy -c -f /etc/haproxy/haproxy.cfg    # PASS: Configuration file is valid
+sudo systemctl enable --now haproxy keepalived
+```
+
+```bash
+# Gate LB — đếm ĐÚNG 6 VIP, không đếm IP chính của NIC:
+for vip in 10 20 30 40 41 42; do
+  ip -4 addr show | grep -q "inet 10.30.5.$vip/32" && echo "VIP .$vip"
+done | wc -l
+# trên lb1 PASS: 6; trên lb2 PASS: 0
 sudo systemctl stop keepalived         # trên lb1 — diễn tập failover LB
-# trên lb2: ip addr | grep -c '10.30.5.'   PASS: 6 — VIP trôi sang trong vài giây
+# trên lb2 chạy lại vòng for đếm VIP ở trên: PASS: 6 — VIP trôi sang trong vài giây;
+# kèm probe xuyên failover: curl -k https://10.30.5.40 vẫn trả lời
 sudo systemctl start keepalived        # trả lại
 ```
 
@@ -378,7 +508,7 @@ cho từng cụm, chạy trên server 1:
 
 ```bash
 kubectl get nodes
-# PASS: đủ node Ready — admin 3, cicd 4, app 5
+# PASS: đủ node Ready — admin 3, cicd 4, app 6 (3 server + 3 agent)
 kubectl -n kube-system exec ds/cilium -- cilium status --brief    # PASS: OK
 sudo /var/lib/rancher/rke2/bin/kubectl get pods -n kube-system | grep -c etcd-mc2   # PASS: 3
 # Quorum thật — tắt tạm server 3:
@@ -390,35 +520,64 @@ kubectl get nodes        # từ server 1, PASS: API vẫn trả lời, node 3 No
 Kubeconfig quản trị từ ngoài: sửa `server:` trong `/etc/rancher/rke2/rke2.yaml` thành
 `https://<VIP>:6443` — chứng minh client đi qua LB chứ không dính một node.
 
-Longhorn trên cụm App: chuẩn bị node theo
-[M1 §5.2](LAB-M1-BA-CUM-RKE2-RANCHER-GITLAB.md#52-chuẩn-bị-node-cho-longhorn) nhưng chỉ trên
-ba agent `w1..3` (node mang disk 40 GB), và cài với `defaultReplicaCount=3` +
-`persistence.defaultClassReplicaCount=3` — đủ 3 storage node thì chạy đúng khuyến nghị 3
-replica của Longhorn, không hạ 2 như M1. PostgreSQL + Redis trên `mc2-db1` theo
+Traefik của từng cụm ghim qua HelmChartConfig do role render vào
+`/var/lib/rancher/rke2/server/manifests/` — nội dung như [M1 §5.1](LAB-M1-BA-CUM-RKE2-RANCHER-GITLAB.md#51-rke2-server-và-agent)
+(DaemonSet + hostPort 80/443) nhưng `ingressendpoint.ip` trỏ **VIP ingress của cụm**
+(`.40`/`.41`/`.42`) — status của Ingress khi đó công bố đúng endpoint mà người dùng thật đi
+qua, không phải IP tình cờ của một node. Gate: `kubectl -n kube-system get pods -o wide -l
+app.kubernetes.io/name=traefik` liệt kê đủ **mọi node** của cụm (DaemonSet) — khớp danh sách
+backend HAProxy §5, không có node nào bị health check đánh fail vì thiếu Traefik.
+
+Longhorn trên cụm App — mặc định Longhorn tạo disk trên **mọi node mới**, kể cả OS disk của
+server; phải giới hạn tường minh vào ba agent có disk riêng:
+
+```bash
+# values (trong deploy/, apply qua Argo CD):
+#   defaultSettings:
+#     createDefaultDiskLabeledNodes: true
+#     defaultReplicaCount: 3
+#   persistence:
+#     defaultClassReplicaCount: 3
+# và label đúng ba node storage:
+kubectl label node mc2-app-w1 mc2-app-w2 mc2-app-w3 \
+  node.longhorn.io/create-default-disk=true
+kubectl -n longhorn-system get nodes.longhorn.io \
+  -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.spec.disks}{"\n"}{end}'
+# PASS: chỉ w1..3 có disk; ba server app KHÔNG có — replica không bao giờ nằm trên OS disk
+```
+
+PostgreSQL + Redis trên `mc2-db1` theo
 [M1 §6.2](LAB-M1-BA-CUM-RKE2-RANCHER-GITLAB.md#62-postgresql--redis--minio-trên-mc-db1)
-(qua role, không cài tay). MinIO trên `mc2-backup1` cài binary server chính thức, user riêng
-cho từng nguồn, bucket: `etcd-admin`, `etcd-cicd`, `etcd-app`, `rancher-backup`, `longhorn`,
-`gitlab-backup`, `pg-backup`, cộng bộ bucket `gitlab-*` cho object storage của GitLab
-(danh sách như M1 §6.2).
+(qua role, không cài tay). MinIO trên `mc2-backup1` cài binary server chính thức và **chạy
+HTTPS ngay từ đầu** — cấp cert `mc2-backup1.mc2.lab` từ CA lab (xuất cert/key như quy trình
+wildcard của M1 §6.3), đặt vào `~minio/.minio/certs/public.crt` + `private.key` rồi start;
+gate: `curl --cacert /usr/local/share/ca-certificates/mc2-lab-ca.crt
+https://mc2-backup1.mc2.lab:9000/minio/health/live` trả 200. Nhờ đó mọi client S3 (etcd-s3,
+rancher-backup, Longhorn, GitLab) dùng một CA thống nhất, không cần cờ insecure nào. User
+riêng cho từng nguồn, bucket: `etcd-admin`, `etcd-cicd`, `etcd-app`, `rancher-backup`,
+`longhorn`, `gitlab-backup`, `pg-backup`, cộng bộ bucket `gitlab-*` cho object storage của
+GitLab (danh sách như M1 §6.2).
 
 ## 7. Rancher HA và import hai cụm downstream
 
 Trên cụm Admin — khác M1 ở `replicas=3` và hostname trỏ VIP ingress; cert-manager + CA lab +
 wildcard làm như [M1 §4.2](LAB-M1-BA-CUM-RKE2-RANCHER-GITLAB.md#42-helm-cert-manager-và-ca-của-lab)
-(CA M2 tạo mới, trust trên 17 VM qua role `common`):
+(CA M2 tạo mới, trust trên 18 VM qua role `common`):
 
 ```bash
 helm install rancher rancher-stable/rancher \
   --namespace cattle-system --create-namespace --version 2.14.3 \
   --set hostname=rancher.mc2.lab \
   --set replicas=3 \
+  --set antiAffinity=required \
   --set bootstrapPassword='<BOOTSTRAP>' \
   --set ingress.ingressClassName=traefik \
   --set ingress.tls.source=secret \
   --set privateCA=true
 
 kubectl -n cattle-system get pods -l app=rancher -o wide
-# PASS: 3 pod Running trải trên 3 node admin khác nhau (anti-affinity mặc định của chart)
+# PASS: 3 pod Running trải trên 3 node admin khác nhau — `antiAffinity=required` ép cứng;
+# mặc định của chart là `preferred`, KHÔNG bảo đảm trải đủ 3 node
 ```
 
 Import `mc2-cicd` và `mc2-app` như [M1 §5.4](LAB-M1-BA-CUM-RKE2-RANCHER-GITLAB.md#54-import-cụm-app-vào-rancher).
@@ -434,7 +593,8 @@ kubectl -n cattle-system get pods -w      # PASS: pod mới Running, UI vẫn/qu
 
 GitLab + runner + ArgoCD ba cụm: lặp M1 §6–§7 với host `*.mc2.lab` và ba dependency ngoài
 trỏ chỗ mới — PostgreSQL + Redis trên `mc2-db1`, object storage là MinIO trên `mc2-backup1`
-(bộ bucket `gitlab-*`, tách khỏi các bucket backup). `webservice.minReplicas=2` chỉ là
+(bộ bucket `gitlab-*`, tách khỏi các bucket backup; endpoint **HTTPS** — đưa CA lab vào các
+pod Rails/registry/toolbox bằng `global.certificates.customCAs`). `webservice.minReplicas=2` chỉ là
 redundancy **tầng web**; GitLab HA đầy đủ (Praefect, Redis Sentinel, PostgreSQL HA) nằm
 ngoài phạm vi và đã ghi ở sổ SPOF §1. Không chép lại các bước — M1 là tài liệu tham chiếu
 của phần này, values commit vào `capstone-iac/deploy/` theo quy tắc §4.
@@ -447,8 +607,15 @@ Làm trên cụm `mc2-app` qua Rancher, mô phỏng một tenant `team-a`:
    **Project Resource Quota**: CPU limit 4, memory limit 8Gi; namespace default quota bằng nửa.
 2. **User + RBAC:** tạo user `dev-a` (Users & Authentication), gán **Project Member** của
    `team-a`, không gán quyền cluster.
-3. **PSA:** gán Pod Security Admission template `restricted` cho project (Cluster → Projects
-   → Edit → Pod Security Admission).
+3. **PSA:** PSA configuration template của Rancher gán ở cấp **cluster**, không phải
+   project. Muốn chỉ áp `restricted` cho tenant này, dùng chuẩn Kubernetes — label thẳng
+   namespace:
+
+   ```bash
+   kubectl label ns team-a-web \
+     pod-security.kubernetes.io/enforce=restricted \
+     pod-security.kubernetes.io/enforce-version=latest
+   ```
 4. Namespace `team-a-web` tạo **trong** project; **NetworkPolicy default-deny** + mở đúng luồng:
 
 ```yaml
@@ -503,15 +670,61 @@ kubectl -n default run np-test --rm -it --image=busybox:1.37 --restart=Never -- 
 kubectl create ns alert-sink
 kubectl -n alert-sink create deployment sink --image=mendhak/http-https-echo:37 --port=8080
 kubectl -n alert-sink expose deployment sink --port=80 --target-port=8080
-# Ingress host alert-sink.mc2.lab (class traefik, TLS wildcard như các Ingress khác);
-# DNS đã trỏ alert-sink.mc2.lab → VIP .40 ở §3, và ma trận firewall đã mở APP/CICD → .40:443.
+kubectl -n alert-sink apply -f - <<'EOF'
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alert-sink
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  tls: [{hosts: [alert-sink.mc2.lab], secretName: mc2-lab-wildcard-tls}]
+  rules:
+  - host: alert-sink.mc2.lab
+    http:
+      paths:
+      - {path: /, pathType: Prefix, backend: {service: {name: sink, port: {number: 80}}}}
+EOF
+# DNS đã trỏ alert-sink.mc2.lab → VIP .40 ở §3, ma trận firewall đã mở ADMIN/APP/CICD → .40:443.
 # Kiểm từ một node cụm App:
-curl -sk https://alert-sink.mc2.lab/health >/dev/null && echo reachable   # PASS
+curl -s --cacert /usr/local/share/ca-certificates/mc2-lab-ca.crt \
+  https://alert-sink.mc2.lab/health >/dev/null && echo reachable   # PASS
 ```
 
 3. Trên **từng cụm**, tạo `AlertmanagerConfig` (manifest trong git, apply qua Argo CD của
-   cụm đó) với receiver webhook `https://alert-sink.mc2.lab/alert`, route nhận các alert
-   nhóm node (`KubeNodeNotReady`, `TargetDown`).
+   cụm đó):
+
+```yaml
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: node-alerts-to-sink
+  namespace: cattle-monitoring-system
+spec:
+  route:
+    receiver: alert-sink
+    matchers:
+    - {name: alertname, matchType: =~, value: "KubeNodeNotReady|TargetDown"}
+  receivers:
+  - name: alert-sink
+    webhookConfigs:
+    - url: https://alert-sink.mc2.lab/alert
+      sendResolved: true
+```
+
+```bash
+kubectl -n cattle-monitoring-system get alertmanagerconfig node-alerts-to-sink   # PASS: tồn tại
+# Xác nhận Alertmanager THẬT SỰ nhặt config này (điểm hay bị bỏ qua):
+kubectl -n cattle-monitoring-system get alertmanager -o yaml | grep -A3 alertmanagerConfig
+# Nếu selector là nil/không khớp → set qua values của rancher-monitoring
+# (alertmanager.alertmanagerSpec.alertmanagerConfigSelector) rồi sync lại; gate cuối:
+kubectl -n cattle-monitoring-system get secret \
+  -o name | grep generated | head -1 | xargs -I{} kubectl -n cattle-monitoring-system \
+  get {} -o jsonpath='{.data.alertmanager\.yaml\.gz}' | base64 -d | zcat | grep -c alert-sink
+# PASS: >= 1 — receiver đã vào config sinh ra của Alertmanager
+```
 4. Diễn tập — **không dùng `kubectl drain`** cho bài này: drain là thao tác chủ động, node
    vẫn `Ready`, kubelet và node-exporter vẫn chạy nên `KubeNodeNotReady`/`TargetDown` không
    chắc Firing. Giả lập chết thật bằng cách dừng kubelet:
@@ -528,6 +741,17 @@ sudo systemctl start rke2-agent      # node tự Ready lại
 
 **PASS §9:** ba cụm đều có Prometheus targets Up; alert `KubeNodeNotReady` thật đã ghi vào
 sink trong diễn tập, kèm timestamp để đối chiếu RTO ở §11.
+
+Gate capacity tối thiểu — chạy sau khi đủ stack, **ghi số vào hồ sơ**; sizing §2 chỉ được
+coi là kiểm chứng khi có các số này:
+
+```bash
+kubectl top nodes        # từng cụm — PASS: MEMORY% < 80 trên mọi node ở trạng thái nghỉ
+# Độ trễ fsync etcd (Prometheus UI của rancher-monitoring, từng cụm):
+#   histogram_quantile(0.99, rate(etcd_disk_wal_fsync_duration_seconds_bucket[5m]))
+#   PASS: p99 < 25ms — vượt ngưỡng là disk hypervisor không đủ cho etcd
+# Thời gian rebuild replica Longhorn: đo trong drill §11.2, ghi số phút vào hồ sơ
+```
 (Logging tập trung — rancher-logging → Loki — là phần mở rộng tùy chọn, làm khi còn tài
 nguyên; ghi hồ sơ nếu bỏ qua.)
 
@@ -544,8 +768,7 @@ etcd-snapshot-schedule-cron: "0 */6 * * *"
 etcd-snapshot-retention: 10
 etcd-s3: true
 etcd-s3-endpoint: mc2-backup1.mc2.lab:9000
-etcd-s3-insecure: true            # MinIO nội bộ đang chạy HTTP trong dải DATA; bật TLS cho
-                                  # MinIO rồi thay bằng etcd-s3-endpoint-ca là phần mở rộng
+etcd-s3-endpoint-ca: /usr/local/share/ca-certificates/mc2-lab-ca.crt   # MinIO HTTPS (§6)
 etcd-s3-bucket: etcd-admin        # đổi theo cụm: etcd-cicd / etcd-app
 etcd-s3-access-key: "{{ vault_minio_etcd_access }}"
 etcd-s3-secret-key: "{{ vault_minio_etcd_secret }}"
@@ -567,10 +790,18 @@ Cài chart **Rancher Backups** (Cluster Tools trên cụm `local`), tạo secret
 rồi:
 
 ```yaml
+apiVersion: v1
+kind: Secret
+metadata: {name: minio-rancher-creds, namespace: default}
+stringData:
+  accessKey: <user rancher-backup của MinIO>
+  secretKey: <secret key tương ứng — từ vault>
+---
 apiVersion: resources.cattle.io/v1
 kind: Backup
 metadata: {name: rancher-daily}
 spec:
+  resourceSetName: rancher-resource-set-full   # BẮT BUỘC khi tạo bằng YAML
   schedule: "0 2 * * *"
   retentionCount: 7
   storageLocation:
@@ -580,7 +811,7 @@ spec:
       credentialSecretName: minio-rancher-creds
       credentialSecretNamespace: default
       insecureTLSSkipVerify: false
-      endpointCA: <base64 CA lab>
+      endpointCA: <base64 của mc2-lab-ca.crt>    # hợp lệ vì MinIO chạy HTTPS (§6)
 ```
 
 ```bash
@@ -596,15 +827,29 @@ khi thiết lập xong, không đợi tới §11.
 **Longhorn:**
 
 1. Settings → Backup Target: `s3://longhorn@us-east-1/` + secret chứa endpoint MinIO
-   (`AWS_ENDPOINTS=http://mc2-backup1.mc2.lab:9000` + access/secret key); tạo backup cho
-   volume của app demo. **PASS:** backup hiện trong tab Backup và `mc ls lab/longhorn` có
-   object.
+   (`AWS_ENDPOINTS=https://mc2-backup1.mc2.lab:9000`, access/secret key, và `AWS_CERT` =
+   nội dung `mc2-lab-ca.crt` vì endpoint dùng CA lab); tạo backup cho volume của app demo.
+   **PASS:** backup hiện trong tab Backup và `mc ls lab/longhorn` có object.
 2. **Restore-verify:** từ backup đó restore thành volume mới `restore-check`, tạo PV/PVC từ
    volume này, attach vào một pod busybox và so dữ liệu:
    `cat /data/heartbeat | tail -1` phải khớp nội dung volume gốc tại thời điểm backup.
    **PASS:** dữ liệu đọc được và đúng; xóa pod/PVC/volume `restore-check` sau khi ghi hồ sơ.
 
 **GitLab:**
+
+- Toolbox upload backup bằng cấu hình s3 **riêng**, không dùng lại connection của Rails —
+  thiếu nó backup không lên bucket. Values + secret (trong `deploy/`):
+
+  ```yaml
+  # values: gitlab.toolbox.backups.objectStorage.config: {secret: toolbox-s3, key: config}
+  # secret toolbox-s3, key "config" — định dạng s3cmd:
+  # [default]
+  # host_base = mc2-backup1.mc2.lab:9000
+  # host_bucket = mc2-backup1.mc2.lab:9000/%(bucket)
+  # use_https = True
+  # access_key = <từ vault>
+  # secret_key = <từ vault>
+  ```
 
 - Backup: `kubectl -n gitlab exec deploy/gitlab-toolbox -it -- backup-utility` với
   `global.appConfig.backups.bucket: gitlab-backup` (đã cấu hình từ values). **PASS:** object
@@ -618,14 +863,27 @@ khi thiết lập xong, không đợi tới §11.
 **PostgreSQL** (nằm ngoài mọi chart nên phải tự lo):
 
 ```bash
-# Trên mc2-db1 — cron hằng ngày, đẩy thẳng lên MinIO:
-sudo -u postgres pg_dump -Fc gitlabhq_production > /tmp/gitlab-$(date +%F).dump
-mc cp /tmp/gitlab-$(date +%F).dump lab/pg-backup/
-# Restore-verify vào database nháp (không đụng production):
+# Trên mc2-db1 — script + lịch thật (một lệnh chạy tay không phải là "cron hằng ngày"):
+sudo tee /usr/local/bin/pg-backup.sh >/dev/null <<'EOF'
+#!/bin/bash
+set -euo pipefail
+F=/var/backups/gitlab-$(date +%F).dump
+sudo -u postgres pg_dump -Fc gitlabhq_production > "$F"
+mc cp "$F" lab/pg-backup/ && rm -f "$F"
+EOF
+sudo chmod +x /usr/local/bin/pg-backup.sh
+echo '15 1 * * * root /usr/local/bin/pg-backup.sh' | sudo tee /etc/cron.d/pg-backup
+# Retention phía bucket: mc ilm add --expiry-days 14 lab/pg-backup
+sudo /usr/local/bin/pg-backup.sh          # chạy tay lần đầu làm gate
+mc ls lab/pg-backup | tail -1             # PASS: có dump hôm nay
+# Restore-verify vào database nháp (không đụng production) — kéo dump TỪ MinIO về, chứng
+# minh chuỗi backup→S3→restore trọn vẹn chứ không chỉ file local:
+mc cp "lab/pg-backup/gitlab-$(date +%F).dump" /tmp/
 sudo -u postgres createdb restore_check
 sudo -u postgres pg_restore -d restore_check /tmp/gitlab-$(date +%F).dump
 sudo -u postgres psql -d restore_check -c 'SELECT count(*) FROM projects;'
-# PASS: số đếm hợp lý (>0, khớp số project đang có); rồi dropdb restore_check
+# PASS: số đếm hợp lý (>0, khớp số project đang có)
+sudo -u postgres dropdb restore_check && rm -f /tmp/gitlab-$(date +%F).dump
 ```
 
 **MinIO là SPOF của cả chuỗi backup** (sổ SPOF §1): mọi backup đang đổ về một máy trong
@@ -661,7 +919,11 @@ kubectl drain mc2-app-w1 --ignore-daemonsets --delete-emptydir-data --timeout=30
 # chủ động ngay khi drain thì đổi node-drain-policy sang
 # block-for-eviction-if-contains-last-replica — đọc trade-off trong docs trước khi đổi.
 kubectl get volumes.longhorn.io -n longhorn-system -o wide
-# PASS trong lúc drain: volume Degraded (không mất I/O); PASS sau uncordon: về Healthy.
+# PASS trong lúc drain: volume Degraded (không mất I/O)
+kubectl uncordon mc2-app-w1
+# Chờ rebuild (đo thời gian — con số này vào hồ sơ capacity §9) rồi kiểm lại:
+kubectl get volumes.longhorn.io -n longhorn-system -o wide
+# PASS sau uncordon: mọi volume trở về Healthy
 ```
 
 ### 11.3. Mất nguyên cụm quản trị — bài học đắt nhất của mô hình Rancher
@@ -686,14 +948,26 @@ rancher-backup → tạo `Restore` từ bucket → cài lại Rancher **cùng ve
 kubectl create deployment drill-victim --image=nginx -n default
 sudo rke2 etcd-snapshot save --name pre-drill
 kubectl delete deployment drill-victim -n default          # "sự cố"
-# Restore theo quy trình chính thức: trên server 1
-sudo systemctl stop rke2-server                            # cả 3 server
+# Restore theo quy trình chính thức — ghi rõ lệnh nào chạy trên host nào:
+# [TRÊN CẢ BA mc2-cicd1..3]:
+sudo systemctl stop rke2-server
+# [CHỈ TRÊN mc2-cicd1] — lấy TÊN FILE THẬT của snapshot, không dùng placeholder:
+SNAPFILE=$(sudo ls -t /var/lib/rancher/rke2/server/db/snapshots/ | grep pre-drill | head -1)
+echo "$SNAPFILE"                       # PASS: in ra pre-drill-…
 sudo rke2 server --cluster-reset \
-  --cluster-reset-restore-path=/var/lib/rancher/rke2/server/db/snapshots/pre-drill-<...>
-sudo systemctl start rke2-server                           # server 1
-# server 2, 3: xóa db cũ rồi join lại
-sudo rm -rf /var/lib/rancher/rke2/server/db && sudo systemctl start rke2-server
-kubectl get deployment drill-victim -n default             # PASS: deployment "sống lại"
+  --cluster-reset-restore-path="/var/lib/rancher/rke2/server/db/snapshots/${SNAPFILE}"
+sudo systemctl start rke2-server
+kubectl get nodes                      # PASS: mc2-cicd1 Ready (đứng một mình)
+# [TRÊN mc2-cicd2 RỒI mc2-cicd3 — TUẦN TỰ, node trước Ready mới sang node sau]:
+sudo rm -rf /var/lib/rancher/rke2/server/db
+sudo systemctl start rke2-server
+# [TRÊN mc2-cicd1] sau mỗi node join lại:
+kubectl get nodes                                        # PASS: node vừa join Ready
+kubectl -n kube-system get pods | grep -c etcd-mc2       # PASS cuối: 3 member etcd
+kubectl get deployment drill-victim -n default           # PASS: deployment "sống lại"
+# Biến thể S3 (diễn tập một lần — chính là kịch bản mất disk local mà §10.1 tồn tại để đỡ):
+# cluster-reset kèm --etcd-s3 --etcd-s3-endpoint=… --etcd-s3-endpoint-ca=… --etcd-s3-bucket=…
+# và tên snapshot lấy từ `mc ls lab/etcd-cicd`.
 ```
 
 ## 12. Nâng cấp tuần tự và đường lui
@@ -718,14 +992,31 @@ Kubernetes sau**, và không bao giờ để K8s vượt trần `kubeVersion` c�
    `helm rollback rancher -n cattle-system` rồi chạy lại gate; notes có migration (hoặc
    không nói rõ) thì đường lui duy nhất là restore backup §10.2. Ghi quyết định vào hồ sơ
    **trước** khi nâng.
-3. **RKE2 patch, node-by-node, server trước agent** — mỗi node:
+3. **RKE2 patch, node-by-node, server trước agent.** Chốt cặp version **có thật** trước khi
+   gõ lệnh — không dùng placeholder: TARGET là patch v1.35 mới nhất trong
+   [release notes](https://docs.rke2.io/release-notes/v1.35.X) tại ngày nâng cấp. Nếu các
+   cụm đã ở đúng patch mới nhất (khả năng cao vì baseline pin bản mới nhất), diễn tập trên
+   cụm CICD: dựng lại cụm đó ở patch **liền trước** (cũng tra từ release notes — cả hai bản
+   phải tồn tại) rồi nâng lên TARGET. Ghi cặp source → target vào hồ sơ.
+
+   Server — tuần tự từng node, node trước đạt gate mới sang node sau:
 
 ```bash
-sudo rke2 etcd-snapshot save --name pre-upgrade-$(hostname)   # trên server
+sudo rke2 etcd-snapshot save --name pre-upgrade-$(hostname)
 curl -sfL https://get.rke2.io -o /tmp/rke2-install.sh
-sudo INSTALL_RKE2_VERSION="v1.35.<x+1>+rke2r1" INSTALL_RKE2_TYPE="server" sh /tmp/rke2-install.sh
+sudo INSTALL_RKE2_VERSION="<TARGET>" INSTALL_RKE2_TYPE="server" sh /tmp/rke2-install.sh
 sudo systemctl restart rke2-server
-kubectl get node $(hostname)     # PASS: Ready + VERSION mới, rồi mới sang node kế
+kubectl get node $(hostname)     # PASS: Ready + VERSION = <TARGET>
+```
+
+   Agent — chỉ bắt đầu khi **toàn bộ server** đã xong (drain trước nếu workload không chịu
+   được gián đoạn; uncordon sau):
+
+```bash
+curl -sfL https://get.rke2.io -o /tmp/rke2-install.sh
+sudo INSTALL_RKE2_VERSION="<TARGET>" INSTALL_RKE2_TYPE="agent" sh /tmp/rke2-install.sh
+sudo systemctl restart rke2-agent
+kubectl get node $(hostname)     # PASS: Ready + VERSION = <TARGET>
 ```
 
 4. **Đường lui RKE2 — nói thẳng:** RKE2 không hỗ trợ downgrade binary tại chỗ. Rollback =
@@ -783,7 +1074,7 @@ Bảng triệu chứng đặc thù của M2 (lỗi trùng với M1 tra bảng
 | etcd mất quorum (2/3 server chết) | không tự lành được — khôi phục bằng quy trình cluster-reset của §11.4 trên server còn sống |
 | Downstream Unavailable kéo dài sau khi Rancher sống lại | log `cattle-cluster-agent` trên downstream; kiểm DNS `rancher.mc2.lab` → VIP `.40` và route CICD/APP → `.40:443` trong ma trận; CA chưa trust trên node |
 | Alert không tới sink | thứ tự kiểm: `curl https://alert-sink.mc2.lab` từ node cụm phát alert → Alertmanager UI có alert Firing không → `AlertmanagerConfig` có được Prometheus operator nhặt không (label/namespace selector) → `group_wait` chưa hết |
-| Snapshot etcd không lên S3 | `journalctl -u rke2-server | grep -i s3`; credential/bucket sai, thiếu `etcd-s3-insecure: true` khi MinIO chạy HTTP |
+| Snapshot etcd không lên S3 | `journalctl -u rke2-server | grep -i s3`; credential/bucket sai, hoặc `etcd-s3-endpoint-ca` sai đường dẫn/không phải CA đã ký cert MinIO (§6) |
 | Longhorn volume Degraded lâu sau uncordon | disk node đầy hoặc `replica-replenishment-wait-interval` chưa hết; xem tab Volume → replica nào đang rebuild |
 | `ansible-playbook` lần 2 vẫn `changed>0` | chạy với `--diff` xem task nào đổi; thường là task `shell` thiếu guard version/`creates` hoặc template render giá trị động — sửa task, đó là fail của gate idempotency §4 chứ không phải chuyện vặt |
 | `helm upgrade` Rancher treo/từ chối | trần `kubeVersion` của chart mới vs version cụm; webhook `rancher-webhook` chưa Ready; đọc `helm history rancher -n cattle-system` trước khi làm gì tiếp |
@@ -798,6 +1089,10 @@ Dùng chung danh sách [M1 §11](LAB-M1-BA-CUM-RKE2-RANCHER-GITLAB.md#11-nguồn
 - RKE2 network requirements (cổng 6443/9345): <https://docs.rke2.io/install/requirements>
 - RKE2 upgrade thủ công: <https://docs.rke2.io/upgrades/manual_upgrade>
 - Rancher backup/restore & migration: <https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/backup-restore-and-disaster-recovery>
+- Rancher Backup CR examples (`resourceSetName`, s3): <https://ranchermanager.docs.rancher.com/reference-guides/backup-restore-configuration/examples>
+- Rancher chart options (`antiAffinity`): <https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-references/helm-chart-options>
+- Rancher PSA configuration templates: <https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/authentication-permissions-and-global-configuration/psa-config-templates>
+- Longhorn default disk / node config: <https://longhorn.io/docs/1.12.1/nodes-and-volumes/nodes/default-disk-and-node-config/>
 - Rancher Projects / PSA / quota: <https://ranchermanager.docs.rancher.com/how-to-guides/advanced-user-guides/manage-projects>
 - rancher-monitoring & alerting: <https://ranchermanager.docs.rancher.com/integrations-in-rancher/monitoring-and-alerting>
 - Longhorn backup target: <https://longhorn.io/docs/1.12.1/snapshots-and-backups/backup-and-restore/set-backup-target/>

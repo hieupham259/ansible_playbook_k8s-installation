@@ -118,9 +118,11 @@ trong ba phương án thuê:
 
 Ánh xạ khi dùng Proxmox (phương án A/B): mỗi VMnet của thiết kế = một Linux bridge không gắn
 NIC vật lý (`vmbr10`, `vmbr20`, …); `mc2-fw` giữ nguyên vai trò router giữa các bridge —
-toàn bộ §3 trở đi **không đổi lệnh nào**. Cách tạo VM Ubuntu, clone, gỡ trùng identity vẫn
-theo [runbook VMware §4](../runbook-k8s-vmware.md#4-tạo-và-nhân-bản-3-server-theo-serversmd),
-chỉ thay thao tác GUI VMware bằng thao tác Proxmox tương ứng.
+toàn bộ §3 trở đi **không đổi lệnh nào**. Cách tạo VM Ubuntu, clone, gỡ trùng identity theo đúng
+quy trình golden-clone chi tiết ở
+[M1 §3.2](LAB-M1-BA-CUM-RKE2-RANCHER-GITLAB.md#32-dựng-vm-gốc-ubuntu-2404-và-nhân-bản-6-vm),
+chỉ thay thao tác GUI VMware bằng thao tác Proxmox tương ứng (clone from template, resize
+disk, gán bridge).
 
 **PASS §2:** đủ **18 VM** ping được gateway dải mình, `mc2-fw` có Internet egress.
 

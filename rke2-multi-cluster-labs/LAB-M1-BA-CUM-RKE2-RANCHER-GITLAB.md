@@ -121,6 +121,59 @@ DNS nội bộ (dnsmasq trên `mc-router`, domain `mc.lab`):
 1 node + Longhorn 1 replica — ghi rõ vào hồ sơ lab rằng cấu hình này mất tính chất "2 replica
 trên 2 node" và mọi kết luận về drain/eviction không còn giá trị.
 
+#### Vì sao dùng host-only + NAT thay vì Bridged
+
+Track này cố ý mô phỏng bốn dải mạng riêng ADMIN, CICD, APP và DATA, nên các VM workload
+`mc-admin1`, `mc-cicd1`, `mc-app1`, `mc-app2` và `mc-db1` **không** gắn Bridged. Mỗi VM chỉ
+gắn vào VMnet host-only đúng theo bảng trên; traffic liên dải phải đi qua `mc-router` để
+`nftables` thực thi chính sách ở §3.4 và `dnsmasq` cung cấp DNS `*.mc.lab`.
+
+Chỉ `mc-router` có một NIC NAT: adapter 1 nối VMnet8 làm uplink ra Internet; bốn adapter còn
+lại nối VMnet2–VMnet5 và giữ địa chỉ `.1` của từng dải. Vì vậy NAT **không** phải network mode
+của năm VM workload. Đường egress của chúng là `VM workload → gateway .1 → mc-router →
+VMnet8 → Internet`. Windows host vẫn SSH trực tiếp vào từng dải qua host virtual adapter
+`.254` ở §3.1, không đi qua firewall liên dải.
+
+Khác với [Lab 00](../k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md#a12-ba-vm) và
+[runbook VMware](../runbook-k8s-vmware.md#3-tạo-3-vm-ubuntu-2404-trên-vmware), nơi một cluster
+phẳng dùng Bridged để các node xuất hiện trực tiếp trên LAN vật lý, topology này cần giữ bốn
+dải tách biệt và buộc traffic liên dải đi qua router của lab. Theo tài liệu VMware, Bridged
+nối VM trực tiếp vào LAN vật lý, host-only tạo private LAN giữa host và các VM, còn NAT dùng
+địa chỉ của host để đi ra mạng ngoài: [Broadcom — Understanding networking types in hosted
+products](https://knowledge.broadcom.com/external/article?legacyId=1006480).
+
+#### Quan hệ với các lab Bridged đã có và vì sao không dùng VMnet1
+
+Trong cấu hình mẫu của [Lab 00](../k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md#a12-ba-vm)
+và [runbook VMware](../runbook-k8s-vmware.md#3-tạo-3-vm-ubuntu-2404-trên-vmware), cả hai hạ
+tầng cũ đều dùng Bridged và đặt IP node trên LAN `192.168.100.0/24`. VMware Workstation mặc
+định dùng VMnet0 cho Bridged. Tuy nhiên, chỉ runbook VMware pin rõ tên VMnet0 và yêu cầu bind
+nó vào card vật lý; Lab 00 chỉ ghi `Network: Bridged`, không pin tên VMnet. Vì vậy, khi Lab 00
+đi qua VMnet0 thì đó là ánh xạ Bridged của VMware host, không phải một giá trị được Lab 00
+quy định.
+
+VMnet1 mặc định là host-only: nó tạo private LAN giữa Windows host và các VM cùng mạng, nhưng
+không nối trực tiếp VM vào LAN vật lý và không tự cung cấp Internet egress. Do đó không thay
+Bridged của hai lab cũ bằng VMnet1; nếu làm vậy, topology LAN/gateway và các gate Internet sẽ
+không còn đúng nếu không bổ sung một router/NAT khác nằm ngoài hai tài liệu đó.
+
+Track M1 cũng không thể biểu diễn bốn zone ADMIN, CICD, APP và DATA bằng một VMnet1 duy nhất:
+bốn zone cần bốn VMnet host-only tách biệt để traffic liên dải buộc phải đi qua `mc-router`.
+Số hiệu VMnet không bắt buộc phải dùng liên tục, nên track này không dùng hoặc thay đổi VMnet1
+và dành VMnet2–VMnet5 cho bốn zone. Không xóa hay cấu hình lại VMnet1 chỉ để làm lab này.
+
+Tạo các VM của track này **không tự động thay đổi** hạ tầng Bridged cũ nếu giữ nguyên VMnet0
+và cấu hình VMnet8. Track chỉ dùng VMnet8 hiện hữu làm uplink NAT của `mc-router`, không yêu
+cầu đổi subnet hoặc DHCP của VMnet8. Trước khi tạo VMnet2–VMnet5, xác nhận chúng chưa được
+VM/lab khác sử dụng và các dải `10.20.10.0/24`–`10.20.40.0/24` không trùng LAN, VPN,
+WSL/Hyper-V hoặc route hiện có trên Windows — [bước 0 của §3.1](#31-tạo-4-vmnet-host-only)
+là gate kiểm bằng lệnh cho chính việc này. Thay subnet, type hoặc DHCP của một VMnet đang
+dùng sẽ ảnh hưởng mọi VM nối vào VMnet đó.
+
+Các lab không xung đột IP theo giá trị mẫu, nhưng nếu chạy đồng thời thì vẫn cộng dồn nhu cầu
+CPU, RAM và disk; riêng một cluster cũ 20 GB RAM cộng track này 27 GB RAM đã là 47 GB cho VM,
+chưa tính Windows và VMware.
+
 ### 2.3. Biến đầu vào
 
 Mọi giá trị người học phải tự điền được liệt kê ở đây, một chỗ duy nhất. **Trước khi bắt đầu
@@ -178,8 +231,36 @@ nhau qua Rancher import — restore lệch một VM là lệch mốc).
 
 ### 3.1. Tạo 4 VMnet host-only
 
-Trên VMware Workstation: **Edit → Virtual Network Editor → Change Settings** (cần quyền
-admin), thêm 4 mạng host-only. Với **từng** VMnet: **bỏ tick "Use local DHCP service"** (IP
+**Bước 0 — gate tiền đề, chạy TRƯỚC khi tạo bất kỳ VMnet nào** (chạy sau khi đã tạo thì
+điều kiện (3) mất giá trị, vì chính các host adapter mới sẽ sinh route `10.20.x`):
+
+```powershell
+# (1) Subnet NAT của VMnet8 — mc-golden (§3.2.2) và uplink của mc-router dùng mạng này:
+Get-NetIPAddress -AddressFamily IPv4 |
+  Where-Object InterfaceAlias -like '*VMnet8*' |
+  Select-Object InterfaceAlias, IPAddress
+# ví dụ ra 192.168.229.1 → subnet NAT là 192.168.229.0/24
+
+# (2) Dải LAN thật của host:
+ipconfig | findstr /i "Default Gateway"
+
+# (3) Route 10.20.x đã tồn tại từ trước (VPN, WSL, Hyper-V, lab khác):
+Get-NetRoute -AddressFamily IPv4 |
+  Where-Object DestinationPrefix -like '10.20.*' |
+  Select-Object DestinationPrefix, InterfaceAlias
+```
+
+**PASS (đủ cả ba):** subnet VMnet8 ở (1) **không** bắt đầu bằng `10.20.` và **khác** dải
+gateway ở (2); lệnh (3) không in ra route nào.
+
+**FAIL ở (1) hoặc (3):** đừng sửa VMnet8 — đổi subnet/DHCP của nó ảnh hưởng mọi VM NAT hiện
+có trên máy. Thay vào đó đổi quy hoạch `10.20.x` của lab này sang dải trống khác, sửa đồng
+bộ: bảng §2.2, netplan §3.3, nftables + dnsmasq §3.4 và hosts file ở §3.5. **FAIL ở (2)**
+(LAN trùng subnet VMnet8) nghĩa là máy bạn vốn đã có xung đột NAT tiềm ẩn ngoài phạm vi lab
+— xử lý xong mới tiếp tục.
+
+Sau khi bước 0 PASS: trên VMware Workstation mở **Edit → Virtual Network Editor → Change
+Settings** (cần quyền admin), thêm 4 mạng host-only. Với **từng** VMnet: **bỏ tick "Use local DHCP service"** (IP
 đặt tĩnh, DHCP của VMware chỉ gây nhiễu) và đặt subnet:
 
 | VMnet | Subnet IP | Subnet mask | Host virtual adapter (tick Connect a host virtual adapter) |
@@ -202,31 +283,182 @@ Get-NetIPAddress -AddressFamily IPv4 |
 
 **PASS:** thấy đủ 4 adapter `VMware Network Adapter VMnet2..5` với IP `.254` của 4 dải.
 
-### 3.2. Dựng golden image và clone 6 VM
+### 3.2. Dựng VM gốc Ubuntu 24.04 và nhân bản 6 VM
 
-Cài một VM Ubuntu Server 24.04 "gốc" rồi full-clone — quy trình cài ISO, snapshot, clone, gỡ
-trùng `machine-id`/SSH host key làm **đúng theo**
-[runbook VMware §4](../runbook-k8s-vmware.md#4-tạo-và-nhân-bản-3-server-theo-serversmd)
-(không chép lại ở đây). Khác biệt so với runbook đó:
+Toàn bộ quy trình viết trọn tại đây, không tham chiếu "làm như runbook khác". Nguyên tắc:
+cài Ubuntu **một lần duy nhất** trên VM gốc `mc-golden`, làm sạch và chuẩn bị chung, snapshot,
+rồi full-clone ra 6 VM và tách identity từng bản. Mọi VM của lab đều là hậu duệ của một
+snapshot — môi trường đồng nhất, dựng lại rẻ.
 
-1. Bảng đích là 6 VM ở §2.2 của file này.
-2. Network adapter của từng VM gắn vào **đúng VMnet theo bảng §2.2**, không dùng Bridged.
-   `mc-router` có **5 adapter**: adapter 1 = NAT (VMnet8), adapter 2..5 = VMnet2..5.
-3. `mc-app1`/`mc-app2` thêm disk SCSI thứ hai 20 GB ngay lúc tạo VM.
-4. **Không cài** containerd/kubeadm/kubelet như Lab 00 — RKE2 tự mang containerd riêng.
+#### 3.2.1. Tải và kiểm ISO
 
-Chuẩn bị OS chung cho **cả 6 VM** (SSH từ host vào từng máy):
+Tải `ubuntu-24.04.x-live-server-amd64.iso` từ <https://ubuntu.com/download/server> cùng file
+`SHA256SUMS` của Canonical. Kiểm trên PowerShell của host **trước khi** gắn vào VM:
+
+```powershell
+$isoPath = 'D:\ISO\ubuntu-24.04.4-live-server-amd64.iso'   # đổi theo nơi lưu
+$expected = '<giá trị dòng tương ứng trong SHA256SUMS>'     # với 24.04.4, đối chiếu thêm
+                                                            # bảng A1.3 của Lab 00
+$actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $isoPath).Hash.ToLowerInvariant()
+if ($actual -ne $expected) { throw "FAIL: ISO SHA256 mismatch" }
+'PASS: ISO hợp lệ'
+```
+
+#### 3.2.2. Tạo VM gốc `mc-golden`
+
+Trên VMware Workstation:
+
+1. **File → New Virtual Machine → Typical**.
+2. Ở bước chọn nguồn cài, chọn **"I will install the operating system later"** — KHÔNG trỏ
+   ISO ngay tại đây. Lý do: trỏ ISO lúc tạo VM sẽ kích hoạt **Easy Install** của VMware, nó
+   tự trả lời installer bằng đáp án riêng (user, partition) và phá các lựa chọn ở bước 6.
+3. Guest OS: **Linux → Ubuntu 64-bit**. Tên VM: `mc-golden`.
+4. Disk: **40 GB**, *Store virtual disk as a single file* (thin — chỉ chiếm chỗ thật theo
+   dung lượng dùng).
+5. **Customize Hardware**: 2 vCPU, 4096 MB RAM (chỉ cho lúc cài; clone sẽ đặt lại theo bảng
+   §2.2); **Network Adapter → NAT (VMnet8)** — golden dùng NAT để có DHCP + Internet lúc
+   cài, tuyệt đối không đụng Bridged/VMnet0 của các cluster cũ; Firmware: **UEFI** (tab
+   Options → Advanced nếu không thấy ở Hardware). Close → Finish.
+6. VM Settings → CD/DVD → *Use ISO image file* → trỏ file ISO đã kiểm → tick *Connect at
+   power on* → **Power On** và cài Ubuntu Server với các lựa chọn sau (mục nào không nhắc
+   thì giữ mặc định):
+   - *Try or Install Ubuntu Server* → ngôn ngữ/bàn phím tùy bạn.
+   - Type of installation: **Ubuntu Server** (bản chuẩn, không chọn *minimized* — cần đủ
+     công cụ chẩn đoán).
+   - Network: để DHCP trên NIC duy nhất — PASS tại chỗ: NIC hiện IP dải NAT của VMnet8.
+   - Proxy: để trống. Mirror: giữ mặc định.
+   - Storage: **Use an entire disk** và **BỎ TICK "Set up this disk as an LVM group"** —
+     không LVM thì bước mở rộng disk ở 3.2.5 chỉ cần `growpart` + `resize2fs`, ít tầng để
+     sai hơn.
+   - Profile: name `ubuntu`, server name `mc-golden`, username `ubuntu`, mật khẩu tự đặt
+     (ghi vào file secrets của §2.3).
+   - Ubuntu Pro: Skip. **SSH Setup: tick "Install OpenSSH server"**. Featured snaps: không
+     chọn gì.
+7. Cài xong → *Reboot Now* → khi VM lên lại, VM Settings → CD/DVD → bỏ tick *Connect at
+   power on* (nhả ISO).
+
+```bash
+# Đăng nhập console (hoặc SSH ubuntu@<IP DHCP mà console hiển thị>) và verify nền:
+lsb_release -d          # PASS: Ubuntu 24.04.x LTS
+ip -br a                # PASS: một NIC (thường ens33) có IP dải NAT
+lsblk                   # PASS: sda1 = ESP, sda2 = / (không có lvm)
+```
+
+#### 3.2.3. Chuẩn bị chung trên golden — làm MỘT lần, mọi clone thừa hưởng
 
 ```bash
 sudo apt-get update && sudo apt-get dist-upgrade -y
-# Tắt swap vĩnh viễn — kubelet của RKE2 cũng không chấp nhận swap.
+# Công cụ nền: open-vm-tools (tương tác VMware), cloud-guest-utils (growpart cho 3.2.5):
+sudo apt-get install -y open-vm-tools cloud-guest-utils curl
+# Tắt swap vĩnh viễn — kubelet của RKE2 không chấp nhận swap:
 sudo swapoff -a
 sudo sed -i.bak '/\sswap\s/s/^/#/' /etc/fstab
-# Đồng bộ giờ — lệch giờ làm TLS giữa các cụm chết ngầm.
+# Đồng bộ giờ — lệch giờ làm TLS giữa các cụm chết ngầm:
 sudo timedatectl set-ntp true
+# Chặn cloud-init quản mạng — thiếu dòng này, sau reboot cloud-init sinh lại netplan DHCP
+# và ghi đè IP tĩnh của §3.3 trên các bản clone:
+echo 'network: {config: disabled}' | \
+  sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
 
-swapon --show | wc -l          # PASS: 0
+swapon --show | wc -l                            # PASS: 0
+timedatectl show -p NTPSynchronized --value      # PASS: yes
+systemctl is-active open-vm-tools                # PASS: active
+```
+
+**Không cài** containerd/kubeadm/kubelet như Lab 00 — RKE2 tự mang containerd riêng; golden
+càng ít thứ càng ít lệch.
+
+#### 3.2.4. Snapshot mốc gốc
+
+```bash
+sudo shutdown -h now
+```
+
+VM tắt hẳn → chuột phải `mc-golden` → **Snapshot → Take Snapshot** → tên `golden-base`.
+Snapshot lúc **powered off** để mọi clone khởi đầu từ trạng thái disk sạch, không kèm RAM
+state. Từ đây không bật lại `mc-golden` nữa — nó chỉ là nguồn clone.
+
+#### 3.2.5. Full-clone 6 VM và tùy chỉnh phần cứng từng bản
+
+Với **từng** VM trong bảng §2.2: chuột phải `mc-golden` → **Manage → Clone** → nguồn
+**An existing snapshot: `golden-base`** → **Create a full clone** (không dùng linked clone —
+6 VM phải độc lập disk) → đặt đúng tên (`mc-router`, `mc-admin1`, `mc-cicd1`, `mc-app1`,
+`mc-app2`, `mc-db1`).
+
+Clone xong, **chưa bật vội** — mở VM Settings của từng bản và chỉnh theo bảng:
+
+| VM | RAM/vCPU (theo §2.2) | Network Adapter | Disk |
+| --- | --- | --- | --- |
+| `mc-router` | 1 GB / 1 | adapter 1 giữ **NAT**; **Add** 4 adapter mới → *Custom* → VMnet2, VMnet3, VMnet4, VMnet5 (đúng thứ tự) | giữ 40 GB |
+| `mc-admin1` | 6 GB / 4 | đổi sang *Custom* → **VMnet2** | **Expand** → 50 GB |
+| `mc-cicd1` | 8 GB / 4 | *Custom* → **VMnet3** | **Expand** → 60 GB |
+| `mc-app1` | 4 GB / 2 | *Custom* → **VMnet4** | giữ 40 GB + **Add → Hard Disk → SCSI → 20 GB** (disk Longhorn) |
+| `mc-app2` | 4 GB / 2 | *Custom* → **VMnet4** | như `mc-app1` |
+| `mc-db1` | 4 GB / 2 | *Custom* → **VMnet5** | giữ 40 GB |
+
+Ghi chú: nút **Expand** (Hard Disk → Expand) chỉ bấm được khi VM đang tắt và bản clone chưa
+có snapshot riêng — đúng trạng thái hiện tại. `mc-router`/`mc-db1` thừa hưởng disk 40 GB
+thin lớn hơn con số tối thiểu ở bảng §2.2 — chấp nhận, thin không chiếm chỗ thật.
+
+#### 3.2.6. Tách identity từng clone — qua CONSOLE VMware, từng máy một
+
+Các VMnet host-only đã **tắt DHCP** (§3.1) nên clone chưa có IP, chưa SSH được — mọi lệnh
+mục này gõ qua console VMware. Bật **từng VM một**, làm trọn các bước rồi mới sang VM kế:
+
+```bash
+# 1) Reset machine-id (tránh trùng định danh/DHCP DUID giữa các clone):
+sudo truncate -s 0 /etc/machine-id
+sudo rm -f /var/lib/dbus/machine-id
+sudo systemd-machine-id-setup
+
+# 2) Reset SSH host key (tránh cảnh báo trùng key khi SSH từ host):
+sudo rm -f /etc/ssh/ssh_host_*
+sudo dpkg-reconfigure openssh-server
+
+# 3) Hostname — đổi đúng theo tên VM đang làm:
+sudo hostnamectl set-hostname mc-router     # mc-admin1 / mc-cicd1 / mc-app1 / mc-app2 / mc-db1
+
+# 4) Bỏ netplan DHCP do cloud-init sinh từ đời golden:
+sudo mv /etc/netplan/50-cloud-init.yaml /etc/netplan/50-cloud-init.yaml.bak 2>/dev/null || true
+
+# 5) Viết netplan IP tĩnh theo đúng mẫu của VM này ở §3.3 rồi:
+sudo chmod 600 /etc/netplan/01-static.yaml
+sudo netplan apply
+
+# 6) Reboot — bắt buộc để machine-id mới và hostname áp dụng trọn:
+sudo reboot
+```
+
+Riêng `mc-router` dùng mẫu netplan 5 NIC ở §3.3; nhớ đối chiếu MAC trong VM Settings với
+`ip -br link` để gán đúng `ens33..ens37` theo thứ tự adapter.
+
+#### 3.2.7. Verify từng VM sau reboot
+
+SSH từ host vào từng máy qua host virtual adapter (ví dụ `ssh ubuntu@10.20.10.11`) — SSH
+được chính là bằng chứng netplan đúng:
+
+```bash
+hostnamectl | head -1            # PASS: đúng tên máy
+ip -br a                         # PASS: đúng IP tĩnh theo bảng §2.2, không còn IP DHCP
+swapon --show | wc -l            # PASS: 0 (thừa hưởng từ golden)
 timedatectl show -p NTPSynchronized --value   # PASS: yes
+cat /etc/machine-id              # ghi lại — so 6 VM phải ra 6 giá trị KHÁC nhau
+```
+
+Riêng hai máy expand disk, nới partition rồi filesystem (không LVM nên chỉ hai lệnh):
+
+```bash
+# mc-admin1 và mc-cicd1:
+lsblk                            # xác nhận: sda2 là partition / và disk đã là 50G/60G
+sudo growpart /dev/sda 2
+sudo resize2fs /dev/sda2
+df -h / | awk 'NR==2 {print $2}' # PASS: ~49G (admin1) / ~59G (cicd1)
+```
+
+Riêng hai node App, xác nhận disk Longhorn tồn tại (chưa format — §5.2 sẽ làm):
+
+```bash
+lsblk | grep -c '^sdb'           # PASS: 1 — disk 20 GB thứ hai hiện diện
 ```
 
 ### 3.3. Netplan cho từng VM

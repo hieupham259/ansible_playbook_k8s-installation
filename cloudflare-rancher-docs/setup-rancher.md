@@ -79,6 +79,53 @@ tiên được gửi, client và server phải xong màn chào hỏi gọi là *
 **HTTPS** đơn giản là **HTTP chạy bên trong kênh TLS đó**, cổng quy ước `:443`. Nội dung
 request/response không đổi; chỉ khác là người đứng giữa giờ chỉ thấy các byte ngẫu nhiên.
 
+Toàn bộ đường đi, mô phỏng trên ví dụ tự host `https://vidu.com` (server và cấu hình của ví dụ
+này được dựng đầy đủ ở mục "Ghép tất cả lại" bên dưới):
+
+```mermaid
+%%{init: {"themeVariables": {"noteBkgColor": "#f1f5ff", "noteBorderColor": "#8094c4", "noteTextColor": "#10203f"}}}%%
+sequenceDiagram
+    participant B as Browser
+    participant D as DNS resolver
+    participant N as nginx tại 203.0.113.10<br/>(một process nghe :443)
+
+    Note over B: Người dùng gõ https://vidu.com<br/>Browser tách ra: hostname vidu.com,<br/>port 443 (suy từ "https", DNS không mang port)
+
+    rect rgb(253, 243, 224)
+        Note over B,D: Giai đoạn 1 — DNS: tìm đúng cửa (chữ thuần)
+        B->>D: vidu.com là IP nào?
+        D-->>B: 203.0.113.10 (chỉ IP, không có port)
+    end
+
+    rect rgb(241, 245, 255)
+        Note over B,N: Giai đoạn 2 — TCP: mở đường truyền
+        B->>N: kết nối TCP tới 203.0.113.10:443
+    end
+
+    rect rgb(232, 244, 234)
+        Note over B,N: Giai đoạn 3 — TLS handshake (4 bước ở trên, còn chữ thuần)
+        B->>N: 1. ClientHello, SNI = vidu.com
+        N-->>B: 2. trình certificate của vidu.com<br/>(public key + chữ ký Let's Encrypt)
+        Note over B: 3. verify — chữ ký dẫn về Let's Encrypt<br/>trong trust store? Có → tin
+        B->>N: 4. thỏa thuận khóa mã hóa riêng cho phiên
+        Note over B,N: Kênh đã khóa — từ đây người đứng giữa<br/>chỉ thấy byte ngẫu nhiên
+    end
+
+    rect rgb(244, 246, 249)
+        Note over B,N: Giai đoạn 4 — HTTP chạy bên trong kênh TLS
+        B->>N: GET / — Host: vidu.com (được mã hóa)
+        N-->>B: 200 OK + nội dung trang (được mã hóa)
+    end
+```
+
+Đọc sơ đồ này cần để ý hai điều. Thứ nhất, **thứ tự là bắt buộc**: DNS phải xong mới có IP để
+mở TCP, TCP phải xong mới handshake được, handshake phải xong thì byte HTTP đầu tiên mới được
+gửi — vì vậy mọi thứ dùng để *chọn cert* phải nằm trong giai đoạn 3 (SNI), không thể dựa vào
+thứ nằm ở giai đoạn 4 (`Host` header). Thứ hai, **ranh giới mã hóa nằm giữa giai đoạn 3 và 4**:
+DNS query và ClientHello là chữ thuần, nên người đứng giữa vẫn biết bạn *kết nối tới* `vidu.com`
+— nhưng không đọc được đường dẫn, nội dung trang hay dữ liệu form, vì toàn bộ HTTP đã nằm trong
+kênh khóa.
+
 Điểm hay nhầm nhất — và là chìa khóa của cả bài: **trình cert và verify cert là hai việc khác
 nhau, ở hai phía khác nhau**. Server nào phục vụ HTTPS cũng trình cert (bước 2 luôn diễn ra);
 khác biệt nằm ở bước 3, do client quyết định:

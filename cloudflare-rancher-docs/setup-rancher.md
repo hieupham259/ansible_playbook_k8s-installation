@@ -13,9 +13,10 @@
 > không lặp lại phần đó; nó tập trung vào những gì Rancher **thêm vào** chuỗi: TLS nội bộ,
 > hai đường vào cùng một hostname, và lớp Cloudflare Access.
 
-Bố cục: nhìn nhanh §14 cài gì và để làm gì → từ điển khái niệm nền (certificate/CA, terminate
-TLS/SNI, CRD/webhook, etcd, các vai cluster quanh Rancher, `cattle-cluster-agent`, Server URL,
-origin, SSO/Access, split DNS, bảng từ nhanh) → sơ đồ toàn cảnh hai đường vào → sơ đồ tuần tự
+Bố cục: nhìn nhanh §14 cài gì và để làm gì → từ điển khái niệm nền (HTTP/HTTPS/TLS,
+certificate/CA, terminate TLS/SNI, CRD/webhook, etcd, các vai cluster quanh Rancher,
+`cattle-cluster-agent`, Server URL, origin, SSO/Access, split DNS, bảng từ nhanh) → sơ đồ toàn
+cảnh hai đường vào → sơ đồ tuần tự
 chuỗi cấp certificate → bản kể lại §14.0 → §14.7 bằng ngôn ngữ đơn giản → nền tảng ba công cụ
 Helm / cert-manager / Rancher → giải thích từng mục §14.0 → §14.7 (mỗi lệnh, mỗi flag, mỗi key
 trong values) → 15 mục đào sâu từng cơ chế.
@@ -45,7 +46,8 @@ trên cluster, nên nó cần ba thứ mà app demo của §13 không cần: **H
 (sinh ra cert-manager và CA riêng), **đường gọi nội bộ không phụ thuộc Internet** (sinh ra split
 DNS), và **cổng gác danh tính trước khi lộ ra Internet** (sinh ra Cloudflare Access). Ba nhu cầu
 đó đẻ ra gần hết thuật ngữ của bài; phần từ điển ngay dưới định nghĩa từng cái trước khi đi vào
-cơ chế.
+cơ chế — mở đầu bằng chính cụm khó nhất vừa nêu: HTTP/HTTPS/TLS là gì, origin là gì, và
+"HTTPS thật ngay tại origin" nghĩa là sao.
 
 ## Từ điển khái niệm nền
 
@@ -54,12 +56,54 @@ TLS → Kubernetes → Rancher → Cloudflare, khép lại bằng split DNS (th�
 bảng từ nhanh và chỉ dẫn tra những từ thuộc tài liệu khác. Đọc hết một lượt trước; các phần sau
 không dừng lại định nghĩa nữa.
 
+### HTTP, HTTPS và TLS — từ kênh chữ thuần tới kênh có khóa
+
+**HTTP (HyperText Transfer Protocol)** là giao thức hỏi–đáp giữa client và server: client gửi
+request (method như `GET`/`POST`, đường dẫn, các header như `Host`), server trả response (mã
+trạng thái như `200`/`404`/`502`, header, nội dung). Toàn bộ trao đổi là **chữ thuần** truyền
+thẳng trên mạng: mọi thiết bị đứng giữa — WiFi, router, ISP, proxy — đều đọc được và sửa được
+từng byte, và server **không phải chứng minh nó là ai** — HTTP không có khái niệm certificate.
+Cổng quy ước là `:80`.
+
+**TLS (Transport Layer Security)** là lớp bọc sửa cả hai điểm yếu đó. Trước khi byte HTTP đầu
+tiên được gửi, client và server phải xong màn chào hỏi gọi là **handshake** (kể đơn giản):
+
+1. Client chào server, khai hostname nó muốn gặp (chính là SNI — xem mục "Terminate TLS và
+   SNI" bên dưới).
+2. Server **trình certificate** — tấm thẻ chứa public key của server và chữ ký của CA (mục kế
+   tiếp định nghĩa kỹ). Cert được trình cho *mọi* client kết nối tới, nó không phải bí mật.
+3. Client đối chiếu chữ ký trên cert với danh sách CA nó tin — bước **verify**.
+4. Hai bên thỏa thuận khóa mã hóa dùng riêng cho phiên này; từ đây mọi byte đi qua đều được mã
+   hóa và chống sửa trộm.
+
+**HTTPS** đơn giản là **HTTP chạy bên trong kênh TLS đó**, cổng quy ước `:443`. Nội dung
+request/response không đổi; chỉ khác là người đứng giữa giờ chỉ thấy các byte ngẫu nhiên.
+
+Điểm hay nhầm nhất — và là chìa khóa của cả bài: **trình cert và verify cert là hai việc khác
+nhau, ở hai phía khác nhau**. Server nào phục vụ HTTPS cũng trình cert (bước 2 luôn diễn ra);
+khác biệt nằm ở bước 3, do client quyết định:
+
+| Client làm gì ở bước verify | Kết quả | Ví dụ trong bài |
+| --- | --- | --- |
+| Verify, chữ ký dẫn về CA nó tin | Kênh vừa mã hóa vừa **biết chắc đang nói với ai** | Browser ⇄ Cloudflare Edge; agent với `agentTLSMode: strict` |
+| Verify, FAIL (unknown authority) | Ngắt kết nối / báo lỗi | `cloudflared` nếu để `noTLSVerify: false` với CA riêng — lỗi `x509`, browser nhận `502` |
+| Chủ động bỏ verify (`curl -k`, `noTLSVerify: true`) | Vẫn mã hóa nhưng **không biết đang nói với ai** — chống nghe lén, không chống giả mạo | Gate §14.4 và hop `cloudflared` → Traefik |
+
+Từ đó đọc được cụm "**HTTPS thật ngay tại origin**" ở phần Nhìn nhanh. **Origin** là server
+thật đứng sau Cloudflare — nơi request cuối cùng phải tới; ở lab là Traefik (định nghĩa đầy đủ
+ở mục "Origin và origin parameter" bên dưới). Với app demo của §13, HTTPS chỉ tồn tại ở đoạn
+browser ⇄ Cloudflare Edge; hop cuối vào cluster chạy HTTP thường — không TLS, không cert nào
+được trình. Với Rancher thì khác: chính origin cũng phục vụ HTTPS với certificate riêng — client
+bên trong cluster mở kết nối là được trình cert thật, và verify được nếu được phát CA. Nhu cầu
+"origin phải có cert để trình" đó là thứ kéo cert-manager và CA riêng vào §14, điều app demo
+không cần.
+
 ### Certificate, CA và "ký" — nền của mọi kết nối TLS
 
-Khi client mở kết nối HTTPS, server phải trình một **certificate** — một file nhỏ gồm ba phần
-chính: tên server (hostname), public key của server, và **chữ ký** của bên phát hành. Certificate
-tồn tại để trả lời câu hỏi: "server đang nói chuyện với mình có đúng là `rancher.hieupn.site`
-không, hay là kẻ giả mạo đứng giữa?".
+Khi client mở kết nối HTTPS, server phải trình một **certificate** (bước 2 của handshake ở mục
+trên) — một file nhỏ gồm ba phần chính: tên server (hostname), public key của server, và
+**chữ ký** của bên phát hành. Certificate tồn tại để trả lời câu hỏi: "server đang nói chuyện
+với mình có đúng là `rancher.hieupn.site` không, hay là kẻ giả mạo đứng giữa?".
 
 **CA (Certificate Authority — nhà phát hành certificate)** là bên giữ một private key gốc chuyên
 dùng để **ký** certificate cho người khác. "Ký" là tạo chữ ký số: bất kỳ ai cầm certificate gốc

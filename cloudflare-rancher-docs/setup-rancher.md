@@ -325,9 +325,11 @@ flowchart TB
     style K8S fill:#f4f6f9,stroke:#8a97a6,stroke-width:1px,color:#2b3543
 ```
 
-Đường phía trên là **đường người**: browser → public DNS → Edge → Access gác → tunnel →
-`cloudflared` → Traefik. Đường phía dưới là **đường máy cục bộ**: client trong cụm `local` hỏi
-CoreDNS của chính cụm đó, nhận thẳng ClusterIP Traefik và không rời cluster. Cụm `local` **không
+Đường **bên phải**, xuất phát từ khối "Internet và Cloudflare" theo các bước đánh số `1` → `6`,
+là **đường người**: browser → public DNS → Edge → Access gác → tunnel → `cloudflared` → Traefik.
+Đường **bên trái**, nằm trọn trong khối Kubernetes theo các bước đánh chữ `a` → `c`, là **đường
+máy cục bộ**: client trong cụm `local` hỏi CoreDNS của chính cụm đó, nhận thẳng ClusterIP
+Traefik và không rời cluster. Cụm `local` **không
 có** `cattle-cluster-agent` (agent chỉ thuộc downstream cluster, xem mục đào sâu 14), nên client của đường
 này là mọi Pod local gọi hostname Rancher. Hai đường gặp nhau tại Traefik `:443`, nơi cùng một
 certificate trong Secret `tls-rancher-ingress` phục vụ cả hai — `cloudflared` chấp nhận nó mà

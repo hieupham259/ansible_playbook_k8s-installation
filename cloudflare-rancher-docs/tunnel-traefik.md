@@ -441,6 +441,10 @@ NAT/firewall tạo state cho session outbound. Sau khi session tồn tại, dữ
 
 Dashboard `Healthy` với `Replicas = 2` chứng minh hai Pod đã đăng ký và giữ được đường kết nối từ cluster tới Cloudflare.
 
+**Vì sao outbound thay được inbound?** Vì "chiều" của một kết nối chỉ tồn tại ở khoảnh khắc khởi tạo: bắt tay xong thì kênh là **hai chiều như nhau** — bên nào cũng gửi được, bên nào cũng nhận được. Router/NAT vận hành đúng theo nguyên lý đó: nó chặn kết nối *khởi tạo từ ngoài vào*, nhưng ghi state cho session *từ trong gọi ra* và cho toàn bộ dữ liệu trả về của session đó đi qua — nếu không thì việc duyệt web thường ngày đã không hoạt động (browser gọi ra, cả trang web đổ về, router không cần mở port nào). Giống một cuộc gọi điện thoại: ai bấm số không quyết định ai được nói; nối máy rồi thì hai bên bình đẳng. `cloudflared` là bên bấm số, Cloudflare là bên nghe máy; request của người dùng sau đó được Cloudflare "nói" xuống qua cuộc gọi đang mở. Cái giá của mô hình nằm ở mục 6: đường public sống chết theo các kết nối do connector giữ — connector chết hết thì hostname mất đường về origin dù DNS vẫn trỏ đúng.
+
+**`cloudflared` gọi ra khi nào — liên tục hay theo từng request?** Không phải mỗi request một lần gọi. Nó quay số đúng **một lần lúc container khởi động**: đọc token, mở mặc định bốn kết nối dài hạn tới ít nhất hai data center Cloudflare khác nhau, rồi giữ chúng sống bằng keep-alive. Từ đó trở đi nó không "gọi ra" thêm — mọi request được Edge multiplex (ghép kênh) xuống các kết nối sẵn có, nhiều request dùng chung một kết nối. `cloudflared` chỉ quay số lại khi một kết nối đứt (mạng chập chờn, Cloudflare bảo trì data center, Pod restart) — tự động nối lại, không cần ai can thiệp. Vì vậy trạng thái `Healthy` trên dashboard nghĩa là "các kết nối đang sống", không phải "vừa có request thành công".
+
 ## 3. Published application là bảng ánh xạ hostname → origin nội bộ
 
 Khai báo ở bước kế tiếp có ý nghĩa:

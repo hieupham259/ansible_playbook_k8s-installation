@@ -14,9 +14,9 @@
 > hai đường vào cùng một hostname, và lớp Cloudflare Access.
 
 Bố cục: nhìn nhanh §14 cài gì và để làm gì → từ điển khái niệm nền (HTTP/HTTPS/TLS,
-certificate/CA, terminate TLS/SNI, CRD/webhook, etcd, các vai cluster quanh Rancher,
-`cattle-cluster-agent`, Server URL, origin, SSO/Access, split DNS, bảng từ nhanh) → sơ đồ toàn
-cảnh hai đường vào → sơ đồ tuần tự
+certificate/CA, terminate TLS/SNI, ví dụ tự host một web server, CRD/webhook, etcd, các vai
+cluster quanh Rancher, `cattle-cluster-agent`, Server URL, origin, vì sao không mở inbound,
+SSO/Access, split DNS, bảng từ nhanh) → sơ đồ toàn cảnh hai đường vào → sơ đồ tuần tự
 chuỗi cấp certificate → bản kể lại §14.0 → §14.7 bằng ngôn ngữ đơn giản → nền tảng ba công cụ
 Helm / cert-manager / Rancher → giải thích từng mục §14.0 → §14.7 (mỗi lệnh, mỗi flag, mỗi key
 trong values) → 15 mục đào sâu từng cơ chế.
@@ -162,6 +162,49 @@ ClusterIP nhưng **giữ nguyên hostname** để SNI vẫn đúng (gọi bằng
 default như Client B); và `originServerName` của route §14.5 chính là chỗ đặt SNI cho hop
 `cloudflared` → Traefik (mục đào sâu 12).
 
+### Ghép tất cả lại — ví dụ tự host một web server có domain, không K8s
+
+Tạm quên K8s và Cloudflare. Bạn có một server với IP public `203.0.113.10`, muốn phục vụ
+`https://vidu.com` bằng nginx. Bốn chỗ phải cấu hình:
+
+1. **DNS — chỗ "config domain".** Trong trang quản lý DNS của domain (ở registrar nơi mua
+   domain, hoặc dịch vụ DNS riêng), tạo **A record** `vidu.com → 203.0.113.10`. Đó là *toàn bộ*
+   phần cấu hình domain: một bảng **tên → IP**, không hơn. DNS **không mang thông tin port** —
+   port do browser tự suy từ scheme (`https://` → `:443`, `http://` → `:80`). Hệ quả: muốn
+   người dùng chỉ gõ domain là vào được thì server phải nghe `:443`; nghe port khác vẫn chạy
+   nhưng URL phải kèm `:port` tường minh (`https://vidu.com:8443`).
+2. **Firewall/NAT.** Mở inbound `:80` + `:443` vào server (firewall của máy, security group,
+   port-forward trên router nếu sau NAT).
+3. **Web server.** Một process nginx nghe cả hai cổng — không có "service TLS" riêng nào:
+
+   ```nginx
+   server { listen 80;  server_name vidu.com; return 301 https://vidu.com$request_uri; }
+   server {
+       listen 443 ssl;
+       server_name vidu.com;                 # khớp với SNI/Host mà client gửi
+       ssl_certificate     /etc/ssl/vidu.com/fullchain.pem;
+       ssl_certificate_key /etc/ssl/vidu.com/privkey.pem;
+       root /var/www/vidu;
+   }
+   ```
+
+4. **Certificate.** Xin từ một public CA — phổ biến là Let's Encrypt qua `certbot`. CA bắt
+   chứng minh quyền sở hữu domain trước khi ký: đặt file thử thách lên `http://vidu.com`
+   (HTTP-01) hoặc tạo TXT record trong DNS (DNS-01). Cert cấp **cho tên miền**, không cho IP
+   hay port — vì thứ browser đối chiếu là hostname trong URL với tên trong cert.
+
+Luồng một request sau khi xong: browser tách URL (`vidu.com`, port `:443` suy từ `https`) →
+hỏi DNS, nhận `203.0.113.10` → mở TCP tới `:443` → handshake TLS với SNI `vidu.com`, nginx tra
+`server_name` khớp và trình cert, browser verify chữ ký về Let's Encrypt trong trust store →
+HTTP chạy bên trong kênh. Hai bảng ánh xạ **độc lập** cùng phải đúng: DNS đưa client tới
+**đúng cửa** (tên → IP), còn `server_name`/SNI chọn **đúng nhà sau cửa đó** (tên → site + cert).
+
+Lab của runbook khác ví dụ này ở đúng bước 2: VM nằm sau NAT, không có IP public, không mở
+inbound — nên bước đó được thay bằng Cloudflare Tunnel (mục "Vì sao cluster không mở port nào"
+bên dưới), và cert public ở bước 4 tách làm hai hệ: cert Cloudflare ở Edge + CA riêng ở origin
+(mục đào sâu 4). Còn DNS, SNI và vai trò `server_name` (trong lab là rule `Host` của Ingress) —
+bản chất giữ nguyên.
+
 ### "Cert do CA riêng của Rancher ký" nghĩa là gì
 
 Values `ingress.tls.source: rancher` ở §14.3 bảo Rancher: đừng xin cert từ bên ngoài, hãy **tự
@@ -269,6 +312,25 @@ Cảnh báo hai từ gần giống nhau: **Service URL** là tên *trường kha
 Cloudflare (giá trị `https://traefik.traefik.svc.cluster.local:443` ở trên) — đường `cloudflared`
 đi *vào* cluster. Nó khác hẳn **Server URL** của Rancher ở mục ngay trên — địa chỉ client gọi
 *tới* Rancher. Bài nào nhắc "Service URL" là đang nói chuyện phía Cloudflare.
+
+### Vì sao cluster không mở port nào mà Internet vẫn vào được
+
+Một kết nối mạng chỉ có "chiều" ở khoảnh khắc khởi tạo; bắt tay xong thì kênh là **hai chiều
+như nhau** — bên nào cũng gửi được, bên nào cũng nhận được. Router/NAT vận hành đúng theo đó:
+nó chặn kết nối *khởi tạo từ ngoài vào*, nhưng ghi state cho session *từ trong gọi ra* và cho
+toàn bộ dữ liệu trả về của session đó đi qua — nếu không thì duyệt web thường ngày đã không
+hoạt động (browser gọi ra, cả trang web đổ về, router không cần mở port nào). Như cuộc gọi
+điện thoại: ai bấm số không quyết định ai được nói; nối máy rồi thì hai bên bình đẳng.
+
+Cloudflare Tunnel tận dụng đúng cơ chế đó, chỉ đảo vai người bấm số. `cloudflared` trong
+cluster quay số **một lần lúc container khởi động**: mở mặc định bốn kết nối dài hạn tới ít
+nhất hai data center Cloudflare, rồi giữ chúng sống bằng keep-alive. Nó **không** gọi ra theo
+từng request — khi người dùng truy cập, Edge *ghép* (multiplex) request xuống kết nối đang mở
+sẵn, nhiều request dùng chung một kết nối; `cloudflared` chỉ quay số lại khi kết nối đứt. Đổi
+lại, đường public sống chết theo các kết nối này: connector chết hết là hostname mất đường về
+origin dù DNS vẫn trỏ đúng. Chi tiết từng hop ở [`tunnel-traefik.md`](tunnel-traefik.md) (mục
+1, 2, 6 của phần đào sâu). Mô hình "bên trong gọi ra" này cũng chính là thứ
+`cattle-cluster-agent` (mục trên) vay lại cho quan hệ downstream ⇄ Rancher.
 
 ### SSO, IdP, MFA — bộ từ quanh Cloudflare Access
 

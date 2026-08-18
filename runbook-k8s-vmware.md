@@ -3240,6 +3240,13 @@ kubectl get settings.management.cattle.io agent-tls-mode \
 
 **PASS §14:** Pod Rancher Ready; `server-url` là `https://rancher.hieupn.site`; `agent-tls-mode` là `strict`; UI `local` Active đủ 3 node; truy cập public bắt buộc đi qua Cloudflare Access. PASS này chỉ hoàn tất cụm `local`, không chứng minh reachability hoặc TLS của downstream agent.
 
+> ⚠️ **Đừng bấm `Cluster Management → Import Existing` ngay sau §14.** Cụm của lab là cụm `local` — Rancher quản nó trực tiếp, không cần đường mạng nào thêm; nhưng hai quyết định của §14 làm cho việc import một cụm **khác** chắc chắn hỏng theo cách khó chẩn đoán, dù mọi gate ở trên đều PASS:
+>
+> 1. Agent ở downstream cluster resolve `rancher.hieupn.site` bằng DNS của cluster **nó** — entry split DNS của [§14.2](#142-cấu-hình-split-dns-cho-client-trong-cụm-local) là tài sản riêng trong CoreDNS của cụm `local`, cluster khác không kế thừa — nên agent nhận IP Cloudflare và đâm vào trang đăng nhập tương tác của Access ([§14.5](#145-bảo-vệ-rancher-bằng-cloudflare-access-rồi-publish-qua-tunnel)), thứ mà một process không vượt được.
+> 2. Kể cả có vượt được Access, agent thấy certificate Cloudflare thay vì cert Rancher, và `agentTLSMode: strict` ([§14.3](#143-cài-rancher-helm-pin-2143)) buộc nó từ chối kết nối.
+>
+> Triệu chứng khi phạm phải: cluster import treo ở `Pending` không rõ lý do, trong khi mọi thứ của cụm `local` vẫn xanh. Trước khi import phải thiết kế và kiểm tra riêng một endpoint machine-to-machine: Server URL mà downstream truy cập được, không bị Access tương tác chặn, và trình đúng certificate mà agent verify được bằng CA Rancher công bố — xem mục đào sâu 14 của [`cloudflare-rancher-docs/setup-rancher.md`](cloudflare-rancher-docs/setup-rancher.md).
+
 > ⚠️ Chart Rancher 2.14.3 chặn Kubernetes `1.36`. Không nâng cluster lên `1.36` cho tới khi support matrix và `kubeVersion` của **chart Rancher sẽ nâng tới** đều cho phép; luôn nâng Rancher trước Kubernetes theo vùng version-skew chung.
 
 ---

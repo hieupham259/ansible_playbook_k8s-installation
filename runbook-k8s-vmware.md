@@ -2946,6 +2946,16 @@ kubectl run dns-check --rm -i --restart=Never --image=busybox:1.36 \
 
 **Vì sao client local cần nó.** Pod tích hợp API Rancher chạy trong chính cụm `local` gọi đúng Server URL `https://rancher.hieupn.site` (giá trị `hostname` trong values [§14.3](#143-cài-rancher-helm-pin-2143)). Không có split DNS, client hỏi CoreDNS → CoreDNS forward ra resolver công cộng → nhận IP Cloudflare → client đi vòng ra Internet để gọi... chính cluster của nó. Downstream agent không thuộc luồng này: nó chạy trong cluster khác, dùng DNS/network của cluster đó và cần một thiết kế reachability riêng.
 
+**Một Server URL cho mọi loại client — bước nào, lệnh nào phục vụ client nào.** Server URL chỉ có một vì nó là setting duy nhất phía server: giá trị xác nhận ở bước 3 của [§14.6](#146-đăng-nhập-lần-đầu) được Rancher đưa cho agent lúc đăng ký, in vào link trong UI và dùng trong các luồng redirect — không thể mỗi loại client một địa chỉ riêng. Vì vậy mọi client đều phải resolve và gọi được cùng cái tên `rancher.hieupn.site`, nhưng "resolve được" không có nghĩa là resolve ra cùng một IP: mỗi loại client được một tầng cấu hình khác nhau của §14 trả lời, và mỗi tầng có bước/lệnh kiểm riêng:
+
+| Client | Resolve bằng | Nhận về | Bước và lệnh tương ứng trong runbook |
+| --- | --- | --- | --- |
+| Browser ngoài Internet | Public DNS — record Proxied do Cloudflare tự tạo khi Save route | IP Cloudflare Edge | [§14.5](#145-bảo-vệ-rancher-bằng-cloudflare-access-rồi-publish-qua-tunnel) tạo Access rồi route; gate `curl` của §14.5 kỳ vọng `302/401/403` từ Access; [§13.1](#131-verify-dns-public-và-hiểu-vì-sao-kết-quả-là-ip-cloudflare) giải thích vì sao `nslookup` từ ngoài trả IP Cloudflare là đúng |
+| Pod trong cụm `local` | CoreDNS — khối `hosts` vừa thêm ở trên | ClusterIP Traefik | Chính §14.2 này: `kubectl edit configmap coredns` thêm entry, rollout restart, rồi `kubectl run dns-check … nslookup` phải trả đúng `$TRAEFIK_IP` |
+| Downstream agent (sau này) | DNS/network của cluster đó — ngoài tầm §14 | Chưa giải | [§14.7](#147-gate-hoàn-thành) chỉ kiểm hai setting bằng `kubectl get settings.management.cattle.io server-url` / `agent-tls-mode`; đường reachability của agent phải thiết kế riêng trước khi `Import Existing` |
+
+Hai lệnh `nslookup` trả kết quả ngược nhau — trong Pod ra ClusterIP (§14.2), ngoài Internet ra IP Cloudflare (§13.1) — đều PASS, vì chúng kiểm hai hàng khác nhau của bảng này. Lưu ý "Pod trong cụm `local`" là một vai chứ chưa phải một thành phần đang chạy: hiện chưa có workload thường trực nào trong cụm gọi Rancher; §14.2 tồn tại để đường đi có sẵn và đúng **trước khi** client như vậy xuất hiện.
+
 **Ý nghĩa từng lệnh chuẩn bị:**
 
 - `TRAEFIK_IP=$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.clusterIP}')` — đọc Service `traefik` trong namespace `traefik` và trích đúng field `.spec.clusterIP` bằng jsonpath (thay vì in cả bảng), gán vào biến shell. Đây là IP ảo ổn định của Traefik trong cluster — đích mà hostname phải trỏ tới. ClusterIP không đổi trong suốt đời Service, nhưng xoá/tạo lại Service là ra IP mới — nguồn gốc câu cảnh báo cuối gate PASS.
@@ -3193,7 +3203,7 @@ Nếu đọc Secret trước khi Rancher khởi tạo xong, `NotFound` chỉ có
 
 1. Mở `https://rancher.hieupn.site` → đăng nhập Cloudflare Access, sau đó đăng nhập Rancher bằng bootstrap password.
 2. Đặt mật khẩu admin mới.
-3. Xác nhận **Server URL** = `https://rancher.hieupn.site` (Rancher gợi ý sẵn). Không đổi hostname sau khi agent đã đăng ký nếu chưa có kế hoạch migration.
+3. Xác nhận **Server URL** = `https://rancher.hieupn.site` (Rancher gợi ý sẵn). Giá trị chốt ở đây là địa chỉ chung **duy nhất** cho mọi loại client — browser, Pod trong cụm `local`, agent downstream sau này — mỗi loại resolve nó theo một đường riêng, xem bảng "một Server URL cho mọi loại client" ở [§14.2.1](#1421-giải-thích-sâu--split-dns-ý-nghĩa-từng-lệnh-và-vì-sao-pass-phải-là-clusterip-traefik). Không đổi hostname sau khi agent đã đăng ký nếu chưa có kế hoạch migration.
 4. Vào **Cluster Management** → thấy cụm **`local`** = chính cụm kubeadm của bạn, trạng thái **Active**.
 
 Nếu đăng nhập Cloudflare Access xong nhưng trình duyệt hiện **Cloudflare 502 Bad gateway / Host Error**, chưa rollback Rancher và chưa tạo lại tunnel. Trang lỗi có **Browser Working + Cloudflare Working + Host Error** nghĩa là Access/Edge đã cho request đi qua nhưng `cloudflared` không hoàn tất được chặng tới origin. Kiểm tra lại route detail theo §14.5.1 trước; nếu ba Origin configurations đã đúng mà vẫn 502, chạy trên master:
@@ -3226,7 +3236,7 @@ kubectl get settings.management.cattle.io agent-tls-mode \
   -o jsonpath='{.value}{"\n"}'
 ```
 
-`cattle-cluster-agent` không nằm trong Helm chart Rancher, và theo kiến trúc Rancher nó thuộc về **downstream cluster** (agent mở tunnel outbound về cluster controller trong server); cụm `local` được Rancher quản trực tiếp bằng service account nên **không có Deployment này là kết quả đúng** — UI `local` Active trong khi `cattle-system` chỉ có `rancher` + `rancher-webhook` là trạng thái chuẩn, không phải cài thiếu. Gate local không chạy lệnh log `cattle-cluster-agent`; chỉ kiểm log agent trên chính downstream cluster sau khi cluster đó đã được import và inventory xác nhận Pod tồn tại. Việc cụm `local` không có `cattle-cluster-agent` cũng không chứng minh rằng không có `fleet-agent` hoặc `system-agent`; `agent-tls-mode` áp dụng cho cả ba loại agent. Nếu UI chưa Active thì kiểm tra log `deploy/rancher` và chờ controller reconcile.
+`cattle-cluster-agent` không nằm trong Helm chart Rancher, và theo kiến trúc Rancher nó thuộc về **downstream cluster** (agent mở tunnel outbound về cluster controller trong server); cụm `local` được Rancher quản trực tiếp bằng service account nên **không có Deployment này là kết quả đúng** — UI `local` Active trong khi `cattle-system` chỉ có `rancher` + `rancher-webhook` là trạng thái chuẩn, không phải cài thiếu. Gate local không chạy lệnh log `cattle-cluster-agent`; chỉ kiểm log agent trên chính downstream cluster sau khi cluster đó đã được import và inventory xác nhận Pod tồn tại. Việc cụm `local` không có `cattle-cluster-agent` cũng không chứng minh rằng không có `fleet-agent` hoặc `system-agent`; `agent-tls-mode` áp dụng cho cả ba loại agent. Giá trị `server-url` in ra ở đây chính là địa chỉ chung duy nhất mà mọi loại client dùng để gọi Rancher — browser và Pod local đã có đường resolve riêng cho nó, còn downstream agent thì chưa; đối chiếu bảng ở [§14.2.1](#1421-giải-thích-sâu--split-dns-ý-nghĩa-từng-lệnh-và-vì-sao-pass-phải-là-clusterip-traefik). Nếu UI chưa Active thì kiểm tra log `deploy/rancher` và chờ controller reconcile.
 
 **PASS §14:** Pod Rancher Ready; `server-url` là `https://rancher.hieupn.site`; `agent-tls-mode` là `strict`; UI `local` Active đủ 3 node; truy cập public bắt buộc đi qua Cloudflare Access. PASS này chỉ hoàn tất cụm `local`, không chứng minh reachability hoặc TLS của downstream agent.
 

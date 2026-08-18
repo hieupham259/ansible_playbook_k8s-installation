@@ -353,6 +353,25 @@ cluster sau này. Vì vậy phần lớn bài toán của §14 quy về một c�
 Access (mục đào sâu 13), client nội bộ giải bằng split DNS (mục đào sâu 6), còn downstream agent
 là bài chưa giải (mục đào sâu 14).
 
+Vì sao không cho mỗi loại client một địa chỉ riêng cho khỏe? Vì Server URL là một setting duy
+nhất phía server và được "khắc" vào khắp nơi: Rancher đưa chính giá trị này cho agent lúc đăng
+ký, in nó vào link trong UI và dùng nó trong các luồng redirect. Địa chỉ chỉ có một, nên bài
+toán phải giải theo chiều ngược lại: giữ nguyên một tên và làm cho **từng môi trường trả lời
+tên đó theo cách phù hợp với nó**. Hệ quả: mọi client đều phải resolve và gọi được cùng cái tên
+`rancher.hieupn.site` — nhưng "resolve được" không có nghĩa là resolve ra cùng một IP hay đi
+cùng một đường:
+
+| Client | Resolve bằng | Nhận về IP | Đường đi | Cert nhìn thấy |
+| --- | --- | --- | --- | --- |
+| Browser (Internet) | Public DNS | IP Cloudflare Edge | Edge → Access → tunnel → Traefik | Cert public của Cloudflare |
+| Pod trong cụm `local` | CoreDNS — entry `hosts` của §14.2 | ClusterIP Traefik | Thẳng trong cluster, không rời ra ngoài | Cert do CA riêng của Rancher ký |
+| Downstream agent (sau này) | DNS của cluster đó | Chưa giải | Chưa giải — Access chặn, cert phải khớp `strict` | Phải là cert Rancher |
+
+Cùng một tên, ba câu trả lời tùy nơi hỏi — hàng thứ hai chính là split DNS (mục dưới). Lưu ý
+phạm vi: "Pod trong cụm `local`" là một vai chứ chưa phải một thành phần đang chạy — hiện chưa
+có workload thường trực nào trong cụm gọi Rancher; yêu cầu của §14.2 là đường đi phải có sẵn và
+đúng **trước khi** client như vậy xuất hiện.
+
 ### Origin và origin parameter — từ vựng phía Cloudflare
 
 Trong từ vựng Cloudflare, **origin** là server thật đứng sau Edge — nơi request cuối cùng phải

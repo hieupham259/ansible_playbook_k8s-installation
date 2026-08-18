@@ -256,7 +256,15 @@ bản chất giữ nguyên.
 
 Values `ingress.tls.source: rancher` ở §14.3 bảo Rancher: đừng xin cert từ bên ngoài, hãy **tự
 tạo một private CA ngay trong cluster**, rồi để cert-manager dùng CA đó ký certificate cho
-`rancher.hieupn.site`. Hệ quả chia hai phía rõ rệt:
+`rancher.hieupn.site`.
+
+Câu "cert-manager dùng CA đó ký" hiểu theo nghĩa: **người thư ký cầm con dấu của công ty để
+đóng**. CA là con dấu — danh tính mà chữ ký dẫn về; cert-manager chỉ là bộ máy được giao con
+dấu để thực hiện thao tác ký (qua object `Issuer` — tờ khai "con dấu nào, lấy ở đâu"). Chữ ký
+có giá trị vì con dấu, không phải vì người thư ký — client verify cert chỉ thấy "CA riêng của
+Rancher", hoàn toàn không biết cert-manager tồn tại.
+
+Hệ quả chia hai phía rõ rệt:
 
 - **Client không được phát mẫu con dấu** — browser, `curl` trên master, `cloudflared` — thấy một
   cert hợp lệ về hình thức nhưng "unknown authority": vì vậy §14.4 phải `curl -k`, và route

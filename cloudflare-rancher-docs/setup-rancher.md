@@ -130,10 +130,37 @@ Rancher bằng HTTP `:80` (`ingress.servicePort: 80`). Vì thế "client thấy 
 HTTP" không mâu thuẫn: đoạn được mã hóa kết thúc ở Traefik.
 
 **SNI (Server Name Indication)** là trường trong bước chào của TLS handshake: client khai
-hostname nó muốn nói chuyện **trước khi** có bất kỳ byte HTTP nào. Server phục vụ nhiều hostname
-trên cùng một cổng dựa vào SNI để chọn certificate — Traefik `:443` thấy SNI
-`rancher.hieupn.site` thì trình cert Rancher thay vì cert default. `originServerName` của route
-§14.5 chính là chỗ đặt SNI cho hop `cloudflared` → Traefik (mục đào sâu 12).
+hostname nó muốn nói chuyện **trước khi** có bất kỳ byte HTTP nào.
+
+Vì sao phải khai sớm như vậy? Một server thường phục vụ **nhiều hostname trên cùng một IP và
+cổng** — chính Traefik của lab là ví dụ: mọi Ingress đều đổ về một Service ClusterIP duy nhất,
+cổng `:443`. Mỗi hostname có certificate riêng, và server phải chọn đúng cert để trình ngay ở
+bước 2 của handshake. Nhưng tại thời điểm đó server chưa có cách nào biết client muốn gặp ai:
+header `Host` — thứ vẫn dùng để phân biệt hostname — là dữ liệu HTTP, mà HTTP chỉ chạy **sau
+khi** handshake xong. Thành vòng con gà – quả trứng: muốn lập kênh phải trình cert → muốn chọn
+cert phải biết hostname → muốn biết hostname phải đọc HTTP → muốn đọc HTTP phải lập kênh xong.
+SNI phá vòng đó bằng cách cho client khai hostname dạng chữ thuần ngay trong gói chào đầu tiên.
+
+Ví dụ ngay trên Traefik của lab — cùng một địa chỉ, hai câu trả lời:
+
+```text
+Client A ── ClientHello, SNI = rancher.hieupn.site ──> Traefik :443
+Client A <── cert của rancher.hieupn.site (Secret tls-rancher-ingress) ──
+
+Client B ── ClientHello, không có SNI (gọi bằng IP trần) ──> cùng Traefik :443 đó
+Client B <── cert default tự ký "TRAEFIK DEFAULT CERT" ──
+```
+
+Client A khai SNI nên Traefik tra được đúng cert trong Secret `tls-rancher-ingress`. Client B
+gọi thẳng `https://<ClusterIP>` — kiểu gọi bằng IP không gửi SNI — nên Traefik không biết chọn
+cert nào, đành trả cert default tự ký của nó. Nếu mai này cluster có thêm `grafana.hieupn.site`
+với cert riêng, vẫn chỉ một cổng `:443` đó phục vụ tất cả: SNI là thứ quyết định cert nào được
+rút ra trình.
+
+Hiểu SNI thì đọc được hai chi tiết của runbook: `curl --resolve` ở §14.4 ép kết nối tới thẳng
+ClusterIP nhưng **giữ nguyên hostname** để SNI vẫn đúng (gọi bằng IP trần thì chỉ nhận cert
+default như Client B); và `originServerName` của route §14.5 chính là chỗ đặt SNI cho hop
+`cloudflared` → Traefik (mục đào sâu 12).
 
 ### "Cert do CA riêng của Rancher ký" nghĩa là gì
 

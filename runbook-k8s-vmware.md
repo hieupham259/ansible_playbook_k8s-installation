@@ -2720,8 +2720,47 @@ Traefik Service/Pod → Ingress Router (Host match) → Service web → Pod web
 >
 > **Phạm vi hỗ trợ:** chart Rancher `2.14.3` khai báo `kubeVersion: < 1.36.0-0`; support matrix v2.14.3 bao phủ Kubernetes `1.33–1.35` cho imported/other clusters, nên Kubernetes `1.35.6` của lab nằm trong dải tương thích. Tuy nhiên kubeadm tự dựng không nằm trong danh sách nền tảng **Rancher Manager host** được SUSE chứng nhận (RKE2, K3s và các managed Kubernetes được liệt kê riêng). Đây là cấu hình homelab tương thích về kỹ thuật, không phải topology Rancher production được chứng nhận end-to-end.
 
+### Vì sao không setup Rancher đơn giản như app demo — đọc trước khi thao tác
+
+Trước khi chạy lệnh nào của §14, cần trả lời câu hỏi mà mọi người học đều sẽ hỏi: app demo (§12–§13) chỉ cần một route `http://…:80` là xong, vì sao Rancher tốn thêm cert-manager, split DNS, CA riêng và Cloudflare Access? Có thể setup Rancher y hệt app demo không?
+
+**Câu trả lời thẳng: được, và nó sẽ chạy.** Cấu hình đó tồn tại thật (Rancher gọi là `tls=external`): route `http://…:80`, không cert trong cluster, không Access, không split DNS. Khi đó mọi luồng đều hoạt động:
+
+| Luồng | Kết quả |
+| --- | --- |
+| Browser mở `https://rancher.hieupn.site` | ✅ Chạy — HTTPS do Edge lo bằng cert public, y như app demo |
+| Đăng nhập, dùng UI | ✅ Chạy |
+| Pod nội bộ gọi Server URL | ✅ Chạy — đi vòng qua Edge, cert public hợp lệ nên verify OK |
+| Import downstream cluster, agent gọi về | ✅ Chạy — với `agentTLSMode: system-store`, agent tin cert public của Cloudflare |
+
+Không có gì gãy — tức là **không có yêu cầu kỹ thuật nào ép buộc cách setup của §14 cả**.
+
+**Lý do thật sự chỉ có một, và nó không phải kỹ thuật.** So sánh hai thứ đứng sau hai hostname: kẻ lạ trên Internet mở `app.hieupn.site` thấy trang "hello" của nginx — hết, không có gì để đăng nhập, không có gì để đánh cắp; phơi nó ra Internet là vô hại vì nó không cầm gì cả. Kẻ lạ mở `rancher.hieupn.site` (bản setup đơn giản) thấy **form đăng nhập + toàn bộ API** của công cụ đang cầm quyền `cluster-admin` — giữa kẻ đó và toàn bộ cluster chỉ còn **một lớp: mật khẩu Rancher**. Bot quét Internet sẽ tìm ra trang này trong vài giờ, thử mật khẩu vô hạn lần, và chờ CVE tiếp theo của Rancher (Rancher từng có lỗ hổng auth nghiêm trọng — không phải giả định). Quyết định duy nhất của §14 là: **không chấp nhận để cả Internet nói chuyện trực tiếp với thứ cầm chìa khóa tổng.** App demo không phải đưa ra quyết định này vì nó chẳng cầm chìa khóa nào.
+
+**Toàn bộ phức tạp còn lại là domino đổ từ quyết định đó:**
+
+```text
+QUYẾT ĐỊNH: chặn người lạ TRƯỚC KHI họ chạm được Rancher
+   ↓ hệ quả 1
+Phải đặt Access ở Edge — kiểm danh tính bằng SSO (§14.5)
+   ↓ hệ quả 2 (tác dụng phụ)
+Access chặn luôn client dạng máy (máy không đăng nhập SSO được)
+→ máy trong cụm cần một cửa riêng không đi qua Access → SPLIT DNS (§14.2)
+   ↓ hệ quả 3
+Cửa riêng đó phải phục vụ đúng URL https://rancher.hieupn.site
+(https là yêu cầu cứng duy nhất của Rancher — Server URL không nhận http://)
+→ cửa nội bộ phải tự trình cert cho tên này → CERT-MANAGER + CA RIÊNG (§14.1, §14.3)
+   ↓ tùy chọn gia cố thêm
+agentTLSMode: strict — khóa vòng agent về đúng một CA (§14.3)
+```
+
+Đọc ngược cũng đúng: **bỏ quyết định đầu tiên đi thì cả chuỗi domino biến mất** — không cần Access thì không cần split DNS, không cần split DNS thì client đi vòng qua Edge dùng cert public, không cần cert nội bộ, không cần cert-manager. Và đó *chính xác* là cấu hình của app demo.
+
+> Rancher không phức tạp hơn app vì kỹ thuật đòi hỏi — nó phức tạp hơn vì lab **chọn trả thêm bốn bước cài đặt để đổi lấy việc kẻ tấn công không bao giờ được nhìn thấy trang login của thứ cầm `cluster-admin`**. App demo không có gì để bảo vệ nên không phải trả gì. Chọn ngược lại (chạy Rancher public như app, dựa vào mật khẩu mạnh + MFA + vá nhanh) là một lựa chọn có thật ngoài đời — chỉ là lab này không chọn thế.
+
 Phần giải thích cơ chế của toàn bộ §14 đã tách sang [`cloudflare-rancher-docs/setup-rancher.md`](cloudflare-rancher-docs/setup-rancher.md) để runbook không phình dài — tương tự cách [`cloudflare-rancher-docs/tunnel-traefik.md`](cloudflare-rancher-docs/tunnel-traefik.md) giải thích §12. Tài liệu đó gồm:
 
+- câu hỏi mở màn "có thể setup Rancher đơn giản như app demo không?" — được, và vì sao lab không chọn thế (bản đầy đủ của mục "Vì sao không setup Rancher đơn giản như app demo" ở trên);
 - bảng nhìn nhanh "mỗi mục của §14 cài gì, phục vụ gì" và từ điển khái niệm nền cho người chưa quen: HTTP/HTTPS/TLS và handshake (trình cert khác verify cert thế nào, "HTTPS thật ngay tại origin" nghĩa là gì), certificate/CA và "ký", terminate TLS và SNI, "cert do CA riêng của Rancher ký" nghĩa là gì, CRD và webhook, etcd/snapshot, cụm `local` vs downstream cluster (kèm bảng so sánh các loại cluster), `cattle-cluster-agent`, Server URL, origin và origin parameter, SSO/IdP/MFA/Zero Trust, split DNS, ví dụ tự host một web server có domain ngoài K8s (DNS/firewall/nginx/cert), vì sao cluster không mở inbound mà Internet vẫn vào được (`cloudflared` gọi ra một lần lúc khởi động, giữ kết nối dài hạn), cộng bảng từ nhanh cho các thuật ngữ còn lại (RBAC, service account, static Pod, WebSocket, `X-Forwarded-Proto`…);
 - sơ đồ toàn cảnh **hai đường vào cùng một hostname trong cụm `local`** (browser qua Cloudflare Access, Pod local đi thẳng qua CoreDNS/Traefik) và sơ đồ tuần tự chuỗi cấp certificate;
 - bản kể lại §14.0 → §14.7 bằng ngôn ngữ đơn giản: vì sao từng mục đứng đúng ở vị trí của nó;

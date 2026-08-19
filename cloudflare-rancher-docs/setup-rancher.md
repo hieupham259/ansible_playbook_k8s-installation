@@ -13,7 +13,8 @@
 > không lặp lại phần đó; nó tập trung vào những gì Rancher **thêm vào** chuỗi: TLS nội bộ,
 > hai đường vào cùng một hostname, và lớp Cloudflare Access.
 
-Bố cục: nhìn nhanh §14 cài gì và để làm gì → từ điển khái niệm nền (HTTP/HTTPS/TLS,
+Bố cục: nhìn nhanh §14 cài gì và để làm gì → có thể setup đơn giản như app demo không (chuỗi
+domino từ một quyết định an ninh) → từ điển khái niệm nền (HTTP/HTTPS/TLS,
 certificate/CA, terminate TLS/SNI, ví dụ tự host một web server, CRD/webhook, etcd, các vai
 cluster quanh Rancher, `cattle-cluster-agent`, Server URL, origin, vì sao không mở inbound,
 SSO/Access, split DNS, bảng từ nhanh) → sơ đồ toàn cảnh hai đường vào → sơ đồ tuần tự
@@ -48,6 +49,59 @@ DNS), và **cổng gác danh tính trước khi lộ ra Internet** (sinh ra Clou
 đó đẻ ra gần hết thuật ngữ của bài; phần từ điển ngay dưới định nghĩa từng cái trước khi đi vào
 cơ chế — mở đầu bằng chính cụm khó nhất vừa nêu: HTTP/HTTPS/TLS là gì, origin là gì, và
 "HTTPS thật ngay tại origin" nghĩa là sao.
+
+### Có thể setup Rancher đơn giản như app demo không?
+
+**Câu trả lời thẳng: được, và nó sẽ chạy.** Cấu hình đó tồn tại thật (Rancher gọi là
+`tls=external`): route `http://…:80`, không cert trong cluster, không Access, không split DNS.
+Khi đó mọi luồng đều hoạt động:
+
+| Luồng | Kết quả |
+| --- | --- |
+| Browser mở `https://rancher.hieupn.site` | ✅ Chạy — HTTPS do Edge lo bằng cert public, y như app demo |
+| Đăng nhập, dùng UI | ✅ Chạy |
+| Pod nội bộ gọi Server URL | ✅ Chạy — đi vòng qua Edge, cert public hợp lệ nên verify OK |
+| Import downstream cluster, agent gọi về | ✅ Chạy — với `agentTLSMode: system-store`, agent tin cert public của Cloudflare |
+
+Không có gì gãy — tức là **không có yêu cầu kỹ thuật nào ép buộc cách setup của §14 cả**.
+
+**Lý do thật sự chỉ có một, và nó không phải kỹ thuật.** So sánh hai thứ đứng sau hai hostname:
+kẻ lạ trên Internet mở `app.hieupn.site` thấy trang "hello" của nginx — hết, không có gì để
+đăng nhập, không có gì để đánh cắp; phơi nó ra Internet là vô hại vì nó không cầm gì cả. Kẻ lạ
+mở `rancher.hieupn.site` (bản setup đơn giản) thấy **form đăng nhập + toàn bộ API** của công cụ
+đang cầm quyền `cluster-admin` — giữa kẻ đó và toàn bộ cluster chỉ còn **một lớp: mật khẩu
+Rancher**. Bot quét Internet sẽ tìm ra trang này trong vài giờ, thử mật khẩu vô hạn lần, và chờ
+CVE tiếp theo của Rancher (Rancher từng có lỗ hổng auth nghiêm trọng — không phải giả định).
+Quyết định duy nhất của §14 là: **không chấp nhận để cả Internet nói chuyện trực tiếp với thứ
+cầm chìa khóa tổng.** App demo không phải đưa ra quyết định này vì nó chẳng cầm chìa khóa nào.
+
+**Toàn bộ phức tạp còn lại là domino đổ từ quyết định đó:**
+
+```text
+QUYẾT ĐỊNH: chặn người lạ TRƯỚC KHI họ chạm được Rancher
+   ↓ hệ quả 1
+Phải đặt Access ở Edge — kiểm danh tính bằng SSO (§14.5)
+   ↓ hệ quả 2 (tác dụng phụ)
+Access chặn luôn client dạng máy (máy không đăng nhập SSO được)
+→ máy trong cụm cần một cửa riêng không đi qua Access → SPLIT DNS (§14.2)
+   ↓ hệ quả 3
+Cửa riêng đó phải phục vụ đúng URL https://rancher.hieupn.site
+(https là yêu cầu cứng duy nhất của Rancher — Server URL không nhận http://)
+→ cửa nội bộ phải tự trình cert cho tên này → CERT-MANAGER + CA RIÊNG (§14.1, §14.3)
+   ↓ tùy chọn gia cố thêm
+agentTLSMode: strict — khóa vòng agent về đúng một CA (§14.3)
+```
+
+Đọc ngược cũng đúng: **bỏ quyết định đầu tiên đi thì cả chuỗi domino biến mất** — không cần
+Access thì không cần split DNS, không cần split DNS thì client đi vòng qua Edge dùng cert
+public, không cần cert nội bộ, không cần cert-manager. Và đó *chính xác* là cấu hình của app
+demo.
+
+> Rancher không phức tạp hơn app vì kỹ thuật đòi hỏi — nó phức tạp hơn vì lab **chọn trả thêm
+> bốn bước cài đặt để đổi lấy việc kẻ tấn công không bao giờ được nhìn thấy trang login của thứ
+> cầm `cluster-admin`**. App demo không có gì để bảo vệ nên không phải trả gì. Chọn ngược lại
+> (chạy Rancher public như app, dựa vào mật khẩu mạnh + MFA + vá nhanh) là một lựa chọn có thật
+> ngoài đời — chỉ là lab này không chọn thế.
 
 ## Từ điển khái niệm nền
 
@@ -609,6 +663,41 @@ certificate trong Secret `tls-rancher-ingress` phục vụ cả hai — `cloudfl
 không verify (`noTLSVerify`), còn client local thấy cert do CA riêng của Rancher ký. `Access
 application`, `Published application route`, `Ingress` và `Secret` là control-plane/cấu hình,
 không phải hop mạng. Sơ đồ này không mô tả đường mạng của downstream cluster.
+
+Hai chuỗi của sơ đồ, kể bằng lời — mô tả chung nhất trước khi đi vào chi tiết:
+
+**Chuỗi ngoài cụm (browser → `cloudflared`):**
+
+1. Browser tách `https://rancher.hieupn.site` thành hostname + port `443`, hỏi public DNS và
+   nhận IP Cloudflare Edge (record Proxied).
+2. Browser mở TLS `:443` tới Edge; Edge trình cert public của Cloudflare — browser verify
+   thành công bằng trust store của nó.
+3. Access đứng ngay tại Edge kiểm tra session SSO: chưa có thì trả trang login; policy Allow
+   đạt mới cho request đi tiếp.
+4. Edge tra Published application route: hostname này thuộc tunnel `homelab-k8s`, origin
+   `https://traefik.traefik.svc.cluster.local:443` — rồi đẩy request xuống kết nối tunnel mà
+   `cloudflared` đã mở sẵn từ trong cluster ra.
+
+**Chuỗi trong cụm (`cloudflared` → Pod Rancher):**
+
+1. `cloudflared` nhận request từ tunnel và từ đây đóng vai **client**: hỏi CoreDNS để resolve
+   `traefik.traefik.svc.cluster.local`, nhận ClusterIP của Service `traefik`.
+2. Nó tạo kết nối TLS `:443` tới ClusterIP đó (dataplane của Service chọn một Traefik Pod),
+   khai SNI = `rancher.hieupn.site` theo `originServerName`.
+3. **Traefik làm terminate TLS**: lấy certificate từ Secret `tls-rancher-ingress` trình về cho
+   `cloudflared`; `cloudflared` **không verify** theo cấu hình `noTLSVerify: true`; hai bên
+   thỏa thuận khóa phiên — kênh mã hóa hình thành.
+4. `cloudflared` gửi request HTTP bên trong kênh, `Host: rancher.hieupn.site` theo
+   `httpHostHeader`; Traefik giải mã bằng khóa phiên, khớp `Host` với router đã nạp từ Ingress
+   `rancher`, gắn `X-Forwarded-Proto: https`, rồi mở kết nối HTTP `:80` tới Service `rancher`
+   — Service chọn Pod Rancher xử lý.
+5. Response đi ngược đúng chuỗi: Pod Rancher → Traefik (mã hóa vào cùng phiên TLS) →
+   `cloudflared` → tunnel → Edge → browser.
+
+**Đường máy cục bộ** dùng lại nguyên chuỗi trong cụm từ bước 2 trở đi, chỉ khác đầu vào:
+client nội bộ hỏi CoreDNS bằng chính tên `rancher.hieupn.site` (entry `hosts` của §14.2 trả
+thẳng ClusterIP Traefik), và ở bước 3 quyền verify thuộc về client đó — nó thấy cert do CA
+riêng của Rancher ký, tin hay không tùy trust store của nó, `noTLSVerify` không can dự.
 
 ## Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`
 

@@ -392,6 +392,19 @@ Hệ quả chia hai phía rõ rệt:
 - **Agent của Rancher thì verify được**: khi agent đăng ký với server, Rancher công bố CA gốc
   cho nó — đây là nền để `agentTLSMode: strict` (mục đào sâu 5) có nghĩa.
 
+Cùng một tấm cert này, Traefik trình cho **mọi** client kết nối `:443` với SNI
+`rancher.hieupn.site` — nhưng mỗi client chỉ dùng một phần giá trị của nó:
+
+| | Nửa "lập kênh mã hóa" | Nửa "chứng minh danh tính" |
+| --- | --- | --- |
+| Ai hưởng? | **Mọi** client — kể cả `cloudflared` | Chỉ client có verify (Pod được phát CA, agent `strict`) |
+| Cert rác thay được không? | Được — handshake không cần cert "xịn", cert default của Traefik cũng lập kênh được | Không — verify FAIL nếu chữ ký không dẫn về đúng CA |
+| Là lý do cài cert-manager + CA? | Không | **Có** — đây là lý do tồn tại của §14.1 và CA riêng |
+
+Ẩn dụ: cert như hợp đồng có dấu công chứng — ai nhận cũng nhận cùng một bản có dấu, nhưng lý do
+phải công chứng thật (thay vì vẽ dấu bằng tay) là vì có người sẽ mang đi kiểm; với người không
+bao giờ kiểm (`cloudflared` + `noTLSVerify`), dấu thật hay dấu vẽ không khác gì nhau.
+
 Vì sao không dùng cert public cho origin? Vì đường browser đã có cert public của Cloudflare ở
 Edge (mục đào sâu 4); cert tại origin chỉ phục vụ client nội bộ và agent, nên một CA riêng sống
 trọn trong cluster — không cần Internet để cấp hay gia hạn — là đủ và đơn giản hơn.
@@ -491,6 +504,20 @@ Cùng một tên, ba câu trả lời tùy nơi hỏi — hàng thứ hai chính
 phạm vi: "Pod trong cụm `local`" là một vai chứ chưa phải một thành phần đang chạy — hiện chưa
 có workload thường trực nào trong cụm gọi Rancher; yêu cầu của §14.2 là đường đi phải có sẵn và
 đúng **trước khi** client như vậy xuất hiện.
+
+Cụ thể hóa cái "vai" đó — những client/Pod có thể đứng vào, và trạng thái từng loại:
+
+| Client/Pod | Thuộc đâu | Trạng thái hôm nay |
+| --- | --- | --- |
+| Pod test `dns-check` (§14.2) | Không thuộc service nào — busybox tạo tạm bằng `kubectl run`, xóa ngay | Có thật, nhưng chỉ test DNS, không verify cert |
+| `curl` gate §14.4 | Chạy trên master, không phải Pod | Có thật, nhưng dùng `-k` — cố tình bỏ verify |
+| `fleet-agent`, `system-agent` (Rancher tự sinh) | `cattle-fleet-local-system` / node-level | Có thể gọi Server URL — bài này cố ý không khẳng định; §14.7 không kiểm hành vi TLS của chúng (mục đào sâu 5) |
+| Workload tự triển khai gọi Rancher API (CI/CD, script, operator) | Tùy người dùng đặt | Chưa tồn tại |
+| `cattle-cluster-agent` chạy `strict` | `cattle-system` — nhưng của **downstream cluster** | Tương lai, và ở cluster khác (mục đào sâu 14) |
+
+Nghĩa là ngay lúc này không có Pod thường trực nào trong cụm đang verify cert bằng CA Rancher —
+kể cả hai công cụ test của runbook cũng bỏ verify. Nửa "danh tính" của cert (mục "Cert do CA
+riêng của Rancher ký" ở trên) là hạ tầng xây trước cho người đến sau.
 
 ### Origin và origin parameter — từ vựng phía Cloudflare
 
@@ -684,9 +711,11 @@ Hai chuỗi của sơ đồ, kể bằng lời — mô tả chung nhất trướ
    `traefik.traefik.svc.cluster.local`, nhận ClusterIP của Service `traefik`.
 2. Nó tạo kết nối TLS `:443` tới ClusterIP đó (dataplane của Service chọn một Traefik Pod),
    khai SNI = `rancher.hieupn.site` theo `originServerName`.
-3. **Traefik làm terminate TLS**: lấy certificate từ Secret `tls-rancher-ingress` trình về cho
-   `cloudflared`; `cloudflared` **không verify** theo cấu hình `noTLSVerify: true`; hai bên
-   thỏa thuận khóa phiên — kênh mã hóa hình thành.
+3. **Traefik làm terminate TLS**: tra SNI vừa nhận để chọn certificate — khớp
+   `rancher.hieupn.site` thì rút cert từ Secret `tls-rancher-ingress` (cert do cert-manager cấp
+   từ CA riêng của Rancher — sơ đồ tuần tự bên dưới), không khớp thì chỉ còn cert default tự
+   ký — rồi trình về cho `cloudflared`; `cloudflared` **không verify** theo cấu hình
+   `noTLSVerify: true`; hai bên thỏa thuận khóa phiên — kênh mã hóa hình thành.
 4. `cloudflared` gửi request HTTP bên trong kênh, `Host: rancher.hieupn.site` theo
    `httpHostHeader`; Traefik giải mã bằng khóa phiên, khớp `Host` với router đã nạp từ Ingress
    `rancher`, gắn `X-Forwarded-Proto: https`, rồi mở kết nối HTTP `:80` tới Service `rancher`
@@ -694,10 +723,27 @@ Hai chuỗi của sơ đồ, kể bằng lời — mô tả chung nhất trướ
 5. Response đi ngược đúng chuỗi: Pod Rancher → Traefik (mã hóa vào cùng phiên TLS) →
    `cloudflared` → tunnel → Edge → browser.
 
-**Đường máy cục bộ** dùng lại nguyên chuỗi trong cụm từ bước 2 trở đi, chỉ khác đầu vào:
-client nội bộ hỏi CoreDNS bằng chính tên `rancher.hieupn.site` (entry `hosts` của §14.2 trả
-thẳng ClusterIP Traefik), và ở bước 3 quyền verify thuộc về client đó — nó thấy cert do CA
-riêng của Rancher ký, tin hay không tùy trust store của nó, `noTLSVerify` không can dự.
+**Chuỗi trong cụm — đường máy cục bộ (client nội bộ → Pod Rancher):**
+
+1. Một Pod trong cụm gọi `https://rancher.hieupn.site` (Server URL). Nó hỏi CoreDNS; entry
+   `hosts` của §14.2 chặn query, trả **ClusterIP của Service `traefik`** — không rời cluster,
+   không đụng public DNS.
+2. Pod tạo kết nối TLS `:443` tới ClusterIP đó (dataplane của Service chọn một Traefik Pod),
+   khai SNI = `rancher.hieupn.site` — SNI lần này đến thẳng từ URL client gọi, không cần
+   `originServerName` nào đặt hộ.
+3. Traefik terminate TLS y hệt: tra SNI, rút cert từ Secret `tls-rancher-ingress` trình ra.
+   **Bước verify thuộc về chính client**: được phát CA Rancher thì verify PASS trọn vẹn — đây
+   là lúc nửa "danh tính" của cert phát huy; không có CA thì `x509: certificate signed by
+   unknown authority`, hoặc client tự tắt verify bằng cờ của nó (`curl -k`). `noTLSVerify`
+   không can dự — đó là cấu hình của `cloudflared`, không phải của Pod này.
+4. Client gửi HTTP trong kênh, `Host: rancher.hieupn.site` (tự có từ URL); Traefik giải mã,
+   khớp router từ Ingress, gắn `X-Forwarded-Proto: https`, mở kết nối HTTP `:80` tới Service
+   `rancher` — Service chọn Pod Rancher.
+5. Response: Pod Rancher → Traefik (mã hóa vào cùng phiên TLS) → client. Không Edge, không
+   tunnel, không Access.
+
+Hai chuỗi trong cụm chỉ khác nhau ở đầu vào (ai resolve tên gì, SNI do ai đặt) và ở bước 3
+(ai quyết định verify); từ Traefik trở xuống là một.
 
 ## Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`
 

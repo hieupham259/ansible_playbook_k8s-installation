@@ -1057,6 +1057,44 @@ còn:
   `nslookup` từ VM hay máy host hỏi resolver khác, không chứng minh được đường mà client trong
   cluster sẽ đi.
 
+**Vì sao Rancher cần split DNS còn app demo thì không.** Trước hết phải đặt lại khung: split
+DNS không "phục vụ cả đường browser" — đường browser chạy bằng **public DNS**, record do
+Cloudflare tự tạo khi Save route, tồn tại sẵn và không liên quan tới §14.2. Split DNS chỉ là
+**nửa còn lại**: thêm câu trả lời *nội bộ* cho cùng cái tên. Vậy câu hỏi đúng là: *app demo có
+cần câu trả lời nội bộ không?* — không, vì ba lý do:
+
+1. **Không Pod nào trong cluster cần gọi `app.hieupn.site`.** App demo là *đích đến cho người
+   ngoài Internet*, không phải dịch vụ mà thành phần trong cụm gọi tới. Nếu một Pod thật sự
+   muốn gọi app demo, cách chuẩn của Kubernetes là gọi bằng **tên Service nội bộ**
+   `web.default.svc.cluster.local:80` — tên này CoreDNS trả lời sẵn, không cần cấu hình gì
+   thêm. Hostname public chỉ là "biển hiệu ngoài phố"; trong nhà gọi nhau bằng tên nội bộ.
+2. **Rancher thì khác — nó có Server URL.** `https://rancher.hieupn.site` là địa chỉ bị "khắc"
+   vào khắp nơi (agent đăng ký, link trong UI, redirect — xem mục Server URL của từ điển), nên
+   tồn tại một **vai** client nội bộ buộc phải gọi đúng cái tên public đó — không thay bằng tên
+   Service nội bộ được, vì cert chỉ đúng cho `rancher.hieupn.site` và mọi cấu hình đều trỏ về
+   tên đó. App demo không có gì tương đương: không config nào ép ai trong cụm phải dùng
+   `app.hieupn.site`.
+3. **Kể cả khi một Pod "lỡ" gọi `app.hieupn.site` — nó vẫn chạy được.** Không có split DNS, Pod
+   resolve ra IP Cloudflare Edge và đi vòng: NAT → Edge → tunnel → về lại chính cluster. Đường
+   vòng này **không hỏng** với app demo, vì hai rào cản của Rancher đều vắng mặt:
+
+| Rào cản trên đường vòng | `rancher.hieupn.site` | `app.hieupn.site` |
+| --- | --- | --- |
+| Cloudflare Access | Có — process kẹt ở trang login SSO | Không có — app cố ý public |
+| Certificate | Client thấy cert Cloudflare, không khớp CA Rancher (`strict` ngắt) | Cert Cloudflare là cert public hợp lệ — client verify bình thường, PASS |
+
+Tức là với app demo, thiếu split DNS chỉ tốn một đường vòng xấu (phụ thuộc Internet, chậm hơn)
+chứ không gãy chức năng. Với Rancher, đường vòng đó **gãy hẳn** — nên split DNS từ "nice to
+have" trở thành bắt buộc, và §14.2 phải đứng trước cả bước cài Rancher.
+
+Tóm gọn: split DNS tồn tại không phải vì "trong cụm có domain thì phải resolve nội bộ", mà vì
+**Rancher tạo ra một loại client nội bộ buộc phải gọi tên public trong điều kiện tên đó đã bị
+Access + CA riêng chặn đường vòng**. App demo không tạo ra loại client nào như vậy — ai trong
+cụm cần nó thì gọi `web.default.svc.cluster.local`, ai ngoài Internet cần nó thì đi qua Edge.
+Hai thế giới không giao nhau, nên không cần "một tên hai câu trả lời" (với app demo, câu hỏi
+của mục đào sâu 7 — "vì sao không cho client nội bộ đi chung đường với browser" — không đặt ra
+vì không có client nội bộ nào cả).
+
 Giải thích từng lệnh và từng dòng đầy đủ nằm ở §14.2.1 của runbook. Xem
 [CoreDNS — hosts plugin](https://coredns.io/plugins/hosts/).
 

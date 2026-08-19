@@ -176,41 +176,71 @@ kênh khác. Trong lab, Traefik terminate TLS cho `rancher.hieupn.site` — cert
 Rancher bằng HTTP `:80` (`ingress.servicePort: 80`). Vì thế "client thấy HTTPS" và "Rancher nghe
 HTTP" không mâu thuẫn: đoạn được mã hóa kết thúc ở Traefik.
 
-Trình tự chính xác tại điểm terminate, chiếu theo 4 bước handshake ở mục trên:
+Ba chi tiết làm mô tả trên chính xác hẳn:
+
+**1. Cert không phải thứ trực tiếp "giải mã traffic" — nó phục vụ handshake.** Trình tự chính
+xác, khớp với 4 bước handshake trong mục HTTP/HTTPS/TLS ở trên:
 
 ```text
 (từ trước)  Traefik đã watch Ingress/Secret và nạp sẵn cert + private key vào bộ nhớ
 1. Kết nối TLS tới :443 → client khai SNI = rancher.hieupn.site
-2. Traefik tra SNI, rút đúng cert trong tls-rancher-ingress ra trình      ← cert dùng ở ĐÂY
-3. Client xử lý cert — verify hay bỏ qua là quyền của client
-4. Hai bên thỏa thuận KHÓA PHIÊN                                          ← thứ giải mã là ĐÂY
+2. Traefik tra SNI, rút đúng cert (từ tls-rancher-ingress) ra trình          ← cert dùng ở ĐÂY
+3. Client xử lý cert (verify hoặc bỏ qua tùy client)
+4. Hai bên thỏa thuận KHÓA PHIÊN                                             ← thứ giải mã là ĐÂY
 →  Từ đó mọi byte được mã hóa/giải mã bằng khóa phiên, không phải bằng cert
 ```
 
-Ba chi tiết làm trình tự này chính xác hẳn:
+Tức là: cert + private key là "căn cước + chữ ký" để lập kênh; còn việc mã hóa/giải mã dữ liệu
+chạy bằng khóa phiên sinh ra ở bước 4. Nói "lấy cert rồi giải mã" là cách nói gọn chấp nhận
+được, nhưng cơ chế thật là "dùng cert để lập kênh, dùng khóa phiên để giải mã".
 
-- **Cert không trực tiếp giải mã traffic.** Cert + private key là "căn cước + chữ ký" phục vụ
-  handshake (bước 2); dữ liệu được mã hóa/giải mã bằng khóa phiên sinh ra ở bước 4. Nói "dùng
-  cert để giải mã" là cách nói gọn; cơ chế thật là "dùng cert để lập kênh, dùng khóa phiên để
-  giải mã".
-- **Sau khi giải mã, Traefik không chuyển mù xuống Pod.** Nó đọc HTTP trần vừa bóc: lấy `Host`
-  header + path → khớp router đã nạp từ Ingress `rancher` → gắn `X-Forwarded-Proto: https`
-  (mục đào sâu 10) → mới mở kết nối HTTP `:80` tới Service `rancher`, và Service chọn Pod.
-  `Host` không khớp router nào thì Traefik trả `404` tại chỗ — Pod Rancher không bao giờ thấy
-  request đó.
-- **Terminate TLS là điểm hai chiều.** Response từ Pod Rancher quay về Traefik dạng HTTP trần,
-  và chính Traefik mã hóa nó vào cùng phiên TLS để trả cho client: bóc phong bì chiều vào, dán
-  phong bì chiều ra.
+**2. Sau khi giải mã, Traefik không chuyển mù xuống Pod.** Nó là lễ tân, không phải ống nước:
+đọc HTTP trần vừa giải mã → lấy `Host` header + path → khớp với router đã nạp từ Ingress
+`rancher` → gắn thêm header như `X-Forwarded-Proto: https` (để Rancher biết client gốc dùng
+HTTPS, tránh redirect-loop — mục đào sâu 10) → rồi mới mở kết nối HTTP `:80` tới Service
+`rancher`, và Service chọn Pod. Nếu `Host` không khớp router nào thì trả `404` ngay tại
+Traefik, Pod Rancher không bao giờ thấy request.
 
-Trình tự trên áp dụng cho **cả hai đường vào**: session từ `cloudflared` lẫn session của client
-nội bộ đều được Traefik terminate y hệt — cùng cert, khác khóa phiên. Và trong toàn bộ trình
-tự, `noTLSVerify: true` của route §14.5 chỉ chạm đúng **một chỗ: bước 3, trong các session do
-`cloudflared` khởi tạo** — thay vì tra chữ ký về trust store (nơi CA riêng của Rancher vắng
-mặt; verify sẽ ra `x509: certificate signed by unknown authority` và ngắt ngay, browser nhận
-`502`), nó nhảy thẳng sang bước 4. Bước 1, 2, 4 diễn ra nguyên vẹn nên kênh **vẫn mã hóa** —
-chỉ thiếu phần "biết chắc đang nói với ai" (mục đào sâu 12). Client nội bộ có bước 3 của riêng
-nó: verify hay bỏ qua do trust store hoặc cờ (`curl -k`) của chính client đó quyết định,
-`noTLSVerify` không với tới.
+**3. "Kết thúc TLS" là điểm hai chiều, không chỉ giải mã chiều vào.** Response từ Pod Rancher
+quay về Traefik dạng HTTP trần, và chính Traefik mã hóa nó vào cùng phiên TLS để trả cho
+client. Nên chính xác hơn là: Traefik là điểm mà kênh mã hóa **bắt đầu và kết thúc về phía
+cluster** — bóc phong bì chiều vào, dán phong bì chiều ra.
+
+Lưu ý về phạm vi: cơ chế trên không chỉ áp dụng cho traffic từ tunnel gửi đến — cùng cơ chế đó
+áp dụng cho **cả hai đường**: client nội bộ trong cụm gọi thẳng ClusterIP `:443` cũng được
+Traefik terminate y hệt, cùng cert, cùng khóa phiên riêng của nó. Đó chính là ý "hai đường gặp
+nhau tại Traefik `:443`" trong sơ đồ toàn cảnh.
+
+**Vậy `noTLSVerify: true` tác dụng ở đâu trong trình tự này?** Đúng một chỗ duy nhất — bước 3,
+dòng "Client xử lý cert":
+
+```text
+1. Client khai SNI                              ← noTLSVerify không liên quan
+2. Traefik trình cert                           ← vẫn diễn ra nguyên vẹn, không bị ảnh hưởng
+3. Client xử lý cert                            ← noTLSVerify: true tác dụng Ở ĐÂY:
+                                                   cloudflared chọn nhánh "bỏ qua" — không
+                                                   đối chiếu chữ ký về CA nào cả
+4. Thỏa thuận khóa phiên                        ← vẫn diễn ra → kênh vẫn mã hóa
+```
+
+Cụ thể: khi `cloudflared` nhận cert của Traefik ở bước 2, thay vì tra chữ ký về trust store
+(nơi CA riêng của Rancher không có mặt — nếu verify sẽ ra `x509: certificate signed by unknown
+authority` và ngắt ngay tại đây, browser nhận `502`), nó nhảy thẳng qua bước 4. Handshake vẫn
+hoàn tất, khóa phiên vẫn được thỏa thuận, kênh vẫn mã hóa — chỉ thiếu mất phần "biết chắc đang
+nói với ai". Đó chính là câu "mã hóa nhưng không xác thực" của mục đào sâu 12.
+
+Các phần còn lại hoàn toàn nằm ngoài tầm với của `noTLSVerify`:
+
+- **Chi tiết 1, các bước 1, 2, 4** — SNI vẫn được khai (do `originServerName` quyết định),
+  Traefik vẫn trình cert, khóa phiên vẫn sinh. `noTLSVerify` không làm cert "biến mất" khỏi
+  handshake.
+- **Chi tiết 2** — routing sau giải mã (`Host` header khớp router, `X-Forwarded-Proto`) là
+  chuyện của Traefik với HTTP trần, diễn ra *sau khi* TLS đã xong, không dính gì tới verify.
+- **Chi tiết 3** — chiều mã hóa response dùng khóa phiên đã thỏa thuận, cũng không liên quan.
+
+Và giới hạn phạm vi: bước 3 đó chỉ bị `noTLSVerify` chi phối trong các phiên TLS do
+`cloudflared` khởi tạo. Client nội bộ bắt tay với cùng Traefik ấy có bước 3 của riêng nó —
+verify hay bỏ qua là do trust store hoặc cờ (`curl -k`) của chính client đó quyết định.
 
 **SNI (Server Name Indication)** là trường trong bước chào của TLS handshake: client khai
 hostname nó muốn nói chuyện **trước khi** có bất kỳ byte HTTP nào.

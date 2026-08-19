@@ -176,6 +176,42 @@ kênh khác. Trong lab, Traefik terminate TLS cho `rancher.hieupn.site` — cert
 Rancher bằng HTTP `:80` (`ingress.servicePort: 80`). Vì thế "client thấy HTTPS" và "Rancher nghe
 HTTP" không mâu thuẫn: đoạn được mã hóa kết thúc ở Traefik.
 
+Trình tự chính xác tại điểm terminate, chiếu theo 4 bước handshake ở mục trên:
+
+```text
+(từ trước)  Traefik đã watch Ingress/Secret và nạp sẵn cert + private key vào bộ nhớ
+1. Kết nối TLS tới :443 → client khai SNI = rancher.hieupn.site
+2. Traefik tra SNI, rút đúng cert trong tls-rancher-ingress ra trình      ← cert dùng ở ĐÂY
+3. Client xử lý cert — verify hay bỏ qua là quyền của client
+4. Hai bên thỏa thuận KHÓA PHIÊN                                          ← thứ giải mã là ĐÂY
+→  Từ đó mọi byte được mã hóa/giải mã bằng khóa phiên, không phải bằng cert
+```
+
+Ba chi tiết làm trình tự này chính xác hẳn:
+
+- **Cert không trực tiếp giải mã traffic.** Cert + private key là "căn cước + chữ ký" phục vụ
+  handshake (bước 2); dữ liệu được mã hóa/giải mã bằng khóa phiên sinh ra ở bước 4. Nói "dùng
+  cert để giải mã" là cách nói gọn; cơ chế thật là "dùng cert để lập kênh, dùng khóa phiên để
+  giải mã".
+- **Sau khi giải mã, Traefik không chuyển mù xuống Pod.** Nó đọc HTTP trần vừa bóc: lấy `Host`
+  header + path → khớp router đã nạp từ Ingress `rancher` → gắn `X-Forwarded-Proto: https`
+  (mục đào sâu 10) → mới mở kết nối HTTP `:80` tới Service `rancher`, và Service chọn Pod.
+  `Host` không khớp router nào thì Traefik trả `404` tại chỗ — Pod Rancher không bao giờ thấy
+  request đó.
+- **Terminate TLS là điểm hai chiều.** Response từ Pod Rancher quay về Traefik dạng HTTP trần,
+  và chính Traefik mã hóa nó vào cùng phiên TLS để trả cho client: bóc phong bì chiều vào, dán
+  phong bì chiều ra.
+
+Trình tự trên áp dụng cho **cả hai đường vào**: session từ `cloudflared` lẫn session của client
+nội bộ đều được Traefik terminate y hệt — cùng cert, khác khóa phiên. Và trong toàn bộ trình
+tự, `noTLSVerify: true` của route §14.5 chỉ chạm đúng **một chỗ: bước 3, trong các session do
+`cloudflared` khởi tạo** — thay vì tra chữ ký về trust store (nơi CA riêng của Rancher vắng
+mặt; verify sẽ ra `x509: certificate signed by unknown authority` và ngắt ngay, browser nhận
+`502`), nó nhảy thẳng sang bước 4. Bước 1, 2, 4 diễn ra nguyên vẹn nên kênh **vẫn mã hóa** —
+chỉ thiếu phần "biết chắc đang nói với ai" (mục đào sâu 12). Client nội bộ có bước 3 của riêng
+nó: verify hay bỏ qua do trust store hoặc cờ (`curl -k`) của chính client đó quyết định,
+`noTLSVerify` không với tới.
+
 **SNI (Server Name Indication)** là trường trong bước chào của TLS handshake: client khai
 hostname nó muốn nói chuyện **trước khi** có bất kỳ byte HTTP nào.
 
@@ -1098,7 +1134,9 @@ sập. Ngược lại, để `noTLSVerify` là `false` (mặc định) với CA 
 `x509: certificate signed by unknown authority` → browser nhận Cloudflare `502`.
 
 `noTLSVerify: true` nghĩa là **mã hóa nhưng không xác thực**: chống nghe lén thụ động trên hop
-đó, không chống MITM chủ động. `cloudflared` không có kênh **tự động** nhận CA riêng của Rancher
+đó, không chống MITM chủ động. Trong trình tự terminate ở mục từ điển "Terminate TLS và SNI",
+nó chỉ thay đổi đúng bước 3 (client xử lý cert) của các session do `cloudflared` khởi tạo —
+các bước còn lại nguyên vẹn, và bước 3 của client nội bộ không bị ảnh hưởng. `cloudflared` không có kênh **tự động** nhận CA riêng của Rancher
 như agent (agent được Rancher công bố CA lúc đăng ký), nhưng có đường thủ công: Cloudflare hỗ trợ
 `caPool` — đường dẫn tới file CA bundle cục bộ — nên production có thể mount CA của Rancher vào
 Pod `cloudflared` rồi khai `caPool` để verify thật thay vì tắt verify; ngoài ra có

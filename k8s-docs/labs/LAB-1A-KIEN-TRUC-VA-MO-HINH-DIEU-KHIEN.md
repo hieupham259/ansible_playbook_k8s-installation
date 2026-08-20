@@ -153,6 +153,9 @@ Từ output, ghi vào `~/lab-evidence/1a/01-overview.md` câu trả lời cho b�
    việc nào vẫn thuộc về người quản trị, ví dụ chọn ứng dụng, policy, backup và capacity?
 4. Vì sao ba VM không tự trở thành cluster chỉ vì đã cài container runtime?
 
+Tham khảo nội dung trả lời hoàn chỉnh tại
+[`lab-evidence/1a/01-overview.md`](lab-evidence/1a/01-overview.md).
+
 **PASS:** câu trả lời phân biệt được container runtime với orchestrator và không tuyên bố
 Kubernetes tự xây ứng dụng, tự chọn policy kinh doanh hoặc tự bảo đảm backup.
 
@@ -194,8 +197,13 @@ systemctl is-active kubelet containerd
 
 **Ý nghĩa trên worker 1:** `crictl ps` kiểm tra container cục bộ. `find` chỉ tìm ngay trong
 `/etc/kubernetes/manifests`: `-maxdepth 1` không đi xuống thư mục con, `-type f` chỉ chọn file
-thường và `-print` in đường dẫn. Output rỗng phù hợp với worker không chứa static control-plane
-manifest. Xem [GNU Findutils](https://www.gnu.org/software/findutils/manual/html_mono/find.html)
+thường và `-print` in đường dẫn. Output rỗng hoặc chỉ có
+`/etc/kubernetes/manifests/.kubelet-keep` đều phù hợp: `.kubelet-keep` là file placeholder ẩn,
+kubelet bỏ qua file bắt đầu bằng dấu chấm và file này không tạo Static Pod. Worker không được có
+manifest static control plane như `kube-apiserver.yaml`, `etcd.yaml`, `kube-scheduler.yaml` hoặc
+`kube-controller-manager.yaml`. Xem
+[GNU Findutils](https://www.gnu.org/software/findutils/manual/html_mono/find.html),
+[static Pods](https://v1-35.docs.kubernetes.io/docs/tasks/configure-pod-container/static-pod/)
 và [CRI](https://v1-35.docs.kubernetes.io/docs/concepts/containers/cri/).
 
 Điền bảng sau vào ghi chú:
@@ -212,9 +220,10 @@ và [CRI](https://v1-35.docs.kubernetes.io/docs/concepts/containers/cri/).
 | Flannel | DaemonSet/Pod trên mọi node | CNI/pod network của lab |
 | CoreDNS | Deployment/Pod trong cluster | DNS add-on của cluster |
 
-**PASS:** không gọi kubelet/containerd là control plane; không gọi CoreDNS/CNI là thành phần
-bắt buộc của chính control plane; biết cloud-controller-manager không xuất hiện vì lab không
-tích hợp cloud provider.
+**PASS:** trên worker 1, `find` không hiển thị manifest Static Pod/control-plane; output được phép
+rỗng hoặc chỉ chứa `.kubelet-keep`. Không gọi kubelet/containerd là control plane; không gọi
+CoreDNS/CNI là thành phần bắt buộc của chính control plane; biết cloud-controller-manager không
+xuất hiện vì lab không tích hợp cloud provider.
 
 ## B3. Ghép thành kiến trúc cluster
 
@@ -250,23 +259,61 @@ chuỗi này; nếu manifest khác cũng khớp thì kiến trúc thực tế kh
 **PASS:** chỉ manifest `kube-apiserver.yaml` chứa `--etcd-servers`; scheduler và controller
 manager dùng kubeconfig để nói chuyện với API server.
 
-Vẽ lại sơ đồ bằng tay hoặc Markdown và lưu thành `~/lab-evidence/1a/03-architecture.md`:
+Đối chiếu kết quả kiểm tra với sơ đồ kiến trúc sau. Tùy chọn: chép sơ đồ bằng Markdown vào
+`~/lab-evidence/1a/03-architecture.md` nếu muốn lưu thêm evidence; file này không phải điều kiện
+PASS của B3.
 
-```text
-kubectl/admin
-     |
-     v
-kube-apiserver <----> etcd
-     ^   ^
-     |   +---- scheduler + controller-manager
-     |
-     +-------- kubelet trên worker 1/2
-                   |
-                   +---- containerd ---- container
+```mermaid
+flowchart TB
+    admin["kubectl / admin"]
+
+    subgraph CP["Control plane — lab-k8s-master"]
+        api["kube-apiserver"]
+        etcd["etcd"]
+        scheduler["kube-scheduler"]
+        controller["kube-controller-manager"]
+
+        api <--> etcd
+        scheduler -->|kubeconfig| api
+        controller -->|kubeconfig| api
+    end
+
+    admin -->|Kubernetes API| api
+
+    subgraph NODES["Lớp node và container runtime"]
+        kubelet["kubelet<br/>chạy trên mọi node"]
+        runtime["containerd<br/>chạy trên mọi node"]
+        workload["Workload Pods"]
+
+        kubelet -->|CRI| runtime
+        runtime --> workload
+        kubelet -->|đăng ký node và báo trạng thái| api
+    end
+
+    subgraph ADDONS["Network và cluster add-ons"]
+        flannel["Flannel<br/>DaemonSet / CNI"]
+        proxy["kube-proxy<br/>DaemonSet"]
+        coredns["CoreDNS<br/>Deployment / DNS add-on"]
+        podnet["Pod network / Pod CIDR"]
+        service["Service forwarding"]
+
+        flannel --> podnet
+        proxy --> service
+        workload -->|DNS query| coredns
+    end
+
+    runtime --> flannel
+    runtime --> proxy
+    runtime --> coredns
+
+    flannel -.->|quan sát state qua API| api
+    proxy -.->|quan sát Service/Endpoint qua API| api
+    coredns -.->|quan sát Service/Endpoint qua API| api
 ```
 
-Bổ sung Flannel, kube-proxy và CoreDNS vào đúng vị trí. **PASS:** sơ đồ không vẽ kubectl,
-kubelet, scheduler hoặc controller-manager kết nối trực tiếp tới etcd.
+**PASS:** chỉ kube-apiserver kết nối trực tiếp tới etcd; sơ đồ không vẽ kubectl, kubelet,
+scheduler hoặc controller-manager kết nối trực tiếp tới etcd. Flannel và kube-proxy nằm ở lớp
+node/network; CoreDNS nằm ở lớp cluster add-on, không phải control plane.
 
 ## B4. Object, desired state và observed state
 

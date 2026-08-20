@@ -1230,6 +1230,49 @@ Hai thế giới không giao nhau, nên không cần "một tên hai câu trả 
 của mục đào sâu 7 — "vì sao không cho client nội bộ đi chung đường với browser" — không đặt ra
 vì không có client nội bộ nào cả).
 
+**Câu hỏi tự nhiên tiếp theo: Rancher cũng có Service — sao Pod không gọi thẳng tên Service như
+với app?** Service đó tồn tại thật và Pod nhìn thấy nó y như service của app:
+
+```bash
+kubectl -n cattle-system get svc rancher
+# tên nội bộ: rancher.cattle-system.svc.cluster.local (port 80, 443)
+```
+
+Về mặt mạng, gọi `rancher.cattle-system.svc.cluster.local` dễ y như gọi
+`web.default.svc.cluster.local` — không ai giấu nó cả. Vấn đề không nằm ở *thấy được hay
+không*, mà ở *gọi vào rồi thì chuyện gì xảy ra* — vấp ba thứ:
+
+1. **Cổng 80 là HTTP trần — nhưng Rancher không phải app câm.** Rancher Pod nghe port 80 với
+   giả định đứng sau một proxy đã terminate TLS và gắn `X-Forwarded-Proto: https` (việc Traefik
+   làm trong chuỗi trong cụm). Client gọi thẳng port 80 không có header đó → Rancher coi là
+   kết nối không an toàn và đòi HTTPS — nó redirect về địa chỉ HTTPS chính thức thay vì phục vụ
+   phiên làm việc. Client bị đá ngược về `rancher.hieupn.site` — đúng cái tên đang cố né.
+2. **Muốn HTTPS thì cert không khớp tên.** Cert được cấp cho tên `rancher.hieupn.site`; client
+   gọi `https://rancher.cattle-system.svc.cluster.local` nhận cert mang tên khác với tên đang
+   gọi → verify FAIL tất định (mismatch hostname). Muốn qua thì phải tắt verify — tự bỏ đúng
+   thứ giá trị mà một client nghiêm túc cần.
+3. **Client thực tế không có quyền chọn tên.** Với app demo, người viết client tự chọn URL —
+   muốn gọi tên Service thì gọi. Với Rancher, client nghiêm túc dùng **artifact do Rancher
+   phát ra**: kubeconfig tải từ UI ghi `server: https://rancher.hieupn.site/...`, manifest
+   import agent ghi `CATTLE_SERVER=https://rancher.hieupn.site`, mọi link/redirect trong UI
+   build từ `server-url`. Client cầm artifact thì quay số đúng chuỗi trong artifact — không có
+   ô nào để điền "riêng tôi dùng tên Service nội bộ".
+
+App demo thoát cả ba vấn đề vì nó **không quan tâm mình được gọi bằng tên gì**: không redirect,
+không TLS, không auth, không phát artifact chứa địa chỉ — ai gọi tên nào, giao thức nào cũng
+trả về cùng một trang HTML. Nó là nội dung câm; Rancher thì "name-aware" — danh tính
+(`server-url`) ngấm vào giao thức (đòi HTTPS), vào cert (đúng tên) và vào mọi thứ nó phát ra.
+So sánh gọn:
+
+| | Gọi app demo trong cụm | Gọi Rancher trong cụm |
+| --- | --- | --- |
+| Tên Service nội bộ | `web.default.svc.cluster.local` — dùng tốt | `rancher.cattle-system.svc.cluster.local` — thấy được nhưng vấp redirect + cert sai tên |
+| Ai chọn URL? | Người viết client | Artifact do Rancher phát |
+| Lối đi đúng | Tên Service | Tên public + split DNS |
+
+Ba ngõ cụt dồn về một lối thoát duy nhất: giữ nguyên tên `rancher.hieupn.site` và làm cho tên
+đó resolve nội bộ — chính là split DNS.
+
 Giải thích từng lệnh và từng dòng đầy đủ nằm ở §14.2.1 của runbook. Xem
 [CoreDNS — hosts plugin](https://coredns.io/plugins/hosts/).
 

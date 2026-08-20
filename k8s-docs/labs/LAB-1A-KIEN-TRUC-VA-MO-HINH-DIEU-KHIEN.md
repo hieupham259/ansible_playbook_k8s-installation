@@ -438,9 +438,11 @@ group kết thúc `/v1`, hoặc version alpha/beta; `^`/`$` neo đầu/cuối d�
 **Kết quả mong đợi:** chỉ ra được ít nhất một stable version và, nếu cluster công bố, một
 alpha/beta version. Đây không phải gate mới.
 
-Giải thích quy ước: `v1alphaN` có thể thay đổi mạnh, `v1betaN` đã chín hơn nhưng vẫn có
-thể đổi, còn `v1` là stable/GA. Version là theo từng API group, không phải toàn cluster có
-một maturity level duy nhất.
+**Đáp án tham khảo — maturity level:** `v1alphaN` là mức sớm, có thể thay đổi mạnh hoặc bị
+loại bỏ; `v1betaN` đã chín hơn nhưng vẫn có thể thay đổi; `v1` là stable/GA. Maturity được
+đánh giá riêng cho từng API group/version, không phải toàn cluster có một maturity level duy
+nhất. Trong output của lab, bộ lọc chỉ trả core `v1` và các named group kết thúc bằng `/v1`;
+không có alpha/beta vẫn hợp lệ vì API server hiện không công bố các version đó.
 
 ### B5.3. Server-side field validation
 
@@ -485,6 +487,27 @@ nhánh `then` chỉ chạy nếu object bất ngờ tồn tại, còn `else` xá
 `kubectl get apiservices` liệt kê APIService của aggregation layer; block không cài extension.
 Xem [Bash conditional/redirection](https://www.gnu.org/software/bash/manual/bash.html)
 và [API aggregation](https://v1-35.docs.kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/).
+
+**Đáp án tham khảo — APIService và aggregation:** đọc bảng output như một **danh bạ tổng
+đài**. Mọi request đều đi qua kube-apiserver ([bài 21](../21-kubernetes-api-vi.md)) và API chia
+thành các "phòng ban" — các group/version. Mỗi dòng `apiservices` là một thẻ đăng ký cho biết
+phòng ban đó do ai phục vụ:
+
+| Cột | Câu hỏi nó trả lời | Trong output của lab |
+| --- | --- | --- |
+| `NAME` | Group/version nào? | `v1.apps` = group `apps`, version `v1` |
+| `SERVICE` | Ai trả lời request cho group/version này? | `Local` = chính kube-apiserver tự phục vụ |
+| `AVAILABLE` | Đường dây có sống không? | `True` = gọi vào là có phản hồi |
+
+Kubernetes cho phép một group/version do "đội ngoài" phục vụ: một **extension API server**
+chạy trong cluster, đứng sau một Kubernetes Service, và kube-apiserver **nối máy (proxy)**
+request sang đó — cơ chế nối máy này gọi là **aggregation layer**. Cluster của lab chưa cài
+extension nào nên mọi dòng đều `Local` — đúng kỳ vọng, không phải thiếu sót. Dòng
+không-`Local` đầu tiên sẽ xuất hiện khi cài metrics-server ở Lab 11a: khi đó cột `SERVICE`
+của `v1beta1.metrics.k8s.io` ghi `kube-system/metrics-server`. Ở giai đoạn 1a chỉ cần chốt
+được một câu: *bảng `apiservices` là danh bạ "group/version nào do ai phục vụ"; hiện tất cả
+đều `Local` vì chưa có extension API server* — cơ chế sâu hơn là nợ của giai đoạn 14, trả ở
+[bài 180](../180-apiserver-aggregation-vi.md).
 
 **PASS:** strict validation báo unknown field; namespace không tồn tại. Biết APIService là
 điểm quan sát aggregation layer, nhưng lab chưa cài extension API server nên chỉ cần nhận

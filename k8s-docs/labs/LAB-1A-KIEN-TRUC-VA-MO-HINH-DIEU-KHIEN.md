@@ -347,6 +347,30 @@ Trả lời:
 - Trường nào do kubelet và control plane quan sát rồi công bố trong `status`?
 - Tại sao client không nên tự ghi tùy ý vào `status`?
 
+Đáp án tham khảo:
+
+1. Trong output này, `apiVersion: v1` cho biết Namespace thuộc core API group, version `v1`;
+   `kind: Namespace` cho biết loại object; `metadata.name: lab-1a` định danh Namespace cụ thể.
+   Namespace là resource cluster-scoped nên không có `metadata.namespace`. Với resource
+   namespaced, `metadata.namespace` kết hợp với `metadata.name` để định danh object trong phạm vi
+   namespace đó.
+
+2. Trong các Node field đang quan sát, `spec.podCIDR` là field thuộc `spec`; giá trị
+   `10.244.1.0/24` được cluster gán cho `lab-k8s-worker1`. Không phải object nào cũng có nhiều
+   field trong `spec`; Namespace vừa tạo chỉ có phần `spec` rất nhỏ với `finalizers`.
+
+3. Với Node `lab-k8s-worker1`, `status.capacity`, `status.allocatable`, `status.nodeInfo` và
+   `status.conditions` thuộc observed state. Output cho thấy CPU capacity/allocatable đều là `2`,
+   kubelet là `v1.35.7`, `Ready=True`, `NetworkUnavailable=False` và các pressure condition đều
+   `False`. `status.phase: Active` trong YAML là status của Namespace, không phải status của
+   master hay của Node worker1.
+
+4. Client không nên tự ghi tùy ý vào `status` vì đây là observed state do kubelet và các
+   control-plane component chịu trách nhiệm công bố. API server xác thực, phân quyền và trung
+   gian request, nhưng điều đó không làm client trở thành chủ sở hữu status. Ghi tùy ý có thể
+   làm sai trạng thái quan sát, xung đột với component quản lý status hoặc bị vòng lặp
+   reconciliation ghi đè ở lần cập nhật tiếp theo.
+
 **PASS:** chỉ đúng `spec.podCIDR` thuộc spec; `capacity`, `allocatable`, `conditions` và
 `nodeInfo` thuộc status. Hiểu rằng không phải mọi object đều có nhiều field trong `spec`.
 

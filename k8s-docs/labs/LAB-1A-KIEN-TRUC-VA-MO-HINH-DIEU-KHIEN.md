@@ -713,7 +713,7 @@ logs, attach, exec và port-forward, sẽ thực hành sâu hơn sau khi học P
 
 ### B7.4. Kết luận đường đi
 
-Ghi ba đường đi vào `~/lab-evidence/1a/07-communication.md`:
+Ba đường giao tiếp cần ghi nhớ:
 
 ```text
 kubectl ------HTTPS:6443------> kube-apiserver
@@ -721,9 +721,14 @@ kubelet ------HTTPS:6443------> kube-apiserver
 kube-apiserver --HTTPS:10250--> kubelet
 ```
 
-Thêm ghi chú: trong control plane mặc định, API server là thành phần nói trực tiếp với etcd;
-node và Pod không kết nối trực tiếp tới etcd. Lab không triển khai Konnectivity service nên
-chỉ cần biết đó là một lựa chọn tunnel/proxy cho đường API server tới node.
+Trong control plane mặc định, API server là thành phần nói trực tiếp với etcd; node và Pod không
+kết nối trực tiếp tới etcd. Lab không triển khai Konnectivity service nên chỉ cần biết đó là một
+lựa chọn tunnel/proxy cho đường API server tới node.
+
+Tham khảo nội dung hoàn chỉnh tại
+[`lab-evidence/1a/07-communication.md`](lab-evidence/1a/07-communication.md). Tùy chọn: chép nội
+dung này vào `~/lab-evidence/1a/07-communication.md` trên master nếu muốn lưu thêm evidence; file
+trên master không phải điều kiện hoàn thành B7.
 
 ## B8. Controller và reconciliation
 

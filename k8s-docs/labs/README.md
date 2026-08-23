@@ -1,6 +1,6 @@
 # Lab thực hành cho lộ trình Kubernetes Administrator
 
-Thư mục này chứa các bài lab đi kèm [LO-TRINH-ADMIN.md](../LO-TRINH-ADMIN.md). Mỗi lab là một
+Thư mục này chứa các bài lab đi kèm [00-ALO-TRINH-ADMIN.md](../00-ALO-TRINH-ADMIN.md). Mỗi lab là một
 runbook chạy được trên cluster thật, có gate `PASS:` ở từng bước và checkpoint vấn đáp ở cuối.
 
 Bắt đầu ở [Lab 00 — Môi trường](LAB-00-MOI-TRUONG-1.35.7.md). Không lab nào khác lặp lại phần dựng
@@ -74,8 +74,8 @@ khi sang lab sau.
 | --- | --- | --- | --- | --- | --- |
 | [00 — Môi trường](LAB-00-MOI-TRUONG-1.35.7.md) | chuẩn bị | chưa có cluster | **tạo** `01-cluster-ready` | 2–4 | ✅ đã viết |
 | [1a — Kiến trúc và mô hình điều khiển](LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) | 1a (8 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
-| 1b — Object, label, kubectl và kubeconfig | 1b (9 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
-| 1c — Vòng đời và cơ chế nền của object | 1c (7 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ⬜ chưa viết |
+| [1b — Object, label, kubectl và kubeconfig](LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md) | 1b (9 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
+| [1c — Vòng đời và cơ chế nền của object](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md) | 1c (7 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
 | 2 — Container, image, CRI và cgroup | 2 (8 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ⬜ chưa viết |
 | 3a — Pod và vòng đời | 3a (11 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
 | 3b — Cấu hình và tài nguyên | 3b (7 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
@@ -103,7 +103,7 @@ bộ VM riêng với mốc tiền tố `8x-`, và lab 15 thêm một VM Windows 
 riêng. Toàn bộ lab còn lại trả cluster về mốc cũ, nên bạn không cần chụp snapshot sau mỗi bài.
 
 Giai đoạn 10 không có lab riêng: toàn bộ nội dung nằm ở phần
-[Checkpoint tiếp nối](../LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks) và được thực
+[Checkpoint tiếp nối](../00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks) và được thực
 hành theo CP1–CP12 trên cluster đã có ở `04-metrics-ready`.
 
 ## 5. Sổ nợ lab

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
-bài 5/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 5/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 Đây là bài **quy ước**, không phải bài cơ chế. Không có gì trong cluster cưỡng chế các label
 này; đọc để về sau đặt tên có kỷ luật và để đọc hiểu manifest của người khác.

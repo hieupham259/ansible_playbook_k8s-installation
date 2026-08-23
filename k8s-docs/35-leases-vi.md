@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
-bài 4/7 · Kiểm chứng ở Lab 1c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 4/7 · Kiểm chứng ở [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md).
 
 Bạn đã **dùng** Lease ở Lab 1a phần B6 mà chưa biết nó là gì: theo dõi `renewTime` của
 `k8s-worker2` rồi dừng kubelet để xem nó đứng lại. Đây là bài giải thích thứ bạn đã quan sát.

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
-bài 7/7 · Kiểm chứng ở Lab 1c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 7/7 · Kiểm chứng ở [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md).
 
 Lộ trình ghi rõ mục đích đọc bài này khi bạn chạy on-premise: **để biết phần nào cluster của
 bạn KHÔNG có.** Ở Lab 1a phần B2 bạn đã thấy cluster lab không có `cloud-controller-manager`
@@ -302,4 +302,3 @@ rules:
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của nhóm 1c và cũng
 là bài cuối của **Giai đoạn 1**.
-

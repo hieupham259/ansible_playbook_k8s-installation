@@ -68,7 +68,7 @@ là một phần của bài thực hành, không phải thao tác chuẩn bị c
 - Với bài làm đầy disk, chỉ dùng filesystem/volume dành riêng cho lab và đặt giới hạn rõ ràng;
   không làm đầy filesystem của máy host.
 
-- [ ] 🧪 [Lab 00 — Dựng môi trường lab dùng chung](labs/LAB-00-MOI-TRUONG-1.35.7.md) — làm trước giai đoạn 1; kết thúc bằng snapshot `01-cluster-ready`.
+- [X] 🧪 [Lab 00 — Dựng môi trường lab dùng chung](labs/LAB-00-MOI-TRUONG-1.35.7.md) — làm trước giai đoạn 1; kết thúc bằng snapshot `01-cluster-ready`.
 
 **Checkpoint môi trường:** chạy được `kubectl get nodes`, tất cả node ở trạng thái `Ready`;
 SSH được vào từng node; xác định được container runtime, CNI, CoreDNS, kube-proxy và
@@ -106,7 +106,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [X] [Các Node](23-nodes-vi.md) — trọng tâm: kubelet đăng ký node, node condition, heartbeat.
 - [X] [Giao tiếp giữa Node và Control Plane](24-control-plane-node-communication-vi.md) — chiều giao tiếp nào đi qua API server, chiều nào không.
 - [X] [Các Controller](25-controllers-vi.md) — vòng lặp điều khiển; đây là ý tưởng cốt lõi của toàn bộ Kubernetes.
-- [ ] 🧪 [Lab 1a — Kiến trúc và mô hình điều khiển](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) — quan sát component/API/Node và thực hành reconciliation. Cần [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) xong trước.
+- [X] 🧪 [Lab 1a — Kiến trúc và mô hình điều khiển](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) — quan sát component/API/Node và thực hành reconciliation. Cần [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) xong trước.
 
 ### 1b. Làm việc với object và kubectl
 
@@ -119,7 +119,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Tổ chức quyền truy cập cluster bằng file kubeconfig](111-kubeconfig-vi.md) — context, cluster, user; cần cho mọi thao tác về sau.
 - [ ] [Quản lý object trong Kubernetes](27-object-management-vi.md) — trọng tâm: khác biệt giữa imperative, declarative (`apply`) và khi nào dùng cái nào.
 - [ ] [Field selector](28-field-selectors-vi.md) — bổ sung cho label selector khi lọc theo trường.
-- [ ] 🧪 **Lab 1b — Object, label, kubectl và kubeconfig** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Lab này đóng phần `kubectl apply -f pod.yaml` và label selector trong checkpoint giai đoạn 1.
+- [ ] 🧪 [Lab 1b — Object, label, kubectl và kubeconfig](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md) — thực hành name/UID, namespace, label/annotation, ba kỹ thuật quản lý object, kubeconfig và field selector. Lab này đóng phần `kubectl apply -f pod.yaml` và label selector trong checkpoint giai đoạn 1.
 
 ### 1c. Vòng đời và cơ chế nền của object
 
@@ -130,7 +130,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Các phiên bản lưu trữ](32-storage-version-vi.md) — object được lưu trong etcd ở version nào.
 - [ ] [Proxy phiên bản hỗn hợp](37-mixed-version-proxy-vi.md) — đọc lướt, chỉ cần biết tồn tại khi cluster có nhiều version apiserver.
 - [ ] [Cloud Controller Manager](34-cloud-controller-vi.md) — nếu chạy on-premise thì đọc để biết phần nào **không** có.
-- [ ] 🧪 **Lab 1c — Vòng đời và cơ chế nền của object** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
+- [ ] 🧪 [Lab 1c — Vòng đời và cơ chế nền của object](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md) — thực hành finalizer, owner/dependent, garbage collection và Lease; quan sát đúng giới hạn của storage version, Mixed Version Proxy và cloud controller trên cluster self-managed.
 
 **Checkpoint:** giải thích được đường đi của `kubectl apply -f pod.yaml` từ lúc gõ lệnh đến khi container chạy, kể tên từng thành phần tham gia. Dùng `kubectl explain`, `kubectl get -o yaml`, label selector và `-n` thành thạo trên cluster lab đã chuẩn bị ở đầu lộ trình.
 

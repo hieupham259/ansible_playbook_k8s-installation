@@ -5,7 +5,7 @@
 >
 > **Cập nhật và đối chiếu phiên bản:** 05/08/2026.
 
-Lab này đi cùng mục [1a. Kiến trúc và mô hình điều khiển](../LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển).
+Lab này đi cùng mục [1a. Kiến trúc và mô hình điều khiển](../00-ALO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển).
 
 Trước khi bắt đầu, chạy [quy trình mở đầu ở A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab)
 và xác nhận gate `01-cluster-ready` PASS. Toàn bộ phần dựng VM, cài container runtime,
@@ -72,7 +72,7 @@ Hoàn thành lab khi có thể tự chứng minh và giải thích được:
 
 Lab này **không** dạy label selector, namespace ở mức chi tiết, kubeconfig, quản lý object
 imperative/declarative hay field selector. Toàn bộ nhóm đó thuộc
-[Lab 1b](README.md#4-bản-đồ-lab).
+[Lab 1b — Object, label, kubectl và kubeconfig](LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 ### 1.2. Thời lượng
 
@@ -869,20 +869,20 @@ Cluster đã trở về đúng trạng thái `01-cluster-ready`; không tạo sn
 
 Không đánh dấu lab hoàn tất chỉ vì đã chạy hết lệnh. Tự trả lời không nhìn tài liệu:
 
-- [ ] Vẽ đúng control plane, worker và đường giao tiếp giữa các component.
-- [ ] Chỉ ra component duy nhất ghi/đọc etcd trực tiếp trong kiến trúc mặc định.
-- [ ] Phân biệt được static Pod control plane với systemd service kubelet/containerd.
-- [ ] Mở một Node YAML và chỉ đúng ví dụ của `metadata`, `spec`, `status`.
-- [ ] Giải thích core group khác named API group và đọc được `group/version/resource`.
-- [ ] Giải thích alpha, beta, stable là maturity của API version, không phải trạng thái của
+- [x] Vẽ đúng control plane, worker và đường giao tiếp giữa các component.
+- [x] Chỉ ra component duy nhất ghi/đọc etcd trực tiếp trong kiến trúc mặc định.
+- [x] Phân biệt được static Pod control plane với systemd service kubelet/containerd.
+- [x] Mở một Node YAML và chỉ đúng ví dụ của `metadata`, `spec`, `status`.
+- [x] Giải thích core group khác named API group và đọc được `group/version/resource`.
+- [x] Giải thích alpha, beta, stable là maturity của API version, không phải trạng thái của
   toàn cluster.
-- [ ] Chỉ ra `Capacity`, `Allocatable`, `Conditions`, `InternalIP`, kubelet version và Lease
+- [x] Chỉ ra `Capacity`, `Allocatable`, `Conditions`, `InternalIP`, kubelet version và Lease
   của một Node.
-- [ ] Mô tả điều xảy ra từ lúc kubelet ngừng heartbeat tới khi Node không còn `Ready=True`.
-- [ ] Phân biệt ba chiều `kubectl→API server`, `kubelet→API server`,
+- [x] Mô tả điều xảy ra từ lúc kubelet ngừng heartbeat tới khi Node không còn `Ready=True`.
+- [x] Phân biệt ba chiều `kubectl→API server`, `kubelet→API server`,
   `API server→kubelet`.
-- [ ] Kể lại thí nghiệm ServiceAccount bằng bốn bước observe–compare–act–repeat.
-- [ ] Cluster sạch và cả ba node `Ready` sau cleanup.
+- [x] Kể lại thí nghiệm ServiceAccount bằng bốn bước observe–compare–act–repeat.
+- [x] Cluster sạch và cả ba node `Ready` sau cleanup.
 
 ### Bài giải thích cuối cùng
 
@@ -893,6 +893,33 @@ Trong tối đa 10 phút, nói lại đường đi khái niệm sau:
 3. Controller và scheduler quan sát API, không đọc etcd trực tiếp.
 4. Kubelet trên node quan sát assignment qua API server và nhờ runtime thực thi.
 5. Kubelet cập nhật status/heartbeat; controller tiếp tục so trạng thái thực tế với mong muốn.
+
+### Câu trả lời hoàn chỉnh
+
+1. Khi người dùng khai báo một Kubernetes object, request được gửi đến kube-apiserver đầu tiên.
+   API server là cổng vào của Kubernetes API; client không đọc hoặc ghi trực tiếp etcd.
+
+2. API server xác thực danh tính người gửi, kiểm tra người đó có quyền thực hiện hành động hay
+   không, giải mã/default và validate object theo schema API, rồi chạy các admission controller
+   áp dụng cho request. Khi request hợp lệ, API server mới persist state của object vào etcd và
+   trả response cho client. Với server-side dry-run, các bước xử lý server vẫn diễn ra nhưng
+   object không được persist.
+
+3. Controller và scheduler dùng Kubernetes API, thường qua cơ chế list/watch, để quan sát object
+   và gửi thay đổi lại cho API server. API server chịu trách nhiệm đọc/ghi state trong etcd; các
+   controller và scheduler không kết nối trực tiếp tới etcd.
+
+4. Scheduler quan sát các Pod chưa được gán node qua API server, chọn node thích hợp rồi gửi quyết
+   định binding lại cho API server; API server persist quyết định đó vào etcd. Kubelet quan sát
+   các Pod đã được gán cho node của mình qua API server và gọi container runtime thông qua CRI để
+   tạo, chạy container.
+
+5. Kubelet định kỳ gửi Node/Pod status và gia hạn Lease qua API server; API server persist trạng
+   thái vào etcd. Mỗi controller quan sát actual state qua API server, so sánh với desired state
+   thuộc phạm vi mình quản lý rồi thực hiện hành động reconcile cần thiết. Ví dụ,
+   ServiceAccount controller tạo lại ServiceAccount `default` bị xóa, còn node-lifecycle
+   controller chuyển Node sang `Unknown` khi heartbeat bị gián đoạn; controller không tự động tạo
+   lại mọi object bị xóa.
 
 Nếu không giải thích được một mũi tên, quay lại đúng phần B tương ứng. Khi toàn bộ checkbox
 được đánh dấu và phần giải thích không còn lẫn vai trò component, lab 1a hoàn tất.

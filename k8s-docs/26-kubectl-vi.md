@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
-bài 6/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 6/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 Bài này là trang tổng quan, không phải tài liệu tham khảo lệnh. Đừng cố nhớ cú pháp ở đây —
 cú pháp học bằng cách gõ trong lab.

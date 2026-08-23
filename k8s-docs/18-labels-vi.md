@@ -14,7 +14,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
-bài 2/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 2/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 **Đây là bài quan trọng nhất nhóm 1b.** Selector là cơ chế mà mọi controller và Service dùng
 để tìm Pod — không nắm bài này thì giai đoạn 4 và 5 sẽ học vẹt.

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
-bài 5/7 · Kiểm chứng ở Lab 1c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 5/7 · Kiểm chứng ở [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md).
 
 Bài [21](21-kubernetes-api-vi.md) đã nói mọi phiên bản API chỉ là những cách biểu diễn của cùng
 một dữ liệu lưu trữ. Bài này trả lời câu hỏi kế tiếp: **dữ liệu đó thực sự nằm ở dạng nào?**

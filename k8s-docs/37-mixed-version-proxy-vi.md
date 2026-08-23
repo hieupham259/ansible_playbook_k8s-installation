@@ -10,7 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
-bài 6/7 · Không có phần nào trong Lab 1c kiểm chứng bài này.
+bài 6/7 · [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md) phần B5 kiểm chứng vì sao
+topology một API server không có đường Mixed Version Proxy để fault-inject.
 
 **Lộ trình đánh dấu bài này là "đọc lướt".** Nó chỉ có ý nghĩa khi cluster có **nhiều API
 server chạy các phiên bản Kubernetes khác nhau** — tình huống chỉ xuất hiện giữa chừng một đợt

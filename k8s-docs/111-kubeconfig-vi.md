@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
-bài 7/9 · Kiểm chứng ở Lab 1b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 7/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 Ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) bạn đã copy `/etc/kubernetes/admin.conf` thành
 `~/.kube/config` mà chưa biết bên trong có gì. Đây là bài mở file đó ra.

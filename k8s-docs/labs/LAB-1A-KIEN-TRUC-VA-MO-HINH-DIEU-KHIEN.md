@@ -804,6 +804,32 @@ namespace `lab-1a` không bị tác động.
 | Act | Controller gửi create request tới API server |
 | Repeat | Object mới có UID khác; vòng lặp tiếp tục quan sát |
 
+Luồng reconciliation quan sát được trong B8:
+
+```text
+Bạn xóa default ServiceAccount
+            ↓
+API server ghi nhận object không còn tồn tại
+            ↓
+ServiceAccount controller nhận sự kiện qua watch
+            ↓
+Controller phát hiện actual state lệch desired state
+            ↓
+Controller tạo lại ServiceAccount tên default
+```
+
+Một số controller có thể quan sát trực tiếp trong cluster và bằng chứng tương ứng:
+
+| Controller | Bằng chứng |
+| --- | --- |
+| `serviceaccount-controller` | Tự tạo lại ServiceAccount `default` với UID mới |
+| `node-lifecycle-controller` | Chuyển worker2 từ `Ready=True` sang `Unknown` khi mất heartbeat |
+| `daemonset-controller` | Duy trì Flannel và kube-proxy trên các node |
+| `deployment-controller` | Duy trì Deployment CoreDNS |
+| `replicaset-controller` | Duy trì số Pod CoreDNS theo Deployment |
+| `namespace-controller` | Quản lý vòng đời và cleanup resource trong Namespace |
+| `endpointslice-controller` | Ghép Service với các endpoint/Pod tương ứng |
+
 Điểm phải hiểu: controller không phải một script chỉ chạy một lần; nó liên tục làm cho state
 hội tụ. Controller thường thao tác qua API server. Một số controller tích hợp hạ tầng ngoài
 cluster có thể gọi cloud/provider API, nhưng vẫn dùng Kubernetes API để quan sát/cập nhật

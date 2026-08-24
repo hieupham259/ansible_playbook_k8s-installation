@@ -10,10 +10,10 @@
 
 Lab này đi cùng mục
 [1b. Làm việc với object và kubectl](../00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl).
-Cluster giữ nguyên baseline của
-[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa):
-Kubernetes `v1.35.7`, containerd `2.2.1`, Flannel `v0.28.9`, Pod CIDR `10.244.0.0/16` và
-Service CIDR `10.96.0.0/12`. Lab không cài package, CNI, controller hay add-on mới.
+Cluster giữ nguyên toàn bộ baseline của
+[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa). Phiên bản
+Kubernetes, containerd, CNI, Pod CIDR và Service CIDR đọc ở bảng đó; lab này không chép lại con
+số nào. Lab không cài package, CNI, controller hay add-on mới.
 
 Trước khi bắt đầu, chạy [quy trình mở đầu A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab)
 và xác nhận gate `01-cluster-ready` PASS.
@@ -40,7 +40,10 @@ Hoàn thành lab khi có thể tự chứng minh và giải thích được:
 - Name định danh object trong phạm vi API group, resource type và namespace; UID định danh một
   lần tồn tại cụ thể của object.
 - Label dùng để chọn một tập object; annotation lưu metadata nhưng không dùng làm selector.
-- Equality-based và set-based label selector, cùng ngữ nghĩa AND giữa nhiều requirement.
+- Equality-based và set-based label selector, cùng ngữ nghĩa AND giữa nhiều requirement; phân
+  biệt `exists`, `!key` và `notin` khi object không mang key đó.
+- Sửa và xóa label trên cả một tập object bằng `kubectl label` với `-l`, `--overwrite` và hậu
+  tố `key-`.
 - Resource nào namespaced và resource nào cluster-scoped; cách `-n` và context chọn namespace.
 - Ý nghĩa các label khuyến nghị `app.kubernetes.io/*`.
 - `kubectl` luôn giao tiếp với API server và cách đọc schema bằng `kubectl explain`.
@@ -58,7 +61,7 @@ Hoàn thành lab khi có thể tự chứng minh và giải thích được:
 | --- | --- |
 | [Tên và ID](../17-names-vi.md) | B1 — Scope của name và vòng đời UID |
 | [Namespaces](../19-namespaces-vi.md) | B1 — Namespace, `-n`, namespaced/cluster-scoped |
-| [Label và Selector](../18-labels-vi.md) | B3 — Equality, set, exists và AND |
+| [Label và Selector](../18-labels-vi.md) | B3 — Equality, set, exists, `!key`, AND và cập nhật label |
 | [Annotations](../20-annotations-vi.md) | B3 — Metadata không thể select |
 | [Các label được khuyến nghị](../31-common-labels-vi.md) | B2 — `app.kubernetes.io/*` trong manifest |
 | [kubectl](../26-kubectl-vi.md) | B0–B7 — create/get/apply/diff/explain/delete |
@@ -77,8 +80,11 @@ Khoảng 3–4 giờ, tính từ lúc gate `01-cluster-ready` đã PASS.
 - Mọi lệnh chạy trên `lab-k8s-master` bằng user quản trị có kubeconfig, trừ khi ghi rõ khác.
 - Lab chỉ tạo hai namespace `lab-1b` và `lab-1b-alt`; không sửa object trong `default`,
   `kube-system`, `kube-flannel` hay `kube-node-lease`.
-- Pod lab dùng đúng `busybox:1.37` đã khóa và cache từ Lab 00, với
-  `imagePullPolicy: IfNotPresent`; không dùng tag `latest` và không thêm image mới.
+- Pod lab dùng đúng image đã khóa ở dòng cuối
+  [bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) và đã có sẵn trên worker từ
+  gate Lab 00, với `imagePullPolicy: IfNotPresent`; không dùng tag `latest`, không thêm image
+  mới. Tag xuất hiện trong manifest ở B2 chỉ vì manifest bắt buộc phải ghi tên image thật; khi
+  bảng A1.3 đổi thì sửa manifest theo bảng, không sửa ngược lại.
 - File kubeconfig tạm chứa thông tin xác thực quản trị. Giữ quyền `0600`, đặt trong
   `~/lab-work/1b/`, không chép vào `~/lab-evidence`, Git, tin nhắn hoặc dịch vụ bên ngoài.
 - Không sửa trực tiếp `$HOME/.kube/config`. Mọi bài context dùng flag `--kubeconfig` trỏ tới bản
@@ -95,7 +101,7 @@ Khoảng 3–4 giờ, tính từ lúc gate `01-cluster-ready` đã PASS.
 ## B0. Chuẩn bị workspace và xác nhận client/server
 
 **Mục đích:** tạo nơi lưu manifest/evidence, xác nhận context hiện tại và độ lệch phiên bản
-`kubectl` vẫn phù hợp với control plane `v1.35.7`.
+`kubectl` vẫn phù hợp với control plane của baseline.
 
 ```bash
 mkdir -p ~/lab-work/1b ~/lab-evidence/1b
@@ -107,10 +113,13 @@ kubectl get nodes
 
 **Ý nghĩa:** `lab-work` chứa file tạm sẽ xóa cuối lab; `lab-evidence` chỉ chứa output không bí
 mật. `kubectl version` hỏi cả client và API server. Theo version-skew policy, `kubectl` được hỗ
-trợ trong khoảng một minor so với API server; baseline dùng cùng `v1.35.7` nên không có skew.
+trợ trong khoảng một minor so với API server; baseline khóa `kubectl` và control plane ở cùng
+một version nên không có skew.
 
-**PASS:** context trỏ cluster lab; client/server đều `v1.35.7`; API server phản hồi; cả ba node
-`Ready`.
+**PASS:** context trỏ cluster lab; `clientVersion.gitVersion` bằng `serverVersion.gitVersion` và
+khớp dòng Kubernetes trong
+[bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); API server phản hồi; cả ba
+node `Ready`.
 
 ## B1. Namespace, name và UID
 
@@ -172,10 +181,11 @@ reference ở Lab 1c cần UID chính vì name một mình không phân biệt �
 Kiểm tra server từ chối name không hợp lệ:
 
 ```bash
-if kubectl create configmap Bad_Name -n lab-1b >/tmp/lab1b-invalid-name.txt 2>&1; then
+if kubectl create configmap Bad_Name -n lab-1b \
+  >~/lab-evidence/1b/01-invalid-object-name.txt 2>&1; then
   echo 'FAIL: invalid object name was accepted'
 else
-  cat /tmp/lab1b-invalid-name.txt
+  cat ~/lab-evidence/1b/01-invalid-object-name.txt
   echo 'PASS: invalid object name rejected'
 fi
 ```
@@ -288,7 +298,7 @@ CNI, Service hay workload hệ thống. Image đã có từ gate Lab 00 nên kh�
 
 ## B3. Label selector và annotation
 
-### B3.1. Equality, set, exists và AND
+### B3.1. Equality, set, exists, `!key` và AND
 
 ```bash
 kubectl get pods -n lab-1b -l environment=production
@@ -296,6 +306,8 @@ kubectl get pods -n lab-1b -l 'environment in (production,qa)'
 kubectl get pods -n lab-1b \
   -l 'environment in (production,qa),tier notin (frontend)'
 kubectl get pods -n lab-1b -l training.example.com/exercise
+kubectl get pods -n lab-1b -l '!partition'
+kubectl get pods -n lab-1b -l '!environment'
 
 PROD_COUNT="$(kubectl get pods -n lab-1b \
   -l environment=production -o name | wc -l)"
@@ -303,18 +315,27 @@ BACKEND_COUNT="$(kubectl get pods -n lab-1b \
   -l 'environment in (production,qa),tier notin (frontend)' -o name | wc -l)"
 EXERCISE_COUNT="$(kubectl get pods -n lab-1b \
   -l training.example.com/exercise -o name | wc -l)"
+NO_PARTITION_COUNT="$(kubectl get pods -n lab-1b \
+  -l '!partition' -o name | wc -l)"
+NO_ENVIRONMENT_COUNT="$(kubectl get pods -n lab-1b \
+  -l '!environment' -o name | wc -l)"
 
-test "$PROD_COUNT" -eq 2
-test "$BACKEND_COUNT" -eq 1
-test "$EXERCISE_COUNT" -eq 3
-echo 'PASS: equality, set, exists and AND selectors matched expected sets'
+test "$PROD_COUNT" -eq 2 && test "$BACKEND_COUNT" -eq 1 && test "$EXERCISE_COUNT" -eq 3 \
+  && test "$NO_PARTITION_COUNT" -eq 3 && test "$NO_ENVIRONMENT_COUNT" -eq 0 \
+  && echo 'PASS: equality, set, exists, DoesNotExist and AND selectors matched'
 ```
 
-**Ý nghĩa:** `=` là equality selector; `in`/`notin` là set-based; chỉ viết key kiểm tra key
-tồn tại. Dấu phẩy kết hợp requirement bằng AND. Không có OR giữa hai key; `in (a,b)` chỉ là
-nhiều value được chấp nhận cho cùng một key. Label không cần duy nhất.
+**Ý nghĩa:** `=` là equality selector; `in`/`notin` là set-based; chỉ viết key là toán tử
+`exists`, còn `!key` là dạng phủ định của nó — chọn mọi object **không** mang key đó, không xét
+value. Dấu phẩy kết hợp requirement bằng AND. Không có OR giữa hai key; `in (a,b)` chỉ là nhiều
+value được chấp nhận cho cùng một key. Label không cần duy nhất.
 
-### B3.2. Cập nhật label và chứng minh annotation không select được
+`!partition` khớp cả ba Pod vì không Pod nào mang key `partition`; `!environment` trả tập rỗng
+vì Pod nào cũng có key đó. Đây là chỗ dễ nhầm `!key` với `notin`: theo bài,
+`tier notin (frontend)` khớp cả object có `tier` khác `frontend` **lẫn** object không có key
+`tier`, trong khi `!tier` chỉ khớp nhóm thứ hai.
+
+### B3.2. Gắn label, gắn annotation và chứng minh annotation không select được
 
 Object `identity-demo` được tạo bằng imperative command ở B1, nên tiếp tục quản lý nó bằng
 imperative command thay vì trộn với `apply`:
@@ -331,8 +352,8 @@ kubectl get configmap identity-demo -n lab-1b \
 
 ANNOTATION_SELECTOR_COUNT="$(kubectl get configmap -n lab-1b \
   -l training.example.com/build -o name | wc -l)"
-test "$ANNOTATION_SELECTOR_COUNT" -eq 0
-echo 'PASS: label selects; annotation is stored but is not selectable'
+test "$ANNOTATION_SELECTOR_COUNT" -eq 0 \
+  && echo 'PASS: label selects; annotation is stored but is not selectable'
 ```
 
 **Ý nghĩa:** label value bị giới hạn và dùng được với `-l`; annotation value là string có thể
@@ -341,12 +362,72 @@ chứa JSON, khoảng trắng và ký tự đặc biệt, nhưng API không hỗ
 **PASS:** query `team=platform` trả `identity-demo`; JSON annotation đọc lại đúng; selector
 dùng annotation key trả tập rỗng.
 
+### B3.3. Sửa và xóa label theo selector
+
+Mục *Cập nhật label* của bài [Label và Selector](../18-labels-vi.md) gán lại label cho cả một
+tập object: chọn tập bằng `-l` rồi ghi label mới, sau đó đọc kết quả bằng `-L`. Lab chạy đúng
+luồng đó trên ConfigMap imperative, không đụng vào ba Pod do `apply` quản lý ở B2.
+
+```bash
+kubectl create configmap identity-peer -n lab-1b \
+  --from-literal=scope=peer
+kubectl label configmap identity-peer -n lab-1b \
+  team=platform stage=learning
+
+kubectl label configmap -n lab-1b -l team=platform stage=review --overwrite
+kubectl get configmap -n lab-1b -l team=platform -L team,stage \
+  | tee ~/lab-evidence/1b/03-relabelled-set.txt
+
+STAGE_REVIEW_COUNT="$(kubectl get configmap -n lab-1b \
+  -l stage=review -o name | wc -l)"
+test "$STAGE_REVIEW_COUNT" -eq 2 \
+  && echo 'PASS: one selector-driven command relabelled both ConfigMaps'
+```
+
+**Ý nghĩa:** `kubectl label <resource> -l <selector> <key>=<value>` lọc tập object trước rồi mới
+ghi label, nên số object bị sửa do selector quyết định chứ không do tên. `-L` chỉ thêm cột để
+đọc kết quả, đúng như bài mô tả.
+
+Key `stage` đã có value nên phải nói rõ ý định ghi đè. Thiếu `--overwrite` thì lệnh bị từ chối
+thay vì âm thầm đổi giá trị:
+
+```bash
+if kubectl label configmap identity-demo -n lab-1b stage=learning \
+  >~/lab-evidence/1b/03-label-overwrite-error.txt 2>&1; then
+  echo 'FAIL: existing label key was changed without --overwrite'
+else
+  cat ~/lab-evidence/1b/03-label-overwrite-error.txt
+  echo 'PASS: kubectl label refuses to change an existing key without --overwrite'
+fi
+```
+
+Xóa label dùng hậu tố `key-`, cũng áp dụng được cho cả tập:
+
+```bash
+kubectl label configmap -n lab-1b -l team=platform stage-
+
+STAGE_ANY_COUNT="$(kubectl get configmap -n lab-1b \
+  -l stage -o name | wc -l)"
+TEAM_COUNT="$(kubectl get configmap -n lab-1b \
+  -l team=platform -o name | wc -l)"
+test "$STAGE_ANY_COUNT" -eq 0 && test "$TEAM_COUNT" -eq 2 \
+  && echo 'PASS: stage label removed from the set, team label untouched'
+```
+
+**Ý nghĩa:** `key-` gỡ đúng key đó và không đụng key khác, nên `team=platform` vẫn chọn đủ hai
+ConfigMap sau khi `stage` biến mất. Selector `-l stage` trả tập rỗng chứng minh key đã bị gỡ
+thật, không phải chỉ đổi value — đúng ngữ nghĩa `!key` vừa học ở B3.1.
+
+**PASS:** một lệnh có `-l` sửa được cả hai ConfigMap; lệnh thiếu `--overwrite` bị từ chối;
+`stage-` gỡ hết key `stage` trong khi `team` còn nguyên.
+
 ## B4. Kubeconfig, context và namespace mặc định
 
 **Mục đích:** thao tác trên bản sao kubeconfig để không làm đổi context quản trị thật.
 
 ```bash
 LAB_KUBECONFIG="$HOME/lab-work/1b/kubeconfig"
+REAL_CONTEXT="$(kubectl config current-context)"
 LAB_CLUSTER="$(kubectl config view --minify \
   -o jsonpath='{.contexts[0].context.cluster}')"
 LAB_USER="$(kubectl config view --minify \
@@ -366,10 +447,14 @@ kubectl --kubeconfig="$LAB_KUBECONFIG" config view --minify \
 
 kubectl --kubeconfig="$LAB_KUBECONFIG" get pods
 
-test "$(kubectl --kubeconfig="$LAB_KUBECONFIG" config current-context)" = 'lab-1b'
-test "$(kubectl --kubeconfig="$LAB_KUBECONFIG" config view --minify \
-  -o jsonpath='{.contexts[0].context.namespace}')" = 'lab-1b'
-echo 'PASS: temporary context selects lab-1b without changing the real kubeconfig'
+LAB_CTX="$(kubectl --kubeconfig="$LAB_KUBECONFIG" config current-context)"
+LAB_NS="$(kubectl --kubeconfig="$LAB_KUBECONFIG" config view --minify \
+  -o jsonpath='{.contexts[0].context.namespace}')"
+
+test "$LAB_CTX" = 'lab-1b' \
+  && test "$LAB_NS" = 'lab-1b' \
+  && test "$(kubectl config current-context)" = "$REAL_CONTEXT" \
+  && echo 'PASS: temporary context selects lab-1b without changing the real kubeconfig'
 ```
 
 **Ý nghĩa:** context gom ba tham số cluster, user và namespace. Flag `--kubeconfig` có ưu tiên
@@ -417,8 +502,8 @@ sed -i 's/mode: create/mode: replace/' ~/lab-work/1b/imperative-file.yaml
 kubectl replace -f ~/lab-work/1b/imperative-file.yaml
 
 test "$(kubectl get configmap imperative-file-demo -n lab-1b \
-  -o jsonpath='{.data.mode}')" = 'replace'
-echo 'PASS: imperative file create/replace followed the requested operations'
+  -o jsonpath='{.data.mode}')" = 'replace' \
+  && echo 'PASS: imperative file create/replace followed the requested operations'
 ```
 
 **Ý nghĩa:** file là bản mô tả đầy đủ, nhưng người vận hành vẫn chỉ định thao tác `create` hoặc
@@ -449,19 +534,19 @@ kubectl apply --dry-run=server --validate=strict \
 
 kubectl diff -f ~/lab-work/1b/management.yaml
 DIFF_RC=$?
-test "$DIFF_RC" -eq 1
+test "$DIFF_RC" -eq 1 && echo 'PASS: diff detects the object to create'
 kubectl apply -f ~/lab-work/1b/management.yaml
 kubectl apply -f ~/lab-work/1b/management.yaml
 
 sed -i 's/mode: v1/mode: v2/' ~/lab-work/1b/management.yaml
 kubectl diff -f ~/lab-work/1b/management.yaml
 DIFF_RC=$?
-test "$DIFF_RC" -eq 1
+test "$DIFF_RC" -eq 1 && echo 'PASS: diff detects the pending update'
 kubectl apply -f ~/lab-work/1b/management.yaml
 
 test "$(kubectl get configmap declarative-demo -n lab-1b \
-  -o jsonpath='{.data.mode}')" = 'v2'
-echo 'PASS: declarative diff/apply converged live object to file state'
+  -o jsonpath='{.data.mode}')" = 'v2' \
+  && echo 'PASS: declarative diff/apply converged live object to file state'
 ```
 
 **Ý nghĩa:** declarative configuration là `diff/apply -f file`, để kubectl tự chọn create hoặc
@@ -488,7 +573,8 @@ kubectl get pods -n lab-1b --field-selector="spec.nodeName=$WEB_NODE"
 
 RUNNING_COUNT="$(kubectl get pods -n lab-1b \
   --field-selector=status.phase=Running -o name | wc -l)"
-test "$RUNNING_COUNT" -eq 3
+test "$RUNNING_COUNT" -eq 3 \
+  && echo 'PASS: status.phase field selector matched all three lab Pods'
 
 if kubectl get pods -n lab-1b \
   --field-selector=spec.fieldThatDoesNotExist=value \
@@ -515,14 +601,24 @@ về `01-cluster-ready`.
 
 ```bash
 kubectl delete namespace lab-1b lab-1b-alt --wait=true --timeout=120s
-kubectl get namespace lab-1b lab-1b-alt 2>&1 || true
+
+NS_GONE=0
+for NS in lab-1b lab-1b-alt; do
+  if kubectl get namespace "$NS" >/dev/null 2>&1; then
+    echo "FAIL: namespace $NS still exists"
+  else
+    NS_GONE=$((NS_GONE + 1))
+  fi
+done
+test "$NS_GONE" -eq 2 && echo 'PASS: both lab namespaces are gone'
 
 rm -f "$HOME/lab-work/1b/kubeconfig"
 rm -f "$HOME/lab-work/1b/pod.yaml"
 rm -f "$HOME/lab-work/1b/imperative-file.yaml"
 rm -f "$HOME/lab-work/1b/management.yaml"
 rmdir "$HOME/lab-work/1b"
-rm -f /tmp/lab1b-invalid-name.txt
+test ! -e "$HOME/lab-work/1b" \
+  && echo 'PASS: temporary kubeconfig and manifests removed'
 
 kubectl wait --for=condition=Ready node --all --timeout=120s
 kubectl get nodes
@@ -531,12 +627,16 @@ kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeed
 kubectl -n kube-system get deployment coredns
 ```
 
-`|| true` chỉ giữ shell tiếp tục để xem `NotFound`; không biến namespace còn tồn tại thành
-PASS. Nếu namespace ở `Terminating`, dừng và kiểm tra `kubectl get namespace <name> -o yaml`.
+Vòng lặp kiểm **từng** namespace một. Gộp hai tên vào cùng một `kubectl get namespace` là sai
+logic: lệnh đó trả nonzero khi chỉ cần một trong hai còn thiếu, nên không phân biệt được "cả hai
+đã xóa" với "một cái vẫn còn". `rmdir` cố ý không dùng `-rf`: nó fail nếu `~/lab-work/1b` còn
+file lạ, và `test ! -e` biến điều đó thành gate thay vì im lặng bỏ qua. Nếu namespace ở
+`Terminating`, dừng và kiểm tra `kubectl get namespace <name> -o yaml`.
 
-**PASS:** cả hai namespace trả `NotFound`; kubeconfig tạm và manifest trong `lab-work` đã xóa;
-ba node `Ready`; namespace `default` không có Pod; không có Pod khác `Running/Succeeded`;
-CoreDNS đủ replica. Cluster trở về `01-cluster-ready`; không tạo snapshot mới.
+**PASS:** không có dòng `FAIL:` nào và cả hai dòng `PASS: both lab namespaces are gone` cùng
+`PASS: temporary kubeconfig and manifests removed` xuất hiện; ba node `Ready`; namespace
+`default` không có Pod; không có Pod khác `Running/Succeeded`; CoreDNS đủ replica. Cluster trở
+về `01-cluster-ready`; không tạo snapshot mới.
 
 ---
 
@@ -547,7 +647,9 @@ Không đánh dấu lab hoàn tất chỉ vì command chạy hết. Tự trả l
 - [ ] Kể đúng bốn phần định danh object và giải thích vì sao API version không nằm trong đó.
 - [ ] Chứng minh cùng name có thể tồn tại ở hai namespace và object tái tạo có UID mới.
 - [ ] Phân biệt name, label và annotation bằng mục đích sử dụng.
-- [ ] Viết được equality, set-based, exists và selector nhiều requirement.
+- [ ] Viết được equality, set-based, exists, `!key` và selector nhiều requirement; nói rõ
+      `!key` khác `notin` ở điểm nào.
+- [ ] Sửa và xóa label trên một tập object bằng `-l`, `--overwrite` và hậu tố `key-`.
 - [ ] Giải thích `-l` lọc còn `-L` chỉ thêm cột hiển thị.
 - [ ] Phân biệt namespaced với cluster-scoped resource và dùng đúng `-n`.
 - [ ] Kể ba thành phần của context và thứ tự ưu tiên kubeconfig.
@@ -574,9 +676,12 @@ context/kubeconfig hay imperative/declarative, Lab 1b hoàn tất.
 
 ## 4. Troubleshooting của lab này
 
+Sự cố khi dựng môi trường nằm ở [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường).
+Bảng dưới chỉ liệt kê sự cố phát sinh từ nội dung bài học 1b.
+
 | Triệu chứng | Kiểm tra | Xử lý đúng phạm vi |
 | --- | --- | --- |
-| Pod `ImagePullBackOff` | `kubectl describe pod -n lab-1b <name>` | Xác nhận image đúng `busybox:1.37`; baseline Lab 00 phải có image cache trên worker; không đổi sang `latest` |
+| Pod `ImagePullBackOff` | `kubectl describe pod -n lab-1b <name>` | Đối chiếu image trong manifest với dòng cuối [bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); baseline Lab 00 phải có sẵn image trên worker; không đổi sang `latest` |
 | Pod `Pending` | `kubectl describe pod -n lab-1b <name>` | Kiểm tra hai worker `Ready`, taint và capacity; nếu baseline lệch thì restore `01-cluster-ready` |
 | `kubectl diff` trả code `1` | Đọc diff | Đây là kết quả đúng khi có khác biệt; chỉ code lớn hơn `1` là lỗi vận hành |
 | Context thật bị đổi | `kubectl config current-context` | Không tiếp tục; đối chiếu baseline. Bài đúng chỉ sửa file `~/lab-work/1b/kubeconfig` |

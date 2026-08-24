@@ -10,11 +10,11 @@
 
 Lab này đi cùng mục
 [1c. Vòng đời và cơ chế nền của object](../00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object).
-Cluster giữ nguyên baseline của
-[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa):
-Kubernetes `v1.35.7`, containerd `2.2.1`, Flannel `v0.28.9`, một kube-apiserver trên
-`lab-k8s-master` và hai worker. Lab không cài cloud-controller-manager, storage migrator,
-CRD, controller hay add-on mới.
+Cluster giữ nguyên toàn bộ baseline của
+[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); lab này không
+chép lại con số nào. Topology vẫn là một kube-apiserver trên `lab-k8s-master` và hai worker —
+đây là dữ kiện quyết định của B3, B5 và B6. Lab không cài cloud-controller-manager, storage
+migrator, CRD, controller hay add-on mới.
 
 Trước khi bắt đầu, chạy [quy trình mở đầu A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab)
 trên `lab-k8s-master`:
@@ -146,9 +146,9 @@ echo "finalizers: $FINALIZERS"
 kubectl get configmap finalizer-demo -n lab-1c -o yaml \
   | tee ~/lab-evidence/1c/01-finalizer-terminating.yaml
 
-test -n "$DELETION_TS"
-test "$FINALIZERS" = 'training.example.com/manual-cleanup'
-echo 'PASS: DELETE accepted, object retained by finalizer'
+test -n "$DELETION_TS" \
+  && test "$FINALIZERS" = 'training.example.com/manual-cleanup' \
+  && echo 'PASS: DELETE accepted, object retained by finalizer'
 ```
 
 **Ý nghĩa:** API server chấp nhận DELETE, đặt `metadata.deletionTimestamp` và giữ object vì
@@ -276,10 +276,12 @@ for i in {1..30}; do
   sleep 1
 done
 
-test -z "$OWNER_REFS"
 kubectl get configmap dependent-orphan -n lab-1c -o yaml \
   | tee ~/lab-evidence/1c/02-dependent-orphan.yaml
-echo 'PASS: owner deleted; dependent retained without owner reference'
+
+kubectl get configmap dependent-orphan -n lab-1c >/dev/null 2>&1 \
+  && test -z "$OWNER_REFS" \
+  && echo 'PASS: owner deleted; dependent retained without owner reference'
 
 kubectl delete configmap dependent-orphan -n lab-1c --wait=true
 ```
@@ -347,13 +349,15 @@ echo "owner finalizers: $OWNER_FINALIZERS"
 echo "dependent deletionTimestamp: $CHILD_DELETE"
 echo "dependent finalizers: $CHILD_FINALIZERS"
 
-test -n "$OWNER_DELETE"
-test -n "$CHILD_DELETE"
+test -n "$OWNER_DELETE" \
+  && test -n "$CHILD_DELETE" \
+  && echo 'PASS: owner and dependent both entered deletion'
 case "$OWNER_FINALIZERS" in
   *foregroundDeletion*) echo 'PASS: owner retained by foregroundDeletion' ;;
-  *) echo 'FAIL: foregroundDeletion not observed'; false ;;
+  *) echo 'FAIL: foregroundDeletion not observed' ;;
 esac
-test "$CHILD_FINALIZERS" = 'training.example.com/manual-cleanup'
+test "$CHILD_FINALIZERS" = 'training.example.com/manual-cleanup' \
+  && echo 'PASS: dependent still held by the lab finalizer'
 
 kubectl get configmap owner-foreground dependent-foreground -n lab-1c -o yaml \
   | tee ~/lab-evidence/1c/02-foreground-terminating.yaml
@@ -376,9 +380,9 @@ for i in {1..30}; do
   sleep 1
 done
 
-test "$OWNER_EXISTS" -eq 0
-test "$CHILD_EXISTS" -eq 0
-echo 'PASS: dependent completed deletion before foreground owner disappeared'
+test "$OWNER_EXISTS" -eq 0 \
+  && test "$CHILD_EXISTS" -eq 0 \
+  && echo 'PASS: dependent completed deletion before foreground owner disappeared'
 ```
 
 **PASS B2:** background xóa cả owner/dependent; orphan giữ dependent rồi lab dọn thủ công;
@@ -398,10 +402,10 @@ LEASE_AFTER="$(kubectl -n kube-node-lease get lease lab-k8s-worker1 \
 
 echo "before: $LEASE_BEFORE"
 echo "after:  $LEASE_AFTER"
-test -n "$LEASE_BEFORE"
-test -n "$LEASE_AFTER"
-test "$LEASE_BEFORE" != "$LEASE_AFTER"
-echo 'PASS: kubelet renewed the Node Lease'
+test -n "$LEASE_BEFORE" \
+  && test -n "$LEASE_AFTER" \
+  && test "$LEASE_BEFORE" != "$LEASE_AFTER" \
+  && echo 'PASS: kubelet renewed the Node Lease'
 ```
 
 Mỗi kubelet update Lease trùng tên Node trong `kube-node-lease`; control plane dùng
@@ -421,8 +425,8 @@ kubectl -n kube-system get lease \
 
 APISERVER_LEASE_COUNT="$(kubectl -n kube-system get lease \
   -l apiserver.kubernetes.io/identity=kube-apiserver -o name | wc -l)"
-test "$APISERVER_LEASE_COUNT" -eq 1
-echo 'PASS: leader leases exist and one kube-apiserver identity is published'
+test "$APISERVER_LEASE_COUNT" -eq 1 \
+  && echo 'PASS: leader leases exist and one kube-apiserver identity is published'
 ```
 
 **Ý nghĩa:** scheduler/controller-manager dùng Lease để bầu leader; dù cluster hiện chỉ có một
@@ -465,12 +469,12 @@ echo "API after:       $API_VERSION_AFTER"
 echo "resourceVersion before: $RESOURCE_VERSION_BEFORE"
 echo "resourceVersion after:  $RESOURCE_VERSION_AFTER"
 
-test "$API_VERSION_BEFORE" = 'v1'
-test "$API_VERSION_AFTER" = 'v1'
-test "$RESOURCE_VERSION_BEFORE" != "$RESOURCE_VERSION_AFTER"
-test "$(kubectl get configmap storage-demo -n lab-1c \
-  -o jsonpath='{.data.version}')" = 'rewritten'
-echo 'PASS: write observed; storage representation remains hidden behind the API server'
+test "$API_VERSION_BEFORE" = 'v1' \
+  && test "$API_VERSION_AFTER" = 'v1' \
+  && test "$RESOURCE_VERSION_BEFORE" != "$RESOURCE_VERSION_AFTER" \
+  && test "$(kubectl get configmap storage-demo -n lab-1c \
+    -o jsonpath='{.data.version}')" = 'rewritten' \
+  && echo 'PASS: write observed; storage stays hidden behind the API server'
 ```
 
 **Ý nghĩa:** `apiVersion: v1` là representation mà request/response dùng; nó không chứng minh
@@ -511,9 +515,9 @@ sudo grep -nE -- \
   '--peer-ca-file|--peer-advertise-ip|--peer-advertise-port|UnknownVersionInteroperabilityProxy' \
   /etc/kubernetes/manifests/kube-apiserver.yaml || true
 
-test "$APISERVER_COUNT" -eq 1
-test "$CONTROL_PLANE_VERSION_COUNT" -eq 1
-echo 'PASS: single-version, single-apiserver cluster has no mixed-version peer path to exercise'
+test "$APISERVER_COUNT" -eq 1 \
+  && test "$CONTROL_PLANE_VERSION_COUNT" -eq 1 \
+  && echo 'PASS: single-version, single-apiserver cluster has no peer path to proxy'
 ```
 
 **Ý nghĩa:** Mixed Version Proxy giải quyết rolling upgrade của control plane HA, khi request
@@ -538,16 +542,21 @@ kubectl get nodes \
   -o custom-columns='NAME:.metadata.name,PROVIDER_ID:.spec.providerID,INTERNAL_IP:.status.addresses[?(@.type=="InternalIP")].address' \
   | tee ~/lab-evidence/1c/06-node-providerid.txt
 
+PROVIDER_ID_COUNT=0
 for node in $(kubectl get nodes -o name); do
   PROVIDER_ID="$(kubectl get "$node" -o jsonpath='{.spec.providerID}')"
-  test -z "$PROVIDER_ID"
+  if [ -n "$PROVIDER_ID" ]; then
+    echo "FAIL: $node has providerID $PROVIDER_ID"
+    PROVIDER_ID_COUNT=$((PROVIDER_ID_COUNT + 1))
+  fi
 done
 
 sudo grep -n -- '--cloud-provider' \
   /etc/kubernetes/manifests/kube-controller-manager.yaml || true
 
-test "$CCM_COUNT" -eq 0
-echo 'PASS: no cloud-controller-manager and no Node providerID on self-managed VMs'
+test "$CCM_COUNT" -eq 0 \
+  && test "$PROVIDER_ID_COUNT" -eq 0 \
+  && echo 'PASS: no cloud-controller-manager and no Node providerID on self-managed VMs'
 ```
 
 **Ý nghĩa:** cloud-controller-manager chứa Node, Route và Service controller đặc thù cloud;
@@ -563,13 +572,20 @@ cấu hình external cloud provider.
 
 ```bash
 kubectl delete namespace lab-1c --wait=true --timeout=120s
-kubectl get namespace lab-1c 2>&1 || true
+
+if kubectl get namespace lab-1c >/dev/null 2>&1; then
+  echo 'FAIL: namespace lab-1c still exists'
+else
+  echo 'PASS: namespace lab-1c is gone'
+fi
 
 rm -f "$HOME/lab-work/1c/finalizer-demo.yaml"
 rm -f "$HOME/lab-work/1c/dependent-background.yaml"
 rm -f "$HOME/lab-work/1c/dependent-orphan.yaml"
 rm -f "$HOME/lab-work/1c/dependent-foreground.yaml"
 rmdir "$HOME/lab-work/1c"
+test ! -e "$HOME/lab-work/1c" \
+  && echo 'PASS: lab manifests removed'
 
 kubectl wait --for=condition=Ready node --all --timeout=120s
 kubectl get nodes
@@ -578,7 +594,10 @@ kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeed
 kubectl -n kube-system get deployment coredns
 ```
 
-Nếu namespace vẫn tồn tại hoặc `Terminating`, không coi `|| true` là PASS. Kiểm tra:
+Nhánh `else` mới là gate: chỉ khi API server trả `NotFound` cho `lab-1c` mới có dòng `PASS:`.
+`rmdir` cố ý không dùng `-rf` — nó fail nếu `~/lab-work/1c` còn file lạ, và `test ! -e` biến
+điều đó thành gate thay vì im lặng bỏ qua. Nếu namespace vẫn tồn tại hoặc `Terminating`, kiểm
+tra:
 
 ```bash
 kubectl get namespace lab-1c -o yaml
@@ -588,9 +607,10 @@ kubectl get all,configmap -n lab-1c
 Chỉ finalizer `training.example.com/manual-cleanup` trên ConfigMap lab mới được gỡ theo bước
 phục hồi đã ghi. Không cưỡng chế finalizer Namespace.
 
-**PASS:** namespace `lab-1c` trả `NotFound`; không còn manifest trong `lab-work`; ba node
-`Ready`; default không có Pod; không có Pod khác `Running/Succeeded`; CoreDNS đủ replica.
-Cluster trở về `01-cluster-ready`; không tạo snapshot mới.
+**PASS:** không có dòng `FAIL:` nào; cả `PASS: namespace lab-1c is gone` lẫn `PASS: lab
+manifests removed` đều xuất hiện; ba node `Ready`; default không có Pod; không có Pod khác
+`Running/Succeeded`; CoreDNS đủ replica. Cluster trở về `01-cluster-ready`; không tạo snapshot
+mới.
 
 ---
 
@@ -627,6 +647,9 @@ Giai đoạn 1 hoàn tất.
 ---
 
 ## 4. Troubleshooting của lab này
+
+Sự cố khi dựng môi trường nằm ở [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường).
+Bảng dưới chỉ liệt kê sự cố phát sinh từ nội dung bài học 1c.
 
 | Triệu chứng | Kiểm tra | Xử lý đúng phạm vi |
 | --- | --- | --- |

@@ -100,7 +100,7 @@ kubectl logs <pod-name> -c <init-container-2>
 Các Init Container chạy shell script sẽ in ra các lệnh khi chúng được thực thi. Ví dụ, bạn có
 thể làm điều này trong Bash bằng cách chạy `set -x` ở đầu script.
 
-## Hiểu trạng thái Pod (Understanding Pod status)
+## Hiểu trạng thái Pod (Understanding Pod status) {#understanding-pod-status}
 
 Một trạng thái Pod bắt đầu bằng `Init:` tóm tắt trạng thái thực thi của các Init Container.
 Bảng dưới đây mô tả một số giá trị trạng thái ví dụ mà bạn có thể gặp khi gỡ lỗi Init Container.

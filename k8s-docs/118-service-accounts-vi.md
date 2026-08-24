@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 3/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 3/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là bài trả lời câu hỏi bạn đã gặp hai lần trước đó. Bài
 [24](24-control-plane-node-communication-vi.md) nói Pod kết nối an toàn tới API server bằng
@@ -120,7 +120,7 @@ các kịch bản sau:
 * Các Pod của bạn cần giao tiếp với một dịch vụ bên ngoài. Ví dụ, một
   workload Pod cần một danh tính cho một cloud API thương mại,
   và nhà cung cấp thương mại đó cho phép cấu hình một quan hệ tin cậy (trust relationship) phù hợp.
-* [Xác thực với một private image registry bằng `imagePullSecret`](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account).
+* [Xác thực với một private image registry bằng `imagePullSecret`](279-configure-service-account-vi.md#add-imagepullsecrets-to-a-service-account).
 * Một dịch vụ bên ngoài cần giao tiếp với API server của Kubernetes. Ví dụ,
   xác thực với cluster như một phần của pipeline CI/CD.
 * Bạn sử dụng phần mềm bảo mật của bên thứ ba trong cluster, phần mềm này dựa vào
@@ -143,7 +143,7 @@ các kịch bản sau:
    bên ngoài thay thế.
 
 Để xem hướng dẫn chi tiết, tham khảo
-[Cấu hình Service Account cho Pod](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/).
+[Cấu hình Service Account cho Pod](279-configure-service-account-vi.md).
 
 ### Cấp quyền cho một ServiceAccount (Grant permissions to a ServiceAccount) {#grant-permissions}
 
@@ -177,7 +177,7 @@ trong đặc tả (specification) của Pod. Kubernetes sau đó sẽ tự độ
 credentials của ServiceAccount đó cho Pod. Từ v1.22 trở đi, Kubernetes
 lấy một token ngắn hạn, **tự động xoay vòng (rotate)** bằng API `TokenRequest`
 và mount token đó dưới dạng một
-[projected volume](https://kubernetes.io/docs/concepts/storage/projected-volumes/#serviceaccounttoken).
+[projected volume](93-projected-volumes-vi.md#serviceaccounttoken).
 
 Mặc định, Kubernetes cung cấp cho Pod
 credentials của ServiceAccount đã được gán, dù đó là
@@ -203,12 +203,12 @@ phương pháp sau:
   Nếu bạn có một ứng dụng cũ (legacy) không nhận biết được Kubernetes, bạn
   có thể dùng một sidecar container trong cùng pod để lấy các token này
   và cung cấp chúng cho workload ứng dụng.
-* [Token Volume Projection](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#serviceaccount-token-volume-projection)
+* [Token Volume Projection](279-configure-service-account-vi.md#serviceaccount-token-volume-projection)
   (cũng được khuyến nghị): Từ Kubernetes v1.20 trở đi, dùng đặc tả Pod để
   yêu cầu kubelet thêm service account token vào Pod dưới dạng một
   *projected volume*. Các projected token tự động hết hạn, và kubelet
   xoay vòng token trước khi nó hết hạn.
-* [Service Account Token Secrets](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#manually-create-an-api-token-for-a-serviceaccount)
+* [Service Account Token Secrets](279-configure-service-account-vi.md#manually-create-an-api-token-for-a-serviceaccount)
   (không khuyến nghị): Bạn có thể mount các service account token dưới dạng Kubernetes
   Secret vào Pod. Những token này không hết hạn và không được xoay vòng. Ở các phiên bản trước v1.24, một token vĩnh viễn được tự động tạo cho mỗi service account.
   Phương pháp này không còn được khuyến nghị nữa, đặc biệt ở quy mô lớn, do các rủi ro gắn liền
@@ -300,7 +300,7 @@ request. API server kiểm tra tính hợp lệ của bearer token đó như sau
 
 API TokenRequest tạo ra các _bound token_ (token bị ràng buộc) cho một ServiceAccount. Sự
 ràng buộc này gắn với vòng đời của client — chẳng hạn một Pod — đang hoạt động
-dưới danh nghĩa ServiceAccount đó. Xem [Token Volume Projection](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#serviceaccount-token-volume-projection)
+dưới danh nghĩa ServiceAccount đó. Xem [Token Volume Projection](279-configure-service-account-vi.md#serviceaccount-token-volume-projection)
 để có ví dụ về schema và payload JWT của một bound service account token của pod.
 
 Với các token phát hành qua API `TokenRequest`, API server còn kiểm tra rằng
@@ -349,14 +349,14 @@ dùng trong ứng dụng của bạn và không ở bất kỳ nơi nào khác.
     và truy cập (Identity and Access Management — IAM) bên ngoài, chẳng hạn từ một nhà cung cấp cloud, để
     xác thực với cluster của bạn.
   * [Dùng API CertificateSigningRequest với client certificate](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/).
-* [Cấu hình kubelet để lấy credentials từ một image registry](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider/).
+* [Cấu hình kubelet để lấy credentials từ một image registry](225-kubelet-credential-provider-vi.md).
 * Dùng một Device Plugin để truy cập một Trusted Platform Module (TPM) ảo, từ đó
   cho phép xác thực bằng một private key.
 
 ## Tiếp theo (What's next)
 
 * Tìm hiểu cách [quản lý các ServiceAccount với vai trò quản trị viên cluster](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/).
-* Tìm hiểu cách [gán một ServiceAccount cho một Pod](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/).
+* Tìm hiểu cách [gán một ServiceAccount cho một Pod](279-configure-service-account-vi.md).
 * Đọc [tài liệu tham khảo API ServiceAccount](https://kubernetes.io/docs/reference/kubernetes-api/authentication-resources/service-account-v1/).
 
 ---

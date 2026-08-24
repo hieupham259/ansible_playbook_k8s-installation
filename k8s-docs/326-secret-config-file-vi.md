@@ -65,7 +65,7 @@ Ví dụ sau lưu hai chuỗi vào một Secret bằng trường `data`.
    ```
 
    Lưu ý rằng tên của một đối tượng Secret phải là một
-   [tên miền con DNS hợp lệ (DNS subdomain name)](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names).
+   [tên miền con DNS hợp lệ (DNS subdomain name)](17-names-vi.md#dns-subdomain-names).
 
 1. Tạo Secret bằng [`kubectl apply`](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#apply):
 
@@ -185,7 +185,7 @@ type: Opaque
 Để sửa dữ liệu trong Secret mà bạn đã tạo bằng manifest, hãy chỉnh sửa trường `data`
 hoặc `stringData` trong manifest của bạn và apply file đó vào
 cluster. Bạn có thể sửa một đối tượng `Secret` hiện có, trừ khi nó là
-[bất biến (immutable)](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable).
+[bất biến (immutable)](109-secret-vi.md#secret-immutable).
 
 Ví dụ, nếu bạn muốn đổi mật khẩu ở ví dụ trước thành
 `birdsarentreal`, hãy làm như sau:
@@ -245,6 +245,6 @@ kubectl delete secret mysecret
 
 ## Tiếp theo (What's next)
 
-- Đọc thêm về [khái niệm Secret](https://kubernetes.io/docs/concepts/configuration/secret/)
+- Đọc thêm về [khái niệm Secret](109-secret-vi.md)
 - Tìm hiểu cách [quản lý Secret bằng kubectl](327-secret-kubectl-vi.md)
-- Tìm hiểu cách [quản lý Secret bằng kustomize](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kustomize/)
+- Tìm hiểu cách [quản lý Secret bằng kustomize](328-secret-kustomize-vi.md)

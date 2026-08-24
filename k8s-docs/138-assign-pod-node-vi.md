@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 3/13 ·
+**Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 3/13 ·
 Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Bài dài nhất nhóm 7a.** Nó gộp bốn cơ chế độc lập vào một trang — `nodeSelector`, affinity,
@@ -77,7 +77,7 @@ các Pod cụ thể:
 
 Giống như nhiều đối tượng Kubernetes khác, node cũng có
 [label](./18-labels-vi.md). Bạn có thể
-[gắn label thủ công](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/#add-a-label-to-a-node).
+[gắn label thủ công](267-assign-pods-nodes-vi.md#add-a-label-to-a-node).
 Kubernetes cũng tự điền một [tập label chuẩn](https://kubernetes.io/docs/reference/node/node-labels/)
 trên mọi node trong một cluster.
 
@@ -86,7 +86,7 @@ trên mọi node trong một cluster.
 > Ví dụ, giá trị của `kubernetes.io/hostname` có thể trùng với tên node trong một số môi trường
 > và mang giá trị khác trong các môi trường khác.
 
-### Cô lập/hạn chế node (Node isolation/restriction)
+### Cô lập/hạn chế node (Node isolation/restriction) {#node-isolation-restriction}
 
 Việc thêm label cho node cho phép bạn nhắm các Pod được lập lịch lên các node
 hoặc nhóm node cụ thể. Bạn có thể dùng chức năng này để đảm bảo các Pod nhất định
@@ -115,7 +115,7 @@ các [label của node](#built-in-node-labels) mà bạn muốn node đích ph�
 Kubernetes chỉ lập lịch Pod lên các node có đầy đủ từng label mà bạn
 chỉ định.
 
-Xem [Gán Pod cho Node](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes) để biết thêm
+Xem [Gán Pod cho Node](267-assign-pods-nodes-vi.md) để biết thêm
 thông tin.
 
 ## Affinity và anti-affinity (Affinity and anti-affinity) {#affinity-and-anti-affinity}
@@ -206,7 +206,7 @@ diễn giải các quy tắc. Bạn có thể dùng `In`, `NotIn`, `Exists`, `Do
 để tìm hiểu thêm về cách chúng hoạt động.
 
 `NotIn` và `DoesNotExist` cho phép bạn định nghĩa hành vi node anti-affinity.
-Ngoài ra, bạn có thể dùng [taint của node](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+Ngoài ra, bạn có thể dùng [taint của node](139-taint-and-toleration-vi.md)
 để đẩy Pod ra khỏi các node cụ thể.
 
 > **Ghi chú:**
@@ -221,7 +221,7 @@ Ngoài ra, bạn có thể dùng [taint của node](https://kubernetes.io/docs/c
 > term trong `nodeSelectorTerms`, thì Pod chỉ có thể được lập lịch lên node
 > khi tất cả các biểu thức đều được thỏa mãn (các biểu thức được AND với nhau).
 
-Xem [Gán Pod cho Node bằng Node Affinity](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes-using-node-affinity/)
+Xem [Gán Pod cho Node bằng Node Affinity](266-assign-pods-nodes-node-affinity-vi.md)
 để biết thêm thông tin.
 
 #### Trọng số node affinity (Node affinity weight)
@@ -322,12 +322,12 @@ gây bất ngờ cho họ. Hãy dùng các label node có mối liên hệ rõ r
 tên profile của bộ lập lịch.
 
 > **Ghi chú:**
-> Controller DaemonSet, thành phần [tạo Pod cho các DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/#how-daemon-pods-are-scheduled),
+> Controller DaemonSet, thành phần [tạo Pod cho các DaemonSet](66-daemonset-vi.md#how-daemon-pods-are-scheduled),
 > không hỗ trợ scheduling profile. Khi controller DaemonSet tạo
 > Pod, bộ lập lịch Kubernetes mặc định sẽ sắp đặt các Pod đó và tôn trọng mọi
 > quy tắc `nodeAffinity` trong controller DaemonSet.
 
-### Inter-pod affinity và anti-affinity (Inter-pod affinity and anti-affinity)
+### Inter-pod affinity và anti-affinity (Inter-pod affinity and anti-affinity) {#inter-pod-affinity-and-anti-affinity}
 
 Inter-pod affinity và anti-affinity cho phép bạn ràng buộc những node nào
 Pod của bạn có thể được lập lịch lên dựa trên label của các Pod đã chạy trên
@@ -341,7 +341,7 @@ trường hợp anti-affinity, không nên) chạy trong một X nếu X đó
 (topology domain) như node, rack, zone hoặc region của nhà cung cấp cloud, hoặc tương tự, và Y là
 quy tắc mà Kubernetes cố gắng thỏa mãn.
 
-Bạn biểu đạt các quy tắc (Y) này dưới dạng [bộ chọn label (label selector)](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors)
+Bạn biểu đạt các quy tắc (Y) này dưới dạng [bộ chọn label (label selector)](18-labels-vi.md#label-selectors)
 kèm theo một danh sách namespace tùy chọn. Pod là các đối tượng thuộc namespace trong
 Kubernetes, nên label của Pod cũng ngầm định có namespace. Bất kỳ bộ chọn label nào
 cho label của Pod nên chỉ định các namespace mà Kubernetes cần tìm những
@@ -448,7 +448,7 @@ Pod affinity dùng loại "cứng"
 dùng loại "mềm" `preferredDuringSchedulingIgnoredDuringExecution`.
 
 Quy tắc affinity chỉ định rằng bộ lập lịch chỉ được phép đặt Pod ví dụ
-lên một node nếu node đó thuộc một [zone](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) cụ thể
+lên một node nếu node đó thuộc một [zone](140-topology-spread-constraints-vi.md) cụ thể
 nơi các Pod khác đã được gắn label `security=S1`.
 Chẳng hạn, nếu chúng ta có một cluster với một zone được chỉ định, gọi là "Zone V",
 gồm các node mang label `topology.kubernetes.io/zone=V`, bộ lập lịch có thể
@@ -457,7 +457,7 @@ Zone V đã mang label `security=S1`. Ngược lại, nếu không có Pod nào 
 trong Zone V, bộ lập lịch sẽ không gán Pod ví dụ vào bất kỳ node nào trong zone đó.
 
 Quy tắc anti-affinity chỉ định rằng bộ lập lịch nên cố tránh lập lịch Pod
-lên một node nếu node đó thuộc một [zone](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) cụ thể
+lên một node nếu node đó thuộc một [zone](140-topology-spread-constraints-vi.md) cụ thể
 nơi các Pod khác đã được gắn label `security=S2`.
 Chẳng hạn, nếu chúng ta có một cluster với một zone được chỉ định, gọi là "Zone R",
 gồm các node mang label `topology.kubernetes.io/zone=R`, bộ lập lịch nên tránh
@@ -788,7 +788,7 @@ Bạn có thể dùng _ràng buộc phân bố theo topology_ (topology spread c
 miền topology nào khác do bạn định nghĩa. Bạn có thể làm vậy để cải thiện hiệu năng, tính sẵn sàng kỳ vọng, hoặc
 mức sử dụng tổng thể.
 
-Đọc [Ràng buộc phân bố Pod theo topology](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/)
+Đọc [Ràng buộc phân bố Pod theo topology](140-topology-spread-constraints-vi.md)
 để tìm hiểu thêm về cách chúng hoạt động.
 
 ## Label topology của Pod (Pod topology labels)
@@ -844,13 +844,13 @@ Các toán tử sau chỉ có thể dùng với `nodeAffinity`.
 
 ## Tiếp theo (What's next)
 
-- Đọc thêm về [taint và toleration](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
+- Đọc thêm về [taint và toleration](139-taint-and-toleration-vi.md).
 - Đọc tài liệu thiết kế cho [node affinity](https://git.k8s.io/design-proposals-archive/scheduling/nodeaffinity.md)
   và cho [inter-pod affinity/anti-affinity](https://git.k8s.io/design-proposals-archive/scheduling/podaffinity.md).
-- Tìm hiểu cách [topology manager](https://kubernetes.io/docs/tasks/administer-cluster/topology-manager/) tham gia vào
+- Tìm hiểu cách [topology manager](259-topology-manager-vi.md) tham gia vào
   các quyết định phân bổ tài nguyên ở cấp node.
-- Tìm hiểu cách dùng [nodeSelector](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/).
-- Tìm hiểu cách dùng [affinity và anti-affinity](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes-using-node-affinity/).
+- Tìm hiểu cách dùng [nodeSelector](267-assign-pods-nodes-vi.md).
+- Tìm hiểu cách dùng [affinity và anti-affinity](266-assign-pods-nodes-node-affinity-vi.md).
 
 ---
 

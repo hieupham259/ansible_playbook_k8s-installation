@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 13/16 · Kiểm chứng
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 13/16 · Kiểm chứng
 ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Cluster lab là **single-stack IPv4** (Pod CIDR `10.244.0.0/16`, Service CIDR `10.96.0.0/12`),
@@ -77,10 +77,10 @@ Cần có các điều kiện tiên quyết sau để sử dụng cluster Kubern
 
 * Nhà cung cấp có hỗ trợ mạng dual-stack (nhà cung cấp cloud hoặc nhà cung cấp khác phải có khả
   năng cung cấp cho các node Kubernetes những giao diện mạng IPv4/IPv6 định tuyến được)
-* Một [network plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/)
+* Một [network plugin](183-network-plugins-vi.md)
   có hỗ trợ mạng dual-stack.
 
-## Cấu hình dual-stack IPv4/IPv6 (Configure IPv4/IPv6 dual-stack)
+## Cấu hình dual-stack IPv4/IPv6 (Configure IPv4/IPv6 dual-stack) {#configure-ipv4-ipv6-dual-stack}
 
 Để cấu hình dual-stack IPv4/IPv6, hãy đặt các thiết lập gán mạng dual-stack cho cluster:
 
@@ -154,8 +154,8 @@ Các ví dụ sau minh họa hành vi của nhiều kịch bản cấu hình Ser
 1. Đặc tả Service này không định nghĩa tường minh `.spec.ipFamilyPolicy`. Khi bạn tạo Service
    này, Kubernetes gán một cluster IP cho Service từ dải `service-cluster-ip-range` đầu tiên
    đã cấu hình và đặt `.spec.ipFamilyPolicy` thành `SingleStack`. ([Service không có
-   selector](https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors) và
-   [headless Service](https://kubernetes.io/docs/concepts/services-networking/service/#headless-services) có selector
+   selector](82-service-vi.md#services-without-selectors) và
+   [headless Service](82-service-vi.md#headless-services) có selector
    cũng sẽ hành xử theo cùng cách này.)
 
    ```yaml
@@ -283,7 +283,7 @@ các Service. (Nâng cấp một cluster hiện có lên 1.21 trở lên sẽ b�
    ```
 
 1. Khi dual-stack được bật trên một cluster, các
-   [headless Service](https://kubernetes.io/docs/concepts/services-networking/service/#headless-services) có selector
+   [headless Service](82-service-vi.md#headless-services) có selector
    đang tồn tại được control plane cấu hình để đặt `.spec.ipFamilyPolicy` thành `SingleStack`
    và đặt `.spec.ipFamilies` thành họ địa chỉ của dải cluster IP đầu tiên dành cho service
    (được cấu hình qua flag `--service-cluster-ip-range` của kube-apiserver) mặc dù
@@ -366,7 +366,7 @@ Các Service có thể được thay đổi từ single-stack sang dual-stack v�
 
 ### Headless Service không có selector (Headless Services without selector)
 
-Đối với [Headless Service không có selector](https://kubernetes.io/docs/concepts/services-networking/service/#without-selectors)
+Đối với [Headless Service không có selector](82-service-vi.md#without-selectors)
 và không đặt tường minh `.spec.ipFamilyPolicy`, trường `.spec.ipFamilyPolicy` mặc định là
 `RequireDualStack`.
 
@@ -393,7 +393,7 @@ các cluster dual-stack.
 > **Ghi chú:**
 > Hãy bảo đảm nhà cung cấp CNI của bạn hỗ trợ IPv6.
 
-## Hỗ trợ Windows (Windows support)
+## Hỗ trợ Windows (Windows support) {#windows-support}
 
 Kubernetes trên Windows không hỗ trợ mạng single-stack "chỉ IPv6" (IPv6-only). Tuy nhiên,
 mạng dual-stack IPv4/IPv6 cho các pod và node với service một họ địa chỉ (single-family)
@@ -405,7 +405,7 @@ Bạn có thể dùng mạng dual-stack IPv4/IPv6 với các mạng `l2bridge`.
 > Các mạng Overlay (VXLAN) trên Windows **không** hỗ trợ mạng dual-stack.
 
 Bạn có thể đọc thêm về các chế độ mạng khác nhau cho Windows trong chủ đề
-[Mạng trên Windows](https://kubernetes.io/docs/concepts/services-networking/windows-networking#network-modes).
+[Mạng trên Windows](89-windows-networking-vi.md#network-modes).
 
 ## Tiếp theo (What's next)
 

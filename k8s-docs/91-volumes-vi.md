@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 2/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 2/16 · Kiểm chứng ở
 Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này rất dài vì mục *Các loại volume* liệt kê **toàn bộ** loại volume Kubernetes từng hỗ
@@ -89,8 +89,8 @@ Kubernetes dùng Pod để chạy container.
 
 Kubernetes hỗ trợ nhiều loại volume. Một Pod
 có thể dùng đồng thời số lượng bất kỳ các loại volume.
-Các loại [volume tạm thời (ephemeral volume)](https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/) có vòng đời gắn với một Pod cụ thể,
-nhưng [persistent volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) tồn tại vượt ra ngoài
+Các loại [volume tạm thời (ephemeral volume)](94-ephemeral-volumes-vi.md) có vòng đời gắn với một Pod cụ thể,
+nhưng [persistent volume](92-persistent-volumes-vi.md) tồn tại vượt ra ngoài
 vòng đời của bất kỳ Pod riêng lẻ nào. Khi một Pod không còn tồn tại, Kubernetes hủy các ephemeral volume;
 tuy nhiên, Kubernetes không hủy các persistent volume.
 Với mọi loại volume trong một Pod nhất định, dữ liệu được bảo toàn qua các lần khởi động lại container.
@@ -124,7 +124,7 @@ Kubernetes hỗ trợ một số loại volume.
 
 ### configMap
 
-Một [ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/)
+Một [ConfigMap](275-configure-pod-configmap-vi.md)
 cung cấp một cách để tiêm (inject) dữ liệu cấu hình vào các Pod.
 Dữ liệu lưu trong một ConfigMap có thể được tham chiếu trong một volume loại
 `configMap` rồi được sử dụng bởi các ứng dụng đóng gói container chạy trong Pod.
@@ -163,7 +163,7 @@ Lưu ý rằng đường dẫn này được suy ra từ `mountPath` của volum
 
 > **Ghi chú:**
 >
-> * Bạn phải [tạo một ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-a-configmap)
+> * Bạn phải [tạo một ConfigMap](275-configure-pod-configmap-vi.md#create-a-configmap)
 >   trước khi có thể sử dụng nó.
 >
 > * Một ConfigMap luôn được mount ở chế độ `readOnly`.
@@ -184,7 +184,7 @@ cho các ứng dụng. Bên trong volume, bạn có thể thấy dữ liệu
 > Container dùng downward API qua kiểu mount volume [`subPath`](#using-subpath) sẽ không
 > nhận được cập nhật khi giá trị của các trường thay đổi.
 
-Xem [Phơi bày thông tin Pod cho container thông qua file](https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/)
+Xem [Phơi bày thông tin Pod cho container thông qua file](335-downward-api-volume-vi.md)
 để tìm hiểu thêm.
 
 ### emptyDir {#emptydir}
@@ -215,14 +215,14 @@ trên RAM) cho bạn thay thế. Mặc dù tmpfs rất nhanh, hãy lưu ý rằn
 
 Có thể chỉ định giới hạn kích thước cho phương tiện mặc định, giới hạn này khống chế dung lượng
 của volume `emptyDir`. Dung lượng lưu trữ được cấp phát từ
-[lưu trữ tạm thời của node (node ephemeral storage)](https://kubernetes.io/docs/concepts/storage/ephemeral-storage/#setting-requests-and-limits-for-local-ephemeral-storage).
+[lưu trữ tạm thời của node (node ephemeral storage)](https://kubernetes.io/docs/concepts/storage/ephemeral-storage#setting-requests-and-limits-for-local-ephemeral-storage).
 Nếu phần lưu trữ đó bị lấp đầy bởi một nguồn khác (ví dụ file log hoặc image overlay),
 `emptyDir` có thể hết dung lượng trước khi chạm tới giới hạn này.
 Nếu không chỉ định kích thước, các volume dựa trên bộ nhớ (memory-backed) sẽ có kích thước
 bằng lượng bộ nhớ cấp phát được (allocatable memory) của node.
 
 > **Thận trọng:**
-> Vui lòng xem [tại đây](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#memory-backed-emptydir)
+> Vui lòng xem [tại đây](110-manage-resources-containers-vi.md#memory-backed-emptydir)
 > các điểm cần lưu ý về quản lý tài nguyên khi sử dụng `emptyDir` dựa trên bộ nhớ.
 
 #### Ví dụ cấu hình emptyDir (emptyDir configuration example)
@@ -304,7 +304,7 @@ thay thế.
 > ---
 >
 > Bạn có thể hạn chế việc sử dụng volume `gitRepo` trong cluster của mình bằng
-> [các policy](https://kubernetes.io/docs/concepts/policy/), chẳng hạn như
+> [các policy](132-policies-vi.md), chẳng hạn như
 > [ValidatingAdmissionPolicy](https://kubernetes.io/docs/reference/access-authn-authz/validating-admission-policy/).
 > Bạn có thể dùng biểu thức Common Expression Language (CEL) sau như một
 > phần của policy để từ chối việc sử dụng volume `gitRepo`:
@@ -383,7 +383,7 @@ Các giá trị khả dụng cho `type` là:
 
 Một số file hoặc thư mục được tạo trên host bên dưới có thể chỉ
 truy cập được bởi root. Khi đó bạn hoặc phải chạy process của mình dưới quyền root trong một
-[privileged container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+[privileged container](291-security-context-vi.md)
 hoặc thay đổi quyền của file trên host để có thể đọc từ (hoặc ghi vào) volume `hostPath`.
 
 #### Ví dụ cấu hình hostPath (hostPath configuration example)
@@ -580,7 +580,7 @@ Các trường sau khả dụng cho loại `image`:
   `IfNotPresent`. Mặc định là `Always` nếu tag `:latest` được chỉ định, ngược lại
   là `IfNotPresent`.
 
-Xem ví dụ [_Sử dụng Image Volume với một Pod_](https://kubernetes.io/docs/tasks/configure-pod-container/image-volumes)
+Xem ví dụ [_Sử dụng Image Volume với một Pod_](285-image-volumes-vi.md)
 để biết thêm chi tiết về cách sử dụng nguồn volume này.
 
 #### Trạng thái Pod và volume `image` (Pod status and `image` volumes) {#image-volume-pod-status}
@@ -700,7 +700,7 @@ mặc định "Filesystem") để phơi bày volume local như một thiết b�
 
 Khi dùng volume local, khuyến nghị tạo một StorageClass với
 `volumeBindingMode` đặt là `WaitForFirstConsumer`. Để biết thêm chi tiết, xem
-ví dụ về [StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/#local) local.
+ví dụ về [StorageClass](96-storage-classes-vi.md#local) local.
 Việc trì hoãn gắn kết (binding) volume bảo đảm rằng quyết định gắn kết PersistentVolumeClaim
 cũng sẽ được đánh giá cùng với mọi ràng buộc node khác mà Pod có thể có,
 chẳng hạn yêu cầu tài nguyên node, node selector, Pod affinity, và Pod anti-affinity.
@@ -754,11 +754,11 @@ spec:
 ### persistentVolumeClaim {#persistentvolumeclaim}
 
 Volume `persistentVolumeClaim` được dùng để mount một
-[PersistentVolume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) vào một Pod. PersistentVolumeClaim
+[PersistentVolume](92-persistent-volumes-vi.md) vào một Pod. PersistentVolumeClaim
 là cách để người dùng "yêu cầu" (claim) lưu trữ bền vững (chẳng hạn một volume iSCSI)
 mà không cần biết chi tiết về môi trường cloud cụ thể.
 
-Xem thông tin về [PersistentVolumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) để biết thêm
+Xem thông tin về [PersistentVolumes](92-persistent-volumes-vi.md) để biết thêm
 chi tiết.
 
 ### portworxVolume (đã lỗi thời — deprecated) {#portworxvolume}
@@ -810,7 +810,7 @@ phải được cài đặt trên cluster.
 ### projected
 
 Một projected volume ánh xạ nhiều nguồn volume có sẵn vào cùng một
-thư mục. Để biết thêm chi tiết, xem [projected volumes](https://kubernetes.io/docs/concepts/storage/projected-volumes/).
+thư mục. Để biết thêm chi tiết, xem [projected volumes](93-projected-volumes-vi.md).
 
 ### secret
 
@@ -829,7 +829,7 @@ lưu trữ bất biến (non-volatile).
 > * Container dùng Secret qua kiểu mount volume [`subPath`](#using-subpath) sẽ không
 >   nhận được cập nhật của Secret.
 
-Để biết thêm chi tiết, xem [Cấu hình Secret](https://kubernetes.io/docs/concepts/configuration/secret/).
+Để biết thêm chi tiết, xem [Cấu hình Secret](109-secret-vi.md).
 
 ## Sử dụng subPath (Using subPath) {#using-subpath}
 
@@ -922,7 +922,7 @@ phương tiện của filesystem chứa thư mục gốc của kubelet (thườn
 giữa các Pod.
 
 Để tìm hiểu về việc yêu cầu không gian bằng một đặc tả tài nguyên (resource specification), xem
-[cách quản lý tài nguyên](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
+[cách quản lý tài nguyên](110-manage-resources-containers-vi.md).
 
 ## Các plugin volume out-of-tree (Out-of-tree volume plugins)
 
@@ -967,8 +967,8 @@ driver CSI phơi bày.
 Một volume `csi` có thể được dùng trong Pod theo ba cách khác nhau:
 
 * thông qua tham chiếu tới một [PersistentVolumeClaim](#persistentvolumeclaim)
-* với một [generic ephemeral volume](https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/#generic-ephemeral-volumes)
-* với một [CSI ephemeral volume](https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/#csi-ephemeral-volumes)
+* với một [generic ephemeral volume](94-ephemeral-volumes-vi.md#generic-ephemeral-volumes)
+* với một [CSI ephemeral volume](94-ephemeral-volumes-vi.md#csi-ephemeral-volumes)
   nếu driver hỗ trợ
 
 Các trường sau khả dụng cho quản trị viên lưu trữ để cấu hình một CSI
@@ -1042,7 +1042,7 @@ Các nhà cung cấp có driver CSI bên ngoài có thể triển khai hỗ tr�
 trong các workload Kubernetes.
 
 Bạn có thể thiết lập
-[PersistentVolume/PersistentVolumeClaim với hỗ trợ raw block volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#raw-block-volume-support)
+[PersistentVolume/PersistentVolumeClaim với hỗ trợ raw block volume](92-persistent-volumes-vi.md#raw-block-volume-support)
 như bình thường, không cần bất kỳ thay đổi nào riêng cho CSI.
 
 #### CSI ephemeral volume (CSI ephemeral volumes)
@@ -1052,7 +1052,7 @@ như bình thường, không cần bất kỳ thay đổi nào riêng cho CSI.
 Bạn có thể cấu hình trực tiếp các volume CSI ngay trong đặc tả
 Pod. Các volume được chỉ định theo cách này là tạm thời và không
 tồn tại qua các lần khởi động lại Pod. Xem
-[Ephemeral Volumes](https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/#csi-ephemeral-volumes)
+[Ephemeral Volumes](94-ephemeral-volumes-vi.md#csi-ephemeral-volumes)
 để biết thêm thông tin.
 
 Để biết thêm thông tin về cách phát triển một driver CSI, tham khảo

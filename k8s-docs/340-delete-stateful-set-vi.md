@@ -61,8 +61,8 @@ Trong ví dụ trên, các Pod có label `app.kubernetes.io/name=MyApp`; hãy th
 
 ### Buộc xóa các Pod của StatefulSet (Force deletion of StatefulSet pods)
 
-Nếu bạn thấy một số Pod trong StatefulSet của mình bị kẹt ở trạng thái 'Terminating' hoặc 'Unknown' trong một khoảng thời gian dài, bạn có thể cần can thiệp thủ công để buộc xóa (force delete) các Pod khỏi apiserver. Đây là một thao tác tiềm ẩn nguy hiểm. Tham khảo [Buộc xóa các Pod của StatefulSet (Force Delete StatefulSet Pods)](https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/) để biết chi tiết.
+Nếu bạn thấy một số Pod trong StatefulSet của mình bị kẹt ở trạng thái 'Terminating' hoặc 'Unknown' trong một khoảng thời gian dài, bạn có thể cần can thiệp thủ công để buộc xóa (force delete) các Pod khỏi apiserver. Đây là một thao tác tiềm ẩn nguy hiểm. Tham khảo [Buộc xóa các Pod của StatefulSet (Force Delete StatefulSet Pods)](341-force-delete-stateful-set-pod-vi.md) để biết chi tiết.
 
 ## Tiếp theo (What's next)
 
-Tìm hiểu thêm về [buộc xóa các Pod của StatefulSet](https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/).
+Tìm hiểu thêm về [buộc xóa các Pod của StatefulSet](341-force-delete-stateful-set-pod-vi.md).

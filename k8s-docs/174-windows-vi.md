@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 15](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
+**Vị trí:** [Giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
 bài 1/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -49,24 +49,24 @@ Kubernetes hỗ trợ các worker node chạy Linux hoặc Microsoft Windows.
 
 CNCF và tổ chức mẹ của nó là Linux Foundation có cách tiếp cận trung lập với nhà cung cấp (vendor-neutral) đối với khả năng tương thích. Bạn hoàn toàn có thể thêm [Windows server](https://www.microsoft.com/en-us/windows-server) của mình làm worker node vào một cluster Kubernetes.
 
-Bạn có thể [cài đặt và thiết lập kubectl trên Windows](https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/) bất kể bạn sử dụng hệ điều hành nào bên trong cluster.
+Bạn có thể [cài đặt và thiết lập kubectl trên Windows](188-install-kubectl-windows-vi.md) bất kể bạn sử dụng hệ điều hành nào bên trong cluster.
 
 Nếu bạn đang sử dụng node Windows, bạn có thể đọc:
 
 * [Mạng trên Windows](89-windows-networking-vi.md)
 * [Lưu trữ Windows trong Kubernetes](106-windows-storage-vi.md)
 * [Quản lý tài nguyên cho node Windows](112-windows-resource-management-vi.md)
-* [Cấu hình RunAsUserName cho Pod và container Windows](https://kubernetes.io/docs/tasks/configure-pod-container/configure-runasusername/)
-* [Tạo một Windows HostProcess Pod](https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/)
-* [Cấu hình Group Managed Service Accounts cho Pod và container Windows](https://kubernetes.io/docs/tasks/configure-pod-container/configure-gmsa/)
+* [Cấu hình RunAsUserName cho Pod và container Windows](278-configure-runasusername-vi.md)
+* [Tạo một Windows HostProcess Pod](281-create-hostprocess-pod-vi.md)
+* [Cấu hình Group Managed Service Accounts cho Pod và container Windows](273-configure-gmsa-vi.md)
 * [Bảo mật cho node Windows](131-windows-security-vi.md)
-* [Mẹo gỡ lỗi trên Windows](https://kubernetes.io/docs/tasks/debug/debug-cluster/windows/)
-* [Hướng dẫn lập lịch Windows container trong Kubernetes](https://kubernetes.io/docs/concepts/windows/user-guide)
+* [Mẹo gỡ lỗi trên Windows](315-debug-windows-vi.md)
+* [Hướng dẫn lập lịch Windows container trong Kubernetes](176-windows-user-guide-vi.md)
 
 hoặc, để có cái nhìn tổng quan, hãy đọc:
 
 * [Windows containers trong Kubernetes](175-windows-intro-vi.md)
-* [Hướng dẫn lập lịch Windows container trong Kubernetes](https://kubernetes.io/docs/concepts/windows/user-guide/)
+* [Hướng dẫn lập lịch Windows container trong Kubernetes](176-windows-user-guide-vi.md)
 
 ---
 

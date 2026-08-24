@@ -14,7 +14,7 @@
 
 Trong hoạt động bình thường của một StatefulSet, **không bao giờ** có nhu cầu xóa cưỡng bức
 (force delete) một Pod của StatefulSet.
-[StatefulSet controller](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
+[StatefulSet controller](65-statefulset-vi.md)
 chịu trách nhiệm tạo, scale và xóa các thành viên của StatefulSet. Nó cố gắng bảo đảm rằng số
 lượng Pod được chỉ định, từ ordinal 0 đến N-1, luôn sống và sẵn sàng. StatefulSet bảo đảm rằng,
 tại bất kỳ thời điểm nào, có nhiều nhất một Pod với một định danh (identity) cho trước đang chạy
@@ -41,19 +41,19 @@ kubectl delete pods <pod>
 `pod.Spec.TerminationGracePeriodSeconds` bằng 0. Việc đặt
 `pod.Spec.TerminationGracePeriodSeconds` bằng 0 giây là không an toàn và hết sức không nên làm
 đối với các Pod của StatefulSet. Xóa êm thấm là an toàn và sẽ bảo đảm Pod
-[tắt một cách êm thấm](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination)
+[tắt một cách êm thấm](47-pod-lifecycle-vi.md#pod-termination)
 trước khi kubelet xóa tên của Pod đó khỏi apiserver.
 
 Một Pod không bị xóa tự động khi node trở nên không thể truy cập được (unreachable).
 Các Pod đang chạy trên một Node không thể truy cập được sẽ chuyển sang trạng thái 'Terminating'
 hoặc 'Unknown' sau một khoảng
-[thời gian chờ (timeout)](https://kubernetes.io/docs/concepts/architecture/nodes/#condition).
+[thời gian chờ (timeout)](https://kubernetes.io/docs/concepts/architecture/nodes#condition).
 Pod cũng có thể rơi vào các trạng thái này khi người dùng cố gắng xóa êm thấm một Pod
 trên một Node không thể truy cập được.
 Các cách duy nhất để một Pod ở trạng thái như vậy bị gỡ khỏi apiserver là:
 
 - Object Node bị xóa (bởi chính bạn, hoặc bởi
-  [Node Controller](https://kubernetes.io/docs/concepts/architecture/nodes/#node-controller)).
+  [Node Controller](23-nodes-vi.md#node-controller)).
 - kubelet trên Node không phản hồi bắt đầu phản hồi trở lại, kết thúc (kill) Pod và gỡ mục
   tương ứng khỏi apiserver.
 - Người dùng xóa cưỡng bức Pod.
@@ -105,4 +105,4 @@ Hãy luôn thực hiện việc xóa cưỡng bức Pod của StatefulSet một 
 ## Tiếp theo (What's next)
 
 Tìm hiểu thêm về
-[gỡ lỗi một StatefulSet](https://kubernetes.io/docs/tasks/debug/debug-application/debug-statefulset/).
+[gỡ lỗi một StatefulSet](302-debug-statefulset-vi.md).

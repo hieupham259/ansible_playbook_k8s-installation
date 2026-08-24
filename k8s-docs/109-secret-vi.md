@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3b](LO-TRINH-ADMIN.md#3b-cấu-hình-và-tài-nguyên), bài 3/7 ·
+**Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 3/7 ·
 Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài dài, nhưng hơn một nửa độ dài là **danh mục tám loại Secret built-in** — tra cứu khi cần,
@@ -82,14 +82,14 @@ dữ liệu bí mật.
 >
 > Để sử dụng Secret một cách an toàn, hãy thực hiện ít nhất các bước sau:
 >
-> 1. [Bật mã hóa dữ liệu lưu trữ (Encryption at Rest)](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/) cho Secret.
+> 1. [Bật mã hóa dữ liệu lưu trữ (Encryption at Rest)](208-encrypt-data-vi.md) cho Secret.
 > 2. [Bật hoặc cấu hình các quy tắc RBAC](https://kubernetes.io/docs/reference/access-authn-authz/authorization/) với
 >    quyền truy cập tối thiểu (least-privilege) tới Secret.
 > 3. Giới hạn quyền truy cập Secret cho những container cụ thể.
 > 4. [Cân nhắc sử dụng các nhà cung cấp kho Secret bên ngoài](https://secrets-store-csi-driver.sigs.k8s.io/concepts.html#provider-for-the-secrets-store-csi-driver).
 >
 > Để có thêm hướng dẫn về quản lý và nâng cao tính bảo mật cho Secret của bạn, hãy tham khảo
-> [Các thực hành tốt cho Kubernetes Secret](https://kubernetes.io/docs/concepts/security/secrets-good-practices).
+> [Các thực hành tốt cho Kubernetes Secret](121-secrets-good-practices-vi.md).
 
 Xem [An toàn thông tin cho Secret](#information-security-for-secrets) để biết thêm chi tiết.
 
@@ -97,9 +97,9 @@ Xem [An toàn thông tin cho Secret](#information-security-for-secrets) để bi
 
 Bạn có thể dùng Secret cho các mục đích như sau:
 
-- [Thiết lập biến môi trường cho container](https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#define-container-environment-variables-using-secret-data).
-- [Cung cấp thông tin xác thực (credentials) như khóa SSH hoặc mật khẩu cho Pod](https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#provide-prod-test-creds).
-- [Cho phép kubelet kéo (pull) container image từ các registry riêng tư](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/).
+- [Thiết lập biến môi trường cho container](334-distribute-credentials-secure-vi.md#define-container-environment-variables-using-secret-data).
+- [Cung cấp thông tin xác thực (credentials) như khóa SSH hoặc mật khẩu cho Pod](334-distribute-credentials-secure-vi.md#provide-prod-test-creds).
+- [Cho phép kubelet kéo (pull) container image từ các registry riêng tư](287-pull-image-private-registry-vi.md).
 
 Control plane của Kubernetes cũng sử dụng Secret; ví dụ,
 [Secret bootstrap token](#bootstrap-token-secrets) là một cơ chế giúp
@@ -181,7 +181,7 @@ Dưới đây là một số lựa chọn:
 - Để xác thực, bạn có thể triển khai một bộ ký (signer) tùy chỉnh cho chứng chỉ X.509, và dùng
   [CertificateSigningRequests](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/)
   để bộ ký tùy chỉnh đó cấp certificate cho các Pod cần chúng.
-- Bạn có thể dùng một [device plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/)
+- Bạn có thể dùng một [device plugin](184-device-plugins-vi.md)
   để phơi bày (expose) phần cứng mã hóa cục bộ của node cho một Pod cụ thể. Ví dụ, bạn có thể
   lập lịch (schedule) các Pod tin cậy lên những node có Trusted Platform Module,
   được cấu hình ngoài luồng (out-of-band).
@@ -268,7 +268,7 @@ thay thế. Bạn có thể lấy các token ngắn hạn này bằng những ph
   [projected volume](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#bound-service-account-token-volume)
   trong manifest Pod của bạn. Kubernetes sẽ tạo token và mount nó vào Pod.
   Token này tự động bị vô hiệu hóa khi Pod chứa nó bị xóa. Xem chi tiết tại
-  [Khởi chạy một Pod sử dụng service account token projection](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#launch-a-pod-using-service-account-token-projection).
+  [Khởi chạy một Pod sử dụng service account token projection](279-configure-service-account-vi.md#launch-a-pod-using-service-account-token-projection).
 
 > **Ghi chú:**
 >
@@ -276,7 +276,7 @@ thay thế. Bạn có thể lấy các token ngắn hạn này bằng những ph
 > khi không thể dùng API `TokenRequest` để lấy token,
 > và khi bạn chấp nhận được rủi ro bảo mật của việc lưu một token không hết hạn
 > trong một đối tượng API có thể đọc được. Để biết cách làm, xem
-> [Tạo thủ công một API token dài hạn cho ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#manually-create-an-api-token-for-a-serviceaccount).
+> [Tạo thủ công một API token dài hạn cho ServiceAccount](279-configure-service-account-vi.md#manually-create-an-api-token-for-a-serviceaccount).
 
 Khi dùng loại Secret này, bạn cần bảo đảm annotation
 `kubernetes.io/service-account.name` được đặt thành tên của một
@@ -303,7 +303,7 @@ data:
 
 Sau khi tạo Secret, hãy chờ Kubernetes điền key `token` vào trường `data`.
 
-Xem tài liệu về [ServiceAccount](https://kubernetes.io/docs/concepts/security/service-accounts/)
+Xem tài liệu về [ServiceAccount](118-service-accounts-vi.md)
 để biết thêm thông tin về cách ServiceAccount hoạt động.
 Bạn cũng có thể xem trường `automountServiceAccountToken` và trường
 `serviceAccountName` của
@@ -388,7 +388,7 @@ file cấu hình Docker hợp lệ):
 > Giá trị `auth` ở trên được mã hóa base64; nó bị che mờ nhưng không hề bí mật.
 > Bất kỳ ai đọc được Secret đó đều có thể biết được bearer token truy cập registry.
 >
-> Bạn nên dùng [credential provider](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider/) để cung cấp pull secret một cách linh hoạt và an toàn theo nhu cầu (on-demand).
+> Bạn nên dùng [credential provider](225-kubelet-credential-provider-vi.md) để cung cấp pull secret một cách linh hoạt và an toàn theo nhu cầu (on-demand).
 
 ### Secret xác thực cơ bản (Basic authentication Secret)
 
@@ -467,7 +467,7 @@ Loại Secret `kubernetes.io/tls` dùng để lưu một certificate cùng khóa
 đi kèm của nó, thường được sử dụng cho TLS.
 
 Một cách dùng phổ biến của TLS Secret là cấu hình mã hóa khi truyền (encryption in transit) cho
-[Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/), nhưng bạn cũng có thể dùng nó
+[Ingress](11-ingress-vi.md), nhưng bạn cũng có thể dùng nó
 với các tài nguyên khác hoặc trực tiếp trong workload của mình.
 Khi dùng loại Secret này, key `tls.key` và `tls.crt` phải được cung cấp
 trong trường `data` (hoặc `stringData`) của cấu hình Secret, mặc dù API
@@ -585,14 +585,14 @@ stringData:
 
 Có một số cách để tạo Secret:
 
-- [Dùng `kubectl`](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/)
-- [Dùng file cấu hình](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-config-file/)
-- [Dùng công cụ Kustomize](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kustomize/)
+- [Dùng `kubectl`](327-secret-kubectl-vi.md)
+- [Dùng file cấu hình](326-secret-config-file-vi.md)
+- [Dùng công cụ Kustomize](328-secret-kustomize-vi.md)
 
 #### Ràng buộc về tên và dữ liệu của Secret (Constraints on Secret names and data) {#restriction-names-data}
 
 Tên của một đối tượng Secret phải là một
-[tên miền con DNS (DNS subdomain name)](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names) hợp lệ.
+[tên miền con DNS (DNS subdomain name)](17-names-vi.md#dns-subdomain-names) hợp lệ.
 
 Bạn có thể chỉ định trường `data` và/hoặc trường `stringData` khi tạo
 file cấu hình cho một Secret. Cả hai trường `data` và `stringData` đều là tùy chọn.
@@ -611,7 +611,7 @@ nội bộ vào trường `data`. Nếu một key xuất hiện trong cả hai t
 Mỗi Secret riêng lẻ bị giới hạn kích thước 1MiB. Điều này nhằm hạn chế việc tạo
 các Secret rất lớn có thể làm cạn kiệt bộ nhớ của API server và kubelet.
 Tuy nhiên, việc tạo quá nhiều Secret nhỏ cũng có thể làm cạn kiệt bộ nhớ. Bạn có thể
-dùng [resource quota](https://kubernetes.io/docs/concepts/policy/resource-quotas/) để giới hạn
+dùng [resource quota](134-resource-quotas-vi.md) để giới hạn
 số lượng Secret (hoặc các tài nguyên khác) trong một namespace.
 
 ### Chỉnh sửa một Secret (Editing a Secret)
@@ -619,10 +619,10 @@ số lượng Secret (hoặc các tài nguyên khác) trong một namespace.
 Bạn có thể chỉnh sửa một Secret đang tồn tại trừ khi nó là [bất biến (immutable)](#secret-immutable). Để
 chỉnh sửa một Secret, dùng một trong các phương pháp sau:
 
-- [Dùng `kubectl`](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/#edit-secret)
-- [Dùng file cấu hình](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-config-file/#edit-secret)
+- [Dùng `kubectl`](327-secret-kubectl-vi.md#edit-secret)
+- [Dùng file cấu hình](326-secret-config-file-vi.md#edit-secret)
 
-Bạn cũng có thể chỉnh sửa dữ liệu trong một Secret bằng [công cụ Kustomize](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kustomize/#edit-secret). Tuy nhiên, phương pháp
+Bạn cũng có thể chỉnh sửa dữ liệu trong một Secret bằng [công cụ Kustomize](328-secret-kustomize-vi.md#edit-secret). Tuy nhiên, phương pháp
 này sẽ tạo ra một đối tượng `Secret` mới với dữ liệu đã chỉnh sửa.
 
 Tùy theo cách bạn tạo Secret, cũng như cách Secret được sử dụng trong
@@ -686,7 +686,7 @@ Kubernetes làm cho giá trị của Secret đó xuất hiện dưới dạng fi
 hệ thống file của một hoặc nhiều container trong Pod.
 
 Để biết cách làm, tham khảo
-[Tạo một Pod có quyền truy cập dữ liệu secret thông qua Volume](https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#create-a-pod-that-has-access-to-the-secret-data-through-a-volume).
+[Tạo một Pod có quyền truy cập dữ liệu secret thông qua Volume](334-distribute-credentials-secure-vi.md#create-a-pod-that-has-access-to-the-secret-data-through-a-volume).
 
 Khi một volume chứa dữ liệu từ một Secret, và Secret đó được cập nhật, Kubernetes sẽ theo dõi
 điều này và cập nhật dữ liệu trong volume theo cách nhất quán cuối cùng (eventually-consistent).
@@ -694,7 +694,7 @@ Khi một volume chứa dữ liệu từ một Secret, và Secret đó được 
 > **Ghi chú:**
 >
 > Container sử dụng Secret qua mount volume kiểu
-> [subPath](https://kubernetes.io/docs/concepts/storage/volumes#using-subpath) sẽ không nhận được
+> [subPath](91-volumes-vi.md#using-subpath) sẽ không nhận được
 > các cập nhật Secret tự động.
 
 Kubelet giữ một cache chứa các key và giá trị hiện tại của những Secret được dùng trong
@@ -714,7 +714,7 @@ lan truyền cache, trong đó độ trễ lan truyền cache phụ thuộc vào
 (theo đúng thứ tự liệt kê ở đoạn trên, các độ trễ này là:
 độ trễ lan truyền watch, TTL đã cấu hình của cache, hoặc bằng không đối với truy vấn trực tiếp).
 
-### Sử dụng Secret làm biến môi trường (Using Secrets as environment variables)
+### Sử dụng Secret làm biến môi trường (Using Secrets as environment variables) {#using-secrets-as-environment-variables}
 
 Để dùng một Secret trong biến môi trường (environment variable)
 của Pod:
@@ -726,10 +726,10 @@ của Pod:
    từ các biến môi trường đã chỉ định.
 
 Để biết cách làm, tham khảo
-[Định nghĩa biến môi trường của container bằng dữ liệu Secret](https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#define-container-environment-variables-using-secret-data).
+[Định nghĩa biến môi trường của container bằng dữ liệu Secret](334-distribute-credentials-secure-vi.md#define-container-environment-variables-using-secret-data).
 
 Điều quan trọng cần lưu ý là phạm vi ký tự được phép cho tên biến môi trường
-trong Pod bị [giới hạn](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/#using-environment-variables-inside-of-your-config).
+trong Pod bị [giới hạn](331-define-environment-variable-vi.md#using-environment-variables-inside-of-your-config).
 Nếu có key nào không đáp ứng quy tắc, các key đó sẽ không được cung cấp cho container của bạn,
 mặc dù Pod vẫn được phép khởi động.
 
@@ -751,14 +751,14 @@ Xem [PodSpec API](https://kubernetes.io/docs/reference/generated/kubernetes-api/
 ##### Chỉ định imagePullSecret thủ công (Manually specifying an imagePullSecret)
 
 Bạn có thể tìm hiểu cách chỉ định `imagePullSecrets` trong tài liệu về
-[container image](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod).
+[container image](40-images-vi.md#specifying-imagepullsecrets-on-a-pod).
 
 ##### Thiết lập để imagePullSecrets được tự động đính kèm (Arranging for imagePullSecrets to be automatically attached)
 
 Bạn có thể tạo `imagePullSecrets` thủ công, rồi tham chiếu chúng từ một ServiceAccount. Bất kỳ Pod nào
 được tạo với ServiceAccount đó, hoặc được tạo với ServiceAccount đó theo mặc định, sẽ có
 trường `imagePullSecrets` được đặt thành giá trị của service account đó.
-Xem [Thêm ImagePullSecrets vào service account](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account)
+Xem [Thêm ImagePullSecrets vào service account](279-configure-service-account-vi.md#add-imagepullsecrets-to-a-service-account)
 để có giải thích chi tiết về quy trình này.
 
 ### Sử dụng Secret với static Pod (Using Secrets with static Pods) {#restriction-static-pod}
@@ -847,10 +847,10 @@ Do đó, một Pod không có quyền truy cập vào Secret của Pod khác.
 ## Tiếp theo (What's next)
 
 - Để có hướng dẫn về quản lý và nâng cao tính bảo mật cho Secret của bạn, tham khảo
-  [Các thực hành tốt cho Kubernetes Secret](https://kubernetes.io/docs/concepts/security/secrets-good-practices).
-- Tìm hiểu cách [quản lý Secret bằng `kubectl`](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/)
-- Tìm hiểu cách [quản lý Secret bằng file cấu hình](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-config-file/)
-- Tìm hiểu cách [quản lý Secret bằng kustomize](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kustomize/)
+  [Các thực hành tốt cho Kubernetes Secret](121-secrets-good-practices-vi.md).
+- Tìm hiểu cách [quản lý Secret bằng `kubectl`](327-secret-kubectl-vi.md)
+- Tìm hiểu cách [quản lý Secret bằng file cấu hình](326-secret-config-file-vi.md)
+- Tìm hiểu cách [quản lý Secret bằng kustomize](328-secret-kustomize-vi.md)
 - Đọc [tài liệu tham chiếu API](https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/secret-v1/) cho `Secret`
 
 ---

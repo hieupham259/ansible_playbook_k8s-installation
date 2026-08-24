@@ -9,14 +9,14 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 8/8 ·
+**Vị trí:** [Giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 8/8 ·
 Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Bài này được lộ trình tách làm hai lần dùng.** Lần này ở giai đoạn 2 bạn **chỉ đọc lý
 thuyết**, đặc biệt là mục *Các cgroup driver*. Phần thao tác cài đặt để dành cho
-[giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), khi bạn dựng lại
+[giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), khi bạn dựng lại
 cluster có hiểu — xem điều chỉnh số 4 ở cuối lộ trình.
 
 Bạn đã **chạy** phần lớn nội dung bài này ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) mục A4 mà chưa
@@ -71,9 +71,9 @@ Trang này cung cấp hướng dẫn khái quát về cách sử dụng một s�
 > [công bố](https://kubernetes.io/blog/2020/12/08/kubernetes-1-20-release-announcement/#dockershim-deprecation)
 > trong bản phát hành v1.20).
 > Bạn có thể đọc
-> [Kiểm tra xem việc loại bỏ Dockershim có ảnh hưởng đến bạn không](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/check-if-dockershim-removal-affects-you/)
+> [Kiểm tra xem việc loại bỏ Dockershim có ảnh hưởng đến bạn không](238-check-dockershim-removal-vi.md)
 > để hiểu việc loại bỏ này có thể ảnh hưởng đến bạn như thế nào. Để tìm hiểu về việc di chuyển khỏi dockershim, xem
-> [Di chuyển khỏi dockershim](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/).
+> [Di chuyển khỏi dockershim](236-migrating-from-dockershim-vi.md).
 >
 > Nếu bạn đang chạy một phiên bản Kubernetes khác v1.36, hãy xem tài liệu của phiên bản đó.
 
@@ -108,14 +108,14 @@ Xác minh rằng `net.ipv4.ip_forward` được đặt thành 1 bằng lệnh:
 sysctl net.ipv4.ip_forward
 ```
 
-## Các cgroup driver (cgroup drivers)
+## Các cgroup driver (cgroup drivers) {#cgroup-drivers}
 
 Trên Linux, control group (cgroup) được dùng để giới hạn tài nguyên
 cấp phát cho các tiến trình.
 
 Cả kubelet lẫn container runtime bên dưới đều cần tương tác với control group
 để thực thi
-[quản lý tài nguyên cho pod và container](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+[quản lý tài nguyên cho pod và container](110-manage-resources-containers-vi.md)
 và thiết lập các tài nguyên như yêu cầu (request) và giới hạn (limit) về CPU/bộ nhớ. Để tương tác
 với control group, kubelet và container runtime cần dùng một *cgroup driver*.
 Điều tối quan trọng là kubelet và container runtime phải dùng cùng một cgroup driver
@@ -135,7 +135,7 @@ hệ thống tệp cgroup (cgroup filesystem) để cấu hình các cgroup.
 Driver `cgroupfs` **không** được khuyến nghị khi
 [systemd](https://www.freedesktop.org/wiki/Software/systemd/) là
 init system, vì systemd kỳ vọng chỉ có một trình quản lý cgroup duy nhất
-trên hệ thống. Ngoài ra, nếu bạn dùng [cgroup v2](https://kubernetes.io/docs/concepts/architecture/cgroups),
+trên hệ thống. Ngoài ra, nếu bạn dùng [cgroup v2](33-cgroups-vi.md),
 hãy dùng cgroup driver `systemd` thay cho `cgroupfs`.
 
 ### systemd cgroup driver {#systemd-cgroup-driver}
@@ -157,7 +157,7 @@ Cách giảm thiểu sự không ổn định này là dùng `systemd` làm cgro
 kubelet và container runtime khi systemd là init system được chọn.
 
 Để đặt `systemd` làm cgroup driver, chỉnh sửa tùy chọn `cgroupDriver`
-trong [`KubeletConfiguration`](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/)
+trong [`KubeletConfiguration`](224-kubelet-config-file-vi.md)
 và đặt nó thành `systemd`. Ví dụ:
 
 ```yaml
@@ -201,7 +201,7 @@ cũ sẽ không hoạt động được với các kubelet mới hơn.
 ### Di chuyển sang driver `systemd` trong các cluster do kubeadm quản lý (Migrating to the `systemd` driver in kubeadm managed clusters)
 
 Nếu bạn muốn chuyển sang cgroup driver `systemd` trong các cluster hiện có do kubeadm quản lý,
-hãy làm theo [cấu hình một cgroup driver](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/configure-cgroup-driver/).
+hãy làm theo [cấu hình một cgroup driver](218-configure-cgroup-driver-vi.md).
 
 ## Hỗ trợ phiên bản CRI (CRI version support) {#cri-versions}
 
@@ -257,7 +257,7 @@ Containerd phiên bản 2.x:
     SystemdCgroup = true
 ```
 
-Cgroup driver `systemd` được khuyến nghị nếu bạn dùng [cgroup v2](https://kubernetes.io/docs/concepts/architecture/cgroups).
+Cgroup driver `systemd` được khuyến nghị nếu bạn dùng [cgroup v2](33-cgroups-vi.md).
 
 > **Ghi chú:** Nếu bạn cài containerd từ gói (ví dụ RPM hoặc `.deb`), bạn có thể thấy
 > plugin tích hợp CRI bị tắt theo mặc định.
@@ -280,7 +280,7 @@ sudo systemctl restart containerd
 ```
 
 Khi dùng kubeadm, hãy tự cấu hình
-[cgroup driver cho kubelet](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/configure-cgroup-driver/#configuring-the-kubelet-cgroup-driver).
+[cgroup driver cho kubelet](218-configure-cgroup-driver-vi.md#configuring-the-kubelet-cgroup-driver).
 
 Trong Kubernetes v1.28, bạn có thể bật tính năng tự động phát hiện
 cgroup driver dưới dạng tính năng alpha. Xem [systemd cgroup driver](#systemd-cgroup-driver)
@@ -377,7 +377,7 @@ chỉ định container image dùng làm Pod infrastructure container ("pause im
 ## Tiếp theo (What's next)
 
 Bên cạnh container runtime, cluster của bạn còn cần một
-[network plugin](https://kubernetes.io/docs/concepts/cluster-administration/networking/#how-to-implement-the-kubernetes-network-model)
+[network plugin](157-networking-vi.md#how-to-implement-the-kubernetes-network-model)
 hoạt động.
 
 ---

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 18/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 18/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Lộ trình đánh dấu bài này là **tài liệu lịch sử**, và xếp nó **sau Lab 9b** vì nó không có gì để
 thực hành. PodSecurityPolicy **đã bị gỡ khỏi Kubernetes** — cluster lab chạy v1.35.6 nên hoàn
@@ -45,10 +45,10 @@ hơn 20 dòng, đọc trong một phút rồi khép giai đoạn 9.
 Thay vì sử dụng PodSecurityPolicy, bạn có thể thực thi các hạn chế tương tự trên Pod
 bằng một trong hai cách sau, hoặc cả hai:
 
-- [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/)
+- [Pod Security Admission](116-pod-security-admission-vi.md)
 - một admission plugin của bên thứ ba, do bạn tự triển khai và cấu hình
 
-Để xem hướng dẫn di trú (migration), hãy đọc [Di trú từ PodSecurityPolicy sang PodSecurity Admission Controller tích hợp sẵn](https://kubernetes.io/docs/tasks/configure-pod-container/migrate-from-psp/).
+Để xem hướng dẫn di trú (migration), hãy đọc [Di trú từ PodSecurityPolicy sang PodSecurity Admission Controller tích hợp sẵn](286-migrate-from-psp-vi.md).
 Để biết thêm thông tin về việc gỡ bỏ API này,
 xem [PodSecurityPolicy Deprecation: Past, Present, and Future](https://kubernetes.io/blog/2021/04/06/podsecuritypolicy-deprecation-past-present-and-future/).
 

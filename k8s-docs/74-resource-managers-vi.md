@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
+**Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
 bài 5/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài dài gần 700 dòng nhưng **quá nửa cuối là tính năng alpha của v1.36** — các trình quản lý
@@ -62,7 +62,7 @@ tài nguyên CPU, thiết bị (device), và bộ nhớ (hugepages).
 
 *Topology Manager* là một thành phần của kubelet có mục tiêu điều phối tập hợp các
 thành phần chịu trách nhiệm cho những tối ưu hóa này. Để tìm hiểu thêm, hãy đọc
-[Kiểm soát các chính sách quản lý topology trên một node](https://kubernetes.io/docs/tasks/administer-cluster/topology-manager/).
+[Kiểm soát các chính sách quản lý topology trên một node](259-topology-manager-vi.md).
 
 ## Trình quản lý CPU (CPU manager)
 
@@ -71,7 +71,7 @@ thành phần chịu trách nhiệm cho những tối ưu hóa này. Để tìm 
 *CPU Manager* là một thành phần của kubelet cung cấp việc cấp phát tài nguyên độc quyền
 (exclusive) cho tài nguyên CPU. Nó tham vấn Topology Manager để đưa ra các quyết định
 gán tài nguyên. Để tìm hiểu thêm, hãy đọc
-[Kiểm soát các chính sách quản lý CPU trên node](https://kubernetes.io/docs/tasks/administer-cluster/cpu-management-policies/).
+[Kiểm soát các chính sách quản lý CPU trên node](200-cpu-management-policies-vi.md).
 
 ### Các chính sách gán CPU cho Pod (Policies for assigning CPUs to Pods)
 
@@ -96,8 +96,8 @@ Có hai chính sách khả dụng:
 - `none`: chính sách `none` bật một cách tường minh cơ chế CPU affinity mặc định hiện
   có, không cung cấp affinity nào ngoài những gì bộ lập lịch của hệ điều hành tự động
   thực hiện. Giới hạn sử dụng CPU cho
-  [các pod Guaranteed](https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/) và
-  [các pod Burstable](https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/)
+  [các pod Guaranteed](54-pod-qos-vi.md) và
+  [các pod Burstable](54-pod-qos-vi.md)
   được cưỡng chế bằng CFS quota.
 - `static`: chính sách `static` cho phép các container trong pod `Guaranteed` có CPU
   `requests` là số nguyên được truy cập các CPU độc quyền trên node. Tính độc quyền này
@@ -335,7 +335,7 @@ Tham số `reservedSystemCPUs` trong [KubeletConfiguration](https://kubernetes.i
 hoặc tùy chọn dòng lệnh kubelet đã lỗi thời (deprecated) `--reserved-cpus`, định nghĩa
 một tập CPU tường minh dành cho các daemon hệ thống của hệ điều hành và các daemon hệ
 thống của Kubernetes. Chi tiết thêm về tham số này có tại trang
-[Danh sách CPU dự trữ tường minh](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/#explicitly-reserved-cpu-list).
+[Danh sách CPU dự trữ tường minh](253-reserve-compute-resources-vi.md#explicitly-reserved-cpu-list).
 Theo mặc định, sự cô lập này chỉ được hiện thực cho các pod guaranteed có CPU request là
 số nguyên, chứ không áp dụng cho các pod burstable và best-effort (và cả các pod
 guaranteed có CPU request là số lẻ). Bước admission chỉ so sánh CPU request với lượng CPU
@@ -368,7 +368,7 @@ về hiệu năng nhờ việc giảm độ trễ giữa các cache (inter-cache
 *Memory Manager* là một thành phần của kubelet cung cấp việc cấp phát tài nguyên độc
 quyền cho tài nguyên memory. Nó tham vấn Topology Manager để đưa ra các quyết định gán
 tài nguyên. Để tìm hiểu thêm, hãy đọc
-[Kiểm soát các chính sách quản lý memory trên một node](https://kubernetes.io/docs/tasks/administer-cluster/memory-manager/).
+[Kiểm soát các chính sách quản lý memory trên một node](235-memory-manager-vi.md).
 
 ### Các chính sách gán memory cho Pod (Policies for assigning memory to Pods) {#memory-management-policies}
 
@@ -383,7 +383,7 @@ Topology Manager, pod sẽ bị từ chối hoặc được chấp nhận vào n
 Hơn nữa, Memory Manager đảm bảo rằng lượng memory mà pod yêu cầu được cấp phát từ số
 lượng NUMA node tối thiểu.
 
-Để tìm hiểu thêm, hãy đọc [Kiểm soát các chính sách quản lý memory trên một node](https://kubernetes.io/docs/tasks/administer-cluster/memory-manager/).
+Để tìm hiểu thêm, hãy đọc [Kiểm soát các chính sách quản lý memory trên một node](235-memory-manager-vi.md).
 
 ## Trình quản lý thiết bị (Device manager)
 
@@ -393,7 +393,7 @@ lượng NUMA node tối thiểu.
 cho pod thông qua device plugin API. Nó tham vấn Topology Manager, sử dụng thông tin
 topology do các device plugin cung cấp, để đưa ra các quyết định gán tài nguyên. Để tìm
 hiểu thêm, hãy đọc
-[Tích hợp Device Plugin với Topology Manager](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#device-plugin-integration-with-the-topology-manager).
+[Tích hợp Device Plugin với Topology Manager](184-device-plugins-vi.md#device-plugin-integration-with-the-topology-manager).
 
 ## Các trình quản lý tài nguyên cấp Pod (Pod-level resource managers) {#pod-level-resource-managers}
 
@@ -734,7 +734,7 @@ feature gate `PodLevelResourceManagers`):
 Để biết thông tin chi tiết hơn về cách cấu hình và sử dụng các trình quản lý tài nguyên
 cấp pod, xem:
 
-*   [Gán tài nguyên CPU và memory ở cấp Pod (Assign Pod-level CPU and memory resources)](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pod-level-resources/)
+*   [Gán tài nguyên CPU và memory ở cấp Pod (Assign Pod-level CPU and memory resources)](265-assign-pod-level-resources-vi.md)
 
 ---
 

@@ -7,12 +7,12 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — bài này
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — bài này
 không nằm trong danh sách CP nào; nó là bài "khi hỏng thì tra" đi kèm
-[CP10 — Quản trị tài nguyên theo namespace](LO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace),
+[CP10 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace),
 cụ thể là hai bài [235 — Memory Manager](235-memory-manager-vi.md) và
 [259 — Topology Manager](259-topology-manager-vi.md). Nền tảng lý thuyết nằm ở bài
 [74 — Các trình quản lý tài nguyên](74-resource-managers-vi.md).
@@ -242,7 +242,7 @@ flag `--reserved-memory`.
 
 Kubelet cung cấp một dịch vụ gRPC `PodResourceLister` để cho phép khám phá các tài nguyên và
 metadata đi kèm. Bằng cách dùng
-[List gRPC endpoint](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#grpc-endpoint-list)
+[List gRPC endpoint](184-device-plugins-vi.md#grpc-endpoint-list)
 của nó, có thể truy xuất thông tin về bộ nhớ đã dành riêng cho từng container — thông tin
 này nằm trong message protobuf `ContainerMemory`.
 

@@ -5,9 +5,9 @@
 Ví dụ này minh họa cách giới hạn lượng lưu trữ (storage) được tiêu thụ trong một namespace.
 
 Các tài nguyên sau được sử dụng trong phần minh họa:
-[ResourceQuota](https://kubernetes.io/docs/concepts/policy/resource-quotas/),
-[LimitRange](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/memory-default-namespace/),
-và [PersistentVolumeClaim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/).
+[ResourceQuota](134-resource-quotas-vi.md),
+[LimitRange](232-memory-default-namespace-vi.md),
+và [PersistentVolumeClaim](92-persistent-volumes-vi.md).
 
 ## Trước khi bạn bắt đầu (Before you begin)
 
@@ -36,7 +36,7 @@ Người quản trị muốn giới hạn:
 2. Lượng lưu trữ mà mỗi claim có thể yêu cầu
 3. Tổng lượng lưu trữ tích lũy mà namespace có thể có
 
-## LimitRange để giới hạn request lưu trữ (LimitRange to limit requests for storage)
+## LimitRange để giới hạn request lưu trữ (LimitRange to limit requests for storage) {#limitrange-to-limit-requests-for-storage}
 
 Việc thêm một `LimitRange` vào một namespace sẽ ràng buộc kích thước request lưu trữ vào một
 mức tối thiểu và tối đa. Lưu trữ được yêu cầu thông qua `PersistentVolumeClaim`. Admission

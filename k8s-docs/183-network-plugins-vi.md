@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 15/16 · Kiểm chứng
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 15/16 · Kiểm chứng
 ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Trên trang gốc bài này nằm trong nhánh *Mở rộng Kubernetes*, nên các ví dụ dùng JSON cấu hình
@@ -48,7 +48,7 @@ hợp với nhu cầu của bạn. Có nhiều plugin khác nhau (cả mã ngu�
 sinh thái Kubernetes rộng lớn.
 
 Một CNI plugin bắt buộc phải hiện thực
-[mô hình mạng Kubernetes](https://kubernetes.io/docs/concepts/services-networking/#the-kubernetes-network-model).
+[mô hình mạng Kubernetes](81-services-networking-vi.md#the-kubernetes-network-model).
 
 Bạn phải dùng một CNI plugin tương thích với bản
 [v0.4.0](https://github.com/containernetworking/cni/blob/spec-v0.4.0/SPEC.md) trở lên của đặc tả
@@ -67,7 +67,7 @@ cần thiết nhằm hiện thực mô hình mạng Kubernetes.
 > Những tham số dòng lệnh này đã bị loại bỏ trong Kubernetes 1.24, và việc quản lý CNI không còn
 > nằm trong phạm vi trách nhiệm của kubelet nữa.
 >
-> Hãy xem [Xử lý sự cố các lỗi liên quan đến CNI plugin](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/troubleshooting-cni-plugin-related-errors/)
+> Hãy xem [Xử lý sự cố các lỗi liên quan đến CNI plugin](241-troubleshooting-cni-errors-vi.md)
 > nếu bạn gặp vấn đề sau khi dockershim bị loại bỏ.
 
 Để biết thông tin cụ thể về cách một Container Runtime quản lý các CNI plugin, hãy xem tài liệu
@@ -77,7 +77,7 @@ của Container Runtime đó, ví dụ:
 - [CRI-O](https://github.com/cri-o/cri-o/blob/main/contrib/cni/README.md)
 
 Để biết thông tin cụ thể về cách cài đặt và quản lý một CNI plugin, hãy xem tài liệu của plugin đó
-hoặc của [nhà cung cấp giải pháp mạng](https://kubernetes.io/docs/concepts/cluster-administration/networking/#how-to-implement-the-kubernetes-network-model).
+hoặc của [nhà cung cấp giải pháp mạng](157-networking-vi.md#how-to-implement-the-kubernetes-network-model).
 
 ## Yêu cầu đối với Network Plugin (Network Plugin Requirements)
 
@@ -130,7 +130,7 @@ Nếu bạn muốn bật hỗ trợ `hostPort`, bạn phải chỉ định `port
 }
 ```
 
-### Hỗ trợ điều tiết lưu lượng (Support traffic shaping)
+### Hỗ trợ điều tiết lưu lượng (Support traffic shaping) {#support-traffic-shaping}
 
 **Tính năng thử nghiệm (Experimental Feature)**
 
@@ -187,9 +187,9 @@ metadata:
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu thêm về [Mạng trong Cluster (Cluster Networking)](https://kubernetes.io/docs/concepts/cluster-administration/networking/)
-- Tìm hiểu thêm về [Network Policy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)
-- Tìm hiểu về [Xử lý sự cố các lỗi liên quan đến CNI plugin](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/troubleshooting-cni-plugin-related-errors/)
+- Tìm hiểu thêm về [Mạng trong Cluster (Cluster Networking)](157-networking-vi.md)
+- Tìm hiểu thêm về [Network Policy](84-network-policies-vi.md)
+- Tìm hiểu về [Xử lý sự cố các lỗi liên quan đến CNI plugin](241-troubleshooting-cni-errors-vi.md)
 
 ---
 

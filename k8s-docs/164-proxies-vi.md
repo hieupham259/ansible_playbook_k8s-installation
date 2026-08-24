@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 16/16 · Kiểm chứng
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 16/16 · Kiểm chứng
 ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài cuối của giai đoạn, và ngắn nhất. Nó không dạy gì mới — nó **xếp lại năm thứ đều được gọi
@@ -47,7 +47,7 @@ Trang này giải thích các loại proxy được sử dụng với Kubernetes
 
 Có một số loại proxy khác nhau mà bạn có thể gặp khi sử dụng Kubernetes:
 
-1.  [kubectl proxy](https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#directly-accessing-the-rest-api):
+1.  [kubectl proxy](359-access-cluster-vi.md#directly-accessing-the-rest-api):
 
     - chạy trên máy tính của người dùng hoặc trong một pod
     - proxy từ một địa chỉ localhost đến Kubernetes apiserver
@@ -66,7 +66,7 @@ Có một số loại proxy khác nhau mà bạn có thể gặp khi sử dụng
     - có thể được dùng để truy cập một Node, Pod hoặc Service
     - thực hiện cân bằng tải (load balancing) khi được dùng để truy cập một Service
 
-3.  [kube proxy](https://kubernetes.io/docs/concepts/services-networking/service/#ips-and-vips):
+3.  [kube proxy](https://kubernetes.io/docs/concepts/services-networking/service#ips-and-vips):
 
     - chạy trên mỗi node
     - proxy các giao thức UDP, TCP và SCTP

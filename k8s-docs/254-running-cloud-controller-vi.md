@@ -201,4 +201,4 @@ này trong các bản phát hành sắp tới.
 ## Tiếp theo (What's next)
 
 Để xây dựng và phát triển cloud controller manager của riêng bạn, hãy đọc
-[Phát triển Cloud Controller Manager](https://kubernetes.io/docs/tasks/administer-cluster/developing-cloud-controller-manager/).
+[Phát triển Cloud Controller Manager](203-developing-cloud-controller-manager-vi.md).

@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP11 — Vận hành lưu trữ](LO-TRINH-ADMIN.md#cp11--vận-hành-lưu-trữ),
+**Vị trí:** [Checkpoint tiếp nối, CP11 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#cp11--vận-hành-lưu-trữ),
 bài 2/3 · nối tiếp phần reclaim policy của [bài 92](92-persistent-volumes-vi.md); thực hành
 ngay trên cluster lab sau Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -123,8 +123,8 @@ thể được khôi phục thủ công.
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [PersistentVolume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/).
-* Tìm hiểu thêm về [PersistentVolumeClaim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims).
+* Tìm hiểu thêm về [PersistentVolume](92-persistent-volumes-vi.md).
+* Tìm hiểu thêm về [PersistentVolumeClaim](92-persistent-volumes-vi.md#persistentvolumeclaims).
 
 ### Tham khảo (References) {#reference}
 

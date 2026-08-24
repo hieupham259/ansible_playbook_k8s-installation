@@ -371,7 +371,7 @@ phản ứng nhanh với các deadlock của container.
 Nếu startup probe không bao giờ thành công, container sẽ bị kill sau 300s và chịu sự chi phối
 của `restartPolicy` của Pod.
 
-## Định nghĩa các readiness probe (Define readiness probes)
+## Định nghĩa các readiness probe (Define readiness probes) {#define-readiness-probes}
 
 Đôi khi, các ứng dụng tạm thời không thể phục vụ lưu lượng.
 Ví dụ, một ứng dụng có thể cần nạp dữ liệu lớn hoặc các file cấu hình trong quá trình khởi

@@ -9,8 +9,8 @@ Metrics API vào cluster của mình, các client của Kubernetes API sau đó 
 tin này, và bạn có thể dùng các cơ chế kiểm soát truy cập (access control) của Kubernetes để
 quản lý quyền thực hiện việc đó.
 
-[HorizontalPodAutoscaler](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/) (HPA) và
-[VerticalPodAutoscaler](https://kubernetes.io/docs/concepts/workloads/autoscaling/vertical-pod-autoscale/) (VPA)
+[HorizontalPodAutoscaler](72-horizontal-pod-autoscale-vi.md) (HPA) và
+[VerticalPodAutoscaler](73-vertical-pod-autoscale-vi.md) (VPA)
 sử dụng dữ liệu từ Metrics API để điều chỉnh số bản sao (replica) và tài nguyên của workload
 nhằm đáp ứng nhu cầu của khách hàng.
 
@@ -21,7 +21,7 @@ Bạn cũng có thể xem metrics tài nguyên bằng lệnh
 > và bộ nhớ ở mức tối thiểu để cho phép tự động co giãn bằng HPA và/hoặc VPA.
 > Nếu bạn muốn cung cấp một tập metrics đầy đủ hơn, bạn có thể bổ sung cho Metrics API đơn giản
 > này bằng cách triển khai thêm một
-> [pipeline metrics](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/#full-metrics-pipeline)
+> [pipeline metrics](312-resource-usage-monitoring-vi.md#full-metrics-pipeline)
 > thứ hai sử dụng _Custom Metrics API_.
 
 Hình 1 minh họa kiến trúc của pipeline metrics tài nguyên.
@@ -58,7 +58,7 @@ Các thành phần kiến trúc, tính từ phải sang trái trong hình, bao g
 
 * [cAdvisor](https://github.com/google/cadvisor): Daemon thu thập, tổng hợp và cung cấp
   metrics của container, được tích hợp sẵn trong kubelet.
-* [kubelet](https://kubernetes.io/docs/concepts/architecture/#kubelet): Agent trên node dùng
+* [kubelet](22-architecture-vi.md#kubelet): Agent trên node dùng
   để quản lý tài nguyên container. Metrics tài nguyên có thể truy cập qua các endpoint API
   `/metrics/resource` và `/stats` của kubelet.
 * [Metrics tài nguyên mức node](https://kubernetes.io/docs/reference/instrumentation/node-metrics):
@@ -184,7 +184,7 @@ kernel cung cấp (ở cả kernel Linux và Windows). Cửa sổ thời gian d�
 trong trường window của Metrics API.
 
 Để tìm hiểu thêm về cách Kubernetes cấp phát và đo lường tài nguyên CPU, xem
-[ý nghĩa của CPU](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#meaning-of-cpu).
+[ý nghĩa của CPU](110-manage-resources-containers-vi.md#meaning-of-cpu).
 
 ### Bộ nhớ (Memory)
 
@@ -201,7 +201,7 @@ bao gồm một phần bộ nhớ được cache (file-backed), vì host OS khô
 hồi (reclaim) các trang nhớ đó.
 
 Để tìm hiểu thêm về cách Kubernetes cấp phát và đo lường tài nguyên bộ nhớ, xem
-[ý nghĩa của memory](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#meaning-of-memory).
+[ý nghĩa của memory](110-manage-resources-containers-vi.md#meaning-of-memory).
 
 ## Metrics Server
 

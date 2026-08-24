@@ -15,7 +15,7 @@ Kỹ thuật này còn được gọi là _rootless mode_ (chế độ không c�
 > một người dùng không phải root.
 >
 > Nếu bạn chỉ đang tìm cách chạy một Pod dưới người dùng không phải root, hãy xem
-> [SecurityContext](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+> [SecurityContext](291-security-context-vi.md).
 
 ## Trước khi bạn bắt đầu (Before you begin)
 

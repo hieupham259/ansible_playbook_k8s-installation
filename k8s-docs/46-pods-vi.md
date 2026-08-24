@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 2/11 · Kiểm chứng
+**Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 2/11 · Kiểm chứng
 ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này là **trang mục lục của cả nhóm 3a**: nó nêu tên init container, sidecar, ephemeral
@@ -93,7 +93,7 @@ Pod trong một cluster Kubernetes được dùng theo hai cách chính:
 
   Bạn không cần chạy nhiều container để cung cấp khả năng nhân bản (nhằm tăng khả năng chống chịu
   hoặc dung lượng); nếu bạn cần nhiều bản sao (replica), hãy xem
-  [Quản lý workload](https://kubernetes.io/docs/concepts/workloads/controllers/).
+  [Quản lý workload](62-controllers-index-vi.md).
 
 ## Sử dụng Pod (Using Pods)
 
@@ -156,10 +156,10 @@ Pod bị *trục xuất* (evicted) vì thiếu tài nguyên, hoặc node gặp s
 > cho đến khi nó bị xóa.
 
 Tên của một Pod phải là một giá trị
-[DNS subdomain](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names)
+[DNS subdomain](17-names-vi.md#dns-subdomain-names)
 hợp lệ, nhưng điều này có thể tạo ra kết quả không mong đợi cho hostname của Pod. Để có tính tương thích
 tốt nhất, tên nên tuân theo quy tắc chặt chẽ hơn dành cho
-[DNS label](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-label-names).
+[DNS label](17-names-vi.md#dns-label-names).
 
 ### Hệ điều hành của Pod (Pod OS)
 
@@ -179,7 +179,7 @@ các node đang chạy, bạn nên đặt nhãn
 chính xác trên từng node, và định nghĩa các Pod với `nodeSelector` dựa trên nhãn hệ điều hành.
 Kube-scheduler gán Pod của bạn cho một node dựa trên các tiêu chí khác và có thể thành công hoặc không
 trong việc chọn được vị trí node phù hợp có hệ điều hành đúng với các container trong Pod đó.
-[Các tiêu chuẩn bảo mật Pod (Pod security standards)](https://kubernetes.io/docs/concepts/security/pod-security-standards/) cũng dùng trường
+[Các tiêu chuẩn bảo mật Pod (Pod security standards)](115-pod-security-standards-vi.md) cũng dùng trường
 này để tránh áp đặt các chính sách không liên quan đến hệ điều hành đó.
 
 ### Pod và controller (Pods and controllers) {#pods-and-controllers}
@@ -203,8 +203,8 @@ Dưới đây là một số ví dụ về tài nguyên workload quản lý mộ
 Theo mặc định, Kubernetes lập lịch từng Pod một cách riêng lẻ. Tuy nhiên, một số ứng dụng gắn kết chặt chẽ
 cần một nhóm Pod được lập lịch đồng thời thì mới hoạt động đúng.
 
-Bạn có thể liên kết một Pod với một [PodGroup](https://kubernetes.io/docs/concepts/workloads/podgroup-api/) bằng trường
-[scheduling group](https://kubernetes.io/docs/concepts/workloads/pods/scheduling-group/)
+Bạn có thể liên kết một Pod với một [PodGroup](75-podgroup-api-vi.md) bằng trường
+[scheduling group](59-scheduling-group-vi.md)
 (`spec.schedulingGroup`). Trường này cho `kube-scheduler` biết rằng `Pod` thuộc về một nhóm
 cụ thể, cho phép nó áp dụng các quyết định sắp đặt phối hợp ở cấp nhóm cho toàn bộ nhóm cùng một lúc.
 
@@ -214,16 +214,16 @@ Các controller của tài nguyên workload tạo Pod
 từ một _pod template_ và quản lý các Pod đó thay cho bạn.
 
 PodTemplate là các đặc tả để tạo Pod, và được bao gồm trong các tài nguyên workload như
-[Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/),
-[Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/), và
-[DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/).
+[Deployment](63-deployment-vi.md),
+[Job](67-job-vi.md), và
+[DaemonSet](66-daemonset-vi.md).
 
 Mỗi controller của một tài nguyên workload dùng `PodTemplate` bên trong đối tượng workload
 để tạo ra các Pod thực tế. `PodTemplate` là một phần của trạng thái mong muốn (desired state) của bất kỳ
 tài nguyên workload nào mà bạn đã dùng để chạy ứng dụng của mình.
 
 Khi tạo một Pod, bạn có thể bao gồm các
-[biến môi trường](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/)
+[biến môi trường](331-define-environment-variable-vi.md)
 trong pod template cho các container chạy trong Pod.
 
 Mẫu dưới đây là manifest cho một Job đơn giản với một `template` khởi động một
@@ -297,17 +297,17 @@ có một số hạn chế:
 Các quy tắc cập nhật ở trên áp dụng cho các cập nhật Pod thông thường, nhưng những trường khác của Pod có thể được cập nhật thông qua các _subresource_.
 
 - **Resize:** Subresource `resize` cho phép cập nhật tài nguyên của container (`spec.containers[*].resources`).
-  Xem [Resize Container Resources](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/) để biết thêm chi tiết.
+  Xem [Resize Container Resources](289-resize-container-resources-vi.md) để biết thêm chi tiết.
 - **Ephemeral Containers:** Subresource `ephemeralContainers` cho phép
   thêm các ephemeral container
   vào một Pod.
-  Xem [Ephemeral Containers](https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/) để biết thêm chi tiết.
+  Xem [Ephemeral Containers](52-ephemeral-containers-vi.md) để biết thêm chi tiết.
 - **Status:** Subresource `status` cho phép cập nhật trạng thái của Pod.
   Subresource này thường chỉ được dùng bởi kubelet và các controller hệ thống khác.
 - **Binding:** Subresource `binding` cho phép đặt `spec.nodeName` của Pod thông qua một yêu cầu `Binding`.
   Subresource này thường chỉ được dùng bởi scheduler.
 
-### Generation của Pod (Pod generation)
+### Generation của Pod (Pod generation) {#pod-generation}
 
 - Trường `metadata.generation` là duy nhất. Nó sẽ được hệ thống tự động đặt
   sao cho các Pod mới có `metadata.generation` bằng 1, và mỗi lần cập nhật
@@ -366,7 +366,7 @@ lưu trữ dùng chung. Tất cả các container
 trong Pod đều có thể truy cập các volume dùng chung này, cho phép các container đó
 chia sẻ dữ liệu. Volume cũng cho phép dữ liệu lâu dài trong một Pod tồn tại
 qua trường hợp một trong các container bên trong cần được khởi động lại. Xem
-[Storage](https://kubernetes.io/docs/concepts/storage/) để biết thêm thông tin về cách
+[Storage](90-storage-vi.md) để biết thêm thông tin về cách
 Kubernetes hiện thực lưu trữ dùng chung và cung cấp nó cho các Pod.
 
 ### Mạng của Pod (Pod networking) {#pod-networking}
@@ -387,13 +387,13 @@ dùng mạng IP để giao tiếp.
 
 Các container bên trong Pod thấy hostname của hệ thống giống với
 `name` được cấu hình cho Pod. Có thêm thông tin về điều này trong phần
-[mạng](https://kubernetes.io/docs/concepts/cluster-administration/networking/).
+[mạng](157-networking-vi.md).
 
 ## Thiết lập bảo mật cho Pod (Pod security settings) {#pod-security}
 
 Để đặt các ràng buộc bảo mật lên Pod và container, bạn dùng trường
 `securityContext` trong đặc tả của Pod. Trường này cho bạn
-quyền kiểm soát chi tiết những gì một Pod hoặc từng container riêng lẻ có thể làm. Xem [Advanced Pod Configuration](https://kubernetes.io/docs/concepts/workloads/pods/advanced-pod-config/) để biết thêm chi tiết.
+quyền kiểm soát chi tiết những gì một Pod hoặc từng container riêng lẻ có thể làm. Xem [Advanced Pod Configuration](60-advanced-pod-config-vi.md) để biết thêm chi tiết.
 
 Để cấu hình bảo mật cơ bản, bạn nên đáp ứng tiêu chuẩn bảo mật Pod mức Baseline và chạy container không dùng quyền root (non-root). Bạn có thể đặt các security context đơn giản:
 
@@ -413,12 +413,12 @@ spec:
     command: ["sh", "-c", "sleep 1h"]
 ```
 
-Để cấu hình security context nâng cao bao gồm capabilities, seccomp profile, và các tùy chọn bảo mật chi tiết, xem phần [các khái niệm bảo mật](https://kubernetes.io/docs/concepts/security/).
+Để cấu hình security context nâng cao bao gồm capabilities, seccomp profile, và các tùy chọn bảo mật chi tiết, xem phần [các khái niệm bảo mật](113-security-vi.md).
 
 * Để tìm hiểu về các ràng buộc bảo mật mức kernel mà bạn có thể sử dụng,
-  xem [Linux kernel security constraints for Pods and containers](https://kubernetes.io/docs/concepts/security/linux-kernel-security-constraints).
+  xem [Linux kernel security constraints for Pods and containers](127-linux-kernel-security-vi.md).
 * Để tìm hiểu thêm về security context của Pod, xem
-  [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+  [Configure a Security Context for a Pod or Container](291-security-context-vi.md).
 
 ## Yêu cầu và giới hạn tài nguyên (Resource requests and limits)
 
@@ -444,9 +444,9 @@ bởi kernel bằng cách kill do hết bộ nhớ (out-of-memory — OOM) khi m
 > môi trường của bạn, đặc điểm của workload, và các yêu cầu cách ly.
 
 Để biết chi tiết về đơn vị tài nguyên, hành vi thực thi, và các ví dụ cấu hình,
-xem [Resource Management for Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
+xem [Resource Management for Pods and Containers](110-manage-resources-containers-vi.md).
 
-## Static Pod (Static Pods)
+## Static Pod (Static Pods) {#static-pods}
 
 _Static Pod_ được quản lý trực tiếp bởi kubelet daemon trên một node cụ thể,
 mà không có sự quan sát của API server.
@@ -458,7 +458,7 @@ Static Pod luôn gắn với một kubelet trên một node cụ thể.
 Trường hợp sử dụng chính của static Pod là chạy một control plane tự lưu trữ (self-hosted): nói cách khác,
 dùng kubelet để giám sát từng [thành phần của control plane](./22-architecture-vi.md#control-plane-components).
 
-Để biết chi tiết, xem [Static Pods](https://kubernetes.io/docs/concepts/workloads/pods/static-pods/).
+Để biết chi tiết, xem [Static Pods](58-static-pods-vi.md).
 
 ## Pod với nhiều container (Pods with multiple containers) {#how-pods-manage-multiple-containers}
 
@@ -487,7 +487,7 @@ Pod trong một cluster Kubernetes được dùng theo hai cách chính:
 
 Ví dụ, bạn có thể có một container đóng vai trò
 web server cho các file trong một volume dùng chung, và một
-[sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/) riêng biệt
+[sidecar container](51-sidecar-containers-vi.md) riêng biệt
 cập nhật các file đó từ một nguồn ở xa, như trong sơ đồ sau:
 
 ![Sơ đồ tạo Pod](https://kubernetes.io/images/docs/pod.svg)
@@ -496,7 +496,7 @@ Một số Pod có các init container
 cũng như các app container.
 Theo mặc định, init container chạy và hoàn tất trước khi các app container được khởi động.
 
-Bạn cũng có thể có các [sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/)
+Bạn cũng có thể có các [sidecar container](51-sidecar-containers-vi.md)
 cung cấp các dịch vụ phụ trợ cho Pod ứng dụng chính (ví dụ: một service mesh).
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.33 [stable]`
@@ -518,20 +518,20 @@ _Probe_ là một hoạt động chẩn đoán được kubelet thực hiện đ
 - `TCPSocketAction` (được kubelet kiểm tra trực tiếp)
 - `HTTPGetAction` (được kubelet kiểm tra trực tiếp)
 
-Bạn có thể đọc thêm về [probe](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes)
+Bạn có thể đọc thêm về [probe](47-pod-lifecycle-vi.md#container-probes)
 trong tài liệu Pod Lifecycle.
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu về [vòng đời của một Pod](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/).
-* Đọc về [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/)
+* Tìm hiểu về [vòng đời của một Pod](47-pod-lifecycle-vi.md).
+* Đọc về [PodDisruptionBudget](53-disruptions-vi.md)
   và cách bạn có thể dùng nó để quản lý tính khả dụng của ứng dụng trong các gián đoạn (disruption).
 * Pod là một tài nguyên cấp cao nhất trong Kubernetes REST API.
   Định nghĩa đối tượng [Pod](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/)
   mô tả chi tiết đối tượng này.
 * [The Distributed System Toolkit: Patterns for Composite Containers](https://kubernetes.io/blog/2015/06/the-distributed-system-toolkit-patterns/) giải thích các bố cục phổ biến cho các Pod có nhiều hơn một container.
-* Đọc về [các ràng buộc phân bố theo topology của Pod (Pod topology spread constraints)](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/)
-* Đọc [Advanced Pod Configuration](https://kubernetes.io/docs/concepts/workloads/pods/advanced-pod-config/) để tìm hiểu chủ đề này một cách chi tiết.
+* Đọc về [các ràng buộc phân bố theo topology của Pod (Pod topology spread constraints)](140-topology-spread-constraints-vi.md)
+* Đọc [Advanced Pod Configuration](60-advanced-pod-config-vi.md) để tìm hiểu chủ đề này một cách chi tiết.
   Trang đó đề cập đến các khía cạnh cấu hình Pod vượt ra ngoài những điều cốt lõi, bao gồm:
   * PriorityClasses
   * RuntimeClasses

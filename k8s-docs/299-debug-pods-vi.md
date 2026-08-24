@@ -5,7 +5,7 @@
 Hướng dẫn này giúp người dùng gỡ lỗi (debug) các ứng dụng được triển khai vào Kubernetes nhưng
 không hoạt động đúng như mong đợi. Đây *không phải* là hướng dẫn dành cho những người muốn gỡ lỗi
 cluster của mình. Cho việc đó, bạn nên xem
-[hướng dẫn này](https://kubernetes.io/docs/tasks/debug/debug-cluster).
+[hướng dẫn này](305-debug-cluster-vi.md).
 
 ## Chẩn đoán vấn đề (Diagnosing the problem)
 
@@ -41,7 +41,7 @@ Các lý do bao gồm:
 * **Bạn không có đủ tài nguyên**: Có thể bạn đã dùng cạn nguồn cung CPU hoặc Memory trong
   cluster; trong trường hợp này bạn cần xóa bớt Pod, điều chỉnh yêu cầu tài nguyên (resource
   request), hoặc thêm node mới vào cluster. Xem
-  [tài liệu Tài nguyên tính toán](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+  [tài liệu Tài nguyên tính toán](110-manage-resources-containers-vi.md)
   để biết thêm thông tin.
 
 * **Bạn đang dùng `hostPort`**: Khi bạn gắn một Pod vào một `hostPort`, số vị trí mà pod đó có
@@ -69,7 +69,7 @@ Nếu một Pod bị kẹt ở trạng thái `Terminating`, nghĩa là một yê
 nhưng control plane không thể xóa đối tượng Pod đó.
 
 Điều này thường xảy ra khi Pod có một
-[finalizer](https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/)
+[finalizer](29-finalizers-vi.md)
 và trong cluster có cài một
 [admission webhook](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/)
 ngăn không cho control plane gỡ bỏ finalizer đó.
@@ -176,16 +176,16 @@ Xác minh rằng `containerPort` của pod khớp với `targetPort` của Servi
 
 #### Lưu lượng mạng không được chuyển tiếp (Network traffic is not forwarded)
 
-Vui lòng xem [gỡ lỗi service](https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/)
+Vui lòng xem [gỡ lỗi service](301-debug-service-vi.md)
 để biết thêm thông tin.
 
 ## Tiếp theo (What's next)
 
 Nếu không có cách nào ở trên giải quyết được vấn đề của bạn, hãy làm theo hướng dẫn trong
-[tài liệu Gỡ lỗi Service](https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/)
+[tài liệu Gỡ lỗi Service](301-debug-service-vi.md)
 để đảm bảo rằng `Service` của bạn đang chạy, có `Endpoints`, và các `Pods` của bạn thực sự
 đang phục vụ; rằng DNS hoạt động, các quy tắc iptables đã được cài đặt, và kube-proxy không có
 biểu hiện bất thường.
 
-Bạn cũng có thể xem [tài liệu xử lý sự cố](https://kubernetes.io/docs/tasks/debug/) để biết
+Bạn cũng có thể xem [tài liệu xử lý sự cố](296-debug-vi.md) để biết
 thêm thông tin.

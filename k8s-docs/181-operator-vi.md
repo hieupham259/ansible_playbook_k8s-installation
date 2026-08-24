@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 14](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 5/7 ·
+**Vị trí:** [Giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 5/7 ·
 Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Giai đoạn này lộ trình ghi rõ là **dành cho platform administrator / người phát triển operator**;
@@ -46,9 +46,9 @@ tuân theo đúng vòng lặp điều khiển bạn đã học ở đó, chỉ k
 ---
 
 Operator là các phần mở rộng phần mềm cho Kubernetes, sử dụng
-[custom resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
+[custom resource](179-custom-resources-vi.md)
 để quản lý các ứng dụng và những thành phần của chúng. Operator tuân theo
-các nguyên tắc của Kubernetes, đặc biệt là [vòng lặp điều khiển (control loop)](https://kubernetes.io/docs/concepts/architecture/controller).
+các nguyên tắc của Kubernetes, đặc biệt là [vòng lặp điều khiển (control loop)](25-controllers-vi.md).
 
 ## Động lực (Motivation)
 
@@ -70,7 +70,7 @@ triển khai và chạy workload, *và* bạn cũng có thể tự động hóa 
 Khái niệm mẫu operator (operator pattern) của Kubernetes cho phép bạn mở rộng hành vi của cluster
 mà không cần sửa mã nguồn của chính Kubernetes, bằng cách liên kết các controller với một hoặc
 nhiều custom resource. Operator là các client của Kubernetes API, đóng vai trò controller cho một
-[Custom Resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/).
+[Custom Resource](179-custom-resources-vi.md).
 
 ## Một ví dụ về operator (An example operator) {#example}
 
@@ -157,7 +157,7 @@ Dưới đây là một vài thư viện và công cụ bạn có thể dùng đ
 
 * Đọc [Operator White Paper](https://github.com/cncf/tag-app-delivery/blob/163962c4b1cd70d085107fc579e3e04c2e14d59c/operator-wg/whitepaper/Operator-WhitePaper_v1-0.md)
   của CNCF.
-* Tìm hiểu thêm về [Custom Resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
+* Tìm hiểu thêm về [Custom Resource](179-custom-resources-vi.md)
 * Tìm các operator có sẵn phù hợp với trường hợp sử dụng của bạn trên [OperatorHub.io](https://operatorhub.io/)
 * [Công bố](https://operatorhub.io/) operator của bạn để người khác sử dụng
 * Đọc [bài viết gốc của CoreOS](https://web.archive.org/web/20170129131616/https://coreos.com/blog/introducing-operators.html)
@@ -197,7 +197,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    resource khác, hoàn toàn không cần biết có ai đang lắng nghe hay không. Bài nói cách triển
    khai phổ biến nhất là "thêm **Custom Resource Definition và Controller tương ứng** của nó vào
    cluster" — hai vế, không phải một. Đây đúng là điều mà checkpoint của giai đoạn 14 trong
-   [lộ trình](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) bắt bạn giải thích được.
+   [lộ trình](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) bắt bạn giải thích được.
 3. **Như một workload thường.** Bài viết: "Controller thường chạy **bên ngoài control plane**,
    giống như cách bạn chạy bất kỳ ứng dụng container hóa nào. Ví dụ, bạn có thể chạy controller
    trong cluster của mình dưới dạng một **Deployment**." Trong ví dụ, chính bước 2 là "một

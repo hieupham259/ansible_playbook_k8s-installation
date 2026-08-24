@@ -31,7 +31,7 @@ phụ thuộc vào Docker hay không:
    - Script khởi động của node;
    - Agent giám sát (monitoring) và bảo mật được cài trực tiếp trên node.
 1. Các công cụ bên thứ ba thực hiện các thao tác đặc quyền nêu trên. Xem
-   [Di chuyển agent telemetry và bảo mật khỏi dockershim](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/migrating-telemetry-and-security-agents)
+   [Di chuyển agent telemetry và bảo mật khỏi dockershim](240-migrating-telemetry-agents-vi.md)
    để biết thêm thông tin.
 1. Đảm bảo không có sự phụ thuộc gián tiếp nào vào hành vi của dockershim.
    Đây là trường hợp hiếm và khó có khả năng ảnh hưởng đến ứng dụng của bạn. Một số công cụ có thể được cấu hình
@@ -42,7 +42,7 @@ phụ thuộc vào Docker hay không:
 
 ## Giải thích về sự phụ thuộc vào Docker (Dependency on Docker explained) {#role-of-dockershim}
 
-[Container runtime](https://kubernetes.io/docs/concepts/containers/#container-runtimes) là phần mềm có thể
+[Container runtime](39-containers-vi.md#container-runtimes) là phần mềm có thể
 thực thi các container tạo nên một Pod của Kubernetes. Kubernetes chịu trách nhiệm điều phối (orchestration)
 và lập lịch (scheduling) các Pod; trên mỗi node, kubelet
 sử dụng giao diện container runtime (Container Runtime Interface - CRI) như một lớp trừu tượng để bạn có thể dùng bất kỳ
@@ -85,7 +85,7 @@ có thể sử dụng.
 ### Một số metric filesystem bị thiếu và định dạng metric khác đi (Some filesystem metrics are missing and the metrics format is different)
 
 Endpoint `/metrics/cadvisor` của kubelet cung cấp các metric Prometheus,
-như được mô tả trong [Metrics cho các thành phần hệ thống Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/system-metrics/).
+như được mô tả trong [Metrics cho các thành phần hệ thống Kubernetes](160-system-metrics-vi.md).
 Nếu bạn cài một trình thu thập metric phụ thuộc vào endpoint đó, bạn có thể gặp các vấn đề sau:
 
 - Định dạng metric trên node dùng Docker là `k8s_<container-name>_<pod-name>_<namespace>_<pod-uid>_<restart-count>`
@@ -125,5 +125,5 @@ Các phương án thay thế:
 
 ## Tiếp theo (What's next)
 
-- Đọc [Di chuyển khỏi dockershim](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/) để hiểu các bước tiếp theo của bạn
+- Đọc [Di chuyển khỏi dockershim](236-migrating-from-dockershim-vi.md) để hiểu các bước tiếp theo của bạn
 - Đọc bài viết [dockershim deprecation FAQ](https://kubernetes.io/blog/2020/12/02/dockershim-faq/) để biết thêm thông tin.

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 9/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 9/16 · Kiểm chứng ở
 Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là bài cuối trước Lab 5a. Nó trả lời một câu hỏi rất cụ thể: **con số cluster IP ở đâu ra**,
@@ -39,7 +39,7 @@ công thức chia băng cần đọc kỹ vì bạn sẽ dùng lại nó mỗi k
 
 ---
 
-Trong Kubernetes, [Service](https://kubernetes.io/docs/concepts/services-networking/service/) là một cách trừu tượng để expose một ứng dụng đang chạy trên một tập các Pod. Service có thể có một địa chỉ IP ảo phạm vi cluster (dùng Service với `type: ClusterIP`). Client có thể kết nối bằng địa chỉ IP ảo đó, và Kubernetes sau đó cân bằng tải lưu lượng tới Service đó qua các Pod backend khác nhau.
+Trong Kubernetes, [Service](82-service-vi.md) là một cách trừu tượng để expose một ứng dụng đang chạy trên một tập các Pod. Service có thể có một địa chỉ IP ảo phạm vi cluster (dùng Service với `type: ClusterIP`). Client có thể kết nối bằng địa chỉ IP ảo đó, và Kubernetes sau đó cân bằng tải lưu lượng tới Service đó qua các Pod backend khác nhau.
 
 ## ClusterIP của Service được cấp phát như thế nào? (How Service ClusterIPs are allocated?)
 
@@ -150,9 +150,9 @@ pie showData
 
 ## Tiếp theo (What's next)
 
-* Đọc về [Chính sách lưu lượng bên ngoài của Service (Service External Traffic Policy)](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip)
+* Đọc về [Chính sách lưu lượng bên ngoài của Service (Service External Traffic Policy)](364-create-external-load-balancer-vi.md#preserving-the-client-source-ip)
 * Đọc về [Kết nối ứng dụng với Service (Connecting Applications with Services)](https://kubernetes.io/docs/tutorials/services/connect-applications-service/)
-* Đọc về [Service](https://kubernetes.io/docs/concepts/services-networking/service/)
+* Đọc về [Service](82-service-vi.md)
 
 ---
 

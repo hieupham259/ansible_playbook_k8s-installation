@@ -41,7 +41,7 @@ lại của cluster.
 kubectl create namespace qos-example
 ```
 
-## Tạo một Pod được gán QoS class Guaranteed (Create a Pod that gets assigned a QoS class of Guaranteed)
+## Tạo một Pod được gán QoS class Guaranteed (Create a Pod that gets assigned a QoS class of Guaranteed) {#create-a-pod-that-gets-assigned-a-qos-class-of-guaranteed}
 
 Để một Pod được gán QoS class `Guaranteed`:
 

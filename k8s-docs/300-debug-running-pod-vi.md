@@ -7,7 +7,7 @@ Trang này giải thích cách gỡ lỗi (debug) các Pod đang chạy (hoặc 
 ## Trước khi bạn bắt đầu (Before you begin)
 
 * Pod của bạn cần đã được lập lịch (schedule) và đang chạy. Nếu Pod của bạn chưa chạy, hãy bắt
-  đầu với [Gỡ lỗi Pod](https://kubernetes.io/docs/tasks/debug/debug-application/).
+  đầu với [Gỡ lỗi Pod](297-debug-application-vi.md).
 * Với một số bước gỡ lỗi nâng cao, bạn cần biết Pod đang chạy trên Node nào và có quyền truy
   cập shell để chạy lệnh trên Node đó. Bạn không cần quyền truy cập này để thực hiện các bước
   gỡ lỗi tiêu chuẩn sử dụng `kubectl`.
@@ -420,7 +420,7 @@ kubectl exec -it cassandra -- sh
 ```
 
 Để biết thêm chi tiết, xem
-[Mở Shell vào một Container đang chạy](https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/).
+[Mở Shell vào một Container đang chạy](304-get-shell-running-container-vi.md).
 
 ## Gỡ lỗi bằng ephemeral debug container (Debugging with an ephemeral debug container) {#ephemeral-container}
 
@@ -469,7 +469,7 @@ If you don't see a command prompt, try pressing enter.
 
 Lệnh này thêm một container busybox mới và attach vào nó. Tham số `--target` nhắm tới process
 namespace của một container khác. Nó cần thiết ở đây vì `kubectl run` không bật
-[chia sẻ process namespace](https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/)
+[chia sẻ process namespace](292-share-process-namespace-vi.md)
 trong pod mà nó tạo ra.
 
 > **Ghi chú:**
@@ -549,7 +549,7 @@ root@myapp-debug:/#
 >   có thể attach lại bằng `kubectl attach`.
 > * `--share-processes` cho phép các container trong Pod này nhìn thấy tiến trình của các
 >   container khác trong Pod. Để biết thêm về cách cơ chế này hoạt động, xem
->   [Chia sẻ Process Namespace giữa các Container trong một Pod](https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/).
+>   [Chia sẻ Process Namespace giữa các Container trong một Pod](292-share-process-namespace-vi.md).
 
 Đừng quên dọn dẹp Pod gỡ lỗi khi bạn dùng xong:
 
@@ -714,7 +714,7 @@ namespace của Pod.
 Khi dùng `kubectl debug` để gỡ lỗi một node thông qua một Pod gỡ lỗi, một Pod thông qua một
 ephemeral container, hoặc một Pod được sao chép, bạn có thể áp dụng một profile cho chúng.
 Bằng cách áp dụng profile, các thuộc tính cụ thể như
-[securityContext](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+[securityContext](291-security-context-vi.md)
 sẽ được thiết lập, cho phép thích ứng với nhiều tình huống khác nhau.
 Có hai loại profile: profile tĩnh (static profile) và profile tùy chỉnh (custom profile).
 
@@ -727,8 +727,8 @@ flag `--profile`. Các profile khả dụng như sau:
 | ------------ | --------------------------------------------------------------- |
 | legacy       | Tập thuộc tính tương thích ngược với hành vi của phiên bản 1.22 |
 | general      | Tập thuộc tính chung hợp lý cho mỗi phiên gỡ lỗi |
-| baseline     | Tập thuộc tính tương thích với [chính sách baseline của PodSecurityStandard](https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline) |
-| restricted   | Tập thuộc tính tương thích với [chính sách restricted của PodSecurityStandard](https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted) |
+| baseline     | Tập thuộc tính tương thích với [chính sách baseline của PodSecurityStandard](115-pod-security-standards-vi.md#baseline) |
+| restricted   | Tập thuộc tính tương thích với [chính sách restricted của PodSecurityStandard](115-pod-security-standards-vi.md#restricted) |
 | netadmin     | Tập thuộc tính bao gồm các đặc quyền của quản trị viên mạng (Network Administrator) |
 | sysadmin     | Tập thuộc tính bao gồm các đặc quyền của quản trị viên hệ thống (System Administrator, tức root) |
 
@@ -776,7 +776,7 @@ CapEff:	000001ffffffffff
 
 Điều này có nghĩa là tiến trình của container được cấp đầy đủ capability như một privileged
 container nhờ áp dụng profile `sysadmin`. Xem thêm chi tiết về
-[capabilities](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-capabilities-for-a-container).
+[capabilities](291-security-context-vi.md#set-capabilities-for-a-container).
 
 Bạn cũng có thể kiểm tra rằng ephemeral container đã được tạo như một privileged container:
 

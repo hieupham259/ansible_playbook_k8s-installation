@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 14/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -51,7 +51,7 @@ trống của thuật toán lập lịch theo placement ở
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
-*Lập lịch nhận biết topology* (Topology-Aware Scheduling — TAS) là một [thuật toán lập lịch theo placement](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/#placement-scheduling-algorithm)
+*Lập lịch nhận biết topology* (Topology-Aware Scheduling — TAS) là một [thuật toán lập lịch theo placement](151-podgroup-scheduling-vi.md#placement-scheduling-algorithm)
 cho phép tìm vị trí sắp đặt (placement) tối ưu cho PodGroup đang được xem xét, đảm bảo rằng tất cả các pod
 sẽ được đặt cùng nhau (collocated) trong cùng một miền topology (topology domain). Người dùng có thể điều chỉnh TAS
 theo nhu cầu cụ thể của mình bằng cách thay đổi cấu hình các plugin TAS.
@@ -116,9 +116,9 @@ profiles:
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [API lập lịch nhận biết topology](https://kubernetes.io/docs/concepts/workloads/workload-api/topology-aware-scheduling/).
-* Đọc về [lập lịch pod group](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/).
-* Đọc về [các chính sách pod group](https://kubernetes.io/docs/concepts/workloads/workload-api/policies/).
+* Tìm hiểu thêm về [API lập lịch nhận biết topology](80-workload-topology-scheduling-vi.md).
+* Đọc về [lập lịch pod group](151-podgroup-scheduling-vi.md).
+* Đọc về [các chính sách pod group](79-workload-policies-vi.md).
 
 ---
 

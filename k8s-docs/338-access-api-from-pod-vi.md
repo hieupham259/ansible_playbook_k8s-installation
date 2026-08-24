@@ -60,7 +60,7 @@ tham chiếu `kubernetes.default.svc` như một tên DNS cho API server cục b
 > hostname hoặc địa chỉ IP mà `$KUBERNETES_SERVICE_HOST` đại diện.
 
 Cách được khuyến nghị để xác thực với API server là dùng thông tin xác thực của một
-[service account](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/).
+[service account](279-configure-service-account-vi.md).
 Theo mặc định, một Pod được gắn với một service account, và thông tin xác thực (token) của
 service account đó được đặt vào cây filesystem của mỗi container trong Pod đó,
 tại `/var/run/secrets/kubernetes.io/serviceaccount/token`.
@@ -75,7 +75,7 @@ file tại `/var/run/secrets/kubernetes.io/serviceaccount/namespace` trong mỗi
 ### Sử dụng kubectl proxy (Using kubectl proxy)
 
 Nếu bạn muốn truy vấn API mà không dùng thư viện client chính thức, bạn có thể chạy `kubectl proxy`
-như là [lệnh (command)](https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/)
+như là [lệnh (command)](330-define-command-argument-vi.md)
 của một container sidecar mới trong Pod. Bằng cách này, `kubectl proxy` sẽ xác thực
 với API và mở nó ra trên interface `localhost` của Pod, nhờ đó các container khác
 trong Pod có thể dùng nó trực tiếp.

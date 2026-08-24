@@ -3,7 +3,7 @@
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/find-out-runtime-you-use/
 
 Trang này trình bày các bước để tìm hiểu xem các node trong cluster của bạn đang dùng
-[container runtime](https://kubernetes.io/docs/setup/production-environment/container-runtimes/) nào.
+[container runtime](00-container-runtimes-vi.md) nào.
 
 Tùy theo cách bạn vận hành cluster, container runtime cho các node có thể
 đã được cấu hình sẵn hoặc bạn phải tự cấu hình. Nếu bạn đang dùng dịch vụ
@@ -13,7 +13,7 @@ việc thực thi `kubectl` được cho phép.
 
 ## Trước khi bạn bắt đầu (Before you begin)
 
-Cài đặt và cấu hình `kubectl`. Xem mục [Install Tools](https://kubernetes.io/docs/tasks/tools/#kubectl) để biết chi tiết.
+Cài đặt và cấu hình `kubectl`. Xem mục [Install Tools](185-tools-vi.md#kubectl) để biết chi tiết.
 
 ## Tìm container runtime đang được dùng trên một Node (Find out the container runtime used on a Node)
 
@@ -50,7 +50,7 @@ node-3       Ready    v1.19.6   containerd://1.4.1
 ```
 
 Tìm hiểu thêm thông tin về các container runtime
-tại trang [Container Runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/).
+tại trang [Container Runtimes](00-container-runtimes-vi.md).
 
 ## Tìm container runtime endpoint mà bạn đang dùng (Find out what container runtime endpoint you use) {#which-endpoint}
 
@@ -86,6 +86,6 @@ các node của mình.
         `unix:///run/containerd/containerd.sock` là endpoint của containerd.
 
 Nếu bạn muốn thay đổi Container Runtime trên một Node từ Docker Engine sang containerd,
-bạn có thể tìm thêm thông tin tại [di chuyển từ Docker Engine sang containerd](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/change-runtime-containerd/),
+bạn có thể tìm thêm thông tin tại [di chuyển từ Docker Engine sang containerd](237-change-runtime-containerd-vi.md),
 hoặc, nếu bạn muốn tiếp tục dùng Docker Engine trong Kubernetes v1.24 trở về sau, hãy chuyển sang một
 adapter tương thích CRI như [`cri-dockerd`](https://github.com/Mirantis/cri-dockerd).

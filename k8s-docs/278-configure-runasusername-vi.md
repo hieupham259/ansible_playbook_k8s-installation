@@ -166,6 +166,6 @@ và
 
 ## Tiếp theo (What's next)
 
-* [Hướng dẫn lập lịch container Windows trong Kubernetes](https://kubernetes.io/docs/concepts/windows/user-guide/)
-* [Quản lý danh tính workload với Group Managed Service Accounts (GMSA)](https://kubernetes.io/docs/concepts/windows/user-guide/#managing-workload-identity-with-group-managed-service-accounts)
-* [Cấu hình GMSA cho Pod và container Windows](https://kubernetes.io/docs/tasks/configure-pod-container/configure-gmsa/)
+* [Hướng dẫn lập lịch container Windows trong Kubernetes](176-windows-user-guide-vi.md)
+* [Quản lý danh tính workload với Group Managed Service Accounts (GMSA)](176-windows-user-guide-vi.md#managing-workload-identity-with-group-managed-service-accounts)
+* [Cấu hình GMSA cho Pod và container Windows](273-configure-gmsa-vi.md)

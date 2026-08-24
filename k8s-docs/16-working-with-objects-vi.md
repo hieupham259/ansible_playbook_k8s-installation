@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+**Vị trí:** Giai đoạn 1 → nhóm [1a](00-ALO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
 bài 4/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B4 và B5.3.
 
 **Phải hiểu ở lần đọc này:**
@@ -55,12 +55,12 @@ sẽ liên tục làm việc để bảo đảm đối tượng đó tồn tại
 *trạng thái mong muốn (desired state)* của cluster.
 
 Để làm việc với các đối tượng Kubernetes — dù là tạo, sửa đổi hay xóa chúng — bạn cần dùng
-[Kubernetes API](https://kubernetes.io/docs/concepts/overview/kubernetes-api/). Ví dụ, khi bạn dùng giao diện
+[Kubernetes API](21-kubernetes-api-vi.md). Ví dụ, khi bạn dùng giao diện
 dòng lệnh `kubectl`, CLI sẽ thực hiện các lời gọi Kubernetes API cần thiết thay cho bạn. Bạn cũng có thể dùng
 Kubernetes API trực tiếp trong chương trình của riêng mình thông qua một trong các
 [thư viện client (Client Libraries)](https://kubernetes.io/docs/reference/using-api/client-libraries/).
 
-### Spec và status của đối tượng (Object spec and status)
+### Spec và status của đối tượng (Object spec and status) {#object-spec-and-status}
 
 Hầu như mọi đối tượng Kubernetes đều bao gồm hai trường đối tượng lồng nhau chi phối
 cấu hình của đối tượng: *`spec`* và *`status`* của đối tượng.
@@ -158,7 +158,7 @@ Một ví dụ khác về đặc tả đối tượng là
 [trường `spec`](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/stateful-set-v1/#StatefulSetSpec)
 của StatefulSet API. Với StatefulSet, trường `.spec` chỉ định StatefulSet đó và
 trạng thái mong muốn của nó.
-Bên trong `.spec` của một StatefulSet là một [template](https://kubernetes.io/docs/concepts/workloads/pods/#pod-templates)
+Bên trong `.spec` của một StatefulSet là một [template](https://kubernetes.io/docs/concepts/workloads/pods#pod-templates)
 cho các đối tượng Pod. Template đó mô tả các Pod mà controller của StatefulSet sẽ tạo ra nhằm
 thỏa mãn đặc tả của StatefulSet.
 Các loại đối tượng khác nhau cũng có thể có `.status` khác nhau; một lần nữa, các trang tham khảo API
@@ -196,14 +196,14 @@ hãy xem tài liệu cho phiên bản Kubernetes của bạn.
 
 Nếu bạn mới làm quen với Kubernetes, hãy đọc thêm về các nội dung sau:
 
-* [Pods](https://kubernetes.io/docs/concepts/workloads/pods/) — những đối tượng Kubernetes cơ bản quan trọng nhất.
-* Các đối tượng [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
-* [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) trong Kubernetes.
+* [Pods](46-pods-vi.md) — những đối tượng Kubernetes cơ bản quan trọng nhất.
+* Các đối tượng [Deployment](63-deployment-vi.md).
+* [Controllers](25-controllers-vi.md) trong Kubernetes.
 * [kubectl](https://kubernetes.io/docs/reference/kubectl/) và [các lệnh kubectl](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands).
 
-[Quản lý đối tượng Kubernetes (Kubernetes Object Management)](https://kubernetes.io/docs/concepts/overview/working-with-objects/object-management/)
+[Quản lý đối tượng Kubernetes (Kubernetes Object Management)](27-object-management-vi.md)
 giải thích cách dùng `kubectl` để quản lý các đối tượng.
-Bạn có thể cần [cài đặt kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) nếu chưa có sẵn công cụ này.
+Bạn có thể cần [cài đặt kubectl](185-tools-vi.md#kubectl) nếu chưa có sẵn công cụ này.
 
 Để tìm hiểu về Kubernetes API nói chung, hãy xem:
 
@@ -211,15 +211,15 @@ Bạn có thể cần [cài đặt kubectl](https://kubernetes.io/docs/tasks/too
 
 Để tìm hiểu sâu hơn về các đối tượng trong Kubernetes, hãy đọc các trang khác trong phần này:
 
-* [Quản lý đối tượng Kubernetes (Kubernetes Object Management)](https://kubernetes.io/docs/concepts/overview/working-with-objects/object-management/)
+* [Quản lý đối tượng Kubernetes (Kubernetes Object Management)](27-object-management-vi.md)
 * [Tên và ID của đối tượng (Object Names and IDs)](./17-names-vi.md)
-* [Labels và Selectors (Labels and Selectors)](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/)
-* [Namespaces](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)
-* [Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
-* [Field Selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors/)
-* [Finalizers](https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/)
-* [Owners và Dependents (Owners and Dependents)](https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/)
-* [Các label khuyến nghị (Recommended Labels)](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
+* [Labels và Selectors (Labels and Selectors)](18-labels-vi.md)
+* [Namespaces](19-namespaces-vi.md)
+* [Annotations](20-annotations-vi.md)
+* [Field Selectors](28-field-selectors-vi.md)
+* [Finalizers](29-finalizers-vi.md)
+* [Owners và Dependents (Owners and Dependents)](30-owners-dependents-vi.md)
+* [Các label khuyến nghị (Recommended Labels)](31-common-labels-vi.md)
 
 ---
 

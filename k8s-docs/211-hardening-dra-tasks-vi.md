@@ -112,5 +112,5 @@ tính chỉ có thể ghi status cho đúng DRA driver mà nó vận hành.
 ## Tiếp theo (What's next)
 
 - [Hướng dẫn tăng cường bảo mật - Cấp phát tài nguyên động (Hardening Guide - Dynamic Resource Allocation)](125-hardening-dra-vi.md)
-- [Bảo vệ cluster của bạn (Securing a Cluster)](https://kubernetes.io/docs/tasks/administer-cluster/securing-a-cluster/)
+- [Bảo vệ cluster của bạn (Securing a Cluster)](256-securing-a-cluster-vi.md)
 - [Phân quyền (Authorization)](https://kubernetes.io/docs/reference/access-authn-authz/authorization/)

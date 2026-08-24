@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 3/9 ·
+**Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 3/9 ·
 Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Hai bài trước bạn dựng cluster bằng **cờ dòng lệnh** — đúng như
@@ -62,7 +62,7 @@ Tất cả các tùy chọn này đều khả dụng thông qua API cấu hình 
 
 > **Ghi chú:**
 > Để cấu hình lại một cluster đã được tạo từ trước, hãy xem
-> [Cấu hình lại một cluster kubeadm](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-reconfigure).
+> [Cấu hình lại một cluster kubeadm](220-kubeadm-reconfigure-vi.md).
 
 ## Tùy chỉnh control plane với các flag trong `ClusterConfiguration` (Customizing the control plane with flags in `ClusterConfiguration`)
 
@@ -226,7 +226,7 @@ Ví dụ, `kube-apiserver0+merge.yaml` hoặc chỉ đơn giản là `etcd.json`
 - `suffix` là một chuỗi tùy chọn có thể được dùng để xác định patch nào được áp dụng trước
 theo thứ tự chữ-số (alpha-numerically).
 - `patchtype` có thể là một trong các giá trị `strategic`, `merge` hoặc `json` và chúng phải khớp với các định dạng patch
-[được kubectl hỗ trợ](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch).
+[được kubectl hỗ trợ](324-kubectl-patch-vi.md).
 `patchtype` mặc định là `strategic`.
 - `extension` phải là `json` hoặc `yaml`.
 
@@ -245,7 +245,7 @@ Ngoài ra, bạn có thể sử dụng các flag của kubelet để ghi đè b�
 Một số flag của kubelet đã bị loại bỏ dần (deprecated), vì vậy hãy kiểm tra trạng thái của chúng trong
 [tài liệu tham chiếu kubelet](https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet) trước khi sử dụng.
 
-Để biết thêm chi tiết, hãy xem [Cấu hình từng kubelet trong cluster của bạn bằng kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubelet-integration)
+Để biết thêm chi tiết, hãy xem [Cấu hình từng kubelet trong cluster của bạn bằng kubeadm](04-kubelet-integration-vi.md)
 
 ## Tùy chỉnh kube-proxy (Customizing kube-proxy)
 

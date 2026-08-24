@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 14/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 14/16 · Kiểm chứng ở
 Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này là chỗ lưu trữ gặp lập lịch. Nó trả lời câu hỏi bạn đã đặt ra ở bài
@@ -55,7 +55,7 @@ một node ngay từ đầu.
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.24 [stable]`
 
 Trang này mô tả cách Kubernetes theo dõi dung lượng lưu trữ và cách
-scheduler dùng thông tin đó để [lập lịch Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/)
+scheduler dùng thông tin đó để [lập lịch Pod](136-scheduling-eviction-vi.md)
 lên các node có quyền truy cập đủ dung lượng lưu trữ cho những volume
 còn thiếu. Nếu không có tính năng theo dõi dung lượng lưu trữ, scheduler
 có thể chọn một node không đủ dung lượng để cấp phát (provision) volume,
@@ -86,7 +86,7 @@ Có hai phần mở rộng API cho tính năng này:
 Thông tin dung lượng lưu trữ được Kubernetes scheduler sử dụng nếu:
 - một Pod dùng một volume chưa được tạo,
 - volume đó dùng một StorageClass tham chiếu tới một CSI driver và
-  dùng [chế độ gắn kết volume (volume binding mode)](https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode)
+  dùng [chế độ gắn kết volume (volume binding mode)](96-storage-classes-vi.md#volume-binding-mode)
   `WaitForFirstConsumer`, và
 - đối tượng `CSIDriver` của driver đó có `StorageCapacity` được đặt là
   true.
@@ -101,7 +101,7 @@ Với các volume dùng chế độ gắn kết `Immediate`, storage driver quy�
 volume được tạo, scheduler sẽ lập lịch Pod lên các node mà volume đang
 khả dụng.
 
-Với [volume tạm thời CSI (CSI ephemeral volumes)](https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/#csi-ephemeral-volumes),
+Với [volume tạm thời CSI (CSI ephemeral volumes)](94-ephemeral-volumes-vi.md#csi-ephemeral-volumes),
 việc lập lịch luôn diễn ra mà không xem xét dung lượng lưu trữ. Điều
 này dựa trên giả định rằng loại volume này chỉ được dùng bởi các CSI
 driver đặc biệt vốn cục bộ trên một node và không cần tài nguyên đáng

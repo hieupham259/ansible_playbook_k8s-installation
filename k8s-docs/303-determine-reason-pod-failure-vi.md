@@ -8,7 +8,7 @@ Thông điệp kết thúc cung cấp một cách để container ghi thông tin
 (fatal event) vào một vị trí mà các công cụ như dashboard và phần mềm giám sát (monitoring) có
 thể dễ dàng truy xuất và hiển thị. Trong hầu hết các trường hợp, thông tin bạn đưa vào thông
 điệp kết thúc cũng nên được ghi vào
-[log chung của Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/logging/).
+[log chung của Kubernetes](158-logging-vi.md).
 
 ## Trước khi bạn bắt đầu (Before you begin)
 
@@ -93,7 +93,7 @@ container. Bằng cách đó, bạn có thể phát hiện container nào đang 
 kubectl get pod multi-container-pod -o go-template='{{range .status.containerStatuses}}{{printf "%s:\n%s\n\n" .name .lastState.terminated.message}}{{end}}'
 ```
 
-## Tùy chỉnh thông điệp kết thúc (Customizing the termination message)
+## Tùy chỉnh thông điệp kết thúc (Customizing the termination message) {#customizing-the-termination-message}
 
 Kubernetes truy xuất thông điệp kết thúc từ file thông điệp kết thúc được chỉ định trong trường
 `terminationMessagePath` của một Container, với giá trị mặc định là `/dev/termination-log`.
@@ -136,10 +136,10 @@ nếu file thông điệp kết thúc rỗng và container thoát với lỗi. P
 
 * Xem trường `terminationMessagePath` trong
   [Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#container-v1-core).
-* Xem [ImagePullBackOff](https://kubernetes.io/docs/concepts/containers/images/#imagepullbackoff)
-  trong [Images](https://kubernetes.io/docs/concepts/containers/images/).
-* Tìm hiểu về [truy xuất log](https://kubernetes.io/docs/concepts/cluster-administration/logging/).
+* Xem [ImagePullBackOff](40-images-vi.md#imagepullbackoff)
+  trong [Images](40-images-vi.md).
+* Tìm hiểu về [truy xuất log](158-logging-vi.md).
 * Tìm hiểu về [Go templates](https://pkg.go.dev/text/template).
-* Tìm hiểu về [trạng thái Pod](https://kubernetes.io/docs/tasks/debug/debug-application/debug-init-containers/#understanding-pod-status)
-  và [Pod phase](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase).
-* Tìm hiểu về [trạng thái container](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-states).
+* Tìm hiểu về [trạng thái Pod](298-debug-init-containers-vi.md#understanding-pod-status)
+  và [Pod phase](47-pod-lifecycle-vi.md#pod-phase).
+* Tìm hiểu về [trạng thái container](47-pod-lifecycle-vi.md#container-states).

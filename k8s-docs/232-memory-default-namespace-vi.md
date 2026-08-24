@@ -9,7 +9,7 @@ Trang này hướng dẫn cách cấu hình memory request và limit mặc đị
 
 Một cluster Kubernetes có thể được chia thành nhiều namespace. Khi bạn đã có một namespace
 với memory
-[limit](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits)
+[limit](110-manage-resources-containers-vi.md#requests-and-limits)
 mặc định, và sau đó bạn thử tạo một Pod có container không chỉ định memory limit của riêng nó,
 thì control plane sẽ gán memory limit mặc định cho container đó.
 
@@ -209,7 +209,7 @@ resources:
 > Điều này có nghĩa là giá trị mặc định cho _limit_ do `LimitRange` đặt có thể nhỏ hơn giá trị
 > _request_ được chỉ định cho container trong spec mà client gửi tới API server. Nếu điều đó
 > xảy ra, Pod cuối cùng sẽ không thể được lập lịch (schedule).
-> Xem [Ràng buộc đối với resource limit và request](https://kubernetes.io/docs/concepts/policy/limit-range/#constraints-on-resource-limits-and-requests)
+> Xem [Ràng buộc đối với resource limit và request](133-limit-range-vi.md#constraints-on-resource-limits-and-requests)
 > để biết thêm chi tiết.
 
 ## Động lực cho memory limit và request mặc định (Motivation for default memory limits and requests)
@@ -245,24 +245,24 @@ kubectl delete namespace default-mem-example
 
 ### Dành cho quản trị viên cluster (For cluster administrators)
 
-* [Cấu hình CPU request và limit mặc định cho một Namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/cpu-default-namespace/)
+* [Cấu hình CPU request và limit mặc định cho một Namespace](230-cpu-default-namespace-vi.md)
 
-* [Cấu hình ràng buộc bộ nhớ tối thiểu và tối đa cho một Namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/memory-constraint-namespace/)
+* [Cấu hình ràng buộc bộ nhớ tối thiểu và tối đa cho một Namespace](231-memory-constraint-namespace-vi.md)
 
-* [Cấu hình ràng buộc CPU tối thiểu và tối đa cho một Namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/cpu-constraint-namespace/)
+* [Cấu hình ràng buộc CPU tối thiểu và tối đa cho một Namespace](229-cpu-constraint-namespace-vi.md)
 
-* [Cấu hình hạn ngạch bộ nhớ và CPU cho một Namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/)
+* [Cấu hình hạn ngạch bộ nhớ và CPU cho một Namespace](233-quota-memory-cpu-namespace-vi.md)
 
-* [Cấu hình hạn ngạch Pod cho một Namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-pod-namespace/)
+* [Cấu hình hạn ngạch Pod cho một Namespace](234-quota-pod-namespace-vi.md)
 
-* [Cấu hình hạn ngạch cho các API Object](https://kubernetes.io/docs/tasks/administer-cluster/quota-api-object/)
+* [Cấu hình hạn ngạch cho các API Object](252-quota-api-object-vi.md)
 
 ### Dành cho nhà phát triển ứng dụng (For app developers)
 
-* [Gán tài nguyên bộ nhớ cho Container và Pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/)
+* [Gán tài nguyên bộ nhớ cho Container và Pod](264-assign-memory-resource-vi.md)
 
-* [Gán tài nguyên CPU cho Container và Pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/)
+* [Gán tài nguyên CPU cho Container và Pod](263-assign-cpu-resource-vi.md)
 
-* [Gán tài nguyên CPU và bộ nhớ ở cấp Pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pod-level-resources/)
+* [Gán tài nguyên CPU và bộ nhớ ở cấp Pod](265-assign-pod-level-resources-vi.md)
 
-* [Cấu hình Quality of Service cho Pod](https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/)
+* [Cấu hình Quality of Service cho Pod](288-quality-service-pod-vi.md)

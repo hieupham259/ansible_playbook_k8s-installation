@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 1/13 ·
+**Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 1/13 ·
 Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **trang mục lục**, không phải bài học. Phần có nội dung thật chỉ khoảng mười dòng: đoạn
@@ -34,7 +34,7 @@ chúng chính là 12 bài kế tiếp của nhóm 7a cộng vài bài thuộc gi
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Các link *Cấp phát tài nguyên động*, *Lập lịch PodGroup*, *Gang Scheduling*, *Lập lịch nhận biết topology*, *Preemption nhận biết workload* | thuộc lập lịch nâng cao, ngoài nhóm 7a | giai đoạn 13 |
-| Link *Các tính năng do Node khai báo* | thuộc nhóm sau của cùng giai đoạn | nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên), bài [154](154-node-declared-features-vi.md) |
+| Link *Các tính năng do Node khai báo* | thuộc nhóm sau của cùng giai đoạn | nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên), bài [154](154-node-declared-features-vi.md) |
 | Link *Descheduler* | công cụ ngoài Kubernetes core | không cần |
 
 ---
@@ -45,24 +45,24 @@ là quá trình chấm dứt các Pod có Priority (độ ưu tiên) thấp hơn
 để các Pod có Priority cao hơn có thể được lập lịch lên Node. Eviction (thu hồi) là quá trình
 chấm dứt một hoặc nhiều Pod trên các Node.
 
-## Lập lịch (Scheduling)
+## Lập lịch (Scheduling) {#scheduling}
 
-* [Bộ lập lịch của Kubernetes (Kubernetes Scheduler)](https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/)
-* [Gán Pod cho Node (Assigning Pods to Nodes)](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
-* [Pod Overhead](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-overhead/)
-* [Ràng buộc phân bố Pod theo topology (Pod Topology Spread Constraints)](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/)
-* [Taint và Toleration (Taints and Tolerations)](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
-* [Scheduling Framework](https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework)
-* [Cấp phát tài nguyên động (Dynamic Resource Allocation)](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation)
-* [Tinh chỉnh hiệu năng bộ lập lịch (Scheduler Performance Tuning)](https://kubernetes.io/docs/concepts/scheduling-eviction/scheduler-perf-tuning/)
-* [Đóng gói tài nguyên cho các tài nguyên mở rộng (Resource Bin Packing for Extended Resources)](https://kubernetes.io/docs/concepts/scheduling-eviction/resource-bin-packing/)
-* [Mức sẵn sàng lập lịch của Pod (Pod Scheduling Readiness)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-scheduling-readiness/)
-* [Lập lịch PodGroup (PodGroup Scheduling)](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/)
-* [Gang Scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/)
-* [Lập lịch nhận biết topology (Topology-aware Scheduling)](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-aware-scheduling/)
-* [Preemption nhận biết workload (Workload-Aware preemption)](https://kubernetes.io/docs/concepts/scheduling-eviction/workload-aware-preemption/)
+* [Bộ lập lịch của Kubernetes (Kubernetes Scheduler)](137-kube-scheduler-vi.md)
+* [Gán Pod cho Node (Assigning Pods to Nodes)](138-assign-pod-node-vi.md)
+* [Pod Overhead](144-pod-overhead-vi.md)
+* [Ràng buộc phân bố Pod theo topology (Pod Topology Spread Constraints)](140-topology-spread-constraints-vi.md)
+* [Taint và Toleration (Taints and Tolerations)](139-taint-and-toleration-vi.md)
+* [Scheduling Framework](147-scheduling-framework-vi.md)
+* [Cấp phát tài nguyên động (Dynamic Resource Allocation)](149-dynamic-resource-allocation-vi.md)
+* [Tinh chỉnh hiệu năng bộ lập lịch (Scheduler Performance Tuning)](146-scheduler-perf-tuning-vi.md)
+* [Đóng gói tài nguyên cho các tài nguyên mở rộng (Resource Bin Packing for Extended Resources)](148-resource-bin-packing-vi.md)
+* [Mức sẵn sàng lập lịch của Pod (Pod Scheduling Readiness)](145-pod-scheduling-readiness-vi.md)
+* [Lập lịch PodGroup (PodGroup Scheduling)](151-podgroup-scheduling-vi.md)
+* [Gang Scheduling](150-gang-scheduling-vi.md)
+* [Lập lịch nhận biết topology (Topology-aware Scheduling)](153-topology-aware-scheduling-vi.md)
+* [Preemption nhận biết workload (Workload-Aware preemption)](152-workload-aware-preemption-vi.md)
 * [Descheduler](https://github.com/kubernetes-sigs/descheduler#descheduler-for-kubernetes)
-* [Các tính năng do Node khai báo (Node Declared Features)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-declared-features/)
+* [Các tính năng do Node khai báo (Node Declared Features)](154-node-declared-features-vi.md)
 
 ## Sự gián đoạn Pod (Pod Disruption)
 
@@ -74,9 +74,9 @@ quản trị viên cluster. Gián đoạn không tự nguyện là ngoài ý mu�
 những vấn đề không thể tránh khỏi như Node cạn kiệt tài nguyên (resources),
 hoặc do việc xóa nhầm.
 
-* [Độ ưu tiên và Preemption của Pod (Pod Priority and Preemption)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)
-* [Eviction do áp lực node (Node-pressure Eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/)
-* [Eviction khởi phát qua API (API-initiated Eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/)
+* [Độ ưu tiên và Preemption của Pod (Pod Priority and Preemption)](141-pod-priority-preemption-vi.md)
+* [Eviction do áp lực node (Node-pressure Eviction)](142-node-pressure-eviction-vi.md)
+* [Eviction khởi phát qua API (API-initiated Eviction)](143-api-eviction-vi.md)
 
 ---
 

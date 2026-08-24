@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 8/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 8/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bạn đã học đối tượng Secret ở giai đoạn 3, bài [109](109-secret-vi.md). Bài này không nhắc lại
 cú pháp mà chỉ nói **những chỗ Secret không bảo vệ được bạn** và cách bù. Bài chia hai phần
@@ -54,11 +54,11 @@ token OAuth và khóa SSH.
 Secret giúp bạn kiểm soát tốt hơn cách thông tin nhạy cảm được sử dụng và giảm
 rủi ro lộ lọt do vô ý. Các giá trị của Secret được mã hóa (encode) dưới dạng chuỗi base64 và
 mặc định được lưu trữ không mã hóa, nhưng có thể được cấu hình để
-[mã hóa khi lưu trữ (encrypted at rest)](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/#ensure-all-secrets-are-encrypted).
+[mã hóa khi lưu trữ (encrypted at rest)](208-encrypt-data-vi.md#ensure-all-secrets-are-encrypted).
 
 Một Pod có thể tham chiếu Secret theo nhiều cách khác nhau, chẳng hạn như trong một volume mount
 hoặc như một biến môi trường. Secret được thiết kế cho dữ liệu bí mật, còn
-[ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/) được
+[ConfigMap](275-configure-pod-configmap-vi.md) được
 thiết kế cho dữ liệu không bí mật.
 
 Các thực hành tốt sau đây dành cho cả quản trị viên cluster lẫn
@@ -75,7 +75,7 @@ cải thiện độ an toàn cho thông tin bí mật trong cluster.
 
 Theo mặc định, các đối tượng Secret được lưu không mã hóa trong etcd. Bạn nên cấu hình
 mã hóa cho dữ liệu Secret của mình trong `etcd`. Để biết hướng dẫn, tham khảo
-[Mã hóa dữ liệu Secret khi lưu trữ (Encrypt Secret Data at Rest)](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/).
+[Mã hóa dữ liệu Secret khi lưu trữ (Encrypt Secret Data at Rest)](208-encrypt-data-vi.md).
 
 ### Cấu hình truy cập đặc quyền tối thiểu cho Secret (Configure least-privilege access to Secrets) {#least-privilege-secrets}
 
@@ -140,7 +140,7 @@ dữ liệu.
 ## Các thực hành tốt khi sử dụng bộ nhớ swap (Good practices for using swap memory)
 
 Để biết các thực hành tốt nhất khi thiết lập bộ nhớ swap cho các node Linux, vui lòng tham khảo
-[quản lý bộ nhớ swap (swap memory management)](https://kubernetes.io/docs/concepts/cluster-administration/swap-memory-management/#good-practice-for-using-swap-in-a-kubernetes-cluster).
+[quản lý bộ nhớ swap (swap memory management)](170-swap-memory-management-vi.md#good-practice-for-using-swap-in-a-kubernetes-cluster).
 
 ## Nhà phát triển (Developers)
 

@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+**Vị trí:** Giai đoạn 1 → nhóm [1a](00-ALO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
 bài 5/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B5.
 
 Bài này có nhiều chi tiết giao thức (header, hash, protobuf) dành cho người viết client. Ở
@@ -92,7 +92,7 @@ API này khả dụng ở cả dạng tổng hợp (aggregated) lẫn không t�
 dạng tổng hợp phục vụ qua hai endpoint, trong khi discovery không tổng hợp phục vụ
 một endpoint riêng cho mỗi group version.
 
-### Discovery tổng hợp (Aggregated discovery)
+### Discovery tổng hợp (Aggregated discovery) {#aggregated-discovery}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.30 [stable]`
 
@@ -116,7 +116,7 @@ khi bạn không có sẵn một cluster Kubernetes để truy vấn.
 
 Endpoint này cũng hỗ trợ ETag và mã hóa protobuf.
 
-### Discovery không tổng hợp (Unaggregated discovery)
+### Discovery không tổng hợp (Unaggregated discovery) {#unaggregated-discovery}
 
 Khi không có tổng hợp discovery, discovery được công bố theo từng cấp (level), trong đó các
 endpoint gốc công bố thông tin discovery cho các tài liệu ở cấp dưới.
@@ -257,7 +257,7 @@ package định nghĩa các API object.
 Kubernetes lưu trạng thái đã tuần tự hóa của các object bằng cách ghi chúng vào
 etcd.
 
-## Các nhóm API và quản lý phiên bản (API groups and versioning)
+## Các nhóm API và quản lý phiên bản (API groups and versioning) {#api-groups-and-versioning}
 
 Để việc loại bỏ field hoặc tái cấu trúc cách biểu diễn resource được dễ dàng hơn,
 Kubernetes hỗ trợ nhiều phiên bản API, mỗi phiên bản ở một đường dẫn API khác nhau, chẳng hạn
@@ -318,16 +318,16 @@ Tham khảo [tài liệu tham chiếu về phiên bản API (API versions refere
 
 Kubernetes API có thể được mở rộng theo một trong hai cách:
 
-1. [Custom resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
+1. [Custom resource](179-custom-resources-vi.md)
    cho phép bạn định nghĩa một cách khai báo cách API server cung cấp API resource mà bạn chọn.
 1. Bạn cũng có thể mở rộng Kubernetes API bằng cách hiện thực một
-   [tầng tổng hợp (aggregation layer)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/).
+   [tầng tổng hợp (aggregation layer)](180-apiserver-aggregation-vi.md).
 
 ## Tiếp theo (What's next)
 
 - Tìm hiểu cách mở rộng Kubernetes API bằng cách thêm
   [CustomResourceDefinition](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/) của riêng bạn.
-- [Kiểm soát truy cập vào Kubernetes API (Controlling Access To The Kubernetes API)](https://kubernetes.io/docs/concepts/security/controlling-access/) mô tả
+- [Kiểm soát truy cập vào Kubernetes API (Controlling Access To The Kubernetes API)](119-controlling-access-vi.md) mô tả
   cách cluster quản lý xác thực (authentication) và phân quyền (authorization) cho việc truy cập API.
 - Tìm hiểu về các API endpoint, các loại resource và ví dụ mẫu bằng cách đọc
   [Tài liệu tham chiếu API (API Reference)](https://kubernetes.io/docs/reference/kubernetes-api/).

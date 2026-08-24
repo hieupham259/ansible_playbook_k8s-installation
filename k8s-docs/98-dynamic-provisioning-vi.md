@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 5/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 5/16 · Kiểm chứng ở
 Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài ngắn và gần như không có khái niệm mới sau bài [92](92-persistent-volumes-vi.md) và
@@ -43,11 +43,11 @@ nhiều người quên.
 Cấp phát volume động (dynamic volume provisioning) cho phép các volume lưu trữ được tạo
 theo nhu cầu (on-demand). Nếu không có cấp phát động, quản trị viên cluster phải tự tay
 gọi tới nhà cung cấp cloud hoặc nhà cung cấp lưu trữ của họ để tạo các volume lưu trữ mới,
-rồi tạo các [đối tượng `PersistentVolume`](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
+rồi tạo các [đối tượng `PersistentVolume`](92-persistent-volumes-vi.md)
 để đại diện cho chúng trong Kubernetes. Tính năng cấp phát động loại bỏ nhu cầu
 quản trị viên cluster phải cấp phát sẵn (pre-provision) lưu trữ. Thay vào đó, nó
 tự động cấp phát lưu trữ khi người dùng tạo các
-[đối tượng `PersistentVolumeClaim`](https://kubernetes.io/docs/concepts/storage/persistent-volumes/).
+[đối tượng `PersistentVolumeClaim`](92-persistent-volumes-vi.md).
 
 ## Bối cảnh (Background)
 
@@ -62,7 +62,7 @@ tham số tùy chỉnh. Thiết kế này cũng bảo đảm rằng người dù
 về độ phức tạp và những chi tiết tinh tế của việc lưu trữ được cấp phát ra sao, nhưng vẫn
 có khả năng lựa chọn giữa nhiều tùy chọn lưu trữ.
 
-Để biết thêm chi tiết, xem khái niệm [Storage Classes](https://kubernetes.io/docs/concepts/storage/storage-classes/).
+Để biết thêm chi tiết, xem khái niệm [Storage Classes](96-storage-classes-vi.md).
 
 ## Bật cấp phát động (Enabling Dynamic Provisioning)
 
@@ -71,7 +71,7 @@ một hoặc nhiều đối tượng StorageClass cho người dùng.
 Các đối tượng StorageClass định nghĩa provisioner nào sẽ được dùng và các tham số nào
 sẽ được truyền cho provisioner đó khi cấp phát động được kích hoạt.
 Tên của một đối tượng StorageClass phải là một
-[tên miền con DNS (DNS subdomain name)](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names) hợp lệ.
+[tên miền con DNS (DNS subdomain name)](17-names-vi.md#dns-subdomain-names) hợp lệ.
 
 Manifest sau đây tạo một storage class "slow" cấp phát các persistent disk
 giống đĩa tiêu chuẩn (standard disk).
@@ -156,7 +156,7 @@ sẽ dùng StorageClass mặc định được tạo gần đây nhất.
 Trong các cluster [nhiều Zone (Multi-Zone)](https://kubernetes.io/docs/setup/best-practices/multiple-zones/), Pod có thể được phân bố trên nhiều
 Zone trong một Region. Các backend lưu trữ chỉ nằm trong một Zone (Single-Zone) nên được cấp phát tại các Zone nơi
 Pod được lập lịch (schedule). Điều này có thể đạt được bằng cách đặt
-[Volume Binding Mode](https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode).
+[Volume Binding Mode](96-storage-classes-vi.md#volume-binding-mode).
 
 ---
 

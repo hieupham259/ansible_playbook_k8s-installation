@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 6/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 6/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này dài thứ hai trong bộ tài liệu, nhưng phần lõi thì nhỏ. Lý do dài là nó gom cả một
@@ -237,7 +237,7 @@ Kết quả tương tự như sau:
 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091456485669234603486104543266482133936072602491412737245870066063155881748815209209628292540917153643678925903600113305305488204665213841469519415116094330572703657595919530921861173819326117931051185480744623799627495673518857527248912279381830119491298336733624406566430860213949463952247371907021798609437027705392171762931767523846748184676694051320005681271452635608277857713427577896091736371787214684409012249534301465495853710507922796892589235420199561121290219608640344181598136297747713099605187072113499999983729780499510597317328160963185950244594553469083026425223082533446850352619311881710100031378387528865875332083814206171776691473035982534904287554687311595628638823537875937519577818577805321712268066130019278766111959092164201989380952572010654858632788659361533818279682303019520353018529689957736225994138912497217752834791315155748572424541506959508295331168617278558890750983817546374649393192550604009277016711390098488240128583616035637076601047101819429555961989467678374494482553797747268471040475346462080466842590694912933136770289891521047521620569660240580381501935112533824300355876402474964732639141992726042699227967823547816360093417216412199245863150302861829745557067498385054945885869269956909272107975093029553211653449872027559602364806654991198818347977535663698074265425278625518184175746728909777727938000816470600161452491921732172147723501414419735685481613611573525521334757418494684385233239073941433345477624168625189835694855620992192221842725502542568876717904946016534668049886272327917860857843838279679766814541009538837863609506800642251252051173929848960841284886269456042419652850222106611863067442786220391949450471237137869609563643719172874677646575739624138908658326459958133904780275901
 ```
 
-## Viết một Job spec (Writing a Job spec)
+## Viết một Job spec (Writing a Job spec) {#writing-a-job-spec}
 
 Giống như mọi cấu hình Kubernetes khác, một Job cần các trường `apiVersion`, `kind`, và
 `metadata`.
@@ -353,12 +353,12 @@ thể có một chế độ hoàn thành được chỉ định trong `.spec.com
     Khi bạn dùng một Indexed Job kết hợp với một Service, các Pod trong Job có thể dùng
     các hostname xác định (deterministic) này để liên lạc với nhau qua DNS. Để biết thêm
     thông tin về cách cấu hình, xem
-    [Job với giao tiếp Pod-to-Pod](https://kubernetes.io/docs/tasks/job/job-with-pod-to-pod-communication/).
+    [Job với giao tiếp Pod-to-Pod](354-job-pod-to-pod-communication-vi.md).
   - Từ tác vụ chạy trong container, thông qua biến môi trường `JOB_COMPLETION_INDEX`.
 
   Job được coi là hoàn tất khi có một Pod hoàn thành thành công cho mỗi index. Để biết
   thêm thông tin về cách dùng chế độ này, xem
-  [Indexed Job cho xử lý song song với phân công việc tĩnh](https://kubernetes.io/docs/tasks/job/indexed-parallel-processing-static/).
+  [Indexed Job cho xử lý song song với phân công việc tĩnh](353-indexed-parallel-processing-vi.md).
 
 > **Ghi chú:**
 > Dù hiếm gặp, có thể có nhiều hơn một Pod được khởi động cho cùng một index (do nhiều lý
@@ -375,7 +375,7 @@ Khi feature gate [`WorkloadWithJob`](https://kubernetes.io/docs/reference/comman
 được bật, Job controller tự động tạo các đối tượng [Workload](./77-workload-api-vi.md) và
 [PodGroup](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/workload-v1alpha1/)
 cho [các Job song song đủ điều kiện](#qualifying-criteria) trước khi tạo bất kỳ Pod nào.
-Điều này cho phép [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/)
+Điều này cho phép [gang scheduling](150-gang-scheduling-vi.md)
 nguyên bản (native), trong đó tất cả các Pod của một Job được lập lịch cùng nhau hoặc
 không Pod nào được lập lịch cả.
 
@@ -1007,8 +1007,8 @@ hoàn tất.
 > gây suy giảm hiệu năng của cluster, hoặc trong trường hợp xấu nhất khiến cluster
 > ngừng hoạt động do sự suy giảm này.
 >
-> Bạn có thể dùng [LimitRange](https://kubernetes.io/docs/concepts/policy/limit-range/) và
-> [ResourceQuota](https://kubernetes.io/docs/concepts/policy/resource-quotas/) để đặt
+> Bạn có thể dùng [LimitRange](133-limit-range-vi.md) và
+> [ResourceQuota](134-resource-quotas-vi.md) để đặt
 > mức trần cho lượng tài nguyên mà một namespace cụ thể có thể tiêu thụ.
 
 ## Các mẫu sử dụng Job (Job patterns) {#job-patterns}
@@ -1038,7 +1038,7 @@ yếu riêng. Các đánh đổi (tradeoff) là:
   đợi công việc. Các cách tiếp cận khác thì dễ thích ứng hơn với một ứng dụng đã được
   container hóa sẵn.
 - Khi Job được gắn với một
-  [headless Service](https://kubernetes.io/docs/concepts/services-networking/service/#headless-services),
+  [headless Service](82-service-vi.md#headless-services),
   bạn có thể cho phép các Pod trong một Job giao tiếp với nhau để cùng phối hợp trong
   một phép tính toán.
 
@@ -1208,7 +1208,7 @@ kube-scheduler.
 
 Các trường trong pod template của Job có thể được cập nhật là node affinity, node
 selector, toleration, label, annotation và
-[scheduling gate](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-scheduling-readiness/).
+[scheduling gate](145-pod-scheduling-readiness-vi.md).
 
 #### Chỉ thị lập lịch có thể thay đổi cho các Job bị tạm dừng (Mutable Scheduling Directives for suspended Jobs) {#mutable-scheduling-directives-for-suspended-jobs}
 
@@ -1319,7 +1319,7 @@ ghi nhận trong status của Job, cho phép Pod được gỡ bỏ bởi các c
 người dùng.
 
 > **Ghi chú:**
-> Xem [Pod của tôi bị kẹt ở trạng thái terminating](https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/)
+> Xem [Pod của tôi bị kẹt ở trạng thái terminating](299-debug-pods-vi.md)
 > nếu bạn thấy các pod của một Job bị kẹt với finalizer theo dõi.
 
 ### Elastic Indexed Jobs {#elastic-indexed-jobs}
@@ -1455,10 +1455,10 @@ tạo ra và cách phân công công việc cho chúng.
 
 * Tìm hiểu về [Pod](./46-pods-vi.md).
 * Đọc về các cách chạy Job khác nhau:
-  * [Xử lý song song thô bằng một hàng đợi công việc (Coarse Parallel Processing Using a Work Queue)](https://kubernetes.io/docs/tasks/job/coarse-parallel-processing-work-queue/)
-  * [Xử lý song song mịn bằng một hàng đợi công việc (Fine Parallel Processing Using a Work Queue)](https://kubernetes.io/docs/tasks/job/fine-parallel-processing-work-queue/)
-  * Dùng một [Indexed Job cho xử lý song song với phân công việc tĩnh](https://kubernetes.io/docs/tasks/job/indexed-parallel-processing-static/)
-  * Tạo nhiều Job dựa trên một template: [Xử lý song song bằng cách mở rộng (Parallel Processing using Expansions)](https://kubernetes.io/docs/tasks/job/parallel-processing-expansion/)
+  * [Xử lý song song thô bằng một hàng đợi công việc (Coarse Parallel Processing Using a Work Queue)](351-coarse-parallel-work-queue-vi.md)
+  * [Xử lý song song mịn bằng một hàng đợi công việc (Fine Parallel Processing Using a Work Queue)](352-fine-parallel-work-queue-vi.md)
+  * Dùng một [Indexed Job cho xử lý song song với phân công việc tĩnh](353-indexed-parallel-processing-vi.md)
+  * Tạo nhiều Job dựa trên một template: [Xử lý song song bằng cách mở rộng (Parallel Processing using Expansions)](355-parallel-processing-expansion-vi.md)
 * Theo các link trong phần [Tự động dọn dẹp các Job đã hoàn tất](#clean-up-finished-jobs-automatically)
   để tìm hiểu thêm về cách cluster của bạn có thể dọn dẹp các tác vụ đã hoàn thành
   và/hoặc thất bại.
@@ -1471,7 +1471,7 @@ tạo ra và cách phân công công việc cho chúng.
 * Thực hành cách cấu hình việc xử lý các lần pod thất bại có thể thử lại và không thể
   thử lại bằng `podFailurePolicy`, dựa trên các
   [ví dụ](https://kubernetes.io/docs/tasks/job/pod-failure-policy/) từng bước.
-* Tìm hiểu về [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/)
+* Tìm hiểu về [gang scheduling](150-gang-scheduling-vi.md)
   cho việc lập lịch tất-cả-hoặc-không (all-or-nothing) đối với các Job song song.
 
 [Indexed Job với phân công việc tĩnh]: https://kubernetes.io/docs/tasks/job/indexed-parallel-processing-static/

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3b](LO-TRINH-ADMIN.md#3b-cấu-hình-và-tài-nguyên), bài 2/7 ·
+**Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 2/7 ·
 Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài vừa đủ ngắn để đọc hết trong một lượt, nhưng phần dễ bỏ sót lại là phần quan trọng nhất
@@ -71,7 +71,7 @@ image đang chạy trên đám mây và debug chính xác cùng một đoạn m�
 > hơn giới hạn này, bạn có thể cân nhắc mount một volume hoặc dùng một cơ sở dữ liệu
 > hay dịch vụ file riêng.
 
-## Đối tượng ConfigMap (ConfigMap object)
+## Đối tượng ConfigMap (ConfigMap object) {#configmap-object}
 
 ConfigMap là một API object cho phép bạn lưu cấu hình để các object khác sử dụng.
 Khác với hầu hết các object Kubernetes vốn có `spec`, ConfigMap có các trường `data`
@@ -81,7 +81,7 @@ chuỗi UTF-8, còn trường `binaryData` được thiết kế để chứa d�
 các chuỗi mã hóa base64.
 
 Tên của một ConfigMap phải là một
-[tên DNS subdomain](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names) hợp lệ.
+[tên DNS subdomain](17-names-vi.md#dns-subdomain-names) hợp lệ.
 
 Mỗi key dưới trường `data` hoặc `binaryData` phải bao gồm các ký tự chữ-số, `-`, `_`
 hoặc `.`. Các key lưu trong `data` không được trùng lặp với các key trong trường
@@ -361,7 +361,7 @@ Trong Pod được tạo từ manifest này, bạn sẽ thấy biến môi trư�
 ConfigMap không được sao chép vào môi trường.
 
 Điều quan trọng cần lưu ý là phạm vi ký tự được phép dùng cho tên biến môi trường trong
-pod bị [hạn chế](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/#using-environment-variables-inside-of-your-config).
+pod bị [hạn chế](331-define-environment-variable-vi.md#using-environment-variables-inside-of-your-config).
 Nếu có key nào không đáp ứng các quy tắc đó, những key ấy sẽ không được cung cấp cho
 container của bạn, mặc dù Pod vẫn được phép khởi động.
 
@@ -398,9 +398,9 @@ nên khuyến nghị tạo lại các pod này.
 
 ## Tiếp theo (What's next)
 
-* Đọc về [Secret](https://kubernetes.io/docs/concepts/configuration/secret/).
-* Đọc [Cấu hình một Pod để sử dụng ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/).
-* Đọc về [thay đổi một ConfigMap (hoặc bất kỳ object Kubernetes nào khác)](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/).
+* Đọc về [Secret](109-secret-vi.md).
+* Đọc [Cấu hình một Pod để sử dụng ConfigMap](275-configure-pod-configmap-vi.md).
+* Đọc về [thay đổi một ConfigMap (hoặc bất kỳ object Kubernetes nào khác)](324-kubectl-patch-vi.md).
 * Đọc [The Twelve-Factor App](https://12factor.net/) để hiểu động lực của việc tách mã
   nguồn khỏi cấu hình.
 

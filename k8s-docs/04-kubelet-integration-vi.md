@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 4/9 ·
+**Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 4/9 ·
 Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này trả lời một câu hỏi rất cụ thể: **`kubeadm init` và `kubeadm join` thực sự ghi những
@@ -133,7 +133,7 @@ mạng, hoặc các tham số đặc thù khác của máy. Danh sách sau đưa
 `--container-runtime-endpoint=<path>`.
 
 Cách được khuyến nghị để áp dụng những cấu hình riêng cho từng máy như vậy là sử dụng
-[các bản vá (patch) `KubeletConfiguration`](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/control-plane-flags#patches).
+[các bản vá (patch) `KubeletConfiguration`](03-control-plane-flags-vi.md#patches).
 
 ## Cấu hình kubelet bằng kubeadm (Configure kubelets using kubeadm) {#configure-kubelets-using-kubeadm}
 
@@ -223,7 +223,7 @@ Ví dụ, bạn có thể thêm một file cục bộ mới `/etc/systemd/system
 Dưới đây là những gì bạn thường thấy trong `/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf`:
 
 > **Ghi chú:** Nội dung bên dưới chỉ là một ví dụ. Nếu bạn không muốn dùng trình quản lý gói (package manager),
-> hãy làm theo hướng dẫn trong phần ([Không dùng trình quản lý gói](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#k8s-install-2)).
+> hãy làm theo hướng dẫn trong phần ([Không dùng trình quản lý gói](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm#k8s-install-2)).
 
 ```none
 [Service]

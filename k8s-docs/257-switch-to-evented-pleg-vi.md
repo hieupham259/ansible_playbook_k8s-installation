@@ -41,11 +41,11 @@ Cách tiếp cận dựa trên polling được gọi là _generic PLEG_.
 
 1. Khởi động kubelet với [feature gate](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/)
    `EventedPLEG` được bật. Bạn có thể quản lý các feature gate của kubelet bằng cách sửa
-   [file cấu hình](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/) của kubelet
+   [file cấu hình](224-kubelet-config-file-vi.md) của kubelet
    và khởi động lại dịch vụ kubelet. Bạn cần làm việc này trên từng node mà bạn muốn sử dụng
    tính năng này.
 
-2. Đảm bảo node đã được [drain](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/)
+2. Đảm bảo node đã được [drain](255-safely-drain-node-vi.md)
    trước khi tiếp tục.
 
 3. Khởi động container runtime với tính năng sinh sự kiện container (container event generation)

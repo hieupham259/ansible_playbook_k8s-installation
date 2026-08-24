@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](LO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
+**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
 bài 4/10 · nối tiếp bài [308 — Debug node bằng Kubectl](308-kubectl-node-debug-vi.md);
 giai đoạn này không có lab riêng, thực hành trực tiếp trên cluster lab
 (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
@@ -40,7 +40,7 @@ là **bạn không nói chuyện được với cluster**. Giá trị của bài
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Quản lý nhiều cluster và context trong một kubeconfig | cluster lab chỉ có một cluster, một context | bài *Configure Access to Multiple Clusters* của nhánh `/docs/tasks/` (số 361 trong hàng đợi dịch) |
-| Helper xác thực như `kubectl-oidc-login` | cluster lab xác thực bằng client certificate trong `admin.conf`, chưa dùng OIDC | nhóm bài xác thực ở [Giai đoạn 9 — Bảo mật](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), khi cluster của bạn nối với IdP ngoài |
+| Helper xác thực như `kubectl-oidc-login` | cluster lab xác thực bằng client certificate trong `admin.conf`, chưa dùng OIDC | nhóm bài xác thực ở [Giai đoạn 9 — Bảo mật](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), khi cluster của bạn nối với IdP ngoài |
 
 ---
 
@@ -53,7 +53,7 @@ khả năng nhất.
 
 * Bạn cần có một cluster Kubernetes.
 * Bạn cũng cần cài đặt sẵn `kubectl` — xem
-  [cài đặt công cụ](https://kubernetes.io/docs/tasks/tools/#kubectl).
+  [cài đặt công cụ](185-tools-vi.md#kubectl).
 
 ## Xác minh thiết lập kubectl (Verify kubectl setup)
 
@@ -79,7 +79,7 @@ Nếu bạn thấy `Unable to connect to the server: dial tcp <server-ip>:8443: 
 cho `Server Version`, bạn cần khắc phục sự cố kết nối giữa kubectl và cluster của mình.
 
 Hãy chắc chắn rằng bạn đã cài kubectl theo
-[tài liệu chính thức về cài đặt kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl),
+[tài liệu chính thức về cài đặt kubectl](185-tools-vi.md#kubectl),
 và đã cấu hình đúng biến môi trường `$PATH`.
 
 ## Kiểm tra kubeconfig (Check kubeconfig)
@@ -115,7 +115,7 @@ yêu cầu.
 ## Xác minh context (Verify contexts)
 
 Kubernetes hỗ trợ
-[nhiều cluster và context](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
+[nhiều cluster và context](361-configure-access-multiple-clusters-vi.md).
 Hãy chắc chắn rằng bạn đang dùng đúng context để tương tác với cluster của mình.
 
 Liệt kê các context hiện có:
@@ -243,4 +243,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau của
-[CP9](LO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố).
+[CP9](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố).

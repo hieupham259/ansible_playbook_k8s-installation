@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 7/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 7/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài [115](115-pod-security-standards-vi.md) định nghĩa ba profile; bài này là **cách áp chúng
 vào cluster thật**. Nó cũng chính là ví dụ cụ thể cho chặng thứ ba trong bài
@@ -51,7 +51,7 @@ trên **nội dung** của Pod. Bài ngắn, đọc kỹ toàn bộ trừ mục 
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.25 [stable]`
 
-[Tiêu chuẩn bảo mật Pod (Pod Security Standards)](https://kubernetes.io/docs/concepts/security/pod-security-standards/)
+[Tiêu chuẩn bảo mật Pod (Pod Security Standards)](115-pod-security-standards-vi.md)
 của Kubernetes định nghĩa các mức độ cô lập (isolation) khác nhau cho Pod. Các tiêu chuẩn này
 cho phép bạn xác định cách bạn muốn hạn chế hành vi của các pod một cách rõ ràng và nhất quán.
 
@@ -66,14 +66,14 @@ Nếu bạn đang chạy một phiên bản Kubernetes khác, hãy tham khảo t
 
 ## Các mức bảo mật Pod (Pod Security levels)
 
-Pod Security admission đặt ra các yêu cầu đối với [Security Context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+Pod Security admission đặt ra các yêu cầu đối với [Security Context](291-security-context-vi.md)
 của Pod và các trường liên quan khác, theo ba mức được định nghĩa bởi
-[Tiêu chuẩn bảo mật Pod](https://kubernetes.io/docs/concepts/security/pod-security-standards):
+[Tiêu chuẩn bảo mật Pod](115-pod-security-standards-vi.md):
 `privileged`, `baseline` và `restricted`. Hãy xem trang
-[Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards)
+[Pod Security Standards](115-pod-security-standards-vi.md)
 để tìm hiểu chuyên sâu về các yêu cầu đó.
 
-## Các label Pod Security Admission cho namespace (Pod Security Admission labels for namespaces)
+## Các label Pod Security Admission cho namespace (Pod Security Admission labels for namespaces) {#pod-security-admission-labels-for-namespaces}
 
 Sau khi tính năng được bật hoặc webhook được cài đặt, bạn có thể cấu hình các namespace để
 xác định chế độ kiểm soát admission mà bạn muốn dùng cho bảo mật pod trong từng namespace.
@@ -86,7 +86,7 @@ xác định hành động control plane sẽ thực hiện nếu phát hiện m
 Chế độ (Mode) | Mô tả
 :---------|:------------
 **enforce** | Vi phạm chính sách sẽ khiến pod bị từ chối.
-**audit** | Vi phạm chính sách sẽ kích hoạt việc thêm một audit annotation vào sự kiện được ghi trong [audit log](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/), nhưng pod vẫn được cho phép.
+**audit** | Vi phạm chính sách sẽ kích hoạt việc thêm một audit annotation vào sự kiện được ghi trong [audit log](306-audit-vi.md), nhưng pod vẫn được cho phép.
 **warn** | Vi phạm chính sách sẽ kích hoạt một cảnh báo hiển thị cho người dùng, nhưng pod vẫn được cho phép.
 
 Một namespace có thể cấu hình một, một vài hoặc tất cả các chế độ, thậm chí đặt
@@ -109,13 +109,13 @@ pod-security.kubernetes.io/<MODE>: <LEVEL>
 pod-security.kubernetes.io/<MODE>-version: <VERSION>
 ```
 
-Xem [Thực thi Pod Security Standards bằng label của namespace](https://kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-namespace-labels)
+Xem [Thực thi Pod Security Standards bằng label của namespace](283-enforce-standards-namespace-labels-vi.md)
 để biết ví dụ sử dụng.
 
 ## Tài nguyên workload và Pod template (Workload resources and Pod templates) {#workload-resources-and-pod-templates}
 
 Pod thường được tạo một cách gián tiếp, thông qua việc tạo một
-[workload object](https://kubernetes.io/docs/concepts/workloads/controllers/) như Deployment
+[workload object](62-controllers-index-vi.md) như Deployment
 hoặc Job. Workload object định nghĩa một _Pod template_ và một controller
 của workload resource sẽ tạo các Pod dựa trên template đó. Để giúp phát hiện vi phạm sớm,
 cả chế độ audit và warn đều được áp dụng cho các workload resource. Tuy nhiên, chế độ enforce
@@ -126,7 +126,7 @@ cả chế độ audit và warn đều được áp dụng cho các workload res
 Bạn có thể định nghĩa các _miễn trừ_ (exemption) khỏi việc thực thi bảo mật pod để cho phép
 tạo những pod lẽ ra đã bị cấm bởi chính sách gắn với một namespace nhất định.
 Miễn trừ có thể được cấu hình tĩnh trong
-[cấu hình Admission Controller](https://kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-admission-controller/#configure-the-admission-controller).
+[cấu hình Admission Controller](282-enforce-standards-admission-controller-vi.md#configure-the-admission-controller).
 
 Miễn trừ phải được liệt kê một cách tường minh. Các request thỏa mãn tiêu chí miễn trừ sẽ bị
 Admission Controller _bỏ qua_ (mọi hành vi `enforce`, `audit` và `warn` đều được bỏ qua).
@@ -171,14 +171,14 @@ Dưới đây là các metric Prometheus được kube-apiserver cung cấp:
 
 ## Tiếp theo (What's next)
 
-- [Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards)
+- [Pod Security Standards](115-pod-security-standards-vi.md)
 - [Thực thi Pod Security Standards](https://kubernetes.io/docs/setup/best-practices/enforcing-pod-security-standards)
-- [Thực thi Pod Security Standards bằng cách cấu hình Admission Controller tích hợp sẵn](https://kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-admission-controller)
-- [Thực thi Pod Security Standards bằng label của namespace](https://kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-namespace-labels)
+- [Thực thi Pod Security Standards bằng cách cấu hình Admission Controller tích hợp sẵn](282-enforce-standards-admission-controller-vi.md)
+- [Thực thi Pod Security Standards bằng label của namespace](283-enforce-standards-namespace-labels-vi.md)
 
 Nếu bạn đang chạy một phiên bản Kubernetes cũ hơn và muốn nâng cấp
 lên một phiên bản Kubernetes không còn PodSecurityPolicy,
-hãy đọc [Di trú từ PodSecurityPolicy sang PodSecurity Admission Controller tích hợp sẵn](https://kubernetes.io/docs/tasks/configure-pod-container/migrate-from-psp).
+hãy đọc [Di trú từ PodSecurityPolicy sang PodSecurity Admission Controller tích hợp sẵn](286-migrate-from-psp-vi.md).
 
 ---
 

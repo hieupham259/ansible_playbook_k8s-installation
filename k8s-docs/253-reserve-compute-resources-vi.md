@@ -28,7 +28,7 @@ chơi (playground) Kubernetes sau:
 Để kiểm tra phiên bản, nhập `kubectl version`.
 
 Bạn có thể cấu hình các [thiết lập cấu hình](https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/)
-kubelet dưới đây bằng [file cấu hình kubelet](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/).
+kubelet dưới đây bằng [file cấu hình kubelet](224-kubelet-config-file-vi.md).
 
 ## Node Allocatable
 
@@ -122,7 +122,7 @@ thất bại nếu một cgroup không hợp lệ được chỉ định. Với 
 theo một khuôn mẫu cụ thể khi đặt tên cho cgroup mà bạn định nghĩa: tên đó phải là giá trị bạn
 đặt cho `systemReservedCgroup`, kèm theo hậu tố `.slice`.
 
-### Danh sách CPU dành riêng tường minh (Explicitly Reserved CPU List)
+### Danh sách CPU dành riêng tường minh (Explicitly Reserved CPU List) {#explicitly-reserved-cpu-list}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.17 [stable]`
 
@@ -154,7 +154,7 @@ Giá trị ví dụ: `{memory.available: "<500Mi"}`
 ảnh hưởng đến toàn bộ node và tất cả các Pod đang chạy trên đó. Node có thể tạm thời ngừng hoạt
 động cho đến khi bộ nhớ được thu hồi. Để tránh (hoặc giảm xác suất xảy ra) OOM hệ thống, kubelet
 cung cấp cơ chế quản lý
-[cạn kiệt tài nguyên](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/)
+[cạn kiệt tài nguyên](142-node-pressure-eviction-vi.md)
 (out of resource). Việc trục xuất (eviction) chỉ được hỗ trợ đối với `memory` và
 `ephemeral-storage`. Bằng cách dành riêng một phần bộ nhớ thông qua thiết lập `evictionHard`,
 `kubelet` sẽ cố gắng trục xuất các Pod mỗi khi lượng bộ nhớ khả dụng trên node giảm xuống dưới
@@ -172,7 +172,7 @@ Scheduler coi 'Allocatable' là `capacity` khả dụng cho các Pod.
 Theo mặc định, `kubelet` thực thi 'Allocatable' đối với toàn bộ các Pod. Việc thực thi được thực
 hiện bằng cách trục xuất các Pod mỗi khi tổng mức sử dụng của tất cả các Pod vượt quá
 'Allocatable'. Bạn có thể xem thêm chi tiết về chính sách eviction tại trang
-[eviction do áp lực node](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/)
+[eviction do áp lực node](142-node-pressure-eviction-vi.md)
 (node pressure eviction). Việc thực thi này được điều khiển bằng cách chỉ định giá trị `pods`
 cho thiết lập `enforceNodeAllocatable` trong KubeletConfiguration.
 
@@ -186,7 +186,7 @@ ra, có thể chỉ thực thi các tài nguyên nén được (compressible res
 ## Hướng dẫn chung (General Guidelines)
 
 Các system daemon được kỳ vọng sẽ được đối xử tương tự như
-[các Pod Guaranteed](https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/#create-a-pod-that-gets-assigned-a-qos-class-of-guaranteed).
+[các Pod Guaranteed](288-quality-service-pod-vi.md#create-a-pod-that-gets-assigned-a-qos-class-of-guaranteed).
 Các system daemon có thể bùng nổ (burst) mức sử dụng trong phạm vi control group bao quanh chúng,
 và hành vi này cần được quản lý như một phần của việc triển khai Kubernetes. Ví dụ, `kubelet` nên
 có control group của riêng nó và chia sẻ phần tài nguyên `kubeReserved` với container runtime.

@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 3/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 3/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **bài dài nhất bộ tài liệu**. Phần lớn độ dài đến từ các khối output mẫu của
@@ -687,7 +687,7 @@ Kết quả tương tự như sau:
 deployment.apps/nginx-deployment scaled
 ```
 
-Giả sử [horizontal Pod autoscaling](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/) đã được bật
+Giả sử [horizontal Pod autoscaling](72-horizontal-pod-autoscale-vi.md) đã được bật
 trong cluster của bạn, bạn có thể thiết lập một autoscaler cho Deployment và chọn số Pod tối thiểu và tối đa
 mà bạn muốn chạy dựa trên mức sử dụng CPU của các Pod hiện có.
 
@@ -1142,13 +1142,13 @@ mà bạn cấu hình. Ví dụ, nếu các pod bị crash loop, và có nhiều
 
 Nếu bạn muốn phát hành các bản phát hành (release) tới một nhóm nhỏ người dùng hoặc máy chủ bằng Deployment, bạn
 có thể tạo nhiều Deployment, mỗi cái cho một bản phát hành, theo mẫu canary được mô tả trong
-[quản lý tài nguyên](https://kubernetes.io/docs/concepts/workloads/management/#canary-deployments).
+[quản lý tài nguyên](61-management-vi.md#canary-deployments).
 
 ## Viết một Deployment Spec (Writing a Deployment Spec) {#writing-a-deployment-spec}
 
 Như mọi cấu hình Kubernetes khác, một Deployment cần các trường `.apiVersion`, `.kind`, và `.metadata`.
 Để biết thông tin chung về cách làm việc với các file cấu hình, xem các tài liệu
-[triển khai ứng dụng](https://kubernetes.io/docs/tasks/run-application/run-stateless-application-deployment/),
+[triển khai ứng dụng](345-run-stateless-application-vi.md),
 cấu hình container, và [dùng kubectl để quản lý tài nguyên](./27-object-management-vi.md).
 
 Khi control plane tạo các Pod mới cho một Deployment, `.metadata.name` của
@@ -1181,7 +1181,7 @@ deployment --replicas=X`, rồi sau đó bạn cập nhật Deployment đó dự
 (ví dụ: bằng cách chạy `kubectl apply -f deployment.yaml`),
 thì việc apply manifest đó sẽ ghi đè lên thao tác scale thủ công mà bạn đã làm trước đó.
 
-Nếu một [HorizontalPodAutoscaler](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/) (hoặc bất kỳ
+Nếu một [HorizontalPodAutoscaler](72-horizontal-pod-autoscale-vi.md) (hoặc bất kỳ
 API tương tự nào cho việc scale theo chiều ngang) đang quản lý việc scale cho một Deployment, đừng đặt `.spec.replicas`.
 
 Thay vào đó, hãy để control plane của Kubernetes quản lý
@@ -1224,7 +1224,7 @@ Tất cả Pod hiện có đều bị kill trước khi các Pod mới được 
 > mới được tạo. Nếu bạn xóa thủ công một Pod, vòng đời của nó do ReplicaSet kiểm soát và
 > Pod thay thế sẽ được tạo ngay lập tức (kể cả khi Pod cũ vẫn đang ở trạng thái Terminating). Nếu bạn cần
 > sự bảo đảm "tối đa" (at most) cho số Pod của mình, bạn nên cân nhắc sử dụng
-> [StatefulSet](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/).
+> [StatefulSet](65-statefulset-vi.md).
 
 #### Deployment kiểu Rolling Update (Rolling Update Deployment) {#rolling-update-deployment}
 
@@ -1399,9 +1399,9 @@ khi được tạo.
 ## Tiếp theo (What's next)
 
 * Tìm hiểu thêm về [Pod](./46-pods-vi.md).
-* [Chạy một ứng dụng stateless bằng Deployment](https://kubernetes.io/docs/tasks/run-application/run-stateless-application-deployment/).
+* [Chạy một ứng dụng stateless bằng Deployment](345-run-stateless-application-vi.md).
 * Đọc [tài liệu tham chiếu API `Deployment`](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/) để hiểu về API Deployment.
-* Đọc về [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/) và cách
+* Đọc về [PodDisruptionBudget](53-disruptions-vi.md) và cách
   bạn có thể dùng nó để quản lý mức sẵn sàng của ứng dụng trong các gián đoạn (disruption).
 * Dùng kubectl để [tạo một Deployment](https://kubernetes.io/docs/tutorials/kubernetes-basics/deploy-app/deploy-intro/).
 

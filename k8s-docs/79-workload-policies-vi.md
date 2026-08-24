@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 9/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -46,7 +46,7 @@ bản** — và cluster lab 3 VM trên VMware không bật API group cần thi�
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
-Mọi [PodGroup](https://kubernetes.io/docs/concepts/workloads/podgroup-api/) phải khai báo một chính sách lập lịch
+Mọi [PodGroup](75-podgroup-api-vi.md) phải khai báo một chính sách lập lịch
 trong trường `spec.schedulingPolicy` của nó. Chính sách này quy định cách scheduler đối xử với
 tập hợp các Pod trong nhóm.
 
@@ -63,7 +63,7 @@ bất kể hiện có bao nhiêu Pod của nó có thể được lập lịch.
 
 Lý do chính để dùng chính sách `basic` là tổ chức các Pod thành một nhóm nhằm
 quan sát và quản lý tốt hơn, trong khi vẫn đánh giá chúng cùng nhau trong một
-[chu kỳ lập lịch PodGroup](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/#podgroup-scheduling-cycle) đơn lẻ, nguyên tử (atomic).
+[chu kỳ lập lịch PodGroup](151-podgroup-scheduling-vi.md#podgroup-scheduling-cycle) đơn lẻ, nguyên tử (atomic).
 
 Chính sách này phù hợp cho các nhóm không yêu cầu khởi động đồng thời nhưng về mặt logic
 thuộc về nhau, hoặc để mở đường cho các ràng buộc cấp nhóm không hàm ý
@@ -79,7 +79,7 @@ schedulingPolicy:
 Chính sách `gang` bắt buộc lập lịch "tất cả hoặc không gì cả" (all-or-nothing). Điều này thiết yếu cho các workload
 gắn kết chặt chẽ, nơi việc khởi động một phần dẫn đến deadlock hoặc lãng phí tài nguyên.
 
-Chính sách này có thể được dùng cho [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/)
+Chính sách này có thể được dùng cho [Job](67-job-vi.md)
 hoặc bất kỳ tiến trình batch nào khác mà tất cả các worker phải chạy đồng thời để có thể tiến triển.
 
 Chính sách `gang` yêu cầu trường `minCount`, là số lượng Pod tối thiểu phải có thể
@@ -105,10 +105,10 @@ trực tiếp trên chính PodGroup đó.
 
 ## Tiếp theo (What's next)
 
-* Xem [PodGroup API](https://kubernetes.io/docs/concepts/workloads/podgroup-api/) để biết cách các chính sách được mang theo tại thời điểm chạy.
+* Xem [PodGroup API](75-podgroup-api-vi.md) để biết cách các chính sách được mang theo tại thời điểm chạy.
 * Tìm hiểu về [Workload API](./77-workload-api-vi.md) — nơi định nghĩa các PodGroupTemplate.
-* Đọc về [lập lịch PodGroup](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/).
-* Đọc về thuật toán [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/).
+* Đọc về [lập lịch PodGroup](151-podgroup-scheduling-vi.md).
+* Đọc về thuật toán [gang scheduling](150-gang-scheduling-vi.md).
 
 ---
 

@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+**Vị trí:** Giai đoạn 1 → nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
 bài 6/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 Bài này là trang tổng quan, không phải tài liệu tham khảo lệnh. Đừng cố nhớ cú pháp ở đây —
@@ -44,9 +44,9 @@ control plane của một cluster Kubernetes, thông qua Kubernetes API.
 
 Công cụ `kubectl` giao tiếp với cluster của bạn thông qua [Kubernetes API](./21-kubernetes-api-vi.md).
 Về cấu hình, `kubectl` tìm một file có tên `config` trong thư mục `$HOME/.kube`.
-Bạn có thể chỉ định các file [kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+Bạn có thể chỉ định các file [kubeconfig](111-kubeconfig-vi.md)
 khác bằng cách đặt biến môi trường `KUBECONFIG` hoặc dùng flag
-[`--kubeconfig`](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/).
+[`--kubeconfig`](111-kubeconfig-vi.md).
 
 ## Vai trò của kubectl (Role of kubectl)
 
@@ -60,7 +60,7 @@ như [Headlamp](https://headlamp.dev/), cũng giao tiếp thông qua cùng một
 ## Cách kubectl hoạt động (How kubectl works)
 
 Công cụ `kubectl` kết nối đến API server và xác thực (authenticate) bằng cluster, user và context được định nghĩa trong file
-[kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) của bạn.
+[kubeconfig](111-kubeconfig-vi.md) của bạn.
 Khi bạn chạy `kubectl` từ bên ngoài cluster, nó dùng file kubeconfig để tìm địa chỉ API server và thông tin xác thực (credentials).
 Khi `kubectl` chạy bên trong một Pod (ví dụ trong một pipeline CI/CD), nó có thể dùng cơ chế xác thực trong cluster (in-cluster authentication)
 dựa trên token ServiceAccount được mount vào Pod.
@@ -113,7 +113,7 @@ Dùng phiên bản tương thích giúp tránh hành vi không mong muốn. Xem
 ## Tiếp theo (What's next)
 
 * Đọc [tài liệu tham khảo kubectl](https://kubernetes.io/docs/reference/kubectl/) để biết cú pháp và chi tiết các lệnh.
-* [Cài đặt kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) trên máy của bạn.
+* [Cài đặt kubectl](185-tools-vi.md#kubectl) trên máy của bạn.
 * Tìm hiểu về [Kubernetes API](./21-kubernetes-api-vi.md) mà `kubectl` sử dụng.
 * Xem lại [các thành phần của Kubernetes](./15-components-vi.md) cấu thành một cluster.
 * Khám phá [Quản lý object](./27-object-management-vi.md) và cấu hình khai báo.

@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](LO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
+**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
 bài 10/10 · Các trang CP không có lab riêng: thực hành trực tiếp trên cluster lab ở mốc
 `04-metrics-ready` (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -55,15 +55,15 @@ kubectl get pods -l app.kubernetes.io/name=MyApp
 
 Nếu bạn thấy bất kỳ Pod nào trong danh sách ở trạng thái `Unknown` hoặc `Terminating` trong
 một khoảng thời gian dài, hãy tham khảo tác vụ
-[Xóa các Pod của StatefulSet](https://kubernetes.io/docs/tasks/run-application/delete-stateful-set/)
+[Xóa các Pod của StatefulSet](340-delete-stateful-set-vi.md)
 để biết hướng dẫn xử lý chúng.
 Bạn có thể gỡ lỗi từng Pod riêng lẻ trong một StatefulSet bằng hướng dẫn
-[Gỡ lỗi Pod](https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/).
+[Gỡ lỗi Pod](299-debug-pods-vi.md).
 
 ## Tiếp theo (What's next)
 
 Tìm hiểu thêm về
-[gỡ lỗi init container](https://kubernetes.io/docs/tasks/debug/debug-application/debug-init-containers/).
+[gỡ lỗi init container](298-debug-init-containers-vi.md).
 
 ---
 

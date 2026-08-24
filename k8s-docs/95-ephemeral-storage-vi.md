@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 8/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 8/16 · Kiểm chứng ở
 Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là bài cuối của phần cốt lõi giai đoạn 6, và nó **không nói về volume** mà nói về đĩa của
@@ -56,11 +56,11 @@ các thiết bị ghi được gắn cục bộ hoặc, đôi khi, bởi RAM.
 
 Các Pod dùng lưu trữ tạm thời cục bộ làm không gian nháp (scratch space), làm cache, và để chứa log.
 Kubelet có thể cung cấp không gian nháp cho các Pod bằng cách dùng lưu trữ tạm thời cục bộ để
-mount các volume [`emptyDir`](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir)
+mount các volume [`emptyDir`](91-volumes-vi.md#emptydir)
 vào các container.
 
 Kubelet cũng dùng loại lưu trữ này để chứa
-[log container cấp node](https://kubernetes.io/docs/concepts/cluster-administration/logging/#logging-at-the-node-level),
+[log container cấp node](https://kubernetes.io/docs/concepts/cluster-administration/logging#logging-at-the-node-level),
 các container image, và các lớp ghi được (writable layer) của các container đang chạy.
 
 > **Thận trọng:**
@@ -91,7 +91,7 @@ Trong cấu hình này, bạn đặt tất cả các loại dữ liệu tạm th
 (các volume `emptyDir`, các lớp ghi được, container image, log) vào một filesystem duy nhất.
 
 Kubelet cũng ghi
-[log container cấp node](https://kubernetes.io/docs/concepts/cluster-administration/logging/#logging-at-the-node-level)
+[log container cấp node](https://kubernetes.io/docs/concepts/cluster-administration/logging#logging-at-the-node-level)
 và xử lý chúng tương tự như lưu trữ tạm thời cục bộ.
 
 Kubelet ghi log vào các file bên trong thư mục log đã được cấu hình (`/var/log`
@@ -112,7 +112,7 @@ chẳng hạn log hệ thống không liên quan tới Kubernetes; nó thậm ch
 filesystem gốc.
 
 Kubelet cũng ghi
-[log container cấp node](https://kubernetes.io/docs/concepts/cluster-administration/logging/#logging-at-the-node-level)
+[log container cấp node](https://kubernetes.io/docs/concepts/cluster-administration/logging#logging-at-the-node-level)
 vào filesystem thứ nhất, và xử lý chúng tương tự như lưu trữ tạm thời cục bộ.
 
 Bạn cũng dùng thêm một filesystem riêng, được hỗ trợ bởi một thiết bị lưu trữ logic khác.
@@ -133,9 +133,9 @@ của kubelet, chẳng hạn log và các volume `emptyDir`.
 
 Bố cục này yêu cầu hỗ trợ các tín hiệu trục xuất (eviction signal) `containerfs`. Để biết chi tiết
 về feature gate và các container runtime hỗ trợ bố cục này, xem
-[trục xuất do áp lực node (node-pressure eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/#filesystem-signals).
+[trục xuất do áp lực node (node-pressure eviction)](142-node-pressure-eviction-vi.md#filesystem-signals).
 
-Trang [node-pressure eviction](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/#filesystem-signals)
+Trang [node-pressure eviction](142-node-pressure-eviction-vi.md#filesystem-signals)
 gọi các filesystem được quan sát này là `nodefs`, `imagefs`, và
 `containerfs`. Những tên này không phải lúc nào cũng có nghĩa là các mount point riêng biệt.
 
@@ -222,7 +222,7 @@ spec:
 Khi bạn tạo một Pod, bộ lập lịch (scheduler) của Kubernetes chọn một node để Pod
 chạy trên đó. Mỗi node có một lượng lưu trữ tạm thời cục bộ tối đa mà nó có thể cung cấp cho các Pod.
 Để biết thêm thông tin, xem
-[Node Allocatable](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/#node-allocatable).
+[Node Allocatable](253-reserve-compute-resources-vi.md#node-allocatable).
 
 Bộ lập lịch bảo đảm rằng tổng các request tài nguyên của các container được lập lịch nhỏ hơn dung lượng của node.
 

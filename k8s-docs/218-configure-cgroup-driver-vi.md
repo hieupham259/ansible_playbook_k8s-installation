@@ -8,21 +8,21 @@ container runtime trong các cluster dựng bằng kubeadm.
 ## Trước khi bạn bắt đầu (Before you begin)
 
 Bạn nên nắm được các
-[yêu cầu về container runtime](https://kubernetes.io/docs/setup/production-environment/container-runtimes)
+[yêu cầu về container runtime](00-container-runtimes-vi.md)
 của Kubernetes.
 
 ## Cấu hình cgroup driver của container runtime (Configuring the container runtime cgroup driver)
 
-Trang [Container runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes)
+Trang [Container runtimes](00-container-runtimes-vi.md)
 giải thích rằng driver `systemd` được khuyến nghị cho các hệ thống dựng bằng kubeadm, thay vì
 driver `cgroupfs` [mặc định](https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1)
 của kubelet, bởi vì kubeadm quản lý kubelet như một
-[systemd service](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubelet-integration).
+[systemd service](04-kubelet-integration-vi.md).
 
 Trang đó cũng cung cấp chi tiết về cách thiết lập một số container runtime khác nhau với driver
 `systemd` theo mặc định.
 
-## Cấu hình cgroup driver của kubelet (Configuring the kubelet cgroup driver)
+## Cấu hình cgroup driver của kubelet (Configuring the kubelet cgroup driver) {#configuring-the-kubelet-cgroup-driver}
 
 kubeadm cho phép bạn truyền một cấu trúc `KubeletConfiguration` trong lúc chạy `kubeadm init`.
 `KubeletConfiguration` này có thể bao gồm trường `cgroupDriver`, trường này điều khiển cgroup
@@ -35,7 +35,7 @@ driver của kubelet.
 >
 > Trong Kubernetes v1.28, bạn có thể bật tính năng tự động phát hiện cgroup driver dưới dạng
 > tính năng alpha. Xem
-> [systemd cgroup driver](https://kubernetes.io/docs/setup/production-environment/container-runtimes/#systemd-cgroup-driver)
+> [systemd cgroup driver](00-container-runtimes-vi.md#systemd-cgroup-driver)
 > để biết thêm chi tiết.
 
 Một ví dụ tối giản về việc cấu hình trường này một cách tường minh:
@@ -61,7 +61,7 @@ kubeadm init --config kubeadm-config.yaml
 >
 > Kubeadm dùng cùng một `KubeletConfiguration` cho tất cả các node trong cluster.
 > `KubeletConfiguration` được lưu trong một object
-> [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap)
+> [ConfigMap](108-configmap-vi.md)
 > thuộc namespace `kube-system`.
 >
 > Việc thực thi các lệnh con `init`, `join` và `upgrade` sẽ khiến kubeadm ghi
@@ -113,7 +113,7 @@ hai bước được nêu dưới đây.
 
 Với từng node trong cluster:
 
-- [Drain node](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node) bằng lệnh
+- [Drain node](255-safely-drain-node-vi.md) bằng lệnh
   `kubectl drain <node-name> --ignore-daemonsets`
 - Dừng kubelet bằng lệnh `systemctl stop kubelet`
 - Dừng container runtime
@@ -121,7 +121,7 @@ Với từng node trong cluster:
 - Đặt `cgroupDriver: systemd` trong `/var/lib/kubelet/config.yaml`
 - Khởi động container runtime
 - Khởi động kubelet bằng lệnh `systemctl start kubelet`
-- [Uncordon node](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node) bằng
+- [Uncordon node](255-safely-drain-node-vi.md) bằng
   lệnh `kubectl uncordon <node-name>`
 
 Hãy thực hiện các bước này trên từng node một, để đảm bảo các workload có đủ thời gian được lập

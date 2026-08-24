@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 11/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 11/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài chỉ hơn 20 dòng và có **đúng một nội dung**: một giả định về Secret trên node Linux mà bạn
 rất dễ tin nhầm. Đọc hết trong vài phút, rồi sang bài [127](127-linux-kernel-security-vi.md) —
@@ -52,7 +52,7 @@ Linux kernel hỗ trợ chính thức tùy chọn `noswap` từ phiên bản 6.3
 trên node, khuyến nghị dùng kernel phiên bản 6.3 trở lên, hoặc kernel có hỗ trợ tùy chọn
 `noswap` thông qua backport.
 
-Đọc [quản lý bộ nhớ swap (swap memory management)](https://kubernetes.io/docs/concepts/cluster-administration/swap-memory-management/#memory-backed-volumes)
+Đọc [quản lý bộ nhớ swap (swap memory management)](170-swap-memory-management-vi.md#memory-backed-volumes)
 để biết thêm thông tin.
 
 ---

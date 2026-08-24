@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 3/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 3/16 · Kiểm chứng ở
 Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **bài xương sống của cả giai đoạn 6**. Bốn bài sau (StorageClass, cấp phát động,
@@ -59,8 +59,8 @@ gói gọn trong mục *Vòng đời của một volume và claim* cộng hai m�
 ---
 
 Tài liệu này mô tả _persistent volume_ (volume bền vững) trong Kubernetes. Bạn nên làm quen trước với
-[volume](https://kubernetes.io/docs/concepts/storage/volumes/), [StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/)
-và [VolumeAttributesClass](https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/).
+[volume](91-volumes-vi.md), [StorageClass](96-storage-classes-vi.md)
+và [VolumeAttributesClass](97-volume-attributes-classes-vi.md).
 
 ## Giới thiệu (Introduction)
 
@@ -71,7 +71,7 @@ trừu tượng hóa chi tiết về cách lưu trữ được cung cấp khỏi
 
 Một _PersistentVolume_ (PV) là một phần lưu trữ trong cluster đã được quản trị viên
 cấp phát (provision) sẵn, hoặc được cấp phát động (dynamically provisioned) bằng
-[Storage Class](https://kubernetes.io/docs/concepts/storage/storage-classes/). Nó là một tài nguyên trong
+[Storage Class](96-storage-classes-vi.md). Nó là một tài nguyên trong
 cluster, giống như node cũng là một tài nguyên của cluster. PV là các volume plugin tương tự
 Volume, nhưng có vòng đời độc lập với bất kỳ Pod riêng lẻ nào sử dụng PV đó.
 Đối tượng API này lưu giữ các chi tiết triển khai của phần lưu trữ, có thể là
@@ -97,7 +97,7 @@ Xem [hướng dẫn chi tiết kèm ví dụ hoạt động](https://kubernetes.
 PV là tài nguyên trong cluster. PVC là yêu cầu đối với những tài nguyên đó và cũng đóng
 vai trò như phiếu giữ chỗ (claim check) cho tài nguyên. Tương tác giữa PV và PVC tuân theo vòng đời sau:
 
-### Cấp phát (Provisioning)
+### Cấp phát (Provisioning) {#provisioning}
 
 Có hai cách để cấp phát PV: tĩnh (static) hoặc động (dynamic).
 
@@ -112,7 +112,7 @@ Kubernetes API và có thể được tiêu thụ.
 Khi không có PV tĩnh nào do quản trị viên tạo khớp với PersistentVolumeClaim của người dùng,
 cluster có thể thử cấp phát động một volume dành riêng cho PVC đó.
 Việc cấp phát này dựa trên StorageClass: PVC phải yêu cầu một
-[storage class](https://kubernetes.io/docs/concepts/storage/storage-classes/) và
+[storage class](96-storage-classes-vi.md) và
 quản trị viên phải đã tạo và cấu hình class đó thì việc cấp phát động
 mới diễn ra. Các claim yêu cầu class `""` thực chất tự vô hiệu hóa
 cấp phát động cho chính chúng.
@@ -208,7 +208,7 @@ Source:
 Events:            <none>
 ```
 
-### Thu hồi (Reclaiming)
+### Thu hồi (Reclaiming) {#reclaiming}
 
 Khi người dùng đã dùng xong volume của mình, họ có thể xóa đối tượng PVC khỏi
 API, việc này cho phép thu hồi (reclaim) tài nguyên. Chính sách thu hồi (reclaim policy) của một PersistentVolume
@@ -240,7 +240,7 @@ kế thừa [chính sách thu hồi của StorageClass của chúng](#reclaim-po
 mặc định là `Delete`. Quản trị viên nên cấu hình StorageClass
 theo kỳ vọng của người dùng; nếu không, PV phải được sửa (edit) hoặc
 vá (patch) sau khi được tạo. Xem
-[Thay đổi chính sách thu hồi của một PersistentVolume](https://kubernetes.io/docs/tasks/administer-cluster/change-pv-reclaim-policy/).
+[Thay đổi chính sách thu hồi của một PersistentVolume](194-change-pv-reclaim-policy-vi.md).
 
 #### Recycle
 
@@ -370,7 +370,7 @@ cho PersistentVolumeClaim nào qua trường `claimRef` của nó, thì Persiste
 PersistentVolumeClaim sẽ được ràng buộc với nhau.
 
 Việc ràng buộc diễn ra bất kể một số tiêu chí khớp volume, bao gồm cả node affinity.
-Control plane vẫn kiểm tra rằng [storage class](https://kubernetes.io/docs/concepts/storage/storage-classes/),
+Control plane vẫn kiểm tra rằng [storage class](96-storage-classes-vi.md),
 các chế độ truy cập, và kích thước lưu trữ được yêu cầu là hợp lệ.
 
 ```yaml
@@ -406,7 +406,7 @@ spec:
 Điều này hữu ích nếu bạn muốn tiêu thụ các PersistentVolume có `persistentVolumeReclaimPolicy` được đặt
 là `Retain`, bao gồm cả trường hợp bạn đang tái sử dụng một PV có sẵn.
 
-### Mở rộng Persistent Volume Claim (Expanding Persistent Volumes Claims)
+### Mở rộng Persistent Volume Claim (Expanding Persistent Volumes Claims) {#expanding-persistent-volumes-claims}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.24 [stable]`
 
@@ -523,40 +523,40 @@ Kubernetes không hỗ trợ thu nhỏ PVC xuống dưới kích thước hiện
 
 Các loại PersistentVolume được triển khai dưới dạng plugin. Kubernetes hiện hỗ trợ các plugin sau:
 
-* [`csi`](https://kubernetes.io/docs/concepts/storage/volumes/#csi) - Container Storage Interface (CSI)
-* [`fc`](https://kubernetes.io/docs/concepts/storage/volumes/#fc) - lưu trữ Fibre Channel (FC)
-* [`hostPath`](https://kubernetes.io/docs/concepts/storage/volumes/#hostpath) - volume HostPath
+* [`csi`](91-volumes-vi.md#csi) - Container Storage Interface (CSI)
+* [`fc`](91-volumes-vi.md#fc) - lưu trữ Fibre Channel (FC)
+* [`hostPath`](91-volumes-vi.md#hostpath) - volume HostPath
   (chỉ dành cho kiểm thử trên một node duy nhất; SẼ KHÔNG HOẠT ĐỘNG trong cluster nhiều node;
   hãy cân nhắc dùng volume `local` thay thế)
-* [`iscsi`](https://kubernetes.io/docs/concepts/storage/volumes/#iscsi) - lưu trữ iSCSI (SCSI over IP)
-* [`local`](https://kubernetes.io/docs/concepts/storage/volumes/#local) - các thiết bị lưu trữ cục bộ
+* [`iscsi`](91-volumes-vi.md#iscsi) - lưu trữ iSCSI (SCSI over IP)
+* [`local`](91-volumes-vi.md#local) - các thiết bị lưu trữ cục bộ
   được mount trên node.
-* [`nfs`](https://kubernetes.io/docs/concepts/storage/volumes/#nfs) - lưu trữ Network File System (NFS)
+* [`nfs`](91-volumes-vi.md#nfs) - lưu trữ Network File System (NFS)
 
 Các loại PersistentVolume sau đã bị loại bỏ dần nhưng vẫn khả dụng.
 Nếu bạn đang sử dụng các loại volume này, ngoại trừ `flexVolume`, `cephfs` và `rbd`,
 vui lòng cài đặt CSI driver tương ứng.
 
-* [`awsElasticBlockStore`](https://kubernetes.io/docs/concepts/storage/volumes/#awselasticblockstore) - AWS Elastic Block Store (EBS)
+* [`awsElasticBlockStore`](https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore) - AWS Elastic Block Store (EBS)
   (**di trú bật theo mặc định** từ v1.23)
-* [`azureDisk`](https://kubernetes.io/docs/concepts/storage/volumes/#azuredisk) - Azure Disk
+* [`azureDisk`](https://kubernetes.io/docs/concepts/storage/volumes#azuredisk) - Azure Disk
   (**di trú bật theo mặc định** từ v1.23)
-* [`azureFile`](https://kubernetes.io/docs/concepts/storage/volumes/#azurefile) - Azure File
+* [`azureFile`](https://kubernetes.io/docs/concepts/storage/volumes#azurefile) - Azure File
   (**di trú bật theo mặc định** từ v1.24)
-* [`cinder`](https://kubernetes.io/docs/concepts/storage/volumes/#cinder) - Cinder (lưu trữ khối OpenStack)
+* [`cinder`](https://kubernetes.io/docs/concepts/storage/volumes#cinder) - Cinder (lưu trữ khối OpenStack)
   (**di trú bật theo mặc định** từ v1.21)
-* [`flexVolume`](https://kubernetes.io/docs/concepts/storage/volumes/#flexvolume) - FlexVolume
+* [`flexVolume`](91-volumes-vi.md#flexvolume) - FlexVolume
   (**bị loại bỏ dần** từ v1.23, không có kế hoạch di trú và không có kế hoạch gỡ bỏ hỗ trợ)
-* [`gcePersistentDisk`](https://kubernetes.io/docs/concepts/storage/volumes/#gcePersistentDisk) - GCE Persistent Disk
+* [`gcePersistentDisk`](https://kubernetes.io/docs/concepts/storage/volumes#gcePersistentDisk) - GCE Persistent Disk
   (**di trú bật theo mặc định** từ v1.23)
-* [`portworxVolume`](https://kubernetes.io/docs/concepts/storage/volumes/#portworxvolume) - volume Portworx
+* [`portworxVolume`](91-volumes-vi.md#portworxvolume) - volume Portworx
   (**di trú bật theo mặc định** từ v1.31)
-* [`vsphereVolume`](https://kubernetes.io/docs/concepts/storage/volumes/#vspherevolume) - volume vSphere VMDK
+* [`vsphereVolume`](https://kubernetes.io/docs/concepts/storage/volumes#vspherevolume) - volume vSphere VMDK
   (**di trú bật theo mặc định** từ v1.25)
 
 Các phiên bản Kubernetes cũ hơn còn hỗ trợ các loại PersistentVolume in-tree sau:
 
-* [`cephfs`](https://kubernetes.io/docs/concepts/storage/volumes/#cephfs)
+* [`cephfs`](https://kubernetes.io/docs/concepts/storage/volumes#cephfs)
   (**không còn khả dụng** từ v1.31)
 * `flocker` - lưu trữ Flocker.
   (**không còn khả dụng** từ v1.25)
@@ -566,7 +566,7 @@ Các phiên bản Kubernetes cũ hơn còn hỗ trợ các loại PersistentVolu
   (**không còn khả dụng** từ v1.15)
 * `quobyte` - volume Quobyte.
   (**không còn khả dụng** từ v1.25)
-* [`rbd`](https://kubernetes.io/docs/concepts/storage/volumes/#rbd) - volume Rados Block Device (RBD)
+* [`rbd`](https://kubernetes.io/docs/concepts/storage/volumes#rbd) - volume Rados Block Device (RBD)
   (**không còn khả dụng** từ v1.31)
 * `scaleIO` - volume ScaleIO.
   (**không còn khả dụng** từ v1.21)
@@ -577,7 +577,7 @@ Các phiên bản Kubernetes cũ hơn còn hỗ trợ các loại PersistentVolu
 
 Mỗi PV chứa một spec và status, tức là đặc tả và trạng thái của volume.
 Tên của một đối tượng PersistentVolume phải là một
-[tên miền con DNS hợp lệ](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names).
+[tên miền con DNS hợp lệ](17-names-vi.md#dns-subdomain-names).
 
 ```yaml
 apiVersion: v1
@@ -710,7 +710,7 @@ Trong CLI, các chế độ truy cập được viết tắt là:
 
 Một PV có thể có một class, được chỉ định bằng cách đặt thuộc tính
 `storageClassName` thành tên của một
-[StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/).
+[StorageClass](96-storage-classes-vi.md).
 Một PV thuộc một class cụ thể chỉ có thể được ràng buộc với các PVC yêu cầu
 class đó. Một PV không có `storageClassName` thì không có class và chỉ có thể được ràng buộc
 với các PVC không yêu cầu class cụ thể nào.
@@ -753,7 +753,7 @@ nó sẽ bị loại bỏ hoàn toàn trong một bản phát hành Kubernetes t
 
 > **Ghi chú:**
 > Với hầu hết các loại volume, bạn không cần đặt trường này.
-> Bạn cần đặt nó một cách tường minh cho volume [local](https://kubernetes.io/docs/concepts/storage/volumes/#local).
+> Bạn cần đặt nó một cách tường minh cho volume [local](91-volumes-vi.md#local).
 
 Một PV có thể chỉ định node affinity để định nghĩa các ràng buộc giới hạn những node nào
 có thể truy cập volume này. Các Pod sử dụng PV sẽ chỉ được lên lịch tới các node
@@ -812,7 +812,7 @@ thời điểm hiện tại.
 
 Mỗi PVC chứa một spec và status, tức là đặc tả và trạng thái của claim.
 Tên của một đối tượng PersistentVolumeClaim phải là một
-[tên miền con DNS hợp lệ](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names).
+[tên miền con DNS hợp lệ](17-names-vi.md#dns-subdomain-names).
 
 ```yaml
 apiVersion: v1
@@ -869,7 +869,7 @@ yêu cầu là cho lưu trữ. Cùng một
 ### Bộ chọn (Selector)
 
 Claim có thể chỉ định một
-[label selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors)
+[label selector](18-labels-vi.md#label-selectors)
 để lọc thêm tập các volume.
 Chỉ những volume có nhãn (label) khớp với selector mới có thể được ràng buộc với claim.
 Selector có thể gồm hai trường:
@@ -885,7 +885,7 @@ kết hợp với nhau bằng AND — tất cả đều phải được thỏa m
 ### Lớp (Class)
 
 Một claim có thể yêu cầu một class cụ thể bằng cách chỉ định tên của một
-[StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/)
+[StorageClass](96-storage-classes-vi.md)
 qua thuộc tính `storageClassName`.
 Chỉ những PV thuộc class được yêu cầu — có cùng `storageClassName` với PVC —
 mới có thể được ràng buộc với PVC đó.
@@ -959,7 +959,7 @@ hồi tố, cách thay đổi mặc định này là an toàn.
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
 Khi được bật, controller bảo vệ PVC sẽ thêm một
-[condition](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-conditions) `Unused` vào mỗi
+[condition](47-pod-lifecycle-vi.md#pod-conditions) `Unused` vào mỗi
 PersistentVolumeClaim để chỉ ra liệu nó hiện có đang được tham chiếu bởi bất kỳ
 Pod chưa kết thúc (non-terminal) nào hay không.
 
@@ -1130,7 +1130,7 @@ không với từng tổ hợp: Ma trận ràng buộc volume cho các volume đ
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.20 [stable]`
 
 Volume snapshot chỉ hỗ trợ các volume plugin CSI out-of-tree.
-Để biết chi tiết, xem [Volume Snapshots](https://kubernetes.io/docs/concepts/storage/volume-snapshots/).
+Để biết chi tiết, xem [Volume Snapshots](99-volume-snapshots-vi.md).
 Các volume plugin in-tree đã bị loại bỏ dần. Bạn có thể đọc về các volume plugin
 đã bị loại bỏ dần trong
 [Volume Plugin FAQ](https://github.com/kubernetes/community/blob/main/sig-storage/volume-plugin-faq.md).
@@ -1157,7 +1157,7 @@ spec:
 
 ## Nhân bản volume (Volume Cloning) {#volume-cloning}
 
-[Nhân bản volume (Volume Cloning)](https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/)
+[Nhân bản volume (Volume Cloning)](101-volume-pvc-datasource-vi.md)
 chỉ khả dụng cho các volume plugin CSI.
 
 ### Tạo PersistentVolumeClaim từ một PVC có sẵn (Create PersistentVolumeClaim from an existing PVC) {#create-persistent-volume-claim-from-an-existing-pvc}
@@ -1205,7 +1205,7 @@ spec:
 ```
 
 Để biết chi tiết, bao gồm cả nguồn dữ liệu liên namespace (cross-namespace), xem
-[Volume Populators and Data Sources](https://kubernetes.io/docs/concepts/storage/volume-populators-and-data-sources/).
+[Volume Populators and Data Sources](102-volume-populators-vi.md).
 
 ## Viết cấu hình khả chuyển (Writing Portable Configuration)
 

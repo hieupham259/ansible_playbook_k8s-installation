@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 12/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 12/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Ở đây bạn chỉ đọc lý thuyết.** HPA cần metrics-server để có API `metrics.k8s.io`, mà
@@ -83,7 +83,7 @@ Kubernetes, định kỳ điều chỉnh quy mô (scale) mong muốn của đố
 Deployment) sao cho khớp với các metric quan sát được, chẳng hạn mức sử dụng CPU trung bình,
 mức sử dụng bộ nhớ trung bình, hoặc bất kỳ metric tùy chỉnh nào khác mà bạn chỉ định.
 
-Có một [ví dụ thực hành từng bước](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/)
+Có một [ví dụ thực hành từng bước](342-hpa-walkthrough-vi.md)
 về việc sử dụng tự động co giãn Pod theo chiều ngang.
 
 ## HorizontalPodAutoscaler hoạt động như thế nào? (How does a HorizontalPodAutoscaler work?)
@@ -130,7 +130,7 @@ hoặc từ API custom metrics (đối với mọi metric khác).
   từ API resource metrics cho từng Pod mà HorizontalPodAutoscaler nhắm đến.
   Sau đó, nếu một giá trị mức sử dụng mục tiêu (target utilization) được đặt, controller
   tính giá trị mức sử dụng theo tỷ lệ phần trăm so với
-  [yêu cầu tài nguyên (resource request)](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits)
+  [yêu cầu tài nguyên (resource request)](110-manage-resources-containers-vi.md#requests-and-limits)
   tương ứng trên các container trong mỗi Pod. Nếu một giá trị thô mục tiêu (target raw value)
   được đặt, các giá trị metric thô được dùng trực tiếp.
   Controller sau đó lấy trung bình của mức sử dụng hoặc giá trị thô (tùy loại mục tiêu
@@ -158,7 +158,7 @@ các API tổng hợp (aggregated APIs)
 (`metrics.k8s.io`, `custom.metrics.k8s.io`, hoặc `external.metrics.k8s.io`). API `metrics.k8s.io`
 thường được cung cấp bởi một add-on tên là Metrics Server, cần được khởi chạy riêng.
 Để biết thêm thông tin về metric tài nguyên, xem
-[Metrics Server](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/#metrics-server).
+[Metrics Server](311-resource-metrics-pipeline-vi.md#metrics-server).
 
 [Hỗ trợ các API metric](#support-for-metrics-apis) giải thích các đảm bảo về độ ổn định
 và trạng thái hỗ trợ của những API khác nhau này.
@@ -461,8 +461,8 @@ xem các đề xuất thiết kế (design proposal) liên quan:
 và [external.metrics.k8s.io](https://git.k8s.io/design-proposals-archive/instrumentation/external-metrics-api.md).
 
 Để xem ví dụ về cách sử dụng chúng, xem
-[hướng dẫn thực hành dùng metric tùy chỉnh](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/#autoscaling-on-multiple-metrics-and-custom-metrics)
-và [hướng dẫn thực hành dùng metric bên ngoài](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/#autoscaling-on-metrics-not-related-to-kubernetes-objects).
+[hướng dẫn thực hành dùng metric tùy chỉnh](342-hpa-walkthrough-vi.md#autoscaling-on-multiple-metrics-and-custom-metrics)
+và [hướng dẫn thực hành dùng metric bên ngoài](342-hpa-walkthrough-vi.md#autoscaling-on-metrics-not-related-to-kubernetes-objects).
 
 ## Hành vi co giãn có thể cấu hình (Configurable scaling behavior)
 
@@ -719,13 +719,13 @@ trong đó đề cập đúng trường hợp sử dụng này.
 ## Tiếp theo (What's next)
 
 Nếu bạn cấu hình tự động co giãn trong cluster của mình, bạn cũng có thể cân nhắc dùng
-[tự động co giãn node (node autoscaling)](https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/)
+[tự động co giãn node (node autoscaling)](171-node-autoscaling-vi.md)
 để đảm bảo bạn đang chạy đúng số lượng node.
-Bạn cũng có thể đọc thêm về [tự động co giãn Pod theo chiều _dọc_ (vertical Pod autoscaling)](https://kubernetes.io/docs/concepts/workloads/autoscaling/vertical-pod-autoscale/).
+Bạn cũng có thể đọc thêm về [tự động co giãn Pod theo chiều _dọc_ (vertical Pod autoscaling)](73-vertical-pod-autoscale-vi.md).
 
 Để biết thêm thông tin về HorizontalPodAutoscaler:
 
-- Đọc một [ví dụ thực hành từng bước](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/) về tự động co giãn Pod theo chiều ngang.
+- Đọc một [ví dụ thực hành từng bước](342-hpa-walkthrough-vi.md) về tự động co giãn Pod theo chiều ngang.
 - Đọc tài liệu về [`kubectl autoscale`](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands/#autoscale).
 - Nếu bạn muốn viết adapter metric tùy chỉnh của riêng mình, hãy xem
   [boilerplate](https://github.com/kubernetes-sigs/custom-metrics-apiserver) để bắt đầu.

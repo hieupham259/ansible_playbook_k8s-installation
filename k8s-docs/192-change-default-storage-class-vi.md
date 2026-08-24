@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP11 — Vận hành lưu trữ](LO-TRINH-ADMIN.md#cp11--vận-hành-lưu-trữ),
+**Vị trí:** [Checkpoint tiếp nối, CP11 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#cp11--vận-hành-lưu-trữ),
 bài 1/3 · Các trang CP không có lab riêng: thực hành ngay trên cluster lab, sau khi đã có
 StorageClass và dynamic provisioner từ Lab 6a (chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
@@ -65,7 +65,7 @@ Tùy vào phương thức cài đặt, cluster Kubernetes của bạn có thể 
 StorageClass được đánh dấu là mặc định. StorageClass mặc định này sau đó được dùng để cấp phát
 động (dynamically provision) lưu trữ cho những PersistentVolumeClaim không yêu cầu một storage
 class cụ thể nào. Xem
-[tài liệu về PersistentVolumeClaim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims)
+[tài liệu về PersistentVolumeClaim](92-persistent-volumes-vi.md#persistentvolumeclaims)
 để biết chi tiết.
 
 StorageClass mặc định được cài sẵn có thể không phù hợp với workload mà bạn dự kiến; ví dụ, nó
@@ -141,7 +141,7 @@ Việc xóa StorageClass mặc định có thể không có tác dụng, vì nó
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [PersistentVolume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/).
+* Tìm hiểu thêm về [PersistentVolume](92-persistent-volumes-vi.md).
 
 ---
 

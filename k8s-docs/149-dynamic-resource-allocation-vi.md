@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 1/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Đây là nhóm bài dành cho nền tảng chuyên biệt
@@ -72,7 +72,7 @@ cấp phát các thiết bị khớp với những claim cụ thể và đặt c
 lên các node có thể truy cập những thiết bị đã được cấp phát.
 
 Việc cấp phát tài nguyên bằng DRA mang lại trải nghiệm tương tự như
-[cấp phát volume động (dynamic volume provisioning)](https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/),
+[cấp phát volume động (dynamic volume provisioning)](98-dynamic-provisioning-vi.md),
 trong đó bạn dùng PersistentVolumeClaim để yêu cầu dung lượng lưu trữ từ các storage class
 và sử dụng dung lượng đã claim đó trong các Pod của mình.
 
@@ -97,7 +97,7 @@ Sử dụng DRA mang lại những lợi ích như sau:
 
 Những lợi ích này mang lại các cải tiến đáng kể trong luồng cấp phát thiết bị
 so với
-[device plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/),
+[device plugin](184-device-plugins-vi.md),
 vốn yêu cầu khai báo thiết bị theo từng container, không hỗ trợ chia sẻ thiết bị, và
 không hỗ trợ lọc thiết bị dựa trên biểu thức.
 
@@ -172,7 +172,7 @@ các thuộc tính cụ thể. Một ResourceClaim tham chiếu đến DeviceCla
 yêu cầu các cấu hình cụ thể trong phạm vi DeviceClass đó.
 
 Để tạo một DeviceClass, xem
-[Thiết lập DRA trong cluster](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/set-up-dra-cluster).
+[Thiết lập DRA trong cluster](271-set-up-dra-cluster-vi.md).
 
 ### ResourceClaim và ResourceClaimTemplate (ResourceClaims and ResourceClaimTemplates) {#resourceclaims-templates}
 
@@ -219,7 +219,7 @@ Bạn có thể tham chiếu một ResourceClaim được sinh tự động tron
 Pod hoặc PodGroup đã kích hoạt việc sinh ra chúng.
 
 Để tìm hiểu cách claim tài nguyên bằng một trong các phương thức này, xem
-[Cấp phát thiết bị cho workload với DRA](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/allocate-devices-dra/).
+[Cấp phát thiết bị cho workload với DRA](270-allocate-devices-dra-vi.md).
 
 #### Danh sách ưu tiên (Prioritized list) {#prioritized-list}
 
@@ -280,7 +280,7 @@ Workload của bạn phải có khả năng thích ứng với điều này.
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
 Khi bạn tổ chức các Pod bằng
-[Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/),
+[Workload API](77-workload-api-vi.md),
 bạn có thể dành riêng (reserve) ResourceClaim cho toàn bộ
 PodGroup
 thay vì từng Pod riêng lẻ, và sinh ResourceClaimTemplate cho một
@@ -546,21 +546,21 @@ phương pháp nào sau đây:
 Dịch vụ gRPC `PodResourcesLister` của kubelet cho phép bạn giám sát các thiết bị đang được sử dụng.
 Thông điệp `DynamicResource` cung cấp thông tin đặc thù cho cấp phát tài nguyên
 động, chẳng hạn tên thiết bị và tên claim. Xem chi tiết ở
-[Giám sát tài nguyên device plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#monitoring-device-plugin-resources).
+[Giám sát tài nguyên device plugin](184-device-plugins-vi.md#monitoring-device-plugin-resources).
 
 ### Trạng thái thiết bị trong ResourceClaim (ResourceClaim device status) {#resourceclaim-device-status}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.33 [beta]`
 
 Các driver DRA có thể báo cáo dữ liệu
-[trạng thái thiết bị](https://kubernetes.io/docs/concepts/overview/working-with-objects/#object-spec-and-status)
+[trạng thái thiết bị](16-working-with-objects-vi.md#object-spec-and-status)
 đặc thù theo driver cho từng thiết bị đã cấp phát trong trường `status.devices` của một ResourceClaim.
 Ví dụ, driver có thể liệt kê các địa chỉ IP được gán cho một
 thiết bị network interface. Việc cập nhật trường này yêu cầu các quyền RBAC tổng hợp (synthetic) cụ thể,
 xem
-[Hướng dẫn tăng cường bảo mật - Dynamic Resource Allocation](https://kubernetes.io/docs/concepts/security/hardening-guide/dynamic-resource-allocation/)
+[Hướng dẫn tăng cường bảo mật - Dynamic Resource Allocation](125-hardening-dra-vi.md)
 và
-[Tăng cường bảo mật Dynamic Resource Allocation trong cluster của bạn](https://kubernetes.io/docs/tasks/administer-cluster/hardening-dra/).
+[Tăng cường bảo mật Dynamic Resource Allocation trong cluster của bạn](211-hardening-dra-tasks-vi.md).
 
 Độ chính xác của thông tin mà driver thêm vào trường `status.devices` của
 ResourceClaim phụ thuộc vào driver. Hãy đánh giá các driver để quyết định liệu
@@ -632,7 +632,7 @@ trường `.spec.nodeName` và dùng node selector thay thế.
 ## Hạn chế (Limitations)
 
 * Scheduler của Kubernetes không hỗ trợ
-  [chiếm chỗ (preemption)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/) cho
+  [chiếm chỗ (preemption)](141-pod-priority-preemption-vi.md) cho
   các tài nguyên DRA. Điều này nghĩa là một Pod hiện có đang chạy trên node và đang
   dùng tài nguyên DRA không thể bị chiếm chỗ bởi một Pod có độ ưu tiên cao hơn cũng cần
   tài nguyên DRA. Pod có độ ưu tiên cao sẽ ở trạng thái pending cho đến khi thiết bị
@@ -650,7 +650,7 @@ Alpha hoặc Beta.
 Chúng phụ thuộc vào các feature gate và có thể phụ thuộc vào các
 nhóm API (API group) bổ sung.
 Xem thêm thông tin ở
-[Thiết lập DRA trong cluster](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/set-up-dra-cluster/).
+[Thiết lập DRA trong cluster](271-set-up-dra-cluster-vi.md).
 
 ### Quyền truy cập quản trị (Admin access) {#admin-access}
 
@@ -697,10 +697,10 @@ vào status của `ResourceClaim` bằng cách dùng các subresource tổng h�
 
 Để có hướng dẫn tăng cường bảo mật, bao gồm các ví dụ RBAC cho scheduler và các driver
 DRA, xem
-[Hướng dẫn tăng cường bảo mật - Dynamic Resource Allocation](https://kubernetes.io/docs/concepts/security/hardening-guide/dynamic-resource-allocation/).
+[Hướng dẫn tăng cường bảo mật - Dynamic Resource Allocation](125-hardening-dra-vi.md).
 
 Để có quy trình từng bước dành cho quản trị viên cluster, xem
-[Tăng cường bảo mật Dynamic Resource Allocation trong cluster của bạn](https://kubernetes.io/docs/tasks/administer-cluster/hardening-dra/).
+[Tăng cường bảo mật Dynamic Resource Allocation trong cluster của bạn](211-hardening-dra-tasks-vi.md).
 
 ## Các tính năng alpha của DRA (DRA alpha features) {#alpha-features}
 
@@ -709,7 +709,7 @@ Alpha.
 Chúng phụ thuộc vào việc bật các feature gate và có thể phụ thuộc vào các
 nhóm API bổ sung.
 Xem thêm thông tin ở
-[Thiết lập DRA trong cluster](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/set-up-dra-cluster/).
+[Thiết lập DRA trong cluster](271-set-up-dra-cluster-vi.md).
 
 ### Cấp phát extended resource bằng DRA (Extended resource allocation by DRA) {#extended-resource}
 
@@ -822,7 +822,7 @@ Thiết bị có thể phân vùng là một *tính năng beta* và được b�
 [feature gate `DRAPartitionableDevices`](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/#DRAPartitionableDevices)
 được giữ ở trạng thái bật trong kube-apiserver và kube-scheduler.
 
-### Dung lượng tiêu thụ được (Consumable capacity)
+### Dung lượng tiêu thụ được (Consumable capacity) {#consumable-capacity}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [beta]`
 
@@ -952,7 +952,7 @@ và/hoặc khớp với các cặp key/value nhất định.
 Một toleration có thể kiểm tra rằng một key nhất định tồn tại, bất kể giá trị của nó là gì, hoặc có thể kiểm tra
 các giá trị cụ thể của một key.
 Xem thêm thông tin về cách khớp này ở
-[các khái niệm về taint của node](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration#concepts).
+[các khái niệm về taint của node](139-taint-and-toleration-vi.md#concepts).
 
 Việc trục xuất có thể được trì hoãn bằng cách tolerate một taint trong một khoảng thời gian nhất định.
 Khoảng trì hoãn đó bắt đầu tại thời điểm taint được thêm vào thiết bị, thời điểm này được ghi lại trong một trường của taint.
@@ -1183,7 +1183,7 @@ các tài nguyên bên ngoài, chẳng hạn GPU gắn qua fabric hoặc FPGA c�
 là sẵn sàng.
 
 Hành vi chờ này được triển khai trong
-[pha PreBind](https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/#pre-bind)
+[pha PreBind](147-scheduling-framework-vi.md#pre-bind)
 của scheduling framework.
 Trong pha này, scheduler kiểm tra liệu tất cả các điều kiện thiết bị bắt buộc đã được
 thỏa mãn hay chưa trước khi tiến hành binding.
@@ -1433,7 +1433,7 @@ Metadata thiết bị tuân theo cùng quy tắc với quyền truy cập thiế
 một container khi container đó yêu cầu thiết bị trong đặc tả container
 của nó, và không khả dụng trong trường hợp khác. Về cách yêu cầu thiết bị DRA trong Pod và
 container, xem
-[Yêu cầu thiết bị trong workload bằng DRA](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/allocate-devices-dra/#request-devices-workloads).
+[Yêu cầu thiết bị trong workload bằng DRA](270-allocate-devices-dra-vi.md#request-devices-workloads).
 
 #### Giao thức metadata thiết bị (Device metadata protocol) {#device-metadata-protocol}
 
@@ -1573,7 +1573,7 @@ thời gian tồn tại của container đó. Các file metadata được dọn 
 trong Pod đã kết thúc.
 
 Để tìm hiểu cách dùng metadata thiết bị trong workload của bạn, xem
-[Truy cập metadata thiết bị DRA](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/access-dra-device-metadata/).
+[Truy cập metadata thiết bị DRA](269-access-dra-device-metadata-vi.md).
 
 #### Driver tùy chỉnh (Custom drivers) {#device-metadata-custom-drivers}
 
@@ -1658,9 +1658,9 @@ Thuộc tính kiểu danh sách là một *tính năng alpha* và chỉ được
 
 ## Tiếp theo (What's next)
 
-- [Thiết lập DRA trong cluster](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/set-up-dra-cluster/)
-- [Cấp phát thiết bị cho workload bằng DRA](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/allocate-devices-dra/)
-- [Truy cập metadata thiết bị DRA](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/access-dra-device-metadata/)
+- [Thiết lập DRA trong cluster](271-set-up-dra-cluster-vi.md)
+- [Cấp phát thiết bị cho workload bằng DRA](270-allocate-devices-dra-vi.md)
+- [Truy cập metadata thiết bị DRA](269-access-dra-device-metadata-vi.md)
 - Để biết thêm thông tin về thiết kế, xem KEP
   [Dynamic Resource Allocation with Structured Parameters](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/4381-dra-structured-parameters).
 

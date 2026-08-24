@@ -118,10 +118,10 @@ Bạn có thể tìm thêm thông tin trong tài liệu của ip-masq-agent
 
 Trong hầu hết các trường hợp, tập quy tắc mặc định là đủ dùng; tuy nhiên, nếu điều đó không đúng
 với cluster của bạn, bạn có thể tạo và áp dụng một
-[ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/)
+[ConfigMap](275-configure-pod-configmap-vi.md)
 để tùy biến các dải IP chịu ảnh hưởng. Ví dụ, để chỉ cho phép ip-masq-agent xét tới dải
 10.0.0.0/8, bạn có thể tạo
-[ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/)
+[ConfigMap](275-configure-pod-configmap-vi.md)
 sau trong một file tên là "config".
 
 > **Ghi chú:**

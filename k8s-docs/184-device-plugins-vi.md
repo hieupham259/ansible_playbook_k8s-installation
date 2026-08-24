@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 14](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 7/7 ·
+**Vị trí:** [Giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 7/7 ·
 Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Giai đoạn này lộ trình ghi rõ là **dành cho platform administrator / người phát triển operator**.
@@ -81,7 +81,7 @@ Trong quá trình đăng ký, device plugin cần gửi:
 * Tên Unix socket của nó.
 * Phiên bản Device Plugin API mà nó được build dựa trên.
 * `ResourceName` mà nó muốn công bố. Ở đây `ResourceName` cần tuân theo
-  [quy ước đặt tên extended resource](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#extended-resources)
+  [quy ước đặt tên extended resource](110-manage-resources-containers-vi.md#extended-resources)
   dạng `vendor-domain/resourcetype`.
   (Ví dụ, một GPU NVIDIA được công bố là `nvidia.com/gpu`.)
 
@@ -194,7 +194,7 @@ Luồng làm việc tổng quát của một device plugin gồm các bước sa
    device plugin định nghĩa những thay đổi cần được thực hiện đối với định nghĩa của container để
    cung cấp quyền truy cập tới thiết bị. Những thay đổi này bao gồm:
 
-   * [Annotation](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
+   * [Annotation](20-annotations-vi.md)
    * device node
    * biến môi trường
    * mount
@@ -402,7 +402,7 @@ GetAllocatableResources cung cấp thông tin về các resource ban đầu kh�
 Nó cung cấp nhiều thông tin hơn so với những gì kubelet xuất ra cho APIServer.
 
 > **Ghi chú:** `GetAllocatableResources` chỉ nên được dùng để đánh giá các resource
-> [allocatable](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/#node-allocatable)
+> [allocatable](253-reserve-compute-resources-vi.md#node-allocatable)
 > trên một node. Nếu mục tiêu là đánh giá các resource còn trống/chưa được cấp phát thì nó cần
 > được dùng kết hợp với endpoint List(). Kết quả thu được từ `GetAllocatableResources` sẽ giữ
 > nguyên trừ khi các resource nền tảng expose cho kubelet thay đổi. Điều này hiếm khi xảy ra
@@ -532,12 +532,12 @@ Dưới đây là một số ví dụ về các hiện thực device plugin:
 
 * Tìm hiểu về [lập lịch resource GPU](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
   bằng device plugin
-* Tìm hiểu về [việc công bố extended resource](https://kubernetes.io/docs/tasks/administer-cluster/extended-resource-node/)
+* Tìm hiểu về [việc công bố extended resource](209-extended-resource-node-vi.md)
   trên một node
-* Tìm hiểu về [Topology Manager](https://kubernetes.io/docs/tasks/administer-cluster/topology-manager/)
+* Tìm hiểu về [Topology Manager](259-topology-manager-vi.md)
 * Đọc về việc dùng [tăng tốc phần cứng cho TLS ingress](https://kubernetes.io/blog/2019/04/24/hardware-accelerated-ssl/tls-termination-in-ingress-controllers-using-kubernetes-device-plugins-and-runtimeclass/)
   với Kubernetes
-* Đọc thêm về [Cấp phát Extended Resource bằng DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#extended-resource)
+* Đọc thêm về [Cấp phát Extended Resource bằng DRA](149-dynamic-resource-allocation-vi.md#extended-resource)
 
 ---
 
@@ -598,4 +598,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 Đây là bài cuối của **Giai đoạn 14**. Trả lời được hết bảy bài thì bạn sẵn sàng vào Lab 14 (chưa
 viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)); trước đó hãy chốt lại checkpoint của giai
-đoạn trong [lộ trình](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng).
+đoạn trong [lộ trình](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng).

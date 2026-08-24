@@ -11,8 +11,8 @@ Trang này hướng dẫn cách giới hạn số lượng gián đoạn (disrup
 Kubernetes server của bạn phải ở phiên bản v1.21 trở lên. Để kiểm tra phiên bản, hãy chạy `kubectl version`.
 
 - Bạn là chủ sở hữu của một ứng dụng đang chạy trên Kubernetes cluster và ứng dụng đó yêu cầu tính sẵn sàng cao (high availability).
-- Bạn nên biết cách triển khai [Ứng dụng Stateless được nhân bản (Replicated Stateless Applications)](https://kubernetes.io/docs/tasks/run-application/run-stateless-application-deployment/) và/hoặc [Ứng dụng Stateful được nhân bản (Replicated Stateful Applications)](https://kubernetes.io/docs/tasks/run-application/run-replicated-stateful-application/).
-- Bạn nên đã đọc về [Gián đoạn Pod (Pod Disruptions)](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/).
+- Bạn nên biết cách triển khai [Ứng dụng Stateless được nhân bản (Replicated Stateless Applications)](345-run-stateless-application-vi.md) và/hoặc [Ứng dụng Stateful được nhân bản (Replicated Stateful Applications)](343-run-replicated-stateful-application-vi.md).
+- Bạn nên đã đọc về [Gián đoạn Pod (Pod Disruptions)](53-disruptions-vi.md).
 - Bạn nên xác nhận với chủ sở hữu cluster hoặc nhà cung cấp dịch vụ rằng họ tôn trọng Pod Disruption Budget.
 
 ## Bảo vệ ứng dụng bằng PodDisruptionBudget (Protecting an Application with a PodDisruptionBudget)
@@ -186,7 +186,7 @@ status:
 
 Cách hiện thực hiện tại coi các Pod khỏe mạnh là các Pod có mục `.status.conditions` với `type="Ready"` và `status="True"`. Các Pod này được theo dõi thông qua trường `.status.currentHealthy` trong trạng thái của PDB.
 
-## Chính sách trục xuất Pod không khỏe mạnh (Unhealthy Pod Eviction Policy)
+## Chính sách trục xuất Pod không khỏe mạnh (Unhealthy Pod Eviction Policy) {#unhealthy-pod-eviction-policy}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.31 [stable]`
 
@@ -209,7 +209,7 @@ Các chính sách:
 
 ## Workload tùy ý và selector tùy ý (Arbitrary workloads and arbitrary selectors) {#arbitrary-controllers-and-selectors}
 
-Bạn có thể bỏ qua mục này nếu bạn chỉ dùng PDB với các workload resource có sẵn (Deployment, ReplicaSet, StatefulSet và ReplicationController) hoặc với custom resources có hiện thực `scale` [subresource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#advanced-features-and-flexibility), và khi selector của PDB khớp chính xác với selector của resource sở hữu Pod.
+Bạn có thể bỏ qua mục này nếu bạn chỉ dùng PDB với các workload resource có sẵn (Deployment, ReplicaSet, StatefulSet và ReplicationController) hoặc với custom resources có hiện thực `scale` [subresource](179-custom-resources-vi.md#advanced-features-and-flexibility), và khi selector của PDB khớp chính xác với selector của resource sở hữu Pod.
 
 Bạn có thể dùng PDB với các Pod được quản lý bởi một resource khác, bởi một "operator", hoặc với các Pod trần (bare pods), nhưng với các hạn chế sau:
 

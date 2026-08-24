@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — CP6 DNS, CNI và kube-proxy](LO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy),
+**Vị trí:** [Checkpoint tiếp nối — CP6 DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy),
 bài 2/7 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Đây là bài runbook: giá trị của nó nằm ở **thứ tự các bước loại trừ**, không phải ở từng lệnh
@@ -38,7 +38,7 @@ CoreDNS.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Hai lần trang gốc trỏ sang tài liệu *Debugging Services* (khi Service `kube-dns` hoặc endpoint không xuất hiện) | quy trình lần từ Service về Pod là một bài riêng, không thuộc phạm vi bài này | [CP9 — Xử lý sự cố](LO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố), bài Debug Services |
+| Hai lần trang gốc trỏ sang tài liệu *Debugging Services* (khi Service `kube-dns` hoặc endpoint không xuất hiện) | quy trình lần từ Service về Pod là một bài riêng, không thuộc phạm vi bài này | [CP9 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố), bài Debug Services |
 
 ---
 
@@ -223,7 +223,7 @@ kube-dns     ClusterIP   10.0.0.10      <none>        53/UDP,53/TCP        1h
 
 Nếu bạn đã tạo Service, hoặc trong trường hợp Service lẽ ra phải được tạo mặc định nhưng lại
 không xuất hiện, xem
-[gỡ lỗi Service](https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/)
+[gỡ lỗi Service](301-debug-service-vi.md)
 để biết thêm thông tin.
 
 ### Các endpoint DNS có được expose không? (Are DNS endpoints exposed?)
@@ -239,7 +239,7 @@ kube-dns-zxoja   IPv4          53      10.180.3.17,10.180.3.17    1h
 ```
 
 Nếu bạn không thấy các endpoint, xem phần về endpoint trong tài liệu
-[gỡ lỗi Service](https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/).
+[gỡ lỗi Service](301-debug-service-vi.md).
 
 ### Các truy vấn DNS có đang được nhận/xử lý không? (Are DNS queries being received/processed?)
 
@@ -392,7 +392,7 @@ byte sẽ thất bại. Hãy nâng cấp image của bạn lên Alpine phiên b�
 
 ## Tiếp theo (What's next)
 
-- Xem [Tự động co giãn DNS Service trong cluster](https://kubernetes.io/docs/tasks/administer-cluster/dns-horizontal-autoscaling/).
+- Xem [Tự động co giãn DNS Service trong cluster](206-dns-horizontal-autoscaling-vi.md).
 - Đọc [DNS cho Service và Pod](10-dns-pod-service-vi.md)
 
 ---

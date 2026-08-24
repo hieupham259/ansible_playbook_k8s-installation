@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 14](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 6/7 ·
+**Vị trí:** [Giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 6/7 ·
 Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Giai đoạn này lộ trình ghi rõ là **dành cho platform administrator / người phát triển operator**.
@@ -46,14 +46,14 @@ Phần này trình bày về các phần mở rộng cho cluster của bạn mà
 Kubernetes. Bạn có thể dùng những phần mở rộng này để tăng cường khả năng cho các node trong
 cluster, hoặc để cung cấp hạ tầng mạng (network fabric) kết nối các Pod với nhau.
 
-* Các storage plugin [CSI](https://kubernetes.io/docs/concepts/storage/volumes/#csi) và [FlexVolume](https://kubernetes.io/docs/concepts/storage/volumes/#flexvolume)
+* Các storage plugin [CSI](91-volumes-vi.md#csi) và [FlexVolume](91-volumes-vi.md#flexvolume)
 
   Các plugin Container Storage Interface (CSI) cung cấp một cách để mở rộng Kubernetes với khả
   năng hỗ trợ các loại volume mới. Các volume này có thể được hậu thuẫn bởi hệ thống lưu trữ
   ngoài bền vững, hoặc cung cấp lưu trữ tạm thời (ephemeral), hoặc chúng có thể cung cấp một
   giao diện chỉ đọc tới thông tin theo mô hình hệ thống tập tin (filesystem).
 
-  Kubernetes cũng bao gồm hỗ trợ cho các plugin [FlexVolume](https://kubernetes.io/docs/concepts/storage/volumes/#flexvolume),
+  Kubernetes cũng bao gồm hỗ trợ cho các plugin [FlexVolume](91-volumes-vi.md#flexvolume),
   vốn đã bị deprecated (không khuyến khích dùng) từ Kubernetes v1.23 (thay bằng CSI).
 
   Các plugin FlexVolume cho phép người dùng mount những loại volume mà Kubernetes không hỗ trợ
@@ -64,13 +64,13 @@ cluster, hoặc để cung cấp hạ tầng mạng (network fabric) kết nối
   Tài liệu [Kubernetes Volume Plugin FAQ for Storage Vendors](https://github.com/kubernetes/community/blob/main/sig-storage/volume-plugin-faq.md#kubernetes-volume-plugin-faq-for-storage-vendors)
   bao gồm thông tin tổng quát về các storage plugin.
 
-* [Device plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/)
+* [Device plugin](184-device-plugins-vi.md)
 
   Device plugin cho phép một node khám phá (discover) các tiện ích mới của Node (bổ sung cho các
   resource có sẵn của node như `cpu` và `memory`), và cung cấp những tiện ích cục bộ trên node
   tùy chỉnh này cho các Pod có yêu cầu chúng.
 
-* [Network plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/)
+* [Network plugin](183-network-plugins-vi.md)
 
   Network plugin cho phép Kubernetes làm việc với các topology và công nghệ mạng khác nhau.
   Cluster Kubernetes của bạn cần một _network plugin_ để có được một mạng Pod hoạt động được

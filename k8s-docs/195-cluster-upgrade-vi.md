@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — CP2 Nâng cấp cluster](LO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster),
+**Vị trí:** [Checkpoint tiếp nối — CP2 Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster),
 bài 5/5 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Đây là trang tổng quan **không gắn với công cụ nào**: nó cho khung chung của mọi cuộc nâng cấp,
@@ -77,11 +77,11 @@ Kubernetes mà bạn dự định nâng cấp lên.
 ### kubeadm {#upgrade-kubeadm}
 
 Nếu cluster của bạn được triển khai bằng công cụ `kubeadm`, hãy xem
-[Nâng cấp cluster kubeadm](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/)
+[Nâng cấp cluster kubeadm](221-kubeadm-upgrade-vi.md)
 để biết thông tin chi tiết về cách nâng cấp cluster.
 
 Sau khi đã nâng cấp cluster, hãy nhớ
-[cài đặt phiên bản mới nhất của `kubectl`](https://kubernetes.io/docs/tasks/tools/).
+[cài đặt phiên bản mới nhất của `kubectl`](185-tools-vi.md).
 
 ### Triển khai thủ công (Manual deployments)
 
@@ -97,10 +97,10 @@ Bạn nên cập nhật control plane theo cách thủ công theo trình tự sa
 - cloud controller manager, nếu bạn có dùng
 
 Đến thời điểm này, bạn nên
-[cài đặt phiên bản mới nhất của `kubectl`](https://kubernetes.io/docs/tasks/tools/).
+[cài đặt phiên bản mới nhất của `kubectl`](185-tools-vi.md).
 
 Với mỗi node trong cluster, hãy
-[drain](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/) node đó, sau đó
+[drain](255-safely-drain-node-vi.md) node đó, sau đó
 hoặc thay thế nó bằng một node mới dùng kubelet v1.36, hoặc nâng cấp kubelet trên node đó và
 đưa node trở lại hoạt động.
 
@@ -201,5 +201,5 @@ Trả lời được các câu dưới đây mà không nhìn lại bài là đ�
 
 Đây là bài cuối của **CP2 — Nâng cấp cluster**. Trả lời được cả năm câu thì chốt checkpoint
 bằng một cuộc nâng cấp thật trên cluster lab theo bài
-[Upgrading kubeadm clusters](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/),
-rồi mới sang [CP3 — Vòng đời chứng chỉ](LO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ).
+[Upgrading kubeadm clusters](221-kubeadm-upgrade-vi.md),
+rồi mới sang [CP3 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ).

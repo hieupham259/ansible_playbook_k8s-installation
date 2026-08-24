@@ -33,8 +33,8 @@ Hai field `env` và `envFrom` có tác dụng khác nhau.
  sẽ được thiết lập thành biến môi trường cho container.
  Bạn cũng có thể chỉ định một chuỗi tiền tố (prefix) chung.
 
-Bạn có thể đọc thêm về [ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#configure-all-key-value-pairs-in-a-configmap-as-container-environment-variables)
-và [Secret](https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#configure-all-key-value-pairs-in-a-secret-as-container-environment-variables).
+Bạn có thể đọc thêm về [ConfigMap](275-configure-pod-configmap-vi.md#configure-all-key-value-pairs-in-a-configmap-as-container-environment-variables)
+và [Secret](334-distribute-credentials-secure-vi.md#configure-all-key-value-pairs-in-a-secret-as-container-environment-variables).
 
 Trang này giải thích cách dùng `env`.
 
@@ -103,7 +103,7 @@ spec:
 > Biến nào sử dụng các biến khác được định nghĩa trong cùng ngữ cảnh thì phải đứng sau trong
 > danh sách. Tương tự, hãy tránh tham chiếu vòng (circular reference).
 
-## Sử dụng biến môi trường bên trong cấu hình của bạn (Using environment variables inside of your config)
+## Sử dụng biến môi trường bên trong cấu hình của bạn (Using environment variables inside of your config) {#using-environment-variables-inside-of-your-config}
 
 Các biến môi trường mà bạn định nghĩa trong cấu hình của một Pod tại
 `.spec.containers[*].env[*]` có thể được dùng ở những chỗ khác trong cấu hình, ví dụ trong
@@ -141,6 +141,6 @@ Khi Pod được tạo, lệnh `echo Warm greetings to The Most Honorable Kubern
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [biến môi trường](https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/).
-* Tìm hiểu về [sử dụng Secret làm biến môi trường](https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets-as-environment-variables).
+* Tìm hiểu thêm về [biến môi trường](336-env-variable-expose-pod-info-vi.md).
+* Tìm hiểu về [sử dụng Secret làm biến môi trường](109-secret-vi.md#using-secrets-as-environment-variables).
 * Xem [EnvVarSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#envvarsource-v1-core).

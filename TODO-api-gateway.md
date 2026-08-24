@@ -134,12 +134,12 @@ developer portal không.
 
 ## 6. Đọc tới đâu trong lộ trình thì hiểu được và tự làm được
 
-Đối chiếu với [`k8s-docs/LO-TRINH-ADMIN.md`](k8s-docs/LO-TRINH-ADMIN.md).
+Đối chiếu với [`k8s-docs/00-ALO-TRINH-ADMIN.md`](k8s-docs/00-ALO-TRINH-ADMIN.md).
 
 ### 6.1. Để **hiểu** toàn bộ file này
 
 Đủ khi đọc hết nhóm Ingress của
-[Giai đoạn 5 — Mạng nền tảng](k8s-docs/LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), theo đúng
+[Giai đoạn 5 — Mạng nền tảng](k8s-docs/00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), theo đúng
 thứ tự ba bài:
 
 | Thứ tự | Bài | Cho biết điều gì trong file này |
@@ -163,8 +163,8 @@ hiểu file này.**
 | Cần cho việc gì | Nằm ở đâu trong lộ trình | Trạng thái |
 | --- | --- | --- |
 | Dựng/gỡ một ingress controller thật, có snapshot để rollback | 🧪 **Lab 5b — NetworkPolicy, Ingress và CNI**, [bản đồ lab](k8s-docs/labs/README.md#4-bản-đồ-lab) | ⬜ **chưa viết** — và lab này cài ingress controller, **không** cài Gateway |
-| Hiểu vì sao "CRD tồn tại nhưng không controller" = hỏng im lặng | [Giai đoạn 14](k8s-docs/LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) → [Tài nguyên tùy chỉnh](k8s-docs/179-custom-resources-vi.md) | bài đã có; checkpoint giai đoạn 14 hỏi đúng ý này |
-| RBAC cho controller mới — mọi Gateway API controller cần quyền watch Gateway/HTTPRoute và cập nhật status | [Giai đoạn 9](k8s-docs/LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) → [Kiểm soát truy cập](k8s-docs/119-controlling-access-vi.md), [RBAC good practices](k8s-docs/120-rbac-good-practices-vi.md) | bài đã có; 🧪 Lab 9a ⬜ chưa viết |
+| Hiểu vì sao "CRD tồn tại nhưng không controller" = hỏng im lặng | [Giai đoạn 14](k8s-docs/00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) → [Tài nguyên tùy chỉnh](k8s-docs/179-custom-resources-vi.md) | bài đã có; checkpoint giai đoạn 14 hỏi đúng ý này |
+| RBAC cho controller mới — mọi Gateway API controller cần quyền watch Gateway/HTTPRoute và cập nhật status | [Giai đoạn 9](k8s-docs/00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) → [Kiểm soát truy cập](k8s-docs/119-controlling-access-vi.md), [RBAC good practices](k8s-docs/120-rbac-good-practices-vi.md) | bài đã có; 🧪 Lab 9a ⬜ chưa viết |
 | Hiểu admission controller tự điền `ingressClassName` từ default class | Giai đoạn 5 (§9.1.7 của runbook giải thích) + Giai đoạn 9 (chặng admission) | bài đã có |
 
 ### 6.3. Vì sao lộ trình không có mục "API Gateway" — và ranh giới thật nằm ở đâu

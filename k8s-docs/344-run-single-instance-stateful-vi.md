@@ -28,10 +28,10 @@ trong Kubernetes bằng cách sử dụng một PersistentVolume và một Deplo
   Kubernetes server của bạn phải ở phiên bản v1.36 hoặc mới hơn.
   Để kiểm tra phiên bản, nhập `kubectl version`.
 
-- Bạn cần có một [trình cấp phát PersistentVolume động (dynamic PersistentVolume provisioner)](https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/)
-  với một [StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/) mặc định,
-  hoặc tự [cấp phát tĩnh các PersistentVolume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#provisioning)
-  để đáp ứng các [PersistentVolumeClaim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims)
+- Bạn cần có một [trình cấp phát PersistentVolume động (dynamic PersistentVolume provisioner)](98-dynamic-provisioning-vi.md)
+  với một [StorageClass](96-storage-classes-vi.md) mặc định,
+  hoặc tự [cấp phát tĩnh các PersistentVolume](92-persistent-volumes-vi.md#provisioning)
+  để đáp ứng các [PersistentVolumeClaim](92-persistent-volumes-vi.md#persistentvolumeclaims)
   được dùng ở đây.
 
 ## Triển khai MySQL (Deploy MySQL)
@@ -46,7 +46,7 @@ PersistentVolumeClaim yêu cầu một volume 20G. Claim này được
 hoặc bởi một trình cấp phát động (dynamic provisioner).
 
 Lưu ý: Mật khẩu được định nghĩa ngay trong file yaml cấu hình, và điều này không an toàn. Xem
-[Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/)
+[Kubernetes Secrets](109-secret-vi.md)
 để có một giải pháp an toàn.
 
 ```yaml
@@ -253,7 +253,7 @@ cho các ứng dụng có trạng thái:
 - Đừng scale ứng dụng. Cách thiết lập này chỉ dành cho ứng dụng đơn thực thể.
   PersistentVolume bên dưới chỉ có thể được mount vào một
   Pod. Với các ứng dụng có trạng thái dạng cluster, xem
-  [tài liệu về StatefulSet](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/).
+  [tài liệu về StatefulSet](65-statefulset-vi.md).
 - Sử dụng `strategy:` `type: Recreate` trong file YAML cấu hình
   Deployment. Điều này chỉ thị Kubernetes _không_ sử dụng rolling
   update. Rolling update sẽ không hoạt động, vì bạn không thể có nhiều hơn
@@ -279,10 +279,10 @@ tài nguyên bên dưới khi xóa PersistentVolume.
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu thêm về [các object Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
+- Tìm hiểu thêm về [các object Deployment](63-deployment-vi.md).
 
-- Tìm hiểu thêm về [Triển khai ứng dụng](https://kubernetes.io/docs/tasks/run-application/run-stateless-application-deployment/)
+- Tìm hiểu thêm về [Triển khai ứng dụng](345-run-stateless-application-vi.md)
 
 - [Tài liệu kubectl run](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands/#run)
 
-- [Volumes](https://kubernetes.io/docs/concepts/storage/volumes/) và [Persistent Volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
+- [Volumes](91-volumes-vi.md) và [Persistent Volumes](92-persistent-volumes-vi.md)

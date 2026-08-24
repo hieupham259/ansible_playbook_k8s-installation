@@ -20,7 +20,7 @@ Dưới đây là tổng quan các bước trong ví dụ này:
 ## Trước khi bạn bắt đầu (Before you begin)
 
 Bạn cần đã quen với cách dùng cơ bản, không song song, của
-[Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/).
+[Job](67-job-vi.md).
 
 Bạn cần có một cluster Kubernetes và công cụ dòng lệnh kubectl phải được cấu hình
 để giao tiếp với cluster của bạn. Bạn nên chạy hướng dẫn này trên một cluster có ít nhất
@@ -336,17 +336,17 @@ image mà không cần chỉnh sửa gì.
 
 Việc dùng cách tiếp cận này đòi hỏi bạn phải chạy một dịch vụ hàng đợi thông điệp.
 Nếu việc chạy một dịch vụ hàng đợi là bất tiện, bạn có thể
-cân nhắc một trong các [mẫu job (job patterns)](https://kubernetes.io/docs/concepts/workloads/controllers/job/#job-patterns) khác.
+cân nhắc một trong các [mẫu job (job patterns)](67-job-vi.md#job-patterns) khác.
 
 Cách tiếp cận này tạo một pod cho mỗi phần tử công việc. Tuy nhiên, nếu các phần tử công việc
 của bạn chỉ mất vài giây, việc tạo một Pod cho mỗi phần tử công việc có thể tạo ra nhiều chi phí phụ trội (overhead).
-Hãy cân nhắc một thiết kế khác, chẳng hạn như trong [ví dụ hàng đợi công việc song song mịn](https://kubernetes.io/docs/tasks/job/fine-parallel-processing-work-queue/),
+Hãy cân nhắc một thiết kế khác, chẳng hạn như trong [ví dụ hàng đợi công việc song song mịn](352-fine-parallel-work-queue-vi.md),
 trong đó mỗi Pod thực thi nhiều phần tử công việc.
 
 Trong ví dụ này, bạn đã dùng tiện ích `amqp-consume` để đọc thông điệp
 từ hàng đợi và chạy chương trình thực sự. Cách này có ưu điểm là bạn
 không cần sửa chương trình của mình để nó biết về hàng đợi.
-[Ví dụ hàng đợi công việc song song mịn](https://kubernetes.io/docs/tasks/job/fine-parallel-processing-work-queue/)
+[Ví dụ hàng đợi công việc song song mịn](352-fine-parallel-work-queue-vi.md)
 trình bày cách giao tiếp với hàng đợi công việc bằng một thư viện client.
 
 ## Lưu ý (Caveats)

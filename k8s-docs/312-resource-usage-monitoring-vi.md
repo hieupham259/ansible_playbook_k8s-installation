@@ -5,8 +5,8 @@
 Để co giãn (scale) một ứng dụng và cung cấp một dịch vụ đáng tin cậy, bạn cần hiểu ứng dụng
 hành xử như thế nào khi nó được triển khai. Bạn có thể xem xét hiệu năng của ứng dụng trong một
 cluster Kubernetes bằng cách kiểm tra các container,
-[pod](https://kubernetes.io/docs/concepts/workloads/pods/),
-[service](https://kubernetes.io/docs/concepts/services-networking/service/), và
+[pod](46-pods-vi.md),
+[service](82-service-vi.md), và
 các đặc tính của toàn bộ cluster. Kubernetes cung cấp thông tin chi tiết về mức sử dụng tài
 nguyên của ứng dụng ở từng cấp độ này. Thông tin này cho phép bạn đánh giá hiệu năng của ứng
 dụng và xác định nơi có thể loại bỏ các điểm nghẽn (bottleneck) để cải thiện hiệu năng tổng thể.
@@ -80,8 +80,8 @@ cách triển khai tổng thể của nền tảng hạ tầng của bạn.
 
 Tìm hiểu về các công cụ gỡ lỗi (debug) bổ sung, bao gồm:
 
-* [Logging](https://kubernetes.io/docs/concepts/cluster-administration/logging/)
-* [Truy cập vào container qua `exec`](https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/)
+* [Logging](158-logging-vi.md)
+* [Truy cập vào container qua `exec`](304-get-shell-running-container-vi.md)
 * [Kết nối tới container qua proxy](https://kubernetes.io/docs/tasks/extend-kubernetes/http-proxy-access-api/)
-* [Kết nối tới container qua chuyển tiếp port (port forwarding)](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/)
-* [Kiểm tra node Kubernetes bằng crictl](https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/)
+* [Kết nối tới container qua chuyển tiếp port (port forwarding)](366-port-forward-vi.md)
+* [Kiểm tra node Kubernetes bằng crictl](307-crictl-vi.md)

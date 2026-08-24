@@ -13,7 +13,7 @@ người vận hành workload (workload operator). Trước khi đọc trang nà
 DRA hoạt động và với các thuật ngữ của DRA như
 ResourceClaim và ResourceClaimTemplate.
 Để biết thêm thông tin, xem
-[Cấp phát tài nguyên động (Dynamic Resource Allocation — DRA)](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/).
+[Cấp phát tài nguyên động (Dynamic Resource Allocation — DRA)](149-dynamic-resource-allocation-vi.md).
 
 ## Về việc cấp phát thiết bị bằng DRA (About device allocation with DRA) {#about-device-allocation-dra}
 
@@ -39,7 +39,7 @@ nhập `kubectl version`.
 
 * Hãy chắc chắn rằng quản trị viên cluster của bạn đã thiết lập DRA, gắn thiết bị và cài đặt
   driver. Để biết thêm thông tin, xem
-  [Thiết lập DRA trong một cluster](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/set-up-dra-cluster).
+  [Thiết lập DRA trong một cluster](271-set-up-dra-cluster-vi.md).
 
 ## Nhận diện thiết bị cần claim (Identify devices to claim) {#identify-devices}
 
@@ -78,7 +78,7 @@ ResourceClaim. Để tạo một ResourceClaim, hãy làm một trong các cách
   ResourceClaimTemplate nếu bạn muốn mỗi Pod có quyền truy cập vào các thiết bị riêng biệt
   nhưng có cấu hình tương tự nhau. Ví dụ, bạn có thể muốn truy cập đồng thời
   vào thiết bị cho các Pod trong một Job dùng
-  [thực thi song song (parallel execution)](https://kubernetes.io/docs/concepts/workloads/controllers/job/#parallel-jobs).
+  [thực thi song song (parallel execution)](67-job-vi.md#parallel-jobs).
 
 Nếu bạn tham chiếu trực tiếp một ResourceClaim cụ thể trong một Pod, ResourceClaim đó
 phải đã tồn tại trong cluster. Nếu ResourceClaim được tham chiếu không tồn tại,
@@ -264,4 +264,4 @@ bước sau:
 
 ## Tiếp theo (What's next)
 
-* [Tìm hiểu thêm về DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation)
+* [Tìm hiểu thêm về DRA](149-dynamic-resource-allocation-vi.md)

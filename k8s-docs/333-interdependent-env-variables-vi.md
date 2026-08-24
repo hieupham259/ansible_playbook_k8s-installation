@@ -107,5 +107,5 @@ Tham chiếu đã thoát không bao giờ được khai triển (expand), bất 
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [biến môi trường](https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/).
+* Tìm hiểu thêm về [biến môi trường](336-env-variable-expose-pod-info-vi.md).
 * Xem [EnvVarSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#envvarsource-v1-core).

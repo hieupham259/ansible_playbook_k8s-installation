@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 12](LO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 3/8 ·
+**Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 3/8 ·
 Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này **trả lời một câu hỏi bạn đã ôm từ Lab 00**. Ở mục
@@ -237,8 +237,8 @@ cho các daemon quan trọng của hệ thống. Xem phần liên quan trong m�
 
 ### Volume dựa trên bộ nhớ (Memory-backed volumes) {#memory-backed-volumes}
 
-Trên các node Linux, các volume dựa trên bộ nhớ (chẳng hạn các volume mount kiểu [`secret`](https://kubernetes.io/docs/concepts/configuration/secret/),
-hoặc [`emptyDir`](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir) với `medium: Memory`)
+Trên các node Linux, các volume dựa trên bộ nhớ (chẳng hạn các volume mount kiểu [`secret`](109-secret-vi.md),
+hoặc [`emptyDir`](91-volumes-vi.md#emptydir) với `medium: Memory`)
 được cài đặt bằng hệ thống tệp `tmpfs`.
 Nội dung của những volume như vậy phải luôn nằm trong bộ nhớ, do đó không nên
 bị hoán đổi (swap) xuống đĩa.
@@ -260,7 +260,7 @@ các phiên bản Linux cũ hơn.
   * Nếu tùy chọn `noswap` không được hỗ trợ, kubelet sẽ phát ra một mục log cảnh báo,
     rồi tiếp tục chạy.
 
-Xem [phần ở trên](#setting-up-encrypted-swap) với ví dụ về thiết lập swap không mã hóa.
+Xem [phần tương ứng ở trang gốc](https://kubernetes.io/docs/concepts/cluster-administration/swap-memory-management/#setting-up-encrypted-swap) với ví dụ về thiết lập swap không mã hóa.
 Tuy nhiên, việc xử lý swap đã mã hóa không nằm trong phạm vi của kubelet;
 đúng hơn, đó là vấn đề cấu hình chung của hệ điều hành và cần được giải quyết ở mức đó.
 Việc cấp phát swap đã mã hóa để giảm thiểu rủi ro này là trách nhiệm của quản trị viên.

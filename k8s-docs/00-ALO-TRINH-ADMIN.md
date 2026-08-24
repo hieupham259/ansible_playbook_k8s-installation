@@ -1,6 +1,9 @@
 ﻿# Lộ trình học Kubernetes Administrator
 
-Giáo trình đọc **185 bài dịch** trong thư mục này theo thứ tự dành cho người muốn trở thành Kubernetes administrator.
+Giáo trình đọc **364 bài dịch** trong thư mục này theo thứ tự dành cho người muốn trở thành Kubernetes administrator. Chúng chia làm hai phần:
+
+- **185 bài khái niệm** (số `00`–`185`, nhánh `/docs/concepts/` và `/docs/setup/`) — mạch chính, giai đoạn 1 đến 15 dưới đây.
+- **179 bài thực hành** (số `186` trở lên, nhánh `/docs/tasks/`) — đã dịch xong và **nằm ngay trong mạch chính**: mỗi giai đoạn có khối **Thực hành** đặt sau phần lý thuyết và trước lab. Riêng nhóm vận hành cluster nằm ở [Checkpoint tiếp nối](#checkpoint-tiếp-nối--nhánh-docstasks) cuối file. Danh mục theo chủ đề ở [Phần 15–23 của README](README.md).
 
 > **Số trong tên file KHÔNG phải thứ tự đọc.** Số chỉ là mã định danh bám theo cấu trúc mục của kubernetes.io (để dễ đối chiếu khi trang gốc cập nhật). Thứ tự đọc là thứ tự các bài xuất hiện trong file này. Xem [README.md](README.md) nếu muốn tra cứu theo chủ đề thay vì theo lộ trình.
 
@@ -17,6 +20,66 @@ hết nhóm bài đứng trên nó. Bản đồ lab, chuỗi snapshot và sổ n
 Phần thực hành vận hành thực tế (upgrade, backup etcd, drain node, xử lý sự cố…) nằm ở [Checkpoint tiếp nối](#checkpoint-tiếp-nối--nhánh-docstasks) ở cuối file.
 
 ---
+
+## Sổ nợ lộ trình
+
+Tám phần dưới đây **cố ý chưa thực hành ngay tại chỗ đọc**, vì thứ cần cho chúng thuộc giai
+đoạn sau. Bảng này để bạn không bỏ sót: đọc xong một bài có nợ thì biết nợ đó nằm ở đâu, và
+khi tới chỗ trả thì biết phải quay lại đọc gì.
+
+Trong toàn file, hai dấu sau đánh ngay tại chỗ:
+
+- **⏳ Nợ #N** — đặt ở nơi nợ phát sinh, nói rõ phần nào bị hoãn và trả ở đâu.
+- **✅ Trả nợ #N** — đặt ở nơi nợ được trả, kèm yêu cầu đọc lại bài gốc trước khi làm.
+
+Grep `⏳ Nợ` để thấy toàn bộ chỗ phát sinh, `✅ Trả nợ` để thấy toàn bộ chỗ trả.
+
+| # | Món nợ | Phát sinh ở | Bị chặn bởi | Trả ở |
+| --- | --- | --- | --- | --- |
+| 1 | Thực hành HPA và VPA | [Giai đoạn 4](#giai-đoạn-4--workload-controller), bài [72](72-horizontal-pod-autoscale-vi.md), [73](73-vertical-pod-autoscale-vi.md) | metrics-server (giai đoạn 11) | [Lab 11b](#giai-đoạn-11--observability) |
+| 2 | `volumeClaimTemplates` của StatefulSet | [Giai đoạn 4](#giai-đoạn-4--workload-controller), bài [65](65-statefulset-vi.md) | StorageClass + provisioner (giai đoạn 6) | [Lab 6a](#giai-đoạn-6--lưu-trữ) |
+| 3 | Service headless quản trị cho StatefulSet | [Giai đoạn 4](#giai-đoạn-4--workload-controller), bài [65](65-statefulset-vi.md) | Service headless (giai đoạn 5) | [Lab 5a](#giai-đoạn-5--mạng-nền-tảng) |
+| 4 | NetworkPolicy được thực thi thật | [Giai đoạn 5](#giai-đoạn-5--mạng-nền-tảng), bài [84](84-network-policies-vi.md) | CNI hỗ trợ policy thay Flannel | [Lab 5b](#giai-đoạn-5--mạng-nền-tảng) |
+| 5 | Ảnh chụp nhanh và nhân bản volume | [Giai đoạn 6](#giai-đoạn-6--lưu-trữ), bài [99](99-volume-snapshots-vi.md)–[101](101-volume-pvc-datasource-vi.md) | CSI driver có hỗ trợ snapshot | [Lab 6b](#giai-đoạn-6--lưu-trữ) |
+| 6 | Mã hóa Secret at rest | [Giai đoạn 3b](#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài [109](109-secret-vi.md) | sửa cấu hình apiserver | [CP7](#cp7--audit-và-mã-hóa-dữ-liệu) |
+| 7 | Quản lý vòng đời certificate | [Giai đoạn 12](#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài [156](156-certificates-vi.md) | quy trình `kubeadm certs` | [CP3](#cp3--vòng-đời-chứng-chỉ) |
+| 8 | Backup và restore etcd | [Giai đoạn 8](#giai-đoạn-8--dựng-cluster-bằng-kubeadm) | `etcdctl` và quy trình khôi phục | [CP4](#cp4--etcd-backup-và-khôi-phục-thảm-họa) |
+| 9 | Hai khối *Đọc bài này thế nào* và *Tự kiểm tra* cho 135 bài nhánh `/docs/tasks/` | mọi mục có dấu ⏳ — các khối **Thực hành** của từng giai đoạn và [CP1–CP12](#checkpoint-tiếp-nối--nhánh-docstasks) | công sức viết, không phải kiến thức — bài đọc được ngay | **trả tại chỗ**, ngay trước khi đọc bài mang dấu ⏳ |
+
+**Quy tắc:** không đánh dấu một giai đoạn là xong khi nợ của nó chưa trả. Nợ #1–#5 trả trong
+phần lab (giai đoạn 5, 6, 11); nợ #6–#8 trả ở Checkpoint tiếp nối cuối file; nợ #9 trả rải rác,
+ngay tại chỗ. Bảng tương ứng phía lab nằm ở [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) — hai bảng
+phải khớp nhau.
+
+### Nợ #9 — Hai khối hướng dẫn đọc cho nhánh `/docs/tasks/`
+
+185 bài khái niệm (số `00`–`185`) đều đã có hai khối **Đọc bài này thế nào** và
+**Tự kiểm tra**. Nhánh thực hành `/docs/tasks/` thì chưa: **135/178 bài còn thiếu**.
+
+**Dấu hiệu nhận biết:** dòng bài kết thúc bằng **⏳**. Mỗi mục có bài thiếu đều mở đầu bằng
+một dòng đếm `⏳ Nợ #9 — N/M bài…`, nên bạn biết trước khi vào mục đó còn bao nhiêu bài chưa
+có phần định hướng.
+
+**Nợ này khác bảy nợ trên.** Nợ #1–#8 là *chưa thực hành được* vì thiếu hạ tầng hoặc thiếu
+kiến thức của giai đoạn sau. Nợ #9 chỉ là *chưa viết xong phần phụ trợ*: bản dịch đã đầy đủ và
+đọc được ngay, chỉ thiếu phần nói cho bạn biết **cần hiểu sâu tới đâu ở lần đọc này** và bộ câu
+tự kiểm tra. Vì vậy nó **không chặn** việc học — không được lấy nó làm cớ bỏ qua bài.
+
+**Cách trả:** khi lộ trình dẫn bạn tới một bài mang dấu ⏳, viết hai khối cho đúng bài đó rồi
+mới đọc. Viết ngay lúc sắp học là đúng thời điểm nhất — bạn đang ở đúng ngữ cảnh mà khối đó
+phục vụ. Quy tắc về khuôn, vị trí đặt khối và yêu cầu với câu hỏi nằm ở mục
+*Khối "Đọc bài này thế nào" và "Tự kiểm tra"* trong [CLAUDE.md](../CLAUDE.md). Hai bài dùng làm
+mẫu: [197](197-configure-upgrade-etcd-vi.md) và [221](221-kubeadm-upgrade-vi.md).
+
+**Bắt buộc:** đọc trọn bài trước khi viết khối cho nó. Không suy nội dung từ tên file hay từ
+kiến thức chung về Kubernetes — mọi mục được nhắc tên trong khối phải có thật trong bài.
+
+Kiểm tra còn bao nhiêu bài chưa trả:
+
+```bash
+cd k8s-docs && for f in *-vi.md; do n=${f%%-*}; [ "$n" -gt 185 ] 2>/dev/null || continue; \
+  grep -q "^## Đọc bài này thế nào" "$f" || echo "$f"; done | wc -l
+```
 
 ## Môi trường lab
 
@@ -110,6 +173,8 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 ### 1b. Làm việc với object và kubectl
 
+> ⏳ **Nợ #9 — 8/12 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
 - [ ] [Tên và ID của đối tượng](17-names-vi.md) — quy tắc đặt tên DNS subdomain/label, UID.
 - [ ] [Label và Selector](18-labels-vi.md) — bài quan trọng nhất nhóm này; selector là cơ chế mọi controller và Service dùng để tìm Pod.
 - [ ] [Annotations](20-annotations-vi.md) — phân biệt rõ với label: annotation không dùng để chọn object.
@@ -119,9 +184,29 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Tổ chức quyền truy cập cluster bằng file kubeconfig](111-kubeconfig-vi.md) — context, cluster, user; cần cho mọi thao tác về sau.
 - [ ] [Quản lý object trong Kubernetes](27-object-management-vi.md) — trọng tâm: khác biệt giữa imperative, declarative (`apply`) và khi nào dùng cái nào.
 - [ ] [Field selector](28-field-selectors-vi.md) — bổ sung cho label selector khi lọc theo trường.
+
+#### Thực hành 1b
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Cài đặt và thiết lập kubectl trên Linux](186-install-kubectl-linux-vi.md) ⏳
+- [ ] [Cài đặt và thiết lập kubectl trên macOS](187-install-kubectl-macos-vi.md)
+- [ ] [Cài đặt và thiết lập kubectl trên Windows](188-install-kubectl-windows-vi.md)
+- [ ] [Quản lý các đối tượng Kubernetes](318-manage-kubernetes-objects-vi.md) ⏳
+- [ ] [Quản lý object Kubernetes bằng lệnh imperative](320-imperative-command-vi.md)
+- [ ] [Quản lý object Kubernetes theo kiểu imperative bằng file cấu hình](321-imperative-config-vi.md)
+- [ ] [Quản lý object Kubernetes theo kiểu khai báo bằng file cấu hình](319-declarative-config-vi.md) ⏳
+- [ ] [Quản lý object Kubernetes theo kiểu khai báo bằng Kustomize](322-kustomization-vi.md) ⏳
+- [ ] [Cập nhật đối tượng API tại chỗ bằng kubectl patch](324-kubectl-patch-vi.md) ⏳
+- [ ] [Cấu hình truy cập nhiều cluster](361-configure-access-multiple-clusters-vi.md) ⏳
+- [ ] [Liệt kê tất cả Container image đang chạy trong Cluster](365-list-running-container-images-vi.md) ⏳
+- [ ] [Sử dụng Port Forwarding để truy cập ứng dụng trong Cluster](366-port-forward-vi.md) ⏳
+
 - [ ] 🧪 [Lab 1b — Object, label, kubectl và kubeconfig](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md) — thực hành name/UID, namespace, label/annotation, ba kỹ thuật quản lý object, kubeconfig và field selector. Lab này đóng phần `kubectl apply -f pod.yaml` và label selector trong checkpoint giai đoạn 1.
 
 ### 1c. Vòng đời và cơ chế nền của object
+
+> ⏳ **Nợ #9 — 2/4 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
 
 - [ ] [Finalizers](29-finalizers-vi.md) — vì sao một object xóa mãi không đi.
 - [ ] [Đối tượng sở hữu và đối tượng phụ thuộc](30-owners-dependents-vi.md) — owner reference.
@@ -130,6 +215,16 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Các phiên bản lưu trữ](32-storage-version-vi.md) — object được lưu trong etcd ở version nào.
 - [ ] [Proxy phiên bản hỗn hợp](37-mixed-version-proxy-vi.md) — đọc lướt, chỉ cần biết tồn tại khi cluster có nhiều version apiserver.
 - [ ] [Cloud Controller Manager](34-cloud-controller-vi.md) — nếu chạy on-premise thì đọc để biết phần nào **không** có.
+
+#### Thực hành 1c
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Sử dụng xóa theo tầng trong Cluster](260-use-cascading-deletion-vi.md) ⏳
+- [ ] [Di trú object Kubernetes bằng Storage Version Migration](323-storage-version-migration-vi.md)
+- [ ] [Phát triển Cloud Controller Manager](203-developing-cloud-controller-manager-vi.md)
+- [ ] [Quản trị Cloud Controller Manager](254-running-cloud-controller-vi.md) ⏳
+
 - [ ] 🧪 [Lab 1c — Vòng đời và cơ chế nền của object](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md) — thực hành finalizer, owner/dependent, garbage collection và Lease; quan sát đúng giới hạn của storage version, Mixed Version Proxy và cloud controller trên cluster self-managed.
 
 **Checkpoint:** giải thích được đường đi của `kubectl apply -f pod.yaml` từ lúc gõ lệnh đến khi container chạy, kể tên từng thành phần tham gia. Dùng `kubectl explain`, `kubectl get -o yaml`, label selector và `-n` thành thạo trên cluster lab đã chuẩn bị ở đầu lộ trình.
@@ -148,6 +243,19 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Giới thiệu về cgroup v2](33-cgroups-vi.md) — nền tảng của mọi giới hạn tài nguyên học ở giai đoạn 3.
 - [ ] [Runtime Class](43-runtime-class-vi.md) — chọn runtime khác nhau cho từng workload.
 - [ ] [Các container runtime](00-container-runtimes-vi.md) — **đọc lý thuyết ở đây** (đặc biệt mục cgroup driver: kubelet và runtime phải khớp nhau). Phần cài đặt thực tế để dành làm cùng giai đoạn 8.
+
+### Thực hành giai đoạn 2
+
+> ⏳ **Nợ #9 — 5/5 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Cấu hình một kubelet image credential provider](225-kubelet-credential-provider-vi.md) ⏳
+- [ ] [Pull image từ một private registry](287-pull-image-private-registry-vi.md) ⏳
+- [ ] [Sử dụng Image Volume với một Pod](285-image-volumes-vi.md) ⏳
+- [ ] [Chuyển từ polling sang cập nhật trạng thái container dựa trên sự kiện CRI](257-switch-to-evented-pleg-vi.md) ⏳
+- [ ] [Chuyển đổi file Docker Compose thành tài nguyên Kubernetes](294-translate-compose-kubernetes-vi.md) ⏳
+
 - [ ] 🧪 **Lab 2 — Container, image, CRI và cgroup** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 **Checkpoint:** trên một máy Linux, giải thích được `containerd` và `runc` khác nhau chỗ nào, kiểm tra được cgroup version của máy, và nói được hậu quả khi kubelet dùng `systemd` còn runtime dùng `cgroupfs`.
@@ -160,6 +268,8 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 ### 3a. Pod và vòng đời
 
+> ⏳ **Nợ #9 — 11/11 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
 - [ ] [Workload](45-workloads-vi.md)
 - [ ] [Pod](46-pods-vi.md)
 - [ ] [Vòng đời của Pod](47-pod-lifecycle-vi.md) — bài xương sống: phase, trạng thái container, `restartPolicy`, chấm dứt êm và `terminationGracePeriodSeconds`.
@@ -171,18 +281,74 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Không gian tên người dùng](55-user-namespaces-vi.md)
 - [ ] [Downward API](56-downward-api-vi.md)
 - [ ] [Cấu hình Pod nâng cao](60-advanced-pod-config-vi.md)
+
+#### Thực hành 3a
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Cấu hình Pod và Container](262-configure-pod-container-vi.md) ⏳
+- [ ] [Cấu hình các probe Liveness, Readiness và Startup](274-configure-probes-vi.md) ⏳
+- [ ] [Cấu hình khởi tạo Pod](276-configure-pod-initialization-vi.md) ⏳
+- [ ] [Gắn handler vào các sự kiện vòng đời của Container](272-attach-handler-lifecycle-event-vi.md) ⏳
+- [ ] [Chia sẻ Process Namespace giữa các Container trong một Pod](292-share-process-namespace-vi.md) ⏳
+- [ ] [Tạo static Pod](293-static-pod-tasks-vi.md) ⏳
+- [ ] [Sử dụng user namespace với Pod](295-user-namespaces-tasks-vi.md) ⏳
+- [ ] [Chạy các thành phần Node của Kubernetes dưới người dùng không phải root](226-kubelet-in-userns-vi.md) ⏳
+- [ ] [Giao tiếp giữa các Container trong cùng Pod bằng Volume dùng chung](360-containers-shared-volume-vi.md) ⏳
+- [ ] [Expose thông tin Pod cho container thông qua file](335-downward-api-volume-vi.md) ⏳
+- [ ] [Expose thông tin Pod cho container thông qua biến môi trường](336-env-variable-expose-pod-info-vi.md) ⏳
+
 - [ ] 🧪 **Lab 3a — Pod và vòng đời** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
-### 3b. Cấu hình và tài nguyên
+### 3b. Cấu hình ứng dụng: ConfigMap, Secret và dữ liệu cho Pod
+
+> ⏳ **Nợ #9 — 11/11 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
 
 - [ ] [Cấu hình](107-configuration-vi.md)
 - [ ] [ConfigMap](108-configmap-vi.md)
-- [ ] [Secret](109-secret-vi.md) — trọng tâm: Secret **chỉ mã hóa base64**, không phải mã hóa thật; encryption at rest sẽ làm ở phần tasks.
+- [ ] [Secret](109-secret-vi.md) — trọng tâm: Secret **chỉ mã hóa base64**, không phải mã hóa thật. ⏳ **Nợ #6** — encryption at rest chưa làm được ở đây vì phải sửa cấu hình apiserver; trả ở [CP7](#cp7--audit-và-mã-hóa-dữ-liệu).
+
+#### Thực hành 3b
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Cấu hình một Pod để sử dụng ConfigMap](275-configure-pod-configmap-vi.md) ⏳
+- [ ] [Quản lý Secret](325-configmap-secret-vi.md) ⏳
+- [ ] [Quản lý Secret bằng file cấu hình](326-secret-config-file-vi.md) ⏳
+- [ ] [Quản lý Secret bằng kubectl](327-secret-kubectl-vi.md) ⏳
+- [ ] [Quản lý Secret bằng Kustomize](328-secret-kustomize-vi.md) ⏳
+- [ ] [Đưa dữ liệu vào ứng dụng](329-inject-data-application-vi.md) ⏳
+- [ ] [Định nghĩa command và argument cho container](330-define-command-argument-vi.md) ⏳
+- [ ] [Định nghĩa biến môi trường cho một Container](331-define-environment-variable-vi.md) ⏳
+- [ ] [Định nghĩa giá trị biến môi trường bằng một Init Container](332-define-env-via-file-vi.md) ⏳
+- [ ] [Định nghĩa các biến môi trường phụ thuộc](333-interdependent-env-variables-vi.md) ⏳
+- [ ] [Phân phối thông tin xác thực một cách an toàn bằng Secret](334-distribute-credentials-secure-vi.md) ⏳
+
+- [ ] 🧪 **Lab 3b — Cấu hình ứng dụng** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Phần mã hóa Secret at rest là [nợ #6](#sổ-nợ-lộ-trình), trả ở [CP7](#cp7--audit-và-mã-hóa-dữ-liệu).
+
+### 3c. Tài nguyên, QoS và gián đoạn
+
+> ⏳ **Nợ #9 — 8/8 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
 - [ ] [Quản lý tài nguyên cho Pod và Container](110-manage-resources-containers-vi.md) — **bài bắt buộc phải chắc**: `requests` quyết định lập lịch, `limits` quyết định giới hạn thực thi. Toàn bộ QoS, eviction và scheduling phía sau đều dựa vào bài này.
 - [ ] [Các lớp chất lượng dịch vụ của Pod](54-pod-qos-vi.md) — Guaranteed/Burstable/BestEffort suy ra trực tiếp từ requests và limits.
 - [ ] [Sự gián đoạn](53-disruptions-vi.md) — gián đoạn tự nguyện vs không tự nguyện, PodDisruptionBudget.
 - [ ] [Pod tĩnh](58-static-pods-vi.md) — kubelet tự quản; chính là cách control plane của kubeadm chạy, cần cho giai đoạn 8.
-- [ ] 🧪 **Lab 3b — Cấu hình và tài nguyên** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Phần mã hóa Secret at rest là [nợ lab](labs/README.md#5-sổ-nợ-lab), trả ở CP7.
+
+#### Thực hành 3c
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Gán tài nguyên CPU cho Container và Pod](263-assign-cpu-resource-vi.md) ⏳
+- [ ] [Gán tài nguyên memory cho Container và Pod](264-assign-memory-resource-vi.md) ⏳
+- [ ] [Gán tài nguyên CPU và memory ở cấp Pod](265-assign-pod-level-resources-vi.md) ⏳
+- [ ] [Cấu hình Quality of Service cho Pod](288-quality-service-pod-vi.md) ⏳
+- [ ] [Thay đổi kích thước tài nguyên CPU và Memory được gán cho Container](289-resize-container-resources-vi.md) ⏳
+- [ ] [Thay đổi kích thước tài nguyên CPU và Memory được gán cho Pod](290-resize-pod-resources-vi.md) ⏳
+- [ ] [Gán Extended Resource cho một Container](284-extended-resource-vi.md) ⏳
+- [ ] [Chỉ định Disruption Budget cho ứng dụng của bạn](339-configure-pdb-vi.md) — thực hành trực tiếp bài [53](53-disruptions-vi.md); dùng lại ở [CP1](#cp1--vòng-đời-node). ⏳
+
+- [ ] 🧪 **Lab 3c — Tài nguyên, QoS và gián đoạn** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 **Checkpoint:** viết tay một Pod manifest có init container, sidecar, readiness + liveness probe, requests/limits, mount ConfigMap và Secret. Cố ý đặt request vượt sức node để thấy Pod `Pending`, rồi đọc `kubectl describe` tìm lý do. Xác định QoS class của 3 Pod khác nhau chỉ bằng cách nhìn manifest.
 
@@ -192,21 +358,56 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Mục tiêu:** hiểu các controller vận hành Pod thay bạn, và cơ chế rollout/rollback.
 
+### 4a. ReplicaSet, Deployment và rollout
+
+> ⏳ **Nợ #9 — 4/4 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
 - [ ] [Quản lý Workload — trang mục các controller](62-controllers-index-vi.md)
 - [ ] [ReplicaSet](64-replicaset-vi.md) — **đọc trước Deployment**, vì Deployment vận hành thông qua ReplicaSet.
 - [ ] [Deployment](63-deployment-vi.md) — bài dài nhất bộ tài liệu. Trọng tâm: rollout, rollback, chiến lược RollingUpdate/Recreate, `maxSurge`/`maxUnavailable`, revision history.
-- [ ] [StatefulSets](65-statefulset-vi.md) — trọng tâm: định danh ổn định, thứ tự khởi tạo, `volumeClaimTemplates` (phần volume sẽ rõ hơn sau giai đoạn 6).
+- [ ] [Quản lý Workload — vận hành bằng kubectl](61-management-vi.md) — tổ chức manifest, `kubectl apply` theo nhóm, canary thủ công.
+- [ ] **Đọc như tài liệu lịch sử:** [ReplicationController](70-replicationcontroller-vi.md) — tiền thân của ReplicaSet, không dùng cho hệ thống mới. Chỉ cần biết nó tồn tại khi gặp cluster cũ.
+
+#### Thực hành 4a
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Chạy ứng dụng](337-run-application-vi.md) ⏳
+- [ ] [Chạy một ứng dụng Stateless bằng Deployment](345-run-stateless-application-vi.md) ⏳
+- [ ] [Scale thủ công theo chiều ngang cho một Deployment](346-scale-deployment-vi.md) ⏳
+- [ ] [Cập nhật một Deployment mà không gây gián đoạn](348-update-deployment-rolling-vi.md) ⏳
+
+- [ ] 🧪 **Lab 4a — ReplicaSet, Deployment và rollout** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
+
+### 4b. StatefulSet, DaemonSet, Job và autoscaling
+
+> ⏳ **Nợ #9 — 9/9 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+- [ ] [StatefulSets](65-statefulset-vi.md) — trọng tâm: định danh ổn định, thứ tự khởi tạo, `volumeClaimTemplates`. ⏳ **Nợ #2 và #3** — `volumeClaimTemplates` cần StorageClass (giai đoạn 6) nên trả ở [Lab 6a](#giai-đoạn-6--lưu-trữ); Service headless quản trị cần bài Service (giai đoạn 5) nên trả ở [Lab 5a](#giai-đoạn-5--mạng-nền-tảng). Ở đây chỉ đọc.
 - [ ] [DaemonSet](66-daemonset-vi.md) — mô hình mọi node một Pod; CNI và log agent đều chạy kiểu này.
 - [ ] [Jobs](67-job-vi.md) — trọng tâm: `completions`, `parallelism`, `backoffLimit`; các mục Pod failure policy và Elastic Indexed Job đọc lướt lần đầu.
 - [ ] [Tự động dọn dẹp các Job đã hoàn thành](68-ttlafterfinished-vi.md)
 - [ ] [CronJob](69-cron-jobs-vi.md) — trọng tâm: `concurrencyPolicy`, `startingDeadlineSeconds`.
-- [ ] [Khả năng tự phục hồi của Kubernetes](38-self-healing-vi.md) — đọc ở đây (không phải giai đoạn 1) vì nội dung dựa trên Deployment, ReplicaSet, StatefulSet vừa học.
-- [ ] [Quản lý Workload — vận hành bằng kubectl](61-management-vi.md) — tổ chức manifest, `kubectl apply` theo nhóm, canary thủ công.
 - [ ] [Tự động co giãn Workload](71-autoscaling-vi.md)
-- [ ] [Tự động co giãn Pod theo chiều ngang](72-horizontal-pod-autoscale-vi.md) — **chỉ đọc lý thuyết ở đây.** HPA cần metrics-server, mà metrics-server thuộc giai đoạn 11; phần thực hành nằm ở Lab 11b. Không cài metrics-server sớm để "chạy thử".
-- [ ] [Tự động co giãn Pod theo chiều dọc](73-vertical-pod-autoscale-vi.md) — như trên, thực hành ở Lab 11b.
-- [ ] **Đọc như tài liệu lịch sử:** [ReplicationController](70-replicationcontroller-vi.md) — tiền thân của ReplicaSet, không dùng cho hệ thống mới. Chỉ cần biết nó tồn tại khi gặp cluster cũ.
-- [ ] 🧪 **Lab 4 — Workload controller** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). StatefulSet chỉ thực hành phần định danh ổn định và thứ tự khởi tạo; `volumeClaimTemplates` và Service headless là [nợ lab](labs/README.md#5-sổ-nợ-lab), trả ở Lab 6a và 5a.
+- [ ] [Tự động co giãn Pod theo chiều ngang](72-horizontal-pod-autoscale-vi.md) — **chỉ đọc lý thuyết ở đây.** ⏳ **Nợ #1** — HPA cần metrics-server thuộc giai đoạn 11; thực hành ở [Lab 11b](#giai-đoạn-11--observability). Không cài metrics-server sớm để "chạy thử".
+- [ ] [Tự động co giãn Pod theo chiều dọc](73-vertical-pod-autoscale-vi.md) — như trên. ⏳ **Nợ #1**, thực hành ở [Lab 11b](#giai-đoạn-11--observability).
+- [ ] [Khả năng tự phục hồi của Kubernetes](38-self-healing-vi.md) — đọc ở đây (không phải giai đoạn 1) vì nội dung dựa trên Deployment, ReplicaSet, StatefulSet vừa học.
+
+#### Thực hành 4b
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Scale một StatefulSet](347-scale-stateful-set-vi.md) ⏳
+- [ ] [Xóa một StatefulSet](340-delete-stateful-set-vi.md) ⏳
+- [ ] [Xóa cưỡng bức Pod của StatefulSet](341-force-delete-stateful-set-pod-vi.md) ⏳
+- [ ] [Chạy Job](349-job-tasks-vi.md) ⏳
+- [ ] [Chạy các tác vụ tự động với CronJob](350-automated-tasks-cron-jobs-vi.md) ⏳
+- [ ] [Xử lý song song thô sử dụng hàng đợi công việc](351-coarse-parallel-work-queue-vi.md) ⏳
+- [ ] [Xử lý song song mịn sử dụng hàng đợi công việc](352-fine-parallel-work-queue-vi.md) ⏳
+- [ ] [Indexed Job để xử lý song song với phân công việc tĩnh](353-indexed-parallel-processing-vi.md) ⏳
+- [ ] [Xử lý song song bằng cách khai triển template](355-parallel-processing-expansion-vi.md) ⏳
+
+- [ ] 🧪 **Lab 4b — StatefulSet, DaemonSet và Job** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). StatefulSet chỉ thực hành phần định danh ổn định và thứ tự khởi tạo. ⏳ **Nợ #2** (`volumeClaimTemplates`) trả ở [Lab 6a](#giai-đoạn-6--lưu-trữ), ⏳ **nợ #3** (Service headless) trả ở [Lab 5a](#giai-đoạn-5--mạng-nền-tảng), ⏳ **nợ #1** (HPA/VPA) trả ở [Lab 11b](#giai-đoạn-11--observability). Không đóng giai đoạn 4 khi ba nợ này còn treo — xem [Sổ nợ lộ trình](#sổ-nợ-lộ-trình).
 
 **Checkpoint:** tạo Deployment 3 replica, thực hiện rolling update, theo dõi `kubectl rollout status`, rồi rollback về revision trước. Xóa thủ công một Pod và quan sát ReplicaSet tạo lại. Giải thích được vì sao StatefulSet không thể thay bằng Deployment cho database.
 
@@ -221,11 +422,23 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [EndpointSlices](83-endpoint-slices-vi.md) — Service tìm Pod qua đây.
 - [ ] [DNS cho Service và Pod](10-dns-pod-service-vi.md) — trọng tâm: dạng FQDN `svc.namespace.svc.cluster.local`, `search` domain và `ndots:5` trong `/etc/resolv.conf`.
 - [ ] [Hostname của Pod](57-pod-hostname-vi.md) — `hostname`/`subdomain`, dùng với headless Service.
-- [ ] [Chính sách mạng](84-network-policies-vi.md) — trọng tâm: mặc định là cho phép tất cả; policy chỉ có tác dụng khi CNI hỗ trợ.
+- [ ] [Chính sách mạng](84-network-policies-vi.md) — trọng tâm: mặc định là cho phép tất cả; policy chỉ có tác dụng khi CNI hỗ trợ. ⏳ **Nợ #4** — Flannel của baseline **không** thực thi NetworkPolicy, nên policy viết ở đây chưa chặn được gì thật; trả ở [Lab 5b](#giai-đoạn-5--mạng-nền-tảng).
 - [ ] [Định tuyến nhận biết topology](86-topology-aware-routing-vi.md)
 - [ ] [Chính sách lưu lượng nội bộ của Service](87-service-traffic-policy-vi.md)
 - [ ] [Cấp phát ClusterIP cho Service](88-cluster-ip-allocation-vi.md)
-- [ ] 🧪 **Lab 5a — Service, EndpointSlice và DNS** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Trả nợ Service headless cho StatefulSet của giai đoạn 4.
+
+### Thực hành giai đoạn 5
+
+> ⏳ **Nợ #9 — 4/4 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Kết nối Frontend với Backend bằng Service](363-connecting-frontend-backend-vi.md) ⏳
+- [ ] [Tạo bộ cân bằng tải bên ngoài](364-create-external-load-balancer-vi.md) ⏳
+- [ ] [Cấu hình DNS cho một cluster](362-configure-dns-cluster-vi.md) ⏳
+- [ ] [Job với giao tiếp Pod-đến-Pod](354-job-pod-to-pod-communication-vi.md) — cần headless Service vừa học ở nhóm bài trên. ⏳
+
+- [ ] 🧪 **Lab 5a — Service, EndpointSlice và DNS** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). ✅ **Trả nợ #3 — Service headless quản trị cho StatefulSet**, phát sinh ở [giai đoạn 4](#giai-đoạn-4--workload-controller), bài [65](65-statefulset-vi.md). Đọc lại bài [65](65-statefulset-vi.md) trước khi làm phần đó.
 - [ ] [Ingress](11-ingress-vi.md) — trọng tâm: rule, path type, IngressClass, TLS.
 - [ ] [Ingress Controllers](12-ingress-controllers-vi.md) — không có controller thì Ingress vô nghĩa.
 - [ ] [Gateway API](13-gateway-vi.md) — hướng thay thế Ingress; đọc để biết định hướng tương lai.
@@ -236,7 +449,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Mạng trong cluster](157-networking-vi.md) — mô hình mạng ở góc nhìn quản trị và các cách hiện thực.
 - [ ] [Network Plugin](183-network-plugins-vi.md) — CNI; cần trước khi cài CNI thật ở giai đoạn 8.
 - [ ] [Các loại proxy trong Kubernetes](164-proxies-vi.md) — kube-proxy và các loại proxy khác.
-- [ ] 🧪 **Lab 5b — NetworkPolicy, Ingress và CNI** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Lab này **đổi CNI** sang loại có thực thi NetworkPolicy (Flannel của baseline không hỗ trợ) và cài ingress controller, rồi tạo snapshot `02-net-ready`.
+- [ ] 🧪 **Lab 5b — NetworkPolicy, Ingress và CNI** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Lab này **đổi CNI** sang loại có thực thi NetworkPolicy (Flannel của baseline không hỗ trợ) và cài ingress controller, rồi tạo snapshot `02-net-ready`. ✅ **Trả nợ #4 — NetworkPolicy được thực thi thật**, phát sinh ở bài [84](84-network-policies-vi.md) ngay trên. Đọc lại bài [84](84-network-policies-vi.md) trước khi làm.
 
 **Checkpoint:** expose một Deployment bằng ClusterIP rồi NodePort; từ trong một Pod dùng `nslookup`/`curl` gọi Service bằng tên ngắn và FQDN. Viết một NetworkPolicy chặn toàn bộ ingress vào một namespace rồi mở đúng một cổng. Giải thích được khác biệt giữa Service, Ingress và load balancer bên ngoài.
 
@@ -254,16 +467,28 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Volume dạng projected](93-projected-volumes-vi.md) — gộp ConfigMap, Secret, downwardAPI, service account token vào một mount.
 - [ ] [Volume tạm thời](94-ephemeral-volumes-vi.md)
 - [ ] [Lưu trữ tạm thời cục bộ](95-ephemeral-storage-vi.md) — liên quan trực tiếp tới eviction ở giai đoạn 7.
-- [ ] 🧪 **Lab 6a — PV, PVC và StorageClass** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Cài provisioner, tạo snapshot `03-storage-ready`, và trả nợ `volumeClaimTemplates` của StatefulSet ở giai đoạn 4.
+
+### Thực hành giai đoạn 6
+
+> ⏳ **Nợ #9 — 4/4 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Cấu hình Pod sử dụng projected Volume cho lưu trữ](277-configure-projected-volume-vi.md) ⏳
+- [ ] [Cấu hình Pod sử dụng Volume để lưu trữ](280-configure-volume-storage-vi.md) ⏳
+- [ ] [Chạy ứng dụng có trạng thái đơn thực thể](344-run-single-instance-stateful-vi.md) — cần StorageClass và provisioner của Lab 6a. ⏳
+- [ ] [Chạy ứng dụng có trạng thái được nhân bản](343-run-replicated-stateful-application-vi.md) — cần StorageClass và provisioner của Lab 6a. ⏳
+
+- [ ] 🧪 **Lab 6a — PV, PVC và StorageClass** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Cài provisioner và tạo snapshot `03-storage-ready`. ✅ **Trả nợ #2 — `volumeClaimTemplates` của StatefulSet**, phát sinh ở [giai đoạn 4](#giai-đoạn-4--workload-controller), bài [65](65-statefulset-vi.md). Đọc lại bài [65](65-statefulset-vi.md) trước khi làm phần đó.
 - [ ] [Lớp thuộc tính Volume](97-volume-attributes-classes-vi.md)
-- [ ] [Ảnh chụp nhanh Volume](99-volume-snapshots-vi.md)
+- [ ] [Ảnh chụp nhanh Volume](99-volume-snapshots-vi.md) — ⏳ **Nợ #5** bắt đầu từ đây và kéo tới bài [101](101-volume-pvc-datasource-vi.md): chỉ thực hành được nếu CSI driver đang dùng hỗ trợ snapshot; trả ở [Lab 6b](#giai-đoạn-6--lưu-trữ).
 - [ ] [Các lớp Volume Snapshot](100-volume-snapshot-classes-vi.md)
 - [ ] [Nhân bản CSI Volume](101-volume-pvc-datasource-vi.md)
 - [ ] [Volume Populator và Nguồn dữ liệu](102-volume-populators-vi.md)
 - [ ] [Dung lượng lưu trữ](103-storage-capacity-vi.md)
 - [ ] [Giới hạn volume theo từng Node](104-storage-limits-vi.md)
 - [ ] [Giám sát tình trạng volume](105-volume-health-monitoring-vi.md)
-- [ ] 🧪 **Lab 6b — Snapshot và volume nâng cao** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Phần snapshot/clone chỉ làm được nếu CSI driver đang dùng có hỗ trợ; nếu không thì giữ ở mức đọc và ghi vào sổ nợ.
+- [ ] 🧪 **Lab 6b — Snapshot và volume nâng cao** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). ✅ **Trả nợ #5 — ảnh chụp nhanh và nhân bản volume**, phát sinh ở bài [99](99-volume-snapshots-vi.md)–[101](101-volume-pvc-datasource-vi.md). Đọc lại ba bài đó trước khi làm. Nếu CSI driver không hỗ trợ snapshot thì nợ **chưa được trả** — ghi lại và giữ trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab).
 
 **Checkpoint:** tạo StorageClass, xin một PVC và mount vào Pod; xóa Pod rồi tạo lại, chứng minh dữ liệu còn nguyên. Thử `reclaimPolicy: Retain` và `Delete` để thấy khác biệt khi xóa PVC. Chạy một StatefulSet có `volumeClaimTemplates` và quan sát PVC sinh ra theo từng replica.
 
@@ -274,6 +499,8 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 **Mục tiêu:** điều khiển Pod chạy ở đâu, và bảo vệ cluster khỏi workload ngốn tài nguyên.
 
 ### 7a. Scheduling và eviction
+
+> ⏳ **Nợ #9 — 3/3 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
 
 - [ ] [Lập lịch, Preemption và Eviction](136-scheduling-eviction-vi.md)
 - [ ] [Bộ lập lịch của Kubernetes](137-kube-scheduler-vi.md) — chu trình filter rồi score.
@@ -288,6 +515,15 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Tinh chỉnh hiệu năng bộ lập lịch](146-scheduler-perf-tuning-vi.md) — đọc lướt, chỉ cần khi cluster rất lớn.
 - [ ] [Scheduling Framework](147-scheduling-framework-vi.md) — các điểm mở rộng của scheduler.
 - [ ] [Đóng gói tài nguyên](148-resource-bin-packing-vi.md)
+
+#### Thực hành 7a
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Gán Pod vào Node](267-assign-pods-nodes-vi.md) ⏳
+- [ ] [Gán Pod vào Node bằng Node Affinity](266-assign-pods-nodes-node-affinity-vi.md) ⏳
+- [ ] [Bảo đảm lập lịch cho các Pod add-on quan trọng](210-guaranteed-scheduling-critical-addon-pods-vi.md) ⏳
+
 - [ ] 🧪 **Lab 7a — Lập lịch và eviction** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 ### 7b. Chính sách giới hạn tài nguyên
@@ -298,6 +534,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Giới hạn và dự trữ Process ID](135-pid-limiting-vi.md)
 - [ ] [Các trình quản lý tài nguyên](74-resource-managers-vi.md) — CPU manager, memory manager, topology manager của kubelet.
 - [ ] [Tính năng do Node khai báo](154-node-declared-features-vi.md) — đọc lướt.
+
 - [ ] 🧪 **Lab 7b — Quota và giới hạn tài nguyên** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 **Checkpoint:** taint một node và chứng minh Pod thường không lên đó, rồi thêm toleration để lên được. Đặt ResourceQuota + LimitRange cho một namespace, thử tạo Pod vượt quota và đọc thông báo từ chối. Tạo tình huống node hết đĩa để quan sát eviction và thứ tự Pod bị trục xuất.
@@ -317,7 +554,16 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Tạo cluster có tính sẵn sàng cao với kubeadm](08-high-availability-vi.md) — cần load balancer đứng trước các API server.
 - [ ] [Hỗ trợ dual-stack với kubeadm](05-dual-stack-support-vi.md)
 - [ ] [Xử lý sự cố kubeadm](09-troubleshooting-kubeadm-vi.md) — **tài liệu tra cứu, không đọc tuần tự**. Đọc lướt mục lục một lần để biết có gì, rồi quay lại khi gặp lỗi.
-- [ ] 🧪 **Lab 8a — Dựng cluster bằng kubeadm** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Phá và dựng lại chính ba VM của chuỗi snapshot, kết thúc bằng restore về `03-storage-ready`.
+
+### Thực hành giai đoạn 8
+
+> ⏳ **Nợ #9 — 1/1 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Quản trị với kubeadm](214-kubeadm-tasks-vi.md) — trang mục; các bài con nằm ở [CP1–CP5](#checkpoint-tiếp-nối--nhánh-docstasks). ⏳
+
+- [ ] 🧪 **Lab 8a — Dựng cluster bằng kubeadm** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Phá và dựng lại chính ba VM của chuỗi snapshot, kết thúc bằng restore về `03-storage-ready`. ⏳ **Nợ #8** — dựng được cluster nhưng chưa có quy trình backup/restore etcd bằng `etcdctl`; trả ở [CP4](#cp4--etcd-backup-và-khôi-phục-thảm-họa). Cho tới lúc đó, việc khôi phục chỉ dựa vào snapshot VM.
 - [ ] 🧪 **Lab 8b — HA với stacked etcd** — chưa viết. Cần **bộ VM riêng** (3 control plane + 2 worker + 1 load balancer), snapshot tiền tố `8x-`.
 - [ ] 🧪 **Lab 8c — HA với external etcd** — chưa viết. Dựng trên bộ VM của lab 8b, bổ sung nhóm node etcd tách biệt.
 
@@ -341,6 +587,22 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Tài khoản dịch vụ](118-service-accounts-vi.md) — danh tính của Pod khi gọi API.
 - [ ] [Kiểm soát truy cập vào Kubernetes API](119-controlling-access-vi.md) — **bài xương sống**: authentication → authorization (RBAC) → admission control, đúng thứ tự ba chặng.
 - [ ] [Các thực hành tốt về kiểm soát truy cập dựa trên vai trò](120-rbac-good-practices-vi.md) — Role/ClusterRole, binding, nguyên tắc quyền tối thiểu.
+
+### Thực hành giai đoạn 9
+
+> ⏳ **Nợ #9 — 8/8 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Cấu hình Service Account cho Pod](279-configure-service-account-vi.md) ⏳
+- [ ] [Truy cập cluster](359-access-cluster-vi.md) — truy cập cluster qua proxy và client library; cần chặng xác thực vừa học ở bài [119](119-controlling-access-vi.md). ⏳
+- [ ] [Truy cập Kubernetes API từ một Pod](338-access-api-from-pod-vi.md) ⏳
+- [ ] [Cấu hình Security Context cho Pod hoặc Container](291-security-context-vi.md) ⏳
+- [ ] [Thực thi Pod Security Standards bằng cách cấu hình Admission Controller tích hợp sẵn](282-enforce-standards-admission-controller-vi.md) ⏳
+- [ ] [Thực thi Pod Security Standards bằng nhãn Namespace](283-enforce-standards-namespace-labels-vi.md) ⏳
+- [ ] [Di chuyển từ PodSecurityPolicy sang PodSecurity Admission Controller tích hợp sẵn](286-migrate-from-psp-vi.md) ⏳
+- [ ] [Sử dụng sysctl trong một cluster Kubernetes](258-sysctl-cluster-vi.md) ⏳
+
 - [ ] 🧪 **Lab 9a — ServiceAccount, authn/authz và RBAC** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 - [ ] [Chuẩn bảo mật Pod](115-pod-security-standards-vi.md) — ba profile Privileged/Baseline/Restricted.
 - [ ] [Cơ chế admission bảo mật Pod](116-pod-security-admission-vi.md) — áp ba profile trên vào namespace bằng label, chế độ enforce/audit/warn.
@@ -381,8 +643,23 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 - [ ] [Kiến trúc ghi log](158-logging-vi.md) — log ở mức container, node, cluster; mô hình sidecar và node agent.
 - [ ] [Log hệ thống](159-system-logs-vi.md) — log của kubelet và các thành phần control plane, mức verbosity.
 - [ ] [Trace cho các thành phần hệ thống Kubernetes](161-system-traces-vi.md)
+
+### Thực hành giai đoạn 11
+
+> ⏳ **Nợ #9 — 6/7 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Giám sát, ghi log và gỡ lỗi](296-debug-vi.md) ⏳
+- [ ] [Xử lý sự cố ứng dụng](297-debug-application-vi.md) ⏳
+- [ ] [Truy cập shell của một container đang chạy](304-get-shell-running-container-vi.md) ⏳
+- [ ] [Phát triển và debug service cục bộ bằng telepresence](309-local-debugging-vi.md)
+- [ ] [Ghi log trong Kubernetes](316-debug-logging-vi.md) ⏳
+- [ ] [Giám sát trong Kubernetes](317-debug-monitoring-vi.md) ⏳
+- [ ] [Hướng dẫn từng bước về HorizontalPodAutoscaler](342-hpa-walkthrough-vi.md) — ⏳ **Nợ #1**: cần metrics-server của Lab 11a, làm sau lab đó. Phần metrics-server đăng ký APIService chỉ cần biết là có; cơ chế aggregation giải thích ở bài [180](180-apiserver-aggregation-vi.md), giai đoạn 14. ⏳
+
 - [ ] 🧪 **Lab 11a — Observability** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Cài metrics-server và stack giám sát, tạo snapshot `04-metrics-ready`.
-- [ ] 🧪 **Lab 11b — HPA và VPA** — chưa viết. Đây là **lab trả nợ cho giai đoạn 4**: bài [72](72-horizontal-pod-autoscale-vi.md) và [73](73-vertical-pod-autoscale-vi.md) đã đọc lý thuyết từ giai đoạn 4 nhưng chỉ thực hành được sau khi có metrics-server ở lab 11a. Đọc lại hai bài đó trước khi làm.
+- [ ] 🧪 **Lab 11b — HPA và VPA** — chưa viết. ✅ **Trả nợ #1 — thực hành HPA và VPA**, phát sinh ở [giai đoạn 4](#giai-đoạn-4--workload-controller), bài [72](72-horizontal-pod-autoscale-vi.md) và [73](73-vertical-pod-autoscale-vi.md): đã đọc lý thuyết từ giai đoạn 4 nhưng chỉ thực hành được sau khi có metrics-server ở Lab 11a. **Đọc lại hai bài đó trước khi làm.**
 
 **Checkpoint:** triển khai metrics-server và chạy được `kubectl top node`/`kubectl top pod`. Triển khai một stack Prometheus + Grafana, thu metric từ kubelet và kube-state-metrics, dựng một dashboard và một alert (ví dụ node NotReady hoặc Pod CrashLoopBackOff). Gom log tập trung bằng một agent chạy dạng DaemonSet. Sau đó cho một Deployment tự co giãn bằng HPA dưới tải và quan sát số replica thay đổi — phần này đóng nốt checkpoint autoscaling của giai đoạn 4.
 
@@ -399,7 +676,18 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 - [ ] [Cài đặt các Add-on](165-addons-vi.md) — danh mục add-on theo nhóm chức năng.
 - [ ] [Phiên bản tương thích cho các thành phần Control Plane](168-compatibility-version-vi.md) — `--emulated-version`, hữu ích khi nâng cấp thận trọng.
 - [ ] [Bầu chọn leader có phối hợp](167-coordinated-leader-election-vi.md)
-- [ ] **Trang trỏ hướng:** [Chứng chỉ](156-certificates-vi.md) trong thư mục chỉ có 6 dòng, không thay thế được module quản lý certificate — phần đó nằm ở checkpoint tasks cuối file.
+- [ ] **Trang trỏ hướng:** [Chứng chỉ](156-certificates-vi.md) trong thư mục chỉ có 6 dòng, không thay thế được module quản lý certificate. ⏳ **Nợ #7** — kiểm tra hạn, gia hạn và xoay CA cần quy trình `kubeadm certs`; trả ở [CP3](#cp3--vòng-đời-chứng-chỉ). Đọc xong bài này đừng gạch chủ đề certificate ra khỏi danh sách.
+
+### Thực hành giai đoạn 12
+
+> ⏳ **Nợ #9 — 2/3 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Quản trị một Cluster](189-administer-cluster-vi.md) ⏳
+- [ ] [Truy cập cluster bằng Kubernetes API](190-access-cluster-api-vi.md) ⏳
+- [ ] [Di chuyển control plane được nhân bản sang dùng Cloud Controller Manager](198-controller-manager-leader-migration-vi.md)
+
 - [ ] 🧪 **Lab 12 — Vận hành vòng đời node** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 **Checkpoint:** mô phỏng bảo trì một node: cordon → drain → tắt máy → bật lại → uncordon, và quan sát workload dịch chuyển. Kiểm tra graceful node shutdown có được kích hoạt không.
@@ -425,6 +713,19 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 - [ ] [Preemption nhận biết workload](152-workload-aware-preemption-vi.md)
 - [ ] [Lập lịch workload nhận biết topology (scheduling)](153-topology-aware-scheduling-vi.md)
 - [ ] [Hướng dẫn tăng cường bảo mật — Cấu hình Scheduler](124-hardening-scheduler-vi.md) — phần hoãn lại từ giai đoạn 9.
+
+### Thực hành giai đoạn 13
+
+> ⏳ **Nợ #9 — 5/5 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Thiết lập DRA trong một cluster](271-set-up-dra-cluster-vi.md) ⏳
+- [ ] [Cấp phát thiết bị cho workload bằng DRA](270-allocate-devices-dra-vi.md) ⏳
+- [ ] [Truy cập metadata thiết bị DRA](269-access-dra-device-metadata-vi.md) ⏳
+- [ ] [Gán thiết bị cho Pod và Container](268-assign-resources-vi.md) ⏳
+- [ ] [Tăng cường bảo mật cho Cấp phát tài nguyên động trong cluster của bạn](211-hardening-dra-tasks-vi.md) ⏳
+
 - [ ] 🧪 **Lab 13 — DRA** (tùy chọn) — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Chỉ làm được nếu lab có GPU hoặc thiết bị chuyên dụng.
 
 **Checkpoint:** nếu cluster có GPU, cấp phát một GPU cho Pod bằng DRA. Nếu không, chỉ cần giải thích được DRA khác device plugin truyền thống ở điểm nào.
@@ -442,6 +743,12 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 - [ ] [Mẫu Operator](181-operator-vi.md) — CRD + controller; mô hình vận hành ứng dụng stateful phức tạp.
 - [ ] [Các phần mở rộng về Tính toán, Lưu trữ và Mạng](182-compute-storage-net-vi.md)
 - [ ] [Device Plugin](184-device-plugins-vi.md) — cách cũ để expose GPU/thiết bị, so sánh với DRA ở giai đoạn 13.
+### Thực hành giai đoạn 14
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Khắc phục sự cố Topology Management](313-debug-topology-vi.md) — cần [Device Plugin](184-device-plugins-vi.md) vừa học ở trên; hoãn từ giai đoạn 7b.
+
 - [ ] 🧪 **Lab 14 — CRD và Operator** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 **Đã đọc ở giai đoạn 5:** [Network Plugin](183-network-plugins-vi.md) — nếu cần xem lại trong ngữ cảnh mở rộng thì quay lại bài đó.
@@ -461,6 +768,18 @@ Bỏ qua hoàn toàn nếu cluster chỉ có Linux.
 - [ ] [Lưu trữ trên Windows](106-windows-storage-vi.md)
 - [ ] [Quản lý tài nguyên cho các node Windows](112-windows-resource-management-vi.md)
 - [ ] [Bảo mật cho các node Windows](131-windows-security-vi.md)
+
+### Thực hành giai đoạn 15
+
+> ⏳ **Nợ #9 — 3/4 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+> **Thực hành nhóm bài trên.** Làm sau khi đã đọc hết phần lý thuyết và **trước khi mở lab**. Đây là bài tập có lời giải sẵn của kubernetes.io (nhánh `/docs/tasks/`), không phải bài lý thuyết mới.
+
+- [ ] [Cấu hình GMSA cho Pod và container Windows](273-configure-gmsa-vi.md) ⏳
+- [ ] [Cấu hình RunAsUserName cho Pod và container Windows](278-configure-runasusername-vi.md) ⏳
+- [ ] [Tạo một Windows HostProcess Pod](281-create-hostprocess-pod-vi.md) ⏳
+- [ ] [Mẹo debug Windows](315-debug-windows-vi.md)
+
 - [ ] 🧪 **Lab 15 — Node Windows** (tùy chọn) — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Cần thêm một VM Windows Server.
 
 **Checkpoint:** join một node Windows vào cluster và chạy được một workload Windows có Service.
@@ -471,108 +790,138 @@ Bỏ qua hoàn toàn nếu cluster chỉ có Linux.
 
 Học hết 15 giai đoạn trên là bạn có **nền lý thuyết**. Phần dưới là **thực hành vận hành** — kỹ năng thực sự phân biệt người biết Kubernetes với người vận hành được Kubernetes, và cũng là phần chiếm tỷ trọng lớn nhất trong kỳ thi CKA.
 
-Các trang này **chưa được dịch** trong thư mục (thuộc nhánh `/docs/tasks/` của kubernetes.io, ~90 trang). Làm theo thứ tự checkpoint dưới đây, mỗi checkpoint làm trên cluster thật rồi mới sang checkpoint kế.
+Các trang này **đã có bản dịch** trong thư mục — file mang số từ `186` trở lên, thuộc nhánh `/docs/tasks/` của kubernetes.io. Mỗi mục dưới đây trỏ thẳng vào bản dịch; hai trang chưa dịch được đánh dấu rõ. Danh mục đầy đủ nhóm này nằm ở [Phần 15–18 của README](README.md). Làm theo thứ tự checkpoint dưới đây, mỗi checkpoint làm trên cluster thật rồi mới sang checkpoint kế.
+
+**Ba món nợ lab được trả ở phần này**, xem [Sổ nợ lộ trình](#sổ-nợ-lộ-trình) ở đầu file: nợ **#7** (vòng đời certificate) trả ở CP3, nợ **#8** (backup/restore etcd) trả ở CP4, nợ **#6** (mã hóa Secret at rest) trả ở CP7.
 
 ### CP1 — Vòng đời node
 
-- [ ] [Safely Drain a Node](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/) — cordon, drain, uncordon; liên hệ bài [53](53-disruptions-vi.md) và [143](143-api-eviction-vi.md).
-- [ ] [Adding Linux nodes](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/adding-linux-nodes/)
-- [ ] [Adding Windows nodes](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/adding-windows-nodes/)
-- [ ] [Node Overprovisioning](https://kubernetes.io/docs/tasks/administer-cluster/node-overprovisioning/)
+- [ ] [Drain một node an toàn](255-safely-drain-node-vi.md) — cordon, drain, uncordon; liên hệ bài [53](53-disruptions-vi.md) và [143](143-api-eviction-vi.md).
+- [ ] [Thêm node worker Linux](215-adding-linux-nodes-vi.md)
+- [ ] [Thêm node worker Windows](216-adding-windows-nodes-vi.md)
+- [ ] [Cấp phát dư dung lượng Node cho Cluster](250-node-overprovisioning-vi.md)
 
 ### CP2 — Nâng cấp cluster
 
-- [ ] [Upgrading kubeadm clusters](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/) — quy trình chuẩn, liên hệ bảng version skew ở bài [02](02-create-cluster-kubeadm-vi.md).
-- [ ] [Upgrading Linux nodes](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/upgrading-linux-nodes/)
-- [ ] [Upgrading Windows nodes](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/upgrading-windows-nodes/)
-- [ ] [Changing the Kubernetes package repository](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/change-package-repository/)
-- [ ] [Cluster Upgrade](https://kubernetes.io/docs/tasks/administer-cluster/cluster-upgrade/)
+- [ ] [Nâng cấp cluster kubeadm](221-kubeadm-upgrade-vi.md) — quy trình chuẩn, liên hệ bảng version skew ở bài [02](02-create-cluster-kubeadm-vi.md).
+- [ ] [Nâng cấp node Linux](222-upgrading-linux-nodes-vi.md)
+- [ ] [Nâng cấp các node Windows](223-upgrading-windows-nodes-vi.md)
+- [ ] [Thay đổi package repository của Kubernetes](217-change-package-repository-vi.md)
+- [ ] [Nâng cấp một Cluster](195-cluster-upgrade-vi.md) — góc nhìn tổng quát, không riêng kubeadm.
 
 ### CP3 — Vòng đời chứng chỉ
 
-- [ ] [Certificate Management with kubeadm](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/) — kiểm tra hạn, gia hạn, xoay CA.
-- [ ] [PKI certificates and requirements](https://kubernetes.io/docs/setup/best-practices/certificates/)
-- [ ] [Manage TLS Certificates in a Cluster](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/)
+> ⏳ **Nợ #9 — 1/2 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
 
-Đây là phần thay thế cho trang trỏ hướng [156](156-certificates-vi.md).
+> ✅ **Trả nợ #7 — Quản lý vòng đời certificate.** Nợ phát sinh ở [giai đoạn 12](#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài [156](156-certificates-vi.md) — bài đó chỉ là trang trỏ hướng sáu dòng, không dạy thao tác nào. **Đọc lại bài [156](156-certificates-vi.md) trước khi làm CP3.**
+
+- [ ] [Quản lý certificate với kubeadm](219-kubeadm-certs-vi.md) — kiểm tra hạn, gia hạn, xoay CA.
+- [ ] [Tạo certificate thủ công](191-certificates-manual-vi.md) — chính là trang mà bài [156](156-certificates-vi.md) trỏ tới. ⏳
+- [ ] [PKI certificates and requirements](https://kubernetes.io/docs/setup/best-practices/certificates/) — **chưa có bản dịch trong thư mục**, đọc bản gốc.
+- [ ] [Manage TLS Certificates in a Cluster](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/) — **chưa có bản dịch trong thư mục**, đọc bản gốc.
 
 ### CP4 — etcd, backup và khôi phục thảm họa
 
-- [ ] [Operating etcd clusters for Kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/) — snapshot `etcdctl snapshot save`, khôi phục, nâng cấp etcd.
+> ✅ **Trả nợ #8 — Backup và restore etcd.** Nợ phát sinh ở [giai đoạn 8](#giai-đoạn-8--dựng-cluster-bằng-kubeadm): dựng được cluster nhưng chưa có quy trình `etcdctl` và khôi phục.
+
+- [ ] [Vận hành cluster etcd cho Kubernetes](197-configure-upgrade-etcd-vi.md) — `etcdctl snapshot save`, khôi phục, nâng cấp etcd, thay thế member lỗi, chống phân mảnh.
 
 **Bài tập bắt buộc:** backup etcd → cố ý xóa vài Deployment → restore từ snapshot → chứng minh cluster trở về trạng thái cũ. Không làm được bài này thì chưa nên vận hành production.
 
 ### CP5 — Cấu hình lại cluster đang chạy
 
-- [ ] [Reconfiguring a kubeadm cluster](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-reconfigure/)
-- [ ] [Configuring a cgroup driver](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/configure-cgroup-driver/) — nối tiếp bài [00](00-container-runtimes-vi.md).
-- [ ] [Set Kubelet Parameters Via A Configuration File](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/) — nối tiếp bài [04](04-kubelet-integration-vi.md).
-- [ ] [Configure Feature Gates](https://kubernetes.io/docs/tasks/administer-cluster/configure-feature-gates/)
-- [ ] [Enable Or Disable A Kubernetes API](https://kubernetes.io/docs/tasks/administer-cluster/enable-disable-api/)
-- [ ] [Reserve Compute Resources for System Daemons](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/) — nối tiếp bài [110](110-manage-resources-containers-vi.md) và [142](142-node-pressure-eviction-vi.md).
+> ⏳ **Nợ #9 — 3/6 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+- [ ] [Cấu hình lại một cluster kubeadm](220-kubeadm-reconfigure-vi.md)
+- [ ] [Cấu hình cgroup driver](218-configure-cgroup-driver-vi.md) — nối tiếp bài [00](00-container-runtimes-vi.md). ⏳
+- [ ] [Thiết lập tham số kubelet qua file cấu hình](224-kubelet-config-file-vi.md) — nối tiếp bài [04](04-kubelet-integration-vi.md). ⏳
+- [ ] [Bật hoặc tắt Feature Gate](196-configure-feature-gates-vi.md)
+- [ ] [Bật hoặc tắt một Kubernetes API](207-enable-disable-api-vi.md)
+- [ ] [Dành riêng tài nguyên tính toán cho các System Daemon](253-reserve-compute-resources-vi.md) — nối tiếp bài [110](110-manage-resources-containers-vi.md) và [142](142-node-pressure-eviction-vi.md). ⏳
 
 ### CP6 — DNS, CNI và kube-proxy
 
-- [ ] [Customizing DNS Service](https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/) — cấu hình CoreDNS, nối tiếp bài [10](10-dns-pod-service-vi.md).
-- [ ] [Debugging DNS Resolution](https://kubernetes.io/docs/tasks/administer-cluster/dns-debugging-resolution/)
-- [ ] [Using NodeLocal DNSCache](https://kubernetes.io/docs/tasks/administer-cluster/nodelocaldns/)
-- [ ] [Autoscale the DNS Service](https://kubernetes.io/docs/tasks/administer-cluster/dns-horizontal-autoscaling/)
-- [ ] [Declare Network Policy](https://kubernetes.io/docs/tasks/administer-cluster/declare-network-policy/) — nối tiếp bài [84](84-network-policies-vi.md).
-- [ ] [Network Policy Providers](https://kubernetes.io/docs/tasks/administer-cluster/network-policy-provider/) — Calico, Cilium, Antrea…
-- [ ] [IP Masquerade Agent](https://kubernetes.io/docs/tasks/administer-cluster/ip-masq-agent/)
+> ⏳ **Nợ #9 — 9/14 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+- [ ] [Tùy chỉnh DNS Service](204-dns-custom-nameservers-vi.md) — cấu hình CoreDNS, nối tiếp bài [10](10-dns-pod-service-vi.md).
+- [ ] [Sử dụng CoreDNS cho Service Discovery](199-coredns-vi.md) — nâng cấp và chuyển đổi sang CoreDNS.
+- [ ] [Gỡ lỗi phân giải DNS](205-dns-debugging-resolution-vi.md)
+- [ ] [Sử dụng NodeLocal DNSCache](251-nodelocaldns-vi.md) ⏳
+- [ ] [Tự động co giãn DNS Service](206-dns-horizontal-autoscaling-vi.md)
+- [ ] [Khai báo Network Policy](201-declare-network-policy-vi.md) — nối tiếp bài [84](84-network-policies-vi.md).
+- [ ] [Cài đặt một Network Policy Provider](243-network-policy-provider-vi.md) — trang mục, dẫn sang [Antrea](244-antrea-network-policy-vi.md), [Calico](245-calico-network-policy-vi.md), [Cilium](246-cilium-network-policy-vi.md), [kube-router](247-kube-router-network-policy-vi.md), [Weave](249-weave-network-policy-vi.md). ⏳
+- [ ] **Đọc như tài liệu lịch sử:** [Romana cho NetworkPolicy](248-romana-network-policy-vi.md) — Romana đã ngừng phát triển; chỉ đọc khi tiếp quản cluster cũ còn dùng nó. ⏳
+- [ ] [Hướng dẫn sử dụng IP Masquerade Agent](212-ip-masq-agent-vi.md) ⏳
 
 ### CP7 — Audit và mã hóa dữ liệu
 
-- [ ] [Auditing](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/) — audit policy và backend.
-- [ ] [Encrypting Confidential Data at Rest](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/) — phần còn thiếu của bài [109](109-secret-vi.md).
-- [ ] [Decrypt Confidential Data that is Already Encrypted at Rest](https://kubernetes.io/docs/tasks/administer-cluster/decrypt-data/)
-- [ ] [Using a KMS provider for data encryption](https://kubernetes.io/docs/tasks/administer-cluster/kms-provider/)
-- [ ] [Securing a Cluster](https://kubernetes.io/docs/tasks/administer-cluster/securing-a-cluster/) — nối tiếp bài [129](129-security-checklist-vi.md).
-- [ ] [Verify Signed Kubernetes Artifacts](https://kubernetes.io/docs/tasks/administer-cluster/verify-signed-artifacts/)
+> ⏳ **Nợ #9 — 2/6 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+> ✅ **Trả nợ #6 — Mã hóa Secret at rest.** Nợ phát sinh ở [giai đoạn 3b](#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài [109](109-secret-vi.md) — bài đó nói rõ Secret **chỉ mã hóa base64** và hoãn phần encryption at rest sang đây. **Đọc lại bài [109](109-secret-vi.md) trước khi làm CP7.**
+
+- [ ] [Kiểm toán (Auditing)](306-audit-vi.md) — audit policy và backend.
+- [ ] [Mã hóa dữ liệu bí mật khi lưu trữ](208-encrypt-data-vi.md) — phần còn thiếu của bài [109](109-secret-vi.md).
+- [ ] [Giải mã dữ liệu bí mật đã được mã hóa khi lưu trữ](202-decrypt-data-vi.md)
+- [ ] [Dùng một KMS provider để mã hóa dữ liệu](213-kms-provider-vi.md)
+- [ ] [Bảo mật một Cluster](256-securing-a-cluster-vi.md) — nối tiếp bài [129](129-security-checklist-vi.md). ⏳
+- [ ] [Xác minh các artifact Kubernetes đã ký](261-verify-signed-artifacts-vi.md) ⏳
 
 ### CP8 — Giám sát và cảnh báo
 
-- [ ] [Resource metrics pipeline](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/) — metrics-server, điều kiện cho HPA ở bài [72](72-horizontal-pod-autoscale-vi.md).
-- [ ] [Tools for Monitoring Resources](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/)
-- [ ] [Monitor Node Health](https://kubernetes.io/docs/tasks/debug/debug-cluster/monitor-node-health/) — node-problem-detector.
+> ⏳ **Nợ #9 — 3/3 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+- [ ] [Pipeline metrics tài nguyên](311-resource-metrics-pipeline-vi.md) — metrics-server, điều kiện cho HPA ở bài [72](72-horizontal-pod-autoscale-vi.md). ⏳
+- [ ] [Các công cụ giám sát tài nguyên](312-resource-usage-monitoring-vi.md) ⏳
+- [ ] [Giám sát sức khỏe của Node](310-monitor-node-health-vi.md) — node-problem-detector. ⏳
 
 ### CP9 — Xử lý sự cố
 
-- [ ] [Troubleshooting Clusters](https://kubernetes.io/docs/tasks/debug/debug-cluster/) — nối tiếp bài [09](09-troubleshooting-kubeadm-vi.md).
-- [ ] [Debugging Kubernetes nodes with crictl](https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/) — công cụ thay `docker` khi debug node.
-- [ ] [Debugging Kubernetes Nodes With Kubectl](https://kubernetes.io/docs/tasks/debug/debug-cluster/kubectl-node-debug/)
-- [ ] [Troubleshooting kubectl](https://kubernetes.io/docs/tasks/debug/debug-cluster/troubleshoot-kubectl/)
-- [ ] [Debug Pods](https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/)
-- [ ] [Debug Services](https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/) — quy trình lần từ Service về Pod.
-- [ ] [Debug Running Pods](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/) — dùng ephemeral container ở bài [52](52-ephemeral-containers-vi.md).
-- [ ] [Determine the Reason for Pod Failure](https://kubernetes.io/docs/tasks/debug/debug-application/determine-reason-pod-failure/)
-- [ ] [Debug Init Containers](https://kubernetes.io/docs/tasks/debug/debug-application/debug-init-containers/)
-- [ ] [Debug a StatefulSet](https://kubernetes.io/docs/tasks/debug/debug-application/debug-statefulset/)
+> ⏳ **Nợ #9 — 5/10 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+- [ ] [Khắc phục sự cố cluster](305-debug-cluster-vi.md) — nối tiếp bài [09](09-troubleshooting-kubeadm-vi.md). ⏳
+- [ ] [Debug node Kubernetes bằng crictl](307-crictl-vi.md) — công cụ thay `docker` khi debug node.
+- [ ] [Debug các node Kubernetes bằng kubectl](308-kubectl-node-debug-vi.md)
+- [ ] [Khắc phục sự cố kubectl](314-troubleshoot-kubectl-vi.md)
+- [ ] [Gỡ lỗi Pod](299-debug-pods-vi.md) ⏳
+- [ ] [Gỡ lỗi Service](301-debug-service-vi.md) — quy trình lần từ Service về Pod.
+- [ ] [Gỡ lỗi Pod đang chạy](300-debug-running-pod-vi.md) — dùng ephemeral container ở bài [52](52-ephemeral-containers-vi.md). ⏳
+- [ ] [Xác định nguyên nhân Pod bị lỗi](303-determine-reason-pod-failure-vi.md) ⏳
+- [ ] [Gỡ lỗi Init Container](298-debug-init-containers-vi.md) ⏳
+- [ ] [Gỡ lỗi một StatefulSet](302-debug-statefulset-vi.md)
 
 ### CP10 — Quản trị tài nguyên theo namespace
 
-- [ ] [Share a Cluster with Namespaces](https://kubernetes.io/docs/tasks/administer-cluster/namespaces/)
-- [ ] [Manage Memory, CPU, and API Resources](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/) — loạt bài thực hành LimitRange và ResourceQuota, nối tiếp bài [133](133-limit-range-vi.md) và [134](134-resource-quotas-vi.md).
-- [ ] [Configure Quotas for API Objects](https://kubernetes.io/docs/tasks/administer-cluster/quota-api-object/)
-- [ ] [Control CPU Management Policies](https://kubernetes.io/docs/tasks/administer-cluster/cpu-management-policies/) — nối tiếp bài [74](74-resource-managers-vi.md).
-- [ ] [Utilizing the NUMA-aware Memory Manager](https://kubernetes.io/docs/tasks/administer-cluster/memory-manager/)
-- [ ] [Control Topology Management Policies](https://kubernetes.io/docs/tasks/administer-cluster/topology-manager/)
-- [ ] [Advertise Extended Resources for a Node](https://kubernetes.io/docs/tasks/administer-cluster/extended-resource-node/)
+> ⏳ **Nợ #9 — 11/13 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+- [ ] [Chia sẻ một Cluster bằng Namespace](242-namespaces-tasks-vi.md) ⏳
+- [ ] [Quản lý tài nguyên Memory, CPU và API](228-manage-resources-tasks-vi.md) — trang mục của loạt bài thực hành, nối tiếp bài [133](133-limit-range-vi.md) và [134](134-resource-quotas-vi.md). Sáu bài con: [ràng buộc CPU](229-cpu-constraint-namespace-vi.md), [CPU mặc định](230-cpu-default-namespace-vi.md), [ràng buộc memory](231-memory-constraint-namespace-vi.md), [memory mặc định](232-memory-default-namespace-vi.md), [quota memory/CPU](233-quota-memory-cpu-namespace-vi.md), [quota số Pod](234-quota-pod-namespace-vi.md). ⏳
+- [ ] [Cấu hình Quota cho các đối tượng API](252-quota-api-object-vi.md) ⏳
+- [ ] [Kiểm soát các chính sách quản lý CPU trên Node](200-cpu-management-policies-vi.md) — nối tiếp bài [74](74-resource-managers-vi.md).
+- [ ] [Kiểm soát các chính sách quản lý bộ nhớ trên một Node](235-memory-manager-vi.md) — memory manager nhận biết NUMA. ⏳
+- [ ] [Kiểm soát các chính sách quản lý topology trên một node](259-topology-manager-vi.md) ⏳
+- [ ] [Quảng bá Extended Resource cho một Node](209-extended-resource-node-vi.md)
 
 ### CP11 — Vận hành lưu trữ
 
-- [ ] [Change the default StorageClass](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/)
-- [ ] [Change the Reclaim Policy of a PersistentVolume](https://kubernetes.io/docs/tasks/administer-cluster/change-pv-reclaim-policy/) — nối tiếp bài [92](92-persistent-volumes-vi.md).
-- [ ] [Limit Storage Consumption](https://kubernetes.io/docs/tasks/administer-cluster/limit-storage-consumption/)
+> ⏳ **Nợ #9 — 1/4 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
+- [ ] [Thay đổi StorageClass mặc định](192-change-default-storage-class-vi.md)
+- [ ] [Thay đổi Reclaim Policy của một PersistentVolume](194-change-pv-reclaim-policy-vi.md) — nối tiếp bài [92](92-persistent-volumes-vi.md).
+- [ ] [Thay đổi access mode của một PersistentVolume](193-change-pv-access-mode-vi.md)
+- [ ] [Giới hạn mức tiêu thụ lưu trữ](227-limit-storage-consumption-vi.md) ⏳
 
 ### CP12 — Di chuyển khỏi dockershim (cluster cũ)
 
+> ⏳ **Nợ #9 — 6/6 bài trong mục này chưa có hai khối *Đọc bài này thế nào* và *Tự kiểm tra*** (đánh dấu ⏳ ở cuối dòng). Đọc được ngay, nhưng chưa có phần định hướng độ sâu. Xem [cách trả nợ #9](#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+
 Chỉ cần khi tiếp quản cluster đời cũ còn dùng Docker Engine:
 
-- [ ] [Migrating from dockershim](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/)
-- [ ] [Find Out What Container Runtime is Used on a Node](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/find-out-runtime-you-use/)
-- [ ] [Changing the Container Runtime to containerd](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/change-runtime-containerd/)
-- [ ] [Troubleshooting CNI plugin-related errors](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/troubleshooting-cni-plugin-related-errors/)
+- [ ] [Chuyển đổi từ dockershim](236-migrating-from-dockershim-vi.md) ⏳
+- [ ] [Tìm hiểu Container Runtime nào đang được dùng trên Node](239-find-out-runtime-vi.md) ⏳
+- [ ] [Kiểm tra xem việc gỡ bỏ dockershim có ảnh hưởng không](238-check-dockershim-removal-vi.md) ⏳
+- [ ] [Thay đổi Container Runtime sang containerd](237-change-runtime-containerd-vi.md) ⏳
+- [ ] [Di chuyển các telemetry agent khỏi dockershim](240-migrating-telemetry-agents-vi.md) ⏳
+- [ ] [Khắc phục sự cố lỗi liên quan tới CNI plugin](241-troubleshooting-cni-errors-vi.md) ⏳
 
 ---
 

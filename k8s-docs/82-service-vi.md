@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 2/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 2/16 · Kiểm chứng ở
 Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **bài quan trọng nhất giai đoạn 5** và cũng là bài dài nhất. Một phần lớn nội dung viết
@@ -219,7 +219,7 @@ Vì nhiều Service cần expose nhiều hơn một port, Kubernetes hỗ trợ
 [nhiều định nghĩa port](#multi-port-services) cho một Service duy nhất.
 Mỗi định nghĩa port có thể có cùng `protocol`, hoặc khác nhau.
 
-### Service không có selector (Services without selectors)
+### Service không có selector (Services without selectors) {#services-without-selectors}
 
 Service thường trừu tượng hóa việc truy cập các Pod của Kubernetes nhờ selector,
 nhưng khi được dùng cùng một tập hợp đối tượng
@@ -330,7 +330,7 @@ mục [ExternalName](#externalname).
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.21 [stable]`
 
-[EndpointSlice](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/) là các đối tượng
+[EndpointSlice](83-endpoint-slices-vi.md) là các đối tượng
 đại diện cho một tập con (một _lát cắt_ — slice) của các network endpoint phía sau một Service.
 
 Cluster Kubernetes của bạn theo dõi mỗi EndpointSlice đại diện cho bao nhiêu endpoint.
@@ -341,7 +341,7 @@ Theo mặc định, Kubernetes tạo một EndpointSlice mới khi tất cả c�
 đều đã chứa ít nhất 100 endpoint. Kubernetes không tạo EndpointSlice mới
 cho tới khi cần thêm một endpoint nữa.
 
-Xem [EndpointSlices](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/) để biết thêm
+Xem [EndpointSlices](83-endpoint-slices-vi.md) để biết thêm
 thông tin về API này.
 
 ### Endpoints (deprecated) {#endpoints}
@@ -403,7 +403,7 @@ Trường này tuân theo cú pháp nhãn tiêu chuẩn của Kubernetes. Các g
 | `kubernetes.io/ws`  | WebSocket qua kênh không mã hóa như mô tả trong [RFC 6455](https://www.rfc-editor.org/rfc/rfc6455) |
 | `kubernetes.io/wss` | WebSocket qua TLS như mô tả trong [RFC 6455](https://www.rfc-editor.org/rfc/rfc6455) |
 
-### Service nhiều port (Multi-port Services)
+### Service nhiều port (Multi-port Services) {#multi-port-services}
 
 Với một số Service, bạn cần expose nhiều hơn một port.
 Kubernetes cho phép bạn cấu hình nhiều định nghĩa port trên một đối tượng Service.
@@ -873,7 +873,7 @@ có thể khởi động các Pod của nó, thêm các selector hoặc endpoint
 > Các HTTP request sẽ có header `Host:` mà server gốc không nhận ra;
 > các TLS server sẽ không thể cung cấp certificate khớp với hostname mà client đã kết nối tới.
 
-## Headless Service (Headless Services)
+## Headless Service (Headless Services) {#headless-services}
 
 Đôi khi bạn không cần cân bằng tải và một Service IP duy nhất. Trong
 trường hợp này, bạn có thể tạo cái gọi là _headless Service_, bằng cách chỉ định
@@ -903,7 +903,7 @@ Với các headless Service có định nghĩa selector, endpoints controller t�
 các EndpointSlice trong Kubernetes API, và sửa đổi cấu hình DNS để trả về
 các bản ghi A hoặc AAAA (địa chỉ IPv4 hoặc IPv6) trỏ trực tiếp tới các Pod phía sau Service.
 
-### Không có selector (Without selectors)
+### Không có selector (Without selectors) {#without-selectors}
 
 Với các headless Service không định nghĩa selector, control plane không
 tạo các đối tượng EndpointSlice. Tuy nhiên, hệ thống DNS sẽ tìm và cấu hình
@@ -918,7 +918,7 @@ một trong hai:
 Khi bạn định nghĩa một headless Service không có selector, `port` phải
 khớp với `targetPort`.
 
-## Khám phá service (Discovering services)
+## Khám phá service (Discovering services) {#discovering-services}
 
 Với các client chạy bên trong cluster, Kubernetes hỗ trợ hai phương thức chính để
 tìm một Service: biến môi trường và DNS.
@@ -960,7 +960,7 @@ Engine. Bạn có thể đọc [`makeLinkVariables`](https://github.com/kubernet
 ### DNS
 
 Bạn có thể (và gần như luôn luôn nên) thiết lập một dịch vụ DNS cho cluster
-Kubernetes của mình bằng một [add-on](https://kubernetes.io/docs/concepts/cluster-administration/addons/).
+Kubernetes của mình bằng một [add-on](165-addons-vi.md).
 
 Một DNS server hiểu cluster (cluster-aware), chẳng hạn CoreDNS, theo dõi Kubernetes API để phát hiện các
 Service mới và tạo một tập hợp bản ghi DNS cho mỗi Service. Nếu DNS đã được bật
@@ -1099,7 +1099,7 @@ Tìm hiểu thêm về Service và cách chúng khớp vào Kubernetes:
 Để có thêm bối cảnh, đọc các tài liệu sau:
 
 * [Virtual IPs and Service Proxies](https://kubernetes.io/docs/reference/networking/virtual-ips/)
-* [EndpointSlices](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/)
+* [EndpointSlices](83-endpoint-slices-vi.md)
 * [Service API reference](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/service-v1/)
 * [EndpointSlice API reference](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/endpoint-slice-v1/)
 * [Endpoint API reference (legacy)](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/endpoints-v1/)

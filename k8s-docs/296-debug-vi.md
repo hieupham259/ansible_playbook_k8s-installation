@@ -10,11 +10,11 @@ các vấn đề. Nó gồm bốn phần:
 
 * [Gỡ lỗi ứng dụng của bạn](./297-debug-application-vi.md) - Hữu ích cho người dùng đang triển
   khai code lên Kubernetes và thắc mắc vì sao nó không hoạt động.
-* [Gỡ lỗi cluster của bạn](https://kubernetes.io/docs/tasks/debug/debug-cluster/) - Hữu ích cho
+* [Gỡ lỗi cluster của bạn](305-debug-cluster-vi.md) - Hữu ích cho
   quản trị viên cluster và những người vận hành đang xử lý sự cố với chính cluster Kubernetes.
-* [Ghi log trong Kubernetes](https://kubernetes.io/docs/tasks/debug/logging/) - Hữu ích cho
+* [Ghi log trong Kubernetes](316-debug-logging-vi.md) - Hữu ích cho
   quản trị viên cluster muốn thiết lập và quản lý việc ghi log trong Kubernetes.
-* [Giám sát trong Kubernetes](https://kubernetes.io/docs/tasks/debug/monitoring/) - Hữu ích cho
+* [Giám sát trong Kubernetes](317-debug-monitoring-vi.md) - Hữu ích cho
   quản trị viên cluster muốn bật tính năng giám sát trong một cluster Kubernetes.
 
 Bạn cũng nên kiểm tra các vấn đề đã biết (known issues) của

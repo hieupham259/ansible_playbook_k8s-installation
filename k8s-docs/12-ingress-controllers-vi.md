@@ -2,7 +2,7 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/>
 >
-> Để một [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) hoạt động được trong cluster của bạn,
+> Để một [Ingress](11-ingress-vi.md) hoạt động được trong cluster của bạn,
 > phải có một _ingress controller_ đang chạy.
 > Bạn cần chọn ít nhất một ingress controller và đảm bảo nó đã được thiết lập trong cluster của bạn.
 > Trang này liệt kê các ingress controller phổ biến mà bạn có thể triển khai.
@@ -12,9 +12,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 11/16 · Kiểm chứng
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 11/16 · Kiểm chứng
 ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Phần lớn bài này là **một danh mục nhà cung cấp** dài. Đừng đọc từng dòng. Giá trị của bài nằm
@@ -49,7 +49,7 @@ cài ở Lab 5b.
 > **Ghi chú:**
 >
 > Dự án Kubernetes khuyến nghị sử dụng [Gateway](https://gateway-api.sigs.k8s.io/) thay cho
-> [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
+> [Ingress](11-ingress-vi.md).
 > Ingress API đã bị đóng băng (frozen).
 >
 > Điều này có nghĩa là:
@@ -112,10 +112,10 @@ Kubernetes, với tư cách là một dự án, hỗ trợ và bảo trì các i
 
 ## Sử dụng nhiều Ingress controller (Using multiple Ingress controllers)
 
-Bạn có thể triển khai bất kỳ số lượng ingress controller nào bằng cách dùng [ingress class](https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class)
-trong một cluster. Hãy ghi nhớ `.metadata.name` của tài nguyên ingress class của bạn. Khi tạo một ingress, bạn sẽ cần tên đó để chỉ định trường `ingressClassName` trên đối tượng Ingress của bạn (tham khảo [tài liệu IngressSpec v1](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/ingress-v1/#IngressSpec)). `ingressClassName` là sự thay thế cho [phương pháp dùng annotation](https://kubernetes.io/docs/concepts/services-networking/ingress/#deprecated-annotation) cũ hơn.
+Bạn có thể triển khai bất kỳ số lượng ingress controller nào bằng cách dùng [ingress class](11-ingress-vi.md#ingress-class)
+trong một cluster. Hãy ghi nhớ `.metadata.name` của tài nguyên ingress class của bạn. Khi tạo một ingress, bạn sẽ cần tên đó để chỉ định trường `ingressClassName` trên đối tượng Ingress của bạn (tham khảo [tài liệu IngressSpec v1](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/ingress-v1/#IngressSpec)). `ingressClassName` là sự thay thế cho [phương pháp dùng annotation](11-ingress-vi.md#deprecated-annotation) cũ hơn.
 
-Nếu bạn không chỉ định IngressClass cho một Ingress, và cluster của bạn có đúng một IngressClass được đánh dấu là mặc định, thì Kubernetes sẽ [áp dụng](https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class) IngressClass mặc định của cluster cho Ingress đó.
+Nếu bạn không chỉ định IngressClass cho một Ingress, và cluster của bạn có đúng một IngressClass được đánh dấu là mặc định, thì Kubernetes sẽ [áp dụng](11-ingress-vi.md#default-ingress-class) IngressClass mặc định của cluster cho Ingress đó.
 Bạn đánh dấu một IngressClass là mặc định bằng cách thiết lập [annotation `ingressclass.kubernetes.io/is-default-class`](https://kubernetes.io/docs/reference/labels-annotations-taints/#ingressclass-kubernetes-io-is-default-class) trên IngressClass đó, với giá trị chuỗi là `"true"`.
 
 Lý tưởng nhất, mọi ingress controller đều nên đáp ứng đặc tả này, nhưng các ingress
@@ -127,7 +127,7 @@ controller khác nhau hoạt động hơi khác nhau một chút.
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
+* Tìm hiểu thêm về [Ingress](11-ingress-vi.md).
 
 ---
 

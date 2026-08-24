@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 8/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 8/16 · Kiểm chứng ở
 Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài rất ngắn và là cặp đôi của bài trước: bài [86](86-topology-aware-routing-vi.md) giữ lưu
@@ -75,7 +75,7 @@ Kube-proxy lọc các endpoint mà nó định tuyến tới dựa trên thiết
 ## Tiếp theo (What's next)
 
 * Đọc về [Định tuyến nhận biết topology (Topology Aware Routing)](86-topology-aware-routing-vi.md)
-* Đọc về [Chính sách lưu lượng bên ngoài của Service (Service External Traffic Policy)](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip)
+* Đọc về [Chính sách lưu lượng bên ngoài của Service (Service External Traffic Policy)](364-create-external-load-balancer-vi.md#preserving-the-client-source-ip)
 * Làm theo hướng dẫn [Kết nối ứng dụng với Service (Connecting Applications with Services)](https://kubernetes.io/docs/tutorials/services/connect-applications-service/)
 
 ---

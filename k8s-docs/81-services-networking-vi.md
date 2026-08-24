@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 1/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 1/16 · Kiểm chứng ở
 Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này là **trang mục lục của cả giai đoạn**, không phải bài kỹ thuật. Nó nêu tên gần như mọi
@@ -44,7 +44,7 @@ hình mạng và ranh giới trách nhiệm giữa Kubernetes và phần mềm b
 
 ---
 
-## Mô hình mạng của Kubernetes (The Kubernetes network model)
+## Mô hình mạng của Kubernetes (The Kubernetes network model) {#the-kubernetes-network-model}
 
 Mô hình mạng của Kubernetes được xây dựng từ nhiều thành phần:
 
@@ -69,7 +69,7 @@ Mô hình mạng của Kubernetes được xây dựng từ nhiều thành phầ
   * Các agent trên một node (chẳng hạn các system daemon, hoặc kubelet)
     có thể giao tiếp với tất cả các Pod trên node đó.
 
-* [Service](https://kubernetes.io/docs/concepts/services-networking/service/) API
+* [Service](82-service-vi.md) API
   cho phép bạn cung cấp một địa chỉ IP hoặc hostname ổn định (tồn tại lâu dài) cho một dịch vụ
   được hiện thực bởi một hoặc nhiều Pod backend, trong đó từng Pod
   cấu thành dịch vụ có thể thay đổi theo thời gian.
@@ -89,10 +89,10 @@ Mô hình mạng của Kubernetes được xây dựng từ nhiều thành phầ
 
   * Một cơ chế đơn giản hơn nhưng ít khả năng cấu hình hơn cho việc
     đi vào cluster (cluster ingress) có sẵn qua
-    [`type: LoadBalancer`](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer)
+    [`type: LoadBalancer`](82-service-vi.md#loadbalancer)
     của Service API, khi dùng một nhà cung cấp đám mây (cloud provider) được hỗ trợ.
 
-* [NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies) là một
+* [NetworkPolicy](84-network-policies-vi.md) là một
   API tích hợp sẵn của Kubernetes cho phép bạn kiểm soát lưu lượng giữa các Pod, hoặc giữa các Pod và
   thế giới bên ngoài.
 
@@ -114,7 +114,7 @@ trong đó là tùy chọn:
   [Container Runtime Interface](./44-cri-vi.md).
 
 * Bản thân mạng Pod được quản lý bởi một
-  [hiện thực mạng Pod](https://kubernetes.io/docs/concepts/cluster-administration/addons/#networking-and-network-policy).
+  [hiện thực mạng Pod](165-addons-vi.md#networking-and-network-policy).
   Trên Linux, hầu hết các container runtime dùng
   Container Networking Interface (CNI)
   để tương tác với hiện thực mạng Pod, vì vậy các hiện thực
@@ -140,15 +140,15 @@ trong đó là tùy chọn:
 Hướng dẫn thực hành [Kết nối ứng dụng với Service (Connecting Applications with Services)](https://kubernetes.io/docs/tutorials/services/connect-applications-service/)
 giúp bạn tìm hiểu về Service và mạng Kubernetes qua một ví dụ thực hành.
 
-[Mạng cluster (Cluster Networking)](https://kubernetes.io/docs/concepts/cluster-administration/networking/) giải thích cách thiết lập
+[Mạng cluster (Cluster Networking)](157-networking-vi.md) giải thích cách thiết lập
 mạng cho cluster của bạn, đồng thời cung cấp cái nhìn tổng quan về các công nghệ liên quan.
 
 Để tìm hiểu về các khái niệm mạng cụ thể, xem:
 
-* [Service](https://kubernetes.io/docs/concepts/services-networking/service/) - phơi bày (expose) một ứng dụng phía sau một endpoint duy nhất hướng ra bên ngoài
+* [Service](82-service-vi.md) - phơi bày (expose) một ứng dụng phía sau một endpoint duy nhất hướng ra bên ngoài
 * [Ingress](./11-ingress-vi.md) - định tuyến HTTP/HTTPS có nhận biết giao thức, dựa trên URI, hostname và path
 * [Gateway API](./13-gateway-vi.md) - cấp phát (provision) hạ tầng động và định tuyến lưu lượng nâng cao
-* [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/) - kiểm soát luồng lưu lượng ở mức địa chỉ IP hoặc port (tầng OSI 3 hoặc 4)
+* [Network Policies](84-network-policies-vi.md) - kiểm soát luồng lưu lượng ở mức địa chỉ IP hoặc port (tầng OSI 3 hoặc 4)
 * [DNS cho Service và Pod](./10-dns-pod-service-vi.md) - khám phá các dịch vụ bên trong cluster của bạn bằng DNS
 
 ---

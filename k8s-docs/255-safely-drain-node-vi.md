@@ -2,6 +2,51 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
+→ [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node), bài 1/4 · Kiểm chứng trên cluster
+lab: chạy trọn `cordon → drain → uncordon` trên `k8s-worker2` (node duy nhất được phép gây lỗi), và
+ở **Lab 12 — Vận hành vòng đời node** khi lab đó được viết.
+
+Đây là bài đầu của CP1 và là thao tác bảo trì node dùng nhiều nhất trong thực tế. Nó dựa
+trực tiếp lên hai bài đã đọc ở mạch chính: [53](53-disruptions-vi.md) (PodDisruptionBudget)
+và [143](143-api-eviction-vi.md) (eviction do API khởi phát).
+
+**Phải hiểu ở lần đọc này:**
+
+- `drain` **không phải** là xóa Pod: nó *evict* — tôn trọng `terminationGracePeriodSeconds` để
+  container kết thúc êm, và tôn trọng PodDisruptionBudget. Đây là điểm phân biệt với việc tắt
+  thẳng máy.
+- Vì sao `--ignore-daemonsets` gần như luôn cần: `kubectl drain` **không** rút được Pod của
+  DaemonSet — DaemonSet controller thay thế ngay lập tức, và Pod nó tạo ra bỏ qua taint
+  `node.kubernetes.io/unschedulable` nên vẫn lên đúng node bạn đang drain.
+- Ý nghĩa của việc lệnh **trả về thành công**: mọi Pod (trừ nhóm được loại trừ) đã evict an
+  toàn, từ đó mới an toàn tắt nguồn máy. Nếu node vẫn ở lại cluster sau bảo trì thì phải
+  `kubectl uncordon` — drain đánh dấu node unschedulable và trạng thái đó không tự mất đi.
+- Hai đường vòng khiến Pod vẫn lên được node đã drain: Pod **toleration** taint
+  `node.kubernetes.io/unschedulable` (chỉ nên để DaemonSet làm), và Pod đặt thẳng
+  [`nodeName`](138-assign-pod-node-vi.md#nodename) — bỏ qua scheduler nên ràng buộc vào node
+  bất kể unschedulable.
+- Drain nhiều node **song song** là hợp lệ và PDB vẫn được tôn trọng: lệnh drain nào làm số
+  replica khỏe mạnh tụt dưới budget sẽ bị chặn lại. Nên đặt `AlwaysAllow` cho Unhealthy Pod
+  Eviction Policy, nếu không drain sẽ **đứng chờ** Pod lỗi trở nên khỏe mạnh.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cách viết và tinh chỉnh một PodDisruptionBudget cụ thể | ở đây chỉ cần biết PDB **chặn** drain, chưa cần tự cấu hình | bài [339](339-configure-pdb-vi.md) ở khối Thực hành 3c — [giai đoạn 3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn) |
+| Gọi Eviction API bằng code thay cho `kubectl drain` | chỉ cần khi tự động hóa bảo trì | bài [143](143-api-eviction-vi.md) đã đọc ở giai đoạn 7a |
+
+---
+
 Trang này hướng dẫn cách drain (rút toàn bộ Pod khỏi) một node một cách an toàn, tùy chọn có
 tôn trọng PodDisruptionBudget mà bạn đã định nghĩa.
 
@@ -12,7 +57,7 @@ Tác vụ này giả định rằng bạn đã đáp ứng các điều kiện t
 1. Bạn không yêu cầu ứng dụng của mình phải có tính sẵn sàng cao (highly available) trong lúc
    drain node, hoặc
 1. Bạn đã đọc về khái niệm [PodDisruptionBudget](53-disruptions-vi.md), và đã
-   [cấu hình PodDisruptionBudget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)
+   [cấu hình PodDisruptionBudget](339-configure-pdb-vi.md)
    cho những ứng dụng cần đến nó.
 
 ## (Tùy chọn) Cấu hình disruption budget ((Optional) Configure a disruption budget) {#configure-poddisruptionbudget}
@@ -22,14 +67,14 @@ Tác vụ này giả định rằng bạn đã đáp ứng các điều kiện t
 
 Nếu tính khả dụng là quan trọng đối với bất kỳ ứng dụng nào đang chạy hoặc có thể chạy trên
 (các) node mà bạn sắp drain, hãy
-[cấu hình PodDisruptionBudget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)
+[cấu hình PodDisruptionBudget](339-configure-pdb-vi.md)
 trước, rồi mới tiếp tục làm theo hướng dẫn này.
 
 Bạn nên đặt `AlwaysAllow` cho
-[chính sách evict Pod không khỏe mạnh (Unhealthy Pod Eviction Policy)](https://kubernetes.io/docs/tasks/run-application/configure-pdb/#unhealthy-pod-eviction-policy)
+[chính sách evict Pod không khỏe mạnh (Unhealthy Pod Eviction Policy)](339-configure-pdb-vi.md#unhealthy-pod-eviction-policy)
 trong các PodDisruptionBudget của mình, để hỗ trợ evict những ứng dụng đang hoạt động sai
 trong lúc drain node. Hành vi mặc định là chờ các Pod của ứng dụng trở nên
-[khỏe mạnh (healthy)](https://kubernetes.io/docs/tasks/run-application/configure-pdb/#healthiness-of-a-pod)
+[khỏe mạnh (healthy)](339-configure-pdb-vi.md#healthiness-of-a-pod)
 rồi mới cho phép tiến hành drain.
 
 ## Dùng `kubectl drain` để đưa một node ra khỏi hoạt động (Use `kubectl drain` to remove a node from service)
@@ -100,11 +145,11 @@ PodDisruptionBudget mà bạn chỉ định.
 Ví dụ, nếu bạn có một StatefulSet với ba replica và đã đặt một PodDisruptionBudget cho tập đó
 với `minAvailable: 2`, `kubectl drain` chỉ evict một Pod khỏi StatefulSet khi cả ba Pod
 replica đều
-[khỏe mạnh (healthy)](https://kubernetes.io/docs/tasks/run-application/configure-pdb/#healthiness-of-a-pod);
+[khỏe mạnh (healthy)](339-configure-pdb-vi.md#healthiness-of-a-pod);
 nếu khi đó bạn đưa ra nhiều lệnh drain song song, Kubernetes vẫn tôn trọng PodDisruptionBudget
 và đảm bảo rằng chỉ có 1 Pod (tính bằng `replicas - minAvailable`) là không khả dụng tại bất
 kỳ thời điểm nào. Bất kỳ lệnh drain nào có thể khiến số lượng replica
-[khỏe mạnh](https://kubernetes.io/docs/tasks/run-application/configure-pdb/#healthiness-of-a-pod)
+[khỏe mạnh](339-configure-pdb-vi.md#healthiness-of-a-pod)
 tụt xuống dưới ngân sách (budget) đã chỉ định đều bị chặn lại.
 
 ## API Eviction (The Eviction API) {#eviction-api}
@@ -119,4 +164,58 @@ Pod), bạn cũng có thể kích hoạt eviction theo cách lập trình bằng
 ## Tiếp theo (What's next)
 
 * Làm theo các bước để bảo vệ ứng dụng của bạn bằng cách
-  [cấu hình một Pod Disruption Budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/).
+  [cấu hình một Pod Disruption Budget](339-configure-pdb-vi.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP1:
+
+1. Trên cluster lab, `k8s-worker2` đang chạy Pod của DaemonSet (CNI, kube-proxy). Bạn gõ
+   `kubectl drain k8s-worker2` và lệnh dừng lại báo lỗi. Vì sao phải thêm `--ignore-daemonsets`,
+   và sau khi thêm cờ đó thì các Pod DaemonSet **có bị rút khỏi node** không?
+2. **Câu bẫy.** `cordon` và `drain` khác nhau ở chỗ nào? Sau khi drain xong, bảo trì xong và bật
+   máy trở lại, node có tự nhận Pod mới không?
+3. Lệnh `drain` trả về thành công. Điều đó bảo đảm chính xác những gì — và **không** bảo đảm
+   điều gì về số Pod còn chạy trên node?
+4. Bạn có StatefulSet 3 replica với PodDisruptionBudget `minAvailable: 2`. Bạn mở hai terminal
+   và drain hai node song song. Kubernetes cho phép bao nhiêu Pod của StatefulSet đó không khả
+   dụng cùng lúc, và điều gì xảy ra với lệnh drain thứ hai?
+5. Vì sao bài khuyên đặt `AlwaysAllow` cho Unhealthy Pod Eviction Policy? Hành vi mặc định gây
+   ra vấn đề gì khi bạn đang cần drain gấp một node?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì **`kubectl drain` không thể rút Pod do DaemonSet quản lý**: DaemonSet controller lập tức
+   tạo lại Pod tương đương, nên drain sẽ không bao giờ "sạch" node. Cờ `--ignore-daemonsets`
+   bảo drain **bỏ qua** nhóm Pod đó thay vì thất bại. Trả lời phần sau: **không** — các Pod
+   DaemonSet **vẫn ở lại và vẫn chạy** trên node. Bỏ qua ở đây nghĩa là không tính chúng, không
+   phải là đã rút chúng đi.
+2. `cordon` **chỉ** đánh dấu node là unschedulable — Pod đang chạy vẫn nguyên tại chỗ. `drain`
+   làm cả hai việc: đánh dấu unschedulable **và** evict Pod hiện có một cách an toàn. Phần sau
+   là chỗ dễ sai: **không**, bật máy lên là chưa đủ. Trạng thái unschedulable nằm trên **object
+   Node trong cluster**, không nằm trên máy, nên nó sống sót qua việc tắt/bật. Phải chạy
+   `kubectl uncordon <node>` thì node mới nhận Pod mới trở lại.
+3. Nó bảo đảm rằng mọi Pod **trừ nhóm được loại trừ** đã được evict an toàn — tôn trọng thời
+   gian kết thúc êm và tôn trọng PodDisruptionBudget — nên có thể tắt nguồn máy. Nó **không**
+   bảo đảm node trống rỗng: Pod DaemonSet vẫn chạy (khi dùng `--ignore-daemonsets`), và một số
+   Pod hệ thống vốn được `kubectl drain` bỏ qua theo mặc định.
+4. Đúng **1 Pod** — tính bằng `replicas - minAvailable` = 3 − 2. PDB được thực thi ở tầng
+   eviction API chứ không phải ở tầng lệnh `kubectl`, nên **nhiều lệnh drain song song vẫn
+   tuân thủ cùng một budget**. Lệnh drain thứ hai không làm hỏng budget: yêu cầu evict nào sẽ
+   khiến số replica khỏe mạnh tụt xuống dưới 2 sẽ **bị chặn**, và lệnh đó chờ cho tới khi
+   evict được.
+5. Vì hành vi **mặc định là chờ Pod của ứng dụng trở nên khỏe mạnh rồi mới cho evict**. Khi
+   node đang hỏng và chính các Pod trên đó đang lỗi, điều kiện "khỏe mạnh" có thể **không bao
+   giờ đạt được**, và lệnh drain treo vô hạn đúng lúc bạn cần rút node gấp. `AlwaysAllow` cho
+   phép evict cả Pod đang hoạt động sai, phá được thế kẹt đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng, rồi thực hành trọn vòng
+`cordon → drain --ignore-daemonsets → uncordon` trên `k8s-worker2` trước khi sang bài kế của
+[CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node).

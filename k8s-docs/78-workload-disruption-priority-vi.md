@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 8/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -51,13 +51,13 @@ PodGroup có thể khai báo một chế độ gián đoạn (disruption mode). 
 scheduler có thể làm gián đoạn một PodGroup đang chạy, ví dụ để nhường chỗ cho
 một PodGroup có độ ưu tiên cao hơn. PodGroup cũng có một độ ưu tiên (priority),
 ghi đè độ ưu tiên của từng pod riêng lẻ trong nhóm
-đối với các sự kiện [chiếm chỗ nhận biết workload (workload-aware preemption)](https://kubernetes.io/docs/concepts/scheduling-eviction/workload-aware-preemption/).
+đối với các sự kiện [chiếm chỗ nhận biết workload (workload-aware preemption)](152-workload-aware-preemption-vi.md).
 
 ## Các loại chế độ gián đoạn (Disruption mode types)
 
 > **Ghi chú:**
 > Tính đến 1.36, các trường `priority` hoặc `disruptionMode` của PodGroup chỉ được tôn trọng
-> bởi [workload-aware preemption](https://kubernetes.io/docs/concepts/scheduling-eviction/workload-aware-preemption/).
+> bởi [workload-aware preemption](152-workload-aware-preemption-vi.md).
 > Trong giai đoạn lập lịch pod, scheduler không xét đến
 > các trường `priority` hoặc `disruptionMode` của PodGroup.
 
@@ -76,7 +76,7 @@ Nó chỉ thị cho scheduler rằng tất cả các pod trong PodGroup phải b
 
 ## Độ ưu tiên của pod group (Pod group priority)
 
-PodGroup sử dụng cùng khái niệm [PriorityClass](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass) như các Pod đơn lẻ.
+PodGroup sử dụng cùng khái niệm [PriorityClass](141-pod-priority-preemption-vi.md#priorityclass) như các Pod đơn lẻ.
 Sau khi bạn đã tạo một hoặc nhiều PriorityClass,
 bạn có thể tạo một PodGroup chỉ định tên của một trong các PriorityClass đó trong spec của nó.
 Admission controller về priority sử dụng trường `priorityClassName` và điền giá trị số nguyên của độ ưu tiên.
@@ -84,7 +84,7 @@ Nếu không tìm thấy priority class, PodGroup sẽ bị từ chối.
 Khi `priorityClassName` không được đặt cho một PodGroup, Kubernetes sẽ tìm một giá trị mặc định (một PriorityClass có `globalDefault` được đặt là true).
 Nếu không có PriorityClass nào có `globalDefault` được đặt là true, PodGroup không có `priorityClassName` sẽ có độ ưu tiên bằng không.
 
-Độ ưu tiên của PodGroup là độ ưu tiên có tính quyết định (authoritative) cho tất cả các pod trong nhóm trong các sự kiện [workload-aware preemption](https://kubernetes.io/docs/concepts/scheduling-eviction/workload-aware-preemption/), ngay cả khi độ ưu tiên của từng pod riêng lẻ tạo nên PodGroup này khác nhau.
+Độ ưu tiên của PodGroup là độ ưu tiên có tính quyết định (authoritative) cho tất cả các pod trong nhóm trong các sự kiện [workload-aware preemption](152-workload-aware-preemption-vi.md), ngay cả khi độ ưu tiên của từng pod riêng lẻ tạo nên PodGroup này khác nhau.
 
 YAML sau đây là một ví dụ về cấu hình PodGroup sử dụng PriorityClass `high-priority`,
 tương ứng với giá trị độ ưu tiên số nguyên 1000000.
@@ -102,7 +102,7 @@ spec:
 
 ## Tiếp theo (What's next)
 
-* Đọc về thuật toán [Workload-Aware Preemption](https://kubernetes.io/docs/concepts/scheduling-eviction/workload-aware-preemption/).
+* Đọc về thuật toán [Workload-Aware Preemption](152-workload-aware-preemption-vi.md).
 * Tìm hiểu về [Workload API](./77-workload-api-vi.md).
 
 ---

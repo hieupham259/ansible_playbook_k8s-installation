@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 2/13 ·
+**Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 2/13 ·
 Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài ngắn nhưng là **trục của cả nhóm 7a**. Mọi cơ chế ở các bài sau — nodeSelector, affinity,
@@ -112,17 +112,17 @@ của scheduler:
 
 ## Tiếp theo (What's next)
 
-* Đọc về [tinh chỉnh hiệu năng bộ lập lịch (scheduler performance tuning)](https://kubernetes.io/docs/concepts/scheduling-eviction/scheduler-perf-tuning/)
-* Đọc về [ràng buộc phân bố Pod theo topology (Pod topology spread constraints)](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/)
+* Đọc về [tinh chỉnh hiệu năng bộ lập lịch (scheduler performance tuning)](146-scheduler-perf-tuning-vi.md)
+* Đọc về [ràng buộc phân bố Pod theo topology (Pod topology spread constraints)](140-topology-spread-constraints-vi.md)
 * Đọc [tài liệu tham khảo](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-scheduler/) của kube-scheduler
 * Đọc tài liệu tham khảo [cấu hình kube-scheduler (v1)](https://kubernetes.io/docs/reference/config-api/kube-scheduler-config.v1/)
 * Tìm hiểu về [cấu hình nhiều scheduler](https://kubernetes.io/docs/tasks/extend-kubernetes/configure-multiple-schedulers/)
-* Tìm hiểu về [các chính sách quản lý topology (topology management policies)](https://kubernetes.io/docs/tasks/administer-cluster/topology-manager/)
-* Tìm hiểu về [Pod Overhead](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-overhead/)
+* Tìm hiểu về [các chính sách quản lý topology (topology management policies)](259-topology-manager-vi.md)
+* Tìm hiểu về [Pod Overhead](144-pod-overhead-vi.md)
 * Tìm hiểu về việc lập lịch cho các Pod sử dụng volume trong:
-  * [Hỗ trợ Volume Topology](https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode)
-  * [Theo dõi dung lượng lưu trữ (Storage Capacity Tracking)](https://kubernetes.io/docs/concepts/storage/storage-capacity/)
-  * [Giới hạn Volume theo từng Node (Node-specific Volume Limits)](https://kubernetes.io/docs/concepts/storage/storage-limits/)
+  * [Hỗ trợ Volume Topology](96-storage-classes-vi.md#volume-binding-mode)
+  * [Theo dõi dung lượng lưu trữ (Storage Capacity Tracking)](103-storage-capacity-vi.md)
+  * [Giới hạn Volume theo từng Node (Node-specific Volume Limits)](104-storage-limits-vi.md)
 
 ---
 

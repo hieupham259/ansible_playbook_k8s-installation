@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 1/8 ·
+**Vị trí:** [Giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 1/8 ·
 Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài mở đầu giai đoạn, rất ngắn và chỉ đặt vấn đề. Giá trị nằm ở **một nguyên tắc** mà mọi thứ
@@ -50,7 +50,7 @@ Container tách rời (decouple) ứng dụng khỏi hạ tầng host bên dư�
 triển khai dễ dàng hơn trên các môi trường cloud hoặc hệ điều hành khác nhau.
 
 Mỗi node trong một cluster Kubernetes chạy các container tạo nên các
-[Pod](https://kubernetes.io/docs/concepts/workloads/pods/) được gán cho node đó.
+[Pod](46-pods-vi.md) được gán cho node đó.
 Các container trong một Pod được đặt cùng chỗ (co-located) và được lập lịch cùng nhau
 (co-scheduled) để chạy trên cùng một node.
 
@@ -66,7 +66,7 @@ bạn không nên thay đổi mã của một container đang chạy. Nếu bạ
 container hóa và muốn thực hiện thay đổi, quy trình đúng là build một image mới bao gồm
 thay đổi đó, rồi tạo lại container để khởi động từ image đã được cập nhật.
 
-## Container runtime (Container runtimes)
+## Container runtime (Container runtimes) {#container-runtimes}
 
 Một thành phần nền tảng giúp Kubernetes chạy các container một cách hiệu quả.
 Nó chịu trách nhiệm quản lý việc thực thi và vòng đời (lifecycle) của các container
@@ -78,7 +78,7 @@ Kubernetes hỗ trợ các container runtime như containerd, CRI-O, và bất k
 
 Thông thường, bạn có thể để cluster tự chọn container runtime mặc định cho một Pod.
 Nếu bạn cần dùng nhiều hơn một container runtime trong cluster, bạn có thể chỉ định
-[RuntimeClass](https://kubernetes.io/docs/concepts/containers/runtime-class/)
+[RuntimeClass](43-runtime-class-vi.md)
 cho một Pod để bảo đảm rằng Kubernetes chạy các container đó bằng một container runtime
 cụ thể.
 

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+**Vị trí:** Giai đoạn 1 → nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
 bài 7/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 Ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) bạn đã copy `/etc/kubernetes/admin.conf` thành
@@ -58,7 +58,7 @@ hoặc bằng cách dùng flag
 [`--kubeconfig`](https://kubernetes.io/docs/reference/generated/kubectl/kubectl/).
 
 Để xem hướng dẫn từng bước về việc tạo và chỉ định file kubeconfig, hãy xem
-[Cấu hình quyền truy cập tới nhiều cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters).
+[Cấu hình quyền truy cập tới nhiều cluster](361-configure-access-multiple-clusters-vi.md).
 
 ## Hỗ trợ nhiều cluster, người dùng và cơ chế xác thực (Supporting multiple clusters, users, and authentication mechanisms)
 
@@ -127,7 +127,7 @@ Dưới đây là các quy tắc mà `kubectl` áp dụng khi hợp nhất các 
      Kể cả khi file thứ hai có các mục không xung đột dưới `red-user`, vẫn loại bỏ chúng.
 
    Để xem ví dụ về cách đặt biến môi trường `KUBECONFIG`, hãy xem
-   [Đặt biến môi trường KUBECONFIG](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/#set-the-kubeconfig-environment-variable).
+   [Đặt biến môi trường KUBECONFIG](361-configure-access-multiple-clusters-vi.md#set-the-kubeconfig-environment-variable).
 
    Nếu không thuộc các trường hợp trên, dùng file kubeconfig mặc định, `$HOME/.kube/config`, và không hợp nhất gì cả.
 
@@ -197,7 +197,7 @@ contexts:
 
 ## Tiếp theo (What's next)
 
-* [Cấu hình quyền truy cập tới nhiều cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/)
+* [Cấu hình quyền truy cập tới nhiều cluster](361-configure-access-multiple-clusters-vi.md)
 * [`kubectl config`](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#config)
 
 ---

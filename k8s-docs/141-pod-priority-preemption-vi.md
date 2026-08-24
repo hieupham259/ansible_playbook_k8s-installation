@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 6/13 ·
+**Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 6/13 ·
 Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là bài đầu tiên của nhóm nói về việc **lấy chỗ của Pod đang chạy**. Bốn bài trước chỉ mô
@@ -43,7 +43,7 @@ Mục cuối *Tương tác giữa độ ưu tiên của Pod và chất lượng 
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Cảnh báo đầu bài về người dùng tạo Pod ưu tiên cao, và ResourceQuota giới hạn PriorityClass | cần ResourceQuota | nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên), bài [134](134-resource-quotas-vi.md) |
+| Cảnh báo đầu bài về người dùng tạo Pod ưu tiên cao, và ResourceQuota giới hạn PriorityClass | cần ResourceQuota | nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên), bài [134](134-resource-quotas-vi.md) |
 | *PriorityClass không preempt* (`preemptionPolicy: Never`) | dành cho workload dạng job/batch | giai đoạn 13, bài [150](150-gang-scheduling-vi.md) |
 | *Lưu ý về PodPriority và các cluster hiện có* | chỉ liên quan khi tiếp quản cluster cũ | không cần |
 | *Xử lý sự cố* — ba tình huống preempt bất thường | là tài liệu tra cứu khi gặp hiện tượng | tra khi cần |
@@ -52,7 +52,7 @@ Mục cuối *Tương tác giữa độ ưu tiên của Pod và chất lượng 
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.14 [stable]`
 
-[Pod](https://kubernetes.io/docs/concepts/workloads/pods/) có thể có _độ ưu tiên_ (priority).
+[Pod](46-pods-vi.md) có thể có _độ ưu tiên_ (priority).
 Độ ưu tiên thể hiện mức độ quan trọng của một Pod so với các Pod khác. Nếu một Pod
 không thể được lập lịch, bộ lập lịch (scheduler) sẽ cố gắng preempt (chiếm chỗ — tức là evict)
 các Pod có độ ưu tiên thấp hơn để việc lập lịch Pod đang chờ (pending) trở nên khả thi.
@@ -65,7 +65,7 @@ các Pod có độ ưu tiên thấp hơn để việc lập lịch Pod đang ch�
 >
 > Quản trị viên có thể dùng ResourceQuota để ngăn người dùng tạo Pod với độ ưu tiên cao.
 >
-> Xem [giới hạn tiêu thụ PriorityClass theo mặc định](https://kubernetes.io/docs/concepts/policy/resource-quotas/#limit-priority-class-consumption-by-default)
+> Xem [giới hạn tiêu thụ PriorityClass theo mặc định](https://kubernetes.io/docs/concepts/policy/resource-quotas#limit-priority-class-consumption-by-default)
 > để biết chi tiết.
 
 ## Cách sử dụng độ ưu tiên và preemption (How to use priority and preemption)
@@ -85,7 +85,7 @@ Hãy đọc tiếp để biết thêm thông tin về các bước này.
 >
 > Kubernetes đã có sẵn hai PriorityClass:
 > `system-cluster-critical` và `system-node-critical`.
-> Đây là các class dùng chung và được dùng để [đảm bảo các thành phần quan trọng luôn được lập lịch trước](https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/).
+> Đây là các class dùng chung và được dùng để [đảm bảo các thành phần quan trọng luôn được lập lịch trước](210-guaranteed-scheduling-critical-addon-pods-vi.md).
 
 ## PriorityClass
 
@@ -94,7 +94,7 @@ PriorityClass là một đối tượng không thuộc namespace (non-namespaced
 chỉ định trong trường `name` thuộc metadata của đối tượng PriorityClass. Giá trị
 được chỉ định trong trường bắt buộc `value`. Giá trị càng cao thì độ ưu tiên càng cao.
 Tên của một đối tượng PriorityClass phải là một
-[tên miền con DNS hợp lệ (DNS subdomain name)](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names),
+[tên miền con DNS hợp lệ (DNS subdomain name)](17-names-vi.md#dns-subdomain-names),
 và không được có tiền tố `system-`.
 
 Một đối tượng PriorityClass có thể mang bất kỳ giá trị số nguyên 32-bit nào nhỏ hơn
@@ -253,7 +253,7 @@ Pod P đủ điều kiện preempt các Pod trên một Node khác.
 #### Chấm dứt nhẹ nhàng cho các nạn nhân của preemption (Graceful termination of preemption victims)
 
 Khi các Pod bị preempt, các nạn nhân nhận được
-[khoảng thời gian chấm dứt nhẹ nhàng](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination) của mình.
+[khoảng thời gian chấm dứt nhẹ nhàng](47-pod-lifecycle-vi.md#pod-termination) của mình.
 Chúng có chừng đó thời gian để hoàn thành công việc và thoát. Nếu không, chúng sẽ
 bị kill. Khoảng thời gian chấm dứt nhẹ nhàng này tạo ra một khoảng trống thời gian
 giữa thời điểm bộ lập lịch preempt các Pod và thời điểm Pod đang chờ (P) có thể được
@@ -266,7 +266,7 @@ có độ ưu tiên thấp về 0 hoặc một số nhỏ.
 
 #### PodDisruptionBudget được hỗ trợ, nhưng không được đảm bảo (PodDisruptionBudget is supported, but not guaranteed)
 
-[PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/) (PDB)
+[PodDisruptionBudget](53-disruptions-vi.md) (PDB)
 cho phép chủ sở hữu ứng dụng giới hạn số lượng Pod của một ứng dụng được nhân bản
 bị ngừng hoạt động đồng thời do các gián đoạn tự nguyện (voluntary disruption). Kubernetes hỗ trợ
 PDB khi preempt các Pod, nhưng việc tôn trọng PDB chỉ ở mức nỗ lực tốt nhất (best effort).
@@ -388,7 +388,7 @@ chỉ được xem xét cho preemption nếu việc loại bỏ các Pod có đ�
 là không đủ để bộ lập lịch có thể lập lịch Pod preemptor, hoặc nếu các Pod có
 độ ưu tiên thấp nhất được bảo vệ bởi `PodDisruptionBudget`.
 
-kubelet dùng Priority để xác định thứ tự các pod trong [eviction do áp lực node (node-pressure eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/).
+kubelet dùng Priority để xác định thứ tự các pod trong [eviction do áp lực node (node-pressure eviction)](142-node-pressure-eviction-vi.md).
 Bạn có thể dùng QoS class để ước lượng thứ tự mà các pod có nhiều khả năng
 bị evict nhất. kubelet xếp hạng các pod để evict dựa trên các yếu tố sau:
 
@@ -396,7 +396,7 @@ bị evict nhất. kubelet xếp hạng các pod để evict dựa trên các y�
   1. Độ ưu tiên của Pod
   1. Lượng tài nguyên sử dụng so với requests
 
-Xem [Lựa chọn Pod cho kubelet eviction](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/#pod-selection-for-kubelet-eviction)
+Xem [Lựa chọn Pod cho kubelet eviction](142-node-pressure-eviction-vi.md#pod-selection-for-kubelet-eviction)
 để biết thêm chi tiết.
 
 Eviction do áp lực node của kubelet không evict các Pod khi mức sử dụng của chúng
@@ -406,10 +406,10 @@ nhưng vượt quá requests của nó thì có thể bị evict.
 
 ## Tiếp theo (What's next)
 
-* Đọc về việc sử dụng ResourceQuota kết hợp với PriorityClass: [giới hạn tiêu thụ PriorityClass theo mặc định](https://kubernetes.io/docs/concepts/policy/resource-quotas/#limit-priority-class-consumption-by-default)
-* Tìm hiểu về [Pod Disruption](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/)
-* Tìm hiểu về [Eviction khởi phát qua API (API-initiated Eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/)
-* Tìm hiểu về [Eviction do áp lực node (Node-pressure Eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/)
+* Đọc về việc sử dụng ResourceQuota kết hợp với PriorityClass: [giới hạn tiêu thụ PriorityClass theo mặc định](https://kubernetes.io/docs/concepts/policy/resource-quotas#limit-priority-class-consumption-by-default)
+* Tìm hiểu về [Pod Disruption](53-disruptions-vi.md)
+* Tìm hiểu về [Eviction khởi phát qua API (API-initiated Eviction)](143-api-eviction-vi.md)
+* Tìm hiểu về [Eviction do áp lực node (Node-pressure Eviction)](142-node-pressure-eviction-vi.md)
 
 ---
 

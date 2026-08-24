@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 12/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 12/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là bài giải thích **ý nghĩa** của những cái tên đã xuất hiện trong bảng Baseline và
 Restricted ở bài [115](115-pod-security-standards-vi.md): seccomp, AppArmor, SELinux,
@@ -56,7 +56,7 @@ và ai cưỡng chế nó. Cách viết profile cụ thể là tutorial riêng, 
 Trang này mô tả một số tính năng bảo mật được tích hợp sẵn trong Linux kernel mà bạn có thể
 sử dụng cho các workload Kubernetes của mình. Để tìm hiểu cách áp dụng các tính năng này
 cho Pod và container, tham khảo
-[Cấu hình SecurityContext cho Pod hoặc Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+[Cấu hình SecurityContext cho Pod hoặc Container](291-security-context-vi.md).
 Bạn nên đã quen thuộc với Linux và những kiến thức cơ bản về workload trong Kubernetes.
 
 ## Chạy workload không cần đặc quyền root (Run workloads without root privileges) {#run-without-root}
@@ -102,7 +102,7 @@ Bạn dùng trường `securityContext` trong đặc tả Pod để định ngh�
 những tiến trình đó. Trường `securityContext` cũng hỗ trợ các thiết lập bảo mật khác, chẳng
 hạn như các Linux capability cụ thể hoặc quyền truy cập file bằng UID và GID. Để tìm hiểu
 thêm, tham khảo
-[Cấu hình SecurityContext cho Pod hoặc Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+[Cấu hình SecurityContext cho Pod hoặc Container](291-security-context-vi.md).
 
 ### seccomp
 
@@ -193,7 +193,7 @@ sách bảo mật tác động tới những nhãn này, kernel của hệ đi�
 các chính sách đó.
 
 Để tìm hiểu cách dùng SELinux trong Kubernetes, tham khảo
-[Gán nhãn SELinux cho container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#assign-selinux-labels-to-a-container).
+[Gán nhãn SELinux cho container](291-security-context-vi.md#assign-selinux-labels-to-a-container).
 
 #### Khác biệt giữa AppArmor và SELinux (Differences between AppArmor and SELinux) {#apparmor-selinux-diff}
 
@@ -253,7 +253,7 @@ thể đang dùng trong các workload của mình, cụ thể như sau:
 
 Bất kỳ container nào trong một Pod cũng có thể bật *chế độ đặc quyền* (Privileged mode) nếu
 bạn đặt trường `privileged: true` trong trường
-[`securityContext`](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+[`securityContext`](291-security-context-vi.md)
 của container đó. Container đặc quyền ghi đè hoặc vô hiệu hóa nhiều thiết lập tăng cường
 bảo mật khác như seccomp profile, AppArmor profile, hoặc các ràng buộc SELinux đang được
 áp dụng. Container đặc quyền được cấp toàn bộ các Linux capability, bao gồm cả những
@@ -271,13 +271,13 @@ thiết bị phần cứng.
 Từ phiên bản Kubernetes 1.26 trở đi, bạn cũng có thể chạy các container Windows ở chế độ
 đặc quyền tương tự bằng cách đặt cờ `windowsOptions.hostProcess` trong security context của
 đặc tả Pod. Để biết chi tiết và hướng dẫn, xem
-[Tạo một Pod HostProcess trên Windows](https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/).
+[Tạo một Pod HostProcess trên Windows](281-create-hostprocess-pod-vi.md).
 
 ## Khuyến nghị và các thực hành tốt (Recommendations and best practices) {#recommendations-best-practices}
 
 * Trước khi cấu hình các khả năng bảo mật ở tầng kernel, bạn nên cân nhắc triển khai cô lập
   ở tầng mạng (network-level isolation). Để biết thêm thông tin, đọc
-  [Danh sách kiểm tra bảo mật (Security Checklist)](https://kubernetes.io/docs/concepts/security/security-checklist/#network-security).
+  [Danh sách kiểm tra bảo mật (Security Checklist)](129-security-checklist-vi.md#network-security).
 * Trừ khi thật sự cần thiết, hãy chạy các workload Linux dưới người dùng không phải root
   bằng cách đặt user ID và group ID cụ thể trong manifest của Pod và chỉ định
   `runAsNonRoot: true`.
@@ -287,13 +287,13 @@ trong manifest của Pod. Điều này cho phép bạn chạy các container v�
 bên trong user namespace, nhưng lại là người dùng không phải root trong namespace của máy
 chủ trên node. Tính năng này vẫn đang ở giai đoạn phát triển ban đầu và có thể chưa đạt
 mức hỗ trợ mà bạn cần. Để biết hướng dẫn, tham khảo
-[Dùng User Namespace với một Pod](https://kubernetes.io/docs/tasks/configure-pod-container/user-namespaces/).
+[Dùng User Namespace với một Pod](295-user-namespaces-tasks-vi.md).
 
 ## Tiếp theo (What's next)
 
 * [Tìm hiểu cách dùng AppArmor](https://kubernetes.io/docs/tutorials/security/apparmor/)
 * [Tìm hiểu cách dùng seccomp](https://kubernetes.io/docs/tutorials/security/seccomp/)
-* [Tìm hiểu cách dùng SELinux](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#assign-selinux-labels-to-a-container)
+* [Tìm hiểu cách dùng SELinux](291-security-context-vi.md#assign-selinux-labels-to-a-container)
 * [Tài liệu tham khảo seccomp cho node](https://kubernetes.io/docs/reference/node/seccomp/)
 
 ---

@@ -4,7 +4,7 @@
 >
 > Tạo các đối tượng Secret bằng file kustomization.yaml.
 
-`kubectl` hỗ trợ sử dụng [công cụ quản lý đối tượng Kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/) để quản lý Secret
+`kubectl` hỗ trợ sử dụng [công cụ quản lý đối tượng Kustomize](322-kustomization-vi.md) để quản lý Secret
 và ConfigMap. Bạn tạo một *bộ sinh tài nguyên* (resource generator) bằng Kustomize, bộ sinh này
 sẽ tạo ra một Secret mà bạn có thể apply lên API server bằng `kubectl`.
 
@@ -118,8 +118,8 @@ Kết quả xuất ra tương tự như:
 ```
 
 Để biết thêm thông tin, hãy tham khảo
-[Quản lý Secret bằng kubectl](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/#verify-the-secret) và
-[Quản lý đối tượng Kubernetes theo kiểu khai báo bằng Kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/).
+[Quản lý Secret bằng kubectl](327-secret-kubectl-vi.md#verify-the-secret) và
+[Quản lý đối tượng Kubernetes theo kiểu khai báo bằng Kustomize](322-kustomization-vi.md).
 
 ## Sửa một Secret (Edit a Secret) {#edit-secret}
 
@@ -150,6 +150,6 @@ kubectl delete secret db-user-pass
 
 ## Tiếp theo (What's next)
 
-- Đọc thêm về [khái niệm Secret](https://kubernetes.io/docs/concepts/configuration/secret/)
-- Tìm hiểu cách [quản lý Secret bằng kubectl](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/)
-- Tìm hiểu cách [quản lý Secret bằng file cấu hình](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-config-file/)
+- Đọc thêm về [khái niệm Secret](109-secret-vi.md)
+- Tìm hiểu cách [quản lý Secret bằng kubectl](327-secret-kubectl-vi.md)
+- Tìm hiểu cách [quản lý Secret bằng file cấu hình](326-secret-config-file-vi.md)

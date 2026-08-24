@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 10/11 · Kiểm chứng
+**Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 10/11 · Kiểm chứng
 ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài chủ yếu là **ba danh sách trường**. Đừng học thuộc chúng; thứ phải nhớ là **ranh giới giữa ba
@@ -61,12 +61,12 @@ quen thuộc đó.
 Trong Kubernetes, có hai cách để phơi bày các trường của Pod và container cho một
 container đang chạy:
 
-* dưới dạng [biến môi trường](https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/)
-* dưới dạng [các file trong một volume `downwardAPI`](https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/)
+* dưới dạng [biến môi trường](336-env-variable-expose-pod-info-vi.md)
+* dưới dạng [các file trong một volume `downwardAPI`](335-downward-api-volume-vi.md)
 
 Hai cách phơi bày các trường của Pod và container này được gọi chung là _downward API_.
 
-## Các trường khả dụng (Available fields)
+## Các trường khả dụng (Available fields) {#available-fields}
 
 Chỉ một số trường của Kubernetes API là khả dụng thông qua downward API. Mục này liệt kê
 những trường bạn có thể cung cấp.
@@ -130,7 +130,7 @@ dụng dưới dạng biến môi trường**:
 ### Thông tin khả dụng qua `resourceFieldRef` (Information available via `resourceFieldRef`) {#downwardapi-resourceFieldRef}
 
 Các trường cấp container này cho phép bạn cung cấp thông tin về
-[request và limit](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits)
+[request và limit](110-manage-resources-containers-vi.md#requests-and-limits)
 của các tài nguyên như CPU và bộ nhớ.
 
 > **Ghi chú:**
@@ -140,7 +140,7 @@ của các tài nguyên như CPU và bộ nhớ.
 > Tài nguyên CPU và bộ nhớ của container có thể được thay đổi kích thước (resize) trong
 > khi container đang chạy. Nếu điều này xảy ra, volume downward API sẽ được cập nhật,
 > nhưng các biến môi trường sẽ không được cập nhật trừ khi container khởi động lại.
-> Xem [Thay đổi kích thước tài nguyên CPU và bộ nhớ đã gán cho Container](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/)
+> Xem [Thay đổi kích thước tài nguyên CPU và bộ nhớ đã gán cho Container](289-resize-container-resources-vi.md)
 > để biết thêm chi tiết.
 
 `resource: limits.cpu`
@@ -172,15 +172,15 @@ của các tài nguyên như CPU và bộ nhớ.
 Nếu limit CPU và bộ nhớ không được chỉ định cho một container, và bạn dùng downward API
 để cố phơi bày thông tin đó, thì kubelet mặc định sẽ phơi bày giá trị có thể cấp phát
 (allocatable) tối đa cho CPU và bộ nhớ dựa trên phép tính
-[node allocatable](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/#node-allocatable).
+[node allocatable](253-reserve-compute-resources-vi.md#node-allocatable).
 
 ## Tiếp theo (What's next)
 
-Bạn có thể đọc về [volume `downwardAPI`](https://kubernetes.io/docs/concepts/storage/volumes/#downwardapi).
+Bạn có thể đọc về [volume `downwardAPI`](91-volumes-vi.md#downwardapi).
 
 Bạn có thể thử dùng downward API để phơi bày thông tin cấp container hoặc cấp Pod:
-* dưới dạng [biến môi trường](https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/)
-* dưới dạng [các file trong volume `downwardAPI`](https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/)
+* dưới dạng [biến môi trường](336-env-variable-expose-pod-info-vi.md)
+* dưới dạng [các file trong volume `downwardAPI`](335-downward-api-volume-vi.md)
 
 ---
 

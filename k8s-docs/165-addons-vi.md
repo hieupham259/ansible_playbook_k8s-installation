@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 12](LO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 5/8 ·
+**Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 5/8 ·
 Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **danh mục**, không phải bài giảng. Không ai học thuộc nó. Đọc để nhớ **các nhóm chức
@@ -52,7 +52,7 @@ Add-on mở rộng chức năng của Kubernetes.
 Trang này liệt kê một số add-on hiện có kèm liên kết đến hướng dẫn cài đặt
 tương ứng của từng add-on. Danh sách này không nhằm liệt kê đầy đủ tất cả.
 
-## Mạng và Network Policy (Networking and Network Policy)
+## Mạng và Network Policy (Networking and Network Policy) {#networking-and-network-policy}
 
 * [ACI](https://www.github.com/noironetworks/aci-containers) cung cấp mạng container
   tích hợp và bảo mật mạng với Cisco ACI.
@@ -152,7 +152,7 @@ tương ứng của từng add-on. Danh sách này không nhằm liệt kê đ�
 * [Node problem detector](https://github.com/kubernetes/node-problem-detector)
   chạy trên các node Linux và báo cáo các sự cố hệ thống dưới dạng
   [Event](https://kubernetes.io/docs/reference/kubernetes-api/cluster-resources/event-v1/) hoặc
-  [Node condition](https://kubernetes.io/docs/concepts/architecture/nodes/#condition).
+  [Node condition](https://kubernetes.io/docs/concepts/architecture/nodes#condition).
 
 ## Đo lường (Instrumentation)
 

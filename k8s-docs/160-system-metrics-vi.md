@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 11](LO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 2/6 · Kiểm chứng
+**Vị trí:** [Giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 2/6 · Kiểm chứng
 ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này có hai nửa rất khác nhau. Nửa đầu — *Metric trong Kubernetes*, *Vòng đời metric*,
@@ -200,7 +200,7 @@ và giới hạn mong muốn (desired limits) của tất cả các pod đang ch
 giới hạn lập lịch hiện tại hoặc trong quá khứ, nhanh chóng nhận diện các workload không thể
 được lập lịch do thiếu tài nguyên, và so sánh mức sử dụng thực tế với request của pod.
 
-kube-scheduler nhận diện [request và limit](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+kube-scheduler nhận diện [request và limit](110-manage-resources-containers-vi.md)
 tài nguyên được cấu hình cho từng Pod; khi request hoặc limit khác 0, kube-scheduler báo
 cáo một chuỗi thời gian (timeseries) metric. Chuỗi thời gian này được gắn nhãn theo:
 
@@ -343,7 +343,7 @@ toàn hệ thống. Bạn có thể đọc thêm về metric PSI tại
 Pressure Stall Information yêu cầu:
 
 - [Kernel Linux phiên bản 4.20 trở lên](https://kubernetes.io/docs/reference/node/kernel-version-requirements#requirements-psi).
-- [cgroup v2](https://kubernetes.io/docs/concepts/architecture/cgroups)
+- [cgroup v2](33-cgroups-vi.md)
 
 ## Tắt metric (Disabling metrics)
 

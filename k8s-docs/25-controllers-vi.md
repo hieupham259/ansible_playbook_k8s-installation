@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+**Vị trí:** Giai đoạn 1 → nhóm [1a](00-ALO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
 bài 8/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B8.
 
 Đây là **ý tưởng cốt lõi của toàn bộ Kubernetes**, và là bài quan trọng nhất nhóm 1a. Bài ngắn
@@ -77,7 +77,7 @@ Job là một tài nguyên Kubernetes chạy một
 Pod, hoặc có thể là vài Pod, để thực hiện
 một tác vụ rồi dừng lại.
 
-(Một khi đã được [lập lịch](https://kubernetes.io/docs/concepts/scheduling-eviction/) (schedule), các đối tượng Pod trở thành
+(Một khi đã được [lập lịch](136-scheduling-eviction-vi.md) (schedule), các đối tượng Pod trở thành
 một phần trạng thái mong muốn đối với một kubelet).
 
 Khi controller của Job thấy một tác vụ mới, nó bảo đảm rằng, ở đâu đó
@@ -125,7 +125,7 @@ Trong ví dụ về bộ điều nhiệt, nếu căn phòng quá lạnh thì m�
 cũng có thể bật máy sưởi chống đóng băng (frost protection heater). Với các cluster Kubernetes, control
 plane làm việc gián tiếp với các công cụ quản lý địa chỉ IP, các dịch vụ lưu trữ,
 API của nhà cung cấp đám mây (cloud provider) và các dịch vụ khác bằng cách
-[mở rộng Kubernetes](https://kubernetes.io/docs/concepts/extend-kubernetes/) để hiện thực điều đó.
+[mở rộng Kubernetes](177-extend-kubernetes-vi.md) để hiện thực điều đó.
 
 ## Trạng thái mong muốn so với trạng thái hiện tại (Desired versus current state) {#desired-vs-current}
 
@@ -182,11 +182,11 @@ controller cụ thể đó.
 
 ## Tiếp theo (What's next)
 
-* Đọc về [control plane của Kubernetes](https://kubernetes.io/docs/concepts/architecture/#control-plane-components)
-* Khám phá một số [đối tượng Kubernetes](https://kubernetes.io/docs/concepts/overview/working-with-objects/) cơ bản
-* Tìm hiểu thêm về [Kubernetes API](https://kubernetes.io/docs/concepts/overview/kubernetes-api/)
+* Đọc về [control plane của Kubernetes](22-architecture-vi.md#control-plane-components)
+* Khám phá một số [đối tượng Kubernetes](16-working-with-objects-vi.md) cơ bản
+* Tìm hiểu thêm về [Kubernetes API](21-kubernetes-api-vi.md)
 * Nếu bạn muốn tự viết controller của riêng mình, hãy xem
-  [các mẫu mở rộng Kubernetes](https://kubernetes.io/docs/concepts/extend-kubernetes/#extension-patterns)
+  [các mẫu mở rộng Kubernetes](177-extend-kubernetes-vi.md#extension-patterns)
   và repository [sample-controller](https://github.com/kubernetes/sample-controller).
 
 ---

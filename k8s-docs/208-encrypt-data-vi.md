@@ -7,10 +7,10 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP7 — Audit và mã hóa dữ liệu](LO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu), bài 2/6 ·
+**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
+→ [CP7 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu), bài 2/6 ·
 Kiểm chứng bằng việc trả [nợ lab "Mã hóa Secret at rest"](labs/README.md#5-sổ-nợ-lab) phát sinh
 từ Lab 3b: bật mã hóa trên `k8s-master`, verify bằng `etcdctl`, rồi mã hóa lại các Secret cũ.
 
@@ -43,7 +43,7 @@ Bài này là "phần còn thiếu" của bài [109 — Secret](109-secret-vi.md
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Hai hàng `kms` v1/v2 trong bảng provider và mục "Lưu trữ key được quản lý (KMS)" | cluster lab không có dịch vụ KMS bên ngoài; lần đọc này chỉ cần nắm ý tưởng envelope encryption (DEK/KEK) | bài Using a KMS provider, bài 4/6 của chính [CP7](LO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu) |
+| Hai hàng `kms` v1/v2 trong bảng provider và mục "Lưu trữ key được quản lý (KMS)" | cluster lab không có dịch vụ KMS bên ngoài; lần đọc này chỉ cần nắm ý tưởng envelope encryption (DEK/KEK) | bài Using a KMS provider, bài 4/6 của chính [CP7](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu) |
 | Mã hóa custom resource (ví dụ `pandas.awesome.bears.example`) | chưa học CustomResourceDefinition | giai đoạn 14, bài [179](179-custom-resources-vi.md) |
 | Mục "Cấu hình tự động nạp lại" (`--encryption-provider-config-automatic-reload`) | tối ưu vận hành khi xoay key thường xuyên, không thay đổi bản chất quy trình | khi thực hành xoay key trong bài tập của CP7 và bài Decrypt kế tiếp (bài 3/6 của CP7) |
 
@@ -109,7 +109,7 @@ thì bạn đã bật mã hóa at rest. Tuy nhiên, phép kiểm tra đó không
 (migration) sang lưu trữ mã hóa trước đây đã thành công hay chưa. Nếu bạn không chắc, hãy xem
 [bảo đảm mọi dữ liệu liên quan đều được mã hóa](#ensure-all-secrets-are-encrypted).
 
-## Hiểu cấu hình mã hóa at rest (Understanding the encryption at rest configuration)
+## Hiểu cấu hình mã hóa at rest (Understanding the encryption at rest configuration) {#understanding-the-encryption-at-rest-configuration}
 
 ```yaml
 ---
@@ -392,7 +392,7 @@ mã hóa. Nếu bạn đã có sẵn key mã hóa, hãy bỏ qua và chuyển t�
 > module hoặc với các dịch vụ mã hóa do nhà cung cấp cloud của bạn quản lý.
 >
 > Để tìm hiểu cách thiết lập mã hóa at rest bằng KMS, xem
-> [Dùng KMS provider để mã hóa dữ liệu](https://kubernetes.io/docs/tasks/administer-cluster/kms-provider/).
+> [Dùng KMS provider để mã hóa dữ liệu](213-kms-provider-vi.md).
 > Plugin KMS provider mà bạn dùng cũng có thể kèm theo tài liệu riêng bổ sung.
 
 Bắt đầu bằng việc sinh một key mã hóa mới, rồi encode nó bằng base64:
@@ -437,7 +437,7 @@ khác.
 Ở mức tối thiểu, hãy dùng mã hóa khi truyền — ví dụ, secure shell (SSH). Để an toàn hơn, hãy dùng
 mã hóa bất đối xứng giữa các host, hoặc thay đổi cách tiếp cận để chuyển sang dựa vào mã hóa KMS.
 
-### Viết file cấu hình mã hóa (Write an encryption configuration file)
+### Viết file cấu hình mã hóa (Write an encryption configuration file) {#write-an-encryption-configuration-file}
 
 > **Thận trọng:** File cấu hình mã hóa có thể chứa các key giải mã được nội dung trong etcd. Nếu
 > file cấu hình chứa bất kỳ key material nào, bạn phải giới hạn quyền truy cập một cách chặt chẽ
@@ -603,7 +603,7 @@ Ví dụ sau cho thấy cách kiểm tra điều này với việc mã hóa Secr
    ```
 
    Kết quả phải chứa `mykey: bXlkYXRh`, với nội dung `mydata` được encode bằng base64; đọc
-   [giải mã một Secret](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/#decoding-secret)
+   [giải mã một Secret](327-secret-kubectl-vi.md#decoding-secret)
    để tìm hiểu cách decode Secret một cách đầy đủ.
 
 ### Bảo đảm mọi dữ liệu liên quan đều được mã hóa (Ensure all relevant data are encrypted) {#ensure-all-secrets-are-encrypted}
@@ -723,7 +723,7 @@ kubectl get secrets --all-namespaces -o json | kubectl replace -f -
 Khi bạn đã replace tất cả tài nguyên mã hóa hiện có bằng dữ liệu nền không dùng mã hóa, bạn có
 thể gỡ các thiết lập mã hóa khỏi `kube-apiserver`.
 
-## Cấu hình tự động nạp lại (Configure automatic reloading)
+## Cấu hình tự động nạp lại (Configure automatic reloading) {#configure-automatic-reloading}
 
 Bạn có thể cấu hình tự động nạp lại (reload) cấu hình encryption provider. Thiết lập đó quyết
 định việc API server chỉ nạp file mà bạn chỉ định cho `--encryption-provider-config` một lần lúc
@@ -739,7 +739,7 @@ API server.
 
 ## Tiếp theo (What's next)
 
-* Đọc về [giải mã dữ liệu đã được mã hóa at rest từ trước](https://kubernetes.io/docs/tasks/administer-cluster/decrypt-data/)
+* Đọc về [giải mã dữ liệu đã được mã hóa at rest từ trước](202-decrypt-data-vi.md)
 * Tìm hiểu thêm về [API cấu hình EncryptionConfiguration (v1)](https://kubernetes.io/docs/reference/config-api/apiserver-config.v1/).
 
 ---
@@ -800,4 +800,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng, rồi trả
 [nợ lab "Mã hóa Secret at rest"](labs/README.md#5-sổ-nợ-lab) trên cluster lab trước khi sang bài
-Decrypt kế tiếp của [CP7](LO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu).
+Decrypt kế tiếp của [CP7](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu).

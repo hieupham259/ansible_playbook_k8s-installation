@@ -156,6 +156,6 @@ biến môi trường từ file.
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [biến môi trường](https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/).
+* Tìm hiểu thêm về [biến môi trường](336-env-variable-expose-pod-info-vi.md).
 * Đọc [Định nghĩa biến môi trường cho một Container](331-define-environment-variable-vi.md)
-* Đọc [Cung cấp thông tin Pod cho container thông qua biến môi trường](https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information)
+* Đọc [Cung cấp thông tin Pod cho container thông qua biến môi trường](336-env-variable-expose-pod-info-vi.md)

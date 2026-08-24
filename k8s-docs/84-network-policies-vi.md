@@ -12,9 +12,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 6/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 6/16 · Kiểm chứng ở
 Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Cảnh báo về cluster lab:** baseline dùng **Flannel**, và Flannel **không thực thi
@@ -77,7 +77,7 @@ Trong khi đó, khi tạo NetworkPolicy dựa trên IP, chúng ta định nghĩa
 
 ## Điều kiện tiên quyết (Prerequisites)
 
-Network policy được hiện thực bởi [network plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/).
+Network policy được hiện thực bởi [network plugin](183-network-plugins-vi.md).
 Để sử dụng network policy, bạn phải dùng một giải pháp mạng có hỗ trợ NetworkPolicy.
 Việc tạo một tài nguyên NetworkPolicy mà không có controller hiện thực nó sẽ không có tác dụng gì.
 
@@ -165,7 +165,7 @@ spec:
 
 __Các trường bắt buộc__: Giống như mọi cấu hình Kubernetes khác, một NetworkPolicy cần các trường
 `apiVersion`, `kind` và `metadata`. Để biết thông tin chung về cách làm việc với file cấu hình, xem
-[Cấu hình Pod để sử dụng ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/)
+[Cấu hình Pod để sử dụng ConfigMap](275-configure-pod-configmap-vi.md)
 và [Quản lý object](./27-object-management-vi.md).
 
 **spec**: [spec](https://github.com/kubernetes/community/blob/main/contributors/devel/sig-architecture/api-conventions.md#spec-and-status)
@@ -208,7 +208,7 @@ Như vậy, NetworkPolicy trong ví dụ:
 1. (Quy tắc egress) cho phép các kết nối từ bất kỳ pod nào trong namespace `default` có label
    `role=db` đến CIDR `10.0.0.0/24` trên TCP port 5978
 
-Xem bài hướng dẫn từng bước [Khai báo Network Policy](https://kubernetes.io/docs/tasks/administer-cluster/declare-network-policy/)
+Xem bài hướng dẫn từng bước [Khai báo Network Policy](201-declare-network-policy-vi.md)
 để có thêm ví dụ.
 
 ## Hành vi của các bộ chọn `to` và `from` (Behavior of `to` and `from` selectors)
@@ -455,7 +455,7 @@ Các hạn chế sau được áp dụng khi sử dụng trường này:
 > **Ghi chú:**
 > Cluster của bạn phải sử dụng một CNI plugin có hỗ trợ trường `endPort` trong đặc tả
 > NetworkPolicy.
-> Nếu [network plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/)
+> Nếu [network plugin](183-network-plugins-vi.md)
 > của bạn không hỗ trợ trường `endPort` mà bạn vẫn chỉ định một NetworkPolicy có trường đó,
 > chính sách sẽ chỉ được áp dụng cho trường `port` duy nhất.
 
@@ -628,7 +628,7 @@ Khuyến nghị không nên sửa đổi các chính sách/pod/namespace theo nh
 
 ## Tiếp theo (What's next)
 
-- Xem bài hướng dẫn từng bước [Khai báo Network Policy](https://kubernetes.io/docs/tasks/administer-cluster/declare-network-policy/)
+- Xem bài hướng dẫn từng bước [Khai báo Network Policy](201-declare-network-policy-vi.md)
   để có thêm ví dụ.
 - Xem thêm các [công thức (recipes)](https://github.com/ahmetb/kubernetes-network-policy-recipes)
   cho các kịch bản phổ biến mà tài nguyên NetworkPolicy hỗ trợ.

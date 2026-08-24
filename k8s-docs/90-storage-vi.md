@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 1/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 1/16 · Kiểm chứng ở
 Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này **không dạy cơ chế nào cả** — nó là trang mục lục của phần Storage trên kubernetes.io.
@@ -26,7 +26,7 @@ Bài này **không dạy cơ chế nào cả** — nó là trang mục lục c�
   và *Cấp phát volume động*. Ba trang đó là bài 3, 4, 5 của giai đoạn này.
 - Nhánh tạm thời có hai trang riêng biệt và **không phải một**: *Volume tạm thời* (vòng đời
   gắn với Pod) và *Lưu trữ tạm thời cục bộ* (tài nguyên đĩa của node).
-- Thứ tự đọc 16 bài lấy từ [lộ trình](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), **không phải**
+- Thứ tự đọc 16 bài lấy từ [lộ trình](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), **không phải**
   thứ tự trong danh sách này và cũng không phải số trong tên file.
 
 **Đọc lướt, chưa cần hiểu:**
@@ -48,22 +48,22 @@ Các cách cung cấp lưu trữ dài hạn lẫn tạm thời cho các Pod tron
 
 Các trang trong mục này:
 
-* [Volume (Volumes)](https://kubernetes.io/docs/concepts/storage/volumes/)
-* [Persistent Volume (Persistent Volumes)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
+* [Volume (Volumes)](91-volumes-vi.md)
+* [Persistent Volume (Persistent Volumes)](92-persistent-volumes-vi.md)
 * [Volume dạng projected (Projected Volumes)](./93-projected-volumes-vi.md)
 * [Volume tạm thời (Ephemeral Volumes)](./94-ephemeral-volumes-vi.md)
-* [Storage Class (Storage Classes)](https://kubernetes.io/docs/concepts/storage/storage-classes/)
-* [Volume Attributes Class (Volume Attributes Classes)](https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/)
-* [Cấp phát volume động (Dynamic Volume Provisioning)](https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/)
-* [Volume Snapshot (Volume Snapshots)](https://kubernetes.io/docs/concepts/storage/volume-snapshots/)
-* [Volume Snapshot Class (Volume Snapshot Classes)](https://kubernetes.io/docs/concepts/storage/volume-snapshot-classes/)
-* [Nhân bản volume CSI (CSI Volume Cloning)](https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/)
-* [Volume Populator và nguồn dữ liệu (Volume Populators and Data Sources)](https://kubernetes.io/docs/concepts/storage/volume-populators-and-data-sources/)
-* [Dung lượng lưu trữ (Storage Capacity)](https://kubernetes.io/docs/concepts/storage/storage-capacity/)
-* [Giới hạn volume theo từng node (Node-specific Volume Limits)](https://kubernetes.io/docs/concepts/storage/storage-limits/)
-* [Lưu trữ tạm thời cục bộ (Local ephemeral storage)](https://kubernetes.io/docs/concepts/storage/ephemeral-storage/)
-* [Giám sát tình trạng volume (Volume Health Monitoring)](https://kubernetes.io/docs/concepts/storage/volume-health-monitoring/)
-* [Lưu trữ trên Windows (Windows Storage)](https://kubernetes.io/docs/concepts/storage/windows-storage/)
+* [Storage Class (Storage Classes)](96-storage-classes-vi.md)
+* [Volume Attributes Class (Volume Attributes Classes)](97-volume-attributes-classes-vi.md)
+* [Cấp phát volume động (Dynamic Volume Provisioning)](98-dynamic-provisioning-vi.md)
+* [Volume Snapshot (Volume Snapshots)](99-volume-snapshots-vi.md)
+* [Volume Snapshot Class (Volume Snapshot Classes)](100-volume-snapshot-classes-vi.md)
+* [Nhân bản volume CSI (CSI Volume Cloning)](101-volume-pvc-datasource-vi.md)
+* [Volume Populator và nguồn dữ liệu (Volume Populators and Data Sources)](102-volume-populators-vi.md)
+* [Dung lượng lưu trữ (Storage Capacity)](103-storage-capacity-vi.md)
+* [Giới hạn volume theo từng node (Node-specific Volume Limits)](104-storage-limits-vi.md)
+* [Lưu trữ tạm thời cục bộ (Local ephemeral storage)](95-ephemeral-storage-vi.md)
+* [Giám sát tình trạng volume (Volume Health Monitoring)](105-volume-health-monitoring-vi.md)
+* [Lưu trữ trên Windows (Windows Storage)](106-windows-storage-vi.md)
 
 ---
 
@@ -87,7 +87,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 1. **Chưa.** Đây là trang mục lục của phần khái niệm Storage, nó chỉ liệt kê các trang con chứ
    không mô tả cơ chế nào. Thứ tự đọc lấy từ
-   [lộ trình](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), **không phải** thứ tự trong danh sách
+   [lộ trình](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), **không phải** thứ tự trong danh sách
    này và cũng không phải số trong tên file.
 2. **Hai khái niệm khác nhau**, và dấu hiệu nằm ngay trong danh sách: chúng là **hai mục
    riêng biệt**, tức hai trang tài liệu riêng. *Volume tạm thời* nói về volume có vòng đời gắn

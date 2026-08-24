@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 1/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 1/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này là **trang mục lục của cả giai đoạn 9**, không phải bài dạy cơ chế. Nó gọi tên từng
 nhóm cơ chế bảo mật rồi trỏ sang trang chi tiết. Đọc để có bản đồ và biết mỗi cơ chế nằm ở
@@ -52,7 +52,7 @@ Kubernetes dựa trên kiến trúc cloud-native, và tiếp thu các khuyến n
 CNCF về những thực hành tốt cho
 bảo mật thông tin cloud-native.
 
-Hãy đọc [Bảo mật cloud-native và Kubernetes](https://kubernetes.io/docs/concepts/security/cloud-native-security/)
+Hãy đọc [Bảo mật cloud-native và Kubernetes](114-cloud-native-security-vi.md)
 để có bối cảnh rộng hơn về cách bảo vệ cluster của bạn và các ứng dụng
 mà bạn đang chạy trên đó.
 
@@ -64,28 +64,28 @@ Kubernetes bao gồm nhiều API và biện pháp kiểm soát bảo mật (secu
 ### Bảo vệ control plane (Control plane protection)
 
 Một cơ chế bảo mật then chốt cho bất kỳ cluster Kubernetes nào là
-[kiểm soát quyền truy cập tới Kubernetes API](https://kubernetes.io/docs/concepts/security/controlling-access).
+[kiểm soát quyền truy cập tới Kubernetes API](119-controlling-access-vi.md).
 
 Kubernetes kỳ vọng bạn cấu hình và sử dụng TLS để cung cấp
 [mã hóa dữ liệu khi truyền (data encryption in transit)](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/)
 bên trong control plane, và giữa control plane với các client của nó.
-Bạn cũng có thể bật [mã hóa dữ liệu khi lưu trữ (encryption at rest)](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/)
+Bạn cũng có thể bật [mã hóa dữ liệu khi lưu trữ (encryption at rest)](208-encrypt-data-vi.md)
 cho dữ liệu được lưu bên trong control plane của Kubernetes; điều này tách biệt với việc dùng
 mã hóa khi lưu trữ cho dữ liệu workload của riêng bạn — việc đó cũng có thể là một ý tưởng tốt.
 
 ### Secrets
 
-API [Secret](https://kubernetes.io/docs/concepts/configuration/secret/) cung cấp sự bảo vệ cơ bản cho
+API [Secret](109-secret-vi.md) cung cấp sự bảo vệ cơ bản cho
 các giá trị cấu hình đòi hỏi tính bí mật (confidentiality).
 
 ### Bảo vệ workload (Workload protection)
 
-Hãy thực thi [các tiêu chuẩn bảo mật Pod (Pod security standards)](https://kubernetes.io/docs/concepts/security/pod-security-standards/) để
+Hãy thực thi [các tiêu chuẩn bảo mật Pod (Pod security standards)](115-pod-security-standards-vi.md) để
 bảo đảm các Pod và những container của chúng được cô lập một cách phù hợp. Bạn cũng có thể dùng
-[RuntimeClass](https://kubernetes.io/docs/concepts/containers/runtime-class) để định nghĩa cơ chế cô lập tùy chỉnh
+[RuntimeClass](43-runtime-class-vi.md) để định nghĩa cơ chế cô lập tùy chỉnh
 nếu bạn cần.
 
-[Network policy](https://kubernetes.io/docs/concepts/services-networking/network-policies/) cho phép bạn kiểm soát
+[Network policy](84-network-policies-vi.md) cho phép bạn kiểm soát
 lưu lượng mạng giữa các Pod, hoặc giữa các Pod và mạng bên ngoài cluster của bạn.
 
 Bạn có thể triển khai các biện pháp kiểm soát bảo mật từ hệ sinh thái rộng hơn để hiện thực các biện pháp
@@ -98,11 +98,11 @@ là các plugin chặn (intercept) các request tới Kubernetes API và có th�
 các request đó dựa trên những trường cụ thể trong request. Việc thiết kế cẩn trọng
 các controller này giúp tránh những gián đoạn ngoài ý muốn khi các API của Kubernetes
 thay đổi qua các lần cập nhật phiên bản. Về các cân nhắc thiết kế, hãy xem
-[Các thực hành tốt cho Admission Webhook](https://kubernetes.io/docs/concepts/cluster-administration/admission-webhooks-good-practices/).
+[Các thực hành tốt cho Admission Webhook](173-admission-webhooks-vi.md).
 
 ### Kiểm toán (Auditing)
 
-[Ghi log kiểm toán (audit logging)](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/) của Kubernetes cung cấp một
+[Ghi log kiểm toán (audit logging)](306-audit-vi.md) của Kubernetes cung cấp một
 tập hợp bản ghi theo trình tự thời gian, liên quan đến bảo mật, ghi lại chuỗi hành động
 trong một cluster. Cluster kiểm toán các hoạt động được tạo ra bởi người dùng, bởi các ứng dụng
 sử dụng Kubernetes API, và bởi chính control plane.
@@ -129,10 +129,10 @@ Dưới đây là các liên kết tới tài liệu bảo mật của một s�
 | Tencent Cloud | https://www.tencentcloud.com/solutions/data-security-and-information-protection |
 | VMware vSphere | https://www.vmware.com/solutions/security/hardening-guides |
 
-## Các policy (Policies)
+## Các policy (Policies) {#policies}
 
 Bạn có thể định nghĩa các policy bảo mật bằng những cơ chế thuần Kubernetes (Kubernetes-native),
-chẳng hạn như [NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)
+chẳng hạn như [NetworkPolicy](84-network-policies-vi.md)
 (kiểm soát khai báo (declarative) đối với việc lọc gói tin mạng) hoặc
 [ValidatingAdmissionPolicy](https://kubernetes.io/docs/reference/access-authn-authz/validating-admission-policy/) (các ràng buộc khai báo về những thay đổi
 mà một người nào đó có thể thực hiện thông qua Kubernetes API).
@@ -144,26 +144,26 @@ rộng hơn xung quanh Kubernetes. Kubernetes cung cấp các cơ chế mở r�
 mạng, và nhiều thứ khác.
 
 Để biết thêm thông tin về các cơ chế policy và Kubernetes,
-hãy đọc [Policies](https://kubernetes.io/docs/concepts/policy/).
+hãy đọc [Policies](132-policies-vi.md).
 
 ## Tiếp theo (What's next)
 
 Tìm hiểu về các chủ đề bảo mật Kubernetes liên quan:
 
-* [Bảo vệ cluster của bạn](https://kubernetes.io/docs/tasks/administer-cluster/securing-a-cluster/)
+* [Bảo vệ cluster của bạn](256-securing-a-cluster-vi.md)
 * [Các lỗ hổng đã biết](https://kubernetes.io/docs/reference/issues-security/official-cve-feed/)
   trong Kubernetes (và các liên kết tới thông tin thêm)
 * [Mã hóa dữ liệu khi truyền](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/) cho control plane
-* [Mã hóa dữ liệu khi lưu trữ](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/)
-* [Kiểm soát quyền truy cập tới Kubernetes API](https://kubernetes.io/docs/concepts/security/controlling-access)
-* [Network policy](https://kubernetes.io/docs/concepts/services-networking/network-policies/) cho các Pod
-* [Secret trong Kubernetes](https://kubernetes.io/docs/concepts/configuration/secret/)
-* [Các tiêu chuẩn bảo mật Pod](https://kubernetes.io/docs/concepts/security/pod-security-standards/)
-* [RuntimeClass](https://kubernetes.io/docs/concepts/containers/runtime-class)
+* [Mã hóa dữ liệu khi lưu trữ](208-encrypt-data-vi.md)
+* [Kiểm soát quyền truy cập tới Kubernetes API](119-controlling-access-vi.md)
+* [Network policy](84-network-policies-vi.md) cho các Pod
+* [Secret trong Kubernetes](109-secret-vi.md)
+* [Các tiêu chuẩn bảo mật Pod](115-pod-security-standards-vi.md)
+* [RuntimeClass](43-runtime-class-vi.md)
 
 Tìm hiểu bối cảnh:
 
-* [Bảo mật cloud-native và Kubernetes](https://kubernetes.io/docs/concepts/security/cloud-native-security/)
+* [Bảo mật cloud-native và Kubernetes](114-cloud-native-security-vi.md)
 
 Lấy chứng chỉ:
 

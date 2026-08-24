@@ -7,15 +7,15 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 12](LO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 8/8 ·
+**Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 8/8 ·
 Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Đây là một trang trỏ hướng, không phải một bài học.** Toàn bộ nội dung là đúng một câu chỉ sang
 trang *Certificates* thuộc nhánh `/docs/tasks/` của kubernetes.io. Nó **không thay thế được module
 quản lý certificate** — phần đó nằm ở **CP3 vòng đời chứng chỉ** trong
-[Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), và đã được ghi sẵn
+[Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), và đã được ghi sẵn
 trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab). Đọc xong bài này, đừng gạch chủ đề certificate ra
 khỏi danh sách.
 
@@ -37,7 +37,7 @@ khỏi danh sách.
 ---
 
 Để tìm hiểu cách tạo certificate cho cluster của bạn, xem
-[Certificates](https://kubernetes.io/docs/tasks/administer-cluster/certificates/).
+[Certificates](191-certificates-manual-vi.md).
 
 ---
 
@@ -60,7 +60,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    hết hạn khi nào, gia hạn ra sao, hay xoay CA thế nào. Sáu dòng là toàn bộ nội dung, và biết
    điều đó cũng là một kết quả đọc hợp lệ.
 2. **Chưa đủ.** Bài này không chứa một thao tác nào. Phần thật nằm ở **CP3 — Vòng đời chứng chỉ**
-   trong [Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), với quy
+   trong [Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), với quy
    trình `kubeadm certs` để kiểm tra hạn, gia hạn và xoay CA. Cái bẫy ở đây là tâm lý: một bài
    ngắn đọc hết trong ba mươi giây rất dễ bị tick "xong", trong khi lộ trình gọi nó đúng tên là
    **trang trỏ hướng**.

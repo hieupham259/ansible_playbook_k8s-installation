@@ -25,7 +25,7 @@ chơi (playground) Kubernetes sau:
 * [Killercoda](https://killercoda.com/playgrounds/scenario/kubernetes)
 * [KodeKloud](https://kodekloud.com/public-playgrounds)
 
-## Sử dụng service account mặc định để truy cập API server (Use the default service account to access the API server)
+## Sử dụng service account mặc định để truy cập API server (Use the default service account to access the API server) {#use-the-default-service-account-to-access-the-api-server}
 
 Khi các Pod liên hệ với API server, Pod xác thực dưới danh nghĩa một ServiceAccount cụ thể (ví
 dụ: `default`). Luôn có ít nhất một ServiceAccount trong mỗi namespace.
@@ -45,7 +45,7 @@ nếu bạn không chỉ định khi tạo Pod.
 
 Một ứng dụng chạy bên trong Pod có thể truy cập API của Kubernetes bằng thông tin xác thực
 (credentials) của service account được tự động mount. Xem
-[truy cập Cluster](https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/)
+[truy cập Cluster](359-access-cluster-vi.md)
 để tìm hiểu thêm.
 
 Khi một Pod xác thực dưới danh nghĩa một ServiceAccount, mức độ truy cập của nó phụ thuộc vào
@@ -95,7 +95,7 @@ Nếu cả ServiceAccount lẫn `.spec` của Pod đều chỉ định giá tr�
 
 Mỗi namespace có ít nhất một ServiceAccount: tài nguyên ServiceAccount mặc định, tên là
 `default`. Bạn có thể liệt kê tất cả các tài nguyên ServiceAccount trong
-[namespace hiện tại](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#setting-the-namespace-preference)
+[namespace hiện tại](19-namespaces-vi.md#setting-the-namespace-preference)
 của mình bằng:
 
 ```shell
@@ -121,7 +121,7 @@ EOF
 ```
 
 Tên của một object ServiceAccount phải là một
-[tên miền con DNS (DNS subdomain name)](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names)
+[tên miền con DNS (DNS subdomain name)](17-names-vi.md#dns-subdomain-names)
 hợp lệ.
 
 Nếu bạn lấy toàn bộ nội dung (dump) của object service account, như sau:
@@ -168,7 +168,7 @@ chạy:
 kubectl delete serviceaccount/build-robot
 ```
 
-## Tạo API token thủ công cho một ServiceAccount (Manually create an API token for a ServiceAccount)
+## Tạo API token thủ công cho một ServiceAccount (Manually create an API token for a ServiceAccount) {#manually-create-an-api-token-for-a-serviceaccount}
 
 Giả sử bạn có một service account tên "build-robot" như đã nhắc tới ở trên.
 
@@ -282,14 +282,14 @@ token dài hạn khỏi Secret đó.
 > của object ServiceAccount trong API, vì field đó chỉ được điền với các Secret được sinh tự
 > động.
 
-## Thêm ImagePullSecrets vào một service account (Add ImagePullSecrets to a service account)
+## Thêm ImagePullSecrets vào một service account (Add ImagePullSecrets to a service account) {#add-imagepullsecrets-to-a-service-account}
 
 Trước tiên, hãy
-[tạo một imagePullSecret](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod).
+[tạo một imagePullSecret](40-images-vi.md#specifying-imagepullsecrets-on-a-pod).
 Tiếp theo, xác nhận rằng nó đã được tạo. Ví dụ:
 
 - Tạo một imagePullSecret, như mô tả trong
-  [Chỉ định ImagePullSecrets trên Pod](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod).
+  [Chỉ định ImagePullSecrets trên Pod](40-images-vi.md#specifying-imagepullsecrets-on-a-pod).
 
   ```shell
   kubectl create secret docker-registry myregistrykey --docker-server=<registry name> \
@@ -372,7 +372,7 @@ Kết quả là:
 myregistrykey
 ```
 
-## Chiếu token của ServiceAccount vào volume (ServiceAccount token volume projection)
+## Chiếu token của ServiceAccount vào volume (ServiceAccount token volume projection) {#serviceaccount-token-volume-projection}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.20 [stable]`
 
@@ -414,7 +414,7 @@ cấu hình được trên ServiceAccount token mặc định. Token cũng sẽ 
 khi Pod hoặc ServiceAccount bị xóa.
 
 Bạn có thể cấu hình hành vi này cho `spec` của một Pod bằng loại
-[projected volume](https://kubernetes.io/docs/concepts/storage/volumes/#projected) có tên
+[projected volume](91-volumes-vi.md#projected) có tên
 `ServiceAccountToken`.
 
 Token từ projected volume này là một JSON Web Token (JWT). Phần payload JSON của token này tuân
@@ -450,7 +450,7 @@ theo một schema được định nghĩa rõ ràng — ví dụ payload cho m�
 }
 ```
 
-### Khởi chạy Pod dùng chiếu service account token (Launch a Pod using service account token projection)
+### Khởi chạy Pod dùng chiếu service account token (Launch a Pod using service account token projection) {#launch-a-pod-using-service-account-token-projection}
 
 Để cung cấp cho một Pod một token có audience là `vault` và thời hạn hợp lệ hai giờ, bạn có thể
 định nghĩa một manifest Pod tương tự như:
@@ -551,8 +551,8 @@ Xem thêm:
 
 - Đọc [Hướng dẫn quản trị cluster về Service Account](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/)
 - Đọc về [Phân quyền trong Kubernetes](https://kubernetes.io/docs/reference/access-authn-authz/authorization/)
-- Đọc về [Secrets](https://kubernetes.io/docs/concepts/configuration/secret/)
-  - hoặc học cách [phân phối thông tin xác thực an toàn bằng Secrets](https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/)
+- Đọc về [Secrets](109-secret-vi.md)
+  - hoặc học cách [phân phối thông tin xác thực an toàn bằng Secrets](334-distribute-credentials-secure-vi.md)
   - nhưng cũng cần lưu ý rằng việc dùng Secret để xác thực dưới danh nghĩa ServiceAccount đã lỗi
     thời. Cách thay thế được khuyến nghị là
     [chiếu ServiceAccount token vào volume](#chiếu-token-của-serviceaccount-vào-volume-serviceaccount-token-volume-projection).

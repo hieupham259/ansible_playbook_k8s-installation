@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 9/9 ·
+**Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 9/9 ·
 Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Đây là tài liệu tra cứu, không phải bài học — đừng đọc tuần tự và đừng cố nhớ nội dung.**
@@ -139,10 +139,10 @@ Nếu bạn nhận thấy `kubeadm init` bị treo sau khi in ra dòng sau:
 
 - vấn đề kết nối mạng. Hãy kiểm tra rằng máy của bạn có kết nối mạng đầy đủ trước khi tiếp tục.
 - cgroup driver của container runtime khác với cgroup driver của kubelet. Để hiểu cách
-  cấu hình đúng, xem [Cấu hình cgroup driver](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/configure-cgroup-driver/).
+  cấu hình đúng, xem [Cấu hình cgroup driver](218-configure-cgroup-driver-vi.md).
 - các container của control plane bị crashloop hoặc bị treo. Bạn có thể kiểm tra điều này bằng cách chạy `docker ps`
   và xem xét từng container bằng cách chạy `docker logs`. Với các container runtime khác, xem
-  [Gỡ lỗi node Kubernetes với crictl](https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/).
+  [Gỡ lỗi node Kubernetes với crictl](307-crictl-vi.md).
 
 ## kubeadm bị treo khi xóa các container được quản lý (kubeadm blocks when removing managed containers)
 
@@ -163,7 +163,7 @@ sudo kubeadm reset
 
 Một giải pháp khả thi là khởi động lại container runtime rồi chạy lại `kubeadm reset`.
 Bạn cũng có thể dùng `crictl` để gỡ lỗi trạng thái của container runtime. Xem
-[Gỡ lỗi node Kubernetes với crictl](https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/).
+[Gỡ lỗi node Kubernetes với crictl](307-crictl-vi.md).
 
 ## Pod ở trạng thái `RunContainerError`, `CrashLoopBackOff` hoặc `Error` (Pods in `RunContainerError`, `CrashLoopBackOff` or `Error` state)
 
@@ -181,7 +181,7 @@ Ngay sau khi chạy `kubeadm init`, không nên có pod nào ở các trạng th
 ## `coredns` bị kẹt ở trạng thái `Pending` (`coredns` is stuck in the `Pending` state)
 
 Điều này là **bình thường** và nằm trong thiết kế. kubeadm không phụ thuộc vào nhà cung cấp mạng nào (network provider-agnostic),
-vì vậy người quản trị nên [cài đặt add-on pod network](https://kubernetes.io/docs/concepts/cluster-administration/addons/)
+vì vậy người quản trị nên [cài đặt add-on pod network](165-addons-vi.md)
 mà mình chọn. Bạn phải cài đặt một Pod Network
 trước khi CoreDNS có thể được triển khai đầy đủ. Do đó `coredns` ở trạng thái `Pending` trước khi mạng được thiết lập.
 
@@ -197,12 +197,12 @@ Các nhà cung cấp CNI Calico, Canal và Flannel đã được xác nhận là
 [tài liệu CNI portmap](https://github.com/containernetworking/plugins/blob/master/plugins/meta/portmap/README.md).
 
 Nếu nhà cung cấp mạng của bạn không hỗ trợ plugin CNI portmap, bạn có thể cần dùng
-[tính năng NodePort của service](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport)
+[tính năng NodePort của service](82-service-vi.md#type-nodeport)
 hoặc dùng `HostNetwork=true`.
 
 ## Không thể truy cập Pod qua Service IP của chúng (Pods are not accessible via their Service IP)
 
-- Nhiều add-on mạng chưa bật [chế độ hairpin (hairpin mode)](https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/#a-pod-fails-to-reach-itself-via-the-service-ip),
+- Nhiều add-on mạng chưa bật [chế độ hairpin (hairpin mode)](301-debug-service-vi.md#a-pod-fails-to-reach-itself-via-the-service-ip),
   chế độ cho phép các pod tự truy cập chính mình thông qua Service IP của chúng. Đây là một vấn đề liên quan đến
   [CNI](https://github.com/containernetworking/cni/issues/476). Vui lòng liên hệ nhà cung cấp
   add-on mạng để biết tình trạng hỗ trợ mới nhất của họ đối với chế độ hairpin.
@@ -261,7 +261,7 @@ trong log của kube-apiserver. Để khắc phục vấn đề, bạn phải l�
    `kubeadm kubeconfig user --org system:nodes --client-name system:node:$NODE > kubelet.conf`.
    `$NODE` phải được đặt thành tên của node đang bị lỗi trong cluster.
    Sửa thủ công tệp `kubelet.conf` thu được để điều chỉnh tên cluster và endpoint của server,
-   hoặc truyền `kubeconfig user --config` (xem [Tạo tệp kubeconfig cho người dùng bổ sung](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/#kubeconfig-additional-users)). Nếu cluster của bạn không có
+   hoặc truyền `kubeconfig user --config` (xem [Tạo tệp kubeconfig cho người dùng bổ sung](219-kubeadm-certs-vi.md#kubeconfig-additional-users)). Nếu cluster của bạn không có
    `ca.key`, bạn phải ký các certificate nhúng trong `kubelet.conf` từ bên ngoài.
 1. Sao chép tệp `kubelet.conf` thu được vào `/etc/kubernetes/kubelet.conf` trên node bị lỗi.
 1. Khởi động lại kubelet (`systemctl restart kubelet`) trên node bị lỗi và chờ
@@ -337,7 +337,7 @@ Error from server: Get https://10.19.0.41:10250/containerLogs/default/mysql-ddc6
 Nếu bạn có các node đang chạy SELinux với phiên bản Docker cũ, bạn có thể gặp tình huống
 các pod `coredns` không khởi động được. Để giải quyết, bạn có thể thử một trong các phương án sau:
 
-- Nâng cấp lên [phiên bản Docker mới hơn](https://kubernetes.io/docs/setup/production-environment/container-runtimes/#docker).
+- Nâng cấp lên [phiên bản Docker mới hơn](00-container-runtimes-vi.md#docker).
 
 - [Tắt SELinux](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/security-enhanced_linux/sect-security-enhanced_linux-enabling_and_disabling_selinux-disabling_selinux).
 
@@ -522,7 +522,7 @@ x509: certificate signed by unknown authority
 x509: certificate is valid for IP-foo not IP-bar
 ```
 
-Xem [Bật serving certificate được ký cho kubelet](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/#kubelet-serving-certs)
+Xem [Bật serving certificate được ký cho kubelet](219-kubeadm-certs-vi.md#kubelet-serving-certs)
 để hiểu cách cấu hình các kubelet trong cluster kubeadm sao cho có serving certificate được ký đúng cách.
 
 Xem thêm [Cách chạy metrics-server một cách an toàn](https://github.com/kubernetes-sigs/metrics-server/blob/master/FAQ.md#how-to-run-metrics-server-securely).

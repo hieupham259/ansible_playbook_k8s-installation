@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 4/11 · Kiểm chứng
+**Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 4/11 · Kiểm chứng
 ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài ngắn, và phần lớn nội dung đã xuất hiện dạng rút gọn ở [bài 47](47-pod-lifecycle-vi.md). Giá
@@ -77,7 +77,7 @@ Mỗi phần tử của mảng PodCondition có các trường sau:
 | `lastTransitionTime` | Dấu thời gian của lần gần nhất Pod chuyển từ trạng thái này sang trạng thái khác.                     |
 | `reason`             | Chuỗi văn bản dạng máy đọc được, viết theo UpperCamelCase, cho biết lý do của lần chuyển trạng thái gần nhất của condition. |
 | `message`            | Thông điệp dạng người đọc được, cho biết chi tiết về lần chuyển trạng thái gần nhất.                  |
-| `observedGeneration` | Giá trị `.metadata.generation` của Pod tại thời điểm condition được ghi nhận. Xem [Pod generation](https://kubernetes.io/docs/concepts/workloads/pods/#pod-generation). |
+| `observedGeneration` | Giá trị `.metadata.generation` của Pod tại thời điểm condition được ghi nhận. Xem [Pod generation](46-pods-vi.md#pod-generation). |
 
 *Các trường của một PodCondition*
 
@@ -100,9 +100,9 @@ Khi một Pod tiến triển qua vòng đời của nó, kubelet đặt các con
 
 1. `PodScheduled`: Pod đã được lập lịch lên một node.
 1. `PodReadyToStartContainers`: Pod sandbox đã được tạo thành công và mạng đã được cấu hình. Sandbox và mạng được thiết lập bởi container runtime và CNI plugin.
-1. `Initialized`: tất cả các [init container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) đã hoàn tất thành công. Với một Pod không có init container, condition này được đặt là `True` trước khi tạo sandbox.
-1. `ContainersReady`: tất cả các container trong Pod đã sẵn sàng. Độ sẵn sàng của một container được xác định bởi [readiness probe](https://kubernetes.io/docs/concepts/workloads/pods/probes/#readiness-probe) của nó, nếu được cấu hình.
-1. `Ready`: Pod có khả năng phục vụ các yêu cầu và nên được thêm vào các nhóm cân bằng tải (load balancing pool) của tất cả các [Service](https://kubernetes.io/docs/concepts/services-networking/service/) khớp với nó. Các Pod không ở trạng thái `Ready` sẽ bị loại khỏi các endpoint của Service.
+1. `Initialized`: tất cả các [init container](50-init-containers-vi.md) đã hoàn tất thành công. Với một Pod không có init container, condition này được đặt là `True` trước khi tạo sandbox.
+1. `ContainersReady`: tất cả các container trong Pod đã sẵn sàng. Độ sẵn sàng của một container được xác định bởi [readiness probe](49-probes-vi.md#readiness-probe) của nó, nếu được cấu hình.
+1. `Ready`: Pod có khả năng phục vụ các yêu cầu và nên được thêm vào các nhóm cân bằng tải (load balancing pool) của tất cả các [Service](82-service-vi.md) khớp với nó. Các Pod không ở trạng thái `Ready` sẽ bị loại khỏi các endpoint của Service.
 
 > **Ghi chú:**
 >
@@ -188,7 +188,7 @@ Trường `reason` của condition này còn cho biết
 một trong các lý do sau cho việc kết thúc Pod:
 
 `PreemptionByScheduler`
-: Pod sắp bị scheduler chiếm chỗ (preempt) để nhường chỗ cho một Pod mới có độ ưu tiên (priority) cao hơn. Để biết thêm thông tin, xem [Pod priority preemption](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/).
+: Pod sắp bị scheduler chiếm chỗ (preempt) để nhường chỗ cho một Pod mới có độ ưu tiên (priority) cao hơn. Để biết thêm thông tin, xem [Pod priority preemption](141-pod-priority-preemption-vi.md).
 
 `DeletionByTaintManager`
 : Pod sắp bị Taint Manager (một phần của node lifecycle controller bên trong `kube-controller-manager`) xóa do một taint `NoExecute` mà Pod không dung thứ (tolerate); xem các đợt trục xuất (eviction) dựa trên taint.
@@ -201,11 +201,11 @@ một trong các lý do sau cho việc kết thúc Pod:
 
 `TerminationByKubelet`
 : Pod đã bị kubelet kết thúc, do một trong các nguyên nhân: trục xuất vì áp lực tài nguyên trên node (node pressure eviction),
-  [tắt node nhẹ nhàng (graceful node shutdown)](https://kubernetes.io/docs/concepts/architecture/nodes/#graceful-node-shutdown),
-  hoặc chiếm chỗ để nhường cho [các Pod quan trọng của hệ thống](https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/).
+  [tắt node nhẹ nhàng (graceful node shutdown)](https://kubernetes.io/docs/concepts/architecture/nodes#graceful-node-shutdown),
+  hoặc chiếm chỗ để nhường cho [các Pod quan trọng của hệ thống](210-guaranteed-scheduling-critical-addon-pods-vi.md).
 
 Trong mọi kịch bản gián đoạn khác, chẳng hạn trục xuất do vượt quá
-[giới hạn tài nguyên container của Pod](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/),
+[giới hạn tài nguyên container của Pod](110-manage-resources-containers-vi.md),
 các Pod không nhận condition `DisruptionTarget` vì các gián đoạn đó nhiều khả năng
 do chính Pod gây ra và sẽ tái diễn khi thử lại.
 
@@ -221,9 +221,9 @@ Cùng với việc dọn dẹp các Pod, bộ thu gom rác cho Pod (PodGC) cũng
 phase chưa kết thúc (xem thêm [Thu gom rác cho Pod](./47-pod-lifecycle-vi.md#pod-garbage-collection)).
 
 Khi dùng Job (hoặc CronJob), bạn có thể muốn dùng các Pod disruption condition này như một phần của
-[chính sách xử lý lỗi Pod (Pod failure policy)](https://kubernetes.io/docs/concepts/workloads/controllers/job#pod-failure-policy) của Job.
+[chính sách xử lý lỗi Pod (Pod failure policy)](67-job-vi.md#pod-failure-policy) của Job.
 
-Để biết thêm chi tiết, xem [Disruptions](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/).
+Để biết thêm chi tiết, xem [Disruptions](53-disruptions-vi.md).
 
 ### PodResizePending và PodResizeInProgress {#pod-resize-conditions}
 
@@ -236,7 +236,7 @@ Kubelet cập nhật các condition trạng thái của Pod để cho biết tr�
 
 Nếu yêu cầu resize ở trạng thái _Deferred_ (bị hoãn), kubelet sẽ định kỳ thử lại thao tác resize, ví dụ khi một Pod khác bị gỡ bỏ hoặc thu nhỏ quy mô.
 
-Để biết thêm chi tiết về resize Pod, xem [Thay đổi tài nguyên CPU và bộ nhớ gán cho Container](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/).
+Để biết thêm chi tiết về resize Pod, xem [Thay đổi tài nguyên CPU và bộ nhớ gán cho Container](289-resize-container-resources-vi.md).
 
 ## Độ sẵn sàng nâng cao của Pod (Enhanced Pod readiness) {#enhanced-pod-readiness}
 
@@ -272,7 +272,7 @@ status:
 ...
 ```
 
-Các Pod condition bạn thêm vào phải có tên tuân theo [định dạng khóa label](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set) của Kubernetes.
+Các Pod condition bạn thêm vào phải có tên tuân theo [định dạng khóa label](18-labels-vi.md#syntax-and-character-set) của Kubernetes.
 
 ### Trạng thái cho độ sẵn sàng của Pod (Status for Pod readiness) {#status-for-pod-readiness}
 
@@ -292,9 +292,9 @@ kubelet đặt condition `Ready` của Pod thành `status: "False"` với `reaso
 ## Tiếp theo (What's next)
 
 - Tìm hiểu về [Vòng đời của Pod](./47-pod-lifecycle-vi.md).
-- Tìm hiểu về [Disruptions](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/).
-- Tìm hiểu về [container probe](https://kubernetes.io/docs/concepts/workloads/pods/probes/) và cách chúng ảnh hưởng đến độ sẵn sàng của Pod.
-- Tìm hiểu cách [thay đổi tài nguyên Pod tại chỗ](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/).
+- Tìm hiểu về [Disruptions](53-disruptions-vi.md).
+- Tìm hiểu về [container probe](49-probes-vi.md) và cách chúng ảnh hưởng đến độ sẵn sàng của Pod.
+- Tìm hiểu cách [thay đổi tài nguyên Pod tại chỗ](289-resize-container-resources-vi.md).
 
 ---
 

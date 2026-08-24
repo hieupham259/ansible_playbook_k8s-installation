@@ -71,7 +71,7 @@ và các lớp ghi (writable layer) của container.
 >
 > Nếu bạn dùng kubeadm để khởi tạo cluster, hãy sử dụng kubelet-config trong lúc tạo cluster
 > với `kubeadm init`. Xem chi tiết tại
-> [cấu hình kubelet bằng kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubelet-integration/).
+> [cấu hình kubelet bằng kubeadm](04-kubelet-integration-vi.md).
 
 Khởi động kubelet với cờ `--config` được đặt bằng đường dẫn tới file cấu hình của kubelet.
 Kubelet khi đó sẽ nạp cấu hình của nó từ file này.
@@ -131,7 +131,7 @@ Khi khởi động, kubelet hợp nhất cấu hình từ:
 >
 > Cơ chế thư mục drop-in cấu hình của kubelet tương tự nhưng khác với cách công cụ `kubeadm`
 > cho phép bạn vá (patch) cấu hình. Công cụ `kubeadm` dùng một
-> [chiến lược vá](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/control-plane-flags/#patches)
+> [chiến lược vá](03-control-plane-flags-vi.md#patches)
 > riêng cho cấu hình của nó, trong khi chiến lược vá duy nhất cho các file drop-in cấu hình
 > kubelet là `replace`. Kubelet xác định thứ tự hợp nhất dựa trên việc sắp xếp các **hậu tố**
 > theo thứ tự chữ-số, và thay thế mọi trường có mặt trong file có độ ưu tiên cao hơn.

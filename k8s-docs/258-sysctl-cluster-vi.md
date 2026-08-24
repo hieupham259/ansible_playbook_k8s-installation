@@ -189,5 +189,5 @@ Một Pod dùng các sysctl _không an toàn_ sẽ không khởi chạy được
 bật tường minh hai sysctl _không an toàn_ đó. Tương tự như với các sysctl _cấp node_,
 bạn nên dùng
 [tính năng _taints và toleration_](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands/#taint) hoặc
-[taint trên node](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+[taint trên node](139-taint-and-toleration-vi.md)
 để lập lịch các Pod đó lên đúng node.

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 3/8 ·
+**Vị trí:** [Giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 3/8 ·
 Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài rất ngắn, trả lời đúng một câu hỏi: **tiến trình bên trong container nhìn thấy gì?**
@@ -44,7 +44,7 @@ Trang này mô tả các tài nguyên khả dụng cho các Container trong môi
 Môi trường Container của Kubernetes cung cấp một số tài nguyên quan trọng cho các Container:
 
 * Một hệ thống tệp (filesystem), là sự kết hợp của một [image](./40-images-vi.md)
-  và một hoặc nhiều [volume](https://kubernetes.io/docs/concepts/storage/volumes/).
+  và một hoặc nhiều [volume](91-volumes-vi.md).
 * Thông tin về chính Container đó.
 * Thông tin về các đối tượng (object) khác trong cluster.
 
@@ -56,7 +56,7 @@ Nó có thể được lấy thông qua lệnh `hostname` hoặc lời gọi hà
 trong libc.
 
 Tên Pod và namespace được cung cấp dưới dạng các biến môi trường (environment variable)
-thông qua [downward API](https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/).
+thông qua [downward API](335-downward-api-volume-vi.md).
 
 Các biến môi trường do người dùng định nghĩa trong định nghĩa Pod cũng khả dụng
 cho Container, cùng với mọi biến môi trường được chỉ định tĩnh trong container image.
@@ -81,9 +81,9 @@ nếu [DNS addon](https://releases.k8s.io/v1.36.0/cluster/addons/dns/) được 
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [các hook vòng đời Container (Container lifecycle hooks)](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/).
+* Tìm hiểu thêm về [các hook vòng đời Container (Container lifecycle hooks)](42-container-lifecycle-hooks-vi.md).
 * Thực hành thực tế việc
-  [gắn handler vào các sự kiện trong vòng đời Container](https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/).
+  [gắn handler vào các sự kiện trong vòng đời Container](272-attach-handler-lifecycle-event-vi.md).
 
 ---
 

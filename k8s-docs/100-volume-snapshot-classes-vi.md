@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 11/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 11/16 · Kiểm chứng ở
 Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài rất ngắn và là bản sao của bài [96](96-storage-classes-vi.md) đặt lên snapshot. Đọc nó chủ
@@ -45,8 +45,8 @@ yếu để bắt hai chỗ **khác** StorageClass: cách chọn class mặc đ�
 ---
 
 Tài liệu này mô tả khái niệm VolumeSnapshotClass trong Kubernetes. Bạn nên
-làm quen trước với [volume snapshot](https://kubernetes.io/docs/concepts/storage/volume-snapshots/) và
-[storage class](https://kubernetes.io/docs/concepts/storage/storage-classes).
+làm quen trước với [volume snapshot](99-volume-snapshots-vi.md) và
+[storage class](96-storage-classes-vi.md).
 
 ## Giới thiệu (Introduction)
 
@@ -118,7 +118,7 @@ dùng để cấp phát các VolumeSnapshot. Trường này bắt buộc phải 
 
 ### DeletionPolicy
 
-Các lớp volume snapshot có một [deletionPolicy](https://kubernetes.io/docs/concepts/storage/volume-snapshots/#delete).
+Các lớp volume snapshot có một [deletionPolicy](99-volume-snapshots-vi.md#delete).
 Nó cho phép bạn cấu hình điều gì sẽ xảy ra với một VolumeSnapshotContent khi đối tượng
 VolumeSnapshot gắn với nó bị xóa. deletionPolicy của một lớp volume snapshot có thể
 là `Retain` hoặc `Delete`. Trường này bắt buộc phải được chỉ định.

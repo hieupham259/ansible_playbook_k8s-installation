@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 17/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 17/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài dài và viết cho người **thiết kế** webhook. Với vai quản trị viên, giá trị lớn nhất nằm ở
 những chỗ một webhook có thể **làm chết cả cluster**: failure policy, tự biến đổi chính mình,
@@ -85,7 +85,7 @@ Ngoài ra, ở mỗi bản phát hành, Kubernetes bổ sung hoặc thay đổi 
 mới, thăng cấp tính năng lên trạng thái beta hoặc stable, và các phần bị loại bỏ (deprecation). Ngay cả
 các API Kubernetes ổn định (stable) cũng có khả năng thay đổi. Ví dụ, API `Pod` đã thay đổi
 ở v1.29 để bổ sung tính năng
-[Sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/).
+[Sidecar container](51-sidecar-containers-vi.md).
 Dù hiếm khi một đối tượng Kubernetes rơi vào trạng thái hỏng vì một API Kubernetes mới,
 những webhook từng hoạt động đúng như mong đợi với các phiên bản API trước đó
 có thể không xử lý được những thay đổi mới hơn của API đó. Điều này có thể dẫn tới

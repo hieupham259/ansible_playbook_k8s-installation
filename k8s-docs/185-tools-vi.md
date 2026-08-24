@@ -19,8 +19,8 @@ kubectl có thể cài đặt được trên nhiều nền tảng Linux khác nh
 Tìm hệ điều hành mà bạn dùng bên dưới.
 
 - [Cài đặt kubectl trên Linux](186-install-kubectl-linux-vi.md)
-- [Cài đặt kubectl trên macOS](https://kubernetes.io/docs/tasks/tools/install-kubectl-macos)
-- [Cài đặt kubectl trên Windows](https://kubernetes.io/docs/tasks/tools/install-kubectl-windows)
+- [Cài đặt kubectl trên macOS](187-install-kubectl-macos-vi.md)
+- [Cài đặt kubectl trên Windows](188-install-kubectl-windows-vi.md)
 
 ## kind
 

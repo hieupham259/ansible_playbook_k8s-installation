@@ -4,8 +4,8 @@
 
 | Thư mục | Nội dung |
 | --- | --- |
-| `k8s-docs/` | 185 bài dịch tiếng Việt của kubernetes.io, tên file `<số>-<slug>-vi.md` |
-| `k8s-docs/LO-TRINH-ADMIN.md` | Giáo trình 15 giai đoạn; **thứ tự đọc** nằm ở đây, không phải ở số thứ tự file |
+| `k8s-docs/` | 364 bài dịch tiếng Việt của kubernetes.io, tên file `<số>-<slug>-vi.md`. Số `00`–`185` là nhánh khái niệm; số `186`+ là nhánh `/docs/tasks/` (thực hành) |
+| `k8s-docs/00-ALO-TRINH-ADMIN.md` | Giáo trình 15 giai đoạn; **thứ tự đọc** nằm ở đây, không phải ở số thứ tự file |
 | `k8s-docs/README.md` | Mục lục tra cứu theo chủ đề |
 | `k8s-docs/labs/` | Runbook thực hành đi kèm lộ trình |
 | `ansible/` | Playbook cài đặt Kubernetes |
@@ -26,7 +26,7 @@ Phần này là bắt buộc với mọi phiên làm việc tạo hoặc sửa f
 
 1. [`k8s-docs/labs/README.md`](k8s-docs/labs/README.md) — bản đồ lab, chuỗi snapshot, sổ nợ lab.
 2. [`k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md`](k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md) — baseline phiên bản và gate môi trường.
-3. [`k8s-docs/LO-TRINH-ADMIN.md`](k8s-docs/LO-TRINH-ADMIN.md) — xác định chính xác nhóm bài mà lab phải phủ.
+3. [`k8s-docs/00-ALO-TRINH-ADMIN.md`](k8s-docs/00-ALO-TRINH-ADMIN.md) — xác định chính xác nhóm bài mà lab phải phủ.
 4. **Toàn bộ** file `.md` của các bài trong nhóm đó. Không viết lab từ kiến thức chung về
    Kubernetes; nội dung lab phải bám đúng những gì bài dịch trình bày.
 5. [`k8s-docs/labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md`](k8s-docs/labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md)
@@ -75,7 +75,7 @@ Thứ tự các mục:
 1. Tiêu đề `# Lab <mã> — <tên>`.
 2. Blockquote khai báo **điểm bắt đầu** (snapshot nào) và **điểm kết thúc** (trả về snapshot
    cũ hay tạo snapshot mới), kèm ngày đối chiếu phiên bản.
-3. Câu dẫn link tới đúng mục trong `LO-TRINH-ADMIN.md` và tới quy trình mở đầu ở
+3. Câu dẫn link tới đúng mục trong `00-ALO-TRINH-ADMIN.md` và tới quy trình mở đầu ở
    [A5.5 của Lab 00](k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab).
 4. `## 1. Kết quả phải đạt` — viết ở dạng "chứng minh và giải thích được…", không phải danh
    sách lệnh.
@@ -125,7 +125,7 @@ Cập nhật đủ ba chỗ, nếu thiếu thì coi như chưa xong:
 1. [`k8s-docs/labs/README.md`](k8s-docs/labs/README.md) — đổi trạng thái `⬜ chưa viết` thành
    `✅ đã viết` và trỏ link; bổ sung dòng vào bảng chuỗi snapshot nếu lab tạo snapshot mới;
    bổ sung sổ nợ nếu lab phát sinh hoặc trả nợ.
-2. [`k8s-docs/LO-TRINH-ADMIN.md`](k8s-docs/LO-TRINH-ADMIN.md) — đổi mục `🧪` tương ứng từ
+2. [`k8s-docs/00-ALO-TRINH-ADMIN.md`](k8s-docs/00-ALO-TRINH-ADMIN.md) — đổi mục `🧪` tương ứng từ
    "chưa viết" thành link tới file lab.
 3. Kiểm tra mọi link tương đối trong file mới thực sự trỏ đúng file và đúng anchor.
 
@@ -134,7 +134,7 @@ Cập nhật đủ ba chỗ, nếu thiếu thì coi như chưa xong:
 - Tiếng Việt, giọng runbook: câu ngắn, chỉ dẫn trực tiếp, không văn hoa.
 - Giữ nguyên tiếng Anh các thuật ngữ Kubernetes và tên đối tượng: Pod, Node, Deployment,
   control plane, `spec`, `status`, label, selector, namespace.
-- Xuống dòng ở khoảng 100 ký tự trong file lab. `LO-TRINH-ADMIN.md` giữ dòng dài, không wrap.
+- Xuống dòng ở khoảng 100 ký tự trong file lab. `00-ALO-TRINH-ADMIN.md` giữ dòng dài, không wrap.
 - Dùng backtick cho tên lệnh, file, field và giá trị.
 
 ---
@@ -159,7 +159,7 @@ Nội dung bản dịch nằm liền mạch giữa hai khối, không bị cắt
 
    ```markdown
    > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-   > phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+   > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
    ```
 
 2. Dòng **Vị trí**: giai đoạn → nhóm bài (link tới đúng anchor trong lộ trình), số thứ tự
@@ -201,7 +201,7 @@ Nội dung bản dịch nằm liền mạch giữa hai khối, không bị cắt
 
 - **Đọc toàn bộ bài trước khi viết hai khối.** Không suy đoán nội dung từ tên file hay từ
   kiến thức chung về Kubernetes; mọi mục được nhắc tên phải có thật trong bài.
-- Vị trí trong lộ trình lấy từ `LO-TRINH-ADMIN.md`, không tự suy ra từ số thứ tự file.
+- Vị trí trong lộ trình lấy từ `00-ALO-TRINH-ADMIN.md`, không tự suy ra từ số thứ tự file.
 - Phần "Sẽ hiểu ở" phải khớp với thứ tự thật của lộ trình và với
   [sổ nợ lab](k8s-docs/labs/README.md#5-sổ-nợ-lab) nếu liên quan.
 - Không thêm kiến thức mới vào hai khối này. Chúng chỉ định hướng và kiểm tra.
@@ -210,11 +210,21 @@ Nội dung bản dịch nằm liền mạch giữa hai khối, không bị cắt
 
 ### Tiến độ
 
-**Toàn bộ 185 bài dịch đã có đủ ba khối** (hướng dẫn đọc, tự kiểm tra, đáp án). Hoàn tất
-07/08/2026.
+**185 bài khái niệm (số `00`–`185`) đã có đủ ba khối** (hướng dẫn đọc, tự kiểm tra, đáp án).
+Hoàn tất 07/08/2026.
 
-Việc còn lại của dự án không nằm ở đây mà ở [thư mục labs](k8s-docs/labs/README.md): 23 lab
-chưa viết, xem cột Trạng thái trong bản đồ lab.
+**179 bài thực hành (số `186`+, nhánh `/docs/tasks/`) thì chưa**: tính tới 24/08/2026 mới 43 bài
+có hai khối, còn **135 bài thiếu**. Chạy lệnh sau để lấy danh sách còn tồn:
+
+```bash
+cd k8s-docs && for f in *-vi.md; do n=${f%%-*}; [ "$n" -gt 185 ] 2>/dev/null || continue; \
+  grep -q "^## Đọc bài này thế nào" "$f" || echo "$f"; done
+```
+
+Hai việc còn lại của dự án:
+
+1. Bù hai khối cho các bài còn thiếu — đây là **nợ #9** của lộ trình, trả tại chỗ khi đọc tới bài mang dấu ⏳; xem [hướng dẫn](k8s-docs/00-ALO-TRINH-ADMIN.md#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
+2. [Thư mục labs](k8s-docs/labs/README.md): 23 lab chưa viết, xem cột Trạng thái trong bản đồ lab.
 
 Khi thêm bài dịch mới vào `k8s-docs/`, viết đủ hai khối cho bài đó ngay, đừng để tồn.
 
@@ -223,4 +233,4 @@ Khi thêm bài dịch mới vào `k8s-docs/`, viết đủ hai khối cho bài �
 Khi được yêu cầu dịch một trang kubernetes.io sang tiếng Việt, dùng agent `k8s-docs-translator`.
 Quy ước: file đặt tên `<số>-<slug>-vi.md` trong `k8s-docs/`, giữ nguyên cấu trúc và thứ tự mục
 của trang gốc, có link trang nguồn ở đầu file. Sau khi thêm bài mới, cập nhật cả
-`k8s-docs/README.md` và `k8s-docs/LO-TRINH-ADMIN.md`.
+`k8s-docs/README.md` và `k8s-docs/00-ALO-TRINH-ADMIN.md`.

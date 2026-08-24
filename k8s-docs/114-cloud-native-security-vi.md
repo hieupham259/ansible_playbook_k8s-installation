@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 2/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 2/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Lộ trình gọi bài này là "mô hình 4C". Bản hiện tại của trang gốc **không còn mục 4C**; nó chia
 theo **bốn giai đoạn vòng đời** của sách trắng CNCF. Đừng đi tìm mục 4C — ý tương đương nằm ở
@@ -98,7 +98,7 @@ control) và các thực hành phù hợp với từng _giai đoạn vòng đờ
 1. Đăng ký (subscribe) các feed và những cơ chế khác để được cảnh báo về các rủi ro
    bảo mật.
 1. Hạn chế quyền truy cập vào artifact. Đặt container image trong một
-   [private registry](https://kubernetes.io/docs/concepts/containers/images/#using-a-private-registry)
+   [private registry](40-images-vi.md#using-a-private-registry)
    chỉ cho phép các client được ủy quyền pull image.
 
 ## Giai đoạn vòng đời _Triển khai_ (Deploy lifecycle phase) {#lifecycle-phase-deploy}
@@ -127,13 +127,13 @@ API của Kubernetes là thứ khiến cluster của bạn hoạt động. Bảo
 để bảo mật cluster một cách hiệu quả.
 
 Các trang khác trong tài liệu Kubernetes có chi tiết hơn về cách thiết lập từng khía cạnh
-cụ thể của kiểm soát truy cập. [Danh sách kiểm tra bảo mật (security checklist)](https://kubernetes.io/docs/concepts/security/security-checklist/)
+cụ thể của kiểm soát truy cập. [Danh sách kiểm tra bảo mật (security checklist)](129-security-checklist-vi.md)
 đưa ra các bước kiểm tra cơ bản được đề xuất cho cluster của bạn.
 
 Ngoài ra, bảo mật cluster của bạn có nghĩa là triển khai hiệu quả
-[xác thực (authentication)](https://kubernetes.io/docs/concepts/security/controlling-access/#authentication) và
-[phân quyền (authorization)](https://kubernetes.io/docs/concepts/security/controlling-access/#authorization)
-cho việc truy cập API. Hãy dùng [ServiceAccounts](https://kubernetes.io/docs/concepts/security/service-accounts/)
+[xác thực (authentication)](119-controlling-access-vi.md#authentication) và
+[phân quyền (authorization)](119-controlling-access-vi.md#authorization)
+cho việc truy cập API. Hãy dùng [ServiceAccounts](118-service-accounts-vi.md)
 để cung cấp và quản lý danh tính bảo mật cho các workload và các thành phần của cluster.
 
 Kubernetes dùng TLS để bảo vệ lưu lượng API; hãy đảm bảo triển khai cluster sử dụng
@@ -165,12 +165,12 @@ container runtime cụ thể nào, và bạn nên đảm bảo rằng (các) run
 
    Các hệ điều hành chuyên dành cho container giúp cô lập các thành phần hệ thống và
    thu hẹp bề mặt tấn công trong trường hợp xảy ra container escape (thoát khỏi container).
-1. Định nghĩa [ResourceQuotas](https://kubernetes.io/docs/concepts/policy/resource-quotas/) để
+1. Định nghĩa [ResourceQuotas](134-resource-quotas-vi.md) để
    phân bổ công bằng các tài nguyên dùng chung, và dùng
-   các cơ chế như [LimitRanges](https://kubernetes.io/docs/concepts/policy/limit-range/)
+   các cơ chế như [LimitRanges](133-limit-range-vi.md)
    để đảm bảo các Pod khai báo yêu cầu tài nguyên của chúng.
 1. Phân chia workload trên các node khác nhau để tăng mức độ cô lập.
-   Dùng các cơ chế [cô lập node (node isolation)](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-isolation-restriction),
+   Dùng các cơ chế [cô lập node (node isolation)](138-assign-pod-node-vi.md#node-isolation-restriction),
    từ chính Kubernetes hoặc từ hệ sinh thái, để đảm bảo rằng
    các Pod có bối cảnh tin cậy (trust context) khác nhau chạy trên các nhóm node tách biệt.
 1. Dùng một container runtime
@@ -184,7 +184,7 @@ container runtime cụ thể nào, và bạn nên đảm bảo rằng (các) run
 
 1. Tích hợp cluster với một storage plugin bên ngoài cung cấp mã hóa dữ liệu
    khi lưu trữ (encryption at rest) cho các volume.
-1. Bật [mã hóa khi lưu trữ (encryption at rest)](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/)
+1. Bật [mã hóa khi lưu trữ (encryption at rest)](208-encrypt-data-vi.md)
    cho các đối tượng API.
 1. Bảo vệ độ bền của dữ liệu (durability) bằng các bản sao lưu (backup), và kiểm tra
    rằng bạn có thể khôi phục chúng bất cứ khi nào cần.
@@ -247,12 +247,12 @@ phân phối thời gian có xác thực (giúp đảm bảo độ tin cậy c�
 
 ### Kubernetes và bảo mật thông tin (Kubernetes and information security) {#further-reading-k8s}
 
-* [Bảo mật Kubernetes](https://kubernetes.io/docs/concepts/security/)
-* [Bảo vệ cluster của bạn](https://kubernetes.io/docs/tasks/administer-cluster/securing-a-cluster/)
+* [Bảo mật Kubernetes](113-security-vi.md)
+* [Bảo vệ cluster của bạn](256-securing-a-cluster-vi.md)
 * [Mã hóa dữ liệu trên đường truyền](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/) cho control plane
-* [Mã hóa dữ liệu khi lưu trữ](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/)
-* [Secret trong Kubernetes](https://kubernetes.io/docs/concepts/configuration/secret/)
-* [Kiểm soát truy cập vào API của Kubernetes](https://kubernetes.io/docs/concepts/security/controlling-access)
+* [Mã hóa dữ liệu khi lưu trữ](208-encrypt-data-vi.md)
+* [Secret trong Kubernetes](109-secret-vi.md)
+* [Kiểm soát truy cập vào API của Kubernetes](119-controlling-access-vi.md)
 * [Network policy](./84-network-policies-vi.md) cho các Pod
 * [Chuẩn bảo mật Pod (Pod security standards)](./115-pod-security-standards-vi.md)
 * [RuntimeClasses](./43-runtime-class-vi.md)

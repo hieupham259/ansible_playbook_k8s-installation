@@ -12,7 +12,7 @@ _với điều kiện cluster của bạn chạy trong môi trường được h
 
 Bạn cũng có thể dùng Ingress thay cho Service.
 Để biết thêm thông tin, hãy xem tài liệu
-[Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
+[Ingress](11-ingress-vi.md).
 
 ## Trước khi bạn bắt đầu (Before you begin)
 
@@ -112,7 +112,7 @@ Events:                   <none>
 > minikube service example-service --url
 > ```
 
-## Giữ nguyên địa chỉ IP nguồn của client (Preserving the client source IP)
+## Giữ nguyên địa chỉ IP nguồn của client (Preserving the client source IP) {#preserving-the-client-source-ip}
 
 Theo mặc định, địa chỉ IP nguồn mà container đích nhìn thấy *không phải là IP nguồn
 gốc* của client. Để bật tính năng giữ nguyên IP của client, bạn có thể cấu hình
@@ -198,5 +198,5 @@ nhà cung cấp cloud cấp phát một địa chỉ IP cho bộ cân bằng t�
 ## Tiếp theo (What's next)
 
 * Làm theo hướng dẫn [Kết nối ứng dụng bằng Service](https://kubernetes.io/docs/tutorials/services/connect-applications-service/)
-* Đọc về [Service](https://kubernetes.io/docs/concepts/services-networking/service/)
-* Đọc về [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/)
+* Đọc về [Service](82-service-vi.md)
+* Đọc về [Ingress](11-ingress-vi.md)

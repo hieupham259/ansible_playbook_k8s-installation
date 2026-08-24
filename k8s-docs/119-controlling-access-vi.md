@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 4/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 4/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **bài xương sống của giai đoạn 9**. Mọi bài còn lại đều gắn vào một chặng nào đó của
 luồng mô tả ở đây: bài [123](123-hardening-authentication-vi.md) mở rộng chặng xác thực, bài
@@ -48,9 +48,9 @@ admission. Bài chỉ dài hơn 170 dòng — đọc kỹ, và nhớ **đúng th
 
 Trang này cung cấp cái nhìn tổng quan về việc kiểm soát truy cập vào Kubernetes API.
 
-Người dùng truy cập [Kubernetes API](https://kubernetes.io/docs/concepts/overview/kubernetes-api/) bằng `kubectl`,
+Người dùng truy cập [Kubernetes API](21-kubernetes-api-vi.md) bằng `kubectl`,
 các thư viện client, hoặc bằng cách gửi các request REST. Cả người dùng là con người lẫn
-[service account của Kubernetes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/) đều có thể được
+[service account của Kubernetes](279-configure-service-account-vi.md) đều có thể được
 cấp quyền truy cập API.
 Khi một request đến API, nó đi qua nhiều giai đoạn, được minh họa trong sơ đồ sau:
 
@@ -74,7 +74,7 @@ không bị chặn bắt giữa đường (intercepted).
 
 Client của bạn có thể xuất trình TLS client certificate ở giai đoạn này.
 
-## Xác thực (Authentication)
+## Xác thực (Authentication) {#authentication}
 
 Sau khi TLS được thiết lập, request HTTP chuyển sang bước Xác thực (Authentication).
 Đây là bước **1** trong sơ đồ.
@@ -102,7 +102,7 @@ Mặc dù Kubernetes sử dụng username cho các quyết định kiểm soát 
 nó không có đối tượng `User` và cũng không lưu trữ username hay các thông tin khác về
 người dùng trong API của mình.
 
-## Phân quyền (Authorization)
+## Phân quyền (Authorization) {#authorization}
 
 Sau khi request được xác thực là đến từ một người dùng cụ thể, request đó phải được
 phân quyền (authorize). Đây là bước **2** trong sơ đồ.
@@ -192,7 +192,7 @@ kho lưu trữ đối tượng (object store) (bước **4** trong sơ đồ).
 Kiểm toán (auditing) trong Kubernetes cung cấp một tập bản ghi theo trình tự thời gian, liên quan đến bảo mật, ghi lại chuỗi các hành động trong một cluster.
 Cluster kiểm toán các hoạt động được tạo ra bởi người dùng, bởi các ứng dụng sử dụng Kubernetes API, và bởi chính control plane.
 
-Để biết thêm thông tin, xem [Kiểm toán (Auditing)](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/).
+Để biết thêm thông tin, xem [Kiểm toán (Auditing)](306-audit-vi.md).
 
 ## Tiếp theo (What's next)
 
@@ -211,12 +211,12 @@ Cluster kiểm toán các hoạt động được tạo ra bởi người dùng,
    - bao gồm [phê duyệt CSR (CSR approval)](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#approval-rejection)
      và [ký certificate (certificate signing)](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#signing)
 - Service account
-  - [Hướng dẫn cho nhà phát triển (Developer guide)](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/)
+  - [Hướng dẫn cho nhà phát triển (Developer guide)](279-configure-service-account-vi.md)
   - [Quản trị (Administration)](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/)
 
 Bạn có thể tìm hiểu về:
 - cách các Pod có thể sử dụng
-  [Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#service-accounts-automatically-create-and-attach-secrets-with-api-credentials)
+  [Secrets](https://kubernetes.io/docs/concepts/configuration/secret#service-accounts-automatically-create-and-attach-secrets-with-api-credentials)
   để lấy thông tin xác thực (credential) truy cập API.
 
 ---

@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — CP6 DNS, CNI và kube-proxy](LO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy),
+**Vị trí:** [Checkpoint tiếp nối — CP6 DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy),
 bài 4/7 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Đừng nhầm bài này với HPA (Horizontal Pod Autoscaler) đã học ở bài
@@ -369,7 +369,7 @@ Sau khi file manifest bị xóa, Addon Manager sẽ xóa Deployment kube-dns-aut
 
 ## Tiếp theo (What's next)
 
-* Đọc về [Đảm bảo lập lịch cho các Add-On Pod quan trọng (Guaranteed Scheduling For Critical Add-On Pods)](https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/).
+* Đọc về [Đảm bảo lập lịch cho các Add-On Pod quan trọng (Guaranteed Scheduling For Critical Add-On Pods)](210-guaranteed-scheduling-critical-addon-pods-vi.md).
 * Tìm hiểu thêm về
   [cách hiện thực cluster-proportional-autoscaler](https://github.com/kubernetes-sigs/cluster-proportional-autoscaler).
 

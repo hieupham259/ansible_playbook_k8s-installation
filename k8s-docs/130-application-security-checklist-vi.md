@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 15/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 15/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Cũng không phải bài đọc.** Giống bài [129](129-security-checklist-vi.md), đây là checklist để
 đối chiếu — nhưng đối tượng khác: bài 129 rà **cả cluster** dưới góc nhìn quản trị viên, còn bài
@@ -92,7 +92,7 @@ Danh sách kiểm tra sau đây cung cấp các khuyến nghị tăng cường b
   trên các file hoặc thư mục bên trong container image.
 - [ ] Tùy chọn, thêm một nhóm bổ sung với `fsGroup` để truy cập các persistent volume.
 - [ ] Ứng dụng được triển khai vào một namespace có thực thi
-  [Pod security standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/) phù hợp.
+  [Pod security standard](115-pod-security-standards-vi.md) phù hợp.
   Nếu bạn không thể kiểm soát việc thực thi này cho (các) cluster nơi ứng dụng được
   triển khai, hãy tính đến điều đó thông qua tài liệu hướng dẫn hoặc các lớp phòng thủ theo chiều sâu (defense in depth) bổ sung.
 
@@ -115,7 +115,7 @@ Danh sách kiểm tra sau đây cung cấp các khuyến nghị tăng cường b
 
 Các động từ (verb) **create**, **update** và **delete** nên được cho phép một cách thận trọng.
 Động từ **patch**, nếu được phép trên một Namespace, có thể
-[cho phép người dùng cập nhật label trên namespace hoặc deployment](https://kubernetes.io/docs/concepts/security/rbac-good-practices/#namespace-modification),
+[cho phép người dùng cập nhật label trên namespace hoặc deployment](120-rbac-good-practices-vi.md#namespace-modification),
 điều này có thể làm tăng bề mặt tấn công.
 
 Với các workload nhạy cảm, hãy cân nhắc cung cấp một ValidatingAdmissionPolicy khuyến nghị
@@ -128,7 +128,7 @@ Với các workload nhạy cảm, hãy cân nhắc cung cấp một ValidatingAd
 
 ### Network policy (Network policies)
 
-- [ ] Cấu hình [NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)
+- [ ] Cấu hình [NetworkPolicy](84-network-policies-vi.md)
   để chỉ cho phép các luồng traffic ingress và egress như dự kiến từ các pod.
 
 Hãy đảm bảo rằng cluster của bạn cung cấp và thực thi NetworkPolicy.
@@ -144,9 +144,9 @@ có thể hữu ích tùy theo các cách thiết lập môi trường Kubernete
 
 Cấu hình Security Context cho pod-container.
 
-- [ ] [Đặt Seccomp Profile cho một container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-seccomp-profile-for-a-container).
+- [ ] [Đặt Seccomp Profile cho một container](291-security-context-vi.md#set-the-seccomp-profile-for-a-container).
 - [ ] [Hạn chế quyền truy cập tài nguyên của container với AppArmor](https://kubernetes.io/docs/tutorials/security/apparmor/).
-- [ ] [Gán nhãn SELinux cho một container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#assign-selinux-labels-to-a-container).
+- [ ] [Gán nhãn SELinux cho một container](291-security-context-vi.md#assign-selinux-labels-to-a-container).
 
 ### Runtime class (Runtime classes)
 

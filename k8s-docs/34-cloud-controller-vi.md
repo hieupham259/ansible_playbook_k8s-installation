@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+**Vị trí:** Giai đoạn 1 → nhóm [1c](00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
 bài 7/7 · Kiểm chứng ở [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md).
 
 Lộ trình ghi rõ mục đích đọc bài này khi bạn chạy on-premise: **để biết phần nào cluster của
@@ -236,12 +236,12 @@ rules:
 
 ## Tiếp theo (What's next)
 
-* [Quản trị Cloud Controller Manager](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/#cloud-controller-manager)
+* [Quản trị Cloud Controller Manager](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller#cloud-controller-manager)
   có hướng dẫn về cách chạy và quản lý cloud controller manager.
 
 * Để nâng cấp một control plane có tính sẵn sàng cao (HA) sang dùng
   cloud controller manager, xem
-  [Di chuyển control plane được nhân bản sang dùng Cloud Controller Manager](https://kubernetes.io/docs/tasks/administer-cluster/controller-manager-leader-migration/).
+  [Di chuyển control plane được nhân bản sang dùng Cloud Controller Manager](198-controller-manager-leader-migration-vi.md).
 
 * Bạn muốn biết cách tự hiện thực cloud controller manager của riêng mình,
   hoặc mở rộng một dự án sẵn có?
@@ -257,7 +257,7 @@ rules:
     cho từng nhà cung cấp cloud nằm ngoài phần lõi của Kubernetes và hiện thực
     interface `CloudProvider`.
   - Để biết thêm thông tin về việc phát triển plugin, xem
-    [Phát triển Cloud Controller Manager](https://kubernetes.io/docs/tasks/administer-cluster/developing-cloud-controller-manager/).
+    [Phát triển Cloud Controller Manager](203-developing-cloud-controller-manager-vi.md).
 
 ---
 

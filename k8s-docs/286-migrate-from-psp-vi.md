@@ -349,7 +349,7 @@ admission của API server:
 Để xác minh rằng admission controller PodSecurityPolicy không còn được bật, bạn có thể chạy thử
 thủ công bằng cách mạo danh (impersonate) một người dùng không có quyền truy cập bất kỳ
 PodSecurityPolicy nào (xem
-[ví dụ về PodSecurityPolicy](https://kubernetes.io/docs/concepts/security/pod-security-policy/#example)),
+[ví dụ về PodSecurityPolicy](https://kubernetes.io/docs/concepts/security/pod-security-policy#example)),
 hoặc bằng cách kiểm tra trong log của API server. Lúc khởi động, API server ghi ra các dòng log
 liệt kê các plugin admission controller đã được nạp:
 

@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 10/16 · Kiểm chứng
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 10/16 · Kiểm chứng
 ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Hai điều cần biết trước khi đọc. Thứ nhất, **Ingress API đã bị đóng băng** và dự án Kubernetes
@@ -77,16 +77,16 @@ Ingress là một đối tượng API quản lý truy cập từ bên ngoài và
 * Edge router (router biên): Một router thực thi chính sách tường lửa cho cluster của bạn. Nó
   có thể là một gateway do nhà cung cấp cloud quản lý hoặc là một thiết bị phần cứng vật lý.
 * Cluster network (mạng cluster): Một tập hợp các liên kết, logic hoặc vật lý, hỗ trợ việc giao tiếp
-  bên trong một cluster theo [mô hình mạng](https://kubernetes.io/docs/concepts/cluster-administration/networking/) của Kubernetes.
-* Service: Một [Service](https://kubernetes.io/docs/concepts/services-networking/service/) của Kubernetes định danh
-  một tập hợp các Pod bằng các bộ chọn [label](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) (label selector).
+  bên trong một cluster theo [mô hình mạng](157-networking-vi.md) của Kubernetes.
+* Service: Một [Service](82-service-vi.md) của Kubernetes định danh
+  một tập hợp các Pod bằng các bộ chọn [label](18-labels-vi.md) (label selector).
   Trừ khi được nói rõ, các Service được giả định là chỉ có các IP ảo (virtual IP) chỉ định tuyến được bên trong mạng cluster.
 
 ## Ingress là gì?
 
 [Ingress](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.33/#ingress-v1-networking-k8s-io)
 mở các route HTTP và HTTPS từ bên ngoài cluster đến các
-[service](https://kubernetes.io/docs/concepts/services-networking/service/) bên trong cluster.
+[service](82-service-vi.md) bên trong cluster.
 Việc định tuyến lưu lượng được điều khiển bởi các quy tắc (rule) được định nghĩa trên tài nguyên Ingress.
 
 Dưới đây là một ví dụ đơn giản trong đó một Ingress gửi toàn bộ lưu lượng của nó đến một Service duy nhất:
@@ -97,20 +97,20 @@ Dưới đây là một ví dụ đơn giản trong đó một Ingress gửi to�
 
 Một Ingress có thể được cấu hình để cấp cho các Service những URL truy cập được từ bên ngoài,
 cân bằng tải lưu lượng, kết thúc phiên SSL / TLS, và cung cấp virtual hosting dựa trên tên.
-Một [Ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers)
+Một [Ingress controller](12-ingress-controllers-vi.md)
 chịu trách nhiệm hiện thực hóa Ingress, thường là bằng một bộ cân bằng tải (load balancer), tuy nhiên
 nó cũng có thể cấu hình router biên của bạn hoặc các frontend bổ sung để giúp xử lý lưu lượng.
 
 Một Ingress không mở các port hay giao thức tùy ý. Việc đưa các dịch vụ không phải HTTP và HTTPS ra internet thường
-sử dụng service loại [Service.Type=NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport) hoặc
-[Service.Type=LoadBalancer](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer).
+sử dụng service loại [Service.Type=NodePort](82-service-vi.md#type-nodeport) hoặc
+[Service.Type=LoadBalancer](82-service-vi.md#loadbalancer).
 
 ## Điều kiện tiên quyết (Prerequisites)
 
-Bạn phải có một [Ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers)
+Bạn phải có một [Ingress controller](12-ingress-controllers-vi.md)
 để Ingress hoạt động. Việc chỉ tạo tài nguyên Ingress mà thôi sẽ không có tác dụng gì.
 
-Bạn có thể chọn từ nhiều [Ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers) khác nhau.
+Bạn có thể chọn từ nhiều [Ingress controller](12-ingress-controllers-vi.md) khác nhau.
 
 Lý tưởng nhất, mọi Ingress controller đều nên tuân theo đặc tả tham chiếu (reference specification). Trên thực tế, các Ingress
 controller khác nhau hoạt động hơi khác nhau một chút.
@@ -144,12 +144,12 @@ spec:
 
 Một Ingress cần các trường `apiVersion`, `kind`, `metadata` và `spec`.
 Tên của một đối tượng Ingress phải là một
-[tên miền con DNS hợp lệ](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names) (DNS subdomain name).
+[tên miền con DNS hợp lệ](17-names-vi.md#dns-subdomain-names) (DNS subdomain name).
 Để biết thông tin chung về cách làm việc với các file cấu hình, xem
-[triển khai ứng dụng](https://kubernetes.io/docs/tasks/run-application/run-stateless-application-deployment/),
-[cấu hình container](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/),
-[quản lý tài nguyên](https://kubernetes.io/docs/concepts/workloads/management/).
-Các Ingress controller thường sử dụng [annotation](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) để cấu hình hành vi.
+[triển khai ứng dụng](345-run-stateless-application-vi.md),
+[cấu hình container](275-configure-pod-configmap-vi.md),
+[quản lý tài nguyên](61-management-vi.md).
+Các Ingress controller thường sử dụng [annotation](20-annotations-vi.md) để cấu hình hành vi.
 Hãy xem tài liệu của Ingress controller mà bạn chọn để biết những annotation nào được kỳ vọng và / hoặc được hỗ trợ.
 
 [Ingress spec](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/ingress-v1/#IngressSpec)
@@ -178,8 +178,8 @@ Mỗi quy tắc HTTP chứa các thông tin sau:
   request đến trước khi bộ cân bằng tải chuyển hướng lưu lượng đến
   Service được tham chiếu.
 * Một backend là sự kết hợp của tên Service và port như được mô tả trong
-  [tài liệu về Service](https://kubernetes.io/docs/concepts/services-networking/service/) hoặc là một [custom resource backend](#resource-backend)
-  thông qua một [CRD](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (CustomResourceDefinition). Các request HTTP (và HTTPS) đến
+  [tài liệu về Service](82-service-vi.md) hoặc là một [custom resource backend](#resource-backend)
+  thông qua một [CRD](179-custom-resources-vi.md) (CustomResourceDefinition). Các request HTTP (và HTTPS) đến
   Ingress mà khớp với host và path của quy tắc sẽ được gửi tới backend được liệt kê.
 
 Một `defaultBackend` thường được cấu hình trong Ingress controller để phục vụ mọi request không
@@ -190,7 +190,7 @@ khớp với bất kỳ path nào trong spec.
 Một Ingress không có quy tắc nào sẽ gửi toàn bộ lưu lượng đến một backend mặc định duy nhất và `.spec.defaultBackend`
 chính là backend xử lý các request trong trường hợp đó.
 `defaultBackend` theo quy ước là một tùy chọn cấu hình của
-[Ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers) và
+[Ingress controller](12-ingress-controllers-vi.md) và
 không được khai báo trong các tài nguyên Ingress của bạn.
 Nếu không có `.spec.rules` nào được chỉ định, thì `.spec.defaultBackend` bắt buộc phải được chỉ định.
 Nếu `defaultBackend` không được thiết lập, việc xử lý các request không khớp với bất kỳ quy tắc nào sẽ do
@@ -459,7 +459,7 @@ spec:
     name: external-config
 ```
 
-### Annotation đã bị loại bỏ (Deprecated annotation)
+### Annotation đã bị loại bỏ (Deprecated annotation) {#deprecated-annotation}
 
 Trước khi tài nguyên IngressClass và trường `ingressClassName` được thêm vào
 Kubernetes 1.18, Ingress class được chỉ định bằng annotation
@@ -612,9 +612,9 @@ trường Address.
 
 > **Ghi chú:**
 >
-> Tùy thuộc vào [Ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)
+> Tùy thuộc vào [Ingress controller](12-ingress-controllers-vi.md)
 > bạn đang dùng, bạn có thể cần tạo một
-> [Service](https://kubernetes.io/docs/concepts/services-networking/service/) default-http-backend.
+> [Service](82-service-vi.md) default-http-backend.
 
 ### Virtual hosting dựa trên tên (Name based virtual hosting)
 
@@ -705,7 +705,7 @@ spec:
 
 ### TLS
 
-Bạn có thể bảo mật một Ingress bằng cách chỉ định một [Secret](https://kubernetes.io/docs/concepts/configuration/secret/)
+Bạn có thể bảo mật một Ingress bằng cách chỉ định một [Secret](109-secret-vi.md)
 chứa khóa riêng (private key) và chứng chỉ (certificate) TLS. Tài nguyên Ingress chỉ
 hỗ trợ một port TLS duy nhất là 443, và giả định TLS kết thúc tại điểm ingress
 (lưu lượng đi tới Service và các Pod của nó ở dạng không mã hóa - plaintext).
@@ -779,7 +779,7 @@ một Service.
 
 Cũng đáng lưu ý rằng mặc dù kiểm tra sức khỏe (health check) không được cung cấp trực tiếp
 thông qua Ingress, trong Kubernetes vẫn tồn tại các khái niệm song song như
-[readiness probe](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+[readiness probe](274-configure-probes-vi.md)
 cho phép bạn đạt được kết quả tương tự. Vui lòng xem tài liệu riêng của từng
 controller để biết cách chúng xử lý health check.
 
@@ -872,19 +872,19 @@ Bạn có thể đạt cùng kết quả bằng cách gọi `kubectl replace -f`
 ## Chịu lỗi giữa các availability zone (Failing across availability zones)
 
 Các kỹ thuật để phân tán lưu lượng giữa các miền lỗi (failure domain) khác nhau tùy theo nhà cung cấp cloud.
-Vui lòng xem tài liệu của [Ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers) tương ứng để biết chi tiết.
+Vui lòng xem tài liệu của [Ingress controller](12-ingress-controllers-vi.md) tương ứng để biết chi tiết.
 
 ## Các lựa chọn thay thế (Alternatives) {#alternatives}
 
 Bạn có thể expose một Service theo nhiều cách không trực tiếp liên quan đến tài nguyên Ingress:
 
-* Dùng [Service.Type=LoadBalancer](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer)
-* Dùng [Service.Type=NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport)
+* Dùng [Service.Type=LoadBalancer](82-service-vi.md#loadbalancer)
+* Dùng [Service.Type=NodePort](82-service-vi.md#type-nodeport)
 
 ## Tiếp theo (What's next)
 
 * Tìm hiểu về [Ingress API](https://kubernetes.io/docs/reference/kubernetes-api/service-resources/ingress-v1/)
-* Tìm hiểu về [Ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)
+* Tìm hiểu về [Ingress controller](12-ingress-controllers-vi.md)
 
 ---
 

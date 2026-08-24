@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 2/9 ·
+**Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 2/9 ·
 Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **bài trung tâm của giai đoạn 8**. Mục
@@ -116,11 +116,11 @@ có thể thay đổi đôi chút khi công cụ tiến hóa, nhưng cách hiệ
 
 Cài đặt container runtime và kubeadm trên tất cả các máy chủ.
 Để có hướng dẫn chi tiết và các điều kiện tiên quyết khác, xem
-[Cài đặt kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/).
+[Cài đặt kubeadm](01-install-kubeadm-vi.md).
 
 > **Ghi chú:**
 > Nếu bạn đã cài đặt kubeadm rồi, hãy xem hai bước đầu tiên của tài liệu
-> [Nâng cấp các Linux node](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/upgrading-linux-nodes)
+> [Nâng cấp các Linux node](222-upgrading-linux-nodes-vi.md)
 > để biết cách nâng cấp kubeadm.
 >
 > Khi bạn nâng cấp, kubelet sẽ khởi động lại sau mỗi vài giây vì nó chờ trong một vòng lặp lỗi
@@ -163,13 +163,13 @@ Với kubelet trên tất cả các node, tùy chọn `--node-ip` có thể đư
 (`InitConfiguration` hoặc `JoinConfiguration`).
 
 Với dual-stack, xem
-[Hỗ trợ dual-stack với kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/dual-stack-support).
+[Hỗ trợ dual-stack với kubeadm](05-dual-stack-support-vi.md).
 
 Các địa chỉ IP mà bạn gán cho các thành phần control plane sẽ trở thành một phần trong
 các trường subject alternative name của certificate X.509 của chúng. Việc thay đổi các
 địa chỉ IP này sẽ đòi hỏi phải ký các certificate mới và khởi động lại các thành phần
 bị ảnh hưởng, để thay đổi trong các file certificate được phản ánh. Xem
-[Gia hạn certificate thủ công](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/#manual-certificate-renewal)
+[Gia hạn certificate thủ công](219-kubeadm-certs-vi.md#manual-certificate-renewal)
 để biết thêm chi tiết về chủ đề này.
 
 > **Cảnh báo:**
@@ -203,7 +203,7 @@ etcd (cơ sở dữ liệu của cluster) và API Server
 (nơi công cụ dòng lệnh kubectl giao tiếp).
 
 1. (Khuyến nghị) Nếu bạn có kế hoạch nâng cấp cluster `kubeadm` một control-plane này
-   lên [tính sẵn sàng cao (high availability)](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/),
+   lên [tính sẵn sàng cao (high availability)](08-high-availability-vi.md),
    bạn nên chỉ định `--control-plane-endpoint` để đặt endpoint dùng chung cho tất cả các control-plane node.
    Endpoint như vậy có thể là một tên DNS hoặc một địa chỉ IP của load-balancer.
 1. Chọn một Pod network add-on, và kiểm tra xem nó có yêu cầu tham số nào cần
@@ -213,7 +213,7 @@ etcd (cơ sở dữ liệu của cluster) và API Server
 1. (Tùy chọn) `kubeadm` cố gắng phát hiện container runtime bằng một danh sách các
    endpoint phổ biến. Để dùng một container runtime khác hoặc nếu có nhiều hơn một runtime
    được cài trên node đã chuẩn bị, hãy chỉ định tham số `--cri-socket` cho `kubeadm`. Xem
-   [Cài đặt runtime](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#installing-runtime).
+   [Cài đặt runtime](01-install-kubeadm-vi.md#installing-runtime).
 
 Để khởi tạo control-plane node, chạy:
 
@@ -253,10 +253,10 @@ thành một cluster có tính sẵn sàng cao không được kubeadm hỗ tr�
 
 Để tùy biến các thành phần control plane, bao gồm việc gán tùy chọn địa chỉ IPv6 cho liveness probe
 của các thành phần control plane và etcd server, hãy cung cấp thêm tham số cho từng thành phần như được mô tả trong
-[tham số tùy biến](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/control-plane-flags/).
+[tham số tùy biến](03-control-plane-flags-vi.md).
 
 Để cấu hình lại một cluster đã được tạo từ trước, xem
-[Cấu hình lại một kubeadm cluster](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-reconfigure).
+[Cấu hình lại một kubeadm cluster](220-kubeadm-reconfigure-vi.md).
 
 Để chạy lại `kubeadm init`, trước tiên bạn phải [gỡ bỏ cluster](#tear-down).
 
@@ -315,7 +315,7 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 > Không chia sẻ file `super-admin.conf` với bất kỳ ai. Khuyến nghị chuyển file này đến một nơi lưu trữ an toàn.
 >
 > Xem
-> [Sinh file kubeconfig cho người dùng bổ sung](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs#kubeconfig-additional-users)
+> [Sinh file kubeconfig cho người dùng bổ sung](219-kubeadm-certs-vi.md#kubeconfig-additional-users)
 > để biết cách dùng `kubeadm kubeconfig user` sinh file kubeconfig cho những người dùng bổ sung.
 
 Hãy ghi lại lệnh `kubeadm join` mà `kubeadm init` xuất ra. Bạn
@@ -364,12 +364,12 @@ liệt kê, tạo và xóa bằng lệnh `kubeadm token`. Xem
 > lỗi (issue tracker) của chính plugin đó thay vì trình theo dõi lỗi của kubeadm hay kubernetes.
 
 Một số dự án bên ngoài cung cấp Kubernetes Pod network sử dụng CNI, trong đó một số cũng
-hỗ trợ [Network Policy](https://kubernetes.io/docs/concepts/services-networking/network-policies/).
+hỗ trợ [Network Policy](84-network-policies-vi.md).
 
 Xem danh sách các add-on hiện thực
-[mô hình mạng Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/networking/#how-to-implement-the-kubernetes-network-model).
+[mô hình mạng Kubernetes](157-networking-vi.md#how-to-implement-the-kubernetes-network-model).
 
-Vui lòng tham khảo trang [Cài đặt Addons](https://kubernetes.io/docs/concepts/cluster-administration/addons/#networking-and-network-policy)
+Vui lòng tham khảo trang [Cài đặt Addons](165-addons-vi.md#networking-and-network-policy)
 để có danh sách (chưa đầy đủ) các addon mạng được Kubernetes hỗ trợ.
 Bạn có thể cài một Pod network add-on bằng lệnh sau trên
 control-plane node hoặc một node có thông tin xác thực kubeconfig:
@@ -380,7 +380,7 @@ kubectl apply -f <add-on.yaml>
 
 > **Ghi chú:**
 > Chỉ một số ít CNI plugin hỗ trợ Windows. Thông tin chi tiết hơn và hướng dẫn thiết lập có tại
-> [Thêm các Windows worker node](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/adding-windows-nodes/#network-config).
+> [Thêm các Windows worker node](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/adding-windows-nodes#network-config).
 
 Bạn chỉ có thể cài một Pod network cho mỗi cluster.
 
@@ -389,7 +389,7 @@ kiểm tra rằng Pod CoreDNS đang ở trạng thái `Running` trong output c�
 Và khi Pod CoreDNS đã khởi động và chạy, bạn có thể tiếp tục bằng cách join các node của mình.
 
 Nếu mạng của bạn không hoạt động hoặc CoreDNS không ở trạng thái `Running`, hãy xem
-[hướng dẫn xử lý sự cố](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/troubleshooting-kubeadm/)
+[hướng dẫn xử lý sự cố](09-troubleshooting-kubeadm-vi.md)
 cho `kubeadm`.
 
 ### Các label node được quản lý (Managed node labels)
@@ -440,7 +440,7 @@ kubectl label nodes --all node.kubernetes.io/exclude-from-external-load-balancer
 
 ### Thêm control plane node (Adding more control plane nodes)
 
-Xem [Tạo cluster có tính sẵn sàng cao với kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/)
+Xem [Tạo cluster có tính sẵn sàng cao với kubeadm](08-high-availability-vi.md)
 để biết các bước tạo một kubeadm cluster có tính sẵn sàng cao bằng cách thêm các control plane node.
 
 ### Thêm worker node (Adding worker nodes) {#join-nodes}
@@ -450,8 +450,8 @@ Worker node là nơi các workload của bạn chạy.
 Các trang sau đây hướng dẫn cách thêm Linux worker node và Windows worker node vào cluster bằng
 lệnh `kubeadm join`:
 
-* [Thêm các Linux worker node](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/adding-linux-nodes/)
-* [Thêm các Windows worker node](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/adding-windows-nodes/)
+* [Thêm các Linux worker node](215-adding-linux-nodes-vi.md)
+* [Thêm các Windows worker node](216-adding-windows-nodes-vi.md)
 
 ### (Tùy chọn) Điều khiển cluster từ các máy khác ngoài control-plane node ((Optional) Controlling your cluster from machines other than the control-plane node)
 
@@ -564,7 +564,7 @@ Ví dụ:
 * kubeadm ở phiên bản v1.36
 * `kubernetesVersion` phải ở phiên bản v1.36 hoặc v1.35
 
-### Chênh lệch phiên bản giữa kubeadm và kubelet (kubeadm's skew against the kubelet)
+### Chênh lệch phiên bản giữa kubeadm và kubelet (kubeadm's skew against the kubelet) {#kubeadm-s-skew-against-the-kubelet}
 
 Tương tự như với phiên bản Kubernetes, kubeadm có thể được dùng với phiên bản kubelet
 bằng với phiên bản của kubeadm hoặc cũ hơn tối đa ba phiên bản.
@@ -617,8 +617,8 @@ Các giải pháp khắc phục:
   dữ liệu etcd do kubeadm cấu hình nằm tại `/var/lib/etcd` trên control-plane node.
 
 * Dùng nhiều control-plane node. Bạn có thể đọc
-  [Các lựa chọn cho topology tính sẵn sàng cao](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/ha-topology/) để chọn một topology
-  cluster cung cấp [tính sẵn sàng cao](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/).
+  [Các lựa chọn cho topology tính sẵn sàng cao](06-ha-topology-vi.md) để chọn một topology
+  cluster cung cấp [tính sẵn sàng cao](08-high-availability-vi.md).
 
 ### Tương thích nền tảng (Platform compatibility) {#multi-platform}
 
@@ -634,23 +634,23 @@ có hỗ trợ nền tảng bạn chọn hay không.
 ## Xử lý sự cố (Troubleshooting) {#troubleshooting}
 
 Nếu bạn đang gặp khó khăn với kubeadm, vui lòng tham khảo
-[tài liệu xử lý sự cố](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/troubleshooting-kubeadm/) của chúng tôi.
+[tài liệu xử lý sự cố](09-troubleshooting-kubeadm-vi.md) của chúng tôi.
 
 ## Tiếp theo (What's next)
 
 * Kiểm tra rằng cluster của bạn đang chạy đúng với [Sonobuoy](https://github.com/heptio/sonobuoy)
-* <a id="lifecycle" />Xem [Nâng cấp các kubeadm cluster](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/)
+* <a id="lifecycle" />Xem [Nâng cấp các kubeadm cluster](221-kubeadm-upgrade-vi.md)
   để biết chi tiết về việc nâng cấp cluster của bạn bằng `kubeadm`.
 * Tìm hiểu cách sử dụng `kubeadm` nâng cao trong [tài liệu tham khảo kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/)
 * Tìm hiểu thêm về các [khái niệm](https://kubernetes.io/docs/concepts/) Kubernetes và [`kubectl`](https://kubernetes.io/docs/reference/kubectl/).
-* Xem trang [Mạng của cluster (Cluster Networking)](https://kubernetes.io/docs/concepts/cluster-administration/networking/) để có danh sách
+* Xem trang [Mạng của cluster (Cluster Networking)](157-networking-vi.md) để có danh sách
   đầy đủ hơn các Pod network add-on.
-* <a id="other-addons" />Xem [danh sách các add-on](https://kubernetes.io/docs/concepts/cluster-administration/addons/) để
+* <a id="other-addons" />Xem [danh sách các add-on](165-addons-vi.md) để
   khám phá các add-on khác, bao gồm các công cụ ghi log (logging), giám sát (monitoring), network policy, trực quan hóa và
   điều khiển Kubernetes cluster của bạn.
 * Cấu hình cách cluster của bạn xử lý log cho các sự kiện của cluster và từ
   các ứng dụng chạy trong Pod.
-  Xem [Kiến trúc ghi log (Logging Architecture)](https://kubernetes.io/docs/concepts/cluster-administration/logging/) để có
+  Xem [Kiến trúc ghi log (Logging Architecture)](158-logging-vi.md) để có
   cái nhìn tổng quan về những gì liên quan.
 
 ### Phản hồi (Feedback) {#feedback}

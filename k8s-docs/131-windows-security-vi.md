@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 15](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
+**Vị trí:** [Giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
 bài 7/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -62,10 +62,10 @@ người vận hành cluster, bạn nên thực hiện cả hai biện pháp b�
 
 ## Người dùng trong container (Container users)
 
-[RunAsUsername](https://kubernetes.io/docs/tasks/configure-pod-container/configure-runasusername)
+[RunAsUsername](278-configure-runasusername-vi.md)
 có thể được chỉ định cho các Pod hoặc container Windows để thực thi các tiến trình
 của container dưới một người dùng cụ thể. Điều này gần tương đương với
-[RunAsUser](https://kubernetes.io/docs/concepts/security/pod-security-policy/#users-and-groups).
+[RunAsUser](https://kubernetes.io/docs/concepts/security/pod-security-policy#users-and-groups).
 
 Các container Windows cung cấp hai tài khoản người dùng mặc định là ContainerUser và ContainerAdministrator.
 Sự khác biệt giữa hai tài khoản người dùng này được trình bày trong
@@ -82,16 +82,16 @@ Người dùng cục bộ (local user) có thể được thêm vào container i
 >   `ContainerAdministrator` theo mặc định
 
 Các container Windows cũng có thể chạy dưới danh tính Active Directory bằng cách sử dụng
-[Group Managed Service Accounts](https://kubernetes.io/docs/tasks/configure-pod-container/configure-gmsa/)
+[Group Managed Service Accounts](273-configure-gmsa-vi.md)
 
 ## Cô lập bảo mật cấp Pod (Pod-level security isolation)
 
 Các cơ chế security context của pod dành riêng cho Linux (như SELinux, AppArmor, Seccomp, hay
 POSIX capability tùy chỉnh) không được hỗ trợ trên các node Windows.
 
-Container đặc quyền (privileged container) [không được hỗ trợ](https://kubernetes.io/docs/concepts/windows/intro/#compatibility-v1-pod-spec-containers-securitycontext)
+Container đặc quyền (privileged container) [không được hỗ trợ](175-windows-intro-vi.md#compatibility-v1-pod-spec-containers-securitycontext)
 trên Windows.
-Thay vào đó, có thể dùng [HostProcess container](https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod)
+Thay vào đó, có thể dùng [HostProcess container](281-create-hostprocess-pod-vi.md)
 trên Windows để thực hiện nhiều tác vụ mà container đặc quyền thực hiện trên Linux.
 
 ---
@@ -145,4 +145,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 Đây là bài cuối của **Giai đoạn 15**, và cũng là bài cuối của cả 15 giai đoạn lý thuyết. Nếu môi
 trường của bạn thực sự có node Windows thì tiếp tục với Lab 15 (tùy chọn, chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)); nếu không thì chuyển thẳng sang phần thực hành vận
-hành ở [Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks).
+hành ở [Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks).

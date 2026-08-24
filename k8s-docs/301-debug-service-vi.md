@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](LO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
+**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
 bài 6/10 · Các trang CP không có lab riêng: thực hành trực tiếp trên cluster lab ở mốc
 `04-metrics-ready` (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -465,7 +465,7 @@ không bị crash.
 Cột "RESTARTS" cho biết các Pod này không bị crash thường xuyên hay bị khởi động lại. Việc
 khởi động lại thường xuyên có thể dẫn tới các sự cố kết nối chập chờn. Nếu số lần khởi động
 lại cao, hãy đọc thêm về cách
-[gỡ lỗi Pod](https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods).
+[gỡ lỗi Pod](299-debug-pods-vi.md).
 
 Bên trong hệ thống Kubernetes có một vòng lặp điều khiển (control loop) đánh giá selector của
 mọi Service và lưu kết quả vào một hoặc nhiều object EndpointSlice.
@@ -702,7 +702,7 @@ Liên hệ với chúng tôi trên [Slack](https://slack.k8s.io/) hoặc
 
 ## Tiếp theo (What's next)
 
-Xem [tài liệu tổng quan về xử lý sự cố](https://kubernetes.io/docs/tasks/debug/) để biết thêm
+Xem [tài liệu tổng quan về xử lý sự cố](296-debug-vi.md) để biết thêm
 thông tin.
 
 ---

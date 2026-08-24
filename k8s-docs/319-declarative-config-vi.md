@@ -45,8 +45,8 @@ Xem [Quản lý object trong Kubernetes](27-object-management-vi.md)
 Cấu hình object kiểu khai báo đòi hỏi bạn hiểu vững về định nghĩa và cấu hình object
 Kubernetes. Hãy đọc và hoàn thành các tài liệu sau nếu bạn chưa làm:
 
-* [Quản lý object Kubernetes bằng câu lệnh mệnh lệnh](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/imperative-command/)
-* [Quản lý object Kubernetes kiểu mệnh lệnh bằng file cấu hình](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/imperative-config/)
+* [Quản lý object Kubernetes bằng câu lệnh mệnh lệnh](320-imperative-command-vi.md)
+* [Quản lý object Kubernetes kiểu mệnh lệnh bằng file cấu hình](321-imperative-config-vi.md)
 
 Dưới đây là định nghĩa các thuật ngữ dùng trong tài liệu này:
 
@@ -1115,8 +1115,8 @@ template:
 
 ## Tiếp theo (What's next)
 
-* [Quản lý object Kubernetes bằng câu lệnh mệnh lệnh](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/imperative-command/)
-* [Quản lý object Kubernetes kiểu mệnh lệnh bằng file cấu hình](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/imperative-config/)
+* [Quản lý object Kubernetes bằng câu lệnh mệnh lệnh](320-imperative-command-vi.md)
+* [Quản lý object Kubernetes kiểu mệnh lệnh bằng file cấu hình](321-imperative-config-vi.md)
 * [Tài liệu tham khảo lệnh Kubectl](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands/)
 * [Tài liệu tham khảo API Kubernetes](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/)
 

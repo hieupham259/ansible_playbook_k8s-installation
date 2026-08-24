@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 13/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -59,8 +59,8 @@ thay vì đánh giá từng pod riêng lẻ của PodGroup một cách cô lập
 nó tìm kiếm các nạn nhân (victim) trên toàn bộ cluster,
 và biết cách đối xử cũng như preempt các PodGroup khác với vai trò nạn nhân theo các chế độ gián đoạn (disruption mode) của chúng.
 
-Tính năng này phụ thuộc vào [Gang Scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/)
-và [Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/).
+Tính năng này phụ thuộc vào [Gang Scheduling](150-gang-scheduling-vi.md)
+và [Workload API](77-workload-api-vi.md).
 Hãy đảm bảo các feature gate [`GenericWorkload`](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/#GenericWorkload)
 và [`GangScheduling`](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/#GangScheduling)
 cùng nhóm API (API group) `scheduling.k8s.io/v1alpha2` đã được bật trong cluster.
@@ -68,7 +68,7 @@ cùng nhóm API (API group) `scheduling.k8s.io/v1alpha2` đã được bật tro
 ## Cách hoạt động (How it works)
 
 Quá trình preemption nhận biết workload tuân theo cùng các nguyên tắc
-như [preemption mặc định](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#preemption)
+như [preemption mặc định](141-pod-priority-preemption-vi.md#preemption)
 với một vài khác biệt:
 
 1. Miền toàn cluster (cluster-wide domain): Thay vì đánh giá preemption theo từng node một,
@@ -86,7 +86,7 @@ với một vài khác biệt:
    * Thời điểm khởi động (start time): Đơn vị khởi động sớm hơn thì quan trọng hơn.
 
 3. Độ ưu tiên và sự gián đoạn của pod group: Scheduler xem xét
-   [độ ưu tiên và chế độ gián đoạn](https://kubernetes.io/docs/concepts/workloads/workload-api/disruption-and-priority/) cụ thể của một PodGroup
+   [độ ưu tiên và chế độ gián đoạn](78-workload-disruption-priority-vi.md) cụ thể của một PodGroup
    để đánh giá liệu các pod của nó có thể bị preempt hay không và bị preempt như thế nào trong các sự kiện preemption.
 
 > **Ghi chú:**
@@ -97,9 +97,9 @@ với một vài khác biệt:
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [Độ ưu tiên và Sự gián đoạn của PodGroup](https://kubernetes.io/docs/concepts/workloads/workload-api/disruption-and-priority/).
-* Tìm hiểu về [Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/).
-* Đọc thêm về [Gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/).
+* Tìm hiểu thêm về [Độ ưu tiên và Sự gián đoạn của PodGroup](78-workload-disruption-priority-vi.md).
+* Tìm hiểu về [Workload API](77-workload-api-vi.md).
+* Đọc thêm về [Gang scheduling](150-gang-scheduling-vi.md).
 
 ---
 

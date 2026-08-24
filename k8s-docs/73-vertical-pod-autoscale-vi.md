@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 13/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 13/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Như bài [72](72-horizontal-pod-autoscale-vi.md): ở đây bạn chỉ đọc lý thuyết.** VPA cần
@@ -54,7 +54,7 @@ của bạn có bị khởi động lại hay không.
 
 Trong Kubernetes, một _VerticalPodAutoscaler_ tự động cập nhật một tài nguyên quản lý
 workload (chẳng hạn một Deployment hoặc StatefulSet), với mục tiêu tự động điều chỉnh
-[request và limit](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits)
+[request và limit](110-manage-resources-containers-vi.md#requests-and-limits)
 tài nguyên hạ tầng cho khớp với mức sử dụng thực tế.
 
 Co giãn theo chiều dọc (vertical scaling) nghĩa là phản ứng trước nhu cầu tài nguyên tăng
@@ -146,7 +146,7 @@ VerticalPodAutoscaler yêu cầu một nguồn metric, chẳng hạn add-on Metr
 Kubernetes, được cài đặt trong cluster. Các thành phần VPA lấy metric từ API
 `metrics.k8s.io`. Metrics Server cần được khởi chạy riêng vì nó không được triển khai
 mặc định trong hầu hết các cluster. Để biết thêm thông tin về resource metrics, xem
-[Metrics Server](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/#metrics-server).
+[Metrics Server](311-resource-metrics-pipeline-vi.md#metrics-server).
 
 ## Các chế độ cập nhật (Update modes)
 
@@ -200,7 +200,7 @@ Pod (tương tự chế độ `Recreate`) và để workload controller tạo m�
 nguyên đã cập nhật.
 
 Trong chế độ này, updater áp dụng các khuyến nghị tại chỗ bằng tính năng
-[Thay đổi tài nguyên container tại chỗ (Resize Container Resources In-Place)](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/).
+[Thay đổi tài nguyên container tại chỗ (Resize Container Resources In-Place)](289-resize-container-resources-vi.md).
 
 ### InPlace {#updateMode-InPlace}
 
@@ -315,14 +315,14 @@ RequestsOnly
   throttling hoặc bị kill do hết bộ nhớ (out-of-memory kill) nếu mức sử dụng vượt quá
   chúng.
 
-Xem [request và limit](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits)
+Xem [request và limit](110-manage-resources-containers-vi.md#requests-and-limits)
 để tìm hiểu thêm về hai khái niệm này.
 
 ## Tài nguyên LimitRange (LimitRange resources)
 
 Hai thành phần admission controller và updater của VPA hậu xử lý các khuyến nghị để tuân
 thủ các ràng buộc được định nghĩa trong
-[LimitRange](https://kubernetes.io/docs/concepts/policy/limit-range/). Các tài nguyên
+[LimitRange](133-limit-range-vi.md). Các tài nguyên
 LimitRange với `type` là Pod và Container được kiểm tra trong cluster Kubernetes.
 
 Ví dụ, nếu trường `max` trong một tài nguyên LimitRange loại Container bị vượt quá, cả
@@ -333,10 +333,10 @@ Pod.
 ## Tiếp theo (What's next)
 
 Nếu bạn cấu hình tự động co giãn (autoscaling) trong cluster, bạn cũng có thể cân nhắc
-dùng [tự động co giãn node (node autoscaling)](https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/)
+dùng [tự động co giãn node (node autoscaling)](171-node-autoscaling-vi.md)
 để bảo đảm bạn đang chạy đúng số lượng node.
 Bạn cũng có thể đọc thêm về
-[tự động co giãn Pod theo chiều _ngang_ (horizontal Pod autoscaling)](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/).
+[tự động co giãn Pod theo chiều _ngang_ (horizontal Pod autoscaling)](72-horizontal-pod-autoscale-vi.md).
 
 ---
 

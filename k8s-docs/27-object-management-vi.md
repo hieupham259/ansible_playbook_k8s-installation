@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+**Vị trí:** Giai đoạn 1 → nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
 bài 8/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 Bài ngắn nhưng có hậu quả vận hành rất lớn. Bảng so sánh ở đầu bài là thứ đáng nhớ nhất.
@@ -189,10 +189,10 @@ Nhược điểm so với cấu hình object kiểu mệnh lệnh:
 
 ## Tiếp theo (What's next)
 
-- [Quản lý object Kubernetes bằng câu lệnh mệnh lệnh](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/imperative-command/)
-- [Quản lý object Kubernetes kiểu mệnh lệnh bằng file cấu hình](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/imperative-config/)
-- [Quản lý object Kubernetes kiểu khai báo bằng file cấu hình](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/declarative-config/)
-- [Quản lý object Kubernetes kiểu khai báo bằng Kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/)
+- [Quản lý object Kubernetes bằng câu lệnh mệnh lệnh](320-imperative-command-vi.md)
+- [Quản lý object Kubernetes kiểu mệnh lệnh bằng file cấu hình](321-imperative-config-vi.md)
+- [Quản lý object Kubernetes kiểu khai báo bằng file cấu hình](319-declarative-config-vi.md)
+- [Quản lý object Kubernetes kiểu khai báo bằng Kustomize](322-kustomization-vi.md)
 - [Tài liệu tham khảo lệnh Kubectl](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands/)
 - [Kubectl Book](https://kubectl.docs.kubernetes.io)
 - [Tài liệu tham khảo Kubernetes API](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/)

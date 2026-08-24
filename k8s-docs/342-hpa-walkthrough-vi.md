@@ -5,7 +5,7 @@
 > Tài liệu này dẫn bạn qua một ví dụ về việc bật HorizontalPodAutoscaler để tự động quản lý
 > quy mô (scale) cho một ứng dụng web mẫu.
 
-Một [HorizontalPodAutoscaler](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/)
+Một [HorizontalPodAutoscaler](72-horizontal-pod-autoscale-vi.md)
 (gọi tắt là HPA)
 tự động cập nhật một tài nguyên workload (chẳng hạn một Deployment hoặc StatefulSet), với mục
 tiêu tự động scale workload cho khớp với nhu cầu.
@@ -43,8 +43,8 @@ bản tài liệu tương ứng với bản phát hành đó (xem
 [Metrics Server](https://github.com/kubernetes-sigs/metrics-server#readme).
 Kubernetes Metrics Server thu thập các metric tài nguyên từ các kubelet trong cluster của bạn,
 và cung cấp các metric đó thông qua
-[Kubernetes API](https://kubernetes.io/docs/concepts/overview/kubernetes-api/),
-sử dụng một [APIService](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/)
+[Kubernetes API](21-kubernetes-api-vi.md),
+sử dụng một [APIService](180-apiserver-aggregation-vi.md)
 để thêm các loại tài nguyên mới đại diện cho các số đọc metric.
 
 Để tìm hiểu cách triển khai Metrics Server, xem
@@ -129,7 +129,7 @@ trong Kubernetes — và rồi ReplicaSet thêm hoặc bớt Pod dựa trên tha
 
 Vì mỗi Pod yêu cầu (request) 200 milli-core thông qua `kubectl run`, điều này đồng nghĩa với
 mức sử dụng CPU trung bình là 100 milli-core.
-Xem [Chi tiết thuật toán](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/#algorithm-details)
+Xem [Chi tiết thuật toán](72-horizontal-pod-autoscale-vi.md#algorithm-details)
 để biết thêm chi tiết về thuật toán.
 
 Tạo HorizontalPodAutoscaler:
@@ -250,7 +250,7 @@ Một khi mức sử dụng CPU giảm về 0, HPA tự động scale số lư�
 
 Việc autoscale các replica có thể mất vài phút.
 
-## Autoscaling dựa trên nhiều metric và metric tùy chỉnh (Autoscaling on multiple metrics and custom metrics)
+## Autoscaling dựa trên nhiều metric và metric tùy chỉnh (Autoscaling on multiple metrics and custom metrics) {#autoscaling-on-multiple-metrics-and-custom-metrics}
 
 Bạn có thể đưa thêm các metric bổ sung để dùng khi autoscale Deployment `php-apache`
 bằng cách sử dụng phiên bản API `autoscaling/v2`.
@@ -454,7 +454,7 @@ selector khớp với nhiều series. Selector chỉ mang tính bổ sung (addit
 các metric mô tả những object **không phải** object mục tiêu (các Pod mục tiêu trong trường
 hợp loại `Pods`, và object được mô tả trong trường hợp loại `Object`).
 
-### Autoscaling dựa trên các metric không liên quan đến object Kubernetes (Autoscaling on metrics not related to Kubernetes objects)
+### Autoscaling dựa trên các metric không liên quan đến object Kubernetes (Autoscaling on metrics not related to Kubernetes objects) {#autoscaling-on-metrics-not-related-to-kubernetes-objects}
 
 Các ứng dụng chạy trên Kubernetes có thể cần autoscale dựa trên những metric không có mối liên
 hệ rõ ràng với bất kỳ object nào trong cluster Kubernetes, chẳng hạn các metric mô tả một dịch

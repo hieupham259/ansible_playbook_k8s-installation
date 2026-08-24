@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+**Vị trí:** Giai đoạn 1 → nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
 bài 9/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 Bài cuối nhóm 1b, và ngắn nhất. Đọc nó như phần bổ sung cho bài [18](18-labels-vi.md): cùng là
@@ -42,7 +42,7 @@ giá trị của một hoặc nhiều trường (field) của resource. Dưới 
 * `metadata.namespace!=default`
 * `status.phase=Pending`
 
-Lệnh `kubectl` sau chọn tất cả các Pod có giá trị của trường [`status.phase`](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase) là `Running`:
+Lệnh `kubectl` sau chọn tất cả các Pod có giá trị của trường [`status.phase`](47-pod-lifecycle-vi.md#pod-phase) là `Running`:
 
 ```shell
 kubectl get pods --field-selector status.phase=Running
@@ -92,7 +92,7 @@ Bạn có thể dùng các toán tử `=`, `==` và `!=` với field selector (`
 kubectl get services  --all-namespaces --field-selector metadata.namespace!=default
 ```
 
-> **Ghi chú:** [Các toán tử dựa trên tập hợp (set-based operators)](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#set-based-requirement)
+> **Ghi chú:** [Các toán tử dựa trên tập hợp (set-based operators)](18-labels-vi.md#set-based-requirement)
 > (`in`, `notin`, `exists`) không được hỗ trợ cho field selector.
 
 ## Nối chuỗi các selector (Chained selectors)

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3b](LO-TRINH-ADMIN.md#3b-cấu-hình-và-tài-nguyên), bài 6/7 ·
+**Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 6/7 ·
 Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này viết cho **hai người đọc khác nhau** — chủ sở hữu ứng dụng và quản trị viên cluster —
@@ -73,7 +73,7 @@ Chúng ta gọi những trường hợp không thể tránh khỏi này là *gi�
 - kernel panic
 - node biến mất khỏi cluster do phân mảnh mạng cluster (network partition)
 - Pod bị trục xuất (eviction) do node bị
-  [cạn kiệt tài nguyên](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/).
+  [cạn kiệt tài nguyên](142-node-pressure-eviction-vi.md).
 
 Ngoại trừ tình huống cạn kiệt tài nguyên, tất cả các tình huống này hẳn đều
 quen thuộc với hầu hết người dùng; chúng không phải là đặc thù
@@ -89,9 +89,9 @@ do quản trị viên cluster khởi xướng. Các hành động điển hình 
 
 Các hành động của quản trị viên cluster gồm:
 
-- [Drain một node](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/) để sửa chữa hoặc nâng cấp.
+- [Drain một node](255-safely-drain-node-vi.md) để sửa chữa hoặc nâng cấp.
 - Drain một node khỏi cluster để thu nhỏ cluster (tìm hiểu về
-  [Tự động co giãn node (Node Autoscaling)](https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/)).
+  [Tự động co giãn node (Node Autoscaling)](171-node-autoscaling-vi.md)).
 - Gỡ một pod khỏi node để nhường chỗ cho thứ khác vừa vặn trên node đó.
 
 Các hành động này có thể được thực hiện trực tiếp bởi quản trị viên cluster, bởi
@@ -111,13 +111,13 @@ tạo Pod Disruption Budget.
 
 Dưới đây là một số cách để giảm thiểu gián đoạn không tự nguyện:
 
-- Đảm bảo pod của bạn [yêu cầu (request) các tài nguyên](https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource) mà nó cần.
+- Đảm bảo pod của bạn [yêu cầu (request) các tài nguyên](264-assign-memory-resource-vi.md) mà nó cần.
 - Nhân bản (replicate) ứng dụng nếu bạn cần tính sẵn sàng cao hơn. (Tìm hiểu về việc chạy các ứng dụng nhân bản
-  [không trạng thái (stateless)](https://kubernetes.io/docs/tasks/run-application/run-stateless-application-deployment/)
-  và [có trạng thái (stateful)](https://kubernetes.io/docs/tasks/run-application/run-replicated-stateful-application/).)
+  [không trạng thái (stateless)](345-run-stateless-application-vi.md)
+  và [có trạng thái (stateful)](343-run-replicated-stateful-application-vi.md).)
 - Để có tính sẵn sàng cao hơn nữa khi chạy các ứng dụng nhân bản,
   hãy trải các ứng dụng ra nhiều rack (dùng
-  [anti-affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity))
+  [anti-affinity](138-assign-pod-node-vi.md#affinity-and-anti-affinity))
   hoặc nhiều zone (nếu dùng
   [cluster đa zone](https://kubernetes.io/docs/setup/multiple-zones)).
 
@@ -130,7 +130,7 @@ một số cách hiện thực tính năng tự động co giãn cluster (node) 
 tự nguyện nhằm chống phân mảnh và nén gọn các node.
 Quản trị viên cluster hoặc nhà cung cấp hosting của bạn nên có tài liệu mô tả mức độ
 gián đoạn tự nguyện có thể xảy ra, nếu có. Một số tùy chọn cấu hình nhất định, chẳng hạn
-[dùng PriorityClass](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)
+[dùng PriorityClass](141-pod-priority-preemption-vi.md)
 trong spec của pod, cũng có thể gây ra gián đoạn tự nguyện (và không tự nguyện).
 
 ## Ngân sách gián đoạn Pod (Pod disruption budgets) {#pod-disruption-budgets}
@@ -149,7 +149,7 @@ replica đang phục vụ tải không bao giờ giảm xuống dưới một t�
 của tổng số.
 
 Người quản lý cluster và nhà cung cấp hosting nên dùng các công cụ
-tôn trọng PodDisruptionBudget bằng cách gọi [Eviction API](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/#eviction-api)
+tôn trọng PodDisruptionBudget bằng cách gọi [Eviction API](255-safely-drain-node-vi.md#eviction-api)
 thay vì trực tiếp xóa pod hay deployment.
 
 Ví dụ, lệnh con `kubectl drain` cho phép bạn đánh dấu một node là sắp ngừng
@@ -180,14 +180,14 @@ và StatefulSet) không bị PDB giới hạn khi thực hiện nâng cấp cu�
 việc xử lý lỗi trong quá trình cập nhật ứng dụng được cấu hình trong spec của
 workload resource cụ thể.
 
-Bạn nên đặt [Unhealthy Pod Eviction Policy](https://kubernetes.io/docs/tasks/run-application/configure-pdb/#unhealthy-pod-eviction-policy)
+Bạn nên đặt [Unhealthy Pod Eviction Policy](339-configure-pdb-vi.md#unhealthy-pod-eviction-policy)
 là `AlwaysAllow` cho các PodDisruptionBudget của mình để hỗ trợ trục xuất các ứng dụng
 hoạt động sai trong quá trình drain node.
-Hành vi mặc định là chờ các pod của ứng dụng trở nên [khỏe mạnh (healthy)](https://kubernetes.io/docs/tasks/run-application/configure-pdb/#healthiness-of-a-pod)
+Hành vi mặc định là chờ các pod của ứng dụng trở nên [khỏe mạnh (healthy)](339-configure-pdb-vi.md#healthiness-of-a-pod)
 trước khi quá trình drain có thể tiếp tục.
 
 Khi một pod bị trục xuất bằng eviction API, nó được
-[kết thúc](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination) một cách êm thấm (gracefully),
+[kết thúc](47-pod-lifecycle-vi.md#pod-termination) một cách êm thấm (gracefully),
 tôn trọng thiết lập `terminationGracePeriodSeconds` trong [PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#podspec-v1-core) của nó.
 
 ## Ví dụ về PodDisruptionBudget (PodDisruptionBudget example) {#pdb-example}
@@ -281,14 +281,14 @@ có thể xảy ra, dựa theo:
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.31 [stable]`
 
-Một [condition](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-conditions) `DisruptionTarget`
+Một [condition](47-pod-lifecycle-vi.md#pod-conditions) `DisruptionTarget`
 dành riêng được thêm vào Pod để chỉ ra rằng
 Pod sắp bị xóa do một sự gián đoạn (disruption).
 Trường `reason` của condition này còn chỉ ra thêm
 một trong các lý do sau cho việc kết thúc Pod:
 
 `PreemptionByScheduler`
-: Pod sắp bị scheduler chiếm chỗ (preempt) để nhường chỗ cho một Pod mới có độ ưu tiên cao hơn. Để biết thêm thông tin, xem [Chiếm chỗ theo độ ưu tiên của Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/).
+: Pod sắp bị scheduler chiếm chỗ (preempt) để nhường chỗ cho một Pod mới có độ ưu tiên cao hơn. Để biết thêm thông tin, xem [Chiếm chỗ theo độ ưu tiên của Pod](141-pod-priority-preemption-vi.md).
 
 `DeletionByTaintManager`
 : Pod sắp bị Taint Manager (một phần của node lifecycle controller bên trong `kube-controller-manager`) xóa do có taint `NoExecute` mà Pod không dung thứ (tolerate); xem cơ chế trục xuất dựa trên taint.
@@ -297,15 +297,15 @@ một trong các lý do sau cho việc kết thúc Pod:
 : Pod đã được đánh dấu để trục xuất bằng Kubernetes API.
 
 `DeletionByPodGC`
-: Pod đang gắn với một node không còn tồn tại, sắp bị xóa bởi [cơ chế thu gom rác Pod (Pod garbage collection)](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-garbage-collection).
+: Pod đang gắn với một node không còn tồn tại, sắp bị xóa bởi [cơ chế thu gom rác Pod (Pod garbage collection)](47-pod-lifecycle-vi.md#pod-garbage-collection).
 
 `TerminationByKubelet`
 : Pod đã bị kubelet kết thúc, do trục xuất vì áp lực tài nguyên node (node pressure eviction),
-  do [tắt node êm thấm (graceful node shutdown)](https://kubernetes.io/docs/concepts/architecture/nodes/#graceful-node-shutdown),
-  hoặc do bị chiếm chỗ để nhường cho [các pod quan trọng của hệ thống](https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/).
+  do [tắt node êm thấm (graceful node shutdown)](https://kubernetes.io/docs/concepts/architecture/nodes#graceful-node-shutdown),
+  hoặc do bị chiếm chỗ để nhường cho [các pod quan trọng của hệ thống](210-guaranteed-scheduling-critical-addon-pods-vi.md).
 
 Trong tất cả các kịch bản gián đoạn khác, như trục xuất do vượt quá
-[giới hạn tài nguyên container của Pod](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/),
+[giới hạn tài nguyên container của Pod](110-manage-resources-containers-vi.md),
 Pod không nhận condition `DisruptionTarget` vì các gián đoạn đó nhiều khả năng
 do chính Pod gây ra và sẽ tái diễn nếu thử lại.
 
@@ -318,10 +318,10 @@ do chính Pod gây ra và sẽ tái diễn nếu thử lại.
 
 Cùng với việc dọn dẹp các pod, bộ thu gom rác Pod (PodGC) cũng sẽ đánh dấu chúng là
 failed nếu chúng đang ở một phase chưa kết thúc (non-terminal)
-(xem thêm [Pod garbage collection](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-garbage-collection)).
+(xem thêm [Pod garbage collection](47-pod-lifecycle-vi.md#pod-garbage-collection)).
 
 Khi dùng Job (hoặc CronJob), bạn có thể muốn dùng các condition gián đoạn Pod này
-như một phần của [chính sách xử lý Pod lỗi (Pod failure policy)](https://kubernetes.io/docs/concepts/workloads/controllers/job#pod-failure-policy) của Job.
+như một phần của [chính sách xử lý Pod lỗi (Pod failure policy)](67-job-vi.md#pod-failure-policy) của Job.
 
 ## Tách biệt vai trò Chủ sở hữu Cluster và Chủ sở hữu Ứng dụng (Separating Cluster Owner and Application Owner Roles) {#separating-cluster-owner-and-application-owner-roles}
 
@@ -361,11 +361,11 @@ là một số lựa chọn:
 ## Tiếp theo (What's next)
 
 * Làm theo các bước để bảo vệ ứng dụng của bạn bằng cách
-  [cấu hình một Pod Disruption Budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/).
+  [cấu hình một Pod Disruption Budget](339-configure-pdb-vi.md).
 
-* Tìm hiểu thêm về [drain node](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/)
+* Tìm hiểu thêm về [drain node](255-safely-drain-node-vi.md)
 
-* Tìm hiểu về [cập nhật một deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#updating-a-deployment),
+* Tìm hiểu về [cập nhật một deployment](63-deployment-vi.md#updating-a-deployment),
   bao gồm các bước để duy trì tính khả dụng của nó trong quá trình rollout.
 
 ---

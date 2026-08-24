@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+**Vị trí:** Giai đoạn 1 → nhóm [1a](00-ALO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
 bài 7/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B7.
 
 Bài này vốn **không phải bài giới thiệu kiến trúc** — nó là bài hardening bảo mật mạng, viết
@@ -150,13 +150,13 @@ dịch vụ Konnectivity trong cluster của bạn.
 
 ## Tiếp theo (What's next)
 
-* Đọc về [các thành phần control plane của Kubernetes](https://kubernetes.io/docs/concepts/architecture/#control-plane-components)
+* Đọc về [các thành phần control plane của Kubernetes](22-architecture-vi.md#control-plane-components)
 * Tìm hiểu thêm về [mô hình Hub and Spoke](https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts.html#hubs-spokes-and-other-wheel-metaphors)
-* Tìm hiểu cách [bảo mật một cluster](https://kubernetes.io/docs/tasks/administer-cluster/securing-a-cluster/)
-* Tìm hiểu thêm về [Kubernetes API](https://kubernetes.io/docs/concepts/overview/kubernetes-api/)
+* Tìm hiểu cách [bảo mật một cluster](256-securing-a-cluster-vi.md)
+* Tìm hiểu thêm về [Kubernetes API](21-kubernetes-api-vi.md)
 * [Thiết lập dịch vụ Konnectivity](https://kubernetes.io/docs/tasks/extend-kubernetes/setup-konnectivity/)
-* [Dùng Port Forwarding để truy cập ứng dụng trong cluster](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/)
-* Tìm hiểu cách [lấy log của các Pod](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#examine-pod-logs), [dùng kubectl port-forward](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/#forward-a-local-port-to-a-port-on-the-pod)
+* [Dùng Port Forwarding để truy cập ứng dụng trong cluster](366-port-forward-vi.md)
+* Tìm hiểu cách [lấy log của các Pod](300-debug-running-pod-vi.md#examine-pod-logs), [dùng kubectl port-forward](366-port-forward-vi.md#forward-a-local-port-to-a-port-on-the-pod)
 
 ---
 

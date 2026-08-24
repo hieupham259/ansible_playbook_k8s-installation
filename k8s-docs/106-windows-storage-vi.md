@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 15](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
+**Vị trí:** [Giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
 bài 5/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -76,7 +76,7 @@ Do đó, các chức năng lưu trữ sau không được hỗ trợ trên node 
 * Ánh xạ thiết bị block (block device mapping)
 * Dùng bộ nhớ (memory) làm phương tiện lưu trữ (ví dụ, `emptyDir.medium` đặt thành `Memory`)
 * Các tính năng hệ thống file như uid/gid; quyền hệ thống file Linux theo từng người dùng
-* Thiết lập [quyền cho secret bằng DefaultMode](https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#set-posix-permissions-for-secret-keys) (do phụ thuộc vào UID/GID)
+* Thiết lập [quyền cho secret bằng DefaultMode](334-distribute-credentials-secure-vi.md#set-posix-permissions-for-secret-keys) (do phụ thuộc vào UID/GID)
 * Hỗ trợ lưu trữ/volume dựa trên NFS
 * Mở rộng volume đã mount (resizefs)
 
@@ -93,14 +93,14 @@ Các nhóm plugin volume Kubernetes lớn sau đây được hỗ trợ trên Wi
 
 * [`FlexVolume plugins`](./91-volumes-vi.md#flexvolume)
   * Lưu ý rằng FlexVolume đã bị loại bỏ dần (deprecated) kể từ phiên bản 1.23
-* [`CSI Plugins`](https://kubernetes.io/docs/concepts/storage/volumes/#csi)
+* [`CSI Plugins`](91-volumes-vi.md#csi)
 
 ##### Các plugin volume in-tree (In-tree volume plugins)
 
 Các plugin in-tree sau hỗ trợ lưu trữ bền vững trên node Windows:
 
-* [`azureFile`](https://kubernetes.io/docs/concepts/storage/volumes/#azurefile)
-* [`vsphereVolume`](https://kubernetes.io/docs/concepts/storage/volumes/#vspherevolume)
+* [`azureFile`](https://kubernetes.io/docs/concepts/storage/volumes#azurefile)
+* [`vsphereVolume`](https://kubernetes.io/docs/concepts/storage/volumes#vspherevolume)
 
 ---
 

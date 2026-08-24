@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+**Vị trí:** Giai đoạn 1 → nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
 bài 3/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 Bài rất ngắn, và toàn bộ giá trị nằm ở **ranh giới với label** vừa học. Đọc bài này ngay sau
@@ -125,7 +125,7 @@ spec:
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu thêm về [Label và Selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/).
+- Tìm hiểu thêm về [Label và Selector](18-labels-vi.md).
 - Xem [Các label, annotation và taint phổ biến (Well-known labels, Annotations and Taints)](https://kubernetes.io/docs/reference/labels-annotations-taints/).
 
 ---

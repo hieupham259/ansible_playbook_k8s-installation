@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 4/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 4/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này đứng chân trên hai thứ bạn **chưa học**: lưu trữ bền vững và Service headless. Đó là
@@ -72,18 +72,18 @@ Trong các điều trên, "ổn định" đồng nghĩa với việc được du
 Nếu một ứng dụng không yêu cầu bất kỳ định danh ổn định nào hay việc triển khai, xóa,
 hoặc mở rộng có thứ tự, bạn nên triển khai ứng dụng của mình bằng một đối tượng workload
 cung cấp một tập các bản sao (replica) không trạng thái (stateless).
-[Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) hoặc
-[ReplicaSet](https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/) có thể phù hợp hơn với các nhu cầu stateless của bạn.
+[Deployment](63-deployment-vi.md) hoặc
+[ReplicaSet](64-replicaset-vi.md) có thể phù hợp hơn với các nhu cầu stateless của bạn.
 
 ## Hạn chế (Limitations) {#limitations}
 
 * Lưu trữ cho một Pod nhất định phải được cấp phát (provision) bởi một
-  [PersistentVolume Provisioner](https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/)
+  [PersistentVolume Provisioner](98-dynamic-provisioning-vi.md)
   dựa trên _storage class_ được yêu cầu, hoặc được admin cấp phát sẵn từ trước.
 * Việc xóa và/hoặc thu nhỏ (scale down) một StatefulSet sẽ _không_ xóa các volume gắn với
   StatefulSet đó. Điều này nhằm đảm bảo an toàn dữ liệu, vốn thường có giá trị hơn so với
   việc tự động dọn sạch toàn bộ các tài nguyên liên quan của StatefulSet.
-* StatefulSet hiện yêu cầu một [Headless Service](https://kubernetes.io/docs/concepts/services-networking/service/#headless-services)
+* StatefulSet hiện yêu cầu một [Headless Service](82-service-vi.md#headless-services)
   chịu trách nhiệm về định danh mạng của các Pod. Bạn có trách nhiệm tạo Service này.
 * StatefulSet không cung cấp bất kỳ đảm bảo nào về việc kết thúc (termination) các pod khi một
   StatefulSet bị xóa. Để đạt được việc kết thúc các pod trong StatefulSet một cách có thứ tự và
@@ -159,11 +159,11 @@ Trong ví dụ trên:
 * Một Headless Service, tên là `nginx`, được dùng để kiểm soát miền mạng (network domain).
 * StatefulSet, tên là `web`, có một Spec chỉ ra rằng 3 bản sao của container nginx sẽ được khởi chạy trong các Pod riêng biệt.
 * `volumeClaimTemplates` sẽ cung cấp lưu trữ ổn định bằng các
-  [PersistentVolume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) do một
+  [PersistentVolume](92-persistent-volumes-vi.md) do một
   PersistentVolume Provisioner cấp phát.
 
 Tên của một đối tượng StatefulSet phải là một
-[nhãn DNS (DNS label)](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-label-names) hợp lệ.
+[nhãn DNS (DNS label)](17-names-vi.md#dns-label-names) hợp lệ.
 
 ### Pod Selector {#pod-selector}
 
@@ -174,11 +174,11 @@ lỗi kiểm tra hợp lệ (validation error) khi tạo StatefulSet.
 ### Template cho volume claim (Volume Claim Templates) {#volume-claim-templates}
 
 Bạn có thể đặt trường `.spec.volumeClaimTemplates` để tạo một
-[PersistentVolumeClaim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims).
+[PersistentVolumeClaim](92-persistent-volumes-vi.md#persistentvolumeclaims).
 Điều này sẽ cung cấp lưu trữ ổn định cho StatefulSet nếu một trong hai điều kiện sau thỏa mãn:
 
 * StorageClass được chỉ định cho volume claim được thiết lập để dùng
-  [cấp phát động (dynamic provisioning)](https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/).
+  [cấp phát động (dynamic provisioning)](98-dynamic-provisioning-vi.md).
 * Cluster đã có sẵn một PersistentVolume với StorageClass đúng
   và đủ dung lượng lưu trữ khả dụng.
 
@@ -190,7 +190,7 @@ Bạn có thể đặt trường `.spec.volumeClaimTemplates` để tạo một
 được tạo phải chạy và sẵn sàng, không có container nào của nó bị crash, để nó được xem là khả dụng (available).
 Trường này được dùng để kiểm tra tiến độ của một lần rollout khi dùng chiến lược [Rolling Update](#rolling-updates).
 Trường này mặc định là 0 (Pod sẽ được xem là khả dụng ngay khi nó sẵn sàng). Để tìm hiểu thêm về khi nào
-một Pod được xem là sẵn sàng, xem [Container Probes](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes).
+một Pod được xem là sẵn sàng, xem [Container Probes](47-pod-lifecycle-vi.md#container-probes).
 
 ## Định danh của Pod (Pod Identity) {#pod-identity}
 
@@ -223,7 +223,7 @@ Mỗi Pod trong một StatefulSet lấy hostname của nó từ tên của State
 và số thứ tự của Pod. Mẫu cho hostname được tạo ra
 là `$(statefulset name)-$(ordinal)`. Ví dụ ở trên sẽ tạo ba Pod
 tên là `web-0,web-1,web-2`.
-Một StatefulSet có thể dùng một [Headless Service](https://kubernetes.io/docs/concepts/services-networking/service/#headless-services)
+Một StatefulSet có thể dùng một [Headless Service](82-service-vi.md#headless-services)
 để kiểm soát miền (domain) của các Pod của nó. Miền do Service này quản lý có dạng:
 `$(service name).$(namespace).svc.cluster.local`, trong đó "cluster.local" là
 miền của cluster.
@@ -244,7 +244,7 @@ Nếu bạn cần phát hiện các Pod ngay sau khi chúng được tạo, bạ
   config map của CoreDNS, hiện đang cache trong 30 giây).
 
 Như đã đề cập trong phần [hạn chế](#limitations), bạn có trách nhiệm
-tạo [Headless Service](https://kubernetes.io/docs/concepts/services-networking/service/#headless-services)
+tạo [Headless Service](82-service-vi.md#headless-services)
 chịu trách nhiệm về định danh mạng của các pod.
 
 Dưới đây là một số ví dụ về các lựa chọn cho Cluster Domain, tên Service,
@@ -258,7 +258,7 @@ tên StatefulSet, và cách chúng ảnh hưởng đến tên DNS của các Pod
 
 > **Ghi chú:**
 > Cluster Domain sẽ được đặt là `cluster.local` trừ khi
-> [được cấu hình khác đi](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/).
+> [được cấu hình khác đi](10-dns-pod-service-vi.md).
 
 ### Lưu trữ ổn định (Stable Storage) {#stable-storage}
 
@@ -297,11 +297,11 @@ mặc định cho tính năng này; để tắt nó, người dùng sẽ phải 
 
 StatefulSet không nên chỉ định `pod.Spec.TerminationGracePeriodSeconds` bằng 0. Cách làm này
 không an toàn và rất không được khuyến khích. Để được giải thích thêm, vui lòng tham khảo
-[force delete Pod của StatefulSet](https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/).
+[force delete Pod của StatefulSet](341-force-delete-stateful-set-pod-vi.md).
 
 Khi ví dụ nginx ở trên được tạo, ba Pod sẽ được triển khai theo thứ tự
 web-0, web-1, web-2. web-1 sẽ không được triển khai trước khi web-0
-[Running và Ready](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/), và web-2 sẽ không được triển khai cho đến khi
+[Running và Ready](47-pod-lifecycle-vi.md), và web-2 sẽ không được triển khai cho đến khi
 web-1 Running và Ready. Nếu web-0 gặp sự cố, sau khi web-1 đã Running và Ready, nhưng trước khi
 web-2 được khởi chạy, thì web-2 sẽ không được khởi chạy cho đến khi web-0 được khởi chạy lại
 thành công và trở thành Running và Ready.
@@ -553,7 +553,7 @@ spec:
 ```
 
 StatefulSet controller thêm
-[owner reference](https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/#owner-references-in-object-specifications)
+[owner reference](30-owners-dependents-vi.md#owner-references-in-object-specifications)
 vào các PVC của nó, các PVC này sau đó bị bộ thu gom rác (garbage collector) xóa sau khi Pod kết thúc. Điều này cho phép Pod
 unmount sạch sẽ tất cả các volume trước khi các PVC bị xóa (và trước khi PV và
 volume phía sau bị xóa, tùy theo retain policy). Khi bạn đặt chính sách `whenDeleted`
@@ -588,27 +588,27 @@ dựa trên một manifest (ví dụ: bằng cách chạy `kubectl apply -f
 statefulset.yaml`), thì việc apply manifest đó sẽ ghi đè việc scale thủ công
 mà bạn đã làm trước đó.
 
-Nếu một [HorizontalPodAutoscaler](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/)
+Nếu một [HorizontalPodAutoscaler](72-horizontal-pod-autoscale-vi.md)
 (hoặc bất kỳ API tương tự nào cho việc mở rộng theo chiều ngang) đang quản lý việc scale cho một
 StatefulSet, đừng đặt `.spec.replicas`. Thay vào đó, hãy để
 control plane của Kubernetes quản lý trường `.spec.replicas` một cách tự động.
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu về [Pod](https://kubernetes.io/docs/concepts/workloads/pods).
+* Tìm hiểu về [Pod](46-pods-vi.md).
 * Tìm hiểu cách sử dụng StatefulSet
   * Làm theo ví dụ về [triển khai một ứng dụng stateful](https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/).
   * Làm theo ví dụ về [triển khai Cassandra với StatefulSet](https://kubernetes.io/docs/tutorials/stateful-application/cassandra/).
-  * Làm theo ví dụ về [chạy một ứng dụng stateful có nhân bản (replicated)](https://kubernetes.io/docs/tasks/run-application/run-replicated-stateful-application/).
-  * Tìm hiểu cách [scale một StatefulSet](https://kubernetes.io/docs/tasks/run-application/scale-stateful-set/).
-  * Tìm hiểu những gì liên quan khi bạn [xóa một StatefulSet](https://kubernetes.io/docs/tasks/run-application/delete-stateful-set/).
-  * Tìm hiểu cách [cấu hình một Pod dùng volume để lưu trữ](https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/).
+  * Làm theo ví dụ về [chạy một ứng dụng stateful có nhân bản (replicated)](343-run-replicated-stateful-application-vi.md).
+  * Tìm hiểu cách [scale một StatefulSet](347-scale-stateful-set-vi.md).
+  * Tìm hiểu những gì liên quan khi bạn [xóa một StatefulSet](340-delete-stateful-set-vi.md).
+  * Tìm hiểu cách [cấu hình một Pod dùng volume để lưu trữ](280-configure-volume-storage-vi.md).
   * Tìm hiểu cách [cấu hình một Pod dùng PersistentVolume để lưu trữ](https://kubernetes.io/docs/tutorials/configuration/configure-persistent-volume-storage/).
 * `StatefulSet` là một tài nguyên cấp cao nhất (top-level) trong Kubernetes REST API.
   Đọc định nghĩa đối tượng
   [StatefulSet](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/stateful-set-v1/)
   để hiểu API cho stateful set.
-* Đọc về [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/) và cách
+* Đọc về [PodDisruptionBudget](53-disruptions-vi.md) và cách
   bạn có thể dùng nó để quản lý tính khả dụng của ứng dụng trong các gián đoạn (disruption).
 
 ---

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 6/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -50,7 +50,7 @@ phải tạo lại.
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
-Một [PodGroup](https://kubernetes.io/docs/concepts/workloads/podgroup-api/) được lập lịch
+Một [PodGroup](75-podgroup-api-vi.md) được lập lịch
 như một đơn vị và được bảo vệ khỏi việc bị xóa sớm trong khi các Pod của nó vẫn đang chạy.
 
 ## Quyền sở hữu và vòng đời (Ownership and lifecycle)
@@ -60,7 +60,7 @@ thông qua cơ chế `ownerReferences` tiêu chuẩn. Khi đối tượng sở h
 sẽ tự động được thu gom (garbage collected).
 
 Tên của `PodGroup` phải là duy nhất trong một namespace và phải là
-[DNS subdomain](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names) hợp lệ.
+[DNS subdomain](17-names-vi.md#dns-subdomain-names) hợp lệ.
 
 ## Thứ tự tạo (Creation ordering)
 
@@ -93,7 +93,7 @@ Nếu bạn cần kiểm soát nhiều hơn việc đặt tên và vòng đời,
 `spec.schedulingGroup.podGroupName` trong các Pod template của mình
 (user-managed — do người dùng quản lý). Cách này cho bạn toàn quyền kiểm soát việc tạo và đặt tên `PodGroup`.
 
-## Giới hạn (Limitations)
+## Giới hạn (Limitations) {#limitations}
 
 * Tất cả các Pod trong một `PodGroup` phải dùng cùng một `.spec.schedulerName`.
   Nếu phát hiện sự không khớp, scheduler sẽ từ chối tất cả các Pod trong nhóm với trạng thái không thể lập lịch (unschedulable).
@@ -108,11 +108,11 @@ Nếu bạn cần kiểm soát nhiều hơn việc đặt tên và vòng đời,
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu tổng quan và cấu trúc của [PodGroup API](https://kubernetes.io/docs/concepts/workloads/podgroup-api/).
-* Tìm hiểu về [Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/) — API cung cấp các `PodGroupTemplate`.
-* Xem cách các Pod tham chiếu đến PodGroup của chúng thông qua trường [scheduling group](https://kubernetes.io/docs/concepts/workloads/pods/scheduling-group/).
-* Hiểu về thuật toán [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/).
-* Đọc [các chính sách lập lịch của PodGroup](https://kubernetes.io/docs/concepts/workloads/workload-api/policies/) để biết chi tiết về `basic` và `gang`.
+* Tìm hiểu tổng quan và cấu trúc của [PodGroup API](75-podgroup-api-vi.md).
+* Tìm hiểu về [Workload API](77-workload-api-vi.md) — API cung cấp các `PodGroupTemplate`.
+* Xem cách các Pod tham chiếu đến PodGroup của chúng thông qua trường [scheduling group](59-scheduling-group-vi.md).
+* Hiểu về thuật toán [gang scheduling](150-gang-scheduling-vi.md).
+* Đọc [các chính sách lập lịch của PodGroup](79-workload-policies-vi.md) để biết chi tiết về `basic` và `gang`.
 
 ---
 

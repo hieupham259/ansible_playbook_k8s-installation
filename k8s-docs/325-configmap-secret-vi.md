@@ -14,5 +14,5 @@ của từng trang.
   Tạo các đối tượng Secret bằng công cụ dòng lệnh kubectl.
 - [Quản lý Secret bằng file cấu hình (Managing Secrets using Configuration File)](326-secret-config-file-vi.md) —
   Tạo các đối tượng Secret bằng file cấu hình tài nguyên (resource configuration file).
-- [Quản lý Secret bằng Kustomize (Managing Secrets using Kustomize)](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kustomize/) —
+- [Quản lý Secret bằng Kustomize (Managing Secrets using Kustomize)](328-secret-kustomize-vi.md) —
   Tạo các đối tượng Secret bằng file kustomization.yaml.

@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 11](LO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 1/6 · Kiểm chứng
+**Vị trí:** [Giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 1/6 · Kiểm chứng
 ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **trang bản đồ**, cố ý nông. Mỗi trụ cột nó nhắc tới đều có một bài riêng ngay sau
@@ -84,7 +84,7 @@ kubelet cũng expose metrics tại `/metrics/cadvisor`, `/metrics/resource` và 
 
 Một pipeline metrics điển hình của Kubernetes định kỳ thu thập (scrape) các endpoint này và lưu các mẫu (sample) vào một cơ sở dữ liệu chuỗi thời gian (time series database) — ví dụ với Prometheus.
 
-Xem [hướng dẫn về metrics hệ thống](https://kubernetes.io/docs/concepts/cluster-administration/system-metrics/) để biết chi tiết và các tùy chọn cấu hình.
+Xem [hướng dẫn về metrics hệ thống](160-system-metrics-vi.md) để biết chi tiết và các tùy chọn cấu hình.
 
 Hình 2 phác họa một pipeline metrics phổ biến của Kubernetes.
 
@@ -104,10 +104,10 @@ Xem [Các công cụ quan sát phổ biến - công cụ metrics](#metrics-tools
 
 #### Xem thêm (See also)
 
-- [Metrics hệ thống cho các thành phần Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/system-metrics/)
-- [Giám sát mức sử dụng tài nguyên với metrics-server](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/)
+- [Metrics hệ thống cho các thành phần Kubernetes](160-system-metrics-vi.md)
+- [Giám sát mức sử dụng tài nguyên với metrics-server](312-resource-usage-monitoring-vi.md)
 - [Khái niệm kube-state-metrics](./163-kube-state-metrics-vi.md)
-- [Tổng quan về pipeline metrics tài nguyên](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/)
+- [Tổng quan về pipeline metrics tài nguyên](311-resource-metrics-pipeline-vi.md)
 
 ## Logs
 
@@ -124,9 +124,9 @@ Log của các thành phần hệ thống ghi lại các sự kiện của clust
 - Trên các máy có `systemd`, kubelet và container runtime ghi vào journald. Nếu không, chúng ghi vào các file `.log` trong thư mục `/var/log`.
 - Các thành phần hệ thống chạy bên trong container luôn ghi vào các file `.log` trong `/var/log`, bỏ qua cơ chế ghi log mặc định của container.
 
-Log của thành phần hệ thống và log của container lưu dưới `/var/log` cần được xoay vòng log (log rotation) để tránh tăng trưởng không kiểm soát. Một số script cấp phát (provision) cluster cài đặt sẵn cơ chế xoay vòng log theo mặc định; hãy kiểm tra môi trường của bạn và điều chỉnh khi cần. Xem [tài liệu tham khảo về log hệ thống](https://kubernetes.io/docs/concepts/cluster-administration/system-logs/) để biết chi tiết về vị trí, định dạng và các tùy chọn cấu hình.
+Log của thành phần hệ thống và log của container lưu dưới `/var/log` cần được xoay vòng log (log rotation) để tránh tăng trưởng không kiểm soát. Một số script cấp phát (provision) cluster cài đặt sẵn cơ chế xoay vòng log theo mặc định; hãy kiểm tra môi trường của bạn và điều chỉnh khi cần. Xem [tài liệu tham khảo về log hệ thống](159-system-logs-vi.md) để biết chi tiết về vị trí, định dạng và các tùy chọn cấu hình.
 
-Hầu hết các cluster chạy một agent ghi log ở cấp node (ví dụ Fluent Bit hoặc Fluentd) theo dõi (tail) các file này và chuyển tiếp các bản ghi đến một kho log tập trung. [Hướng dẫn về kiến trúc logging](https://kubernetes.io/docs/concepts/cluster-administration/logging/) giải thích cách thiết kế các pipeline như vậy, áp dụng chính sách lưu giữ (retention), và đưa luồng log đến các backend.
+Hầu hết các cluster chạy một agent ghi log ở cấp node (ví dụ Fluent Bit hoặc Fluentd) theo dõi (tail) các file này và chuyển tiếp các bản ghi đến một kho log tập trung. [Hướng dẫn về kiến trúc logging](158-logging-vi.md) giải thích cách thiết kế các pipeline như vậy, áp dụng chính sách lưu giữ (retention), và đưa luồng log đến các backend.
 
 Hình 3 phác họa một pipeline tổng hợp log phổ biến.
 
@@ -150,16 +150,16 @@ Xem [Các công cụ quan sát phổ biến - công cụ logging](#logging-tools
 
 #### Xem thêm (See also)
 
-- [Kiến trúc logging](https://kubernetes.io/docs/concepts/cluster-administration/logging/)
-- [Log hệ thống](https://kubernetes.io/docs/concepts/cluster-administration/system-logs/)
-- [Các tác vụ và hướng dẫn về logging](https://kubernetes.io/docs/tasks/debug/logging/)
-- [Cấu hình ghi log kiểm toán](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/)
+- [Kiến trúc logging](158-logging-vi.md)
+- [Log hệ thống](159-system-logs-vi.md)
+- [Các tác vụ và hướng dẫn về logging](316-debug-logging-vi.md)
+- [Cấu hình ghi log kiểm toán](306-audit-vi.md)
 
 ## Traces
 
 Traces ghi lại cách các request di chuyển qua các thành phần Kubernetes và các ứng dụng, liên kết độ trễ (latency), thời gian và mối quan hệ giữa các thao tác. Bằng cách thu thập traces, bạn có thể trực quan hóa luồng request đầu-cuối, chẩn đoán các vấn đề hiệu năng, và xác định các điểm nghẽn (bottleneck) hoặc các tương tác không mong đợi trong control plane, các add-on hoặc các ứng dụng.
 
-Kubernetes v1.36 có thể xuất các span qua [OpenTelemetry Protocol](https://kubernetes.io/docs/concepts/cluster-administration/system-traces/) (OTLP), hoặc trực tiếp thông qua các bộ xuất (exporter) gRPC tích hợp sẵn, hoặc bằng cách chuyển tiếp chúng qua một OpenTelemetry Collector.
+Kubernetes v1.36 có thể xuất các span qua [OpenTelemetry Protocol](161-system-traces-vi.md) (OTLP), hoặc trực tiếp thông qua các bộ xuất (exporter) gRPC tích hợp sẵn, hoặc bằng cách chuyển tiếp chúng qua một OpenTelemetry Collector.
 
 OpenTelemetry Collector nhận các span từ các thành phần và ứng dụng, xử lý chúng (ví dụ bằng cách áp dụng lấy mẫu (sampling) hoặc che bớt dữ liệu (redaction)), và chuyển tiếp chúng đến một backend tracing để lưu trữ và phân tích.
 
@@ -184,9 +184,9 @@ Xem [Các công cụ quan sát phổ biến - công cụ tracing](#tracing-tools
 
 #### Xem thêm (See also)
 
-- [Traces hệ thống cho các thành phần Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/system-traces/)
+- [Traces hệ thống cho các thành phần Kubernetes](161-system-traces-vi.md)
 - [Hướng dẫn bắt đầu với OpenTelemetry Collector](https://opentelemetry.io/docs/collector/getting-started/)
-- [Các tác vụ giám sát và tracing](https://kubernetes.io/docs/tasks/debug/monitoring/)
+- [Các tác vụ giám sát và tracing](317-debug-monitoring-vi.md)
 
 ## Các công cụ quan sát phổ biến (Common observability tools) {#common-observability-tools}
 
@@ -218,10 +218,10 @@ Ghi chú: Mục này liên kết đến các dự án bên thứ ba cung cấp c
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu cách [thu thập metrics về mức sử dụng tài nguyên với metrics-server](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/)
-- Khám phá [các tác vụ và hướng dẫn về logging](https://kubernetes.io/docs/tasks/debug/logging/)
-- Làm theo [các hướng dẫn tác vụ giám sát và tracing](https://kubernetes.io/docs/tasks/debug/monitoring/)
-- Xem lại [hướng dẫn về metrics hệ thống](https://kubernetes.io/docs/concepts/cluster-administration/system-metrics/) để biết các endpoint của từng thành phần và mức độ ổn định của chúng
+- Tìm hiểu cách [thu thập metrics về mức sử dụng tài nguyên với metrics-server](312-resource-usage-monitoring-vi.md)
+- Khám phá [các tác vụ và hướng dẫn về logging](316-debug-logging-vi.md)
+- Làm theo [các hướng dẫn tác vụ giám sát và tracing](317-debug-monitoring-vi.md)
+- Xem lại [hướng dẫn về metrics hệ thống](160-system-metrics-vi.md) để biết các endpoint của từng thành phần và mức độ ổn định của chúng
 - Xem lại mục [các công cụ quan sát phổ biến](#common-observability-tools) để biết các lựa chọn bên thứ ba đã được thẩm định
 
 ---

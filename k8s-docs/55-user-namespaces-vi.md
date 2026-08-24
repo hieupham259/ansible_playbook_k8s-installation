@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 9/11 · Kiểm chứng
+**Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 9/11 · Kiểm chứng
 ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này **vốn viết cho người hardening node**, không phải bài giới thiệu Pod. Nó tham chiếu
@@ -273,7 +273,7 @@ Trong các phiên bản Kubernetes trước v1.33, số lượng ID cho mỗi Po
 ## Tích hợp với kiểm tra Pod security admission (Integration with Pod security admission checks)
 
 Đối với các Pod Linux có bật user namespace, Kubernetes nới lỏng việc áp dụng
-[Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards)
+[Pod Security Standards](115-pod-security-standards-vi.md)
 theo một cách có kiểm soát.
 
 Nếu bạn tạo một Pod dùng user namespace, các trường sau sẽ không bị ràng buộc ngay cả
@@ -344,7 +344,7 @@ Kubelet xuất hai metric prometheus dành riêng cho user namespace:
 
 ## Tiếp theo (What's next)
 
-* Hãy xem [Dùng User Namespace với một Pod](https://kubernetes.io/docs/tasks/configure-pod-container/user-namespaces/)
+* Hãy xem [Dùng User Namespace với một Pod](295-user-namespaces-tasks-vi.md)
 
 ---
 

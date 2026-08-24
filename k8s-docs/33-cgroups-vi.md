@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 6/8 ·
+**Vị trí:** [Giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 6/8 ·
 Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Lộ trình gọi đây là **nền tảng của mọi giới hạn tài nguyên học ở giai đoạn 3**. Bạn cũng đã
@@ -47,7 +47,7 @@ Trên Linux, các nhóm điều khiển (control group) giới hạn tài nguyê
 cho các tiến trình (process).
 
 Kubelet và container runtime bên dưới cần giao tiếp với cgroup để thực thi
-[quản lý tài nguyên cho pod và container](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/),
+[quản lý tài nguyên cho pod và container](110-manage-resources-containers-vi.md),
 bao gồm request và limit về cpu/memory cho các workload chạy trong container.
 
 Có hai phiên bản cgroup trên Linux: cgroup v1 và cgroup v2. cgroup v2 là
@@ -71,7 +71,7 @@ cgroup v2 mang lại một số cải tiến so với cgroup v1, chẳng hạn n
 
 Một số tính năng của Kubernetes chỉ dùng cgroup v2 để tăng cường quản lý và
 cách ly tài nguyên. Ví dụ, tính năng
-[MemoryQoS](https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/#memory-qos-with-cgroup-v2)
+[MemoryQoS](54-pod-qos-vi.md#memory-qos-with-cgroup-v2)
 cải thiện QoS về bộ nhớ và dựa trên các thành phần nguyên thủy (primitive) của cgroup v2.
 
 ## Sử dụng cgroup v2 (Using cgroup v2) {#using-cgroupv2}
@@ -91,7 +91,7 @@ cgroup v2 có các yêu cầu sau:
 * Container runtime hỗ trợ cgroup v2. Ví dụ:
   * [containerd](https://containerd.io/) v1.4 trở lên
   * [cri-o](https://cri-o.io/) v1.20 trở lên
-* Kubelet và container runtime được cấu hình để dùng [systemd cgroup driver](https://kubernetes.io/docs/setup/production-environment/container-runtimes#systemd-cgroup-driver)
+* Kubelet và container runtime được cấu hình để dùng [systemd cgroup driver](00-container-runtimes-vi.md#systemd-cgroup-driver)
 
 ### Hỗ trợ cgroup v2 của các bản phân phối Linux (Linux Distribution cgroup v2 support)
 
@@ -165,7 +165,7 @@ Với cgroup v2, output là `cgroup2fs`.
 
 Với cgroup v1, output là `tmpfs.`
 
-## Loại bỏ dần cgroup v1 (Deprecation of cgroup v1)
+## Loại bỏ dần cgroup v1 (Deprecation of cgroup v1) {#deprecation-of-cgroup-v1}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.35 [deprecated]`
 
@@ -174,13 +174,13 @@ Việc gỡ bỏ sẽ tuân theo [chính sách loại bỏ của Kubernetes](htt
 
 Theo mặc định, kubelet sẽ không còn khởi động trên một node dùng cgroup v1 nữa.
 Để tắt thiết lập này, người quản trị cluster nên đặt `failCgroupV1` thành false
-trong [file cấu hình kubelet](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/).
+trong [file cấu hình kubelet](224-kubelet-config-file-vi.md).
 
 ## Tiếp theo (What's next)
 
 - Tìm hiểu thêm về [cgroups](https://man7.org/linux/man-pages/man7/cgroups.7.html)
 - Tìm hiểu thêm về [container runtime](https://kubernetes.io/docs/concepts/architecture/cri)
-- Tìm hiểu thêm về [cgroup driver](https://kubernetes.io/docs/setup/production-environment/container-runtimes#cgroup-drivers)
+- Tìm hiểu thêm về [cgroup driver](00-container-runtimes-vi.md#cgroup-drivers)
 
 ---
 

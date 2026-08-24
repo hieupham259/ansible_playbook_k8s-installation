@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 7/13 ·
+**Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 7/13 ·
 Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Điểm khác biệt lớn nhất so với mọi bài trước trong nhóm: **chủ thể ở đây là kubelet, không
@@ -57,7 +57,7 @@ tách riêng và `containerfs`.
 | *Các tính năng garbage collection của kubelet đã lỗi thời* | các flag đã bị thay bằng eviction | không cần |
 | *Lượng thu hồi eviction tối thiểu* (`--eviction-minimum-reclaim`) | tinh chỉnh khi eviction lặp lại nhiều lần | không cần |
 | *Hành vi khi node hết bộ nhớ* — bảng `oom_score_adj`, `oom_killer` | là cơ chế của kernel Linux, không phải eviction của kubelet | giai đoạn 2, bài [33](33-cgroups-vi.md) |
-| *Tài nguyên có thể lập lịch và chính sách eviction*, `--system-reserved`/`--kube-reserved` | thuộc phần dự trữ tài nguyên cho daemon hệ thống | [checkpoint tasks](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks) |
+| *Tài nguyên có thể lập lịch và chính sách eviction*, `--system-reserved`/`--kube-reserved` | thuộc phần dự trữ tài nguyên cho daemon hệ thống | [checkpoint tasks](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks) |
 | *Các vấn đề đã biết* — `active_file`, kubelet không thấy áp lực ngay | là trường hợp biên khi tinh chỉnh | không cần |
 
 ---
@@ -75,7 +75,7 @@ Trong quá trình eviction do áp lực node, kubelet đặt [phase](./47-pod-li
 các pod được chọn thành `Failed`, và chấm dứt (terminate) Pod đó.
 
 Eviction do áp lực node không giống với
-[eviction khởi phát qua API (API-initiated eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/).
+[eviction khởi phát qua API (API-initiated eviction)](143-api-eviction-vi.md).
 
 kubelet không tôn trọng PodDisruptionBudget mà bạn đã cấu hình
 hay `terminationGracePeriodSeconds` của pod. Nếu bạn dùng [ngưỡng eviction mềm](#soft-eviction-thresholds),
@@ -96,7 +96,7 @@ pod mới thay cho các pod đã bị evict.
 
 ### Tự phục hồi cho static pod (Self healing for static pods)
 
-Nếu bạn đang chạy một [static pod](https://kubernetes.io/docs/concepts/workloads/pods/#static-pods)
+Nếu bạn đang chạy một [static pod](46-pods-vi.md#static-pods)
 trên một node đang chịu áp lực tài nguyên, kubelet có thể evict static
 Pod đó. Sau đó kubelet cố gắng tạo một bản thay thế, bởi vì static Pod luôn
 thể hiện ý định chạy một Pod trên node đó.
@@ -145,7 +145,7 @@ tín hiệu đó.
 
 Trên các node Linux, giá trị của `memory.available` được lấy từ cgroupfs thay vì từ các công cụ
 như `free -m`. Điều này quan trọng vì `free -m` không hoạt động bên trong
-container, và nếu người dùng dùng tính năng [node allocatable](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/#node-allocatable),
+container, và nếu người dùng dùng tính năng [node allocatable](253-reserve-compute-resources-vi.md#node-allocatable),
 thì các quyết định về cạn kiệt tài nguyên
 được đưa ra cục bộ cho Pod của người dùng cuối trong hệ thống phân cấp cgroup, cũng như tại
 node gốc. [Script này](https://kubernetes.io/examples/admin/resource/memory-available.sh) hoặc
@@ -159,7 +159,7 @@ Trên các node Windows, giá trị của `memory.available` được lấy từ
 toàn cục của node (truy vấn qua system call [`GetPerformanceInfo()`](https://learn.microsoft.com/windows/win32/api/psapi/nf-psapi-getperformanceinfo))
 bằng cách lấy [`CommitLimit`](https://learn.microsoft.com/windows/win32/api/psapi/ns-psapi-performance_information) toàn cục của node trừ đi [`CommitTotal`](https://learn.microsoft.com/windows/win32/api/psapi/ns-psapi-performance_information) toàn cục của node. Lưu ý rằng `CommitLimit` có thể thay đổi nếu kích thước page-file của node thay đổi!
 
-#### Tín hiệu filesystem (Filesystem signals)
+#### Tín hiệu filesystem (Filesystem signals) {#filesystem-signals}
 
 kubelet nhận biết ba định danh (identifier) filesystem cụ thể có thể dùng với
 các tín hiệu eviction (`<identifier>.inodesFree` hoặc `<identifier>.available`):
@@ -315,7 +315,7 @@ mặc định là `10s`.
 
 ## Điều kiện node (Node conditions) {#node-conditions}
 
-kubelet báo cáo các [điều kiện node (node condition)](https://kubernetes.io/docs/concepts/architecture/nodes/#condition)
+kubelet báo cáo các [điều kiện node (node condition)](https://kubernetes.io/docs/concepts/architecture/nodes#condition)
 để phản ánh rằng node đang chịu áp lực vì ngưỡng eviction cứng hoặc mềm
 đã bị chạm tới, bất kể các grace period đã cấu hình.
 
@@ -327,7 +327,7 @@ kubelet ánh xạ tín hiệu eviction sang điều kiện node như sau:
 | `DiskPressure`    | `nodefs.available`, `nodefs.inodesFree`, `imagefs.available`, `imagefs.inodesFree`, `containerfs.available`, hoặc `containerfs.inodesFree` | Dung lượng đĩa và inode khả dụng trên filesystem gốc, filesystem image, hoặc filesystem container của node đã chạm một ngưỡng eviction              |
 | `PIDPressure`     | `pid.available`                                                                       | Số định danh tiến trình (process identifier) khả dụng trên node (Linux) đã giảm xuống dưới một ngưỡng eviction |
 
-Control plane cũng [ánh xạ](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-nodes-by-condition)
+Control plane cũng [ánh xạ](139-taint-and-toleration-vi.md#taint-nodes-by-condition)
 các điều kiện node này thành các taint.
 
 kubelet cập nhật các điều kiện node dựa trên
@@ -381,7 +381,7 @@ thu hồi tài nguyên như sau:
 - Nếu filesystem `imagefs` chạm các ngưỡng eviction, kubelet
   xóa tất cả các image không dùng đến.
 
-### Lựa chọn pod cho eviction của kubelet (Pod selection for kubelet eviction)
+### Lựa chọn pod cho eviction của kubelet (Pod selection for kubelet eviction) {#pod-selection-for-kubelet-eviction}
 
 Nếu các nỗ lực thu hồi tài nguyên cấp node của kubelet không đưa được tín hiệu
 eviction xuống dưới ngưỡng, kubelet bắt đầu evict các pod của người dùng cuối.
@@ -389,7 +389,7 @@ eviction xuống dưới ngưỡng, kubelet bắt đầu evict các pod của ng
 kubelet dùng các tham số sau để xác định thứ tự evict pod:
 
 1. Mức sử dụng tài nguyên của pod có vượt quá requests hay không
-1. [Độ ưu tiên của Pod (Pod Priority)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)
+1. [Độ ưu tiên của Pod (Pod Priority)](141-pod-priority-preemption-vi.md)
 1. Mức sử dụng tài nguyên của pod so với requests
 
 Kết quả là kubelet xếp hạng và evict các pod theo thứ tự sau:
@@ -418,7 +418,7 @@ thì kubelet buộc phải chọn evict một trong các pod này để bảo to
 và hạn chế tác động của việc cạn kiệt tài nguyên lên các pod khác. Trong trường hợp này, nó
 sẽ chọn evict các pod có Priority thấp nhất trước.
 
-Nếu bạn đang chạy một [static pod](https://kubernetes.io/docs/concepts/workloads/pods/#static-pods)
+Nếu bạn đang chạy một [static pod](46-pods-vi.md#static-pods)
 và muốn tránh việc nó bị evict khi có áp lực tài nguyên, hãy đặt trực tiếp trường
 `priority` cho Pod đó. Static pod không hỗ trợ trường
 `priorityClassName`.
@@ -464,7 +464,7 @@ Trong một số trường hợp, việc evict pod chỉ thu hồi được mộ
 Điều này có thể khiến kubelet liên tục chạm các ngưỡng eviction đã cấu hình
 và kích hoạt nhiều lần eviction.
 
-Bạn có thể dùng flag `--eviction-minimum-reclaim` hoặc [file cấu hình kubelet](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/)
+Bạn có thể dùng flag `--eviction-minimum-reclaim` hoặc [file cấu hình kubelet](224-kubelet-config-file-vi.md)
 để cấu hình lượng thu hồi tối thiểu cho mỗi tài nguyên. Khi kubelet nhận thấy
 một tài nguyên đang cạn kiệt, nó tiếp tục thu hồi tài nguyên đó cho đến khi
 thu hồi được lượng mà bạn chỉ định.
@@ -601,10 +601,10 @@ bằng nhau cho các container có khả năng thực hiện hoạt động I/O 
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu về [Eviction khởi phát qua API (API-initiated Eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/)
-- Tìm hiểu về [Độ ưu tiên và Preemption của Pod (Pod Priority and Preemption)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)
-- Tìm hiểu về [PodDisruptionBudget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)
-- Tìm hiểu về [Chất lượng dịch vụ (Quality of Service)](https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/) (QoS)
+- Tìm hiểu về [Eviction khởi phát qua API (API-initiated Eviction)](143-api-eviction-vi.md)
+- Tìm hiểu về [Độ ưu tiên và Preemption của Pod (Pod Priority and Preemption)](141-pod-priority-preemption-vi.md)
+- Tìm hiểu về [PodDisruptionBudget](339-configure-pdb-vi.md)
+- Tìm hiểu về [Chất lượng dịch vụ (Quality of Service)](288-quality-service-pod-vi.md) (QoS)
 - Xem [Eviction API](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#create-eviction-pod-v1-core)
 
 ---

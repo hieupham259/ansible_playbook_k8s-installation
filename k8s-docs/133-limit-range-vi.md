@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
+**Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
 bài 2/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này và bài [134](134-resource-quotas-vi.md) ngay sau tạo thành một cặp rất dễ lẫn. Giữ
@@ -75,7 +75,7 @@ mỗi khi có ít nhất một đối tượng LimitRange trong namespace đó.
 Tên của một đối tượng LimitRange phải là một
 [tên miền con DNS hợp lệ](./17-names-vi.md#dns-subdomain-names).
 
-## Ràng buộc đối với limit và request tài nguyên (Constraints on resource limits and requests)
+## Ràng buộc đối với limit và request tài nguyên (Constraints on resource limits and requests) {#constraints-on-resource-limits-and-requests}
 
 - Quản trị viên tạo một LimitRange trong một namespace.
 - Người dùng tạo (hoặc cố gắng tạo) các đối tượng trong namespace đó, chẳng hạn Pod hoặc
@@ -190,12 +190,12 @@ Cả tranh chấp lẫn các thay đổi đối với một LimitRange đều kh
 
 Để xem các ví dụ về việc sử dụng limit, hãy xem:
 
-- [cách cấu hình ràng buộc CPU tối thiểu và tối đa cho mỗi namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/cpu-constraint-namespace/).
-- [cách cấu hình ràng buộc bộ nhớ tối thiểu và tối đa cho mỗi namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/memory-constraint-namespace/).
-- [cách cấu hình CPU Request và Limit mặc định cho mỗi namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/cpu-default-namespace/).
-- [cách cấu hình Request và Limit bộ nhớ mặc định cho mỗi namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/memory-default-namespace/).
-- [cách cấu hình mức tiêu thụ lưu trữ tối thiểu và tối đa cho mỗi namespace](https://kubernetes.io/docs/tasks/administer-cluster/limit-storage-consumption/#limitrange-to-limit-requests-for-storage).
-- một [ví dụ chi tiết về cấu hình hạn ngạch cho mỗi namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/).
+- [cách cấu hình ràng buộc CPU tối thiểu và tối đa cho mỗi namespace](229-cpu-constraint-namespace-vi.md).
+- [cách cấu hình ràng buộc bộ nhớ tối thiểu và tối đa cho mỗi namespace](231-memory-constraint-namespace-vi.md).
+- [cách cấu hình CPU Request và Limit mặc định cho mỗi namespace](230-cpu-default-namespace-vi.md).
+- [cách cấu hình Request và Limit bộ nhớ mặc định cho mỗi namespace](232-memory-default-namespace-vi.md).
+- [cách cấu hình mức tiêu thụ lưu trữ tối thiểu và tối đa cho mỗi namespace](227-limit-storage-consumption-vi.md#limitrange-to-limit-requests-for-storage).
+- một [ví dụ chi tiết về cấu hình hạn ngạch cho mỗi namespace](233-quota-memory-cpu-namespace-vi.md).
 
 Tham khảo [tài liệu thiết kế LimitRanger](https://git.k8s.io/design-proposals-archive/resource-management/admission_control_limit_range.md)
 để biết bối cảnh và thông tin lịch sử.

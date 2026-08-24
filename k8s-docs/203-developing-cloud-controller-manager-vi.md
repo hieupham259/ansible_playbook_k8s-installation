@@ -7,10 +7,10 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)), mở rộng của
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)), mở rộng của
 bài [34 — Cloud Controller Manager](34-cloud-controller-vi.md) và có liên hệ với bài
 [198 — Leader Migration](198-controller-manager-leader-migration-vi.md).
 
@@ -85,7 +85,7 @@ manager out-of-tree có sẵn làm điểm xuất phát.
 
 Với các cloud provider in-tree, bạn có thể chạy cloud controller manager in-tree như một
 DaemonSet trong cluster của mình. Xem
-[Quản trị Cloud Controller Manager](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/)
+[Quản trị Cloud Controller Manager](254-running-cloud-controller-vi.md)
 để biết thêm chi tiết.
 
 ---

@@ -9,13 +9,13 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)), có họ hàng
-gần nhất với [CP6 — DNS, CNI và kube-proxy](LO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy),
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)), có họ hàng
+gần nhất với [CP6 — DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy),
 nối tiếp phần lý thuyết DNS ở bài [10](10-dns-pod-service-vi.md) và liên quan tới
-[CP2 — Nâng cấp cluster](LO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster) vì `kubeadm upgrade` tự
+[CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster) vì `kubeadm upgrade` tự
 xử lý CoreDNS.
 
 Đây là trang rất ngắn, phần lớn là chỉ đường sang tài liệu của dự án CoreDNS trên GitHub.
@@ -40,8 +40,8 @@ và sẽ giữ cấu hình khi nâng cấp.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 |---|---|---|
 | *Cài đặt CoreDNS* (triển khai thủ công thay kube-dns) | Cluster lab do kubeadm dựng đã có sẵn CoreDNS; triển khai thủ công chỉ cần khi không dùng kubeadm | Chỉ khi vận hành cluster không dựng bằng kubeadm — ngoài phạm vi lộ trình |
-| *Tinh chỉnh CoreDNS* và các link scaling trên GitHub | Cần số liệu tải thật mới có ý nghĩa | CP6 — bài [Autoscale the DNS Service](LO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy) |
-| Sửa Corefile để thêm use case mới (mục *Tiếp theo*) | Thao tác sửa Corefile cụ thể được dạy trong bài Customizing DNS Service | CP6 — bài [Customizing DNS Service](LO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy) |
+| *Tinh chỉnh CoreDNS* và các link scaling trên GitHub | Cần số liệu tải thật mới có ý nghĩa | CP6 — bài [Autoscale the DNS Service](00-ALO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy) |
+| Sửa Corefile để thêm use case mới (mục *Tiếp theo*) | Thao tác sửa Corefile cụ thể được dạy trong bài Customizing DNS Service | CP6 — bài [Customizing DNS Service](00-ALO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy) |
 
 ---
 

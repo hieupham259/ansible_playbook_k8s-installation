@@ -7,10 +7,10 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP7 — Audit và mã hóa dữ liệu](LO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu), bài 1/6 ·
+**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
+→ [CP7 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu), bài 1/6 ·
 thực hành trực tiếp trên `k8s-master` của cluster VM [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này lấp mảnh cuối của chuỗi xử lý request đã học ở bài
@@ -289,7 +289,7 @@ backend bằng các flag sau của kube-apiserver:
 
 - `--audit-webhook-config-file` chỉ định đường dẫn tới file chứa cấu hình webhook. Cấu hình
   webhook thực chất là một
-  [kubeconfig](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters)
+  [kubeconfig](361-configure-access-multiple-clusters-vi.md)
   chuyên biệt.
 - `--audit-webhook-initial-backoff` chỉ định khoảng thời gian chờ sau request thất bại đầu tiên
   trước khi thử lại. Các request tiếp theo được thử lại theo cơ chế exponential backoff (lùi
@@ -446,4 +446,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài
 [208 — Mã hóa dữ liệu bí mật khi lưu trữ](208-encrypt-data-vi.md), bài 2/6 của
-[CP7](LO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu).
+[CP7](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu).

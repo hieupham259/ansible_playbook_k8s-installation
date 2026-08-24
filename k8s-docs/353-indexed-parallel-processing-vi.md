@@ -13,7 +13,7 @@ Chỉ số của Pod có sẵn trong annotation
 `batch.kubernetes.io/job-completion-index` dưới dạng một chuỗi biểu diễn
 giá trị thập phân của nó. Để tiến trình tác vụ trong container lấy được chỉ số này,
 bạn có thể công bố giá trị của annotation bằng cơ chế
-[downward API](https://kubernetes.io/docs/concepts/workloads/pods/downward-api/).
+[downward API](56-downward-api-vi.md).
 Để thuận tiện, control plane tự động thiết lập downward API để
 đưa chỉ số này vào biến môi trường `JOB_COMPLETION_INDEX`.
 
@@ -27,7 +27,7 @@ Dưới đây là tổng quan các bước trong ví dụ này:
 ## Trước khi bạn bắt đầu (Before you begin)
 
 Bạn nên đã quen với cách sử dụng cơ bản, không song song, của
-[Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/).
+[Job](67-job-vi.md).
 
 Bạn cần có một cluster Kubernetes, và công cụ dòng lệnh kubectl phải được
 cấu hình để giao tiếp với cluster của bạn. Bạn nên chạy hướng dẫn này trên một
@@ -117,16 +117,16 @@ spec:
 ```
 
 Trong ví dụ trên, bạn dùng biến môi trường có sẵn `JOB_COMPLETION_INDEX`
-được Job controller thiết lập cho mọi container. Một [init container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)
+được Job controller thiết lập cho mọi container. Một [init container](50-init-containers-vi.md)
 ánh xạ chỉ số này sang một giá trị tĩnh và ghi nó vào một file được chia sẻ với
-container chạy worker thông qua một [volume emptyDir](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir).
+container chạy worker thông qua một [volume emptyDir](91-volumes-vi.md#emptydir).
 Tùy chọn, bạn có thể [tự định nghĩa biến môi trường của riêng mình thông qua
-downward API](https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/)
+downward API](336-env-variable-expose-pod-info-vi.md)
 để công bố chỉ số cho các container. Bạn cũng có thể chọn nạp một danh sách giá trị
-từ [ConfigMap dưới dạng biến môi trường hoặc file](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/).
+từ [ConfigMap dưới dạng biến môi trường hoặc file](275-configure-pod-configmap-vi.md).
 
 Cách khác, bạn có thể trực tiếp [dùng downward API để truyền giá trị annotation
-dưới dạng file trong volume](https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/#store-pod-fields),
+dưới dạng file trong volume](https://kubernetes.io/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information#store-pod-fields),
 như trong ví dụ sau:
 
 ```yaml

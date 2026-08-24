@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 8/9 ·
+**Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 8/9 ·
 Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài ngắn, và bạn **không dựng được** nội dung của nó trên cluster lab: mạng
@@ -53,7 +53,7 @@ cái gì **không** đổi được về sau.
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.23 [stable]`
 
-Cluster Kubernetes của bạn bao gồm mạng [dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/),
+Cluster Kubernetes của bạn bao gồm mạng [dual-stack](85-dual-stack-vi.md),
 nghĩa là mạng của cluster cho phép bạn dùng bất kỳ họ địa chỉ (address family) nào.
 Trong một cluster, control plane có thể gán đồng thời cả địa chỉ IPv4 và địa chỉ IPv6 cho một
 Pod hoặc một Service duy nhất.
@@ -61,7 +61,7 @@ Pod hoặc một Service duy nhất.
 ## Trước khi bạn bắt đầu (Before you begin)
 
 Bạn cần đã cài đặt công cụ kubeadm,
-theo các bước trong [Cài đặt kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/).
+theo các bước trong [Cài đặt kubeadm](01-install-kubeadm-vi.md).
 
 Đối với mỗi máy chủ mà bạn muốn dùng làm node,
 hãy đảm bảo nó cho phép chuyển tiếp IPv6 (IPv6 forwarding).
@@ -145,7 +145,7 @@ kubeadm init --config=kubeadm-config.yaml
 ```
 
 Các cờ `--node-cidr-mask-size-ipv4|--node-cidr-mask-size-ipv6` của kube-controller-manager
-được đặt với các giá trị mặc định. Xem [cấu hình dual-stack IPv4/IPv6](https://kubernetes.io/docs/concepts/services-networking/dual-stack#configure-ipv4-ipv6-dual-stack).
+được đặt với các giá trị mặc định. Xem [cấu hình dual-stack IPv4/IPv6](85-dual-stack-vi.md#configure-ipv4-ipv6-dual-stack).
 
 > **Ghi chú:** Cờ `--apiserver-advertise-address` không hỗ trợ dual-stack.
 
@@ -223,7 +223,7 @@ networking:
 ## Tiếp theo (What's next)
 
 * [Kiểm chứng mạng dual-stack IPv4/IPv6](https://kubernetes.io/docs/tasks/network/validate-dual-stack)
-* Đọc về mạng cluster [Dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/)
+* Đọc về mạng cluster [Dual-stack](85-dual-stack-vi.md)
 * Tìm hiểu thêm về [định dạng cấu hình](https://kubernetes.io/docs/reference/config-api/kubeadm-config.v1beta4/) của kubeadm
 
 ---

@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 5/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 5/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này mô tả đúng thứ đang chạy trên cluster của bạn: Flannel là một DaemonSet. Đọc xong,
@@ -131,11 +131,11 @@ kubectl apply -f https://k8s.io/examples/controllers/daemonset.yaml
 
 Giống như mọi cấu hình Kubernetes khác, một DaemonSet cần các trường `apiVersion`, `kind`,
 và `metadata`. Để biết thông tin chung về cách làm việc với các file cấu hình, xem
-[chạy ứng dụng stateless](https://kubernetes.io/docs/tasks/run-application/run-stateless-application-deployment/)
+[chạy ứng dụng stateless](345-run-stateless-application-vi.md)
 và [quản lý object bằng kubectl](./27-object-management-vi.md).
 
 Tên của một object DaemonSet phải là một
-[tên DNS subdomain](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names)
+[tên DNS subdomain](17-names-vi.md#dns-subdomain-names)
 hợp lệ.
 
 Một DaemonSet cũng cần một phần
@@ -145,7 +145,7 @@ Một DaemonSet cũng cần một phần
 
 `.spec.template` là một trong các trường bắt buộc trong `.spec`.
 
-`.spec.template` là một [pod template](https://kubernetes.io/docs/concepts/workloads/pods/#pod-templates).
+`.spec.template` là một [pod template](https://kubernetes.io/docs/concepts/workloads/pods#pod-templates).
 Nó có schema giống hệt một Pod, ngoại trừ việc nó được lồng bên trong và không có
 `apiVersion` hay `kind`.
 
@@ -159,7 +159,7 @@ Một Pod Template trong DaemonSet phải có
 ### Bộ chọn Pod (Pod Selector) {#pod-selector}
 
 Trường `.spec.selector` là một bộ chọn pod (pod selector). Nó hoạt động giống như
-`.spec.selector` của một [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/).
+`.spec.selector` của một [Job](67-job-vi.md).
 
 Bạn phải chỉ định một pod selector khớp với các label của `.spec.template`.
 Ngoài ra, một khi DaemonSet đã được tạo, `.spec.selector` của nó không thể bị thay đổi
@@ -169,7 +169,7 @@ và điều này từng được nhận thấy là gây bối rối cho người
 `.spec.selector` là một object gồm hai trường:
 
 * `matchLabels` - hoạt động giống như `.spec.selector` của một
-  [ReplicationController](https://kubernetes.io/docs/concepts/workloads/controllers/replicationcontroller/).
+  [ReplicationController](70-replicationcontroller-vi.md).
 * `matchExpressions` - cho phép xây dựng các selector phức tạp hơn bằng cách chỉ định
   key, danh sách các giá trị, và một toán tử liên hệ giữa key và các giá trị đó.
 
@@ -181,14 +181,14 @@ Cấu hình có hai trường này không khớp nhau sẽ bị API từ chối.
 ### Chạy Pod trên một số Node được chọn (Running Pods on select Nodes)
 
 Nếu bạn chỉ định `.spec.template.spec.nodeSelector`, thì DaemonSet controller sẽ tạo Pod
-trên các node khớp với [node selector](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
+trên các node khớp với [node selector](138-assign-pod-node-vi.md)
 đó. Tương tự, nếu bạn chỉ định `.spec.template.spec.affinity`, thì DaemonSet controller
 sẽ tạo Pod trên các node khớp với
-[node affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
+[node affinity](138-assign-pod-node-vi.md)
 đó. Nếu bạn không chỉ định cái nào cả, thì DaemonSet controller sẽ tạo Pod trên tất cả
 các node.
 
-## Cách các Daemon Pod được lập lịch (How Daemon Pods are scheduled)
+## Cách các Daemon Pod được lập lịch (How Daemon Pods are scheduled) {#how-daemon-pods-are-scheduled}
 
 Một DaemonSet có thể được dùng để đảm bảo rằng tất cả các node đủ điều kiện đều chạy một
 bản sao của một Pod. DaemonSet controller tạo một Pod cho mỗi node đủ điều kiện và thêm
@@ -196,13 +196,13 @@ trường `spec.affinity.nodeAffinity` của Pod để khớp với host mục t
 tạo, scheduler mặc định thường sẽ tiếp quản và gắn (bind) Pod vào host mục tiêu bằng cách
 đặt trường `.spec.nodeName`. Nếu Pod mới không thể vừa trên node, scheduler mặc định có
 thể chiếm chỗ (preempt) — trục xuất (evict) — một số Pod hiện có dựa trên
-[độ ưu tiên (priority)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#pod-priority)
+[độ ưu tiên (priority)](141-pod-priority-preemption-vi.md#pod-priority)
 của Pod mới.
 
 > **Ghi chú:**
 > Nếu việc pod của DaemonSet phải chạy trên từng node là quan trọng, thường nên đặt
 > `.spec.template.spec.priorityClassName` của DaemonSet thành một
-> [PriorityClass](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass)
+> [PriorityClass](141-pod-priority-preemption-vi.md#priorityclass)
 > có độ ưu tiên cao hơn để đảm bảo việc trục xuất này diễn ra.
 
 Người dùng có thể chỉ định một scheduler khác cho các Pod của DaemonSet, bằng cách đặt
@@ -248,7 +248,7 @@ Vì DaemonSet controller tự động đặt toleration
 trên các node được đánh dấu là _unschedulable_ (không thể lập lịch).
 
 Nếu bạn dùng một DaemonSet để cung cấp một chức năng quan trọng ở cấp node, chẳng hạn
-[mạng của cluster](https://kubernetes.io/docs/concepts/cluster-administration/networking/),
+[mạng của cluster](157-networking-vi.md),
 thì việc Kubernetes đặt Pod của DaemonSet lên các node trước khi chúng sẵn sàng (ready)
 là hữu ích. Ví dụ, nếu không có toleration đặc biệt đó, bạn có thể rơi vào tình trạng bế
 tắc (deadlock): node không được đánh dấu là ready vì network plugin chưa chạy trên đó,
@@ -263,12 +263,12 @@ Một số mẫu (pattern) khả dĩ để giao tiếp với các Pod trong mộ
 - **NodeIP và Known Port**: Các Pod trong DaemonSet có thể dùng `hostPort`, để pod có thể
   truy cập được thông qua IP của node.
   Client biết danh sách IP của các node bằng cách nào đó, và biết port theo quy ước.
-- **DNS**: Tạo một [headless service](https://kubernetes.io/docs/concepts/services-networking/service/#headless-services)
+- **DNS**: Tạo một [headless service](82-service-vi.md#headless-services)
   với cùng pod selector, rồi khám phá các DaemonSet thông qua resource `endpoints`
   hoặc truy xuất nhiều bản ghi A từ DNS.
 - **Service**: Tạo một service với cùng Pod selector, và dùng service này để truy cập một
   daemon trên một node ngẫu nhiên. Dùng
-  [Service Internal Traffic Policy](https://kubernetes.io/docs/concepts/services-networking/service-traffic-policy/)
+  [Service Internal Traffic Policy](87-service-traffic-policy-vi.md)
   để giới hạn trong các pod trên cùng node.
 
 ## Cập nhật một DaemonSet (Updating a DaemonSet)
@@ -313,7 +313,7 @@ dùng DaemonSet thay vì tạo các Pod riêng lẻ.
 ### Static Pod (Static Pods)
 
 Có thể tạo Pod bằng cách ghi một file vào một thư mục nhất định được Kubelet theo dõi.
-Chúng được gọi là [static pod](https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/).
+Chúng được gọi là [static pod](293-static-pod-tasks-vi.md).
 Khác với DaemonSet, static Pod không thể được quản lý bằng kubectl hay các client khác
 của Kubernetes API. Static Pod không phụ thuộc vào apiserver, điều này khiến chúng hữu
 ích trong các trường hợp khởi tạo (bootstrap) cluster. Ngoài ra, static Pod có thể bị
@@ -321,7 +321,7 @@ loại bỏ (deprecated) trong tương lai.
 
 ### Deployment (Deployments)
 
-DaemonSet tương tự [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+DaemonSet tương tự [Deployment](63-deployment-vi.md)
 ở chỗ cả hai đều tạo Pod, và các Pod đó có các tiến trình không được kỳ vọng sẽ tự kết
 thúc (ví dụ web server, storage server).
 
@@ -331,22 +331,22 @@ Pod chạy trên host nào. Dùng DaemonSet khi điều quan trọng là một b
 luôn chạy trên tất cả hoặc một số host nhất định, nếu DaemonSet cung cấp chức năng cấp
 node cho phép các Pod khác chạy đúng trên node cụ thể đó.
 
-Ví dụ, [các network plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/)
+Ví dụ, [các network plugin](183-network-plugins-vi.md)
 thường bao gồm một thành phần chạy dưới dạng DaemonSet. Thành phần DaemonSet này đảm bảo
 node nơi nó đang chạy có mạng cluster hoạt động bình thường.
 
 ## Tiếp theo (What's next)
 
 * Tìm hiểu về [Pod](./46-pods-vi.md):
-  * Tìm hiểu về [static Pod](https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/),
+  * Tìm hiểu về [static Pod](293-static-pod-tasks-vi.md),
     hữu ích để chạy các thành phần control plane của Kubernetes.
 * Tìm hiểu cách sử dụng DaemonSet:
   * [Thực hiện rolling update trên một DaemonSet](https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/).
   * [Thực hiện rollback trên một DaemonSet](https://kubernetes.io/docs/tasks/manage-daemon/rollback-daemon-set/)
     (ví dụ khi một lần roll out không diễn ra như bạn mong đợi).
-* Hiểu [cách Kubernetes gán Pod cho các Node](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).
-* Tìm hiểu về [device plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/)
-  và [các add-on](https://kubernetes.io/docs/concepts/cluster-administration/addons/),
+* Hiểu [cách Kubernetes gán Pod cho các Node](138-assign-pod-node-vi.md).
+* Tìm hiểu về [device plugin](184-device-plugins-vi.md)
+  và [các add-on](165-addons-vi.md),
   vốn thường chạy dưới dạng DaemonSet.
 * `DaemonSet` là một resource cấp cao nhất (top-level) trong Kubernetes REST API.
   Đọc định nghĩa object

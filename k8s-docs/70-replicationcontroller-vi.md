@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 14/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 14/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Lộ trình đánh dấu bài này là **tài liệu lịch sử**: ReplicationController là tiền thân của
@@ -423,7 +423,7 @@ trên node, chẳng hạn như kubelet.
 
 ### Job
 
-Dùng một [`Job`](https://kubernetes.io/docs/concepts/workloads/controllers/job/) thay cho
+Dùng một [`Job`](67-job-vi.md) thay cho
 ReplicationController đối với các pod được kỳ vọng sẽ tự chấm dứt (tức là các batch job).
 
 ### DaemonSet

@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 2/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 2/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Lộ trình bắt đọc ReplicaSet **trước** [Deployment](63-deployment-vi.md), dù bài này tự nói
@@ -316,7 +316,7 @@ Giống như mọi object API Kubernetes khác, một ReplicaSet cần các trư
 
 Khi control plane tạo các Pod mới cho một ReplicaSet, `.metadata.name` của ReplicaSet là
 một phần cơ sở để đặt tên cho các Pod đó. Tên của một ReplicaSet phải là một giá trị
-[DNS subdomain](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names)
+[DNS subdomain](17-names-vi.md#dns-subdomain-names)
 hợp lệ, nhưng điều này có thể tạo ra kết quả không mong đợi đối với hostname của Pod. Để
 có độ tương thích tốt nhất, tên nên tuân theo các quy tắc chặt chẽ hơn của một
 [DNS label](./17-names-vi.md#dns-label-names).
@@ -326,7 +326,7 @@ Một ReplicaSet cũng cần một
 
 ### Pod Template
 
-`.spec.template` là một [pod template](https://kubernetes.io/docs/concepts/workloads/pods/#pod-templates),
+`.spec.template` là một [pod template](https://kubernetes.io/docs/concepts/workloads/pods#pod-templates),
 và cũng bắt buộc phải có sẵn các label. Trong ví dụ `frontend.yaml` của chúng ta, có một
 label: `tier: frontend`. Hãy cẩn thận đừng để trùng lặp với selector của các controller
 khác, kẻo chúng cố gắng nhận nuôi (adopt) Pod này.
@@ -399,7 +399,7 @@ Sau khi bản gốc đã bị xóa, bạn có thể tạo một ReplicaSet mới
 `.spec.selector` cũ và mới giống nhau, ReplicaSet mới sẽ nhận nuôi các Pod cũ. Tuy nhiên,
 nó sẽ không nỗ lực làm cho các Pod hiện có khớp với một pod template mới, khác trước. Để
 cập nhật các Pod sang spec mới theo cách có kiểm soát, hãy dùng
-[Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#creating-a-deployment),
+[Deployment](63-deployment-vi.md#creating-a-deployment),
 vì ReplicaSet không trực tiếp hỗ trợ rolling update.
 
 ### Các Pod đang kết thúc (Terminating Pods)
@@ -520,7 +520,7 @@ kubectl autoscale rs frontend --max=10 --min=3 --cpu=50%
 
 ### Deployment (khuyến nghị) (Deployment (recommended))
 
-[`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) là
+[`Deployment`](63-deployment-vi.md) là
 một object có thể sở hữu các ReplicaSet, cập nhật chúng và các Pod của chúng thông qua
 rolling update kiểu khai báo, phía server. Mặc dù ReplicaSet có thể được dùng độc lập,
 ngày nay chúng chủ yếu được Deployment dùng như một cơ chế để điều phối việc tạo, xóa và
@@ -541,7 +541,7 @@ Kubelet.
 
 ### Job
 
-Dùng [`Job`](https://kubernetes.io/docs/concepts/workloads/controllers/job/) thay cho
+Dùng [`Job`](67-job-vi.md) thay cho
 ReplicaSet đối với các Pod được kỳ vọng sẽ tự kết thúc (nghĩa là các batch job).
 
 ### DaemonSet
@@ -554,23 +554,23 @@ khởi động, và an toàn để chấm dứt khi máy đã sẵn sàng để 
 ### ReplicationController
 
 ReplicaSet là thế hệ kế nhiệm của
-[ReplicationController](https://kubernetes.io/docs/concepts/workloads/controllers/replicationcontroller/).
+[ReplicationController](70-replicationcontroller-vi.md).
 Cả hai phục vụ cùng một mục đích và hành xử tương tự nhau, ngoại trừ việc
 ReplicationController không hỗ trợ các yêu cầu selector dựa trên tập hợp (set-based) như
-mô tả trong [hướng dẫn sử dụng label](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors).
+mô tả trong [hướng dẫn sử dụng label](18-labels-vi.md#label-selectors).
 Vì vậy, ReplicaSet được ưa chuộng hơn ReplicationController.
 
 ## Tiếp theo (What's next)
 
 * Tìm hiểu về [Pod](./46-pods-vi.md).
-* Tìm hiểu về [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
-* [Chạy một ứng dụng stateless bằng Deployment](https://kubernetes.io/docs/tasks/run-application/run-stateless-application-deployment/),
+* Tìm hiểu về [Deployment](63-deployment-vi.md).
+* [Chạy một ứng dụng stateless bằng Deployment](345-run-stateless-application-vi.md),
   vốn dựa trên ReplicaSet để hoạt động.
 * `ReplicaSet` là một resource cấp cao nhất (top-level) trong Kubernetes REST API.
   Đọc định nghĩa object
   [ReplicaSet](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/replica-set-v1/)
   để hiểu API dành cho replica set.
-* Đọc về [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/)
+* Đọc về [PodDisruptionBudget](53-disruptions-vi.md)
   và cách bạn có thể dùng nó để quản lý tính sẵn sàng của ứng dụng trong các giai đoạn
   gián đoạn (disruption).
 

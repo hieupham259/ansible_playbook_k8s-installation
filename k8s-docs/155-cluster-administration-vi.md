@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 12](LO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 1/8 ·
+**Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 1/8 ·
 Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **trang mục lục** của cả nhánh quản trị cluster trên kubernetes.io, gần như toàn bộ là
@@ -72,33 +72,33 @@ Trước khi chọn một hướng dẫn, dưới đây là một số điểm c
 - Cluster của bạn sẽ đặt **tại chỗ (on-premises)** hay **trên cloud (IaaS)**? Kubernetes
   không hỗ trợ trực tiếp cluster lai (hybrid). Thay vào đó, bạn có thể dựng nhiều cluster.
 - **Nếu bạn đang cấu hình Kubernetes on-premises**, hãy cân nhắc xem
-  [mô hình mạng (networking model)](https://kubernetes.io/docs/concepts/cluster-administration/networking/)
+  [mô hình mạng (networking model)](157-networking-vi.md)
   nào phù hợp nhất.
 - Bạn sẽ chạy Kubernetes trên **phần cứng "bare metal"** hay trên **máy ảo (VM)**?
 - Bạn **muốn vận hành một cluster**, hay dự định **tham gia phát triển mã nguồn của dự án
   Kubernetes**? Nếu là trường hợp sau, hãy chọn một distro đang được phát triển tích cực.
   Một số distro chỉ dùng bản phát hành nhị phân (binary release), nhưng lại cung cấp nhiều
   lựa chọn đa dạng hơn.
-- Làm quen với các [thành phần (components)](https://kubernetes.io/docs/concepts/overview/components/)
+- Làm quen với các [thành phần (components)](15-components-vi.md)
   cần thiết để vận hành một cluster.
 
 ## Quản lý cluster (Managing a cluster)
 
-* Tìm hiểu cách [quản lý node](https://kubernetes.io/docs/concepts/architecture/nodes/).
-  * Đọc về [tự động mở rộng node (Node autoscaling)](https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/).
+* Tìm hiểu cách [quản lý node](23-nodes-vi.md).
+  * Đọc về [tự động mở rộng node (Node autoscaling)](171-node-autoscaling-vi.md).
 
-* Tìm hiểu cách thiết lập và quản lý [resource quota](https://kubernetes.io/docs/concepts/policy/resource-quotas/)
+* Tìm hiểu cách thiết lập và quản lý [resource quota](134-resource-quotas-vi.md)
   cho các cluster dùng chung.
 
 ## Bảo mật cluster (Securing a cluster)
 
-* [Generate Certificates](https://kubernetes.io/docs/tasks/administer-cluster/certificates/)
+* [Generate Certificates](191-certificates-manual-vi.md)
   mô tả các bước tạo certificate bằng những bộ công cụ (tool chain) khác nhau.
 
-* [Kubernetes Container Environment](https://kubernetes.io/docs/concepts/containers/container-environment/)
+* [Kubernetes Container Environment](41-container-environment-vi.md)
   mô tả môi trường dành cho các container do Kubelet quản lý trên một node Kubernetes.
 
-* [Controlling Access to the Kubernetes API](https://kubernetes.io/docs/concepts/security/controlling-access)
+* [Controlling Access to the Kubernetes API](119-controlling-access-vi.md)
   mô tả cách Kubernetes triển khai kiểm soát truy cập (access control) cho chính API của nó.
 
 * [Authenticating](https://kubernetes.io/docs/reference/access-authn-authz/authentication/)
@@ -113,15 +113,15 @@ Trước khi chọn một hướng dẫn, dưới đây là một số điểm c
   giải thích các plug-in chặn (intercept) các request tới Kubernetes API server sau bước
   xác thực và phân quyền.
 
-* [Admission Webhook Good Practices](https://kubernetes.io/docs/concepts/cluster-administration/admission-webhooks-good-practices/)
+* [Admission Webhook Good Practices](173-admission-webhooks-vi.md)
   cung cấp các thực hành tốt và những điểm cần cân nhắc khi thiết kế mutating admission
   webhook và validating admission webhook.
 
-* [Using Sysctls in a Kubernetes Cluster](https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/)
+* [Using Sysctls in a Kubernetes Cluster](258-sysctl-cluster-vi.md)
   mô tả cho quản trị viên cách sử dụng công cụ dòng lệnh `sysctl` để thiết lập các tham số
   kernel.
 
-* [Auditing](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/) mô tả cách làm
+* [Auditing](306-audit-vi.md) mô tả cách làm
   việc với log kiểm toán (audit log) của Kubernetes.
 
 ### Bảo mật kubelet (Securing the kubelet)
@@ -135,7 +135,7 @@ Trước khi chọn một hướng dẫn, dưới đây là một số điểm c
 * [DNS Integration](./10-dns-pod-service-vi.md) mô tả cách phân giải một tên DNS trực tiếp
   thành một service của Kubernetes.
 
-* [Logging and Monitoring Cluster Activity](https://kubernetes.io/docs/concepts/cluster-administration/logging/)
+* [Logging and Monitoring Cluster Activity](158-logging-vi.md)
   giải thích cách hoạt động của logging trong Kubernetes và cách triển khai nó.
 
 ---

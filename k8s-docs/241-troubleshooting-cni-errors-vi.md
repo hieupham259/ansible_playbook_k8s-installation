@@ -52,7 +52,7 @@ file cấu hình CNI.
 
 Dưới đây là tổng quan các bước điển hình cho từng node:
 
-1. [Drain và cordon node một cách an toàn](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/).
+1. [Drain và cordon node một cách an toàn](255-safely-drain-node-vi.md).
 1. Sau khi dừng các dịch vụ container runtime và kubelet, thực hiện các thao tác nâng cấp sau:
 
    - Nếu bạn đang chạy các CNI plugin, hãy nâng cấp chúng lên phiên bản mới nhất.

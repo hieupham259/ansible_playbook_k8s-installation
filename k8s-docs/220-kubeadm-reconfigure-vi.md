@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — CP5 Cấu hình lại cluster đang chạy](LO-TRINH-ADMIN.md#cp5--cấu-hình-lại-cluster-đang-chạy),
+**Vị trí:** [Checkpoint tiếp nối — CP5 Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#cp5--cấu-hình-lại-cluster-đang-chạy),
 bài 1/6 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này ngắn nhưng là **bản đồ tổng** của cả CP5: nó cho biết cấu hình của từng thành phần
@@ -273,7 +273,7 @@ kubectl edit no <node-name>
 
 Trong quá trình `kubeadm upgrade`, nội dung của một Node như vậy có thể bị ghi đè.
 Nếu bạn muốn giữ lại các sửa đổi của mình đối với Node object sau khi nâng cấp, bạn có thể
-chuẩn bị một [kubectl patch](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/)
+chuẩn bị một [kubectl patch](324-kubectl-patch-vi.md)
 và áp dụng nó vào Node object:
 
 ```shell
@@ -307,7 +307,7 @@ Cần khởi động lại kubelet sau khi thay đổi `/var/lib/kubelet/config.
 
 ## Tiếp theo (What's next)
 
-- [Nâng cấp các cluster kubeadm](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade)
+- [Nâng cấp các cluster kubeadm](221-kubeadm-upgrade-vi.md)
 - [Tùy chỉnh các thành phần với kubeadm API](03-control-plane-flags-vi.md)
 - [Quản lý certificate với kubeadm](219-kubeadm-certs-vi.md)
 - [Tìm hiểu thêm về thiết lập kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/)

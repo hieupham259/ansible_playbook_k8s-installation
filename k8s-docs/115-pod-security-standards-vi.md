@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 6/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 6/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài dài hơn 600 dòng, nhưng khoảng ba phần tư là **hai bảng đặc tả trường** viết bằng HTML.
 Đừng học thuộc bảng — đó là tài liệu tra cứu lúc viết manifest. Bài này chỉ **định nghĩa** ba
@@ -538,7 +538,7 @@ cluster, độc lập với cơ chế thực thi (enforcement) bên dưới.
 Khi các cơ chế trưởng thành hơn, chúng sẽ được định nghĩa bên dưới theo từng chính sách.
 Phương thức thực thi của từng chính sách riêng lẻ không được định nghĩa ở đây.
 
-[**Bộ điều khiển Pod Security Admission (Pod Security Admission Controller)**](https://kubernetes.io/docs/concepts/security/pod-security-admission/)
+[**Bộ điều khiển Pod Security Admission (Pod Security Admission Controller)**](116-pod-security-admission-vi.md)
 
 - Namespace mức Privileged ([`security/podsecurity-privileged.yaml`](https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/security/podsecurity-privileged.yaml)):
 
@@ -601,7 +601,7 @@ Kubernetes cho phép bạn dùng các node chạy Linux hoặc Windows. Bạn c�
 loại node trong cùng một cluster.
 Windows trong Kubernetes có một số hạn chế và điểm khác biệt so với các workload dựa trên
 Linux. Cụ thể, nhiều trường `securityContext` của Pod
-[không có tác dụng trên Windows](https://kubernetes.io/docs/concepts/windows/intro/#compatibility-v1-pod-spec-containers-securitycontext).
+[không có tác dụng trên Windows](175-windows-intro-vi.md#compatibility-v1-pod-spec-containers-securitycontext).
 
 > **Ghi chú:** Các kubelet trước v1.24 không thực thi trường OS của Pod, và nếu cluster có
 > các node chạy phiên bản cũ hơn v1.24 thì các chính sách Restricted nên được ghim (pin)
@@ -645,16 +645,16 @@ cho các profile khác.
 
 ### Sự khác biệt giữa security profile và security context là gì? (What's the difference between a security profile and a security context?)
 
-[Security Context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+[Security Context](291-security-context-vi.md)
 cấu hình các Pod và Container tại thời điểm chạy (runtime). Security context được định
 nghĩa như một phần của đặc tả Pod và container trong manifest của Pod, và đại diện cho
 các tham số truyền cho container runtime.
 
 Security profile là các cơ chế của control plane để thực thi những thiết lập cụ thể trong
 Security Context, cũng như các tham số liên quan khác bên ngoài Security Context. Kể từ
-tháng 7 năm 2021, [Pod Security Policy](https://kubernetes.io/docs/concepts/security/pod-security-policy/)
+tháng 7 năm 2021, [Pod Security Policy](117-pod-security-policy-vi.md)
 đã bị loại bỏ dần (deprecated) để nhường chỗ cho
-[Bộ điều khiển Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/)
+[Bộ điều khiển Pod Security Admission](116-pod-security-admission-vi.md)
 tích hợp sẵn.
 
 ### Còn các Pod sandbox thì sao? (What about sandboxed Pods?)

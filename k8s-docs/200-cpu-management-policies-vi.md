@@ -10,10 +10,10 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP10 — Quản trị tài nguyên theo namespace](LO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace),
+**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
+→ [CP10 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace),
 bài 4/7, nối tiếp bài [74 — Các trình quản lý tài nguyên](74-resource-managers-vi.md). Các
 trang CP không có lab riêng: thực hành trực tiếp trên cluster lab, và fault injection (đổi
 chính sách sai quy trình để xem kubelet crashloop) chỉ làm trên `k8s-worker2`.
@@ -139,7 +139,7 @@ Vì chính sách CPU Manager chỉ có thể được áp dụng khi kubelet kh�
 đổi từ "none" sang "static" sẽ không có tác dụng với các Pod hiện có. Do đó, để thay đổi
 chính sách CPU Manager trên một node một cách đúng đắn, hãy thực hiện các bước sau:
 
-1. [Drain](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node) node đó.
+1. [Drain](255-safely-drain-node-vi.md) node đó.
 2. Dừng kubelet.
 3. Xóa file state cũ của CPU Manager. Đường dẫn của file này mặc định là
    `/var/lib/kubelet/cpu_manager_state`. Việc này xóa sạch trạng thái mà CPUManager duy

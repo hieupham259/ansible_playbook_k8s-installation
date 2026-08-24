@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 5/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 5/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này **không dạy cú pháp RBAC**. Nó giả định bạn đã biết Role, ClusterRole, RoleBinding và
 ClusterRoleBinding là gì, rồi đi thẳng vào chỗ RBAC dễ bị dùng sai: các quyền nghe vô hại nhưng
@@ -93,9 +93,9 @@ Trong trường hợp một workload cần các quyền mạnh, hãy cân nhắc
   đều thực sự cần thiết và được chạy với đặc quyền tối thiểu để giới hạn phạm vi ảnh hưởng (blast radius)
   của các cuộc thoát container (container escape).
 - Tránh chạy các pod đặc quyền cạnh các pod không đáng tin cậy hoặc bị công khai ra ngoài. Cân nhắc sử dụng
-  [Taints và Toleration](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/),
-  [NodeAffinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity), hoặc
-  [PodAntiAffinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity)
+  [Taints và Toleration](139-taint-and-toleration-vi.md),
+  [NodeAffinity](138-assign-pod-node-vi.md#node-affinity), hoặc
+  [PodAntiAffinity](138-assign-pod-node-vi.md#inter-pod-affinity-and-anti-affinity)
   để đảm bảo các pod không chạy cạnh các Pod không đáng tin cậy hoặc ít tin cậy hơn. Đặc biệt chú ý đến
   các tình huống mà những Pod kém tin cậy hơn không đáp ứng Pod Security Standard mức **Restricted**.
 
@@ -110,7 +110,7 @@ lựa chọn để gia cố quyền của cluster:
   quyền truy cập cho bất kỳ ai có thể kết nối tới API server ở tầng mạng.
 - Tránh việc tự động mount token service account mặc định bằng cách thiết lập
   `automountServiceAccountToken: false`. Để biết thêm chi tiết, xem
-  [sử dụng token service account mặc định](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#use-the-default-service-account-to-access-the-api-server).
+  [sử dụng token service account mặc định](279-configure-service-account-vi.md#use-the-default-service-account-to-access-the-api-server).
   Việc thiết lập giá trị này cho một Pod sẽ ghi đè thiết lập của service account; các workload
   cần token service account vẫn có thể mount chúng.
 
@@ -137,7 +137,7 @@ Nhìn chung ai cũng hiểu rằng việc cho phép quyền `get` trên Secret s
 Ví dụ, khi một phản hồi List được trả về (chẳng hạn qua `kubectl get secrets -A -o yaml`), phản hồi đó
 bao gồm nội dung của tất cả các Secret.
 
-### Tạo workload (Workload creation)
+### Tạo workload (Workload creation) {#workload-creation}
 
 Quyền tạo workload (Pod, hoặc
 [các tài nguyên workload](./62-controllers-index-vi.md) quản lý Pod) trong một namespace
@@ -151,7 +151,7 @@ Người dùng có thể chạy các Pod đặc quyền (privileged Pod) có th�
 tiếp tục leo thang đặc quyền. Khi bạn không hoàn toàn tin tưởng một người dùng hay một chủ thể (principal) khác
 về khả năng tạo các Pod đủ an toàn và được cách ly phù hợp, bạn nên thực thi
 Pod Security Standard mức **Baseline** hoặc **Restricted**.
-Bạn có thể sử dụng [Pod Security admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/)
+Bạn có thể sử dụng [Pod Security admission](116-pod-security-admission-vi.md)
 hoặc các cơ chế (bên thứ ba) khác để thực hiện việc thực thi đó.
 
 Vì những lý do này, các namespace nên được dùng để tách biệt các tài nguyên đòi hỏi các mức
@@ -230,7 +230,7 @@ Người dùng có quyền kiểm soát `validatingwebhookconfigurations` hoặc
 có thể kiểm soát các webhook có khả năng đọc bất kỳ đối tượng nào được tiếp nhận (admit) vào cluster, và trong trường hợp
 mutating webhook, còn có thể sửa đổi (mutate) các đối tượng được tiếp nhận.
 
-### Sửa đổi Namespace (Namespace modification)
+### Sửa đổi Namespace (Namespace modification) {#namespace-modification}
 
 Người dùng có thể thực hiện thao tác **patch** trên các đối tượng Namespace (thông qua một RoleBinding trong phạm vi namespace tới một Role có quyền đó) có thể sửa đổi
 các label trên namespace đó. Trong các cluster có sử dụng Pod Security Admission, điều này có thể cho phép người dùng cấu hình namespace
@@ -249,7 +249,7 @@ Người dùng có quyền tạo đối tượng trong một cluster có thể t
 được phép truy cập hạn chế vào hệ thống.
 
 Một phương án giảm thiểu vấn đề này là sử dụng
-[hạn ngạch tài nguyên (resource quota)](https://kubernetes.io/docs/concepts/policy/resource-quotas/#object-count-quota)
+[hạn ngạch tài nguyên (resource quota)](https://kubernetes.io/docs/concepts/policy/resource-quotas#object-count-quota)
 để giới hạn số lượng đối tượng có thể được tạo.
 
 ## Tiếp theo (What's next)

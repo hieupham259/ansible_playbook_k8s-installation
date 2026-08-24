@@ -10,10 +10,10 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — bài này là
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — bài này là
 bản thực hành cho khái niệm ở bài [32 — Phiên bản lưu trữ](32-storage-version-vi.md), đồng thời
 nối tiếp cặp bài mã hóa at rest của CP7: [208 — Encrypting Confidential Data at
 Rest](208-encrypt-data-vi.md) và [213 — KMS provider](213-kms-provider-vi.md) đã dạy cách

@@ -277,7 +277,7 @@ contexts:
 
 File cấu hình trên định nghĩa một context mới có tên `dev-ramp-up`.
 
-## Thiết lập biến môi trường KUBECONFIG (Set the KUBECONFIG environment variable)
+## Thiết lập biến môi trường KUBECONFIG (Set the KUBECONFIG environment variable) {#set-the-kubeconfig-environment-variable}
 
 Kiểm tra xem bạn có biến môi trường tên là `KUBECONFIG` hay không. Nếu có, hãy lưu lại
 giá trị hiện tại của biến môi trường `KUBECONFIG`, để bạn có thể khôi phục nó sau này.
@@ -350,7 +350,7 @@ contexts:
 ```
 
 Để biết thêm thông tin về cách các file kubeconfig được hợp nhất, xem
-[Tổ chức quyền truy cập cluster bằng file kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+[Tổ chức quyền truy cập cluster bằng file kubeconfig](111-kubeconfig-vi.md)
 (đã có [bản dịch tiếng Việt](111-kubeconfig-vi.md)).
 
 ## Khám phá thư mục $HOME/.kube (Explore the $HOME/.kube directory)
@@ -418,5 +418,5 @@ cho context Kubernetes client mà bạn đã chọn: `kubectl auth whoami`.
 
 ## Tiếp theo (What's next)
 
-* [Tổ chức quyền truy cập cluster bằng file kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) — đã có [bản dịch tiếng Việt](111-kubeconfig-vi.md)
+* [Tổ chức quyền truy cập cluster bằng file kubeconfig](111-kubeconfig-vi.md) — đã có [bản dịch tiếng Việt](111-kubeconfig-vi.md)
 * [kubectl config](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#config)

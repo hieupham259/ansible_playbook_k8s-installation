@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 6/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 6/16 · Kiểm chứng ở
 Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này không phải về lưu trữ bền vững — nó là về cách gộp nhiều nguồn dữ liệu của Kubernetes
@@ -45,7 +45,7 @@ nên phần cần hiểu ở đây chỉ là phần trên của bài. Ba mục c
 
 ---
 
-Tài liệu này mô tả *volume dạng projected* (projected volume) trong Kubernetes. Bạn nên làm quen trước với [volume](https://kubernetes.io/docs/concepts/storage/volumes/).
+Tài liệu này mô tả *volume dạng projected* (projected volume) trong Kubernetes. Bạn nên làm quen trước với [volume](91-volumes-vi.md).
 
 ## Giới thiệu (Introduction)
 
@@ -53,9 +53,9 @@ Một volume `projected` ánh xạ nhiều nguồn volume có sẵn vào cùng m
 
 Hiện tại, các loại nguồn volume sau có thể được projected:
 
-* [`secret`](https://kubernetes.io/docs/concepts/storage/volumes/#secret)
-* [`downwardAPI`](https://kubernetes.io/docs/concepts/storage/volumes/#downwardapi)
-* [`configMap`](https://kubernetes.io/docs/concepts/storage/volumes/#configmap)
+* [`secret`](91-volumes-vi.md#secret)
+* [`downwardAPI`](91-volumes-vi.md#downwardapi)
+* [`configMap`](91-volumes-vi.md#configmap)
 * [`serviceAccountToken`](#serviceaccounttoken)
 * [`clusterTrustBundle`](#clustertrustbundle)
 * [`podCertificate`](#podcertificate)
@@ -178,7 +178,7 @@ spec:
 
 Pod ví dụ này có một volume projected chứa token của service account được tiêm vào.
 Các container trong Pod này có thể dùng token đó để truy cập Kubernetes API
-server, xác thực với danh tính của [ServiceAccount của Pod](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/).
+server, xác thực với danh tính của [ServiceAccount của Pod](279-configure-service-account-vi.md).
 Trường `audience` chứa đối tượng nhận (audience) dự kiến của
 token. Bên nhận token phải tự định danh bằng một định danh được chỉ định
 trong audience của token, nếu không thì phải từ chối token. Trường này
@@ -191,7 +191,7 @@ cũng có thể giới hạn giá trị tối đa của nó bằng cách chỉ �
 đường dẫn tương đối so với điểm mount của volume projected.
 
 > **Ghi chú:**
-> Một container dùng nguồn volume projected làm volume mount [`subPath`](https://kubernetes.io/docs/concepts/storage/volumes/#using-subpath)
+> Một container dùng nguồn volume projected làm volume mount [`subPath`](91-volumes-vi.md#using-subpath)
 > sẽ không nhận được các cập nhật cho những nguồn volume đó.
 
 ## Volume projected clusterTrustBundle (clusterTrustBundle projected volumes) {#clustertrustbundle}

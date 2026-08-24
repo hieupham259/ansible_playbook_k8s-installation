@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 14](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 4/7 ·
+**Vị trí:** [Giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 4/7 ·
 Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Giai đoạn này lộ trình ghi rõ là **dành cho platform administrator / người phát triển operator**.
@@ -47,7 +47,7 @@ quay lại. Bài chỉ dài hơn 20 dòng — toàn bộ khái niệm nằm tron
 
 Tầng tổng hợp (aggregation layer) cho phép mở rộng Kubernetes bằng các API bổ sung, vượt ra ngoài những gì các API lõi của Kubernetes cung cấp. Các API bổ sung này có thể là những giải pháp có sẵn như [metrics server](https://github.com/kubernetes-sigs/metrics-server), hoặc là các API do chính bạn phát triển.
 
-Tầng tổng hợp khác với [CustomResourceDefinition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) — vốn là cách để giúp kube-apiserver nhận biết các loại (kind) đối tượng mới.
+Tầng tổng hợp khác với [CustomResourceDefinition](179-custom-resources-vi.md) — vốn là cách để giúp kube-apiserver nhận biết các loại (kind) đối tượng mới.
 
 ## Tầng tổng hợp (Aggregation layer)
 

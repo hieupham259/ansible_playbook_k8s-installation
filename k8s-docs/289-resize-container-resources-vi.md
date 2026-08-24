@@ -13,7 +13,7 @@ có và tạo một Pod thay thế, thường được quản lý bởi một
 (In-place Pod Resize) cho phép thay đổi lượng CPU/memory cấp phát cho các container bên trong
 một Pod đang chạy, đồng thời có khả năng tránh được gián đoạn ứng dụng. Quy trình thay đổi kích
 thước tài nguyên ở cấp Pod được trình bày trong
-[Thay đổi kích thước tài nguyên CPU và Memory được gán cho Pod](https://kubernetes.io/docs/tasks/configure-pod-container/resize-pod-resources).
+[Thay đổi kích thước tài nguyên CPU và Memory được gán cho Pod](290-resize-pod-resources-vi.md).
 
 **Các khái niệm chính:**
 
@@ -104,7 +104,7 @@ lại được thử; tất cả các resize pending còn lại vẫn sẽ đư�
   `metadata.generation` của podSpec tại thời điểm việc cấp phát cho lần resize đang chờ được
   thử lần gần nhất.
 
-## Chính sách resize của container (Container resize policies)
+## Chính sách resize của container (Container resize policies) {#container-resize-policies}
 
 Bạn có thể kiểm soát việc một container có bị khởi động lại khi resize hay không bằng cách đặt
 `resizePolicy` trong đặc tả của container. Điều này cho phép kiểm soát chi tiết theo từng loại
@@ -140,7 +140,7 @@ Xét một container được cấu hình `restartPolicy: NotRequired` cho CPU v
 * Nếu thay đổi *cả* CPU lẫn memory cùng lúc, container bị khởi động lại (do chính sách của
   memory).
 
-## Các hạn chế (Limitations)
+## Các hạn chế (Limitations) {#limitations}
 
 Đối với Kubernetes v1.36, việc thay đổi kích thước tài nguyên Pod tại chỗ có các hạn chế sau:
 
@@ -171,7 +171,7 @@ Xét một container được cấu hình `restartPolicy: NotRequired` cho CPU v
   [chính sách static của CPU hoặc Memory manager](./200-cpu-management-policies-vi.md)
   không thể được resize tại chỗ.
 * **Swap:** Các Pod sử dụng
-  [swap memory](https://kubernetes.io/docs/concepts/architecture/nodes/#swap-memory)
+  [swap memory](https://kubernetes.io/docs/concepts/architecture/nodes#swap-memory)
   không thể resize memory request trừ khi `resizePolicy` cho memory là `RestartContainer`.
 
 Các hạn chế này có thể được nới lỏng trong các phiên bản Kubernetes tương lai.

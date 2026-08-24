@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 8/13 ·
+**Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 8/13 ·
 Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài ngắn nhưng **quan trọng với vận hành**: đây là cơ chế đứng sau `kubectl drain`, lệnh bạn
@@ -41,7 +41,7 @@ lập nhau ở gần như mọi điểm.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Hai khối JSON `policy/v1` và `policy/v1beta1`, ví dụ `curl` | chỉ cần khi gọi API trực tiếp; `kubectl drain` đã gói sẵn | không cần |
-| Cách cấu hình PodDisruptionBudget | lý thuyết đã đọc ở bài [53](53-disruptions-vi.md); phần thao tác nằm ở nhánh tasks | [CP1 — Vòng đời node](LO-TRINH-ADMIN.md#cp1--vòng-đời-node) |
+| Cách cấu hình PodDisruptionBudget | lý thuyết đã đọc ở bài [53](53-disruptions-vi.md); phần thao tác nằm ở nhánh tasks | [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node) |
 
 ---
 
@@ -54,8 +54,8 @@ lập trình bằng một client của API server, chẳng hạn lệnh `kubectl
 tạo ra một đối tượng `Eviction`, khiến API server chấm dứt (terminate) Pod.
 
 Các eviction khởi phát qua API tôn trọng các
-[`PodDisruptionBudgets`](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)
-và [`terminationGracePeriodSeconds`](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-termination)
+[`PodDisruptionBudgets`](339-configure-pdb-vi.md)
+và [`terminationGracePeriodSeconds`](47-pod-lifecycle-vi.md#pod-termination)
 mà bạn đã cấu hình.
 
 Việc dùng API để tạo một đối tượng Eviction cho một Pod giống như thực hiện một
@@ -64,7 +64,7 @@ có kiểm soát theo chính sách (policy-controlled) trên Pod đó.
 
 ## Gọi Eviction API (Calling the Eviction API)
 
-Bạn có thể dùng một [client theo ngôn ngữ lập trình của Kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/access-cluster-api/#programmatic-access-to-the-api)
+Bạn có thể dùng một [client theo ngôn ngữ lập trình của Kubernetes](190-access-cluster-api-vi.md#programmatic-access-to-the-api)
 để truy cập Kubernetes API và tạo một đối tượng `Eviction`. Để làm điều đó, bạn
 POST thao tác muốn thực hiện, tương tự ví dụ sau:
 
@@ -156,9 +156,9 @@ Nếu bạn nhận thấy các eviction bị kẹt, hãy thử một trong các 
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu cách bảo vệ ứng dụng của bạn với một [Pod Disruption Budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/).
-* Tìm hiểu về [Eviction do áp lực node (Node-pressure Eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/).
-* Tìm hiểu về [Độ ưu tiên và Preemption của Pod (Pod Priority and Preemption)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/).
+* Tìm hiểu cách bảo vệ ứng dụng của bạn với một [Pod Disruption Budget](339-configure-pdb-vi.md).
+* Tìm hiểu về [Eviction do áp lực node (Node-pressure Eviction)](142-node-pressure-eviction-vi.md).
+* Tìm hiểu về [Độ ưu tiên và Preemption của Pod (Pod Priority and Preemption)](141-pod-priority-preemption-vi.md).
 
 ---
 

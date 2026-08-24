@@ -2,6 +2,46 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/adding-windows-nodes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
+→ [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node), bài 3/4 · Chỉ kiểm chứng được nếu
+môi trường có thêm một VM Windows Server; xem **Lab 15 — Node Windows** (tùy chọn) trong
+[bản đồ lab](labs/README.md#4-bản-đồ-lab).
+
+**Bỏ qua bài này nếu cluster của bạn chỉ có Linux** — cluster lab của Lab 00 là thuần Linux.
+Đọc lướt một lượt để biết quy trình khác gì với node Linux, rồi quay lại khi thực sự cần.
+Lưu ý bài dùng script PowerShell của `sig-windows-tools`, tức phụ thuộc dự án bên thứ ba, khác
+hẳn cách cài thuần kubeadm ở bài [215](215-adding-linux-nodes-vi.md).
+
+**Phải hiểu ở lần đọc này:**
+
+- Điểm giống: bước cuối vẫn là `kubeadm join` với **đúng ba thành phần** như node Linux — token,
+  `<host>:<port>`, `--discovery-token-ca-cert-hash`. Phần lấy lại token và hash giống hệt bài
+  [215](215-adding-linux-nodes-vi.md).
+- Điểm khác lớn nhất: **chuẩn bị node** không dùng package manager mà dùng hai script
+  (`Install-Containerd.ps1`, `PrepareNode.ps1`), chạy trong PowerShell với quyền Administrator.
+- **CNI là chỗ khó thật sự.** Cluster lẫn Linux và Windows không thể chỉ `kubectl apply` một
+  manifest: plugin CNI trên node control plane phải được chuẩn bị để hỗ trợ plugin CNI của node
+  Windows, và rất ít CNI hỗ trợ Windows.
+- Yêu cầu nền: Windows Server 2022 trở lên, quyền quản trị, và một cluster kubeadm đã chạy sẵn.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Tham số chi tiết của `Install-Containerd.ps1` (`netAdapterName`, `skipHypervisorSupportCheck`, `CNIBinPath`) | chỉ có nghĩa khi ngồi trước một máy Windows thật | Lab 15 (tùy chọn), nếu môi trường có VM Windows |
+| Thiết lập Calico cho Windows | thuộc phần mạng của node Windows | bài [89](89-windows-networking-vi.md) ở giai đoạn 15 |
+| Cài kubectl trên Windows | công cụ client, không liên quan tới việc join node | bài [188](188-install-kubectl-windows-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.18 [beta]`
 
 Trang này giải thích cách thêm các node worker Windows vào một cluster kubeadm.
@@ -11,7 +51,7 @@ Trang này giải thích cách thêm các node worker Windows vào một cluster
 * Một instance [Windows Server 2022](https://www.microsoft.com/cloud-platform/windows-server-pricing)
   (hoặc cao hơn) đang chạy, với quyền truy cập quản trị (administrative access).
 * Một cluster kubeadm đang chạy, được tạo bằng `kubeadm init` và theo các bước trong tài liệu
-  [Tạo cluster với kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/).
+  [Tạo cluster với kubeadm](02-create-cluster-kubeadm-vi.md).
 
 ## Thêm node worker Windows (Adding Windows worker nodes)
 
@@ -133,7 +173,7 @@ Kết quả đầu ra tương tự như:
 ```
 [preflight] Running pre-flight checks
 
-... (log output of join workflow) ...
+... (log output of join workflow)...
 
 Node join complete:
 * Certificate signing request sent to control-plane and response
@@ -165,8 +205,47 @@ từng plugin:
 
 ### Cài đặt kubectl cho Windows (tùy chọn) {#install-kubectl}
 
-Xem [Cài đặt và thiết lập kubectl trên Windows](https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/).
+Xem [Cài đặt và thiết lập kubectl trên Windows](188-install-kubectl-windows-vi.md).
 
 ## Tiếp theo (What's next)
 
-* Xem cách [thêm node worker Linux](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/adding-linux-nodes/).
+* Xem cách [thêm node worker Linux](215-adding-linux-nodes-vi.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP1:
+
+1. Cluster lab của bạn (`k8s-master` + hai worker Linux, CNI theo baseline Lab 00) muốn thêm
+   một node Windows. Theo bài, bước nào **không** thể làm bằng một lệnh `kubectl apply` như với
+   node Linux, và vì sao?
+2. **Câu bẫy.** Quy trình join node Windows dùng script PowerShell riêng, vậy lệnh `kubeadm join`
+   cuối cùng có khác lệnh dùng cho node Linux không? Token và
+   `--discovery-token-ca-cert-hash` lấy ở đâu?
+3. Hai script `Install-Containerd.ps1` và `PrepareNode.ps1` thay thế cho công việc gì mà trên
+   node Linux bạn làm theo bài [01](01-install-kubeadm-vi.md)?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Cấu hình CNI.** Bài nói rõ: thiết lập CNI trên cluster có cả node Linux lẫn Windows đòi
+   hỏi nhiều bước hơn là `kubectl apply` một manifest, vì **plugin CNI chạy trên node control
+   plane cũng phải được chuẩn bị để hỗ trợ plugin CNI của node Windows**. Thêm nữa, chỉ một số
+   ít CNI hỗ trợ Windows, nên CNI đang dùng có thể phải đổi.
+2. **Không khác.** Lệnh join vẫn là `kubeadm join --token <token> <host>:<port>
+   --discovery-token-ca-cert-hash sha256:<hash>`. Token lấy bằng `kubeadm token list` /
+   `kubeadm token create` và hash lấy từ `/etc/kubernetes/pki/ca.crt` — **đều chạy trên node
+   control plane Linux**, y hệt bài 215. Chỗ dễ nhầm là tưởng "node Windows thì mọi thứ đều
+   khác"; thực ra chỉ phần *chuẩn bị node* và *mạng* khác, còn giao thức gia nhập cluster thì
+   chung một cơ chế.
+3. Chúng thay cho phần **cài container runtime và cài kubelet/kubeadm** — tức đúng phần việc
+   mà trên Linux bạn làm bằng package manager theo bài [01](01-install-kubeadm-vi.md).
+   `Install-Containerd.ps1` lo runtime, `PrepareNode.ps1` lo kubelet và kubeadm.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Nếu cluster của bạn chỉ có Linux,
+đánh dấu bài này là đã đọc và sang bài kế của [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node).

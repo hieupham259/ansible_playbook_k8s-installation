@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3b](LO-TRINH-ADMIN.md#3b-cấu-hình-và-tài-nguyên), bài 4/7 ·
+**Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 4/7 ·
 Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **bài bắt buộc phải chắc** của cả nhóm 3b. QoS class ở bài kế tiếp, eviction do áp lực
@@ -372,7 +372,7 @@ của container thông qua subresource `/resize` của Pod. Bạn có thể ki�
 có cần khởi động lại hay không bằng cách đặt trường `resizePolicy` trong đặc tả container.
 
 > **Ghi chú:** Thay đổi kích thước tại chỗ hiện áp dụng cho tài nguyên cấp container. Để thay đổi kích thước tài nguyên
-> cấp Pod, xem [Thay đổi kích thước tài nguyên CPU và bộ nhớ của Pod](https://kubernetes.io/docs/tasks/configure-pod-container/resize-pod-resources/).
+> cấp Pod, xem [Thay đổi kích thước tài nguyên CPU và bộ nhớ của Pod](290-resize-pod-resources-vi.md).
 
 #### Thay đổi kích thước bằng cách khởi chạy các Pod thay thế (Resizing by launching replacement Pods) {#resizing-by-launching-replacement-pods}
 
@@ -383,18 +383,18 @@ hoạt động với mọi phiên bản Kubernetes và có thể thay đổi b�
 
 Để biết thêm chi tiết về thay đổi kích thước Pod, xem [Thay đổi kích thước Pod](./47-pod-lifecycle-vi.md#pod-resize).
 Để có hướng dẫn chi tiết về thay đổi kích thước tại chỗ, xem
-[Thay đổi kích thước tài nguyên CPU và bộ nhớ được gán cho Container](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/).
+[Thay đổi kích thước tài nguyên CPU và bộ nhớ được gán cho Container](289-resize-container-resources-vi.md).
 Bạn cũng có thể dùng [Vertical Pod Autoscaler](./73-vertical-pod-autoscale-vi.md)
 để tự động quản lý các khuyến nghị tài nguyên cho Pod.
 
 ### Giám sát mức sử dụng tài nguyên tính toán và bộ nhớ (Monitoring compute & memory resource usage) {#monitoring-compute-memory-resource-usage}
 
 Kubelet báo cáo mức sử dụng tài nguyên của một Pod như một phần của
-[`status`](https://kubernetes.io/docs/concepts/overview/working-with-objects/#object-spec-and-status) của Pod.
+[`status`](16-working-with-objects-vi.md#object-spec-and-status) của Pod.
 
-Nếu các [công cụ giám sát](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/)
+Nếu các [công cụ giám sát](312-resource-usage-monitoring-vi.md)
 tùy chọn có sẵn trong cluster của bạn, thì mức sử dụng tài nguyên của Pod có thể được truy xuất
-trực tiếp từ [Metrics API](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/#metrics-api)
+trực tiếp từ [Metrics API](311-resource-metrics-pipeline-vi.md#metrics-api)
 hoặc từ các công cụ giám sát của bạn.
 
 ### Những điều cần cân nhắc với volume `emptyDir` dựa trên bộ nhớ (Considerations for memory backed `emptyDir` volumes) {#memory-backed-emptydir}
@@ -429,8 +429,8 @@ có thêm những điểm dưới đây mà bạn cần cẩn trọng:
   vì vậy nên được sử dụng một cách cẩn thận.
 
 Nếu bạn đang quản trị một cluster hoặc namespace, bạn cũng có thể đặt
-[ResourceQuota](https://kubernetes.io/docs/concepts/policy/resource-quotas/) để giới hạn mức dùng bộ nhớ;
-bạn cũng có thể muốn định nghĩa một [LimitRange](https://kubernetes.io/docs/concepts/policy/limit-range/)
+[ResourceQuota](134-resource-quotas-vi.md) để giới hạn mức dùng bộ nhớ;
+bạn cũng có thể muốn định nghĩa một [LimitRange](133-limit-range-vi.md)
 để thực thi bổ sung.
 Nếu bạn chỉ định `spec.containers[].resources.limits.memory` cho từng Pod,
 thì kích thước tối đa của một volume `emptyDir` sẽ là limit bộ nhớ của pod.
@@ -474,7 +474,7 @@ Tài nguyên mở rộng cấp node gắn liền với các node.
 
 ##### Tài nguyên do device plugin quản lý (Device plugin managed resources) {#device-plugin-managed-resources}
 Xem [Device
-Plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/)
+Plugin](184-device-plugins-vi.md)
 để biết cách quảng bá các tài nguyên do device plugin quản lý trên từng node.
 
 ##### Các tài nguyên khác (Other resources) {#other-resources}
@@ -552,7 +552,7 @@ scheduler extender.
 Cấp phát tài nguyên mở rộng bằng DRA cho phép người quản trị cluster chỉ định một `extendedResourceName`
 trong DeviceClass; khi đó các thiết bị khớp với DeviceClass này có thể được yêu cầu từ các yêu cầu
 tài nguyên mở rộng của một pod. Đọc thêm về
-[Cấp phát tài nguyên mở rộng bằng DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#extended-resource).
+[Cấp phát tài nguyên mở rộng bằng DRA](149-dynamic-resource-allocation-vi.md#extended-resource).
 
 ### Tiêu thụ tài nguyên mở rộng (Consuming extended resources) {#consuming-extended-resources}
 
@@ -602,7 +602,7 @@ spec:
 
 Giới hạn Process ID (PID) cho phép cấu hình một kubelet
 để giới hạn số lượng PID mà một Pod nhất định có thể tiêu thụ. Xem
-[Giới hạn PID (PID Limiting)](https://kubernetes.io/docs/concepts/policy/pid-limiting/) để biết thêm thông tin.
+[Giới hạn PID (PID Limiting)](135-pid-limiting-vi.md) để biết thêm thông tin.
 
 ## Khắc phục sự cố (Troubleshooting) {#troubleshooting}
 
@@ -686,9 +686,9 @@ mỗi Node có một trường `.status.allocatable`
 Trường `.status.allocatable` mô tả lượng tài nguyên khả dụng
 cho các Pod trên node đó (ví dụ: 15 CPU ảo và 7538 MiB bộ nhớ).
 Để biết thêm thông tin về tài nguyên có thể cấp phát (allocatable) của node trong Kubernetes, xem
-[Dành riêng tài nguyên tính toán cho các daemon hệ thống](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/).
+[Dành riêng tài nguyên tính toán cho các daemon hệ thống](253-reserve-compute-resources-vi.md).
 
-Bạn có thể cấu hình [hạn ngạch tài nguyên (resource quota)](https://kubernetes.io/docs/concepts/policy/resource-quotas/)
+Bạn có thể cấu hình [hạn ngạch tài nguyên (resource quota)](134-resource-quotas-vi.md)
 để giới hạn tổng lượng tài nguyên mà một namespace có thể tiêu thụ.
 Kubernetes thực thi quota cho các đối tượng trong một namespace cụ thể khi có một
 ResourceQuota trong namespace đó.
@@ -759,14 +759,14 @@ bộ nhớ cao hơn (và có thể cả request) cho container đó.
 
 ## Tiếp theo (What's next)
 
-* Thực hành [gán tài nguyên Memory cho container và Pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/).
-* Thực hành [gán tài nguyên CPU cho container và Pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/).
+* Thực hành [gán tài nguyên Memory cho container và Pod](264-assign-memory-resource-vi.md).
+* Thực hành [gán tài nguyên CPU cho container và Pod](263-assign-cpu-resource-vi.md).
 * Đọc cách tài liệu tham chiếu API định nghĩa một [container](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#Container)
   và [các yêu cầu tài nguyên](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#resources) của nó
 * Đọc thêm về [lưu trữ tạm thời cục bộ](./95-ephemeral-storage-vi.md)
 * Đọc thêm về [tài liệu tham chiếu cấu hình kube-scheduler (v1)](https://kubernetes.io/docs/reference/config-api/kube-scheduler-config.v1/)
 * Đọc thêm về [các lớp Quality of Service cho Pod](./54-pod-qos-vi.md)
-* Đọc thêm về [Cấp phát tài nguyên mở rộng bằng DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#extended-resource)
+* Đọc thêm về [Cấp phát tài nguyên mở rộng bằng DRA](149-dynamic-resource-allocation-vi.md#extended-resource)
 
 ---
 

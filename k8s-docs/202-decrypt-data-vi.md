@@ -7,13 +7,13 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), mục
-[CP7 — Audit và mã hóa dữ liệu](LO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu)), là thao
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), mục
+[CP7 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu)), là thao
 tác đảo ngược của bài
-[Encrypting Confidential Data at Rest](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/)
+[Encrypting Confidential Data at Rest](208-encrypt-data-vi.md)
 và nối dài phần lưu trữ Secret của bài [109 — Secret](109-secret-vi.md).
 
 Bài này mô tả thao tác **tắt** mã hóa. Hãy đọc nó để hiểu cơ chế thứ tự provider trong
@@ -41,7 +41,7 @@ Encrypting Confidential Data at Rest của CP7).
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Chi tiết provider `aescbc` và định dạng key trong ví dụ YAML | bài này chỉ cần vị trí provider trong danh sách; cấu hình mã hóa và quản lý key thuộc bài bật mã hóa | bài [Encrypting Confidential Data at Rest](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/) trong [CP7](LO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu) |
+| Chi tiết provider `aescbc` và định dạng key trong ví dụ YAML | bài này chỉ cần vị trí provider trong danh sách; cấu hình mã hóa và quản lý key thuộc bài bật mã hóa | bài [Encrypting Confidential Data at Rest](208-encrypt-data-vi.md) trong [CP7](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu) |
 | API `EncryptionConfiguration` (v1) đầy đủ | tài liệu tham chiếu field | khi cần tra cứu lúc vận hành thật |
 
 ---
@@ -104,7 +104,7 @@ hóa khi lưu trữ.
 Định dạng của file cấu hình đó là YAML, biểu diễn một kind API cấu hình có tên
 [`EncryptionConfiguration`](https://kubernetes.io/docs/reference/config-api/apiserver-config.v1/).
 Bạn có thể xem một ví dụ cấu hình trong
-[Cấu hình mã hóa khi lưu trữ](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/#understanding-the-encryption-at-rest-configuration).
+[Cấu hình mã hóa khi lưu trữ](208-encrypt-data-vi.md#understanding-the-encryption-at-rest-configuration).
 
 Nếu `--encryption-provider-config` được đặt, hãy kiểm tra những resource nào (chẳng hạn
 `secrets`) được cấu hình mã hóa, và provider nào đang được dùng. Hãy chắc chắn rằng provider

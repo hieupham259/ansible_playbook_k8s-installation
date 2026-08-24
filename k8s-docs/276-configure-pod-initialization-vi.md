@@ -19,7 +19,7 @@ chơi (playground) Kubernetes sau:
 
 Để kiểm tra phiên bản, hãy nhập `kubectl version`.
 
-## Tạo một Pod có Init Container (Create a Pod that has an Init Container)
+## Tạo một Pod có Init Container (Create a Pod that has an Init Container) {#create-a-pod-that-has-an-init-container}
 
 Trong bài thực hành này, bạn tạo một Pod có một container ứng dụng và một Init Container.
 Init container chạy đến khi hoàn tất trước khi container ứng dụng khởi động.

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 4/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -46,7 +46,7 @@ Mọi thứ về nhóm đó — chính sách, vòng đời, thuật toán — n�
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.35 [alpha]`
 
-Bạn có thể liên kết một `Pod` với một [PodGroup](https://kubernetes.io/docs/concepts/workloads/podgroup-api/)
+Bạn có thể liên kết một `Pod` với một [PodGroup](75-podgroup-api-vi.md)
 để cho biết `Pod` đó thuộc về một nhóm các `Pod` được lập lịch cùng nhau. Điều này cho phép
 scheduler áp dụng các chính sách ở cấp nhóm, chẳng hạn như gang scheduling, thay vì
 xử lý từng `Pod` một cách độc lập.
@@ -78,8 +78,8 @@ Trường `schedulingGroup` là bất biến (immutable). Một khi đã đượ
 ## Hành vi (Behavior)
 
 Khi bạn đặt `spec.schedulingGroup`, scheduler sẽ tra cứu
-[PodGroup](https://kubernetes.io/docs/concepts/workloads/podgroup-api/) được tham chiếu và áp dụng
-[chính sách lập lịch](https://kubernetes.io/docs/concepts/workloads/workload-api/policies/) được định nghĩa trong đó:
+[PodGroup](75-podgroup-api-vi.md) được tham chiếu và áp dụng
+[chính sách lập lịch](79-workload-policies-vi.md) được định nghĩa trong đó:
 
 * Nếu `PodGroup` dùng chính sách `basic`, mỗi `Pod` được lập lịch độc lập theo
   hành vi tiêu chuẩn của Kubernetes. Việc phân nhóm chỉ được dùng như một label ở cấp nhóm.
@@ -98,9 +98,9 @@ vì scheduler cần có `PodGroup` để xác định được chính sách.
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu về [PodGroup API](https://kubernetes.io/docs/concepts/workloads/podgroup-api/) và vòng đời của nó.
-* Đọc về [các chính sách lập lịch của PodGroup](https://kubernetes.io/docs/concepts/workloads/workload-api/policies/).
-* Hiểu về thuật toán [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/).
+* Tìm hiểu về [PodGroup API](75-podgroup-api-vi.md) và vòng đời của nó.
+* Đọc về [các chính sách lập lịch của PodGroup](79-workload-policies-vi.md).
+* Hiểu về thuật toán [gang scheduling](150-gang-scheduling-vi.md).
 
 ---
 

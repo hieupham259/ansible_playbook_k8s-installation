@@ -16,7 +16,7 @@ Hơn nữa, Memory Manager đảm bảo rằng lượng bộ nhớ mà một Pod
 NUMA node tối thiểu.
 
 Để tìm hiểu kiến thức nền về tài nguyên bộ nhớ cho Pod, hãy đọc
-[Gán tài nguyên bộ nhớ cho Container và Pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/).
+[Gán tài nguyên bộ nhớ cho Container và Pod](264-assign-memory-resource-vi.md).
 
 ## Trước khi bạn bắt đầu (Before you begin)
 
@@ -34,14 +34,14 @@ Phiên bản Kubernetes server của bạn phải bằng hoặc mới hơn v1.32
 `kubectl version`. Nếu bạn đang chạy một phiên bản Kubernetes cũ hơn, hãy xem tài liệu tương ứng
 với phiên bản Kubernetes mà bạn đang chạy.
 
-### Điều kiện tiên quyết để căn chỉnh tài nguyên (Resource alignment prerequisites)
+### Điều kiện tiên quyết để căn chỉnh tài nguyên (Resource alignment prerequisites) {#resource-alignment-prerequisites}
 
 Để căn chỉnh (align) tài nguyên bộ nhớ với các tài nguyên khác được yêu cầu trong spec của Pod:
 
 - CPU Manager phải được bật và chính sách CPU Manager phù hợp phải được cấu hình trên Node.
-  Xem [kiểm soát các chính sách quản lý CPU](https://kubernetes.io/docs/tasks/administer-cluster/cpu-management-policies/);
+  Xem [kiểm soát các chính sách quản lý CPU](200-cpu-management-policies-vi.md);
 - Topology Manager phải được bật và chính sách Topology Manager phù hợp phải được cấu hình trên Node.
-  Xem [kiểm soát các chính sách quản lý topology](https://kubernetes.io/docs/tasks/administer-cluster/topology-manager/).
+  Xem [kiểm soát các chính sách quản lý topology](259-topology-manager-vi.md).
 
 ### Hỗ trợ Windows (Windows support)
 
@@ -150,11 +150,11 @@ dụng trên một NUMA node trước khi thực hiện việc gán tài nguyên
 
 Với vai trò quản trị viên, bạn có thể cấu hình tổng lượng bộ nhớ dành riêng (reserved memory)
 cho một node. Giá trị được cấu hình trước này sau đó được dùng để tính lượng bộ nhớ
-[node allocatable](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/#node-allocatable)
+[node allocatable](253-reserve-compute-resources-vi.md#node-allocatable)
 thực tế khả dụng cho các Pod.
 
 Kubernetes scheduler sử dụng thông tin về bộ nhớ allocatable để tối ưu việc
-[lập lịch](https://kubernetes.io/docs/concepts/scheduling-eviction/) cho Pod.
+[lập lịch](136-scheduling-eviction-vi.md) cho Pod.
 Cơ chế _node allocatable_ thường được các quản trị viên node dùng để dành riêng tài nguyên hệ
 thống của node K8s cho kubelet hoặc các tiến trình của hệ điều hành, nhằm giúp đảm bảo độ ổn định
 của node.
@@ -326,7 +326,7 @@ Lưu ý rằng cả yêu cầu về CPU lẫn bộ nhớ đều phải được 
 
 ## Tiếp theo (What's next)
 
-- Đọc [Xử lý sự cố quản lý Topology](https://kubernetes.io/docs/tasks/debug/debug-cluster/topology/)
+- Đọc [Xử lý sự cố quản lý Topology](313-debug-topology-vi.md)
 - Đọc [KEP](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager)
   (Kubernetes enhancement proposal — đề xuất cải tiến Kubernetes) về memory manager
-- Đọc về [các trình quản lý tài nguyên cấp Pod](https://kubernetes.io/docs/concepts/workloads/resource-managers/#pod-level-resource-managers).
+- Đọc về [các trình quản lý tài nguyên cấp Pod](74-resource-managers-vi.md#pod-level-resource-managers).

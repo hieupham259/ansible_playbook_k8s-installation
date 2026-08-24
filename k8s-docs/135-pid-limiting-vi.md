@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
+**Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
 bài 4/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này **đổi mặt phẳng cấu hình**. Hai bài trước là đối tượng API trong namespace; từ đây tới
@@ -115,14 +115,14 @@ chỉ định giới hạn này ở cấp node, thay vì cấu hình nó như m�
 cho một Pod cụ thể. Mỗi Node có thể có một giới hạn PID khác nhau.
 Để cấu hình giới hạn, bạn có thể chỉ định tham số dòng lệnh `--pod-max-pids`
 cho kubelet, hoặc đặt `PodPidsLimit` trong
-[file cấu hình](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/) của kubelet.
+[file cấu hình](224-kubelet-config-file-vi.md) của kubelet.
 
 ## Eviction dựa trên PID (PID based eviction)
 
 Bạn có thể cấu hình kubelet để bắt đầu chấm dứt (terminate) một Pod khi Pod đó hoạt động
 bất thường và tiêu thụ một lượng tài nguyên không bình thường.
 Tính năng này được gọi là eviction (thu hồi). Bạn có thể
-[Cấu hình xử lý khi hết tài nguyên (Configure Out of Resource Handling)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/)
+[Cấu hình xử lý khi hết tài nguyên (Configure Out of Resource Handling)](142-node-pressure-eviction-vi.md)
 cho nhiều tín hiệu eviction khác nhau.
 Dùng tín hiệu eviction `pid.available` để cấu hình ngưỡng số lượng PID mà Pod sử dụng.
 Bạn có thể đặt chính sách eviction mềm (soft) và cứng (hard).
@@ -144,7 +144,7 @@ sẽ không bị cạn PID khi có một Pod hoạt động bất thường.
 - Về bối cảnh lịch sử, đọc
   [Process ID Limiting for Stability Improvements in Kubernetes 1.14](https://kubernetes.io/blog/2019/04/15/process-id-limiting-for-stability-improvements-in-kubernetes-1.14/).
 - Đọc [Quản lý tài nguyên cho container (Managing Resources for Containers)](./110-manage-resources-containers-vi.md).
-- Tìm hiểu cách [Cấu hình xử lý khi hết tài nguyên (Configure Out of Resource Handling)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/).
+- Tìm hiểu cách [Cấu hình xử lý khi hết tài nguyên (Configure Out of Resource Handling)](142-node-pressure-eviction-vi.md).
 
 ---
 

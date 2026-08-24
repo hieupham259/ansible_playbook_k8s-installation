@@ -224,7 +224,7 @@ kubectl delete deployment nginx-deployment
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu thêm về [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
-- Thực hành theo [Horizontal Pod Autoscaling](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/).
+- Tìm hiểu thêm về [Deployment](63-deployment-vi.md).
+- Thực hành theo [Horizontal Pod Autoscaling](342-hpa-walkthrough-vi.md).
 - Tìm hiểu cách [scale một StatefulSet](347-scale-stateful-set-vi.md).
 - Đọc về [quản lý tài nguyên](https://kubernetes.io/docs/concepts/cluster-administration/manage-deployment/).

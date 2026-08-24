@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 7/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -50,10 +50,10 @@ thuộc về các workload controller như Job.
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
 Tài nguyên API `Workload` định nghĩa các yêu cầu lập lịch (scheduling) và cấu trúc của một
-ứng dụng gồm nhiều Pod. Trong khi các workload controller như [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/)
+ứng dụng gồm nhiều Pod. Trong khi các workload controller như [Job](67-job-vi.md)
 quản lý trạng thái lúc chạy (runtime state) của ứng dụng, `Workload` chỉ định cách các nhóm `Pod`
 cần được lập lịch. Job controller là controller tích hợp sẵn duy nhất tạo ra các đối tượng
-[PodGroup](https://kubernetes.io/docs/concepts/workloads/podgroup-api/) từ
+[PodGroup](75-podgroup-api-vi.md) từ
 `PodGroupTemplates` của `Workload` tại thời điểm chạy.
 
 ## Workload là gì? (What is a Workload?)
@@ -66,7 +66,7 @@ và cluster của bạn phải bật API group đó, cũng như bật
 `Workload` là một mẫu chính sách (policy template) tĩnh, tồn tại lâu dài. Nó định nghĩa
 những chính sách lập lịch nào cần được áp dụng cho các nhóm Pod, nhưng bản thân nó không theo dõi
 trạng thái lúc chạy. Trạng thái lập lịch lúc chạy được duy trì bởi các đối tượng
-[PodGroup](https://kubernetes.io/docs/concepts/workloads/podgroup-api/),
+[PodGroup](75-podgroup-api-vi.md),
 do các controller tạo ra từ `PodGroupTemplates` của `Workload`.
 
 ## Cấu trúc API (API structure)
@@ -116,7 +116,7 @@ Khi một workload controller tạo `PodGroup` từ một trong các template n�
 ### Tham chiếu đến đối tượng điều khiển workload (Referencing a workload controlling object)
 
 Trường `controllerRef` liên kết Workload trở lại đối tượng cấp cao cụ thể định nghĩa ứng dụng,
-chẳng hạn như một [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/) hoặc một CRD tùy chỉnh.
+chẳng hạn như một [Job](67-job-vi.md) hoặc một CRD tùy chỉnh.
 Điều này hữu ích cho khả năng quan sát (observability) và các công cụ hỗ trợ.
 Dữ liệu này không được dùng để lập lịch hay quản lý Workload.
 
@@ -126,7 +126,7 @@ Dữ liệu này không được dùng để lập lịch hay quản lý Workloa
 
 Khi feature gate
 [`WorkloadWithJob`](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/)
-được bật, [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/) controller
+được bật, [Job](67-job-vi.md) controller
 tự động tạo các đối tượng Workload và PodGroup cho các Job dạng indexed chạy song song có
 `.spec.parallelism` bằng `.spec.completions`. `minCount` của chính sách gang
 được đặt bằng parallelism của Job, do đó tất cả các Pod phải có thể được lập lịch cùng nhau
@@ -140,10 +140,10 @@ JobSet) có thể tự quản lý các đối tượng Workload và PodGroup c�
 ## Tiếp theo (What's next)
 
 * Tìm hiểu về [các chính sách lập lịch PodGroup](./79-workload-policies-vi.md).
-* Xem cách các PodGroup được tạo từ Workload trong phần tổng quan [PodGroup API](https://kubernetes.io/docs/concepts/workloads/podgroup-api/).
+* Xem cách các PodGroup được tạo từ Workload trong phần tổng quan [PodGroup API](75-podgroup-api-vi.md).
 * Đọc về cách các Pod tham chiếu đến PodGroup của chúng thông qua trường [nhóm lập lịch (scheduling group)](./59-scheduling-group-vi.md).
 * Tìm hiểu về [Lập lịch workload nhận biết topology](./80-workload-topology-scheduling-vi.md).
-* Hiểu thuật toán [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/).
+* Hiểu thuật toán [gang scheduling](150-gang-scheduling-vi.md).
 
 ---
 

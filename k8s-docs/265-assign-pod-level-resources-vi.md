@@ -63,10 +63,10 @@ nhập `kubectl version`.
   để biết thêm chi tiết. Nếu feature gate này không được bật, chúng sẽ không căn chỉnh
   (align) Pod và container dựa trên tài nguyên cấp Pod.
 * **Thay đổi kích thước tại chỗ (In-Place Resize):**
-  [Thay đổi kích thước tại chỗ (in-place resize)](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/)
+  [Thay đổi kích thước tại chỗ (in-place resize)](289-resize-container-resources-vi.md)
   đối với tài nguyên cấp Pod yêu cầu feature gate `InPlacePodLevelResourcesVerticalScaling`,
   hiện ở trạng thái alpha trong Kubernetes v1.36. Để biết thêm chi tiết, xem
-  [Thay đổi kích thước tài nguyên CPU và Memory của Pod](https://kubernetes.io/docs/tasks/configure-pod-container/resize-pod-resources/).
+  [Thay đổi kích thước tài nguyên CPU và Memory của Pod](290-resize-pod-resources-vi.md).
 
 ## Tạo một namespace (Create a namespace)
 
@@ -347,9 +347,9 @@ kubectl delete namespace pod-resources-example
 
 ### Dành cho nhà phát triển ứng dụng (For application developers)
 
-* [Gán tài nguyên Memory cho Container và Pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/)
+* [Gán tài nguyên Memory cho Container và Pod](264-assign-memory-resource-vi.md)
 
-* [Gán tài nguyên CPU cho Container và Pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/)
+* [Gán tài nguyên CPU cho Container và Pod](263-assign-cpu-resource-vi.md)
 
 ### Dành cho quản trị viên cluster (For cluster administrators)
 

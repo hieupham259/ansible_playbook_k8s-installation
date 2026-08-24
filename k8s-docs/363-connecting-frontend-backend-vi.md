@@ -30,10 +30,10 @@ chơi (playground) Kubernetes sau:
 Để kiểm tra phiên bản, nhập `kubectl version`.
 
 Tác vụ này sử dụng
-[Service với bộ cân bằng tải bên ngoài (external load balancer)](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/),
+[Service với bộ cân bằng tải bên ngoài (external load balancer)](364-create-external-load-balancer-vi.md),
 loại Service này yêu cầu một môi trường được hỗ trợ. Nếu môi trường của bạn không hỗ trợ,
 bạn có thể dùng Service kiểu
-[NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport) thay thế.
+[NodePort](82-service-vi.md#type-nodeport) thay thế.
 
 ## Tạo backend bằng Deployment (Creating the backend using a Deployment)
 
@@ -267,7 +267,7 @@ service/frontend created
 > **Ghi chú:**
 > Cấu hình nginx được đóng gói sẵn (baked) trong
 > [container image](https://kubernetes.io/examples/service/access/Dockerfile). Cách làm tốt hơn là
-> dùng một [ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/),
+> dùng một [ConfigMap](275-configure-pod-configmap-vi.md),
 > để bạn có thể thay đổi cấu hình dễ dàng hơn.
 
 ## Tương tác với Service frontend (Interact with the frontend Service)
@@ -329,6 +329,6 @@ kubectl delete deployment frontend backend
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [Service](https://kubernetes.io/docs/concepts/services-networking/service/)
-* Tìm hiểu thêm về [ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/)
-* Tìm hiểu thêm về [DNS cho Service và Pod](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/)
+* Tìm hiểu thêm về [Service](82-service-vi.md)
+* Tìm hiểu thêm về [ConfigMap](275-configure-pod-configmap-vi.md)
+* Tìm hiểu thêm về [DNS cho Service và Pod](10-dns-pod-service-vi.md)

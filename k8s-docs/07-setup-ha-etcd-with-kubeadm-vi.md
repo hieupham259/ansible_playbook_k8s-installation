@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 6/9 ·
+**Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 6/9 ·
 Kiểm chứng ở Lab 8c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này **có điều kiện**: lộ trình ghi rõ nó *chỉ cần nếu chọn external etcd* ở bài
@@ -59,7 +59,7 @@ certificate trên một host rồi phát đi) đều có lý do.
 Theo mặc định, kubeadm chạy một instance etcd cục bộ (local) trên mỗi node control plane.
 Cũng có thể coi cluster etcd là bên ngoài (external) và cung cấp (provision)
 các instance etcd trên các host riêng biệt. Sự khác biệt giữa hai cách tiếp cận này được trình bày trong
-trang [Các lựa chọn cho topology có tính sẵn sàng cao](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/ha-topology).
+trang [Các lựa chọn cho topology có tính sẵn sàng cao](06-ha-topology-vi.md).
 
 Tác vụ này hướng dẫn quy trình tạo một cluster etcd external có tính sẵn sàng cao
 gồm ba thành viên, có thể được kubeadm sử dụng trong quá trình tạo cluster.
@@ -70,10 +70,10 @@ gồm ba thành viên, có thể được kubeadm sử dụng trong quá trình 
   này giả định các cổng mặc định này. Tuy nhiên, chúng có thể được cấu hình thông qua
   file cấu hình kubeadm.
 - Mỗi host phải có systemd và một shell tương thích bash được cài đặt.
-- Mỗi host phải [có một container runtime, kubelet và kubeadm được cài đặt](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/).
+- Mỗi host phải [có một container runtime, kubelet và kubeadm được cài đặt](01-install-kubeadm-vi.md).
 - Mỗi host cần có quyền truy cập đến container image registry của Kubernetes (`registry.k8s.io`) hoặc liệt kê/pull image etcd cần thiết bằng
   `kubeadm config images list/pull`. Hướng dẫn này sẽ thiết lập các instance etcd dưới dạng
-  [static pod](https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/) được quản lý bởi một kubelet.
+  [static pod](293-static-pod-tasks-vi.md) được quản lý bởi một kubelet.
 - Một hạ tầng nào đó để sao chép file giữa các host. Ví dụ, `ssh` và `scp`
   có thể đáp ứng yêu cầu này.
 
@@ -88,7 +88,7 @@ các file _cần thiết_ đến các node khác.
 
 > **Ghi chú:** Các ví dụ bên dưới dùng địa chỉ IPv4 nhưng bạn cũng có thể cấu hình kubeadm, kubelet và etcd
 > để dùng địa chỉ IPv6. Dual-stack được hỗ trợ bởi một số tùy chọn của Kubernetes, nhưng etcd thì không. Để biết thêm chi tiết
-> về hỗ trợ dual-stack của Kubernetes, xem [Hỗ trợ dual-stack với kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/dual-stack-support/).
+> về hỗ trợ dual-stack của Kubernetes, xem [Hỗ trợ dual-stack với kubeadm](05-dual-stack-support-vi.md).
 
 1. Cấu hình kubelet để trở thành trình quản lý dịch vụ (service manager) cho etcd.
 
@@ -354,7 +354,7 @@ các file _cần thiết_ đến các node khác.
 
 Khi bạn đã có một cluster etcd với 3 thành viên hoạt động, bạn có thể tiếp tục thiết lập một
 control plane có tính sẵn sàng cao bằng
-[phương pháp external etcd với kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/).
+[phương pháp external etcd với kubeadm](08-high-availability-vi.md).
 
 ---
 

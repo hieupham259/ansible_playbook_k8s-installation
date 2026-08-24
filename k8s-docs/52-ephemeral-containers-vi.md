@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 8/11 · Kiểm chứng
+**Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 8/11 · Kiểm chứng
 ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài ngắn nhất nhóm và là **công cụ xử lý sự cố**, không phải cơ chế vận hành. Bạn sẽ dùng nó
@@ -84,7 +84,7 @@ container sau khi đã thêm nó vào một Pod.
 
 > **Ghi chú:**
 > Ephemeral container không được hỗ trợ bởi
-> [static pod](https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/).
+> [static pod](293-static-pod-tasks-vi.md).
 
 ## Công dụng của ephemeral container (Uses for ephemeral containers)
 
@@ -99,12 +99,12 @@ gồm shell hay bất kỳ tiện ích gỡ lỗi nào, rất khó để xử l�
 nếu chỉ dùng `kubectl exec`.
 
 Khi sử dụng ephemeral container, sẽ hữu ích nếu bật
-[chia sẻ process namespace](https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/)
+[chia sẻ process namespace](292-share-process-namespace-vi.md)
 để bạn có thể xem các tiến trình (process) trong những container khác.
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu cách [gỡ lỗi pod bằng ephemeral container](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container).
+* Tìm hiểu cách [gỡ lỗi pod bằng ephemeral container](300-debug-running-pod-vi.md#ephemeral-container).
 
 ---
 

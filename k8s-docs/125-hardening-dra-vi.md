@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 3/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -151,13 +151,13 @@ rules:
 ## Tác vụ liên quan dành cho quản trị viên cluster (Related cluster administrator task)
 
 Để áp dụng các mẫu này trong một cluster đang chạy, hãy xem
-[Tăng cường bảo mật cho Cấp phát tài nguyên động trong cluster của bạn (Harden Dynamic Resource Allocation in Your Cluster)](https://kubernetes.io/docs/tasks/administer-cluster/hardening-dra/).
+[Tăng cường bảo mật cho Cấp phát tài nguyên động trong cluster của bạn (Harden Dynamic Resource Allocation in Your Cluster)](211-hardening-dra-tasks-vi.md).
 
 ## Tiếp theo (What's next)
 
 - [Phân quyền (Authorization)](https://kubernetes.io/docs/reference/access-authn-authz/authorization/)
-- [Thiết lập DRA trong một Cluster (Set Up DRA in a Cluster)](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/set-up-dra-cluster/)
-- [Cấp phát tài nguyên động (Dynamic Resource Allocation)](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/)
+- [Thiết lập DRA trong một Cluster (Set Up DRA in a Cluster)](271-set-up-dra-cluster-vi.md)
+- [Cấp phát tài nguyên động (Dynamic Resource Allocation)](149-dynamic-resource-allocation-vi.md)
 
 ---
 

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3b](LO-TRINH-ADMIN.md#3b-cấu-hình-và-tài-nguyên), bài 5/7 ·
+**Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 5/7 ·
 Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này là **hệ quả trực tiếp** của bài [110](110-manage-resources-containers-vi.md): QoS
@@ -59,14 +59,14 @@ những Pod nào khi không còn đủ tài nguyên khả dụng trên một nod
 Kubernetes phân loại các Pod mà bạn chạy và xếp mỗi Pod vào một
 _lớp chất lượng dịch vụ (QoS class)_ cụ thể. Kubernetes dùng sự phân loại đó để tác động
 đến cách các pod khác nhau được xử lý. Kubernetes thực hiện việc phân loại này dựa trên
-[yêu cầu tài nguyên (resource request)](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+[yêu cầu tài nguyên (resource request)](110-manage-resources-containers-vi.md)
 của các Container trong Pod đó, cùng với
 mối liên hệ giữa các request này và giới hạn tài nguyên (resource limit).
 Đây được gọi là lớp Quality of Service
 (QoS). Kubernetes gán cho mỗi Pod một QoS class dựa trên các yêu cầu và giới hạn
 tài nguyên của các Container thành phần của nó. QoS class được Kubernetes dùng để quyết định
 trục xuất những Pod nào khỏi một node đang chịu
-[áp lực node (Node Pressure)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/). Các
+[áp lực node (Node Pressure)](142-node-pressure-eviction-vi.md). Các
 QoS class có thể có là `Guaranteed`, `Burstable`, và `BestEffort`. Khi một node cạn kiệt tài nguyên,
 Kubernetes trước tiên sẽ trục xuất các Pod `BestEffort` đang chạy trên node đó, tiếp theo là các Pod `Burstable` và
 cuối cùng là các Pod `Guaranteed`. Khi việc trục xuất này xảy ra do áp lực tài nguyên, chỉ những Pod
@@ -79,7 +79,7 @@ bị trục xuất nhất. Chúng được đảm bảo không bị kill cho đ�
 của mình, hoặc khi không còn Pod nào có độ ưu tiên thấp hơn có thể bị chiếm chỗ (preempt)
 khỏi node. Chúng không được phép chiếm dụng tài nguyên vượt quá giới hạn đã chỉ định.
 Các Pod này cũng có thể sử dụng các CPU độc quyền nhờ chính sách quản lý CPU
-[`static`](https://kubernetes.io/docs/tasks/administer-cluster/cpu-management-policies/#static-policy-configuration).
+[`static`](https://kubernetes.io/docs/tasks/administer-cluster/cpu-management-policies#static-policy-configuration).
 
 #### Tiêu chí (Criteria)
 
@@ -90,7 +90,7 @@ Các Pod này cũng có thể sử dụng các CPU độc quyền nhờ chính s
 * Mọi Container trong Pod phải có giới hạn CPU và yêu cầu CPU, cả hai đều lớn hơn 0.
 * Với mọi Container trong Pod, giới hạn CPU phải bằng yêu cầu CPU.
 
-Còn nếu Pod sử dụng [tài nguyên cấp Pod (Pod-level resources)](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#pod-level-resource-specification):
+Còn nếu Pod sử dụng [tài nguyên cấp Pod (Pod-level resources)](110-manage-resources-containers-vi.md#pod-level-resource-specification):
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.34 [beta]`
 
@@ -192,7 +192,7 @@ Một số hành vi nhất định không phụ thuộc vào QoS class mà Kuber
   mà không ảnh hưởng đến các Container khác trong Pod đó.
 
 * Nếu một Container vượt quá yêu cầu tài nguyên của nó và node mà nó đang chạy gặp
-  áp lực tài nguyên, thì Pod chứa nó trở thành ứng viên cho việc [trục xuất](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/).
+  áp lực tài nguyên, thì Pod chứa nó trở thành ứng viên cho việc [trục xuất](142-node-pressure-eviction-vi.md).
   Nếu điều này xảy ra, tất cả các Container trong Pod sẽ bị kết thúc. Kubernetes có thể tạo một
   Pod thay thế, thường là trên một node khác.
 
@@ -201,24 +201,24 @@ Một số hành vi nhất định không phụ thuộc vào QoS class mà Kuber
   các giới hạn tài nguyên của các Container thành phần của nó.
 
 * Kube-scheduler không xem xét QoS class khi chọn những Pod nào để
-  [chiếm chỗ (preempt)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#preemption).
+  [chiếm chỗ (preempt)](141-pod-priority-preemption-vi.md#preemption).
   Việc chiếm chỗ có thể xảy ra khi một cluster không có đủ tài nguyên để chạy tất cả các Pod
   mà bạn đã định nghĩa.
 
 * QoS class được xác định khi Pod được tạo và giữ nguyên không đổi trong suốt
   vòng đời của Pod. Nếu sau đó bạn thử một thao tác
-  [thay đổi kích thước tại chỗ (in-place resize)](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-resize)
+  [thay đổi kích thước tại chỗ (in-place resize)](47-pod-lifecycle-vi.md#pod-resize)
   mà sẽ dẫn đến một QoS class khác, thao tác resize đó sẽ bị tầng admission từ chối.
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu về [quản lý tài nguyên cho Pod và Container](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
-* Tìm hiểu về [trục xuất do áp lực node (Node-pressure eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/).
-* Tìm hiểu về [độ ưu tiên và cơ chế chiếm chỗ của Pod (Pod priority and preemption)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/).
-* Tìm hiểu về [sự gián đoạn Pod (Pod disruptions)](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/).
-* Tìm hiểu cách [gán tài nguyên memory cho container và pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/).
-* Tìm hiểu cách [gán tài nguyên CPU cho container và pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/).
-* Tìm hiểu cách [cấu hình Quality of Service cho Pod](https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/).
+* Tìm hiểu về [quản lý tài nguyên cho Pod và Container](110-manage-resources-containers-vi.md).
+* Tìm hiểu về [trục xuất do áp lực node (Node-pressure eviction)](142-node-pressure-eviction-vi.md).
+* Tìm hiểu về [độ ưu tiên và cơ chế chiếm chỗ của Pod (Pod priority and preemption)](141-pod-priority-preemption-vi.md).
+* Tìm hiểu về [sự gián đoạn Pod (Pod disruptions)](53-disruptions-vi.md).
+* Tìm hiểu cách [gán tài nguyên memory cho container và pod](264-assign-memory-resource-vi.md).
+* Tìm hiểu cách [gán tài nguyên CPU cho container và pod](263-assign-cpu-resource-vi.md).
+* Tìm hiểu cách [cấu hình Quality of Service cho Pod](288-quality-service-pod-vi.md).
 
 ---
 

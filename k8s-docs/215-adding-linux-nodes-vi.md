@@ -2,15 +2,57 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/adding-linux-nodes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
+→ [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node), bài 2/4 · Kiểm chứng trên cluster
+lab: đưa `k8s-worker2` ra khỏi cluster rồi join lại bằng token tự tạo, và ở **Lab 12 — Vận hành vòng
+đời node** khi lab đó được viết.
+
+Bài rất ngắn và bạn đã **chạy đúng quy trình này một lần rồi** — ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md)
+khi join hai worker. Khác biệt: lần đó bạn copy-paste lệnh `kubeadm init` in ra; lần này phải
+tự lấy được từng thành phần của lệnh join khi không còn lệnh gốc.
+
+**Phải hiểu ở lần đọc này:**
+
+- Điều kiện tiên quyết là node đã cài sẵn container runtime, kubelet và kubeadm theo bài
+  [01](01-install-kubeadm-vi.md) — `kubeadm join` **không** cài hộ những thứ đó.
+- Ba thành phần của lệnh join và cách lấy lại từng cái trên control plane: token
+  (`kubeadm token list` / `kubeadm token create`), địa chỉ `<host>:<port>`, và
+  `--discovery-token-ca-cert-hash` (dẫn xuất từ public key của `/etc/kubernetes/pki/ca.crt`).
+- **Token mặc định hết hạn sau 24 giờ.** Đây là lý do phổ biến nhất khiến join thất bại trên
+  một cluster đã dựng từ hôm trước; cách nhanh nhất là
+  `kubeadm token create --print-join-command`.
+- Ý nghĩa của `--discovery-token-ca-cert-hash`: node đang join dùng nó để **xác minh control
+  plane** trước khi tin tưởng, chứ không phải để control plane xác minh node.
+- Sau khi join, node xuất hiện trong `kubectl get nodes` sau vài giây. CoreDNS thường vẫn dồn
+  trên control plane node đầu tiên; `kubectl -n kube-system rollout restart deployment coredns`
+  để trải lại.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cú pháp địa chỉ IPv6 trong ngoặc vuông cho `<control-plane-host>` | cluster lab chạy IPv4 đơn thuần | bài [05](05-dual-stack-support-vi.md) ở giai đoạn 8 |
+| Thêm node worker Windows | chỉ cần khi môi trường có node Windows | bài [216](216-adding-windows-nodes-vi.md) và giai đoạn 15 |
+
+---
+
 Trang này giải thích cách thêm các node worker Linux vào một cluster kubeadm.
 
 ## Trước khi bạn bắt đầu (Before you begin)
 
 * Mỗi node worker sắp gia nhập (join) đã được cài đặt các thành phần bắt buộc theo hướng dẫn
-  [Cài đặt kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/),
+  [Cài đặt kubeadm](01-install-kubeadm-vi.md),
   chẳng hạn như kubeadm, kubelet và một container runtime.
 * Một cluster kubeadm đang chạy, được tạo bằng `kubeadm init` và theo các bước trong tài liệu
-  [Tạo cluster với kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/).
+  [Tạo cluster với kubeadm](02-create-cluster-kubeadm-vi.md).
 * Bạn cần quyền superuser trên node.
 
 ## Thêm node worker Linux (Adding Linux worker nodes)
@@ -89,7 +131,7 @@ Kết quả đầu ra tương tự như:
 ```
 [preflight] Running pre-flight checks
 
-... (log output of join workflow) ...
+... (log output of join workflow)...
 
 Node join complete:
 * Certificate signing request sent to control-plane and response
@@ -112,4 +154,45 @@ Vài giây sau, bạn sẽ thấy node này xuất hiện trong đầu ra của 
 
 ## Tiếp theo (What's next)
 
-* Xem cách [thêm node worker Windows](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/adding-windows-nodes/).
+* Xem cách [thêm node worker Windows](216-adding-windows-nodes-vi.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP1:
+
+1. Cluster lab của bạn dựng từ Lab 00 đã lâu. Bây giờ bạn muốn join thêm một worker nhưng
+   không còn giữ lệnh mà `kubeadm init` in ra. Nêu **một lệnh duy nhất** chạy trên `k8s-master`
+   cho ra lệnh join dùng được ngay, và giải thích vì sao token cũ (nếu bạn còn giữ) nhiều khả
+   năng đã vô dụng.
+2. **Câu bẫy.** `--discovery-token-ca-cert-hash` dùng để control plane kiểm tra xem node có
+   được phép gia nhập hay không — đúng hay sai? Nó thực sự bảo vệ điều gì?
+3. Bạn cài một máy Ubuntu trắng, chỉ mới cài `kubeadm`, rồi chạy ngay `kubeadm join`. Theo phần
+   điều kiện tiên quyết của bài, bước nào còn thiếu và hậu quả là gì?
+4. Sau khi join worker mới thành công, vì sao bài khuyên chạy
+   `kubectl -n kube-system rollout restart deployment coredns`?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Lệnh: **`sudo kubeadm token create --print-join-command`** — nó vừa tạo token mới vừa in
+   trọn vẹn lệnh `kubeadm join` kèm địa chỉ control plane và `--discovery-token-ca-cert-hash`.
+   Token cũ vô dụng vì **token bootstrap mặc định chỉ sống 24 giờ**; cluster dựng từ hôm trước
+   thì token trong lệnh gốc đã hết hạn.
+2. **Sai — ngược chiều.** Hash đó để **node đang join xác minh control plane**: nó băm public
+   key của CA cluster, giúp node biết mình đang nói chuyện đúng cluster chứ không phải một
+   endpoint giả mạo. Chiều ngược lại — control plane xác thực node — là việc của **token**
+   bootstrap. Đây là chỗ trực giác hay đảo, vì cả hai tham số nằm cạnh nhau trong cùng một lệnh.
+3. Thiếu **container runtime và kubelet** (và các bước chuẩn bị của bài [01](01-install-kubeadm-vi.md):
+   mở port, tắt swap, chọn cgroup driver). `kubeadm join` chỉ ghi cấu hình và đăng ký node, nó
+   **không cài hộ** runtime hay kubelet — nên node sẽ không bao giờ lên `Ready`.
+4. Vì các node thường được khởi tạo **tuần tự**, nên các Pod CoreDNS gần như chắc chắn đã bị
+   lập lịch hết lên node control plane đầu tiên. Restart rollout buộc chúng được lập lịch lại
+   và trải ra các node mới, tăng tính sẵn sàng cho DNS của cluster.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài kế của [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node).

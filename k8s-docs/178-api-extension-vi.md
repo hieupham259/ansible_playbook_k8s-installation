@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 14](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 2/7 ·
+**Vị trí:** [Giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 2/7 ·
 Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Giai đoạn này lộ trình ghi rõ là **dành cho platform administrator / người phát triển operator**.
@@ -42,12 +42,12 @@ resource, và hai bài kế tiếp sẽ mổ từng cách. Đừng cố hiểu s
 
 Custom resource là các phần mở rộng của Kubernetes API. Kubernetes cung cấp hai cách để thêm custom resource vào cluster của bạn:
 
-- Cơ chế [CustomResourceDefinition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
+- Cơ chế [CustomResourceDefinition](179-custom-resources-vi.md)
   (CRD) cho phép bạn định nghĩa một custom API mới theo cách khai báo (declarative) với API group, kind và
   schema do bạn chỉ định.
   Control plane của Kubernetes phục vụ và đảm nhận việc lưu trữ custom resource của bạn. CRD cho phép bạn
   tạo các loại resource mới cho cluster mà không cần viết và vận hành một API server tùy chỉnh.
-- [Tầng tổng hợp (aggregation layer)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/)
+- [Tầng tổng hợp (aggregation layer)](180-apiserver-aggregation-vi.md)
   nằm phía sau API server chính, và API server chính đóng vai trò như một proxy.
   Cách bố trí này được gọi là API Aggregation (AA), cho phép bạn cung cấp
   các hiện thực chuyên biệt cho các custom resource của mình bằng cách viết và

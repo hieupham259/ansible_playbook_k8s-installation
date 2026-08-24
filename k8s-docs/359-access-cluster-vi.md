@@ -164,7 +164,7 @@ Vì certificate của cluster thường là tự ký, bạn có thể cần cấ
 
 Trên một số cluster, apiserver không yêu cầu xác thực; nó có thể phục vụ trên
 localhost, hoặc được bảo vệ bởi tường lửa (firewall). Không có chuẩn chung nào
-cho việc này. [Kiểm soát truy cập tới API](https://kubernetes.io/docs/concepts/security/controlling-access)
+cho việc này. [Kiểm soát truy cập tới API](119-controlling-access-vi.md)
 mô tả cách quản trị viên cluster có thể cấu hình điều này.
 
 ## Truy cập API bằng lập trình (Programmatic access to the API)
@@ -182,7 +182,7 @@ Kubernetes chính thức hỗ trợ thư viện client cho [Go](#go-client) và 
   vì vậy nếu cần, hãy import các định nghĩa API từ client-go thay vì từ repository chính,
   ví dụ `import "k8s.io/client-go/kubernetes"` là cách đúng.
 
-Go client có thể dùng cùng [file kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+Go client có thể dùng cùng [file kubeconfig](111-kubeconfig-vi.md)
 như kubectl CLI để định vị và xác thực với apiserver. Xem
 [ví dụ](https://git.k8s.io/client-go/examples/out-of-cluster-client-configuration/main.go) này.
 
@@ -194,7 +194,7 @@ Nếu ứng dụng được triển khai dưới dạng một Pod trong cluster,
 `pip install kubernetes`. Xem [trang Python Client Library](https://github.com/kubernetes-client/python)
 để biết thêm các tùy chọn cài đặt khác.
 
-Python client có thể dùng cùng [file kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+Python client có thể dùng cùng [file kubeconfig](111-kubeconfig-vi.md)
 như kubectl CLI để định vị và xác thực với apiserver. Xem
 [ví dụ](https://github.com/kubernetes-client/python/tree/master/examples) này.
 
@@ -208,7 +208,7 @@ Xem tài liệu của từng thư viện để biết cách chúng xác thực.
 Khi truy cập API từ một pod, việc định vị và xác thực với API server
 có đôi chút khác biệt.
 
-Vui lòng xem [Truy cập API từ bên trong một Pod](https://kubernetes.io/docs/tasks/run-application/access-api-from-pod/)
+Vui lòng xem [Truy cập API từ bên trong một Pod](338-access-api-from-pod-vi.md)
 để biết thêm chi tiết.
 
 ## Truy cập các service đang chạy trên cluster (Accessing services running on the cluster)
@@ -244,7 +244,7 @@ Có một số loại proxy khác nhau mà bạn có thể gặp khi dùng Kuber
    - có thể được dùng để truy cập một Node, Pod, hoặc Service
    - thực hiện cân bằng tải khi được dùng để truy cập một Service
 
-1. [kube proxy](https://kubernetes.io/docs/concepts/services-networking/service/#ips-and-vips):
+1. [kube proxy](https://kubernetes.io/docs/concepts/services-networking/service#ips-and-vips):
 
    - chạy trên mỗi node
    - proxy các giao thức UDP và TCP

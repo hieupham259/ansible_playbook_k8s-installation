@@ -6,7 +6,7 @@
 
 Trang này hướng dẫn cách dùng một Volume để giao tiếp giữa hai Container chạy
 trong cùng một Pod. Xem thêm cách cho phép các tiến trình giao tiếp bằng việc
-[chia sẻ process namespace](https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/)
+[chia sẻ process namespace](292-share-process-namespace-vi.md)
 giữa các container.
 
 ## Trước khi bạn bắt đầu (Before you begin)
@@ -162,9 +162,9 @@ Volume dùng chung sẽ bị mất.
 
 * Tìm hiểu về [composite container cho kiến trúc dạng module](https://www.slideshare.net/Docker/slideshare-burns).
 
-* Xem [Cấu hình một Pod dùng Volume để lưu trữ](https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/).
+* Xem [Cấu hình một Pod dùng Volume để lưu trữ](280-configure-volume-storage-vi.md).
 
-* Xem [Cấu hình một Pod chia sẻ process namespace giữa các container trong Pod](https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/)
+* Xem [Cấu hình một Pod chia sẻ process namespace giữa các container trong Pod](292-share-process-namespace-vi.md)
 
 * Xem [Volume](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#volume-v1-core).
 

@@ -107,7 +107,7 @@ kubectl create secret generic test-secret --from-literal='username=my-app' --fro
 Cách này tiện hơn. Cách chi tiết được trình bày trước đó đi qua
 từng bước một cách tường minh để minh họa điều gì đang diễn ra.
 
-## Tạo một Pod truy cập dữ liệu bí mật thông qua Volume (Create a Pod that has access to the secret data through a Volume)
+## Tạo một Pod truy cập dữ liệu bí mật thông qua Volume (Create a Pod that has access to the secret data through a Volume) {#create-a-pod-that-has-access-to-the-secret-data-through-a-volume}
 
 Dưới đây là file cấu hình bạn có thể dùng để tạo một Pod:
 
@@ -192,7 +192,7 @@ Hãy sửa image hoặc dòng lệnh của bạn sao cho chương trình tìm c�
 thư mục `mountPath`. Mỗi key trong map `data` của Secret trở thành một tên file
 trong thư mục này.
 
-### Chiếu các key của Secret vào những đường dẫn file cụ thể (Project Secret keys to specific file paths)
+### Chiếu các key của Secret vào những đường dẫn file cụ thể (Project Secret keys to specific file paths) {#project-secret-keys-to-specific-file-paths}
 
 Bạn cũng có thể kiểm soát các đường dẫn bên trong volume nơi các key của Secret được chiếu (project) vào. Hãy dùng
 field `.spec.volumes[].secret.items` để thay đổi đường dẫn đích của từng key:
@@ -234,7 +234,7 @@ những điều sau:
 - Mọi key được liệt kê phải tồn tại trong Secret tương ứng. Nếu không, volume
   sẽ không được tạo.
 
-### Thiết lập quyền POSIX cho các key của Secret (Set POSIX permissions for Secret keys)
+### Thiết lập quyền POSIX cho các key của Secret (Set POSIX permissions for Secret keys) {#set-posix-permissions-for-secret-keys}
 
 Bạn có thể thiết lập các bit quyền truy cập file POSIX cho từng key riêng lẻ của Secret.
 Nếu bạn không chỉ định quyền nào, `0644` sẽ được dùng theo mặc định.
@@ -272,7 +272,7 @@ secret volume mount đều có quyền `0400`.
 > `defaultMode`. Nếu bạn viết YAML, bạn có thể viết `defaultMode`
 > ở dạng bát phân.
 
-## Định nghĩa biến môi trường của container bằng dữ liệu Secret (Define container environment variables using Secret data)
+## Định nghĩa biến môi trường của container bằng dữ liệu Secret (Define container environment variables using Secret data) {#define-container-environment-variables-using-secret-data}
 
 Bạn có thể sử dụng dữ liệu trong Secret dưới dạng biến môi trường trong các
 container của bạn.
@@ -379,7 +379,7 @@ secret thay đổi.
   BACKEND_USERNAME=backend-admin
   ```
 
-## Cấu hình tất cả cặp key-value trong một Secret thành biến môi trường của container (Configure all key-value pairs in a Secret as container environment variables)
+## Cấu hình tất cả cặp key-value trong một Secret thành biến môi trường của container (Configure all key-value pairs in a Secret as container environment variables) {#configure-all-key-value-pairs-in-a-secret-as-container-environment-variables}
 
 > **Ghi chú:**
 > Chức năng này khả dụng trong Kubernetes v1.6 trở lên.
@@ -561,5 +561,5 @@ spec:
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu thêm về [Secret](https://kubernetes.io/docs/concepts/configuration/secret/).
-- Tìm hiểu về [Volume](https://kubernetes.io/docs/concepts/storage/volumes/).
+- Tìm hiểu thêm về [Secret](109-secret-vi.md).
+- Tìm hiểu về [Volume](91-volumes-vi.md).

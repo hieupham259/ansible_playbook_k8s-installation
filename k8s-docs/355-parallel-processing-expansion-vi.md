@@ -14,7 +14,7 @@ mẫu hình (pattern) này phù hợp với các trường hợp sử dụng th�
 ## Trước khi bạn bắt đầu (Before you begin)
 
 Bạn nên đã quen với cách sử dụng cơ bản, không song song, của
-[Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/).
+[Job](67-job-vi.md).
 
 Bạn cần có một cluster Kubernetes, và công cụ dòng lệnh kubectl phải được
 cấu hình để giao tiếp với cluster của bạn. Bạn nên chạy hướng dẫn này trên một
@@ -39,7 +39,7 @@ Sau khi đã thiết lập Python, bạn có thể cài Jinja2 bằng cách ch�
 pip install --user jinja2
 ```
 
-## Tạo các Job dựa trên một template (Create Jobs based on a template)
+## Tạo các Job dựa trên một template (Create Jobs based on a template) {#create-jobs-based-on-a-template}
 
 Trước tiên, tải template Job sau về một file có tên `job-tmpl.yaml`.
 Đây là nội dung bạn sẽ tải về:
@@ -181,7 +181,7 @@ kubectl delete job -l jobgroup=jobexample
 
 Trong [ví dụ thứ nhất](#create-jobs-based-on-a-template), mỗi bản thể hiện (instance) của template
 có một tham số, và tham số đó cũng được dùng trong tên của Job. Tuy nhiên,
-[tên](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names) bị giới hạn
+[tên](17-names-vi.md#names) bị giới hạn
 chỉ được chứa một số ký tự nhất định.
 
 Ví dụ phức tạp hơn một chút này dùng
@@ -298,7 +298,7 @@ bạn có thể kiểm tra tất cả các Pod của các Job được tạo t�
 > **Ghi chú:**
 > Khóa label `jobgroup` không có gì đặc biệt hay được dành riêng.
 > Bạn có thể chọn cách đặt label của riêng mình.
-> Có các [label được khuyến nghị](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/#labels)
+> Có các [label được khuyến nghị](31-common-labels-vi.md#labels)
 > mà bạn có thể dùng nếu muốn.
 
 ## Các lựa chọn thay thế (Alternatives)
@@ -313,9 +313,9 @@ Nếu bạn dự định tạo một số lượng lớn đối tượng Job, b�
   đối với Job: API server sẽ từ chối vĩnh viễn một số yêu cầu của bạn
   khi bạn tạo một khối lượng công việc rất lớn trong một lô.
 
-Có các [mẫu hình Job (job patterns)](https://kubernetes.io/docs/concepts/workloads/controllers/job/#job-patterns)
+Có các [mẫu hình Job (job patterns)](67-job-vi.md#job-patterns)
 khác mà bạn có thể dùng để xử lý khối lượng công việc lớn mà không cần tạo quá nhiều
 đối tượng Job.
 
-Bạn cũng có thể cân nhắc viết [controller](https://kubernetes.io/docs/concepts/architecture/controller/)
+Bạn cũng có thể cân nhắc viết [controller](25-controllers-vi.md)
 của riêng mình để quản lý các đối tượng Job một cách tự động.

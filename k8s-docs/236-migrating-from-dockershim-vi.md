@@ -16,7 +16,7 @@ Dockershim đã bị loại bỏ khỏi Kubernetes cùng với bản phát hành
 Nếu bạn đang dùng Docker Engine thông qua dockershim làm container runtime và muốn nâng cấp lên
 v1.24, bạn nên chuyển sang một runtime khác hoặc tìm một phương án thay thế để có được sự hỗ trợ
 cho Docker Engine. Hãy xem mục
-[container runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
+[container runtimes](00-container-runtimes-vi.md)
 để biết các lựa chọn của bạn.
 
 Phiên bản Kubernetes còn có dockershim (1.23) đã hết hạn hỗ trợ và v1.24 cũng sẽ
@@ -31,12 +31,12 @@ Cluster của bạn có thể có nhiều hơn một loại node, mặc dù đâ
 
 Các tác vụ sau sẽ giúp bạn thực hiện việc chuyển đổi:
 
-* [Kiểm tra xem việc loại bỏ Dockershim có ảnh hưởng tới bạn không](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/check-if-dockershim-removal-affects-you/)
-* [Chuyển đổi các agent telemetry và bảo mật khỏi dockershim](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/migrating-telemetry-and-security-agents/)
+* [Kiểm tra xem việc loại bỏ Dockershim có ảnh hưởng tới bạn không](238-check-dockershim-removal-vi.md)
+* [Chuyển đổi các agent telemetry và bảo mật khỏi dockershim](240-migrating-telemetry-agents-vi.md)
 
 ## Tiếp theo (What's next)
 
-* Xem mục [container runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
+* Xem mục [container runtimes](00-container-runtimes-vi.md)
   để hiểu các lựa chọn thay thế của bạn.
 * Nếu bạn phát hiện lỗi hoặc vấn đề kỹ thuật khác liên quan tới việc chuyển đổi khỏi dockershim,
   bạn có thể [báo cáo issue](https://github.com/kubernetes/kubernetes/issues/new/choose)

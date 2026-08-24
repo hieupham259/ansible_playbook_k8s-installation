@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+**Vị trí:** Giai đoạn 1 → nhóm [1a](00-ALO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
 bài 6/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B6.
 
 Nửa sau của bài nói về eviction, taint và availability zone — thuộc giai đoạn 7 và 12. Ở đây
@@ -95,7 +95,7 @@ cho đến khi nó trở nên khỏe mạnh.
 > để dừng việc kiểm tra sức khỏe (health checking) đó.
 
 Tên của một đối tượng Node phải là một
-[tên DNS subdomain hợp lệ](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names).
+[tên DNS subdomain hợp lệ](17-names-vi.md#dns-subdomain-names).
 
 ### Tính duy nhất của tên Node (Node name uniqueness) {#node-name-uniqueness}
 
@@ -126,7 +126,7 @@ tự đăng ký với API server. Đây là mẫu hình được ưu tiên, đư
   Bạn chỉ có thể chỉ định một địa chỉ duy nhất cho mỗi họ địa chỉ (address family).
   Ví dụ, trong một cluster IPv4 single-stack, bạn đặt giá trị này là địa chỉ IPv4 mà
   kubelet nên dùng cho node.
-  Xem [cấu hình dual stack IPv4/IPv6](https://kubernetes.io/docs/concepts/services-networking/dual-stack/#configure-ipv4-ipv6-dual-stack)
+  Xem [cấu hình dual stack IPv4/IPv6](85-dual-stack-vi.md#configure-ipv4-ipv6-dual-stack)
   để biết chi tiết về việc chạy cluster dual-stack.
 
   Nếu bạn không cung cấp đối số này, kubelet sẽ dùng địa chỉ IPv4 mặc định của node, nếu có;
@@ -165,7 +165,7 @@ Bạn có thể sửa các đối tượng Node bất kể giá trị của `--r
 Ví dụ, bạn có thể gán label cho một Node hiện có hoặc đánh dấu nó là không thể lập lịch (unschedulable).
 
 Bạn có thể đặt (các) vai trò (role) tùy chọn cho node bằng cách thêm một hoặc nhiều label dạng `node-role.kubernetes.io/<role>: <role>` cho node, trong đó các ký tự của `<role>`
-bị giới hạn bởi các quy tắc [cú pháp](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set) dành cho label.
+bị giới hạn bởi các quy tắc [cú pháp](18-labels-vi.md#syntax-and-character-set) dành cho label.
 
 Kubernetes bỏ qua giá trị label đối với vai trò của node; theo quy ước, bạn có thể đặt nó thành cùng chuỗi mà bạn đã dùng cho vai trò node trong khóa (key) của label.
 
@@ -183,7 +183,7 @@ bước chuẩn bị trước khi khởi động lại node hoặc thực hiện
 kubectl cordon $NODENAME
 ```
 
-Xem [Rút cạn một Node an toàn (Safely Drain a Node)](https://kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/)
+Xem [Rút cạn một Node an toàn (Safely Drain a Node)](255-safely-drain-node-vi.md)
 để biết thêm chi tiết.
 
 > **Ghi chú:**
@@ -209,7 +209,7 @@ kubectl describe node <insert-node-name-here>
 
 Xem [Trạng thái Node (Node Status)](https://kubernetes.io/docs/reference/node/node-status/) để biết thêm chi tiết.
 
-## Nhịp tim của Node (Node heartbeats)
+## Nhịp tim của Node (Node heartbeats) {#node-heartbeats}
 
 Các nhịp tim (heartbeat), do các node Kubernetes gửi đi, giúp cluster của bạn xác định
 mức độ khả dụng của từng node, và thực hiện hành động khi phát hiện sự cố.
@@ -217,7 +217,7 @@ mức độ khả dụng của từng node, và thực hiện hành động khi 
 Đối với các node, có hai dạng heartbeat:
 
 * Cập nhật vào [`.status`](https://kubernetes.io/docs/reference/node/node-status/) của một Node.
-* Các đối tượng [Lease](https://kubernetes.io/docs/concepts/architecture/leases/)
+* Các đối tượng [Lease](35-leases-vi.md)
   bên trong namespace `kube-node-lease`.
   Mỗi Node có một đối tượng Lease tương ứng.
 
@@ -242,7 +242,7 @@ trách nhiệm:
   trong trường `.status` của Node. Trong trường hợp này, node controller đặt
   điều kiện `Ready` thành `Unknown`.
 - Nếu node vẫn tiếp tục không thể truy cập được: kích hoạt
-  [trục xuất khởi phát qua API (API-initiated eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/)
+  [trục xuất khởi phát qua API (API-initiated eviction)](143-api-eviction-vi.md)
   cho tất cả các Pod trên node không thể truy cập đó. Theo mặc định, node controller
   đợi 5 phút giữa thời điểm đánh dấu node là `Unknown` và thời điểm gửi
   yêu cầu trục xuất (eviction) đầu tiên.
@@ -307,7 +307,7 @@ tiến trình chạy ngoài tầm kiểm soát của kubelet.
 > **Ghi chú:**
 >
 > Nếu bạn muốn dành riêng (reserve) tài nguyên một cách tường minh cho các tiến trình không phải Pod, xem
-> [dành riêng tài nguyên cho các system daemon](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/#system-reserved).
+> [dành riêng tài nguyên cho các system daemon](253-reserve-compute-resources-vi.md#system-reserved).
 
 ## Topology của node (Node topology)
 
@@ -316,7 +316,7 @@ tiến trình chạy ngoài tầm kiểm soát của kubelet.
 Nếu bạn đã bật [feature gate](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/)
 `TopologyManager`, thì
 kubelet có thể sử dụng các gợi ý topology (topology hints) khi đưa ra quyết định gán tài nguyên.
-Xem [Kiểm soát các chính sách quản lý topology trên một Node (Control Topology Management Policies on a Node)](https://kubernetes.io/docs/tasks/administer-cluster/topology-manager/)
+Xem [Kiểm soát các chính sách quản lý topology trên một Node (Control Topology Management Policies on a Node)](259-topology-manager-vi.md)
 để biết thêm thông tin.
 
 ## Tiếp theo (What's next)
@@ -327,12 +327,12 @@ Tìm hiểu thêm về các chủ đề sau:
 * [Định nghĩa API của Node](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#node-v1-core).
 * Mục [Node](https://git.k8s.io/design-proposals-archive/architecture/architecture.md#the-kubernetes-node)
   trong tài liệu thiết kế kiến trúc.
-* [Tắt node êm thấm/không êm thấm (Graceful/non-graceful node shutdown)](https://kubernetes.io/docs/concepts/cluster-administration/node-shutdown/).
-* [Tự động co giãn node (Node autoscaling)](https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/) để
+* [Tắt node êm thấm/không êm thấm (Graceful/non-graceful node shutdown)](169-node-shutdown-vi.md).
+* [Tự động co giãn node (Node autoscaling)](171-node-autoscaling-vi.md) để
   quản lý số lượng và kích cỡ các node trong cluster của bạn.
-* [Taint và Toleration](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
+* [Taint và Toleration](139-taint-and-toleration-vi.md).
 * [Node Resource Managers](https://kubernetes.io/docs/concepts/policy/node-resource-managers/).
-* [Quản lý tài nguyên cho các node Windows (Resource Management for Windows nodes)](https://kubernetes.io/docs/concepts/configuration/windows-resource-management/).
+* [Quản lý tài nguyên cho các node Windows (Resource Management for Windows nodes)](112-windows-resource-management-vi.md).
 
 ---
 

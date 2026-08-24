@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 5/11 · Kiểm chứng
+**Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 5/11 · Kiểm chứng
 ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Trọng tâm của bài là **phân biệt ba loại probe**. Ba cái tên nghe giống nhau nhưng hậu quả khi
@@ -75,7 +75,7 @@ hoàn tất quá trình khởi tạo của nó.
 Loại probe này chỉ được thực thi lúc khởi động, khác với liveness probe và readiness
 probe vốn chạy định kỳ.
 Nếu startup probe thất bại, kubelet sẽ kill container, và container chịu sự chi phối
-của [chính sách khởi động lại (restart policy)](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy) của nó.
+của [chính sách khởi động lại (restart policy)](47-pod-lifecycle-vi.md#restart-policy) của nó.
 
 ### Liveness probe {#liveness-probe}
 
@@ -119,10 +119,10 @@ Readiness probe chạy trên container trong suốt toàn bộ vòng đời củ
 > **Ghi chú:**
 > Nếu bạn muốn có khả năng thoát dần (drain) các request khi Pod bị xóa, bạn không
 > nhất thiết cần readiness probe; khi Pod bị xóa, endpoint tương ứng trong
-> EndpointSlice sẽ cập nhật [các condition](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/#conditions)
+> EndpointSlice sẽ cập nhật [các condition](83-endpoint-slices-vi.md#conditions)
 > của nó: condition ready của endpoint sẽ được đặt thành false, do đó các bộ cân bằng
 > tải (load balancer) sẽ không dùng Pod này cho lưu lượng thông thường. Xem
-> [Pod termination](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination)
+> [Pod termination](47-pod-lifecycle-vi.md#pod-termination)
 > để biết thêm thông tin về cách kubelet xử lý việc xóa Pod.
 
 ## Khi nào dùng từng loại probe (When to use each probe) {#when-to-use-each-probe}
@@ -224,7 +224,7 @@ probe có một trong ba kết quả:
 `Failure`
 : Container thất bại phép chẩn đoán. Với liveness probe và startup probe, kubelet
   sẽ kill container, và container chịu sự chi phối của
-  [chính sách khởi động lại (restart policy)](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy) của nó.
+  [chính sách khởi động lại (restart policy)](47-pod-lifecycle-vi.md#restart-policy) của nó.
   Với readiness probe, kubelet đánh dấu container là chưa sẵn sàng, và Pod ngừng
   nhận lưu lượng từ các Service khớp với nó.
 
@@ -308,7 +308,7 @@ spec:
   kubelet tôn trọng thiết lập `terminationGracePeriodSeconds` của container đó. Với
   readiness probe thất bại, kubelet tiếp tục chạy container không vượt qua các phép
   kiểm tra, đồng thời cũng tiếp tục chạy thêm các probe; vì phép kiểm tra thất bại,
-  kubelet đặt [condition](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-conditions)
+  kubelet đặt [condition](47-pod-lifecycle-vi.md#pod-conditions)
   `Ready` của Pod thành `false`.
 
 `terminationGracePeriodSeconds`
@@ -527,7 +527,7 @@ và TCP probe.
 ## Tiếp theo (What's next)
 
 * Tìm hiểu cách
-  [Cấu hình Liveness, Readiness và Startup Probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/).
+  [Cấu hình Liveness, Readiness và Startup Probes](274-configure-probes-vi.md).
 * Để xem đặc tả đầy đủ của các trường liên quan đến probe, xem tài liệu tham khảo API:
   [Pod](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/),
   [Container](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#Container),

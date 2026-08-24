@@ -98,7 +98,7 @@ registry-url/image-name@sha256:45b23dee08af5e43a7fea6c4cf9c25ccf269ee113168c1972
 Để biết thêm thông tin, hãy tham khảo mục
 [Chính sách pull image (Image Pull Policy)](40-images-vi.md#chính-sách-pull-image-image-pull-policy).
 
-## Xác minh chữ ký image bằng Admission Controller (Verifying Image Signatures with Admission Controller)
+## Xác minh chữ ký image bằng Admission Controller (Verifying Image Signatures with Admission Controller) {#verifying-image-signatures-with-admission-controller}
 
 Đối với các image không thuộc control plane (ví dụ
 [image conformance](https://github.com/kubernetes/kubernetes/blob/master/test/conformance/image/README.md)),

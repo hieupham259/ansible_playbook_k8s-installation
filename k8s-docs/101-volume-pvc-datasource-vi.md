@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 12/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 12/16 · Kiểm chứng ở
 Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài ngắn nhất của giai đoạn 6, và gần như toàn bộ giá trị nằm ở danh sách ràng buộc trong mục
@@ -42,7 +42,7 @@ Bài ngắn nhất của giai đoạn 6, và gần như toàn bộ giá trị n�
 ---
 
 Tài liệu này mô tả khái niệm nhân bản (clone) các CSI Volume có sẵn trong Kubernetes.
-Bạn nên làm quen trước với [Volume](https://kubernetes.io/docs/concepts/storage/volumes).
+Bạn nên làm quen trước với [Volume](91-volumes-vi.md).
 
 ## Giới thiệu (Introduction)
 

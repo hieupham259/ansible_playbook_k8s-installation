@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 7/8 ·
+**Vị trí:** [Giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 7/8 ·
 Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Cluster lab của bạn chỉ có một runtime handler nên sẽ không tạo RuntimeClass nào. Đọc để biết
@@ -101,7 +101,7 @@ handler: myconfiguration
 ```
 
 Tên của một object RuntimeClass phải là một
-[tên DNS subdomain (DNS subdomain name)](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names)
+[tên DNS subdomain (DNS subdomain name)](17-names-vi.md#dns-subdomain-names)
 hợp lệ.
 
 > **Ghi chú:** Khuyến nghị rằng các thao tác ghi lên RuntimeClass
@@ -128,9 +128,9 @@ spec:
 Điều này sẽ chỉ thị cho kubelet dùng RuntimeClass có tên được chỉ định để chạy pod
 này. Nếu RuntimeClass với tên đó không tồn tại, hoặc CRI không thể chạy handler
 tương ứng, pod sẽ đi vào
-[phase](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase)
+[phase](47-pod-lifecycle-vi.md#pod-phase)
 kết thúc `Failed`. Hãy tìm
-[event](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/)
+[event](300-debug-running-pod-vi.md)
 tương ứng để xem thông báo lỗi.
 
 Nếu không chỉ định `runtimeClassName`, RuntimeHandler mặc định sẽ được sử dụng,
@@ -190,7 +190,7 @@ admission, thực chất là lấy phần hợp (union) của tập các node đ
 (tolerate).
 
 Để tìm hiểu thêm về việc cấu hình node selector và tolerations, xem
-[Gán Pod vào Node (Assigning Pods to Nodes)](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).
+[Gán Pod vào Node (Assigning Pods to Nodes)](138-assign-pod-node-vi.md).
 
 ### Overhead của Pod (Pod Overhead)
 
@@ -209,7 +209,7 @@ RuntimeClass này và đảm bảo các overhead đó được tính đến tron
 - [Thiết kế RuntimeClass (RuntimeClass Design)](https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/585-runtime-class/README.md)
 - [Thiết kế lập lịch cho RuntimeClass (RuntimeClass Scheduling Design)](https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/585-runtime-class/README.md#runtimeclass-scheduling)
 - [Tài liệu tham khảo API RuntimeClass (RuntimeClass API reference)](https://kubernetes.io/docs/reference/kubernetes-api/node/runtime-class-v1/)
-- Đọc về khái niệm [Overhead của Pod (Pod Overhead)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-overhead/)
+- Đọc về khái niệm [Overhead của Pod (Pod Overhead)](144-pod-overhead-vi.md)
 - [Thiết kế tính năng PodOverhead (PodOverhead Feature Design)](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/688-pod-overhead)
 
 ---

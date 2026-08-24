@@ -201,7 +201,7 @@ kubectl rollout status deployment/nginx-deployment
 ## Cấu hình chiến lược rolling update (Configuring rolling update strategy)
 
 Deployment hỗ trợ hai
-[loại chiến lược cập nhật](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy):
+[loại chiến lược cập nhật](63-deployment-vi.md#strategy):
 
 - **RollingUpdate** (mặc định): thay thế dần các Pod cũ bằng các Pod mới.
 - **Recreate**: chấm dứt toàn bộ Pod hiện có trước khi tạo Pod mới. Cách này
@@ -228,8 +228,8 @@ kubectl patch deployment nginx-deployment -p \
 
 Bạn cũng có thể đặt các trường này trong manifest của Deployment tại
 `.spec.strategy.rollingUpdate`. Để xem các ví dụ chi tiết, hãy xem
-[max unavailable](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#max-unavailable)
-và [max surge](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#max-surge)
+[max unavailable](63-deployment-vi.md#max-unavailable)
+và [max surge](63-deployment-vi.md#max-surge)
 trong tài liệu khái niệm về Deployment.
 
 ### Phát hiện một rollout bị đình trệ (Detecting a stalled rollout)
@@ -312,7 +312,7 @@ kubectl delete deployment nginx-deployment
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu thêm về [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
+- Tìm hiểu thêm về [Deployment](63-deployment-vi.md).
 - Tìm hiểu cách [scale một Deployment thủ công](346-scale-deployment-vi.md).
-- Thực hành theo [Horizontal Pod Autoscaling](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/).
+- Thực hành theo [Horizontal Pod Autoscaling](342-hpa-walkthrough-vi.md).
 - Xem cách [thực hiện rolling update trên một DaemonSet](https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/).

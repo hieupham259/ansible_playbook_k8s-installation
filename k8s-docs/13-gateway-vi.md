@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 12/16 · Kiểm chứng
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 12/16 · Kiểm chứng
 ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này đọc để **biết định hướng**, không phải để triển khai ngay. Điểm dễ hiểu nhầm nhất:
@@ -47,7 +47,7 @@ mới tồn tại. Lab 5b cài ingress controller chứ không cài Gateway, nê
 
 ---
 
-Làm cho các dịch vụ mạng khả dụng bằng một cơ chế cấu hình có khả năng mở rộng, hướng theo vai trò (role-oriented) và hiểu giao thức (protocol-aware). [Gateway API](https://gateway-api.sigs.k8s.io/) là một [add-on](https://kubernetes.io/docs/concepts/cluster-administration/addons/)
+Làm cho các dịch vụ mạng khả dụng bằng một cơ chế cấu hình có khả năng mở rộng, hướng theo vai trò (role-oriented) và hiểu giao thức (protocol-aware). [Gateway API](https://gateway-api.sigs.k8s.io/) là một [add-on](165-addons-vi.md)
 chứa các [loại](https://gateway-api.sigs.k8s.io/references/spec/) API cung cấp khả năng cấp phát hạ tầng
 động và định tuyến lưu lượng nâng cao.
 
@@ -62,12 +62,12 @@ Các nguyên tắc sau đây đã định hình thiết kế và kiến trúc c�
   * __Người vận hành cluster (Cluster Operator):__ Quản lý các cluster và thường quan tâm đến các chính sách, quyền truy cập
     mạng, quyền hạn của ứng dụng, v.v.
   * __Nhà phát triển ứng dụng (Application Developer):__ Quản lý một ứng dụng chạy trong cluster và thường
-    quan tâm đến cấu hình ở cấp ứng dụng và việc tổ hợp các [Service](https://kubernetes.io/docs/concepts/services-networking/service/).
-* __Khả chuyển (Portable):__ Các đặc tả của Gateway API được định nghĩa dưới dạng [custom resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources)
+    quan tâm đến cấu hình ở cấp ứng dụng và việc tổ hợp các [Service](82-service-vi.md).
+* __Khả chuyển (Portable):__ Các đặc tả của Gateway API được định nghĩa dưới dạng [custom resource](179-custom-resources-vi.md)
   và được hỗ trợ bởi nhiều [bản hiện thực](https://gateway-api.sigs.k8s.io/implementations/) (implementation).
 * __Giàu khả năng biểu đạt (Expressive):__ Các loại API của Gateway API hỗ trợ chức năng cho các trường hợp định tuyến lưu lượng phổ biến
   như so khớp dựa trên header, phân bổ lưu lượng theo trọng số (traffic weighting), và những tính năng khác mà trước đây chỉ có thể làm được trong
-  [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) bằng cách dùng các annotation tùy chỉnh.
+  [Ingress](11-ingress-vi.md) bằng cách dùng các annotation tùy chỉnh.
 * __Khả năng mở rộng (Extensible):__ Gateway cho phép liên kết các custom resource ở nhiều tầng khác nhau của API.
   Điều này giúp việc tùy chỉnh chi tiết trở nên khả thi ở những vị trí phù hợp trong cấu trúc API.
 
@@ -82,11 +82,11 @@ Gateway API có bốn loại API ổn định (stable):
 
 * __HTTPRoute:__ Định nghĩa các quy tắc dành riêng cho HTTP để ánh xạ lưu lượng từ một listener của Gateway đến
   một đại diện của các endpoint mạng backend. Các endpoint này thường được biểu diễn dưới dạng một
-  [Service](https://kubernetes.io/docs/concepts/services-networking/service/).
+  [Service](82-service-vi.md).
 
 * __GRPCRoute:__ Định nghĩa các quy tắc dành riêng cho gRPC để ánh xạ lưu lượng từ một listener của Gateway đến
   một đại diện của các endpoint mạng backend. Các endpoint này thường được biểu diễn dưới dạng một
-  [Service](https://kubernetes.io/docs/concepts/services-networking/service/).
+  [Service](82-service-vi.md).
 
 Gateway API được tổ chức thành các loại API khác nhau có mối quan hệ phụ thuộc lẫn nhau nhằm hỗ trợ
 bản chất hướng theo vai trò của các tổ chức. Một đối tượng Gateway được liên kết với đúng một GatewayClass;
@@ -290,7 +290,7 @@ hiểu các chi tiết như kênh phát hành (release channel), mức độ h�
 
 ## Di chuyển từ Ingress (Migrating from Ingress)
 
-Gateway API là hậu duệ (successor) của [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) API.
+Gateway API là hậu duệ (successor) của [Ingress](11-ingress-vi.md) API.
 Tuy nhiên, nó không bao gồm loại Ingress. Do đó, cần một lần chuyển đổi duy nhất từ các tài nguyên
 Ingress hiện có của bạn sang các tài nguyên Gateway API.
 
@@ -300,7 +300,7 @@ Tham khảo hướng dẫn [di chuyển từ ingress](https://gateway-api.sigs.k
 ## Tiếp theo (What's next)
 
 Thay vì được Kubernetes hiện thực một cách nguyên bản (natively), các đặc tả của tài nguyên Gateway API
-được định nghĩa dưới dạng [Custom Resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
+được định nghĩa dưới dạng [Custom Resource](179-custom-resources-vi.md)
 và được hỗ trợ bởi rất nhiều [bản hiện thực](https://gateway-api.sigs.k8s.io/implementations/).
 [Cài đặt](https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api) các CRD của Gateway API hoặc
 làm theo hướng dẫn cài đặt của bản hiện thực mà bạn chọn. Sau khi cài đặt một

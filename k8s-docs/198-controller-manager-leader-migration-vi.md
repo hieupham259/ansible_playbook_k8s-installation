@@ -7,12 +7,12 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)), là phần
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)), là phần
 "Tiếp theo" của bài [34 — Cloud Controller Manager](34-cloud-controller-vi.md) và có họ hàng
-gần nhất với [CP2 — Nâng cấp cluster](LO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster).
+gần nhất với [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster).
 
 Bài này chỉ áp dụng khi cluster chạy **trên một cloud provider** và có **control plane nhân
 bản (HA)** đang chạy các cloud controller trong `kube-controller-manager`. Cluster lab
@@ -217,7 +217,7 @@ nhật, và với flag `--cloud-provider` đặt thành `external` cho `kube-con
 cloud provider external, nó không còn chạy các controller đã được di trú nữa, và do đó nó
 không tham gia vào cuộc di trú.
 
-Vui lòng tham khảo [Quản trị Cloud Controller Manager](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/)
+Vui lòng tham khảo [Quản trị Cloud Controller Manager](254-running-cloud-controller-vi.md)
 để biết thêm chi tiết về cách triển khai `cloud-controller-manager`.
 
 ### Nâng cấp control plane (Upgrade Control Plane)

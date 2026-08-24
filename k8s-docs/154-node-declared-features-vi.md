@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
+**Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
 bài 6/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Lộ trình đánh dấu bài này là ĐỌC LƯỚT.** Đọc một lượt là đủ, không cần dừng lại nghiền ngẫm,
@@ -136,4 +136,4 @@ Bài này chỉ đọc lướt, nên ba câu là đủ. Trả lời được mà
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của nhóm 7b — khi
 trả lời được hết sáu bài, bạn sẵn sàng vào Lab 7b (chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)); trong lúc chờ, dùng checkpoint của
-[Giai đoạn 7](LO-TRINH-ADMIN.md#giai-đoạn-7--lập-lịch-và-chính-sách-tài-nguyên) để tự kiểm.
+[Giai đoạn 7](00-ALO-TRINH-ADMIN.md#giai-đoạn-7--lập-lịch-và-chính-sách-tài-nguyên) để tự kiểm.

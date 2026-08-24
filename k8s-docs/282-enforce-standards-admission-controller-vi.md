@@ -19,7 +19,7 @@ Admission đạt mức phổ biến rộng rãi (generally available).
 Nếu bạn không chạy Kubernetes 1.36, bạn có thể chuyển sang xem trang này trong tài liệu của
 phiên bản Kubernetes mà bạn đang chạy.
 
-## Cấu hình Admission Controller (Configure the Admission Controller)
+## Cấu hình Admission Controller (Configure the Admission Controller) {#configure-the-admission-controller}
 
 > **Ghi chú:** Cấu hình `pod-security.admission.config.k8s.io/v1` yêu cầu v1.25+.
 > Với v1.23 và v1.24, dùng

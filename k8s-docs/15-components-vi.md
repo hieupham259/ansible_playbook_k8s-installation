@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+**Vị trí:** Giai đoạn 1 → nhóm [1a](00-ALO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
 bài 2/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B2.
 
 Bài này rất ngắn và chỉ là danh mục. Giá trị của nó nằm ở **ranh giới phân loại**, không ở
@@ -53,26 +53,26 @@ Dưới đây là tổng quan ngắn gọn về các thành phần chính:
 
 Quản lý trạng thái tổng thể của cluster:
 
-* **[kube-apiserver](https://kubernetes.io/docs/concepts/architecture/#kube-apiserver)**:
+* **[kube-apiserver](22-architecture-vi.md#kube-apiserver)**:
   Server thành phần cốt lõi expose HTTP API của Kubernetes.
-* **[etcd](https://kubernetes.io/docs/concepts/architecture/#etcd)**:
+* **[etcd](22-architecture-vi.md#etcd)**:
   Kho lưu trữ key-value nhất quán và có tính sẵn sàng cao (highly-available) cho toàn bộ dữ liệu của API server.
-* **[kube-scheduler](https://kubernetes.io/docs/concepts/architecture/#kube-scheduler)**:
+* **[kube-scheduler](22-architecture-vi.md#kube-scheduler)**:
   Tìm các Pod chưa được gắn (bound) với node nào, và gán mỗi Pod vào một node phù hợp.
-* **[kube-controller-manager](https://kubernetes.io/docs/concepts/architecture/#kube-controller-manager)**:
+* **[kube-controller-manager](22-architecture-vi.md#kube-controller-manager)**:
   Chạy các controller để hiện thực hóa hành vi của Kubernetes API.
-* **[cloud-controller-manager](https://kubernetes.io/docs/concepts/architecture/#cloud-controller-manager)** (tùy chọn):
+* **[cloud-controller-manager](22-architecture-vi.md#cloud-controller-manager)** (tùy chọn):
   Tích hợp với (các) nhà cung cấp cloud bên dưới.
 
 ### Các thành phần của node (Node Components)
 
 Chạy trên mọi node, duy trì các pod đang chạy và cung cấp môi trường runtime của Kubernetes:
 
-* **[kubelet](https://kubernetes.io/docs/concepts/architecture/#kubelet)**:
+* **[kubelet](22-architecture-vi.md#kubelet)**:
   Bảo đảm các Pod, bao gồm các container của chúng, đang chạy.
-* **[kube-proxy](https://kubernetes.io/docs/concepts/architecture/#kube-proxy)** (tùy chọn):
+* **[kube-proxy](22-architecture-vi.md#kube-proxy)** (tùy chọn):
   Duy trì các quy tắc mạng (network rules) trên các node để hiện thực hóa các Service.
-* **[Container runtime](https://kubernetes.io/docs/concepts/architecture/#container-runtime)**:
+* **[Container runtime](22-architecture-vi.md#container-runtime)**:
   Phần mềm chịu trách nhiệm chạy các container. Đọc
   [Container Runtimes](./00-container-runtimes-vi.md) để tìm hiểu thêm.
 
@@ -85,13 +85,13 @@ chạy [systemd](https://systemd.io/) trên một node Linux để giám sát c�
 
 Addon mở rộng chức năng của Kubernetes. Một vài ví dụ quan trọng bao gồm:
 
-* **[DNS](https://kubernetes.io/docs/concepts/architecture/#dns)**:
+* **[DNS](22-architecture-vi.md#dns)**:
   Để phân giải DNS trong toàn cluster.
-* **[Web UI](https://kubernetes.io/docs/concepts/architecture/#web-ui-dashboard)** (Dashboard):
+* **[Web UI](22-architecture-vi.md#web-ui-dashboard)** (Dashboard):
   Để quản lý cluster thông qua giao diện web.
-* **[Giám sát tài nguyên container (Container Resource Monitoring)](https://kubernetes.io/docs/concepts/architecture/#container-resource-monitoring)**:
+* **[Giám sát tài nguyên container (Container Resource Monitoring)](22-architecture-vi.md#container-resource-monitoring)**:
   Để thu thập và lưu trữ các chỉ số (metrics) của container.
-* **[Logging cấp cluster (Cluster-level Logging)](https://kubernetes.io/docs/concepts/architecture/#cluster-level-logging)**:
+* **[Logging cấp cluster (Cluster-level Logging)](22-architecture-vi.md#cluster-level-logging)**:
   Để lưu log của container vào một kho log tập trung.
 
 ## Sự linh hoạt trong kiến trúc (Flexibility in Architecture)
@@ -101,7 +101,7 @@ Kiến trúc có thể được điều chỉnh cho nhiều nhu cầu khác nhau
 cho đến các hệ thống production quy mô lớn.
 
 Để biết thông tin chi tiết hơn về từng thành phần và các cách khác nhau để cấu hình
-kiến trúc cluster của bạn, hãy xem trang [Kiến trúc cluster (Cluster Architecture)](https://kubernetes.io/docs/concepts/architecture/).
+kiến trúc cluster của bạn, hãy xem trang [Kiến trúc cluster (Cluster Architecture)](22-architecture-vi.md).
 
 ---
 

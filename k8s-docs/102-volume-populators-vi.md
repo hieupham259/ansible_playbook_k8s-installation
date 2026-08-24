@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 13/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 13/16 · Kiểm chứng ở
 Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này khái quát hóa hai thứ bạn vừa học: nhân bản volume và khôi phục từ snapshot chỉ là hai
@@ -45,7 +45,7 @@ vai trò admin, phần đáng nhớ nhất không phải populator mà là **kh�
 ---
 
 Tài liệu này mô tả *volume populator* và *nguồn dữ liệu* (data source) trong Kubernetes.
-Bạn nên làm quen trước với [persistent volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/).
+Bạn nên làm quen trước với [persistent volume](92-persistent-volumes-vi.md).
 
 Khi bạn tạo một PersistentVolumeClaim,
 volume mà Kubernetes cấp phát (provision) cho nó thường bắt đầu ở trạng thái rỗng. Một *nguồn dữ liệu*
@@ -54,8 +54,8 @@ volume mà Kubernetes cấp phát (provision) cho nó thường bắt đầu ở
 nguồn dữ liệu mà PersistentVolumeClaim tham chiếu.
 
 Kubernetes hỗ trợ sẵn (built-in) các nguồn dữ liệu để
-[nhân bản một volume có sẵn](https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/) hoặc
-[khôi phục một volume snapshot](https://kubernetes.io/docs/concepts/storage/volume-snapshots/). Các volume
+[nhân bản một volume có sẵn](101-volume-pvc-datasource-vi.md) hoặc
+[khôi phục một volume snapshot](99-volume-snapshots-vi.md). Các volume
 populator tùy chỉnh mở rộng cơ chế này. Nguồn dữ liệu là một tài nguyên tùy chỉnh (custom resource), tức là một đối tượng
 có kiểu được định nghĩa bởi một
 CustomResourceDefinition.
@@ -212,9 +212,9 @@ spec:
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu về [Persistent Volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/).
-* Tìm hiểu về [Nhân bản CSI Volume](https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/).
-* Tìm hiểu về [Volume Snapshot](https://kubernetes.io/docs/concepts/storage/volume-snapshots/).
+* Tìm hiểu về [Persistent Volume](92-persistent-volumes-vi.md).
+* Tìm hiểu về [Nhân bản CSI Volume](101-volume-pvc-datasource-vi.md).
+* Tìm hiểu về [Volume Snapshot](99-volume-snapshots-vi.md).
 * Đọc về các [feature gate](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/)
   được nhắc đến trong trang này.
 

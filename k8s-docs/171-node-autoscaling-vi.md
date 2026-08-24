@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 12](LO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 4/8 ·
+**Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 4/8 ·
 Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này **không kiểm chứng được trên cluster lab**, và đó chính là bài học đầu tiên: autoscaling
@@ -86,7 +86,7 @@ Cấu hình autoscaler cũng có thể bao gồm các điều kiện kích hoạ
 
 ### Các ràng buộc lập lịch của Pod (Pod scheduling constraints) {#provisioning-pod-constraints}
 
-Pod có thể khai báo các [ràng buộc lập lịch](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
+Pod có thể khai báo các [ràng buộc lập lịch](138-assign-pod-node-vi.md)
 để áp đặt giới hạn về loại Node mà chúng có thể được lập lịch lên. Các autoscaler Node xét
 đến những ràng buộc này để đảm bảo rằng các Pod đang chờ (pending) có thể được lập lịch lên
 các Node được cấp phát.
@@ -99,9 +99,9 @@ sử dụng tài nguyên thực tế của workload, bạn có thể kết hợp
 [autoscaling workload theo chiều ngang](#horizontal-workload-autoscaling) với autoscaling Node.
 
 Các ràng buộc lập lịch phổ biến khác của Pod bao gồm
-[Node affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity),
-[affinity giữa các Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity),
-hoặc yêu cầu về một [volume lưu trữ](https://kubernetes.io/docs/concepts/storage/volumes/) cụ thể.
+[Node affinity](138-assign-pod-node-vi.md#node-affinity),
+[affinity giữa các Pod](138-assign-pod-node-vi.md#inter-pod-affinity-and-anti-affinity),
+hoặc yêu cầu về một [volume lưu trữ](91-volumes-vi.md) cụ thể.
 
 ### Các ràng buộc Node do cấu hình autoscaler áp đặt (Node constraints imposed by autoscaler configuration) {#provisioning-node-constraints}
 
@@ -269,7 +269,7 @@ Những khác biệt chính giữa Cluster Autoscaler và Karpenter:
 Tự động mở rộng Node thường hoạt động để phản ứng với các Pod — nó cấp phát Node mới để chứa
 các Pod không lập lịch được, rồi hợp nhất các Node khi chúng không còn cần thiết.
 
-[Autoscaling workload theo chiều ngang](https://kubernetes.io/docs/concepts/workloads/autoscaling#scaling-workloads-horizontally)
+[Autoscaling workload theo chiều ngang](71-autoscaling-vi.md#scaling-workloads-horizontally)
 tự động điều chỉnh số lượng bản sao (replica) của workload nhằm duy trì mức sử dụng tài
 nguyên trung bình mong muốn trên các bản sao. Nói cách khác, nó tự động tạo các Pod mới để
 phản ứng với tải của ứng dụng, rồi loại bỏ các Pod khi tải giảm xuống.
@@ -296,7 +296,7 @@ Nếu yêu cầu của một Pod nào đó quá thấp, việc cấp phát một
 Pod thực sự chạy được. Nếu yêu cầu của một Pod nào đó quá cao, nó có thể ngăn cản một cách
 sai lầm việc hợp nhất Node của nó.
 
-[Autoscaling workload theo chiều dọc](https://kubernetes.io/docs/concepts/workloads/autoscaling#scaling-workloads-vertically)
+[Autoscaling workload theo chiều dọc](71-autoscaling-vi.md#scaling-workloads-vertically)
 tự động điều chỉnh các yêu cầu tài nguyên của Pod dựa trên mức sử dụng tài nguyên trong quá
 khứ của chúng.
 
@@ -327,11 +327,11 @@ khác liên quan đến tối ưu Node và Pod (ví dụ xóa các Pod khởi đ
 và [Cluster Proportional Vertical Autoscaler](https://github.com/kubernetes-sigs/cluster-proportional-vertical-autoscaler)
 cung cấp autoscaling workload theo chiều ngang và chiều dọc dựa trên số lượng Node trong
 cluster. Bạn có thể đọc thêm trong
-[autoscaling dựa trên kích thước cluster](https://kubernetes.io/docs/concepts/workloads/autoscaling#autoscaling-based-on-cluster-size).
+[autoscaling dựa trên kích thước cluster](71-autoscaling-vi.md#autoscaling-based-on-cluster-size).
 
 ## Tiếp theo (What's next)
 
-- Đọc về [autoscaling ở cấp độ workload](https://kubernetes.io/docs/concepts/workloads/autoscaling/)
+- Đọc về [autoscaling ở cấp độ workload](71-autoscaling-vi.md)
 
 ---
 

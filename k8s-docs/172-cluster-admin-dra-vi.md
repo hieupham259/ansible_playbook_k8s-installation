@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 2/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -214,7 +214,7 @@ nhìn của kubeletplugin nội bộ với các metric sau.
 
 ## Tiếp theo (What's next)
 
-* [Tìm hiểu thêm về DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/)
+* [Tìm hiểu thêm về DRA](149-dynamic-resource-allocation-vi.md)
 * Đọc [Tài liệu tham khảo về Metrics của Kubernetes](https://kubernetes.io/docs/reference/instrumentation/metrics/)
 
 ---

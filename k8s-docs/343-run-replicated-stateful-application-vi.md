@@ -26,17 +26,17 @@ dựa trên hàng (asynchronous row-based replication).
   - [Killercoda](https://killercoda.com/playgrounds/scenario/kubernetes)
   - [KodeKloud](https://kodekloud.com/public-playgrounds)
 
-- Bạn cần có một [trình cấp phát PersistentVolume động (dynamic PersistentVolume provisioner)](https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/)
-  với một [StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/) mặc định,
-  hoặc tự [cấp phát tĩnh các PersistentVolume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#provisioning)
-  để đáp ứng các [PersistentVolumeClaim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims)
+- Bạn cần có một [trình cấp phát PersistentVolume động (dynamic PersistentVolume provisioner)](98-dynamic-provisioning-vi.md)
+  với một [StorageClass](96-storage-classes-vi.md) mặc định,
+  hoặc tự [cấp phát tĩnh các PersistentVolume](92-persistent-volumes-vi.md#provisioning)
+  để đáp ứng các [PersistentVolumeClaim](92-persistent-volumes-vi.md#persistentvolumeclaims)
   được dùng ở đây.
 - Hướng dẫn này giả định bạn đã quen thuộc với
-  [PersistentVolumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
-  và [StatefulSets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/),
-  cũng như các khái niệm cốt lõi khác như [Pods](https://kubernetes.io/docs/concepts/workloads/pods/),
-  [Services](https://kubernetes.io/docs/concepts/services-networking/service/), và
-  [ConfigMaps](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/).
+  [PersistentVolumes](92-persistent-volumes-vi.md)
+  và [StatefulSets](65-statefulset-vi.md),
+  cũng như các khái niệm cốt lõi khác như [Pods](46-pods-vi.md),
+  [Services](82-service-vi.md), và
+  [ConfigMaps](275-configure-pod-configmap-vi.md).
 - Có chút quen thuộc với MySQL sẽ hữu ích, nhưng hướng dẫn này hướng tới trình bày
   các mẫu hình chung mà bạn có thể áp dụng cho các hệ thống khác.
 - Bạn đang dùng namespace default hoặc một namespace khác không chứa các object gây xung đột.
@@ -373,7 +373,7 @@ Pod template trong manifest StatefulSet ở trên tận dụng các thuộc tín
 ### Sinh cấu hình (Generating configuration)
 
 Trước khi khởi động bất kỳ container nào trong Pod spec, Pod trước tiên chạy các
-[init container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)
+[init container](50-init-containers-vi.md)
 theo thứ tự đã định nghĩa.
 
 Init container đầu tiên, tên là `init-mysql`, sinh ra các file cấu hình MySQL
@@ -391,7 +391,7 @@ Script trong container `init-mysql` cũng áp dụng `primary.cnf` hoặc
 Vì topology của ví dụ gồm một máy chủ MySQL primary duy nhất và một số lượng bất kỳ
 replica, script gán chỉ số thứ tự `0` làm máy chủ primary, và tất cả
 các Pod còn lại làm replica.
-Kết hợp với [đảm bảo thứ tự triển khai](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#deployment-and-scaling-guarantees)
+Kết hợp với [đảm bảo thứ tự triển khai](65-statefulset-vi.md#deployment-and-scaling-guarantees)
 của StatefulSet controller,
 điều này đảm bảo máy chủ MySQL primary đã Ready trước khi tạo các replica, để chúng có thể bắt đầu
 replication.
@@ -516,7 +516,7 @@ tiếp tục chạy trong khi bạn buộc một Pod rời khỏi trạng thái 
 
 ### Phá vỡ Readiness probe (Break the Readiness probe)
 
-[Readiness probe](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-readiness-probes)
+[Readiness probe](274-configure-probes-vi.md#define-readiness-probes)
 của container `mysql` chạy lệnh `mysql -h 127.0.0.1 -e 'SELECT 1'`
 để chắc chắn rằng server đang hoạt động và có thể thực thi truy vấn.
 
@@ -749,9 +749,9 @@ kubectl delete pvc data-mysql-4
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu thêm về [scale một StatefulSet](https://kubernetes.io/docs/tasks/run-application/scale-stateful-set/).
-- Tìm hiểu thêm về [debug một StatefulSet](https://kubernetes.io/docs/tasks/debug/debug-application/debug-statefulset/).
-- Tìm hiểu thêm về [xóa một StatefulSet](https://kubernetes.io/docs/tasks/run-application/delete-stateful-set/).
-- Tìm hiểu thêm về [buộc xóa các Pod của StatefulSet](https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/).
+- Tìm hiểu thêm về [scale một StatefulSet](347-scale-stateful-set-vi.md).
+- Tìm hiểu thêm về [debug một StatefulSet](302-debug-statefulset-vi.md).
+- Tìm hiểu thêm về [xóa một StatefulSet](340-delete-stateful-set-vi.md).
+- Tìm hiểu thêm về [buộc xóa các Pod của StatefulSet](341-force-delete-stateful-set-pod-vi.md).
 - Xem [kho Helm Charts](https://artifacthub.io/)
   để tìm các ví dụ khác về ứng dụng có trạng thái.

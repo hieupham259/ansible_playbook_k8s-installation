@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3b](LO-TRINH-ADMIN.md#3b-cấu-hình-và-tài-nguyên), bài 7/7 ·
+**Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 7/7 ·
 Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài ngắn nhất nhóm, nhưng nó giải thích chính **cluster của bạn**: `kube-apiserver`,
@@ -103,9 +103,9 @@ DaemonSet yêu cầu một control plane đang chạy.
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu cách [tạo static Pod](https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/).
+- Tìm hiểu cách [tạo static Pod](293-static-pod-tasks-vi.md).
 - Tìm hiểu về [các thành phần Kubernetes](./15-components-vi.md) và cách control plane sử dụng static Pod.
-- Tìm hiểu về [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/) như một lựa chọn thay thế cho static Pod.
+- Tìm hiểu về [DaemonSet](66-daemonset-vi.md) như một lựa chọn thay thế cho static Pod.
 
 ---
 

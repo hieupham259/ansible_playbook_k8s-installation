@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 14/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 14/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Đây không phải bài đọc.** Lộ trình xếp nó là **checklist đối chiếu cluster của bạn**: mở nó
 bên cạnh terminal, đi từng nhóm ô, và với mỗi ô hãy **chạy lệnh kiểm chứng trên cluster lab rồi
@@ -76,7 +76,7 @@ Về cách đọc và sử dụng tài liệu này:
   năm trong tương lai.
 - [ ] Tồn tại một quy trình rà soát quyền truy cập định kỳ, và các lần rà soát cách nhau không
   quá 24 tháng.
-- [ ] Tuân theo [Các thực hành tốt về Role Based Access Control](https://kubernetes.io/docs/concepts/security/rbac-good-practices/)
+- [ ] Tuân theo [Các thực hành tốt về Role Based Access Control](120-rbac-good-practices-vi.md)
   để có hướng dẫn liên quan đến xác thực và phân quyền.
 
 Sau khi bootstrap, cả người dùng lẫn các thành phần đều không nên xác thực với
@@ -85,7 +85,7 @@ kube-controller-manager với quyền `system:masters`. Trên thực tế,
 `system:masters` chỉ nên được dùng như một cơ chế khẩn cấp (break-glass), chứ không phải
 như một người dùng quản trị.
 
-## Bảo mật mạng (Network security)
+## Bảo mật mạng (Network security) {#network-security}
 
 - [ ] Các CNI plugin đang sử dụng có hỗ trợ network policy.
 - [ ] Network policy cho ingress và egress được áp dụng cho tất cả workload trong
@@ -97,9 +97,9 @@ như một người dùng quản trị.
 - [ ] Truy cập từ các workload đến cloud metadata API được lọc.
 - [ ] Việc sử dụng LoadBalancer và ExternalIPs bị hạn chế.
 
-Một số [Container Network Interface (CNI) plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/)
+Một số [Container Network Interface (CNI) plugin](183-network-plugins-vi.md)
 cung cấp chức năng hạn chế các tài nguyên mạng mà pod có thể giao tiếp.
-Điều này thường được thực hiện thông qua [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/) —
+Điều này thường được thực hiện thông qua [Network Policies](84-network-policies-vi.md) —
 một tài nguyên thuộc phạm vi namespace để định nghĩa các quy tắc. Các network policy
 mặc định chặn toàn bộ egress và ingress, trong mỗi namespace, chọn tất cả các pod, có thể
 hữu ích để áp dụng cách tiếp cận danh sách cho phép (allow list) nhằm đảm bảo không bỏ sót workload nào.
@@ -144,37 +144,37 @@ và [admission controller DenyServiceExternalIPs](https://kubernetes.io/docs/ref
   phù hợp cho các chương trình.
 
 Phân quyền RBAC rất quan trọng nhưng
-[không thể đủ chi tiết để phân quyền trên các tài nguyên của Pod](https://kubernetes.io/docs/concepts/security/rbac-good-practices/#workload-creation)
+[không thể đủ chi tiết để phân quyền trên các tài nguyên của Pod](120-rbac-good-practices-vi.md#workload-creation)
 (hay trên bất kỳ tài nguyên nào quản lý Pod). Mức chi tiết duy nhất là các động từ (verb) API
 trên chính tài nguyên đó, ví dụ `create` trên Pod. Nếu không có
 admission bổ sung, quyền tạo các tài nguyên này cho phép truy cập trực tiếp
 không hạn chế đến các node có thể lập lịch (schedulable) của cluster.
 
-[Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/)
+[Pod Security Standards](115-pod-security-standards-vi.md)
 định nghĩa ba chính sách khác nhau — privileged, baseline và restricted — giới hạn
 cách các trường có thể được đặt trong `PodSpec` liên quan đến bảo mật.
 Các tiêu chuẩn này có thể được thực thi ở cấp namespace với admission
-[Pod Security](https://kubernetes.io/docs/concepts/security/pod-security-admission/) mới,
+[Pod Security](116-pod-security-admission-vi.md) mới,
 được bật theo mặc định, hoặc bởi admission webhook của bên thứ ba. Xin lưu ý rằng,
 trái với admission PodSecurityPolicy đã bị gỡ bỏ mà nó thay thế, admission
-[Pod Security](https://kubernetes.io/docs/concepts/security/pod-security-admission/)
+[Pod Security](116-pod-security-admission-vi.md)
 có thể dễ dàng kết hợp với các admission webhook và dịch vụ bên ngoài.
 
 Chính sách `restricted` của Pod Security admission — chính sách hạn chế nhất trong bộ
-[Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) —
-[có thể hoạt động ở nhiều chế độ](https://kubernetes.io/docs/concepts/security/pod-security-admission/#pod-security-admission-labels-for-namespaces):
+[Pod Security Standards](115-pod-security-standards-vi.md) —
+[có thể hoạt động ở nhiều chế độ](116-pod-security-admission-vi.md#pod-security-admission-labels-for-namespaces):
 `warn`, `audit` hoặc `enforce`, để dần dần áp dụng
-[security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+[security context](291-security-context-vi.md)
 phù hợp nhất theo các thực hành bảo mật tốt nhất. Dù vậy,
-[security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/) của pod
+[security context](291-security-context-vi.md) của pod
 vẫn nên được xem xét riêng để giới hạn các đặc quyền và quyền truy cập mà pod có thể có,
 vượt trên các tiêu chuẩn bảo mật định sẵn, cho các trường hợp sử dụng cụ thể.
 
-Để có hướng dẫn thực hành về [Pod Security](https://kubernetes.io/docs/concepts/security/pod-security-admission/),
+Để có hướng dẫn thực hành về [Pod Security](116-pod-security-admission-vi.md),
 xem bài blog
 [Kubernetes 1.23: Pod Security Graduates to Beta](https://kubernetes.io/blog/2021/12/09/pod-security-admission-beta/).
 
-[Giới hạn bộ nhớ và CPU](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+[Giới hạn bộ nhớ và CPU](110-manage-resources-containers-vi.md)
 nên được đặt nhằm hạn chế lượng tài nguyên bộ nhớ và CPU mà một pod có thể
 tiêu thụ trên node, và nhờ đó ngăn chặn các cuộc tấn công DoS tiềm tàng từ các workload
 độc hại hoặc bị xâm nhập. Chính sách như vậy có thể được thực thi bởi một admission controller.
@@ -228,7 +228,7 @@ annotation, cho phép các tiến trình chỉ nhận được đúng những đ
 module bảo mật của Linux kernel có thể cung cấp cơ chế hỗ trợ các chính sách bảo mật
 kiểm soát truy cập, bao gồm Kiểm soát truy cập bắt buộc (MAC). Nhãn (label) SELinux
 có thể được gán cho container hoặc pod
-[thông qua mục `securityContext` của chúng](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#assign-selinux-labels-to-a-container).
+[thông qua mục `securityContext` của chúng](291-security-context-vi.md#assign-selinux-labels-to-a-container).
 
 > **Ghi chú:**
 > SELinux chỉ khả dụng trên các node Linux, và được bật trong
@@ -253,19 +253,19 @@ di chuyển ngang (pivot) trong cluster. Sự tách biệt này nên được th
 vô tình được triển khai lên cùng một node. Điều này có thể được thực thi bằng các
 tính năng sau:
 
-[Node Selectors](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
+[Node Selectors](138-assign-pod-node-vi.md)
 : Các cặp key-value, nằm trong đặc tả của pod, chỉ định các node sẽ
 triển khai lên. Chúng có thể được thực thi ở cấp namespace và cluster với admission controller
 [PodNodeSelector](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#podnodeselector).
 
 [PodTolerationRestriction](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#podtolerationrestriction)
 : Một admission controller cho phép quản trị viên hạn chế các
-[toleration](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) được phép trong một
+[toleration](139-taint-and-toleration-vi.md) được phép trong một
 namespace. Các pod trong một namespace chỉ có thể sử dụng các toleration được chỉ định trên
 các khóa annotation của đối tượng namespace, thứ cung cấp một tập các toleration mặc định
 và được phép.
 
-[RuntimeClass](https://kubernetes.io/docs/concepts/containers/runtime-class/)
+[RuntimeClass](43-runtime-class-vi.md)
 : RuntimeClass là tính năng để chọn cấu hình container runtime.
 Cấu hình container runtime được dùng để chạy các container của một Pod và có thể
 cung cấp mức cô lập với host nhiều hơn hoặc ít hơn, đánh đổi bằng chi phí
@@ -283,10 +283,10 @@ hiệu năng.
 
 Các secret cần cho pod nên được lưu trong Kubernetes Secrets thay vì
 các lựa chọn thay thế như ConfigMap. Các tài nguyên Secret lưu trong etcd nên
-được [mã hóa khi lưu trữ](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/).
+được [mã hóa khi lưu trữ](208-encrypt-data-vi.md).
 
 Các pod cần secret nên được tự động mount các secret này thông qua volume,
-tốt nhất là lưu trong bộ nhớ như với [tùy chọn `emptyDir.medium`](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir).
+tốt nhất là lưu trong bộ nhớ như với [tùy chọn `emptyDir.medium`](91-volumes-vi.md#emptydir).
 Có thể dùng cơ chế để inject secret từ các hệ thống lưu trữ bên thứ ba dưới dạng
 volume, như [Secrets Store CSI Driver](https://secrets-store-csi-driver.sigs.k8s.io/).
 Cách này nên được ưu tiên hơn so với việc cấp cho service account của pod
@@ -297,7 +297,7 @@ không bảo mật của biến môi trường trong Linux, trái với
 cơ chế phân quyền trên file.
 
 Token của service account không nên được mount vào các pod không cần đến chúng. Điều này có thể được cấu hình bằng cách đặt
-[`automountServiceAccountToken`](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#use-the-default-service-account-to-access-the-api-server)
+[`automountServiceAccountToken`](279-configure-service-account-vi.md#use-the-default-service-account-to-access-the-api-server)
 thành `false`, hoặc trong service account để áp dụng cho toàn bộ namespace,
 hoặc riêng cho một pod. Với Kubernetes v1.22 trở lên, hãy dùng
 [Bound Service Accounts](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#bound-service-account-token-volume)
@@ -309,7 +309,7 @@ hoặc riêng cho một pod. Với Kubernetes v1.22 trở lên, hãy dùng
 - [ ] Container image được cấu hình để chạy với người dùng không có đặc quyền (unprivileged).
 - [ ] Tham chiếu đến container image được thực hiện bằng sha256 digest (thay vì
 tag), hoặc nguồn gốc (provenance) của image được xác minh bằng cách kiểm tra chữ ký số
-của image lúc triển khai [thông qua admission control](https://kubernetes.io/docs/tasks/administer-cluster/verify-signed-artifacts/#verifying-image-signatures-with-admission-controller).
+của image lúc triển khai [thông qua admission control](261-verify-signed-artifacts-vi.md#verifying-image-signatures-with-admission-controller).
 - [ ] Container image được quét thường xuyên trong quá trình tạo và khi triển khai, và
   các phần mềm có lỗ hổng đã biết được vá.
 
@@ -317,12 +317,12 @@ Container image nên chứa mức tối thiểu cần thiết để chạy chư�
 đóng gói. Tốt nhất là chỉ gồm chương trình và các phụ thuộc (dependency) của nó, build image
 từ base tối giản nhất có thể. Đặc biệt, image dùng trong production không nên
 chứa shell hay các tiện ích debug, vì có thể dùng
-[ephemeral debug container](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container)
+[ephemeral debug container](300-debug-running-pod-vi.md#ephemeral-container)
 để xử lý sự cố.
 
 Hãy build image sao cho khởi động trực tiếp với người dùng không có đặc quyền bằng
 [chỉ thị `USER` trong Dockerfile](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user).
-[Security Context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)
+[Security Context](291-security-context-vi.md#set-the-security-context-for-a-pod)
 cho phép một container image được khởi động với người dùng và nhóm cụ thể bằng
 `runAsUser` và `runAsGroup`, ngay cả khi không được chỉ định trong manifest của image.
 Tuy nhiên, quyền trên file trong các lớp (layer) của image có thể khiến việc chỉ đơn giản
@@ -332,7 +332,7 @@ Tránh dùng tag để tham chiếu một image, đặc biệt là tag `latest`,
 image đứng sau một tag có thể dễ dàng bị thay đổi trong registry. Ưu tiên dùng
 `sha256` digest đầy đủ — giá trị duy nhất đối với manifest của image. Chính sách này có thể được
 thực thi qua một [ImagePolicyWebhook](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#imagepolicywebhook).
-Chữ ký image cũng có thể được tự động [xác minh bằng một admission controller](https://kubernetes.io/docs/tasks/administer-cluster/verify-signed-artifacts/#verifying-image-signatures-with-admission-controller)
+Chữ ký image cũng có thể được tự động [xác minh bằng một admission controller](261-verify-signed-artifacts-vi.md#verifying-image-signatures-with-admission-controller)
 lúc triển khai để kiểm chứng tính xác thực và toàn vẹn của chúng.
 
 Việc quét container image có thể ngăn các lỗ hổng nghiêm trọng được
@@ -425,11 +425,11 @@ có quyền sử dụng image đó.
   cảnh báo bạn về một rủi ro kiểm soát truy cập cụ thể; hãy kiểm tra cách bạn đang quản lý
   mối đe dọa đó.
   - Nếu bạn dùng Kubernetes RBAC, hãy đọc
-    [RBAC Good Practices](https://kubernetes.io/docs/concepts/security/rbac-good-practices/) để biết
+    [RBAC Good Practices](120-rbac-good-practices-vi.md) để biết
     thêm thông tin về phân quyền.
-- [Securing a Cluster](https://kubernetes.io/docs/tasks/administer-cluster/securing-a-cluster/) để biết
+- [Securing a Cluster](256-securing-a-cluster-vi.md) để biết
   thông tin về việc bảo vệ cluster khỏi truy cập vô tình hoặc độc hại.
-- [Hướng dẫn multi-tenancy cho cluster](https://kubernetes.io/docs/concepts/security/multi-tenancy/) để có
+- [Hướng dẫn multi-tenancy cho cluster](122-multi-tenancy-vi.md) để có
   các khuyến nghị về tùy chọn cấu hình và thực hành tốt về multi-tenancy.
 - [Bài blog "A Closer Look at NSA/CISA Kubernetes Hardening Guidance"](https://kubernetes.io/blog/2021/10/05/nsa-cisa-kubernetes-hardening-guidance/#building-secure-container-images)
   là tài nguyên bổ trợ về tăng cường bảo mật (hardening) cluster Kubernetes.

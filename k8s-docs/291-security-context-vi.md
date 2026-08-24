@@ -55,7 +55,7 @@ các sân chơi (playground) Kubernetes sau:
 Phiên bản Kubernetes server của bạn phải bằng hoặc mới hơn v1.36. Để kiểm tra phiên bản, nhập
 `kubectl version`.
 
-## Đặt security context cho một Pod (Set the security context for a Pod)
+## Đặt security context cho một Pod (Set the security context for a Pod) {#set-the-security-context-for-a-pod}
 
 Để chỉ định các thiết lập bảo mật cho một Pod, hãy thêm field `securityContext` vào
 đặc tả (specification) của Pod. Field `securityContext` là một object
@@ -464,9 +464,9 @@ securityContext:
 ```
 
 > **Ghi chú:** Field này không có tác dụng đối với các loại volume tạm thời (ephemeral) như
-> [`secret`](https://kubernetes.io/docs/concepts/storage/volumes/#secret),
-> [`configMap`](https://kubernetes.io/docs/concepts/storage/volumes/#configmap)
-> và [`emptyDir`](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir).
+> [`secret`](91-volumes-vi.md#secret),
+> [`configMap`](91-volumes-vi.md#configmap)
+> và [`emptyDir`](91-volumes-vi.md#emptydir).
 
 ## Ủy quyền việc thay đổi quyền và quyền sở hữu volume cho CSI driver (Delegating volume permission and ownership change to CSI driver)
 
@@ -551,7 +551,7 @@ Thoát khỏi shell của bạn:
 exit
 ```
 
-## Đặt capabilities cho một Container (Set capabilities for a Container)
+## Đặt capabilities cho một Container (Set capabilities for a Container) {#set-capabilities-for-a-container}
 
 Với [Linux capabilities](https://man7.org/linux/man-pages/man7/capabilities.7.html),
 bạn có thể cấp một số đặc quyền nhất định cho một tiến trình mà không cần cấp toàn bộ đặc
@@ -696,7 +696,7 @@ container thứ hai, các bit 12 và 25 được đặt. Bit 12 là `CAP_NET_ADM
 > của hằng số. Ví dụ, để thêm `CAP_SYS_TIME`, hãy đưa `SYS_TIME` vào danh sách capability
 > của bạn.
 
-## Đặt Seccomp Profile cho một Container (Set the Seccomp Profile for a Container)
+## Đặt Seccomp Profile cho một Container (Set the Seccomp Profile for a Container) {#set-the-seccomp-profile-for-a-container}
 
 Để đặt Seccomp profile cho một Container, hãy thêm field `seccompProfile` vào mục
 `securityContext` trong manifest của Pod hoặc Container. Field `seccompProfile` là một object
@@ -773,7 +773,7 @@ containers:
 Để biết thêm chi tiết, hãy xem
 [Hạn chế quyền truy cập tài nguyên của Container bằng AppArmor](https://kubernetes.io/docs/tutorials/security/apparmor/).
 
-## Gán nhãn SELinux cho một Container (Assign SELinux labels to a Container)
+## Gán nhãn SELinux cho một Container (Assign SELinux labels to a Container) {#assign-selinux-labels-to-a-container}
 
 Để gán nhãn SELinux cho một Container, hãy thêm field `seLinuxOptions` vào mục
 `securityContext` trong manifest của Pod hoặc Container. Field `seLinuxOptions` là một object
@@ -944,7 +944,7 @@ securityContext:
 > **Ghi chú:** Việc đặt `procMount` thành Unmasked yêu cầu giá trị `spec.hostUsers` trong
 > spec của pod phải là `false`. Nói cách khác: một container muốn có `/proc` không bị che
 > hoặc `/sys` không bị che thì cũng phải nằm trong một
-> [user namespace](https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/).
+> [user namespace](55-user-namespaces-vi.md).
 > Kubernetes v1.12 đến v1.29 đã không thực thi yêu cầu này.
 
 ## Thảo luận (Discussion)
@@ -986,11 +986,11 @@ kubectl delete pod security-context-demo-4
 * [Hướng dẫn cấu hình CRI Plugin](https://github.com/containerd/containerd/blob/main/docs/cri/config.md)
 * [Tài liệu thiết kế Security Contexts](https://git.k8s.io/design-proposals-archive/auth/security_context.md)
 * [Tài liệu thiết kế Ownership Management](https://git.k8s.io/design-proposals-archive/storage/volume-ownership-management.md)
-* [PodSecurity Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/)
+* [PodSecurity Admission](116-pod-security-admission-vi.md)
 * [Tài liệu thiết kế AllowPrivilegeEscalation](https://git.k8s.io/design-proposals-archive/auth/no-new-privs.md)
 * Để biết thêm thông tin về các cơ chế bảo mật trong Linux, xem
   [Tổng quan về các tính năng bảo mật của Linux Kernel](https://www.linux.com/learn/overview-linux-kernel-security-features)
   (Lưu ý: Một số thông tin đã lỗi thời)
-* Đọc về [User Namespaces](https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/)
+* Đọc về [User Namespaces](55-user-namespaces-vi.md)
   cho các pod Linux.
 * [Masked Paths trong đặc tả OCI Runtime](https://github.com/opencontainers/runtime-spec/blob/f66aad47309/config-linux.md#masked-paths)

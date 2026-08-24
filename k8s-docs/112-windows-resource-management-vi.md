@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 15](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
+**Vị trí:** [Giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
 bài 6/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -100,7 +100,7 @@ Thông tin chi tiết về các giá trị hợp lệ và ý nghĩa của chúng
 các tiến trình host của Kubernetes như kubelet sử dụng, bạn có thể (và nên) dành riêng (reserve)
 tài nguyên bộ nhớ và CPU bằng các flag `--kube-reserved` và/hoặc `--system-reserved` của kubelet.
 Trên Windows, các giá trị này chỉ được dùng để tính toán tài nguyên
-[có thể cấp phát (allocatable)](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/#node-allocatable) của node.
+[có thể cấp phát (allocatable)](253-reserve-compute-resources-vi.md#node-allocatable) của node.
 
 > **Thận trọng:**
 > Khi triển khai workload, hãy đặt giới hạn (limit) tài nguyên bộ nhớ và CPU cho các container.

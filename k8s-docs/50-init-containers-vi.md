@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 6/11 · Kiểm chứng
+**Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 6/11 · Kiểm chứng
 ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài có một ví dụ dài dùng Service và DNS — hai thứ thuộc giai đoạn 5. Đọc ví dụ đó để thấy hình
@@ -56,7 +56,7 @@ image của ứng dụng.
 Bạn có thể chỉ định init container trong đặc tả Pod (Pod specification) bên cạnh
 mảng `containers` (mảng mô tả các app container).
 
-Trong Kubernetes, một [sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/)
+Trong Kubernetes, một [sidecar container](51-sidecar-containers-vi.md)
 là container khởi động trước container ứng dụng chính và _tiếp tục chạy_. Tài liệu
 này nói về init container: các container chạy đến khi hoàn thành (run to completion)
 trong quá trình khởi tạo Pod.
@@ -91,7 +91,7 @@ trường `.status.containerStatuses`).
 ### Khác biệt so với container thông thường (Differences from regular containers)
 
 Init container hỗ trợ tất cả các trường và tính năng của app container, bao gồm
-giới hạn tài nguyên (resource limits), [volume](https://kubernetes.io/docs/concepts/storage/volumes/),
+giới hạn tài nguyên (resource limits), [volume](91-volumes-vi.md),
 và các thiết lập bảo mật. Tuy nhiên, resource request và limit của init container
 được xử lý khác đi, như được mô tả trong
 [Chia sẻ tài nguyên giữa các container](#resource-sharing-within-containers).
@@ -100,7 +100,7 @@ Các init container thông thường (nói cách khác: không tính sidecar con
 hỗ trợ các trường `lifecycle`, `livenessProbe`, `readinessProbe`, hay
 `startupProbe`. Init container phải chạy đến khi hoàn thành trước khi Pod có thể
 sẵn sàng; sidecar container tiếp tục chạy trong suốt vòng đời của Pod, và _có_ hỗ
-trợ một số probe. Xem [sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/)
+trợ một số probe. Xem [sidecar container](51-sidecar-containers-vi.md)
 để biết thêm chi tiết về sidecar container.
 
 Nếu bạn chỉ định nhiều init container cho một Pod, kubelet chạy từng init container
@@ -111,7 +111,7 @@ container ứng dụng cho Pod và chạy chúng như bình thường.
 ### Khác biệt so với sidecar container (Differences from sidecar containers)
 
 Init container chạy và hoàn thành các tác vụ của chúng trước khi container ứng dụng
-chính khởi động. Khác với [sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers),
+chính khởi động. Khác với [sidecar container](51-sidecar-containers-vi.md),
 init container không chạy liên tục song song với các container chính.
 
 Init container chạy đến khi hoàn thành một cách tuần tự, và container chính không
@@ -119,7 +119,7 @@ khởi động cho đến khi tất cả init container đã hoàn thành thành
 
 Init container không hỗ trợ `lifecycle`, `livenessProbe`, `readinessProbe`, hay
 `startupProbe`, trong khi sidecar container hỗ trợ tất cả các
-[probe](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#types-of-probe)
+[probe](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#types-of-probe)
 này để kiểm soát vòng đời của chúng.
 
 Init container chia sẻ cùng tài nguyên (CPU, bộ nhớ, mạng) với các container ứng
@@ -347,7 +347,7 @@ Việc thay đổi trực tiếp trường `image` của một init container _k
 lại Pod hay kích hoạt việc tạo lại nó. Nếu Pod còn chưa khởi động, thay đổi đó có
 thể ảnh hưởng đến cách Pod khởi động.
 
-Với một [pod template](https://kubernetes.io/docs/concepts/workloads/pods/#pod-templates),
+Với một [pod template](https://kubernetes.io/docs/concepts/workloads/pods#pod-templates),
 thông thường bạn có thể thay đổi bất kỳ trường nào của init container; tác động của
 thay đổi đó phụ thuộc vào nơi pod template được sử dụng.
 
@@ -412,14 +412,14 @@ bản ghi hoàn thành của init container bị mất do thu gom rác. Điều 
 Kubernetes v1.20 trở lên. Nếu bạn đang dùng phiên bản Kubernetes cũ hơn, hãy tham
 khảo tài liệu của phiên bản bạn đang sử dụng.
 
-## Tiếp theo (What's next)
+## Tiếp theo (What's next) {#what-s-next}
 
 Tìm hiểu thêm về các nội dung sau:
-* [Tạo một Pod có init container](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-initialization/#create-a-pod-that-has-an-init-container).
-* [Debug init container](https://kubernetes.io/docs/tasks/debug/debug-application/debug-init-containers/).
+* [Tạo một Pod có init container](276-configure-pod-initialization-vi.md#create-a-pod-that-has-an-init-container).
+* [Debug init container](298-debug-init-containers-vi.md).
 * Tổng quan về [kubelet](https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/) và [kubectl](https://kubernetes.io/docs/reference/kubectl/).
-* [Các loại probe](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#types-of-probe): liveness, readiness, startup probe.
-* [Sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers).
+* [Các loại probe](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#types-of-probe): liveness, readiness, startup probe.
+* [Sidecar container](51-sidecar-containers-vi.md).
 
 ---
 

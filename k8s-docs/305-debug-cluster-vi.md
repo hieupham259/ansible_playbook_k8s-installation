@@ -6,13 +6,13 @@
 
 Tài liệu này nói về việc khắc phục sự cố (troubleshooting) ở cấp cluster; chúng tôi giả định
 rằng bạn đã loại trừ khả năng ứng dụng của bạn là nguyên nhân gốc của vấn đề bạn đang gặp phải.
-Xem [hướng dẫn khắc phục sự cố ứng dụng](https://kubernetes.io/docs/tasks/debug/debug-application/)
+Xem [hướng dẫn khắc phục sự cố ứng dụng](297-debug-application-vi.md)
 để có các mẹo gỡ lỗi ứng dụng. Bạn cũng có thể xem
-[tài liệu tổng quan về khắc phục sự cố](https://kubernetes.io/docs/tasks/debug/) để biết thêm
+[tài liệu tổng quan về khắc phục sự cố](296-debug-vi.md) để biết thêm
 thông tin.
 
 Để khắc phục sự cố kubectl, hãy tham khảo
-[Khắc phục sự cố kubectl](https://kubernetes.io/docs/tasks/debug/debug-cluster/troubleshoot-kubectl/).
+[Khắc phục sự cố kubectl](314-troubleshoot-kubectl-vi.md).
 
 ## Liệt kê cluster của bạn (Listing your cluster)
 
@@ -303,7 +303,7 @@ cluster của bạn để giảm thiểu các vấn đề đó.
   cho các VM chạy apiserver+etcd
   - Giảm thiểu: Mất kho lưu trữ nền của apiserver
 
-- Hành động: Dùng cấu hình [tính sẵn sàng cao (high availability)](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/)
+- Hành động: Dùng cấu hình [tính sẵn sàng cao (high availability)](08-high-availability-vi.md)
   - Giảm thiểu: Node control plane bị tắt hoặc các thành phần control plane (scheduler, API
     server, controller-manager) bị crash
     - Chịu được một hoặc nhiều node hoặc thành phần bị lỗi đồng thời
@@ -326,12 +326,12 @@ cluster của bạn để giảm thiểu các vấn đề đó.
 ## Tiếp theo (What's next)
 
 * Tìm hiểu về các metric có sẵn trong
-  [Resource Metrics Pipeline](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/)
+  [Resource Metrics Pipeline](311-resource-metrics-pipeline-vi.md)
 * Khám phá thêm các công cụ để
-  [giám sát mức sử dụng tài nguyên](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/)
+  [giám sát mức sử dụng tài nguyên](312-resource-usage-monitoring-vi.md)
 * Dùng Node Problem Detector để
-  [giám sát tình trạng node](https://kubernetes.io/docs/tasks/debug/debug-cluster/monitor-node-health/)
-* Dùng `kubectl debug node` để [gỡ lỗi các node Kubernetes](https://kubernetes.io/docs/tasks/debug/debug-cluster/kubectl-node-debug)
-* Dùng `crictl` để [gỡ lỗi các node Kubernetes](https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/)
-* Tìm hiểu thêm về [Kubernetes auditing](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/)
-* Dùng `telepresence` để [phát triển và gỡ lỗi service cục bộ](https://kubernetes.io/docs/tasks/debug/debug-cluster/local-debugging/)
+  [giám sát tình trạng node](310-monitor-node-health-vi.md)
+* Dùng `kubectl debug node` để [gỡ lỗi các node Kubernetes](308-kubectl-node-debug-vi.md)
+* Dùng `crictl` để [gỡ lỗi các node Kubernetes](307-crictl-vi.md)
+* Tìm hiểu thêm về [Kubernetes auditing](306-audit-vi.md)
+* Dùng `telepresence` để [phát triển và gỡ lỗi service cục bộ](309-local-debugging-vi.md)

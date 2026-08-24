@@ -29,9 +29,9 @@ Kubernetes khởi đầu với bốn namespace ban đầu:
 
 * `default` Namespace mặc định cho các đối tượng không thuộc namespace nào khác
 * `kube-node-lease` Namespace này chứa các đối tượng
-  [Lease](https://kubernetes.io/docs/concepts/architecture/leases/) gắn với từng node. Node
+  [Lease](35-leases-vi.md) gắn với từng node. Node
   lease cho phép kubelet gửi các
-  [heartbeat](https://kubernetes.io/docs/concepts/architecture/nodes/#heartbeats) để control
+  [heartbeat](https://kubernetes.io/docs/concepts/architecture/nodes#heartbeats) để control
   plane có thể phát hiện node bị lỗi.
 * `kube-public` Namespace này được tạo tự động và mọi người dùng đều đọc được (kể cả những
   người chưa được xác thực). Namespace này chủ yếu được dành riêng cho việc sử dụng của cluster,
@@ -85,7 +85,7 @@ Một namespace có thể ở một trong hai giai đoạn (phase):
 [Namespace](https://kubernetes.io/docs/reference/kubernetes-api/cluster-resources/namespace-v1/)
 trong tài liệu tham chiếu API.
 
-## Tạo một namespace mới (Creating a new namespace)
+## Tạo một namespace mới (Creating a new namespace) {#creating-a-new-namespace}
 
 > **Ghi chú:**
 > Tránh tạo namespace có tiền tố `kube-`, vì tiền tố này được dành riêng cho các namespace
@@ -113,7 +113,7 @@ kubectl create namespace <insert-namespace-name-here>
 ```
 
 Tên namespace của bạn phải là một
-[nhãn DNS (DNS label)](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-label-names)
+[nhãn DNS (DNS label)](17-names-vi.md#dns-label-names)
 hợp lệ.
 
 Có một trường tùy chọn là `finalizers`, cho phép các bên quan sát (observables) dọn sạch tài
@@ -124,7 +124,7 @@ Bạn có thể tìm thêm thông tin về `finalizers` trong
 [tài liệu thiết kế](https://git.k8s.io/design-proposals-archive/architecture/namespaces.md#finalizers)
 của namespace.
 
-## Xóa một namespace (Deleting a namespace)
+## Xóa một namespace (Deleting a namespace) {#deleting-a-namespace}
 
 Xóa một namespace bằng
 
@@ -283,7 +283,7 @@ sẻ chung một cluster Kubernetes.
 
 Nó làm được điều đó bằng cách cung cấp:
 
-1. Một phạm vi cho các [tên (names)](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/).
+1. Một phạm vi cho các [tên (names)](17-names-vi.md).
 1. Một cơ chế để gắn việc ủy quyền và chính sách vào một phần con của cluster.
 
 Việc dùng nhiều namespace là tùy chọn.
@@ -317,8 +317,8 @@ Các trường hợp sử dụng bao gồm:
 
 ## Hiểu về namespace và DNS (Understanding namespaces and DNS)
 
-Khi bạn tạo một [Service](https://kubernetes.io/docs/concepts/services-networking/service/), nó
-tạo một [bản ghi DNS (DNS entry)](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/)
+Khi bạn tạo một [Service](82-service-vi.md), nó
+tạo một [bản ghi DNS (DNS entry)](10-dns-pod-service-vi.md)
 tương ứng. Bản ghi này có dạng `<service-name>.<namespace-name>.svc.cluster.local`, nghĩa là
 nếu một container chỉ dùng `<service-name>`, nó sẽ phân giải tới service nằm cùng namespace.
 Điều này hữu ích khi dùng cùng một cấu hình cho nhiều namespace như Development, Staging và
@@ -327,6 +327,6 @@ domain name — FQDN).
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [thiết lập namespace ưa dùng](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#setting-the-namespace-preference).
-* Tìm hiểu thêm về [thiết lập namespace cho một request](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#setting-the-namespace-for-a-request)
+* Tìm hiểu thêm về [thiết lập namespace ưa dùng](19-namespaces-vi.md#setting-the-namespace-preference).
+* Tìm hiểu thêm về [thiết lập namespace cho một request](19-namespaces-vi.md#setting-the-namespace-for-a-request)
 * Xem [thiết kế namespace](https://git.k8s.io/design-proposals-archive/architecture/namespaces.md).

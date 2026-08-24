@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+**Vị trí:** Giai đoạn 1 → nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
 bài 1/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 **Phải hiểu ở lần đọc này:**
@@ -46,9 +46,9 @@ sung diễn giải **API group** bằng ví dụ triển khai thật (manifest, 
 Mỗi đối tượng trong cluster của bạn có một [_Tên (Name)_](#names) duy nhất cho loại tài nguyên (resource) đó.
 Mỗi đối tượng Kubernetes cũng có một [_UID_](#uids) duy nhất trên toàn bộ cluster của bạn.
 
-Ví dụ, bạn chỉ có thể có một Pod tên `myapp-1234` trong cùng một [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/), nhưng bạn có thể có một Pod và một Deployment cùng mang tên `myapp-1234`.
+Ví dụ, bạn chỉ có thể có một Pod tên `myapp-1234` trong cùng một [namespace](19-namespaces-vi.md), nhưng bạn có thể có một Pod và một Deployment cùng mang tên `myapp-1234`.
 
-Với các thuộc tính do người dùng cung cấp mà không cần duy nhất, Kubernetes cung cấp [label](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) và [annotation](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/).
+Với các thuộc tính do người dùng cung cấp mà không cần duy nhất, Kubernetes cung cấp [label](18-labels-vi.md) và [annotation](20-annotations-vi.md).
 
 ## Tên (Names) {#names}
 
@@ -56,7 +56,7 @@ Một chuỗi do client cung cấp dùng để tham chiếu tới một đối t
 
 Tại một thời điểm, chỉ một đối tượng của một loại (kind) nhất định được mang một tên nhất định. Tuy nhiên, nếu bạn xóa đối tượng đó, bạn có thể tạo một đối tượng mới trùng tên.
 
-Tên phải là duy nhất trên tất cả các [phiên bản API](https://kubernetes.io/docs/concepts/overview/kubernetes-api/#api-groups-and-versioning) của cùng một tài nguyên.
+Tên phải là duy nhất trên tất cả các [phiên bản API](21-kubernetes-api-vi.md#api-groups-and-versioning) của cùng một tài nguyên.
 
 Kubernetes định danh duy nhất các đối tượng bằng tổ hợp của bốn thuộc tính:
 * **Nhóm API (API group)** (ví dụ: `apps`)
@@ -151,7 +151,7 @@ UUID được chuẩn hóa theo ISO/IEC 9834-8 và ITU-T X.667.
 
 ## Tiếp theo (What's next)
 
-* Đọc về [label](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) và [annotation](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) trong Kubernetes.
+* Đọc về [label](18-labels-vi.md) và [annotation](20-annotations-vi.md) trong Kubernetes.
 * Xem tài liệu thiết kế [Identifiers and Names in Kubernetes](https://git.k8s.io/design-proposals-archive/architecture/identifiers.md).
 
 ---

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 15](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
+**Vị trí:** [Giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
 bài 3/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -149,7 +149,7 @@ spec:
       bằng `kubectl exec`
     * Giao tiếp service-tới-pod: `curl` vào IP ảo của service (xem được bằng `kubectl get services`)
       từ node control plane Linux và từ từng pod
-    * Khám phá service (service discovery): `curl` tên service kèm [hậu tố DNS mặc định](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#services) của Kubernetes
+    * Khám phá service (service discovery): `curl` tên service kèm [hậu tố DNS mặc định](10-dns-pod-service-vi.md#services) của Kubernetes
     * Kết nối chiều vào (inbound connectivity): `curl` NodePort từ node control plane Linux hoặc từ các máy bên ngoài cluster
     * Kết nối chiều ra (outbound connectivity): `curl` các IP bên ngoài từ bên trong pod bằng `kubectl exec`
 
@@ -182,16 +182,16 @@ vào tất cả các container của bạn, và thêm các entrypoint cần thi�
 
 Windows container có thể được cấu hình để chạy entrypoint và các tiến trình (process)
 với username khác với mặc định của image.
-Tìm hiểu thêm [tại đây](https://kubernetes.io/docs/tasks/configure-pod-container/configure-runasusername/).
+Tìm hiểu thêm [tại đây](278-configure-runasusername-vi.md).
 
-### Quản lý danh tính workload với Group Managed Service Accounts (Managing Workload Identity with Group Managed Service Accounts)
+### Quản lý danh tính workload với Group Managed Service Accounts (Managing Workload Identity with Group Managed Service Accounts) {#managing-workload-identity-with-group-managed-service-accounts}
 
 Các workload Windows container có thể được cấu hình để sử dụng Group Managed Service Accounts (GMSA).
 Group Managed Service Accounts là một loại tài khoản Active Directory đặc biệt cung cấp khả năng quản lý mật khẩu tự động,
 đơn giản hóa việc quản lý service principal name (SPN), và khả năng ủy quyền việc quản lý cho các quản trị viên khác trên nhiều server.
 Các container được cấu hình với GMSA có thể truy cập các tài nguyên miền (domain) Active Directory bên ngoài
 trong khi mang danh tính đã được cấu hình cùng GMSA.
-Tìm hiểu thêm về cách cấu hình và sử dụng GMSA cho Windows container [tại đây](https://kubernetes.io/docs/tasks/configure-pod-container/configure-gmsa/).
+Tìm hiểu thêm về cách cấu hình và sử dụng GMSA cho Windows container [tại đây](273-configure-gmsa-vi.md).
 
 ## Taint và toleration (Taints and tolerations)
 
@@ -212,7 +212,7 @@ là `windows`.
 
 Bộ lập lịch (scheduler) không sử dụng giá trị của `.spec.os.name` khi gán Pod vào node. Bạn nên
 sử dụng các cơ chế thông thường của Kubernetes để
-[gán pod vào node](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
+[gán pod vào node](138-assign-pod-node-vi.md)
 nhằm đảm bảo control plane của cluster đặt các pod lên những node đang chạy
 hệ điều hành phù hợp.
 
@@ -220,7 +220,7 @@ Giá trị `.spec.os.name` không có tác dụng đối với việc lập lị
 vì vậy taint và toleration (hoặc node selector) vẫn cần thiết
 để đảm bảo các pod Windows được đặt lên các node Windows phù hợp.
 
-### Đảm bảo workload đặc thù hệ điều hành được đặt lên đúng host container (Ensuring OS-specific workloads land on the appropriate container host)
+### Đảm bảo workload đặc thù hệ điều hành được đặt lên đúng host container (Ensuring OS-specific workloads land on the appropriate container host) {#ensuring-os-specific-workloads-land-on-the-appropriate-container-host}
 
 Người dùng có thể đảm bảo Windows container được lập lịch trên đúng host bằng cách sử dụng taint và toleration.
 Tất cả các node chạy Kubernetes v1.36 đều có sẵn các label mặc định sau:

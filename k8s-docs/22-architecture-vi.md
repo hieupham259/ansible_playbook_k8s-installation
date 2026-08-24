@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+**Vị trí:** Giai đoạn 1 → nhóm [1a](00-ALO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
 bài 3/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B2 và B3.
 
 Đây là bài dài nhất nhóm 1a. Khoảng một phần ba nội dung nói về control plane HA — thứ thuộc
@@ -360,7 +360,7 @@ User  ──▶ LB của Service ──▶ Pod của app             (tầng d�
 Kho lưu trữ key-value nhất quán (consistent) và có tính sẵn sàng cao, được dùng làm nơi lưu trữ nền (backing store) cho toàn bộ dữ liệu cluster của Kubernetes.
 
 Nếu cluster Kubernetes của bạn dùng etcd làm backing store, hãy đảm bảo bạn có kế hoạch
-[sao lưu (back up)](https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/#backing-up-an-etcd-cluster)
+[sao lưu (back up)](197-configure-upgrade-etcd-vi.md#backing-up-an-etcd-cluster)
 cho dữ liệu này.
 
 Bạn có thể tìm thông tin chuyên sâu về etcd trong [tài liệu](https://etcd.io/docs/) chính thức.
@@ -461,7 +461,7 @@ Vì chúng cung cấp các tính năng ở cấp cluster, những tài nguyên t
 addons nằm trong namespace `kube-system`.
 
 Một số addons chọn lọc được mô tả bên dưới; để xem danh sách mở rộng các addons hiện có,
-vui lòng xem [Addons](https://kubernetes.io/docs/concepts/cluster-administration/addons/).
+vui lòng xem [Addons](165-addons-vi.md).
 
 ### DNS
 
@@ -479,19 +479,19 @@ Các container do Kubernetes khởi động sẽ tự động đưa DNS server n
 đa dụng cho các cluster Kubernetes. Nó cho phép người dùng quản lý và khắc phục sự cố (troubleshoot)
 cho các ứng dụng đang chạy trong cluster, cũng như cho chính cluster đó.
 
-### Giám sát tài nguyên container (Container resource monitoring)
+### Giám sát tài nguyên container (Container resource monitoring) {#container-resource-monitoring}
 
-[Giám sát tài nguyên container](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/)
+[Giám sát tài nguyên container](312-resource-usage-monitoring-vi.md)
 ghi lại các số liệu (metrics) chuỗi thời gian tổng quát về các container vào một cơ sở dữ liệu trung tâm, và cung cấp giao diện để duyệt dữ liệu đó.
 
-### Ghi log cấp cluster (Cluster-level Logging)
+### Ghi log cấp cluster (Cluster-level Logging) {#cluster-level-logging}
 
-Cơ chế [ghi log cấp cluster (cluster-level logging)](https://kubernetes.io/docs/concepts/cluster-administration/logging/) chịu trách nhiệm
+Cơ chế [ghi log cấp cluster (cluster-level logging)](158-logging-vi.md) chịu trách nhiệm
 lưu log của container vào một kho log trung tâm có giao diện tìm kiếm/duyệt.
 
 ### Network plugins {#network-plugins}
 
-[Network plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins)
+[Network plugins](183-network-plugins-vi.md)
 là các thành phần phần mềm hiện thực đặc tả container network interface (CNI).
 Chúng chịu trách nhiệm cấp phát địa chỉ IP cho các pod và cho phép các pod
 giao tiếp với nhau bên trong cluster.
@@ -554,11 +554,11 @@ Tìm hiểu thêm về các chủ đề sau:
   [giao tiếp giữa chúng](./24-control-plane-node-communication-vi.md)
   với control plane.
 - Các [controller](./25-controllers-vi.md) của Kubernetes.
-- [Thu gom rác (Garbage collection)](https://kubernetes.io/docs/concepts/architecture/garbage-collection/) đối với các đối tượng của cluster.
-- [kube-scheduler](https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/) — scheduler mặc định của Kubernetes.
+- [Thu gom rác (Garbage collection)](36-garbage-collection-vi.md) đối với các đối tượng của cluster.
+- [kube-scheduler](137-kube-scheduler-vi.md) — scheduler mặc định của Kubernetes.
 - [Tài liệu](https://etcd.io/docs/) chính thức của etcd.
 - Một số [container runtime](./00-container-runtimes-vi.md) trong Kubernetes.
-- Tích hợp với các nhà cung cấp cloud bằng [cloud-controller-manager](https://kubernetes.io/docs/concepts/architecture/cloud-controller/).
+- Tích hợp với các nhà cung cấp cloud bằng [cloud-controller-manager](34-cloud-controller-vi.md).
 - Các lệnh [kubectl](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands).
 
 ---

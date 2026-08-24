@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 11/13 ·
+**Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 11/13 ·
 Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Lộ trình đánh dấu bài này là ĐỌC LƯỚT.** Cả trang chỉ nói về một núm vặn duy nhất,
@@ -43,7 +43,7 @@ chưa cần đụng vào**. Đừng sửa file cấu hình kube-scheduler trên 
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.14 [beta]`
 
-[kube-scheduler](https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/#kube-scheduler)
+[kube-scheduler](137-kube-scheduler-vi.md#kube-scheduler)
 là bộ lập lịch (scheduler) mặc định của Kubernetes. Nó chịu trách nhiệm đặt các Pod
 lên các Node trong một cluster.
 
@@ -97,7 +97,7 @@ nguyên của tất cả các node trong cluster của bạn. kube-scheduler chu
 thành một số nguyên các node. Trong quá trình lập lịch, nếu kube-scheduler đã xác định
 đủ số node khả thi để vượt qua tỷ lệ phần trăm đã cấu hình, kube-scheduler
 sẽ dừng tìm kiếm thêm các node khả thi và chuyển sang
-[giai đoạn chấm điểm (scoring phase)](https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/#kube-scheduler-implementation).
+[giai đoạn chấm điểm (scoring phase)](137-kube-scheduler-vi.md#kube-scheduler-implementation).
 
 [Cách bộ lập lịch duyệt qua các Node](#how-the-scheduler-iterates-over-nodes)
 mô tả quá trình này một cách chi tiết.
@@ -215,7 +215,7 @@ Chúng tôi áp dụng cơ chế lập lịch theo lô (batching) này cho các 
 1. Được lập lịch độc quyền trên các node (tức là việc đặt nhiều hơn một pod lên một node sẽ làm mất hiệu lực cache)
 
 Ngoài ra, để bật tính năng này, cấu hình bộ lập lịch cần phải:
-1. Tắt [phân bố topology mặc định (default topology spread)](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/#internal-default-constraints) (đặt rỗng)
+1. Tắt [phân bố topology mặc định (default topology spread)](140-topology-spread-constraints-vi.md#internal-default-constraints) (đặt rỗng)
 1. Đặt `IgnorePreferredTermsOfExistingPods` của [InterPodAffinityArgs](https://kubernetes.io/docs/reference/config-api/kube-scheduler-config.v1/#kubescheduler-config-k8s-io-v1-InterPodAffinityArgs)
 thành `true` để việc gom lô hiệu quả hơn
 

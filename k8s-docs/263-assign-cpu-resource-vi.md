@@ -279,13 +279,13 @@ kubectl delete namespace cpu-example
 
 * [Gán tài nguyên memory cho Container và Pod (Assign Memory Resources to Containers and Pods)](./264-assign-memory-resource-vi.md)
 
-* [Gán tài nguyên CPU và memory ở cấp Pod (Assign Pod-level CPU and memory resources)](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pod-level-resources/)
+* [Gán tài nguyên CPU và memory ở cấp Pod (Assign Pod-level CPU and memory resources)](265-assign-pod-level-resources-vi.md)
 
-* [Cấu hình Quality of Service cho Pod (Configure Quality of Service for Pods)](https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/)
+* [Cấu hình Quality of Service cho Pod (Configure Quality of Service for Pods)](288-quality-service-pod-vi.md)
 
-* [Thay đổi tài nguyên CPU và memory đã gán cho Container (Resize CPU and Memory Resources assigned to Containers)](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/)
+* [Thay đổi tài nguyên CPU và memory đã gán cho Container (Resize CPU and Memory Resources assigned to Containers)](289-resize-container-resources-vi.md)
 
-* [Thay đổi tài nguyên CPU và memory ở cấp Pod (Resize Pod-level CPU and Memory Resources)](https://kubernetes.io/docs/tasks/configure-pod-container/resize-pod-resources/)
+* [Thay đổi tài nguyên CPU và memory ở cấp Pod (Resize Pod-level CPU and Memory Resources)](290-resize-pod-resources-vi.md)
 
 ### Dành cho người quản trị cluster (For cluster administrators)
 
@@ -303,4 +303,4 @@ kubectl delete namespace cpu-example
 
 * [Cấu hình quota cho các đối tượng API (Configure Quotas for API Objects)](./252-quota-api-object-vi.md)
 
-* [Thay đổi tài nguyên CPU và memory đã gán cho Container (Resize CPU and Memory Resources assigned to Containers)](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/)
+* [Thay đổi tài nguyên CPU và memory đã gán cho Container (Resize CPU and Memory Resources assigned to Containers)](289-resize-container-resources-vi.md)

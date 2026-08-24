@@ -26,7 +26,7 @@ lên các node có thể truy cập những thiết bị đã được cấp ph�
 Hãy chắc chắn rằng bạn đã quen với cách DRA hoạt động và với các thuật ngữ của DRA như
 DeviceClass, ResourceClaim và ResourceClaimTemplate.
 Để biết chi tiết, xem
-[Cấp phát tài nguyên động (Dynamic Resource Allocation — DRA)](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/).
+[Cấp phát tài nguyên động (Dynamic Resource Allocation — DRA)](149-dynamic-resource-allocation-vi.md).
 
 ## Trước khi bạn bắt đầu (Before you begin)
 
@@ -213,5 +213,5 @@ kubectl delete -f https://k8s.io/examples/dra/deviceclass.yaml
 
 ## Tiếp theo (What's next)
 
-* [Tìm hiểu thêm về DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation)
-* [Cấp phát thiết bị cho workload bằng DRA](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/allocate-devices-dra)
+* [Tìm hiểu thêm về DRA](149-dynamic-resource-allocation-vi.md)
+* [Cấp phát thiết bị cho workload bằng DRA](270-allocate-devices-dra-vi.md)

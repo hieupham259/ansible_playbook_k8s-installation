@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 1/9 ·
+**Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 1/9 ·
 Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bạn **đã chạy đúng các bước của bài này rồi** — mục A4 của
@@ -57,7 +57,7 @@ khác nhau — đó là khác biệt duy nhất về nội dung.
 <img src="https://kubernetes.io/images/kubeadm-stacked-color.png" align="right" width="150px"></img>
 Trang này hướng dẫn cách cài đặt bộ công cụ `kubeadm`.
 Để biết thông tin về cách tạo một cluster bằng kubeadm sau khi bạn đã hoàn tất quá trình cài đặt này,
-hãy xem trang [Tạo cluster với kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/).
+hãy xem trang [Tạo cluster với kubeadm](02-create-cluster-kubeadm-vi.md).
 
 Hướng dẫn cài đặt này dành cho Kubernetes v1.36. Nếu bạn muốn sử dụng một phiên bản Kubernetes khác, vui lòng tham khảo các trang sau:
 
@@ -99,7 +99,7 @@ Hướng dẫn cài đặt này dành cho Kubernetes v1.36. Nếu bạn muốn s
 * Dự án kubeadm hỗ trợ các phiên bản kernel gần đây. Để xem danh sách các kernel gần đây, xem [Thông tin phát hành Windows Server](https://learn.microsoft.com/en-us/windows/release-health/windows-server-release-info).
 * Bạn có thể xem phiên bản kernel (còn gọi là phiên bản hệ điều hành) bằng lệnh `systeminfo`
 
-Để biết thêm thông tin, xem [Khả năng tương thích các phiên bản hệ điều hành Windows](https://kubernetes.io/docs/concepts/windows/intro/#windows-os-version-support).
+Để biết thêm thông tin, xem [Khả năng tương thích các phiên bản hệ điều hành Windows](175-windows-intro-vi.md#windows-os-version-support).
 
 Một cluster Kubernetes do kubeadm tạo ra phụ thuộc vào các phần mềm sử dụng những tính năng của kernel.
 Các phần mềm này bao gồm, nhưng không giới hạn ở,
@@ -150,7 +150,7 @@ Hành vi mặc định của kubelet là không khởi động nếu phát hiệ
   Lưu ý: ngay cả khi đã cung cấp `failSwapOn: false`, các workload theo mặc định vẫn không có quyền truy cập swap.
   Điều này có thể thay đổi bằng cách đặt `swapBehavior`, cũng trong tệp cấu hình của kubelet. Để sử dụng swap,
   hãy đặt `swapBehavior` khác với giá trị mặc định `NoSwap`.
-  Xem [Quản lý bộ nhớ swap](https://kubernetes.io/docs/concepts/cluster-administration/swap-memory-management) để biết thêm chi tiết.
+  Xem [Quản lý bộ nhớ swap](170-swap-memory-management-vi.md) để biết thêm chi tiết.
 * Để vô hiệu hóa swap, có thể dùng `sudo swapoff -a` để tắt swap tạm thời.
   Để thay đổi này được duy trì qua các lần khởi động lại, hãy đảm bảo swap bị vô hiệu hóa trong
   các tệp cấu hình như `/etc/fstab`, `systemd.swap`, tùy vào cách nó được cấu hình trên hệ thống của bạn.
@@ -170,7 +170,7 @@ Nếu bạn không chỉ định một runtime, kubeadm sẽ tự động cố g
 Nếu phát hiện nhiều container runtime hoặc không phát hiện được cái nào, kubeadm sẽ báo lỗi
 và yêu cầu bạn chỉ định runtime muốn sử dụng.
 
-Xem [container runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
+Xem [container runtimes](00-container-runtimes-vi.md)
 để biết thêm thông tin.
 
 > **Ghi chú:** Docker Engine không triển khai [CRI](https://kubernetes.io/docs/concepts/architecture/cri/),
@@ -219,16 +219,16 @@ kubelet và control plane là được hỗ trợ, nhưng phiên bản kubelet k
 của API server. Ví dụ, kubelet chạy phiên bản 1.7.0 sẽ hoàn toàn tương thích với API server phiên bản 1.8.0,
 nhưng điều ngược lại thì không.
 
-Để biết thông tin về cách cài đặt `kubectl`, xem [Cài đặt và thiết lập kubectl](https://kubernetes.io/docs/tasks/tools/).
+Để biết thông tin về cách cài đặt `kubectl`, xem [Cài đặt và thiết lập kubectl](185-tools-vi.md).
 
 > **Cảnh báo:** Các hướng dẫn này loại trừ tất cả các gói Kubernetes khỏi mọi đợt nâng cấp hệ thống.
 > Lý do là kubeadm và Kubernetes đòi hỏi
-> [sự chú ý đặc biệt khi nâng cấp](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/).
+> [sự chú ý đặc biệt khi nâng cấp](221-kubeadm-upgrade-vi.md).
 
 Để biết thêm thông tin về lệch phiên bản, xem:
 
 * [Chính sách phiên bản và lệch phiên bản](https://kubernetes.io/docs/setup/release/version-skew-policy/) của Kubernetes
-* [Chính sách lệch phiên bản](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#version-skew-policy) riêng của kubeadm
+* [Chính sách lệch phiên bản](02-create-cluster-kubeadm-vi.md#version-skew-policy) riêng của kubeadm
 
 > **Ghi chú:** Các kho gói cũ (`apt.kubernetes.io` và `yum.kubernetes.io`) đã bị
 > [ngưng sử dụng và đóng băng kể từ ngày 13-09-2023](https://kubernetes.io/blog/2023/08/31/legacy-package-repository-deprecation/).
@@ -398,7 +398,7 @@ curl -sSL "https://raw.githubusercontent.com/kubernetes/release/${RELEASE_VERSIO
 > **Ghi chú:** Vui lòng tham khảo ghi chú trong mục [Trước khi bạn bắt đầu](#before-you-begin) đối với các bản phân phối Linux
 > không bao gồm `glibc` theo mặc định.
 
-Cài đặt `kubectl` theo hướng dẫn trên [trang Cài đặt công cụ](https://kubernetes.io/docs/tasks/tools/#kubectl).
+Cài đặt `kubectl` theo hướng dẫn trên [trang Cài đặt công cụ](185-tools-vi.md#kubectl).
 
 Tùy chọn, kích hoạt service kubelet trước khi chạy kubeadm:
 
@@ -408,7 +408,7 @@ sudo systemctl enable --now kubelet
 
 > **Ghi chú:** Bản phân phối Flatcar Container Linux mount thư mục `/usr` dưới dạng filesystem chỉ đọc (read-only).
 > Trước khi khởi tạo (bootstrap) cluster của bạn, bạn cần thực hiện thêm các bước để cấu hình một thư mục có quyền ghi.
-> Xem [Hướng dẫn xử lý sự cố kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/troubleshooting-kubeadm/#usr-mounted-read-only)
+> Xem [Hướng dẫn xử lý sự cố kubeadm](09-troubleshooting-kubeadm-vi.md#usr-mounted-read-only)
 > để biết cách thiết lập một thư mục có quyền ghi.
 
 kubelet lúc này sẽ khởi động lại sau mỗi vài giây, do nó chờ trong vòng lặp crashloop để
@@ -417,21 +417,21 @@ kubeadm ra lệnh cho nó phải làm gì.
 ## Cấu hình cgroup driver (Configuring a cgroup driver)
 
 Cả container runtime và kubelet đều có một thuộc tính gọi là
-["cgroup driver"](https://kubernetes.io/docs/setup/production-environment/container-runtimes/#cgroup-drivers), thuộc tính này rất quan trọng
+["cgroup driver"](00-container-runtimes-vi.md#cgroup-drivers), thuộc tính này rất quan trọng
 đối với việc quản lý các cgroup trên máy Linux.
 
 > **Cảnh báo:** Cgroup driver của container runtime và của kubelet bắt buộc phải khớp nhau, nếu không tiến trình kubelet sẽ thất bại.
 >
-> Xem [Cấu hình cgroup driver](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/configure-cgroup-driver/) để biết thêm chi tiết.
+> Xem [Cấu hình cgroup driver](218-configure-cgroup-driver-vi.md) để biết thêm chi tiết.
 
 ## Xử lý sự cố (Troubleshooting)
 
 Nếu bạn gặp khó khăn với kubeadm, vui lòng tham khảo
-[tài liệu xử lý sự cố](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/troubleshooting-kubeadm/) của chúng tôi.
+[tài liệu xử lý sự cố](09-troubleshooting-kubeadm-vi.md) của chúng tôi.
 
 ## Tiếp theo (What's next)
 
-* [Sử dụng kubeadm để tạo cluster](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/)
+* [Sử dụng kubeadm để tạo cluster](02-create-cluster-kubeadm-vi.md)
 
 ---
 

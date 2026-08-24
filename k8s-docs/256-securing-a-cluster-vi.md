@@ -121,7 +121,7 @@ hạn mặc định khi không có giới hạn nào được chỉ định.
 ### Kiểm soát các đặc quyền mà container chạy với (Controlling what privileges containers run with)
 
 Định nghĩa của một Pod chứa một
-[security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+[security context](291-security-context-vi.md)
 cho phép nó yêu cầu quyền chạy dưới một người dùng Linux cụ thể trên node (như root), quyền
 chạy ở chế độ privileged hoặc truy cập mạng của host, và các quyền kiểm soát khác mà nếu không
 có sẽ cho phép nó chạy không bị ràng buộc trên node đang chứa nó.
@@ -227,7 +227,7 @@ lập các máy chủ etcd sau một tường lửa mà chỉ các API server m�
 
 ### Bật ghi log audit (Enable audit logging)
 
-[Audit logger](https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/) là một tính năng
+[Audit logger](306-audit-vi.md) là một tính năng
 beta ghi lại các hành động do API thực hiện, phục vụ việc phân tích về sau nếu xảy ra sự cố
 xâm phạm. Bạn nên bật ghi log audit và lưu trữ (archive) file audit trên một máy chủ an toàn.
 

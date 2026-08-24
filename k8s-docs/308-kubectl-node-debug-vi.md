@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](LO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
+**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
 bài 3/10 · nối tiếp bài [305 — Troubleshooting Clusters](305-debug-cluster-vi.md) và bài
 [307 — crictl](307-crictl-vi.md); giai đoạn này không có lab riêng, thực hành trực tiếp trên
 cluster lab (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
@@ -119,7 +119,7 @@ Khi tạo một phiên debug trên Node, hãy ghi nhớ rằng:
   bại. Nếu bạn cần một Pod privileged, hãy tạo nó thủ công hoặc dùng cờ `--profile=sysadmin`.
 * Bằng cách áp dụng [Debugging Profiles](300-debug-running-pod-vi.md#debugging-profiles), bạn
   có thể đặt các thuộc tính cụ thể, chẳng hạn
-  [securityContext](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/),
+  [securityContext](291-security-context-vi.md),
   cho Pod debug.
 
 ## Dọn dẹp (Cleaning up)

@@ -7,11 +7,11 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — đọc kèm
-[Giai đoạn 15 — Windows](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows)
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — đọc kèm
+[Giai đoạn 15 — Windows](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows)
 (các bài [174](174-windows-vi.md), [175](175-windows-intro-vi.md),
 [176](176-windows-user-guide-vi.md), [89](89-windows-networking-vi.md)) và bài
 [216 — Adding Windows nodes](216-adding-windows-nodes-vi.md). Cluster lab toàn node Linux,
@@ -51,7 +51,7 @@ thực hành.
 1. Các Pod của tôi kẹt ở "Container Creating" hoặc restart lặp đi lặp lại
 
    Hãy chắc chắn rằng pause image của bạn tương thích với phiên bản hệ điều hành Windows.
-   Xem [Pause container](https://kubernetes.io/docs/concepts/windows/intro/#pause-container)
+   Xem [Pause container](175-windows-intro-vi.md#pause-container)
    để biết pause image mới nhất / được khuyến nghị và/hoặc tìm hiểu thêm thông tin.
 
    > **Ghi chú:**
@@ -64,7 +64,7 @@ thực hành.
    [tương thích](https://docs.microsoft.com/virtualization/windowscontainers/deploy-containers/version-compatibility).
 
    Thông tin thêm về cách chỉ định node tương thích cho Pod của bạn có trong
-   [hướng dẫn này](https://kubernetes.io/docs/concepts/windows/user-guide/#ensuring-os-specific-workloads-land-on-the-appropriate-container-host).
+   [hướng dẫn này](176-windows-user-guide-vi.md#ensuring-os-specific-workloads-land-on-the-appropriate-container-host).
 
 ## Khắc phục sự cố mạng (Network troubleshooting) {#troubleshooting-network}
 
@@ -85,7 +85,7 @@ thực hành.
    dụng cho mọi tài nguyên Kubernetes mới.
 
    Một trong các yêu cầu về mạng của Kubernetes
-   (xem [mô hình Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/networking/))
+   (xem [mô hình Kubernetes](157-networking-vi.md))
    là giao tiếp trong cluster phải diễn ra không cần NAT nội bộ. Để đáp ứng yêu cầu này, có
    một danh sách
    [ExceptionList](https://github.com/Microsoft/SDN/blob/master/Kubernetes/flannel/l2bridge/cni/config/cni.conf#L20)
@@ -143,7 +143,7 @@ thực hành.
 7. Phân giải DNS không hoạt động đúng
 
    Xem các giới hạn DNS đối với Windows trong
-   [mục này](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#dns-windows).
+   [mục này](10-dns-pod-service-vi.md#dns-windows).
 
 8. `kubectl port-forward` thất bại với lỗi "unable to do port forwarding: wincat not found"
 
@@ -258,4 +258,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho m�
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng; khi thực sự vận hành node
 Windows, làm Lab 15 (tùy chọn) và đọc lại nhóm bài
-[Giai đoạn 15](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows).
+[Giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows).

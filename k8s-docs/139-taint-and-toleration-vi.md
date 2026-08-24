@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 4/13 ·
+**Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 4/13 ·
 Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **mặt đối ngẫu** của bài [138](138-assign-pod-node-vi.md): affinity là thuộc tính của
@@ -52,20 +52,20 @@ bài [142](142-node-pressure-eviction-vi.md), đọc kỹ.
 
 ---
 
-[_Node affinity_](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)
+[_Node affinity_](138-assign-pod-node-vi.md#affinity-and-anti-affinity)
 là một thuộc tính của Pod có tác dụng *thu hút* chúng đến
 một tập các node (dưới dạng ưu tiên hoặc yêu cầu bắt buộc). _Taint_ thì ngược lại — chúng cho phép một node đẩy lùi (repel) một tập các pod.
 
 _Toleration_ được áp dụng cho pod. Toleration cho phép bộ lập lịch (scheduler) lập lịch các pod có
 taint khớp tương ứng. Toleration cho phép việc lập lịch nhưng không đảm bảo việc lập lịch: bộ lập lịch còn
-[đánh giá các tham số khác](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)
+[đánh giá các tham số khác](141-pod-priority-preemption-vi.md)
 như một phần chức năng của nó.
 
 Taint và toleration phối hợp với nhau để đảm bảo pod không bị lập lịch
 lên các node không phù hợp. Một hoặc nhiều taint được áp dụng lên một node; điều này
 đánh dấu rằng node đó không nên chấp nhận bất kỳ pod nào không dung thứ (tolerate) các taint đó.
 
-## Khái niệm (Concepts)
+## Khái niệm (Concepts) {#concepts}
 
 Bạn thêm một taint vào node bằng [kubectl taint](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#taint).
 Ví dụ,
@@ -336,7 +336,7 @@ tương ứng vào các pod sử dụng phần cứng đặc biệt. Giống nh�
 cách dễ nhất có lẽ là áp dụng các toleration bằng một
 [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/) tùy chỉnh.
 Ví dụ, khuyến nghị dùng [Tài nguyên mở rộng (Extended
-Resources)](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#extended-resources)
+Resources)](110-manage-resources-containers-vi.md#extended-resources)
 để biểu diễn phần cứng đặc biệt, taint các node có phần cứng đặc biệt bằng
 tên extended resource và chạy admission controller
 [ExtendedResourceToleration](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#extendedresourcetoleration).
@@ -427,11 +427,11 @@ toleration `NoExecute` cho các taint sau mà không có `tolerationSeconds`:
 > riêng biệt và độc lập gọi là taint-eviction-controller. Người dùng có thể tùy chọn tắt eviction
 > dựa trên taint bằng cách đặt `--controllers=-taint-eviction-controller` trong kube-controller-manager.
 
-## Taint Node theo điều kiện (Taint Nodes by Condition)
+## Taint Node theo điều kiện (Taint Nodes by Condition) {#taint-nodes-by-condition}
 
 Control plane, thông qua node controller,
 tự động tạo các taint với effect `NoSchedule` cho
-[các điều kiện của node (node conditions)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/#node-conditions).
+[các điều kiện của node (node conditions)](142-node-pressure-eviction-vi.md#node-conditions).
 
 Bộ lập lịch kiểm tra taint, chứ không phải điều kiện của node, khi đưa ra quyết định
 lập lịch. Điều này đảm bảo các điều kiện của node không ảnh hưởng trực tiếp đến việc lập lịch.
@@ -462,18 +462,18 @@ các toleration tùy ý vào DaemonSet.
 
 ## Taint và toleration cho thiết bị (Device taints and tolerations)
 
-Thay vì taint toàn bộ node, quản trị viên cũng có thể [taint từng thiết bị riêng lẻ](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation#device-taints-and-tolerations)
-khi cluster sử dụng [cấp phát tài nguyên động (dynamic resource allocation)](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation)
+Thay vì taint toàn bộ node, quản trị viên cũng có thể [taint từng thiết bị riêng lẻ](149-dynamic-resource-allocation-vi.md#device-taints-and-tolerations)
+khi cluster sử dụng [cấp phát tài nguyên động (dynamic resource allocation)](149-dynamic-resource-allocation-vi.md)
 để quản lý phần cứng đặc biệt. Ưu điểm là việc taint có thể nhắm chính xác đến phần cứng
 bị lỗi hoặc cần bảo trì. Toleration cũng được hỗ trợ và có thể được chỉ định khi yêu cầu
 thiết bị. Giống như taint, chúng áp dụng cho tất cả các pod dùng chung cùng một thiết bị đã được cấp phát.
 
 ## Tiếp theo (What's next)
 
-* Đọc về [Eviction do áp lực node (Node-pressure Eviction)](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/)
+* Đọc về [Eviction do áp lực node (Node-pressure Eviction)](142-node-pressure-eviction-vi.md)
   và cách bạn có thể cấu hình nó
-* Đọc về [Độ ưu tiên của Pod (Pod Priority)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)
-* Đọc về [taint và toleration cho thiết bị](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation#device-taints-and-tolerations)
+* Đọc về [Độ ưu tiên của Pod (Pod Priority)](141-pod-priority-preemption-vi.md)
+* Đọc về [taint và toleration cho thiết bị](149-dynamic-resource-allocation-vi.md#device-taints-and-tolerations)
 
 ---
 

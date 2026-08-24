@@ -11,7 +11,7 @@ tăng hoặc giảm số lượng replicas.
   Để kiểm tra phiên bản Kubernetes của bạn, hãy chạy `kubectl version`.
 
 - Không phải ứng dụng stateful nào cũng scale tốt. Nếu bạn không chắc có nên
-  scale StatefulSet của mình hay không, hãy xem [khái niệm StatefulSet](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
+  scale StatefulSet của mình hay không, hãy xem [khái niệm StatefulSet](65-statefulset-vi.md)
   hoặc [hướng dẫn StatefulSet](https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/) để biết thêm thông tin.
 
 - Bạn chỉ nên thực hiện scale khi bạn tin chắc rằng cluster ứng dụng stateful
@@ -85,4 +85,4 @@ hoàn toàn khỏe mạnh.
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu thêm về [xóa một StatefulSet](https://kubernetes.io/docs/tasks/run-application/delete-stateful-set/).
+- Tìm hiểu thêm về [xóa một StatefulSet](340-delete-stateful-set-vi.md).

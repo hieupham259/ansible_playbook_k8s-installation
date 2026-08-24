@@ -160,10 +160,10 @@ của bạn dùng được root certificate.
 
 Trên một số cluster, API server không yêu cầu xác thực; nó có thể phục vụ trên
 localhost, hoặc được bảo vệ bởi firewall. Không có một chuẩn nào cho việc này.
-[Kiểm soát truy cập vào Kubernetes API](https://kubernetes.io/docs/concepts/security/controlling-access)
+[Kiểm soát truy cập vào Kubernetes API](119-controlling-access-vi.md)
 mô tả cách bạn — với vai trò quản trị viên cluster — có thể cấu hình điều này.
 
-### Truy cập API bằng lập trình (Programmatic access to the API)
+### Truy cập API bằng lập trình (Programmatic access to the API) {#programmatic-access-to-the-api}
 
 Kubernetes chính thức hỗ trợ các thư viện client cho [Go](#go-client),
 [Python](#python-client), [Java](#java-client), [dotnet](#dotnet-client),
@@ -184,7 +184,7 @@ Kubernetes. Xem [thư viện client](https://kubernetes.io/docs/reference/using-
 > định nghĩa API từ client-go thay vì từ repository chính. Ví dụ,
 > `import "k8s.io/client-go/kubernetes"` là đúng.
 
-Go client có thể dùng cùng một [file kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+Go client có thể dùng cùng một [file kubeconfig](111-kubeconfig-vi.md)
 như kubectl CLI để định vị và xác thực tới API server. Xem
 [ví dụ](https://git.k8s.io/client-go/examples/out-of-cluster-client-configuration/main.go) này:
 
@@ -212,7 +212,7 @@ func main() {
 ```
 
 Nếu ứng dụng được triển khai như một Pod trong cluster, xem
-[Truy cập API từ bên trong một Pod](https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod).
+[Truy cập API từ bên trong một Pod](359-access-cluster-vi.md#accessing-the-api-from-a-pod).
 
 #### Python client
 
@@ -220,7 +220,7 @@ Nếu ứng dụng được triển khai như một Pod trong cluster, xem
 `pip install kubernetes`. Xem [trang Python Client Library](https://github.com/kubernetes-client/python)
 để biết thêm các tùy chọn cài đặt.
 
-Python client có thể dùng cùng một [file kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+Python client có thể dùng cùng một [file kubeconfig](111-kubeconfig-vi.md)
 như kubectl CLI để định vị và xác thực tới API server. Xem
 [ví dụ](https://github.com/kubernetes-client/python/blob/master/examples/out_of_cluster_config.py) này:
 
@@ -252,7 +252,7 @@ mvn install
 Xem [https://github.com/kubernetes-client/java/releases](https://github.com/kubernetes-client/java/releases)
 để biết những phiên bản nào được hỗ trợ.
 
-Java client có thể dùng cùng một [file kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+Java client có thể dùng cùng một [file kubeconfig](111-kubeconfig-vi.md)
 như kubectl CLI để định vị và xác thực tới API server. Xem
 [ví dụ](https://github.com/kubernetes-client/java/blob/master/examples/examples-release-15/src/main/java/io/kubernetes/client/examples/KubeConfigFileClientExample.java) này:
 
@@ -312,7 +312,7 @@ thêm các tùy chọn cài đặt. Xem
 [https://github.com/kubernetes-client/csharp/releases](https://github.com/kubernetes-client/csharp/releases)
 để biết những phiên bản nào được hỗ trợ.
 
-dotnet client có thể dùng cùng một [file kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+dotnet client có thể dùng cùng một [file kubeconfig](111-kubeconfig-vi.md)
 như kubectl CLI để định vị và xác thực tới API server. Xem
 [ví dụ](https://github.com/kubernetes-client/csharp/blob/master/examples/simple/PodList.cs) này:
 
@@ -351,7 +351,7 @@ lệnh sau: `npm install @kubernetes/client-node`. Xem
 [https://github.com/kubernetes-client/javascript/releases](https://github.com/kubernetes-client/javascript/releases)
 để biết những phiên bản nào được hỗ trợ.
 
-JavaScript client có thể dùng cùng một [file kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+JavaScript client có thể dùng cùng một [file kubeconfig](111-kubeconfig-vi.md)
 như kubectl CLI để định vị và xác thực tới API server. Xem
 [ví dụ](https://github.com/kubernetes-client/javascript/blob/master/examples/example.js) này:
 
@@ -374,7 +374,7 @@ Xem [https://github.com/kubernetes-client/haskell/releases](https://github.com/k
 để biết những phiên bản nào được hỗ trợ.
 
 [Haskell client](https://github.com/kubernetes-client/haskell) có thể dùng cùng một
-[file kubeconfig](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+[file kubeconfig](111-kubeconfig-vi.md)
 như kubectl CLI để định vị và xác thực tới API server. Xem
 [ví dụ](https://github.com/kubernetes-client/haskell/blob/master/kubernetes-client/example/App.hs) này:
 
@@ -392,4 +392,4 @@ exampleWithKubeConfig = do
 
 ## Tiếp theo (What's next)
 
-* [Truy cập Kubernetes API từ một Pod](https://kubernetes.io/docs/tasks/run-application/access-api-from-pod/)
+* [Truy cập Kubernetes API từ một Pod](338-access-api-from-pod-vi.md)

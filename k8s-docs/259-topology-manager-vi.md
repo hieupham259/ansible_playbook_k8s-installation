@@ -91,13 +91,13 @@ Chi tiết về các `scope` và `policy` hiện có được trình bày bên d
 >
 > Để căn chỉnh tài nguyên CPU với các tài nguyên được yêu cầu khác trong spec của Pod,
 > CPU Manager cần được bật và chính sách CPU Manager phù hợp cần được cấu hình trên Node.
-> Xem [Kiểm soát các chính sách quản lý CPU trên Node](https://kubernetes.io/docs/tasks/administer-cluster/cpu-management-policies/).
+> Xem [Kiểm soát các chính sách quản lý CPU trên Node](200-cpu-management-policies-vi.md).
 
 > **Ghi chú:**
 >
 > Để căn chỉnh tài nguyên bộ nhớ (và hugepages) với các tài nguyên được yêu cầu khác trong spec
 > của Pod, Memory Manager cần được bật và chính sách Memory Manager phù hợp cần được cấu hình
-> trên Node. Tham khảo tài liệu [Memory Manager](https://kubernetes.io/docs/tasks/administer-cluster/memory-manager/).
+> trên Node. Tham khảo tài liệu [Memory Manager](235-memory-manager-vi.md).
 
 ## Các scope của Topology Manager (Topology manager scopes)
 
@@ -108,13 +108,13 @@ Topology Manager có thể xử lý việc căn chỉnh tài nguyên theo một 
 
 Một trong hai tùy chọn có thể được chọn tại thời điểm khởi động kubelet, bằng cách thiết lập
 `topologyManagerScope` trong
-[file cấu hình kubelet](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/).
+[file cấu hình kubelet](224-kubelet-config-file-vi.md).
 
 ### Scope `container`
 
 Scope `container` được dùng theo mặc định. Bạn cũng có thể thiết lập tường minh
 `topologyManagerScope` thành `container` trong
-[file cấu hình kubelet](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/).
+[file cấu hình kubelet](224-kubelet-config-file-vi.md).
 
 Trong scope này, Topology Manager thực hiện một chuỗi các lần căn chỉnh tài nguyên tuần tự,
 tức là với mỗi container (trong một Pod), một phép căn chỉnh riêng được tính toán. Nói cách khác,
@@ -128,7 +128,7 @@ scope tiếp theo, đó là scope `pod`.
 ### Scope `pod`
 
 Để chọn scope `pod`, thiết lập `topologyManagerScope` trong
-[file cấu hình kubelet](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/) thành `pod`.
+[file cấu hình kubelet](224-kubelet-config-file-vi.md) thành `pod`.
 
 Scope này cho phép gom toàn bộ các container trong một Pod vào một tập NUMA node chung. Nghĩa là,
 Topology Manager coi Pod như một thể thống nhất và cố gắng cấp phát toàn bộ Pod (tất cả các
@@ -139,7 +139,7 @@ những phép căn chỉnh mà Topology Manager thực hiện trong các trườ
 * tất cả các container có thể được và đã được cấp phát vào một tập NUMA node dùng chung.
 
 Tổng lượng của một tài nguyên cụ thể mà toàn bộ Pod yêu cầu được tính theo công thức
-[requests/limits hiệu dụng](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/#resource-sharing-within-containers),
+[requests/limits hiệu dụng](50-init-containers-vi.md#resource-sharing-within-containers),
 và do đó, giá trị tổng này bằng giá trị lớn nhất giữa:
 
 * tổng các request của tất cả app container,
@@ -411,4 +411,4 @@ tài nguyên.
 
 ## Tiếp theo (What's next)
 
-* Đọc về [Các trình quản lý tài nguyên cấp Pod](https://kubernetes.io/docs/concepts/workloads/resource-managers/#pod-level-resource-managers).
+* Đọc về [Các trình quản lý tài nguyên cấp Pod](74-resource-managers-vi.md#pod-level-resource-managers).

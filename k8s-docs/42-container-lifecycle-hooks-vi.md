@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 4/8 ·
+**Vị trí:** [Giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 4/8 ·
 Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Lộ trình ghi rõ: `preStop` liên quan trực tiếp đến **shutdown êm** ở giai đoạn 3. Đọc bài này
@@ -54,7 +54,7 @@ Container các hook vòng đời. Các hook này cho phép Container nhận bi�
 kiện trong vòng đời quản lý của chúng và chạy code được hiện thực trong một trình xử
 lý (handler) khi hook vòng đời tương ứng được thực thi.
 
-## Các hook của Container (Container hooks)
+## Các hook của Container (Container hooks) {#container-hooks}
 
 Có hai hook được cung cấp cho các Container:
 
@@ -83,7 +83,7 @@ quả của handler ra sao, container cuối cùng vẫn sẽ chấm dứt trong
 gia hạn chấm dứt của Pod. Không có tham số nào được truyền cho handler.
 
 Bạn có thể xem mô tả chi tiết hơn về hành vi chấm dứt tại
-[Chấm dứt Pod (Termination of Pods)](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination).
+[Chấm dứt Pod (Termination of Pods)](47-pod-lifecycle-vi.md#pod-termination).
 
 `StopSignal`
 
@@ -92,7 +92,7 @@ signal) sẽ được gửi tới container khi nó bị dừng. Nếu bạn thi
 sẽ ghi đè mọi chỉ thị `STOPSIGNAL` được định nghĩa bên trong container image.
 
 Bạn có thể xem mô tả chi tiết hơn về hành vi chấm dứt với tín hiệu dừng tùy chỉnh tại
-[Tín hiệu dừng (Stop Signals)](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination-stop-signals).
+[Tín hiệu dừng (Stop Signals)](47-pod-lifecycle-vi.md#pod-termination-stop-signals).
 
 ### Các cách hiện thực hook handler (Hook handler implementations)
 
@@ -176,9 +176,9 @@ Events:
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [Môi trường của Container (Container environment)](https://kubernetes.io/docs/concepts/containers/container-environment/).
+* Tìm hiểu thêm về [Môi trường của Container (Container environment)](41-container-environment-vi.md).
 * Thực hành thực tế với việc
-  [gắn handler vào các sự kiện vòng đời của Container](https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/).
+  [gắn handler vào các sự kiện vòng đời của Container](272-attach-handler-lifecycle-event-vi.md).
 
 ---
 

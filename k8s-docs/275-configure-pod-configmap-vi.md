@@ -32,7 +32,7 @@ chơi (playground) Kubernetes sau:
 Bạn cần cài đặt sẵn công cụ `wget`. Nếu bạn có một công cụ khác như `curl` mà không có `wget`,
 bạn sẽ cần điều chỉnh lại bước tải dữ liệu ví dụ.
 
-## Tạo một ConfigMap (Create a ConfigMap)
+## Tạo một ConfigMap (Create a ConfigMap) {#create-a-configmap}
 
 Bạn có thể dùng `kubectl create configmap` hoặc một ConfigMap generator trong `kustomization.yaml`
 để tạo một ConfigMap.
@@ -50,7 +50,7 @@ kubectl create configmap <map-name> <data-source>
 trong đó \<map-name> là tên bạn muốn gán cho ConfigMap và \<data-source> là thư mục, file, hoặc
 giá trị literal để lấy dữ liệu.
 Tên của một object ConfigMap phải là một
-[tên miền con DNS (DNS subdomain name)](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names)
+[tên miền con DNS (DNS subdomain name)](17-names-vi.md#dns-subdomain-names)
 hợp lệ.
 
 Khi bạn tạo một ConfigMap dựa trên một file, key trong \<data-source> mặc định là basename (tên
@@ -661,7 +661,7 @@ data:
   kubectl delete configmap env-config
   ```
 
-## Cấu hình tất cả các cặp key-value trong ConfigMap thành biến môi trường của container (Configure all key-value pairs in a ConfigMap as container environment variables)
+## Cấu hình tất cả các cặp key-value trong ConfigMap thành biến môi trường của container (Configure all key-value pairs in a ConfigMap as container environment variables) {#configure-all-key-value-pairs-in-a-configmap-as-container-environment-variables}
 
 * Tạo một ConfigMap chứa nhiều cặp key-value.
 
@@ -838,7 +838,7 @@ SPECIAL_TYPE
 
 Dữ liệu dạng văn bản được phơi ra dưới dạng file sử dụng bảng mã ký tự UTF-8. Để dùng bảng mã ký
 tự khác, hãy dùng `binaryData`
-(xem [object ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/#configmap-object)
+(xem [object ConfigMap](108-configmap-vi.md#configmap-object)
 để biết thêm chi tiết).
 
 > **Ghi chú:**
@@ -904,10 +904,10 @@ kubectl delete pod dapi-test-pod --now
 ### Chiếu các key tới path và quyền file cụ thể (Project keys to specific paths and file permissions)
 
 Bạn có thể chiếu (project) các key tới các path cụ thể. Tham khảo mục tương ứng trong hướng dẫn
-[Secrets](https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#project-secret-keys-to-specific-file-paths)
+[Secrets](334-distribute-credentials-secure-vi.md#project-secret-keys-to-specific-file-paths)
 để biết cú pháp.
 Bạn có thể đặt quyền POSIX (POSIX permissions) cho các key. Tham khảo mục tương ứng trong hướng
-dẫn [Secrets](https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#set-posix-permissions-for-secret-keys)
+dẫn [Secrets](334-distribute-credentials-secure-vi.md#set-posix-permissions-for-secret-keys)
 để biết cú pháp.
 
 ### Tham chiếu optional (Optional references)
@@ -932,7 +932,7 @@ một trong các annotation của Pod.
 
 > **Ghi chú:**
 > Một container sử dụng ConfigMap dưới dạng volume
-> [subPath](https://kubernetes.io/docs/concepts/storage/volumes/#using-subpath) sẽ không nhận
+> [subPath](91-volumes-vi.md#using-subpath) sẽ không nhận
 > được các cập nhật của ConfigMap.
 
 ## Hiểu về ConfigMap và Pod (Understanding ConfigMaps and Pods)
@@ -940,14 +940,14 @@ một trong các annotation của Pod.
 Tài nguyên API ConfigMap lưu trữ dữ liệu cấu hình dưới dạng các cặp key-value. Dữ liệu có thể
 được tiêu thụ trong các Pod hoặc cung cấp cấu hình cho các thành phần hệ thống như các
 controller. ConfigMap tương tự như
-[Secrets](https://kubernetes.io/docs/concepts/configuration/secret/), nhưng cung cấp một phương
+[Secrets](109-secret-vi.md), nhưng cung cấp một phương
 tiện để làm việc với các chuỗi không chứa thông tin nhạy cảm. Cả người dùng lẫn các thành phần
 hệ thống đều có thể lưu dữ liệu cấu hình trong ConfigMap.
 
 > **Ghi chú:**
 > ConfigMap nên tham chiếu tới các file properties, chứ không thay thế chúng. Hãy hình dung
 > ConfigMap như một thứ tương tự với thư mục `/etc` của Linux và nội dung bên trong nó. Ví dụ,
-> nếu bạn tạo một [Volume Kubernetes](https://kubernetes.io/docs/concepts/storage/volumes/) từ
+> nếu bạn tạo một [Volume Kubernetes](91-volumes-vi.md) từ
 > một ConfigMap, mỗi mục dữ liệu trong ConfigMap được thể hiện bằng một file riêng lẻ trong
 > volume đó.
 

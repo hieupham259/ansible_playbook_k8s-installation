@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3b](LO-TRINH-ADMIN.md#3b-cấu-hình-và-tài-nguyên), bài 1/7 ·
+**Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 1/7 ·
 Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **trang mục lục**, không phải bài học. Cả trang chỉ có một câu giới thiệu và một danh
@@ -31,7 +31,7 @@ nhóm bài sắp tới.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| *Tổ chức truy cập cluster bằng các file kubeconfig* | đã học, không thuộc nhóm 3b | giai đoạn 1, nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl) |
+| *Tổ chức truy cập cluster bằng các file kubeconfig* | đã học, không thuộc nhóm 3b | giai đoạn 1, nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl) |
 | *Quản lý tài nguyên cho các node Windows* | cluster lab không có node Windows | giai đoạn 15 |
 
 ---
@@ -44,10 +44,10 @@ Các tài nguyên mà Kubernetes cung cấp để cấu hình các Pod.
 Các trang trong mục này:
 
 * [ConfigMap (ConfigMaps)](./108-configmap-vi.md)
-* [Secret (Secrets)](https://kubernetes.io/docs/concepts/configuration/secret/)
-* [Quản lý tài nguyên cho Pod và Container (Resource Management for Pods and Containers)](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
-* [Tổ chức truy cập cluster bằng các file kubeconfig (Organizing Cluster Access Using kubeconfig Files)](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
-* [Quản lý tài nguyên cho các node Windows (Resource Management for Windows nodes)](https://kubernetes.io/docs/concepts/configuration/windows-resource-management/)
+* [Secret (Secrets)](109-secret-vi.md)
+* [Quản lý tài nguyên cho Pod và Container (Resource Management for Pods and Containers)](110-manage-resources-containers-vi.md)
+* [Tổ chức truy cập cluster bằng các file kubeconfig (Organizing Cluster Access Using kubeconfig Files)](111-kubeconfig-vi.md)
+* [Quản lý tài nguyên cho các node Windows (Resource Management for Windows nodes)](112-windows-resource-management-vi.md)
 
 ---
 

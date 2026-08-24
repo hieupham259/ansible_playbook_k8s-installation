@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 13/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 13/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này lật ngược ba bài bạn đã đọc. Bài [119](119-controlling-access-vi.md) xây một luồng bốn
 chặng chặt chẽ; bài [24](24-control-plane-node-communication-vi.md) nói mọi truy cập API đều kết
@@ -90,7 +90,7 @@ với API server. Tuy nhiên, Pod vẫn chạy trên node. Để biết thêm th
 
 ### Biện pháp giảm thiểu (Mitigations) {#static-pods-mitigations}
 
-- Chỉ [bật chức năng static Pod manifest của kubelet](https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/#static-pod-creation)
+- Chỉ [bật chức năng static Pod manifest của kubelet](293-static-pod-tasks-vi.md#static-pod-creation)
   nếu node thật sự cần.
 - Nếu một node dùng chức năng static Pod, hãy hạn chế quyền truy cập filesystem vào thư mục
   chứa static Pod manifest hoặc URL, chỉ cho những người dùng cần quyền truy cập đó.

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 10/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -98,7 +98,7 @@ không đủ dung lượng (trong trường hợp đó các pod mới sẽ ở t
 ## Cấu hình API: các ràng buộc lập lịch (API configuration: scheduling constraints)
 
 Mọi PodGroup (hoặc PodGroupTemplate) có thể tùy chọn khai báo trường `schedulingConstraints`,
-trường này được diễn giải bởi [thuật toán lập lịch PodGroup dựa trên placement](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/#placement-scheduling-algorithm).
+trường này được diễn giải bởi [thuật toán lập lịch PodGroup dựa trên placement](151-podgroup-scheduling-vi.md#placement-scheduling-algorithm).
 Nếu các ràng buộc được định nghĩa trong PodGroupTemplate, chúng sẽ được sao chép sang các PodGroup tham chiếu đến template đó.
 
 Tính đến Kubernetes v1.36, API hỗ trợ các ràng buộc topology.
@@ -132,8 +132,8 @@ spec:
 ## Tiếp theo (What's next)
 
 * Tìm hiểu về [các chính sách của pod group](./79-workload-policies-vi.md).
-* Tìm hiểu về [các plugin liên quan đến Lập lịch nhận biết topology](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-aware-scheduling/)
-* Đọc về thuật toán [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/).
+* Tìm hiểu về [các plugin liên quan đến Lập lịch nhận biết topology](153-topology-aware-scheduling-vi.md)
+* Đọc về thuật toán [gang scheduling](150-gang-scheduling-vi.md).
 
 ---
 

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 2](LO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 2/8 ·
+**Vị trí:** [Giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 2/8 ·
 Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Lộ trình ghi rõ: đây là **nguồn lỗi vận hành rất phổ biến**. Bài dài, nhưng phần gây sự cố
@@ -205,7 +205,7 @@ Nếu bạn muốn luôn luôn ép buộc việc pull, bạn có thể làm mộ
 
 Khi kubelet bắt đầu tạo container cho một Pod bằng một container runtime,
 có khả năng container ở trạng thái
-[Waiting](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-state-waiting)
+[Waiting](47-pod-lifecycle-vi.md#container-state-waiting)
 vì `ImagePullBackOff`.
 
 Trạng thái `ImagePullBackOff` nghĩa là một container không thể khởi động vì Kubernetes
@@ -288,7 +288,7 @@ tất cả các kiến trúc được hỗ trợ, trong khi `pause-amd64` sẽ l
 ngược cho các cấu hình cũ hơn, hoặc cho các file YAML có tên image kèm hậu tố được
 ghi cứng (hardcoded).
 
-## Sử dụng private registry (Using a private registry)
+## Sử dụng private registry (Using a private registry) {#using-a-private-registry}
 
 Private registry có thể yêu cầu xác thực (authentication) để có thể khám phá
 và/hoặc pull image từ đó.
@@ -333,7 +333,7 @@ registry mà bạn chọn dùng. Bạn nên tham khảo tài liệu của giải
 thông tin chính xác nhất.
 
 Để xem ví dụ về cấu hình một private container image registry, hãy xem task
-[Pull an Image from a Private Registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry).
+[Pull an Image from a Private Registry](287-pull-image-private-registry-vi.md).
 Ví dụ đó dùng một private registry trên Docker Hub.
 
 ### Kubelet credential provider cho việc pull image có xác thực (Kubelet credential provider for authenticated image pulls) {#kubelet-credential-provider}
@@ -349,7 +349,7 @@ Việc dùng một ServiceAccount hoặc một Secret để cung cấp thông ti
 private registry là không thể trong đặc tả (specification) của một static Pod,
 vì nó _không thể_ chứa tham chiếu tới các tài nguyên API khác trong đặc tả của mình.
 
-Xem [Configure a kubelet image credential provider](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider/)
+Xem [Configure a kubelet image credential provider](225-kubelet-credential-provider-vi.md)
 để biết thêm chi tiết.
 
 ### Cách diễn giải config.json (Interpretation of config.json) {#config-json}
@@ -510,7 +510,7 @@ kubectl create secret docker-registry <name> \
 
 Nếu bạn đã có sẵn một file thông tin xác thực Docker thì, thay vì dùng lệnh trên,
 bạn có thể nhập (import) file thông tin xác thực đó thành một Secret của Kubernetes.
-[Create a Secret based on existing Docker credentials](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/#registry-secret-existing-credentials)
+[Create a Secret based on existing Docker credentials](287-pull-image-private-registry-vi.md#registry-secret-existing-credentials)
 giải thích cách thiết lập việc này.
 
 Cách này đặc biệt hữu ích nếu bạn dùng nhiều private container registry,
@@ -554,8 +554,8 @@ Việc này cần được làm cho từng Pod đang dùng private registry.
 
 Tuy nhiên, bạn có thể tự động hóa quy trình này bằng cách chỉ định phần
 `imagePullSecrets` trong một tài nguyên
-[ServiceAccount](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/).
-Xem [Add ImagePullSecrets to a Service Account](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account)
+[ServiceAccount](279-configure-service-account-vi.md).
+Xem [Add ImagePullSecrets to a Service Account](279-configure-service-account-vi.md#add-imagepullsecrets-to-a-service-account)
 để có hướng dẫn chi tiết.
 
 Bạn có thể dùng cách này kết hợp với `.docker/config.json` trên từng node.
@@ -612,7 +612,7 @@ vì vậy bạn sẽ cần hoặc là:
 
 * Đọc [OCI Image Manifest Specification](https://github.com/opencontainers/image-spec/blob/main/manifest.md).
 * Tìm hiểu về [thu gom rác container image (container image garbage collection)](./36-garbage-collection-vi.md#container-image-garbage-collection).
-* Tìm hiểu thêm về [pull image từ một private registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry).
+* Tìm hiểu thêm về [pull image từ một private registry](287-pull-image-private-registry-vi.md).
 
 ---
 

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 11](LO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 5/6 · Kiểm chứng
+**Vị trí:** [Giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 5/6 · Kiểm chứng
 ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài [158](158-logging-vi.md) nói về log của **workload**; bài này nói về log của **chính
@@ -338,7 +338,7 @@ kubectl get --raw "/api/v1/nodes/node-1.example/proxy/logs/?query=kubelet&patter
 
 ## Tiếp theo (What's next)
 
-* Đọc về [Kiến trúc ghi log của Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/logging/)
+* Đọc về [Kiến trúc ghi log của Kubernetes](158-logging-vi.md)
 * Đọc về [Ghi log có cấu trúc (Structured Logging)](https://github.com/kubernetes/enhancements/tree/master/keps/sig-instrumentation/1602-structured-logging)
 * Đọc về [Ghi log theo ngữ cảnh (Contextual Logging)](https://github.com/kubernetes/enhancements/tree/master/keps/sig-instrumentation/3077-contextual-logging)
 * Đọc về [việc loại bỏ dần các cờ klog](https://github.com/kubernetes/enhancements/tree/master/keps/sig-instrumentation/2845-deprecate-klog-specific-flags-in-k8s-components)

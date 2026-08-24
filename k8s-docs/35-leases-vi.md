@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+**Vị trí:** Giai đoạn 1 → nhóm [1c](00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
 bài 4/7 · Kiểm chứng ở [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md).
 
 Bạn đã **dùng** Lease ở Lab 1a phần B6 mà chưa biết nó là gì: theo dõi `renewTime` của
@@ -59,7 +59,7 @@ Cơ chế này được các thành phần control plane như `kube-controller-m
 sử dụng trong cấu hình HA (tính sẵn sàng cao — high availability), khi chỉ một instance của
 thành phần được chạy chủ động còn các instance khác ở trạng thái chờ (stand-by).
 
-Đọc [bầu chọn leader có điều phối (coordinated leader election)](https://kubernetes.io/docs/concepts/cluster-administration/coordinated-leader-election)
+Đọc [bầu chọn leader có điều phối (coordinated leader election)](167-coordinated-leader-election-vi.md)
 để tìm hiểu cách Kubernetes xây dựng trên nền Lease API nhằm chọn ra instance nào
 của thành phần đóng vai trò leader.
 

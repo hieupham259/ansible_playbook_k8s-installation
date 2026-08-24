@@ -19,7 +19,7 @@ chơi (playground) Kubernetes sau:
 
 Để kiểm tra phiên bản, nhập `kubectl version`.
 
-## Thêm label cho một node (Add a label to a node)
+## Thêm label cho một node (Add a label to a node) {#add-a-label-to-a-node}
 
 1. Liệt kê các node trong cluster của bạn, kèm theo các label của chúng:
 

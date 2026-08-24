@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 7/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 7/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài ngắn nhất giai đoạn, và nó trả lời trực tiếp câu hỏi mà bài [67](67-job-vi.md) để mở:
@@ -56,7 +56,7 @@ thời gian tồn tại) để giới hạn vòng đời của các object Job �
 Controller TTL-after-finished chỉ được hỗ trợ cho Job. Bạn có thể dùng cơ chế này để tự động
 dọn dẹp các Job đã hoàn thành (ở trạng thái `Complete` hoặc `Failed`) bằng cách chỉ định
 trường `.spec.ttlSecondsAfterFinished` của Job, như trong
-[ví dụ này](https://kubernetes.io/docs/concepts/workloads/controllers/job/#clean-up-finished-jobs-automatically).
+[ví dụ này](67-job-vi.md#clean-up-finished-jobs-automatically).
 
 Controller TTL-after-finished coi một Job là đủ điều kiện để được dọn dẹp sau khi Job đó
 kết thúc được TTL giây. Bộ đếm thời gian bắt đầu chạy khi status condition của Job thay đổi
@@ -109,7 +109,7 @@ ro này khi đặt một giá trị TTL khác không.
 
 ## Tiếp theo (What's next)
 
-* Đọc [Tự động dọn dẹp Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/#clean-up-finished-jobs-automatically)
+* Đọc [Tự động dọn dẹp Job](67-job-vi.md#clean-up-finished-jobs-automatically)
 
 * Tham khảo [Kubernetes Enhancement Proposal](https://github.com/kubernetes/enhancements/blob/master/keps/sig-apps/592-ttl-after-finish/README.md)
   (KEP) về việc bổ sung cơ chế này.

@@ -81,19 +81,19 @@ thái của Container không được đặt thành RUNNING cho đến khi handl
 Kubernetes gửi sự kiện preStop ngay trước khi Container bị chấm dứt. Việc quản lý Container
 của Kubernetes sẽ bị chặn cho đến khi handler preStop hoàn thành, trừ khi khoảng thời gian ân
 hạn (grace period) của Pod hết hạn. Để biết thêm chi tiết, xem
-[Vòng đời của Pod](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/).
+[Vòng đời của Pod](47-pod-lifecycle-vi.md).
 
 > **Ghi chú:**
 >
 > Kubernetes chỉ gửi sự kiện preStop khi một Pod hoặc một container trong Pod bị *chấm dứt*
 > (terminated). Điều này có nghĩa là hook preStop không được gọi khi Pod *hoàn thành*
 > (completed). Về hạn chế này, vui lòng xem chi tiết tại
-> [Container hooks](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks).
+> [Container hooks](42-container-lifecycle-hooks-vi.md#container-hooks).
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [các hook vòng đời của Container](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/).
-* Tìm hiểu thêm về [vòng đời của một Pod](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/).
+* Tìm hiểu thêm về [các hook vòng đời của Container](42-container-lifecycle-hooks-vi.md).
+* Tìm hiểu thêm về [vòng đời của một Pod](47-pod-lifecycle-vi.md).
 
 ### Tham khảo (Reference)
 

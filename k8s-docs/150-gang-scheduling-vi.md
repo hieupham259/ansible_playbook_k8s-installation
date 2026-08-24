@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 11/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -51,7 +51,7 @@ Gang scheduling (lập lịch theo nhóm) đảm bảo một nhóm Pod được 
 Nếu cluster không thể chứa toàn bộ nhóm (hoặc một số lượng Pod tối thiểu được định nghĩa),
 thì không Pod nào được gắn kết (bind) vào node.
 
-Tính năng này phụ thuộc vào [PodGroup API](https://kubernetes.io/docs/concepts/workloads/podgroup-api/).
+Tính năng này phụ thuộc vào [PodGroup API](75-podgroup-api-vi.md).
 Hãy đảm bảo feature gate [`GenericWorkload`](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/#GenericWorkload)
 và nhóm API (API group) `scheduling.k8s.io/v1alpha2`
 đã được bật trong cluster.
@@ -59,8 +59,8 @@ và nhóm API (API group) `scheduling.k8s.io/v1alpha2`
 ## Cách hoạt động (How it works)
 
 Khi plugin `GangScheduling` được bật, scheduler thay đổi vòng đời của các Pod thuộc về
-một [PodGroup](https://kubernetes.io/docs/concepts/workloads/podgroup-api/) có
-[chính sách lập lịch (scheduling policy)](https://kubernetes.io/docs/concepts/workloads/workload-api/policies/) kiểu `gang`.
+một [PodGroup](75-podgroup-api-vi.md) có
+[chính sách lập lịch (scheduling policy)](79-workload-policies-vi.md) kiểu `gang`.
 Quá trình này diễn ra theo các bước sau cho mỗi PodGroup:
 
 1. Scheduler giữ các Pod ở pha `PreEnqueue` cho đến khi:
@@ -70,7 +70,7 @@ Quá trình này diễn ra theo các bước sau cho mỗi PodGroup:
    Các `Pod` không đi vào hàng đợi lập lịch hoạt động (active scheduling queue) cho đến khi cả hai điều kiện được thỏa mãn.
 
 2. Khi đã đạt số lượng tối thiểu (quorum), scheduler cố gắng tìm vị trí sắp đặt cho tất cả các Pod trong nhóm.
-   Nó tận dụng chu trình [lập lịch PodGroup](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/) để đưa ra một quyết định
+   Nó tận dụng chu trình [lập lịch PodGroup](151-podgroup-scheduling-vi.md) để đưa ra một quyết định
    lập lịch duy nhất, có tính nguyên tử (atomic). Plugin `GangScheduling` triển khai một điểm mở rộng `Permit` được đánh giá cho mỗi
    Pod có thể lập lịch trong chu trình. Điểm mở rộng này được dùng để xác định liệu ràng buộc `minCount` có được thỏa mãn hay không,
    bằng cách so sánh số Pod đã được sắp đặt thành công với giá trị `minCount`.
@@ -83,9 +83,9 @@ Quá trình này diễn ra theo các bước sau cho mỗi PodGroup:
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu về [PodGroup API](https://kubernetes.io/docs/concepts/workloads/podgroup-api/) và [vòng đời](https://kubernetes.io/docs/concepts/workloads/podgroup-api/lifecycle/) của nó.
-* Đọc về [các chính sách lập lịch PodGroup](https://kubernetes.io/docs/concepts/workloads/workload-api/policies/).
-* Đọc về [lập lịch PodGroup](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/).
+* Tìm hiểu về [PodGroup API](75-podgroup-api-vi.md) và [vòng đời](76-podgroup-lifecycle-vi.md) của nó.
+* Đọc về [các chính sách lập lịch PodGroup](79-workload-policies-vi.md).
+* Đọc về [lập lịch PodGroup](151-podgroup-scheduling-vi.md).
 
 ---
 

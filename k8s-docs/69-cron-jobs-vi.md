@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 8/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 8/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 CronJob chỉ là một tầng mỏng đặt trên [Job](67-job-vi.md): nó tạo Job theo lịch, còn Job mới
@@ -100,7 +100,7 @@ spec:
           restartPolicy: OnFailure
 ```
 
-([Chạy các tác vụ tự động với CronJob](https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/)
+([Chạy các tác vụ tự động với CronJob](350-automated-tasks-cron-jobs-vi.md)
 hướng dẫn bạn đi qua ví dụ này chi tiết hơn).
 
 ## Viết một CronJob spec (Writing a CronJob spec)
@@ -154,12 +154,12 @@ Ngoài cú pháp tiêu chuẩn, bạn cũng có thể dùng một số macro nh�
 ### Job template
 
 `.spec.jobTemplate` định nghĩa một template cho các Job mà CronJob tạo ra, và nó là bắt buộc.
-Nó có schema y hệt như một [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/),
+Nó có schema y hệt như một [Job](67-job-vi.md),
 ngoại trừ việc nó được lồng bên trong và không có `apiVersion` hay `kind`.
 Bạn có thể chỉ định metadata chung cho các Job được tạo từ template, chẳng hạn như các
 [label](./18-labels-vi.md) hoặc các [annotation](./20-annotations-vi.md).
 Để biết cách viết `.spec` cho một Job, xem
-[Viết một Job Spec](https://kubernetes.io/docs/concepts/workloads/controllers/job/#writing-a-job-spec).
+[Viết một Job Spec](67-job-vi.md#writing-a-job-spec).
 
 ### Thời hạn cho Job khởi động trễ (Deadline for delayed Job start) {#starting-deadline}
 
@@ -231,9 +231,9 @@ giữ lại. Giá trị mặc định là `1`. Đặt trường này thành `0` 
 thất bại nào.
 
 Để biết một cách khác dọn dẹp Job tự động, xem
-[Tự động dọn dẹp các Job đã hoàn thành](https://kubernetes.io/docs/concepts/workloads/controllers/job/#clean-up-finished-jobs-automatically).
+[Tự động dọn dẹp các Job đã hoàn thành](67-job-vi.md#clean-up-finished-jobs-automatically).
 
-### Múi giờ (Time zones)
+### Múi giờ (Time zones) {#time-zones}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.27 [stable]`
 
@@ -327,12 +327,12 @@ trách nhiệm quản lý các Pod mà nó đại diện.
 ## Tiếp theo (What's next)
 
 * Tìm hiểu về [Pod](./46-pods-vi.md) và
-  [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/), hai khái niệm
+  [Job](67-job-vi.md), hai khái niệm
   mà CronJob dựa trên.
 * Đọc chi tiết về [định dạng](https://pkg.go.dev/github.com/robfig/cron/v3#hdr-CRON_Expression_Format)
   của trường `.spec.schedule` trong CronJob.
 * Để biết hướng dẫn tạo và làm việc với CronJob, và một ví dụ về manifest CronJob,
-  xem [Chạy các tác vụ tự động với CronJob](https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/).
+  xem [Chạy các tác vụ tự động với CronJob](350-automated-tasks-cron-jobs-vi.md).
 * `CronJob` là một phần của Kubernetes REST API.
   Đọc tài liệu tham khảo API
   [CronJob](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/cron-job-v1/)

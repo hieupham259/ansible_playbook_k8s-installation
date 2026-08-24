@@ -3,7 +3,7 @@
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/configure-projected-volume-storage/>
 
 Trang này hướng dẫn cách sử dụng Volume kiểu
-[`projected`](https://kubernetes.io/docs/concepts/storage/volumes/#projected) để mount nhiều
+[`projected`](91-volumes-vi.md#projected) để mount nhiều
 nguồn volume có sẵn vào cùng một thư mục. Hiện tại, các volume `secret`, `configMap`,
 `downwardAPI` và `serviceAccountToken` có thể được chiếu (project).
 
@@ -29,7 +29,7 @@ chơi (playground) Kubernetes sau:
 
 Trong bài thực hành này, bạn tạo các Secret chứa tên người dùng (username) và mật khẩu
 (password) từ các file cục bộ. Sau đó bạn tạo một Pod chạy một container, sử dụng Volume kiểu
-[`projected`](https://kubernetes.io/docs/concepts/storage/volumes/#projected) để mount các
+[`projected`](91-volumes-vi.md#projected) để mount các
 Secret vào cùng một thư mục dùng chung.
 
 Đây là file cấu hình của Pod:
@@ -115,6 +115,6 @@ kubectl delete secret user pass
 ## Tiếp theo (What's next)
 
 * Tìm hiểu thêm về volume
-  [`projected`](https://kubernetes.io/docs/concepts/storage/volumes/#projected).
+  [`projected`](91-volumes-vi.md#projected).
 * Đọc tài liệu thiết kế
   [all-in-one volume](https://git.k8s.io/design-proposals-archive/node/all-in-one-volume.md).

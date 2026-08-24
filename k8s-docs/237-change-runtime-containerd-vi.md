@@ -2,7 +2,7 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/change-runtime-containerd/
 
-Trang này trình bày các bước cần thiết để chuyển container runtime của bạn từ Docker sang containerd. Nội dung áp dụng cho những người vận hành cluster đang chạy Kubernetes 1.23 trở về trước. Trang này cũng bao gồm một kịch bản ví dụ về việc di chuyển (migrate) từ dockershim sang containerd. Bạn có thể chọn container runtime thay thế khác từ [trang này](https://kubernetes.io/docs/setup/production-environment/container-runtimes/).
+Trang này trình bày các bước cần thiết để chuyển container runtime của bạn từ Docker sang containerd. Nội dung áp dụng cho những người vận hành cluster đang chạy Kubernetes 1.23 trở về trước. Trang này cũng bao gồm một kịch bản ví dụ về việc di chuyển (migrate) từ dockershim sang containerd. Bạn có thể chọn container runtime thay thế khác từ [trang này](00-container-runtimes-vi.md).
 
 ## Trước khi bạn bắt đầu (Before you begin)
 
@@ -11,7 +11,7 @@ Trang này trình bày các bước cần thiết để chuyển container runti
 Cài đặt containerd. Để biết thêm thông tin, xem
 [tài liệu cài đặt của containerd](https://containerd.io/docs/getting-started/)
 và với các điều kiện tiên quyết cụ thể, hãy làm theo
-[hướng dẫn containerd](https://kubernetes.io/docs/setup/production-environment/container-runtimes/#containerd).
+[hướng dẫn containerd](00-container-runtimes-vi.md#containerd).
 
 ## Drain node (Drain the node)
 
@@ -30,7 +30,7 @@ systemctl disable docker.service --now
 
 ## Cài đặt containerd (Install Containerd)
 
-Làm theo [hướng dẫn](https://kubernetes.io/docs/setup/production-environment/container-runtimes/#containerd)
+Làm theo [hướng dẫn](00-container-runtimes-vi.md#containerd)
 để biết các bước chi tiết cài đặt containerd.
 
 #### Linux

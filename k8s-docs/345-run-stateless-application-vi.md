@@ -25,7 +25,7 @@ chơi (playground) Kubernetes sau:
 Kubernetes server của bạn phải ở phiên bản v1.9 hoặc mới hơn. Để kiểm tra phiên bản,
 hãy chạy `kubectl version`.
 
-## Tạo và khám phá một deployment nginx (Creating and exploring an nginx deployment)
+## Tạo và khám phá một deployment nginx (Creating and exploring an nginx deployment) {#creating-and-exploring-an-nginx-deployment}
 
 Bạn có thể chạy một ứng dụng bằng cách tạo một đối tượng Deployment của Kubernetes, và bạn
 có thể mô tả một Deployment trong file YAML. Ví dụ, file YAML sau mô tả một Deployment
@@ -225,9 +225,9 @@ kubectl delete deployment nginx-deployment
 Cách được khuyến nghị để tạo một ứng dụng có nhiều bản sao (replicated application) là dùng
 Deployment, và Deployment sẽ dùng ReplicaSet bên dưới. Trước khi Deployment và ReplicaSet
 được thêm vào Kubernetes, các ứng dụng có nhiều bản sao được cấu hình bằng
-[ReplicationController](https://kubernetes.io/docs/concepts/workloads/controllers/replicationcontroller/).
+[ReplicationController](70-replicationcontroller-vi.md).
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu thêm về [đối tượng Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
+- Tìm hiểu thêm về [đối tượng Deployment](63-deployment-vi.md).
 - Tìm hiểu cách [cập nhật một Deployment mà không gây gián đoạn](348-update-deployment-rolling-vi.md).

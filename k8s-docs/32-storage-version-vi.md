@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+**Vị trí:** Giai đoạn 1 → nhóm [1c](00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
 bài 5/7 · Kiểm chứng ở [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md).
 
 Bài [21](21-kubernetes-api-vi.md) đã nói mọi phiên bản API chỉ là những cách biểu diễn của cùng
@@ -87,7 +87,7 @@ sẽ chuyển đối tượng đã lưu sang biểu diễn mới khi cập nhậ
 
 ## Phiên bản lưu trữ cho custom resource (Storage versions for custom resources) {#CustomResourceDefinition-storage-version}
 
-[Custom resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#storage)
+[Custom resource](179-custom-resources-vi.md#storage)
 được định nghĩa một cách động (dynamic), và do đó khác với các loại (type) có sẵn
 của Kubernetes ở khía cạnh phiên bản lưu trữ. Các đối tượng có sẵn (builtin)
 nói chung có cách mã hóa lưu trữ được định nghĩa tách biệt khỏi các loại API
@@ -98,7 +98,7 @@ trong lược đồ đối tượng.
 Tuy nhiên, với custom resource, một phiên bản nhất định của tài nguyên phải được
 đặt làm phiên bản lưu trữ. Lược đồ được định nghĩa bởi phiên bản cụ thể đó của
 custom resource sẽ được dùng làm cách mã hóa của tài nguyên ở tầng lưu trữ. Xem
-[bộ tính năng CRD nâng cao](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#advanced-features-and-flexibility)
+[bộ tính năng CRD nâng cao](179-custom-resources-vi.md#advanced-features-and-flexibility)
 để biết thông tin chi tiết hơn về cách thiết lập API và quản lý phiên bản.
 
 Ví dụ, hãy xem CustomResourceDefinition sau cho _crontabs_:
@@ -166,7 +166,7 @@ tác dụng và sử dụng phiên bản lưu trữ mới được định nghĩ
 
 ## Phiên bản lưu trữ liên quan thế nào tới mã hóa dữ liệu lưu trữ (How storage versions are relevant to encryption at rest)
 
-Có các công cụ để [mã hóa kho lưu trữ dữ liệu tĩnh](https://kubernetes.io/docs/tasks/administer-cluster/kms-provider/)
+Có các công cụ để [mã hóa kho lưu trữ dữ liệu tĩnh](213-kms-provider-vi.md)
 của một cluster, đặc biệt cho các secret của cluster. Điều này bổ sung thêm
 một lớp bảo vệ chống rò rỉ dữ liệu (data exfiltration), vì dữ liệu thực sự
 được lưu trong cluster đã được mã hóa. Nghĩa là API Server thực tế sẽ giải mã
@@ -196,7 +196,7 @@ người quản trị chắc chắn rằng tất cả các đối tượng đã 
 Điều này gây ra cả rủi ro bảo mật lẫn vấn đề về tính tiện dụng, vì cho tới lúc đó
 một khóa chưa thể được loại bỏ hoàn toàn khỏi việc sử dụng.
 
-Xem [di chuyển phiên bản lưu trữ (storage version migration)](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/storage-version-migration)
+Xem [di chuyển phiên bản lưu trữ (storage version migration)](323-storage-version-migration-vi.md)
 để có các ví dụ về cách chạy một cuộc di chuyển nhằm đảm bảo tất cả các đối tượng
 đều đang dùng phiên bản lưu trữ mới hơn mà không cần can thiệp thủ công.
 

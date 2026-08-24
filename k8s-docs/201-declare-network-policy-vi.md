@@ -7,11 +7,11 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), mục
-[CP6 — DNS, CNI và kube-proxy](LO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy)), nối tiếp bài
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), mục
+[CP6 — DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy)), nối tiếp bài
 [84 — Network Policy](84-network-policies-vi.md).
 
 Lưu ý cho cluster lab: snapshot `01-cluster-ready` của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md)
@@ -36,7 +36,7 @@ sau khi cluster đã chuyển sang CNI hỗ trợ NetworkPolicy (snapshot `02-ne
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Danh sách sáu network provider trong phần điều kiện tiên quyết | chỉ cần một CNI hỗ trợ NetworkPolicy; việc chọn và cài đặt CNI đó thuộc lab đổi CNI | mục Network Policy Providers của [CP6](LO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy) và Lab 5b |
+| Danh sách sáu network provider trong phần điều kiện tiên quyết | chỉ cần một CNI hỗ trợ NetworkPolicy; việc chọn và cài đặt CNI đó thuộc lab đổi CNI | mục Network Policy Providers của [CP6](00-ALO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy) và Lab 5b |
 
 ---
 
@@ -67,12 +67,12 @@ Phiên bản Kubernetes server của bạn phải bằng hoặc mới hơn v1.8.
 Hãy chắc chắn rằng bạn đã cấu hình một network provider có hỗ trợ network policy. Có nhiều
 network provider hỗ trợ NetworkPolicy, bao gồm:
 
-* [Antrea](https://kubernetes.io/docs/tasks/administer-cluster/network-policy-provider/antrea-network-policy/)
-* [Calico](https://kubernetes.io/docs/tasks/administer-cluster/network-policy-provider/calico-network-policy/)
-* [Cilium](https://kubernetes.io/docs/tasks/administer-cluster/network-policy-provider/cilium-network-policy/)
-* [Kube-router](https://kubernetes.io/docs/tasks/administer-cluster/network-policy-provider/kube-router-network-policy/)
-* [Romana](https://kubernetes.io/docs/tasks/administer-cluster/network-policy-provider/romana-network-policy/)
-* [Weave Net](https://kubernetes.io/docs/tasks/administer-cluster/network-policy-provider/weave-network-policy/)
+* [Antrea](244-antrea-network-policy-vi.md)
+* [Calico](245-calico-network-policy-vi.md)
+* [Cilium](246-cilium-network-policy-vi.md)
+* [Kube-router](247-kube-router-network-policy-vi.md)
+* [Romana](248-romana-network-policy-vi.md)
+* [Weave Net](249-weave-network-policy-vi.md)
 
 ## Tạo một Deployment `nginx` và expose nó qua một Service (Create an `nginx` deployment and expose it via a service)
 

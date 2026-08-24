@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 12/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -67,12 +67,12 @@ Nếu không tìm được đủ tài nguyên để thỏa mãn yêu cầu của
 Ngoài ra, việc coi cả nhóm như một thực thể thống nhất tạo nên một kiến trúc nền tảng
 giúp đơn giản hóa việc triển khai các tính năng lập lịch theo nhóm khác.
 
-Tính năng này phụ thuộc vào [Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/).
+Tính năng này phụ thuộc vào [Workload API](77-workload-api-vi.md).
 Hãy đảm bảo feature gate [`GenericWorkload`](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/#GenericWorkload)
 và nhóm API (API group) `scheduling.k8s.io/v1alpha1`
 đã được bật trong cluster.
 
-## Chu trình lập lịch PodGroup (PodGroup scheduling cycle)
+## Chu trình lập lịch PodGroup (PodGroup scheduling cycle) {#podgroup-scheduling-cycle}
 
 Để hỗ trợ lập lịch một nhóm Pod cùng nhau, kube-scheduler sử dụng **chu trình lập lịch PodGroup**.
 Thay vì xử lý từng Pod riêng lẻ và giữ chúng lại tại một cổng `WaitOnPermit`,
@@ -95,7 +95,7 @@ rồi khởi động chu trình lập lịch PodGroup như sau:
    được áp dụng một cách nguyên tử cho toàn bộ PodGroup.
 
    * **Thành công:** Nếu scheduler tìm thấy đủ tài nguyên và các vị trí sắp đặt hợp lệ cho các Pod
-     (ví dụ: thỏa mãn ràng buộc `minCount` cho [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/)),
+     (ví dụ: thỏa mãn ràng buộc `minCount` cho [gang scheduling](150-gang-scheduling-vi.md)),
      những Pod đó đi thẳng vào chu trình binding với các node đã được chọn cho chúng.
      Các Pod còn lại không thể lập lịch được trả về hàng đợi lập lịch để chờ tài nguyên khả dụng,
      nhờ đó chúng có thể gia nhập cùng các Pod đã được lập lịch.
@@ -122,7 +122,7 @@ Nó lặp qua các Pod và thực hiện những bước sau cho mỗi Pod:
    * Nếu Pod không thể vừa, scheduler thử preemption (chiếm chỗ) bằng cách chạy điểm mở rộng `PostFilter`.
 
 2. Kiểm tra xem các Pod có thể lập lịch có đáp ứng các tiêu chí lập lịch của nhóm hay không
-   (ví dụ: `minCount` cho [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/)) thông qua điểm mở rộng `Permit`.
+   (ví dụ: `minCount` cho [gang scheduling](150-gang-scheduling-vi.md)) thông qua điểm mở rộng `Permit`.
    Nếu điểm mở rộng này trả về trạng thái `Success` cho bất kỳ Pod nào, PodGroup được xem là khả thi.
    Nếu thuật toán xử lý hết tất cả các Pod mà không đạt được trạng thái `Success`, PodGroup bị coi là không thể lập lịch.
 
@@ -212,9 +212,9 @@ kubectl get podgroup <name> -o jsonpath='{.status.conditions}'
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu về [Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/).
+* Tìm hiểu về [Workload API](77-workload-api-vi.md).
 * Xem cách [tham chiếu một Workload](https://kubernetes.io/docs/concepts/workloads/pods/workload-reference/) trong một Pod.
-* Đọc về [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/).
+* Đọc về [gang scheduling](150-gang-scheduling-vi.md).
 
 ---
 

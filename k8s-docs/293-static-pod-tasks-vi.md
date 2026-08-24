@@ -226,7 +226,7 @@ crictl logs <container_id>
 ```
 
 Để tìm hiểu thêm về cách debug bằng `crictl`, hãy xem
-[_Debug các node Kubernetes bằng crictl_](https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/).
+[_Debug các node Kubernetes bằng crictl_](307-crictl-vi.md).
 
 ## Thêm và xóa static Pod một cách động (Dynamic addition and removal of static pods)
 
@@ -255,6 +255,6 @@ f427638871c35   docker.io/library/nginx@sha256:...    19 seconds ago    Running 
 * [Static Pod](./58-static-pods-vi.md)
 * [Sinh manifest static Pod cho các thành phần control plane](https://kubernetes.io/docs/reference/setup-tools/kubeadm/implementation-details/#generate-static-pod-manifests-for-control-plane-components)
 * [Sinh manifest static Pod cho etcd cục bộ](https://kubernetes.io/docs/reference/setup-tools/kubeadm/implementation-details/#generate-static-pod-manifest-for-local-etcd)
-* [Debug các node Kubernetes bằng `crictl`](https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/)
+* [Debug các node Kubernetes bằng `crictl`](307-crictl-vi.md)
 * [Tìm hiểu thêm về `crictl`](https://github.com/kubernetes-sigs/cri-tools)
 * [Thiết lập các instance etcd dưới dạng static Pod do kubelet quản lý](./07-setup-ha-etcd-with-kubeadm-vi.md)

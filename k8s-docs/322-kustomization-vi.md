@@ -26,7 +26,7 @@ kubectl apply -k <kustomization_directory>
 
 ## Trước khi bạn bắt đầu (Before you begin)
 
-Cài đặt [`kubectl`](https://kubernetes.io/docs/tasks/tools/).
+Cài đặt [`kubectl`](185-tools-vi.md).
 
 Bạn cần có một cluster Kubernetes, và công cụ dòng lệnh kubectl phải được cấu hình
 để giao tiếp với cluster của bạn. Bạn nên chạy hướng dẫn này trên một cluster có ít

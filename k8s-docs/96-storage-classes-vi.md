@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 4/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 4/16 · Kiểm chứng ở
 Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Hơn một nửa bài là các mục theo từng nhà cung cấp lưu trữ (AWS, Azure, vSphere, Ceph,
@@ -49,8 +49,8 @@ class mặc định — tất cả đều xuất hiện trong ví dụ YAML đ�
 ---
 
 Tài liệu này mô tả khái niệm StorageClass trong Kubernetes. Bạn nên
-làm quen trước với [volume](https://kubernetes.io/docs/concepts/storage/volumes/) và
-[persistent volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes).
+làm quen trước với [volume](91-volumes-vi.md) và
+[persistent volume](92-persistent-volumes-vi.md).
 
 Một StorageClass cung cấp cho quản trị viên một cách để mô tả các _lớp_ (class)
 lưu trữ mà họ cung cấp. Các lớp khác nhau có thể tương ứng với các mức chất lượng dịch vụ (quality-of-service),
@@ -73,7 +73,7 @@ của một lớp khi tạo các đối tượng StorageClass lần đầu tiên
 
 Với vai trò quản trị viên, bạn có thể chỉ định một StorageClass mặc định áp dụng cho mọi PVC
 không yêu cầu một lớp cụ thể. Để biết thêm chi tiết, xem
-[khái niệm PersistentVolumeClaim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims).
+[khái niệm PersistentVolumeClaim](92-persistent-volumes-vi.md#persistentvolumeclaims).
 
 Đây là một ví dụ về StorageClass:
 
@@ -98,7 +98,7 @@ parameters:
 
 Bạn có thể đánh dấu một StorageClass là mặc định cho cluster của mình.
 Để biết hướng dẫn thiết lập StorageClass mặc định, xem
-[Thay đổi StorageClass mặc định](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/).
+[Thay đổi StorageClass mặc định](192-change-default-storage-class-vi.md).
 
 Khi một PVC không chỉ định `storageClassName`, StorageClass mặc định sẽ được
 sử dụng.
@@ -169,10 +169,10 @@ Ví dụ, NFS không cung cấp provisioner nội bộ, nhưng có thể dùng m
 bên ngoài. Cũng có những trường hợp các nhà cung cấp lưu trữ bên thứ 3
 cung cấp provisioner bên ngoài của riêng họ.
 
-## Chính sách thu hồi (Reclaim policy)
+## Chính sách thu hồi (Reclaim policy) {#reclaim-policy}
 
 Các PersistentVolume được tạo động bởi một StorageClass sẽ có
-[chính sách thu hồi (reclaim policy)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#reclaiming)
+[chính sách thu hồi (reclaim policy)](92-persistent-volumes-vi.md#reclaiming)
 được chỉ định trong trường `reclaimPolicy` của lớp đó, có thể là
 `Delete` hoặc `Retain`. Nếu không có `reclaimPolicy` nào được chỉ định khi một
 đối tượng StorageClass được tạo, giá trị mặc định sẽ là `Delete`.
@@ -211,10 +211,10 @@ Nếu volume plugin không hỗ trợ tùy chọn mount nhưng tùy chọn mount
 chỉ định, việc cấp phát sẽ thất bại. Tùy chọn mount **không** được kiểm tra tính hợp lệ ở cả
 lớp lẫn PV. Nếu một tùy chọn mount không hợp lệ, việc mount PV sẽ thất bại.
 
-## Chế độ gắn kết volume (Volume binding mode)
+## Chế độ gắn kết volume (Volume binding mode) {#volume-binding-mode}
 
 Trường `volumeBindingMode` kiểm soát thời điểm
-[gắn kết volume và cấp phát động](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#provisioning)
+[gắn kết volume và cấp phát động](92-persistent-volumes-vi.md#provisioning)
 diễn ra. Khi không được đặt, chế độ `Immediate` được dùng theo mặc định.
 
 Chế độ `Immediate` cho biết việc gắn kết volume và cấp phát
@@ -227,11 +227,11 @@ Quản trị viên cluster có thể giải quyết vấn đề này bằng các
 chế độ này sẽ trì hoãn việc gắn kết và cấp phát một PersistentVolume cho đến khi một Pod dùng PersistentVolumeClaim đó được tạo.
 Các PersistentVolume sẽ được chọn hoặc cấp phát phù hợp với topology được
 chỉ định bởi các ràng buộc lập lịch của Pod. Chúng bao gồm, nhưng không giới hạn ở, [yêu cầu
-tài nguyên](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/),
-[node selector](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector),
+tài nguyên](110-manage-resources-containers-vi.md),
+[node selector](138-assign-pod-node-vi.md#nodeselector),
 [pod affinity và
-anti-affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity),
-và [taint và toleration](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration).
+anti-affinity](138-assign-pod-node-vi.md#affinity-and-anti-affinity),
+và [taint và toleration](139-taint-and-toleration-vi.md).
 
 Các plugin sau hỗ trợ `WaitForFirstConsumer` với cấp phát động:
 
@@ -406,7 +406,7 @@ Có hai loại provisioner cho các storage class vSphere:
 Các provisioner in-tree đã [bị ngừng hỗ trợ (deprecated)](https://kubernetes.io/blog/2019/12/09/kubernetes-1-17-feature-csi-migration-beta/#why-are-we-migrating-in-tree-plugins-to-csi).
 Để biết thêm thông tin về provisioner CSI, xem
 [Kubernetes vSphere CSI Driver](https://vsphere-csi-driver.sigs.k8s.io/) và
-[vSphereVolume CSI migration](https://kubernetes.io/docs/concepts/storage/volumes/#vsphere-csi-migration).
+[vSphereVolume CSI migration](https://kubernetes.io/docs/concepts/storage/volumes#vsphere-csi-migration).
 
 #### CSI Provisioner {#vsphere-provisioner-csi}
 

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+**Vị trí:** Giai đoạn 1 → nhóm [1c](00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
 bài 6/7 · [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md) phần B5 kiểm chứng vì sao
 topology một API server không có đường Mixed Version Proxy để fault-inject.
 
@@ -118,14 +118,14 @@ application/json;g=apidiscovery.k8s.io;v=v2;as=APIGroupDiscoveryList;profile=nop
 
 > **Ghi chú:**
 > Peer-aggregated discovery chỉ được hỗ trợ cho các yêu cầu
-> [Aggregated Discovery](https://kubernetes.io/docs/concepts/overview/kubernetes-api/#aggregated-discovery)
+> [Aggregated Discovery](21-kubernetes-api-vi.md#aggregated-discovery)
 > tới endpoint `/apis`, và không áp dụng cho các yêu cầu
-> [Unaggregated (Legacy) Discovery](https://kubernetes.io/docs/concepts/overview/kubernetes-api/#unaggregated-discovery).
+> [Unaggregated (Legacy) Discovery](21-kubernetes-api-vi.md#unaggregated-discovery).
 
 ## Cơ chế proxy phiên bản hỗn hợp (Mixed version proxying)
 
 Khi bạn bật cơ chế proxy phiên bản hỗn hợp,
-[tầng tổng hợp (aggregation layer)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/)
+[tầng tổng hợp (aggregation layer)](180-apiserver-aggregation-vi.md)
 sẽ nạp một filter đặc biệt thực hiện những việc sau:
 
 * Khi một yêu cầu tài nguyên đến một API server không thể phục vụ API đó

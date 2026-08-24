@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
+**Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
 bài 3/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là bài **dài nhất nhóm 7b** và hơn nửa số dòng là bảng tra tên tài nguyên cùng các mục con
@@ -89,7 +89,7 @@ ResourceQuota hoạt động như sau:
   như `cpu` và `memory`, người dùng phải chỉ định request hoặc limit cho các giá trị đó khi định nghĩa một Pod; nếu không,
   hệ thống hạn ngạch có thể từ chối việc tạo pod.
 
-  Bài [hướng dẫn thực hành](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/) về hạn ngạch tài nguyên
+  Bài [hướng dẫn thực hành](233-quota-memory-cpu-namespace-vi.md) về hạn ngạch tài nguyên
   cho thấy một ví dụ về cách tránh vấn đề này.
 
 > **Ghi chú:**
@@ -185,7 +185,7 @@ bạn có thể định nghĩa hạn ngạch như sau:
 
 * `examplegpu.deviceclass.resource.k8s.io/devices: 4`
 
-Khi [cấp phát Extended Resource bằng DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#extended-resource)
+Khi [cấp phát Extended Resource bằng DRA](149-dynamic-resource-allocation-vi.md#extended-resource)
 được bật, cùng device class tên `examplegpu` đó có thể được yêu cầu qua tài nguyên mở rộng, hoặc một cách tường minh
 khi trường ExtendedResourceName của device class được chỉ định, chẳng hạn là `example.com/gpu`, khi đó bạn có thể định nghĩa hạn ngạch như sau:
 
@@ -236,7 +236,7 @@ StorageClass `bronze`, bạn có thể định nghĩa hạn ngạch như sau:
 > **Ghi chú:** Khi sử dụng một container runtime CRI, log của container sẽ được tính vào hạn ngạch lưu trữ tạm thời.
 > Điều này có thể dẫn đến việc các pod đã dùng hết hạn ngạch lưu trữ của chúng bị trục xuất (evict) ngoài dự kiến.
 >
-> Tham khảo [Kiến trúc logging](https://kubernetes.io/docs/concepts/cluster-administration/logging/) để biết chi tiết.
+> Tham khảo [Kiến trúc logging](158-logging-vi.md) để biết chi tiết.
 
 ### Hạn ngạch theo số lượng đối tượng (Quota on object count) {#quota-on-object-count}
 
@@ -258,7 +258,7 @@ Nếu bạn định nghĩa hạn ngạch theo cách này, nó áp dụng cho cá
 cho mọi custom resource được hỗ trợ bởi một CustomResourceDefinition.
 Ví dụ, để tạo hạn ngạch cho custom resource `widgets` trong nhóm API `example.com`,
 dùng `count/widgets.example.com`.
-Nếu bạn dùng [API aggregation](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/) để
+Nếu bạn dùng [API aggregation](180-apiserver-aggregation-vi.md) để
 thêm các API tùy chỉnh bổ sung không được định nghĩa dưới dạng CustomResourceDefinition, control plane
 lõi của Kubernetes sẽ không ép buộc hạn ngạch cho API được tổng hợp (aggregated API) đó. Extension API server được kỳ vọng
 sẽ tự cung cấp việc ép buộc hạn ngạch nếu điều đó phù hợp với API tùy chỉnh.
@@ -460,10 +460,10 @@ Kubernetes v1.36 hỗ trợ các phạm vi sau:
 | Phạm vi | Mô tả |
 | ----- | ----------- |
 | [`BestEffort`](#quota-scope-best-effort) | Khớp các pod có chất lượng dịch vụ (quality of service) best effort. |
-| [`CrossNamespacePodAffinity`](#cross-namespace-pod-affinity-scope) | Khớp các pod có các [điều khoản (anti)affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node) liên namespace (cross-namespace). |
+| [`CrossNamespacePodAffinity`](#cross-namespace-pod-affinity-scope) | Khớp các pod có các [điều khoản (anti)affinity](138-assign-pod-node-vi.md) liên namespace (cross-namespace). |
 | [`NotBestEffort`](#quota-scope-non-best-effort) | Khớp các pod không có chất lượng dịch vụ best effort. |
 | [`NotTerminating`](#quota-scope-non-terminating) | Khớp các pod có `.spec.activeDeadlineSeconds` là `nil` |
-| [`PriorityClass`](#resource-quota-per-priorityclass) | Khớp các pod tham chiếu đến [priority class](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption) được chỉ định. |
+| [`PriorityClass`](#resource-quota-per-priorityclass) | Khớp các pod tham chiếu đến [priority class](141-pod-priority-preemption-vi.md) được chỉ định. |
 | [`Terminating`](#quota-scope-terminating) | Khớp các pod có `.spec.activeDeadlineSeconds` >= `0` |
 | [`VolumeAttributesClass`](#quota-scope-volume-attributes-class) | Khớp các PersistentVolumeClaim tham chiếu đến [volume attributes class](./97-volume-attributes-classes-vi.md) được chỉ định. |
 
@@ -558,7 +558,7 @@ Bạn có thể dùng một ResourceQuota với phạm vi này để quản lý 
 
 Bạn có thể dùng [phạm vi hạn ngạch](#quota-scopes) `CrossNamespacePodAffinity` để giới hạn những namespace nào được phép
 có các pod với điều khoản affinity vượt qua ranh giới namespace. Cụ thể, nó kiểm soát những pod nào được phép
-đặt các trường `namespaces` hoặc `namespaceSelector` trong các [điều khoản (anti)affinity của pod](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node).
+đặt các trường `namespaces` hoặc `namespaceSelector` trong các [điều khoản (anti)affinity của pod](138-assign-pod-node-vi.md).
 
 Việc ngăn người dùng sử dụng các điều khoản affinity liên namespace có thể là điều nên làm, vì một pod
 với các ràng buộc anti-affinity có thể chặn các pod từ tất cả các namespace khác
@@ -612,10 +612,10 @@ phạm vi `CrossNamespacePodAffinity` và giới hạn cứng lớn hơn hoặc 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.17 [stable]`
 
 Một ResourceQuota với phạm vi PriorityClass chỉ khớp các Pod có một
-[priority class](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption) cụ thể, và chỉ
+[priority class](141-pod-priority-preemption-vi.md) cụ thể, và chỉ
 khi có `scopeSelector` trong spec của hạn ngạch chọn đúng Pod đó.
 
-Các Pod có thể được tạo với một [độ ưu tiên (priority)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#pod-priority) cụ thể.
+Các Pod có thể được tạo với một [độ ưu tiên (priority)](141-pod-priority-preemption-vi.md#pod-priority) cụ thể.
 Bạn có thể kiểm soát mức tiêu thụ tài nguyên hệ thống của một pod dựa trên độ ưu tiên của pod đó, bằng cách dùng trường `scopeSelector`
 trong spec của hạn ngạch.
 
@@ -638,7 +638,7 @@ chỉ có thể theo dõi (và giới hạn) các tài nguyên sau:
 Ví dụ này tạo một ResourceQuota và khớp nó với các pod ở các độ ưu tiên cụ thể. Ví dụ
 hoạt động như sau:
 
-- Các pod trong cluster có một trong ba [PriorityClass](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass): "low", "medium", "high".
+- Các pod trong cluster có một trong ba [PriorityClass](141-pod-priority-preemption-vi.md#priorityclass): "low", "medium", "high".
   - Nếu bạn muốn thử ví dụ này, hãy dùng một cluster thử nghiệm và thiết lập ba PriorityClass đó trước khi tiếp tục.
 - Một đối tượng hạn ngạch được tạo cho mỗi độ ưu tiên.
 
@@ -887,11 +887,11 @@ Khi hạn ngạch được giới hạn phạm vi theo volume attributes class b
 * `persistentvolumeclaims`
 * `requests.storage`
 
-Đọc [Giới hạn tiêu thụ lưu trữ](https://kubernetes.io/docs/tasks/administer-cluster/limit-storage-consumption/) để tìm hiểu thêm về điều này.
+Đọc [Giới hạn tiêu thụ lưu trữ](227-limit-storage-consumption-vi.md) để tìm hiểu thêm về điều này.
 
 ## Tiếp theo (What's next)
 
-- Xem một [ví dụ chi tiết về cách sử dụng resource quota](https://kubernetes.io/docs/tasks/administer-cluster/quota-api-object/).
+- Xem một [ví dụ chi tiết về cách sử dụng resource quota](252-quota-api-object-vi.md).
 - Đọc [tài liệu tham chiếu API](https://kubernetes.io/docs/reference/kubernetes-api/policy-resources/resource-quota-v1/) của ResourceQuota
 - Tìm hiểu về [LimitRange](./133-limit-range-vi.md)
 - Bạn có thể đọc [tài liệu thiết kế ResourceQuota](https://git.k8s.io/design-proposals-archive/resource-management/admission_control_resource_quota.md)

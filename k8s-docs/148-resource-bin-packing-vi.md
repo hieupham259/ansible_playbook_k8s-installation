@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 13/13 ·
+**Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 13/13 ·
 Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài cuối của nhóm, và cũng là bài duy nhất **thay đổi cách chấm điểm mặc định** thay vì thêm
@@ -47,7 +47,7 @@ cần thay bằng `cpu` và `memory` khi hình dung.
 
 > **Ghi chú:**
 >
-> Bài viết này áp dụng cho việc đóng gói tài nguyên (resource bin packing) trong ngữ cảnh lập lịch một pod đơn lẻ. Đối với việc đóng gói khi lập lịch các nhóm pod (pod group), vui lòng đọc [bài viết về Lập lịch nhận biết topology (Topology-aware Scheduling)](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-aware-scheduling/).
+> Bài viết này áp dụng cho việc đóng gói tài nguyên (resource bin packing) trong ngữ cảnh lập lịch một pod đơn lẻ. Đối với việc đóng gói khi lập lịch các nhóm pod (pod group), vui lòng đọc [bài viết về Lập lịch nhận biết topology (Topology-aware Scheduling)](153-topology-aware-scheduling-vi.md).
 
 Trong [plugin lập lịch](https://kubernetes.io/docs/reference/scheduling/config/#scheduling-plugins) `NodeResourcesFit` của kube-scheduler, có hai
 chiến lược chấm điểm (scoring strategy) hỗ trợ đóng gói tài nguyên: `MostAllocated` và `RequestedToCapacityRatio`.
@@ -304,7 +304,7 @@ NodeScore   =  ((5 * 5) + (7 * 1) + (10 * 3)) / (5 + 1 + 3)
 
 ## Tiếp theo (What's next)
 
-- Đọc thêm về [scheduling framework](https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/)
+- Đọc thêm về [scheduling framework](147-scheduling-framework-vi.md)
 - Đọc thêm về [cấu hình bộ lập lịch (scheduler configuration)](https://kubernetes.io/docs/reference/scheduling/config/)
 
 ---

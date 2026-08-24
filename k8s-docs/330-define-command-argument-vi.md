@@ -99,9 +99,9 @@ args: ["$(MESSAGE)"]
 
 Điều này có nghĩa là bạn có thể định nghĩa một argument cho Pod bằng bất kỳ
 kỹ thuật nào dùng để định nghĩa biến môi trường, bao gồm
-[ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/)
+[ConfigMap](275-configure-pod-configmap-vi.md)
 và
-[Secret](https://kubernetes.io/docs/concepts/configuration/secret/).
+[Secret](109-secret-vi.md).
 
 > **Ghi chú:** Biến môi trường xuất hiện trong cặp ngoặc đơn, `"$(VAR)"`. Cách viết này
 > là bắt buộc để biến được mở rộng (expand) trong trường `command` hoặc `args`.
@@ -120,5 +120,5 @@ args: ["-c", "while true; do echo hello; sleep 10;done"]
 ## Tiếp theo (What's next)
 
 * Tìm hiểu thêm về [cấu hình Pod và container](https://kubernetes.io/docs/tasks/).
-* Tìm hiểu thêm về [chạy lệnh trong container](https://kubernetes.io/docs/tasks/debug/debug-application/get-shell-running-container/).
+* Tìm hiểu thêm về [chạy lệnh trong container](304-get-shell-running-container-vi.md).
 * Xem [Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#container-v1-core).

@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+**Vị trí:** Giai đoạn 1 → nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
 bài 2/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 **Đây là bài quan trọng nhất nhóm 1b.** Selector là cơ chế mà mọi controller và Service dùng
@@ -64,7 +64,7 @@ object. Label có thể được gắn vào object lúc tạo và sau đó
 
 Label cho phép truy vấn (query) và theo dõi (watch) hiệu quả, và rất lý tưởng để dùng trong giao diện người dùng (UI)
 và giao diện dòng lệnh (CLI). Những thông tin không dùng để nhận dạng nên được ghi lại bằng
-[annotation](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/).
+[annotation](20-annotations-vi.md).
 
 ## Động lực (Motivation)
 
@@ -86,11 +86,11 @@ Ví dụ về label:
 * `"track" : "daily"`, `"track" : "weekly"`
 
 Đây là các ví dụ về
-[những label thường dùng](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/);
+[những label thường dùng](31-common-labels-vi.md);
 bạn hoàn toàn có thể tự phát triển quy ước đặt tên của riêng mình.
 Hãy nhớ rằng label Key phải là duy nhất đối với một object cho trước.
 
-## Cú pháp và bộ ký tự (Syntax and character set)
+## Cú pháp và bộ ký tự (Syntax and character set) {#syntax-and-character-set}
 
 _Label_ là các cặp key/value. Label key hợp lệ có hai phân đoạn (segment): một
 prefix (tiền tố) tùy chọn và name (tên), phân tách bằng dấu gạch chéo (`/`). Phân đoạn name là bắt buộc và
@@ -135,7 +135,7 @@ spec:
 
 ## Bộ chọn label (Label selectors) {#label-selectors}
 
-Không giống như [name và UID](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/), label
+Không giống như [name và UID](17-names-vi.md), label
 không đảm bảo tính duy nhất. Nói chung, chúng ta kỳ vọng nhiều object cùng mang một (hoặc nhiều) label giống nhau.
 
 Thông qua một _label selector_ (bộ chọn label), client/người dùng có thể xác định một tập các object.
@@ -271,10 +271,10 @@ kubectl get pods -l 'environment,environment notin (frontend)'
 
 ### Tham chiếu tập hợp trong các object API (Set references in API objects)
 
-Một số object của Kubernetes, chẳng hạn [`services`](https://kubernetes.io/docs/concepts/services-networking/service/)
-và [`replicationcontrollers`](https://kubernetes.io/docs/concepts/workloads/controllers/replicationcontroller/),
+Một số object của Kubernetes, chẳng hạn [`services`](82-service-vi.md)
+và [`replicationcontrollers`](70-replicationcontroller-vi.md),
 cũng dùng label selector để chỉ định tập các resource khác, chẳng hạn
-[pods](https://kubernetes.io/docs/concepts/workloads/pods/).
+[pods](46-pods-vi.md).
 
 #### Service và ReplicationController
 
@@ -303,10 +303,10 @@ Selector này (lần lượt ở định dạng `json` hoặc `yaml`) tương đ
 
 #### Các resource hỗ trợ yêu cầu dựa trên tập hợp (Resources that support set-based requirements)
 
-Các resource mới hơn, chẳng hạn [`Job`](https://kubernetes.io/docs/concepts/workloads/controllers/job/),
-[`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/),
-[`ReplicaSet`](https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/) và
-[`DaemonSet`](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/),
+Các resource mới hơn, chẳng hạn [`Job`](67-job-vi.md),
+[`Deployment`](63-deployment-vi.md),
+[`ReplicaSet`](64-replicaset-vi.md) và
+[`DaemonSet`](66-daemonset-vi.md),
 cũng hỗ trợ yêu cầu _dựa trên tập hợp_.
 
 ```yaml
@@ -330,7 +330,7 @@ In và NotIn. Tất cả các yêu cầu, từ cả `matchLabels` lẫn `matchEx
 
 Một trường hợp sử dụng của việc chọn theo label là để ràng buộc tập các node mà
 một pod có thể được lập lịch (schedule) lên. Xem tài liệu về
-[chọn node](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/) để biết thêm thông tin.
+[chọn node](138-assign-pod-node-vi.md) để biết thêm thông tin.
 
 ## Sử dụng label hiệu quả (Using labels effectively)
 
@@ -442,10 +442,10 @@ Kết quả hiển thị tất cả các pod "app=nginx", kèm một cột label
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu cách [thêm label vào node](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes/#add-a-label-to-a-node)
+- Tìm hiểu cách [thêm label vào node](267-assign-pods-nodes-vi.md#add-a-label-to-a-node)
 - Tra cứu [các Label, Annotation và Taint phổ biến (Well-known labels, Annotations and Taints)](https://kubernetes.io/docs/reference/labels-annotations-taints/)
-- Xem [các label được khuyến nghị (Recommended labels)](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
-- [Áp dụng Pod Security Standards bằng Label của Namespace](https://kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-namespace-labels/)
+- Xem [các label được khuyến nghị (Recommended labels)](31-common-labels-vi.md)
+- [Áp dụng Pod Security Standards bằng Label của Namespace](283-enforce-standards-namespace-labels-vi.md)
 - Đọc bài blog [Viết một Controller cho Pod Labels](https://kubernetes.io/blog/2021/06/21/writing-a-controller-for-pod-labels/)
 
 ---

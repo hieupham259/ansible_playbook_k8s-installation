@@ -6,7 +6,7 @@
 node. Bạn có thể chạy Node Problem Detector dưới dạng `DaemonSet` hoặc dưới dạng một daemon độc
 lập. Node Problem Detector thu thập thông tin về các vấn đề của node từ nhiều daemon khác nhau
 và báo cáo các tình trạng này lên API server dưới dạng
-[Condition](https://kubernetes.io/docs/concepts/architecture/nodes/#condition) của Node hoặc
+[Condition](https://kubernetes.io/docs/concepts/architecture/nodes#condition) của Node hoặc
 dưới dạng [Event](https://kubernetes.io/docs/reference/kubernetes-api/cluster-resources/event-v1).
 
 Để tìm hiểu cách cài đặt và sử dụng Node Problem Detector, xem
@@ -113,7 +113,7 @@ Tạo file `node-problem-detector.yaml`, và lưu cấu hình này vào thư m�
 được nhúng sẵn khi build Docker image của Node Problem Detector.
 
 Tuy nhiên, bạn có thể dùng một
-[`ConfigMap`](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/)
+[`ConfigMap`](275-configure-pod-configmap-vi.md)
 để ghi đè cấu hình:
 
 1. Thay đổi các file cấu hình trong `config/`

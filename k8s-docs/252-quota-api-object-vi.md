@@ -189,10 +189,10 @@ kubectl delete namespace quota-object-example
 
 ### Dành cho nhà phát triển ứng dụng (For app developers)
 
-* [Gán tài nguyên Memory cho Container và Pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/)
+* [Gán tài nguyên Memory cho Container và Pod](264-assign-memory-resource-vi.md)
 
-* [Gán tài nguyên CPU cho Container và Pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/)
+* [Gán tài nguyên CPU cho Container và Pod](263-assign-cpu-resource-vi.md)
 
-* [Gán tài nguyên CPU và memory ở mức Pod](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pod-level-resources/)
+* [Gán tài nguyên CPU và memory ở mức Pod](265-assign-pod-level-resources-vi.md)
 
-* [Cấu hình Quality of Service cho Pod](https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/)
+* [Cấu hình Quality of Service cho Pod](288-quality-service-pod-vi.md)

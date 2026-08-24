@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+**Vị trí:** Giai đoạn 1 → nhóm [1c](00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
 bài 3/7 · Kiểm chứng ở [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md).
 
 Bài này **dựa hoàn toàn** trên hai bài vừa đọc: [29 — Finalizers](29-finalizers-vi.md) và
@@ -46,20 +46,20 @@ dọn container/image trên đĩa node. Đừng lẫn hai phần đó.
 Thu gom rác (garbage collection) là thuật ngữ chung cho các cơ chế khác nhau mà Kubernetes dùng
 để dọn dẹp tài nguyên trong cluster. Điều này cho phép dọn dẹp các tài nguyên như sau:
 
-* [Các pod đã kết thúc](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-garbage-collection)
-* [Các Job đã hoàn thành](https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/)
+* [Các pod đã kết thúc](47-pod-lifecycle-vi.md#pod-garbage-collection)
+* [Các Job đã hoàn thành](68-ttlafterfinished-vi.md)
 * [Các đối tượng không có owner reference](#owners-dependents)
 * [Các container và container image không dùng nữa](#containers-images)
-* [Các PersistentVolume được cấp phát động (dynamically provisioned) có reclaim policy của StorageClass là Delete](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#delete)
+* [Các PersistentVolume được cấp phát động (dynamically provisioned) có reclaim policy của StorageClass là Delete](92-persistent-volumes-vi.md#delete)
 * [Các CertificateSigningRequest (CSR) cũ hoặc đã hết hạn](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#request-signing-process)
 * Các Node bị xóa trong các kịch bản sau:
-  * Trên cloud khi cluster dùng [cloud controller manager](https://kubernetes.io/docs/concepts/architecture/cloud-controller/)
+  * Trên cloud khi cluster dùng [cloud controller manager](34-cloud-controller-vi.md)
   * Tại chỗ (on-premises) khi cluster dùng một addon tương tự cloud controller manager
 * [Các đối tượng Lease của Node](./23-nodes-vi.md#nhịp-tim-của-node-node-heartbeats)
 
 ## Chủ sở hữu và đối tượng phụ thuộc (Owners and dependents) {#owners-dependents}
 
-Nhiều đối tượng trong Kubernetes liên kết với nhau thông qua [*owner reference*](https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/)
+Nhiều đối tượng trong Kubernetes liên kết với nhau thông qua [*owner reference*](30-owners-dependents-vi.md)
 (tham chiếu chủ sở hữu). Owner reference cho control plane biết những đối tượng nào phụ thuộc
 vào đối tượng khác. Kubernetes dùng owner reference để trao cho control plane, cũng như các
 API client khác, cơ hội dọn dẹp các tài nguyên liên quan trước khi xóa một đối tượng.
@@ -126,7 +126,7 @@ chủ sở hữu là những đối tượng có trường `ownerReference.block
 và đang nằm trong cache của controller thu gom rác. Cache của controller thu gom rác
 có thể không chứa những đối tượng mà loại tài nguyên của chúng không thể list / watch thành công,
 hoặc những đối tượng được tạo đồng thời với việc xóa một đối tượng chủ sở hữu.
-Xem [Dùng xóa theo tầng foreground](https://kubernetes.io/docs/tasks/administer-cluster/use-cascading-deletion/#use-foreground-cascading-deletion)
+Xem [Dùng xóa theo tầng foreground](260-use-cascading-deletion-vi.md#use-foreground-cascading-deletion)
 để tìm hiểu thêm.
 
 ### Xóa theo tầng background (Background cascading deletion) {#background-deletion}
@@ -137,14 +137,14 @@ và controller garbage collector (tùy chỉnh hoặc mặc định) dọn dẹp
 mọi tác vụ dọn dẹp cần thiết đã hoàn tất. Theo mặc định, Kubernetes dùng xóa theo tầng background
 trừ khi bạn chủ động dùng xóa foreground hoặc chọn bỏ lại (orphan) các đối tượng phụ thuộc.
 
-Xem [Dùng xóa theo tầng background](https://kubernetes.io/docs/tasks/administer-cluster/use-cascading-deletion/#use-background-cascading-deletion)
+Xem [Dùng xóa theo tầng background](260-use-cascading-deletion-vi.md#use-background-cascading-deletion)
 để tìm hiểu thêm.
 
 ### Các đối tượng phụ thuộc mồ côi (Orphaned dependents)
 
 Khi Kubernetes xóa một đối tượng chủ sở hữu, các đối tượng phụ thuộc bị bỏ lại được gọi là
 các đối tượng *mồ côi* (orphan). Theo mặc định, Kubernetes xóa các đối tượng phụ thuộc. Để tìm hiểu
-cách ghi đè hành vi này, xem [Xóa đối tượng chủ sở hữu và bỏ lại các đối tượng phụ thuộc](https://kubernetes.io/docs/tasks/administer-cluster/use-cascading-deletion/#set-orphan-deletion-policy).
+cách ghi đè hành vi này, xem [Xóa đối tượng chủ sở hữu và bỏ lại các đối tượng phụ thuộc](260-use-cascading-deletion-vi.md#set-orphan-deletion-policy).
 
 ## Thu gom rác các container và image không dùng nữa (Garbage collection of unused containers and images) {#containers-images}
 
@@ -154,7 +154,7 @@ thu gom rác bên ngoài, vì chúng có thể phá vỡ hành vi của kubelet 
 lẽ ra phải tồn tại.
 
 Để cấu hình các tùy chọn thu gom rác cho container và image không dùng nữa, hãy tinh chỉnh
-kubelet bằng một [file cấu hình](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/)
+kubelet bằng một [file cấu hình](224-kubelet-config-file-vi.md)
 và thay đổi các tham số liên quan tới thu gom rác thông qua loại tài nguyên
 [`KubeletConfiguration`](https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/).
 
@@ -224,14 +224,14 @@ Bạn có thể tinh chỉnh việc thu gom rác các tài nguyên bằng cách 
 riêng của các controller quản lý những tài nguyên đó. Các trang sau hướng dẫn bạn
 cách cấu hình thu gom rác:
 
-* [Cấu hình xóa theo tầng cho các đối tượng Kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/use-cascading-deletion/)
-* [Cấu hình dọn dẹp các Job đã hoàn thành](https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/)
+* [Cấu hình xóa theo tầng cho các đối tượng Kubernetes](260-use-cascading-deletion-vi.md)
+* [Cấu hình dọn dẹp các Job đã hoàn thành](68-ttlafterfinished-vi.md)
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [quyền sở hữu của các đối tượng Kubernetes](https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/).
-* Tìm hiểu thêm về [finalizer](https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/) trong Kubernetes.
-* Tìm hiểu về [TTL controller](https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/) dọn dẹp các Job đã hoàn thành.
+* Tìm hiểu thêm về [quyền sở hữu của các đối tượng Kubernetes](30-owners-dependents-vi.md).
+* Tìm hiểu thêm về [finalizer](29-finalizers-vi.md) trong Kubernetes.
+* Tìm hiểu về [TTL controller](68-ttlafterfinished-vi.md) dọn dẹp các Job đã hoàn thành.
 
 ---
 

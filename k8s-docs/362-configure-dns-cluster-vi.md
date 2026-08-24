@@ -10,5 +10,5 @@ bật mặc định. Từ Kubernetes phiên bản 1.11 trở đi, CoreDNS là l�
 và được cài đặt mặc định cùng với kubeadm.
 
 Để biết thêm thông tin về cách cấu hình CoreDNS cho một cluster Kubernetes, xem
-[Tùy chỉnh DNS Service](https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/)
+[Tùy chỉnh DNS Service](204-dns-custom-nameservers-vi.md)
 (đã có [bản dịch tiếng Việt](204-dns-custom-nameservers-vi.md)).

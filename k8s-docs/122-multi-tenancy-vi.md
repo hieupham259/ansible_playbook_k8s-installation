@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](LO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 9/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 9/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là bài **ghép** — nó không dạy cơ chế mới nào. Namespace, RBAC, ResourceQuota và
 NetworkPolicy bạn đã học rời rạc ở các giai đoạn trước; bài này đặt chúng cạnh nhau thành một
@@ -217,7 +217,7 @@ các chính sách chi tiết ở những nơi cần thiết.
 ### Hạn ngạch (Quotas)
 
 Các workload Kubernetes tiêu thụ tài nguyên của node, như CPU và bộ nhớ. Trong môi trường đa người thuê,
-bạn có thể dùng [Resource Quota](https://kubernetes.io/docs/concepts/policy/resource-quotas/) để quản lý mức sử dụng tài nguyên
+bạn có thể dùng [Resource Quota](134-resource-quotas-vi.md) để quản lý mức sử dụng tài nguyên
 của các workload của tenant. Với trường hợp sử dụng nhiều team, khi các tenant có quyền truy cập Kubernetes
 API, bạn có thể dùng resource quota để giới hạn số lượng tài nguyên API (ví dụ: số lượng
 Pod, hay số lượng ConfigMap) mà một tenant có thể tạo. Các giới hạn về số lượng đối tượng đảm bảo
@@ -275,7 +275,7 @@ cluster, đảm bảo chúng là một cơ sở đáng tin cậy cho các chính
 
 > **Cảnh báo:**
 >
-> Network policy yêu cầu một [CNI plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#cni)
+> Network policy yêu cầu một [CNI plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins#cni)
 > hỗ trợ việc hiện thực network policy. Nếu không, các tài nguyên NetworkPolicy sẽ bị bỏ qua.
 
 Mức cách ly mạng cao cấp hơn có thể được cung cấp bởi các service mesh, vốn cung cấp các chính sách
@@ -302,7 +302,7 @@ Tuy nhiên, điều quan trọng cần lưu ý là PersistentVolume là một t�
 vòng đời độc lập với các workload và namespace.
 
 Ví dụ, bạn có thể cấu hình một StorageClass riêng cho mỗi tenant và dùng nó để tăng cường sự cách ly.
-Nếu một StorageClass được dùng chung, bạn nên đặt [chính sách thu hồi (reclaim policy) là `Delete`](https://kubernetes.io/docs/concepts/storage/storage-classes/#reclaim-policy)
+Nếu một StorageClass được dùng chung, bạn nên đặt [chính sách thu hồi (reclaim policy) là `Delete`](96-storage-classes-vi.md#reclaim-policy)
 để đảm bảo một PersistentVolume không thể bị tái sử dụng giữa các namespace khác nhau.
 
 ### Sandbox cho container (Sandboxing containers)
@@ -356,7 +356,7 @@ toleration tương ứng mới chạy được trên đó. Sau đó, một mutat
 thêm các toleration và node affinity vào các pod được triển khai vào các namespace của tenant, để chúng chạy trên
 một tập node cụ thể được chỉ định cho tenant đó.
 
-Cách ly node có thể được hiện thực bằng [pod node selector](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).
+Cách ly node có thể được hiện thực bằng [pod node selector](138-assign-pod-node-vi.md).
 
 ## Các cân nhắc bổ sung (Additional Considerations)
 
@@ -364,7 +364,7 @@ Phần này thảo luận các cấu trúc và mẫu hình Kubernetes khác có 
 
 ### Độ ưu tiên và công bằng của API (API Priority and Fairness)
 
-[Độ ưu tiên và công bằng của API (API priority and fairness)](https://kubernetes.io/docs/concepts/cluster-administration/flow-control/) là một tính năng của Kubernetes
+[Độ ưu tiên và công bằng của API (API priority and fairness)](166-flow-control-vi.md) là một tính năng của Kubernetes
 cho phép bạn gán độ ưu tiên cho một số pod nhất định chạy trong cluster.
 Khi một ứng dụng gọi Kubernetes API, API server sẽ đánh giá độ ưu tiên được gán cho pod đó.
 Các lời gọi từ những pod có độ ưu tiên cao hơn được xử lý trước các lời gọi có độ ưu tiên thấp hơn.
@@ -388,11 +388,11 @@ dịch vụ tương xứng với những gì họ đã trả tiền. Hãy bắt 
 Thông thường, tất cả các pod trên một node dùng chung một network interface. Không có QoS mạng, một số pod có thể
 tiêu thụ một phần băng thông sẵn có một cách bất công, gây thiệt hại cho các pod khác.
 [Bandwidth plugin](https://www.cni.dev/plugins/current/meta/bandwidth/) của Kubernetes tạo một
-[tài nguyên mở rộng (extended resource)](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#extended-resources)
+[tài nguyên mở rộng (extended resource)](110-manage-resources-containers-vi.md#extended-resources)
 cho mạng, cho phép bạn dùng các cấu trúc tài nguyên của Kubernetes, tức là request/limit, để
 áp dụng giới hạn tốc độ (rate limit) cho các pod bằng cách sử dụng hàng đợi tc của Linux.
 Lưu ý rằng plugin này được xem là thử nghiệm (experimental) theo tài liệu
-[Network Plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#support-traffic-shaping)
+[Network Plugins](183-network-plugins-vi.md#support-traffic-shaping)
 và nên được kiểm thử kỹ lưỡng trước khi dùng trong môi trường production.
 
 Với QoS lưu trữ, bạn có thể sẽ muốn tạo các storage class hoặc profile khác nhau với
@@ -401,7 +401,7 @@ bậc dịch vụ khác nhau, được tối ưu cho các workload khác nhau nh
 Có thể cần thêm logic bổ sung để cho phép tenant gắn profile lưu trữ
 phù hợp với workload của họ.
 
-Cuối cùng, có [độ ưu tiên và chiếm chỗ của pod (pod priority and preemption)](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/),
+Cuối cùng, có [độ ưu tiên và chiếm chỗ của pod (pod priority and preemption)](141-pod-priority-preemption-vi.md),
 nơi bạn có thể gán các giá trị ưu tiên cho pod. Khi lập lịch pod, scheduler sẽ thử
 trục xuất (evict) các pod có độ ưu tiên thấp hơn khi không đủ tài nguyên để lập lịch cho các pod được
 gán độ ưu tiên cao hơn. Nếu bạn có trường hợp sử dụng trong đó các tenant có các bậc dịch vụ khác nhau trong một
@@ -430,7 +430,7 @@ hỗ trợ nhiều tenant.
 
 ### Operator (Operators)
 
-[Operator](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/) là các controller của Kubernetes quản lý
+[Operator](181-operator-vi.md) là các controller của Kubernetes quản lý
 các ứng dụng. Operator có thể đơn giản hóa việc quản lý nhiều instance của một ứng dụng, như
 một dịch vụ cơ sở dữ liệu, điều này khiến chúng trở thành một khối xây dựng phổ biến trong trường hợp sử dụng đa người thuê
 kiểu đa khách hàng (SaaS).

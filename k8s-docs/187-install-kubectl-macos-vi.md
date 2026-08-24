@@ -11,10 +11,10 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Tài liệu tra cứu thuộc nhánh Tasks, không nằm trong 15 giai đoạn của lộ trình;
-liên quan gần nhất tới nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl) (bài
+liên quan gần nhất tới nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl) (bài
 [26 — kubectl](26-kubectl-vi.md)). Lab của lộ trình chạy `kubectl` ngay trên VM Linux của
 [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md); chỉ cần bài này khi bạn muốn điều khiển cluster từ máy
 macOS cá nhân.
@@ -35,7 +35,7 @@ macOS cá nhân.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Cài plugin `kubectl convert` | chỉ cần khi di chuyển manifest khỏi API version bị loại bỏ lúc nâng cấp | [CP2 — Nâng cấp cluster](LO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster) |
+| Cài plugin `kubectl convert` | chỉ cần khi di chuyển manifest khỏi API version bị loại bỏ lúc nâng cấp | [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster) |
 | Lỗi "No Auth Provider Found" | chỉ gặp với cluster cloud-managed (AKS, GKE) | ngoài phạm vi lộ trình — đọc khi làm việc với cluster cloud |
 
 ---
@@ -521,7 +521,7 @@ brew remove kubectl
 * Xem [các hướng dẫn bắt đầu](https://kubernetes.io/docs/setup/) để biết thêm về cách tạo cluster.
 * [Tìm hiểu cách khởi chạy và expose ứng dụng của bạn.](https://kubernetes.io/docs/tasks/access-application-cluster/service-access-application-cluster/)
 * Nếu bạn cần truy cập một cluster mà bạn không tự tạo, xem
-  [tài liệu Chia sẻ quyền truy cập cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
+  [tài liệu Chia sẻ quyền truy cập cluster](361-configure-access-multiple-clusters-vi.md).
 * Đọc [tài liệu tham khảo kubectl](https://kubernetes.io/docs/reference/kubectl/kubectl/)
 
 ---

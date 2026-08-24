@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 14](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 3/7 ·
+**Vị trí:** [Giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 3/7 ·
 Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Giai đoạn này lộ trình ghi rõ là **dành cho platform administrator / người phát triển operator**.
@@ -55,7 +55,7 @@ lộ trình nhắm tới. Các mục về thiết kế API khai báo đọc lư�
 
 ## Custom resource
 
-Một *resource* (tài nguyên) là một endpoint trong [Kubernetes API](https://kubernetes.io/docs/concepts/overview/kubernetes-api/) lưu trữ một tập hợp các đối tượng API (API object) thuộc một loại (kind) nhất định; ví dụ, resource dựng sẵn *pods* chứa một tập hợp các đối tượng Pod.
+Một *resource* (tài nguyên) là một endpoint trong [Kubernetes API](21-kubernetes-api-vi.md) lưu trữ một tập hợp các đối tượng API (API object) thuộc một loại (kind) nhất định; ví dụ, resource dựng sẵn *pods* chứa một tập hợp các đối tượng Pod.
 
 Một *custom resource* là một phần mở rộng của Kubernetes API mà không nhất thiết có sẵn trong một bản cài đặt Kubernetes mặc định. Nó thể hiện sự tùy biến của một bản cài đặt Kubernetes cụ thể. Tuy nhiên, ngày nay nhiều chức năng lõi của Kubernetes cũng được xây dựng bằng custom resource, khiến Kubernetes trở nên module hóa hơn.
 
@@ -65,13 +65,13 @@ Custom resource có thể xuất hiện và biến mất trong một cluster đa
 
 Bản thân custom resource chỉ cho phép bạn lưu trữ và truy xuất dữ liệu có cấu trúc. Khi bạn kết hợp một custom resource với một *custom controller*, custom resource sẽ cung cấp một _API khai báo (declarative API)_ thực thụ.
 
-[API khai báo](https://kubernetes.io/docs/concepts/overview/kubernetes-api/) của Kubernetes áp đặt sự phân tách trách nhiệm. Bạn khai báo trạng thái mong muốn (desired state) cho resource của mình. Controller của Kubernetes giữ cho trạng thái hiện tại của các đối tượng Kubernetes đồng bộ với trạng thái mong muốn mà bạn đã khai báo. Điều này trái ngược với một API mệnh lệnh (imperative API), nơi bạn *ra lệnh* cho server phải làm gì.
+[API khai báo](21-kubernetes-api-vi.md) của Kubernetes áp đặt sự phân tách trách nhiệm. Bạn khai báo trạng thái mong muốn (desired state) cho resource của mình. Controller của Kubernetes giữ cho trạng thái hiện tại của các đối tượng Kubernetes đồng bộ với trạng thái mong muốn mà bạn đã khai báo. Điều này trái ngược với một API mệnh lệnh (imperative API), nơi bạn *ra lệnh* cho server phải làm gì.
 
-Bạn có thể triển khai và cập nhật một custom controller trên một cluster đang chạy, độc lập với vòng đời của cluster. Custom controller có thể làm việc với bất kỳ loại resource nào, nhưng chúng đặc biệt hiệu quả khi được kết hợp với custom resource. [Mẫu thiết kế Operator (Operator pattern)](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/) kết hợp custom resource và custom controller. Bạn có thể dùng custom controller để mã hóa tri thức nghiệp vụ (domain knowledge) của những ứng dụng cụ thể thành một phần mở rộng của Kubernetes API.
+Bạn có thể triển khai và cập nhật một custom controller trên một cluster đang chạy, độc lập với vòng đời của cluster. Custom controller có thể làm việc với bất kỳ loại resource nào, nhưng chúng đặc biệt hiệu quả khi được kết hợp với custom resource. [Mẫu thiết kế Operator (Operator pattern)](181-operator-vi.md) kết hợp custom resource và custom controller. Bạn có thể dùng custom controller để mã hóa tri thức nghiệp vụ (domain knowledge) của những ứng dụng cụ thể thành một phần mở rộng của Kubernetes API.
 
 ## Tôi có nên thêm custom resource vào cluster Kubernetes của mình không? (Should I add a custom resource to my Kubernetes cluster?)
 
-Khi tạo một API mới, hãy cân nhắc nên [tổng hợp (aggregate) API của bạn với các API của cluster Kubernetes](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/) hay để API của bạn đứng độc lập.
+Khi tạo một API mới, hãy cân nhắc nên [tổng hợp (aggregate) API của bạn với các API của cluster Kubernetes](180-apiserver-aggregation-vi.md) hay để API của bạn đứng độc lập.
 
 | Cân nhắc dùng API aggregation nếu: | Ưu tiên một API độc lập (stand-alone) nếu: |
 | ---------------------------- | ---------------------------- |
@@ -79,7 +79,7 @@ Khi tạo một API mới, hãy cân nhắc nên [tổng hợp (aggregate) API c
 | Bạn muốn các kiểu (type) mới của mình đọc và ghi được bằng `kubectl`. | Không cần hỗ trợ `kubectl`. |
 | Bạn muốn xem các kiểu mới của mình trong một giao diện Kubernetes UI, chẳng hạn dashboard, cùng với các kiểu dựng sẵn. | Không cần hỗ trợ Kubernetes UI. |
 | Bạn đang phát triển một API mới. | Bạn đã có sẵn một chương trình phục vụ API của bạn và nó hoạt động tốt. |
-| Bạn sẵn sàng chấp nhận các ràng buộc về định dạng mà Kubernetes áp đặt lên đường dẫn REST resource, chẳng hạn API Group và Namespace. (Xem [Tổng quan API](https://kubernetes.io/docs/concepts/overview/kubernetes-api/).) | Bạn cần có các đường dẫn REST cụ thể để tương thích với một REST API đã được định nghĩa từ trước. |
+| Bạn sẵn sàng chấp nhận các ràng buộc về định dạng mà Kubernetes áp đặt lên đường dẫn REST resource, chẳng hạn API Group và Namespace. (Xem [Tổng quan API](21-kubernetes-api-vi.md).) | Bạn cần có các đường dẫn REST cụ thể để tương thích với một REST API đã được định nghĩa từ trước. |
 | Các resource của bạn tự nhiên có phạm vi ở mức cluster hoặc namespace của một cluster. | Resource ở phạm vi cluster hoặc namespace không phù hợp; bạn cần kiểm soát chi tiết đường dẫn resource. |
 | Bạn muốn tái sử dụng [các tính năng hỗ trợ của Kubernetes API](#common-features). | Bạn không cần những tính năng đó. |
 
@@ -132,11 +132,11 @@ Hãy dùng custom resource (CRD hoặc Aggregated API) nếu hầu hết các đ
 Kubernetes cung cấp hai cách để thêm custom resource vào cluster của bạn:
 
 - CRD thì đơn giản và có thể được tạo mà không cần lập trình.
-- [API Aggregation](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/) đòi hỏi lập trình, nhưng cho phép kiểm soát nhiều hơn với các hành vi của API như cách dữ liệu được lưu trữ và cách chuyển đổi giữa các phiên bản API.
+- [API Aggregation](180-apiserver-aggregation-vi.md) đòi hỏi lập trình, nhưng cho phép kiểm soát nhiều hơn với các hành vi của API như cách dữ liệu được lưu trữ và cách chuyển đổi giữa các phiên bản API.
 
 Kubernetes cung cấp hai lựa chọn này để đáp ứng nhu cầu của các nhóm người dùng khác nhau, sao cho không phải hy sinh tính dễ dùng lẫn tính linh hoạt.
 
-Aggregated API là các API server phụ (subordinate) nằm phía sau API server chính, và API server chính đóng vai trò proxy. Cách bố trí này được gọi là [API Aggregation](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/) (AA). Với người dùng, Kubernetes API trông như đã được mở rộng.
+Aggregated API là các API server phụ (subordinate) nằm phía sau API server chính, và API server chính đóng vai trò proxy. Cách bố trí này được gọi là [API Aggregation](180-apiserver-aggregation-vi.md) (AA). Với người dùng, Kubernetes API trông như đã được mở rộng.
 
 CRD cho phép người dùng tạo các loại resource mới mà không cần thêm một API server nữa. Bạn không cần hiểu về API Aggregation mới dùng được CRD.
 
@@ -148,7 +148,7 @@ Bất kể được cài đặt theo cách nào, các resource mới đều đư
 
 ## CustomResourceDefinition {#customresourcedefinitions}
 
-API resource [CustomResourceDefinition](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/) cho phép bạn định nghĩa custom resource. Việc định nghĩa một đối tượng CRD sẽ tạo ra một custom resource mới với tên và schema do bạn chỉ định. Kubernetes API sẽ phục vụ và đảm nhận việc lưu trữ custom resource của bạn. Bản thân tên của đối tượng CRD phải là một [tên DNS subdomain hợp lệ](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-subdomain-names) được suy ra từ tên resource đã định nghĩa và API group của nó; xem [cách tạo một CRD](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions#create-a-customresourcedefinition) để biết thêm chi tiết. Hơn nữa, tên của một đối tượng có kind/resource được định nghĩa bởi một CRD cũng phải là một tên DNS subdomain hợp lệ.
+API resource [CustomResourceDefinition](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/) cho phép bạn định nghĩa custom resource. Việc định nghĩa một đối tượng CRD sẽ tạo ra một custom resource mới với tên và schema do bạn chỉ định. Kubernetes API sẽ phục vụ và đảm nhận việc lưu trữ custom resource của bạn. Bản thân tên của đối tượng CRD phải là một [tên DNS subdomain hợp lệ](17-names-vi.md#dns-subdomain-names) được suy ra từ tên resource đã định nghĩa và API group của nó; xem [cách tạo một CRD](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions#create-a-customresourcedefinition) để biết thêm chi tiết. Hơn nữa, tên của một đối tượng có kind/resource được định nghĩa bởi một CRD cũng phải là một tên DNS subdomain hợp lệ.
 
 Điều này giúp bạn không phải tự viết API server để xử lý custom resource, nhưng bản chất tổng quát của cách hiện thực này khiến bạn kém linh hoạt hơn so với [tổng hợp API server (API server aggregation)](#api-server-aggregation).
 
@@ -158,7 +158,7 @@ Hãy tham khảo [ví dụ custom controller](https://github.com/kubernetes/samp
 
 Thông thường, mỗi resource trong Kubernetes API đòi hỏi mã nguồn xử lý các request REST và quản lý việc lưu trữ bền vững (persistent storage) của các đối tượng. API server chính của Kubernetes xử lý các resource dựng sẵn như *pod* và *service*, đồng thời cũng có thể xử lý custom resource một cách tổng quát thông qua [CRD](#customresourcedefinitions).
 
-[Tầng tổng hợp (aggregation layer)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/) cho phép bạn cung cấp các hiện thực chuyên biệt cho custom resource của mình bằng cách viết và triển khai API server của riêng bạn. API server chính ủy quyền (delegate) các request tới API server của bạn đối với những custom resource mà bạn xử lý, giúp chúng khả dụng cho tất cả các client của nó.
+[Tầng tổng hợp (aggregation layer)](180-apiserver-aggregation-vi.md) cho phép bạn cung cấp các hiện thực chuyên biệt cho custom resource của mình bằng cách viết và triển khai API server của riêng bạn. API server chính ủy quyền (delegate) các request tới API server của bạn đối với những custom resource mà bạn xử lý, giúp chúng khả dụng cho tất cả các client của nó.
 
 ## Chọn phương pháp thêm custom resource (Choosing a method for adding custom resources)
 
@@ -180,7 +180,7 @@ CRD dễ tạo hơn Aggregated API.
 | Không cần hỗ trợ liên tục sau khi CRD được tạo. Mọi bản vá lỗi sẽ được tiếp nhận như một phần của các đợt nâng cấp Kubernetes Master thông thường. | Có thể cần định kỳ tiếp nhận các bản vá lỗi từ upstream rồi build lại và cập nhật Aggregated API server. |
 | Không cần xử lý nhiều phiên bản của API; ví dụ, khi bạn kiểm soát client cho resource này, bạn có thể nâng cấp nó đồng bộ với API. | Bạn cần xử lý nhiều phiên bản của API; ví dụ, khi phát triển một extension để chia sẻ với cộng đồng. |
 
-### Tính năng nâng cao và tính linh hoạt (Advanced features and flexibility)
+### Tính năng nâng cao và tính linh hoạt (Advanced features and flexibility) {#advanced-features-and-flexibility}
 
 Aggregated API cung cấp nhiều tính năng API nâng cao hơn và cho phép tùy biến các tính năng khác; ví dụ, tầng lưu trữ (storage layer).
 
@@ -194,7 +194,7 @@ Aggregated API cung cấp nhiều tính năng API nâng cao hơn và cho phép t
 | Scale Subresource | Cho phép các hệ thống như HorizontalPodAutoscaler và PodDisruptionBudget tương tác với resource mới của bạn | [Có](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#scale-subresource) | Có |
 | Status Subresource | Cho phép kiểm soát truy cập chi tiết, trong đó người dùng ghi phần spec còn controller ghi phần status. Cho phép tăng giá trị Generation của đối tượng khi dữ liệu custom resource thay đổi (yêu cầu resource có phần spec và status tách biệt) | [Có](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource) | Có |
 | Other Subresources (subresource khác) | Thêm các thao tác ngoài CRUD, chẳng hạn "logs" hoặc "exec". | Không | Có |
-| strategic-merge-patch | Các endpoint mới hỗ trợ PATCH với `Content-Type: application/strategic-merge-patch+json`. Hữu ích khi cập nhật các đối tượng có thể bị sửa đổi cả ở phía cục bộ lẫn bởi server. Để biết thêm, xem ["Update API Objects in Place Using kubectl patch"](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/) | Không | Có |
+| strategic-merge-patch | Các endpoint mới hỗ trợ PATCH với `Content-Type: application/strategic-merge-patch+json`. Hữu ích khi cập nhật các đối tượng có thể bị sửa đổi cả ở phía cục bộ lẫn bởi server. Để biết thêm, xem ["Update API Objects in Place Using kubectl patch"](324-kubectl-patch-vi.md) | Không | Có |
 | Protocol Buffers | Resource mới hỗ trợ các client muốn dùng Protocol Buffers | Không | Có |
 | OpenAPI Schema | Có schema OpenAPI (swagger) cho các kiểu dữ liệu để có thể lấy động từ server hay không? Người dùng có được bảo vệ khỏi việc gõ sai tên trường bằng cách chỉ cho phép đặt các trường hợp lệ hay không? Kiểu dữ liệu có được ràng buộc hay không (nói cách khác, không đặt một `int` vào một trường `string`)? | Có, dựa trên schema [validation theo OpenAPI v3.0](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#validation) (GA từ 1.16). | Có |
 | Instance Name (tên thực thể) | Cơ chế mở rộng này có áp đặt ràng buộc nào lên tên của các đối tượng có kind/resource được định nghĩa theo cách này hay không? | Có, tên của đối tượng như vậy phải là một tên DNS subdomain hợp lệ. | Không |
@@ -230,7 +230,7 @@ Mặc dù việc tạo một CRD không tự động thêm bất kỳ điểm h�
 
 Việc cài đặt một Aggregated API server thì luôn kéo theo việc chạy một Deployment mới.
 
-### Lưu trữ (Storage)
+### Lưu trữ (Storage) {#storage}
 
 Custom resource tiêu tốn không gian lưu trữ theo cách giống như ConfigMap. Việc tạo quá nhiều custom resource có thể làm quá tải không gian lưu trữ của API server.
 
@@ -259,7 +259,7 @@ Khi bạn thêm một custom resource, bạn có thể truy cập nó bằng:
 
 ## Field selector cho custom resource (Custom resource field selectors)
 
-[Field Selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors/) cho phép client chọn lọc custom resource dựa trên giá trị của một hoặc nhiều trường của resource.
+[Field Selector](28-field-selectors-vi.md) cho phép client chọn lọc custom resource dựa trên giá trị của một hoặc nhiều trường của resource.
 
 Mọi custom resource đều hỗ trợ các field selector `metadata.name` và `metadata.namespace`.
 
@@ -328,7 +328,7 @@ example2   blue   M
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu cách [Mở rộng Kubernetes API bằng tầng tổng hợp (aggregation layer)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/).
+* Tìm hiểu cách [Mở rộng Kubernetes API bằng tầng tổng hợp (aggregation layer)](180-apiserver-aggregation-vi.md).
 * Tìm hiểu cách [Mở rộng Kubernetes API bằng CustomResourceDefinition](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/).
 
 ---

@@ -10,7 +10,7 @@ mà không cần tạo lại Pod.
 Tính năng thay đổi kích thước Pod tại chỗ (In-place Pod Resize) cho phép chỉnh sửa mức cấp phát
 tài nguyên cho một Pod đang chạy, tránh làm gián đoạn ứng dụng. Quy trình thay đổi kích thước
 tài nguyên của từng container riêng lẻ được trình bày trong
-[Thay đổi kích thước tài nguyên CPU và Memory được gán cho Container](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/).
+[Thay đổi kích thước tài nguyên CPU và Memory được gán cho Container](289-resize-container-resources-vi.md).
 
 Trang này tập trung vào việc thay đổi kích thước tài nguyên cấp Pod tại chỗ (In-place Pod-level
 resources resize). Tài nguyên cấp Pod được định nghĩa trong `spec.resources` và đóng vai trò là
@@ -62,7 +62,7 @@ resize cấp container:
   nào (metadata.generation) tương ứng với trạng thái của yêu cầu resize mới nhất đã được xử lý.
 
 Để có mô tả đầy đủ về các điều kiện và logic thử lại này, vui lòng tham khảo mục
-[Trạng thái resize của Pod](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/#pod-resize-status)
+[Trạng thái resize của Pod](289-resize-container-resources-vi.md#pod-resize-status)
 trong tài liệu về resize container.
 
 ## Chính sách resize của container và resize cấp Pod (Container Resize Policy and Pod-Level Resize)
@@ -75,7 +75,7 @@ khởi động lại (restart policy) riêng của nó.
   tài nguyên cấp Pod đóng vai trò như một ràng buộc tổng thể trên cgroup của Pod và không trực
   tiếp quản lý runtime của ứng dụng bên trong các container.
 
-* [Chính sách cấp container](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/#container-resize-policies)
+* [Chính sách cấp container](289-resize-container-resources-vi.md#container-resize-policies)
   vẫn chi phối: `resizePolicy` vẫn phải được cấu hình ở cấp container
   (spec.containers[*].resizePolicy). Chính sách này quyết định liệu một container riêng lẻ có bị
   khởi động lại khi resource requests hoặc limits của nó thay đổi hay không, bất kể thay đổi đó
@@ -86,7 +86,7 @@ khởi động lại (restart policy) riêng của nó.
 
 Đối với Kubernetes v1.36, việc thay đổi kích thước tài nguyên cấp Pod tại chỗ chịu tất cả các
 giới hạn được mô tả cho resize tài nguyên cấp container, mà bạn có thể xem tại đây:
-[Thay đổi kích thước tài nguyên CPU và Memory được gán cho Container: Giới hạn](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/#limitations).
+[Thay đổi kích thước tài nguyên CPU và Memory được gán cho Container: Giới hạn](289-resize-container-resources-vi.md#limitations).
 
 Ngoài ra, ràng buộc sau đây là đặc thù của việc resize tài nguyên cấp Pod:
 * Kiểm tra hợp lệ requests của container (Container Requests Validation): Một lần resize chỉ

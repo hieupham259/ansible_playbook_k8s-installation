@@ -7,11 +7,11 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), mục
-[CP7 — Audit và mã hóa dữ liệu](LO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu), bài 4/6),
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), mục
+[CP7 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu), bài 4/6),
 nối tiếp bài [208 — Encrypting Confidential Data at Rest](208-encrypt-data-vi.md): ở đó bạn đã
 thấy giới hạn của key cục bộ (key nằm ngay trên host), bài này là lời giải — đưa key mã hóa
 key (KEK) ra một KMS bên ngoài.
@@ -329,7 +329,7 @@ Bảo đảm rằng KMS plugin chạy trên cùng (các) host với (các) Kuber
 
 1. Đối số boolean `--encryption-provider-config-automatic-reload` quyết định file được đặt
    bởi `--encryption-provider-config` có được
-   [tự động nạp lại](https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/#configure-automatic-reloading)
+   [tự động nạp lại](208-encrypt-data-vi.md#configure-automatic-reloading)
    khi nội dung trên đĩa thay đổi hay không.
 
 1. Restart API server của bạn.

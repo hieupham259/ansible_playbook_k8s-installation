@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 12](LO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 2/8 ·
+**Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 2/8 ·
 Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là bài **thực dụng nhất** của giai đoạn 12: mỗi lần bảo trì phần cứng, mỗi lần vá kernel rồi
@@ -63,7 +63,7 @@ Trong một cluster Kubernetes, một node có thể được tắt theo cách n
 
 kubelet cố gắng phát hiện việc hệ thống của node tắt máy và chấm dứt (terminate) các pod đang chạy trên node đó.
 
-Kubelet bảo đảm rằng các pod tuân theo [quy trình chấm dứt pod](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination) thông thường trong quá trình tắt node. Trong khi node đang tắt, kubelet không chấp nhận các Pod mới (ngay cả khi những Pod đó đã được gán (bind) vào node).
+Kubelet bảo đảm rằng các pod tuân theo [quy trình chấm dứt pod](47-pod-lifecycle-vi.md#pod-termination) thông thường trong quá trình tắt node. Trong khi node đang tắt, kubelet không chấp nhận các Pod mới (ngay cả khi những Pod đó đã được gán (bind) vào node).
 
 ### Bật tính năng tắt node nhẹ nhàng (Enabling graceful node shutdown)
 
@@ -102,21 +102,21 @@ Khi kubelet đang đặt condition đó trên Node của nó thông qua API, kub
 Trong quá trình tắt nhẹ nhàng, kubelet chấm dứt các pod theo hai giai đoạn:
 
 1. Chấm dứt các pod thông thường đang chạy trên node.
-1. Chấm dứt các [pod quan trọng (critical pod)](https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/#marking-pod-as-critical) đang chạy trên node.
+1. Chấm dứt các [pod quan trọng (critical pod)](210-guaranteed-scheduling-critical-addon-pods-vi.md#marking-pod-as-critical) đang chạy trên node.
 
-Tính năng tắt node nhẹ nhàng được cấu hình bằng hai tùy chọn của [`KubeletConfiguration`](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/):
+Tính năng tắt node nhẹ nhàng được cấu hình bằng hai tùy chọn của [`KubeletConfiguration`](224-kubelet-config-file-vi.md):
 
 - `shutdownGracePeriod`:
 
-  Chỉ định tổng khoảng thời gian mà node nên trì hoãn việc tắt máy. Đây là tổng thời gian gia hạn cho việc chấm dứt pod, tính cho cả pod thông thường lẫn [pod quan trọng](https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/#marking-pod-as-critical).
+  Chỉ định tổng khoảng thời gian mà node nên trì hoãn việc tắt máy. Đây là tổng thời gian gia hạn cho việc chấm dứt pod, tính cho cả pod thông thường lẫn [pod quan trọng](210-guaranteed-scheduling-critical-addon-pods-vi.md#marking-pod-as-critical).
 
 - `shutdownGracePeriodCriticalPods`:
 
-  Chỉ định khoảng thời gian được dùng để chấm dứt các [pod quan trọng](https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/#marking-pod-as-critical) trong quá trình tắt node. Giá trị này nên nhỏ hơn `shutdownGracePeriod`.
+  Chỉ định khoảng thời gian được dùng để chấm dứt các [pod quan trọng](210-guaranteed-scheduling-critical-addon-pods-vi.md#marking-pod-as-critical) trong quá trình tắt node. Giá trị này nên nhỏ hơn `shutdownGracePeriod`.
 
 > **Ghi chú:** Có những trường hợp việc chấm dứt Node bị hệ thống hủy bỏ (hoặc có thể được quản trị viên hủy thủ công). Trong cả hai tình huống đó, Node sẽ trở lại trạng thái `Ready`. Tuy nhiên, những Pod đã bắt đầu quá trình chấm dứt sẽ không được kubelet khôi phục và sẽ cần được lập lịch lại.
 
-Ví dụ, nếu `shutdownGracePeriod=30s` và `shutdownGracePeriodCriticalPods=10s`, kubelet sẽ trì hoãn việc tắt node thêm 30 giây. Trong quá trình tắt, 20 giây đầu tiên (30-10) sẽ được dành để chấm dứt nhẹ nhàng các pod thông thường, và 10 giây cuối sẽ được dành để chấm dứt các [pod quan trọng](https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/#marking-pod-as-critical).
+Ví dụ, nếu `shutdownGracePeriod=30s` và `shutdownGracePeriodCriticalPods=10s`, kubelet sẽ trì hoãn việc tắt node thêm 30 giây. Trong quá trình tắt, 20 giây đầu tiên (30-10) sẽ được dành để chấm dứt nhẹ nhàng các pod thông thường, và 10 giây cuối sẽ được dành để chấm dứt các [pod quan trọng](210-guaranteed-scheduling-critical-addon-pods-vi.md#marking-pod-as-critical).
 
 > **Ghi chú:** Khi các pod bị trục xuất (evict) trong quá trình tắt node nhẹ nhàng, chúng được đánh dấu là đã tắt (shutdown). Chạy `kubectl get pods` sẽ hiển thị trạng thái của các pod bị trục xuất là `Terminated`. Và `kubectl describe pod` cho biết pod đã bị trục xuất vì node tắt máy:
 >
@@ -129,13 +129,13 @@ Ví dụ, nếu `shutdownGracePeriod=30s` và `shutdownGracePeriodCriticalPods=1
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.24 [beta]`
 
-Để mang lại nhiều linh hoạt hơn cho việc sắp thứ tự các pod trong quá trình tắt node nhẹ nhàng, tính năng tắt node nhẹ nhàng tôn trọng PriorityClass của các Pod, với điều kiện bạn đã bật tính năng này trong cluster của mình. Tính năng cho phép quản trị viên cluster định nghĩa tường minh thứ tự các pod trong quá trình tắt node nhẹ nhàng dựa trên các [priority class](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass).
+Để mang lại nhiều linh hoạt hơn cho việc sắp thứ tự các pod trong quá trình tắt node nhẹ nhàng, tính năng tắt node nhẹ nhàng tôn trọng PriorityClass của các Pod, với điều kiện bạn đã bật tính năng này trong cluster của mình. Tính năng cho phép quản trị viên cluster định nghĩa tường minh thứ tự các pod trong quá trình tắt node nhẹ nhàng dựa trên các [priority class](141-pod-priority-preemption-vi.md#priorityclass).
 
 Tính năng [Tắt node nhẹ nhàng](#graceful-node-shutdown), như mô tả ở trên, tắt các pod theo hai giai đoạn: các pod không quan trọng trước, sau đó đến các pod quan trọng. Nếu cần thêm sự linh hoạt để định nghĩa tường minh thứ tự các pod trong quá trình tắt máy một cách chi tiết hơn, có thể dùng tính năng tắt nhẹ nhàng dựa trên độ ưu tiên của pod.
 
 Khi tính năng tắt node nhẹ nhàng tôn trọng độ ưu tiên của pod, điều này giúp việc tắt node nhẹ nhàng có thể được thực hiện theo nhiều giai đoạn, mỗi giai đoạn tắt một lớp độ ưu tiên (priority class) cụ thể của các pod. kubelet có thể được cấu hình với chính xác các giai đoạn và thời gian tắt cho từng giai đoạn.
 
-Giả sử có các [priority class](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass) tùy chỉnh sau cho pod trong một cluster,
+Giả sử có các [priority class](141-pod-priority-preemption-vi.md#priorityclass) tùy chỉnh sau cho pod trong một cluster,
 
 | Tên priority class của Pod | Giá trị priority class của Pod |
 | -------------------------- | ------------------------------ |
@@ -229,7 +229,7 @@ Sau khi thiết lập này được áp dụng, các pod không lành mạnh v�
 Tìm hiểu thêm về các nội dung sau:
 
 - Blog: [Non-Graceful Node Shutdown](https://kubernetes.io/blog/2023/08/16/kubernetes-1-28-non-graceful-node-shutdown-ga/).
-- Kiến trúc cluster: [Nodes](https://kubernetes.io/docs/concepts/architecture/nodes/).
+- Kiến trúc cluster: [Nodes](23-nodes-vi.md).
 
 ---
 

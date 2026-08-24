@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7a](LO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 5/13 ·
+**Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 5/13 ·
 Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này là **bản nâng cấp của `podAntiAffinity`**: thay vì "một miền tối đa một Pod" hoặc
@@ -172,7 +172,7 @@ trên cluster của bạn. Các trường đó là:
 - **labelSelector** được dùng để tìm các Pod khớp. Các Pod
   khớp với label selector này sẽ được đếm để xác định
   số lượng Pod trong miền topology tương ứng của chúng.
-  Xem [Label Selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors)
+  Xem [Label Selectors](18-labels-vi.md#label-selectors)
   để biết thêm chi tiết.
 
 - **matchLabelKeys** là danh sách các khóa nhãn (label key) của pod, dùng để chọn nhóm pod
@@ -700,7 +700,7 @@ profiles:
 
 ## So sánh với podAffinity và podAntiAffinity (Comparison with podAffinity and podAntiAffinity) {#comparison-with-podaffinity-podantiaffinity}
 
-Trong Kubernetes, [affinity và anti-affinity giữa các Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity)
+Trong Kubernetes, [affinity và anti-affinity giữa các Pod](138-assign-pod-node-vi.md#inter-pod-affinity-and-anti-affinity)
 kiểm soát cách các Pod được lập lịch trong mối tương quan với nhau - hoặc dồn lại
 gần nhau hơn, hoặc phân tán ra xa hơn.
 

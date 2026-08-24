@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 15](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
+**Vị trí:** [Giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
 bài 2/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -79,7 +79,7 @@ Một số tính năng của node chỉ khả dụng nếu bạn sử dụng m�
 
 * HugePages: không được hỗ trợ cho Windows container
 * Container đặc quyền (privileged container): không được hỗ trợ cho Windows container.
-  [HostProcess Containers](https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/) cung cấp chức năng tương tự.
+  [HostProcess Containers](281-create-hostprocess-pod-vi.md) cung cấp chức năng tương tự.
 * TerminationGracePeriod: yêu cầu containerD
 
 Không phải mọi tính năng của shared namespace đều được hỗ trợ. Xem [Tương thích API](#api) để biết thêm chi tiết.
@@ -92,7 +92,7 @@ Từ góc độ API và kubectl, Windows container hoạt động gần như gi�
 
 Các thành phần chính của Kubernetes hoạt động trên Windows theo cùng cách như trên Linux. Mục này đề cập đến một số khái niệm trừu tượng (abstraction) workload quan trọng và cách chúng ánh xạ sang Windows.
 
-* [Pod](https://kubernetes.io/docs/concepts/workloads/pods/)
+* [Pod](46-pods-vi.md)
 
   Pod là khối dựng cơ bản của Kubernetes – đơn vị nhỏ nhất và đơn giản nhất trong mô hình đối tượng Kubernetes mà bạn tạo hoặc triển khai. Bạn không thể triển khai container Windows và container Linux trong cùng một Pod. Mọi container trong một Pod được lập lịch lên cùng một Node, trong đó mỗi Node đại diện cho một nền tảng và kiến trúc cụ thể. Các khả năng, thuộc tính và sự kiện sau của Pod được hỗ trợ với Windows container:
 
@@ -133,7 +133,7 @@ Các thành phần chính của Kubernetes hoạt động trên Windows theo cù
 
     Trong danh sách trên, ký tự đại diện (`*`) biểu thị mọi phần tử trong một danh sách. Ví dụ, `spec.containers[*].securityContext` chỉ đối tượng SecurityContext của tất cả các container. Nếu bất kỳ trường nào trong số này được chỉ định, Pod sẽ không được API server chấp nhận.
 
-* [Các workload resource](https://kubernetes.io/docs/concepts/workloads/controllers/) bao gồm:
+* [Các workload resource](62-controllers-index-vi.md) bao gồm:
   * ReplicaSet
   * Deployment
   * StatefulSet
@@ -142,7 +142,7 @@ Các thành phần chính của Kubernetes hoạt động trên Windows theo cù
   * CronJob
   * ReplicationController
 * Service
-  Xem [Cân bằng tải và Service](https://kubernetes.io/docs/concepts/services-networking/windows-networking/#load-balancing-and-services) để biết thêm chi tiết (đã có bản dịch: [Mạng trên Windows](89-windows-networking-vi.md)).
+  Xem [Cân bằng tải và Service](89-windows-networking-vi.md#load-balancing-and-services) để biết thêm chi tiết (đã có bản dịch: [Mạng trên Windows](89-windows-networking-vi.md)).
 
 Pod, các workload resource và Service là những thành phần thiết yếu để quản lý workload Windows trên Kubernetes. Tuy nhiên, chỉ riêng chúng thì chưa đủ để quản lý đúng đắn vòng đời của workload Windows trong một môi trường cloud native năng động. Các tính năng sau cũng được hỗ trợ:
 
@@ -157,9 +157,9 @@ Pod, các workload resource và Service là những thành phần thiết yếu 
 Một số tùy chọn dòng lệnh của kubelet hoạt động khác trên Windows, như mô tả dưới đây:
 
 * Tùy chọn `--windows-priorityclass` cho phép bạn đặt mức ưu tiên lập lịch cho tiến trình kubelet
-  (xem [Quản lý tài nguyên CPU](https://kubernetes.io/docs/concepts/configuration/windows-resource-management/#resource-management-cpu))
+  (xem [Quản lý tài nguyên CPU](112-windows-resource-management-vi.md#resource-management-cpu))
 * Các cờ `--kube-reserved`, `--system-reserved` và `--eviction-hard` cập nhật
-  [NodeAllocatable](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/#node-allocatable)
+  [NodeAllocatable](253-reserve-compute-resources-vi.md#node-allocatable)
 * Việc thu hồi (eviction) bằng `--enforce-node-allocable` chưa được triển khai
 * Khi chạy trên node Windows, kubelet không có các ràng buộc về bộ nhớ hay CPU.
   `--kube-reserved` và `--system-reserved` chỉ trừ vào `NodeAllocatable`
@@ -216,7 +216,7 @@ Danh sách sau ghi lại các khác biệt trong cách đặc tả container c�
 * `securityContext.capabilities` -
    các POSIX capability chưa được triển khai trên Windows
 * `securityContext.privileged` -
-   Windows không hỗ trợ container đặc quyền, hãy dùng [HostProcess Containers](https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/) thay thế
+   Windows không hỗ trợ container đặc quyền, hãy dùng [HostProcess Containers](281-create-hostprocess-pod-vi.md) thay thế
 * `securityContext.procMount` -
    Windows không có filesystem `/proc`
 * `securityContext.readOnlyRootFilesystem` -
@@ -228,7 +228,7 @@ Danh sách sau ghi lại các khác biệt trong cách đặc tả container c�
    thiết lập này sẽ ngăn container chạy dưới danh nghĩa `ContainerAdministrator`,
    vốn là thứ gần nhất tương đương với người dùng root trên Windows.
 * `securityContext.runAsUser` -
-   hãy dùng [`runAsUserName`](https://kubernetes.io/docs/tasks/configure-pod-container/configure-runasusername)
+   hãy dùng [`runAsUserName`](278-configure-runasusername-vi.md)
    thay thế
 * `securityContext.seLinuxOptions` -
    không khả thi trên Windows vì SELinux là đặc thù của Linux
@@ -280,7 +280,7 @@ Chỉ có `securityContext.runAsNonRoot` và `securityContext.windowsOptions` tr
 ## Trình phát hiện sự cố node (Node problem detector)
 
 Trình phát hiện sự cố node (node problem detector, xem
-[Giám sát sức khỏe node](https://kubernetes.io/docs/tasks/debug/debug-cluster/monitor-node-health/))
+[Giám sát sức khỏe node](310-monitor-node-health-vi.md))
 có hỗ trợ sơ bộ cho Windows.
 Để biết thêm thông tin, hãy truy cập [trang GitHub của dự án](https://github.com/kubernetes/node-problem-detector#windows).
 
@@ -325,7 +325,7 @@ làm container runtime cho các node Kubernetes chạy Windows.
 
 Tìm hiểu cách [cài đặt ContainerD trên node Windows](00-container-runtimes-vi.md#containerd).
 
-> **Ghi chú:** Có một [hạn chế đã biết](https://kubernetes.io/docs/tasks/configure-pod-container/configure-gmsa/#gmsa-limitations)
+> **Ghi chú:** Có một [hạn chế đã biết](https://kubernetes.io/docs/tasks/configure-pod-container/configure-gmsa#gmsa-limitations)
 > khi dùng GMSA cùng containerd để truy cập các chia sẻ mạng (network share) của Windows, đòi hỏi
 > một bản vá kernel.
 
@@ -385,7 +385,7 @@ Xem [Containers trên Windows - Tài liệu về lưu trữ container](https://l
 ## Nhận trợ giúp và khắc phục sự cố (Getting help and troubleshooting) {#troubleshooting}
 
 Nguồn trợ giúp chính khi khắc phục sự cố cluster Kubernetes của bạn nên bắt đầu
-từ trang [Khắc phục sự cố (Troubleshooting)](https://kubernetes.io/docs/tasks/debug/).
+từ trang [Khắc phục sự cố (Troubleshooting)](296-debug-vi.md).
 
 Một số trợ giúp khắc phục sự cố bổ sung, dành riêng cho Windows, được trình bày
 trong mục này. Log là một yếu tố quan trọng khi khắc phục
@@ -458,7 +458,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    nào trong số này được chỉ định, Pod sẽ **không được API server chấp nhận**." Nguyên nhân gốc
    nằm ở mục *Tương thích API*: Linux định danh bằng **UID/GID số nguyên**, còn Windows dùng
    **SID nhị phân lớn hơn** lưu trong cơ sở dữ liệu SAM — không có con số nào để điền vào
-   `runAsUser`. Bài chỉ sang [`runAsUserName`](https://kubernetes.io/docs/tasks/configure-pod-container/configure-runasusername)
+   `runAsUser`. Bài chỉ sang [`runAsUserName`](278-configure-runasusername-vi.md)
    làm thay thế. Đây là bẫy điển hình: `.spec.os.name` không phải một nhãn mô tả vô hại, nó
    **thay đổi tập trường hợp lệ của Pod**.
 2. Bài nói thẳng: **"Kubelet không thực hiện các hành động thu hồi do OOM (OOM eviction)"** trên

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1c](LO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+**Vị trí:** Giai đoạn 1 → nhóm [1c](00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
 bài 2/7 · Kiểm chứng ở [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md).
 
 Bài này đặt cạnh bài [18 — Label và Selector](18-labels-vi.md) mới đọc ở nhóm 1b. Cả hai đều
@@ -51,7 +51,7 @@ label, mỗi `EndpointSlice` được quản lý thay mặt cho một Service c�
 một owner reference. Owner reference giúp các thành phần khác nhau của Kubernetes tránh
 can thiệp vào những object mà chúng không kiểm soát.
 
-## Owner reference trong đặc tả object (Owner references in object specifications)
+## Owner reference trong đặc tả object (Owner references in object specifications) {#owner-references-in-object-specifications}
 
 Các object phụ thuộc có field `metadata.ownerReferences` tham chiếu đến
 object chủ sở hữu của chúng. Một owner reference hợp lệ bao gồm tên object và một UID
@@ -98,15 +98,15 @@ Khi bạn yêu cầu Kubernetes xóa một resource, API server cho phép
 controller quản lý xử lý mọi [quy tắc finalizer](./29-finalizers-vi.md)
 của resource đó. Finalizer
 ngăn việc vô tình xóa những resource mà cluster của bạn có thể vẫn cần để hoạt động
-đúng. Ví dụ, nếu bạn cố xóa một [PersistentVolume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) vẫn đang
+đúng. Ví dụ, nếu bạn cố xóa một [PersistentVolume](92-persistent-volumes-vi.md) vẫn đang
 được một Pod sử dụng, việc xóa không diễn ra ngay lập tức vì
 `PersistentVolume` có finalizer `kubernetes.io/pv-protection` trên nó.
-Thay vào đó, [volume](https://kubernetes.io/docs/concepts/storage/volumes/) vẫn ở trạng thái `Terminating` cho đến khi Kubernetes gỡ bỏ
+Thay vào đó, [volume](91-volumes-vi.md) vẫn ở trạng thái `Terminating` cho đến khi Kubernetes gỡ bỏ
 finalizer, điều này chỉ xảy ra sau khi `PersistentVolume` không còn
 được gắn (bound) với Pod nào.
 
 Kubernetes cũng thêm finalizer vào resource chủ sở hữu khi bạn dùng
-[xóa theo tầng kiểu foreground hoặc orphan (foreground or orphan cascading deletion)](https://kubernetes.io/docs/concepts/architecture/garbage-collection/#cascading-deletion).
+[xóa theo tầng kiểu foreground hoặc orphan (foreground or orphan cascading deletion)](36-garbage-collection-vi.md#cascading-deletion).
 Với xóa kiểu foreground, Kubernetes thêm finalizer `foreground` để
 controller phải xóa những resource phụ thuộc có
 `ownerReferences.blockOwnerDeletion=true` trước khi xóa chủ sở hữu. Nếu bạn
@@ -117,7 +117,7 @@ hữu.
 ## Tiếp theo (What's next)
 
 * Tìm hiểu thêm về [finalizer trong Kubernetes](./29-finalizers-vi.md).
-* Tìm hiểu về [thu gom rác (garbage collection)](https://kubernetes.io/docs/concepts/architecture/garbage-collection).
+* Tìm hiểu về [thu gom rác (garbage collection)](36-garbage-collection-vi.md).
 * Đọc tài liệu tham khảo API cho [metadata của object](https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/object-meta/#System).
 
 ---

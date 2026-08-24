@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 7/11 · Kiểm chứng
+**Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 7/11 · Kiểm chứng
 ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này chỉ có nghĩa khi bạn vừa đọc xong [bài 50](50-init-containers-vi.md), vì sidecar trong
@@ -63,7 +63,7 @@ Thông thường, bạn chỉ có một container ứng dụng trong một Pod. 
 ## Sidecar container trong Kubernetes (Sidecar containers in Kubernetes) {#pod-sidecar-containers}
 
 Kubernetes triển khai sidecar container như một trường hợp đặc biệt của
-[init container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/);
+[init container](50-init-containers-vi.md);
 sidecar container vẫn tiếp tục chạy sau khi Pod đã khởi động. Tài liệu này dùng thuật ngữ
 _init container thông thường_ (regular init container) để chỉ rõ các container chỉ chạy
 trong quá trình khởi động Pod.
@@ -130,7 +130,7 @@ spec:
           emptyDir: {}
 ```
 
-## Sidecar container và vòng đời của Pod (Sidecar containers and Pod lifecycle)
+## Sidecar container và vòng đời của Pod (Sidecar containers and Pod lifecycle) {#sidecar-containers-and-pod-lifecycle}
 
 Nếu một init container được tạo với `restartPolicy` đặt là `Always`, nó sẽ khởi động và
 tiếp tục chạy trong suốt vòng đời của Pod. Điều này hữu ích khi cần chạy các dịch vụ hỗ
@@ -152,7 +152,7 @@ tiếp tục chạy sau khi đã khởi động. Điều này quan trọng khi c
 thái đó trở thành true hoặc là vì có một tiến trình (process) đang chạy trong container
 và không có startup probe nào được định nghĩa, hoặc là do `startupProbe` của nó thành công.
 
-Khi Pod [kết thúc (termination)](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#termination-with-sidecars),
+Khi Pod [kết thúc (termination)](47-pod-lifecycle-vi.md#termination-with-sidecars),
 kubelet trì hoãn việc kết thúc các sidecar container cho đến khi container ứng dụng chính
 đã dừng hoàn toàn. Các sidecar container sau đó được tắt theo thứ tự ngược lại với thứ tự
 xuất hiện của chúng trong đặc tả (specification) của Pod. Cách tiếp cận này đảm bảo các
@@ -226,9 +226,9 @@ cung cấp các dịch vụ bổ sung.
 
 Sidecar container chạy đồng thời với container ứng dụng chính. Chúng hoạt động trong suốt
 vòng đời của pod và có thể được khởi động, dừng độc lập với container chính. Không giống
-[init container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/),
+[init container](50-init-containers-vi.md),
 sidecar container hỗ trợ các
-[probe](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#types-of-probe)
+[probe](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#types-of-probe)
 để kiểm soát vòng đời của chúng.
 
 Sidecar container có thể tương tác trực tiếp với các container ứng dụng chính, bởi vì
@@ -253,7 +253,7 @@ việc sử dụng tài nguyên được áp dụng:
   Nếu có tài nguyên nào không được chỉ định resource limit thì giá trị này được coi là
   limit cao nhất.
 * *Request/limit hiệu dụng* của Pod đối với một tài nguyên là tổng của
-  [pod overhead](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-overhead/)
+  [pod overhead](144-pod-overhead-vi.md)
   và giá trị lớn hơn giữa:
   * tổng request/limit của tất cả các container không phải init (app container và sidecar
     container) đối với tài nguyên đó
@@ -275,9 +275,9 @@ request và limit hiệu dụng của Pod, giống như scheduler.
 
 * Tìm hiểu cách [áp dụng sidecar container](https://kubernetes.io/docs/tutorials/configuration/pod-sidecar-containers/).
 * Đọc bài blog về [native sidecar container](https://kubernetes.io/blog/2023/08/25/native-sidecar-containers/).
-* Đọc về [tạo một Pod có init container](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-initialization/#create-a-pod-that-has-an-init-container).
-* Tìm hiểu về [các loại probe](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#types-of-probe): liveness probe, readiness probe, startup probe.
-* Tìm hiểu về [pod overhead](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-overhead/).
+* Đọc về [tạo một Pod có init container](276-configure-pod-initialization-vi.md#create-a-pod-that-has-an-init-container).
+* Tìm hiểu về [các loại probe](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#types-of-probe): liveness probe, readiness probe, startup probe.
+* Tìm hiểu về [pod overhead](144-pod-overhead-vi.md).
 
 ---
 

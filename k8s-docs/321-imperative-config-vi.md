@@ -11,10 +11,10 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — bài này không
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — bài này không
 thuộc CP nào của lộ trình; nó là bản thực hành cho kỹ thuật **imperative object
 configuration**, kỹ thuật thứ hai trong ba kỹ thuật quản lý object mà bài
 [27 — Quản lý object trong Kubernetes](27-object-management-vi.md) đã so sánh, nằm giữa

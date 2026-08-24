@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 11/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 11/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này là **bản đồ** của ba bài cuối giai đoạn: nó đặt tên cho hai trục co giãn rồi trỏ
@@ -68,7 +68,7 @@ Với co giãn dọc, bạn cần _patch_ (vá) định nghĩa tài nguyên củ
 Xem ví dụ cho cả hai chiến lược bên dưới.
 
 - **Co giãn ngang**: [Chạy nhiều instance của ứng dụng](https://kubernetes.io/docs/tutorials/kubernetes-basics/scale/scale-intro/)
-- **Co giãn dọc**: [Thay đổi kích thước tài nguyên CPU và bộ nhớ gán cho container](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources)
+- **Co giãn dọc**: [Thay đổi kích thước tài nguyên CPU và bộ nhớ gán cho container](289-resize-container-resources-vi.md)
 
 ## Tự động co giãn workload (Scaling workloads automatically)
 
@@ -78,7 +78,7 @@ của trang này.
 Khái niệm _Autoscaling_ trong Kubernetes chỉ khả năng tự động cập nhật một
 đối tượng quản lý một tập các Pod (ví dụ một Deployment).
 
-### Co giãn workload theo chiều ngang (Scaling workloads horizontally)
+### Co giãn workload theo chiều ngang (Scaling workloads horizontally) {#scaling-workloads-horizontally}
 
 Trong Kubernetes, bạn có thể tự động co giãn một workload theo chiều ngang bằng
 [HorizontalPodAutoscaler](./72-horizontal-pod-autoscale-vi.md) (HPA).
@@ -87,15 +87,15 @@ Nó được hiện thực dưới dạng một tài nguyên API Kubernetes và 
 định kỳ điều chỉnh số lượng replica trong một workload sao cho khớp với mức sử dụng
 tài nguyên quan sát được, chẳng hạn mức sử dụng CPU hoặc bộ nhớ.
 
-Có một [hướng dẫn thực hành từng bước](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough)
+Có một [hướng dẫn thực hành từng bước](342-hpa-walkthrough-vi.md)
 về cách cấu hình HorizontalPodAutoscaler cho một Deployment.
 
-### Co giãn workload theo chiều dọc (Scaling workloads vertically)
+### Co giãn workload theo chiều dọc (Scaling workloads vertically) {#scaling-workloads-vertically}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.25 [stable]`
 
 Bạn có thể tự động co giãn một workload theo chiều dọc bằng
-[VerticalPodAutoscaler](https://kubernetes.io/docs/concepts/workloads/autoscaling/vertical-pod-autoscale/) (VPA).
+[VerticalPodAutoscaler](73-vertical-pod-autoscale-vi.md) (VPA).
 Khác với HPA, VPA không có sẵn cùng Kubernetes theo mặc định, mà là một add-on
 mà bạn hoặc quản trị viên cluster có thể cần triển khai trước khi sử dụng.
 
@@ -113,9 +113,9 @@ Sau khi cài đặt, nó cho phép bạn tạo các CustomResourceDefinition (CR
 Tính đến Kubernetes v1.36, VPA chưa hỗ trợ thay đổi kích thước Pod tại chỗ (in-place),
 nhưng phần tích hợp này đang được phát triển.
 Để thay đổi kích thước Pod tại chỗ theo cách thủ công, xem
-[Thay đổi kích thước tài nguyên container tại chỗ](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/).
+[Thay đổi kích thước tài nguyên container tại chỗ](289-resize-container-resources-vi.md).
 
-### Tự động co giãn dựa trên kích thước cluster (Autoscaling based on cluster size)
+### Tự động co giãn dựa trên kích thước cluster (Autoscaling based on cluster size) {#autoscaling-based-on-cluster-size}
 
 Với các workload cần được co giãn theo kích thước của cluster (ví dụ
 `cluster-dns` hoặc các thành phần hệ thống khác), bạn có thể dùng
@@ -160,17 +160,17 @@ Nếu việc co giãn workload là chưa đủ để đáp ứng nhu cầu, bạ
 chính hạ tầng cluster của mình.
 
 Co giãn hạ tầng cluster thường có nghĩa là thêm hoặc bớt node.
-Đọc [Tự động co giãn node (Node autoscaling)](https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/)
+Đọc [Tự động co giãn node (Node autoscaling)](171-node-autoscaling-vi.md)
 để biết thêm thông tin.
 
 ## Tiếp theo (What's next)
 
 - Tìm hiểu thêm về co giãn theo chiều ngang
-  - [Co giãn một StatefulSet](https://kubernetes.io/docs/tasks/run-application/scale-stateful-set/)
-  - [Hướng dẫn thực hành HorizontalPodAutoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/)
-- [Thay đổi kích thước tài nguyên container tại chỗ](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/)
-- [Tự động co giãn Service DNS trong một cluster](https://kubernetes.io/docs/tasks/administer-cluster/dns-horizontal-autoscaling/)
-- Tìm hiểu về [tự động co giãn node (Node autoscaling)](https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/)
+  - [Co giãn một StatefulSet](347-scale-stateful-set-vi.md)
+  - [Hướng dẫn thực hành HorizontalPodAutoscaler](342-hpa-walkthrough-vi.md)
+- [Thay đổi kích thước tài nguyên container tại chỗ](289-resize-container-resources-vi.md)
+- [Tự động co giãn Service DNS trong một cluster](206-dns-horizontal-autoscaling-vi.md)
+- Tìm hiểu về [tự động co giãn node (Node autoscaling)](171-node-autoscaling-vi.md)
 
 ---
 

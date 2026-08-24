@@ -18,7 +18,7 @@ hoặc sử dụng một trong các sân chơi (playground) Kubernetes sau:
 * [Killercoda](https://killercoda.com/playgrounds/scenario/kubernetes)
 * [KodeKloud](https://kodekloud.com/public-playgrounds)
 
-Bạn cũng cần [tạo một Deployment mẫu](https://kubernetes.io/docs/tasks/run-application/run-stateless-application-deployment/#creating-and-exploring-an-nginx-deployment)
+Bạn cũng cần [tạo một Deployment mẫu](345-run-stateless-application-vi.md#creating-and-exploring-an-nginx-deployment)
 để thử nghiệm với các kiểu xóa theo tầng khác nhau. Bạn sẽ cần tạo lại
 Deployment cho mỗi kiểu xóa.
 
@@ -100,7 +100,7 @@ kubectl delete deployment nginx-deployment --cascade=foreground
 
 ## Sử dụng xóa theo tầng background (Use background cascading deletion) {#use-background-cascading-deletion}
 
-1. [Tạo một Deployment mẫu](https://kubernetes.io/docs/tasks/run-application/run-stateless-application-deployment/#creating-and-exploring-an-nginx-deployment).
+1. [Tạo một Deployment mẫu](345-run-stateless-application-vi.md#creating-and-exploring-an-nginx-deployment).
 1. Dùng `kubectl` hoặc Kubernetes API để xóa Deployment,
    tùy theo phiên bản Kubernetes mà cluster của bạn đang chạy. Để kiểm tra phiên bản, hãy chạy
    `kubectl version`.

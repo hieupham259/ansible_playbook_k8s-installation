@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 15](LO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
+**Vị trí:** [Giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
 bài 4/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -58,7 +58,7 @@ Trang này cung cấp cái nhìn tổng quan về mạng dành riêng cho hệ �
 ## Mạng container trên Windows (Container networking on Windows) {#networking}
 
 Mạng cho các container Windows được cung cấp thông qua các
-[CNI plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/).
+[CNI plugin](183-network-plugins-vi.md).
 Về mặt mạng, các container Windows hoạt động tương tự như máy ảo. Mỗi container có một
 bộ điều hợp mạng ảo (virtual network adapter — vNIC) được kết nối tới một switch ảo
 Hyper-V (vSwitch). Host Networking Service (HNS) và Host Compute Service (HCS) phối hợp
@@ -80,7 +80,7 @@ container không có cùng tác dụng như trên Linux. Các cấu hình này p
 bằng các API của Windows chạy trong ngữ cảnh của chính container đó. Do đó, các hiện thực
 CNI cần gọi HNS thay vì dựa vào ánh xạ file để truyền thông tin mạng vào Pod hoặc container.
 
-## Các chế độ mạng (Network modes)
+## Các chế độ mạng (Network modes) {#network-modes}
 
 Windows hỗ trợ năm driver/chế độ mạng khác nhau: L2bridge, L2tunnel,
 Overlay (Beta), Transparent và NAT. Trong một cluster hỗn hợp với các worker node
@@ -142,7 +142,7 @@ bỏ qua bộ cân bằng tải và phản hồi trực tiếp cho client;
 giảm tải cho bộ cân bằng tải và cũng giảm độ trễ tổng thể. Để biết thêm thông tin, hãy đọc
 [Direct Server Return (DSR) in a nutshell](https://techcommunity.microsoft.com/blog/networkingblog/direct-server-return-dsr-in-a-nutshell/693710).
 
-## Cân bằng tải và Service (Load balancing and Services)
+## Cân bằng tải và Service (Load balancing and Services) {#load-balancing-and-services}
 
 Service trong Kubernetes là một khái niệm trừu tượng
 định nghĩa một tập hợp logic các Pod và một phương thức để truy cập chúng qua mạng.
@@ -167,7 +167,7 @@ cân bằng tải:
 | Session affinity | Đảm bảo các kết nối từ một client cụ thể luôn được chuyển tới cùng một Pod mỗi lần. | Windows Server 2022 | Đặt `service.spec.sessionAffinity` thành "ClientIP" |
 | Direct Server Return (DSR) | Xem ghi chú về [DSR](#dsr) ở trên. | Windows Server 2019 | Đặt đối số dòng lệnh sau (giả sử phiên bản v1.36): ` --enable-dsr=true` |
 | Preserve-Destination | Bỏ qua DNAT đối với lưu lượng service, nhờ đó giữ nguyên IP ảo của service đích trong các gói tin đến Pod backend. Cũng vô hiệu hóa chuyển tiếp node-node. | Windows Server, phiên bản 1903 | Đặt `"preserve-destination": "true"` trong các annotation của service và bật DSR trong kube-proxy. |
-| Mạng dual-stack IPv4/IPv6 | Giao tiếp IPv4-tới-IPv4 nguyên bản song song với IPv6-tới-IPv6 tới, từ, và bên trong một cluster | Windows Server 2019 | Xem [IPv4/IPv6 dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/#windows-support) |
+| Mạng dual-stack IPv4/IPv6 | Giao tiếp IPv4-tới-IPv4 nguyên bản song song với IPv6-tới-IPv6 tới, từ, và bên trong một cluster | Windows Server 2019 | Xem [IPv4/IPv6 dual-stack](85-dual-stack-vi.md#windows-support) |
 | Giữ nguyên IP client | Đảm bảo IP nguồn của lưu lượng ingress đến được giữ nguyên. Cũng vô hiệu hóa chuyển tiếp node-node. |  Windows Server 2019  | Đặt `service.spec.externalTrafficPolicy` thành "Local" và bật DSR trong kube-proxy |
 
 ## Hạn chế (Limitations)

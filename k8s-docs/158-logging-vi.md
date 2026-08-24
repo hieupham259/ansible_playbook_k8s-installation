@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 11](LO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 4/6 · Kiểm chứng
+**Vị trí:** [Giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 4/6 · Kiểm chứng
 ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài dài, nhưng phần lớn độ dài đến từ các manifest ví dụ lặp đi lặp lại cùng một Pod đếm số.
@@ -197,7 +197,7 @@ và runtime ghi log của container vào vị trí được chỉ định.
 
 Bạn có thể cấu hình hai [thiết lập cấu hình](https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/) của kubelet là
 `containerLogMaxSize` (mặc định 10Mi) và `containerLogMaxFiles` (mặc định 5),
-bằng [file cấu hình kubelet](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/).
+bằng [file cấu hình kubelet](224-kubelet-config-file-vi.md).
 Các thiết lập này cho phép bạn cấu hình lần lượt kích thước tối đa cho mỗi file log và số lượng
 file tối đa được phép cho mỗi container.
 
@@ -207,7 +207,7 @@ gồm số lượt xoay vòng log có thể thực hiện đồng thời và kho
 giám sát và xoay vòng khi cần.
 Bạn có thể cấu hình hai [thiết lập cấu hình](https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/) của kubelet là
 `containerLogMaxWorkers` và `containerLogMonitorInterval` bằng
-[file cấu hình kubelet](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/).
+[file cấu hình kubelet](224-kubelet-config-file-vi.md).
 
 Khi bạn chạy [`kubectl logs`](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#logs) như trong
 ví dụ ghi log cơ bản, kubelet trên node sẽ xử lý yêu cầu và
@@ -250,7 +250,7 @@ log của kubelet vào một thư mục do bạn chọn.
 Mặc định, kubelet chỉ thị cho container runtime của bạn ghi log vào các thư mục bên trong
 `/var/log/pods`.
 
-Để biết thêm thông tin về `kube-log-runner`, đọc [System Logs](https://kubernetes.io/docs/concepts/cluster-administration/system-logs/#klog).
+Để biết thêm thông tin về `kube-log-runner`, đọc [System Logs](159-system-logs-vi.md#klog).
 
 #### Windows
 
@@ -267,7 +267,7 @@ log của kubelet vào một thư mục do bạn chọn.
 Tuy nhiên, mặc định, kubelet chỉ thị cho container runtime của bạn ghi log bên trong
 thư mục `C:\var\log\pods`.
 
-Để biết thêm thông tin về `kube-log-runner`, đọc [System Logs](https://kubernetes.io/docs/concepts/cluster-administration/system-logs/#klog).
+Để biết thêm thông tin về `kube-log-runner`, đọc [System Logs](159-system-logs-vi.md#klog).
 
 Với các thành phần cluster Kubernetes chạy trong pod, chúng ghi vào các file bên trong
 thư mục `/var/log`, bỏ qua cơ chế ghi log mặc định (các thành phần này
@@ -305,7 +305,7 @@ container chạy thành phần đó.
 > Một số công cụ triển khai đã tính đến việc xoay vòng log đó và tự động hóa nó; số khác để việc này
 > lại như trách nhiệm của bạn.
 
-## Các kiến trúc ghi log cấp cluster (Cluster-level logging architectures)
+## Các kiến trúc ghi log cấp cluster (Cluster-level logging architectures) {#cluster-level-logging-architectures}
 
 Mặc dù Kubernetes không cung cấp giải pháp nguyên bản cho việc ghi log cấp cluster, có
 một số cách tiếp cận phổ biến bạn có thể cân nhắc. Dưới đây là vài lựa chọn:
@@ -503,7 +503,7 @@ cấu hình chuyên biệt để chạy cùng ứng dụng của mình.
 > kubelet kiểm soát.
 
 Đây là hai manifest ví dụ mà bạn có thể dùng để hiện thực một sidecar container với agent ghi log.
-Manifest thứ nhất chứa một [`ConfigMap`](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/)
+Manifest thứ nhất chứa một [`ConfigMap`](275-configure-pod-configmap-vi.md)
 để cấu hình fluentd.
 
 [`admin/logging/fluentd-sidecar-config.yaml`](https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/admin/logging/fluentd-sidecar-config.yaml)
@@ -596,9 +596,9 @@ của Kubernetes.
 
 ## Tiếp theo (What's next)
 
-* Đọc về [log hệ thống của Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/system-logs/)
-* Tìm hiểu về [Traces cho các thành phần hệ thống Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/system-traces/)
-* Tìm hiểu cách [tùy chỉnh thông điệp kết thúc (termination message)](https://kubernetes.io/docs/tasks/debug/debug-application/determine-reason-pod-failure/#customizing-the-termination-message)
+* Đọc về [log hệ thống của Kubernetes](159-system-logs-vi.md)
+* Tìm hiểu về [Traces cho các thành phần hệ thống Kubernetes](161-system-traces-vi.md)
+* Tìm hiểu cách [tùy chỉnh thông điệp kết thúc (termination message)](303-determine-reason-pod-failure-vi.md#customizing-the-termination-message)
   mà Kubernetes ghi lại khi một Pod thất bại
 
 ---

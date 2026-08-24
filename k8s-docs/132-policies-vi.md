@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 7 → nhóm [7b](LO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
+**Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
 bài 1/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này là **trang mục lục** của cả nhánh policy, không phải bài dạy một cơ chế. Nó dài chưa
@@ -124,7 +124,7 @@ bộ máy chính sách (policy engine) linh hoạt đang được phát triển,
 
 Kubernetes cho phép cấu hình Kubelet trên mỗi worker node. Một số cấu hình Kubelet đóng vai trò như chính sách:
 
-* [Giới hạn và dự trữ Process ID](https://kubernetes.io/docs/concepts/policy/pid-limiting/)
+* [Giới hạn và dự trữ Process ID](135-pid-limiting-vi.md)
   được dùng để giới hạn và dự trữ số PID có thể cấp phát.
 * [Node Resource Managers](https://kubernetes.io/docs/concepts/policy/node-resource-managers/)
   có thể quản lý tài nguyên tính toán, bộ nhớ và thiết bị cho các workload

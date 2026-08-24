@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 10/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 10/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là bài **vận hành**, không phải bài khái niệm: nó trả lời câu hỏi "biết controller rồi
@@ -154,7 +154,7 @@ trong CNCF Landscape.
 
 [Kustomize](https://kustomize.io/) duyệt qua một manifest Kubernetes để thêm, xóa hoặc cập nhật
 các tùy chọn cấu hình. Nó có sẵn ở cả dạng binary độc lập lẫn dạng
-[tính năng gốc (native feature)](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/)
+[tính năng gốc (native feature)](322-kustomization-vi.md)
 của kubectl.
 
 ## Thao tác hàng loạt trong kubectl (Bulk operations in kubectl)
@@ -330,7 +330,7 @@ Vậy là xong! Deployment sẽ cập nhật ứng dụng nginx đã triển kha
 và từng bước ở phía sau. Nó đảm bảo rằng chỉ một số lượng nhất định replica cũ có thể ngừng hoạt động
 trong khi chúng đang được cập nhật, và chỉ một số lượng nhất định replica mới có thể được tạo vượt
 trên số lượng pod mong muốn. Để tìm hiểu chi tiết hơn về cách điều này diễn ra,
-hãy xem [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
+hãy xem [Deployment](63-deployment-vi.md).
 
 Bạn có thể dùng rollout với DaemonSet, Deployment hoặc StatefulSet.
 
@@ -361,7 +361,7 @@ Bạn cũng có thể tạm dừng (pause), tiếp tục (resume) hoặc hủy (
 Hãy xem [`kubectl rollout`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_rollout/)
 để tìm hiểu thêm.
 
-## Triển khai canary (Canary deployments)
+## Triển khai canary (Canary deployments) {#canary-deployments}
 
 Một tình huống khác cần đến nhiều label là để phân biệt các lần triển khai của những bản phát hành
 (release) hoặc cấu hình khác nhau của cùng một thành phần. Một thực hành phổ biến là triển khai một
@@ -479,7 +479,7 @@ Bây giờ các replica nginx của bạn sẽ được tự động scale lên 
 Để biết thêm thông tin, hãy xem tài liệu
 [kubectl scale](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_scale/),
 [kubectl autoscale](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_autoscale/) và
-[horizontal pod autoscaler](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/).
+[horizontal pod autoscaler](72-horizontal-pod-autoscale-vi.md).
 
 ## Cập nhật tài nguyên tại chỗ (In-place updates of resources)
 
@@ -544,7 +544,7 @@ Bạn có thể dùng [`kubectl patch`](https://kubernetes.io/docs/reference/kub
 JSON merge patch, và strategic merge patch.
 
 Xem
-[Update API Objects in Place Using kubectl patch](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/)
+[Update API Objects in Place Using kubectl patch](324-kubectl-patch-vi.md)
 để biết thêm chi tiết.
 
 ## Cập nhật gây gián đoạn (Disruptive updates)
@@ -565,7 +565,7 @@ deployment.apps/my-nginx replaced
 
 ## Tiếp theo (What's next)
 
-- Tìm hiểu [cách dùng `kubectl` để khảo sát (introspect) và debug ứng dụng](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/).
+- Tìm hiểu [cách dùng `kubectl` để khảo sát (introspect) và debug ứng dụng](300-debug-running-pod-vi.md).
 
 ---
 

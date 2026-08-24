@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+**Vị trí:** Giai đoạn 1 → nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
 bài 5/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 Đây là bài **quy ước**, không phải bài cơ chế. Không có gì trong cluster cưỡng chế các label
@@ -53,7 +53,7 @@ Các label và annotation dùng chung có chung một tiền tố (prefix): `app
 không có tiền tố là label riêng của người dùng. Tiền tố dùng chung bảo đảm rằng các label dùng chung
 không xung đột với label tùy chỉnh của người dùng.
 
-## Label (Labels)
+## Label (Labels) {#labels}
 
 Để tận dụng tối đa các label này, chúng nên được áp dụng
 trên mọi resource object.

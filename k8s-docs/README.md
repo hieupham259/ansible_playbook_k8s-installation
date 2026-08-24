@@ -2,7 +2,9 @@
 
 Các bản dịch tiếng Việt của tài liệu chính thức trên <https://kubernetes.io/docs/>, giữ nguyên cấu trúc trang gốc. Mỗi file đều có link trang nguồn ở đầu. Tài liệu Kubernetes phát hành theo giấy phép CC BY 4.0.
 
-> **Muốn học theo lộ trình?** Xem [LO-TRINH-ADMIN.md](LO-TRINH-ADMIN.md) — giáo trình 15 giai đoạn dành cho người muốn trở thành Kubernetes administrator, kèm mục tiêu và checkpoint thực hành cho từng giai đoạn, và phần tiếp nối sang nhánh `/docs/tasks/` để vận hành thực tế.
+**Tổng cộng 364 bài**: số `00`–`185` là nhánh khái niệm (`/docs/concepts/`, `/docs/setup/`), số `186` trở lên là nhánh thực hành (`/docs/tasks/`).
+
+> **Muốn học theo lộ trình?** Xem [00-ALO-TRINH-ADMIN.md](00-ALO-TRINH-ADMIN.md) — giáo trình 15 giai đoạn dành cho người muốn trở thành Kubernetes administrator, kèm mục tiêu và checkpoint thực hành cho từng giai đoạn, và phần tiếp nối sang nhánh `/docs/tasks/` để vận hành thực tế.
 >
 > **Muốn thực hành?** Xem [labs/](labs/README.md) — runbook chạy được cho từng nhóm bài, bắt đầu ở [Lab 00 — Môi trường](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 >
@@ -411,6 +413,95 @@ Ghi chú: các bài 10–13 (DNS, Ingress, Ingress Controllers, Gateway API) cũ
 | 307 | [Debug node bằng crictl](307-crictl-vi.md) | 44, 00 (CRI, runtime) |
 | 308 | [Debug node bằng kubectl](308-kubectl-node-debug-vi.md) | 300, 23 |
 | 309 | [Local debugging](309-local-debugging-vi.md) | 26, 82 |
+| 310 | [Giám sát sức khỏe của Node](310-monitor-node-health-vi.md) | 23, 305 (node, debug cluster) |
+| 311 | [Pipeline metrics tài nguyên](311-resource-metrics-pipeline-vi.md) | 160, 72 (metric hệ thống, HPA) |
+| 312 | [Các công cụ giám sát tài nguyên](312-resource-usage-monitoring-vi.md) | 162, 311 |
+| 313 | [Khắc phục sự cố Topology Management](313-debug-topology-vi.md) | 74, 259 (topology manager) |
+| 314 | [Khắc phục sự cố kubectl](314-troubleshoot-kubectl-vi.md) | 26, 111 (kubectl, kubeconfig) |
+| 315 | [Mẹo debug Windows](315-debug-windows-vi.md) | 174–176 (Windows) |
+| 316 | [Ghi log trong Kubernetes](316-debug-logging-vi.md) | 158–159 (kiến trúc log) |
+| 317 | [Giám sát trong Kubernetes](317-debug-monitoring-vi.md) | 162, 160 |
+
+## Phần 19 — Tasks: Quản lý object bằng kubectl
+
+Nhóm thực hành đi kèm bài [27](27-object-management-vi.md) — ba kỹ thuật quản lý object.
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 318 | [Quản lý các đối tượng Kubernetes](318-manage-kubernetes-objects-vi.md) | — (trang mục) |
+| 319 | [Quản lý theo kiểu khai báo bằng file cấu hình](319-declarative-config-vi.md) | 27, 26 |
+| 320 | [Quản lý bằng lệnh imperative](320-imperative-command-vi.md) | 27, 26 |
+| 321 | [Quản lý theo kiểu imperative bằng file cấu hình](321-imperative-config-vi.md) | 27, 320 |
+| 322 | [Quản lý theo kiểu khai báo bằng Kustomize](322-kustomization-vi.md) | 319, 108–109 |
+| 323 | [Di trú object bằng Storage Version Migration](323-storage-version-migration-vi.md) | 32 (phiên bản lưu trữ) |
+| 324 | [Cập nhật object tại chỗ bằng kubectl patch](324-kubectl-patch-vi.md) | 27, 63 (Deployment) |
+
+## Phần 20 — Tasks: ConfigMap, Secret và đưa dữ liệu vào ứng dụng
+
+Nhóm thực hành đi kèm bài [108](108-configmap-vi.md), [109](109-secret-vi.md) và [56](56-downward-api-vi.md).
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 325 | [Quản lý Secret](325-configmap-secret-vi.md) | 109 (trang mục nhóm) |
+| 326 | [Quản lý Secret bằng file cấu hình](326-secret-config-file-vi.md) | 109, 321 |
+| 327 | [Quản lý Secret bằng kubectl](327-secret-kubectl-vi.md) | 109, 320 |
+| 328 | [Quản lý Secret bằng Kustomize](328-secret-kustomize-vi.md) | 109, 322 |
+| 329 | [Đưa dữ liệu vào ứng dụng](329-inject-data-application-vi.md) | — (trang mục nhóm) |
+| 330 | [Định nghĩa command và argument cho container](330-define-command-argument-vi.md) | 39, 41 |
+| 331 | [Định nghĩa biến môi trường cho Container](331-define-environment-variable-vi.md) | 41 |
+| 332 | [Định nghĩa giá trị biến môi trường bằng Init Container](332-define-env-via-file-vi.md) | 50, 331 |
+| 333 | [Định nghĩa các biến môi trường phụ thuộc](333-interdependent-env-variables-vi.md) | 331 |
+| 334 | [Phân phối credential an toàn bằng Secret](334-distribute-credentials-secure-vi.md) | 109, 93 |
+| 335 | [Expose thông tin Pod qua file](335-downward-api-volume-vi.md) | 56, 93 (Downward API) |
+| 336 | [Expose thông tin Pod qua biến môi trường](336-env-variable-expose-pod-info-vi.md) | 56, 331 |
+
+## Phần 21 — Tasks: Chạy ứng dụng
+
+Nhóm thực hành đi kèm giai đoạn 4 — workload controller.
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 337 | [Chạy ứng dụng](337-run-application-vi.md) | — (trang mục nhóm) |
+| 338 | [Truy cập Kubernetes API từ một Pod](338-access-api-from-pod-vi.md) | 118, 21 (ServiceAccount, API) |
+| 339 | [Chỉ định Disruption Budget cho ứng dụng](339-configure-pdb-vi.md) | 53 (disruption, PDB) |
+| 340 | [Xóa một StatefulSet](340-delete-stateful-set-vi.md) | 65 |
+| 341 | [Xóa cưỡng bức Pod của StatefulSet](341-force-delete-stateful-set-pod-vi.md) | 65, 340 |
+| 342 | [Hướng dẫn từng bước về HorizontalPodAutoscaler](342-hpa-walkthrough-vi.md) | 72, 311 (**cần metrics-server**) |
+| 343 | [Chạy ứng dụng có trạng thái được nhân bản](343-run-replicated-stateful-application-vi.md) | 65, 92, 96 |
+| 344 | [Chạy ứng dụng có trạng thái đơn thực thể](344-run-single-instance-stateful-vi.md) | 63, 92 |
+| 345 | [Chạy ứng dụng Stateless bằng Deployment](345-run-stateless-application-vi.md) | 63 |
+| 346 | [Scale thủ công theo chiều ngang cho Deployment](346-scale-deployment-vi.md) | 63, 64 |
+| 347 | [Scale một StatefulSet](347-scale-stateful-set-vi.md) | 65 |
+| 348 | [Cập nhật Deployment không gây gián đoạn](348-update-deployment-rolling-vi.md) | 63, 49 (rollout, probe) |
+
+## Phần 22 — Tasks: Job và CronJob
+
+Nhóm thực hành đi kèm bài [67](67-job-vi.md) và [69](69-cron-jobs-vi.md).
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 349 | [Chạy Job](349-job-tasks-vi.md) | 67 (trang mục nhóm) |
+| 350 | [Chạy tác vụ tự động với CronJob](350-automated-tasks-cron-jobs-vi.md) | 69 |
+| 351 | [Xử lý song song thô bằng hàng đợi công việc](351-coarse-parallel-work-queue-vi.md) | 67 |
+| 352 | [Xử lý song song mịn bằng hàng đợi công việc](352-fine-parallel-work-queue-vi.md) | 67, 351 |
+| 353 | [Indexed Job phân công việc tĩnh](353-indexed-parallel-processing-vi.md) | 67 |
+| 354 | [Job với giao tiếp Pod-đến-Pod](354-job-pod-to-pod-communication-vi.md) | 67, 82 (headless Service) |
+| 355 | [Xử lý song song bằng khai triển template](355-parallel-processing-expansion-vi.md) | 67, 320 |
+
+## Phần 23 — Tasks: Truy cập ứng dụng trong cluster
+
+Nhóm thực hành đi kèm giai đoạn 5 — mạng nền tảng.
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 359 | [Truy cập cluster](359-access-cluster-vi.md) | 111, 26 (kubeconfig) |
+| 360 | [Giao tiếp giữa các Container bằng Volume dùng chung](360-containers-shared-volume-vi.md) | 46, 91 (`emptyDir`) |
+| 361 | [Cấu hình truy cập nhiều cluster](361-configure-access-multiple-clusters-vi.md) | 111 (context, cluster, user) |
+| 362 | [Cấu hình DNS cho một cluster](362-configure-dns-cluster-vi.md) | 10, 204 (DNS, CoreDNS) |
+| 363 | [Kết nối Frontend với Backend bằng Service](363-connecting-frontend-backend-vi.md) | 82, 63 |
+| 364 | [Tạo bộ cân bằng tải bên ngoài](364-create-external-load-balancer-vi.md) | 82 (LoadBalancer) |
+| 365 | [Liệt kê mọi Container image đang chạy](365-list-running-container-images-vi.md) | 26 (`-o jsonpath`) |
+| 366 | [Port Forwarding để truy cập ứng dụng](366-port-forward-vi.md) | 26, 82 |
 
 ## Checkpoint — Những phần còn thiếu quan trọng
 
@@ -418,6 +509,8 @@ Phần này theo dõi các khoảng trống cần bổ sung để bộ tài li�
 Kubernetes Concepts mà còn đủ dùng cho việc quản trị cluster thực tế. Đánh dấu
 `[x]` khi đã có tài liệu hướng dẫn đầy đủ và có bài thực hành kiểm chứng; việc một
 khái niệm chỉ được nhắc đến hoặc trỏ sang tài liệu bên ngoài chưa được coi là hoàn tất.
+
+> **Cập nhật:** phần lớn *tài liệu* cho các mục dưới đây **đã có bản dịch** trong thư mục (nhóm số `186` trở lên) và đã được nối vào lộ trình ở [CP1–CP12](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks). Cái còn thiếu là **bài lab kiểm chứng** — theo đúng tiêu chí của mục này, có tài liệu mà chưa có thực hành thì vẫn để `[ ]`. Xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 ### A. Vòng đời cluster và quản trị bằng kubeadm
 

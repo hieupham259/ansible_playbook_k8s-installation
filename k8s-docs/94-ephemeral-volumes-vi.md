@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 7/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 7/16 · Kiểm chứng ở
 Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này gom lại thành một khái niệm những thứ bạn đã dùng rời rạc từ giai đoạn 3 (`emptyDir`,
@@ -49,7 +49,7 @@ trông như `emptyDir` nhưng thực chất sinh ra một PVC thật. Đọc k�
 ---
 
 Tài liệu này mô tả *volume tạm thời* (ephemeral volume) trong Kubernetes. Bạn nên
-làm quen trước với [volume](https://kubernetes.io/docs/concepts/storage/volumes/),
+làm quen trước với [volume](91-volumes-vi.md),
 đặc biệt là PersistentVolumeClaim và PersistentVolume.
 
 Một số ứng dụng cần lưu trữ bổ sung nhưng không quan tâm liệu dữ liệu
@@ -74,14 +74,14 @@ Volume tạm thời được chỉ định *inline* (nội tuyến) trong spec c
 Kubernetes hỗ trợ nhiều loại volume tạm thời khác nhau cho
 các mục đích khác nhau:
 
-- [emptyDir](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir): rỗng khi Pod khởi động,
+- [emptyDir](91-volumes-vi.md#emptydir): rỗng khi Pod khởi động,
   với lưu trữ lấy cục bộ từ thư mục gốc của kubelet (thường là
   đĩa root) hoặc từ RAM
-- [configMap](https://kubernetes.io/docs/concepts/storage/volumes/#configmap),
-  [downwardAPI](https://kubernetes.io/docs/concepts/storage/volumes/#downwardapi),
-  [secret](https://kubernetes.io/docs/concepts/storage/volumes/#secret): tiêm (inject) các
+- [configMap](91-volumes-vi.md#configmap),
+  [downwardAPI](91-volumes-vi.md#downwardapi),
+  [secret](91-volumes-vi.md#secret): tiêm (inject) các
   loại dữ liệu Kubernetes khác nhau vào một Pod
-- [image](https://kubernetes.io/docs/concepts/storage/volumes/#image): cho phép mount các file
+- [image](91-volumes-vi.md#image): cho phép mount các file
   của container image hoặc các artifact trực tiếp vào một Pod.
 - [Volume tạm thời CSI](#csi-ephemeral-volumes):
   tương tự các loại volume trước, nhưng được cung cấp bởi các driver CSI đặc biệt
@@ -90,7 +90,7 @@ các mục đích khác nhau:
   có thể được cung cấp bởi tất cả các driver lưu trữ nào cũng hỗ trợ persistent volume
 
 `emptyDir`, `configMap`, `downwardAPI`, `secret` được cung cấp dưới dạng
-[lưu trữ tạm thời cục bộ (local ephemeral storage)](https://kubernetes.io/docs/concepts/storage/ephemeral-storage/).
+[lưu trữ tạm thời cục bộ (local ephemeral storage)](95-ephemeral-storage-vi.md).
 Chúng được quản lý bởi kubelet trên mỗi node.
 
 Volume tạm thời CSI *bắt buộc* phải được cung cấp bởi các driver lưu trữ CSI
@@ -107,7 +107,7 @@ những chức năng mà bản thân Kubernetes không hỗ trợ, ví dụ
 lưu trữ với đặc tính hiệu năng khác với đĩa do
 kubelet quản lý, hoặc tiêm các dữ liệu khác nhau.
 
-### Volume tạm thời CSI (CSI ephemeral volumes)
+### Volume tạm thời CSI (CSI ephemeral volumes) {#csi-ephemeral-volumes}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.25 [stable]`
 
@@ -122,7 +122,7 @@ node và được tạo cùng với các tài nguyên cục bộ khác sau khi m
 lập lịch (schedule) lên một node. Ở giai đoạn này, Kubernetes không còn khái niệm
 lập lịch lại (reschedule) Pod nữa. Việc tạo volume phải hiếm khi thất bại,
 nếu không quá trình khởi động Pod sẽ bị kẹt. Đặc biệt, [lập lịch Pod có nhận biết
-dung lượng lưu trữ (storage capacity aware Pod scheduling)](https://kubernetes.io/docs/concepts/storage/storage-capacity/) *không*
+dung lượng lưu trữ (storage capacity aware Pod scheduling)](103-storage-capacity-vi.md) *không*
 được hỗ trợ cho các volume này. Hiện tại chúng cũng không được tính vào
 giới hạn sử dụng tài nguyên lưu trữ của một Pod, vì đó là điều
 mà kubelet chỉ có thể áp đặt cho phần lưu trữ do chính nó quản lý.
@@ -172,7 +172,7 @@ phép dùng làm volume inline trong spec của Pod có thể thực hiện bằ
 - Dùng một [admission webhook](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/)
   để hạn chế cách driver này được sử dụng.
 
-### Volume tạm thời tổng quát (Generic ephemeral volumes)
+### Volume tạm thời tổng quát (Generic ephemeral volumes) {#generic-ephemeral-volumes}
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.23 [stable]`
 
@@ -187,10 +187,10 @@ tính năng khác:
   các tham số.
 - Các thao tác thông thường trên volume đều được hỗ trợ với điều kiện driver
   hỗ trợ chúng, bao gồm
-  [snapshot](https://kubernetes.io/docs/concepts/storage/volume-snapshots/),
-  [nhân bản (cloning)](https://kubernetes.io/docs/concepts/storage/volume-pvc-datasource/),
-  [thay đổi kích thước (resizing)](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#expanding-persistent-volumes-claims),
-  và [theo dõi dung lượng lưu trữ (storage capacity tracking)](https://kubernetes.io/docs/concepts/storage/storage-capacity/).
+  [snapshot](99-volume-snapshots-vi.md),
+  [nhân bản (cloning)](101-volume-pvc-datasource-vi.md),
+  [thay đổi kích thước (resizing)](92-persistent-volumes-vi.md#expanding-persistent-volumes-claims),
+  và [theo dõi dung lượng lưu trữ (storage capacity tracking)](103-storage-capacity-vi.md).
 
 Ví dụ:
 
@@ -240,7 +240,7 @@ vì khi đó scheduler được tự do chọn một node phù hợp cho
 Pod. Với chế độ gắn kết tức thời, scheduler bị buộc phải chọn một node có
 quyền truy cập tới volume ngay khi volume sẵn sàng.
 
-Xét về [quyền sở hữu tài nguyên (resource ownership)](https://kubernetes.io/docs/concepts/architecture/garbage-collection/#owners-dependents),
+Xét về [quyền sở hữu tài nguyên (resource ownership)](36-garbage-collection-vi.md#owners-dependents),
 một Pod có lưu trữ tạm thời tổng quát là chủ sở hữu của (các) PersistentVolumeClaim
 cung cấp phần lưu trữ tạm thời đó. Khi Pod bị xóa,
 garbage collector của Kubernetes sẽ xóa PVC, và điều này sau đó thường
@@ -286,7 +286,7 @@ Các quản trị viên cluster phải nhận thức được điều này. Nế
 họ nên dùng một [admission webhook](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/)
 từ chối các object như Pod có chứa volume tạm thời tổng quát.
 
-[Quota thông thường theo namespace cho PVC](https://kubernetes.io/docs/concepts/policy/resource-quotas/#storage-resource-quota)
+[Quota thông thường theo namespace cho PVC](https://kubernetes.io/docs/concepts/policy/resource-quotas#storage-resource-quota)
 vẫn được áp dụng, vì vậy ngay cả khi người dùng được phép dùng cơ chế mới này, họ cũng không thể dùng
 nó để lách các chính sách khác.
 
@@ -294,7 +294,7 @@ nó để lách các chính sách khác.
 
 ### Volume tạm thời do kubelet quản lý (Ephemeral volumes managed by kubelet)
 
-Xem [lưu trữ tạm thời cục bộ (local ephemeral storage)](https://kubernetes.io/docs/concepts/storage/ephemeral-storage/).
+Xem [lưu trữ tạm thời cục bộ (local ephemeral storage)](95-ephemeral-storage-vi.md).
 
 ### Volume tạm thời CSI (CSI ephemeral volumes)
 

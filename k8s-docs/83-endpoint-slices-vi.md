@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 3/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 3/16 · Kiểm chứng ở
 Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài trước cho biết Service chọn Pod bằng selector. Bài này là **chỗ kết quả của việc chọn đó
@@ -112,7 +112,7 @@ Mỗi đối tượng `EndpointSlice` đại diện cho một loại địa ch�
 một Service khả dụng qua cả IPv4 lẫn IPv6, sẽ có ít nhất hai
 đối tượng `EndpointSlice` (một cho IPv4, và một cho IPv6).
 
-### Các condition (Conditions)
+### Các condition (Conditions) {#conditions}
 
 EndpointSlice API lưu trữ các condition về endpoint mà có thể hữu ích cho bên tiêu thụ (consumer).
 Ba condition đó là `serving`, `terminating` và `ready`.

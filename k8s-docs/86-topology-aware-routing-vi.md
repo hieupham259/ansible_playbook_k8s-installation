@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 7/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 7/16 · Kiểm chứng ở
 Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này viết cho cluster **đa zone**. Cluster lab chỉ có ba VM trong một mạng phẳng và không
@@ -85,7 +85,7 @@ Heuristic "Auto" cố gắng phân bổ một số lượng endpoint theo tỷ l
 
 ### EndpointSlice controller {#implementation-control-plane}
 
-EndpointSlice controller chịu trách nhiệm đặt các hint trên EndpointSlice khi heuristic này được bật. Controller phân bổ một lượng endpoint theo tỷ lệ cho mỗi zone. Tỷ lệ này dựa trên số CPU core [có thể cấp phát](https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/#node-allocatable) (allocatable) của các node chạy trong zone đó. Ví dụ, nếu một zone có 2 CPU core và một zone khác chỉ có 1 CPU core, controller sẽ phân bổ số endpoint cho zone có 2 CPU core nhiều gấp đôi.
+EndpointSlice controller chịu trách nhiệm đặt các hint trên EndpointSlice khi heuristic này được bật. Controller phân bổ một lượng endpoint theo tỷ lệ cho mỗi zone. Tỷ lệ này dựa trên số CPU core [có thể cấp phát](253-reserve-compute-resources-vi.md#node-allocatable) (allocatable) của các node chạy trong zone đó. Ví dụ, nếu một zone có 2 CPU core và một zone khác chỉ có 1 CPU core, controller sẽ phân bổ số endpoint cho zone có 2 CPU core nhiều gấp đôi.
 
 Ví dụ sau đây cho thấy một EndpointSlice trông như thế nào khi các hint đã được điền:
 
@@ -152,7 +152,7 @@ Kubernetes được triển khai theo nhiều cách khác nhau, không có một
 ## Tiếp theo (What's next)
 
 * Làm theo hướng dẫn [Kết nối ứng dụng với Service (Connecting Applications with Services)](https://kubernetes.io/docs/tutorials/services/connect-applications-service/)
-* Tìm hiểu về trường [trafficDistribution](https://kubernetes.io/docs/concepts/services-networking/service/#traffic-distribution), trường này liên quan chặt chẽ tới annotation `service.kubernetes.io/topology-mode` và cung cấp các tùy chọn linh hoạt cho việc định tuyến lưu lượng trong Kubernetes.
+* Tìm hiểu về trường [trafficDistribution](82-service-vi.md#traffic-distribution), trường này liên quan chặt chẽ tới annotation `service.kubernetes.io/topology-mode` và cung cấp các tùy chọn linh hoạt cho việc định tuyến lưu lượng trong Kubernetes.
 
 ---
 

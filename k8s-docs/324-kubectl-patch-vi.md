@@ -592,6 +592,6 @@ và
 ## Tiếp theo (What's next)
 
 * [Quản lý đối tượng Kubernetes](27-object-management-vi.md)
-* [Quản lý đối tượng Kubernetes bằng lệnh mệnh lệnh (imperative commands)](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/imperative-command/)
-* [Quản lý mệnh lệnh đối tượng Kubernetes bằng file cấu hình](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/imperative-config/)
-* [Quản lý khai báo đối tượng Kubernetes bằng file cấu hình](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/declarative-config/)
+* [Quản lý đối tượng Kubernetes bằng lệnh mệnh lệnh (imperative commands)](320-imperative-command-vi.md)
+* [Quản lý mệnh lệnh đối tượng Kubernetes bằng file cấu hình](321-imperative-config-vi.md)
+* [Quản lý khai báo đối tượng Kubernetes bằng file cấu hình](319-declarative-config-vi.md)

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 4](LO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 9/14 ·
+**Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 9/14 ·
 Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Trên kubernetes.io bài này nằm trong mục kiến trúc, tức là chỗ của **giai đoạn 1**. Lộ trình
@@ -51,13 +51,13 @@ thái mong muốn của hệ thống luôn được duy trì.
 
 - **Khởi động lại ở cấp container (Container-level restarts):** Nếu một container bên
   trong Pod bị lỗi, Kubernetes sẽ khởi động lại nó dựa trên
-  [`restartPolicy`](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy).
+  [`restartPolicy`](47-pod-lifecycle-vi.md#restart-policy).
 
 - **Thay thế replica (Replica replacement):** Nếu một Pod trong
-  [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) hoặc
-  [StatefulSet](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
+  [Deployment](63-deployment-vi.md) hoặc
+  [StatefulSet](65-statefulset-vi.md)
   bị lỗi, Kubernetes sẽ tạo một Pod thay thế để duy trì số lượng replica đã chỉ định.
-  Nếu một Pod thuộc [DaemonSet](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/)
+  Nếu một Pod thuộc [DaemonSet](66-daemonset-vi.md)
   bị lỗi, control plane sẽ tạo một Pod thay thế để chạy trên chính node đó.
 
 - **Khôi phục lưu trữ bền vững (Persistent storage recovery):** Nếu một node đang chạy
@@ -65,7 +65,7 @@ thái mong muốn của hệ thống luôn được duy trì.
   (reattach) volume vào một Pod mới trên một node khác.
 
 - **Cân bằng tải cho Service (Load balancing for Services):** Nếu một Pod đứng sau một
-  [Service](https://kubernetes.io/docs/concepts/services-networking/service/) bị lỗi,
+  [Service](82-service-vi.md) bị lỗi,
   Kubernetes sẽ tự động loại bỏ nó khỏi các endpoint của Service để chỉ định tuyến lưu
   lượng (traffic) tới các Pod khỏe mạnh.
 
@@ -90,10 +90,10 @@ Dưới đây là một số thành phần chính cung cấp khả năng tự ph
 
 ## Tiếp theo (What's next)
 
-- Đọc thêm về [Pod](https://kubernetes.io/docs/concepts/workloads/pods/)
+- Đọc thêm về [Pod](46-pods-vi.md)
 - Tìm hiểu về [các Controller của Kubernetes](./25-controllers-vi.md)
-- Khám phá [PersistentVolume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
-- Đọc về [tự động co giãn node (node autoscaling)](https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/).
+- Khám phá [PersistentVolume](92-persistent-volumes-vi.md)
+- Đọc về [tự động co giãn node (node autoscaling)](171-node-autoscaling-vi.md).
   Tự động co giãn node cũng cung cấp khả năng tự phục hồi nếu hoặc khi các node trong
   cluster của bạn gặp sự cố.
 

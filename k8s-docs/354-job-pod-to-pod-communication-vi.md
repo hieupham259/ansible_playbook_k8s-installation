@@ -21,7 +21,7 @@ phụ thuộc vào kết nối mạng với Kubernetes API server.
 
 ## Trước khi bạn bắt đầu (Before you begin)
 
-Bạn nên đã quen với cách sử dụng cơ bản của [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/).
+Bạn nên đã quen với cách sử dụng cơ bản của [Job](67-job-vi.md).
 
 Bạn cần có một cluster Kubernetes, và công cụ dòng lệnh kubectl phải được
 cấu hình để giao tiếp với cluster của bạn. Bạn nên chạy hướng dẫn này trên một
@@ -46,7 +46,7 @@ hãy chạy `kubectl version`.
 
 Để cho phép các Pod trong một Job giao tiếp với nhau bằng hostname của Pod, bạn phải làm những việc sau:
 
-1. Thiết lập một [headless Service](https://kubernetes.io/docs/concepts/services-networking/service/#headless-services)
+1. Thiết lập một [headless Service](82-service-vi.md#headless-services)
    với một label selector hợp lệ khớp với các Pod do Job của bạn tạo ra. Headless Service phải
    nằm cùng namespace với Job. Một cách dễ dàng để làm điều này là dùng selector
    `job-name: <tên-job-của-bạn>`, vì label `job-name` sẽ được Kubernetes tự động thêm vào.
@@ -132,4 +132,4 @@ Successfully pinged pod: example-job-2.headless-svc
 > **Ghi chú:**
 > Lưu ý rằng định dạng tên `<pod-hostname>.<tên-headless-service>` dùng trong
 > ví dụ này sẽ không hoạt động nếu DNS policy được đặt là `None` hoặc `Default`.
-> Tham khảo [DNS Policy của Pod](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy).
+> Tham khảo [DNS Policy của Pod](10-dns-pod-service-vi.md#pod-s-dns-policy).

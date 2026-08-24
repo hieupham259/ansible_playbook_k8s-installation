@@ -2,6 +2,46 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/upgrading-linux-nodes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
+→ [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster), bài 2/5 · Kiểm chứng trên
+cluster lab: nâng cấp `k8s-worker1` rồi `k8s-worker2` sau khi đã nâng `k8s-master`.
+
+Bài rất ngắn: nó chỉ là **phần thực thi trên node worker Linux** của quy trình đã học ở bài
+[221](221-kubeadm-upgrade-vi.md). Đọc bài 221 trước, nếu không các lệnh ở đây sẽ trông rời rạc.
+
+Con số `1.36.x` trong bài là ví dụ của trang gốc. Phiên bản của cluster lab nằm ở [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa).
+
+**Phải hiểu ở lần đọc này:**
+
+- **Thứ tự trong bài chính là thứ tự phải làm:** nâng gói `kubeadm` → `kubeadm upgrade node` →
+  `kubectl drain` → nâng `kubelet` và `kubectl` → restart kubelet → `kubectl uncordon`.
+- Trên worker, `kubeadm upgrade node` chỉ làm một việc: **nâng cấu hình kubelet cục bộ**. Nó
+  không nâng binary nào cả.
+- Vai trò của `apt-mark unhold` / `hold` (và `--disableexcludes=kubernetes` với yum): các gói
+  Kubernetes bị **ghim có chủ đích** để không bị nâng ngoài ý muốn; phải mở ghim để nâng rồi ghim
+  lại ngay.
+- Hai lệnh chạy **trên control plane, không phải trên worker**: `kubectl drain` và
+  `kubectl uncordon`. Các lệnh còn lại chạy trên chính node worker.
+- `systemctl daemon-reload` trước `systemctl restart kubelet` — bỏ bước này thì unit file mới
+  không được nạp.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cú pháp cho CentOS/RHEL/Fedora (DNF và DNF5) | cluster lab dùng Ubuntu theo Lab 00 | khi vận hành cluster trên distro họ Red Hat |
+| Chi tiết đổi package repository | là một bước riêng, có bài riêng | bài [217](217-change-package-repository-vi.md), bài 4/5 của CP2 |
+
+---
+
 Trang này giải thích cách nâng cấp các node worker Linux được tạo bằng kubeadm.
 
 ## Trước khi bạn bắt đầu (Before you begin)
@@ -17,7 +57,7 @@ cấu hình để giao tiếp với cluster của bạn. Khuyến nghị chạy 
 
 Nếu bạn đang dùng các kho gói do cộng đồng sở hữu (`pkgs.k8s.io`), bạn cần kích hoạt kho gói
 cho bản phát hành minor Kubernetes mong muốn. Điều này được giải thích trong tài liệu
-[Thay đổi kho gói Kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/change-package-repository/).
+[Thay đổi kho gói Kubernetes](217-change-package-repository-vi.md).
 
 > **Ghi chú:** Các kho gói cũ (`apt.kubernetes.io` và `yum.kubernetes.io`) đã bị
 > [ngưng sử dụng và đóng băng kể từ ngày 13-09-2023](https://kubernetes.io/blog/2023/08/31/legacy-package-repository-deprecation/).
@@ -119,4 +159,44 @@ kubectl uncordon <node-to-uncordon>
 
 ## Tiếp theo (What's next)
 
-* Xem cách [Nâng cấp node Windows](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/upgrading-windows-nodes/).
+* Xem cách [Nâng cấp node Windows](223-upgrading-windows-nodes-vi.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP2:
+
+1. Trên `k8s-worker2`, bạn chạy `kubeadm upgrade node` và lệnh báo thành công. `kubectl get nodes`
+   vẫn hiển thị worker đó ở phiên bản cũ. Bạn đã bỏ sót bước nào?
+2. **Câu bẫy.** Trong toàn bộ quy trình nâng cấp một worker, những lệnh nào phải chạy **trên
+   control plane** chứ không phải trên chính worker đó?
+3. Vì sao các gói `kubeadm`, `kubelet`, `kubectl` bị `apt-mark hold`, và vì sao phải ghim lại
+   ngay sau khi nâng?
+4. Nếu bạn nâng `kubelet` nhưng quên `systemctl daemon-reload` trước khi restart, hậu quả là gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Bỏ sót bước **nâng chính gói `kubelet`** (và `kubectl`) bằng package manager, rồi
+   `daemon-reload` + `restart kubelet`. Trên node worker, `kubeadm upgrade node` **chỉ nâng cấu
+   hình kubelet cục bộ**, nó không thay binary. Phiên bản mà `kubectl get nodes` hiển thị là
+   phiên bản kubelet đang chạy.
+2. **`kubectl drain <node> --ignore-daemonsets` và `kubectl uncordon <node>`** — bài ghi rõ
+   "chạy lệnh này trên một node control plane". Chúng là thao tác qua API server, không phải
+   thao tác trên máy. Mọi lệnh còn lại (`apt-get install`, `kubeadm upgrade node`,
+   `systemctl restart kubelet`) chạy tại chỗ trên worker. Chỗ dễ nhầm: cả quy trình đọc như một
+   mạch liên tục nên dễ tưởng gõ hết ở một nơi.
+3. Vì chúng bị **ghim có chủ đích** để một lệnh `apt-get upgrade` thông thường không vô tình nâng
+   Kubernetes lên phiên bản khác — điều đó sẽ phá vỡ version skew và có thể làm node rời cluster.
+   Phải mở ghim (`unhold`) để nâng đúng phiên bản mình chọn, rồi `hold` lại ngay để khôi phục lớp
+   bảo vệ đó.
+4. `systemd` vẫn dùng **unit file cũ đã nạp trong bộ nhớ**. Nếu bản nâng cấp có thay đổi unit file
+   hoặc drop-in của kubelet, thay đổi đó không có hiệu lực; kubelet khởi động lại với cấu hình
+   cũ và có thể lệch với cấu hình mà `kubeadm upgrade node` vừa ghi ra.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài kế của [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster).

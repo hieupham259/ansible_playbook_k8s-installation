@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 13](LO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
+**Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
 bài 5/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
@@ -52,7 +52,7 @@ câu: Workload là *mẫu chính sách* tồn tại lâu dài, PodGroup là *th�
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
 PodGroup là một đối tượng runtime đại diện cho một nhóm các Pod được lập lịch cùng nhau
-như một đơn vị duy nhất. Trong khi [Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/)
+như một đơn vị duy nhất. Trong khi [Workload API](77-workload-api-vi.md)
 định nghĩa các mẫu (template) chính sách lập lịch, PodGroup là đối tượng runtime tương ứng,
 mang theo cả chính sách lẫn trạng thái lập lịch cho một thực thể (instance) cụ thể của nhóm đó.
 
@@ -74,7 +74,7 @@ phần `status` phản ánh trạng thái lập lịch hiện tại.
 
 ### Chính sách lập lịch (Scheduling policy)
 
-Mỗi PodGroup mang một [chính sách lập lịch](https://kubernetes.io/docs/concepts/workloads/workload-api/policies/)
+Mỗi PodGroup mang một [chính sách lập lịch](79-workload-policies-vi.md)
 (`basic` hoặc `gang`) trong `spec.schedulingPolicy`. Khi một workload controller tạo
 PodGroup, chính sách này được sao chép từ PodGroupTemplate của Workload tại thời điểm tạo.
 Với các PodGroup độc lập (standalone), bạn đặt chính sách này trực tiếp.
@@ -130,7 +130,7 @@ sinh ra từ các ResourceClaimTemplate cho mỗi PodGroup, cho phép các thi�
 cấp phát cho mỗi ResourceClaim được sinh ra đó được chia sẻ bởi các Pod trong từng PodGroup.
 
 Để biết thêm chi tiết và một ví dụ đầy đủ hơn, xem
-[tài liệu DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#workload-resource-claims).
+[tài liệu DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation#workload-resource-claims).
 
 ### Trạng thái (Status)
 
@@ -141,10 +141,10 @@ khi tất cả các Pod bắt buộc đã được sắp đặt xong và `False`
 > **Ghi chú:**
 > Condition `PodGroupScheduled` chỉ phản ánh quyết định lập lịch ban đầu.
 > Scheduler không cập nhật nó nếu sau đó các Pod bị lỗi hoặc bị trục xuất (evict). Xem
-> [Giới hạn](https://kubernetes.io/docs/concepts/workloads/podgroup-api/lifecycle/#limitations)
+> [Giới hạn](76-podgroup-lifecycle-vi.md#limitations)
 > để biết chi tiết.
 
-Xem trang [Vòng đời của PodGroup](https://kubernetes.io/docs/concepts/workloads/podgroup-api/lifecycle/#podgroup-status)
+Xem trang [Vòng đời của PodGroup](https://kubernetes.io/docs/concepts/workloads/podgroup-api/lifecycle#podgroup-status)
 để biết danh sách đầy đủ các condition và lý do (reason).
 
 ## Tạo một PodGroup (Creating a PodGroup)
@@ -190,7 +190,7 @@ Mối quan hệ giữa controller, Workload, PodGroup và Pod tuân theo mẫu s
 3. Controller tạo các Pod tham chiếu đến PodGroup
    thông qua trường `spec.schedulingGroup.podGroupName`.
 
-Controller của [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/) hiện là
+Controller của [Job](67-job-vi.md) hiện là
 workload controller tích hợp sẵn duy nhất tuân theo mẫu này.
 Các controller tùy chỉnh có thể triển khai cùng luồng xử lý này cho các loại workload của riêng chúng.
 
@@ -237,10 +237,10 @@ các cập nhật status của từng PodGroup riêng lẻ không tranh chấp t
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu chi tiết về [vòng đời của PodGroup](https://kubernetes.io/docs/concepts/workloads/podgroup-api/lifecycle/).
-* Đọc về [Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/) — API cung cấp các PodGroupTemplate.
-* Xem cách các Pod tham chiếu đến PodGroup của chúng thông qua trường [scheduling group](https://kubernetes.io/docs/concepts/workloads/pods/scheduling-group/).
-* Hiểu về thuật toán [gang scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/).
+* Tìm hiểu chi tiết về [vòng đời của PodGroup](76-podgroup-lifecycle-vi.md).
+* Đọc về [Workload API](77-workload-api-vi.md) — API cung cấp các PodGroupTemplate.
+* Xem cách các Pod tham chiếu đến PodGroup của chúng thông qua trường [scheduling group](59-scheduling-group-vi.md).
+* Hiểu về thuật toán [gang scheduling](150-gang-scheduling-vi.md).
 
 ---
 

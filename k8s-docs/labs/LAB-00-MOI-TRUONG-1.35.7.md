@@ -33,7 +33,7 @@ chỉ có gate kỹ thuật.
 
 Lý do: lộ trình yêu cầu cluster thật để làm checkpoint ngay từ giai đoạn 1, nhưng kubeadm lại
 là nội dung của giai đoạn 8. Lộ trình giải vòng lặp này bằng hai phương án ở mục
-[Môi trường lab](../LO-TRINH-ADMIN.md#môi-trường-lab): mượn cluster có sẵn, hoặc tự dựng. Lab
+[Môi trường lab](../00-ALO-TRINH-ADMIN.md#môi-trường-lab): mượn cluster có sẵn, hoặc tự dựng. Lab
 00 là phương án tự dựng ở dạng copy-paste — về mặt kiến thức nó tương đương với việc có người
 đưa cho bạn một cluster.
 

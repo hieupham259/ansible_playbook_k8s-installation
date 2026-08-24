@@ -116,7 +116,7 @@ cho việc gỡ lỗi (debug) cơ sở dữ liệu.
 
    27017 là port TCP chính thức của MongoDB.
 
-## Chuyển tiếp một port cục bộ tới một port trên Pod (Forward a local port to a port on the Pod)
+## Chuyển tiếp một port cục bộ tới một port trên Pod (Forward a local port to a port on the Pod) {#forward-a-local-port-to-a-port-on-the-pod}
 
 1. `kubectl port-forward` cho phép dùng tên tài nguyên, chẳng hạn tên pod, để chọn một pod khớp
    làm đích chuyển tiếp port (port forward).

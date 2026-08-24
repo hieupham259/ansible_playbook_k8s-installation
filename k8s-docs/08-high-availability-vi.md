@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 7/9 ·
+**Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 7/9 ·
 Kiểm chứng ở Lab 8b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này **rẽ đôi** theo lựa chọn bạn đã chốt ở bài [06](06-ha-topology-vi.md): đọc mục *Các
@@ -64,11 +64,11 @@ Trang này giải thích hai cách tiếp cận khác nhau để thiết lập m
 - Với các node control plane xếp chồng (stacked). Cách tiếp cận này đòi hỏi ít hạ tầng hơn. Các thành viên etcd và các node control plane được đặt cùng nhau (co-located).
 - Với một cluster etcd bên ngoài (external). Cách tiếp cận này đòi hỏi nhiều hạ tầng hơn. Các node control plane và các thành viên etcd được tách riêng.
 
-Trước khi tiếp tục, bạn nên cân nhắc kỹ xem cách tiếp cận nào đáp ứng tốt nhất nhu cầu của ứng dụng và môi trường của bạn. Trang [Các lựa chọn cho topology có tính sẵn sàng cao](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/ha-topology/) trình bày ưu điểm và nhược điểm của từng cách.
+Trước khi tiếp tục, bạn nên cân nhắc kỹ xem cách tiếp cận nào đáp ứng tốt nhất nhu cầu của ứng dụng và môi trường của bạn. Trang [Các lựa chọn cho topology có tính sẵn sàng cao](06-ha-topology-vi.md) trình bày ưu điểm và nhược điểm của từng cách.
 
 Nếu bạn gặp vấn đề khi thiết lập cluster HA, vui lòng báo cáo trong [trình theo dõi issue](https://github.com/kubernetes/kubeadm/issues/new) của kubeadm.
 
-Xem thêm [tài liệu về nâng cấp](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/).
+Xem thêm [tài liệu về nâng cấp](221-kubeadm-upgrade-vi.md).
 
 > **Thận trọng:** Trang này không đề cập đến việc chạy cluster của bạn trên một nhà cung cấp cloud. Trong môi trường cloud, cả hai cách tiếp cận được mô tả ở đây đều không hoạt động với các đối tượng Service loại LoadBalancer, hoặc với PersistentVolume động (dynamic PersistentVolumes).
 
@@ -80,9 +80,9 @@ Các điều kiện tiên quyết phụ thuộc vào topology mà bạn đã ch�
 
 Bạn cần:
 
-- Ba máy trở lên đáp ứng [các yêu cầu tối thiểu của kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#before-you-begin) cho các node control plane. Việc có số lẻ node control plane có thể giúp ích cho việc bầu chọn leader (leader selection) trong trường hợp máy hoặc zone gặp sự cố.
+- Ba máy trở lên đáp ứng [các yêu cầu tối thiểu của kubeadm](01-install-kubeadm-vi.md#before-you-begin) cho các node control plane. Việc có số lẻ node control plane có thể giúp ích cho việc bầu chọn leader (leader selection) trong trường hợp máy hoặc zone gặp sự cố.
   - bao gồm một container runtime đã được thiết lập và hoạt động
-- Ba máy trở lên đáp ứng [các yêu cầu tối thiểu của kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#before-you-begin) cho các worker
+- Ba máy trở lên đáp ứng [các yêu cầu tối thiểu của kubeadm](01-install-kubeadm-vi.md#before-you-begin) cho các worker
   - bao gồm một container runtime đã được thiết lập và hoạt động
 - Kết nối mạng đầy đủ giữa tất cả các máy trong cluster (mạng công cộng hoặc mạng riêng)
 - Quyền superuser trên tất cả các máy thông qua `sudo`
@@ -90,15 +90,15 @@ Bạn cần:
 - Truy cập SSH từ một thiết bị đến tất cả các node trong hệ thống
 - `kubeadm` và `kubelet` đã được cài đặt trên tất cả các máy.
 
-_Xem [Topology stacked etcd](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/ha-topology/#stacked-etcd-topology) để hiểu thêm ngữ cảnh._
+_Xem [Topology stacked etcd](06-ha-topology-vi.md#stacked-etcd-topology) để hiểu thêm ngữ cảnh._
 
 #### External etcd
 
 Bạn cần:
 
-- Ba máy trở lên đáp ứng [các yêu cầu tối thiểu của kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#before-you-begin) cho các node control plane. Việc có số lẻ node control plane có thể giúp ích cho việc bầu chọn leader (leader selection) trong trường hợp máy hoặc zone gặp sự cố.
+- Ba máy trở lên đáp ứng [các yêu cầu tối thiểu của kubeadm](01-install-kubeadm-vi.md#before-you-begin) cho các node control plane. Việc có số lẻ node control plane có thể giúp ích cho việc bầu chọn leader (leader selection) trong trường hợp máy hoặc zone gặp sự cố.
   - bao gồm một container runtime đã được thiết lập và hoạt động
-- Ba máy trở lên đáp ứng [các yêu cầu tối thiểu của kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#before-you-begin) cho các worker
+- Ba máy trở lên đáp ứng [các yêu cầu tối thiểu của kubeadm](01-install-kubeadm-vi.md#before-you-begin) cho các worker
   - bao gồm một container runtime đã được thiết lập và hoạt động
 - Kết nối mạng đầy đủ giữa tất cả các máy trong cluster (mạng công cộng hoặc mạng riêng)
 - Quyền superuser trên tất cả các máy thông qua `sudo`
@@ -114,7 +114,7 @@ Và bạn còn cần thêm:
   - Các máy này cũng cần được cài đặt `kubeadm` và `kubelet`.
   - Các máy này cũng cần một container runtime đã được thiết lập và hoạt động.
 
-_Xem [Topology external etcd](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/ha-topology/#external-etcd-topology) để hiểu thêm ngữ cảnh._
+_Xem [Topology external etcd](06-ha-topology-vi.md#external-etcd-topology) để hiểu thêm ngữ cảnh._
 
 ### Các container image (Container images)
 
@@ -126,7 +126,7 @@ container image cần thiết đã có sẵn trên các host liên quan.
 ### Giao diện dòng lệnh (Command line interface) {#kubectl}
 
 Để quản lý Kubernetes sau khi cluster của bạn được thiết lập, bạn nên
-[cài đặt kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) trên PC của mình. Việc cài đặt
+[cài đặt kubectl](185-tools-vi.md#kubectl) trên PC của mình. Việc cài đặt
 công cụ `kubectl` trên mỗi node control plane cũng hữu ích, vì nó có thể
 giúp ích cho việc xử lý sự cố (troubleshooting).
 
@@ -196,7 +196,7 @@ giúp ích cho việc xử lý sự cố (troubleshooting).
    > (dưới `InitConfiguration` và `JoinConfiguration: controlPlane`).
 
    > **Ghi chú:** Một số plugin mạng CNI yêu cầu cấu hình bổ sung, ví dụ như chỉ định pod IP CIDR, trong khi một số khác thì không.
-   > Xem [tài liệu về mạng CNI](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#pod-network).
+   > Xem [tài liệu về mạng CNI](02-create-cluster-kubeadm-vi.md#pod-network).
    > Để thêm một pod CIDR, hãy truyền cờ `--pod-network-cidr`, hoặc nếu bạn đang dùng file cấu hình kubeadm
    > thì đặt trường `podSubnet` dưới đối tượng `networking` của `ClusterConfiguration`.
 
@@ -240,7 +240,7 @@ giúp ích cho việc xử lý sự cố (troubleshooting).
    > **Thận trọng:** Như đã nêu trong output của lệnh, certificate key cho phép truy cập vào dữ liệu nhạy cảm của cluster, hãy giữ bí mật nó!
 
 1. Áp dụng plugin CNI mà bạn chọn:
-   [Làm theo các hướng dẫn này](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#pod-network)
+   [Làm theo các hướng dẫn này](02-create-cluster-kubeadm-vi.md#pod-network)
    để cài đặt CNI provider. Đảm bảo cấu hình tương ứng với Pod CIDR đã được chỉ định trong
    file cấu hình kubeadm (nếu có).
 
@@ -280,7 +280,7 @@ vào file cấu hình kubeadm.
 
 ### Thiết lập cluster etcd (Set up the etcd cluster)
 
-1. Làm theo các [hướng dẫn này](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/setup-ha-etcd-with-kubeadm/) để thiết lập cluster etcd.
+1. Làm theo các [hướng dẫn này](07-setup-ha-etcd-with-kubeadm-vi.md) để thiết lập cluster etcd.
 
 1. Thiết lập SSH như được mô tả [tại đây](#manual-certs).
 

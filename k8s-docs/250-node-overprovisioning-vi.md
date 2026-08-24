@@ -2,6 +2,49 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/administer-cluster/node-overprovisioning/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
+→ [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node), bài 4/4 · Kiểm chứng một phần
+trên cluster lab: tạo PriorityClass âm và Deployment giữ chỗ, rồi chứng minh Pod thường **preempt**
+được Pod giữ chỗ khi node hết dung lượng.
+
+Bài này giả định cluster có **node autoscaler** — cluster lab ba VM cố định thì không có. Phần
+"rút ngắn thời gian chờ node mới" vì vậy không tái hiện được; nhưng cơ chế cốt lõi —
+PriorityClass âm + Pod giữ chỗ bị preempt — thì kiểm chứng được đầy đủ trên cluster lab. Bài
+dựa lên [141](141-pod-priority-preemption-vi.md) đã đọc ở giai đoạn 7a.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ý tưởng trung tâm: dự trữ dung lượng bằng **Pod thật đang chạy** mang PriorityClass giá trị
+  **âm**. Chúng chiếm chỗ theo `requests`, nhưng vì độ ưu tiên thấp nhất nên là **ứng viên đầu
+  tiên bị preempt** khi có Pod thường cần chỗ.
+- Vì sao phải là **Pod giữ chỗ** chứ không phải chỉ "để trống node": scheduler chỉ nhìn
+  `requests`; dung lượng để trống không có gì bảo đảm nó còn trống khi cần. Pod giữ chỗ biến
+  dung lượng dự trữ thành thứ scheduler thấy được và thu hồi được tức thì.
+- `globalDefault: false` là bắt buộc với PriorityClass âm này — nếu đặt `true` thì mọi Pod
+  không khai báo priority trong cluster đều nhận độ ưu tiên âm.
+- Tổng dung lượng dự trữ = `replicas × requests` của Pod giữ chỗ; điều chỉnh dự trữ bằng cách
+  đổi `requests` hoặc `kubectl scale`. `podAntiAffinity` dạng `preferred` để trải các Pod giữ
+  chỗ ra nhiều node.
+- Bẫy vận hành: một số autoscaler (ví dụ Karpenter) coi affinity **preferred như hard rule**,
+  nên số replica bạn đặt ở đây vô tình trở thành **số node tối thiểu** của cluster.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Hành vi riêng của Karpenter và các node autoscaler | cluster lab không có autoscaler | bài [171](171-node-autoscaling-vi.md) ở giai đoạn 12 |
+| Con số dự trữ cụ thể nên đặt bao nhiêu | phụ thuộc kích thước cluster và workload thật | khi vận hành cluster thật, sau CP8 (giám sát) |
+
+---
+
 Trang này hướng dẫn bạn cấu hình việc cấp phát dư (overprovisioning) Node trong cluster
 Kubernetes của bạn. Cấp phát dư Node là một chiến lược chủ động dự trữ một phần tài nguyên
 tính toán của cluster. Việc dự trữ này giúp giảm thời gian cần thiết để lập lịch (schedule)
@@ -180,3 +223,49 @@ capacity-reservation   5/5     5            5           2m
   cơ chế then chốt để Kubernetes xử lý tranh chấp tài nguyên. Cùng trang đó cũng đề cập tới
   _eviction_ (thu hồi), vốn ít liên quan hơn tới cách tiếp cận dùng Pod giữ chỗ, nhưng cũng là
   một cơ chế để Kubernetes phản ứng khi tài nguyên bị tranh chấp.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP1:
+
+1. Vì sao phải dự trữ dung lượng bằng **Pod giữ chỗ đang chạy**, thay vì đơn giản là không
+   triển khai gì lên một phần node và coi đó là dung lượng dự phòng?
+2. **Câu bẫy.** PriorityClass của Pod giữ chỗ có `value: -1000`. Giá trị âm này khiến Pod giữ
+   chỗ **khó được lập lịch hơn** Pod thường — đúng hay sai? Nó thực sự quyết định điều gì?
+3. Trên cluster lab ba VM không có autoscaler, phần nào của bài **vẫn kiểm chứng được** và phần
+   nào **không**? Nói rõ vì sao.
+4. Bạn muốn dự trữ tổng cộng 500m CPU và 1GiB memory. Với 5 replica Pod giữ chỗ thì `requests`
+   của mỗi Pod là bao nhiêu, và vì sao `globalDefault` của PriorityClass phải là `false`?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì scheduler ra quyết định dựa trên **`requests` của các Pod đang tồn tại**, không dựa trên
+   ý định của con người. Dung lượng "để trống" không được cluster ghi nhận, nên bất kỳ workload
+   nào cũng có thể chiếm mất bất cứ lúc nào. Pod giữ chỗ biến phần dự trữ thành thứ scheduler
+   **thấy được** (nó chiếm requests thật) và đồng thời **thu hồi được ngay lập tức** (nó bị
+   preempt trước tiên) — đó là điều mà chỗ trống thụ động không làm được.
+2. **Sai.** Độ ưu tiên âm **không** ngăn Pod giữ chỗ được lập lịch — khi còn dung lượng, chúng
+   vẫn chạy bình thường. Cái nó quyết định là **thứ tự bị preempt**: khi cluster thiếu chỗ,
+   control plane chọn Pod có độ ưu tiên thấp nhất làm nạn nhân đầu tiên, và Pod giữ chỗ luôn
+   là nhóm đó. Trực giác "ưu tiên thấp = khó lên" sai ở chỗ nó lẫn giữa *quyền được lập lịch*
+   và *thứ tự bị đuổi*.
+3. **Kiểm chứng được:** tạo PriorityClass âm, chạy Deployment giữ chỗ, làm cluster hết chỗ rồi
+   quan sát Pod giữ chỗ bị **preempt** để nhường chỗ cho Pod thường — toàn bộ cơ chế
+   PriorityClass/preemption nằm trong Kubernetes, không cần autoscaler. **Không kiểm chứng
+   được:** lợi ích thật sự của kỹ thuật này — rút ngắn thời gian chờ khi autoscaler cấp node
+   mới — vì cluster lab có ba VM cố định, không co giãn.
+4. Mỗi Pod giữ chỗ đặt `requests` là **`cpu: 100m`** và **`memory: 200Mi`** (5 × 100m = 500m;
+   5 × 200Mi = 1GiB). `globalDefault` phải là `false` vì PriorityClass đánh dấu `globalDefault`
+   sẽ áp cho **mọi Pod không khai báo `priorityClassName`** trong cả cluster — đặt `true` ở đây
+   nghĩa là toàn bộ workload bình thường bỗng mang độ ưu tiên −1000 và thành ứng viên bị
+   preempt đầu tiên.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node) — làm xong
+thì chuyển sang [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster).

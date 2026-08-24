@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1b](LO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+**Vị trí:** Giai đoạn 1 → nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
 bài 4/9 · Kiểm chứng ở [Lab 1b](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md).
 
 Lab 1a đã dùng namespace như một vùng chứa tạm mà không giải thích. Đây là chỗ trả nợ đó.
@@ -56,7 +56,7 @@ Namespace cung cấp một phạm vi cho tên (scope for names). Tên của các
 nhưng không cần duy nhất giữa các namespace. Các namespace không thể lồng vào nhau và mỗi resource
 Kubernetes chỉ có thể nằm trong một namespace.
 
-Namespace là một cách để phân chia tài nguyên cluster giữa nhiều người dùng (thông qua [resource quota](https://kubernetes.io/docs/concepts/policy/resource-quotas/)).
+Namespace là một cách để phân chia tài nguyên cluster giữa nhiều người dùng (thông qua [resource quota](134-resource-quotas-vi.md)).
 
 Không nhất thiết phải dùng nhiều namespace để tách các resource chỉ hơi khác nhau,
 chẳng hạn các phiên bản khác nhau của cùng một phần mềm: hãy dùng
@@ -72,7 +72,7 @@ Kubernetes khởi đầu với bốn namespace ban đầu:
 
 - `default`: Kubernetes bao gồm namespace này để bạn có thể bắt đầu sử dụng cluster mới của mình mà không cần tạo namespace trước.
 
-- `kube-node-lease`: Namespace này chứa các object [Lease](https://kubernetes.io/docs/concepts/architecture/leases/) gắn với từng node. Node lease cho phép kubelet gửi [heartbeat](https://kubernetes.io/docs/concepts/architecture/nodes/#node-heartbeats) để control plane có thể phát hiện node bị lỗi.
+- `kube-node-lease`: Namespace này chứa các object [Lease](35-leases-vi.md) gắn với từng node. Node lease cho phép kubelet gửi [heartbeat](23-nodes-vi.md#node-heartbeats) để control plane có thể phát hiện node bị lỗi.
 
 - `kube-public`: Namespace này có thể được đọc bởi *tất cả* các client (kể cả những client chưa xác thực). Namespace này chủ yếu được dành cho mục đích sử dụng của cluster, trong trường hợp một số resource cần được hiển thị và đọc công khai trên toàn cluster. Khía cạnh công khai của namespace này chỉ là một quy ước, không phải là một yêu cầu bắt buộc.
 
@@ -81,7 +81,7 @@ Kubernetes khởi đầu với bốn namespace ban đầu:
 ## Làm việc với Namespace (Working with Namespaces)
 
 Việc tạo và xóa namespace được mô tả trong
-[tài liệu Hướng dẫn quản trị về namespace](https://kubernetes.io/docs/tasks/administer-cluster/namespaces).
+[tài liệu Hướng dẫn quản trị về namespace](242-namespaces-tasks-vi.md).
 
 > **Ghi chú:**
 > Tránh tạo namespace có prefix `kube-`, vì prefix này được dành riêng cho các namespace hệ thống của Kubernetes.
@@ -101,7 +101,7 @@ kube-public       Active   1d
 kube-system       Active   1d
 ```
 
-### Đặt namespace cho một request (Setting the namespace for a request)
+### Đặt namespace cho một request (Setting the namespace for a request) {#setting-the-namespace-for-a-request}
 
 Để đặt namespace cho request hiện tại, dùng cờ (flag) `--namespace`.
 
@@ -112,7 +112,7 @@ kubectl run nginx --image=nginx --namespace=<insert-namespace-name-here>
 kubectl get pods --namespace=<insert-namespace-name-here>
 ```
 
-### Đặt namespace mặc định ưu tiên (Setting the namespace preference)
+### Đặt namespace mặc định ưu tiên (Setting the namespace preference) {#setting-the-namespace-preference}
 
 Bạn có thể lưu vĩnh viễn namespace cho tất cả các lệnh kubectl tiếp theo trong
 context đó.
@@ -125,7 +125,7 @@ kubectl config view --minify | grep namespace:
 
 ## Namespace và DNS (Namespaces and DNS)
 
-Khi bạn tạo một [Service](https://kubernetes.io/docs/concepts/services-networking/service/),
+Khi bạn tạo một [Service](82-service-vi.md),
 nó sẽ tạo một [bản ghi DNS](./10-dns-pod-service-vi.md) tương ứng.
 Bản ghi này có dạng `<service-name>.<namespace-name>.svc.cluster.local`, nghĩa là
 nếu một container chỉ dùng `<service-name>`, nó sẽ phân giải (resolve) tới service
@@ -134,7 +134,7 @@ nhiều namespace, chẳng hạn Development, Staging và Production. Nếu bạ
 xuyên namespace, bạn cần dùng tên miền đầy đủ (fully qualified domain name — FQDN).
 
 Do đó, tất cả tên namespace phải là
-[DNS label hợp lệ theo RFC 1123](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names).
+[DNS label hợp lệ theo RFC 1123](17-names-vi.md#dns-label-names).
 
 > **Cảnh báo:**
 > Bằng cách tạo các namespace trùng tên với [các tên miền cấp cao nhất (top-level domain) công cộng](https://data.iana.org/TLD/tlds-alpha-by-domain.txt), các Service trong những
@@ -150,8 +150,8 @@ Do đó, tất cả tên namespace phải là
 ## Không phải object nào cũng nằm trong namespace (Not all objects are in a namespace)
 
 Hầu hết các resource của Kubernetes (ví dụ: Pod, Service, Deployment và các loại khác) đều nằm trong một namespace nào đó. Tuy nhiên, bản thân resource namespace lại không nằm trong một namespace. Và các resource cấp thấp, chẳng hạn
-[Node](https://kubernetes.io/docs/concepts/architecture/nodes/) và
-[PersistentVolume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/), không nằm trong bất kỳ namespace nào.
+[Node](23-nodes-vi.md) và
+[PersistentVolume](92-persistent-volumes-vi.md), không nằm trong bất kỳ namespace nào.
 
 Để xem những resource Kubernetes nào nằm trong và không nằm trong namespace:
 
@@ -173,8 +173,8 @@ Giá trị của label này là tên của namespace.
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [tạo một namespace mới](https://kubernetes.io/docs/tasks/administer-cluster/namespaces/#creating-a-new-namespace).
-* Tìm hiểu thêm về [xóa một namespace](https://kubernetes.io/docs/tasks/administer-cluster/namespaces/#deleting-a-namespace).
+* Tìm hiểu thêm về [tạo một namespace mới](242-namespaces-tasks-vi.md#creating-a-new-namespace).
+* Tìm hiểu thêm về [xóa một namespace](242-namespaces-tasks-vi.md#deleting-a-namespace).
 
 ---
 

@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 3/11 · Kiểm chứng
+**Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 3/11 · Kiểm chứng
 ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là **bài xương sống của nhóm**, và cũng là bài dài nhất. Phần lớn độ dài đến từ các mục nằm
@@ -63,7 +63,7 @@ cho container runtime. Kubelet cũng quản lý việc thực thi các
 
 Giống như các container ứng dụng riêng lẻ, Pod được xem là những thực thể tương đối
 phù du (ephemeral) chứ không phải bền vững. Pod được tạo ra, được gán một định danh
-duy nhất ([UID](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids)),
+duy nhất ([UID](17-names-vi.md#uids)),
 và được lập lịch (schedule) chạy trên các node, nơi chúng tồn tại cho đến khi bị kết thúc
 (theo chính sách khởi động lại — restart policy) hoặc bị xóa.
 Nếu một node chết, các Pod đang chạy trên (hoặc đã được lập lịch để chạy trên) node đó
@@ -85,7 +85,7 @@ Trong Kubernetes API, Pod có cả phần đặc tả (specification) lẫn tr�
 [thông tin sẵn sàng tùy chỉnh](#pod-readiness-gate) vào dữ liệu condition của một Pod,
 nếu điều đó hữu ích cho ứng dụng của bạn.
 
-Pod chỉ được [lập lịch](https://kubernetes.io/docs/concepts/scheduling-eviction/) một lần
+Pod chỉ được [lập lịch](136-scheduling-eviction-vi.md) một lần
 duy nhất trong vòng đời của chúng; việc gán một Pod cho một node cụ thể được gọi là
 _binding_, và quá trình chọn node nào để sử dụng được gọi là _scheduling_ (lập lịch).
 Một khi Pod đã được lập lịch và gắn (bound) với một node, Kubernetes sẽ cố gắng
@@ -94,7 +94,7 @@ bị [kết thúc](#pod-termination); nếu Kubernetes không thể khởi độ
 (ví dụ, nếu node bị sập trước khi Pod khởi động), thì Pod cụ thể đó
 sẽ không bao giờ khởi động.
 
-Bạn có thể dùng [Pod Scheduling Readiness](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-scheduling-readiness/)
+Bạn có thể dùng [Pod Scheduling Readiness](145-pod-scheduling-readiness-vi.md)
 để trì hoãn việc lập lịch cho một Pod cho đến khi tất cả các _scheduling gate_ của nó được gỡ bỏ.
 Ví dụ, bạn có thể muốn định nghĩa một tập các Pod nhưng chỉ kích hoạt việc lập lịch
 khi tất cả các Pod đã được tạo xong.
@@ -135,7 +135,7 @@ giống hệt được tạo ra, thứ liên quan (volume, trong ví dụ này) 
 
 ![Sơ đồ Pod nhiều container](https://kubernetes.io/images/docs/pod.svg)
 
-*Hình 1. Một Pod nhiều container chứa một [sidecar](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/) kéo tệp (file puller) và một web server. Pod dùng một [volume `emptyDir` phù du](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir) làm nơi lưu trữ chia sẻ giữa các container.*
+*Hình 1. Một Pod nhiều container chứa một [sidecar](51-sidecar-containers-vi.md) kéo tệp (file puller) và một web server. Pod dùng một [volume `emptyDir` phù du](91-volumes-vi.md#emptydir) làm nơi lưu trữ chia sẻ giữa các container.*
 
 ## Phase của Pod (Pod phase) {#pod-phase}
 
@@ -183,7 +183,7 @@ Kể từ Kubernetes 1.27, kubelet chuyển các Pod bị xóa sang một phase 
 (`Failed` hoặc `Succeeded` tùy theo mã thoát của các container trong Pod)
 trước khi chúng bị xóa khỏi API server, với hai ngoại lệ:
 
-* [static Pod](https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/) (được
+* [static Pod](293-static-pod-tasks-vi.md) (được
   quản lý trực tiếp bởi kubelet và được đại diện bởi các mirror Pod)
 * [Pod bị buộc xóa (force-deleted)](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination-forced)
   không có finalizer
@@ -195,7 +195,7 @@ Nếu một node chết hoặc bị ngắt kết nối khỏi phần còn lại 
 
 Bên cạnh [phase](#pod-phase) của Pod nói chung, Kubernetes còn theo dõi trạng thái của
 từng container bên trong một Pod. Bạn có thể dùng
-[container lifecycle hooks](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/) để
+[container lifecycle hooks](42-container-lifecycle-hooks-vi.md) để
 kích hoạt các sự kiện chạy tại những thời điểm nhất định trong vòng đời của một container.
 
 Một khi scheduler gán một Pod cho một Node, kubelet bắt đầu tạo các container cho Pod đó
@@ -304,7 +304,7 @@ sidecar container) hoặc định nghĩa phần ghi đè (override) ở cấp co
 Dự án Kubernetes khuyến nghị tuân theo các nguyên tắc cloud-native, bao gồm thiết kế
 có tính chống chịu (resilient), tính đến các lần khởi động lại đột xuất hoặc tùy ý. Bạn có thể
 đạt được điều này bằng cách để Pod thất bại và dựa vào cơ chế
-[thay thế](https://kubernetes.io/docs/concepts/workloads/controllers/) tự động, hoặc bạn có thể
+[thay thế](62-controllers-index-vi.md) tự động, hoặc bạn có thể
 thiết kế tính chống chịu ở cấp container.
 Cả hai cách tiếp cận đều giúp bảo đảm workload tổng thể của bạn vẫn khả dụng dù có
 lỗi cục bộ.
@@ -315,8 +315,8 @@ lỗi cục bộ.
 và Never. Giá trị mặc định là Always.
 
 `restartPolicy` của một Pod áp dụng cho các app container
-trong Pod và cho các [init container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) thông thường.
-[Sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/)
+trong Pod và cho các [init container](50-init-containers-vi.md) thông thường.
+[Sidecar container](51-sidecar-containers-vi.md)
 bỏ qua trường `restartPolicy` cấp Pod: trong Kubernetes, một sidecar được định nghĩa là một
 mục bên trong `initContainers` có trường `restartPolicy` ở cấp container được đặt là `Always`.
 Với các init container thoát do lỗi, kubelet khởi động lại init container đó nếu
@@ -396,7 +396,7 @@ spec:
 
 ##### Sidecar container và chính sách khởi động lại (Sidecar containers and restart policies) {#sidecar-containers-and-restart-policies}
 
-[Sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/) có hành vi khởi động lại đặc biệt, khác với các app container thông thường:
+[Sidecar container](51-sidecar-containers-vi.md) có hành vi khởi động lại đặc biệt, khác với các app container thông thường:
 
 - **Sidecar container bỏ qua `restartPolicy` cấp Pod**: Chúng dùng trường `restartPolicy` riêng ở cấp container, luôn được đặt là `Always`
 - **Vòng đời độc lập**: Sidecar container có thể khởi động lại độc lập với container ứng dụng chính
@@ -431,7 +431,7 @@ cùng một Pod và chạy trên cùng một node. Sau khi các container trong 
 khởi động lại chúng với độ trễ backoff theo hàm mũ (10s, 20s, 40s, …), với mức trần là
 300 giây (5 phút). Một khi một container đã chạy 10 phút mà không gặp
 vấn đề gì, kubelet đặt lại bộ đếm backoff khởi động lại cho container đó.
-[Sidecar container và vòng đời Pod](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/#sidecar-containers-and-pod-lifecycle)
+[Sidecar container và vòng đời Pod](51-sidecar-containers-vi.md#sidecar-containers-and-pod-lifecycle)
 giải thích hành vi của `init containers` khi chỉ định trường `restartPolicy` trên chúng.
 
 #### Chính sách và quy tắc khởi động lại cho từng container (Individual container restart policy and rules) {#container-restart-rules}
@@ -441,9 +441,9 @@ giải thích hành vi của `init containers` khi chỉ định trường `rest
 Nếu cluster của bạn bật feature gate `ContainerRestartRules`, bạn có thể chỉ định
 `restartPolicy` và `restartPolicyRules` trên _từng container riêng lẻ_ để ghi đè chính sách
 khởi động lại của Pod. Chính sách và quy tắc khởi động lại của container áp dụng cho các app container
-trong Pod và cho các [init container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) thông thường.
+trong Pod và cho các [init container](50-init-containers-vi.md) thông thường.
 
-Một [sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/)
+Một [sidecar container](51-sidecar-containers-vi.md)
 gốc của Kubernetes có `restartPolicy` ở cấp container được đặt là `Always`.
 
 Các lần khởi động lại container sẽ tuân theo cùng cơ chế backoff theo hàm mũ như chính sách khởi động lại của Pod đã mô tả ở trên.
@@ -640,7 +640,7 @@ Nếu bạn dùng tính năng này cùng với tính năng alpha
 Khi bật feature gate `KubeletCrashLoopBackOffMax`, bạn có thể
 cấu hình lại độ trễ tối đa giữa các lần thử khởi động container so với mặc định
 là 300s (5 phút). Cấu hình này được đặt cho từng node bằng cấu hình kubelet.
-Trong [cấu hình kubelet](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/) của bạn,
+Trong [cấu hình kubelet](224-kubelet-config-file-vi.md) của bạn,
 dưới mục `crashLoopBackOff`, đặt trường `maxContainerRestartPeriod` trong khoảng từ `"1s"` đến
 `"300s"`. Như mô tả ở trên trong [Chính sách khởi động lại container](#restart-policy),
 độ trễ trên node đó vẫn bắt đầu ở 10s và tăng theo hàm mũ gấp 2 lần
@@ -684,14 +684,14 @@ PodCondition sau:
   Pod sandbox đã được tạo thành công, mạng đã được cấu hình, các volume lưu trữ đã được mount,
   và mọi tài nguyên động (nếu được yêu cầu) đã được cấp phát.
 * `ContainersReady`: tất cả các container trong Pod đã sẵn sàng.
-* `Initialized`: tất cả các [init container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)
+* `Initialized`: tất cả các [init container](50-init-containers-vi.md)
   đã hoàn tất thành công.
 * `Ready`: Pod có khả năng phục vụ các yêu cầu và nên được thêm vào các nhóm
   cân bằng tải (load balancing pool) của tất cả các Service khớp với nó.
 * `DisruptionTarget`: Pod sắp bị kết thúc do một sự gián đoạn (disruption) — chẳng hạn preemption, eviction hoặc thu gom rác (garbage-collection).
-* `PodResizePending`: một yêu cầu thay đổi kích thước (resize) Pod đã được gửi nhưng không thể áp dụng. Xem [Trạng thái resize Pod](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources#pod-resize-status).
+* `PodResizePending`: một yêu cầu thay đổi kích thước (resize) Pod đã được gửi nhưng không thể áp dụng. Xem [Trạng thái resize Pod](289-resize-container-resources-vi.md#pod-resize-status).
 * `PodResizeInProgress`: Pod đang trong quá trình thay đổi kích thước. Xem
-  [Trạng thái resize Pod](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources#pod-resize-status).
+  [Trạng thái resize Pod](289-resize-container-resources-vi.md#pod-resize-status).
 
 Tên trường           | Mô tả
 :--------------------|:-----------
@@ -740,7 +740,7 @@ status:
 ```
 
 Các Pod condition bạn thêm vào phải có tên tuân theo
-[định dạng khóa label](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set) của Kubernetes.
+[định dạng khóa label](18-labels-vi.md#syntax-and-character-set) của Kubernetes.
 
 ### Trạng thái cho độ sẵn sàng của Pod (Status for Pod readiness) {#pod-readiness-status}
 
@@ -771,7 +771,7 @@ Sau khi một Pod được lập lịch lên một node, nó cần được kube
 cần có các volume lưu trữ cần thiết được mount. Một khi các giai đoạn này hoàn tất,
 kubelet phối hợp với một container runtime (sử dụng CRI) để thiết lập một
 runtime sandbox và cấu hình mạng cho Pod. Nếu Pod dùng
-[Dynamic Resource Allocation](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/),
+[Dynamic Resource Allocation](149-dynamic-resource-allocation-vi.md),
 các tài nguyên đó cũng được cấp phát trong giai đoạn này.
 Nếu [feature gate](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/)
 `PodReadyToStartContainersCondition` được bật
@@ -818,24 +818,24 @@ Cách này còn được gọi là _in-place Pod vertical scaling_ (co giãn d�
 việc cấp phát tài nguyên cho các container đang chạy trong khi có khả năng tránh gián đoạn ứng dụng.
 
 Nếu bạn đã chỉ định tài nguyên ở cấp Pod (pod-level), bạn cũng có thể thay đổi kích thước chúng tại chỗ.
-Để biết thêm chi tiết, xem [Thay đổi tài nguyên CPU và bộ nhớ gán cho Pod](https://kubernetes.io/docs/tasks/configure-pod-container/resize-pod-resources/).
+Để biết thêm chi tiết, xem [Thay đổi tài nguyên CPU và bộ nhớ gán cho Pod](290-resize-pod-resources-vi.md).
 
 Để thực hiện thay đổi kích thước tại chỗ, bạn cập nhật trạng thái mong muốn của Pod bằng
 subresource `/resize`. Sau đó kubelet cố gắng áp dụng các giá trị tài nguyên mới cho các
 container đang chạy. Các condition
 `PodResizePending` và `PodResizeInProgress` của Pod (mô tả trong [Pod condition](#pod-conditions))
 cho biết trạng thái của thao tác thay đổi kích thước. Để biết thêm chi tiết về trạng thái resize, xem
-[Trạng thái resize container](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/#container-resize-status).
+[Trạng thái resize container](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources#container-resize-status).
 
 Những điểm cần cân nhắc chính cho thay đổi kích thước tại chỗ:
 - Chỉ có tài nguyên CPU và bộ nhớ mới có thể thay đổi kích thước tại chỗ.
-- [Lớp Chất lượng Dịch vụ (QoS class)](https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/) của Pod
+- [Lớp Chất lượng Dịch vụ (QoS class)](54-pod-qos-vi.md) của Pod
   được xác định lúc tạo và không thể thay đổi bằng việc resize.
 - Bạn có thể cấu hình việc có cần khởi động lại container khi resize hay không bằng
   `resizePolicy` trong đặc tả container.
 
 Để có hướng dẫn chi tiết về cách thực hiện thay đổi kích thước tại chỗ, xem
-[Thay đổi tài nguyên CPU và bộ nhớ gán cho Container](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/).
+[Thay đổi tài nguyên CPU và bộ nhớ gán cho Container](289-resize-container-resources-vi.md).
 
 ### Thay đổi kích thước bằng cách khởi chạy Pod thay thế (Resizing by launching replacement Pods) {#resizing-by-launching-replacement-pods}
 
@@ -849,12 +849,12 @@ Cách tiếp cận này:
 - Hoạt động với mọi phiên bản Kubernetes.
 - Có thể thay đổi bất kỳ phần nào của đặc tả Pod, không chỉ tài nguyên.
 - Dẫn đến việc thay thế Pod, do đó bạn nên thiết kế workload của mình để xử lý
-  [các gián đoạn có kế hoạch](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/). Cân nhắc dùng một
-  [PodDisruptionBudget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/) để kiểm soát tính khả dụng.
+  [các gián đoạn có kế hoạch](53-disruptions-vi.md). Cân nhắc dùng một
+  [PodDisruptionBudget](339-configure-pdb-vi.md) để kiểm soát tính khả dụng.
 - Yêu cầu các Pod của bạn được quản lý bởi một workload resource.
 
 Bạn cũng có thể dùng
-[VerticalPodAutoscaler](https://kubernetes.io/docs/concepts/workloads/autoscaling/vertical-pod-autoscale/)
+[VerticalPodAutoscaler](73-vertical-pod-autoscale-vi.md)
 để tự động quản lý các khuyến nghị và cập nhật tài nguyên cho Pod.
 
 ## Container probe (Container probes) {#container-probes}
@@ -871,7 +871,7 @@ hoặc ngừng gửi lưu lượng (traffic) đến các container chưa sẵn s
 Kubelet có thể tùy chọn thực hiện và phản ứng với ba loại probe trên các container
 đang chạy, mỗi loại phục vụ một mục đích khác nhau. Về các cơ chế probe (`exec`,
 `grpc`, `httpGet`, `tcpSocket`), các trường cấu hình, và hướng dẫn sử dụng chi tiết,
-xem [Liveness, Readiness và Startup Probe](https://kubernetes.io/docs/concepts/workloads/pods/probes/).
+xem [Liveness, Readiness và Startup Probe](49-probes-vi.md).
 
 ### Startup probe {#startup-probe}
 
@@ -986,7 +986,7 @@ Luồng kết thúc Pod, minh họa bằng một ví dụ:
    tắt Pod cục bộ.
 
    1. Nếu một trong các container của Pod có định nghĩa một
-      [hook](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks) `preStop` và `terminationGracePeriodSeconds`
+      [hook](42-container-lifecycle-hooks-vi.md) `preStop` và `terminationGracePeriodSeconds`
       trong Pod spec không được đặt là 0, kubelet chạy hook đó bên trong container.
       Thiết lập `terminationGracePeriodSeconds` mặc định là 30 giây.
 
@@ -1020,7 +1020,7 @@ Luồng kết thúc Pod, minh họa bằng một ví dụ:
    rút phiên (session draining) và hoàn tất phiên.
 
    Các endpoint đại diện cho các Pod đang kết thúc không bị loại ngay lập tức khỏi
-   EndpointSlice, và một trạng thái cho biết [trạng thái đang kết thúc](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/#conditions)
+   EndpointSlice, và một trạng thái cho biết [trạng thái đang kết thúc](83-endpoint-slices-vi.md#conditions)
    được phơi bày từ EndpointSlice API.
    Các endpoint đang kết thúc luôn có trạng thái `ready` là `false` (để tương thích ngược
    với các phiên bản trước 1.26), vì vậy các bộ cân bằng tải sẽ không dùng chúng cho lưu lượng thông thường.
@@ -1073,12 +1073,12 @@ một khoảng ân hạn nhỏ trước khi bị giết cưỡng bức.
 
 Nếu bạn cần buộc xóa các Pod thuộc một StatefulSet, hãy tham khảo tài liệu
 tác vụ về
-[xóa Pod khỏi một StatefulSet](https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/).
+[xóa Pod khỏi một StatefulSet](341-force-delete-stateful-set-pod-vi.md).
 
 ### Tắt Pod và sidecar container (Pod shutdown and sidecar containers) {#termination-with-sidecars}
 
 Nếu Pod của bạn bao gồm một hoặc nhiều
-[sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/)
+[sidecar container](51-sidecar-containers-vi.md)
 (các init container với chính sách khởi động lại `Always`), kubelet sẽ trì hoãn việc gửi
 tín hiệu TERM đến các sidecar container này cho đến khi container chính cuối cùng đã kết thúc hoàn toàn.
 Các sidecar container sẽ được kết thúc theo thứ tự ngược với thứ tự chúng được định nghĩa trong Pod spec.
@@ -1086,7 +1086,7 @@ Các sidecar container sẽ được kết thúc theo thứ tự ngược với 
 chúng không còn cần thiết.
 
 Điều này có nghĩa là việc kết thúc chậm của một container chính cũng sẽ trì hoãn việc kết thúc của các sidecar container.
-Nếu thời gian ân hạn hết trước khi quá trình kết thúc hoàn tất, Pod có thể rơi vào [kết thúc cưỡng bức](#pod-termination-beyond-grace-period).
+Nếu thời gian ân hạn hết trước khi quá trình kết thúc hoàn tất, Pod có thể rơi vào [kết thúc cưỡng bức](#pod-termination-forced).
 Trong trường hợp đó, tất cả các container còn lại trong Pod sẽ bị kết thúc đồng thời với một khoảng ân hạn ngắn.
 
 Tương tự, nếu Pod có một hook `preStop` vượt quá thời gian ân hạn kết thúc, việc kết thúc khẩn cấp có thể xảy ra.
@@ -1112,7 +1112,7 @@ Ngoài ra, PodGC dọn dẹp mọi Pod thỏa mãn bất kỳ điều kiện nà
 
 Cùng với việc dọn dẹp các Pod, PodGC cũng đánh dấu chúng là thất bại nếu chúng đang ở một
 phase chưa kết thúc. Ngoài ra, PodGC thêm một Pod disruption condition khi dọn dẹp một Pod mồ côi.
-Xem [Pod disruption condition](https://kubernetes.io/docs/concepts/workloads/pods/disruptions#pod-disruption-conditions)
+Xem [Pod disruption condition](53-disruptions-vi.md#pod-disruption-conditions)
 để biết thêm chi tiết.
 
 ## Hành vi của Pod khi kubelet khởi động lại (Pod behavior during kubelet restarts) {#kubelet-restarts}
@@ -1141,7 +1141,7 @@ Khi kubelet khởi động lại, trạng thái các container được quản l
   Các container đang ở trạng thái `ready: true` vẫn giữ nguyên trạng thái sẵn sàng.
 
   Nếu bạn dừng kubelet đủ lâu để nó trượt một loạt các lần kiểm tra
-  [nhịp tim của node (node heartbeat)](https://kubernetes.io/docs/concepts/architecture/leases/#node-heart-beats),
+  [nhịp tim của node (node heartbeat)](35-leases-vi.md#node-heart-beats),
   rồi bạn chờ một lúc trước khi khởi động kubelet trở lại, Kubernetes có thể bắt đầu trục xuất các Pod khỏi Node đó.
   Tuy nhiên, ngay cả khi việc trục xuất Pod bắt đầu diễn ra, Kubernetes không đánh dấu
   từng container trong các Pod đó là `ready: false`. Việc trục xuất ở cấp Pod
@@ -1160,14 +1160,14 @@ Khi kubelet khởi động lại, trạng thái các container được quản l
 ## Tiếp theo (What's next)
 
 * Thực hành trực tiếp
-  [gắn các handler vào sự kiện vòng đời của container](https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/).
+  [gắn các handler vào sự kiện vòng đời của container](272-attach-handler-lifecycle-event-vi.md).
 
 * Thực hành trực tiếp
-  [cấu hình Liveness, Readiness và Startup Probe](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/).
+  [cấu hình Liveness, Readiness và Startup Probe](274-configure-probes-vi.md).
 
-* Tìm hiểu thêm về [container lifecycle hooks](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/).
+* Tìm hiểu thêm về [container lifecycle hooks](42-container-lifecycle-hooks-vi.md).
 
-* Tìm hiểu thêm về [sidecar container](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/).
+* Tìm hiểu thêm về [sidecar container](51-sidecar-containers-vi.md).
 
 * Để biết thông tin chi tiết về trạng thái của Pod và container trong API, xem
   tài liệu tham chiếu API về

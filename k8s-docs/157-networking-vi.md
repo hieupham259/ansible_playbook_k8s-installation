@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 14/16 · Kiểm chứng
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 14/16 · Kiểm chứng
 ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là bài đầu của nhánh **Tầng hạ tầng mạng của cluster** — mô hình mạng nhìn từ góc quản trị
@@ -52,7 +52,7 @@ riêng biệt cần giải quyết:
 1. Giao tiếp container-với-container có độ gắn kết cao: bài toán này được giải quyết bằng
    Pod và giao tiếp qua `localhost`.
 2. Giao tiếp Pod-với-Pod: đây là trọng tâm chính của tài liệu này.
-3. Giao tiếp Pod-với-Service: bài toán này được đề cập trong [Services](https://kubernetes.io/docs/concepts/services-networking/service/).
+3. Giao tiếp Pod-với-Service: bài toán này được đề cập trong [Services](82-service-vi.md).
 4. Giao tiếp từ bên ngoài tới Service: bài toán này cũng được đề cập trong Services.
 
 Kubernetes xoay quanh việc chia sẻ máy (machine) giữa các ứng dụng. Thông thường,
@@ -66,7 +66,7 @@ chèn số port động vào các khối cấu hình, các service phải biết
 cách tìm thấy nhau, v.v. Thay vì xử lý những điều này, Kubernetes chọn một
 cách tiếp cận khác.
 
-Để tìm hiểu về mô hình mạng của Kubernetes, xem [tại đây](https://kubernetes.io/docs/concepts/services-networking/).
+Để tìm hiểu về mô hình mạng của Kubernetes, xem [tại đây](81-services-networking-vi.md).
 
 ## Các dải địa chỉ IP của Kubernetes (Kubernetes IP address ranges)
 
@@ -85,7 +85,7 @@ Dựa theo các họ IP (IP family) được cấu hình, cluster Kubernetes có
 
 - Chỉ IPv4: network plugin, kube-apiserver và kubelet/cloud-controller-manager được cấu hình để chỉ gán địa chỉ IPv4.
 - Chỉ IPv6: network plugin, kube-apiserver và kubelet/cloud-controller-manager được cấu hình để chỉ gán địa chỉ IPv6.
-- IPv4/IPv6 hoặc IPv6/IPv4 [dual-stack](https://kubernetes.io/docs/concepts/services-networking/dual-stack/):
+- IPv4/IPv6 hoặc IPv6/IPv4 [dual-stack](85-dual-stack-vi.md):
   - Network plugin được cấu hình để gán cả địa chỉ IPv4 và IPv6.
   - kube-apiserver được cấu hình để gán cả địa chỉ IPv4 và IPv6.
   - kubelet hoặc cloud-controller-manager được cấu hình để gán cả địa chỉ IPv4 và IPv6.
@@ -96,7 +96,7 @@ Cluster Kubernetes chỉ xem xét các họ IP hiện diện trên các đối t
 địa chỉ IP được gán trên các interface của nó, nhưng chỉ các địa chỉ IP trong `node.status.addresses` hoặc `pod.status.ips` mới
 được xem xét khi hiện thực hóa mô hình mạng Kubernetes và xác định kiểu của cluster.
 
-## Cách hiện thực mô hình mạng Kubernetes (How to implement the Kubernetes network model)
+## Cách hiện thực mô hình mạng Kubernetes (How to implement the Kubernetes network model) {#how-to-implement-the-kubernetes-network-model}
 
 Mô hình mạng được hiện thực bởi container runtime trên mỗi node. Các container runtime
 phổ biến nhất sử dụng các plugin [Container Network Interface](https://github.com/containernetworking/cni) (CNI)
@@ -105,7 +105,7 @@ nhiều nhà cung cấp khác nhau. Một số plugin chỉ cung cấp các tín
 network interface, trong khi số khác cung cấp những giải pháp tinh vi hơn, chẳng hạn như tích hợp với
 các hệ thống điều phối container (container orchestration) khác, chạy nhiều plugin CNI cùng lúc, các tính năng IPAM nâng cao, v.v.
 
-Xem [trang này](https://kubernetes.io/docs/concepts/cluster-administration/addons/#networking-and-network-policy)
+Xem [trang này](165-addons-vi.md#networking-and-network-policy)
 để có danh sách (không đầy đủ) các addon mạng được Kubernetes hỗ trợ.
 
 ## Tiếp theo (What's next)

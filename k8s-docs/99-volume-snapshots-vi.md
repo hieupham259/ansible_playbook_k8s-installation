@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 10/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 10/16 · Kiểm chứng ở
 Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này chỉ thực hành được nếu CSI driver bạn cài ở Lab 6a có hỗ trợ snapshot. Nếu không, phần
@@ -49,7 +49,7 @@ snapshot và nhân bản được ghi vào [sổ nợ lab](labs/README.md#5-sổ
 
 Trong Kubernetes, một _VolumeSnapshot_ đại diện cho một ảnh chụp nhanh (snapshot) của một volume
 trên hệ thống lưu trữ. Tài liệu này giả định rằng bạn đã quen thuộc với
-[persistent volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) trong Kubernetes.
+[persistent volume](92-persistent-volumes-vi.md) trong Kubernetes.
 
 ## Giới thiệu (Introduction)
 
@@ -119,7 +119,7 @@ Chúng tồn tại trong Kubernetes API và sẵn sàng để được tiêu th�
 #### Động (Dynamic)
 
 Thay vì dùng một snapshot có sẵn từ trước, bạn có thể yêu cầu một snapshot được chụp
-động từ một PersistentVolumeClaim. [VolumeSnapshotClass](https://kubernetes.io/docs/concepts/storage/volume-snapshot-classes/)
+động từ một PersistentVolumeClaim. [VolumeSnapshotClass](100-volume-snapshot-classes-vi.md)
 chỉ định các tham số đặc thù của nhà cung cấp lưu trữ sẽ được dùng khi chụp snapshot.
 
 ### Ràng buộc (Binding)
@@ -143,7 +143,7 @@ Trong khi một snapshot của PersistentVolumeClaim đang được chụp, Pers
 làm nguồn của snapshot, đối tượng PersistentVolumeClaim đó không bị xóa ngay lập tức. Thay vào đó,
 việc xóa đối tượng PersistentVolumeClaim bị hoãn lại cho tới khi snapshot ở trạng thái readyToUse hoặc bị hủy bỏ.
 
-### Xóa (Delete)
+### Xóa (Delete) {#delete}
 
 Việc xóa được kích hoạt bằng cách xóa đối tượng `VolumeSnapshot`, và `DeletionPolicy`
 sẽ được tuân theo. Nếu `DeletionPolicy` là `Delete`, thì snapshot lưu trữ bên dưới
@@ -169,7 +169,7 @@ spec:
 cho snapshot. Trường này là bắt buộc khi cấp phát động một snapshot.
 
 Một volume snapshot có thể yêu cầu một class cụ thể bằng cách chỉ định tên của một
-[VolumeSnapshotClass](https://kubernetes.io/docs/concepts/storage/volume-snapshot-classes/)
+[VolumeSnapshotClass](100-volume-snapshot-classes-vi.md)
 qua thuộc tính `volumeSnapshotClassName`. Nếu không đặt gì, thì
 class mặc định sẽ được dùng nếu có.
 
@@ -294,7 +294,7 @@ Bạn có thể cấp phát một volume mới, được nạp sẵn dữ liệu
 trường _dataSource_ trong đối tượng `PersistentVolumeClaim`.
 
 Để biết thêm chi tiết, xem
-[Volume Snapshot và khôi phục Volume từ Snapshot](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#volume-snapshot-and-restore-volume-from-snapshot-support).
+[Volume Snapshot và khôi phục Volume từ Snapshot](92-persistent-volumes-vi.md#volume-snapshot-and-restore-volume-from-snapshot-support).
 
 ---
 

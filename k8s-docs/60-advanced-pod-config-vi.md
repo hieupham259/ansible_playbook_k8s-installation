@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3a](LO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 11/11 · Kiểm chứng
+**Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 11/11 · Kiểm chứng
 ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này là **trang giới thiệu, không phải trang dạy**: mỗi mục chỉ có một đoạn và một ví dụ YAML
@@ -50,7 +50,7 @@ rồi trỏ sang bài chuyên đề ở giai đoạn 7 và 9. Nhiệm vụ của
 
 Trang này đề cập đến các chủ đề cấu hình Pod nâng cao, bao gồm [PriorityClass](#priorityclasses),
 [RuntimeClass](#runtimeclasses), [security context](#security-context) bên trong Pod,
-và giới thiệu các khía cạnh của [việc lập lịch](https://kubernetes.io/docs/concepts/scheduling-eviction/#scheduling).
+và giới thiệu các khía cạnh của [việc lập lịch](136-scheduling-eviction-vi.md#scheduling).
 
 ## PriorityClasses
 
@@ -96,7 +96,7 @@ Kubernetes cung cấp sẵn hai PriorityClass:
 - `system-cluster-critical`: Dành cho các thành phần hệ thống thiết yếu đối với cluster
 - `system-node-critical`: Dành cho các thành phần hệ thống thiết yếu đối với từng node riêng lẻ. Đây là độ ưu tiên cao nhất mà một Pod có thể có trong Kubernetes.
 
-Để biết thêm thông tin, hãy xem [Độ ưu tiên và chiếm chỗ của Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/).
+Để biết thêm thông tin, hãy xem [Độ ưu tiên và chiếm chỗ của Pod](141-pod-priority-preemption-vi.md).
 
 ## RuntimeClasses
 
@@ -196,14 +196,14 @@ spec:
 
 > **Thận trọng:**
 > Bạn cũng có thể dùng `securityContext` của Pod để cho phép
-> [_chế độ đặc quyền_ (privileged mode)](https://kubernetes.io/docs/concepts/security/linux-kernel-security-constraints/#privileged-containers)
+> [_chế độ đặc quyền_ (privileged mode)](127-linux-kernel-security-vi.md#privileged-containers)
 > trong các container Linux. Chế độ đặc quyền ghi đè nhiều thiết lập bảo mật khác trong `securityContext`.
 > Tránh dùng thiết lập này trừ khi bạn không thể cấp các quyền tương đương bằng cách dùng các trường khác trong `securityContext`.
 > Bạn có thể chạy các container Windows ở một chế độ đặc quyền tương tự bằng cách đặt cờ
 > `windowsOptions.hostProcess` trên security context ở cấp Pod. Để biết chi tiết và hướng dẫn, hãy xem
-> [Tạo một Windows HostProcess Pod](https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/).
+> [Tạo một Windows HostProcess Pod](281-create-hostprocess-pod-vi.md).
 
-Để biết thêm thông tin, hãy xem [Cấu hình Security Context cho Pod hoặc Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+Để biết thêm thông tin, hãy xem [Cấu hình Security Context cho Pod hoặc Container](291-security-context-vi.md).
 
 ## Tác động đến quyết định lập lịch Pod (Influencing Pod scheduling decisions) {#scheduling}
 
@@ -301,7 +301,7 @@ spec:
     effect: "NoSchedule"
 ```
 
-Để biết thêm thông tin, hãy xem [Gán Pod cho Node](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).
+Để biết thêm thông tin, hãy xem [Gán Pod cho Node](138-assign-pod-node-vi.md).
 
 ## Pod overhead
 
@@ -340,11 +340,11 @@ spec:
 
 ## Tiếp theo (What's next)
 
-* Đọc về [Độ ưu tiên và chiếm chỗ của Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)
+* Đọc về [Độ ưu tiên và chiếm chỗ của Pod](141-pod-priority-preemption-vi.md)
 * Đọc về [RuntimeClass](./43-runtime-class-vi.md)
-* Khám phá [Cấu hình Security Context cho Pod hoặc Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
-* Tìm hiểu cách Kubernetes [gán Pod cho Node](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
-* [Pod Overhead](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-overhead/)
+* Khám phá [Cấu hình Security Context cho Pod hoặc Container](291-security-context-vi.md)
+* Tìm hiểu cách Kubernetes [gán Pod cho Node](138-assign-pod-node-vi.md)
+* [Pod Overhead](144-pod-overhead-vi.md)
 
 ---
 

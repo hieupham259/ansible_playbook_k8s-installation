@@ -12,9 +12,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 1 → nhóm [1a](LO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
+**Vị trí:** Giai đoạn 1 → nhóm [1a](00-ALO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển),
 bài 1/8 · Kiểm chứng ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) phần B1.
 
 **Phải hiểu ở lần đọc này:**
@@ -198,9 +198,9 @@ Container đã trở nên phổ biến vì chúng mang lại thêm nhiều lợi
 ## Tiếp theo (What's next)
 
 * Xem qua [Các thành phần của Kubernetes](./15-components-vi.md)
-* Xem qua [Kubernetes API](https://kubernetes.io/docs/concepts/overview/kubernetes-api/)
-* Xem qua [kubectl](https://kubernetes.io/docs/concepts/overview/kubectl/): công cụ dòng lệnh (CLI) chính của Kubernetes
-* Xem qua [Kiến trúc cluster](https://kubernetes.io/docs/concepts/architecture/)
+* Xem qua [Kubernetes API](21-kubernetes-api-vi.md)
+* Xem qua [kubectl](26-kubectl-vi.md): công cụ dòng lệnh (CLI) chính của Kubernetes
+* Xem qua [Kiến trúc cluster](22-architecture-vi.md)
 * Sẵn sàng để [Bắt đầu](https://kubernetes.io/docs/setup/)?
 
 ---

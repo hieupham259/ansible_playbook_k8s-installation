@@ -9,16 +9,16 @@
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
 Trang này hướng dẫn cách truy cập
-[metadata thiết bị](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-metadata)
+[metadata thiết bị](149-dynamic-resource-allocation-vi.md#device-metadata)
 từ các container sử dụng _cấp phát tài nguyên động (dynamic resource allocation — DRA)_.
 Metadata thiết bị cho phép workload khám phá thông tin về các thiết bị đã được cấp phát,
 chẳng hạn như các thuộc tính (attribute) của thiết bị hoặc chi tiết network interface — bằng
 cách đọc các file JSON tại những đường dẫn quy ước (well-known path) bên trong container.
 
 Trước khi đọc trang này, hãy làm quen với
-[Cấp phát tài nguyên động (Dynamic Resource Allocation — DRA)](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/)
+[Cấp phát tài nguyên động (Dynamic Resource Allocation — DRA)](149-dynamic-resource-allocation-vi.md)
 và cách
-[cấp phát thiết bị cho workload](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/allocate-devices-dra/).
+[cấp phát thiết bị cho workload](270-allocate-devices-dra-vi.md).
 
 ## Trước khi bạn bắt đầu (Before you begin)
 
@@ -37,7 +37,7 @@ nhập `kubectl version`.
 
 * Hãy chắc chắn rằng quản trị viên cluster của bạn đã thiết lập DRA, gắn thiết bị và cài đặt
   driver. Để biết thêm thông tin, xem
-  [Thiết lập DRA trong một cluster](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/set-up-dra-cluster).
+  [Thiết lập DRA trong một cluster](271-set-up-dra-cluster-vi.md).
 * Hãy chắc chắn rằng DRA driver được triển khai trong cluster của bạn hỗ trợ metadata thiết bị.
   Các driver dùng [DRA kubelet plugin](https://pkg.go.dev/k8s.io/dynamic-resource-allocation/kubeletplugin)
   bật các tùy chọn `EnableDeviceMetadata` và
@@ -129,7 +129,7 @@ metadata thiết bị xuất hiện bên trong container tại:
 
    Output là một đối tượng JSON chứa các thuộc tính thiết bị như model,
    phiên bản driver và UUID của thiết bị. Xem
-   [lược đồ metadata (metadata schema)](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-metadata-schema)
+   [lược đồ metadata (metadata schema)](149-dynamic-resource-allocation-vi.md#device-metadata-schema)
    để biết chi tiết về cấu trúc JSON.
 
 ## Truy cập metadata thiết bị bằng ResourceClaimTemplate (Access device metadata with a ResourceClaimTemplate) {#access-metadata-template}
@@ -252,7 +252,7 @@ kubectl delete -f https://k8s.io/examples/dra/dra-device-metadata-template-pod.y
 
 ## Tiếp theo (What's next)
 
-* [Tìm hiểu thêm về metadata thiết bị DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#device-metadata)
-* [Cấp phát thiết bị cho workload bằng DRA](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/allocate-devices-dra/)
+* [Tìm hiểu thêm về metadata thiết bị DRA](149-dynamic-resource-allocation-vi.md#device-metadata)
+* [Cấp phát thiết bị cho workload bằng DRA](270-allocate-devices-dra-vi.md)
 * Để biết thêm thông tin về thiết kế, xem
   [KEP-5304](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/5304-dra-attributes-downward-api).

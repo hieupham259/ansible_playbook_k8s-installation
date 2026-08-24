@@ -7,9 +7,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 6](LO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 9/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 9/16 · Kiểm chứng ở
 Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Từ bài này trở đi là phần nâng cao của giai đoạn 6, và **tất cả đều phụ thuộc vào việc CSI
@@ -43,8 +43,8 @@ kiện, đừng kỳ vọng chạy được ngay. Bài rất ngắn; điều duy
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.34 [stable]`
 
-Trang này giả định rằng bạn đã quen thuộc với [StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/),
-[volume](https://kubernetes.io/docs/concepts/storage/volumes/) và [PersistentVolume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
+Trang này giả định rằng bạn đã quen thuộc với [StorageClass](96-storage-classes-vi.md),
+[volume](91-volumes-vi.md) và [PersistentVolume](92-persistent-volumes-vi.md)
 trong Kubernetes.
 
 VolumeAttributesClass cung cấp một cách để quản trị viên mô tả các "lớp" (class) lưu trữ

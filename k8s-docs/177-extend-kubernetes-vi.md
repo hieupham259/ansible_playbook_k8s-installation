@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 14](LO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 1/7 ·
+**Vị trí:** [Giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 1/7 ·
 Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Lộ trình ghi rõ giai đoạn này **dành cho platform administrator / người phát triển operator**.
@@ -85,8 +85,8 @@ bởi người vận hành cluster. Ngoài ra, chúng có thể bị thay đổi
 việc thiết lập chúng có thể yêu cầu khởi động lại các tiến trình. Vì những lý do đó, chúng chỉ nên được sử dụng khi
 không còn lựa chọn nào khác.
 
-Các *policy API* có sẵn, chẳng hạn như [ResourceQuota](https://kubernetes.io/docs/concepts/policy/resource-quotas/),
-[NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/) và kiểm soát truy cập dựa trên vai trò
+Các *policy API* có sẵn, chẳng hạn như [ResourceQuota](134-resource-quotas-vi.md),
+[NetworkPolicy](84-network-policies-vi.md) và kiểm soát truy cập dựa trên vai trò
 ([RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)), là các API Kubernetes có sẵn cung cấp các thiết lập policy được cấu hình theo cách khai báo (declarative).
 Các API này thường vẫn dùng được ngay cả với các dịch vụ Kubernetes được host sẵn và các bản cài đặt Kubernetes được quản lý.
 Các policy API có sẵn tuân theo cùng quy ước như các resource Kubernetes khác, chẳng hạn như Pod.
@@ -103,7 +103,7 @@ Nhiều quản trị viên cluster sử dụng một phiên bản Kubernetes đ�
 Các cluster này đã được cài đặt sẵn các phần mở rộng. Do đó, hầu hết người dùng Kubernetes
 sẽ không cần cài đặt phần mở rộng, và số người cần tự viết phần mở rộng mới còn ít hơn nữa.
 
-### Các mẫu thiết kế phần mở rộng (Extension patterns)
+### Các mẫu thiết kế phần mở rộng (Extension patterns) {#extension-patterns}
 
 Kubernetes được thiết kế để có thể tự động hóa bằng cách viết các chương trình client. Bất kỳ
 chương trình nào đọc và/hoặc ghi vào Kubernetes API đều có thể cung cấp khả năng
@@ -130,7 +130,7 @@ ra một dịch vụ từ xa, Kubernetes gọi đó là một *webhook*. Dịch 
 Trong mô hình webhook, Kubernetes thực hiện một request qua mạng tới một dịch vụ từ xa.
 Với mô hình thay thế là *binary Plugin*, Kubernetes thực thi một chương trình nhị phân (binary).
 Binary plugin được sử dụng bởi kubelet (ví dụ, [CSI storage plugin](https://kubernetes-csi.github.io/docs/)
-và [CNI network plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/)),
+và [CNI network plugin](183-network-plugins-vi.md)),
 và bởi kubectl (xem [Mở rộng kubectl bằng plugin](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/)).
 
 ### Các điểm mở rộng (Extension points)
@@ -156,7 +156,7 @@ client truy cập vào nó.
    `pods`, được định nghĩa bởi dự án Kubernetes và không thể thay đổi.
    Đọc [Phần mở rộng API](#api-extensions) để tìm hiểu về việc mở rộng Kubernetes API.
 
-1. Bộ lập lịch (scheduler) của Kubernetes [quyết định](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
+1. Bộ lập lịch (scheduler) của Kubernetes [quyết định](138-assign-pod-node-vi.md)
    node nào sẽ được đặt pod lên. Có một số cách để mở rộng việc lập lịch, được
    mô tả trong phần [Phần mở rộng lập lịch](#scheduling-extensions).
 
@@ -207,12 +207,12 @@ Hãy cân nhắc thêm một _Custom Resource_ vào Kubernetes nếu bạn muố
 như `kubectl`.
 
 Để biết thêm về Custom Resource, xem trang khái niệm
-[Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/).
+[Custom Resources](179-custom-resources-vi.md).
 
 ### Tầng tổng hợp API (API aggregation layer)
 
-Bạn có thể dùng [tầng tổng hợp API (API Aggregation Layer)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/) của Kubernetes
-để tích hợp Kubernetes API với các dịch vụ bổ sung, chẳng hạn như cho [metrics](https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/).
+Bạn có thể dùng [tầng tổng hợp API (API Aggregation Layer)](180-apiserver-aggregation-vi.md) của Kubernetes
+để tích hợp Kubernetes API với các dịch vụ bổ sung, chẳng hạn như cho [metrics](311-resource-metrics-pipeline-vi.md).
 
 ### Kết hợp API mới với tự động hóa (Combining new APIs with automation) {#combining-new-apis-with-automation}
 
@@ -238,7 +238,7 @@ _Phần mở rộng truy cập API_ thì có.
 Khi một request đến Kubernetes API Server, trước tiên nó được _xác thực (authenticated)_, sau đó được _phân quyền (authorized)_,
 rồi chịu sự kiểm soát của nhiều loại _kiểm soát chấp nhận (admission control)_ khác nhau (một số request thực tế không
 được xác thực, và được xử lý đặc biệt). Xem
-[Kiểm soát truy cập vào Kubernetes API](https://kubernetes.io/docs/concepts/security/controlling-access/)
+[Kiểm soát truy cập vào Kubernetes API](119-controlling-access-vi.md)
 để biết thêm về luồng xử lý này.
 
 Mỗi bước trong luồng xác thực / phân quyền của Kubernetes đều cung cấp các điểm mở rộng.
@@ -282,7 +282,7 @@ Bên cạnh các bước có sẵn, có một số phần mở rộng:
 
 _Device plugin_ cho phép một node khám phá các tài nguyên Node mới (bên cạnh những tài nguyên
 có sẵn như cpu và memory) thông qua một
-[Device Plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/).
+[Device Plugin](184-device-plugins-vi.md).
 
 ### Storage plugin (Storage plugins) {#storage-plugins}
 
@@ -291,7 +291,7 @@ một cách để mở rộng Kubernetes với hỗ trợ cho các loại volume
 lưu trữ ngoài bền vững (durable external storage), hoặc cung cấp lưu trữ tạm thời (ephemeral storage), hoặc chúng có thể cung cấp một giao diện chỉ đọc
 tới thông tin theo mô hình filesystem.
 
-Kubernetes cũng có hỗ trợ cho các plugin [FlexVolume](https://kubernetes.io/docs/concepts/storage/volumes/#flexvolume),
+Kubernetes cũng có hỗ trợ cho các plugin [FlexVolume](91-volumes-vi.md#flexvolume),
 vốn đã bị ngừng hỗ trợ (deprecated) kể từ Kubernetes v1.23 (để nhường chỗ cho CSI).
 
 Plugin FlexVolume cho phép người dùng mount các loại volume không được Kubernetes hỗ trợ nguyên bản. Khi
@@ -307,7 +307,7 @@ chứa thông tin tổng quát về các storage plugin.
 Cluster Kubernetes của bạn cần một _network plugin_ để có mạng Pod
 hoạt động và để hỗ trợ các khía cạnh khác của mô hình mạng Kubernetes.
 
-[Network Plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/)
+[Network Plugin](183-network-plugins-vi.md)
 cho phép Kubernetes làm việc với các topology và công nghệ mạng khác nhau.
 
 ### Plugin cung cấp credential image cho kubelet (Kubelet image credential provider plugins)
@@ -323,7 +323,7 @@ kubelet không cần lưu credential tĩnh cho từng registry, và có thể h�
 phương thức và giao thức xác thực khác nhau.
 
 Để biết chi tiết cấu hình plugin, xem
-[Cấu hình một kubelet image credential provider](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider/).
+[Cấu hình một kubelet image credential provider](225-kubelet-credential-provider-vi.md).
 
 ## Phần mở rộng lập lịch (Scheduling extensions) {#scheduling-extensions}
 
@@ -339,7 +339,7 @@ họ không cần chỉnh sửa bộ lập lịch.
 Bạn có thể kiểm soát những [scheduling plugin](https://kubernetes.io/docs/reference/scheduling/config/#scheduling-plugins)
 nào được kích hoạt, hoặc gắn các tập plugin với các [scheduler profile](https://kubernetes.io/docs/reference/scheduling/config/#multiple-profiles) được đặt tên khác nhau.
 Bạn cũng có thể viết plugin của riêng mình tích hợp với một hoặc nhiều
-[điểm mở rộng](https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/#extension-points) của kube-scheduler.
+[điểm mở rộng](https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework#extension-points) của kube-scheduler.
 
 Cuối cùng, thành phần `kube-scheduler` có sẵn hỗ trợ một
 [webhook](https://git.k8s.io/design-proposals-archive/scheduling/scheduler_extender.md)
@@ -354,14 +354,14 @@ các node mà kube-scheduler chọn cho một pod.
 ## Tiếp theo (What's next)
 
 * Tìm hiểu thêm về các phần mở rộng hạ tầng
-  * [Device Plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/)
-  * [Network Plugins](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/)
+  * [Device Plugins](184-device-plugins-vi.md)
+  * [Network Plugins](183-network-plugins-vi.md)
   * CSI [storage plugins](https://kubernetes-csi.github.io/docs/)
 * Tìm hiểu về [kubectl plugins](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/)
-* Tìm hiểu thêm về [Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
-* Tìm hiểu thêm về [Extension API Servers](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/)
+* Tìm hiểu thêm về [Custom Resources](179-custom-resources-vi.md)
+* Tìm hiểu thêm về [Extension API Servers](180-apiserver-aggregation-vi.md)
 * Tìm hiểu về [kiểm soát chấp nhận động (Dynamic admission control)](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/)
-* Tìm hiểu về [mẫu Operator (Operator pattern)](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
+* Tìm hiểu về [mẫu Operator (Operator pattern)](181-operator-vi.md)
 
 ---
 

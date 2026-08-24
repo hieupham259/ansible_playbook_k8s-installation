@@ -9,9 +9,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 8](LO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 5/9 ·
+**Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 5/9 ·
 Kiểm chứng ở Lab 8b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài ngắn nhất giai đoạn 8, và cũng là bài **quyết định**: lộ trình đánh dấu nó là *quyết định
@@ -64,7 +64,7 @@ Bạn nên cân nhắc kỹ lưỡng các ưu điểm và nhược điểm của
 > [Hướng dẫn Clustering](https://github.com/etcd-io/etcd/blob/release-3.4/Documentation/op-guide/clustering.md#static)
 > của etcd để biết thêm chi tiết.
 
-## Topology etcd xếp chồng (Stacked etcd topology)
+## Topology etcd xếp chồng (Stacked etcd topology) {#stacked-etcd-topology}
 
 Một cluster HA xếp chồng là một [topology](https://en.wikipedia.org/wiki/Network_topology) trong đó cluster lưu trữ
 dữ liệu phân tán do etcd cung cấp được xếp chồng lên trên cluster hình thành từ các node do kubeadm quản lý
@@ -90,7 +90,7 @@ trên các control plane node khi sử dụng `kubeadm init` và `kubeadm join -
 
 ![Topology etcd xếp chồng](https://kubernetes.io/images/kubeadm/kubeadm-ha-topology-stacked-etcd.svg)
 
-## Topology etcd bên ngoài (External etcd topology)
+## Topology etcd bên ngoài (External etcd topology) {#external-etcd-topology}
 
 Một cluster HA với etcd bên ngoài là một [topology](https://en.wikipedia.org/wiki/Network_topology)
 trong đó cluster lưu trữ dữ liệu phân tán do etcd cung cấp nằm bên ngoài cluster hình thành từ
@@ -114,7 +114,7 @@ Cần tối thiểu ba host cho các control plane node và ba host cho các etc
 
 ## Tiếp theo (What's next)
 
-- [Thiết lập một cluster có tính sẵn sàng cao với kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/)
+- [Thiết lập một cluster có tính sẵn sàng cao với kubeadm](08-high-availability-vi.md)
 
 ---
 

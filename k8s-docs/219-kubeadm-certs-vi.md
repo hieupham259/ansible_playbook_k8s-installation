@@ -11,9 +11,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — CP3 Vòng đời chứng chỉ](LO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ),
+**Vị trí:** [Checkpoint tiếp nối — CP3 Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ),
 bài 1/3 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này dài nhưng thực chất là **hai bài trong một**: nửa đầu là quy trình vận hành hằng ngày
@@ -233,7 +233,7 @@ với các certificate xoay được (rotatable) trong `/var/lib/kubelet/pki`.
 ## Gia hạn certificate tự động (Automatic certificate renewal)
 
 kubeadm gia hạn tất cả các certificate trong quá trình
-[nâng cấp](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/)
+[nâng cấp](221-kubeadm-upgrade-vi.md)
 control plane.
 
 Tính năng này được thiết kế cho những trường hợp sử dụng đơn giản nhất; nếu bạn không có yêu
@@ -245,7 +245,7 @@ Nếu bạn có các yêu cầu phức tạp hơn về gia hạn certificate, b�
 định bằng cách truyền `--certificate-renewal=false` cho `kubeadm upgrade apply` hoặc
 `kubeadm upgrade node`.
 
-## Gia hạn certificate thủ công (Manual certificate renewal)
+## Gia hạn certificate thủ công (Manual certificate renewal) {#manual-certificate-renewal}
 
 Bạn có thể gia hạn certificate thủ công bất cứ lúc nào với lệnh `kubeadm certs renew`, kèm các
 tùy chọn dòng lệnh phù hợp. Nếu bạn đang chạy cluster với control plane có nhiều bản sao
@@ -262,7 +262,7 @@ giá trị tương ứng trong ConfigMap đó đồng bộ với nhau, để tr�
 Sau khi chạy lệnh, bạn nên khởi động lại các Pod của control plane. Điều này là bắt buộc vì
 hiện tại việc nạp lại certificate động (dynamic certificate reload) chưa được hỗ trợ cho mọi
 thành phần và certificate.
-[Static Pod](https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/) được quản
+[Static Pod](293-static-pod-tasks-vi.md) được quản
 lý bởi kubelet cục bộ chứ không phải bởi API Server, do đó không thể dùng kubectl để xóa và
 khởi động lại chúng.
 Để khởi động lại một static Pod, bạn có thể tạm thời di chuyển file manifest của nó ra khỏi

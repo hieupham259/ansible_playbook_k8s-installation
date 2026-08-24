@@ -163,7 +163,7 @@ một cách vô tình, hoặc khỏi bị lưu lại trong log của terminal.
 ## Sửa một Secret (Edit a Secret) {#edit-secret}
 
 Bạn có thể sửa một đối tượng `Secret` hiện có, trừ khi nó là
-[bất biến (immutable)](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable). Để sửa một
+[bất biến (immutable)](109-secret-vi.md#secret-immutable). Để sửa một
 Secret, hãy chạy lệnh sau:
 
 ```shell
@@ -202,6 +202,6 @@ kubectl delete secret db-user-pass
 
 ## Tiếp theo (What's next)
 
-- Đọc thêm về [khái niệm Secret](https://kubernetes.io/docs/concepts/configuration/secret/)
+- Đọc thêm về [khái niệm Secret](109-secret-vi.md)
 - Tìm hiểu cách [quản lý Secret bằng file cấu hình](326-secret-config-file-vi.md)
-- Tìm hiểu cách [quản lý Secret bằng kustomize](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kustomize/)
+- Tìm hiểu cách [quản lý Secret bằng kustomize](328-secret-kustomize-vi.md)

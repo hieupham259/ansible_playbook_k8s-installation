@@ -11,7 +11,7 @@ từ một hàng đợi tác vụ (task queue), xử lý nó, và lặp lại ch
 Dưới đây là tổng quan các bước trong ví dụ này:
 
 1. **Khởi động một dịch vụ lưu trữ để chứa hàng đợi công việc.** Trong ví dụ này, bạn sẽ dùng Redis để lưu
-   các phần tử công việc. Trong [ví dụ trước](https://kubernetes.io/docs/tasks/job/coarse-parallel-processing-work-queue),
+   các phần tử công việc. Trong [ví dụ trước](351-coarse-parallel-work-queue-vi.md),
    bạn đã dùng RabbitMQ. Trong ví dụ này, bạn sẽ dùng Redis và một thư viện client hàng đợi công việc tự viết;
    lý do là AMQP không cung cấp một cách tốt để client
    phát hiện khi nào một hàng đợi công việc có độ dài hữu hạn đã rỗng. Trong thực tế, bạn sẽ dựng một kho lưu trữ
@@ -41,7 +41,7 @@ Ví dụ này cũng giả định rằng bạn đã cài Docker trên máy cục
 build các container image.
 
 Hãy làm quen với cách dùng cơ bản, không song song, của
-[Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/).
+[Job](67-job-vi.md).
 
 ## Khởi động Redis (Starting Redis)
 
@@ -181,7 +181,7 @@ docker push <username>/job-wq-2
 ```
 
 Bạn cần đẩy lên một repository công khai hoặc [cấu hình cluster của bạn để có thể truy cập
-repository riêng tư của bạn](https://kubernetes.io/docs/concepts/containers/images/).
+repository riêng tư của bạn](40-images-vi.md).
 
 ## Định nghĩa một Job (Defining a Job)
 
@@ -280,7 +280,7 @@ Như bạn thấy, một trong các pod của Job này đã xử lý nhiều đ�
 
 Nếu việc chạy một dịch vụ hàng đợi hoặc sửa container của bạn để dùng hàng đợi công việc là bất tiện,
 bạn có thể cân nhắc một trong các
-[mẫu job (job patterns)](https://kubernetes.io/docs/concepts/workloads/controllers/job/#job-patterns) khác.
+[mẫu job (job patterns)](67-job-vi.md#job-patterns) khác.
 
 Nếu bạn có một luồng công việc xử lý nền (background processing) liên tục cần chạy,
 hãy cân nhắc chạy các worker nền của bạn bằng một ReplicaSet thay thế,

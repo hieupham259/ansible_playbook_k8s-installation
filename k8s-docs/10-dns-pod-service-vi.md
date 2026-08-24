@@ -10,9 +10,9 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 5](LO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 4/16 · Kiểm chứng ở
+**Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 4/16 · Kiểm chứng ở
 Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Bài này là chỗ giải thích **vì sao gọi Service bằng tên lại chạy được**. Trọng tâm nằm ở ba
@@ -101,7 +101,7 @@ Các phần sau đây trình bày chi tiết những loại bản ghi DNS đư�
 Để có đặc tả cập nhật hơn, xem
 [Kubernetes DNS-Based Service Discovery](https://github.com/kubernetes/dns/blob/master/docs/specification.md).
 
-## Service (Services)
+## Service (Services) {#services}
 
 ### Bản ghi A/AAAA (A/AAAA records)
 
@@ -110,7 +110,7 @@ tùy theo (các) họ IP (IP family) của Service, với tên có dạng
 `my-svc.my-namespace.svc.cluster-domain.example`. Tên này phân giải thành cluster IP
 của Service.
 
-[Headless Service](https://kubernetes.io/docs/concepts/services-networking/service/#headless-services)
+[Headless Service](82-service-vi.md#headless-services)
 (không có cluster IP) cũng được gán các bản ghi DNS A và/hoặc AAAA,
 với tên có dạng `my-svc.my-namespace.svc.cluster-domain.example`. Khác với Service
 bình thường, tên này phân giải thành tập các IP của tất cả các Pod được Service đó chọn.
@@ -238,7 +238,7 @@ là `"busybox-subdomain"`, Pod đầu tiên sẽ thấy FQDN của chính nó l�
 các bản ghi A và/hoặc AAAA tại tên đó, trỏ đến IP của Pod. Cả hai Pod "`busybox1`" và
 "`busybox2`" đều sẽ có bản ghi địa chỉ (address record) của riêng mình.
 
-Một [EndpointSlice](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/) có thể chỉ định
+Một [EndpointSlice](83-endpoint-slices-vi.md) có thể chỉ định
 hostname DNS cho bất kỳ địa chỉ endpoint nào, cùng với IP của nó.
 
 > **Ghi chú:**
@@ -276,7 +276,7 @@ vào hostname cho namespace của Pod đó. Trong trường hợp này, cả `ho
 > [admission webhook controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#what-are-admission-webhooks)
 > để kiểm soát độ dài FQDN khi người dùng tạo các đối tượng cấp cao, ví dụ như Deployment.
 
-### Chính sách DNS của Pod (Pod's DNS Policy)
+### Chính sách DNS của Pod (Pod's DNS Policy) {#pod-s-dns-policy}
 
 Chính sách DNS có thể được thiết lập trên từng Pod. Hiện tại Kubernetes hỗ trợ các
 chính sách DNS theo Pod sau đây. Các chính sách này được chỉ định trong
@@ -284,13 +284,13 @@ trường `dnsPolicy` của Spec Pod.
 
 - "`Default`": Pod kế thừa cấu hình phân giải tên từ node
   mà Pod chạy trên đó.
-  Xem [thảo luận liên quan](https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers)
+  Xem [thảo luận liên quan](204-dns-custom-nameservers-vi.md)
   để biết thêm chi tiết.
 - "`ClusterFirst`": Bất kỳ truy vấn DNS nào không khớp với hậu tố domain
   của cluster đã cấu hình, chẳng hạn "`www.kubernetes.io`", sẽ được DNS server chuyển tiếp đến một
   nameserver thượng nguồn (upstream). Quản trị viên cluster có thể cấu hình thêm
   các stub-domain và các DNS server upstream.
-  Xem [thảo luận liên quan](https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers)
+  Xem [thảo luận liên quan](204-dns-custom-nameservers-vi.md)
   để biết chi tiết về cách các truy vấn DNS được xử lý trong những trường hợp đó.
 - "`ClusterFirstWithHostNet`": Đối với các Pod chạy với hostNetwork, bạn nên
   đặt chính sách DNS của chúng một cách tường minh là "`ClusterFirstWithHostNet`". Nếu không, các Pod
@@ -449,7 +449,7 @@ của Pod, và Cấu hình DNS sau khi gộp.
 ## Tiếp theo (What's next)
 
 Để có hướng dẫn về việc quản trị các cấu hình DNS, xem
-[Configure DNS Service](https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/).
+[Configure DNS Service](204-dns-custom-nameservers-vi.md).
 
 ---
 

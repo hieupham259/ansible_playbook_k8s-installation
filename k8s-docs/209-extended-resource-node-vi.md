@@ -7,10 +7,10 @@
 ## Đọc bài này thế nào
 
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
-> phần nào để dành cho giai đoạn sau. Xem [lộ trình](LO-TRINH-ADMIN.md).
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](LO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP10 — Quản trị tài nguyên theo namespace](LO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace),
+**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
+→ [CP10 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace),
 bài 7/7 · Kiểm chứng bằng chính các bước trong bài trên cluster lab: bài là task tự chứa, có mục
 dọn dẹp — quảng bá dongle trên một worker rồi gỡ đi, cluster trở về đúng trạng thái cũ.
 
@@ -138,7 +138,7 @@ Capacity:
 ```
 
 Giờ đây, người phát triển ứng dụng có thể tạo các Pod request một số lượng dongle nhất định. Xem
-[Gán Extended Resource cho một Container](https://kubernetes.io/docs/tasks/configure-pod-container/extended-resource/).
+[Gán Extended Resource cho một Container](284-extended-resource-vi.md).
 
 ## Thảo luận (Discussion)
 
@@ -224,13 +224,13 @@ kubectl describe node <your-node-name> | grep dongle
 
 ### Dành cho người phát triển ứng dụng (For application developers)
 
-- [Gán Extended Resource cho một Container](https://kubernetes.io/docs/tasks/configure-pod-container/extended-resource/)
+- [Gán Extended Resource cho một Container](284-extended-resource-vi.md)
 - [Cấp phát Extended Resource bằng DRA](149-dynamic-resource-allocation-vi.md#extended-resource)
 
 ### Dành cho quản trị viên cluster (For cluster administrators)
 
-- [Cấu hình ràng buộc Memory tối thiểu và tối đa cho một Namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/memory-constraint-namespace/)
-- [Cấu hình ràng buộc CPU tối thiểu và tối đa cho một Namespace](https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/cpu-constraint-namespace/)
+- [Cấu hình ràng buộc Memory tối thiểu và tối đa cho một Namespace](231-memory-constraint-namespace-vi.md)
+- [Cấu hình ràng buộc CPU tối thiểu và tối đa cho một Namespace](229-cpu-constraint-namespace-vi.md)
 - [Cấp phát Extended Resource bằng DRA](149-dynamic-resource-allocation-vi.md#extended-resource)
 
 ---
@@ -277,5 +277,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của
-[CP10](LO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace) — hoàn thành loạt bài thực
+[CP10](00-ALO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace) — hoàn thành loạt bài thực
 hành LimitRange và ResourceQuota của checkpoint này trên cluster lab trước khi sang CP11.

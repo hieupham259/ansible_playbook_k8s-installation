@@ -155,7 +155,7 @@ Có các phương pháp sau để cài đặt kubectl trên Linux:
    > **Ghi chú:** Để nâng cấp kubectl lên một bản phát hành minor khác, bạn cần tăng phiên bản
    > trong `/etc/apt/sources.list.d/kubernetes.list` trước khi chạy `apt-get update` và
    > `apt-get upgrade`. Quy trình này được mô tả chi tiết hơn tại
-   > [Thay đổi kho gói Kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/change-package-repository/).
+   > [Thay đổi kho gói Kubernetes](217-change-package-repository-vi.md).
 
 4. Cập nhật chỉ mục gói `apt`, sau đó cài đặt kubectl:
 
@@ -184,7 +184,7 @@ Có các phương pháp sau để cài đặt kubectl trên Linux:
    > **Ghi chú:** Để nâng cấp kubectl lên một bản phát hành minor khác, bạn cần tăng phiên bản
    > trong `/etc/yum.repos.d/kubernetes.repo` trước khi chạy `yum update`. Quy trình này được
    > mô tả chi tiết hơn tại
-   > [Thay đổi kho gói Kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/change-package-repository/).
+   > [Thay đổi kho gói Kubernetes](217-change-package-repository-vi.md).
 
 2. Cài đặt kubectl bằng `yum`:
 
@@ -212,7 +212,7 @@ Có các phương pháp sau để cài đặt kubectl trên Linux:
    > **Ghi chú:** Để nâng cấp kubectl lên một bản phát hành minor khác, bạn cần tăng phiên bản
    > trong `/etc/zypp/repos.d/kubernetes.repo` trước khi chạy `zypper update`. Quy trình này
    > được mô tả chi tiết hơn tại
-   > [Thay đổi kho gói Kubernetes](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/change-package-repository/).
+   > [Thay đổi kho gói Kubernetes](217-change-package-repository-vi.md).
 
 2. Cập nhật `zypper` và xác nhận việc thêm kho mới:
 
@@ -533,5 +533,5 @@ Kubernetes mới hơn.
 * Xem [các hướng dẫn bắt đầu](https://kubernetes.io/docs/setup/) để biết thêm về việc tạo cluster.
 * [Tìm hiểu cách khởi chạy và expose ứng dụng của bạn.](https://kubernetes.io/docs/tasks/access-application-cluster/service-access-application-cluster/)
 * Nếu bạn cần truy cập một cluster mà bạn không tạo ra, hãy xem
-  [tài liệu Chia sẻ quyền truy cập cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/).
+  [tài liệu Chia sẻ quyền truy cập cluster](361-configure-access-multiple-clusters-vi.md).
 * Đọc [tài liệu tham khảo kubectl](https://kubernetes.io/docs/reference/kubectl/kubectl/)

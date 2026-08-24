@@ -5,7 +5,7 @@
 > Trang này hướng dẫn cách một Pod có thể dùng volume `downwardAPI` để expose thông tin về chính nó cho các container đang chạy trong Pod.
 
 Trang này hướng dẫn cách một Pod có thể dùng
-[volume `downwardAPI`](https://kubernetes.io/docs/concepts/storage/volumes/#downwardapi)
+[volume `downwardAPI`](91-volumes-vi.md#downwardapi)
 để expose thông tin về chính nó cho các container đang chạy trong Pod.
 Một volume `downwardAPI` có thể expose các field của Pod và các field của container.
 
@@ -175,7 +175,7 @@ một cách nguyên tử bằng [rename(2)](http://man7.org/linux/man-pages/man2
 
 > **Ghi chú:**
 > Một container dùng Downward API dưới dạng volume mount kiểu
-> [subPath](https://kubernetes.io/docs/concepts/storage/volumes/#using-subpath) sẽ không
+> [subPath](91-volumes-vi.md#using-subpath) sẽ không
 > nhận được các bản cập nhật của Downward API.
 
 Thoát khỏi shell:
@@ -254,7 +254,7 @@ spec:
 ```
 
 Trong manifest, bạn có thể thấy Pod có một
-[volume `downwardAPI`](https://kubernetes.io/docs/concepts/storage/volumes/#downwardapi),
+[volume `downwardAPI`](91-volumes-vi.md#downwardapi),
 và container duy nhất trong Pod đó mount volume này tại `/etc/podinfo`.
 
 Hãy nhìn vào mảng `items` bên dưới `downwardAPI`. Mỗi phần tử của mảng
@@ -292,13 +292,13 @@ Bạn có thể dùng các lệnh tương tự để xem các file `cpu_request`
 
 Bạn có thể chiếu (project) các key vào những đường dẫn cụ thể và với những quyền cụ thể trên cơ sở
 từng file. Để biết thêm thông tin, xem
-[Secret](https://kubernetes.io/docs/concepts/configuration/secret/).
+[Secret](109-secret-vi.md).
 
 ## Tiếp theo (What's next)
 
 * Đọc định nghĩa API [`spec`](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodSpec)
   của Pod. Định nghĩa này bao gồm cả định nghĩa của Container (một phần của Pod).
-* Đọc danh sách [các field khả dụng](https://kubernetes.io/docs/concepts/workloads/pods/downward-api/#available-fields) mà bạn
+* Đọc danh sách [các field khả dụng](56-downward-api-vi.md#available-fields) mà bạn
   có thể expose bằng downward API.
 
 Đọc về volume trong tài liệu tham khảo API cũ (legacy):

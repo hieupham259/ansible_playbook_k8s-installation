@@ -245,10 +245,10 @@ Kết quả hiển thị giá trị của các biến môi trường được ch
 
 ## Tiếp theo (What's next)
 
-* Đọc [Định nghĩa biến môi trường cho container](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/)
+* Đọc [Định nghĩa biến môi trường cho container](331-define-environment-variable-vi.md)
 * Đọc định nghĩa API [`spec`](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodSpec)
   của Pod. Định nghĩa này bao gồm cả định nghĩa của Container (một phần của Pod).
-* Đọc danh sách [các field khả dụng](https://kubernetes.io/docs/concepts/workloads/pods/downward-api/#available-fields) mà bạn
+* Đọc danh sách [các field khả dụng](56-downward-api-vi.md#available-fields) mà bạn
   có thể expose bằng downward API.
 
 Đọc về Pod, container và biến môi trường trong tài liệu tham khảo API cũ (legacy):

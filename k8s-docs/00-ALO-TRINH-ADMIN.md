@@ -591,7 +591,7 @@ Các trang này **đã có bản dịch** trong thư mục — file mang số t�
 - [ ] [Quản lý certificate với kubeadm](219-kubeadm-certs-vi.md) — kiểm tra hạn, gia hạn, xoay CA.
 - [ ] [Tạo certificate thủ công](191-certificates-manual-vi.md) — chính là trang mà bài [156](156-certificates-vi.md) trỏ tới. ⏳
 - [ ] [PKI certificates and requirements](https://kubernetes.io/docs/setup/best-practices/certificates/) — **chưa có bản dịch trong thư mục**, đọc bản gốc.
-- [ ] [Manage TLS Certificates in a Cluster](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/) — **chưa có bản dịch trong thư mục**, đọc bản gốc.
+- [ ] [Manage TLS Certificates in a Cluster](399-managing-tls-in-a-cluster-vi.md) — **chưa có bản dịch trong thư mục**, đọc bản gốc.
 
 ### CP4 — etcd, backup và khôi phục thảm họa
 

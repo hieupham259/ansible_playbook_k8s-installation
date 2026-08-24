@@ -531,7 +531,7 @@ Kubernetes mới hơn.
 * Tìm hiểu về [kubectl](26-kubectl-vi.md) và vai trò của nó trong hệ sinh thái Kubernetes.
 * [Cài đặt Minikube](https://minikube.sigs.k8s.io/docs/start/)
 * Xem [các hướng dẫn bắt đầu](https://kubernetes.io/docs/setup/) để biết thêm về việc tạo cluster.
-* [Tìm hiểu cách khởi chạy và expose ứng dụng của bạn.](https://kubernetes.io/docs/tasks/access-application-cluster/service-access-application-cluster/)
+* [Tìm hiểu cách khởi chạy và expose ứng dụng của bạn.](370-service-access-application-cluster-vi.md)
 * Nếu bạn cần truy cập một cluster mà bạn không tạo ra, hãy xem
   [tài liệu Chia sẻ quyền truy cập cluster](361-configure-access-multiple-clusters-vi.md).
 * Đọc [tài liệu tham khảo kubectl](https://kubernetes.io/docs/reference/kubectl/kubectl/)

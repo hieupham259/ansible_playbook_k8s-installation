@@ -145,7 +145,7 @@ mạng đó.
 Sau khi bật dịch vụ Konnectivity, toàn bộ lưu lượng từ control plane tới các node sẽ đi qua các
 kết nối này.
 
-Hãy làm theo [tác vụ thiết lập dịch vụ Konnectivity](https://kubernetes.io/docs/tasks/extend-kubernetes/setup-konnectivity/) để thiết lập
+Hãy làm theo [tác vụ thiết lập dịch vụ Konnectivity](381-setup-konnectivity-vi.md) để thiết lập
 dịch vụ Konnectivity trong cluster của bạn.
 
 ## Tiếp theo (What's next)
@@ -154,7 +154,7 @@ dịch vụ Konnectivity trong cluster của bạn.
 * Tìm hiểu thêm về [mô hình Hub and Spoke](https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts.html#hubs-spokes-and-other-wheel-metaphors)
 * Tìm hiểu cách [bảo mật một cluster](256-securing-a-cluster-vi.md)
 * Tìm hiểu thêm về [Kubernetes API](21-kubernetes-api-vi.md)
-* [Thiết lập dịch vụ Konnectivity](https://kubernetes.io/docs/tasks/extend-kubernetes/setup-konnectivity/)
+* [Thiết lập dịch vụ Konnectivity](381-setup-konnectivity-vi.md)
 * [Dùng Port Forwarding để truy cập ứng dụng trong cluster](366-port-forward-vi.md)
 * Tìm hiểu cách [lấy log của các Pod](300-debug-running-pod-vi.md#examine-pod-logs), [dùng kubectl port-forward](366-port-forward-vi.md#forward-a-local-port-to-a-port-on-the-pod)
 

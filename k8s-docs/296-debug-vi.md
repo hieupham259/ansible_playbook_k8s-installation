@@ -30,7 +30,7 @@ Nếu vấn đề của bạn không được giải đáp bởi bất kỳ hư�
 Tài liệu trên trang này đã được cấu trúc để cung cấp câu trả lời cho rất nhiều loại câu hỏi.
 [Concepts](https://kubernetes.io/docs/concepts/) giải thích kiến trúc Kubernetes và cách từng
 thành phần hoạt động, trong khi [Setup](https://kubernetes.io/docs/setup/) cung cấp các hướng
-dẫn thực tế để bắt đầu. [Tasks](https://kubernetes.io/docs/tasks/) chỉ ra cách hoàn thành các
+dẫn thực tế để bắt đầu. [Tasks](367-tasks-index-vi.md) chỉ ra cách hoàn thành các
 tác vụ thường dùng, và [Tutorials](https://kubernetes.io/docs/tutorials/) là những bài hướng
 dẫn toàn diện hơn về các kịch bản thực tế, đặc thù theo ngành, hoặc phát triển từ đầu đến cuối.
 Phần [Reference](https://kubernetes.io/docs/reference/) cung cấp tài liệu chi tiết về

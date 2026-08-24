@@ -1470,7 +1470,7 @@ tạo ra và cách phân công công việc cho chúng.
   chuỗi các Job sẽ chạy theo lịch, tương tự công cụ `cron` của UNIX.
 * Thực hành cách cấu hình việc xử lý các lần pod thất bại có thể thử lại và không thể
   thử lại bằng `podFailurePolicy`, dựa trên các
-  [ví dụ](https://kubernetes.io/docs/tasks/job/pod-failure-policy/) từng bước.
+  [ví dụ](383-pod-failure-policy-vi.md) từng bước.
 * Tìm hiểu về [gang scheduling](150-gang-scheduling-vi.md)
   cho việc lập lịch tất-cả-hoặc-không (all-or-nothing) đối với các Job song song.
 

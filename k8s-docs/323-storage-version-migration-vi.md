@@ -47,7 +47,7 @@ lại control plane (kỹ thuật của bài [196](196-configure-feature-gates-v
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Các lệnh `etcdctl get ... \| hexdump -C` đọc thẳng etcd | cần đối số kết nối etcd và thao tác đã học ở CP4 | bài [197 — Vận hành etcd](197-configure-upgrade-etcd-vi.md) và mục xác minh của bài [213](213-kms-provider-vi.md) |
-| Chi tiết viết conversion webhook cho CRD (`clientConfig`, `caBundle`) | thuộc phần mở rộng API, ngoài lộ trình admin | trang [Versions in CustomResourceDefinitions](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/) khi cần |
+| Chi tiết viết conversion webhook cho CRD (`clientConfig`, `caBundle`) | thuộc phần mở rộng API, ngoài lộ trình admin | trang [Versions in CustomResourceDefinitions](377-custom-resource-definition-versioning-vi.md) khi cần |
 
 ---
 

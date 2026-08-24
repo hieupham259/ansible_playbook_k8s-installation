@@ -309,4 +309,4 @@ done.
 
 Bạn có thể dùng API `certificates.k8s.io` để cấp phát (provision) các certificate
 x509 dùng cho việc xác thực, như được mô tả trong trang tác vụ
-[Quản lý TLS trong một cluster](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster).
+[Quản lý TLS trong một cluster](399-managing-tls-in-a-cluster-vi.md).

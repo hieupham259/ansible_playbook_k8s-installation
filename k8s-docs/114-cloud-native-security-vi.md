@@ -249,7 +249,7 @@ phân phối thời gian có xác thực (giúp đảm bảo độ tin cậy c�
 
 * [Bảo mật Kubernetes](113-security-vi.md)
 * [Bảo vệ cluster của bạn](256-securing-a-cluster-vi.md)
-* [Mã hóa dữ liệu trên đường truyền](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/) cho control plane
+* [Mã hóa dữ liệu trên đường truyền](399-managing-tls-in-a-cluster-vi.md) cho control plane
 * [Mã hóa dữ liệu khi lưu trữ](208-encrypt-data-vi.md)
 * [Secret trong Kubernetes](109-secret-vi.md)
 * [Kiểm soát truy cập vào API của Kubernetes](119-controlling-access-vi.md)

@@ -23,4 +23,4 @@ Các trang trong mục này:
 
 * [Xử lý song song bằng cách khai triển template (Parallel Processing using Expansions)](355-parallel-processing-expansion-vi.md)
 
-* [Xử lý các lỗi Pod có thể và không thể thử lại bằng Pod failure policy (Handling retriable and non-retriable pod failures with Pod failure policy)](https://kubernetes.io/docs/tasks/job/pod-failure-policy/)
+* [Xử lý các lỗi Pod có thể và không thể thử lại bằng Pod failure policy (Handling retriable and non-retriable pod failures with Pod failure policy)](383-pod-failure-policy-vi.md)

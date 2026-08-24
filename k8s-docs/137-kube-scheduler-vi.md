@@ -116,7 +116,7 @@ của scheduler:
 * Đọc về [ràng buộc phân bố Pod theo topology (Pod topology spread constraints)](140-topology-spread-constraints-vi.md)
 * Đọc [tài liệu tham khảo](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-scheduler/) của kube-scheduler
 * Đọc tài liệu tham khảo [cấu hình kube-scheduler (v1)](https://kubernetes.io/docs/reference/config-api/kube-scheduler-config.v1/)
-* Tìm hiểu về [cấu hình nhiều scheduler](https://kubernetes.io/docs/tasks/extend-kubernetes/configure-multiple-schedulers/)
+* Tìm hiểu về [cấu hình nhiều scheduler](375-configure-multiple-schedulers-vi.md)
 * Tìm hiểu về [các chính sách quản lý topology (topology management policies)](259-topology-manager-vi.md)
 * Tìm hiểu về [Pod Overhead](144-pod-overhead-vi.md)
 * Tìm hiểu về việc lập lịch cho các Pod sử dụng volume trong:

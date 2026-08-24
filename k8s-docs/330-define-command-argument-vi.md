@@ -119,6 +119,6 @@ args: ["-c", "while true; do echo hello; sleep 10;done"]
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu thêm về [cấu hình Pod và container](https://kubernetes.io/docs/tasks/).
+* Tìm hiểu thêm về [cấu hình Pod và container](367-tasks-index-vi.md).
 * Tìm hiểu thêm về [chạy lệnh trong container](304-get-shell-running-container-vi.md).
 * Xem [Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#container-v1-core).

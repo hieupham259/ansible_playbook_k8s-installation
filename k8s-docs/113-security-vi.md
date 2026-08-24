@@ -67,7 +67,7 @@ Một cơ chế bảo mật then chốt cho bất kỳ cluster Kubernetes nào l
 [kiểm soát quyền truy cập tới Kubernetes API](119-controlling-access-vi.md).
 
 Kubernetes kỳ vọng bạn cấu hình và sử dụng TLS để cung cấp
-[mã hóa dữ liệu khi truyền (data encryption in transit)](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/)
+[mã hóa dữ liệu khi truyền (data encryption in transit)](399-managing-tls-in-a-cluster-vi.md)
 bên trong control plane, và giữa control plane với các client của nó.
 Bạn cũng có thể bật [mã hóa dữ liệu khi lưu trữ (encryption at rest)](208-encrypt-data-vi.md)
 cho dữ liệu được lưu bên trong control plane của Kubernetes; điều này tách biệt với việc dùng
@@ -153,7 +153,7 @@ Tìm hiểu về các chủ đề bảo mật Kubernetes liên quan:
 * [Bảo vệ cluster của bạn](256-securing-a-cluster-vi.md)
 * [Các lỗ hổng đã biết](https://kubernetes.io/docs/reference/issues-security/official-cve-feed/)
   trong Kubernetes (và các liên kết tới thông tin thêm)
-* [Mã hóa dữ liệu khi truyền](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/) cho control plane
+* [Mã hóa dữ liệu khi truyền](399-managing-tls-in-a-cluster-vi.md) cho control plane
 * [Mã hóa dữ liệu khi lưu trữ](208-encrypt-data-vi.md)
 * [Kiểm soát quyền truy cập tới Kubernetes API](119-controlling-access-vi.md)
 * [Network policy](84-network-policies-vi.md) cho các Pod

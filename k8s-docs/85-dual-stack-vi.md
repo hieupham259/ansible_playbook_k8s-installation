@@ -409,7 +409,7 @@ Bạn có thể đọc thêm về các chế độ mạng khác nhau cho Windows
 
 ## Tiếp theo (What's next)
 
-* [Kiểm chứng mạng dual-stack IPv4/IPv6](https://kubernetes.io/docs/tasks/network/validate-dual-stack)
+* [Kiểm chứng mạng dual-stack IPv4/IPv6](395-validate-dual-stack-vi.md)
 * [Bật mạng dual-stack bằng kubeadm](./05-dual-stack-support-vi.md)
 
 ---

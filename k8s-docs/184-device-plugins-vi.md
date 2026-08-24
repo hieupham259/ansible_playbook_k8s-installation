@@ -530,7 +530,7 @@ Dưới đây là một số ví dụ về các hiện thực device plugin:
 
 ## Tiếp theo (What's next)
 
-* Tìm hiểu về [lập lịch resource GPU](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
+* Tìm hiểu về [lập lịch resource GPU](389-scheduling-gpus-vi.md)
   bằng device plugin
 * Tìm hiểu về [việc công bố extended resource](209-extended-resource-node-vi.md)
   trên một node

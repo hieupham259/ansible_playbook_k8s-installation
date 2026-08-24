@@ -124,7 +124,8 @@ bài gốc.
 | 6 | Mã hóa Secret at rest | giai đoạn 3, bài [109](../109-secret-vi.md) | sửa cấu hình apiserver | [CP7](../00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu) |
 | 7 | Quản lý vòng đời certificate | giai đoạn 12, bài [156](../156-certificates-vi.md) | quy trình `kubeadm certs` | [CP3](../00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ) |
 | 8 | Backup và restore etcd | giai đoạn 8 | `etcdctl` và quy trình khôi phục | [CP4](../00-ALO-TRINH-ADMIN.md#cp4--etcd-backup-và-khôi-phục-thảm-họa) |
-| 9 | Hai khối *Đọc bài này thế nào* và *Tự kiểm tra* cho 135 bài nhánh `/docs/tasks/` | mọi mục có dấu ⏳ trong lộ trình | công sức viết, không phải kiến thức | trả tại chỗ — xem [hướng dẫn trả nợ #9](../00-ALO-TRINH-ADMIN.md#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks) |
+| 9 | Hai khối *Đọc bài này thế nào* và *Tự kiểm tra* cho 164 bài nhánh `/docs/tasks/` | mọi mục có dấu ⏳ trong lộ trình | công sức viết, không phải kiến thức | trả tại chỗ — xem [hướng dẫn trả nợ #9](../00-ALO-TRINH-ADMIN.md#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks) |
+| 10 | 103 bài thực hành `/docs/tasks/` chưa có vị trí trong lộ trình | toàn bộ nhánh tasks | cần chốt cách đặt (đã bác 2 phương án) | **chưa chốt** — xem [nợ #10](../00-ALO-TRINH-ADMIN.md#nợ-10--bài-thực-hành-chưa-có-vị-trí-trong-lộ-trình) |
 
 Số hiệu nợ ở cột đầu **khớp với** [Sổ nợ lộ trình](../00-ALO-TRINH-ADMIN.md#sổ-nợ-lộ-trình). Trong file lộ trình, mỗi món nợ được đánh dấu ngay tại chỗ: `⏳ Nợ #N` ở nơi phát sinh và `✅ Trả nợ #N` ở nơi trả. Sửa một bảng thì phải sửa bảng kia.
 

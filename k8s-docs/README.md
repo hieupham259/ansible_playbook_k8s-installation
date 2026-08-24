@@ -2,7 +2,7 @@
 
 Các bản dịch tiếng Việt của tài liệu chính thức trên <https://kubernetes.io/docs/>, giữ nguyên cấu trúc trang gốc. Mỗi file đều có link trang nguồn ở đầu. Tài liệu Kubernetes phát hành theo giấy phép CC BY 4.0.
 
-**Tổng cộng 364 bài**: số `00`–`185` là nhánh khái niệm (`/docs/concepts/`, `/docs/setup/`), số `186` trở lên là nhánh thực hành (`/docs/tasks/`).
+**Tổng cộng 398 bài**: số `00`–`185` là nhánh khái niệm (`/docs/concepts/`, `/docs/setup/`), số `186` trở lên là nhánh thực hành (`/docs/tasks/`).
 
 > **Muốn học theo lộ trình?** Xem [00-ALO-TRINH-ADMIN.md](00-ALO-TRINH-ADMIN.md) — giáo trình 15 giai đoạn dành cho người muốn trở thành Kubernetes administrator, kèm mục tiêu và checkpoint thực hành cho từng giai đoạn, và phần tiếp nối sang nhánh `/docs/tasks/` để vận hành thực tế.
 >
@@ -487,6 +487,7 @@ Nhóm thực hành đi kèm bài [67](67-job-vi.md) và [69](69-cron-jobs-vi.md)
 | 353 | [Indexed Job phân công việc tĩnh](353-indexed-parallel-processing-vi.md) | 67 |
 | 354 | [Job với giao tiếp Pod-đến-Pod](354-job-pod-to-pod-communication-vi.md) | 67, 82 (headless Service) |
 | 355 | [Xử lý song song bằng khai triển template](355-parallel-processing-expansion-vi.md) | 67, 320 |
+| 383 | [Xử lý các lần Pod thất bại có thể thử lại và không thể thử lại bằng Pod failure policy](383-pod-failure-policy-vi.md) | 67, 47 (Job, vòng đời Pod) |
 
 ## Phần 23 — Tasks: Truy cập ứng dụng trong cluster
 
@@ -502,7 +503,74 @@ Nhóm thực hành đi kèm giai đoạn 5 — mạng nền tảng.
 | 364 | [Tạo bộ cân bằng tải bên ngoài](364-create-external-load-balancer-vi.md) | 82 (LoadBalancer) |
 | 365 | [Liệt kê mọi Container image đang chạy](365-list-running-container-images-vi.md) | 26 (`-o jsonpath`) |
 | 366 | [Port Forwarding để truy cập ứng dụng](366-port-forward-vi.md) | 26, 82 |
+| 368 | [Truy cập ứng dụng trong một cluster](368-access-application-cluster-index-vi.md) | — (trang mục nhóm) |
+| 369 | [Truy cập các Service đang chạy trên cluster](369-access-cluster-services-vi.md) | 190, 82 (truy cập API, Service) |
+| 370 | [Dùng Service để truy cập một ứng dụng trong cluster](370-service-access-application-cluster-vi.md) | 82, 63 (Service, Deployment) |
+| 371 | [Triển khai và Truy cập Kubernetes Dashboard](371-web-ui-dashboard-vi.md) | 165, 120 (add-on, RBAC) |
 
+## Phần 24 — Tasks: Quản lý DaemonSet
+
+Nhóm thực hành đi kèm bài [66](66-daemonset-vi.md). Thứ tự dưới đây theo đúng thứ tự kubernetes.io hiển thị, không theo số file.
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 384 | [Quản lý các daemon của cluster](384-manage-daemon-index-vi.md) | 66 (trang mục nhóm) |
+| 385 | [Xây dựng một DaemonSet cơ bản](385-create-daemon-set-vi.md) | 66, 50 (DaemonSet, init container) |
+| 388 | [Thực hiện rolling update trên một DaemonSet](388-update-daemon-set-vi.md) | 66, 63 (rolling update) |
+| 387 | [Thực hiện rollback trên một DaemonSet](387-rollback-daemon-set-vi.md) | 388, 63 (rollback, revision) |
+| 386 | [Chỉ chạy Pod trên một số Node nhất định](386-pods-some-nodes-vi.md) | 66, 138 (nodeSelector, affinity) |
+
+## Phần 25 — Tasks: Mạng
+
+Nhóm thực hành đi kèm bài [82](82-service-vi.md), [85](85-dual-stack-vi.md) và [88](88-cluster-ip-allocation-vi.md).
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 391 | [Mạng](391-network-index-vi.md) | — (trang mục nhóm) |
+| 392 | [Thêm entry vào file /etc/hosts của Pod bằng HostAliases](392-customize-hosts-file-for-pods-vi.md) | 10, 57 (DNS, hostname Pod) |
+| 393 | [Mở rộng dải IP của Service](393-extend-service-ip-ranges-vi.md) | 88, 82 (ServiceCIDR, Service) |
+| 394 | [Cấu hình lại ServiceCIDR mặc định của Kubernetes](394-reconfigure-default-service-ip-ranges-vi.md) | 393, 88 |
+| 395 | [Kiểm chứng dual-stack IPv4/IPv6](395-validate-dual-stack-vi.md) | 85, 05 (dual-stack) |
+
+## Phần 26 — Tasks: TLS và vòng đời certificate
+
+Nhóm thực hành của [CP3](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ). Đi kèm bài [156](156-certificates-vi.md) và [219](219-kubeadm-certs-vi.md).
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 396 | [TLS](396-tls-index-vi.md) | — (trang mục nhóm) |
+| 398 | [Cấu hình xoay vòng certificate cho kubelet](398-certificate-rotation-vi.md) | 219 (certificate kubelet) |
+| 399 | [Quản lý TLS Certificate trong một Cluster](399-managing-tls-in-a-cluster-vi.md) | 219, 191 (CSR API, signer) |
+| 397 | [Cấp certificate cho một client của Kubernetes API bằng CertificateSigningRequest](397-certificate-issue-client-csr-vi.md) | 399, 120 (CSR, RBAC) |
+| 400 | [Xoay CA certificate thủ công](400-manual-rotation-of-ca-certificates-vi.md) | 219, 191 (xoay CA — thao tác nguy hiểm) |
+
+## Phần 27 — Tasks: Mở rộng Kubernetes
+
+Nhóm thực hành đi kèm giai đoạn 14. Thứ tự theo đúng thứ tự kubernetes.io hiển thị.
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 373 | [Mở rộng Kubernetes](373-extend-kubernetes-index-vi.md) | 177 (trang mục nhóm) |
+| 374 | [Cấu hình tầng tổng hợp](374-configure-aggregation-layer-vi.md) | 180, 119 (aggregation layer) |
+| 376 | [Sử dụng Custom Resource](376-custom-resources-index-vi.md) | 179 (trang mục con) |
+| 378 | [Mở rộng Kubernetes API bằng CustomResourceDefinition](378-custom-resource-definitions-vi.md) | 179 (CRD — bài xương sống) |
+| 377 | [Các phiên bản trong CustomResourceDefinition](377-custom-resource-definition-versioning-vi.md) | 378, 32 (nhiều version, conversion webhook) |
+| 380 | [Thiết lập một Extension API Server](380-setup-extension-api-server-vi.md) | 374, 180 |
+| 375 | [Cấu hình nhiều Scheduler](375-configure-multiple-schedulers-vi.md) | 137, 147 (scheduler) |
+| 379 | [Dùng HTTP Proxy để truy cập Kubernetes API](379-http-proxy-access-api-vi.md) | 164, 190 (kubectl proxy) |
+| 382 | [Dùng SOCKS5 Proxy để truy cập Kubernetes API](382-socks5-proxy-access-api-vi.md) | 164, 111 (SOCKS5, kubeconfig) |
+| 381 | [Thiết lập dịch vụ Konnectivity](381-setup-konnectivity-vi.md) | 24, 164 (konnectivity) |
+| 372 | [Mở rộng kubectl bằng plugin](372-kubectl-plugins-vi.md) | 26, 177 (plugin kubectl) |
+
+## Phần 28 — Tasks: GPU, HugePages và trang mục gốc
+
+Hai bài thiết bị chuyên dụng, cộng trang mục gốc của toàn nhánh `/docs/tasks/`.
+
+| # | Tài liệu | Kiến thức cần trước |
+|---|---|---|
+| 389 | [Lập lịch GPU](389-scheduling-gpus-vi.md) | 184, 149 (device plugin, DRA) |
+| 390 | [Quản lý HugePages](390-scheduling-hugepages-vi.md) | 110, 74 (tài nguyên, hugepages) |
+| 367 | [Tác vụ](367-tasks-index-vi.md) | — (trang mục gốc /docs/tasks/) |
 ## Checkpoint — Những phần còn thiếu quan trọng
 
 Phần này theo dõi các khoảng trống cần bổ sung để bộ tài liệu không chỉ bao phủ

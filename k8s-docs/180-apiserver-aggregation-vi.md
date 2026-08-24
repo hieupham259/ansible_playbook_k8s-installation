@@ -63,12 +63,12 @@ Nếu extension API server của bạn không đạt được yêu cầu độ t
 
 ## Tiếp theo (What's next)
 
-* Để bộ tổng hợp (aggregator) hoạt động trong môi trường của bạn, hãy [cấu hình tầng tổng hợp](https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/).
-* Sau đó, [thiết lập một extension api-server](https://kubernetes.io/docs/tasks/extend-kubernetes/setup-extension-api-server/) để làm việc với tầng tổng hợp.
+* Để bộ tổng hợp (aggregator) hoạt động trong môi trường của bạn, hãy [cấu hình tầng tổng hợp](374-configure-aggregation-layer-vi.md).
+* Sau đó, [thiết lập một extension api-server](380-setup-extension-api-server-vi.md) để làm việc với tầng tổng hợp.
 * Đọc về [APIService](https://kubernetes.io/docs/reference/kubernetes-api/cluster-resources/api-service-v1/) trong tài liệu tham chiếu API.
 * Tìm hiểu về [Khái niệm Declarative Validation](https://kubernetes.io/docs/reference/using-api/declarative-validation/), một cơ chế nội bộ để định nghĩa các luật kiểm tra hợp lệ (validation) mà trong tương lai sẽ hỗ trợ việc kiểm tra hợp lệ cho quá trình phát triển extension API server.
 
-Ngoài ra: tìm hiểu cách mở rộng Kubernetes API bằng [CustomResourceDefinition](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/).
+Ngoài ra: tìm hiểu cách mở rộng Kubernetes API bằng [CustomResourceDefinition](378-custom-resource-definitions-vi.md).
 
 ---
 

@@ -81,7 +81,7 @@ Error from server (BadRequest): Unable to find "ingresses" that match label sele
 Mọi loại custom resource đều hỗ trợ hai trường `metadata.name` và `metadata.namespace`.
 
 Ngoài ra, trường `spec.versions[*].selectableFields` của một CustomResourceDefinition
-khai báo những trường nào khác trong một custom resource có thể được dùng trong field selector. Xem [các trường có thể chọn (selectable fields) cho custom resource](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#crd-selectable-fields)
+khai báo những trường nào khác trong một custom resource có thể được dùng trong field selector. Xem [các trường có thể chọn (selectable fields) cho custom resource](378-custom-resource-definitions-vi.md#crd-selectable-fields)
 để biết thêm thông tin về cách dùng field selector với CustomResourceDefinition.
 
 ## Các toán tử được hỗ trợ (Supported operators)

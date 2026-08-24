@@ -315,4 +315,4 @@ kubectl delete deployment nginx-deployment
 - Tìm hiểu thêm về [Deployment](63-deployment-vi.md).
 - Tìm hiểu cách [scale một Deployment thủ công](346-scale-deployment-vi.md).
 - Thực hành theo [Horizontal Pod Autoscaling](342-hpa-walkthrough-vi.md).
-- Xem cách [thực hiện rolling update trên một DaemonSet](https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/).
+- Xem cách [thực hiện rolling update trên một DaemonSet](388-update-daemon-set-vi.md).

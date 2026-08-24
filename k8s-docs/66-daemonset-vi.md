@@ -285,7 +285,7 @@ Pod sẽ được để lại trên các node. Nếu sau đó bạn tạo một 
 DaemonSet mới sẽ nhận nuôi (adopt) các Pod hiện có. Nếu có Pod nào cần thay thế, DaemonSet
 sẽ thay thế chúng theo `updateStrategy` của nó.
 
-Bạn có thể [thực hiện rolling update](https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/)
+Bạn có thể [thực hiện rolling update](388-update-daemon-set-vi.md)
 trên một DaemonSet.
 
 ## Các lựa chọn thay thế cho DaemonSet (Alternatives to DaemonSet)
@@ -341,8 +341,8 @@ node nơi nó đang chạy có mạng cluster hoạt động bình thường.
   * Tìm hiểu về [static Pod](293-static-pod-tasks-vi.md),
     hữu ích để chạy các thành phần control plane của Kubernetes.
 * Tìm hiểu cách sử dụng DaemonSet:
-  * [Thực hiện rolling update trên một DaemonSet](https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/).
-  * [Thực hiện rollback trên một DaemonSet](https://kubernetes.io/docs/tasks/manage-daemon/rollback-daemon-set/)
+  * [Thực hiện rolling update trên một DaemonSet](388-update-daemon-set-vi.md).
+  * [Thực hiện rollback trên một DaemonSet](387-rollback-daemon-set-vi.md)
     (ví dụ khi một lần roll out không diễn ra như bạn mong đợi).
 * Hiểu [cách Kubernetes gán Pod cho các Node](138-assign-pod-node-vi.md).
 * Tìm hiểu về [device plugin](184-device-plugins-vi.md)

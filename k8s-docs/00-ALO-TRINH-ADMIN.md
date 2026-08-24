@@ -44,17 +44,18 @@ Grep `⏳ Nợ` để thấy toàn bộ chỗ phát sinh, `✅ Trả nợ` để
 | 6 | Mã hóa Secret at rest | [Giai đoạn 3b](#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài [109](109-secret-vi.md) | sửa cấu hình apiserver | [CP7](#cp7--audit-và-mã-hóa-dữ-liệu) |
 | 7 | Quản lý vòng đời certificate | [Giai đoạn 12](#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài [156](156-certificates-vi.md) | quy trình `kubeadm certs` | [CP3](#cp3--vòng-đời-chứng-chỉ) |
 | 8 | Backup và restore etcd | [Giai đoạn 8](#giai-đoạn-8--dựng-cluster-bằng-kubeadm) | `etcdctl` và quy trình khôi phục | [CP4](#cp4--etcd-backup-và-khôi-phục-thảm-họa) |
-| 9 | Hai khối *Đọc bài này thế nào* và *Tự kiểm tra* cho 169 bài nhánh `/docs/tasks/` | mọi dòng có dấu ⏳ — danh sách nguồn dưới mỗi 🧪 lab, và [CP1–CP12](#checkpoint-tiếp-nối--nhánh-docstasks) | công sức viết, không phải kiến thức — bài đọc được ngay | **trả tại chỗ**, ngay trước khi đọc bài mang dấu ⏳ |
+| 9 | Hai khối *Đọc bài này thế nào* và *Tự kiểm tra* cho 164 bài nhánh `/docs/tasks/` | mọi dòng có dấu ⏳ — danh sách nguồn dưới mỗi 🧪 lab, và [CP1–CP12](#checkpoint-tiếp-nối--nhánh-docstasks) | công sức viết, không phải kiến thức — bài đọc được ngay | **trả tại chỗ**, ngay trước khi đọc bài mang dấu ⏳ |
+| 10 | 103 bài thực hành `/docs/tasks/` chưa có vị trí trong lộ trình | gỡ bỏ cách gắn bài task vào lab (xem lịch sử quyết định ở mục dưới) | cần chốt cách đặt, không phải thiếu kiến thức | **chưa chốt** — tạm tra theo chủ đề ở [Phần 15–28 của README](README.md) |
 
 **Quy tắc:** không đánh dấu một giai đoạn là xong khi nợ của nó chưa trả. Nợ #1–#5 trả trong
 phần lab (giai đoạn 5, 6, 11); nợ #6–#8 trả ở Checkpoint tiếp nối cuối file; nợ #9 trả rải rác,
-ngay tại chỗ. Bảng tương ứng phía lab nằm ở [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) — hai bảng
+ngay tại chỗ; nợ #10 chưa chốt chỗ trả. Bảng tương ứng phía lab nằm ở [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) — hai bảng
 phải khớp nhau.
 
 ### Nợ #9 — Hai khối hướng dẫn đọc cho nhánh `/docs/tasks/`
 
 186 bài khái niệm (số `00`–`185`) đều đã có hai khối **Đọc bài này thế nào** và
-**Tự kiểm tra**. Nhánh thực hành `/docs/tasks/` thì chưa: **169/212 bài còn thiếu**.
+**Tự kiểm tra**. Nhánh thực hành `/docs/tasks/` thì chưa: **164/212 bài còn thiếu**.
 
 **Dấu hiệu nhận biết:** dòng bài kết thúc bằng **⏳**. Mỗi mục có bài thiếu đều mở đầu bằng
 một dòng đếm `⏳ Nợ #9 — N/M bài…`, nên bạn biết trước khi vào mục đó còn bao nhiêu bài chưa
@@ -80,6 +81,37 @@ Kiểm tra còn bao nhiêu bài chưa trả:
 cd k8s-docs && for f in *-vi.md; do n=${f%%-*}; [ "$n" -gt 185 ] 2>/dev/null || continue; \
   grep -q "^## Đọc bài này thế nào" "$f" || echo "$f"; done | wc -l
 ```
+
+### Nợ #10 — Bài thực hành chưa có vị trí trong lộ trình
+
+**103/212 bài** nhánh `/docs/tasks/` hiện **không được lộ trình nhắc tới ở đâu cả**. Chúng vẫn có
+trong [mục lục theo chủ đề](README.md) nhưng người đọc lộ trình từ trên xuống sẽ không gặp.
+
+| Nhóm | Số bài |
+| --- | ---: |
+| `configure-pod-container/` | 34 |
+| `administer-cluster/` | 12 |
+| `run-application/` | 12 |
+| `debug/`, `inject-data-application/`, `access-application-cluster/` | 8 mỗi nhóm |
+| `manage-kubernetes-objects/`, `job/` | 7 mỗi nhóm |
+| `configmap-secret/` | 4 |
+| `tools/` | 3 |
+
+**Vì sao chưa chốt.** Đã thử hai cách và cả hai đều bị bác:
+
+1. Gom thành một **phụ lục cuối file** — hỏng vì người đọc từ trên xuống chỉ gặp nó sau giai
+   đoạn 15, tức không bao giờ gặp đúng lúc.
+2. Gắn thành **nguồn cho lab của từng nhóm** — hỏng vì nhiều bài dùng object chưa dạy tới thời
+   điểm đó, và trùng lặp với nội dung lab đã viết. Ví dụ đã đo: 9/12 bài gắn cho Lab 1b dùng
+   Deployment, Service hoặc ConfigMap, đều chưa học ở giai đoạn 1.
+
+**Điều kiện để chốt được.** Bất kỳ cách đặt nào cũng phải thỏa ba điều cùng lúc: đọc từ trên
+xuống gặp đúng lúc; không dùng object chưa dạy; không trùng phần lab đã có. Cách gần nhất hiện
+nay là để lab hấp thụ chúng — nhưng chỉ khả thi khi lab được viết, mà 23 lab còn chưa viết.
+
+**Trong lúc chờ:** tra theo chủ đề ở [Phần 15–28 của README](README.md). Nợ này **không chặn**
+việc học mạch chính, vì mọi bài lý thuyết và mọi lab đều không phụ thuộc vào chúng.
+
 
 ## Môi trường lab
 

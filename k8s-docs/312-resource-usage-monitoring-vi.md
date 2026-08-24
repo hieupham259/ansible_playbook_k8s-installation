@@ -82,6 +82,6 @@ Tìm hiểu về các công cụ gỡ lỗi (debug) bổ sung, bao gồm:
 
 * [Logging](158-logging-vi.md)
 * [Truy cập vào container qua `exec`](304-get-shell-running-container-vi.md)
-* [Kết nối tới container qua proxy](https://kubernetes.io/docs/tasks/extend-kubernetes/http-proxy-access-api/)
+* [Kết nối tới container qua proxy](379-http-proxy-access-api-vi.md)
 * [Kết nối tới container qua chuyển tiếp port (port forwarding)](366-port-forward-vi.md)
 * [Kiểm tra node Kubernetes bằng crictl](307-crictl-vi.md)

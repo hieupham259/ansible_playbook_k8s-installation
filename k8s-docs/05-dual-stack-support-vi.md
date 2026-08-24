@@ -222,7 +222,7 @@ networking:
 
 ## Tiếp theo (What's next)
 
-* [Kiểm chứng mạng dual-stack IPv4/IPv6](https://kubernetes.io/docs/tasks/network/validate-dual-stack)
+* [Kiểm chứng mạng dual-stack IPv4/IPv6](395-validate-dual-stack-vi.md)
 * Đọc về mạng cluster [Dual-stack](85-dual-stack-vi.md)
 * Tìm hiểu thêm về [định dạng cấu hình](https://kubernetes.io/docs/reference/config-api/kubeadm-config.v1beta4/) của kubeadm
 

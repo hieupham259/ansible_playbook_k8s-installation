@@ -439,7 +439,7 @@ quy mô lớn nhất được khuyến nghị cho từng metric và đặt workl
 Theo mặc định, controller HorizontalPodAutoscaler lấy metric từ một loạt các API.
 Để nó có thể truy cập các API này, quản trị viên cluster phải đảm bảo rằng:
 
-- [Tầng tổng hợp API (API aggregation layer)](https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/) được bật.
+- [Tầng tổng hợp API (API aggregation layer)](374-configure-aggregation-layer-vi.md) được bật.
 
 - Các API tương ứng đã được đăng ký:
 

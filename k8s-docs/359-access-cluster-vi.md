@@ -215,7 +215,7 @@ Vui lòng xem [Truy cập API từ bên trong một Pod](338-access-api-from-pod
 
 Mục trước mô tả cách kết nối tới Kubernetes API server.
 Để biết thông tin về việc kết nối tới các service khác đang chạy trên một cluster Kubernetes, xem
-[Truy cập các Service của cluster](https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster-services/).
+[Truy cập các Service của cluster](369-access-cluster-services-vi.md).
 
 ## Yêu cầu chuyển hướng (Requesting redirects)
 

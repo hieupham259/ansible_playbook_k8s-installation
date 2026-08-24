@@ -193,7 +193,7 @@ và giá trị mặc định của trường khi bạn tạo CustomResourceDefin
 
 Để tìm hiểu thêm, xem các tài nguyên sau:
 
-* [Quy tắc kiểm tra hợp lệ (Validation rules)](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#validation-rules)
+* [Quy tắc kiểm tra hợp lệ (Validation rules)](378-custom-resource-definitions-vi.md#validation-rules)
 * [Đặt giá trị mặc định (Defaulting)](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#defaulting)
 
 ## Hiệu năng và độ trễ (Performance and latency) {#performance-latency}

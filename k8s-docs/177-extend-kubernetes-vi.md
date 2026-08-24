@@ -131,7 +131,7 @@ Trong mô hình webhook, Kubernetes thực hiện một request qua mạng tới
 Với mô hình thay thế là *binary Plugin*, Kubernetes thực thi một chương trình nhị phân (binary).
 Binary plugin được sử dụng bởi kubelet (ví dụ, [CSI storage plugin](https://kubernetes-csi.github.io/docs/)
 và [CNI network plugin](183-network-plugins-vi.md)),
-và bởi kubectl (xem [Mở rộng kubectl bằng plugin](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/)).
+và bởi kubectl (xem [Mở rộng kubectl bằng plugin](372-kubectl-plugins-vi.md)).
 
 ### Các điểm mở rộng (Extension points)
 
@@ -196,7 +196,7 @@ Plugin cho kubectl là các chương trình nhị phân riêng biệt giúp thê
 Công cụ `kubectl` cũng có thể tích hợp với [credential plugin](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#client-go-credential-plugins).
 Các phần mở rộng này chỉ ảnh hưởng đến môi trường cục bộ của từng người dùng, do đó không thể áp đặt các policy cho toàn hệ thống.
 
-Nếu bạn muốn mở rộng công cụ `kubectl`, hãy đọc [Mở rộng kubectl bằng plugin](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/).
+Nếu bạn muốn mở rộng công cụ `kubectl`, hãy đọc [Mở rộng kubectl bằng plugin](372-kubectl-plugins-vi.md).
 
 ## Phần mở rộng API (API extensions) {#api-extensions}
 
@@ -330,7 +330,7 @@ phương thức và giao thức xác thực khác nhau.
 Bộ lập lịch (scheduler) là một loại controller đặc biệt theo dõi các pod và gán
 pod vào các node. Bộ lập lịch mặc định có thể được thay thế hoàn toàn, trong khi
 vẫn tiếp tục sử dụng các thành phần Kubernetes khác, hoặc
-[nhiều scheduler](https://kubernetes.io/docs/tasks/extend-kubernetes/configure-multiple-schedulers/)
+[nhiều scheduler](375-configure-multiple-schedulers-vi.md)
 có thể chạy đồng thời.
 
 Đây là một công việc lớn, và hầu như tất cả người dùng Kubernetes đều nhận thấy
@@ -357,7 +357,7 @@ các node mà kube-scheduler chọn cho một pod.
   * [Device Plugins](184-device-plugins-vi.md)
   * [Network Plugins](183-network-plugins-vi.md)
   * CSI [storage plugins](https://kubernetes-csi.github.io/docs/)
-* Tìm hiểu về [kubectl plugins](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/)
+* Tìm hiểu về [kubectl plugins](372-kubectl-plugins-vi.md)
 * Tìm hiểu thêm về [Custom Resources](179-custom-resources-vi.md)
 * Tìm hiểu thêm về [Extension API Servers](180-apiserver-aggregation-vi.md)
 * Tìm hiểu về [kiểm soát chấp nhận động (Dynamic admission control)](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/)

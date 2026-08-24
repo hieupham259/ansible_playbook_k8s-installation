@@ -348,7 +348,7 @@ dùng trong ứng dụng của bạn và không ở bất kỳ nơi nào khác.
   * Dùng các service account hoặc user account được tạo bởi một dịch vụ quản lý danh tính
     và truy cập (Identity and Access Management — IAM) bên ngoài, chẳng hạn từ một nhà cung cấp cloud, để
     xác thực với cluster của bạn.
-  * [Dùng API CertificateSigningRequest với client certificate](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/).
+  * [Dùng API CertificateSigningRequest với client certificate](399-managing-tls-in-a-cluster-vi.md).
 * [Cấu hình kubelet để lấy credentials từ một image registry](225-kubelet-credential-provider-vi.md).
 * Dùng một Device Plugin để truy cập một Trusted Platform Module (TPM) ảo, từ đó
   cho phép xác thực bằng một private key.

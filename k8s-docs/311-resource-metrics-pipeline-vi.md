@@ -159,7 +159,7 @@ Phản hồi mẫu:
 ```
 
 Metrics API được định nghĩa trong repository [k8s.io/metrics](https://github.com/kubernetes/metrics).
-Bạn phải bật [tầng tổng hợp API (API aggregation layer)](https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/)
+Bạn phải bật [tầng tổng hợp API (API aggregation layer)](374-configure-aggregation-layer-vi.md)
 và đăng ký một [APIService](https://kubernetes.io/docs/reference/kubernetes-api/cluster-resources/api-service-v1/)
 cho API `metrics.k8s.io`.
 

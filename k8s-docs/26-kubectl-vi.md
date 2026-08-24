@@ -98,7 +98,7 @@ nhưng khó tái lập và khó kiểm toán (audit) hơn.
 
 ## Mở rộng kubectl bằng plugin (Extending kubectl with plugins)
 
-Bạn có thể mở rộng `kubectl` bằng các [plugin](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/) bổ sung
+Bạn có thể mở rộng `kubectl` bằng các [plugin](372-kubectl-plugins-vi.md) bổ sung
 các sub-command mới. Plugin là các file thực thi (binary) độc lập tuân theo quy ước đặt tên `kubectl-<plugin-name>`.
 Cộng đồng Kubernetes duy trì nhiều plugin, và bạn có thể quản lý chúng bằng
 trình quản lý plugin [Krew](https://krew.sigs.k8s.io/).

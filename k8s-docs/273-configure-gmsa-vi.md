@@ -24,7 +24,7 @@ một loạt bước khởi tạo chỉ cần thực hiện một lần cho mỗ
 
 ### Cài đặt CRD GMSACredentialSpec (Install the GMSACredentialSpec CRD)
 
-Một [CustomResourceDefinition](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/) (CRD)
+Một [CustomResourceDefinition](378-custom-resource-definitions-vi.md) (CRD)
 cho các resource đặc tả thông tin xác thực GMSA cần được cấu hình trên cluster để định nghĩa
 kiểu custom resource `GMSACredentialSpec`. Tải file
 [YAML](https://github.com/kubernetes-sigs/windows-gmsa/blob/master/admission-webhook/deploy/gmsa-crd.yml)

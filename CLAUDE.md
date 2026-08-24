@@ -4,7 +4,7 @@
 
 | Thư mục | Nội dung |
 | --- | --- |
-| `k8s-docs/` | 364 bài dịch tiếng Việt của kubernetes.io, tên file `<số>-<slug>-vi.md`. Số `00`–`185` là nhánh khái niệm; số `186`+ là nhánh `/docs/tasks/` (thực hành) |
+| `k8s-docs/` | 398 bài dịch tiếng Việt của kubernetes.io, tên file `<số>-<slug>-vi.md`. Số `00`–`185` là nhánh khái niệm; số `186`+ là nhánh `/docs/tasks/` (thực hành) |
 | `k8s-docs/00-ALO-TRINH-ADMIN.md` | Giáo trình 15 giai đoạn; **thứ tự đọc** nằm ở đây, không phải ở số thứ tự file |
 | `k8s-docs/README.md` | Mục lục tra cứu theo chủ đề |
 | `k8s-docs/labs/` | Runbook thực hành đi kèm lộ trình |
@@ -210,11 +210,11 @@ Nội dung bản dịch nằm liền mạch giữa hai khối, không bị cắt
 
 ### Tiến độ
 
-**185 bài khái niệm (số `00`–`185`) đã có đủ ba khối** (hướng dẫn đọc, tự kiểm tra, đáp án).
+**186 bài khái niệm (số `00`–`185`) đã có đủ ba khối** (hướng dẫn đọc, tự kiểm tra, đáp án).
 Hoàn tất 07/08/2026.
 
-**179 bài thực hành (số `186`+, nhánh `/docs/tasks/`) thì chưa**: tính tới 24/08/2026 mới 43 bài
-có hai khối, còn **135 bài thiếu**. Chạy lệnh sau để lấy danh sách còn tồn:
+**212 bài thực hành (số `186`+, nhánh `/docs/tasks/`) thì chưa**: tính tới 25/08/2026 mới 43 bài
+có hai khối, còn **169 bài thiếu**. Chạy lệnh sau để lấy danh sách còn tồn:
 
 ```bash
 cd k8s-docs && for f in *-vi.md; do n=${f%%-*}; [ "$n" -gt 185 ] 2>/dev/null || continue; \

@@ -475,7 +475,7 @@ Các container do Kubernetes khởi động sẽ tự động đưa DNS server n
 
 ### Web UI (Dashboard)
 
-[Dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/) là một giao diện web
+[Dashboard](371-web-ui-dashboard-vi.md) là một giao diện web
 đa dụng cho các cluster Kubernetes. Nó cho phép người dùng quản lý và khắc phục sự cố (troubleshoot)
 cho các ứng dụng đang chạy trong cluster, cũng như cho chính cluster đó.
 

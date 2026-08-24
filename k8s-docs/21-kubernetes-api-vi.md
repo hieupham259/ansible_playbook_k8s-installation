@@ -326,7 +326,7 @@ Kubernetes API có thể được mở rộng theo một trong hai cách:
 ## Tiếp theo (What's next)
 
 - Tìm hiểu cách mở rộng Kubernetes API bằng cách thêm
-  [CustomResourceDefinition](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/) của riêng bạn.
+  [CustomResourceDefinition](378-custom-resource-definitions-vi.md) của riêng bạn.
 - [Kiểm soát truy cập vào Kubernetes API (Controlling Access To The Kubernetes API)](119-controlling-access-vi.md) mô tả
   cách cluster quản lý xác thực (authentication) và phân quyền (authorization) cho việc truy cập API.
 - Tìm hiểu về các API endpoint, các loại resource và ví dụ mẫu bằng cách đọc

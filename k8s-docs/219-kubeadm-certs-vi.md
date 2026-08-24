@@ -214,7 +214,7 @@ managed); trong trường hợp đó, người dùng phải tự lo việc gia h
 công/bằng công cụ khác.
 
 File cấu hình `kubelet.conf` không có trong danh sách trên vì kubeadm cấu hình kubelet
-[tự động gia hạn certificate](https://kubernetes.io/docs/tasks/tls/certificate-rotation/)
+[tự động gia hạn certificate](398-certificate-rotation-vi.md)
 với các certificate xoay được (rotatable) trong `/var/lib/kubelet/pki`.
 Để sửa một kubelet client certificate đã hết hạn, xem
 [Xoay vòng client certificate của kubelet thất bại](09-troubleshooting-kubeadm-vi.md#kubelet-client-cert).
@@ -356,7 +356,7 @@ ngoài. Để biết thêm chi tiết về cách làm việc với các CSR do k
 kubeadm không hỗ trợ sẵn việc xoay vòng (rotation) hay thay thế các CA certificate.
 
 Để biết thêm về việc xoay hoặc thay thế CA thủ công, xem
-[xoay thủ công các CA certificate](https://kubernetes.io/docs/tasks/tls/manual-rotation-of-ca-certificates/).
+[xoay thủ công các CA certificate](400-manual-rotation-of-ca-certificates-vi.md).
 
 ## Bật kubelet serving certificate có chữ ký (Enabling signed kubelet serving certificates) {#kubelet-serving-certs}
 
@@ -570,7 +570,7 @@ tồn tại phương thức bên ngoài nào để ký các certificate này (ch
 giải thích trong hướng dẫn này.
 
 Lưu ý rằng điều này cũng có nghĩa là việc
-[tự động xoay vòng kubelet client certificate](https://kubernetes.io/docs/tasks/tls/certificate-rotation/#enabling-client-certificate-rotation)
+[tự động xoay vòng kubelet client certificate](398-certificate-rotation-vi.md#enabling-client-certificate-rotation)
 sẽ bị vô hiệu hóa. Trong trường hợp đó, gần thời điểm certificate hết hạn, bạn phải sinh một
 `kubelet.conf.csr` mới, ký certificate, nhúng nó vào `kubelet.conf` và khởi động lại kubelet.
 

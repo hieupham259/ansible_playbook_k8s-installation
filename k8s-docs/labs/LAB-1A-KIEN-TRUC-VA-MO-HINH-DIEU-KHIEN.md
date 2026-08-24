@@ -627,6 +627,44 @@ các lệnh sau xác nhận Node và Lease lại cập nhật. Xem [`journalctl`
 [`kubectl wait`](https://v1-35.docs.kubernetes.io/docs/reference/kubectl/generated/kubectl_wait/)
 và [Leases](https://v1-35.docs.kubernetes.io/docs/concepts/architecture/leases/).
 
+**Đọc kỹ lệnh `renewTime`:** lệnh cuối cùng ở trên chỉ làm một việc — đọc **mốc thời gian
+heartbeat gần nhất** mà `kubelet` của `lab-k8s-worker2` ghi vào Lease object của nó, rồi in ra
+đúng một dòng. Bóc từng mảnh:
+
+| Mảnh | Ý nghĩa |
+| --- | --- |
+| `-n kube-node-lease` | namespace hệ thống chứa Lease của tất cả Node |
+| `get lease lab-k8s-worker2` | Lease của Node có **cùng tên** với Node đó |
+| `-o jsonpath='{.spec.renewTime}'` | chỉ lấy field `spec.renewTime`, bỏ hết phần còn lại |
+| `{"\n"}` | thêm ký tự xuống dòng, vì `jsonpath` không tự xuống dòng — không có nó thì output dính liền với prompt |
+
+Kết quả là một timestamp dạng `2026-08-25T09:14:22.123456Z`.
+
+Cơ chế heartbeat của Node có hai kênh, và Lease là kênh **nhanh**: `kubelet` gia hạn
+`spec.renewTime` theo chu kỳ ngắn thay vì ghi lại toàn bộ `status` của Node (vốn nặng hơn
+nhiều). Vậy nên:
+
+- **Lease còn tăng** ⇒ `kubelet` đang sống và còn nói chuyện được với API server.
+- **Lease đứng yên** ⇒ mất heartbeat; Node controller sẽ đổi condition `Ready` khỏi `True`
+  (thường thành `Unknown`, reason `NodeStatusUnknown`).
+
+Bạn đã chụp baseline ở [B6.1](#b61-quan-sát-node-object) (`06-worker2-lease-before.yaml`), rồi ở
+[B6.2](#b62-fault-injection-dừng-kubelet-trên-worker-2) xem `renewTime` **ngừng đổi** khi kubelet
+chết. Lệnh ở B6.3 là bước xác nhận cuối: sau khi `systemctl start kubelet` và
+`kubectl wait --for=condition=Ready`, nó chứng minh heartbeat đã chạy lại thật — chứ không phải
+Node chỉ tình cờ còn `Ready` do chưa kịp bị đánh dấu.
+
+Muốn thấy nó "tiếp tục tăng" đúng nghĩa PASS thì chạy hai lần cách nhau vài giây rồi so hai giá
+trị, thay vì nhìn bằng mắt:
+
+```bash
+A="$(kubectl -n kube-node-lease get lease lab-k8s-worker2 -o jsonpath='{.spec.renewTime}')"
+sleep 15
+B="$(kubectl -n kube-node-lease get lease lab-k8s-worker2 -o jsonpath='{.spec.renewTime}')"
+printf 'before=%s\nafter=%s\n' "$A" "$B"
+test "$A" != "$B"
+```
+
 **PASS:** kubelet `active`, worker 2 trở lại `Ready`, `renewTime` tiếp tục tăng.
 
 ## B7. Giao tiếp giữa Node và Control Plane

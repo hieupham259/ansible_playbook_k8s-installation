@@ -176,7 +176,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [X] [Tên và ID của đối tượng](17-names-vi.md) — quy tắc đặt tên DNS subdomain/label, UID.
 - [X] [Label và Selector](18-labels-vi.md) — bài quan trọng nhất nhóm này; selector là cơ chế mọi controller và Service dùng để tìm Pod.
 - [X] [Annotations](20-annotations-vi.md) — phân biệt rõ với label: annotation không dùng để chọn object.
-- [ ] [Namespaces](19-namespaces-vi.md) — trọng tâm: tài nguyên nào có namespace, tài nguyên nào cấp cluster.
+- [X] [Namespaces](19-namespaces-vi.md) — trọng tâm: tài nguyên nào có namespace, tài nguyên nào cấp cluster.
 - [ ] [Các label được khuyến nghị](31-common-labels-vi.md) — quy ước `app.kubernetes.io/*`.
 - [ ] [Công cụ dòng lệnh kubectl](26-kubectl-vi.md) — cú pháp, các động từ chính.
 - [ ] [Tổ chức quyền truy cập cluster bằng file kubeconfig](111-kubeconfig-vi.md) — context, cluster, user; cần cho mọi thao tác về sau.

@@ -29,7 +29,12 @@ Phần này là bắt buộc với mọi phiên làm việc tạo hoặc sửa f
 3. [`k8s-docs/00-ALO-TRINH-ADMIN.md`](k8s-docs/00-ALO-TRINH-ADMIN.md) — xác định chính xác nhóm bài mà lab phải phủ.
 4. **Toàn bộ** file `.md` của các bài trong nhóm đó. Không viết lab từ kiến thức chung về
    Kubernetes; nội dung lab phải bám đúng những gì bài dịch trình bày.
-5. [`k8s-docs/labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md`](k8s-docs/labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md)
+5. **Toàn bộ bài `/docs/tasks/` được gán cho lab này** — xem
+   [mục 7 của labs/README.md](k8s-docs/labs/README.md#7-bài-docstasks-mỗi-lab-phải-phủ) và
+   danh sách nguồn nằm ngay dưới dòng `🧪` của lab đó trong lộ trình. Đây là bài tập có lời
+   giải sẵn của kubernetes.io; lab phải **hấp thụ nội dung của chúng**, không để người học tự
+   chạy rời bên ngoài kỷ luật snapshot/gate/cleanup.
+6. [`k8s-docs/labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md`](k8s-docs/labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md)
    — lab mẫu, dùng làm chuẩn về cấu trúc và giọng văn.
 
 ### Nguyên tắc chia lab
@@ -95,6 +100,10 @@ Thứ tự các mục:
 
 ### Quy tắc nội dung
 
+- **Bài `/docs/tasks/` không phải bước riêng.** Nội dung của chúng phải nằm trong các mục `B`
+  của lab, kèm gate `PASS:` và cleanup như mọi bước khác. Không chèn vào lộ trình một danh
+  sách "làm thêm" nằm ngoài lab: chỉ lab mới khai báo snapshot đầu/cuối và mới bảo đảm
+  cluster trở về đúng trạng thái.
 - **Không lặp lại phần môi trường.** Không chép hướng dẫn cài OS, containerd, kubeadm hay CNI
   vào lab; link về Lab 00.
 - **Số phiên bản chỉ tồn tại ở** [bảng A1.3 của Lab 00](k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa).

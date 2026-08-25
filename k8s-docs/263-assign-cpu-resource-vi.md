@@ -2,6 +2,50 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 1/9 ·
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B1.2, B2.1 và B4.1.
+
+Đây là vế thực hành của bài [110](110-manage-resources-containers-vi.md) cho riêng CPU. Bài kế
+tiếp — [264](264-assign-memory-resource-vi.md) — có cấu trúc gần như y hệt nhưng cho memory, và
+kết luận **ngược nhau ở chỗ vượt limit**: đọc hai bài cạnh nhau, đừng đọc cách xa.
+
+Bài chạy `kubectl top` ở vài bước. Cluster lab chưa có metrics-server, nên đọc để hiểu con số
+đó nói gì, còn Lab 3c đo cùng một thứ bằng cách khác.
+
+**Phải hiểu ở lần đọc này:**
+
+- Container được đảm bảo lượng CPU nó **request** khi hệ thống còn CPU rảnh, và **không bao giờ**
+  dùng vượt **limit**: ví dụ ở mục *Chỉ định CPU request và CPU limit* đặt `-cpus "2"` nhưng limit
+  `1`, kết quả là container bị **điều tiết (throttle)** — nó vẫn chạy, không bị chấm dứt.
+- Ghi chú ngay sau ví dụ đó: limit là **trần**, không phải lời hứa. Container chạy trên Node chỉ
+  có 1 CPU thì không dùng quá 1 CPU dù limit ghi bao nhiêu.
+- Mục *Đơn vị CPU*: một CPU = 1 vCPU / 1 hyperthread; `0.1`, `100m` và `100 milliCPU` là một; độ
+  chính xác nhỏ hơn `1m` không được phép; CPU luôn là **lượng tuyệt đối** — `0.1` trên máy 1 nhân
+  bằng đúng `0.1` trên máy 48 nhân.
+- Mục *Chỉ định một CPU request quá lớn so với các Node của bạn*: request/limit của Pod là **tổng**
+  của các container; lập lịch dựa trên **request**; request lớn hơn mọi Node thì Pod ở `Pending`
+  **vô thời hạn**, và `kubectl describe` cho thấy `FailedScheduling ... Insufficient cpu`.
+- Hai mục về khai báo thiếu: không có limit thì container **không có trần trên**, dùng được toàn bộ
+  CPU của Node (trừ khi namespace áp một limit mặc định); có limit mà không có request thì
+  Kubernetes **tự gán request bằng limit** — chiều ngược lại không xảy ra.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Các bước cài và kiểm tra metrics-server, cùng mọi lệnh `kubectl top` | cluster lab cố ý chưa có metrics-server; Lab 3c đọc số liệu từ API object và cgroup v2 thay cho `kubectl top` | [giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability) |
+| LimitRange gán CPU limit mặc định cho namespace, nhắc ở mục *Nếu bạn không chỉ định CPU limit* | ở đây chỉ cần biết có cơ chế đặt mặc định; cách viết LimitRange là chủ đề riêng | bài [133](133-limit-range-vi.md) ở [giai đoạn 7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên) |
+| Nhánh *Dành cho người quản trị cluster* trong mục *Tiếp theo* (quota, ràng buộc CPU/memory theo namespace) | thuộc quản trị namespace, không phải cấu hình Pod | [giai đoạn 25](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace) |
+
+---
+
 Trang này hướng dẫn cách gán một *request* (yêu cầu) CPU và một *limit* (giới hạn) CPU cho
 container. Container không thể sử dụng nhiều CPU hơn limit đã cấu hình. Miễn là hệ thống còn
 thời gian CPU rảnh, container được đảm bảo nhận đủ lượng CPU mà nó yêu cầu.
@@ -304,3 +348,46 @@ kubectl delete namespace cpu-example
 * [Cấu hình quota cho các đối tượng API (Configure Quotas for API Objects)](./252-quota-api-object-vi.md)
 
 * [Thay đổi tài nguyên CPU và memory đã gán cho Container (Resize CPU and Memory Resources assigned to Containers)](289-resize-container-resources-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở nhóm 3c:
+
+1. `lab-k8s-worker1` và `lab-k8s-worker2` mỗi máy có 2 vCPU. Bạn đặt cho một container
+   `limits.cpu: "3"`. Container có bao giờ dùng được 3 CPU không, và vì sao? Nếu thay vào đó bạn
+   đặt `requests.cpu: "100"` thì Pod rơi vào trạng thái nào, `Events` ghi gì?
+2. **Câu bẫy.** Manifest chỉ có `resources.limits.cpu: "1"`, không có dòng `requests` nào. CPU
+   request của container đó bằng bao nhiêu? Và nếu manifest chỉ có `requests` mà không có `limits`
+   thì Kubernetes có tự điền limit theo chiều ngược lại không?
+3. Container cấu hình `-cpus "2"` nhưng `limits.cpu: "1"`. Nó bị chấm dứt hay vẫn chạy? Gọi tên
+   đúng cơ chế mà kernel áp lên nó.
+4. `0.1`, `100m` và `100 milliCPU` khác nhau thế nào? Và `0.1 CPU` trên node 2 nhân có ít hơn
+   `0.1 CPU` trên node 48 nhân không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Ghi chú của bài nói thẳng: limit chỉ là **trần**, còn lượng CPU thực tế bị chặn bởi
+   chính phần cứng của Node — container chạy trên node 2 vCPU thì không vượt quá 2 CPU dù limit
+   ghi `3`. Với `requests.cpu: "100"`: Pod ở **`Pending` vô thời hạn**, vì lập lịch so **request**
+   với CPU khả dụng của Node và không Node nào đáp ứng nổi; `kubectl describe` cho
+   **`FailedScheduling ... Insufficient cpu`**.
+2. Request bằng **đúng 1 CPU** — mục *Nếu bạn chỉ định CPU limit nhưng không chỉ định CPU request*
+   nói rõ Kubernetes **tự động gán request bằng limit** (và làm y hệt với memory). Phần sau là chỗ
+   dễ sai: **không có chiều ngược lại**. Chỉ khai `requests` thì container **không có limit** —
+   tức không có trần trên và có thể dùng toàn bộ CPU của Node.
+3. **Vẫn chạy.** Nó bị **điều tiết (throttle)**: kernel cắt bớt thời gian CPU để mức dùng không
+   vượt limit, nên `kubectl top` cho con số nhỉnh dưới 1 CPU (ví dụ `974m`) chứ container không
+   chết. Đây là điểm phân biệt với memory ở bài [264](264-assign-memory-resource-vi.md).
+4. **Cả ba là một** — `m` là hậu tố milli, nên `100m` = `100 milliCPU` = `0.1 CPU`; chỉ có ràng
+   buộc là không được nhỏ hơn `1m`. Và **không**: CPU luôn được yêu cầu như một **lượng tuyệt
+   đối**, không bao giờ là tỷ lệ, nên `0.1` là cùng một lượng CPU trên máy 1 nhân, 2 nhân hay
+   48 nhân.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

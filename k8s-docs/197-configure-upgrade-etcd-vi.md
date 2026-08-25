@@ -9,13 +9,15 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 19 — etcd, backup và khôi phục thảm họa](00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa),
-bài chính của checkpoint · Kiểm chứng bằng **bài tập bắt buộc của giai đoạn 19**: backup etcd → cố ý xóa
-vài Deployment → restore từ snapshot → chứng minh cluster trở về trạng thái cũ.
+bài 1/1 · Phần II không có lab riêng: kiểm chứng bằng **Checkpoint của chính giai đoạn 19** trên
+cluster lab dựng ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) — backup etcd → cố ý xóa vài
+Deployment → restore từ snapshot → chứng minh cluster trở về trạng thái cũ.
 
 Bài này viết chung cho cả người tự dựng etcd bên ngoài kubeadm. Cluster lab của bạn dùng etcd
-dạng static Pod do kubeadm dựng sẵn trên `k8s-master`, nên các mục khởi động etcd thủ công chỉ
+dạng static Pod do kubeadm dựng sẵn trên `lab-k8s-master`, nên các mục khởi động etcd thủ công chỉ
 cần đọc để hiểu bối cảnh; trọng tâm của lần đọc này là **backup và restore**.
 
 **Phải hiểu ở lần đọc này:**
@@ -528,7 +530,7 @@ chống phân mảnh diễn ra đều đặn. Xem
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 19:
 
-1. Cluster lab của bạn chỉ có một member etcd trên `k8s-master`. Giả sử etcd mất khả năng ghi
+1. Cluster lab của bạn chỉ có một member etcd trên `lab-k8s-master`. Giả sử etcd mất khả năng ghi
    (đĩa hỏng) nhưng hai worker vẫn chạy bình thường — theo lập luận của bài, chuyện gì xảy ra
    với các Pod đang chạy và với các Pod mới?
 2. Vì sao quy trình khôi phục bắt buộc phải **dừng tất cả API server trước**, khôi phục xong

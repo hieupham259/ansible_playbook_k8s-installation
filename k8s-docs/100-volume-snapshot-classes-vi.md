@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 11/16 · Kiểm chứng ở
-Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6b](labs/LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md).
 
 Bài rất ngắn và là bản sao của bài [96](96-storage-classes-vi.md) đặt lên snapshot. Đọc nó chủ
 yếu để bắt hai chỗ **khác** StorageClass: cách chọn class mặc định, và việc đối tượng không sửa

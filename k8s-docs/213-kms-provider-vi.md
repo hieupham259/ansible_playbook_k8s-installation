@@ -10,14 +10,14 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), mục
+([Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), mục
 [Giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu), bài 4/6),
 nối tiếp bài [208 — Encrypting Confidential Data at Rest](208-encrypt-data-vi.md): ở đó bạn đã
 thấy giới hạn của key cục bộ (key nằm ngay trên host), bài này là lời giải — đưa key mã hóa
 key (KEK) ra một KMS bên ngoài.
 
 Cluster lab không có dịch vụ KMS bên ngoài, nên lần đọc này là đọc hiểu cơ chế, không thực
-hành trên `k8s-master`. Trọng tâm là kiến trúc envelope encryption và các hệ quả vận hành
+hành trên `lab-k8s-master`. Trọng tâm là kiến trúc envelope encryption và các hệ quả vận hành
 (xoay KEK, health check), không phải viết plugin.
 
 **Phải hiểu ở lần đọc này:**
@@ -510,7 +510,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Trong sơ đồ envelope encryption của bài, thứ gì nằm trong KMS từ xa, thứ gì nằm phía
    Kubernetes? Nếu kẻ tấn công lấy được bản dump etcd (nhưng không có quyền gọi KMS), chúng
    đọc được gì?
-3. Trên cluster lab của bạn (control plane là `k8s-master`), nếu muốn dùng một KMS provider
+3. Trên cluster lab của bạn (control plane là `lab-k8s-master`), nếu muốn dùng một KMS provider
    thì KMS plugin phải được triển khai ở đâu, và `kube-apiserver` giao tiếp với nó bằng cơ
    chế gì? Giá trị nào trong `EncryptionConfiguration` khai báo điểm giao tiếp đó?
 4. Plugin từng dùng `key_id=A`, chuyển sang `key_id=B`, rồi KEK cũ được đưa vào dùng lại.
@@ -533,7 +533,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    nằm phía Kubernetes trong etcd.** Kẻ có bản dump etcd chỉ thấy bản mã với tiền tố
    `k8s:enc:kms:...` và DEK ở dạng đã wrap — không giải mã được vì unwrap DEK đòi hỏi gọi
    được KMS từ xa (mọi credential đó do KMS plugin quản lý, không nằm trong etcd).
-3. KMS plugin phải chạy **trên cùng host với `kube-apiserver`**, tức là trên `k8s-master`
+3. KMS plugin phải chạy **trên cùng host với `kube-apiserver`**, tức là trên `lab-k8s-master`
    (bài yêu cầu plugin được triển khai trên cùng (các) host với control plane). API server
    là gRPC client nói chuyện với plugin (gRPC server) qua **UNIX domain socket**; điểm giao
    tiếp được khai báo bằng thuộc tính `endpoint` (dạng `unix:///...`) của provider `kms`

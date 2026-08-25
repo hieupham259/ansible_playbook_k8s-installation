@@ -2,6 +2,70 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/topology-manager/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 25 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace),
+bài 6/7 · Phần II không có lab riêng: thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md), tự chấm bằng **Checkpoint giai đoạn 25**.
+
+Giống bài [235](235-memory-manager-vi.md) ngay trước nó, đây là chính sách **cấp node** chứ không
+phải chính sách theo namespace: đổi nó là sửa cấu hình kubelet của một node đang chạy, việc thuộc
+[giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy), bài
+[224](224-kubelet-config-file-vi.md). Bài này là mảnh cuối của bộ ba CPU Manager
+([200](200-cpu-management-policies-vi.md)) — Memory Manager ([235](235-memory-manager-vi.md)) —
+Topology Manager; nền lý thuyết chung ở bài [74](74-resource-managers-vi.md) (nhóm 7b).
+
+Nói thẳng về giới hạn của cluster lab: ba VM đều chỉ có **một NUMA domain** và chính sách đang là
+`none`. Trên cluster này bạn **đo được** hai thứ: đếm NUMA node bằng
+`ls -d /sys/devices/system/node/node[0-9]*` và đọc chính sách **hiệu lực** qua `configz` (Lab 14
+đọc nó dưới tên `topologyManagerPolicy`), đúng như
+[Lab 14 phần B10.4](labs/LAB-14-CRD-VA-OPERATOR.md#b104-topology-manager-đang-ở-policy-nào) đã
+làm. Bạn **không dựng được** tình huống Pod bị từ chối vì topology: với một NUMA domain thì mọi
+cách sắp đặt đều thỏa mãn, kể cả `single-numa-node`. Đọc bài để biết cấu hình đúng khi vận hành
+máy chủ nhiều socket, đừng sửa kubelet của lab để "thử cho biết".
+
+**Phải hiểu ở lần đọc này:**
+
+- Topology Manager là thành phần của kubelet đóng vai trò **nguồn thông tin chuẩn** điều phối các
+  *Hint Provider* (CPU Manager, Device Manager, Memory Manager). Nó nhận gợi ý dạng **bitmask**
+  các NUMA node kèm cờ `preferred`, hội tụ về một gợi ý duy nhất, rồi Pod được chấp nhận hay bị
+  từ chối dựa trên gợi ý đó. Nó căn chỉnh Pod thuộc **mọi lớp QoS** (mục *Topology Manager hoạt
+  động như thế nào* và *Scope và chính sách của Topology Manager*).
+- Có **hai trục cấu hình độc lập**. `scope` — `container` (mặc định) hoặc `pod` — đặt bằng
+  `topologyManagerScope` trong [file cấu hình kubelet](224-kubelet-config-file-vi.md); `policy`
+  đặt bằng flag kubelet `--topology-manager-policy`. Scope `container` căn chỉnh **từng container
+  riêng lẻ**, không có khái niệm gom nhóm; scope `pod` coi Pod là một thể thống nhất và dồn mọi
+  container vào **một tập NUMA node chung** (mục *Các scope của Topology Manager*).
+- Bốn chính sách khác nhau ở chỗ **làm gì khi affinity không được ưu tiên**: `none` (mặc định) —
+  không căn chỉnh gì; `best-effort` — vẫn **chấp nhận** Pod vào node; `restricted` — **từ chối**;
+  `single-numa-node` — từ chối nếu không dồn được vào **một** NUMA node duy nhất (bốn mục chính
+  sách).
+- Hậu quả vận hành khi Pod bị từ chối: Pod rơi vào trạng thái `Terminated` với lỗi pod admission
+  failure, và **scheduler sẽ không lập lịch lại nó**. Phải dùng Deployment/ReplicaSet hoặc một
+  control loop bên ngoài để triển khai lại (mục *Chính sách `restricted`* và *Chính sách
+  `single-numa-node`*).
+- Hai hạn chế đã biết: số NUMA node tối đa là **8** (vượt qua thì bùng nổ trạng thái khi liệt kê
+  tổ hợp NUMA affinity), và **scheduler không nhận biết topology** — nên Pod hoàn toàn có thể
+  được lập lịch lên một node rồi mới thất bại tại chính node đó (mục *Các hạn chế đã biết*).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Trước khi bạn bắt đầu* — minikube và ba playground trực tuyến | cluster lab đã có sẵn ba VM; lộ trình không dùng minikube hay cluster dùng chung | [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
+| Mục *Hỗ trợ Windows* | ba node lab đều là Linux; tính năng còn alpha, cần feature gate và container runtime hỗ trợ | [Giai đoạn 15 — Windows](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows), chỉ mở khi môi trường thật có node Windows |
+| Mục *Các tùy chọn chính sách* — `prefer-closest-numa-nodes`, `max-allowable-numa-nodes` và ba feature gate của chúng | chỉ có ý nghĩa trên máy nhiều NUMA node; và bài còn khuyến cáo **không** dùng `max-allowable-numa-nodes` | khi vận hành máy chủ vật lý nhiều socket; cách bật/tắt feature gate ở bài [196](196-configure-feature-gates-vi.md), [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) — đã đọc |
+| Mục *Tương tác của Pod với các chính sách* — năm manifest mẫu và gợi ý mà từng Hint Provider trả về, kèm `example.com/device` | cần CPU Manager chạy `static` và một device plugin thật; cluster lab không có cả hai | bài [200](200-cpu-management-policies-vi.md) — bài 4/7 vừa đọc — cho phần CPU Manager; phần thiết bị ở bài [184 — Device Plugin](184-device-plugins-vi.md) ([giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng)) — đã đọc |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.27 [stable]`
 
 Ngày càng có nhiều hệ thống tận dụng sự kết hợp giữa CPU và các bộ tăng tốc phần cứng (hardware
@@ -412,3 +476,63 @@ tài nguyên.
 ## Tiếp theo (What's next)
 
 * Đọc về [Các trình quản lý tài nguyên cấp Pod](74-resource-managers-vi.md#pod-level-resource-managers).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 25:
+
+1. `scope` và `policy` là hai trục khác nhau. Mỗi trục đặt bằng cái gì, mặc định là giá trị nào,
+   và scope `pod` khác scope `container` ở điểm cốt lõi nào?
+2. Khi gợi ý affinity **không** được ưu tiên, ba chính sách `best-effort`, `restricted` và
+   `single-numa-node` phản ứng khác nhau ra sao? Riêng `single-numa-node` từ chối Pod trong tình
+   huống cụ thể nào?
+3. **Câu bẫy.** Một Pod bị chính sách `restricted` từ chối khỏi node. Pod rơi vào trạng thái nào,
+   và scheduler có tự đi tìm node khác cho nó không? Bạn phải làm gì để nó được thử lại?
+4. Trên `lab-k8s-worker2`, `ls -d /sys/devices/system/node/node[0-9]*` trả về đúng **một** dòng và
+   `configz` cho thấy chính sách đang là `none`. Giả sử bạn đổi sang `single-numa-node` trên đúng
+   máy đó rồi chạy một Pod `Guaranteed`: Pod bị từ chối hay được chấp nhận? Vì sao kết quả đó
+   **không** phải bằng chứng chính sách đang làm việc?
+5. Bài nêu hai hạn chế đã biết. Vì sao Kubernetes mặc định không chạy kubelet với Topology Manager
+   trên node phát hiện thấy hơn 8 NUMA node? Và hạn chế thứ hai — scheduler không nhận biết
+   topology — gây ra hệ quả gì trong vận hành?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `scope` đặt bằng trường **`topologyManagerScope` trong file cấu hình kubelet**, mặc định là
+   **`container`**; `policy` đặt bằng **flag kubelet `--topology-manager-policy`**, mặc định là
+   **`none`**. Khác biệt cốt lõi: với scope `container`, Topology Manager tính **một phép căn
+   chỉnh riêng cho từng container** và **không có khái niệm gom nhóm** — các container của cùng
+   một Pod có thể rơi vào những NUMA node khác nhau. Với scope `pod`, nó coi **Pod là một thể
+   thống nhất** và dồn toàn bộ container vào một NUMA node duy nhất hoặc một tập NUMA node chung.
+2. **`best-effort` vẫn lưu lại thông tin affinity và vẫn chấp nhận Pod vào node**;
+   **`restricted` từ chối Pod**. `single-numa-node` không xét "ưu tiên hay không" mà xét một điều
+   kiện hẹp hơn: **affinity trên một NUMA node duy nhất có khả thi không** — nếu không khả thi,
+   tức phải cần từ hai NUMA node trở lên mới thỏa mãn được yêu cầu, thì Pod bị từ chối.
+3. Pod rơi vào trạng thái **`Terminated`** với lỗi từ chối chấp nhận Pod (pod admission failure).
+   Và đây là chỗ dễ sai: **scheduler sẽ *không* lập lịch lại Pod đó** — nó không tự đi tìm node
+   khác. Trực giác "Pod hỏng thì Kubernetes tự thử node khác" sai vì việc từ chối xảy ra ở
+   **kubelet**, sau khi scheduler đã xong việc. Muốn có lần thử lại thì phải để Pod nằm dưới một
+   **ReplicaSet hoặc Deployment**, hoặc viết một control loop bên ngoài kích hoạt triển khai lại
+   các Pod gặp lỗi `Topology Affinity`.
+4. **Pod được chấp nhận** — và chính vì nó *luôn* được chấp nhận nên đây không phải bằng chứng gì
+   cả. `single-numa-node` chỉ từ chối khi việc cấp phát cần **từ hai NUMA node trở lên**; máy chỉ
+   có **một** NUMA domain thì trường hợp đó không bao giờ tồn tại, mọi phương án cấp phát đều nằm
+   gọn trong một node. Muốn thấy chính sách thật sự chặn thì phải có máy nhiều NUMA domain. Thêm
+   nữa, đổi chính sách là **sửa cấu hình kubelet của node đang chạy**, việc thuộc
+   [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy), bài
+   [224](224-kubelet-config-file-vi.md) — đừng làm chỉ để thử.
+5. Vì với hơn 8 NUMA node sẽ xảy ra **bùng nổ trạng thái (state explosion)** khi liệt kê mọi tổ
+   hợp NUMA affinity khả dĩ và sinh gợi ý cho chúng; 8 là giới hạn mặc định, và tùy chọn
+   `max-allowable-numa-nodes` mới cho vượt — bài khuyến cáo không dùng. Hạn chế thứ hai:
+   **scheduler không nhận biết topology**, nên nó có thể chọn một node mà Topology Manager của
+   node đó sau đó từ chối — Pod được lập lịch xong rồi mới thất bại tại node, đúng cơ chế đã mô tả
+   ở câu 3.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

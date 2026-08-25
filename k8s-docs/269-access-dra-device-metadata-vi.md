@@ -6,6 +6,50 @@
 > tài nguyên động (dynamic resource allocation — DRA), bằng cách đọc các file JSON tại những
 > đường dẫn quy ước bên trong container.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 13 — Lập lịch và workload nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao)
+→ dòng **Thực hành**, bài 3/5 · Kiểm chứng ở [Lab 13 — DRA](labs/LAB-13-DRA.md) phần B5.4.
+
+Bài này ở mức **alpha** và đòi Kubernetes server v1.36 trở lên — khác hai bài kế
+[270](270-allocate-devices-dra-vi.md) và [271](271-set-up-dra-cluster-vi.md) vốn đã stable. Cluster
+lab không có GPU và không có DRA driver, nên phần B5.4 của Lab 13 chỉ kiểm được **vế phủ định**:
+container không yêu cầu thiết bị thì không có thư mục metadata. Đọc bài này để nắm quy ước đường
+dẫn, chưa phải để chạy.
+
+**Phải hiểu ở lần đọc này:**
+
+- Metadata thiết bị đến với workload qua **file JSON tại đường dẫn quy ước bên trong container**,
+  không qua API — ứng dụng chỉ cần `find` và `cat` là đọc được, không cần quyền nào trên apiserver.
+- Với một ResourceClaim được tham chiếu trực tiếp, đường dẫn là
+  `/var/run/kubernetes.io/dra-device-attributes/resourceclaims/<claimName>/<requestName>/<driverName>-metadata.json`
+  — ba mảnh đường dẫn tương ứng tên claim, tên request và tên driver.
+- Với ResourceClaimTemplate thì Kubernetes sinh một ResourceClaim cho **mỗi Pod** và **tên claim
+  sinh ra không đoán trước được**, nên đường dẫn đổi sang
+  `.../resourceclaimtemplates/<podClaimName>/<requestName>/...`; `<podClaimName>` chính là field
+  `name` trong `spec.resourceClaims[]` của Pod, và JSON cũng mang field `podClaimName` ghi lại ánh
+  xạ đó.
+- Điều kiện để có metadata không chỉ là "cluster đã bật DRA": mục *Trước khi bạn bắt đầu* đòi thêm
+  rằng **DRA driver phải hỗ trợ metadata thiết bị** — driver bật `EnableDeviceMetadata` và
+  `MetadataVersions` khi khởi động kubelet plugin.
+- Cách đọc metadata một cách bền vững qua nhiều phiên bản: file JSON có field `apiVersion` cho biết
+  phiên bản lược đồ, và ứng dụng viết bằng ngôn ngữ khác Go phải **kiểm field đó trước khi parse**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ba hàm Go của package `devicemetadata` (`ReadResourceClaimMetadata`, `ReadResourceClaimTemplateMetadata`, `ReadResourceClaimMetadataWithDriverName`) | là việc của người viết ứng dụng tiêu thụ thiết bị, không phải của quản trị viên | không cần cho lộ trình; thứ phải nhớ là quy ước đường dẫn ở hai mục *Truy cập metadata thiết bị bằng ResourceClaim* và *…bằng ResourceClaimTemplate* của chính bài này |
+| Nội dung thật bên trong file JSON — model, phiên bản driver, UUID thiết bị | cần một driver thật công bố thuộc tính mới có dữ liệu để đọc | bài [149](149-dynamic-resource-allocation-vi.md) mục *Lược đồ metadata*, đã đọc ở mạch chính giai đoạn 13 |
+| Hai lệnh `kubectl apply -f https://k8s.io/examples/dra/…` và mục *Dọn dẹp* | trên cluster không có thiết bị, Pod dừng ở pending chứ không chạy tới bước xem log | bài [270](270-allocate-devices-dra-vi.md) giải thích trạng thái pending đó; [Lab 13](labs/LAB-13-DRA.md) phần B4 kiểm chứng |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`
 
 Trang này hướng dẫn cách truy cập
@@ -256,3 +300,48 @@ kubectl delete -f https://k8s.io/examples/dra/dra-device-metadata-template-pod.y
 * [Cấp phát thiết bị cho workload bằng DRA](270-allocate-devices-dra-vi.md)
 * Để biết thêm thông tin về thiết kế, xem
   [KEP-5304](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/5304-dra-attributes-downward-api).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 13:
+
+1. Ứng dụng trong container lấy metadata thiết bị bằng con đường nào, và vì sao đường dẫn của một
+   ResourceClaim tham chiếu trực tiếp lại khác đường dẫn của claim sinh từ ResourceClaimTemplate?
+2. **Câu bẫy.** Cluster đã bật DRA, driver đã cài, Pod đã được cấp phát thiết bị. Vậy chắc chắn có
+   file metadata trong container chứ?
+3. Trên `lab-k8s-worker2`, bạn chạy một Pod bình thường — không có mục `resources.claims` nào —
+   rồi `kubectl exec` vào chạy `find /var/run/kubernetes.io/dra-device-attributes`. Bạn kỳ vọng
+   thấy gì, và điều đó nói lên quy tắc nào về thời điểm file metadata xuất hiện?
+4. Ứng dụng của bạn không viết bằng Go. Bài bảo đọc metadata thế nào, phải kiểm field nào trước
+   khi parse, và để làm gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Bằng cách **đọc file JSON tại những đường dẫn quy ước bên trong chính container** — bài dùng
+   `find … -name '*-metadata.json' -exec cat {} \;` và `kubectl exec … cat …`, không gọi API nào.
+   Hai đường dẫn khác nhau vì với **ResourceClaimTemplate, Kubernetes sinh một ResourceClaim cho
+   mỗi Pod và tên claim sinh ra không thể đoán trước**; không đoán được tên thì không đặt được nó
+   vào đường dẫn, nên đường dẫn dùng **`<podClaimName>`** — field `name` trong
+   `spec.resourceClaims[]` của Pod — thay cho `<claimName>`, và nhánh đầu đường dẫn đổi từ
+   `resourceclaims/` sang `resourceclaimtemplates/`.
+2. **Không chắc.** Ngoài việc quản trị viên đã thiết lập DRA, gắn thiết bị và cài driver, bài còn
+   đòi **DRA driver phải hỗ trợ metadata thiết bị** — tức driver bật `EnableDeviceMetadata` và
+   `MetadataVersions` khi khởi động kubelet plugin, và bài bảo phải **xem tài liệu của driver** để
+   biết. Cộng thêm điều kiện phiên bản: tính năng ở mức **alpha**, server phải **v1.36 trở lên**.
+3. **Không thấy gì** — lệnh `find` không tìm ra file nào. Quy ước đường dẫn của bài luôn đi qua
+   một tên claim và một tên request, tức metadata **chỉ xuất hiện cho container thật sự yêu cầu
+   thiết bị** qua `resources.claims` trỏ tới một claim đã được cấp phát. Không có claim thì không
+   có nhánh đường dẫn nào để tạo ra.
+4. **Đọc trực tiếp file JSON** ở đúng đường dẫn quy ước, và **kiểm field `apiVersion`** để xác
+   định **phiên bản lược đồ** trước khi phân tích cú pháp. Mục đích: code chạy được trên nhiều
+   phiên bản lược đồ — đúng việc mà package Go `devicemetadata` làm sẵn bằng cơ chế thương lượng
+   phiên bản, còn ngôn ngữ khác thì phải tự làm.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

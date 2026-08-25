@@ -2,6 +2,67 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/extend-kubernetes/configure-multiple-schedulers/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 28 — Mở rộng Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes), bài 7/11 ·
+Phần II không có lab riêng: bạn thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) rồi tự chấm bằng **Checkpoint** của
+[giai đoạn 28](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes).
+Bài nối tiếp [137](137-kube-scheduler-vi.md) ở
+[giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), và dùng lại nguyên vẹn phần
+ServiceAccount, ClusterRole, RoleBinding mà bạn đã tự tay dựng ở
+[Lab 9a chặng 2](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md#b3-chặng-2--phân-quyền-và-rbac)
+thuộc [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy).
+
+**Bài chia làm hai nửa rất khác nhau về khả năng thực hành.** Nửa đầu — mục *Đóng gói scheduler*
+— đòi clone mã nguồn Kubernetes, `make`, rồi build và push một image lên registry: đó là phần
+**ngoài baseline** của Lab 00. Nửa sau — Deployment cho scheduler, RBAC của nó, và
+`spec.schedulerName` trong Pod — là thứ bạn đọc và kiểm chứng được trên chính ba VM lab, kể cả khi
+chưa có image: mục *Xác minh các Pod đã được lập lịch bằng đúng scheduler mong muốn* mô tả đúng
+trường hợp Pod được gửi lên trước khi scheduler tồn tại.
+
+**Phải hiểu ở lần đọc này:**
+
+- Cách một Pod được ghép với một scheduler, ở mục *Chỉ định scheduler cho các Pod* và Ghi chú
+  ngay trên nó: `spec.schedulerName` của Pod phải **khớp chính xác** trường `schedulerName` của
+  một `KubeSchedulerProfile`; không ghi gì thì Pod về `default-scheduler`; và **mọi scheduler
+  trong cluster phải có tên duy nhất**.
+- Hệ quả của cơ chế ghép theo tên, ở mục *Xác minh các Pod đã được lập lịch bằng đúng scheduler
+  mong muốn*: nếu không scheduler nào mang cái tên đã ghi, Pod nằm **Pending mãi mãi** — không có
+  đường lui về `default-scheduler`. Và `kubectl get events` là chỗ đọc ra scheduler nào đã thật
+  sự lập lịch cho Pod nào.
+- Scheduler thứ hai chạy như một workload bình thường chứ không phải một thành phần đặc biệt:
+  một [Deployment](63-deployment-vi.md) trong `kube-system` (qua ReplicaSet, để nó chống chịu sự
+  cố), cấu hình nằm trong ConfigMap `my-scheduler-config` được mount thành volume và truyền vào
+  bằng tùy chọn `--config`.
+- Danh tính và quyền của scheduler thứ hai, phần YAML ngay đầu manifest: một ServiceAccount
+  `my-scheduler` riêng, hai ClusterRoleBinding tới `system:kube-scheduler` và
+  `system:volume-scheduler` để nó có **cùng đặc quyền như kube-scheduler**, cộng một RoleBinding
+  tới Role `extension-apiserver-authentication-reader`.
+- Bật leader election là **hai việc**, không phải một, theo mục *Bật leader election*: sửa ba
+  trường `leaderElection.leaderElect`, `resourceNamespace`, `resourceName` trong
+  `KubeSchedulerConfiguration`, **và** — nếu cluster bật RBAC — thêm tên scheduler của bạn vào
+  `resourceNames` của các rule trên `leases` và `endpoints` trong ClusterRole
+  `system:kube-scheduler`. Namespace giữ lock phải tồn tại sẵn; lock object thì control plane tự
+  tạo.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Đóng gói scheduler* — `git clone`, `make`, `Dockerfile`, `docker build`, push lên GCR hoặc Docker Hub | build binary từ mã nguồn Go rồi đẩy image lên một registry bên ngoài là thêm phần mềm ngoài [baseline của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); ở lần đọc này chỉ cần thấy scheduler thứ hai tới cluster **dưới dạng một container image như mọi workload khác** | Checkpoint của [giai đoạn 28](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes) không hỏi tới bước này; phần hành vi thì kiểm chứng được ngay ở mục *Xác minh các Pod đã được lập lịch bằng đúng scheduler mong muốn* |
+| Mọi thứ trong `KubeSchedulerConfiguration` ngoài `profiles[].schedulerName` và `leaderElection` — plugin, điểm mở rộng, nhiều profile | bài không giải thích, chỉ trỏ sang trang tham khảo của kubernetes.io | các điểm mở rộng của scheduler là bài [147](147-scheduling-framework-vi.md), còn chu trình filter/score là bài [137](137-kube-scheduler-vi.md), cả hai ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction) |
+| Câu cuối bài — đổi cấu hình hoặc image cho **scheduler chính** bằng cách sửa static pod manifest trên control plane node | đó là sửa control plane đang chạy chứ không phải thêm một workload; làm sai là mất scheduler của cluster | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
+
+---
+
 Kubernetes đi kèm một scheduler mặc định, được mô tả
 [tại đây](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-scheduler/).
 Nếu scheduler mặc định không đáp ứng nhu cầu của bạn, bạn có thể tự hiện thực một scheduler
@@ -405,3 +466,55 @@ Bạn cũng có thể dùng một
 [cấu hình scheduler tùy chỉnh](https://kubernetes.io/docs/reference/scheduling/config/#multiple-profiles)
 hoặc một container image tùy chỉnh cho scheduler chính của cluster, bằng cách sửa static pod
 manifest của nó trên các control plane node liên quan.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 28:
+
+1. Một Pod được giao cho scheduler nào là do cái gì quyết định? Hai trường nào phải khớp nhau,
+   và điều gì xảy ra khi Pod spec không ghi trường đó?
+2. **Câu bẫy.** Trên `lab-k8s-master` bạn apply một Pod có `spec.schedulerName: my-scheduler`
+   nhưng chưa triển khai scheduler nào tên như vậy. Pod dừng ở trạng thái nào, và sau một lúc nó
+   có được `default-scheduler` nhặt lên hộ không? Bạn đọc ở đâu để biết scheduler nào đã lập lịch
+   cho một Pod?
+3. Bạn triển khai scheduler thứ hai vào namespace `kube-system` của cluster lab. Ngoài Deployment
+   và ConfigMap, manifest còn tạo một ServiceAccount và ba binding. Kể ba binding đó và nói mỗi
+   cái cấp cho scheduler quyền gì.
+4. Bạn đặt `leaderElection.leaderElect: true` cho `my-scheduler`, khai đủ `resourceNamespace` và
+   `resourceName`, nhưng nó vẫn không giành được lock trên cluster có bật RBAC. Bài bắt bạn sửa
+   thêm chỗ nào nữa?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Do **tên scheduler**, chứ không do gì khác. Trường `spec.schedulerName` trong PodTemplate hoặc
+   trong manifest của Pod **phải khớp** trường `schedulerName` của `KubeSchedulerProfile` thuộc
+   `KubeSchedulerConfiguration` của scheduler đó. Không ghi `spec.schedulerName` thì Pod **tự
+   động được lập lịch bằng `default-scheduler`**. Hệ quả kèm theo: mọi scheduler đang chạy trong
+   cluster đều phải có tên duy nhất, nếu không thì không xác định được ai chịu trách nhiệm.
+2. **Pod nằm Pending mãi mãi**, và câu trả lời vế sau là **không** — không có đường lui về
+   `default-scheduler`. Đây đúng là thí nghiệm bài đề nghị ở mục *Xác minh…*: gửi các Pod lên
+   trước rồi mới gửi Deployment của scheduler thì `annotation-second-scheduler` treo ở Pending
+   trong khi hai Pod kia đã được lập lịch, và **ngay khi** scheduler mới bắt đầu chạy thì nó mới
+   được lập lịch. Chỗ đọc ra ai đã lập lịch cho Pod nào là **các mục Scheduled trong event log**,
+   xem bằng `kubectl get events`.
+3. **Một ServiceAccount `my-scheduler` và ba binding gắn vào nó.** Hai ClusterRoleBinding —
+   `my-scheduler-as-kube-scheduler` trỏ tới ClusterRole `system:kube-scheduler`, và
+   `my-scheduler-as-volume-scheduler` trỏ tới ClusterRole `system:volume-scheduler` — để
+   scheduler của bạn có **cùng những đặc quyền như `kube-scheduler`**. Cái thứ ba là một
+   RoleBinding trong `kube-system`, `my-scheduler-extension-apiserver-authentication-reader`, trỏ
+   tới Role `extension-apiserver-authentication-reader`.
+4. **ClusterRole `system:kube-scheduler`.** Bài nói rõ: nếu RBAC được bật, phải thêm **tên
+   scheduler của bạn** vào phần `resourceNames` của những rule áp dụng cho resource `leases` và
+   `endpoints`, bên cạnh `kube-scheduler` đã có sẵn. Không có tên trong `resourceNames` thì
+   scheduler không `get` và `update` được chính lock object của nó, nên không bao giờ thắng bầu
+   cử. Lưu ý thêm: lock object do control plane tạo hộ, nhưng **namespace giữ lock phải tồn tại
+   từ trước**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

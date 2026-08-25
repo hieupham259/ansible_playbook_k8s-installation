@@ -2,6 +2,63 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/run-application/run-replicated-stateful-application/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 6 — Lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), dòng **Thực hành**, bài 3/4 ·
+Kiểm chứng ở [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md), phần B6.
+
+Đây là bài dài nhất của nhóm, và phần lớn độ dài là **logic của MySQL**, không phải cơ chế
+Kubernetes: ba script bash trong `init-mysql`, `clone-mysql` và sidecar `xtrabackup` chiếm gần
+nửa manifest. Đọc chúng ở mức biết chúng làm gì, đừng học thuộc. Phần Kubernetes thật sự nằm ở
+hai Service, ở `volumeClaimTemplates`, và ở mục *Tìm hiểu quá trình khởi tạo Pod có trạng thái*.
+
+Bài này là chỗ **trả nợ #2** của lộ trình — `volumeClaimTemplates` của StatefulSet, phát sinh ở
+bài [65](65-statefulset-vi.md) thuộc [4b](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling)
+khi cluster chưa có StorageClass; trả ở [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B6.
+Headless Service `mysql` trong bài thuộc **nợ #3**, đã trả xong ở
+[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) B10–B11, nên đọc phần đó bạn không còn nợ gì.
+Điều kiện tiên quyết mà bài đòi — một trình cấp phát PersistentVolume động với StorageClass mặc
+định — chính là thứ [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B3 cài.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mục *Tạo các Service* dựng **hai** Service cho cùng một tập Pod, mỗi cái một vai: headless
+  `mysql` (`clusterIP: None`) chỉ để cấp bản ghi DNS ổn định `<pod-name>.mysql` cho từng thành
+  viên; `mysql-read` là Service thường có cluster IP, phân phối kết nối tới mọi Pod đang Ready.
+  Hệ quả bài nói thẳng: **ghi** phải nối trực tiếp tới `mysql-0.mysql`, chỉ truy vấn **đọc** mới
+  dùng `mysql-read`.
+- `volumeClaimTemplates` ở cuối manifest StatefulSet: mỗi replica được cấp một PVC riêng, không
+  chia chung một volume. Đây là điểm phân biệt StatefulSet với Deployment về mặt lưu trữ.
+- Mục *Scale số lượng replica* và ghi chú kèm theo: scale lên **tự tạo** PVC mới, scale xuống
+  **không** xóa PVC. `kubectl get pvc -l app=mysql` vẫn thấy đủ 5 claim sau khi hạ về 3, và bài
+  nói rõ đó là lựa chọn có chủ ý — giữ để scale lại nhanh, hoặc để kịp trích xuất dữ liệu.
+- Mục *Tìm hiểu quá trình khởi tạo Pod có trạng thái*: controller khởi động Pod **lần lượt theo
+  chỉ số thứ tự** và đợi Pod trước Ready mới tạo Pod sau; tên `<statefulset-name>-<ordinal-index>`
+  là duy nhất và ổn định. Hai tính chất đó là thứ script `init-mysql` dựa vào để chọn
+  `primary.cnf` hay `replica.cnf`, và là lý do mỗi replica clone được từ ordinal liền trước.
+- Mục *Mô phỏng sự cố Pod và Node*: phá readiness probe chỉ làm Pod rời khỏi nhóm phục vụ của
+  `mysql-read` chứ không giết Pod; còn `kubectl delete pod mysql-2` thì StatefulSet tạo lại một
+  Pod **cùng tên** và liên kết với **đúng PersistentVolumeClaim cũ**. Đó là danh tính, không phải
+  bản sao.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Nội dung bash bên trong `init-mysql`, `clone-mysql` và sidecar `xtrabackup` — các mục *Sinh cấu hình*, *Sao chép dữ liệu có sẵn*, *Bắt đầu replication* | là logic của MySQL và XtraBackup, không phải cơ chế Kubernetes; [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) cũng không chạy phần replication này vì ba instance kèm sidecar vượt headroom ba VM lab | cơ chế Kubernetes đứng dưới chúng là init container, đã học ở bài [50](50-init-containers-vi.md), [giai đoạn 3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời) |
+| Mục *Drain một Node* | `drain`, `cordon` và `uncordon` chưa được dạy ở giai đoạn này, và lab cũng không chạy kịch bản đó | [giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node), bài [255](255-safely-drain-node-vi.md) |
+| Vòng lặp `SELECT @@server_id` ở mục *Gửi lưu lượng từ client*, và mục *Phá vỡ Readiness probe* | cần cụm MySQL ba instance chạy thật, thứ lab không dựng | cơ chế đứng sau — Pod thôi Ready thì rời khỏi tập endpoint của Service — đã kiểm chứng ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) B3, [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
+| Ghi chú "đây không phải là cấu hình dành cho môi trường production" và `MYSQL_ALLOW_EMPTY_PASSWORD` | bài cố ý để MySQL ở mặc định không an toàn cho gọn ví dụ | bài [109](109-secret-vi.md) đã đọc ở [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod); phần siết chặt thuộc [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
+
+---
+
 Trang này hướng dẫn cách chạy một ứng dụng có trạng thái (stateful) được nhân bản (replicated) bằng
 StatefulSet.
 Ứng dụng này là một cơ sở dữ liệu MySQL được nhân bản. Topology của ví dụ gồm một
@@ -755,3 +812,57 @@ kubectl delete pvc data-mysql-4
 - Tìm hiểu thêm về [buộc xóa các Pod của StatefulSet](341-force-delete-stateful-set-pod-vi.md).
 - Xem [kho Helm Charts](https://artifacthub.io/)
   để tìm các ví dụ khác về ứng dụng có trạng thái.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
+
+1. Bài dựng hai Service cho cùng một tập Pod. Vì sao không được ghi qua `mysql-read`, và headless
+   `mysql` cho bạn thứ gì mà `mysql-read` không cho?
+2. **Câu bẫy.** Bạn chạy `kubectl scale statefulset mysql --replicas=5` rồi
+   `kubectl scale statefulset mysql --replicas=3`. Sau đó `kubectl get pvc -l app=mysql` liệt kê
+   ra mấy PVC, và vì sao bài coi đó là hành vi đúng chứ không phải rác bỏ quên?
+3. `kubectl delete pod mysql-2` xong thì Pod quay lại và dữ liệu cũ vẫn còn. Cái gì làm nó gặp lại
+   đúng dữ liệu đó, và điều này khác gì với một Pod do ReplicaSet tạo lại?
+4. Script `init-mysql` gán ordinal `0` làm primary và mọi ordinal khác làm replica, còn
+   `clone-mysql` thì clone từ ordinal liền trước. Bảo đảm nào của StatefulSet khiến hai giả định
+   đó an toàn?
+5. Cluster lab có `lab-k8s-master` bị taint và hai worker `lab-k8s-worker1`, `lab-k8s-worker2`,
+   mỗi máy 2 vCPU và 6 GB. Lab 6a chỉ giữ lại phần lưu trữ của bài này chứ không chạy cụm MySQL
+   ba instance. Nêu hai lý do, và nói rõ phần nào của bài vẫn được thực hành.
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `mysql-read` là Service thường, có cluster IP riêng và **phân phối kết nối tới tất cả** các Pod
+   đang báo Ready — gồm cả replica. Topology của bài chỉ có **một** primary, nên một lệnh ghi đi
+   qua `mysql-read` có thể rơi vào replica; bài nói thẳng rằng chỉ truy vấn đọc mới dùng được
+   Service này. Headless `mysql` cho thứ khác hẳn: **bản ghi DNS ổn định của từng Pod**, dạng
+   `<pod-name>.mysql`, nhờ đó client ghi nối thẳng được vào `mysql-0.mysql`.
+2. **Vẫn còn đủ 5 PVC.** Bài ghi chú rõ: scale lên tự tạo PVC mới, nhưng scale xuống **không** tự
+   xóa chúng. Đó là chủ ý — nó cho bạn quyền chọn: giữ lại các PVC đã khởi tạo để lần scale lên
+   sau nhanh hơn, hoặc trích xuất dữ liệu trước khi xóa. Muốn dọn thì phải tự gõ
+   `kubectl delete pvc data-mysql-3`.
+3. **Vì StatefulSet tạo lại một Pod cùng tên `mysql-2` và liên kết nó với đúng PVC cũ** — claim
+   `data-mysql-2` sinh ra từ `volumeClaimTemplates` và không bị xóa theo Pod. Khác biệt với
+   ReplicaSet nằm đúng ở chỗ đó: ReplicaSet chỉ cần **đủ số lượng** Pod và tạo bản thay thế mang
+   tên khác, không có ràng buộc nào bắt nó nhận lại volume cũ; StatefulSet tái lập **danh tính**.
+4. **Bảo đảm về thứ tự triển khai**: controller khởi động Pod lần lượt theo chỉ số thứ tự và đợi
+   mỗi Pod báo Ready rồi mới khởi động Pod tiếp theo. Nhờ đó `mysql-0` — primary — chắc chắn đã
+   Ready trước khi replica đầu tiên được tạo, và Pod `N` chắc chắn Ready trước Pod `N+1` nên luôn
+   có sẵn nguồn để clone. Cộng thêm cái tên duy nhất và ổn định
+   `<statefulset-name>-<ordinal-index>` mà script đọc ra từ `hostname`, hai giả định đó mới đứng
+   vững.
+5. Hai lý do: **tài nguyên** — ba instance MySQL kèm sidecar xtrabackup vượt headroom của ba VM
+   lab; và **thứ tự lộ trình** — kịch bản hỏng của bài cần `kubectl drain`, thao tác thuộc giai
+   đoạn sau. Phần vẫn được thực hành là **phần lưu trữ**: `volumeClaimTemplates`, mỗi replica một
+   PVC theo ordinal, scale lên rồi xuống, và bằng chứng PVC không tự biến mất — tức đúng nội dung
+   trả nợ #2 ở [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B6.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

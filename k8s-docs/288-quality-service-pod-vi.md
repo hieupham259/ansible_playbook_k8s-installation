@@ -2,6 +2,47 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 5/9 ·
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B3.
+
+Đây là vế thực hành của bài [54](54-pod-qos-vi.md). Mục tiêu duy nhất của lần đọc này: **nhìn
+manifest là suy ra được QoS class**, không cần chạy Pod. Lab 3c B3 bắt bạn đoán trước rồi mới đối
+chiếu với `status.qosClass`, nên đọc bài này với tâm thế học cách đoán.
+
+**Phải hiểu ở lần đọc này:**
+
+- `Guaranteed` đòi đủ bốn điều kiện ở mục *Tạo một Pod được gán QoS class Guaranteed*: **mọi**
+  container có cả memory request lẫn memory limit, hai giá trị bằng nhau; **mọi** container có cả
+  CPU request lẫn CPU limit, hai giá trị bằng nhau. Ràng buộc áp dụng như nhau cho init container;
+  ephemeral container không khai được tài nguyên nên không bị tính.
+- Ghi chú sau ví dụ Guaranteed: container chỉ khai **limit** mà không khai request thì Kubernetes
+  **tự gán request bằng limit** — nên một manifest chỉ có `limits` vẫn có thể là `Guaranteed`.
+- `Burstable` là phần còn lại có khai tài nguyên: Pod **không** đạt tiêu chí Guaranteed nhưng **ít
+  nhất một** container có request hoặc limit của CPU hoặc memory. Mục *Tạo một Pod có hai Container*
+  là ví dụ điển hình — một container chỉ khai `requests.memory`, container kia trống hoàn toàn.
+- `BestEffort` đòi **không container nào** có bất kỳ request hay limit CPU/memory nào, tức
+  `resources: {}` ở mọi container.
+- QoS class được gán **lúc Pod được tạo** và **giữ nguyên suốt vòng đời** (Ghi chú đầu bài). Đọc
+  giá trị thật ở `status.qosClass`, lấy nhanh bằng
+  `kubectl get pod <tên> -o jsonpath='{ .status.qosClass}'` (mục *Truy xuất QoS class của một Pod*).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Câu mở đầu: Kubernetes dùng QoS class để quyết định **trục xuất Pod khi tài nguyên Node bị vượt** | ở lần đọc này chỉ cần suy đúng class từ manifest; thứ tự trục xuất và ngưỡng của kubelet là chủ đề riêng | bài [142](142-node-pressure-eviction-vi.md) ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction) |
+| Cơ chế `--subresource=resize` mà Ghi chú đầu bài nhắc tới khi nói control plane từ chối yêu cầu | ở đây chỉ cần nhớ **class là bất biến**; cách thực hiện một lần resize là bài riêng | bài [289](289-resize-container-resources-vi.md), bài kế tiếp trong nhóm 3c |
+| Nhánh *Dành cho quản trị viên cluster* trong mục *Tiếp theo*: quota, LimitRange, Topology Manager | thuộc quản trị namespace và cấu hình kubelet ở mức node | [giai đoạn 25](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace); riêng Topology Manager là bài [74](74-resource-managers-vi.md) ở [giai đoạn 7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên) |
+
+---
+
 Trang này hướng dẫn cách cấu hình các Pod sao cho chúng được gán một lớp Chất lượng dịch vụ
 (Quality of Service — QoS) cụ thể. Kubernetes dùng các QoS class để đưa ra quyết định về việc
 trục xuất (evict) các Pod khi tài nguyên trên Node bị vượt quá.
@@ -341,3 +382,46 @@ kubectl delete namespace qos-example
 * [Cấu hình Quota cho các API Object](./252-quota-api-object-vi.md)
 
 * [Điều khiển các chính sách Topology Management trên một node](./259-topology-manager-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở nhóm 3c:
+
+1. Suy QoS class của ba Pod sau, chỉ bằng cách nhìn manifest: (a) một container, chỉ có
+   `limits: {cpu: 500m, memory: 128Mi}`, không có dòng `requests` nào; (b) hai container, container
+   đầu chỉ có `requests.memory: 200Mi`, container sau không khai gì; (c) một container với
+   `resources: {}`.
+2. **Câu bẫy.** Một Pod có duy nhất một container, khai `requests.memory: 200Mi` và
+   `limits.memory: 200Mi` — bằng nhau chằn chặn — nhưng không khai CPU. Nó là `Guaranteed` chứ?
+3. Trên cluster lab, bạn tạo một Pod `Burstable` rồi `kubectl edit` nó cho request bằng limit ở cả
+   CPU lẫn memory. Pod có trở thành `Guaranteed` không? Trường nào là nơi bạn đọc câu trả lời thật,
+   và lệnh nào lấy đúng trường đó mà không phải in cả YAML?
+4. Init container có bị tính vào tiêu chí của `Guaranteed` không? Còn ephemeral container?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. (a) **`Guaranteed`.** Chỉ khai limit thì Kubernetes **tự gán request bằng limit**, nên container
+   có đủ cả bốn giá trị và request bằng limit ở cả hai loại tài nguyên. (b) **`Burstable`** — không
+   đạt Guaranteed, nhưng có ít nhất một container khai request memory; đây đúng là ví dụ *Tạo một
+   Pod có hai Container* trong bài. (c) **`BestEffort`** — không container nào khai bất kỳ request
+   hay limit CPU/memory nào.
+2. **Không, nó là `Burstable`.** Chỗ bẫy là ta chỉ nhìn "request bằng limit" mà quên rằng
+   `Guaranteed` đòi **cả bốn** điều kiện: phải có **cả CPU lẫn memory**, mỗi loại đều có cả request
+   lẫn limit và bằng nhau. Thiếu hẳn CPU thì tiêu chí Guaranteed không đạt, và vì vẫn có khai memory
+   nên Pod rơi vào `Burstable`.
+3. **Không.** Ghi chú đầu bài nói rõ: QoS class được gán **khi Pod được tạo** và **giữ nguyên trong
+   suốt vòng đời của Pod**; nếu bạn đổi tài nguyên sang các giá trị dẫn tới class khác thì **control
+   plane từ chối yêu cầu** kèm thông báo lỗi. Trường cần đọc là **`status.qosClass`**, lấy bằng
+   `kubectl get pod <tên> -o jsonpath='{ .status.qosClass}'`.
+4. Init container **có bị tính**: bài nói các ràng buộc của `Guaranteed` áp dụng như nhau cho cả
+   init container lẫn app container. Ephemeral container thì **không**, vì chúng **không thể định
+   nghĩa tài nguyên**, nên các ràng buộc đó không áp dụng cho chúng.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

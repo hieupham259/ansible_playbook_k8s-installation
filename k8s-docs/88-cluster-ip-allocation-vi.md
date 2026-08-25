@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 9/16 · Kiểm chứng ở
-Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md).
 
 Đây là bài cuối trước Lab 5a. Nó trả lời một câu hỏi rất cụ thể: **con số cluster IP ở đâu ra**,
 và vì sao DNS service của cluster luôn nằm ở một địa chỉ đoán trước được. Bài ngắn, nhưng phần
@@ -193,7 +193,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Trả lời trôi chảy cả bốn câu nghĩa là bạn đã đủ nền cho **Lab 5a — Service, EndpointSlice và
-DNS** (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)). Câu nào còn vướng thì quay lại
+Trả lời trôi chảy cả bốn câu nghĩa là bạn đã đủ nền cho [**Lab 5a — Service, EndpointSlice và
+DNS**](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md). Câu nào còn vướng thì quay lại
 đúng mục tương ứng — kể cả ở các bài [82](82-service-vi.md), [83](83-endpoint-slices-vi.md),
 [10](10-dns-pod-service-vi.md) — trước khi bắt đầu lab.

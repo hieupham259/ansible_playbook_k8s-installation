@@ -2,6 +2,59 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 6/9 ·
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B6.
+
+Bài dài và trộn lẫn hai loại nội dung: phần cơ chế bạn phải nắm chắc, và phần chi tiết vận hành
+(thứ tự thử lại, `observedGeneration`) chỉ dùng khi gỡ rối. Đọc theo bảng dưới, đừng đọc tuần tự
+đều tay từ đầu tới cuối.
+
+Bài nối thẳng vào bài [288](288-quality-service-pod-vi.md) vừa đọc: chính ở đây mới thấy vì sao
+QoS class **bất biến** lại trở thành một luật chặn cụ thể khi resize.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ba trường phải phân biệt, mục *Các khái niệm chính*: `spec.containers[*].resources` là tài nguyên
+  **mong muốn** và sửa được với CPU/memory; `status.containerStatuses[*].resources` là tài nguyên
+  **thực tế đang được cấu hình**; `allocatedResources` là trường nội bộ cho logic lập lịch, không
+  phải chỗ để kiểm chứng.
+- Cách kích hoạt: sửa `requests`/`limits` qua **subresource `resize`**, ví dụ
+  `kubectl patch ... --subresource resize` (cần client `kubectl` từ v1.32; phiên bản cũ báo
+  `invalid subresource`).
+- Mục *Chính sách resize của container*: `resizePolicy` đặt theo **từng loại tài nguyên** —
+  `NotRequired` (mặc định) áp dụng tại chỗ không khởi động lại, `RestartContainer` khởi động lại
+  container. Kịch bản ví dụ nói rõ: đổi cả CPU lẫn memory cùng lúc thì **chính sách đòi khởi động
+  lại thắng**. Bằng chứng để đọc là `status.containerStatuses[*].restartCount` (Ví dụ 1 giữ `0`,
+  Ví dụ 2 lên `1`).
+- Mục *Trạng thái resize của Pod* và *Xử lý sự cố*: `PodResizePending` với `reason: Infeasible`
+  (node không đủ, không tự hết) hoặc `reason: Deferred` (chưa được nhưng sẽ thử lại);
+  `PodResizeInProgress` khi đang áp dụng. Điểm mấu chốt của một lần resize bất khả thi: `spec` đổi
+  theo giá trị mong muốn nhưng `status.containerStatuses[*].resources` **vẫn giữ giá trị cũ** và
+  `restartCount` không tăng.
+- Ranh giới cứng, mục *Các hạn chế*: chỉ resize được **CPU và memory**; **QoS class ban đầu không
+  đổi được** (Guaranteed phải giữ request bằng limit, Burstable không được để request bằng limit ở
+  cả hai loại, BestEffort không được thêm tài nguyên); request/limit đã đặt thì **không gỡ bỏ được**,
+  chỉ đổi giá trị; init container không khởi động lại được và ephemeral container không resize được,
+  còn sidecar thì resize được.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Câu mở đầu nói Pod thay thế "thường được quản lý bởi một workload controller" | chưa học controller nào; ở nhóm 3c mọi thứ vẫn là Pod trần | [giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller) |
+| Mục *Cách kubelet thử lại các resize bị Deferred* — thứ tự ưu tiên theo PriorityClass rồi tới QoS | cần biết PriorityClass trước mới hiểu vế đầu của thứ tự | bài [141](141-pod-priority-preemption-vi.md) ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction) |
+| Mục *Tận dụng các trường `observedGeneration`* | công cụ đối chiếu chi tiết khi một lần resize treo; Lab 3c B6 chỉ dùng `restartCount` và `status...resources` | [giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố) |
+| Trong *Các hạn chế*: chính sách static của CPU/Memory manager, swap, Pod Windows | phụ thuộc cấu hình kubelet ở mức node mà baseline Lab 00 không bật | bài [74](74-resource-managers-vi.md) ở [giai đoạn 7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên) và bài [200](200-cpu-management-policies-vi.md) ở [giai đoạn 25](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.35 [stable]`
 
 Trang này giải thích cách thay đổi các request và limit tài nguyên CPU và memory được gán cho
@@ -340,3 +393,52 @@ kubectl delete namespace qos-example
 * [Cấu hình ràng buộc CPU tối thiểu và tối đa cho một Namespace](./229-cpu-constraint-namespace-vi.md)
 
 * [Cấu hình Quota Memory và CPU cho một Namespace](./233-quota-memory-cpu-namespace-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở nhóm 3c:
+
+1. `lab-k8s-worker2` có 2 vCPU. Một Pod đang chạy trên đó và bạn patch container của nó lên
+   `cpu: "1000"`. So sánh `spec.containers[0].resources` với
+   `status.containerStatuses[0].resources` sau lệnh patch — hai chỗ đó nói gì, `restartCount` thay
+   đổi ra sao, và condition nào xuất hiện kèm `reason` gì?
+2. **Câu bẫy.** `resizePolicy` của memory là `RestartContainer`, bạn patch memory và container khởi
+   động lại. Vậy Pod có bị tạo lại, đổi tên hay đổi node không?
+3. Một Pod `Burstable` có `requests.cpu: 100m` / `limits.cpu: 500m` và
+   `requests.memory: 100Mi` / `limits.memory: 200Mi`. Bạn muốn patch cho request bằng limit ở **cả
+   hai** loại. Yêu cầu đó có được chấp nhận không, và vì sao?
+4. `Infeasible` và `Deferred` khác nhau ở chỗ nào? Cái nào tự khỏi theo thời gian?
+5. Container đặt `NotRequired` cho CPU và `RestartContainer` cho memory. Bạn patch **cả** CPU lẫn
+   memory trong cùng một lệnh. Container có bị khởi động lại không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `spec` **đổi theo giá trị mong muốn** (`cpu: "1000"`), nhưng
+   `status.containerStatuses[0].resources` **vẫn giữ nguyên giá trị cũ** vì kubelet không áp dụng
+   được lần resize này. `restartCount` **không đổi** — lần thử thất bại không khởi động lại gì.
+   Condition thêm vào là **`PodResizePending` với `reason: Infeasible`**, và `message` giải thích
+   node không đủ dung lượng. Muốn thoát, phải patch lại bằng giá trị khả thi.
+2. **Không.** Cả bài xoay quanh việc đổi tài nguyên **mà không cần tạo lại Pod**: object Pod giữ
+   nguyên, tên giữ nguyên, node giữ nguyên; chỉ **container bên trong** được khởi động lại để nhận
+   giá trị memory mới, và dấu vết duy nhất là `restartCount` tăng thêm 1. Đây là chỗ dễ nhầm giữa
+   "khởi động lại container" và "thay Pod mới".
+3. **Không được chấp nhận.** Mục *Các hạn chế* nói QoS class ban đầu **không thể bị thay đổi bởi
+   một lần resize**, và với Pod `Burstable` thì luật cụ thể là: request và limit **không được trở
+   nên bằng nhau cho cả CPU lẫn memory cùng lúc**, vì như thế Pod sẽ thành `Guaranteed`. Muốn đổi
+   class thì phải tạo Pod mới, không phải resize.
+4. **`Infeasible` là bất khả thi trên node hiện tại** — ví dụ xin nhiều tài nguyên hơn mức node có;
+   nó **không tự khỏi**, bạn phải patch lại bằng giá trị khả thi. **`Deferred` là chưa thể lúc này
+   nhưng có thể sau** — ví dụ khi một Pod khác bị xóa — và **kubelet sẽ tự thử lại**, nên nó có thể
+   tự khỏi.
+5. **Có.** Kịch bản ví dụ trong mục *Chính sách resize của container* nêu đúng trường hợp này: đổi
+   riêng CPU thì resize tại chỗ, đổi riêng memory thì khởi động lại, còn đổi **cả hai cùng lúc** thì
+   container **bị khởi động lại** — chính sách của memory quyết định.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

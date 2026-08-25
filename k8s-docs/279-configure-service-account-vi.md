@@ -2,6 +2,65 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
+dòng **Thực hành**, bài 3/10 · Kiểm chứng ở
+[Lab 9a — ServiceAccount, authn/authz và RBAC](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md):
+phần B2.4 (`kubectl create token`), B4.3 (plugin ServiceAccount chèn gì vào Pod mới), B5.4 (từ
+chối tự động mount ở hai cấp), B5.5 (chiếu token với audience riêng), B6.5 (token dài hạn dạng
+Secret) và B6.6 (issuer discovery).
+
+Đây là bài dài nhất trong nhóm Thực hành của giai đoạn 9, và nó gộp bốn việc khác nhau vào một
+trang: gán danh tính cho Pod, lấy token, gắn imagePullSecrets, và chiếu token vào volume. Chỉ hai
+việc đầu và việc cuối thuộc mạch **danh tính** mà giai đoạn 9 đang học; mục *Thêm ImagePullSecrets*
+là chuyện kéo image, đọc lướt là đủ. Bài này đứng ngay trên nền bài
+[118](118-service-accounts-vi.md) và [119](119-controlling-access-vi.md) vừa đọc.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mỗi namespace luôn có ít nhất ServiceAccount tên `default`; Pod không khai
+  `spec.serviceAccountName` thì Kubernetes **tự gán** `default`. Field này **chỉ đặt được lúc tạo
+  Pod** hoặc trong pod template — không cập nhật được trên Pod đã tồn tại (mục *Sử dụng service
+  account mặc định* và *Sử dụng nhiều hơn một ServiceAccount*).
+- Từ chối tự động mount đặt được ở **hai cấp**: `automountServiceAccountToken: false` trên object
+  ServiceAccount, hoặc trên `.spec` của Pod. Khi cả hai cùng khai giá trị, **spec của Pod được ưu
+  tiên** (mục *Từ chối tự động mount thông tin xác thực API*).
+- Đường lấy token đúng ngày nay là `kubectl create token` — tức API TokenRequest — cho token **có
+  hạn**, tinh chỉnh được bằng `--duration`. Token dài hạn dạng Secret (annotation
+  `kubernetes.io/service-account.name`, type `kubernetes.io/service-account-token`) vẫn tạo được
+  nhưng chỉ dành cho trường hợp cần token **không bao giờ hết hạn**, và Secret tạo tay kiểu đó
+  **không** xuất hiện trong field `.secrets` của ServiceAccount vì field ấy chỉ chứa Secret sinh
+  tự động (mục *Tạo API token thủ công cho một ServiceAccount*).
+- Thu hồi tự động: thông tin xác thực API bị thu hồi **60 giây sau thời điểm
+  `.metadata.deletionTimestamp` được đặt** trên Pod, kể cả khi Pod có finalizer — và
+  deletionTimestamp thường là lúc yêu cầu delete được chấp nhận cộng thời gian ân hạn kết thúc
+  (mục *Sử dụng service account mặc định*).
+- Projected volume loại `ServiceAccountToken` cho bạn hai thứ mà token mặc định **không** cấu hình
+  được: `audience` và `expirationSeconds`. Kubelet yêu cầu, lưu và **xoay** token (khi token quá
+  80% TTL hoặc quá 24 giờ), còn **ứng dụng** chịu trách nhiệm nạp lại file token sau khi xoay
+  (mục *Chiếu token của ServiceAccount vào volume* và *Khởi chạy Pod dùng chiếu service account
+  token*).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Bốn cờ `--service-account-issuer`, `--service-account-key-file`, `--service-account-signing-key-file`, `--api-audiences` trong ghi chú của mục *Chiếu token* | là cờ của `kube-apiserver`; Lab 9a **cấm sửa cấu hình control plane** và biến điều đó thành gate | [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) bài [03](03-control-plane-flags-vi.md) và [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
+| Toàn bộ mục *Thêm ImagePullSecrets vào một service account*, phần kéo image thật từ registry riêng | cần một private registry và mạng ra ngoài; baseline không có | `imagePullSecrets` trên Pod là bài [40](40-images-vi.md) đã đọc ở [giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime); [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) B4.3 chỉ kiểm chứng phần thuộc chặng admission — Secret được **chèn** vào `.spec.imagePullSecrets` của Pod mới |
+| Mục *Khám phá issuer của service account* — OIDC discovery, JWKS, `--service-account-jwks-uri` | chỉ cần khi liên kết danh tính của cluster với một hệ thống bên ngoài | [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) B6.6 chỉ **đọc** tài liệu discovery; so sánh các cơ chế xác thực nằm ở bài [123](123-hardening-authentication-vi.md), đọc sau Lab 9a trong cùng giai đoạn 9 |
+| `kubectl create token --bound-object-kind Node ...` | token gắn Node là công cụ của thành phần chạy trên node, không phải của quản trị viên đang cấp danh tính cho ứng dụng | [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) B2.6 kiểm chứng cơ chế bound token bằng object mà lab tạo được |
+| Payload JWT mẫu ở mục *Chiếu token* — `jti`, `nbf`, `warnafter` | ở lần đọc này chỉ cần đọc được `sub`, `aud`, `iss` và khối `kubernetes.io` | [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) B2.4 và B2.5 giải mã đúng ba claim đó trên token thật |
+
+---
+
 Kubernetes cung cấp hai cách riêng biệt để các client chạy bên trong cluster của bạn, hoặc có
 quan hệ với control plane của cluster, xác thực (authenticate) với API server.
 
@@ -560,3 +619,59 @@ Xem thêm:
 - Để tìm hiểu bối cảnh về OIDC discovery, đọc Kubernetes Enhancement Proposal
   [ServiceAccount signing key retrieval](https://github.com/kubernetes/enhancements/tree/master/keps/sig-auth/1393-oidc-discovery)
 - Đọc [OIDC Discovery Spec](https://openid.net/specs/openid-connect-discovery-1_0.html)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Trên `lab-k8s-master` bạn tạo một Pod mà không khai `spec.serviceAccountName`. Pod chạy dưới
+   danh tính nào? Pod đang chạy rồi, bạn có đổi nó sang một ServiceAccount khác bằng
+   `kubectl edit pod` được không?
+2. **Câu bẫy.** ServiceAccount `app-sa` khai `automountServiceAccountToken: false`. Một Pod dùng
+   `app-sa` lại khai `automountServiceAccountToken: true` trong `.spec` của nó. Token có được
+   mount vào Pod đó không?
+3. Bạn tạo một Secret type `kubernetes.io/service-account-token` với annotation
+   `kubernetes.io/service-account.name: build-robot`. Control plane làm gì tiếp theo, và vì sao
+   `kubectl get serviceaccount build-robot -o yaml` **không** thấy Secret này trong field
+   `.secrets`?
+4. Projected volume loại `ServiceAccountToken` cho bạn hai thuộc tính mà token mặc định không cấu
+   hình được — hai thuộc tính nào? Sau khi kubelet xoay token, ai chịu trách nhiệm nạp lại nó?
+5. Một Pod bị xóa. Token mà nó đang dùng còn gọi được API trong bao lâu, và mốc đếm bắt đầu từ
+   sự kiện nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Pod chạy dưới **ServiceAccount `default` của chính namespace đó** — mỗi namespace luôn có ít
+   nhất ServiceAccount này, và Kubernetes **tự động đặt** `spec.serviceAccountName` khi bạn không
+   chỉ định. Phần sau: **không**. Bài nói rõ bạn chỉ đặt được `serviceAccountName` **khi tạo Pod,
+   hoặc trong template của một Pod mới**; field `.spec.serviceAccountName` của một Pod đã tồn tại
+   **không cập nhật được**. Muốn đổi danh tính thì phải tạo lại Pod.
+2. **Có** — token vẫn được mount. Đây là chỗ dễ sai vì trực giác cho rằng cấu hình "chặt hơn" ở
+   cấp ServiceAccount phải thắng. Bài quy định ngược lại: khi **cả ServiceAccount lẫn `.spec` của
+   Pod đều chỉ định giá trị** cho `automountServiceAccountToken`, thì **spec của Pod được ưu
+   tiên**. Hệ quả vận hành: đặt `false` trên ServiceAccount **không** phải một hàng rào — người
+   viết Pod ghi đè được.
+3. Nhờ annotation đó, **control plane tự động sinh token cho ServiceAccount và lưu vào Secret liên
+   kết** (và cũng tự dọn token của những ServiceAccount đã bị xóa). Nhưng bạn **không** thấy nó
+   trong `.secrets` vì bài nói rõ: field đó **chỉ được điền với các Secret được sinh tự động** —
+   còn Secret này do **bạn tạo tay**. Nói cách khác, `.secrets` không phải danh sách "mọi token
+   của ServiceAccount này", nên đừng dùng nó để rà soát.
+4. **`audience` và `expirationSeconds`** — bài nói thẳng hai thuộc tính này *không* cấu hình được
+   trên ServiceAccount token mặc định. Phần sau: **ứng dụng** chịu trách nhiệm nạp lại token.
+   Kubelet lo yêu cầu, lưu, và xoay token (chủ động xoay khi token cũ hơn 80% TTL hoặc cũ hơn 24
+   giờ), nhưng nó không thể ép tiến trình trong container đọc lại file; bài khuyên ứng dụng cứ
+   nạp lại theo lịch định kỳ mà không cần theo dõi thời điểm hết hạn thực tế.
+5. **60 giây**, tính từ thời điểm **`.metadata.deletionTimestamp` được đặt** trên Pod — không
+   phải từ lúc Pod biến mất khỏi API. Bài nhấn mạnh điều này đúng **ngay cả khi Pod có
+   finalizer**, tức là Pod còn nằm lại trong API rất lâu vì finalizer chưa gỡ thì token vẫn chết
+   đúng hạn. Và deletionTimestamp thường là thời điểm yêu cầu **delete** được chấp nhận cộng với
+   thời gian ân hạn kết thúc của Pod.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

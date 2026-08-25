@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 9/16 · Kiểm chứng ở
-Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6b](labs/LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md).
 
 Từ bài này trở đi là phần nâng cao của giai đoạn 6, và **tất cả đều phụ thuộc vào việc CSI
 driver bạn cài ở Lab 6a có hỗ trợ hay không**. Đọc để biết cơ chế và biết cách kiểm tra điều

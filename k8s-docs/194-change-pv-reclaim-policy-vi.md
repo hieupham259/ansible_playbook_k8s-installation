@@ -11,9 +11,10 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, giai đoạn 26 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-26--vận-hành-lưu-trữ),
-bài 2/3 · nối tiếp phần reclaim policy của [bài 92](92-persistent-volumes-vi.md); thực hành
-ngay trên cluster lab sau Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 26 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-26--vận-hành-lưu-trữ),
+bài 2/4 · nối tiếp phần reclaim policy của [bài 92](92-persistent-volumes-vi.md); thực hành
+ngay trên cluster lab sau [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md).
 
 Trang task rất ngắn, chỉ một lệnh `kubectl patch` — giá trị nằm ở việc hiểu **khi nào** phải
 làm thao tác này: trước khi xóa một PVC mà dữ liệu bên dưới còn quý.

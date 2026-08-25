@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 5/6 · Kiểm chứng
-ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md).
 
 Bài [158](158-logging-vi.md) nói về log của **workload**; bài này nói về log của **chính
 Kubernetes**. Một phần đáng kể nội dung viết cho người phát triển thành phần Kubernetes chứ không
@@ -353,7 +353,7 @@ kubectl get --raw "/api/v1/nodes/node-1.example/proxy/logs/?query=kubelet&patter
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
 
-1. Trên `k8s-worker1` (Ubuntu 24.04, có systemd), bạn muốn xem kubelet đang báo gì. Đọc ở đâu, và
+1. Trên `lab-k8s-worker1` (Ubuntu 24.04, có systemd), bạn muốn xem kubelet đang báo gì. Đọc ở đâu, và
    vì sao tìm file `/var/log/kubelet.log` là hướng sai?
 2. **Câu bẫy.** Bạn muốn kubelet ghi thẳng log vào `/tmp/kubelet.log` nên định thêm cờ
    `--log-file=/tmp/kubelet.log`. Cách này còn dùng được không? Nếu không thì có những đường nào

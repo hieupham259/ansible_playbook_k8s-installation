@@ -12,12 +12,20 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)) — bài này là
-bản thực hành cho khái niệm ở bài [32 — Phiên bản lưu trữ](32-storage-version-vi.md), đồng thời
-nối tiếp cặp bài mã hóa at rest của giai đoạn 22: [208 — Encrypting Confidential Data at
-Rest](208-encrypt-data-vi.md) và [213 — KMS provider](213-kms-provider-vi.md) đã dạy cách
-**đổi khóa**, còn bài này dạy cách **ép ghi lại dữ liệu cũ** theo khóa mới.
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 14 — Khả năng mở rộng](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng),
+bài 2/2 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md) phần B9, nơi lab đọc
+`status.storedVersions` của một CRD thật, chứng minh API server **từ chối** gỡ version còn nằm
+trong `storedVersions`, rồi chạy trọn quy trình nâng cấp thủ công ba bước bằng `kubectl`. Bản
+thân object `StorageVersionMigration` thì lab **không** tạo, vì lý do nêu ở đoạn dưới.
+
+Bài là bản thực hành cho khái niệm ở bài
+[32 — Phiên bản lưu trữ](32-storage-version-vi.md), đồng thời nối tiếp cặp bài mã hóa at rest của
+giai đoạn 22: [208 — Encrypting Confidential Data at Rest](208-encrypt-data-vi.md) và
+[213 — KMS provider](213-kms-provider-vi.md) đã dạy cách **đổi khóa**, còn bài này dạy cách **ép
+ghi lại dữ liệu cũ** theo khóa mới.
 
 Tính năng này ở trạng thái beta và cần bật feature gate `StorageVersionMigrator` cùng runtime
 config `storagemigration.k8s.io/v1beta1` trên API server — trên cluster lab bạn phải cấu hình

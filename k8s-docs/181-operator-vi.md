@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 5/7 ·
-Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md).
 
 Giai đoạn này lộ trình ghi rõ là **dành cho platform administrator / người phát triển operator**;
 đây là bài đích của cả giai đoạn.
@@ -178,7 +178,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Câu bẫy: bạn đã cài CRD `SampleDB`, `kubectl get SampleDB` chạy được, `kubectl edit` sửa được
    và object lưu lại đúng — nhưng trong cluster không có gì xảy ra. Thiếu thứ gì, và vì sao
    `kubectl` vẫn hoạt động bình thường dù thiếu nó?
-3. Trên cluster lab ba VM của bạn, operator sẽ chạy ở đâu — cạnh control plane trên `k8s-master`
+3. Trên cluster lab ba VM của bạn, operator sẽ chạy ở đâu — cạnh control plane trên `lab-k8s-master`
    dưới dạng thành phần đặc biệt, hay như một workload thường trên worker? Bài nói gì?
 4. Trong ví dụ `SampleDB`, khi bạn xóa một resource `SampleDB` thì operator làm những gì, và
    theo thứ tự nào?

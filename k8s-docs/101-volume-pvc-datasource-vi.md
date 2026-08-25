@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 12/16 · Kiểm chứng ở
-Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6b](labs/LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md).
 
 Bài ngắn nhất của giai đoạn 6, và gần như toàn bộ giá trị nằm ở danh sách ràng buộc trong mục
 *Giới thiệu*. Cùng nhóm nợ lab với bài [99](99-volume-snapshots-vi.md), xem

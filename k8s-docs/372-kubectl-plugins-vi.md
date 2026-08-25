@@ -4,6 +4,54 @@
 >
 > Mở rộng kubectl bằng cách tạo và cài đặt các kubectl plugin.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 28 — Mở rộng Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes),
+bài 11/11 · Kiểm chứng trực tiếp trên cluster lab: trên `lab-k8s-master`, viết một script shell hai
+dòng tên `kubectl-foo`, `chmod +x`, đặt vào một thư mục trong `PATH`, rồi gọi `kubectl foo` và
+`kubectl plugin list`.
+
+Bài này nhắc [Krew](https://krew.dev/) ở ba chỗ. **Không cài Krew và không cài plugin từ plugin
+index** — đó là tải phần mềm từ mạng về máy, còn cluster lab giữ nguyên bộ baseline đã khóa của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md). May là phần cốt lõi của bài không cần tải gì: `kubectl`
+chỉ đi tìm file thực thi có tên bắt đầu bằng `kubectl-` trên `PATH`, nên một script shell tự viết đã
+là một plugin đầy đủ. Đọc Krew ở mức "biết nó tồn tại và biết cảnh báo bảo mật của nó".
+
+**Phải hiểu ở lần đọc này:**
+
+- Điều kiện đủ để có một plugin, theo mục *Cài đặt kubectl plugin* và *Viết kubectl plugin*: một
+  file thực thi độc lập, tên bắt đầu bằng `kubectl-`, nằm ở bất kỳ đâu trong `PATH`. Không đăng ký,
+  không nạp trước, không giới hạn ngôn ngữ.
+- Cách `kubectl` dò tên ở mục *Đặt tên cho plugin* và *Gọi tên file thực thi dài nhất*: dấu `-`
+  trong tên file phân tách chuỗi sub-command; kubectl thử tên **dài nhất** trước rồi rút dần từng
+  đoạn, phần bị rút ra trở thành tham số của plugin.
+- Ba giới hạn cứng ở mục *Giới hạn*: plugin **không** ghi đè được lệnh `kubectl` sẵn có, **không**
+  thêm được sub-command vào lệnh sẵn có; ngoại lệ duy nhất là `create`, qua binary
+  `kubectl-create-something` (mục *Plugin cho lệnh create*).
+- `kubectl plugin list` là công cụ chẩn đoán, theo mục *Khám phá plugin* và *Kiểm tra cảnh báo của
+  plugin*: nó duyệt toàn bộ `PATH`, liệt kê theo đúng thứ tự `PATH`, và cảnh báo hai lỗi — file
+  không có quyền thực thi, và plugin bị che khuất bởi plugin trùng tên đứng trước trong `PATH`.
+- Plugin nhận môi trường **kế thừa nguyên vẹn** từ `kubectl` (mục *Sử dụng một plugin* và ghi chú ở
+  *Xử lý cờ và tham số*): mọi tham số, cờ và biến môi trường được truyền thẳng, `$0` là đường dẫn
+  đầy đủ tới plugin, và cơ chế plugin **không** tạo thêm biến môi trường riêng nào.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Krew — cài, plugin index, đóng gói (mục *Cài đặt kubectl plugin* và *Krew*) | Cài Krew hoặc plugin từ index là tải phần mềm về máy; cluster lab khóa baseline ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) và không cài thêm | Không thực hành trong lộ trình — chỉ đọc để nhớ cảnh báo "plugin bên thứ ba không được kiểm định bảo mật" |
+| Thư viện `cli-runtime` và Sample CLI Plugin (mục *Sử dụng gói command line runtime*) | Cần viết Go và build binary; phần kubeconfig mà thư viện này thao tác thuộc bài [111](111-kubeconfig-vi.md) đã đọc | Không thuộc lộ trình vận hành — mở khi bạn tự viết plugin bằng Go |
+| Ba cách phân phối plugin (mục *Phân phối kubectl plugin*) | Đây là việc của **tác giả** plugin, không phải của người vận hành cluster | Không có trong Checkpoint giai đoạn 28 — đọc để biết `apt`/`yum`/Homebrew cũng chỉ làm đúng một việc: đặt file thực thi vào `PATH` |
+
+---
+
 Hướng dẫn này trình bày cách cài đặt và viết các phần mở rộng cho [kubectl](https://kubernetes.io/docs/reference/kubectl/kubectl/).
 Nếu xem các lệnh `kubectl` cốt lõi như những khối xây dựng thiết yếu để tương tác với một cluster
 Kubernetes, thì quản trị viên cluster có thể xem plugin như một cách tận dụng những khối xây dựng
@@ -415,3 +463,65 @@ dàng hơn.
   Nếu có bất kỳ câu hỏi nào, hãy thoải mái liên hệ
   [nhóm SIG CLI](https://github.com/kubernetes/community/tree/main/sig-cli).
 * Đọc về [Krew](https://krew.dev/), một trình quản lý gói dành cho các kubectl plugin.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 28:
+
+1. Trên `lab-k8s-master` bạn tạo file `kubectl-foo` chứa hai dòng shell, `sudo mv` nó vào
+   `/usr/local/bin`, nhưng quên `chmod +x`. Vì sao `kubectl foo` không chạy được, trong khi
+   `kubectl plugin list` vẫn nhắc tới file đó — và nó nhắc theo kiểu gì?
+2. **Câu bẫy.** Bạn viết hai plugin: `kubectl-version` để in thêm thông tin build của riêng bạn, và
+   `kubectl-attach-vm` để có lệnh `kubectl attach vm`. Chạy `kubectl version` và `kubectl attach vm`
+   thì cái nào gọi plugin của bạn? Có lệnh sẵn có nào của `kubectl` mà plugin **được phép** mở rộng
+   không?
+3. Trong `PATH` chỉ có hai plugin `kubectl-foo-bar` và `kubectl-foo-bar-baz`. Bạn gõ
+   `kubectl foo bar baz arg1 --flag=value arg2`. `kubectl` tìm theo trình tự nào, cuối cùng gọi
+   plugin nào, và `$1` bên trong plugin đó bằng gì?
+4. `PATH=/usr/local/bin/plugins:/usr/local/bin/moreplugins` và cả hai thư mục đều có một file
+   `kubectl-foo`. Bản nào được thực thi, `kubectl plugin list` phản ứng ra sao, và cách sửa là gì?
+5. Bạn đặt tên file plugin là `kubectl-foo_bar`. Người dùng gõ được những lệnh nào để gọi nó? Vì sao
+   không đặt thẳng tên `kubectl-foo-bar` nếu bạn muốn lệnh là `kubectl foo-bar`?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì điều kiện của một plugin là **file thực thi** có tên bắt đầu bằng `kubectl-` nằm trong `PATH`
+   — thiếu quyền thực thi thì **không phải là plugin hợp lệ**, nên `kubectl foo` không có gì để
+   gọi. `kubectl plugin list` vẫn nêu file đó ra vì nó duyệt cả `PATH` và **nhận diện theo tên**;
+   nó kèm cảnh báo dạng `identified as a kubectl plugin, but it is not executable`, và kết thúc
+   bằng một dòng `error:` đếm số cảnh báo. Nói cách khác: **`plugin list` là nơi báo lỗi, còn
+   `kubectl foo` chỉ đơn giản là không tìm thấy lệnh.**
+2. **Không cái nào.** Bài nói thẳng: không thể tạo plugin ghi đè lệnh `kubectl` đã tồn tại —
+   `kubectl version` sẵn có luôn được ưu tiên nên `kubectl-version` **không bao giờ được thực thi**;
+   và không thể thêm sub-command mới vào lệnh đã tồn tại, nên `kubectl-attach-vm` **bị bỏ qua**. Chỗ
+   dễ nhầm là tưởng "plugin đứng trước trong `PATH` thì thắng" — thứ tự `PATH` chỉ quyết định giữa
+   các **plugin** với nhau, không bao giờ thắng được lệnh cốt lõi. **Ngoại lệ duy nhất là `create`:**
+   đặt binary `kubectl-create-something` thì có lệnh `kubectl create something`. `kubectl plugin
+   list` sẽ cảnh báo với mọi plugin hợp lệ định làm điều bị cấm.
+3. `kubectl` **thử tên dài nhất trước rồi rút dần**: đầu tiên tìm `kubectl-foo-bar-baz-arg1` — không
+   có; nó coi đoạn cuối `arg1` là tham số và thử `kubectl-foo-bar-baz` — có. Vậy **plugin được gọi
+   là `kubectl-foo-bar-baz`**, và toàn bộ phần đứng sau tên plugin được truyền nguyên vẹn làm tham
+   số, nên **`$1` bằng `arg1`** (`--flag=value` và `arg2` là các tham số tiếp theo). Nhớ thêm: `$0`
+   là đường dẫn đầy đủ tới chính file plugin.
+4. Bản **`/usr/local/bin/plugins/kubectl-foo`** chạy, vì nó đứng trước trong `PATH`.
+   `kubectl plugin list` liệt kê **cả hai** theo đúng thứ tự `PATH` và gắn cảnh báo
+   `is overshadowed by a similarly named plugin` vào bản đứng sau — tức bản đó **không bao giờ được
+   thực thi**. Cách sửa: **đổi thứ tự `PATH`** để thư mục chứa bản bạn muốn dùng đứng trước.
+5. Gọi được bằng **cả `kubectl foo-bar` lẫn `kubectl foo_bar`** — dấu gạch dưới trong tên file
+   không cấm cách gọi bằng gạch dưới. Không đặt `kubectl-foo-bar` được vì trong tên file, dấu `-`
+   là **ký tự phân tách sub-command**: `kubectl-foo-bar` sẽ ứng với lệnh `kubectl foo bar` (hai
+   sub-command), không phải `kubectl foo-bar`. Muốn dấu gạch ngang nằm **trong tên lệnh** thì trong
+   tên file phải viết bằng `_`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là **bài cuối của giai đoạn 28** —
+làm tiếp **Checkpoint** ở cuối
+[Giai đoạn 28 — Mở rộng Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes): tạo một
+CRD, apply một custom resource rồi đọc lại bằng `kubectl get`, thêm validation và chứng minh object
+sai bị từ chối, giải thích được khi nào phải dùng aggregated API thay vì CRD.

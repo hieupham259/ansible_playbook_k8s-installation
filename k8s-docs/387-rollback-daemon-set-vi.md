@@ -2,6 +2,53 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/manage-daemon/rollback-daemon-set/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 29 — DaemonSet, Job nâng cao và thiết bị chuyên dụng](00-ALO-TRINH-ADMIN.md#giai-đoạn-29--daemonset-job-nâng-cao-và-thiết-bị-chuyên-dụng),
+bài 4/8 · Kiểm chứng trực tiếp trên cluster lab: chạy `rollout history`, `rollout undo --to-revision`
+rồi `rollout status` trên chính DaemonSet bạn vừa update ở bài [388](388-update-daemon-set-vi.md), và
+đọc `ControllerRevision` của nó — đây là **nửa sau của Checkpoint giai đoạn 29**.
+
+Bài rất ngắn nhưng là bài duy nhất của lộ trình nói về `ControllerRevision`. Bài giả định bạn vừa
+đọc [388](388-update-daemon-set-vi.md) và đang có sẵn một DaemonSet đã qua ít nhất một lần update —
+không có revision thứ hai thì không có gì để quay lui. Bạn đã rollback **Deployment** ở
+[Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B4 bằng cùng bộ lệnh `rollout
+history`/`undo`/`status`; điểm phải để ý ở đây là **nơi lưu revision khác hẳn**, và cách đánh số
+revision sau khi quay lui cũng khác trực giác.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ba bước của quy trình: `kubectl rollout history daemonset <tên>` để liệt kê revision (thêm
+  `--revision=N` để xem template của đúng revision đó), `kubectl rollout undo daemonset <tên>
+  --to-revision=<n>` để quay lui, `kubectl rollout status ds/<tên>` để theo dõi.
+- Vì sao bước 3 không thừa: mục *Bước 3* nói rõ `rollout undo` chỉ **báo cho server bắt đầu**, việc
+  rollback chạy **bất đồng bộ** trong control plane — lệnh trả về không có nghĩa là đã xong.
+- Mục *Hiểu về các revision của DaemonSet*: mỗi revision được lưu trong một resource riêng tên
+  `ControllerRevision`, liệt kê được bằng `kubectl get controllerrevision -l <key>=<value>` với
+  label selector của DaemonSet; mỗi ControllerRevision giữ annotation và template của revision đó.
+- `rollout undo` thực chất chỉ **lấy template trong một ControllerRevision và ghi đè
+  `.spec.template` của DaemonSet** — bài nói thẳng nó tương đương với việc bạn tự `kubectl edit`
+  hoặc `kubectl apply` về template cũ. Rollback không phải là một cơ chế riêng biệt.
+- Ghi chú cuối mục đó: revision của DaemonSet **chỉ tiến về phía trước**. Rollback từ revision 2 về
+  revision 1 làm ControllerRevision đang mang `.revision: 1` **trở thành `.revision: 3`**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Trước khi bạn bắt đầu* — minikube, ba playground, và điều kiện "server 1.7 hoặc mới hơn" | Lộ trình cấm minikube/kind; điều kiện phiên bản thì baseline lab vượt xa | Bỏ hẳn — ba VM và bảng phiên bản khóa ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
+| Cờ `--record=true` để ghi lệnh vào annotation `kubernetes.io/change-cause` | Đây là thói quen ghi nhật ký thao tác, không phải cơ chế rollback | Ở lần đọc này chỉ cần biết cột `CHANGE-CAUSE` lấy nội dung từ đâu; annotation nói chung đã học ở bài [20](20-annotations-vi.md) |
+| Mục *Xử lý sự cố* | Chỉ là một link trỏ ngược | Bài [388](388-update-daemon-set-vi.md) mục *Khắc phục sự cố*, bạn vừa đọc ở bài 3/8 |
+
+---
+
 Trang này hướng dẫn cách thực hiện rollback (quay lui) trên một DaemonSet.
 
 ## Trước khi bạn bắt đầu (Before you begin)
@@ -136,3 +183,55 @@ template của DaemonSet về một revision trước đó bằng các lệnh kh
 
 * Xem [xử lý sự cố rolling update của
   DaemonSet](https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/#troubleshooting).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 29:
+
+1. Trên `lab-k8s-master`, bạn chạy `kubectl rollout undo daemonset example-daemonset --to-revision=1`,
+   lệnh in ra `rolled back`, nhưng `kubectl get pods -o wide` ngay sau đó vẫn cho thấy Pod cũ trên
+   `lab-k8s-worker1` và `lab-k8s-worker2`. Vì sao chưa được kết luận là rollback hỏng, và lệnh nào
+   mới trả lời đúng câu hỏi "xong chưa"?
+2. **Câu bẫy.** Hệ thống đang có revision 1 và 2. Bạn rollback từ 2 về 1. Sau khi rollback xong,
+   `kubectl rollout history daemonset <tên>` cho những số revision nào, và ControllerRevision chứa
+   template cũ giờ mang `.revision` bằng bao nhiêu?
+3. `example-daemonset` ở bài [385](385-create-daemon-set-vi.md) có selector
+   `app.kubernetes.io/name: example`. Viết lệnh liệt kê các revision **thô** của nó, và nói rõ mỗi
+   đối tượng trong danh sách đó chứa cái gì.
+4. Bài nói `kubectl rollout undo` "tương đương" với `kubectl edit` hoặc `kubectl apply`. Tương đương
+   ở chỗ nào — tức `undo` thực sự ghi vào trường nào của DaemonSet?
+5. Cột `CHANGE-CAUSE` trong output của `rollout history` để trống. Nội dung của cột đó vốn được lấy
+   từ đâu, và nó được chép vào revision ở thời điểm nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì `kubectl rollout undo daemonset` chỉ **báo cho server bắt đầu** rollback; việc rollback được
+   thực hiện **bất đồng bộ bên trong control plane**. Lệnh in ra `rolled back` nghĩa là yêu cầu đã
+   được nhận, **không** nghĩa là Pod trên các node đã đổi xong. Lệnh trả lời đúng câu hỏi "xong chưa"
+   là **`kubectl rollout status ds/example-daemonset`**, và nó chỉ in `successfully rolled out` khi
+   rollback hoàn tất.
+2. `rollout history` cho **revision 2 và 3**, và ControllerRevision chứa template cũ giờ mang
+   **`.revision: 3`**. Chỗ dễ sai là kỳ vọng "quay về 1 thì số revision hiện tại là 1": revision của
+   DaemonSet **chỉ tiến về phía trước**, nên quay lui về nội dung cũ vẫn sinh ra một số revision mới,
+   lớn hơn. Số revision là **thứ tự thời gian của các lần thay template**, không phải nhãn dán vào
+   nội dung template.
+3. `kubectl get controllerrevision -l app.kubernetes.io/name=example`. Mỗi đối tượng trong danh sách
+   là **một ControllerRevision — nơi lưu một revision của DaemonSet**, giữ **annotation và template**
+   của revision đó; cột `CONTROLLER` chỉ về `DaemonSet/example-daemonset` và cột `REVISION` là số
+   revision. Nói cách khác, `rollout history` chỉ là cách đọc đẹp của chính tập đối tượng này.
+4. Tương đương ở chỗ **cả ba đều chỉ ghi lại `.spec.template` của DaemonSet**: `rollout undo` lấy
+   template đang nằm trong ControllerRevision bạn chọn và **thay template hiện tại bằng template đó**.
+   Không có cơ chế "quay ngược thời gian" nào cả — vì thế nó cũng kích hoạt một rolling update như
+   mọi thay đổi `.spec.template` khác, và vì thế số revision mới lại tăng lên.
+5. Lấy từ annotation **`kubernetes.io/change-cause`** của DaemonSet, và nó được **sao chép sang
+   revision ở thời điểm revision được tạo** — nên annotation đặt sau khi revision đã sinh ra thì
+   không hồi tố. Cột trống chỉ có nghĩa là lúc tạo revision, DaemonSet không mang annotation đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

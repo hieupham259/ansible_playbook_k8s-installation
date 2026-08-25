@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 3/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 **Bài dài nhất nhóm 7a.** Nó gộp bốn cơ chế độc lập vào một trang — `nodeSelector`, affinity,
 `nodeName`, và một mục dẫn sang topology spread — cộng thêm nhiều trường ở mức beta. Ngoài ra
@@ -866,11 +866,11 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    label đó khỏi node. Pod có bị đuổi đi không?
 3. Trong một `nodeAffinity`, hai phần tử của `nodeSelectorTerms` quan hệ với nhau thế nào, còn
    hai biểu thức trong cùng một `matchExpressions` thì thế nào?
-4. Cluster lab có `k8s-worker1` và `k8s-worker2` nhận Pod thường. Bạn tạo một Deployment 3
+4. Cluster lab có `lab-k8s-worker1` và `lab-k8s-worker2` nhận Pod thường. Bạn tạo một Deployment 3
    replica với `podAntiAffinity` loại `requiredDuringSchedulingIgnoredDuringExecution`,
    `topologyKey: kubernetes.io/hostname`, `labelSelector` khớp chính label của các replica đó.
    Bao nhiêu Pod chạy được, và replica còn lại ở đâu?
-5. Bạn muốn một Pod chạy đúng trên `k8s-worker1`. Đặt `nodeName: k8s-worker1` và đặt
+5. Bạn muốn một Pod chạy đúng trên `lab-k8s-worker1`. Đặt `nodeName: lab-k8s-worker1` và đặt
    `nodeSelector` khớp label của riêng node đó khác nhau ra sao? Vì sao bài cảnh báo về cách
    thứ nhất?
 

@@ -2,6 +2,64 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 2 — Container và runtime](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime),
+bài 1/2 của dòng **Thực hành** ·
+[Lab 2 — Container, image, CRI và cgroup](labs/LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md) **không
+thực hành bài này**: bảng ở mục 1.1 của lab ghi rõ lý do — cần một private registry và Secret,
+mà Secret thuộc
+[nhóm 3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod). Phần
+gần nhất bạn quan sát được trên cluster lab là **B3** (tag, digest và `imagePullPolicy`) và
+**B4** (`ImagePullBackOff`) của Lab 2.
+
+Đọc để **biết cơ chế tồn tại và biết hình dạng cấu hình**, không phải để triển khai. File YAML ví
+dụ trong bài rất dài vì gần như mọi dòng đều là comment giải thích; đọc phần văn xuôi ngay dưới
+nó (*Trường `providers` là danh sách…*) trước, rồi mới quay lại đối chiếu với YAML.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vấn đề bài giải: thay vì để credential của registry nằm **tĩnh trên đĩa** hoặc trong
+  `imagePullSecrets`, kubelet gọi một **exec plugin** để lấy credential một cách động. Kubelet và
+  plugin nói chuyện qua **stdio** bằng API có phiên bản của Kubernetes. Ba tình huống bài nêu ở
+  đầu trang: phải gọi API của cloud để lấy credential, credential có thời hạn ngắn, hoặc việc lưu
+  credential trên đĩa là không chấp nhận được.
+- Hai cờ kubelet bắt buộc: `--image-credential-provider-config` trỏ tới file cấu hình và
+  `--image-credential-provider-bin-dir` trỏ tới thư mục chứa binary. File thực thi của plugin
+  phải tồn tại trên **mọi node** trong cluster, và `name` trong cấu hình **bắt buộc khớp** tên
+  file thực thi đó.
+- Bốn trường bắt buộc của mỗi mục trong `providers`: `name`, `matchImages`,
+  `defaultCacheDuration` và `apiVersion`. Nhiều provider cùng khớp một image thì credential của
+  tất cả được trả về và **gộp lại**; nếu chúng trả về auth key trùng nhau thì giá trị của
+  provider **đứng trước trong danh sách** được dùng.
+- Quy tắc so khớp ở mục *Cấu hình so khớp image*: glob chỉ được dùng ở phần **domain**, không
+  dùng ở port hay path; mỗi glob chỉ khớp **một** phân đoạn subdomain, nên `*.io` **không** khớp
+  `*.k8s.io`. Khớp khi cả ba điều đúng: hai bên cùng số phần domain và từng phần khớp, path của
+  `matchImages` là **tiền tố** của path image đích, và port (nếu có khai) trùng nhau.
+- Trường `tokenAttributes` mở ra hướng thứ hai: plugin nhận một **service account token gắn với
+  Pod** đang cần pull image và đổi token đó lấy credential — nhờ vậy không phải dùng danh tính
+  của kubelet/node, và workload không cần secret tồn tại lâu dài. Ràng buộc cứng: đặt trường này
+  mà feature gate `KubeletServiceAccountTokenForCredentialProviders` chưa bật thì **kubelet không
+  khởi động được**, báo lỗi cấu hình không hợp lệ.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ý nghĩa chi tiết của `cacheType` (`Token` so với `ServiceAccount`) và hai danh sách `requiredServiceAccountAnnotationKeys` / `optionalServiceAccountAnnotationKeys` | phải hiểu ServiceAccount và token đã; ở đây chỉ cần biết cơ chế này tồn tại | [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
+| `ServiceAccountNodeAudienceRestriction` và việc cấp cho nhóm `system:nodes` verb `request-serviceaccounts-token-audience` qua RBAC | RBAC chưa học | [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
+| Plugin cụ thể của nhà cung cấp cloud (ví dụ plugin dựa trên ECR) và các `matchImages` kiểu `*.dkr.ecr.*.amazonaws.com` | cluster lab tự quản, không kéo image từ registry của cloud | ngoài phạm vi lộ trình — đọc khi làm việc với registry của một nhà cung cấp cloud |
+| Việc thay `imagePullSecrets` bằng cơ chế này trong thực tế | `imagePullSecrets` cần Secret, chưa học | [nhóm 3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.26 [stable]`
 
 Bắt đầu từ Kubernetes v1.20, kubelet có thể lấy thông tin xác thực (credential) cho một
@@ -274,3 +332,55 @@ Một số giá trị ví dụ của các pattern `matchImages`:
 * Đọc chi tiết về `CredentialProviderConfig` trong
   [tài liệu tham khảo API cấu hình kubelet (v1)](https://kubernetes.io/docs/reference/config-api/kubelet-config.v1/).
 * Đọc [tài liệu tham khảo API kubelet credential provider (v1)](https://kubernetes.io/docs/reference/config-api/kubelet-credentialprovider.v1/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 2:
+
+1. Bài đặt cơ chế này cạnh hai cách cũ là credential tĩnh trên đĩa và `imagePullSecrets`. Cơ chế
+   nào khiến credential không còn phải nằm sẵn ở đó, và kubelet nói chuyện với plugin bằng đường
+   nào?
+2. **Câu bẫy.** Một provider khai `matchImages: ["*.io"]`. Image cần pull là
+   `registry.k8s.io/pause:3.10`. Provider đó có được gọi không, và quy tắc nào của bài quyết
+   định điều đó?
+3. Giả sử bạn muốn bật cơ chế này cho cluster lab. Binary của plugin phải có mặt ở đâu, và trên
+   mỗi node bạn phải đặt thêm những gì để kubelet gọi được nó? Chỉ đặt trên
+   `lab-k8s-worker1` và `lab-k8s-worker2` có đủ không?
+4. Bạn thêm `tokenAttributes` vào `CredentialProviderConfig` của `lab-k8s-worker2` nhưng quên bật
+   feature gate `KubeletServiceAccountTokenForCredentialProviders`, rồi restart kubelet. Chuyện
+   gì xảy ra, và vì sao đây là kiểu lỗi dễ nhận ra hơn là lỗi âm thầm?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Cơ chế là **exec plugin**: kubelet chạy một file thực thi và **hỏi credential một cách động**
+   ngay tại thời điểm cần pull image, thay vì đọc credential đã lưu sẵn. Ví dụ bài đưa ra là
+   plugin liên lạc với một metadata server cục bộ để lấy credential **có thời hạn ngắn**. Kubelet
+   và plugin trao đổi qua **stdio** — stdin, stdout, stderr — bằng các API có phiên bản của
+   Kubernetes (`credentialprovider.kubelet.k8s.io/v1`). Credential chỉ được giữ trong **bộ nhớ**
+   của kubelet, trong khoảng `defaultCacheDuration` nếu plugin không tự khai thời gian cache.
+2. **Không khớp, provider không được gọi.** Trực giác "`*` là wildcard nên nuốt được mọi thứ
+   phía trước" là sai ở đây vì hai lý do bài nói rõ. Thứ nhất, **mỗi glob chỉ khớp đúng một phân
+   đoạn subdomain**, và bài nêu thẳng ví dụ này: `*.io` **KHÔNG** khớp `*.k8s.io`. Thứ hai, điều
+   kiện khớp đòi hỏi **cùng số lượng phần domain**: `*.io` có hai phần, còn
+   `registry.k8s.io` có ba.
+3. Binary phải tồn tại trên **mọi node trong cluster** — tức cả ba VM `lab-k8s-master`,
+   `lab-k8s-worker1` và `lab-k8s-worker2`, chứ **không đủ** nếu chỉ đặt trên hai worker; bài yêu
+   cầu nó có mặt trên mọi node và nằm trong một thư mục xác định. Trên mỗi node còn phải đặt hai
+   cờ cho kubelet: **`--image-credential-provider-config`** trỏ tới file cấu hình và
+   **`--image-credential-provider-bin-dir`** trỏ tới thư mục chứa binary. Thêm một ràng buộc dễ
+   quên: `name` của provider trong file cấu hình **phải khớp tên file thực thi** nằm trong thư
+   mục đó.
+4. **Kubelet không khởi động được**, và báo lỗi cấu hình không hợp lệ — bài nói thẳng điều này
+   trong phần comment của `tokenAttributes`. Đây là lỗi lộ ngay lúc khởi động, ở đúng nơi bạn vừa
+   sửa, thay vì để kubelet chạy tiếp rồi im lặng không gọi plugin và chỉ vỡ ra khi có Pod cần
+   pull image. Neo vào cluster lab: thao tác thử nghiệm kiểu này chỉ được làm trên
+   `lab-k8s-worker2`, node duy nhất được phép gây lỗi.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

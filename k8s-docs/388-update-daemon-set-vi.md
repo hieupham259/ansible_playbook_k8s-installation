@@ -4,6 +4,57 @@
 >
 > Trang này hướng dẫn cách thực hiện một rolling update trên một DaemonSet.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 29 — DaemonSet, Job nâng cao và thiết bị chuyên dụng](00-ALO-TRINH-ADMIN.md#giai-đoạn-29--daemonset-job-nâng-cao-và-thiết-bị-chuyên-dụng),
+bài 3/8 · Kiểm chứng trực tiếp trên cluster lab: đổi `.spec.template` của một DaemonSet do bạn tạo,
+theo dõi bằng `kubectl rollout status ds/<tên>` — đây là **nửa đầu của Checkpoint giai đoạn 29**,
+nửa sau là bài [387](387-rollback-daemon-set-vi.md).
+
+Đọc bài này **liền mạch với bài [387](387-rollback-daemon-set-vi.md)**: rollout ở đây tạo ra thứ mà
+bài kia quay lui. Hai lưu ý khi làm trên cluster lab. Thứ nhất, manifest mẫu đặt DaemonSet vào
+namespace `kube-system` — nơi đang chạy DaemonSet của CNI và kube-proxy; mọi lệnh trong bài đều kèm
+`-n kube-system`, gõ nhầm tên đối tượng ở namespace đó là chạm vào hạ tầng cluster. An toàn hơn là
+tạo namespace riêng cho bài tập. Thứ hai, bạn đã làm rollout và `rollout status` cho **Deployment** ở
+[Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B4–B5; đọc bài này với câu hỏi thường
+trực "DaemonSet khác Deployment ở chỗ nào", vì các núm điều khiển trùng tên nhưng mặc định khác nhau.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hai chiến lược ở mục *Chiến lược cập nhật của DaemonSet* và ranh giới giữa chúng: `RollingUpdate`
+  là **mặc định**, tự hủy Pod cũ và tạo Pod mới có kiểm soát; `OnDelete` thì sau khi bạn sửa template
+  **không có gì xảy ra** cho tới khi bạn tự tay xóa từng Pod cũ.
+- Ba núm điều khiển và mặc định của chúng ở mục *Thực hiện một rolling update*: `maxUnavailable`
+  (mặc định `1`), `minReadySeconds` (mặc định `0`), `maxSurge` (mặc định `0`) — cộng câu chốt ở mục
+  trước: trong lúc cập nhật, **mỗi node nhiều nhất một Pod** của DaemonSet đang chạy.
+- Cái gì kích hoạt rollout, theo mục *Cập nhật template của một DaemonSet*: **bất kỳ thay đổi nào**
+  của `.spec.template`. Trong bài, khác biệt duy nhất giữa hai manifest là thêm khối `resources`.
+- Ba cách thao tác cùng một việc: `kubectl apply` (khai báo), `kubectl edit` (mệnh lệnh), và
+  `kubectl set image ds/...` khi chỉ đổi `.spec.template.spec.containers[*].image`; kiểm chiến lược
+  bằng `kubectl get ds ... -o go-template` như mục *Kiểm tra chiến lược cập nhật* chỉ ra, theo dõi
+  bằng `kubectl rollout status ds/...`.
+- Ba nguyên nhân rollout kẹt ở mục *Khắc phục sự cố* và cách nhận ra từng cái: node cạn tài nguyên
+  (so `kubectl get nodes` với `kubectl get pods -l ... -o wide` để tìm node còn thiếu Pod), rollout
+  hỏng do crash loop hoặc image sai (**cách thoát là apply template mới**, không phải chờ), và lệch
+  đồng hồ giữa master và node làm hỏng phép đo `minReadySeconds`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Trước khi bạn bắt đầu* — minikube và ba playground | Lộ trình cấm minikube, kind và cluster dùng chung | Bỏ hẳn — dùng ba VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
+| Bản thân workload fluentd/Elasticsearch và volume `/var/lib/docker/containers` | Chỉ là ví dụ minh họa; đường dẫn kia là di sản của runtime cũ | [Giai đoạn 27 — Di chuyển khỏi dockershim](00-ALO-TRINH-ADMIN.md#giai-đoạn-27--di-chuyển-khỏi-dockershim-cluster-cũ) đã kết luận cluster lab dùng containerd, nên đường dẫn đó không phải chỗ chứa log container của bạn |
+| Lời khuyên "xóa bớt Pod không thuộc DaemonSet để lấy chỗ" và ghi chú kèm theo ở mục *Một số node cạn kiệt tài nguyên* | Đây là thao tác gây gián đoạn và **không** tôn trọng PodDisruptionBudget | Cơ chế PDB đã học ở bài [53](53-disruptions-vi.md) và [339](339-configure-pdb-vi.md); cách rút Pod khỏi node đúng quy trình ở bài [255](255-safely-drain-node-vi.md), giai đoạn 16 |
+
+---
+
 Trang này hướng dẫn cách thực hiện một rolling update trên một DaemonSet.
 
 ## Trước khi bạn bắt đầu (Before you begin)
@@ -292,3 +343,61 @@ kubectl delete ds fluentd-elasticsearch -n kube-system
 
 * Xem [Thực hiện rollback trên một DaemonSet (Performing a rollback on a DaemonSet)](387-rollback-daemon-set-vi.md)
 * Xem [Tạo một DaemonSet để nhận (adopt) các pod DaemonSet đã có](66-daemonset-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 29:
+
+1. **Câu bẫy.** Trong lúc rolling update một DaemonSet, trên **một node** có thể có nhiều nhất bao
+   nhiêu Pod của DaemonSet đó cùng chạy? Giá trị mặc định của `maxSurge` là gì, và nó dẫn tới hệ quả
+   nào cho tính liên tục của dịch vụ trên node đang được cập nhật?
+2. Bạn apply manifest `fluentd-elasticsearch` của bài lên cluster lab ba node.
+   `kubectl get pods -n kube-system -l name=fluentd-elasticsearch -o wide` cho mấy dòng? Vì sao con
+   số này khác con số bạn thấy với `example-daemonset` ở bài [385](385-create-daemon-set-vi.md)?
+3. Hai manifest trong bài khác nhau đúng một chỗ: bản sau thêm khối `resources` cho container. Việc
+   đó có kích hoạt rolling update không? Còn nếu bạn chỉ sửa `metadata.labels` của chính DaemonSet
+   (`k8s-app: fluentd-logging`) thì sao?
+4. Bạn đổi image sang một tag gõ sai. `kubectl rollout status` đứng im. Bạn chờ, hay làm gì — và làm
+   sao phân biệt tình huống này với tình huống "node cạn kiệt tài nguyên" cũng làm rollout kẹt?
+5. DaemonSet của bạn đang để `updateStrategy.type: OnDelete`. Bạn sửa `.spec.template` rồi chạy
+   `kubectl rollout status`. Điều gì xảy ra với các Pod, và bạn phải làm gì để bản mới lên node?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Nhiều nhất một** — bài nói thẳng điều đó ở mục *Chiến lược cập nhật của DaemonSet*, và
+   `maxSurge` **mặc định là `0`** chính là cách nói cùng một việc bằng con số: không có Pod thứ hai
+   được dựng trước trên cùng node. Hệ quả là chỗ dễ nhầm: rolling update của DaemonSet **không phải
+   là không gián đoạn** trên từng node — Pod cũ phải bị hủy trước, Pod mới mới được tạo, nên node đó
+   có một khoảng trống không có Pod của DaemonSet. Trực giác "rolling update thì luôn còn bản cũ
+   chạy đỡ" đến từ Deployment, nơi nhiều replica nằm rải trên nhiều node để bù cho nhau; DaemonSet
+   chỉ có đúng một Pod cho mỗi node nên không có gì để bù.
+2. **Ba dòng** — cả `lab-k8s-master`, `lab-k8s-worker1` và `lab-k8s-worker2`. Khác với
+   `example-daemonset` (hai Pod) vì manifest ở bài này **có khai `tolerations`** cho
+   `node-role.kubernetes.io/control-plane` và `node-role.kubernetes.io/master` với
+   `effect: NoSchedule`, nên taint của control plane không loại `lab-k8s-master` ra nữa. Chính
+   comment trong manifest nói rõ: xóa hai toleration đó đi nếu control plane của bạn không nên chạy
+   Pod.
+3. **Có.** Bài nêu quy tắc gọn: **bất kỳ thay đổi nào đối với `.spec.template`** của một DaemonSet
+   dùng `RollingUpdate` đều kích hoạt một rolling update — thêm `resources` là sửa `.spec.template`,
+   nên nó tính. Còn `metadata.labels` của chính đối tượng DaemonSet **nằm ngoài `.spec.template`**,
+   nên nó không thuộc phạm vi quy tắc đó; muốn Pod đổi thì phải đụng vào template.
+4. **Sửa template một lần nữa rồi apply lại** — bài nói rõ: rollout mới **không bị chặn** bởi các
+   rollout không lành mạnh trước đó, nên không cần dọn dẹp gì trước. Chờ là vô ích vì image không tồn
+   tại thì Pod không bao giờ chạy được. Phân biệt bằng **chỗ Pod bị kẹt**: rollout hỏng thì Pod mới
+   **đã được lập lịch** lên node nhưng crash hoặc không kéo được image; cạn tài nguyên thì Pod mới
+   **không lập lịch được** trên ít nhất một node — so `kubectl get nodes` với
+   `kubectl get pods -l name=fluentd-elasticsearch -o wide -n kube-system` sẽ lộ ra node nào đang
+   thiếu hẳn Pod.
+5. **Không Pod nào đổi.** Với `OnDelete`, sau khi template được cập nhật, Pod mới *chỉ* được tạo khi
+   bạn **xóa thủ công** Pod cũ — đây đúng là hành vi DaemonSet của Kubernetes 1.5 trở về trước. Muốn
+   bản mới lên node nào thì xóa Pod của DaemonSet trên node đó; đổi lại, bạn kiểm soát hoàn toàn thứ
+   tự và thời điểm.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

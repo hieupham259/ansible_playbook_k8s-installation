@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 4/14 ·
-Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md).
 
 Bài này đứng chân trên hai thứ bạn **chưa học**: lưu trữ bền vững và Service headless. Đó là
 lý do lộ trình cố ý cắt đôi nó. Ở giai đoạn 4 bạn chỉ thực hành **định danh ổn định và thứ
@@ -620,8 +620,8 @@ control plane của Kubernetes quản lý trường `.spec.replicas` một cách
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
 
 1. StatefulSet `web` 3 replica đang chạy trên hai worker của bạn. Bạn xóa `web-1` đang nằm
-   trên `k8s-worker2`. Pod thay thế mang tên gì, và nó có thể được lập lịch sang
-   `k8s-worker1` không?
+   trên `lab-k8s-worker2`. Pod thay thế mang tên gì, và nó có thể được lập lịch sang
+   `lab-k8s-worker1` không?
 2. `podManagementPolicy` để mặc định. `web-0` crash **sau khi** `web-1` đã Running và Ready
    nhưng **trước khi** `web-2` được khởi chạy. `web-2` khi nào mới lên?
 3. **Câu bẫy.** Bạn thu nhỏ StatefulSet từ 3 xuống 1. Pod nào bị kết thúc trước, và các
@@ -635,7 +635,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 <summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
 
 1. Pod thay thế vẫn tên là **`web-1`**, và **có**, nó hoàn toàn có thể chạy trên
-   `k8s-worker1`. Đây là điểm cốt lõi của mục *Định danh của Pod*: định danh gồm số thứ tự,
+   `lab-k8s-worker1`. Đây là điểm cốt lõi của mục *Định danh của Pod*: định danh gồm số thứ tự,
    định danh mạng ổn định và lưu trữ ổn định, và nó "gắn chặt với Pod, **bất kể Pod được lập
    lịch (lại) lên node nào**". Định danh ổn định **không** có nghĩa là Pod bị ghim vào một
    node — nó có nghĩa là tên, hostname và các claim đi theo ordinal chứ không đi theo node.

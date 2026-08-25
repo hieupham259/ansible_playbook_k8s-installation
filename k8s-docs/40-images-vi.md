@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 2/8 ·
-Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 2](labs/LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md).
 
 Lộ trình ghi rõ: đây là **nguồn lỗi vận hành rất phổ biến**. Bài dài, nhưng phần gây sự cố
 thật chỉ nằm ở một phần ba đầu — tag, digest và `imagePullPolicy`. Nửa sau nói về private

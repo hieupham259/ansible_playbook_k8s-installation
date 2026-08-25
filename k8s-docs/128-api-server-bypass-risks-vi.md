@@ -11,7 +11,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 13/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 13/18 · Kiểm chứng ở [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md).
 
 Bài này lật ngược ba bài bạn đã đọc. Bài [119](119-controlling-access-vi.md) xây một luồng bốn
 chặng chặt chẽ; bài [24](24-control-plane-node-communication-vi.md) nói mọi truy cập API đều kết
@@ -216,7 +216,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 1. Bài liệt kê bốn đường vượt qua Kubernetes API server. Kể đủ bốn, và nói điểm chung khiến
    chúng nguy hiểm.
 2. Trên cluster lab, control plane chạy dưới dạng static Pod trong `/etc/kubernetes/manifests`
-   của `k8s-master` (bài [58](58-static-pods-vi.md)). Vì sao quyền ghi vào thư mục đó tương
+   của `lab-k8s-master` (bài [58](58-static-pods-vi.md)). Vì sao quyền ghi vào thư mục đó tương
    đương quyền quản trị cluster?
 3. "Một static Pod bị admission controller từ chối thì nó không chạy" — đúng hay sai, và điều
    gì thực sự xảy ra?
@@ -237,7 +237,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Vì **kubelet nạp và trực tiếp quản lý mọi manifest trong thư mục đó dưới dạng static Pod, và
    API server không quản lý chúng**. Kẻ có quyền ghi vào đó **sửa được cấu hình các static Pod
    đang có hoặc đưa vào static Pod mới**, và Pod mới đó vẫn dùng được `hostPath` mount từ node
-   bên dưới. Trên `k8s-master`, chính các thành phần control plane nằm ở đây — nên quyền ghi
+   bên dưới. Trên `lab-k8s-master`, chính các thành phần control plane nằm ở đây — nên quyền ghi
    thư mục này là quyền định đoạt control plane, không cần một dòng RBAC nào.
 3. **Sai.** Bài nói rõ: nếu một static Pod không vượt qua được admission control, **kubelet sẽ
    không đăng ký Pod đó với API server** — nhưng **Pod vẫn chạy trên node**. Trực giác "admission

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 6/7 ·
-Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
 
 Bài này viết cho **hai người đọc khác nhau** — chủ sở hữu ứng dụng và quản trị viên cluster —
 và câu mở đầu nói rõ điều đó. Bạn đang học vai trò thứ hai, nên phần đáng giá nhất là ví dụ
@@ -378,10 +378,10 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 1. Một ứng dụng 3 replica có PDB yêu cầu luôn còn ít nhất 2 pod khả dụng. Đồng nghiệp chạy
    `kubectl delete deployment` lên chính ứng dụng đó. PDB có chặn không?
-2. `k8s-worker2` bị kernel panic và biến mất khỏi cluster. Đó là loại gián đoạn nào, PDB có
+2. `lab-k8s-worker2` bị kernel panic và biến mất khỏi cluster. Đó là loại gián đoạn nào, PDB có
    bảo vệ được không, và nó có ảnh hưởng gì tới các gián đoạn tự nguyện sau đó?
 3. Cluster lab của bạn chỉ có hai worker. Một ứng dụng 3 replica có PDB "ít nhất 2 pod khả
-   dụng", các pod nằm rải trên cả hai worker. Bạn chạy `kubectl drain k8s-worker2`. Những gì
+   dụng", các pod nằm rải trên cả hai worker. Bạn chạy `kubectl drain lab-k8s-worker2`. Những gì
    quyết định lệnh này chạy xong hay treo lại?
 4. Số pod "dự kiến" mà PDB dùng để tính ngân sách lấy từ đâu? Control plane biết pod nào
    thuộc workload nào bằng cách nào?
@@ -406,7 +406,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 3. `kubectl drain` gọi Eviction API cho từng pod trên node; yêu cầu bị từ chối sẽ được
    **thử lại định kỳ** cho tới khi mọi pod trên node kết thúc hoặc **hết timeout cấu hình
    được**. Nó chỉ đi tiếp khi ứng dụng vẫn còn ≥ 2 pod khả dụng — nghĩa là pod thay thế phải
-   được tạo và trở nên khả dụng trên `k8s-worker1`. Nếu worker còn lại **không đủ tài nguyên**
+   được tạo và trở nên khả dụng trên `lab-k8s-worker1`. Nếu worker còn lại **không đủ tài nguyên**
    để lập lịch pod thay thế, pod đó nằm `Pending` và drain bị chặn tiếp — đúng tình huống
    `pod-e` trong ví dụ của bài, và lối thoát ở đó là **thêm node**. Cuối mục ví dụ liệt kê
    đủ những gì điều tiết tốc độ này: số replica cần, thời gian tắt êm, thời gian một instance

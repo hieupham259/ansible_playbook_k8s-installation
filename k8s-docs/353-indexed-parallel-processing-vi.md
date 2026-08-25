@@ -2,6 +2,54 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/job/indexed-parallel-processing-static/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 4 — Workload controller](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller)
+→ [4b. StatefulSet, DaemonSet, Job và autoscaling](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling),
+bài 6/7 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md),
+**phần B6.3**.
+
+Đây là mẫu song song thứ hai của nhóm 4b, và là mẫu **duy nhất chạy trọn vẹn được** trên cluster
+lab: nó không cần hàng đợi, không cần Service, không cần image tự build. Đọc nó cạnh bài
+[351](351-coarse-parallel-work-queue-vi.md) để thấy ranh giới giữa hai cách phân công việc.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ý tưởng của mẫu: control plane **tự gán cho mỗi Pod một chỉ số**, và Pod dựa vào chỉ số đó để
+  biết phần nào của tổng thể công việc là của mình. Đây là **phân công việc tĩnh** — không có hàng
+  đợi nào để lấy việc.
+- Chỉ số nằm ở annotation `batch.kubernetes.io/job-completion-index` dưới dạng chuỗi. Control plane
+  **tự thiết lập downward API** để đưa nó vào biến môi trường `JOB_COMPLETION_INDEX` cho mọi
+  container, nên bạn không phải cấu hình gì để dùng biến này.
+- Mục *Chọn cách tiếp cận* nêu ba đường để chương trình worker lấy được chỉ số: đọc biến môi
+  trường `JOB_COMPLETION_INDEX`, đọc một file chứa chỉ số, hoặc **bọc chương trình bằng một
+  script** khi bạn không sửa được chương trình. Ví dụ trong bài chọn đường thứ ba.
+- Ba trường quyết định hình dạng Job: `completionMode: Indexed` bật chế độ này, `.spec.completions`
+  quyết định **tổng số Pod** Job tạo ra, `.spec.parallelism` quyết định **số Pod chạy cùng lúc**.
+  Vì `parallelism` nhỏ hơn `completions`, control plane **đợi một số Pod đầu hoàn thành rồi mới
+  khởi chạy thêm** (mục *Chạy Job*).
+- Cách hiện thực trong manifest đầu: một init container đọc `$JOB_COMPLETION_INDEX`, ánh xạ sang
+  một giá trị tĩnh và ghi vào file trên volume `emptyDir` chia sẻ với container worker. Kết quả đọc
+  bằng `kubectl describe jobs/indexed-job`, ở dòng `Completed Indexes`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Manifest thứ hai dùng volume `downwardAPI` với `fieldRef` trỏ thẳng vào annotation, cùng các link sang bài [336](336-env-variable-expose-pod-info-vi.md) và [275](275-configure-pod-configmap-vi.md) | là các cơ chế nạp dữ liệu vào Pod, không phải cơ chế của Job; một cách hiện thực là đủ cho lần đọc này | bài [336](336-env-variable-expose-pod-info-vi.md) ở [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời) và bài [275](275-configure-pod-configmap-vi.md) ở [3b. Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod) |
+| Nhãn trạng thái tính năng `Kubernetes v1.24 [stable]` và yêu cầu server từ v1.21 trở lên | phiên bản khóa của cluster lab mới hơn nhiều nên điều kiện luôn thỏa | [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) |
+| Mục *Trước khi bạn bắt đầu* — minikube và các playground | cluster lab ba VM đã dựng sẵn từ trước | [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.24 [stable]`
 
 Trong ví dụ này, bạn sẽ chạy một Job Kubernetes sử dụng nhiều tiến trình worker song song.
@@ -254,3 +302,43 @@ Kết quả tương tự như sau:
 ```
 xuq
 ```
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở nhóm 4b:
+
+1. So với mẫu hàng đợi công việc ở bài [351](351-coarse-parallel-work-queue-vi.md), mẫu này khác ở
+   chỗ nào về cách một Pod biết phần việc của mình? Bài gọi tên cách phân công đó là gì?
+2. Chỉ số của Pod được lưu ở đâu trên object, và bằng đường nào nó tới được tiến trình bên trong
+   container mà bạn không phải tự cấu hình gì?
+3. **Câu bẫy.** Job có `completions: 5` và `parallelism: 3`. Job tạo ra tất cả bao nhiêu Pod, bao
+   nhiêu Pod chạy cùng lúc, và vì sao control plane không tạo cả 5 Pod ngay từ đầu?
+4. Bạn chạy Indexed Job trên cluster lab và muốn biết những chỉ số nào đã hoàn thành. Lệnh nào, và
+   dòng nào trong output cho bạn biết điều đó?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Ở mẫu hàng đợi, Pod **lấy việc từ hàng đợi** lúc chạy; ở đây **control plane gán sẵn cho mỗi Pod
+   một chỉ số**, và Pod suy ra phần việc của mình từ chỉ số đó. Bài gọi đây là **phân công việc
+   tĩnh (static work assignment)**, và hệ quả là **không cần dịch vụ hàng đợi nào cả**.
+2. Chỉ số nằm ở **annotation `batch.kubernetes.io/job-completion-index`** của Pod, dưới dạng chuỗi
+   biểu diễn giá trị thập phân. Đường tới container: **control plane tự động thiết lập downward
+   API** để công bố giá trị đó thành **biến môi trường `JOB_COMPLETION_INDEX`** cho mọi container —
+   bài nói rõ đây là việc control plane làm sẵn cho thuận tiện, bạn không phải khai báo gì.
+3. **5 Pod tất cả, 3 Pod chạy cùng lúc.** Đây là chỗ dễ nhầm hai trường với nhau:
+   **`.spec.completions` quyết định tổng số Pod mà Job tạo ra**, còn **`.spec.parallelism` quyết
+   định số Pod có thể chạy cùng lúc**. Vì `parallelism` **nhỏ hơn** `completions`, control plane
+   **đợi một số Pod đầu tiên hoàn thành trước rồi mới khởi chạy thêm** — không phải vì cluster
+   thiếu chỗ.
+4. **`kubectl describe jobs/indexed-job`**, và dòng cần đọc là **`Completed Indexes`** — trong ví
+   dụ của bài nó hiện `0-2` khi mới có ba chỉ số đầu xong. Muốn xem kết quả thật thì
+   `kubectl logs <tên Pod>` của một Pod thuộc Job đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

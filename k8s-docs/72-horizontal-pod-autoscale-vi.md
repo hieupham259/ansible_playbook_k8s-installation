@@ -14,7 +14,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 12/14 ·
-Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md).
 
 **Ở đây bạn chỉ đọc lý thuyết.** HPA cần metrics-server để có API `metrics.k8s.io`, mà
 metrics-server thuộc **giai đoạn 11** — cluster baseline chưa có nó. Vì vậy toàn bộ phần

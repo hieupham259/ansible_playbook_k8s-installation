@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 1/8 ·
-Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 2](labs/LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md).
 
 Bài mở đầu giai đoạn, rất ngắn và chỉ đặt vấn đề. Giá trị nằm ở **một nguyên tắc** mà mọi thứ
 sau đó dựa vào.

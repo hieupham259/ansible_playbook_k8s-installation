@@ -9,7 +9,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố), bài 2/10 · thực hành trực tiếp trên
 node của cluster VM [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
@@ -38,7 +38,7 @@ ngay trên node khi cần debug — thay cho lệnh `docker` của thời docker
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Tên image trong output mẫu (`hyperkube-amd64` v1.10, registry `k8s-gcrio.azureedge.net`, `nvidia-device-plugin`) | output từ thời trang gốc được viết, chỉ dùng minh họa định dạng cột | chạy lại từng lệnh trên `k8s-worker2` của cluster lab để thấy output thật của containerd |
+| Tên image trong output mẫu (`hyperkube-amd64` v1.10, registry `k8s-gcrio.azureedge.net`, `nvidia-device-plugin`) | output từ thời trang gốc được viết, chỉ dùng minh họa định dạng cột | chạy lại từng lệnh trên `lab-k8s-worker2` của cluster lab để thấy output thật của containerd |
 | Mục "Cài đặt crictl" | node dựng theo quy trình [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) thường đã có sẵn `crictl` (gói `cri-tools` đi kèm kho gói của kubeadm) — kiểm tra bằng `crictl --version` | chỉ quay lại mục này khi node thiếu binary |
 
 ---
@@ -274,7 +274,7 @@ Output tương tự như sau:
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 24:
 
-1. kubelet trên `k8s-worker2` của cluster lab không khởi động được, nên bạn không tin vào những
+1. kubelet trên `lab-k8s-worker2` của cluster lab không khởi động được, nên bạn không tin vào những
    gì `kubectl get pods` báo về node đó. SSH vào node, bạn dùng những lệnh `crictl` nào để biết
    pod và container nào đang thực sự chạy, và `crictl` cần điều kiện gì trên node để kết nối
    được với containerd?

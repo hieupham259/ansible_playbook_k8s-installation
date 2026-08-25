@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 1/14 ·
-Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md).
 
 Đây là **trang mục lục** của cả giai đoạn 4, không phải bài học. Nhiệm vụ của nó là cho bạn
 biết có bao nhiêu loại controller và mỗi loại sinh ra để giải bài toán nào. Đọc mất khoảng
@@ -102,7 +102,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 1. Bài phân biệt Deployment với StatefulSet bằng đúng một giả định về các Pod. Giả định đó
    là gì, và vì sao nó khiến bạn không thể thay StatefulSet bằng Deployment?
-2. Trên cluster lab của bạn (1 control plane `k8s-master` + 2 worker), Flannel cần có mặt
+2. Trên cluster lab của bạn (1 control plane `lab-k8s-master` + 2 worker), Flannel cần có mặt
    trên **mọi** node. Theo cách bài mô tả các loại controller, Flannel thuộc loại nào, và vì
    sao Deployment không làm được việc đó?
 3. Job và CronJob khác nhau ở điểm nào? Điểm chung nào tách cả hai ra khỏi Deployment,

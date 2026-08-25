@@ -2,6 +2,62 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/reserve-compute-resources/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 20 — Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy), bài 6/6 ·
+Giai đoạn 20 **không có lab riêng**: bạn tự chấm bằng **Checkpoint** ghi ở cuối mục giai đoạn đó
+trong lộ trình, chạy trên cluster ba VM dựng ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
+
+Đây là **bài cuối của giai đoạn 20** và là chỗ trả lời trực tiếp một vế của Checkpoint: đặt
+`system-reserved` rồi **đọc lại `Allocatable` của node thấy giảm đúng lượng đã dành**. Bài nối tiếp
+[110](110-manage-resources-containers-vi.md) — `requests` quyết định lập lịch — và
+[142](142-node-pressure-eviction-vi.md) — eviction do áp lực node; ở đây hai thứ đó gặp nhau trong
+một phép trừ.
+
+Mọi thiết lập trong bài đều là trường của `KubeletConfiguration`, tức đặt qua file cấu hình kubelet
+của bài [224](224-kubelet-config-file-vi.md) vừa đọc — chính bài này nói vậy ở mục *Trước khi bạn
+bắt đầu*.
+
+**Phải hiểu ở lần đọc này:**
+
+- Định nghĩa `Allocatable`: **lượng tài nguyên tính toán khả dụng cho các Pod**, và
+  **scheduler không cấp phát vượt quá `Allocatable`**. Ba tài nguyên được hỗ trợ là `cpu`, `memory`
+  và `ephemeral-storage`; giá trị đọc được ở object `v1.Node` và ở `kubectl describe node`.
+- Ba khoản bị trừ khỏi `Capacity` và mỗi khoản dành cho ai: **`kubeReserved`** cho system daemon
+  **của Kubernetes** (kubelet, container runtime — **không** dành cho daemon chạy dạng Pod);
+  **`systemReserved`** cho daemon **của hệ điều hành** (`sshd`, `udev`, bộ nhớ kernel, phiên đăng
+  nhập người dùng); **`evictionHard`** là phần dành cho eviction và cũng **không khả dụng cho Pod**.
+- Phép tính ở mục *Ví dụ minh họa* và hệ quả kép của nó: 16 CPU / 32Gi / 100Gi trừ ba khoản trên ra
+  **14.5 CPU, 28.5Gi và 88Gi**; từ đó **scheduler chặn theo tổng `requests`**, còn **kubelet evict
+  theo mức sử dụng thật** vượt cùng ngưỡng đó.
+- Ranh giới giữa **khai báo** và **thực thi**: đặt `kubeReserved`/`systemReserved` chỉ làm
+  `Allocatable` giảm đi. Muốn *ép* daemon nằm trong phần dành riêng thì phải thêm `kube-reserved`
+  hoặc `system-reserved` vào **`enforceNodeAllocatable`** *và* chỉ định `kubeReservedCgroup` hoặc
+  `systemReservedCgroup`. kubelet **không tự tạo** cgroup đó và **khởi động thất bại** nếu cgroup
+  không hợp lệ; với driver `systemd` tên cgroup phải kèm hậu tố `.slice`.
+- Thứ tự khuyến nghị ở mục *Hướng dẫn chung*: bắt đầu bằng thực thi `Allocatable` cho **`pods`**,
+  rồi mới tới tài nguyên nén được, rồi mới tới tài nguyên không nén được — và lý do phải rất thận
+  trọng với `systemReserved`: thực thi sai làm dịch vụ hệ thống **thiếu CPU, bị OOM kill, hoặc
+  không fork được tiến trình**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Danh sách CPU dành riêng tường minh* — `reservedSystemCPUs` | bài nói rõ nó được thiết kế cho Telco/NFV, và việc chuyển daemon vào cpuset đó cần **cơ chế khác bên ngoài Kubernetes** | không cần cho lộ trình; ba khoản trừ phải nhớ nằm ở các mục *Kube Reserved*, *System Reserved* và *Ngưỡng Eviction* của chính bài này |
+| Mục *Cấu hình cgroup driver* trong bài | đã chốt và đã đối chiếu xong | bài [218](218-configure-cgroup-driver-vi.md), bài trước trong chính giai đoạn 20; kiểm chứng ở [Lab 2](labs/LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md) phần B2.2 |
+| Cơ chế eviction mà `evictionHard` kích hoạt — ngưỡng, thứ tự trục xuất theo QoS | ở đây chỉ cần biết phần này **bị trừ khỏi `Allocatable`** | bài [142](142-node-pressure-eviction-vi.md), đã đọc ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction) |
+| Thực thi thật `systemReserved` trên cluster lab | mỗi worker chỉ 2 vCPU và 6 GB; bài khuyến nghị chỉ thực thi khi đã đo đạc node toàn diện và tự tin khôi phục được nếu tiến trình hệ thống bị oom-kill | Checkpoint giai đoạn 20 chỉ yêu cầu **đặt** `system-reserved` rồi **đọc lại `Allocatable`**, không yêu cầu thực thi |
+
+---
+
 Các node Kubernetes có thể được lập lịch (schedule) tới mức `Capacity` (dung lượng tối đa). Theo
 mặc định, các Pod có thể tiêu thụ toàn bộ dung lượng khả dụng trên một node. Đây là một vấn đề vì
 các node thường chạy khá nhiều system daemon (tiến trình nền của hệ thống) phục vụ cho hệ điều
@@ -236,3 +292,62 @@ có thể, thì tổng cộng các Pod không thể tiêu thụ nhiều hơn 14.
 Nếu `kubeReserved` và/hoặc `systemReserved` không được thực thi và các system daemon vượt quá
 phần dành riêng của chúng, `kubelet` sẽ trục xuất các Pod mỗi khi tổng mức sử dụng bộ nhớ của
 node cao hơn 31.5Gi hoặc `storage` lớn hơn 90Gi.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 20:
+
+1. `Capacity` và `Allocatable` của một node khác nhau ở đâu? Ba khoản nào bị trừ ra, và mỗi khoản
+   dành cho nhóm tiến trình nào?
+2. Trên `lab-k8s-worker2` — 2 vCPU, 6 GB — bạn đặt `kubeReserved: {cpu: 200m, memory: 512Mi}`,
+   `systemReserved: {cpu: 200m, memory: 512Mi}` và giữ `evictionHard: {memory.available: "100Mi"}`.
+   `Allocatable` cho `cpu` bằng bao nhiêu, phép trừ cho `memory` gồm những số hạng nào, và bạn đọc
+   kết quả ở đâu?
+3. **Câu bẫy.** Bạn đặt `kubeReserved: {cpu: 500m}` và áp dụng thành công. kubelet với container
+   runtime từ giờ có bị **giới hạn** trong 500m không? Nếu muốn đúng như vậy thì còn phải làm gì?
+4. Bài cảnh báo hai điều về `kubeReservedCgroup` và `systemReservedCgroup` chưa tồn tại hoặc đặt
+   sai. Hai điều đó là gì, và với cgroup driver `systemd` thì tên cgroup phải theo khuôn nào?
+5. Vì sao bài khuyên **bắt đầu bằng thực thi `Allocatable` cho `pods`** rồi mới tính tới hai khoản
+   dành riêng, và vì sao `systemReserved` là khoản nguy hiểm nhất khi thực thi?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `Capacity` là **dung lượng tối đa của node**; `Allocatable` là **lượng tài nguyên khả dụng cho
+   các Pod**, và scheduler **không cấp phát vượt quá** nó. Ba khoản bị trừ: **`kubeReserved`** cho
+   các system daemon **của Kubernetes** như kubelet và container runtime; **`systemReserved`** cho
+   các system daemon **của hệ điều hành** như `sshd`, `udev`, cộng bộ nhớ cho kernel và các phiên
+   đăng nhập của người dùng; và **`evictionHard`** — phần dành cho eviction, cũng **không khả dụng
+   cho Pod**.
+2. `cpu`: **2000m − 200m − 200m = 1600m**, tức **1.6 CPU** — `evictionHard` ở đây chỉ đặt cho
+   `memory` nên không trừ vào CPU. `memory`: **`Capacity` của node − 512Mi − 512Mi − 100Mi**; lấy
+   `Capacity` thật từ node chứ đừng giả định 6 GB tròn. Đọc kết quả ở **`kubectl describe node
+   lab-k8s-worker2`**, hoặc trong object `v1.Node` — bài nói Node Allocatable được thể hiện ở cả
+   hai chỗ đó.
+3. **Không.** Đặt `kubeReserved` mới chỉ là **khai báo**: nó làm `Allocatable` giảm đi để scheduler
+   chừa chỗ, chứ **không** ép kubelet và container runtime nằm trong 500m đó. Muốn thực thi thì
+   phải làm hai việc cùng lúc: thêm **`kube-reserved` vào `enforceNodeAllocatable`** *và* chỉ định
+   **`kubeReservedCgroup`** trỏ tới control group cha của các kube daemon. Đây là chỗ dễ tưởng đã
+   xong nhất — bài tách hẳn hai khái niệm khai báo và thực thi ra.
+4. Thứ nhất: **kubelet không tự tạo cgroup đó nếu nó chưa tồn tại**. Thứ hai: **kubelet sẽ khởi
+   động thất bại nếu cgroup được chỉ định không hợp lệ** — tức đặt sai là node không lên. Với
+   cgroup driver `systemd`, tên phải là **đúng giá trị bạn đặt cho `kubeReservedCgroup` /
+   `systemReservedCgroup` kèm hậu tố `.slice`**.
+5. Vì thực thi `Allocatable` cho `pods` là **hành vi mặc định và ít rủi ro nhất**: kubelet chỉ evict
+   Pod khi tổng mức sử dụng của các Pod vượt `Allocatable`. Hai khoản dành riêng thì bài xếp sau, và
+   còn khuyên thử **tài nguyên nén được trước** vì ít khả năng gây gián đoạn hơn. `systemReserved`
+   nguy hiểm nhất vì thực thi nó có thể khiến **các dịch vụ hệ thống quan trọng thiếu CPU, bị OOM
+   kill, hoặc không thể fork tiến trình trên node** — bài khuyến nghị chỉ làm sau khi đã đo đạc node
+   toàn diện và tự tin khôi phục được.
+
+</details>
+
+Hết giai đoạn 20. Câu nào chưa trả lời được thì quay lại đúng mục tương ứng, rồi làm
+**Checkpoint** ở cuối mục
+[Giai đoạn 20 — Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy):
+đổi một tham số kubelet qua file cấu hình rồi chứng minh nó có hiệu lực, bật một feature gate và
+kiểm chứng, đặt `system-reserved` rồi đọc lại `Allocatable` của node thấy giảm đúng lượng đã dành.

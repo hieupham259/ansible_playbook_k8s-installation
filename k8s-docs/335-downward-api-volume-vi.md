@@ -4,6 +4,50 @@
 >
 > Trang này hướng dẫn cách một Pod có thể dùng volume `downwardAPI` để expose thông tin về chính nó cho các container đang chạy trong Pod.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
+→ nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 9/11 ·
+Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B10.2.
+
+Đây là **một nửa** của downward API — nửa "file trong volume". Nửa còn lại là biến môi trường,
+bài [336](336-env-variable-expose-pod-info-vi.md) ngay sau. Bài dài chủ yếu vì có hai manifest
+lớn; phần thật sự mới nằm ở mục nói về cấu trúc thư mục `..data`.
+
+**Phải hiểu ở lần đọc này:**
+
+- Cấu trúc: volume kiểu **`downwardAPI`** có một mảng **`items`**; mỗi phần tử gồm một **`path`**
+  — tên file sẽ xuất hiện trong volume — và một nguồn giá trị.
+- Hai nguồn giá trị, đúng ranh giới của bài [56](56-downward-api-vi.md): **`fieldRef.fieldPath`**
+  lấy field **cấp Pod** (`metadata.labels`, `metadata.annotations`); **`resourceFieldRef`** lấy
+  field **cấp container** và vì thế **bắt buộc nêu `containerName`** cùng với `resource`. Ghi chú
+  của bài nhấn đúng chỗ này: các field ở ví dụ đầu là field của **Pod**, không phải của container.
+- **`divisor`** quyết định đơn vị của con số ghi ra file: `1m` cho CPU tính theo millicore, `1Mi`
+  cho memory tính theo MiB. Field này tùy chọn, **mặc định là `1`** — nghĩa là **core** với `cpu`
+  và **byte** với `memory`.
+- Cấu trúc thật bên trong `/etc/podinfo`: một **thư mục con tạm** mang tên dạng
+  `..2982_06_02_21_47_53.299460680`, **`..data` là symlink** trỏ tới thư mục con đó, còn `labels`
+  và `annotations` là symlink đi qua `..data`. Nhờ vậy việc làm mới metadata là **động và nguyên
+  tử**: bản cập nhật ghi vào một thư mục tạm mới rồi symlink `..data` được đổi bằng `rename(2)`.
+- Ngoại lệ phải nhớ: container mount downward API kiểu **`subPath`** thì **không nhận được các
+  bản cập nhật**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ý nghĩa của `resources.requests` và `resources.limits` trong manifest thứ hai (vì sao `125m`, `32Mi`) | ở đây chỉ cần biết downward API **đọc lại** hai giá trị đó, chưa cần biết chúng làm gì | bài [110](110-manage-resources-containers-vi.md) ở nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), thực hành ở Lab 3c |
+| Mục *Chiếu key vào những đường dẫn và quyền file cụ thể* trỏ sang bài Secret | Secret chưa học | bài [109](109-secret-vi.md) ở nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), thực hành ở Lab 3b |
+| Link `subPath` sang bài Volume | Volume là chủ đề riêng | bài [91](91-volumes-vi.md) ở [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) |
+| Danh sách API reference cuối bài (`Volume`, `DownwardAPIVolumeSource`, `DownwardAPIVolumeFile`, `ResourceFieldSelector`) | là chỗ tra field, không phải bài đọc | danh sách field khả dụng đầy đủ ở bài [56](56-downward-api-vi.md) của chính nhóm 3a |
+
+---
+
 Trang này hướng dẫn cách một Pod có thể dùng
 [volume `downwardAPI`](91-volumes-vi.md#downwardapi)
 để expose thông tin về chính nó cho các container đang chạy trong Pod.
@@ -311,3 +355,51 @@ từng file. Để biết thêm thông tin, xem
   điền dữ liệu vào một file trong Downward API volume.
 * Xem định nghĩa API [`ResourceFieldSelector`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#resourcefieldselector-v1-core),
   chỉ định các tài nguyên của container và định dạng đầu ra của chúng.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Một phần tử của mảng `items` dưới `downwardAPI` gồm những thành phần nào? `path` quyết định
+   điều gì?
+2. **Câu bẫy.** Ghi chú của bài nhấn mạnh `metadata.labels` và `metadata.annotations` là field của
+   **Pod**, không phải của container trong Pod. Vậy muốn lấy `limits.cpu` của một container cụ thể
+   thì phải đổi sang cấu trúc nào, và cấu trúc đó bắt buộc thêm field gì mà `fieldRef` không có?
+3. `divisor` để làm gì? Với `divisor: 1m` trên `limits.cpu` và `divisor: 1Mi` trên `limits.memory`
+   thì con số trong file ở đơn vị nào, và nếu bỏ `divisor` đi thì mặc định là gì?
+4. Pod `kubernetes-downwardapi-volume-example` đang chạy trên `lab-k8s-worker1`. Bạn sửa
+   annotation của nó. Container có thấy giá trị mới trong `/etc/podinfo/annotations` không, và cơ
+   chế nào bảo đảm nó không bao giờ đọc phải một file đang ghi dở?
+5. Có một cách mount khiến container **ngừng** nhận cập nhật của Downward API. Cách nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Mỗi phần tử gồm **`path`** và **một nguồn giá trị**. `path` là **tên file** sẽ xuất hiện trong
+   volume — ví dụ `path: "labels"` tạo ra file `labels` trong thư mục mà container mount volume
+   (`/etc/podinfo`). Nguồn giá trị là `fieldRef` hoặc `resourceFieldRef`.
+2. Phải đổi từ **`fieldRef`** sang **`resourceFieldRef`**, và cấu trúc này **bắt buộc có
+   `containerName`** — thứ mà `fieldRef` không cần. Lý do nằm ở chính ranh giới mà ghi chú cảnh
+   báo: `fieldRef` lấy field **cấp Pod**, mà một Pod có thể có nhiều container, nên khi hỏi một
+   giá trị **cấp container** thì phải nói rõ container nào. Trong ví dụ: `containerName:
+   client-container`, `resource: limits.cpu`. Chỗ dễ sai là tưởng cứ viết
+   `fieldPath: limits.cpu` là xong.
+3. `divisor` là **đơn vị quy đổi** cho con số ghi ra file. `divisor: 1m` với `limits.cpu` cho ra
+   con số tính theo **millicore**; `divisor: 1Mi` với `limits.memory` cho ra con số tính theo
+   **MiB**. Field này **tùy chọn, mặc định là `1`**, và divisor bằng 1 nghĩa là **đơn vị core**
+   cho tài nguyên `cpu`, **đơn vị byte** cho tài nguyên `memory`.
+4. **Có.** Bài nói việc dùng symbolic link cho phép **làm mới metadata một cách động**. Cơ chế
+   chống đọc dở là **tính nguyên tử**: bản cập nhật được ghi vào **một thư mục tạm mới**, rồi
+   symlink **`..data`** được trỏ sang thư mục đó **bằng `rename(2)`** — một thao tác nguyên tử.
+   Vì `annotations` và `labels` chỉ là symlink đi qua `..data`, container luôn thấy một bộ file
+   hoàn chỉnh, hoặc cũ hoàn toàn hoặc mới hoàn toàn.
+5. Mount volume Downward API kiểu **`subPath`**. Ghi chú của bài nói rõ: container dùng Downward
+   API dưới dạng volume mount kiểu `subPath` **sẽ không nhận được các bản cập nhật**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
-bài 5/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 5/6 · Kiểm chứng ở [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md).
 
 Bài dài gần 700 dòng nhưng **quá nửa cuối là tính năng alpha của v1.36** — các trình quản lý
 tài nguyên cấp Pod — không tồn tại trên cluster baseline của bạn. Phần phải đọc là bốn mục đầu

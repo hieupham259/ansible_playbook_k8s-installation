@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 4/7 ·
-Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
 
 Đây là **bài bắt buộc phải chắc** của cả nhóm 3b. QoS class ở bài kế tiếp, eviction do áp lực
 node ở giai đoạn 7a, ResourceQuota và LimitRange ở 7b, HPA và VPA ở giai đoạn 4 — tất cả đều
@@ -496,13 +496,13 @@ tài nguyên đó có thể được lập lịch lên node.
 
 Đây là một ví dụ cho thấy cách dùng `curl` để tạo một HTTP request
 quảng bá năm tài nguyên "example.com/foo" trên node `k8s-node-1` có master
-là `k8s-master`.
+là `lab-k8s-master`.
 
 ```shell
 curl --header "Content-Type: application/json-patch+json" \
 --request PATCH \
 --data '[{"op": "add", "path": "/status/capacity/example.com~1foo", "value": "5"}]' \
-http://k8s-master:8080/api/v1/nodes/k8s-node-1/status
+http://lab-k8s-master:8080/api/v1/nodes/k8s-node-1/status
 ```
 
 > **Ghi chú:** Trong request trên, `~1` là mã hóa của ký tự `/`
@@ -782,7 +782,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Container X có `limits.cpu: 500m` và chạy một vòng lặp bận. Container Y có
    `limits.memory: 100Mi` và cấp phát dần tới 200Mi. Container nào bị chấm dứt, container
    nào không, và vì sao?
-3. `kubectl describe nodes k8s-worker1` cho thấy CPU thực dùng rất thấp, nhưng scheduler vẫn
+3. `kubectl describe nodes lab-k8s-worker1` cho thấy CPU thực dùng rất thấp, nhưng scheduler vẫn
    từ chối đặt Pod mới lên node đó. Điều gì đang xảy ra, và scheduler thực sự so sánh với
    con số nào của node?
 4. Bạn khai báo `limits.memory: 128Mi` cho một container và không viết `requests` gì cả.

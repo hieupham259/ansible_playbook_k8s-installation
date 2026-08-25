@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 8/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 Bài ngắn nhưng **quan trọng với vận hành**: đây là cơ chế đứng sau `kubectl drain`, lệnh bạn
 sẽ dùng mỗi lần bảo trì hay nâng cấp một node. Đọc nó ngay sau bài
@@ -168,14 +168,14 @@ Nếu bạn nhận thấy các eviction bị kẹt, hãy thử một trong các 
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
 
-1. Bạn chạy `kubectl drain k8s-worker2`. Thực chất `kubectl` tạo ra object gì, và thành phần
+1. Bạn chạy `kubectl drain lab-k8s-worker2`. Thực chất `kubectl` tạo ra object gì, và thành phần
    nào chấm dứt Pod?
 2. Cùng gọi là "eviction", nhưng eviction qua API và eviction do áp lực node ở bài
    [142](142-node-pressure-eviction-vi.md) đối xử với PodDisruptionBudget và
    `terminationGracePeriodSeconds` khác nhau thế nào?
 3. Một Deployment chỉ có 1 replica và được bảo vệ bằng PDB `minAvailable: 1`. Bạn drain node
    đang chạy Pod đó. Bạn nhận mã trả về nào, và vì sao lệnh không tự thoát ra được?
-4. Một Pod trên `k8s-worker2` đang đứng sau một Service. Trong sáu bước xóa Pod, ở bước nào Pod
+4. Một Pod trên `lab-k8s-worker2` đang đứng sau một Service. Trong sáu bước xóa Pod, ở bước nào Pod
    ngừng nhận request mới — trước hay sau khi container thật sự chết?
 
 <details>

@@ -13,11 +13,19 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Tài liệu tra cứu thuộc nhánh Tasks, không nằm trong 15 giai đoạn của lộ trình;
-liên quan gần nhất tới nhóm [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl) (bài
-[26 — kubectl](26-kubectl-vi.md)). Lab của lộ trình chạy `kubectl` ngay trên VM Linux của
-[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md); chỉ cần bài này khi bạn muốn điều khiển cluster từ máy
-macOS cá nhân.
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 1 — Mô hình Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-1--mô-hình-kubernetes)
+→ nhóm [1b. Làm việc với object và kubectl](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 3/8 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 1b — Object, label, kubectl và kubeconfig](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md)
+phần B0, nơi lab chạy `kubectl version` rồi đối chiếu độ lệch phiên bản client/server trên
+`lab-k8s-master`.
+
+Phần cài đặt trên macOS thì lab không chạy: mọi lab của lộ trình dùng `kubectl` đã có sẵn trên VM
+Linux của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md). Đọc bài này khi bạn muốn điều khiển cluster
+lab từ máy macOS cá nhân; phần dùng chung với lab là quy tắc version skew và cách kiểm chứng
+kubeconfig.
 
 **Phải hiểu ở lần đọc này:**
 

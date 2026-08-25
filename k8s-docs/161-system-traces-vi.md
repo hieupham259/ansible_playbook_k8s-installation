@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 6/6 · Kiểm chứng
-ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md).
 
 Đây là trụ cột thứ ba và cũng là trụ cột **non nhất**: bài tự nói phần đo đạc còn đang phát triển
 tích cực và chưa có bảo đảm tương thích ngược. Lần đọc này chỉ cần biết trace của Kubernetes trả
@@ -191,7 +191,7 @@ không có bảo đảm nào về tương thích ngược cho phần đo đạc 
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
 
-1. Cluster lab dùng containerd làm container runtime. Bật tracing cho kubelet trên `k8s-worker1`
+1. Cluster lab dùng containerd làm container runtime. Bật tracing cho kubelet trên `lab-k8s-worker1`
    mang lại thứ gì mà log của kubelet không có? Cơ chế nào làm được điều đó?
 2. **Câu bẫy.** Client của bạn gửi request tới kube-apiserver kèm sẵn trace context, mong span
    của client nối liền vào trace của API server. Việc đó có xảy ra không? Vì sao Kubernetes chọn
@@ -226,8 +226,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Đây là bài cuối của giai đoạn 11. Trả lời trôi cả bốn câu thì chuyển sang **Lab 11a** (chưa viết,
-xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)) — nơi bạn cài metrics-server, chụp snapshot
+Đây là bài cuối của giai đoạn 11. Trả lời trôi cả bốn câu thì chuyển sang [**Lab 11a**](labs/LAB-11A-OBSERVABILITY.md) — nơi bạn cài metrics-server, chụp snapshot
 `04-metrics-ready` rồi dùng nó để trả nợ HPA/VPA ở Lab 11b, xem
 [sổ nợ lab](labs/README.md#5-sổ-nợ-lab). Câu nào còn vướng thì quay lại đúng mục tương ứng trước
 khi mở lab.

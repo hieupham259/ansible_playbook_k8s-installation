@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 6/8 ·
-Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 2](labs/LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md).
 
 Lộ trình gọi đây là **nền tảng của mọi giới hạn tài nguyên học ở giai đoạn 3**. Bạn cũng đã
 chạy `stat -fc %T /sys/fs/cgroup` ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) như một gate mà chưa

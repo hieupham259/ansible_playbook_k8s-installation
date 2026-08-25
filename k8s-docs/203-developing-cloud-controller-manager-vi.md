@@ -9,10 +9,18 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)), mở rộng của
-bài [34 — Cloud Controller Manager](34-cloud-controller-vi.md) và có liên hệ với bài
-[198 — Leader Migration](198-controller-manager-leader-migration-vi.md).
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 1 — Mô hình Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-1--mô-hình-kubernetes)
+→ nhóm [1c. Vòng đời và cơ chế nền của object](00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object),
+bài 1/1 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 1c — Vòng đời và cơ chế nền của object](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md)
+phần B6, nơi lab chứng minh cluster self-managed không có Pod `cloud-controller-manager` và cả
+ba Node đều để trống `spec.providerID`.
+
+Bài mở rộng bài [34 — Cloud Controller Manager](34-cloud-controller-vi.md) của cùng nhóm 1c, và
+có liên hệ với bài [198 — Leader Migration](198-controller-manager-leader-migration-vi.md) ở
+[giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao).
 
 Bài rất ngắn và viết cho **người phát triển** muốn xây dựng cloud-controller-manager cho một
 cloud provider — không phải cho người vận hành. Với cluster lab on-premise của bạn, chỉ cần

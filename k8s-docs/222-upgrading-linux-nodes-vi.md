@@ -10,9 +10,9 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster), bài 2/5 · Kiểm chứng trên
-cluster lab: nâng cấp `k8s-worker1` rồi `k8s-worker2` sau khi đã nâng `k8s-master`.
+cluster lab: nâng cấp `lab-k8s-worker1` rồi `lab-k8s-worker2` sau khi đã nâng `lab-k8s-master`.
 
 Bài rất ngắn: nó chỉ là **phần thực thi trên node worker Linux** của quy trình đã học ở bài
 [221](221-kubeadm-upgrade-vi.md). Đọc bài 221 trước, nếu không các lệnh ở đây sẽ trông rời rạc.
@@ -169,7 +169,7 @@ kubectl uncordon <node-to-uncordon>
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 17:
 
-1. Trên `k8s-worker2`, bạn chạy `kubeadm upgrade node` và lệnh báo thành công. `kubectl get nodes`
+1. Trên `lab-k8s-worker2`, bạn chạy `kubeadm upgrade node` và lệnh báo thành công. `kubectl get nodes`
    vẫn hiển thị worker đó ở phiên bản cũ. Bạn đã bỏ sót bước nào?
 2. **Câu bẫy.** Trong toàn bộ quy trình nâng cấp một worker, những lệnh nào phải chạy **trên
    control plane** chứ không phải trên chính worker đó?

@@ -9,7 +9,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 16/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 16/18 · Kiểm chứng ở [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md).
 
 Bài dài hơn 750 dòng, nhưng gần một nửa là **danh sách metric** — bỏ hẳn ở lần đọc này. Đây là
 lớp bảo vệ **tính sẵn sàng** của API server, khác với các bài trước vốn bảo vệ tính bí mật và
@@ -820,7 +820,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Hai FlowSchema cùng khớp một request, một cái có `matchingPrecedence: 8000`, cái kia
    `9000`. Cái nào thắng? Trả lời kèm quy tắc duyệt mà bài mô tả.
 3. Trên cluster lab, một controller lỗi chạy trong Pod bắn dồn dập request vào API server của
-   `k8s-master`. Theo cấu hình được đề xuất, request đó rơi vào mức ưu tiên nào, và cơ chế nào
+   `lab-k8s-master`. Theo cấu hình được đề xuất, request đó rơi vào mức ưu tiên nào, và cơ chế nào
    giữ cho kubelet của hai worker cùng việc bầu chọn leader không bị bỏ đói?
 4. Khi lượng request vào một mức ưu tiên vượt quá concurrency cho phép, hai kiểu hành vi là gì,
    và client nhìn thấy lỗi nào?

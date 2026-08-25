@@ -9,14 +9,17 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), mục
-[Giai đoạn 21 — DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy)), nối tiếp bài
-[84 — Network Policy](84-network-policies-vi.md).
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 21 — DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy),
+bài 6/14 · Phần II không có lab riêng: kiểm chứng bằng **Checkpoint của chính giai đoạn 21** trên
+cluster lab dựng ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) — viết một NetworkPolicy chặn toàn
+bộ ingress rồi mở đúng một cổng, chứng minh bằng `curl` từ Pod khác.
 
-Lưu ý cho cluster lab: snapshot `01-cluster-ready` của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md)
-chạy Flannel — CNI **không** hỗ trợ NetworkPolicy. Các bước trong bài chỉ cho kết quả đúng
-sau khi cluster đã chuyển sang CNI hỗ trợ NetworkPolicy (snapshot `02-net-ready` của Lab 5b).
+Bài nối tiếp bài [84 — Network Policy](84-network-policies-vi.md). Lưu ý cho cluster lab:
+snapshot `01-cluster-ready` của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) chạy Flannel — CNI
+**không** hỗ trợ NetworkPolicy. Các bước trong bài chỉ cho kết quả đúng sau khi cluster đã
+chuyển sang CNI hỗ trợ NetworkPolicy (snapshot `02-net-ready` của Lab 5b).
 
 **Phải hiểu ở lần đọc này:**
 

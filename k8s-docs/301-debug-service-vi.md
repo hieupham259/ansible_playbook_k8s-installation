@@ -9,8 +9,9 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
-bài 6/10 · Các trang CP không có lab riêng: thực hành trực tiếp trên cluster lab ở mốc
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
+bài 6/10 · Giai đoạn này của Phần II không có lab riêng: thực hành trực tiếp trên cluster lab ở mốc
 `04-metrics-ready` (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là bài xương sống của giai đoạn 24: một quy trình **loại trừ lần từ Service về Pod**. Giá trị của
@@ -716,11 +717,11 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 1. Trên cluster lab của bạn, từ một Pod busybox: `wget -qO- <Service-IP>:80` thất bại, nhưng
    gọi thẳng từng `<Pod-IP>:9376` đều trả về hostname, và `nslookup hostnames` phân giải
    đúng. Theo trình tự loại trừ của bài, còn lại những tầng nào để nghi ngờ, và bạn sẽ chạy
-   gì trên `k8s-worker1` / `k8s-worker2` ở tầng cuối cùng?
+   gì trên `lab-k8s-worker1` / `lab-k8s-worker2` ở tầng cuối cùng?
 2. `kubectl get endpointslices -l kubernetes.io/service-name=hostnames` cho cột `ENDPOINTS`
    là `<none>` trong khi cả ba Pod đều `Running 1/1`. Có phải kube-proxy hoặc DNS đang hỏng
    không? Lỗi nằm ở đâu?
-3. Từ `k8s-master`, bạn gõ `nslookup hostnames` và thất bại, nhưng cùng lệnh đó trong Pod
+3. Từ `lab-k8s-master`, bạn gõ `nslookup hostnames` và thất bại, nhưng cùng lệnh đó trong Pod
    busybox lại chạy được. Vì sao bài vẫn coi đây là chuyện bình thường, và muốn thử DNS từ
    node thì phải gõ lệnh như thế nào?
 4. Trong Pod, `nslookup hostnames` thất bại nhưng `nslookup hostnames.default` thành công.

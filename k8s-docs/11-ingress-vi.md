@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 10/16 · Kiểm chứng
-ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md).
 
 Hai điều cần biết trước khi đọc. Thứ nhất, **Ingress API đã bị đóng băng** và dự án Kubernetes
 khuyến nghị dùng Gateway thay thế — nhưng bạn vẫn phải học nó, vì phần lớn cluster đang chạy

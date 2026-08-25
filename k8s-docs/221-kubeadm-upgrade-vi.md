@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster), bài 1/5 · Kiểm chứng trên
 cluster lab: nâng cấp cluster ba VM lên một minor version kế tiếp, đúng thứ tự control plane trước
 rồi mới tới worker.
@@ -49,7 +49,7 @@ Con số phiên bản trong bài là ví dụ của trang gốc. Phiên bản cl
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Mẹo `killall -s SIGTERM kube-apiserver` trước khi nâng cấp có kèm etcd | tối ưu giảm downtime, chỉ đáng làm trên cluster có tải thật | [giai đoạn 19](00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa), khi đã hiểu etcd |
-| Thứ tự nâng addon trên cluster nhiều control plane (hành vi từ v1.28) | cluster lab chỉ có một control plane | Lab 8b và 8c (chưa viết), xem [bản đồ lab](labs/README.md#4-bản-đồ-lab) |
+| Thứ tự nâng addon trên cluster nhiều control plane (hành vi từ v1.28) | cluster lab chỉ có một control plane | [Lab 8b](labs/LAB-8B-HA-VOI-STACKED-ETCD.md) và [Lab 8c](labs/LAB-8C-HA-VOI-EXTERNAL-ETCD.md) |
 | Cờ `--config` với kiểu API `UpgradeConfiguration` | chỉ cần khi cần tùy biến sâu quá trình nâng cấp | bài [220](220-kubeadm-reconfigure-vi.md) ở [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
 | Ghi chú `FailCgroupV1` mặc định `true` | đã học nền cgroup v2 rồi, ở đây chỉ là hệ quả | bài [33](33-cgroups-vi.md) đã đọc ở giai đoạn 2 |
 
@@ -429,9 +429,9 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 1. Cluster lab của bạn đang ở phiên bản khóa trong [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa). Bạn muốn nhảy thẳng lên minor cao hơn hai
    bậc trong một lần. Kubeadm có cho không, và ngoài phiên bản thì bài đòi những điều kiện nền
    nào trước khi bắt đầu?
-2. **Câu bẫy.** Bạn chạy `kubeadm upgrade apply` trên `k8s-master` và lệnh báo SUCCESS.
-   `kubectl get nodes` có hiển thị `k8s-master` ở phiên bản mới ngay không? Giải thích.
-3. Trên `k8s-worker1` và `k8s-worker2` thì dùng lệnh nào, và vòng lặp đầy đủ cho một worker gồm
+2. **Câu bẫy.** Bạn chạy `kubeadm upgrade apply` trên `lab-k8s-master` và lệnh báo SUCCESS.
+   `kubectl get nodes` có hiển thị `lab-k8s-master` ở phiên bản mới ngay không? Giải thích.
+3. Trên `lab-k8s-worker1` và `lab-k8s-worker2` thì dùng lệnh nào, và vòng lặp đầy đủ cho một worker gồm
    những bước nào theo thứ tự?
 4. `kubeadm upgrade` đang chạy thì máy mất điện, cluster kẹt ở trạng thái dở dang. Theo bài, bạn
    có những đường nào để khôi phục, và kubeadm để lại sẵn cái gì ở đâu để cứu?

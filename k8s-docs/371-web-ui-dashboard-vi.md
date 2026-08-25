@@ -4,6 +4,56 @@
 >
 > Triển khai giao diện web (Kubernetes Dashboard) và truy cập nó.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 30 — Truy cập ứng dụng trong cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-30--truy-cập-ứng-dụng-trong-cluster),
+bài 2/4 · Phần II không có lab: thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) và tự chấm bằng **Checkpoint** ở cuối
+[mục giai đoạn 30](00-ALO-TRINH-ADMIN.md#giai-đoạn-30--truy-cập-ứng-dụng-trong-cluster).
+
+**Bài này là ngoại lệ: đọc để biết, không làm theo.** Lộ trình ghi rõ Kubernetes Dashboard **đã
+deprecated** ở upstream — hai blockquote đầu trang nói dự án đã được lưu trữ (archive), không còn
+được bảo trì, và khuyến nghị dùng [Headlamp](https://headlamp.dev/) cho các cài đặt mới. **Đừng cài
+Dashboard vào cluster lab** và đừng coi nó là add-on chuẩn: giai đoạn 30 không có bước thực hành nào
+cho bài này, và Checkpoint cũng không hỏi tới nó. Giá trị của bài nằm ở chỗ khác — nó cho thấy một
+UI chạy **bên trong** cluster thì lấy quyền ở đâu và người dùng chạm tới nó bằng đường nào.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hai blockquote mở đầu: Dashboard **đã deprecated và không còn được bảo trì**, dự án đã archive,
+  upstream khuyến nghị Headlamp. Đây là lý do bài nằm ngoài mạch thực hành.
+- Mục *Triển khai giao diện Dashboard*: Dashboard **không được triển khai mặc định** và hiện chỉ
+  hỗ trợ cài bằng Helm. Nó là một add-on cài thêm, không phải thành phần có sẵn của cluster.
+- Mục *Truy cập giao diện Dashboard*: Dashboard được triển khai với **cấu hình RBAC tối thiểu** và
+  **chỉ hỗ trợ đăng nhập bằng Bearer Token**; cảnh báo ngay sau đó nói user mẫu trong hướng dẫn có
+  **quyền quản trị** và chỉ dành cho mục đích học tập. Một token quản trị dán vào ô đăng nhập của
+  một UI là một đường vào cluster với toàn quyền.
+- Mục *Proxy dòng lệnh*: cách truy cập được nêu là `kubectl port-forward` tới Service
+  `kubernetes-dashboard-kong-proxy`, và giao diện **chỉ** truy cập được từ chính máy nơi chạy lệnh.
+  Đây đúng là đường `port-forward` trong ba đường mà Checkpoint giai đoạn 30 bắt phân biệt — không
+  phải NodePort, cũng không phải apiserver proxy.
+- Các màn hình ở mục *Sử dụng Dashboard*: *Admin overview* (Node, Namespace, PersistentVolume),
+  *Workloads*, *Services*, *Storage*, *ConfigMap và Secret* — màn hình này **hiển thị các secret vốn
+  bị ẩn theo mặc định** — và *Trình xem log* đi sâu vào log các container của **một** Pod duy nhất.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Hai lệnh `helm repo add` và `helm upgrade --install` ở mục *Triển khai giao diện Dashboard* | Helm nằm trong [A1.4 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) — phần stack Lab 00 **không** cài | **không áp dụng cho cluster lab**: lộ trình yêu cầu không cài Dashboard, nên hai lệnh này không có chỗ chạy trong chuỗi lab |
+| Toàn bộ mục *Triển khai ứng dụng chạy trong container* — trình hướng dẫn với App name, Container image, Number of pods, Service, và **Advanced options** | đó là thao tác trên UI của một dự án đã archive; mọi trường trong đó bạn đã biết dưới dạng field của manifest | các bài đã đọc: [63 — Deployment](63-deployment-vi.md), [82 — Service](82-service-vi.md), [40 — Image và imagePullSecrets](40-images-vi.md), [109 — Secret](109-secret-vi.md), [330 — command và args](330-define-command-argument-vi.md) |
+| Hướng dẫn tạo user mẫu (link GitHub) và ghi chú về xác thực bằng kubeconfig | phần này là RBAC và ServiceAccount token, không phải nội dung của Dashboard | [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài [119 — Kiểm soát truy cập](119-controlling-access-vi.md); thực hành ở [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) |
+| Ba ảnh chụp màn hình và các mục mô tả từng màn hình | Dashboard không được cài trên cluster lab nên không có gì để đối chiếu | **không áp dụng cho cluster lab**: cùng dữ liệu đó bạn đọc bằng `kubectl` như đã làm từ [giai đoạn 1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl) |
+
+---
+
 > **Kubernetes Dashboard đã bị deprecate và không còn được bảo trì.**
 >
 > Dự án Kubernetes Dashboard đã được lưu trữ (archive) và không còn được bảo trì tích cực nữa.
@@ -276,3 +326,47 @@ Trình xem này cho phép đi sâu vào log từ các container thuộc về m�
 
 Để biết thêm thông tin, hãy xem
 [trang dự án Kubernetes Dashboard](https://github.com/kubernetes/dashboard).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 30:
+
+1. Nêu hai điều trong chính trang này khiến lộ trình xếp Dashboard là "đọc để biết, không cài vào
+   cluster lab".
+2. **Câu bẫy.** Dashboard hiển thị được Node, PersistentVolume, cả nội dung Secret. Vậy nó có một
+   đường vào đặc quyền riêng, đi vòng qua cơ chế phân quyền của cluster, đúng không?
+3. Giả sử bạn cài Dashboard rồi chạy đúng lệnh ở mục *Proxy dòng lệnh* trong phiên SSH tới
+   `lab-k8s-master` (`192.168.100.221`). Trình duyệt trên máy host của bạn mở
+   `https://192.168.100.221:8443` — có vào được không, vì sao?
+4. Màn hình *ConfigMap và Secret* làm gì với những secret vốn bị ẩn theo mặc định, và ghép với
+   cảnh báo về user mẫu thì hệ quả bảo mật là gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Thứ nhất: **dự án đã deprecated, đã archive và không còn được bảo trì**, upstream khuyến nghị
+   chuyển sang Headlamp — hai blockquote đầu trang nói thẳng điều đó. Thứ hai: **Dashboard không
+   được triển khai mặc định và hiện chỉ cài được bằng Helm**, tức nó là một add-on của bên thứ ba
+   phải cài thêm, không phải thành phần của cluster.
+2. **Không.** Trang nói Dashboard được triển khai với **cấu hình RBAC tối thiểu theo mặc định** và
+   **chỉ đăng nhập bằng Bearer Token** — nó chỉ nhìn thấy đúng những gì token bạn dán vào được
+   phép. Lý do trong hướng dẫn nó "thấy mọi thứ" là vì **user mẫu được tạo với quyền quản trị**, và
+   chính trang cảnh báo user đó chỉ dành cho mục đích học tập. Đặc quyền đến từ token bạn cấp, không
+   phải từ Dashboard.
+3. **Không vào được.** Trang nói rõ giao diện *chỉ* có thể được truy cập từ **chính máy nơi lệnh
+   được thực thi**. Lệnh chạy trên `lab-k8s-master` thì `port-forward` lắng nghe trên localhost của
+   node đó, nên `https://localhost:8443` chỉ mở được từ bên trong phiên trên chính node. Máy host
+   không nằm trong đường đó — `port-forward` là công cụ cho **một máy trạm**, không phải cách expose
+   dịch vụ cho người khác dùng.
+4. Màn hình đó **hiển thị các secret vốn bị ẩn theo mặc định**, và còn cho phép chỉnh sửa, quản lý
+   object cấu hình. Ghép với user mẫu **có quyền quản trị**: bất kỳ ai chạm được vào phiên đăng nhập
+   đó đều **đọc được nội dung Secret của cluster ngay trên trình duyệt**. Đó là lý do một UI chạy
+   trong cluster phải được coi như một đường vào đặc quyền chứ không phải một tiện ích xem cho vui.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

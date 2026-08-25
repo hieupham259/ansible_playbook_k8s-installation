@@ -13,7 +13,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — giai đoạn 20 Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy),
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 20 — Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy),
 bài 1/6 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này ngắn nhưng là **bản đồ tổng** của cả giai đoạn 20: nó cho biết cấu hình của từng thành phần
@@ -328,7 +329,7 @@ Trả lời được các câu dưới đây mà không nhìn lại bài là đ�
 3. Bạn thêm một mục `extraArgs` cho kube-apiserver trong `ClusterConfiguration`. Kể các bước
    để thay đổi có hiệu lực trên node control plane, và giải thích vì sao không cần một lệnh
    "restart" riêng cho static Pod.
-4. Trên `k8s-worker2`, bạn từng chỉnh tay `/var/lib/kubelet/config.yaml`. Sau lần
+4. Trên `lab-k8s-worker2`, bạn từng chỉnh tay `/var/lib/kubelet/config.yaml`. Sau lần
    `kubeadm upgrade` kế tiếp, chuyện gì xảy ra với chỉnh sửa đó, và bài đưa ra những cách nào
    để giữ lại cấu hình riêng của node?
 5. Bạn đã chỉnh Deployment `coredns` và muốn kube-proxy trên riêng một node dùng cấu hình

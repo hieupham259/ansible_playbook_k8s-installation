@@ -4,6 +4,49 @@
 >
 > Trang này hướng dẫn cách một Pod có thể dùng biến môi trường để expose thông tin về chính nó cho các container đang chạy trong Pod, thông qua downward API.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
+→ nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 10/11 ·
+Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B10.1.
+
+Đây là **nửa còn lại** của downward API, song song với bài
+[335](335-downward-api-volume-vi.md) vừa đọc: cùng hai nguồn giá trị, chỉ khác nơi giá trị đi
+tới — biến môi trường thay vì file. Đọc để so hai bài với nhau, đừng đọc như một bài rời.
+
+**Phải hiểu ở lần đọc này:**
+
+- Điểm neo cú pháp là **`env[].valueFrom`**: đặt `valueFrom` thay cho `value` thì giá trị của biến
+  môi trường được lấy từ chính object Pod chứ không viết cứng trong manifest.
+- Hai nguồn giá trị, đúng ranh giới của bài [56](56-downward-api-vi.md):
+  **`fieldRef.fieldPath`** cho field **cấp Pod**, **`resourceFieldRef`** cho field **cấp
+  container** — và vì thế `resourceFieldRef` phải nêu **`containerName`** cùng **`resource`**.
+  Ghi chú của bài nhấn đúng chỗ này ở ví dụ đầu.
+- Năm field cấp Pod trong ví dụ đầu trải trên **ba nhánh khác nhau** của object: `spec.nodeName`
+  và `spec.serviceAccountName` từ `spec`; `metadata.name` và `metadata.namespace` từ `metadata`;
+  `status.podIP` từ `status`. Downward API không chỉ đọc phần bạn viết ra, nó đọc cả phần
+  Kubernetes điền vào.
+- Giá trị mà biến môi trường nhận là giá trị **đã chuẩn hóa**, không phải chuỗi bạn gõ trong
+  manifest: `memory: "32Mi"` ra `33554432` và `"64Mi"` ra `67108864` — tức **byte**, khớp với
+  mặc định `divisor: 1` mà bài [335](335-downward-api-volume-vi.md) vừa nêu; tương tự `125m` và
+  `250m` của CPU đều in ra `1` vì mặc định đơn vị là **core**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Đoạn mở đầu về Service và "khám phá Service lúc runtime", cùng link *Accessing the Service* | Service chưa học | [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), thực hành ở Lab 5a |
+| Biến `MY_POD_SERVICE_ACCOUNT` lấy từ `spec.serviceAccountName` | ở đây chỉ cần biết đó là một field của Pod đọc được; ServiceAccount là danh tính của Pod khi gọi API | bài [118](118-service-accounts-vi.md) ở [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), thực hành ở Lab 9a |
+| Ý nghĩa của `resources.requests` và `resources.limits` trong manifest thứ hai | ở đây chỉ cần biết downward API **đọc lại** hai giá trị đó | bài [110](110-manage-resources-containers-vi.md) ở nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), thực hành ở Lab 3c |
+| Mục *Tiếp theo* trỏ sang "Định nghĩa biến môi trường cho container" | đó là biến môi trường thông thường, không đi qua downward API | bài [331](331-define-environment-variable-vi.md) ở nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), thực hành ở Lab 3b |
+
+---
+
 Trang này hướng dẫn cách một Pod có thể dùng biến môi trường để expose thông tin
 về chính nó cho các container đang chạy trong Pod, bằng cách sử dụng _downward API_.
 Bạn có thể dùng biến môi trường để expose các field của Pod, các field của container, hoặc cả hai.
@@ -259,3 +302,51 @@ Kết quả hiển thị giá trị của các biến môi trường được ch
 * [EnvVarSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#envvarsource-v1-core)
 * [ObjectFieldSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectfieldselector-v1-core)
 * [ResourceFieldSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#resourcefieldselector-v1-core)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Trong khối `env`, cái gì báo cho Kubernetes biết giá trị phải lấy từ object Pod chứ không phải
+   từ chuỗi bạn gõ sẵn? Hai nguồn giá trị là gì, và nguồn nào bắt buộc nêu `containerName`?
+2. Năm biến của ví dụ đầu lấy từ ba nhánh khác nhau của object Pod. Kể tên ba nhánh đó, mỗi nhánh
+   một field ví dụ. Vì sao có nhánh mà bạn không hề viết ra trong manifest?
+3. **Câu bẫy.** Manifest ghi `memory: "32Mi"`, nhưng `kubectl logs` in ra `33554432`. Kubernetes
+   đọc sai, hay bạn hiểu sai? Còn `125m` và `250m` của CPU thì in ra gì?
+4. Bạn tạo Pod `dapi-envars-fieldref` trên cluster lab và nó được lập lịch lên `lab-k8s-worker2`.
+   So với đầu ra mẫu trong bài (`minikube`, `dapi-envars-fieldref`, `default`, `172.17.0.4`,
+   `default`), năm dòng log của bạn khác ở dòng nào và giống ở dòng nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **`valueFrom`** — có `valueFrom` thì giá trị được lấy từ chính object Pod, thay vì `value` với
+   một chuỗi cố định. Hai nguồn: **`fieldRef`** (kèm `fieldPath`) cho field **cấp Pod**, và
+   **`resourceFieldRef`** cho field **cấp container**. Nguồn bắt buộc nêu **`containerName`** là
+   `resourceFieldRef` — trong ví dụ là `containerName: test-container` cùng
+   `resource: requests.cpu`.
+2. **`spec`** — `spec.nodeName`, `spec.serviceAccountName`; **`metadata`** — `metadata.name`,
+   `metadata.namespace`; **`status`** — `status.podIP`. Nhánh bạn không viết ra là **`status`**
+   (và một phần của `spec` như `nodeName`): đó là phần **Kubernetes điền vào** sau khi Pod được
+   tạo và được lập lịch. Downward API đọc object Pod như nó đang tồn tại trên cluster, không phải
+   file YAML bạn gõ.
+3. **Bạn hiểu sai, Kubernetes không sai.** Giá trị mà biến môi trường nhận là giá trị **đã được
+   chuẩn hóa về đơn vị cơ sở**, không phải nguyên văn chuỗi trong manifest: `32Mi` ra
+   **`33554432`** và `64Mi` ra **`67108864`**, tức **byte**. Đây là hệ quả của mặc định
+   `divisor: 1` mà bài [335](335-downward-api-volume-vi.md) đã nêu — divisor 1 nghĩa là byte cho
+   `memory` và **core** cho `cpu`. Vì thế `125m` và `250m` của CPU **đều in ra `1`**. Chỗ dễ sai
+   là chờ đợi chuỗi `32Mi` xuất hiện nguyên vẹn trong `printenv`.
+4. **Khác ở dòng 1 và dòng 4.** Dòng 1 là `MY_NODE_NAME` từ `spec.nodeName` — của bạn sẽ là
+   `lab-k8s-worker2` chứ không phải `minikube`. Dòng 4 là `MY_POD_IP` từ `status.podIP` — địa chỉ
+   do cluster của bạn cấp, không phải `172.17.0.4`. **Giống ở dòng 2, 3 và 5**: `MY_POD_NAME` là
+   `dapi-envars-fieldref` vì tên nằm trong manifest; `MY_POD_NAMESPACE` và
+   `MY_POD_SERVICE_ACCOUNT` đều là `default` nếu bạn tạo Pod trong namespace `default` và không
+   chỉ định service account.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

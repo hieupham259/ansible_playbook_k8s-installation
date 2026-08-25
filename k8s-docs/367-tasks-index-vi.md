@@ -4,6 +4,45 @@
 >
 > Phần này của tài liệu Kubernetes chứa các trang hướng dẫn thực hiện từng tác vụ riêng lẻ.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster) — đọc
+một lượt **trước khi vào [giai đoạn 16](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node)**.
+Trang này **không mang số `bài N/M` nào**: nó là trang mục gốc của **cả nhánh** `/docs/tasks/`,
+nên đứng ngoài danh sách đọc của mọi giai đoạn — đoạn dẫn đầu Phần II gọi tên nó đúng với vai trò
+đó. Phần II không có lab: thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) và tự chấm bằng **Checkpoint** của từng giai đoạn.
+
+Đây là **bản đồ**, không phải bài học. Đọc trong vài phút để biết nhánh này có những mục gì và tra
+nó ở đâu, rồi quay lại lộ trình.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bản chất của cả nhánh, nêu ở đoạn đầu: một trang tác vụ **chỉ hướng dẫn làm một việc duy nhất**,
+  thường trình bày thành **một chuỗi bước ngắn gọn**. Đừng tìm phần giải thích khái niệm ở đây.
+- Mục *Danh sách các mục trong phần này* liệt kê **17 mục con** theo đúng thứ tự hiển thị trên
+  trang web. Thứ tự đó là thứ tự của website, **không phải thứ tự học** — thứ tự học nằm ở
+  [lộ trình](00-ALO-TRINH-ADMIN.md), và lộ trình rải 17 mục này ra nhiều giai đoạn khác nhau.
+- Đây mới là **tầng một** của bản đồ: nhiều mục trong danh sách lại là một trang mục lục của riêng
+  nó — ví dụ [Mạng](391-network-index-vi.md), [TLS](396-tls-index-vi.md),
+  [Mở rộng Kubernetes](373-extend-kubernetes-index-vi.md),
+  [Quản trị một Cluster](189-administer-cluster-vi.md). Tra một trang tác vụ cụ thể thường phải đi
+  qua hai tầng mục lục.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Link *Tạo một Pull Request cho tài liệu* | dành cho người đóng góp tài liệu Kubernetes, không phải người vận hành cluster | không có trong lộ trình |
+| Nội dung bên trong từng mục trong số 17 mục | trang này chỉ là bản đồ tầng một | các giai đoạn tương ứng của lộ trình — ví dụ [TLS](396-tls-index-vi.md) ở [giai đoạn 18](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ), [Mạng](391-network-index-vi.md) ở [giai đoạn 21](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy), [Mở rộng Kubernetes](373-extend-kubernetes-index-vi.md) ở [giai đoạn 28](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes) |
+
+---
+
 Phần này của tài liệu Kubernetes chứa các trang hướng dẫn cách thực hiện từng tác vụ riêng lẻ.
 Một trang tác vụ chỉ hướng dẫn làm một việc duy nhất, thường được trình bày dưới dạng một chuỗi
 các bước ngắn gọn.
@@ -54,3 +93,43 @@ tự hiển thị trên trang web.
   huge page như một tài nguyên có thể lập lịch trong cluster.
 - **[Lập lịch GPU (Schedule GPUs)](389-scheduling-gpus-vi.md)** — Cấu hình và lập lịch GPU để các
   node trong cluster sử dụng như một tài nguyên.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc trước khi vào giai đoạn 16:
+
+1. Trang liệt kê 17 mục con theo thứ tự nào, và thứ tự đó có phải thứ tự bạn nên học không? Nếu
+   không thì thứ tự học lấy ở đâu?
+2. **Câu bẫy.** Đây là trang mục gốc của **toàn** nhánh *Tasks*, nên dễ nghĩ mở nó ra là thấy hết
+   mọi trang tác vụ. Thực tế bạn thấy gì ở tầng này, và muốn tới một trang tác vụ cụ thể thì phải
+   đi qua mấy tầng mục lục?
+3. Bạn đang ngồi trước `lab-k8s-master` và cần làm một việc cụ thể trên cluster. Theo đúng mô tả
+   của trang, một trang tác vụ cho bạn cái gì — và **không** cho bạn cái gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Theo **đúng thứ tự hiển thị trên trang web** của kubernetes.io. Đó **không** phải thứ tự học:
+   trang này không nói gì về việc nên đọc mục nào trước. Thứ tự học nằm ở
+   [lộ trình](00-ALO-TRINH-ADMIN.md), và lộ trình **rải 17 mục này ra nhiều giai đoạn khác nhau**
+   thay vì đi tuần tự theo danh sách.
+2. Ở tầng này bạn chỉ thấy **17 mục cấp một cùng một câu mô tả mỗi mục**, không thấy trang tác vụ
+   nào. Nhiều mục trong đó lại là **một trang mục lục của riêng nó** —
+   [Mạng](391-network-index-vi.md), [TLS](396-tls-index-vi.md),
+   [Mở rộng Kubernetes](373-extend-kubernetes-index-vi.md),
+   [Quản trị một Cluster](189-administer-cluster-vi.md) — nên tới được một trang tác vụ cụ thể
+   thường phải qua **hai tầng** mục lục. Nghĩ rằng một tầng là đủ sẽ khiến bạn kết luận nhầm rằng
+   tài liệu không có trang cho việc mình cần.
+3. Nó cho bạn **hướng dẫn làm đúng một việc**, dạng **chuỗi bước ngắn gọn** — đúng thứ cần khi đã
+   biết mình phải làm gì. Nó **không** cho bạn phần giải thích khái niệm, không cho bạn bối cảnh,
+   và không nói việc đó nằm ở đâu trong bức tranh chung. Vì vậy cách dùng đúng là: tra nhánh này
+   **khi đã biết tên việc cần làm**, còn muốn hiểu vì sao thì quay về bài khái niệm mà lộ trình
+   chỉ tới.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

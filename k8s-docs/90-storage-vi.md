@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 1/16 · Kiểm chứng ở
-Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md).
 
 Bài này **không dạy cơ chế nào cả** — nó là trang mục lục của phần Storage trên kubernetes.io.
 Đọc nó mất hai phút và mục đích duy nhất là để bạn thấy trước bản đồ của cả giai đoạn 6.
@@ -78,7 +78,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Danh sách có cả *Volume tạm thời (Ephemeral Volumes)* lẫn *Lưu trữ tạm thời cục bộ (Local
    ephemeral storage)*. Đó là hai tên gọi của cùng một thứ hay hai khái niệm khác nhau?
 3. Trong hai nhánh mà câu mở đầu nêu ra, ba trang nào là xương sống của nhánh lưu trữ dài hạn?
-4. Cluster lab của bạn (1 control plane `k8s-master` + 2 worker) hiện **chưa có StorageClass và
+4. Cluster lab của bạn (1 control plane `lab-k8s-master` + 2 worker) hiện **chưa có StorageClass và
    chưa có provisioner**. Nhìn vào danh sách, phần lớn các trang sẽ chỉ kiểm chứng được sau
    khi lab nào chạy xong?
 

@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 1/6 · Kiểm chứng
-ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md).
 
 Đây là **trang bản đồ**, cố ý nông. Mỗi trụ cột nó nhắc tới đều có một bài riêng ngay sau
 trong giai đoạn này. Nhiệm vụ của lần đọc này là biết ba loại tín hiệu tồn tại, mỗi loại trả
@@ -232,7 +232,7 @@ Ghi chú: Mục này liên kết đến các dự án bên thứ ba cung cấp c
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
 
-1. Một Pod trên `k8s-worker2` khởi động lại lúc 2 giờ sáng. Trong ba trụ cột, trụ cột nào cho
+1. Một Pod trên `lab-k8s-worker2` khởi động lại lúc 2 giờ sáng. Trong ba trụ cột, trụ cột nào cho
    bạn biết **việc đó đã xảy ra và xảy ra bao nhiêu lần**, trụ cột nào cho bạn biết **ứng dụng
    đã in ra gì ngay trước đó**?
 2. Trên cluster lab, những thành phần nào phát metric ở endpoint `/metrics` của chính chúng?
@@ -250,7 +250,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    ra gì, vì log là "bản ghi theo trình tự thời gian về các sự kiện bên trong ứng dụng". Traces
    không trả lời câu này: chúng ghi độ trễ và quan hệ giữa các thao tác của một request.
 2. **kube-controller-manager, kube-proxy, kube-apiserver, kube-scheduler và kubelet** — đúng
-   danh sách bài liệt kê, và trên cluster lab thì bốn thành phần đầu nằm ở `k8s-master` (trừ
+   danh sách bài liệt kê, và trên cluster lab thì bốn thành phần đầu nằm ở `lab-k8s-master` (trừ
    kube-proxy chạy trên cả ba node), còn kubelet chạy trên cả ba. Kubelet expose thêm
    **`/metrics/cadvisor`, `/metrics/resource` và `/metrics/probes`**.
 3. Từ **kube-state-metrics**. Kubelet phát metric về *tài nguyên và container đang chạy trên

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 2/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 Bài ngắn nhưng là **trục của cả nhóm 7a**. Mọi cơ chế ở các bài sau — nodeSelector, affinity,
 taint, topology spread, preemption, bin packing — đều chỉ là cách can thiệp vào một trong hai
@@ -136,7 +136,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    gì.
 2. Sau khi chọn được node, kube-scheduler có tự khởi chạy container trên node đó không? Nếu
    không thì nó làm gì, và ai chạy container?
-3. Trên cluster lab, mỗi worker `k8s-worker1` và `k8s-worker2` có 2 vCPU. Bạn tạo một Pod xin
+3. Trên cluster lab, mỗi worker `lab-k8s-worker1` và `lab-k8s-worker2` có 2 vCPU. Bạn tạo một Pod xin
    `requests` 4 CPU. Bước nào của scheduler loại hai worker đó, và Pod kết thúc ở trạng thái
    nào?
 4. Cả hai worker đều khả thi và được chấm điểm bằng nhau. Pod lên node nào? Nếu bạn tạo lại

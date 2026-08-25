@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 7/16 · Kiểm chứng ở
-Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md).
 
 Bài này gom lại thành một khái niệm những thứ bạn đã dùng rời rạc từ giai đoạn 3 (`emptyDir`,
 `configMap`, `secret`) và thêm một loại mới đáng chú ý: **volume tạm thời tổng quát**, thứ
@@ -318,7 +318,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 1. `emptyDir` và volume tạm thời tổng quát đều biến mất cùng Pod. Vậy khác biệt thực chất giữa
    chúng là gì?
-2. Cluster lab của bạn (`k8s-master` + 2 worker) **chưa có StorageClass và chưa có provisioner**.
+2. Cluster lab của bạn (`lab-k8s-master` + 2 worker) **chưa có StorageClass và chưa có provisioner**.
    Trong ba nhóm volume tạm thời mà bài liệt kê, nhóm nào bạn dùng được ngay và nhóm nào phải
    đợi Lab 6a? Vì sao.
 3. Pod tên `my-app` có volume tạm thời tổng quát tên `scratch-volume`. PVC sinh ra tên gì, ai

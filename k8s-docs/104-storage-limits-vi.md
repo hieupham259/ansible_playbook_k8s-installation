@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 15/16 · Kiểm chứng ở
-Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6b](labs/LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md).
 
 Bài này là ràng buộc lập lịch thứ hai đến từ lưu trữ: sau "node còn đủ dung lượng không" của
 bài [103](103-storage-capacity-vi.md) là "node còn gắn thêm được volume không". Rất nhiều số

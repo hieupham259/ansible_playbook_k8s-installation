@@ -11,7 +11,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 2/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 2/18 · Kiểm chứng ở [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md).
 
 Lộ trình gọi bài này là "mô hình 4C". Bản hiện tại của trang gốc **không còn mục 4C**; nó chia
 theo **bốn giai đoạn vòng đời** của sách trắng CNCF. Đừng đi tìm mục 4C — ý tương đương nằm ở

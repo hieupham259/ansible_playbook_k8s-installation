@@ -11,7 +11,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 6/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 6/18 · Kiểm chứng ở [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md).
 
 Bài dài hơn 600 dòng, nhưng khoảng ba phần tư là **hai bảng đặc tả trường** viết bằng HTML.
 Đừng học thuộc bảng — đó là tài liệu tra cứu lúc viết manifest. Bài này chỉ **định nghĩa** ba
@@ -684,7 +684,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Một Pod **không đặt** `seccompProfile` gì cả. Nó qua được Baseline không? Qua được Restricted
    không? Vì sao hai câu trả lời khác nhau?
 3. Trên cluster lab, bạn muốn chạy một DaemonSet giám sát cần `hostNetwork: true` và mount
-   `hostPath` `/var/log` trên `k8s-worker1` và `k8s-worker2`. Profile thấp nhất cho phép Pod
+   `hostPath` `/var/log` trên `lab-k8s-worker1` và `lab-k8s-worker2`. Profile thấp nhất cho phép Pod
    đó chạy là gì, và vì sao Baseline không đủ?
 4. Restricted thêm gì so với Baseline về **capability** và về **quyền chạy dưới root**?
 5. "Security profile" và "security context" khác nhau ở đâu — cái nào nằm trong manifest của

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 10/14 ·
-Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md).
 
 Đây là bài **vận hành**, không phải bài khái niệm: nó trả lời câu hỏi "biết controller rồi
 thì gõ gì hằng ngày". Câu mở đầu bài giả định bạn đã expose ứng dụng qua một Service — bạn
@@ -583,7 +583,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    dịch vụ, và khi nào bạn buộc phải dùng cái sau?
 4. Bạn muốn khoảng 25% lưu lượng production đi vào bản mới theo cách canary thủ công trong
    bài. Bạn chỉnh cái gì, label nào phải khác nhau và label nào phải giữ giống nhau?
-5. Trên `k8s-master`, bạn viết một script apply Deployment rồi phải **dừng chờ** tới khi
+5. Trên `lab-k8s-master`, bạn viết một script apply Deployment rồi phải **dừng chờ** tới khi
    rollout xong, tối đa 10 phút. Lệnh nào? Nếu chỉ muốn xem trạng thái mà không chờ thì sao?
 
 <details>

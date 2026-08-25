@@ -2,6 +2,50 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/run-application/scale-deployment/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 4 — Workload controller](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller)
+→ [4a. ReplicaSet, Deployment và rollout](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout),
+bài 6/7 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 4a — ReplicaSet, Deployment và rollout](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md),
+**phần B3**.
+
+Bài ngắn và toàn bộ thao tác đều nằm trong tầm kiến thức đã có. Chỉ có bảng so sánh với
+HorizontalPodAutoscaler ở gần cuối là nói tới thứ chưa học.
+
+**Phải hiểu ở lần đọc này:**
+
+- Scale theo chiều ngang là đổi **`.spec.replicas`**, còn scale theo chiều dọc giữ nguyên số
+  replica và đổi lượng tài nguyên cấp cho mỗi Pod. Bài phân biệt hai trục này ngay ở đoạn mở đầu.
+- Bốn đường đổi số replica đều ghi vào cùng một trường: `kubectl scale`, sửa manifest rồi
+  `kubectl apply`, `kubectl edit`, và `kubectl patch` (mục *Scale up một Deployment* và
+  *Các cách khác để thay đổi số replica*).
+- Scale down **không** giết Pod ngay: Kubernetes chấm dứt các Pod dư một cách êm thấm, tôn trọng
+  `terminationGracePeriodSeconds` của từng Pod (mục *Scale down một Deployment*).
+- Scale về `0` xóa toàn bộ Pod nhưng **giữ lại Deployment và ReplicaSet** của nó, nên đặt
+  `--replicas` về một số dương là workload chạy lại (mục *Scale về không*).
+- Khi viết script, dùng JSON patch kèm phép `test` trên `/spec/replicas`: patch thất bại nếu giá
+  trị hiện tại không khớp, ngăn thay đổi ngoài ý muốn khi nhiều người hoặc nhiều script cùng sửa
+  một Deployment (mục *Scale bằng `kubectl patch`*).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Bảng *Khi nào dùng scale thủ công so với scale tự động* và cảnh báo "HPA đang quản thì đừng đặt replicas thủ công" | HPA điều chỉnh replica theo metric quan sát được, mà nguồn metric là metrics-server của giai đoạn 11 | **nợ #1** trong [Sổ nợ lộ trình](00-ALO-TRINH-ADMIN.md#sổ-nợ-lộ-trình): lý thuyết ở bài [72](72-horizontal-pod-autoscale-vi.md), thực hành ở [Lab 11b](labs/LAB-11B-HPA-VA-VPA.md) |
+| `kubectl diff -f` trước khi apply, trong mục *Scale theo cách khai báo bằng `kubectl apply`* | thuộc mạch quản lý object theo kiểu khai báo, không phải chuyện scale | bài [319](319-declarative-config-vi.md) cùng dòng **Thực hành** của nhóm 4a |
+| Mục *Trước khi bạn bắt đầu* — minikube và các playground | cluster lab ba VM đã dựng sẵn từ trước | [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
+| Link *Horizontal Pod Autoscaling* (bài [342](342-hpa-walkthrough-vi.md)) ở mục *Tiếp theo* | cùng lý do với dòng đầu bảng | dòng **Thực hành** của [giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability) |
+
+---
+
 Trang này hướng dẫn cách scale một Deployment theo chiều ngang một cách thủ công, bằng cách thay đổi
 số replica của nó. Scale thủ công cho phép bạn kiểm soát trực tiếp số lượng Pod đang chạy khi tải
 thay đổi có thể dự đoán trước hoặc khi cần quản lý chi phí.
@@ -228,3 +272,47 @@ kubectl delete deployment nginx-deployment
 - Thực hành theo [Horizontal Pod Autoscaling](342-hpa-walkthrough-vi.md).
 - Tìm hiểu cách [scale một StatefulSet](347-scale-stateful-set-vi.md).
 - Đọc về [quản lý tài nguyên](https://kubernetes.io/docs/concepts/cluster-administration/manage-deployment/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở nhóm 4a:
+
+1. Bài phân biệt scale theo chiều ngang với scale theo chiều dọc thế nào? Mỗi loại đụng vào phần
+   nào của một Deployment?
+2. Deployment của bạn đang chạy 4 replica trải trên `lab-k8s-worker1` và `lab-k8s-worker2`. Bạn
+   hạ xuống 2. Kubernetes kill ngay hai Pod dư, hay làm gì khác — và thiết lập nào trên Pod
+   quyết định chuyện đó?
+3. **Câu bẫy.** Bạn chạy `kubectl scale deployment/nginx-deployment --replicas=0`, rồi
+   `kubectl get pods` không còn Pod nào. Vậy nó có tương đương
+   `kubectl delete deployment nginx-deployment` không? Muốn workload chạy lại thì làm gì?
+4. Bạn viết một script tự động đổi số replica, trong khi nhiều script khác cũng sửa cùng
+   Deployment đó. Bài khuyên dùng dạng patch nào, và cơ chế nào ngăn script của bạn ghi đè thay
+   đổi của người khác?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Scale **ngang** đổi **số lượng Pod** — tức trường `.spec.replicas`; scale **dọc** **giữ nguyên
+   số replica** và đổi **lượng tài nguyên cấp cho mỗi Pod**. Bài này chỉ nói về trục ngang, và
+   nói rõ trục ngang là để xử lý nhiều lưu lượng hơn hoặc để tiết kiệm tài nguyên khi tải giảm.
+2. **Không kill ngay.** Kubernetes **chấm dứt các Pod dư một cách êm thấm**, và bài nói rõ nó
+   **tôn trọng `terminationGracePeriodSeconds` của từng Pod**. Vậy thiết lập quyết định nằm trên
+   chính Pod chứ không nằm ở lệnh `kubectl scale`.
+3. **Không tương đương.** Đây là chỗ dễ nhầm vì cả hai đều làm `kubectl get pods` trống. Bài ghi
+   trong phần Ghi chú: scale về không **xóa toàn bộ Pod nhưng vẫn giữ lại Deployment và
+   ReplicaSet** của nó. `kubectl delete deployment` thì xóa hẳn object. Vì object còn nguyên nên
+   muốn chạy lại chỉ cần **đặt `--replicas` thành một số dương**, không phải tạo lại từ manifest.
+   Đó cũng là lý do bài liệt kê các trường hợp dùng: tạm dừng workload, gỡ lỗi hoặc bảo trì, và
+   kiểm soát chi phí ở môi trường development/staging.
+4. Dùng **JSON patch** (`--type=json`) kèm một phép **`test`** làm tiền kiểm — ví dụ trong bài đặt
+   replicas thành 4 **chỉ khi** giá trị hiện tại là 2. Thao tác `test` khiến **cả patch thất bại
+   nếu giá trị hiện tại không khớp**, nên script của bạn không âm thầm đè lên thay đổi mà người
+   khác vừa thực hiện.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

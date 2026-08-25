@@ -13,12 +13,18 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)) — bài này không
-thuộc CP nào của lộ trình; nó là bản thực hành cho kỹ thuật **imperative object
-configuration**, kỹ thuật thứ hai trong ba kỹ thuật quản lý object mà bài
-[27 — Quản lý object trong Kubernetes](27-object-management-vi.md) đã so sánh, nằm giữa
-[lệnh imperative](320-imperative-command-vi.md) và
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 1 — Mô hình Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-1--mô-hình-kubernetes)
+→ nhóm [1b. Làm việc với object và kubectl](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 6/8 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 1b — Object, label, kubectl và kubeconfig](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md)
+phần B5.2, nơi lab chạy `create -f` rồi `replace -f` trên cùng một file cấu hình và so sánh với
+hai kỹ thuật còn lại ở B5.1 và B5.3.
+
+Bài là bản thực hành cho kỹ thuật **imperative object configuration**, kỹ thuật thứ hai trong ba
+kỹ thuật quản lý object mà bài [27 — Quản lý object trong Kubernetes](27-object-management-vi.md)
+đã so sánh, nằm giữa [lệnh imperative](320-imperative-command-vi.md) và
 [quản lý declarative bằng `apply`](319-declarative-config-vi.md).
 
 Giá trị lớn nhất của bài không phải cú pháp (chỉ có `create -f`, `replace -f`, `delete -f`,

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime), bài 7/8 ·
-Kiểm chứng ở Lab 2 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 2](labs/LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md).
 
 Cluster lab của bạn chỉ có một runtime handler nên sẽ không tạo RuntimeClass nào. Đọc để biết
 **cơ chế tồn tại** và nhận ra nó khi gặp cluster có workload cần cô lập mạnh.

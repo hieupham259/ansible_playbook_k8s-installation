@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 1/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 Đây là **trang mục lục**, không phải bài học. Phần có nội dung thật chỉ khoảng mười dòng: đoạn
 mở đầu định nghĩa ba từ khóa, và mục *Sự gián đoạn Pod*. Phần còn lại là hai danh sách link —
@@ -90,8 +90,8 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    ra ở thời điểm nào so với lúc Pod bắt đầu chạy?
 2. Preemption và eviction đều kết thúc bằng việc Pod bị chấm dứt. Vậy chúng có phải là hai
    tên gọi của cùng một việc không?
-3. Bạn chạy `kubectl drain k8s-worker2` để bảo trì máy. Việc các Pod rời node đó là gián đoạn
-   tự nguyện hay không tự nguyện? Còn khi `k8s-worker2` hết RAM và Pod bị chấm dứt thì sao?
+3. Bạn chạy `kubectl drain lab-k8s-worker2` để bảo trì máy. Việc các Pod rời node đó là gián đoạn
+   tự nguyện hay không tự nguyện? Còn khi `lab-k8s-worker2` hết RAM và Pod bị chấm dứt thì sao?
 4. Trang này xếp Pod Priority/Preemption vào mục nào, chứ không xếp vào mục *Lập lịch*? Điều
    đó gợi ý gì về bản chất của preemption?
 
@@ -108,7 +108,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    Trực giác "cùng chết là cùng một thứ" sai vì nó nhìn kết quả thay vì nhìn nguyên nhân.
 3. `kubectl drain` là **gián đoạn tự nguyện** — bài định nghĩa gián đoạn tự nguyện là loại
    được khởi phát **có chủ đích** bởi chủ sở hữu ứng dụng hoặc quản trị viên cluster.
-   `k8s-worker2` hết RAM là **gián đoạn không tự nguyện**: bài nêu đúng ví dụ "Node cạn kiệt
+   `lab-k8s-worker2` hết RAM là **gián đoạn không tự nguyện**: bài nêu đúng ví dụ "Node cạn kiệt
    tài nguyên" là thứ ngoài ý muốn.
 4. Trang xếp nó vào ***Sự gián đoạn Pod***, cùng chỗ với node-pressure eviction và
    API-initiated eviction. Nghĩa là dù preemption phục vụ mục tiêu lập lịch, **hệ quả của nó

@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 8/14 ·
-Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md).
 
 CronJob chỉ là một tầng mỏng đặt trên [Job](67-job-vi.md): nó tạo Job theo lịch, còn Job mới
 là thứ quản lý Pod. Vì vậy nếu bài 67 chưa vững thì quay lại đó trước. Cú pháp cron thì tra
@@ -350,7 +350,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    phút. Trong ba phút đó có mấy Job được tạo, và các mốc lịch bị bỏ qua được tính là gì?
 2. **Câu bẫy.** Hai CronJob khác nhau, cả hai cùng đặt `concurrencyPolicy: Forbid`. Job của
    CronJob A có bị chặn vì Job của CronJob B đang chạy không?
-3. `k8s-master` — nơi kube-controller-manager chạy — ngừng hoạt động từ `08:29:00` tới
+3. `lab-k8s-master` — nơi kube-controller-manager chạy — ngừng hoạt động từ `08:29:00` tới
    `10:21:00`. Bạn có một CronJob chạy mỗi phút. Khi control plane trở lại, Job có được khởi
    động không? Câu trả lời đổi thế nào nếu `startingDeadlineSeconds: 200`?
 4. Vì sao bài cảnh báo không đặt `startingDeadlineSeconds` nhỏ hơn 10 giây?

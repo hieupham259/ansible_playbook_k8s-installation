@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 2/7 ·
-Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
 
 Bài vừa đủ ngắn để đọc hết trong một lượt, nhưng phần dễ bỏ sót lại là phần quan trọng nhất
 khi vận hành: **ranh giới cập nhật**. Ba cách tiêu thụ ConfigMap có ba hành vi cập nhật khác
@@ -418,7 +418,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Trong ví dụ `game-demo`, ConfigMap có bốn key nhưng container `demo` chỉ thấy hai file
    trong `/config`. Vì sao? Sửa gì để có đủ bốn file?
 3. Trên cluster lab, bạn tạo ConfigMap trong namespace `default` rồi tạo một Pod ở namespace
-   khác, Pod này chạy trên `k8s-worker2` và mount ConfigMap đó theo tên. Kết quả thế nào?
+   khác, Pod này chạy trên `lab-k8s-worker2` và mount ConfigMap đó theo tên. Kết quả thế nào?
    Có cách nào để một Pod đọc được ConfigMap ở namespace khác không?
 4. `binaryData` lưu giá trị dưới dạng chuỗi base64. Vậy đặt mật khẩu vào `binaryData` thì
    ConfigMap có giấu được mật khẩu không?
@@ -439,7 +439,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    key trong ConfigMap trở thành một file có tên trùng với key, và bạn nhận được đủ bốn file.
 3. **Không mount được: Pod và ConfigMap phải nằm trong cùng một namespace.** Tham chiếu
    `.spec.volumes[].configMap.name` chỉ tìm trong namespace của chính Pod, nên kubelet trên
-   `k8s-worker2` không có gì để chiếu vào container. Cách duy nhất bài nêu để đọc ConfigMap ở
+   `lab-k8s-worker2` không có gì để chiếu vào container. Cách duy nhất bài nêu để đọc ConfigMap ở
    namespace khác là **cách thứ tư**: viết mã trong Pod dùng trực tiếp Kubernetes API — và khi
    đó việc Pod có được phép đọc hay không lại là chuyện phân quyền, thuộc giai đoạn 9.
 4. **Không.** base64 chỉ là cách biểu diễn dữ liệu nhị phân dưới dạng chuỗi, không phải mã

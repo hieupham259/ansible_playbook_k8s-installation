@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 7/9 ·
-Kiểm chứng ở Lab 8b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 8b](labs/LAB-8B-HA-VOI-STACKED-ETCD.md).
 
 Bài này **rẽ đôi** theo lựa chọn bạn đã chốt ở bài [06](06-ha-topology-vi.md): đọc mục *Các
 node control plane và etcd xếp chồng* hoặc mục *Các node etcd bên ngoài*, không phải cả hai.
@@ -481,7 +481,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    mới trong lệnh join. Bài cũng cho phương án chủ động: chỉ định trước một `--certificate-key`
    tùy chỉnh lúc `init`, sinh bằng `kubeadm certs certificate-key`.
 3. Phải trỏ tới **địa chỉ (hoặc DNS) và port của load balancer**, không phải IP của một control
-   plane node cụ thể — Lab 00 dùng `k8s-master:6443` vì cluster đó chỉ có một control plane
+   plane node cụ thể — Lab 00 dùng `lab-k8s-master:6443` vì cluster đó chỉ có một control plane
    node. Bài đặt thành yêu cầu riêng: **đảm bảo địa chỉ của load balancer luôn khớp với địa chỉ
    `ControlPlaneEndpoint` của kubeadm**. Lệch nhau thì các client và các node join sẽ được chỉ
    tới một endpoint khác cái đang thực sự phân phối lưu lượng, và cluster mất đúng tính chất HA

@@ -12,10 +12,10 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, giai đoạn 26 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-26--vận-hành-lưu-trữ),
-bài 1/3 · Các trang CP không có lab riêng: thực hành ngay trên cluster lab, sau khi đã có
-StorageClass và dynamic provisioner từ Lab 6a (chưa viết, xem
-[bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 26 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-26--vận-hành-lưu-trữ),
+bài 1/4 · Giai đoạn này của Phần II không có lab riêng: thực hành ngay trên cluster lab, sau khi đã có
+StorageClass và dynamic provisioner từ [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md).
 
 Đây là trang task dạng runbook, rất ngắn. Lý thuyết về default StorageClass bạn đã đọc ở
 [bài 96](96-storage-classes-vi.md); trang này chỉ bổ sung thao tác `kubectl patch` và các bẫy

@@ -10,10 +10,10 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node), bài 2/4 · Kiểm chứng trên cluster
-lab: đưa `k8s-worker2` ra khỏi cluster rồi join lại bằng token tự tạo, và ở **Lab 12 — Vận hành vòng
-đời node** khi lab đó được viết.
+lab: đưa `lab-k8s-worker2` ra khỏi cluster rồi join lại bằng token tự tạo, và ở **Lab 12 — Vận hành vòng
+đời node** khi bạn tới lab đó.
 
 Bài rất ngắn và bạn đã **chạy đúng quy trình này một lần rồi** — ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md)
 khi join hai worker. Khác biệt: lần đó bạn copy-paste lệnh `kubeadm init` in ra; lần này phải
@@ -165,7 +165,7 @@ Vài giây sau, bạn sẽ thấy node này xuất hiện trong đầu ra của 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 16:
 
 1. Cluster lab của bạn dựng từ Lab 00 đã lâu. Bây giờ bạn muốn join thêm một worker nhưng
-   không còn giữ lệnh mà `kubeadm init` in ra. Nêu **một lệnh duy nhất** chạy trên `k8s-master`
+   không còn giữ lệnh mà `kubeadm init` in ra. Nêu **một lệnh duy nhất** chạy trên `lab-k8s-master`
    cho ra lệnh join dùng được ngay, và giải thích vì sao token cũ (nếu bạn còn giữ) nhiều khả
    năng đã vô dụng.
 2. **Câu bẫy.** `--discovery-token-ca-cert-hash` dùng để control plane kiểm tra xem node có

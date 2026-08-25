@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 7/8 ·
-Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 12](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md).
 
 Bài này nối hai thứ bạn đã có: [Lease](35-leases-vi.md) từ nhóm 1c, và
 [phiên bản giả lập](168-compatibility-version-vi.md) vừa đọc ở bài trước. Phần dài nhất của bài
@@ -130,7 +130,7 @@ Cơ chế này đảm bảo rằng mặc dù nhiều bản sao (replica) của m
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 12:
 
-1. Cluster lab chỉ có một control plane `k8s-master`, nên kube-scheduler và kube-controller-manager
+1. Cluster lab chỉ có một control plane `lab-k8s-master`, nên kube-scheduler và kube-controller-manager
    mỗi cái đúng một instance. Theo lập luận của bài, cơ chế Lease bảo đảm điều gì — và điều đó chỉ
    thực sự có giá trị trong hoàn cảnh nào?
 2. Hai instance cùng phát hiện một Lease đã hết hạn và cùng lúc thử ghi danh tính của mình vào đó.

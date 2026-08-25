@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 4/8 ·
-Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 12](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md).
 
 Bài này **không kiểm chứng được trên cluster lab**, và đó chính là bài học đầu tiên: autoscaling
 Node cần một cloud provider để tạo và xóa máy đứng sau Node, còn ba VM của bạn là cố định. Đọc để

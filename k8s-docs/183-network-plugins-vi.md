@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 15/16 · Kiểm chứng
-ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md).
 
 Trên trang gốc bài này nằm trong nhánh *Mở rộng Kubernetes*, nên các ví dụ dùng JSON cấu hình
 của Calico. **Lộ trình đặt bài ở đây, không phải ở giai đoạn 14**, vì bạn cần hiểu CNI **trước
@@ -199,7 +199,7 @@ metadata:
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
 
-1. Trên `k8s-worker2` của cluster lab, thành phần nào thực sự đi nạp CNI plugin — kubelet hay
+1. Trên `lab-k8s-worker2` của cluster lab, thành phần nào thực sự đi nạp CNI plugin — kubelet hay
    containerd? Bạn nhìn vào hai thư mục nào để kiểm tra?
 2. Một plugin quảng cáo "tương thích đặc tả CNI v1.0.0". Điều đó có bảo đảm nó thực thi
    NetworkPolicy không?

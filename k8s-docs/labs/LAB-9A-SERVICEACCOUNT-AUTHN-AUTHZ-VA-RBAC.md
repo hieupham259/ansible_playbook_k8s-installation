@@ -240,7 +240,7 @@ kubectl create namespace lab-9a
 kubectl create namespace lab-9a-khac
 ```
 
-Toàn bộ lab đọc claim của JWT bằng hai hàm dưới đây. Chúng chỉ giải mã **payload** — phần công
+Toàn bộ lab đọc claim của JWT bằng ba hàm dưới đây. Chúng chỉ giải mã **payload** — phần công
 khai của token — và không bao giờ in cả chuỗi token:
 
 ```bash
@@ -1619,7 +1619,7 @@ sửa, một hướng từ chối, tùy vào nội dung object.
 khi manifest không hề khai — chặng 3 điền. Ngoại lệ duy nhất là **mirror Pod** của static Pod:
 plugin này cố ý bỏ qua chúng, vì chúng thuộc quyền quản của kubelet chứ không của bạn.
 
-**PASS:** bảy dòng `PASS:` của bước này xuất hiện.
+**PASS:** bảy dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
 
 ### B4.4. Bước 4 — validate rồi ghi
 
@@ -2132,7 +2132,7 @@ mệnh đề cuối: bỏ proxy ra, cùng một request không còn đi tới đ
 Vì proxy nghe trên `localhost`, ai chạm được vào máy đó là chạm được vào quyền của proxy. Đừng
 bao giờ để nó lắng nghe trên interface ra ngoài.
 
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
+**PASS:** bốn dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
 
 ### B6.3. Proxy mang đúng quyền của kubeconfig nó dùng
 
@@ -2181,7 +2181,7 @@ ss -ltn | grep -q ':8001 ' \
 người hiểu sai và mở `kubectl proxy` bằng kubeconfig quản trị cho cả một dashboard dùng chung —
 tức là trao quyền quản trị cho bất kỳ ai gọi được cái cổng đó.
 
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
+**PASS:** ba dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
 
 ### B6.4. Bốn loại proxy — cái nào thật sự có trên cluster này
 

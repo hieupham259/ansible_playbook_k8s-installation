@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 3/11 · Kiểm chứng
-ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md).
 
 Đây là **bài xương sống của nhóm**, và cũng là bài dài nhất. Phần lớn độ dài đến từ các mục nằm
 sau feature gate beta hoặc alpha — những thứ cluster lab không bật. Bốn cơ chế thật sự phải nắm
@@ -1184,11 +1184,11 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 1. `kubectl get pod` hiện `STATUS: CrashLoopBackOff`. Lúc đó `phase` của Pod là gì?
 2. Một Pod đặt `restartPolicy: OnFailure` và có một sidecar. Sidecar thoát với mã 0. Nó có được
    khởi động lại không? Còn app container thoát với mã 0 thì sao?
-3. Bạn `kubectl delete pod` một Pod đang chạy trên `k8s-worker1`, và tiến trình trong container
+3. Bạn `kubectl delete pod` một Pod đang chạy trên `lab-k8s-worker1`, và tiến trình trong container
    lờ hẳn tín hiệu TERM. Kể lại chuỗi việc kubelet làm, kèm mốc thời gian mặc định.
 4. Hook `preStop` của bạn cần 45 giây, còn `terminationGracePeriodSeconds` để mặc định. Chuyện gì
    xảy ra, và bài bảo phải làm gì?
-5. `k8s-worker2` mất kết nối với phần còn lại của cluster. Control plane làm gì với các Pod trên
+5. `lab-k8s-worker2` mất kết nối với phần còn lại của cluster. Control plane làm gì với các Pod trên
    node đó? Khi worker2 quay lại, chính Pod cũ có chạy tiếp không?
 
 <details>

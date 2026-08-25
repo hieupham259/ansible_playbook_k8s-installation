@@ -13,7 +13,7 @@
 bài 4/7 · Kiểm chứng ở [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md).
 
 Bạn đã **dùng** Lease ở Lab 1a phần B6 mà chưa biết nó là gì: theo dõi `renewTime` của
-`k8s-worker2` rồi dừng kubelet để xem nó đứng lại. Đây là bài giải thích thứ bạn đã quan sát.
+`lab-k8s-worker2` rồi dừng kubelet để xem nó đứng lại. Đây là bài giải thích thứ bạn đã quan sát.
 
 **Phải hiểu ở lần đọc này:**
 
@@ -154,7 +154,7 @@ khác nhau không xung đột với nhau.
 > Phần này không có trong trang gốc.
 
 1. Lease phục vụ hai mục đích rất khác nhau trong Kubernetes. Đó là hai mục đích nào?
-2. Ở Lab 1a bạn theo dõi `spec.renewTime` của Lease `k8s-worker2`. Field đó do thành phần nào
+2. Ở Lab 1a bạn theo dõi `spec.renewTime` của Lease `lab-k8s-worker2`. Field đó do thành phần nào
    cập nhật, và bằng thao tác API gì?
 3. Lease của một Node nằm ở namespace nào và có tên là gì?
 4. Ba control-plane node đều chạy `kube-scheduler`. Vì sao chỉ một bản được hoạt động, và cơ

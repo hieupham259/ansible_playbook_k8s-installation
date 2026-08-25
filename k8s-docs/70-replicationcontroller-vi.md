@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 14/14 ·
-Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md).
 
 Lộ trình đánh dấu bài này là **tài liệu lịch sử**: ReplicationController là tiền thân của
 ReplicaSet và **không dùng cho hệ thống mới**. Đọc nó với đúng một mục đích — **nhận diện
@@ -489,5 +489,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Bạn đã đọc xong toàn bộ 14 bài của giai đoạn 4. Câu nào chưa trả lời được thì quay lại đúng
-mục tương ứng, sau đó chuyển sang **Lab 4 — Workload controller** (chưa viết, xem
-[bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+mục tương ứng, sau đó chuyển sang [**Lab 4a — Workload controller**](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md).

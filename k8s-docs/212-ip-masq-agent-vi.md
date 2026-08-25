@@ -2,6 +2,59 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/ip-masq-agent/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 21 — DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy),
+bài 9/14 · Phần II không có lab: thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) và tự chấm bằng **Checkpoint** ở cuối
+[mục giai đoạn 21](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy). Phần kiểm chứng
+làm được ngay là: đối chiếu ba dải mặc định của bài với địa chỉ node, Pod CIDR và Service CIDR
+ghi ở [bảng A1.2](labs/LAB-00-MOI-TRUONG-1.35.7.md#a12-ba-vm) và
+[bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa), rồi tự nói
+được gói nào sẽ bị masquerade.
+
+`ip-masq-agent` là **add-on tùy chọn**, không nằm trong stack đã khóa của Lab 00 (xem
+[A1.4](labs/LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00)), và mục *Trước khi
+bạn bắt đầu* còn đặt một mốc phiên bản server **cao hơn** baseline đã khóa. Đây là bài đọc để
+hiểu cơ chế, không phải bài triển khai.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vấn đề bài giải, ở mục *Hướng dẫn sử dụng IP Masquerade Agent*: agent cấu hình quy tắc iptables
+  để **ẩn IP của Pod phía sau IP của Node** khi Pod gửi lưu lượng ra ngoài; cần khi môi trường
+  bên ngoài chỉ chấp nhận gói xuất phát từ địa chỉ máy đã biết (ví dụ của bài: trên Google Cloud,
+  IP của Pod bị từ chối khi đi egress).
+- Tập mặc định: ba dải riêng của RFC 1918 — `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` —
+  **không** bị masquerade, dải link-local `169.254.0.0/16` cũng được coi là CIDR không
+  masquerade; **mọi lưu lượng còn lại** (coi như đi ra internet) thì bị masquerade.
+- Ba khóa của file cấu hình: `nonMasqueradeCIDRs`, `masqLinkLocal` (mặc định `false`) và
+  `resyncInterval`. Agent nạp lại cấu hình từ `/etc/config/ip-masq-agent` mỗi 60 giây theo mặc
+  định, nên thay đổi **không** có hiệu lực tức thì.
+- Hai điều kiện dễ làm sai ở mục *Tạo một ip-masq-agent*: file trong ConfigMap **phải tên là
+  `config`** vì đó là khóa agent tra cứu, và ConfigMap phải nằm ở namespace `kube-system`; ngoài
+  ra node muốn chạy agent phải được gán label `node.kubernetes.io/masq-agent-ds-ready=true`.
+- Cách đọc kết quả: `iptables -t nat -L IP-MASQ-AGENT` cho thấy các dòng `RETURN` theo từng CIDR
+  đứng **trước** dòng `MASQUERADE` cuối cùng — chính comment trong output nói rõ dòng
+  `MASQUERADE` phải đứng sau các match CIDR cluster-local.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Trước khi bạn bắt đầu* — mốc phiên bản server và các playground minikube | mốc phiên bản cao hơn baseline khóa ở [A1.3](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); lộ trình cũng không dùng minikube hay cluster dùng chung | cluster VM ba node của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) là môi trường thực hành duy nhất |
+| Mục *Các thuật ngữ chính* — định nghĩa NAT, masquerading, CIDR, link-local | là nền mạng chung, không phải cơ chế Kubernetes | phần dùng tới đã nằm ngay trong hai mục kế của chính bài này |
+| Lệnh `kubectl apply` manifest `ip-masq-agent.yaml` và việc gán label cho node | triển khai add-on ngoài stack khóa của [A1.4](labs/LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00); Checkpoint giai đoạn 21 không yêu cầu | mở lại đúng mục *Tạo một ip-masq-agent* của bài này khi tiếp quản cluster có yêu cầu egress như trên |
+| Hành vi mặc định riêng của GCE/Google Kubernetes Engine | đặc thù một nhà cung cấp cloud | ngoài phạm vi lộ trình; cluster lab chạy VM cục bộ theo [A1.2](labs/LAB-00-MOI-TRUONG-1.35.7.md#a12-ba-vm) |
+
+---
+
 Trang này hướng dẫn cách cấu hình và bật `ip-masq-agent`.
 
 ## Trước khi bạn bắt đầu (Before you begin)
@@ -168,3 +221,54 @@ nonMasqueradeCIDRs:
 resyncInterval: 60s
 masqLinkLocal: true
 ```
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 21:
+
+1. `ip-masq-agent` giải quyết vấn đề gì? Bài lấy ví dụ môi trường nào từ chối gói xuất phát từ IP
+   của Pod, và agent thay IP nguồn bằng địa chỉ nào?
+2. Cluster lab có node ở `192.168.100.221`–`192.168.100.223`, Pod CIDR `10.244.0.0/16` và Service
+   CIDR mặc định của kubeadm `10.96.0.0/12`. Giả sử bạn cài `ip-masq-agent` với **cấu hình mặc
+   định**: gói từ một Pod trên `lab-k8s-worker1` đi tới IP của `lab-k8s-master`, tới một Cluster
+   IP, và tới một địa chỉ công cộng ngoài internet — trường hợp nào bị masquerade?
+3. **Câu bẫy.** `masqLinkLocal` mặc định là `false`. Vậy với cấu hình mặc định, lưu lượng tới
+   `169.254.0.0/16` **có** bị masquerade không? Và đặt `masqLinkLocal: true` thì hành vi đổi theo
+   chiều nào?
+4. Bạn muốn chỉ giữ `10.0.0.0/8` là dải không masquerade. Ba điều kiện nào phải đúng để agent
+   thật sự nhận cấu hình mới, và vì sao thay đổi không có hiệu lực ngay lập tức?
+5. Trong chain `IP-MASQ-AGENT`, vì sao dòng `MASQUERADE` bắt buộc phải nằm **sau** các dòng
+   `RETURN` của từng CIDR?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Nó **ẩn IP của Pod phía sau IP của Node** bằng các quy tắc iptables, cho lưu lượng đi tới đích
+   nằm ngoài dải Pod CIDR của cluster. Ví dụ của bài: **trên Google Cloud, mọi lưu lượng ra
+   internet phải xuất phát từ IP của VM**, nên IP của Pod bị từ chối khi egress. Địa chỉ thay thế
+   là **IP của Node** chứa Pod.
+2. Chỉ **gói đi ra internet** bị masquerade. IP node `192.168.100.x` nằm trong `192.168.0.0/16`
+   và Cluster IP `10.96.x.x` nằm trong `10.0.0.0/8` — **cả hai đều thuộc ba dải RFC 1918 mặc định
+   là non-masquerade**, nên hai trường hợp đầu **không** bị masquerade. Pod CIDR `10.244.0.0/16`
+   cũng nằm trong `10.0.0.0/8` nên lưu lượng Pod–Pod cũng được miễn.
+3. **Không.** Mặc định `masqLinkLocal: false` nghĩa là **không masquerade** lưu lượng tới
+   `169.254.0.0/16` — agent coi dải link-local là một CIDR không masquerade và đặt cho nó một
+   dòng `RETURN`. Đặt `masqLinkLocal: true` là bảo agent **thôi miễn trừ** dải này, tức lưu lượng
+   tới link-local **sẽ bị masquerade**. Chỗ dễ nhầm là chữ "bỏ qua" trong bài: nó có nghĩa agent
+   bỏ qua việc bảo vệ dải đó, không phải bỏ qua việc masquerade.
+4. Ba điều kiện: file phải **tên là `config`** (đó là khóa `ip-masq-agent` tra cứu), ConfigMap
+   phải được tạo trong namespace **`kube-system`**, và nội dung phải là YAML/JSON hợp lệ với khóa
+   `nonMasqueradeCIDRs`. Không có hiệu lực ngay vì agent **nạp lại cấu hình từ
+   `/etc/config/ip-masq-agent` theo `resyncInterval`** — mặc định 60 giây.
+5. Vì iptables xét luật **theo thứ tự**. Dòng `MASQUERADE` khớp mọi đích, nên nếu nó đứng trước
+   thì các dải cluster-local sẽ bị masquerade trước khi kịp gặp dòng `RETURN` của mình. **Các
+   `RETURN` phải đi trước để loại các dải được miễn ra khỏi luồng, rồi mới tới luật bắt tất cả** —
+   đúng như comment trong output của bài ghi.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

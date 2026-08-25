@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 6/11 · Kiểm chứng
-ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md).
 
 Bài có một ví dụ dài dùng Service và DNS — hai thứ thuộc giai đoạn 5. Đọc ví dụ đó để thấy hình
 dạng của `Init:0/2` và luồng sự kiện, đừng bận tâm phần `nslookup myservice`. Hai điểm dễ bỏ sót
@@ -434,7 +434,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Pod đặt `restartPolicy: Always`. Init container của nó dùng chính sách khởi động lại nào khi
    thất bại? Còn Pod đặt `Never` thì một init container thất bại dẫn tới đâu?
 3. Một Pod có một init container xin `requests.memory: 2Gi` và hai app container mỗi cái xin
-   `256Mi`. Scheduler dùng con số nào để chọn giữa `k8s-worker1` và `k8s-worker2`? Điều gì xảy ra
+   `256Mi`. Scheduler dùng con số nào để chọn giữa `lab-k8s-worker1` và `lab-k8s-worker2`? Điều gì xảy ra
    nếu cả hai worker chỉ còn 1Gi trống?
 4. Vì sao Kubernetes cấm hẳn `readinessProbe` trên init container thông thường?
 5. Vì sao mã của init container nên idempotent, nhất là khi nó ghi vào một volume `emptyDir`?

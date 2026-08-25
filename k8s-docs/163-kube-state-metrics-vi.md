@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 3/6 · Kiểm chứng
-ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md).
 
 Bài rất ngắn, nhưng nó vẽ đúng một ranh giới quan trọng: **metric tài nguyên** (thứ kubelet đo
 được trên node của nó) khác **metric trạng thái đối tượng** (thứ chỉ đọc được từ Kubernetes
@@ -87,7 +87,7 @@ groups:
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
 
-1. **Câu bẫy.** Trên cluster lab, `k8s-worker2` đang có hai hiện tượng: một Pod ngốn gần hết CPU
+1. **Câu bẫy.** Trên cluster lab, `lab-k8s-worker2` đang có hai hiện tượng: một Pod ngốn gần hết CPU
    của node, và một Pod khác kẹt ở trạng thái `Terminating` suốt mười phút. Hiện tượng nào là
    thứ kube-state-metrics sinh ra được metric, hiện tượng nào không? Vì sao?
 2. kube-state-metrics lấy dữ liệu từ đâu, và nó đưa dữ liệu ra ngoài bằng cách nào? Nếu nó mất

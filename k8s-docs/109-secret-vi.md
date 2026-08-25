@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 3/7 ·
-Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
 
 Bài dài, nhưng hơn một nửa độ dài là **danh mục tám loại Secret built-in** — tra cứu khi cần,
 không phải học thuộc. Điều duy nhất bắt buộc phải khắc vào đầu ở lần đọc này nằm ngay trong
@@ -862,17 +862,17 @@ Do đó, một Pod không có quyền truy cập vào Secret của Pod khác.
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
 
 1. Bạn chạy `kubectl get secret db-cred -o yaml` và thấy `password: dDBwLVNlY3JldA==`. Giá
-   trị đó đã được mã hóa chưa? Người có quyền đọc etcd của `k8s-master` thấy được gì?
+   trị đó đã được mã hóa chưa? Người có quyền đọc etcd của `lab-k8s-master` thấy được gì?
 2. Bạn muốn một nhóm chỉ đọc được đúng một Secret trong namespace của họ, nên chỉ cấp quyền
    `get` trên đúng Secret đó — nhưng vẫn cho họ quyền tạo Deployment trong namespace. Ranh
    giới đó có giữ được không?
-3. Control plane trên `k8s-master` chạy bằng các file manifest trong `/etc/kubernetes/manifests/`
+3. Control plane trên `lab-k8s-master` chạy bằng các file manifest trong `/etc/kubernetes/manifests/`
    mà bạn đã xem ở [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md#b2-kiểm-kê-component).
    Bạn có thể cho một Pod loại đó đọc mật khẩu từ một Secret không?
 4. `data` và `stringData` khác nhau ở chỗ nào? Nếu cùng một key xuất hiện ở cả hai trường thì
    giá trị nào thắng?
-5. Một Pod trên `k8s-worker1` mount Secret `db-cred`. Dữ liệu Secret đó nằm ở đâu trên node,
-   và một Pod khác cũng đang chạy trên `k8s-worker1` có đọc được nó không?
+5. Một Pod trên `lab-k8s-worker1` mount Secret `db-cred`. Dữ liệu Secret đó nằm ở đâu trên node,
+   và một Pod khác cũng đang chạy trên `lab-k8s-worker1` có đọc được nó không?
 
 <details>
 <summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>

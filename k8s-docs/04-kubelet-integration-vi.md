@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 4/9 ·
-Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 8a](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md).
 
 Bài này trả lời một câu hỏi rất cụ thể: **`kubeadm init` và `kubeadm join` thực sự ghi những
 file nào cho kubelet, và ai thắng khi các file đó mâu thuẫn nhau**. Nó là bài giải thích hậu
@@ -20,7 +20,7 @@ trường của hai lệnh bạn đã chạy ở
 [A5.1](labs/LAB-00-MOI-TRUONG-1.35.7.md#a51-init-control-plane) và
 [A5.3](labs/LAB-00-MOI-TRUONG-1.35.7.md#a53-join-hai-worker) của Lab 00 — và cũng giải thích vì sao
 A4.3 dặn rằng kubelet restart liên tục **trước** `kubeadm init/join` là trạng thái dự kiến.
-Đọc kèm một phiên SSH mở sẵn vào `k8s-master` để `ls` từng đường dẫn được nhắc tên.
+Đọc kèm một phiên SSH mở sẵn vào `lab-k8s-master` để `ls` từng đường dẫn được nhắc tên.
 
 **Phải hiểu ở lần đọc này:**
 
@@ -271,15 +271,15 @@ Các gói DEB và RPM đi kèm với các bản phát hành Kubernetes gồm:
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
 
-1. Bạn muốn `k8s-worker1` và `k8s-worker2` mỗi máy dùng một `--resolv-conf` khác nhau. Nhét
+1. Bạn muốn `lab-k8s-worker1` và `lab-k8s-worker2` mỗi máy dùng một `--resolv-conf` khác nhau. Nhét
    giá trị đó vào `KubeletConfiguration` cấp cluster có được không? Bài khuyến nghị cách nào?
-2. Sau `kubeadm join`, bạn SSH vào `k8s-worker2` và không tìm thấy
+2. Sau `kubeadm join`, bạn SSH vào `lab-k8s-worker2` và không tìm thấy
    `/etc/kubernetes/bootstrap-kubelet.conf`. Có phải node đã join hỏng không? File nào phải tồn
    tại thay cho nó?
 3. Bạn thêm một cờ vào `/var/lib/kubelet/kubeadm-flags.env` rồi restart kubelet, nhưng kubelet
    vẫn chạy với giá trị cũ vì cùng cờ đó cũng có trong `/etc/default/kubelet`. File nào thắng,
    và bài giải thích bằng cái gì?
-4. `kubeadm init` trên `k8s-master` ghi những file nào cho kubelet, và file nào trong số đó
+4. `kubeadm init` trên `lab-k8s-master` ghi những file nào cho kubelet, và file nào trong số đó
    được đưa lên chính cluster để node join sau này lấy về?
 5. Bạn cần ghi đè một thiết lập systemd unit của kubelet mà kubeadm đã cấu hình. Đặt file ở đâu,
    và vì sao bài dặn không sửa thẳng `10-kubeadm.conf`?

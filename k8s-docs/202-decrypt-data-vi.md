@@ -9,12 +9,17 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), mục
-[Giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu)), là thao
-tác đảo ngược của bài
-[Encrypting Confidential Data at Rest](208-encrypt-data-vi.md)
-và nối dài phần lưu trữ Secret của bài [109 — Secret](109-secret-vi.md).
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu),
+bài 3/6 · Phần II không có lab riêng: kiểm chứng bằng **Checkpoint của chính giai đoạn 22** trên
+cluster lab dựng ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) — bật mã hóa Secret at rest, tạo
+Secret mới, chứng minh bằng `etcdctl get` rằng giá trị trong etcd không còn đọc được dưới dạng
+thường, rồi đảo ngược đúng quy trình của bài này.
+
+Bài là thao tác đảo ngược của bài
+[Encrypting Confidential Data at Rest](208-encrypt-data-vi.md) — bài 2/6 của cùng giai đoạn — và
+nối dài phần lưu trữ Secret của bài [109 — Secret](109-secret-vi.md).
 
 Bài này mô tả thao tác **tắt** mã hóa. Hãy đọc nó để hiểu cơ chế thứ tự provider trong
 `EncryptionConfiguration`; chỉ làm thật khi cluster của bạn đã bật mã hóa từ trước (theo bài
@@ -220,7 +225,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    biến chúng thành dạng rõ và vì sao lệnh đó có tác dụng?
 2. Vì sao khi cấu hình API server để giải mã, ta đưa `identity` lên đầu nhưng **giữ nguyên**
    mục `aescbc` phía dưới thay vì xóa nó luôn?
-3. Trên `k8s-master` của cluster lab (dựng bằng kubeadm), bạn kiểm tra thế nào để biết
+3. Trên `lab-k8s-master` của cluster lab (dựng bằng kubeadm), bạn kiểm tra thế nào để biết
    cluster có đang bật mã hóa khi lưu trữ hay không, và nếu có thì tìm file cấu hình bằng
    cách nào?
 4. Điều kiện nào phải thỏa trước khi được phép gỡ `--encryption-provider-config` khỏi

@@ -210,23 +210,22 @@ Nội dung bản dịch nằm liền mạch giữa hai khối, không bị cắt
 
 ### Tiến độ
 
-**186 bài khái niệm (số `00`–`185`) đã có đủ ba khối** (hướng dẫn đọc, tự kiểm tra, đáp án).
-Hoàn tất 07/08/2026.
+**Cả 398 bài dịch đều đã có đủ hai khối** — 186 bài khái niệm (số `00`–`185`) hoàn tất
+07/08/2026, 212 bài thực hành (số `186`+, nhánh `/docs/tasks/`) hoàn tất 25/08/2026.
+**27/27 lab trong [thư mục labs](k8s-docs/labs/README.md) đã viết.**
 
-**212 bài thực hành (số `186`+, nhánh `/docs/tasks/`) thì chưa**: tính tới 25/08/2026 mới 43 bài
-có hai khối, còn **169 bài thiếu**. Chạy lệnh sau để lấy danh sách còn tồn:
+Lệnh soát lại nếu nghi có bài thiếu:
 
 ```bash
-cd k8s-docs && for f in *-vi.md; do n=${f%%-*}; [ "$n" -gt 185 ] 2>/dev/null || continue; \
-  grep -q "^## Đọc bài này thế nào" "$f" || echo "$f"; done
+cd k8s-docs && for f in *-vi.md; do n=${f%%-*}; [ "$n" -gt 185 ] 2>/dev/null || continue;   grep -q "^## Đọc bài này thế nào" "$f" || echo "$f"; done
 ```
 
-Hai việc còn lại của dự án:
+Khi thêm bài dịch mới vào `k8s-docs/`, viết đủ hai khối cho bài đó ngay, đừng để tồn — và
+cập nhật cả `k8s-docs/README.md` lẫn `k8s-docs/00-ALO-TRINH-ADMIN.md`.
 
-1. Bù hai khối cho các bài còn thiếu — đây là **nợ #9** của lộ trình, trả tại chỗ khi đọc tới bài mang dấu ⏳; xem [hướng dẫn](k8s-docs/00-ALO-TRINH-ADMIN.md#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks).
-2. [Thư mục labs](k8s-docs/labs/README.md): 23 lab chưa viết, xem cột Trạng thái trong bản đồ lab.
-
-Khi thêm bài dịch mới vào `k8s-docs/`, viết đủ hai khối cho bài đó ngay, đừng để tồn.
+Nợ còn lại của lộ trình nằm ở [sổ nợ](k8s-docs/00-ALO-TRINH-ADMIN.md#sổ-nợ-lộ-trình) và
+[sổ nợ lab](k8s-docs/labs/README.md#5-sổ-nợ-lab); tất cả đều là nợ **cố ý hoãn vì thiếu hạ
+tầng**, không phải phần chưa viết.
 
 ## Dịch tài liệu kubernetes.io
 

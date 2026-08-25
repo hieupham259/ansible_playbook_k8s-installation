@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 1/9 ·
-Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 8a](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md).
 
 Bạn **đã chạy đúng các bước của bài này rồi** — mục A4 của
 [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a4-chuẩn-bị-os-và-container-runtime) là bản copy-paste của
@@ -443,7 +443,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 1. Bạn cài `kubeadm` v1.35.6 trên một máy mới. Nó có tự kéo về `kubelet` và `kubectl` đúng
    phiên bản không? Nếu bạn để `apt` tự chọn version cho ba gói này thì rủi ro là gì?
-2. Control plane của cluster lab chạy v1.35.6. Bạn được phép để kubelet trên `k8s-worker2` ở
+2. Control plane của cluster lab chạy v1.35.6. Bạn được phép để kubelet trên `lab-k8s-worker2` ở
    v1.36.0 không? Còn v1.34 thì sao?
 3. Trên một VM mới bạn chạy `swapoff -a` rồi `kubeadm init` thành công. Sau lần reboot đầu
    tiên kubelet không lên nữa. Chuyện gì đã xảy ra, và

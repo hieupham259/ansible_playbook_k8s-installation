@@ -11,7 +11,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 17/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 17/18 · Kiểm chứng ở [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md).
 
 Bài dài và viết cho người **thiết kế** webhook. Với vai quản trị viên, giá trị lớn nhất nằm ở
 những chỗ một webhook có thể **làm chết cả cluster**: failure policy, tự biến đổi chính mình,
@@ -703,7 +703,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 3. Mutating webhook và validating webhook khác nhau thế nào về thứ tự gọi, và điều đó dẫn tới
    khuyến nghị nào về việc kiểm tra trạng thái cuối cùng?
 4. Trên cluster lab, control plane chạy bằng static Pod nên kubelet tạo mirror Pod trong API
-   server, còn `k8s-worker1` và `k8s-worker2` liên tục gia hạn Lease trong `kube-node-lease`.
+   server, còn `lab-k8s-worker1` và `lab-k8s-worker2` liên tục gia hạn Lease trong `kube-node-lease`.
    Nếu bạn cài một mutating webhook khớp mọi object trong cluster, hai chỗ nào bài cảnh báo
    tuyệt đối không được biến đổi, và hậu quả là gì?
 5. "Lũy đẳng" nghĩa là gì với một mutating webhook, và vì sao từng webhook lũy đẳng vẫn chưa đủ?
@@ -746,5 +746,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Đây là bài cuối của **phần policy và hardening** trong giai đoạn 9. Câu nào chưa trả lời được
-thì quay lại đúng mục tương ứng trước khi vào **Lab 9b — Pod Security và hardening** (chưa viết,
-xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+thì quay lại đúng mục tương ứng trước khi vào [**Lab 9b — Pod Security và hardening**](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md).

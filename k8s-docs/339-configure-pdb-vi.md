@@ -2,6 +2,56 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 8/9 ·
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B7, trong đó B7.1 dựng đúng
+tình huống "Pod trần" của mục *Workload tùy ý và selector tùy ý*.
+
+Đây là vế thực hành của bài [53](53-disruptions-vi.md): bài 53 chia gián đoạn thành **tự nguyện**
+và **không tự nguyện**, còn bài này là cách bạn đặt trần cho vế tự nguyện. Mục *Trước khi bạn bắt
+đầu* đòi biết Deployment và StatefulSet — hai thứ đó thuộc
+[giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller); ở lần đọc này hãy đọc chúng
+thành "một nhóm Pod mang cùng label", đúng như Lab 3c làm.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mục *Chỉ định một PodDisruptionBudget*: PDB có ba trường; `.spec.selector` là **bắt buộc**, còn
+  `.spec.minAvailable` và `.spec.maxUnavailable` **chỉ được khai một trong hai**. `maxUnavailable`
+  chỉ dùng được để kiểm soát eviction của các Pod mà **cùng một controller** quản lý.
+- Ghi chú ngay sau bốn ví dụ trong mục đó — câu quan trọng nhất của bài: budget **không** đảm bảo
+  số Pod đã chỉ định sẽ luôn hoạt động. Một node gặp sự cố vẫn kéo số Pod khả dụng xuống dưới mức
+  budget; PDB **chỉ** bảo vệ trước eviction **tự nguyện**.
+- Mục *Workload tùy ý và selector tùy ý*: với Pod trần hoặc resource không hiện thực `scale`
+  subresource, PDB chỉ dùng được `.spec.minAvailable` và chỉ với **giá trị số nguyên**, vì
+  Kubernetes không suy ra được tổng số Pod. Cũng ở mục này: Eviction API **không cho phép** trục
+  xuất Pod bị nhiều PDB cùng phủ, nên nói chung phải tránh selector chồng lấn.
+- `maxUnavailable` bằng 0 hoặc 0%, hay `minAvailable` bằng 100% hoặc bằng số replica, đều là cách
+  nói "**không cho phép bất kỳ eviction tự nguyện nào**". Bài xác nhận đây là hành vi được phép
+  theo đúng ngữ nghĩa của `PodDisruptionBudget`, không phải cấu hình sai.
+- Mục *Tính khỏe mạnh của một Pod* đọc cùng mục *Kiểm tra trạng thái của PDB*: Pod "khỏe mạnh" là
+  Pod có condition `Ready=True`, đếm vào `.status.currentHealthy` và đối chiếu với
+  `.status.desiredHealthy`, `.status.expectedPods`, `.status.disruptionsAllowed`. Cột
+  `ALLOWED DISRUPTIONS` khác 0 nghĩa là disruption controller đã thấy Pod, đếm xong và cập nhật
+  `status`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Xác định ứng dụng cần bảo vệ* — lấy `.spec.selector` của Deployment / ReplicationController / ReplicaSet / StatefulSet, cùng hai link tiên quyết tới bài [345](345-run-stateless-application-vi.md) và [343](343-run-replicated-stateful-application-vi.md) | giai đoạn 3 chưa có controller nào; Lab 3c đặt PDB lên Pod trần | [giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller) |
+| Mục *Logic làm tròn khi chỉ định phần trăm*, cùng các ví dụ dùng phần trăm và cụm "số replica mong muốn" | phần trăm chỉ khai được khi có workload resource để suy ra tổng số Pod — đúng thứ bài cấm với Pod trần | [giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller) |
+| Câu "không thể drain thành công một Node" và mọi liên hệ giữa PDB với `kubectl drain` | `drain` là thao tác bảo trì node, chưa học | bài [255](255-safely-drain-node-vi.md) ở [giai đoạn 16](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node) |
+| Mục *Chính sách trục xuất Pod không khỏe mạnh* — `IfHealthyBudget` và `AlwaysAllow` | chỉ có ý nghĩa khi bạn đang drain một node mà ứng dụng trên đó đang hỏng | bài [255](255-safely-drain-node-vi.md) ở [giai đoạn 16](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node) |
+| Ghi chú so sánh `policy/v1beta1` với `policy/v1` khi selector rỗng, và câu về custom controller có `scale` subresource | API `v1beta1` đã bỏ; custom resource là chủ đề riêng | bài [179](179-custom-resources-vi.md) ở [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.21 [stable]`
 
 Trang này hướng dẫn cách giới hạn số lượng gián đoạn (disruption) đồng thời mà ứng dụng của bạn phải chịu, cho phép đạt tính sẵn sàng (availability) cao hơn trong khi vẫn cho phép quản trị viên cluster quản lý các node của cluster.
@@ -219,3 +269,61 @@ Bạn có thể dùng PDB với các Pod được quản lý bởi một resourc
 Không thể dùng các cấu hình về tính sẵn sàng khác, vì Kubernetes không thể suy ra tổng số Pod khi không có một resource sở hữu được hỗ trợ.
 
 Bạn có thể dùng một selector chọn một tập con hoặc tập cha của các Pod thuộc về một workload resource. Eviction API sẽ không cho phép trục xuất bất kỳ Pod nào được bao phủ bởi nhiều PDB, vì vậy hầu hết người dùng sẽ muốn tránh các selector chồng lấn nhau. Một cách sử dụng hợp lý của các PDB chồng lấn là khi các Pod đang được chuyển từ PDB này sang PDB khác.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3.
+
+1. Trên cluster lab bạn chưa có controller nào, chỉ có ba Pod trần mang label `app: demo` nằm rải
+   trên `lab-k8s-worker1` và `lab-k8s-worker2`. Bạn viết PDB với `maxUnavailable: "25%"` để phủ ba
+   Pod đó. Bài chặn cấu hình này ở **hai chỗ** — hai chỗ nào, và **lý do gốc** chung của cả hai là
+   gì? Phải khai thế nào cho hợp lệ?
+2. **Câu bẫy.** Đổi lại thành PDB `minAvailable: 2`, cả ba Pod đều `Ready`. `lab-k8s-worker2` mất
+   điện đột ngột và hai Pod nằm trên đó biến mất. PDB có ngăn được chuyện đó không? Ngay sau sự
+   cố, `.status.currentHealthy` bằng bao nhiêu so với `.status.desiredHealthy`?
+3. Vẫn PDB `minAvailable: 2` trên ba Pod khỏe mạnh, `kubectl get poddisruptionbudgets` báo
+   `ALLOWED DISRUPTIONS` bằng 1. Bạn evict thành công đúng một Pod. Ba giá trị `currentHealthy`,
+   `desiredHealthy` và `disruptionsAllowed` lúc đó bằng bao nhiêu, và yêu cầu evict tiếp theo nhận
+   kết quả gì?
+4. Một trong ba Pod rơi vào `CrashLoopBackOff` và không bao giờ báo `Ready`; hai Pod kia vẫn tốt.
+   PDB vẫn là `minAvailable: 2`. `.status.currentHealthy` bằng bao nhiêu, và còn lại bao nhiêu
+   ngân sách gián đoạn?
+5. Bạn đang chuyển một nhóm Pod từ PDB cũ sang PDB mới nên trong một lúc có hai PDB cùng phủ chúng.
+   Trong khoảng thời gian đó, Eviction API cư xử thế nào với các Pod bị cả hai PDB cùng chọn?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Hai chỗ: **không dùng được `.spec.maxUnavailable`** (Pod trần chỉ dùng được
+   `.spec.minAvailable`), và **không dùng được phần trăm** (chỉ dùng được giá trị số nguyên). Lý
+   do gốc chung: **Kubernetes không thể suy ra tổng số Pod khi không có một resource sở hữu được
+   hỗ trợ**. Cả `maxUnavailable` lẫn mọi giá trị phần trăm đều tính trên "số replica mong muốn" —
+   giá trị `scale` của controller quản lý các Pod. Không controller thì không có mẫu số để chia.
+   Cách khai hợp lệ ở đây là một số nguyên với `minAvailable`, ví dụ `minAvailable: 2`.
+2. **Không.** Ghi chú của bài nói thẳng: một node đang chạy Pod trong tập hợp có thể gặp sự cố
+   ngay khi tập hợp đang ở kích thước tối thiểu, và số Pod khả dụng tụt xuống dưới mức đã chỉ
+   định — "budget chỉ có thể bảo vệ trước các eviction **tự nguyện**, chứ không phải mọi nguyên
+   nhân gây ra tình trạng không khả dụng". Mất điện là gián đoạn không tự nguyện: nó không đi qua
+   Eviction API nên **PDB không có gì để từ chối**. Sau sự cố `.status.currentHealthy` bằng **1**,
+   thấp hơn `.status.desiredHealthy` là **2**. PDB là trần cho thao tác tự nguyện, **không phải
+   lời hứa về số Pod đang chạy**.
+3. `currentHealthy` = **2**, `desiredHealthy` = **2**, `disruptionsAllowed` = **0**. Yêu cầu evict
+   tiếp theo **bị từ chối**: theo ví dụ 1 của bài, eviction chỉ được phép miễn là nó **để lại từ
+   `minAvailable` Pod khỏe mạnh trở lên**, mà trục xuất thêm một Pod nữa sẽ chỉ còn 1, nhỏ hơn 2.
+4. `currentHealthy` = **2**. Mục *Tính khỏe mạnh của một Pod* định nghĩa Pod khỏe mạnh là Pod có
+   `.status.conditions` với `type="Ready"` và `status="True"`; Pod `CrashLoopBackOff` không thỏa
+   điều kiện đó nên **không được đếm**, dù nó vẫn tồn tại trong tập hợp. `desiredHealthy` vẫn là
+   2, nên **ngân sách bằng 0**: ứng dụng đang đứng đúng mức tối thiểu và không eviction tự nguyện
+   nào được phép nữa.
+5. **Eviction API sẽ không cho phép trục xuất bất kỳ Pod nào được bao phủ bởi nhiều PDB.** Trong
+   khoảng giao đó mọi gián đoạn tự nguyện lên các Pod ấy đều bị chặn. Bài nêu chính việc chuyển
+   Pod từ PDB này sang PDB khác là **cách dùng hợp lý** của selector chồng lấn — ngoài trường hợp
+   này thì hầu hết người dùng nên tránh selector chồng lấn.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

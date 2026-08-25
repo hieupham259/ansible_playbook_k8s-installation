@@ -2,6 +2,56 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/job/coarse-parallel-processing-work-queue/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 4 — Workload controller](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller)
+→ [4b. StatefulSet, DaemonSet, Job và autoscaling](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling),
+bài 5/7 của dòng **Thực hành** ·
+[Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) xếp bài này
+vào nhóm **không kiểm chứng được trên cluster baseline**: bài dựng một Service RabbitMQ và bắt bạn
+tự build rồi push một image worker lên registry, hai thứ lab không làm. Lab chỉ thực hành **hình
+dạng** của Job hàng đợi công việc, ở **phần B6.4**.
+
+Bài dài, nhưng phần lớn độ dài là dựng hạ tầng cho ví dụ. Đọc để nắm **mẫu** và **ranh giới** của
+mẫu, đừng cố chạy theo từng lệnh. Đây là mẫu song song thứ nhất trong ba mẫu của nhóm 4b; hai mẫu
+còn lại là Indexed Job ([353](353-indexed-parallel-processing-vi.md)) và khai triển template
+([355](355-parallel-processing-expansion-vi.md)).
+
+**Phải hiểu ở lần đọc này:**
+
+- Hình dạng của mẫu, nêu ngay ở ba bước tổng quan đầu bài: có một **hàng đợi** giữ danh sách việc;
+  **mỗi Pod của Job lấy một đơn vị công việc, xử lý, xóa nó khỏi hàng đợi rồi thoát**.
+- Vì mỗi Pod xử lý đúng một phần tử, **số lần hoàn thành của Job tương ứng số phần tử công việc** —
+  đó là lý do manifest ví dụ đặt `.spec.completions` bằng `8` sau khi nạp 8 thông điệp
+  (mục *Định nghĩa một Job*).
+- Ưu điểm của cách tiếp cận, nêu ở mục *Các cách thay thế*: chương trình worker **không cần biết
+  hàng đợi tồn tại**; tiện ích `amqp-consume` đọc thông điệp rồi truyền vào đầu vào chuẩn của
+  chương trình, nên bạn đóng gói chương trình vào image mà không phải sửa gì.
+- Hai cái giá phải trả, cũng ở mục đó: bạn **phải chạy một dịch vụ hàng đợi**, và mẫu này **tạo một
+  Pod cho mỗi phần tử công việc** — việc chỉ mất vài giây thì chi phí phụ trội lớn, khi đó nên dùng
+  thiết kế mỗi Pod làm nhiều phần tử như bài [352](352-fine-parallel-work-queue-vi.md).
+- Ba cảnh báo ở mục *Lưu ý*: `completions` **nhỏ hơn** số phần tử thì sót việc; **lớn hơn** thì Job
+  không bao giờ có vẻ hoàn thành vì các Pod thừa bị chặn chờ thông điệp; và có một **tình huống
+  tranh chấp hiếm gặp** giữa lúc thông điệp được xác nhận và lúc container thoát thành công.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ phần dựng RabbitMQ: `rabbitmq-service`, Pod `temp` tương tác, `nslookup rabbitmq-service`, biến môi trường `RABBITMQ_SERVICE_SERVICE_HOST` | Service và DNS trong cluster là nội dung của giai đoạn sau; [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) không tạo Service | [giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
+| Build và push image worker: `docker build`, `docker tag`, `docker push`, Dockerfile và `worker.py` | cần Docker trên máy và một registry riêng; lab không build hay push image | [giai đoạn 2 — Container và runtime](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime) đã bàn phần image |
+| Các lệnh AMQP `amqp-declare-queue`, `amqp-publish`, `amqp-consume` | là công cụ của RabbitMQ, không phải cơ chế Kubernetes; ở đây chỉ cần nắm vai trò của chúng trong mẫu | phần Job tương ứng thực hành ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B6.4 |
+| Link *ví dụ hàng đợi công việc song song mịn* (bài [352](352-fine-parallel-work-queue-vi.md)) | cùng lý do: cần một Service và một image worker tự build | dòng **Thực hành** của [giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
+
+---
+
 Trong ví dụ này, bạn sẽ chạy một Job Kubernetes với nhiều tiến trình worker song song.
 
 Trong ví dụ này, khi mỗi pod được tạo ra, nó lấy một đơn vị công việc
@@ -366,3 +416,46 @@ thời gian giữa lúc thông điệp được xác nhận (acknowledge) bởi 
 thoát với trạng thái thành công, hoặc nếu node gặp sự cố trước khi kubelet kịp báo cáo trạng thái thành công của pod
 về API server, thì Job sẽ không có vẻ như đã hoàn thành, mặc dù tất cả các phần tử
 trong hàng đợi đã được xử lý.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở nhóm 4b:
+
+1. Trong mẫu này, một Pod của Job làm những gì từ lúc sinh ra tới lúc thoát? Vì sao bài đặt
+   `.spec.completions` đúng bằng số phần tử đã nạp vào hàng đợi?
+2. **Câu bẫy.** Bạn đặt `completions` lớn hơn số phần tử trong hàng đợi cho chắc ăn, nghĩ rằng
+   thừa thì thôi. Job có hoàn thành không, và các Pod thừa làm gì?
+3. Bài nêu ưu điểm gì của việc để `amqp-consume` bọc chương trình worker, và hai cái giá phải trả
+   cho cách tiếp cận này là gì?
+4. Cluster lab của bạn có `lab-k8s-master`, `lab-k8s-worker1`, `lab-k8s-worker2` và không có
+   registry riêng. Theo mục *Trước khi bạn bắt đầu* và các mục dựng ví dụ, hai thứ nào của bài mà
+   cluster đó chưa đáp ứng được?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Pod **lấy một đơn vị công việc từ hàng đợi, hoàn thành công việc đó, xóa nó khỏi hàng đợi rồi
+   thoát** — đúng một phần tử cho mỗi Pod. Vì thế **số lần hoàn thành của Job tương ứng với số
+   phần tử công việc đã được thực hiện**, và bài đặt `.spec.completions` bằng `8` vì trước đó đã
+   nạp 8 thông điệp vào hàng đợi.
+2. **Job sẽ không có vẻ như đã hoàn thành**, dù mọi phần tử trong hàng đợi đã được xử lý xong. Đây
+   là chỗ trực giác sai: đặt dư trông như vô hại, nhưng bài nói rõ Job **khởi động thêm các Pod**,
+   và những Pod này **bị chặn chờ một thông điệp** không bao giờ tới. Ngược lại, đặt `completions`
+   nhỏ hơn số phần tử thì **không phải tất cả các phần tử sẽ được xử lý**. Muốn đúng, bạn phải tự
+   xây cơ chế đo kích thước hàng đợi rồi đặt số lần hoàn thành cho khớp.
+3. Ưu điểm: **bạn không cần sửa chương trình worker để nó biết về hàng đợi** — `amqp-consume` lấy
+   thông điệp rồi truyền vào đầu vào chuẩn của chương trình, nên chương trình cũ đưa vào image là
+   chạy được. Hai cái giá: **phải chạy một dịch vụ hàng đợi thông điệp**, và mẫu **tạo một Pod cho
+   mỗi phần tử công việc**, nên với các phần tử chỉ mất vài giây thì chi phí phụ trội lớn.
+4. **Một dịch vụ hàng đợi chạy trong cluster** (bài dựng RabbitMQ qua một Service), và **một
+   container image registry để đẩy image worker lên**, kèm Docker trên máy cục bộ để build. Đó
+   đúng là hai điều kiện bài liệt kê ở mục *Trước khi bạn bắt đầu*, và cũng là lý do lab chỉ dựng
+   được hình dạng của mẫu chứ không chạy trọn ví dụ.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -5,6 +5,54 @@
 > Trang này hướng dẫn cách cấp phát thiết bị cho các Pod của bạn bằng cấp phát tài nguyên động
 > (dynamic resource allocation — DRA). Các hướng dẫn này dành cho người vận hành workload.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 13 — Lập lịch và workload nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao)
+→ dòng **Thực hành**, bài 4/5 · Kiểm chứng ở [Lab 13 — DRA](labs/LAB-13-DRA.md) phần B4.
+
+Bài này viết cho **người vận hành workload**, không phải cho quản trị viên — đó là lý do nó bắt
+đầu bằng `kubectl get deviceclasses` chứ không bằng việc tạo ra DeviceClass. Cluster lab không có
+thiết bị nào, nên ở phần B4 của Lab 13 bạn chỉ đi tới **đúng chỗ mà bài nói luồng sẽ dừng lại**:
+Pod ở trạng thái pending.
+
+**Phải hiểu ở lần đọc này:**
+
+- Chọn giữa hai cách claim theo đúng tiêu chí ở mục *Claim tài nguyên*: **ResourceClaim** tạo thủ
+  công khi nhiều Pod cần **chia sẻ** cùng nhóm thiết bị, hoặc khi claim phải sống lâu hơn vòng đời
+  một Pod; **ResourceClaimTemplate** khi mỗi Pod cần **thiết bị riêng** nhưng cấu hình giống nhau
+  — ví dụ các Pod của một Job chạy song song.
+- Yêu cầu thiết bị nằm ở **hai chỗ** trong Pod spec: khai báo tại `pod.spec.resourceClaims`, mỗi
+  mục đặt đúng **một** trong `resourceClaimName` hoặc `resourceClaimTemplateName`; rồi container
+  gọi tên claim đó tại `resources.claims`. Trong Job ví dụ, `container1` và `container2` cùng gọi
+  `shared-gpu-claim` nên **chia sẻ** thiết bị, còn `container0` gọi `separate-gpu-claim` sinh từ
+  template.
+- Hậu quả khi tham chiếu một ResourceClaim **chưa tồn tại**: Pod **ở trạng thái pending cho đến
+  khi ResourceClaim được tạo** — không phải lỗi lúc tạo Pod. Bài cũng khuyến cáo **không** tham
+  chiếu một ResourceClaim tự động sinh ra, vì claim đó bị ràng buộc vào vòng đời của Pod đã kích
+  hoạt việc sinh ra nó.
+- Điểm khởi đầu của người vận hành workload là `kubectl get deviceclasses`; **lỗi quyền ở lệnh này
+  không phải lỗi cấu hình của bạn** — bài bảo đi hỏi quản trị viên cluster hoặc nhà cung cấp driver
+  về các thuộc tính thiết bị khả dụng.
+- Hai bước khắc phục sự cố của bài: đi sâu dần **Job → Pod → ResourceClaim** và `kubectl describe`
+  ở từng cấp để tìm field trạng thái hay event giải thích được; còn lỗi `must specify one of:
+  resourceClaimName, resourceClaimTemplateName` thì kiểm hai field trên, và nếu chúng đã đúng thì
+  nghi một mutating Pod webhook được build trên các API Kubernetes < 1.32.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Biểu thức CEL trong `selectors` — `device.attributes[…]`, `device.capacity[…] == quantity("64Gi")` | phải có ResourceSlice thật mới biết thuộc tính nào tồn tại; không có thiết bị thì mọi selector đều không khớp | bài [271](271-set-up-dra-cluster-vi.md) mục *Tạo DeviceClass*, bài kế của nhóm; [Lab 13](labs/LAB-13-DRA.md) phần B3.2 |
+| Cơ chế `completions: 10` và `parallelism: 2` của Job ví dụ | ở đây Job chỉ là cái vỏ để cho thấy hai chỗ khai báo claim | bài [67](67-job-vi.md), đã đọc ở [giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller) |
+| Chạy thật Job ví dụ rồi xem thiết bị được cấp phát, và mục *Dọn dẹp* đi kèm | cluster lab không có GPU và không có DRA driver | [Lab 13](labs/LAB-13-DRA.md) — chỉ nhánh A cấp phát thật; nhánh B dừng lại ở trạng thái pending |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.35 [stable]`
 
 Trang này hướng dẫn cách cấp phát thiết bị cho các Pod của bạn bằng
@@ -265,3 +313,58 @@ bước sau:
 ## Tiếp theo (What's next)
 
 * [Tìm hiểu thêm về DRA](149-dynamic-resource-allocation-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 13:
+
+1. Bài cho hai cách claim tài nguyên. Tiêu chí nào quyết định dùng ResourceClaim tạo thủ công, và
+   tiêu chí nào quyết định dùng ResourceClaimTemplate?
+2. Một Pod yêu cầu thiết bị bằng DRA phải viết vào **hai** chỗ trong spec. Hai chỗ đó là gì, và
+   ràng buộc "đúng một trong hai field" áp cho chỗ nào?
+3. **Câu bẫy.** Trong Job ví dụ, `container1` và `container2` cùng ghi `shared-gpu-claim`, còn
+   `container0` ghi `separate-gpu-claim`. Ba container đó dùng ba bộ thiết bị riêng phải không? Và
+   khi Job chạy `parallelism: 2`, hai Pod có dùng chung `separate-gpu-claim` không?
+4. Trên cluster lab bạn tạo một Pod tham chiếu `resourceClaimName: example-resource-claim` mà quên
+   tạo ResourceClaim đó trước. Pod rơi vào trạng thái nào, nó có bao giờ được đặt lên
+   `lab-k8s-worker1` hay `lab-k8s-worker2` không, và bài bảo lần theo trình tự nào để tìm nguyên
+   nhân?
+5. Bạn chạy `kubectl get deviceclasses` và nhận lỗi về quyền. Theo bài, đó là dấu hiệu của chuyện
+   gì và bạn phải làm gì tiếp?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Dùng **ResourceClaim tạo thủ công** khi muốn **nhiều Pod chia sẻ quyền truy cập cùng một nhóm
+   thiết bị**, hoặc khi muốn **claim tồn tại lâu hơn vòng đời của một Pod**. Dùng
+   **ResourceClaimTemplate** khi muốn **mỗi Pod có thiết bị riêng biệt nhưng cấu hình tương tự
+   nhau** — bài lấy ví dụ các Pod của một Job chạy song song; khi đó Kubernetes tự sinh và quản lý
+   một ResourceClaim cho từng Pod.
+2. Chỗ thứ nhất: **`pod.spec.resourceClaims`** — khai báo claim ở cấp Pod. Chỗ thứ hai:
+   **`resources.claims` của container** — gọi lại claim đó theo tên. Ràng buộc "đúng một trong
+   `resourceClaimName` hoặc `resourceClaimTemplateName`" áp cho **từng mục của
+   `pod.spec.resourceClaims`**; vi phạm sẽ ra lỗi `must specify one of: resourceClaimName,
+   resourceClaimTemplateName`.
+3. **Không.** `container1` và `container2` **chia sẻ quyền truy cập vào các thiết bị từ
+   ResourceClaim `shared-gpu-claim`** — một claim, dùng chung. Chỉ `container0` mới có phần riêng,
+   vì `separate-gpu-claim` trỏ tới một **ResourceClaimTemplate**. Vế sau cũng vậy: template nghĩa
+   là **Kubernetes sinh một ResourceClaim riêng cho từng Pod**, nên hai Pod chạy song song
+   **không** dùng chung — đây đúng là chỗ dễ nhầm, vì trong manifest hai loại nằm cạnh nhau và
+   trông giống nhau, chỉ khác đúng tên field `resourceClaimName` hay `resourceClaimTemplateName`.
+4. Pod **ở trạng thái pending cho đến khi ResourceClaim được tạo** — tham chiếu tới một
+   ResourceClaim chưa tồn tại không làm hỏng việc tạo Pod. Và **không**: pending nghĩa là Pod chưa
+   được lập lịch, nên nó **không hề được đặt lên `lab-k8s-worker1` hay `lab-k8s-worker2`** — nó chỉ
+   nằm chờ. Trình tự tìm nguyên nhân của bài: đi **sâu dần từ Job xuống các Pod rồi tới các
+   ResourceClaim**, dùng `kubectl describe` ở từng cấp để xem có field trạng thái hay event nào
+   giải thích vì sao workload không khởi động.
+5. Đó là dấu hiệu **bạn không có quyền lấy danh sách DeviceClass**, chứ không phải cluster hỏng.
+   Bài bảo **hỏi quản trị viên cluster hoặc nhà cung cấp driver** về các thuộc tính thiết bị khả
+   dụng — vì DeviceClass do quản trị viên và driver tạo ra, không phải do người vận hành workload.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

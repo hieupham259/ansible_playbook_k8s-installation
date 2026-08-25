@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
-bài 1/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 1/6 · Kiểm chứng ở [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md).
 
 Bài này là **trang mục lục** của cả nhánh policy, không phải bài dạy một cơ chế. Nó dài chưa
 tới 90 dòng và phần lớn chỉ liệt kê rồi trỏ đi nơi khác. Đọc nó để lấy khung phân loại: sau
@@ -174,7 +174,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    trong mục *Áp dụng chính sách bằng cấu hình Kubelet*. Không tạo được bằng đối tượng API trong
    namespace vì bài nói rõ đây là **cấu hình Kubelet trên mỗi worker node**, tức nó sống ở phía
    node chứ không phải trong API. Hệ quả trực tiếp cho cluster của bạn: muốn áp chính sách đó
-   thì phải đụng vào cả `k8s-worker1` lẫn `k8s-worker2`, không có cách nào `kubectl apply` một
+   thì phải đụng vào cả `lab-k8s-worker1` lẫn `lab-k8s-worker2`, không có cách nào `kubectl apply` một
    file YAML là xong.
 
 </details>

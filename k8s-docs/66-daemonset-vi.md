@@ -14,10 +14,10 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 5/14 ·
-Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md).
 
 Bài này mô tả đúng thứ đang chạy trên cluster của bạn: Flannel là một DaemonSet. Đọc xong,
-chạy `kubectl get ds -n kube-system` trên `k8s-master` để nhìn thấy nó. Bài có nhắc tới
+chạy `kubectl get ds -n kube-system` trên `lab-k8s-master` để nhìn thấy nó. Bài có nhắc tới
 `nodeSelector`, `affinity`, taint, PriorityClass và Service — toàn thứ của giai đoạn 5 và 7;
 mơ hồ ở những đoạn đó là bình thường.
 
@@ -361,7 +361,7 @@ node nơi nó đang chạy có mạng cluster hoạt động bình thường.
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
 
-1. Cluster lab của bạn có 1 control plane `k8s-master` và 2 worker. Bạn apply **nguyên văn**
+1. Cluster lab của bạn có 1 control plane `lab-k8s-master` và 2 worker. Bạn apply **nguyên văn**
    file `daemonset.yaml` fluentd trong bài. Có mấy Pod được tạo, và điều gì trong manifest
    quyết định con số đó?
 2. **Câu bẫy.** DaemonSet controller có tự đặt `.spec.nodeName` cho các Pod nó tạo không? Nếu
@@ -375,7 +375,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 <details>
 <summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
 
-1. **Ba Pod** — một trên mỗi node, kể cả `k8s-master`. Quyết định nằm ở hai toleration được
+1. **Ba Pod** — một trên mỗi node, kể cả `lab-k8s-master`. Quyết định nằm ở hai toleration được
    viết sẵn trong Pod template của ví dụ: `node-role.kubernetes.io/control-plane` và
    `node-role.kubernetes.io/master`, cả hai với `effect: NoSchedule`. Chính comment trong file
    nói rõ "hãy xóa chúng nếu control plane node của bạn không nên chạy pod". Bỏ hai toleration

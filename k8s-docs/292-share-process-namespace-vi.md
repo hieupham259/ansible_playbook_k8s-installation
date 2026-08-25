@@ -2,6 +2,50 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
+→ nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 7/11 ·
+Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B8.1.
+
+Bài bật một trường duy nhất, nhưng mục cuối — *Hiểu về chia sẻ process namespace* — mới là phần
+phải đọc kỹ: nó liệt kê ba thứ **đổi hành vi** khi bạn bật trường đó, và cả ba đều là bẫy vận
+hành.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bật bằng field **`shareProcessNamespace: true`** trong `.spec` của Pod. Hệ quả trực tiếp: tiến
+  trình trong một container **hiển thị với tất cả container khác trong cùng Pod** — `ps ax` trong
+  container `shell` thấy cả tiến trình nginx.
+- **Tiến trình của container không còn mang PID 1.** PID 1 là **pod sandbox** (`/pause` trong ví
+  dụ). Container nào đòi PID 1 mới khởi động được — ví dụ container dùng `systemd` — sẽ hỏng; và
+  `kill -HUP 1` bắn tín hiệu vào sandbox chứ không vào ứng dụng.
+- Gửi tín hiệu sang tiến trình của container khác thì được, nhưng **cần capability `SYS_PTRACE`**
+  — trong manifest nó nằm ở `securityContext.capabilities.add` của container `shell`. Ví dụ:
+  `kill -HUP 8` để nginx nạp lại worker process.
+- Đọc được **hệ thống tập tin của container khác** qua liên kết **`/proc/$pid/root`**, ví dụ
+  `head /proc/8/root/etc/nginx/nginx.conf`.
+- Cái giá phải trả, chính là hai điểm cuối của mục *Hiểu về chia sẻ process namespace*: mọi thứ
+  nhìn thấy trong `/proc` — kể cả **mật khẩu truyền qua argument hoặc biến môi trường** — và cả
+  secret nằm trên filesystem, **chỉ còn được bảo vệ bằng quyền Unix và quyền filesystem thông
+  thường**. Ranh giới giữa các container trong Pod không còn.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ý "cấu hình một sidecar container xử lý log" ở đoạn mở đầu | sidecar là một bài riêng của chính nhóm này | bài [51](51-sidecar-containers-vi.md), thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B6 |
+| Ý "khắc phục sự cố các container image không kèm shell" | đó là việc của ephemeral container và `kubectl debug` | bài [52](52-ephemeral-containers-vi.md), thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B8.2 |
+| Capability của Linux kernel **là gì** (ở đây chỉ cần biết `SYS_PTRACE` là thứ phải thêm) | capability, seccomp, AppArmor, SELinux là một chủ đề bảo mật riêng | bài [127](127-linux-kernel-security-vi.md) ở [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), thực hành ở Lab 9b |
+| `stdin: true` và `tty: true` trong manifest | chỉ để `kubectl exec -it` có shell tương tác | dùng ngay ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B8.1 |
+
+---
+
 Trang này hướng dẫn cách cấu hình chia sẻ process namespace cho một pod. Khi tính năng chia sẻ
 process namespace được bật, các process (tiến trình) trong một container sẽ hiển thị với tất cả
 các container khác trong cùng pod.
@@ -140,3 +184,50 @@ container khác, vì vậy điều quan trọng là phải hiểu những khác 
 1. **Hệ thống tập tin của container hiển thị với các container khác trong pod thông qua liên
    kết `/proc/$pid/root`.** Điều này giúp việc gỡ lỗi dễ dàng hơn, nhưng cũng có nghĩa là các
    bí mật (secret) trên hệ thống tập tin chỉ được bảo vệ bởi các quyền của hệ thống tập tin.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Field nào bật tính năng này, nó nằm ở đâu trong manifest, và hệ quả trực tiếp quan sát được là
+   gì?
+2. **Câu bẫy.** `ps ax` trong container `shell` cho thấy PID 1 là `/pause`, còn nginx mang PID 8.
+   Một container quen chạy `kill -HUP 1` để tự nạp lại cấu hình sẽ làm gì trong Pod này? Và loại
+   container nào bài cảnh báo là có thể **từ chối khởi động**?
+3. Bạn dựng Pod hai container này trên `lab-k8s-worker2` và muốn từ container `shell` gửi
+   `SIGHUP` cho nginx, rồi đọc `/etc/nginx/nginx.conf` của container nginx. Manifest phải có thêm
+   gì, và hai thao tác đó gõ như thế nào?
+4. Mục *Hiểu về chia sẻ process namespace* liệt kê ba khác biệt. Hai khác biệt sau cùng dẫn tới
+   một cảnh báo bảo mật chung — cảnh báo đó là gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **`shareProcessNamespace: true`**, đặt trong **`.spec` của Pod** (ngang cấp với `containers`,
+   không nằm trong từng container). Hệ quả: **các process trong một container hiển thị với tất cả
+   các container khác trong cùng Pod** — chạy `ps ax` trong container `shell` thấy cả
+   `nginx: master process` lẫn `nginx: worker process`.
+2. Nó sẽ **gửi tín hiệu tới pod sandbox** (`/pause`), **không** tới nginx — vì trong Pod chia sẻ
+   process namespace, **process của container không còn mang PID 1 nữa**. Đây là chỗ trực giác
+   sai: `kill -HUP 1` là thói quen đúng trong container thường, nhưng ở đây PID 1 đã đổi chủ.
+   Muốn trúng nginx thì phải nhắm đúng PID thật của nó (`kill -HUP 8` trong ví dụ). Loại container
+   bài cảnh báo có thể **từ chối khởi động** là container **cần có PID 1**, ví dụ container dùng
+   `systemd`.
+3. Manifest phải cấp cho container `shell` capability **`SYS_PTRACE`**, qua
+   `securityContext.capabilities.add`. Sau đó, trong container `shell`: `kill -HUP 8` (đổi `8`
+   cho khớp PID thật của nginx) để nginx khởi động lại worker process — `ps ax` sẽ cho thấy worker
+   mang PID mới. Còn đọc file của container kia thì đi qua liên kết `/proc/$pid/root`:
+   `head /proc/8/root/etc/nginx/nginx.conf`.
+4. Rằng **ranh giới cô lập giữa các container trong Pod biến mất**, và những gì trước đây được
+   ngăn bằng container giờ **chỉ còn được bảo vệ bằng quyền Unix và quyền filesystem thông
+   thường**. Cụ thể: toàn bộ thông tin nhìn thấy trong `/proc` — kể cả **mật khẩu truyền dưới dạng
+   argument hoặc biến môi trường** — lộ ra với container khác; và **secret nằm trên hệ thống tập
+   tin** cũng đọc được qua `/proc/$pid/root`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -5,6 +5,67 @@
 > Việc cấu hình tầng tổng hợp (aggregation layer) cho phép mở rộng Kubernetes apiserver bằng các
 > API bổ sung không thuộc nhóm API lõi của Kubernetes.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 28 — Mở rộng Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes),
+bài 2/11 · Phần II không có lab riêng: thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) và tự chấm bằng **Checkpoint** ghi ở cuối mục giai đoạn
+28. Phần kiểm chứng được ngay: **đọc lại cấu hình tầng tổng hợp mà cluster lab đã có sẵn** — cụm cờ
+`--requestheader-*` và `--proxy-client-*` của kube-apiserver trên `lab-k8s-master`, ConfigMap
+`extension-apiserver-authentication` trong `kube-system`, và object `APIService` của metrics-server.
+
+**Đây đúng là phần [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md) đã ghi nợ.** Bảng "không kiểm chứng được
+trong lab này" ở mục 1.1 của Lab 14 nói rõ lý do: dựng một extension API server của riêng bạn thì
+**phải viết và build binary cùng image, rồi cấu hình cụm cờ `--requestheader-*` cho
+kube-apiserver** — nên lab đẩy sang đúng bài này và bài
+[380](380-setup-extension-api-server-vi.md). Ở Lab 14 bạn mới làm phần **đọc được**: metrics-server
+là APIService duy nhất trên cluster lab có `.spec.service`, tức API group được proxy sang một server
+khác. Bài này giải thích **vì sao đường proxy đó chạy được** và cái giá cấu hình của nó. Đọc kỹ
+luồng xác thực; phần đăng ký `APIService` để dành cho bài 380.
+
+**Phải hiểu ở lần đọc này:**
+
+- Khác biệt gốc so với CRD, bài nêu ngay đầu mục *Luồng xác thực*: aggregated API có **một server
+  khác** tham gia bên cạnh kube-apiserver, và **hai chiều đều phải xác thực được nhau**. Mọi rắc rối
+  cấu hình của bài đều sinh ra từ chỗ này; CRD không có vấn đề đó vì không có server thứ hai.
+- Năm bước của luồng: kube-apiserver **xác thực và phân quyền người dùng** → **proxy** yêu cầu sang
+  extension API server → extension API server **xác thực rằng yêu cầu đến từ kube-apiserver** →
+  **phân quyền cho người dùng ban đầu** → **thực thi**. Chú ý bước 4: bên kia phân quyền cho *người
+  dùng gốc*, không phải cho kube-apiserver.
+- Hai câu hỏi mà kube-apiserver phải trả lời khi proxy, và hai cụm cờ tương ứng: **tự xác thực bằng
+  client certificate** (`--proxy-client-cert-file`, `--proxy-client-key-file`, kèm
+  `--requestheader-client-ca-file` và `--requestheader-allowed-names` để bên kia kiểm), và **báo
+  danh tính người dùng gốc qua http header** (`--requestheader-username-headers`,
+  `--requestheader-group-headers`, `--requestheader-extra-headers-prefix`).
+- ConfigMap `extension-apiserver-authentication` trong namespace `kube-system` là **kênh truyền cấu
+  hình giữa hai server**: kube-apiserver ghi vào đó CA certificate, danh sách CN được phép và tên
+  các header; extension API server đọc lại để kiểm yêu cầu. Muốn đọc, nó cần role
+  `extension-apiserver-authentication-reader`; muốn gửi `SubjectAccessReview` để phân quyền, service
+  account của nó cần ClusterRole `system:auth-delegator`.
+- Bẫy lớn nhất của bài, mục [*Tái sử dụng CA và xung đột*](#ca-reusage-and-conflicts):
+  `--client-ca-file` và `--requestheader-client-ca-file` hoạt động **độc lập**, và yêu cầu được kiểm
+  với `--requestheader-client-ca-file` **trước**. Dùng **chung một CA** cho cả hai thì client thường
+  lẽ ra hợp lệ sẽ **bị từ chối**, vì CN của họ không nằm trong `--requestheader-allowed-names` —
+  kubelet, các thành phần control plane và cả người dùng cuối đều có thể mất đường xác thực.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Đăng ký các đối tượng APIService* và *Liên hệ với extension API server* — ví dụ YAML với `groupPriorityMinimum`, `versionPriority`, `caBundle`, khối `service` và `port` mặc định 443 | là **bước cuối**, chỉ có nghĩa khi đã có một server thứ hai đang chạy để trỏ tới | bài [380](380-setup-extension-api-server-vi.md) của chính giai đoạn 28 |
+| Cờ `--enable-aggregator-routing=true` | chỉ cần cho topology **không** chạy kube-proxy trên host đang chạy API server | khi dựng extension API server thật ở bài [380](380-setup-extension-api-server-vi.md) |
+| Mục *Trước khi bạn bắt đầu* — minikube và danh sách sân chơi Kubernetes | bạn đã có cluster ba VM từ Lab 00; lộ trình không dùng minikube hay cluster dùng chung | [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
+| Sơ đồ swimlane `aggregation-api-auth-flow` và câu về mã nguồn sơ đồ | là hình minh họa lại đúng năm bước đã đọc bằng chữ, không thêm thông tin | không cần |
+
+---
+
 Việc cấu hình [tầng tổng hợp (aggregation layer)](180-apiserver-aggregation-vi.md) cho phép
 Kubernetes apiserver được mở rộng bằng các API bổ sung, vốn không phải là một phần của các API lõi
 của Kubernetes.
@@ -312,3 +373,68 @@ spec:
   [Mở rộng Kubernetes API bằng tầng tổng hợp](180-apiserver-aggregation-vi.md).
 * Tìm hiểu cách
   [Mở rộng Kubernetes API bằng Custom Resource Definitions](378-custom-resource-definitions-vi.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 28:
+
+1. Bài mở đầu mục *Luồng xác thực* bằng một so sánh với CRD. Khác biệt gốc giữa hai cách mở rộng API
+   là gì, và vì sao chính khác biệt đó sinh ra toàn bộ đống cấu hình certificate trong bài?
+2. Khi kube-apiserver chuyển tiếp một yêu cầu sang extension API server, nó phải trả lời hai câu
+   hỏi. Đó là hai câu nào, mỗi câu được trả lời bằng cơ chế gì, và cụm cờ nào phục vụ cho từng cơ
+   chế?
+3. **Câu bẫy.** Cluster của bạn đã có sẵn một CA dùng cho `--client-ca-file`. Để đỡ phải quản lý hai
+   bộ certificate, bạn trỏ luôn `--requestheader-client-ca-file` vào cùng CA đó. Chuyện gì hỏng, và
+   hỏng với ai?
+4. Trên `lab-k8s-master`, metrics-server phục vụ `v1beta1.metrics.k8s.io` qua tầng tổng hợp — bạn đã
+   đọc APIService đó ở Lab 14. Theo bài, nó phải đọc được một ConfigMap trong `kube-system` thì mới
+   kiểm được yêu cầu đến từ kube-apiserver: ConfigMap đó tên gì, chứa những gì, và bản thân
+   metrics-server cần hai quyền dựng sẵn nào?
+5. Cluster có ba extension API server khác nhau. kube-apiserver phải chuẩn bị mấy client certificate,
+   và điều đó nói lên gì về ý nghĩa của `--requestheader-allowed-names`?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **CRD không có server thứ hai, aggregated API thì có.** Với CRD, kube-apiserver tự phục vụ kiểu
+   tài nguyên mới. Với aggregated API, **extension API server của bạn** tham gia bên cạnh
+   kube-apiserver tiêu chuẩn, và **cả hai chiều đều phải nói chuyện được**: kube-apiserver cần gọi
+   sang extension API server, còn extension API server cần gọi ngược lại kube-apiserver. Muốn đường
+   đó bảo mật thì kube-apiserver phải **tự xác thực bằng certificate x509**, và từ đó mọi thứ về CA,
+   CN và header trong bài mới xuất hiện.
+2. Câu một: **kube-apiserver xác thực với extension API server như thế nào**, để bên kia tin yêu cầu
+   thực sự đến từ một kube-apiserver hợp lệ. Trả lời bằng **client certificate qua TLS**, khai bằng
+   `--proxy-client-cert-file` và `--proxy-client-key-file`; phía kiểm thì dựa vào
+   `--requestheader-client-ca-file` (CA đã ký cert đó) và `--requestheader-allowed-names` (danh sách
+   CN được chấp nhận). Câu hai: **báo cho extension API server biết username và group mà yêu cầu ban
+   đầu đã xác thực thành công**. Trả lời bằng **http header của yêu cầu được chuyển tiếp**, tên
+   header khai bằng `--requestheader-username-headers`, `--requestheader-group-headers` và
+   `--requestheader-extra-headers-prefix`.
+3. **Hỏng phần xác thực client thông thường, và hỏng với gần như tất cả mọi người.** Bài giải thích
+   theo đúng thứ tự kiểm: yêu cầu được đối chiếu với CA của `--requestheader-client-ca-file`
+   **trước**, rồi mới tới `--client-ca-file`. Khi hai cờ dùng chung một CA, certificate của client
+   thường **khớp ngay ở vòng đầu**, nên kube-apiserver chuyển sang kiểm tiếp `CN=` với
+   `--requestheader-allowed-names` — mà CN của họ đâu có nằm trong danh sách đó, nên **bị từ chối**.
+   Nạn nhân: **kubelet, các thành phần control plane khác, và người dùng cuối**. Vì vậy bài cảnh báo
+   thẳng: **không** tái sử dụng một CA đang dùng ở ngữ cảnh khác, và dùng **hai CA khác nhau** cho
+   hai cờ này.
+4. ConfigMap tên **`extension-apiserver-authentication`**, nằm trong namespace `kube-system`, do
+   **chính kube-apiserver tạo và ghi**. Nó chứa **client CA certificate**, **danh sách CN được phép**
+   và **tên các header** chứa username, group cùng thông tin phụ. Hai quyền dựng sẵn:
+   **role `extension-apiserver-authentication-reader`** trong `kube-system` để đọc được ConfigMap
+   đó, và **ClusterRole `system:auth-delegator`** gán cho service account của nó để được phép gửi
+   `SubjectAccessReview` sang kube-apiserver khi phân quyền.
+5. **Chỉ một.** Bài nói rõ kube-apiserver dùng **cùng một client certificate để xác thực với *tất
+   cả* các extension API server** — nó không sinh cert riêng cho từng server, mà chỉ chứng minh "tôi
+   là kube-apiserver", và cert đó được tái sử dụng cho mọi yêu cầu chuyển tiếp. Hệ quả:
+   `--requestheader-allowed-names` **không phải danh sách các server được phép**, mà là danh sách
+   **CN hợp lệ của bên proxy** — tức của chính kube-apiserver. Đặt nó rỗng
+   (`--requestheader-allowed-names=""`) là báo cho extension API server chấp nhận **bất kỳ CN nào**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

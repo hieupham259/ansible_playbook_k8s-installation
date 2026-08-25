@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 5/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 Bài này là **bản nâng cấp của `podAntiAffinity`**: thay vì "một miền tối đa một Pod" hoặc
 "không ép được gì cả", nó cho bạn chỉnh mức lệch được phép bằng một con số. Toàn bộ ví dụ dùng

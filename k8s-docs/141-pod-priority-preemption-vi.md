@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 6/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 Đây là bài đầu tiên của nhóm nói về việc **lấy chỗ của Pod đang chạy**. Bốn bài trước chỉ mô
 tả cách chọn chỗ trống; từ đây trở đi cluster bắt đầu chấm dứt Pod. Bài chia làm hai nửa rõ

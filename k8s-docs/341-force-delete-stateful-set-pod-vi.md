@@ -5,6 +5,55 @@
 > Trang này chỉ cho bạn cách xóa các Pod thuộc một StatefulSet, và giải thích những điều cần
 > cân nhắc khi thực hiện việc đó.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 4 — Workload controller](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller)
+→ [4b. StatefulSet, DaemonSet, Job và autoscaling](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling),
+bài 1/7 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md),
+**phần B3.2**.
+
+Đây là bài **cảnh báo**, không phải bài hướng dẫn thao tác hằng ngày. Nó nói ngay từ đầu rằng
+trong hoạt động bình thường **không bao giờ** có nhu cầu xóa cưỡng bức Pod của StatefulSet. Đọc
+nó như một danh sách rủi ro cần biết trước khi gõ lệnh, và nhớ rằng lab chỉ chạy thao tác này
+trên StatefulSet không có dữ liệu của riêng lab.
+
+**Phải hiểu ở lần đọc này:**
+
+- StatefulSet controller chịu trách nhiệm tạo, scale và xóa thành viên, và bảo đảm **ngữ nghĩa
+  nhiều nhất một**: tại bất kỳ thời điểm nào chỉ có **một** Pod mang một định danh cho trước đang
+  chạy trong cluster (mục *Những điều cần cân nhắc về StatefulSet*).
+- Xóa êm thấm bằng `kubectl delete pods <pod>` là an toàn, với điều kiện Pod **không** đặt
+  `pod.Spec.TerminationGracePeriodSeconds` bằng 0; kubelet chỉ gỡ tên Pod khỏi apiserver **sau
+  khi** Pod đã tắt êm (mục *Xóa Pod*).
+- Pod trên node không truy cập được **không tự bị xóa**: nó chuyển sang `Terminating` hoặc
+  `Unknown`. Bài liệt kê đúng ba đường để nó rời khỏi apiserver — xóa object Node, kubelet phản
+  hồi trở lại rồi tự kết thúc Pod, hoặc người dùng xóa cưỡng bức — và khuyến nghị hai cách đầu.
+- Xóa cưỡng bức `--grace-period=0 --force` **không chờ kubelet xác nhận** và **giải phóng tên Pod
+  ngay lập tức**. Controller lập tức tạo Pod thay thế mang đúng định danh đó, trong khi Pod cũ có
+  thể vẫn đang chạy — đây chính là cách ngữ nghĩa nhiều nhất một bị phá vỡ, dẫn tới chia não
+  (split brain) và mất dữ liệu ở hệ dựa trên quorum (mục *Xóa cưỡng bức*).
+- Khi xóa cưỡng bức, bạn đang **khẳng định** rằng Pod đó sẽ không bao giờ liên lạc lại với các Pod
+  khác trong StatefulSet. Nếu Pod vẫn kẹt `Unknown` sau lệnh đó, đường cuối là gỡ finalizer bằng
+  `kubectl patch pod <pod> -p '{"metadata":{"finalizers":null}}'`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cơ chế đứng sau trạng thái `Terminating`/`Unknown`: timeout của node condition và Node Controller | ở đây chỉ cần biết hệ quả — Pod không tự biến mất khi node mất liên lạc | bài [23](23-nodes-vi.md#node-controller) đã đọc ở [1a. Kiến trúc và mô hình điều khiển](00-ALO-TRINH-ADMIN.md#1a-kiến-trúc-và-mô-hình-điều-khiển) |
+| Chỉ dẫn dành cho kubectl phiên bản `<= 1.4` (bỏ cờ `--force`) | không liên quan tới phiên bản đang khóa của cluster lab | [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) |
+| Link *gỡ lỗi một StatefulSet* (bài [302](302-debug-statefulset-vi.md)) ở mục *Tiếp theo* | chẩn đoán workload hỏng là một mạch riêng, cần công cụ chưa học | [giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố) |
+
+---
+
 ## Trước khi bạn bắt đầu (Before you begin)
 
 - Đây là một tác vụ khá nâng cao và có khả năng vi phạm một số thuộc tính vốn có của StatefulSet.
@@ -106,3 +155,49 @@ Hãy luôn thực hiện việc xóa cưỡng bức Pod của StatefulSet một 
 
 Tìm hiểu thêm về
 [gỡ lỗi một StatefulSet](302-debug-statefulset-vi.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở nhóm 4b:
+
+1. Ngữ nghĩa nhiều nhất một của StatefulSet phát biểu điều gì, và vì sao xóa cưỡng bức lại phá vỡ
+   được nó? Bài nêu hậu quả cụ thể nào cho ứng dụng phân tán?
+2. `lab-k8s-worker2` mất kết nối mạng, các Pod StatefulSet trên đó chuyển sang `Terminating` hoặc
+   `Unknown`. Bài liệt kê ba đường để những Pod đó rời khỏi apiserver — ba đường nào, và bài
+   khuyến nghị dùng đường nào?
+3. **Câu bẫy.** Bài nói xóa êm thấm là an toàn. Vậy đặt `pod.Spec.TerminationGracePeriodSeconds`
+   bằng 0 cho Pod StatefulSet để nó vừa êm vừa nhanh thì sao? Bài đánh giá cách đó thế nào?
+4. Sau `kubectl delete pods <pod> --grace-period=0 --force`, Pod vẫn kẹt ở `Unknown`. Bài đưa ra
+   lệnh cuối cùng nào, và lệnh đó gỡ cái gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Nó phát biểu rằng **tại bất kỳ thời điểm nào, nhiều nhất một Pod mang một định danh cho trước
+   đang chạy trong cluster**. Xóa cưỡng bức phá vỡ nó vì lệnh **không chờ kubelet xác nhận Pod đã
+   kết thúc** mà **giải phóng tên Pod khỏi apiserver ngay**; StatefulSet controller liền tạo một
+   Pod thay thế **mang đúng định danh đó**, trong khi Pod cũ có thể vẫn đang chạy. Hậu quả bài nêu:
+   ứng dụng phân tán cấu hình theo một tập thành viên cố định sẽ có **hai thành viên cùng định
+   danh**, dẫn tới **chia não (split brain)** trong hệ dựa trên quorum và **mất dữ liệu**.
+2. Ba đường: **object Node bị xóa** (bởi bạn hoặc bởi Node Controller); **kubelet trên node phản
+   hồi trở lại**, tự kết thúc Pod và gỡ mục tương ứng khỏi apiserver; hoặc **người dùng xóa cưỡng
+   bức Pod**. Bài khuyến nghị **hai cách đầu**: node chết hẳn thì xóa object Node, còn nếu chỉ là
+   phân mảnh mạng thì khắc phục hoặc chờ nó tự hồi phục — khi mạng thông, kubelet sẽ hoàn tất việc
+   xóa và giải phóng tên Pod.
+3. **Rất không nên.** Đây là chỗ dễ nhầm vì lệnh vẫn là `kubectl delete pods` bình thường, trông
+   như xóa êm thấm. Nhưng bài nói rõ: để lệnh đó **dẫn tới kết thúc êm thấm**, Pod **không được**
+   đặt `TerminationGracePeriodSeconds` bằng 0; đặt bằng 0 giây là **không an toàn và hết sức không
+   nên làm** với Pod của StatefulSet. Grace period bằng 0 biến việc xóa êm thành xóa cưỡng bức
+   trên thực tế.
+4. `kubectl patch pod <pod> -p '{"metadata":{"finalizers":null}}'`. Nó **gỡ finalizer** của Pod,
+   để Pod được xóa khỏi cluster khi ngay cả lệnh xóa cưỡng bức cũng không đủ. Bài đặt lệnh này ở
+   cuối cùng và nhắc lại rằng mọi thao tác xóa cưỡng bức Pod StatefulSet phải làm **cẩn trọng và
+   với hiểu biết đầy đủ về rủi ro**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

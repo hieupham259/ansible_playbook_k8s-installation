@@ -13,8 +13,9 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — giai đoạn 18 Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ),
-bài 1/3 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ),
+bài 2/7 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này dài nhưng thực chất là **hai bài trong một**: nửa đầu là quy trình vận hành hằng ngày
 (kiểm tra hạn, gia hạn) mà mọi admin cluster kubeadm phải thuộc; nửa sau là các quy trình cho
@@ -735,8 +736,8 @@ Trả lời được các câu dưới đây mà không nhìn lại bài là đ�
 1. Cluster lab của bạn được dựng bằng kubeadm cách đây 11 tháng và chưa từng nâng cấp. Chuyện
    gì sắp xảy ra với các client certificate, và bài nêu những cách xử lý nào? Nếu control
    plane có nhiều node thì lệnh gia hạn thủ công phải chạy ở đâu?
-2. Sau khi chạy `kubeadm certs renew all` trên `k8s-master`, bạn chạy
-   `kubectl delete pod kube-apiserver-k8s-master -n kube-system` để khởi động lại apiserver.
+2. Sau khi chạy `kubeadm certs renew all` trên `lab-k8s-master`, bạn chạy
+   `kubectl delete pod kube-apiserver-lab-k8s-master -n kube-system` để khởi động lại apiserver.
    Cách này có tác dụng không? Nếu không thì phải làm thế nào?
 3. Output của `kubeadm certs check-expiration` không liệt kê `kubelet.conf` — vì sao, và các
    client certificate của kubelet thực tế nằm ở đâu?

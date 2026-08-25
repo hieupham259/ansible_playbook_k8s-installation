@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 2/8 ·
-Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 12](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md).
 
 Đây là bài **thực dụng nhất** của giai đoạn 12: mỗi lần bảo trì phần cứng, mỗi lần vá kernel rồi
 reboot, bạn đều đang dùng nội dung của bài này. Bài chia đôi rõ ràng — nửa đầu là **tắt nhẹ nhàng
@@ -239,14 +239,14 @@ Tìm hiểu thêm về các nội dung sau:
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 12:
 
-1. **Câu bẫy.** `k8s-worker2` chạy Ubuntu 24.04 với systemd, kubelet giữ nguyên cấu hình từ Lab
+1. **Câu bẫy.** `lab-k8s-worker2` chạy Ubuntu 24.04 với systemd, kubelet giữ nguyên cấu hình từ Lab
    00, và feature gate `GracefulNodeShutdown` bật mặc định. Bạn `sudo shutdown -h now`. Các Pod
    trên đó có được chấm dứt nhẹ nhàng không?
 2. Với `shutdownGracePeriod=30s` và `shutdownGracePeriodCriticalPods=10s`, pod thông thường có
    bao nhiêu giây, pod quan trọng có bao nhiêu giây, và ai bị chấm dứt trước?
 3. Khi kubelet biết node sắp tắt, nó chặn Pod mới bằng những lớp nào? Một Pod có toleration cho
    `node.kubernetes.io/not-ready:NoSchedule` có lọt qua được không?
-4. `k8s-worker1` mất phản hồi và bạn không chắc nó đang reboot hay đã chết. Có nên gắn ngay taint
+4. `lab-k8s-worker1` mất phản hồi và bạn không chắc nó đang reboot hay đã chết. Có nên gắn ngay taint
    `node.kubernetes.io/out-of-service` cho workload phục hồi nhanh không? Hậu quả nếu đoán sai?
 
 <details>

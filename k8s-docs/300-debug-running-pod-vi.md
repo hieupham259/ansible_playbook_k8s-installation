@@ -2,6 +2,67 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
+bài 7/10 · Giai đoạn này của Phần II không có lab riêng: thực hành trực tiếp trên cluster lab ở mốc
+`04-metrics-ready` (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)), tự chấm bằng Checkpoint ghi ở
+cuối mục giai đoạn trong lộ trình.
+
+**Đây là bài dài nhất giai đoạn 24, và nó không phải một quy trình tuần tự.** Nó là **hộp công cụ
+xếp theo thang leo**: `describe` và `logs` trước, rồi `exec`, rồi ephemeral container, rồi bản sao
+Pod, cuối cùng mới là shell trên node. Đọc để biết mỗi nấc dùng khi nào và nấc trước hết đường ở
+đâu — đừng đọc như một danh sách lệnh phải thuộc. Rất nhiều dòng trong bài là output mẫu; phần
+chữ giải thích sau mỗi khối output mới là chỗ cần dừng lại.
+
+Bài này là **nửa còn lại của cặp với bài [299](299-debug-pods-vi.md)**: 299 lo Pod **chưa chạy
+được**, bài này bắt đầu từ chỗ Pod **đã chạy** (hoặc đang crash trên một Node đã chọn).
+
+**Phải hiểu ở lần đọc này:**
+
+- Mục *Trước khi bạn bắt đầu* đặt điều kiện vào bài: **Pod phải đã được lập lịch và đang chạy**;
+  chưa chạy thì quay về nhánh gỡ lỗi ứng dụng. Và ranh giới quyền: các bước `kubectl` tiêu chuẩn
+  không cần gì thêm, còn các bước nâng cao **cần biết Pod nằm trên Node nào và có shell trên Node
+  đó**.
+- Mục *Dùng `kubectl describe pod`*: đọc đúng bốn chỗ — trạng thái container là một trong
+  `Waiting`/`Running`/`Terminated`; `Ready` phản ánh **lần readiness probe gần nhất** (không cấu
+  hình probe thì mặc định coi là sẵn sàng); `Restart Count` là dấu hiệu crash loop khi
+  `restartPolicy: Always`; và khối `Events` cuối cùng với ba cột `From`, `Reason`, `Message`. Bổ
+  sung ở mục *Ví dụ: gỡ lỗi Pod ở trạng thái Pending*: Event **thuộc namespace**, nên
+  `kubectl get events` phải kèm `--namespace` hoặc `--all-namespaces`.
+- Mục *Xem log của pod*: `kubectl logs ${POD_NAME} -c ${CONTAINER_NAME}`, và với container đã từng
+  crash thì **`--previous`** để lấy log của lần chạy trước. Đây là lệnh duy nhất còn dùng được khi
+  container hiện tại không tồn tại để `exec` vào.
+- **Thang leo bốn nấc khi cần vào bên trong**, mỗi nấc chữa đúng một giới hạn của nấc trước:
+  `kubectl exec` (mục *Gỡ lỗi bằng container exec*) — cần image có sẵn tiện ích; **ephemeral
+  container** bằng `kubectl debug -it <pod> --image=... --target=<container>` (mục *Gỡ lỗi bằng
+  ephemeral debug container*) — dùng khi image không có shell hoặc container đã crash; **bản sao
+  Pod** với `--copy-to` (mục *Gỡ lỗi bằng một bản sao của Pod*) — ba biến thể: thêm container
+  (`--share-processes`), đổi lệnh (`--container=<tên> -- sh`), đổi image (`--set-image=*=...`);
+  và cuối cùng **shell trên node** `kubectl debug node/<node> -it --image=...`.
+- Ba điều bắt buộc nhớ ở mục *Gỡ lỗi qua một shell trên node*: rootfs của Node được mount tại
+  **`/host`**; container chạy trong namespace IPC, Network và PID của host **nhưng không có đặc
+  quyền**, nên đọc một số thông tin tiến trình có thể thất bại và `chroot /host` có thể thất bại —
+  cần đặc quyền thì dùng `--profile=sysadmin`; và **mọi Pod gỡ lỗi đều phải tự tay xóa**, bài nhắc
+  `kubectl delete pod` sau từng ví dụ.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Khối YAML rất dài của `kubectl get pod -o yaml` | là bản đầy đủ của đúng thông tin `kubectl describe pod` đã trình bày; chỉ cần biết đây là chỗ tra khi cần một trường mà `describe` không in ra | Checkpoint [giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố) — đọc trên chính Pod của bạn |
+| Mục *Ví dụ: gỡ lỗi Pod ở trạng thái Pending* | Pod `Pending` là địa hạt của bài [299](299-debug-pods-vi.md); ở đây nó chỉ đóng vai ví dụ để dạy cách đọc `Events` | bài [299](299-debug-pods-vi.md) (bài 5/10) và ca Pod `Pending` của Checkpoint giai đoạn 24 |
+| Mục *Bắt và phân tích lưu lượng mạng của Node/Pod* (`tcpdump` trong debug container) | phải cài thêm gói từ mạng vào debug container, và sự cố mạng đã có quy trình riêng đầy đủ hơn | bài [301](301-debug-service-vi.md) (bài 6/10) và [giai đoạn 21](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy) |
+| Mục *Áp dụng Custom Profile* (`--custom`) | các static profile có sẵn đã đủ cho mọi ca của Checkpoint; `--custom` chỉ cần khi phải nắn `securityContext` theo yêu cầu riêng | bài [291](291-security-context-vi.md) và [115](115-pod-security-standards-vi.md) đã đọc ở [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
+
+---
+
 Trang này giải thích cách gỡ lỗi (debug) các Pod đang chạy (hoặc đang bị crash) trên một Node.
 
 ## Trước khi bạn bắt đầu (Before you begin)
@@ -859,3 +920,63 @@ Dọn dẹp Pod khi bạn dùng xong:
 ```shell
 kubectl delete pod myapp
 ```
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 24:
+
+1. **Câu bẫy.** Một Pod đang ở `CrashLoopBackOff`. Bạn gõ `kubectl exec -it <pod> -- sh` để "vào
+   xem nó lỗi gì". Cách đó có chạy không? Bài đưa những đường nào để nhìn vào bên trong đúng ca
+   này?
+2. Bạn chạy `kubectl debug node/lab-k8s-worker2 -it --image=ubuntu`. Ba điều bài dặn phải nhớ khi
+   mở phiên gỡ lỗi trên node là gì? Nếu `chroot /host` thất bại thì vì sao, và sửa bằng cách nào?
+   Xong việc thì còn phải làm gì?
+3. `kubectl debug --copy-to` có ba biến thể. Nêu tình huống dùng của từng biến thể, và nói rõ vì
+   sao biến thể đổi lệnh **bắt buộc** phải kèm `--container`.
+4. `kubectl describe pod` cho `Ready: True` nhưng ứng dụng vẫn trả lỗi cho người dùng. Cột `Ready`
+   khẳng định chính xác điều gì — và không khẳng định điều gì? Cột `Restart Count` dùng để phát
+   hiện triệu chứng nào?
+5. Container trong Pod đã crash và kubelet đã thay bằng container mới. Bạn cần đọc log của **lần
+   chạy đã crash**. Lệnh nào lấy được, và vì sao `kubectl exec` không thay thế được nó?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không chạy được.** `kubectl exec` cần một container **đang chạy** và cần image có sẵn tiện
+   ích gỡ lỗi — bài mở mục ephemeral container bằng đúng hai lý do đó: "vì container đã bị crash
+   hoặc image của container không có sẵn các tiện ích gỡ lỗi". Ba đường đúng cho ca này: **(a)**
+   `kubectl logs <pod> -c <container> --previous` để đọc log của lần chạy đã crash; **(b)** thêm
+   một **ephemeral container** bằng `kubectl debug -it <pod> --image=busybox:1.28 --target=<tên
+   container>`; **(c)** tạo **bản sao Pod đổi lệnh** —
+   `kubectl debug <pod> -it --copy-to=<pod>-debug --container=<tên> -- sh` — đúng cách bài dùng để
+   mô phỏng và xử lý "ứng dụng đang bị crash".
+2. Ba điều: **`kubectl debug` tự sinh tên Pod mới dựa trên tên Node**; **hệ thống file gốc của Node
+   được mount tại `/host`**; và **container chạy trong namespace IPC, Network và PID của host
+   nhưng pod này không có đặc quyền (privileged)**. `chroot /host` thất bại chính vì điều thứ ba —
+   pod không privileged, nên đọc một số thông tin tiến trình và `chroot` có thể hỏng. Sửa bằng cách
+   **tạo pod privileged thủ công hoặc dùng flag `--profile=sysadmin`**. Xong việc phải **tự xóa Pod
+   gỡ lỗi**: `kubectl delete pod node-debugger-<node>-xxxxx` — nó không tự biến mất.
+3. **Thêm một container mới** (`--image=... --share-processes`): ứng dụng đang chạy nhưng bạn cần
+   tiện ích gỡ lỗi không có trong image của nó; `--share-processes` để các container trong Pod nhìn
+   thấy tiến trình của nhau. **Đổi lệnh** (`--container=<tên> -- sh`): ứng dụng crash ngay khi khởi
+   động, hoặc bạn cần thêm flag gỡ lỗi vào lệnh. **Đổi image** (`--set-image=*=ubuntu`): chuyển một
+   Pod đang hoạt động bất thường từ image production sang image có bản build gỡ lỗi. Đổi lệnh phải
+   kèm `--container` vì **nếu không chỉ định tên container thì `kubectl debug` sẽ tạo một container
+   mới để chạy lệnh bạn đưa**, chứ không đổi lệnh của container bạn đang nhắm tới.
+4. `Ready` chỉ khẳng định **container có vượt qua lần readiness probe gần nhất hay không** — và nếu
+   container **không được cấu hình readiness probe nào thì nó mặc nhiên được coi là sẵn sàng**. Nó
+   **không** khẳng định ứng dụng đang phục vụ đúng. `Restart Count` cho biết container đã bị khởi
+   động lại bao nhiêu lần, hữu ích để **phát hiện vòng lặp crash (crash loop)** ở container có
+   `restartPolicy: Always`.
+5. **`kubectl logs ${POD_NAME} -c ${CONTAINER_NAME} --previous`** — bài nói rõ đây là cách truy cập
+   log crash của **lần chạy container trước**. `kubectl exec` không thay được vì nó chạy lệnh
+   **bên trong một container đang tồn tại**: container đã crash thì không còn ở đó để exec vào, và
+   container mới thì không giữ log của lần chạy cũ.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

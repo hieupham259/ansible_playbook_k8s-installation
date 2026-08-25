@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 9/9 ·
-Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 8a](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md).
 
 **Đây là tài liệu tra cứu, không phải bài học — đừng đọc tuần tự và đừng cố nhớ nội dung.**
 Lộ trình đánh dấu rõ như vậy. Cách dùng đúng: lướt **mục lục** một lần, đọc tên từng mục `##`
@@ -620,7 +620,7 @@ Có thể tìm thêm thông tin trong
 Đây là tài liệu tra cứu, nên ba câu dưới đây chỉ kiểm tra **cách dùng nó**, không kiểm tra bạn
 có thuộc từng lỗi hay không. Trả lời được mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
 
-1. Bạn vừa chạy `kubeadm init` trên `k8s-master` xong và chưa cài Flannel. `kubectl get pods -A`
+1. Bạn vừa chạy `kubeadm init` trên `lab-k8s-master` xong và chưa cài Flannel. `kubectl get pods -A`
    cho thấy Pod `coredns` ở trạng thái `Pending`. Có nên mở bài này tìm cách sửa không?
 2. `kubeadm init` treo ở dòng `[apiclient] Created API client, waiting for the control plane to
    become ready`. Bài liệt kê mấy nhóm nguyên nhân, và bạn dùng công cụ nào để nhìn vào

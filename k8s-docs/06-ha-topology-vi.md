@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 5/9 ·
-Kiểm chứng ở Lab 8b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 8b](labs/LAB-8B-HA-VOI-STACKED-ETCD.md).
 
 Bài ngắn nhất giai đoạn 8, và cũng là bài **quyết định**: lộ trình đánh dấu nó là *quyết định
 trước khi dựng HA*. Chọn sai topology thì hai bài sau bạn làm nhầm việc — bài
@@ -124,7 +124,7 @@ Cần tối thiểu ba host cho các control plane node và ba host cho các etc
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
 
-1. Cluster lab của bạn — `k8s-master` 192.168.100.111 cộng `k8s-worker1` và `k8s-worker2` —
+1. Cluster lab của bạn — `lab-k8s-master` 192.168.100.111 cộng `lab-k8s-worker1` và `lab-k8s-worker2` —
    đang nằm ở topology nào? Vì sao nó vẫn không phải là một cluster HA?
 2. Trong topology stacked, etcd member trên node cp1 có phục vụ `kube-apiserver` của cp2 không?
    Trong topology external thì quan hệ đó thế nào?

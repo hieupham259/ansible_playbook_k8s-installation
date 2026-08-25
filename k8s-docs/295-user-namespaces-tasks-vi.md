@@ -2,6 +2,45 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/user-namespaces/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
+→ nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 8/11 ·
+Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B9.2.
+
+Bài là mặt thi công của [55](55-user-namespaces-vi.md): một trường trong manifest, và **đúng hai
+lệnh** để tự chứng minh nó có tác dụng. Đọc để nắm hai lệnh đó và biết đọc kết quả của chúng.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bật bằng field **`hostUsers: false`** trong `.spec` của Pod — chỉ vậy, không cần gì thêm trong
+  manifest.
+- Ý nghĩa bảo mật, theo đúng lập luận của bài: tiến trình chạy với quyền root **trong** container
+  có đầy đủ đặc quyền với thao tác **bên trong** user namespace, nhưng **không có đặc quyền với
+  thao tác bên ngoài**. Nếu có container breakout, nó **không** thành root trên node; và
+  capability được cấp cho container **cũng không có hiệu lực trên host**.
+- Cách tự chứng minh, chạy cả trong Pod lẫn trên host rồi so sánh: `readlink /proc/self/ns/user`
+  — kết quả **phải khác nhau** giữa hai nơi; và `cat /proc/self/uid_map` — con số cuối **phải là
+  65536** bên trong container, còn trên host thì **lớn hơn**.
+- Điều kiện môi trường: **node phải là Linux**, và cluster **bắt buộc** có ít nhất một node đáp
+  ứng các yêu cầu nêu ở bài [55](55-user-namespaces-vi.md). Cluster có nhiều loại node lẫn lộn
+  thì phải tự lo cho Pod được lập lịch vào đúng node hỗ trợ.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Link "lập lịch (schedule) đến các node phù hợp" | ràng buộc Pod vào node là một chủ đề riêng | bài [138](138-assign-pod-node-vi.md) ở [giai đoạn 7](00-ALO-TRINH-ADMIN.md#giai-đoạn-7--lập-lịch-và-chính-sách-tài-nguyên); `nodeSelector` có làm sơ ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B11.2 |
+| Danh sách yêu cầu chi tiết mà node phải đáp ứng | nằm ở bài khái niệm, không nằm ở bài này | bài [55](55-user-namespaces-vi.md) của chính nhóm 3a, thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B9.1 |
+| Đoạn cuối "nếu bạn đang chạy kubelet bên trong một user namespace" và `readlink /proc/$pid/ns/user` | đó là rootless mode, chuyện của thành phần Node chứ không phải của Pod | bài [226](226-kubelet-in-userns-vi.md) của chính nhóm 3a |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [stable]`
 
 Trang này hướng dẫn cách cấu hình user namespace cho các Pod. Điều này cho phép bạn cô lập
@@ -127,3 +166,48 @@ readlink /proc/$pid/ns/user
 ```
 
 trong đó thay `$pid` bằng PID của kubelet.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Field nào bật user namespace cho một Pod, và bài mô tả mức thiệt hại đổi thế nào khi container
+   bị xâm nhập?
+2. **Câu bẫy.** Bạn exec vào Pod `userns` và thấy mình vẫn là `root`, uid 0. Vậy `hostUsers:
+   false` có tác dụng gì? Lệnh nào cho bạn thấy sự thật, và đọc kết quả ra sao?
+3. Bạn apply Pod `userns` lên cluster lab và nó chạy được trên `lab-k8s-worker1`. Điều đó có bảo
+   đảm nó chạy được trên `lab-k8s-worker2` không? Bài đòi cluster phải thỏa điều kiện gì, và bảo
+   làm gì khi cluster có nhiều loại node lẫn lộn?
+4. Ngoài `uid_map`, bài còn một lệnh nữa để đối chiếu trong Pod với trên host. Lệnh đó là gì, và
+   kết quả **phải** như thế nào thì mới đúng?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **`hostUsers: false`**, đặt trong `.spec` của Pod. Bài nói mức thiệt hại đổi như sau: **không**
+   dùng user namespace, container chạy root mà thoát ra được (container breakout) thì **có đặc
+   quyền root trên node**, và capability cấp cho container **cũng có hiệu lực trên host**. **Có**
+   user namespace thì **không điều nào trong hai điều đó còn đúng** — tiến trình chỉ đầy đủ đặc
+   quyền với thao tác **bên trong** namespace. Bài dẫn thêm: một số lỗ hổng mức HIGH/CRITICAL đã
+   không khai thác được khi user namespace được bật.
+2. Có tác dụng, và chính đây là chỗ trực giác đánh lừa: **root bên trong container không phải là
+   root trên host**. Bài mở đầu bằng đúng câu đó — "một tiến trình chạy với quyền root trong
+   container có thể chạy dưới một người dùng khác (không phải root) trên host". Lệnh cho thấy sự
+   thật là **`cat /proc/self/uid_map`**: trong container nó ra dạng `0  833617920  65536`, tức uid
+   0 bên trong được ánh xạ sang một dải uid **không phải 0** trên host. **Con số cuối trong
+   container phải là 65536**, còn chạy trên host thì con số đó **lớn hơn**.
+3. **Không bảo đảm.** Bài đặt điều kiện: cluster **bắt buộc** phải có ít nhất một node đáp ứng
+   các yêu cầu để dùng user namespace với Pod, và **hệ điều hành của node phải là Linux**. Khi
+   cluster có nhiều loại node lẫn lộn mà chỉ một số node hỗ trợ, bài bảo bạn phải **đảm bảo Pod
+   dùng user namespace được lập lịch đến đúng các node phù hợp**.
+4. **`readlink /proc/self/ns/user`** — nó cho biết tiến trình đang chạy trong user namespace nào.
+   Chạy trong Pod và chạy trên host phải cho **kết quả khác nhau**; giống nhau nghĩa là Pod vẫn
+   đang dùng chung user namespace với host, tức tính năng chưa có hiệu lực.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

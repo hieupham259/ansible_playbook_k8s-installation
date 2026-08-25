@@ -9,7 +9,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
 bài 4/10 · nối tiếp bài [308 — Debug node bằng Kubectl](308-kubectl-node-debug-vi.md);
 giai đoạn này không có lab riêng, thực hành trực tiếp trên cluster lab
 (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
@@ -222,7 +223,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    thì bản cài kubectl và `$PATH` không phải vấn đề — lỗi `i/o timeout` thay cho
    `Server Version` cho biết vấn đề nằm ở **đường kết nối tới cluster**: kubeconfig, mạng,
    VPN, hoặc API server.
-2. Chép từ **`/etc/kubernetes/admin.conf` trên control plane** (node `k8s-master` của
+2. Chép từ **`/etc/kubernetes/admin.conf` trên control plane** (node `lab-k8s-master` của
    cluster lab), hoặc xin từ admin cluster; trên cloud thì tạo lại bằng công cụ của nhà cung
    cấp. Trỏ kubectl tới file khác bằng **biến môi trường `$KUBECONFIG`** hoặc **flag
    `--kubeconfig`**.

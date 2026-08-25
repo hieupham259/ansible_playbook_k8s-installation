@@ -2,6 +2,58 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/migrating-telemetry-and-security-agents/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 27 — Di chuyển khỏi dockershim (cluster cũ)](00-ALO-TRINH-ADMIN.md#giai-đoạn-27--di-chuyển-khỏi-dockershim-cluster-cũ),
+bài 5/6 · Phần II không có lab riêng: tự chấm bằng **Checkpoint** ghi ở cuối mục giai đoạn 27 trong
+lộ trình. Bài này **không kiểm chứng được trên cluster lab**: không có agent nào bám vào Docker
+socket để mà di chuyển. Script rà soát ở mục *Nhận diện các DaemonSet phụ thuộc vào Docker Engine*
+thì chạy được, nhưng trên cluster lab nó **tất yếu trả về rỗng** — đó là xác nhận cluster lab nằm
+ngoài phạm vi bài, không phải kiểm chứng nội dung bài.
+
+**Đọc bài này như đọc hồ sơ bàn giao.** Lộ trình cho phép *bỏ qua toàn bộ giai đoạn 27 nếu cluster
+của bạn đã dùng containerd*, và cluster lab thuộc nhóm đó. Giá trị của bài nằm ở chỗ khác: nó chỉ ra
+nhóm phần mềm **dễ vỡ nhất** khi đổi runtime, và nhóm đó không phải ứng dụng của người dùng mà là
+**agent telemetry và agent bảo mật** — thứ mà người bàn giao cluster hay quên nhắc. Lấy về hai thứ:
+cơ chế nhận diện phụ thuộc, và ranh giới của cơ chế đó.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vì sao agent telemetry lại đụng tới Docker Engine (mục *Tại sao một số agent telemetry giao tiếp
+  với Docker Engine?*): lịch sử là Kubernetes ban đầu chỉ chạy với Docker; **tên Pod chỉ lấy được từ
+  các thành phần Kubernetes**, còn **metric container thì không thuộc trách nhiệm của container
+  runtime**, nên agent đời đầu phải truy vấn **cả hai phía** mới ra bức tranh đúng.
+- Dạng phụ thuộc cụ thể là **chạy lệnh của bộ công cụ Docker Engine**: `docker ps`, `docker top` để
+  liệt kê container và tiến trình, `docker logs` để nhận log dạng stream. Đổi runtime thì đúng những
+  lệnh đó ngừng hoạt động.
+- Điều kiện kỹ thuật để một Pod gọi được `dockerd` trên node: nó **buộc phải mount** hoặc filesystem
+  chứa socket đặc quyền của Docker daemon, hoặc mount thẳng đường dẫn socket đó — nghĩa là luôn để
+  lại dấu vết dưới dạng một volume `hostPath` (ví dụ `/var/run/docker.sock` trên image COS). Đó là
+  lý do rà soát được bằng cách đọc `.spec.volumes[*].hostPath.path` của mọi Pod.
+- **Giới hạn của script rà soát**, bài tự nói ra: nó chỉ bắt cách dùng phổ biến nhất. Pod có thể
+  mount **thư mục cha `/var/run`** thay vì đường dẫn đầy đủ và vẫn tới được socket. Kết quả rỗng
+  **không** đồng nghĩa với sạch.
+- Hai nhóm đối tượng, hai cách rà khác nhau: agent chạy **dưới dạng DaemonSet** thì rà được từ phía
+  API; agent **cài trực tiếp lên node** thì API server không nhìn thấy, và bài chỉ đúng một lối —
+  liên hệ nhà cung cấp agent để xác minh.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Di chuyển khỏi dockershim* — danh sách bảy nhà cung cấp (Aqua, Datadog, Dynatrace, Falco, Prisma Cloud Compute, SignalFx, Yahoo Kubectl Flame) và tên Pod đặc trưng của từng hãng | là bảng tra theo sản phẩm, không phải cơ chế; chỉ áp dụng khi cluster bạn tiếp quản có đúng agent đó | chỉ khi thực sự cầm trong tay một cluster dockershim có agent của một trong các hãng này |
+| Quy trình riêng của SignalFx: bỏ monitor `docker-container-stats`, bật và cấu hình `kubelet-metrics` | là chi tiết của một sản phẩm cụ thể; điều đáng nhớ chỉ là *tập metric thu được sẽ đổi, phải rà lại alert và dashboard* | chỉ áp dụng khi tiếp quản cluster dockershim đang chạy SignalFx Smart Agent |
+| Link Google doc "phiên bản đang được cập nhật của hướng dẫn di chuyển" và ghi chú CNCF ở đầu trang | một cái là tài liệu sống ngoài kubernetes.io, một cái là chú thích biên tập của website | không cần |
+
+---
+
 > **Ghi chú:** Trang này liên kết tới các dự án bên thứ ba cung cấp chức năng mà Kubernetes cần. Các tác giả của dự án Kubernetes không chịu trách nhiệm về những dự án đó. Trang này tuân theo [nguyên tắc nội dung của website CNCF](https://github.com/cncf/foundation/blob/master/website-guidelines.md), liệt kê các mục theo thứ tự bảng chữ cái. Để thêm một dự án vào danh sách này, hãy đọc [hướng dẫn nội dung](https://kubernetes.io/docs/contribute/style/content-guide/#third-party-content) trước khi gửi thay đổi.
 
 Hỗ trợ tích hợp trực tiếp với Docker Engine của Kubernetes đã bị ngừng (deprecated) và
@@ -152,3 +204,51 @@ Pod truy cập Docker có thể có tên kiểu như:
 
 Flame không hỗ trợ container runtime nào khác ngoài Docker. Xem
 [https://github.com/yahoo/kubectl-flame/issues/51](https://github.com/yahoo/kubectl-flame/issues/51)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 27. Cả bốn câu trả lời
+được bằng lập luận, không cần cluster dockershim:
+
+1. Bạn chạy script rà soát của bài trên `lab-k8s-master` và nó không in ra Pod nào. Bài cho phép kết
+   luận gì từ kết quả rỗng đó, và **không** cho phép kết luận gì?
+2. **Câu bẫy.** Một agent giám sát báo cáo được cả tên Pod lẫn metric CPU của từng container. Vậy nó
+   phải hỏi Docker để lấy tên Pod, đúng không? Và metric container thì Docker cấp?
+3. Vì sao chỉ cần đọc `.spec.volumes` của Pod là đã rà được nhóm DaemonSet phụ thuộc Docker, không
+   cần đọc image hay dòng lệnh bên trong container?
+4. Bài chia đối tượng rà soát thành hai nhóm và cho hai cách xử lý khác nhau. Hai nhóm đó là gì, và
+   vì sao nhóm thứ hai không thể rà bằng `kubectl`?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Kết luận được: **không Pod nào mount thẳng `/var/run/docker.sock`** — cách dùng phổ biến nhất.
+   **Không** kết luận được rằng cluster sạch phụ thuộc Docker, vì bài tự nêu hai lỗ hổng: có những
+   cách khác để Pod truy cập Docker trên host, chẳng hạn **mount thư mục cha `/var/run`** thay vì
+   đường dẫn đầy đủ — script bỏ sót ca đó; và **agent cài trực tiếp lên node** thì không phải Pod
+   nên không xuất hiện trong kết quả. Script chỉ phát hiện **cách dùng phổ biến nhất**, đúng như bài
+   ghi.
+2. **Sai cả hai vế.** Bài nói ngược lại: **tên Pod chỉ có thể lấy từ các thành phần Kubernetes**,
+   không phải từ Docker; còn **metric của container thì không thuộc trách nhiệm của container
+   runtime**. Chính vì mỗi phía chỉ giữ một mảnh mà **agent telemetry đời đầu phải truy vấn cả
+   container runtime lẫn Kubernetes** mới ghép được bức tranh đúng. Cái agent thực sự lấy từ Docker
+   là thứ khác: **liệt kê container và tiến trình** (`docker ps`, `docker top`) và **log dạng
+   stream** (`docker logs`) — và đó mới là phần chết khi đổi runtime.
+3. Vì đường vào `dockerd` bị chặn ở tầng dưới: muốn gọi được daemon trên node, Pod **buộc phải
+   mount** hoặc filesystem chứa socket đặc quyền của Docker daemon, hoặc thẳng đường dẫn socket ấy —
+   **dưới dạng một volume**. Không có lối nào khác, nên mọi phụ thuộc kiểu này **đều để lại dấu vết
+   trong `spec` của Pod**. Đọc `spec` rẻ và chắc hơn đọc image: `spec` là thứ API server đang giữ,
+   còn hành vi bên trong container thì phải chạy mới biết.
+4. Nhóm một là **agent chạy dưới dạng DaemonSet** trong cluster; nhóm hai là **agent bảo mật và
+   telemetry được cài trực tiếp lên node**, trên những node đã được tùy biến. Nhóm hai không rà bằng
+   `kubectl` được vì **chúng không phải object của Kubernetes** — không Pod, không DaemonSet, nên
+   API server không biết chúng tồn tại. Bài chỉ đúng một lối cho nhóm này: **liên hệ nhà cung cấp
+   agent** để xác minh agent có phụ thuộc gì vào Docker hay không.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

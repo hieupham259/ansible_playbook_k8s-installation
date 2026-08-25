@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 13/16 · Kiểm chứng ở
-Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6b](labs/LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md).
 
 Bài này khái quát hóa hai thứ bạn vừa học: nhân bản volume và khôi phục từ snapshot chỉ là hai
 **nguồn dữ liệu tích hợp sẵn**, còn volume populator là cơ chế mở để cắm thêm nguồn khác. Với

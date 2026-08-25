@@ -5,6 +5,63 @@
 > Dịch vụ Konnectivity cung cấp một proxy ở tầng TCP cho giao tiếp từ control plane tới
 > cluster.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 28 — Mở rộng Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes), bài 10/11 ·
+Phần II không có lab riêng: bạn thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) rồi tự chấm bằng **Checkpoint** của
+[giai đoạn 28](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes).
+Bài nối tiếp [24](24-control-plane-node-communication-vi.md) ở
+[giai đoạn 1](00-ALO-TRINH-ADMIN.md#giai-đoạn-1--mô-hình-kubernetes) — bài đã dạy chiều giao tiếp
+nào đi qua API server và chiều nào không.
+
+**Bài cuối của cụm ba bài về trung gian, và là bài dễ xếp nhầm chỗ nhất.** Hai bài trước —
+[379](379-http-proxy-access-api-vi.md) và [382](382-socks5-proxy-access-api-vi.md) — là công cụ
+**của client**, trung gian nằm trên máy bạn, chiều đi là *client → API server*. Bài này ngược
+lại hoàn toàn: câu đầu tiên nói rõ Konnectivity là proxy tầng TCP cho giao tiếp **từ control
+plane tới cluster**. `kubectl` của bạn không biết nó tồn tại và không cấu hình gì cho nó. Đọc
+xong hãy gọi tên được ba đường một cách tách bạch, vì Checkpoint của giai đoạn không cho bạn nhìn
+tài liệu.
+
+**Phải hiểu ở lần đọc này:**
+
+- Chiều đi và tầng làm việc, ngay câu mở đầu: một **proxy ở tầng TCP** cho giao tiếp **từ control
+  plane tới cluster**. Không phải đường cho client vào API server.
+- Kiến trúc hai nửa: **Konnectivity server** triển khai trên control plane node — manifest mẫu là
+  một Pod `hostNetwork: true` chạy dạng static Pod — và **Konnectivity agent** chạy trong
+  cluster. Bài ghi rõ trong comment của manifest agent: có thể triển khai agent dạng Deployment,
+  và **không nhất thiết mỗi node một agent**.
+- `EgressSelectorConfiguration` là chỗ khai báo lưu lượng nào đi qua đường hầm: trường
+  `egressSelections[].name` nhận `cluster`, `etcd` hoặc `controlplane`; bài chọn `cluster` vì
+  muốn kiểm soát lưu lượng hướng tới cluster. API Server được trỏ vào file đó bằng flag
+  `--egress-selector-config-file`.
+- Ba chỗ **hai phía phải khai trùng nhau**, chính bài đánh dấu bằng comment "giá trị này phải
+  khớp": `proxyProtocol: GRPC` ứng với `--mode=grpc` của server; `uds.udsName` ứng với
+  `--uds-name`; và nếu đi bằng UDS thì kube-apiserver còn phải mount đúng thư mục chứa socket
+  bằng `hostPath`. Lệch một chỗ là hai nửa không nối được.
+- Danh tính của từng nửa: server dùng một certificate X.509 `CN=system:konnectivity-server` ký
+  bằng CA của cluster, cộng kubeconfig riêng và ClusterRoleBinding tới `system:auth-delegator`;
+  agent dùng ServiceAccount `konnectivity-agent` với **projected token mang
+  `audience: system:konnectivity-server`** — đó là lý do bước 1 đòi bật
+  [Service Account Token Volume Projection](279-configure-service-account-vi.md#serviceaccount-token-volume-projection).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Nhánh `transport` dùng `tcp` thay cho `uds`, và cấu hình TLS mà nó kéo theo | bài chỉ nhắc đúng một câu là bạn sẽ phải thiết lập TLS để bảo vệ transport TCP, rồi không hướng dẫn gì thêm; manifest mẫu của chính bài đặt server cùng máy với API Server nên đi bằng UDS | phát hành và quản lý certificate của cluster là [giai đoạn 18](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ), bài [219](219-kubeadm-certs-vi.md) |
+| Từng cờ vận hành trong hai manifest — `--admin-port`, `--health-port`, `--server-port`, `livenessProbe`, danh sách `volumeMounts` | đó là chi tiết của bản hiện thực tham chiếu `apiserver-network-proxy`, và image của nó nằm ngoài [baseline Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) | Checkpoint của [giai đoạn 28](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes) không hỏi tới đây; ở lần đọc này chỉ cần đọc ra **ai nối với ai qua port nào** — agent tìm server ở `--proxy-server-port=8132`, ứng với `--agent-port=8132` phía server |
+| Việc thật sự gắn Konnectivity vào cluster của bạn — thêm flag `--egress-selector-config-file` và khối volume vào kube-apiserver | đó là sửa static pod manifest của control plane đang chạy; hiểu được cờ đó làm gì là đủ cho lần đọc này, còn tự tay đổi nó là chuyện khác | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
+
+---
+
 Dịch vụ Konnectivity cung cấp một proxy ở tầng TCP cho giao tiếp từ control plane tới
 cluster.
 
@@ -256,3 +313,61 @@ metadata:
     kubernetes.io/cluster-service: "true"
     addonmanager.kubernetes.io/mode: Reconcile
 ```
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 28:
+
+1. **Câu bẫy.** Ba bài liên tiếp của giai đoạn này đều nói về việc đi qua trung gian. Konnectivity
+   phục vụ chiều nào, trung gian của nó đặt ở đâu, và `kubectl` trên máy bạn phải cấu hình gì để
+   dùng nó? So sánh với `kubectl proxy` của bài [379](379-http-proxy-access-api-vi.md) và đường
+   hầm SOCKS5 của bài [382](382-socks5-proxy-access-api-vi.md).
+2. Konnectivity gồm hai nửa nào, mỗi nửa chạy ở đâu, và có bắt buộc mỗi node phải có một agent
+   không?
+3. Bạn khai `proxyProtocol: GRPC` và `uds.udsName: /etc/kubernetes/konnectivity-server/konnectivity-server.socket`
+   trong `EgressSelectorConfiguration`. Phía Konnectivity server phải khai gì cho khớp, và ngoài
+   hai giá trị đó thì kube-apiserver còn phải được sửa thêm gì khi đi bằng UDS?
+4. Trên cluster lab, control plane là `lab-k8s-master` còn workload chạy ở `lab-k8s-worker1` và
+   `lab-k8s-worker2`. Nếu dựng Konnectivity ở đây thì server nằm trên VM nào, agent chạy dạng gì,
+   và agent lấy danh tính ở đâu để server chấp nhận nó? Nếu Service Account Token Volume
+   Projection chưa bật thì hỏng ở chỗ nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Konnectivity phục vụ chiều **từ control plane tới cluster**, ở **tầng TCP**, và trung gian của
+   nó nằm **bên trong cluster**: server trên control plane node, agent trong cluster. `kubectl`
+   của bạn **không cấu hình gì cả** — nó thậm chí không biết Konnectivity có tồn tại. Đây đúng
+   là chỗ dễ nhầm: hai bài kia là công cụ **của client** cho chiều *client → API server*, với
+   trung gian nằm **trên máy bạn** — `kubectl proxy` là một tiến trình cục bộ phơi ra endpoint
+   HTTP, còn SOCKS5 là đường hầm SSH mà bạn trỏ `kubectl` vào bằng `HTTPS_PROXY` hoặc
+   `proxy-url`. **Ba đường không thay thế nhau và không cùng chiều.**
+2. **Konnectivity server** triển khai trên control plane node — manifest mẫu chạy nó dạng static
+   Pod với `hostNetwork: true` — và **Konnectivity agent** chạy trong cluster, manifest mẫu dùng
+   DaemonSet. Trả lời vế sau: **không bắt buộc.** Chính comment trong manifest agent nói rằng
+   bạn cũng có thể triển khai agent dưới dạng Deployment, và không nhất thiết phải có một agent
+   trên mỗi node.
+3. Phía server phải khai **`--mode=grpc`** cho khớp với `proxyProtocol: GRPC`, và **`--uds-name`
+   đúng bằng đường dẫn socket** đã ghi trong `udsName` — hai chỗ này chính bài đánh dấu bằng
+   comment "giá trị này phải khớp với giá trị đã đặt trong egressSelectorConfiguration". Ngoài
+   ra, kube-apiserver phải được trỏ vào file cấu hình bằng flag
+   **`--egress-selector-config-file`**, và khi dùng UDS thì phải **thêm khối volume**: một
+   `hostPath` tới `/etc/kubernetes/konnectivity-server` kèm `volumeMounts` tương ứng, để API
+   Server nhìn thấy được socket.
+4. Server nằm trên **`lab-k8s-master`** — đó là control plane node duy nhất, và manifest mẫu giả
+   định các thành phần Kubernetes chạy dạng static Pod, đúng như cluster kubeadm của bạn. Agent
+   chạy dạng **DaemonSet trong `kube-system`** theo manifest mẫu (hoặc Deployment, vì không bắt
+   buộc mỗi node một agent). Agent lấy danh tính từ **ServiceAccount `konnectivity-agent`**, qua
+   một **projected `serviceAccountToken` có `audience: system:konnectivity-server`** — khớp với
+   `--authentication-audience=system:konnectivity-server` mà server khai. Nếu Service Account
+   Token Volume Projection chưa bật thì **volume `konnectivity-agent-token` không sinh ra được
+   token đúng audience**, nên agent không chứng minh được danh tính với server; đó là lý do bài
+   đặt việc kiểm tính năng này làm **bước 1**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

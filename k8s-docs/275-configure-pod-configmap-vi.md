@@ -2,6 +2,59 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
+→ nhóm [3b. Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
+bài 1/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B1 (bốn nguồn dữ liệu),
+B2 (bốn cách Pod tiêu thụ ConfigMap) và B3 (ranh giới cập nhật).
+
+Đây là bài dài nhất nhóm 3b, nhưng phần lớn độ dài là **cùng một lệnh `kubectl create configmap`
+lặp lại với nguồn dữ liệu khác nhau**, kèm output mẫu. Đọc lấy quy tắc, đừng học thuộc từng ví dụ.
+Bài là bản thực hành của [108](108-configmap-vi.md) mà bạn vừa đọc, nên hai bài trùng nhau nhiều;
+chỗ mới ở đây là cú pháp lệnh và cách viết `spec` của Pod.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bốn nguồn dữ liệu của `kubectl create configmap` (mục *Tạo ConfigMap bằng `kubectl create
+  configmap`*): thư mục, file, env-file, literal. Với `--from-file`, key mặc định là **tên file**
+  còn giá trị là nội dung file; đổi key bằng `--from-file=<key>=<đường-dẫn>`. Với
+  `--from-env-file` thì khác hẳn: **mỗi dòng `VAR=VAL` thành một key riêng**, dòng bắt đầu bằng
+  `#` và dòng trống bị bỏ qua, còn dấu nháy không được xử lý đặc biệt nên lọt vào giá trị.
+- Khi tạo từ thư mục, kubectl chỉ đóng gói **file thông thường có tên hợp lệ**; thư mục con,
+  symlink, device, pipe đều bị bỏ qua. Ghi chú ngay dưới mục đó cảnh báo tên file chỉ được chứa
+  chữ, số, `-`, `_`, `.` — và `kubectl` **không in lỗi** khi gặp tên file không hợp lệ.
+- Ba cách Pod tiêu thụ dữ liệu, mỗi cách một mục riêng: `configMapKeyRef` lấy **từng key** và đặt
+  lại tên biến; `envFrom` + `configMapRef` nạp **cả ConfigMap** thành biến môi trường, key trở
+  thành tên biến; volume kiểu `configMap` biến mỗi key thành **một file** trong `mountPath`.
+- Trong volume (mục *Thêm dữ liệu ConfigMap vào một Volume*): không khai `items` thì mọi key thành
+  file mang đúng tên key; khai `items` với `key`/`path` thì **chỉ** key được liệt kê xuất hiện, tại
+  đường dẫn bạn đặt. Cả hai trường hợp, mount đè lên `mountPath` khiến file sẵn có của image trong
+  thư mục đó **không truy cập được nữa**. Cú pháp `$(VAR_NAME)` ở mục *Sử dụng biến môi trường định
+  nghĩa từ ConfigMap trong lệnh của Pod* cần cặp ngoặc đơn thì biến mới được mở rộng.
+- Ranh giới cập nhật và ranh giới hỏng: volume được mount thì **rốt cuộc cũng được cập nhật**, độ
+  trễ bằng chu kỳ đồng bộ của kubelet cộng TTL cache, ép làm mới bằng cách sửa một annotation của
+  Pod (mục *ConfigMap được mount sẽ tự động được cập nhật*). Mục *Các hạn chế* nêu bốn ràng buộc:
+  tham chiếu ConfigMap hoặc key không tồn tại mà không đánh dấu `optional` thì **Pod không khởi
+  động được**; riêng `envFrom` gặp key không hợp lệ thì chỉ bỏ qua key đó, Pod vẫn chạy và ghi
+  event `InvalidVariableNames`; ConfigMap phải **cùng namespace** với Pod; static Pod không dùng
+  được ConfigMap.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Tạo ConfigMap từ generator* — `configMapGenerator` và hậu tố hash trong tên | Kustomize là công cụ quản lý manifest, chưa học ở giai đoạn 3; ở đây chỉ cần biết generator băm nội dung nên dữ liệu đổi là sinh object mới | cơ chế hash được kiểm chứng ngay trong nhóm này ở bài [328](328-secret-kustomize-vi.md); Kustomize đầy đủ ở bài [322](322-kustomization-vi.md), [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
+| Mục *Chiếu các key tới path và quyền file cụ thể* | bài không nêu cú pháp, chỉ trỏ sang hướng dẫn Secret | bài [334](334-distribute-credentials-secure-vi.md) cùng nhóm 3b, thực hành ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B8 |
+| Ghi chú container mount ConfigMap kiểu `subPath` không nhận cập nhật | chưa học volume nên chưa biết `subPath` là gì | bài [91](91-volumes-vi.md), [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) |
+
+---
+
 Nhiều ứng dụng dựa vào cấu hình được sử dụng trong quá trình khởi tạo ứng dụng hoặc lúc runtime.
 Trong hầu hết các trường hợp, sẽ có nhu cầu điều chỉnh các giá trị được gán cho các tham số cấu
 hình. ConfigMap là một cơ chế của Kubernetes cho phép bạn đưa (inject) dữ liệu cấu hình vào các
@@ -1104,3 +1157,63 @@ rm -r configure-pod-container
   [Cấu hình Redis bằng ConfigMap](https://kubernetes.io/docs/tutorials/configuration/configure-redis-using-configmap/).
 * Theo dõi một ví dụ về
   [Cập nhật cấu hình thông qua ConfigMap](https://kubernetes.io/docs/tutorials/configuration/updating-configuration-via-a-configmap/).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Trên `lab-k8s-master`, thư mục `~/lab-work/3b/cfg/` chứa `game.properties`, một thư mục con
+   `old/`, và một file tên `ui config.properties` (có dấu cách). Bạn chạy `kubectl create configmap
+   demo --from-file=$HOME/lab-work/3b/cfg/`. Thứ gì lọt vào `data`, thứ gì không, key mặc định lấy
+   từ đâu, và bạn có được cảnh báo về file có dấu cách không?
+2. Cùng một file `game-env-file.properties`, đưa vào bằng `--from-file` và bằng `--from-env-file`
+   cho ra `data` khác nhau thế nào?
+3. **Câu bẫy.** Bạn sửa ConfigMap `app-config`. Pod A tiêu thụ nó bằng `envFrom`, Pod B mount nó
+   làm volume. Vài phút sau, Pod nào thấy giá trị mới và Pod nào không? Có cách nào ép phần được
+   cập nhật làm mới sớm hơn không?
+4. Một Pod tham chiếu tới ConfigMap chưa tồn tại. Khi nào Pod vẫn khởi động được, khi nào không?
+   Còn nếu dùng `envFrom` mà ConfigMap có key tên `1badkey` thì Pod có chết không, và bạn nhìn thấy
+   dấu vết ở đâu?
+5. Volume kiểu `configMap` mount vào `/etc/config`. So sánh hai trường hợp: có khai `items` với
+   một cặp `key`/`path`, và không khai `items` gì cả. Trong container, thư mục `/etc/config` khác
+   nhau ra sao — và các file mà image vốn đã có trong `/etc/config` thì sao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Chỉ `game.properties` lọt vào.** Bài nói rõ: khi tạo ConfigMap từ một thư mục, kubectl chỉ
+   đóng gói các file **thông thường** có tên là key hợp lệ; "mọi mục trong thư mục không phải file
+   thông thường sẽ bị bỏ qua (ví dụ: thư mục con, symlink, device, pipe)" — nên `old/` bị loại.
+   Tên file chỉ được chứa chữ, số, `-`, `_`, `.`, nên `ui config.properties` không hợp lệ. **Key
+   mặc định là basename của file**, giá trị là nội dung file. Phần dễ mất máu: ghi chú của bài nói
+   thẳng "lệnh `kubectl` **không in ra lỗi** khi nó gặp một tên file không hợp lệ" — bạn sẽ không
+   được cảnh báo gì, ConfigMap chỉ đơn giản thiếu mất một key.
+2. `--from-file` coi **cả file là một giá trị**: được đúng **một key** mang tên file, giá trị là
+   toàn bộ nội dung nhiều dòng. `--from-env-file` **phân tích từng dòng**: mỗi dòng `VAR=VAL` thành
+   một key riêng, dòng bắt đầu bằng `#` và dòng trống bị bỏ qua, và không có xử lý đặc biệt cho dấu
+   nháy nên `allowed="true"` cho ra giá trị `'"true"'` — dấu nháy nằm trong giá trị.
+3. **Pod B (volume) thấy giá trị mới; Pod A (biến môi trường) thì không.** Bài viết: khi một
+   ConfigMap đang được mount bị cập nhật, nội dung được chiếu vào Pod rốt cuộc cũng được cập nhật
+   theo — độ trễ tối đa bằng **chu kỳ đồng bộ của kubelet cộng TTL của cache ConfigMap trong
+   kubelet**. Biến môi trường thì được nạp một lần lúc khởi chạy container, muốn đổi phải khởi động
+   lại Pod. Ép nhanh hơn: **cập nhật một trong các annotation của Pod** để kích hoạt làm mới ngay.
+   Ngoại lệ cần nhớ: mount kiểu `subPath` **không** nhận cập nhật.
+4. **Không khởi động được**, trừ khi tham chiếu được đánh dấu `optional: true` — mục *Các hạn chế*
+   nói: phải tạo ConfigMap trước khi tham chiếu, và tham chiếu tới key không tồn tại cũng khiến Pod
+   không khởi động, trừ khi đánh dấu `optional`. Khi có `optional`, phần cấu hình đó chỉ đơn giản
+   **trống** (biến không được đặt, volume rỗng). Riêng `envFrom` là ngoại lệ ngược lại: **Pod vẫn
+   được phép khởi động**, key không hợp lệ bị bỏ qua, và tên bị bỏ được ghi vào **event
+   `InvalidVariableNames`** — xem bằng `kubectl get events`.
+5. Không khai `items`: **mọi key thành một file riêng**, tên file đúng bằng tên key — ví dụ
+   `/etc/config/SPECIAL_LEVEL` và `/etc/config/SPECIAL_TYPE`. Khai `items` với `key: SPECIAL_LEVEL`
+   và `path: keys`: **chỉ key đó xuất hiện**, và xuất hiện tại `/etc/config/keys`, còn key kia
+   không có mặt. Cả hai trường hợp đều giống nhau ở một điểm mà bài nhắc hai lần: **file có sẵn
+   trong `/etc/config` của image sẽ không truy cập được nữa** sau khi mount.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

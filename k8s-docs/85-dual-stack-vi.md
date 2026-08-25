@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 13/16 · Kiểm chứng
-ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md).
 
 Cluster lab là **single-stack IPv4** (Pod CIDR `10.244.0.0/16`, Service CIDR `10.96.0.0/12`),
 nên bạn không dựng được dual-stack ở đây. Đọc bài này vì hai lý do rất thực tế: nó giải thích

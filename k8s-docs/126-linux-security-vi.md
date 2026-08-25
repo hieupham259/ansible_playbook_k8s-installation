@@ -9,7 +9,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 11/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 11/18 · Kiểm chứng ở [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md).
 
 Bài chỉ hơn 20 dòng và có **đúng một nội dung**: một giả định về Secret trên node Linux mà bạn
 rất dễ tin nhầm. Đọc hết trong vài phút, rồi sang bài [127](127-linux-kernel-security-vi.md) —
@@ -68,7 +68,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. "Volume lưu trong bộ nhớ thì chắc chắn không bao giờ chạm đĩa." Bài chỉ ra tình huống nào
    phá vỡ giả định đó?
 3. Ba VM của cluster lab đã tắt swap theo yêu cầu của kubeadm. Điều đó ảnh hưởng thế nào tới
-   rủi ro ở câu 2, và nếu sau này bạn bật swap trên `k8s-worker2` thì điều kiện kernel nào phải
+   rủi ro ở câu 2, và nếu sau này bạn bật swap trên `lab-k8s-worker2` thì điều kiện kernel nào phải
    được thỏa?
 
 <details>

@@ -12,11 +12,19 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)) — bài này
-không thuộc CP nào của lộ trình vì hướng tới developer hơn là admin; nó là lời giải "hạng
-nặng" cho vấn đề mà bài [304 — Lấy shell vào container đang chạy](304-get-shell-running-container-vi.md)
-giải quyết thủ công.
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability),
+bài 4/7 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) phần B11.5. Lab chỉ kiểm chứng phần
+**đọc được** của bài: cách thủ công mà chính bài này dẫn tới là "lấy một shell vào container
+đang chạy", tức B11; còn `telepresence connect` và `telepresence intercept` thì lab **không**
+chạy vì Telepresence cài một sidecar traffic-agent vào Pod ứng dụng — tức sửa workload — trong
+khi Lab 11a nằm trên chuỗi snapshot và phải chụp `04-metrics-ready` sạch.
+
+Bài là lời giải "hạng nặng" cho vấn đề mà bài
+[304 — Lấy shell vào container đang chạy](304-get-shell-running-container-vi.md) của cùng nhóm
+thực hành giai đoạn 11 giải quyết thủ công.
 
 Toàn bộ bài nói về một công cụ bên thứ ba (Telepresence). Với vai trò admin, bạn chỉ cần nắm
 **ý tưởng** và **dấu vết nó để lại trên cluster**; không cần cài hay thao tác thành thạo.

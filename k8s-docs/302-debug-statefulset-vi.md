@@ -11,8 +11,9 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
-bài 10/10 · Các trang CP không có lab riêng: thực hành trực tiếp trên cluster lab ở mốc
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
+bài 10/10 · Giai đoạn này của Phần II không có lab riêng: thực hành trực tiếp trên cluster lab ở mốc
 `04-metrics-ready` (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
 Đây là trang rất ngắn, gần như một bảng chỉ đường: StatefulSet **không có quy trình debug
@@ -73,7 +74,7 @@ Tìm hiểu thêm về
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint giai đoạn 24:
 
-1. Một Pod của StatefulSet trên `k8s-worker2` của bạn kẹt ở `Terminating` rất lâu sau khi
+1. Một Pod của StatefulSet trên `lab-k8s-worker2` của bạn kẹt ở `Terminating` rất lâu sau khi
    node đó mất liên lạc. Theo trang này, bạn mở tài liệu nào tiếp theo — *Debug Pods* hay
    *Deleting StatefulSet Pods*?
 2. Bạn muốn xem vì sao một Pod cụ thể của StatefulSet đang crash liên tục. Trang này có đưa

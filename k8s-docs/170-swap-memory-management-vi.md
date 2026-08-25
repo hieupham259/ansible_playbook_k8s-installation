@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 3/8 ·
-Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 12](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md).
 
 Bài này **trả lời một câu hỏi bạn đã ôm từ Lab 00**. Ở mục
 [A4.1](labs/LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) bạn đã chạy
@@ -202,12 +202,12 @@ kubectl get nodes -o jsonpath='{range .items[?(@.metadata.labels.feature\.node\.
 
 Kết quả sẽ tương tự như sau:
 ```
-k8s-worker1: true
-k8s-worker2: true
+lab-k8s-worker1: true
+lab-k8s-worker2: true
 k8s-worker3: false
 ```
 
-Trong ví dụ này, swap được cấp phát trên các node `k8s-worker1` và `k8s-worker2`, nhưng không có trên `k8s-worker3`.
+Trong ví dụ này, swap được cấp phát trên các node `lab-k8s-worker1` và `lab-k8s-worker2`, nhưng không có trên `k8s-worker3`.
 
 ## Rủi ro và lưu ý (Risks and caveats)
 
@@ -433,13 +433,13 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 1. Ở [Lab 00 mục A4.1](labs/LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
    bạn đã chạy `swapoff -a` trên cả ba node trước khi `kubeadm init`. Bài này giải thích vì sao
-   bước đó là bắt buộc? Nếu muốn giữ swap trên `k8s-worker1` thì phải đổi gì?
-2. **Câu bẫy.** Bạn đặt `failSwapOn: false` trên `k8s-worker1`, khởi động lại kubelet, node lên
+   bước đó là bắt buộc? Nếu muốn giữ swap trên `lab-k8s-worker1` thì phải đổi gì?
+2. **Câu bẫy.** Bạn đặt `failSwapOn: false` trên `lab-k8s-worker1`, khởi động lại kubelet, node lên
    `Ready`. Workload đã dùng được swap chưa? Còn kubelet và các dịch vụ systemd trên node đó thì
    sao?
 3. **Câu bẫy.** Một Pod QoS `Guaranteed` chạy trên node đã bật `LimitedSwap`. Nó được cấp bao
    nhiêu swap, và vì sao kết quả đó ngược với trực giác "Pod quan trọng nhất thì được nhiều nhất"?
-4. Bạn bật swap trên `k8s-worker1` nhưng không bật trên `k8s-worker2`. kube-scheduler có tính đến
+4. Bạn bật swap trên `lab-k8s-worker1` nhưng không bật trên `lab-k8s-worker2`. kube-scheduler có tính đến
    khác biệt đó khi đặt Pod không? Bài đề xuất làm gì để Pod không vô tình rơi lên node có swap?
 
 <details>

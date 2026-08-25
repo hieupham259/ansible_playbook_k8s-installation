@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 4/6 · Kiểm chứng
-ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md).
 
 Bài dài, nhưng phần lớn độ dài đến từ các manifest ví dụ lặp đi lặp lại cùng một Pod đếm số.
 Xương sống chỉ có ba tầng: log **container** trên một node, log của **thành phần hệ thống** trên
@@ -609,11 +609,11 @@ của Kubernetes.
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
 
-1. Một Pod trên `k8s-worker2` đã ghi 40 MiB log kể từ lúc khởi động, kubelet giữ nguyên cấu hình
+1. Một Pod trên `lab-k8s-worker2` đã ghi 40 MiB log kể từ lúc khởi động, kubelet giữ nguyên cấu hình
    mặc định. `kubectl logs` trả về nhiều nhất bao nhiêu dữ liệu, và vì sao?
 2. **Câu bẫy.** Hai kiểu sidecar ghi log — kiểu truyền luồng và kiểu chạy agent — kiểu nào vẫn
    xem được bằng `kubectl logs`, kiểu nào không? Điều gì quyết định sự khác biệt đó?
-3. `k8s-worker1` chết hẳn và không bật lại được. Log của các Pod từng chạy trên đó còn lấy được
+3. `lab-k8s-worker1` chết hẳn và không bật lại được. Log của các Pod từng chạy trên đó còn lấy được
    không nếu cluster chỉ dựa vào cơ chế mặc định? Cần thêm gì để còn?
 4. Trên node Ubuntu 24.04 có systemd, bạn tìm log của kubelet ở đâu và log của kube-scheduler ở
    đâu? Vì sao hai thành phần của cùng một cluster lại nằm hai chỗ khác nhau?

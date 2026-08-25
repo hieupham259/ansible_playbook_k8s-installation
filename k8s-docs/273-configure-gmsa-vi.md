@@ -2,6 +2,61 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/configure-gmsa/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 15 — Windows, nếu môi trường có node Windows](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows)
+→ dòng **Thực hành**, bài 1/4 · Kiểm chứng ở [Lab 15 — Node Windows](labs/LAB-15-NODE-WINDOWS.md)
+phần **B1.4** — và **chỉ** ở đó.
+
+Nói thẳng ngay từ đầu: cluster lab là ba VM Ubuntu `lab-k8s-master`, `lab-k8s-worker1`,
+`lab-k8s-worker2` — **không có node Windows**, nên Lab 15 chạy **nhánh B** (đọc-hiểu, có kiểm chứng
+ranh giới trên chính cluster Linux). Riêng bài này còn vượt phạm vi **cả nhánh A**: mục *Trước khi
+bạn bắt đầu* đòi worker node Windows, và mục *Cấu hình GMSA và node Windows trong Active Directory*
+đòi các worker node đó phải được cấu hình **trong một domain Active Directory** để có quyền đọc
+mật khẩu của GMSA. Nhánh A chỉ thêm một VM Windows Server làm worker, không dựng domain
+controller. Vì vậy Lab 15 chỉ đo **bề mặt API** của GMSA ở B1.4 — CRD và hai webhook có tồn tại
+trên cluster hay không — và ghi rõ lý do cho phần còn lại ở
+[bảng 1.1](labs/LAB-15-NODE-WINDOWS.md#11-ánh-xạ-tài-liệu-sang-bài-thực-hành). Đọc bài này để nắm
+**cơ chế và chuỗi phụ thuộc**, không phải để làm theo.
+
+**Phải hiểu ở lần đọc này:**
+
+- GMSA giải quyết việc gì: đó là một loại tài khoản Active Directory **quản lý mật khẩu tự động**,
+  và trong Kubernetes nó cho container Windows nhận **danh tính domain** để làm các chức năng dựa
+  trên domain — ví dụ xác thực Kerberos — khi gọi sang dịch vụ Windows khác.
+- GMSA **không đi kèm Kubernetes**. Mục *Trước khi bạn bắt đầu* liệt kê hai bước khởi tạo một lần
+  cho mỗi cluster: cài CRD `GMSACredentialSpec`, và cài **hai** webhook — một **mutating** mở rộng
+  tham chiếu theo tên thành credspec JSON đầy đủ trong Pod spec, một **validating** kiểm service
+  account của Pod có được phép dùng GMSA đó không.
+- Credspec **không chứa dữ liệu bí mật hay nhạy cảm** (mục *Tạo các resource đặc tả thông tin xác
+  thực GMSA*). Nó chỉ mô tả cho Windows biết GMSA nào — tên tài khoản, domain, GUID, SID. Mật khẩu
+  thật do node Windows lấy từ Active Directory, nên node phải được cấp quyền trong AD; đó là lý do
+  mục *Cấu hình GMSA và node Windows trong Active Directory* tồn tại như một bước riêng.
+- Đường phân quyền là RBAC bạn đã học ở [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy):
+  một ClusterRole cấp verb **`use`** trên resource `gmsacredentialspecs` của nhóm API
+  `windows.k8s.io`, giới hạn bằng `resourceNames` xuống đúng một credspec; rồi một RoleBinding gắn
+  ClusterRole đó cho ServiceAccount mà Pod sẽ chạy dưới danh nghĩa.
+- Trường tham chiếu là `securityContext.windowsOptions.gmsaCredentialSpecName`, đặt được ở **hai
+  cấp**: ở cấp Pod thì **mọi** container trong Pod dùng GMSA đó; ở cấp container thì chỉ container
+  đó. Khi Pod được apply, chuỗi ba sự kiện chạy theo thứ tự: mutating webhook mở rộng tham chiếu →
+  validating webhook kiểm quyền `use` → container runtime cấu hình từng container Windows.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Các bước cài thật của mục *Cài đặt CRD GMSACredentialSpec* và *Cài đặt các webhook* — cặp khóa certificate, Secret chứa certificate, Deployment webhook, script `deploy-gmsa-webhook.sh` | không có domain thì cài xong chỉ được một CRD rỗng và một Pod webhook không ai gọi tới; đó là diễn chứ không phải kiểm chứng | không có trong lộ trình. [Lab 15](labs/LAB-15-NODE-WINDOWS.md) phần **B1.4** đo đúng phần đo được: ba thứ đó **có tồn tại** trên cluster hay không |
+| Mục *Cấu hình GMSA và node Windows trong Active Directory*, và các bước sinh credspec ở mục *Tạo các resource đặc tả thông tin xác thực GMSA* (`ipmo CredentialSpec.psm1`, `New-CredentialSpec`, `Get-CredentialSpec`, đổi JSON sang YAML) | cần một domain controller thật cộng host Windows đã join domain — ngoài phạm vi **cả hai nhánh** của Lab 15 | không có trong lộ trình; [bảng 1.1 của Lab 15](labs/LAB-15-NODE-WINDOWS.md#11-ánh-xạ-tài-liệu-sang-bài-thực-hành) ghi đúng lý do này |
+| Mục *Xác thực tới các chia sẻ mạng bằng hostname hoặc FQDN* — registry key `EnableCompartmentNamespace` | registry và HNS là cơ chế của Windows; ba VM Linux không có thứ tương đương để quan sát | ranh giới HNS đã đọc ở bài [89 — Mạng trên Windows](89-windows-networking-vi.md) của chính giai đoạn 15 |
+| Toàn bộ mục *Xử lý sự cố* — `nltest.exe /parentdomain`, `nltest.exe /query`, `nltest /sc_reset`, lifecycle hook `postStart` khởi động lại `netlogon` | mọi lệnh chạy **bên trong một container Windows đã join domain** | không có trong lộ trình; quy trình debug Windows nói chung đọc ở bài [315](315-debug-windows-vi.md), đối chiếu với quy trình Linux ở [Lab 15](labs/LAB-15-NODE-WINDOWS.md) phần **B8** |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.18 [stable]`
 
 Trang này hướng dẫn cách cấu hình
@@ -342,3 +397,60 @@ credspec của mình và xác nhận rằng nó chính xác và đầy đủ.
 Nếu bạn thêm mục `lifecycle` như trên vào Pod spec, Pod sẽ thực thi các lệnh được liệt kê để
 khởi động lại dịch vụ `netlogon` cho tới khi lệnh `nltest.exe /query` kết thúc mà không có
 lỗi.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 15 — kể cả khi bạn
+chạy nhánh B của Lab 15 trên ba VM Linux:
+
+1. Một GMSA credential spec chứa `Name`, `Scope`, `DnsName`, `Guid`, `Sid` của domain. Nó có chứa
+   **mật khẩu** của tài khoản GMSA không? Nếu không thì thành phần nào lấy được mật khẩu, và bài
+   đặt điều kiện gì lên các worker node Windows để việc đó xảy ra được?
+2. **Câu bẫy.** Bạn apply CRD `GMSACredentialSpec` cùng hai webhook lên cluster ba VM Ubuntu
+   `lab-k8s-master`, `lab-k8s-worker1`, `lab-k8s-worker2`, và `kubectl get crd | grep -i gmsa` cho
+   ra kết quả. Cluster của bạn đã **dùng được** GMSA chưa? Còn thiếu những gì, theo đúng các điều
+   kiện bài liệt kê?
+3. Hai webhook làm hai việc khác nhau. Việc nào của cái nào, và nếu thiếu **validating** webhook
+   thì cluster mất bảo đảm gì?
+4. `securityContext.windowsOptions.gmsaCredentialSpecName` đặt ở cấp Pod khác gì đặt ở cấp
+   container? Và để một Pod dùng được credspec `gmsa-WebApp1`, chuỗi RBAC phải gồm những object
+   nào, cấp verb gì, trên resource nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Bài nói thẳng ở mục *Tạo các resource đặc tả thông tin xác thực GMSA*: đặc tả thông
+   tin xác thực GMSA **không chứa dữ liệu bí mật hay nhạy cảm** — nó chỉ là thông tin để container
+   runtime **mô tả cho Windows biết GMSA mong muốn** của một container. Mật khẩu do
+   **node Windows** lấy trực tiếp từ Active Directory. Điều kiện bài đặt ra nằm ở mục *Cấu hình
+   GMSA và node Windows trong Active Directory*: các worker node Windows **cần được cấu hình trong
+   Active Directory để có quyền truy cập thông tin xác thực bí mật** gắn với GMSA đó. Không có bước
+   đó thì credspec đúng đến mấy cũng vô dụng.
+2. **Chưa.** Có CRD và webhook mới chỉ là **bề mặt API**. Bài liệt kê tiếp hai điều kiện nữa mà
+   cluster này không thỏa: mục *Trước khi bạn bắt đầu* nói cluster **cần có các worker node chạy
+   Windows** — ba VM của bạn đều là Ubuntu; và mục *Cấu hình GMSA và node Windows trong Active
+   Directory* nói các worker node Windows đó phải **được cấu hình trong Active Directory**. Chỗ dễ
+   sai là tưởng `kubectl apply` thành công nghĩa là tính năng chạy được: API server chấp nhận CRD
+   trên **mọi** cluster, vì nó chỉ đăng ký một kiểu object mới, không kiểm tra hệ điều hành của
+   node nào cả. Muốn xác nhận, hỏi đủ ba tầng: bề mặt API, node Windows, node đã join domain.
+3. **Mutating** webhook **mở rộng** các tham chiếu tới GMSA — vốn chỉ là **một cái tên** trong Pod
+   spec — thành **toàn bộ nội dung credspec ở dạng JSON** bên trong Pod spec. **Validating** webhook
+   **đảm bảo mọi tham chiếu tới GMSA đều được phép sử dụng bởi service account của Pod**. Thiếu
+   validating webhook thì mất đúng vế phân quyền: **bất kỳ ai tạo được Pod cũng gọi tên được bất kỳ
+   credspec nào**, tức mượn được danh tính domain mà service account của họ không được cấp — trong
+   khi ClusterRole với verb `use` vẫn nằm đó nhưng không còn ai thực thi.
+4. Đặt ở **cấp Pod** thì **tất cả các container trong Pod spec** dùng GMSA được chỉ định; đặt ở
+   **cấp container** thì chỉ container đó dùng. Chuỗi RBAC gồm **hai object**: một **ClusterRole**
+   cấp verb **`use`** trên resource **`gmsacredentialspecs`** thuộc nhóm API **`windows.k8s.io`**,
+   thu hẹp bằng `resourceNames: ["gmsa-WebApp1"]`; và một **RoleBinding** gắn ClusterRole đó cho
+   **ServiceAccount** mà Pod chạy dưới danh nghĩa (ví dụ của bài dùng service account `default`
+   trong namespace `default`). Cần cả hai vì ClusterRole chỉ **định nghĩa** quyền, RoleBinding mới
+   **trao** quyền cho một chủ thể cụ thể.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

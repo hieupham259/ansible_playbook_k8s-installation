@@ -2,6 +2,57 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/administer-cluster/namespaces/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 25 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace),
+bài 1/7 · Phần II không có lab riêng: thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md), tự chấm bằng **Checkpoint giai đoạn 25**.
+
+Đây là bài mở đầu giai đoạn 25. Lý thuyết namespace bạn đã đọc ở bài [19](19-namespaces-vi.md)
+(nhóm 1b), còn LimitRange và ResourceQuota ở bài [133](133-limit-range-vi.md) và
+[134](134-resource-quotas-vi.md) (nhóm 7b, có [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md)).
+Trang này là **runbook thao tác**: xem, tạo, xóa namespace và dùng namespace để chia cluster
+cho nhiều đội.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bốn namespace ban đầu và vai trò từng cái: `default`, `kube-node-lease` (chứa Lease heartbeat
+  của từng node), `kube-public` (mọi người dùng đều đọc được, kể cả người chưa được xác thực —
+  bài nói rõ khía cạnh công khai này **chỉ là một quy ước**, không phải yêu cầu bắt buộc),
+  `kube-system` (mục *Xem các namespace*).
+- `kubectl describe namespaces <name>` in ra **cả hai** thứ: resource quota và limit range. Bài
+  phân biệt ngay tại đó — quota theo dõi **mức sử dụng tổng hợp** và đặt giới hạn *cứng* (Hard)
+  cho **cả Namespace**; limit range đặt ràng buộc **min/max cho một thực thể đơn lẻ** bên trong
+  Namespace.
+- Hai phase `Active` và `Terminating`. `kubectl delete namespaces` xóa **mọi thứ** bên trong và
+  chạy **bất đồng bộ**; chỉ định một `finalizers` không tồn tại thì namespace vẫn tạo được nhưng
+  sẽ **kẹt** ở `Terminating` khi có người xóa nó (mục *Tạo một namespace mới* và *Xóa một
+  namespace*).
+- Namespace cung cấp đúng hai thứ: một **phạm vi cho tên**, và một **cơ chế để gắn ủy quyền và
+  chính sách** vào một phần con của cluster; từ đó mỗi cộng đồng người dùng mới có riêng tài
+  nguyên, chính sách và ràng buộc (quota). Bài cũng ghi rõ việc dùng nhiều namespace là **tùy
+  chọn** (mục *Hiểu động lực của việc dùng namespace*).
+- Bản ghi DNS của Service có dạng `<service-name>.<namespace-name>.svc.cluster.local`. Container
+  chỉ dùng `<service-name>` sẽ phân giải tới Service **cùng namespace**; muốn truy cập xuyên
+  namespace phải dùng FQDN (mục *Hiểu về namespace và DNS*).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cơ chế `finalizers` và link tài liệu thiết kế của nó trong mục *Tạo một namespace mới* | ở đây chỉ cần biết finalizer sai làm namespace kẹt `Terminating`, chưa cần biết finalizer chạy thế nào | bài [29 — Finalizers](29-finalizers-vi.md), nhóm [1c của giai đoạn 1](00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object) — đã đọc |
+| Link *Admission control: Limit Range* (tài liệu thiết kế ngoài kubernetes.io) | là đề xuất thiết kế cũ, không phải cách cấu hình LimitRange hôm nay | các bài con của [228](228-manage-resources-tasks-vi.md) — bài 2/7, ngay sau bài này |
+| Đoạn cuối mục *Tạo pod trong mỗi namespace* nói kịch bản sẽ mở rộng sang các quy tắc ủy quyền khác nhau cho từng namespace | cách **viết** quy tắc ủy quyền theo namespace không nằm trong bài này | RBAC ở [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) và [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) — đã học |
+
+---
+
 Trang này trình bày cách xem, làm việc bên trong và xóa các namespace. Trang cũng trình bày cách
 dùng namespace của Kubernetes để phân chia cluster của bạn.
 
@@ -330,3 +381,62 @@ domain name — FQDN).
 * Tìm hiểu thêm về [thiết lập namespace ưa dùng](19-namespaces-vi.md#setting-the-namespace-preference).
 * Tìm hiểu thêm về [thiết lập namespace cho một request](19-namespaces-vi.md#setting-the-namespace-for-a-request)
 * Xem [thiết kế namespace](https://git.k8s.io/design-proposals-archive/architecture/namespaces.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 25:
+
+1. Trên `lab-k8s-master`, bạn tạo hai namespace `development` và `production`, đặt Deployment
+   trong cả hai, rồi gõ `kubectl get pods` **không kèm `-n`**. Kết quả trống. Lệnh đó đang hỏi
+   namespace nào, và trong bốn namespace ban đầu thì namespace nào chứa Lease heartbeat của
+   `lab-k8s-worker1` và `lab-k8s-worker2`?
+2. **Câu bẫy.** `kubectl describe namespaces default` in ra `No resource quota.` rồi ngay bên
+   dưới là một mục `Resource Limits` với dòng `Container cpu - - 100m`. Hai khối đó nói về hai
+   thứ khác nhau — mỗi khối đặt ràng buộc cho **cái gì**? Vì sao "chưa có quota" không có nghĩa
+   là "container muốn xin bao nhiêu CPU cũng được"?
+3. Một Pod trong namespace `development` gọi `http://web` trong khi Service `web` nằm ở namespace
+   `production`. Theo cơ chế DNS của bài, tên đó phân giải tới đâu, và phải viết địa chỉ thế nào
+   cho đúng?
+4. Bạn chạy `kubectl delete namespaces development`, lệnh trả về ngay nhưng `kubectl get
+   namespaces` vẫn thấy nó ở `Terminating` một lúc. Vì sao đó là hành vi bình thường — và trường
+   hợp nào namespace **không bao giờ** thoát khỏi `Terminating`?
+5. Bài kết luận rằng tài nguyên người dùng tạo trong namespace này "bị ẩn khỏi" namespace kia.
+   Theo đúng lập luận của bài, "ẩn" đến từ cơ chế nào — và bản thân việc tạo namespace đã đủ để
+   chặn đội `development` thao tác lên `production` chưa?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Nó đang hỏi namespace **`default`** — namespace mặc định cho các đối tượng không thuộc
+   namespace nào khác; Pod của bạn nằm ở `development` và `production` nên không xuất hiện. Lease
+   heartbeat của hai worker nằm ở **`kube-node-lease`**: namespace này chứa các đối tượng Lease
+   gắn với từng node, để kubelet gửi heartbeat cho control plane phát hiện node bị lỗi.
+2. **Quota đặt trần cho cả Namespace, limit range đặt ràng buộc cho từng thực thể đơn lẻ.** Khối
+   quota theo dõi *mức sử dụng tổng hợp* các tài nguyên trong Namespace và định nghĩa giới hạn
+   *cứng* (Hard) mà cả Namespace được phép tiêu thụ; `No resource quota.` chỉ nói rằng trần tổng
+   đó chưa được đặt. Khối `Resource Limits` là limit range — nó định nghĩa ràng buộc min/max về
+   lượng tài nguyên mà **một thực thể đơn lẻ** có thể tiêu thụ, và dòng ví dụ còn đang đặt giá
+   trị **Default** `100m` CPU cho mỗi container. Nên "chưa có quota" **không** đồng nghĩa với
+   "không có ràng buộc": đây là hai cơ chế độc lập, `describe` chỉ tiện in cả hai cùng một chỗ.
+3. Nó phân giải tới Service **tên `web` nằm trong chính namespace `development`** — không phải
+   Service ở `production`. Bản ghi DNS có dạng `<service-name>.<namespace-name>.svc.cluster.local`,
+   nên tên ngắn luôn được hiểu là service cùng namespace. Muốn truy cập xuyên namespace phải dùng
+   **FQDN**: `web.production.svc.cluster.local`.
+4. Vì **việc xóa namespace diễn ra bất đồng bộ**: lệnh trả về trước khi mọi thứ bên trong bị dọn
+   xong, nên trong một khoảng thời gian namespace ở phase `Terminating` và không dùng được cho
+   đối tượng mới. Trường hợp kẹt vĩnh viễn: namespace được tạo kèm một **`finalizers` không tồn
+   tại** — namespace vẫn được tạo, nhưng khi có người xóa thì nó **kẹt ở `Terminating`**.
+5. "Ẩn" đến từ việc namespace là một **phạm vi (scope)** cho Pod, Service và Deployment: người
+   dùng tương tác với một namespace không nhìn thấy nội dung trong namespace khác, đúng như minh
+   họa `snowflake` ở `development` và `cattle` ở `production`. Nhưng **chưa đủ**: bài nói namespace
+   cung cấp *hai* thứ — phạm vi cho tên **và** một cơ chế để gắn ủy quyền và chính sách vào một
+   phần con của cluster. Phần ủy quyền phải được cấu hình riêng; chính bài cũng ghi rằng kịch bản
+   này còn phải mở rộng thì mới cung cấp được các quy tắc ủy quyền khác nhau cho từng namespace.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

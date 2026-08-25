@@ -10,12 +10,12 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 8/8 ·
-Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 12](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md).
 
 **Đây là một trang trỏ hướng, không phải một bài học.** Toàn bộ nội dung là đúng một câu chỉ sang
 trang *Certificates* thuộc nhánh `/docs/tasks/` của kubernetes.io. Nó **không thay thế được module
 quản lý certificate** — phần đó nằm ở **giai đoạn 18 vòng đời chứng chỉ** trong
-[Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), và đã được ghi sẵn
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), và đã được ghi sẵn
 trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab). Đọc xong bài này, đừng gạch chủ đề certificate ra
 khỏi danh sách.
 
@@ -48,7 +48,7 @@ khỏi danh sách.
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 12:
 
 1. Trang này trả lời được câu hỏi nào, và câu hỏi nào nó **không** trả lời?
-2. **Câu bẫy.** Certificate của control plane `k8s-master` sẽ hết hạn sau một năm kể từ lúc bạn
+2. **Câu bẫy.** Certificate của control plane `lab-k8s-master` sẽ hết hạn sau một năm kể từ lúc bạn
    chạy `kubeadm init` ở Lab 00. Đọc xong bài này bạn đã đủ để xử lý việc đó chưa? Phải đi đâu?
 3. Trong sổ nợ lab, món nợ "Quản lý vòng đời certificate" phát sinh ở đâu và được trả ở đâu?
 
@@ -60,7 +60,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    hết hạn khi nào, gia hạn ra sao, hay xoay CA thế nào. Sáu dòng là toàn bộ nội dung, và biết
    điều đó cũng là một kết quả đọc hợp lệ.
 2. **Chưa đủ.** Bài này không chứa một thao tác nào. Phần thật nằm ở **giai đoạn 18 — Vòng đời chứng chỉ**
-   trong [Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), với quy
+   trong [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), với quy
    trình `kubeadm certs` để kiểm tra hạn, gia hạn và xoay CA. Cái bẫy ở đây là tâm lý: một bài
    ngắn đọc hết trong ba mươi giây rất dễ bị tick "xong", trong khi lộ trình gọi nó đúng tên là
    **trang trỏ hướng**.
@@ -70,6 +70,6 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Đây là bài cuối của giai đoạn 12. Trả lời trôi cả ba câu thì chuyển sang **Lab 12 — Vận hành vòng
-đời node** (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)), bắt đầu từ snapshot
+Đây là bài cuối của giai đoạn 12. Trả lời trôi cả ba câu thì chuyển sang [**Lab 12 — Vận hành vòng
+đời node**](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md), bắt đầu từ snapshot
 `04-metrics-ready`. Câu nào còn vướng thì quay lại đúng mục tương ứng trước khi mở lab.

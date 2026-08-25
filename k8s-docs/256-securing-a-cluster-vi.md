@@ -2,6 +2,64 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/securing-a-cluster/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu),
+bài 5/6 · Phần II không có lab: thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) và tự chấm bằng **Checkpoint** ở cuối
+[mục giai đoạn 22](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu).
+
+Đây là bài **tổng hợp**, không phải bài dạy cơ chế mới: gần như mọi mục đều dẫn về một bài bạn đã
+đọc. Đọc nó như một bảng rà soát, và ở mỗi mục hãy tự hỏi "cluster lab của mình đang ở đâu trên
+thang này". Nó nối tiếp bài [129](129-security-checklist-vi.md) đã đọc ở mạch chính.
+
+> ✅ **Trả nợ #6 — Mã hóa Secret at rest.** Mục *Mã hóa secret khi lưu trữ* của bài này là chỗ nợ
+> phát sinh từ [giai đoạn 3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod)
+> được trả. **Đọc lại bài [109](109-secret-vi.md) — phần nói Secret chỉ mã hóa base64 — trước khi
+> làm Checkpoint của giai đoạn 22**, rồi mới sang bài [208](208-encrypt-data-vi.md).
+
+**Phải hiểu ở lần đọc này:**
+
+- Trục của mục *Kiểm soát truy cập vào Kubernetes API*, đúng ba chặng đã học: **TLS cho toàn bộ
+  lưu lượng API** → **xác thực** (mọi client đều phải xác thực, kể cả node, proxy, scheduler và
+  volume plugin) → **phân quyền**, và bài khuyên dùng **kết hợp authorizer `Node` và `RBAC` cùng
+  admission plugin `NodeRestriction`**.
+- Bẫy leo thang đặc quyền gián tiếp, cũng ở mục đó: không được tạo Pod trực tiếp nhưng được tạo
+  Deployment thì **vẫn tạo được Pod**; xóa một node khỏi API thì Pod trên node đó **bị kết thúc và
+  tạo lại nơi khác**. Role hẹp phải rà kỹ vì lý do này.
+- Mục *Kiểm soát truy cập vào Kubelet*: endpoint HTTPS của kubelet trao **quyền kiểm soát rất
+  mạnh** với node và container, và **mặc định cho phép truy cập không cần xác thực** — cluster
+  production **phải** bật xác thực và phân quyền cho kubelet.
+- Bốn nhóm kiểm soát lúc chạy ở mục *Kiểm soát năng lực của workload hoặc người dùng lúc chạy*:
+  [resource quota](134-resource-quotas-vi.md) và limit range; [security
+  context](291-security-context-vi.md) cùng [Pod Security
+  admission](116-pod-security-admission-vi.md) ở mức **Baseline** hoặc **Restricted**; chặn nạp
+  kernel module không mong muốn (blacklist trong `/etc/modprobe.d/`, hoặc dùng LSM từ chối
+  `module_request`); và [network policy](201-declare-network-policy-vi.md) để hạn chế lưu lượng.
+- Năm việc ở mục *Bảo vệ các thành phần cluster khỏi bị xâm phạm*: **quyền ghi etcd tương đương
+  root toàn cluster** nên phải dùng mutual TLS và cô lập sau tường lửa; **bật audit log** và lưu
+  file audit ở máy an toàn; **xoay vòng credential**, thu hồi bootstrap token sau khi bootstrap
+  xong; **rà quyền của tích hợp bên thứ ba** trước khi bật; và **mã hóa Secret at rest**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Trước khi bạn bắt đầu* — minikube và các playground | lộ trình không dùng minikube hay cluster dùng chung | cluster VM ba node của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) là môi trường thực hành duy nhất |
+| Mục *Hạn chế truy cập API metadata của cloud* | cluster lab chạy VM cục bộ theo [A1.2 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a12-ba-vm), không có dịch vụ metadata của cloud | ngoài phạm vi lộ trình; công cụ dùng để chặn là NetworkPolicy, đã thực hành ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) |
+| Câu nói về mã hóa **custom resource** khi lưu trữ | chưa có CRD nào trên cluster lab để mã hóa | [Giai đoạn 28 — Mở rộng Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes) |
+| Đoạn nhắc tới [PodSecurityPolicy](117-pod-security-policy-vi.md) | PSP đã bị gỡ khỏi Kubernetes; lộ trình xếp bài đó là tài liệu lịch sử | bài [117](117-pod-security-policy-vi.md) ở [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), đã đọc |
+| Admission plugin beta `PodNodeSelector` | là plugin beta, không có trong cấu hình cluster lab | cơ chế bố trí Pod đã học ở bài [138](138-assign-pod-node-vi.md) và [139](139-taint-and-toleration-vi.md) |
+
+---
+
 Tài liệu này đề cập đến các chủ đề liên quan tới việc bảo vệ một cluster khỏi truy cập vô tình
 hoặc có chủ đích xấu, và đưa ra các khuyến nghị về bảo mật tổng thể.
 
@@ -299,3 +357,54 @@ Hãy tham gia nhóm
 - [Danh sách kiểm tra bảo mật (Security Checklist)](129-security-checklist-vi.md) để biết thêm
   thông tin về các hướng dẫn bảo mật của Kubernetes.
 - [Tài liệu tham chiếu Seccomp cho Node](https://kubernetes.io/docs/reference/node/seccomp/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 22:
+
+1. Bài xếp việc kiểm soát truy cập API thành mấy tuyến, theo thứ tự nào? Riêng ở chặng phân quyền,
+   bài khuyên dùng kết hợp những thành phần nào?
+2. **Câu bẫy.** Bạn viết một Role không cấp động từ nào trên `pods`, chỉ cấp `create` trên
+   `deployments`. Người dùng gắn Role đó có tạo được Pod trên cluster không? Bài còn nêu ví dụ leo
+   thang gián tiếp nào nữa?
+3. Vì sao bài nói quyền **ghi** vào etcd tương đương chiếm quyền root trên toàn bộ cluster? Hai
+   biện pháp bảo vệ etcd mà bài khuyến nghị là gì?
+4. Bạn đã join `lab-k8s-worker1` và `lab-k8s-worker2` vào cluster bằng bootstrap token. Theo mục
+   *Xoay vòng credential hạ tầng thường xuyên*, token đó phải được xử lý thế nào sau khi giai đoạn
+   bootstrap kết thúc, và nguyên tắc chung phía sau lời khuyên đó là gì?
+5. Bài nói gì về hành vi **mặc định** của API HTTPS trên kubelet, và cluster production phải làm gì
+   với nó?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Ba tuyến, theo thứ tự: TLS cho toàn bộ lưu lượng API → xác thực → phân quyền.** Bài nhấn mạnh
+   **mọi** API client đều phải được xác thực, kể cả client hạ tầng như node, proxy, scheduler và
+   volume plugin. Ở chặng phân quyền, bài khuyên dùng **kết hợp authorizer `Node` và `RBAC`, cộng
+   với admission plugin `NodeRestriction`**.
+2. **Có — tạo được, một cách gián tiếp.** Deployment **tạo Pod thay mặt người dùng**, nên quyền tạo
+   Deployment kéo theo khả năng tạo Pod dù Role không hề nhắc tới `pods`. Ví dụ thứ hai của bài:
+   **xóa một node khỏi API** khiến các Pod đã lập lịch trên node đó **bị kết thúc và được tạo lại
+   trên node khác** — một hành động trên object này gây hậu quả ở chỗ khác. Đó là lý do bài bảo
+   phải rà soát cẩn thận các role hẹp để tránh leo thang đặc quyền ngoài ý muốn.
+3. Vì **etcd là backend chứa mọi thứ truy cập được qua Kubernetes API**: ghi được vào đó là sửa
+   được trạng thái cluster mà không đi qua bất kỳ chặng authn/authz nào; ngay cả **quyền đọc cũng
+   đủ để leo thang khá nhanh**. Hai biện pháp: dùng **credential mạnh cho kết nối apiserver ↔ etcd,
+   chẳng hạn xác thực lẫn nhau qua TLS client certificate**, và **cô lập các máy chủ etcd sau một
+   tường lửa mà chỉ API server truy cập được**.
+4. **Bị thu hồi hoặc bị gỡ bỏ quyền** ngay khi giai đoạn bootstrap hoàn tất. Nguyên tắc chung:
+   **vòng đời credential càng ngắn thì kẻ tấn công càng khó lợi dụng** — đặt thời hạn ngắn cho
+   certificate, tự động hóa việc xoay vòng, và dùng token có thời gian hiệu lực ngắn ở bất cứ đâu
+   có thể.
+5. Bài nói kubelet phơi các endpoint HTTPS **trao quyền kiểm soát rất mạnh đối với node và các
+   container**, và **theo mặc định cho phép truy cập không cần xác thực** vào API đó. Vì vậy
+   **cluster production phải bật xác thực và phân quyền cho kubelet** — đây là một trong những mục
+   đáng rà lại đầu tiên khi tiếp quản một cluster lạ.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -2,6 +2,67 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 15 — Windows, nếu môi trường có node Windows](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows)
+→ dòng **Thực hành**, bài 3/4 · Kiểm chứng ở [Lab 15 — Node Windows](labs/LAB-15-NODE-WINDOWS.md)
+phần **B7.3** — bốn điều khiển của bảng *Yêu cầu cấu hình cho HostProcess Pod*, đo bằng schema Pod
+và bằng phản ứng của API server với chính trích đoạn manifest của bài. Điều kiện container runtime
+kiểm ở phần **B11.A2**, chỉ nhánh A.
+
+Nói thẳng ngay từ đầu: cluster lab là ba VM Ubuntu `lab-k8s-master`, `lab-k8s-worker1`,
+`lab-k8s-worker2` — **không có node Windows**, nên Lab 15 chạy **nhánh B** (đọc-hiểu, có kiểm chứng
+ranh giới trên chính cluster Linux). HostProcess container thì **chỉ tồn tại trên Windows**: nó
+chạy như một tiến trình trên host Windows, nên không có node Windows là không có host để chạy, và
+Linux không có khái niệm tương đương để so. Phần đo được vẫn không nhỏ: **bốn điều khiển trong bảng
+yêu cầu cấu hình nằm ở tầng API và schema Pod**, nên hỏi được ngay trên cluster Linux bằng
+`kubectl explain` và `--dry-run=server`. Đọc bài để nắm **ranh giới và điều kiện**, không phải để
+chạy theo.
+
+**Phải hiểu ở lần đọc này:**
+
+- HostProcess container tồn tại để làm gì: chạy workload đã đóng gói container **như một tiến trình
+  bình thường trên host Windows**, có quyền truy cập network namespace, kho lưu trữ và thiết bị của
+  host. Nhờ đó triển khai được network plugin, cấu hình lưu trữ, device plugin, kube-proxy lên node
+  Windows mà **không cần proxy chuyên dụng, không cần cài host service trực tiếp**, và làm được các
+  việc quản trị mà **không phải đăng nhập vào từng node** (mục dẫn nhập và *Khi nào tôi nên dùng*).
+- Bảng ở mục *Yêu cầu cấu hình cho HostProcess Pod* quy định đúng **bốn** điều khiển:
+  `securityContext.windowsOptions.hostProcess` phải là `true`; `hostNetwork` phải là `true`;
+  `securityContext.windowsOptions.runAsUserName` **bắt buộc** phải chỉ định; `runAsNonRoot`
+  **không được** là `true` (chỉ được để trống hoặc `false`). Cùng mục đó nói HostProcess pod bị
+  **cấm bởi chính sách `baseline` và `restricted`** của
+  [Pod Security Standards](115-pod-security-standards-vi.md), nên phải chạy theo profile
+  `privileged`.
+- Ba hạn chế cứng ở mục *Các hạn chế*: HostProcess pod **chỉ chứa được HostProcess container** (vì
+  Windows container không đặc quyền không chia sẻ được vNIC với IP namespace của host); **không có
+  mức cách ly nào** — cả cách ly filesystem lẫn cách ly Hyper-V đều không hỗ trợ; **Named pipe và
+  Unix domain socket không mount được**, phải truy cập qua đường dẫn trên host.
+- Mục *Chọn tài khoản user*: mặc định có ba tài khoản Windows service — `LocalSystem`,
+  `LocalService`, `NetworkService`. Nguyên tắc chọn là **ít đặc quyền nhất có thể**: `LocalService`
+  ít đặc quyền nhất nên ưu tiên, `LocalSystem` cao nhất và chỉ dùng khi thực sự cần. Muốn phân
+  quyền chi tiết hơn thì tạo một **local usergroup** trên node rồi đặt tên group đó vào
+  `runAsUserName`; khi container khởi động, một tài khoản user cục bộ **tạm thời (ephemeral)** được
+  tạo và join group — nhờ vậy không phải quản lý mật khẩu.
+- Điều kiện container runtime: HostProcess container **yêu cầu containerd 1.6 trở lên**, khuyến
+  nghị 1.7; riêng cách chạy dưới tài khoản user cục bộ **yêu cầu containerd 1.7+**. kubelet truyền
+  cờ hostprocess xuống containerd qua CRI (mục *Trước khi bạn bắt đầu* và *Các hạn chế*).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ phần **chạy thật** một HostProcess container — truy cập network namespace, filesystem và event log của host, `net localgroup hpc-localgroup /add`, phân quyền bằng `icacls` | HostProcess container chỉ tồn tại trên Windows; ba VM Ubuntu không có host Windows để chạy, và Linux không có khái niệm tương đương để đối chiếu | không có trong lộ trình. [Lab 15](labs/LAB-15-NODE-WINDOWS.md) phần **B7.3** đo đúng phần đo được, và [bảng 1.1 của Lab 15](labs/LAB-15-NODE-WINDOWS.md#11-ánh-xạ-tài-liệu-sang-bài-thực-hành) ghi nguyên lý do |
+| Mục *Mount volume* — khác biệt giữa containerd v1.6 và v1.7 trở lên, biến `$CONTAINER_SANDBOX_MOUNT_POINT`, ba dạng đường dẫn tới token của service account | các đường dẫn này chỉ có nghĩa bên trong một HostProcess container đang chạy trên host Windows | không có trong lộ trình; ranh giới lưu trữ Windows đã đọc ở bài [106](106-windows-storage-vi.md) của chính giai đoạn 15, kiểm chứng ở [Lab 15](labs/LAB-15-NODE-WINDOWS.md) phần **B10** |
+| Mục *Giới hạn tài nguyên* — limit áp lên **job** và có hiệu lực trên toàn job, cùng khác biệt về cách tính mức dùng disk | mô hình job object của Windows khác cgroup của Linux, và đó là chủ đề của một bài khác trong nhóm | bài [112 — Quản lý tài nguyên cho các node Windows](112-windows-resource-management-vi.md), kiểm chứng ở [Lab 15](labs/LAB-15-NODE-WINDOWS.md) phần **B6** |
+| Mục *Base Image cho HostProcess Container* và mục *Khắc phục sự cố* (`failed to create user process token: failed to logon user: Access is denied.`) | cả hai là việc build image và vận hành **trên chính node Windows**: lỗi kia được sửa bằng cách đổi tài khoản service mà containerd đang chạy dưới | không có trong lộ trình; [Lab 15](labs/LAB-15-NODE-WINDOWS.md) phần **B11.A2** của nhánh A là nơi kiểm container runtime trên node Windows thật |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.26 [stable]`
 
 Windows HostProcess container cho phép bạn chạy các workload đã được đóng gói container trên một
@@ -271,3 +332,66 @@ tin, hãy xem
   Hãy đảm bảo containerd đang chạy dưới tài khoản service `LocalSystem` hoặc `LocalService`.
   Các tài khoản user (kể cả tài khoản Administrator) không có quyền tạo logon token cho bất kỳ
   [tài khoản user](#choosing-a-user-account) được hỗ trợ nào.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 15 — kể cả khi bạn
+chạy nhánh B của Lab 15 trên ba VM Linux:
+
+1. Bảng ở mục *Yêu cầu cấu hình cho HostProcess Pod* liệt kê bốn điều khiển. Kể đủ bốn cùng giá
+   trị được phép của từng cái. Riêng `runAsNonRoot`, vì sao nó **không** được đặt là `true`?
+2. **Câu bẫy.** Bạn viết một manifest HostProcess Pod đúng cả bốn điều khiển đó, và namespace đích
+   đang cưỡng chế profile `restricted` của Pod Security Standards. Pod được tạo không? Vì sao —
+   và bài khuyến nghị chạy HostProcess pod theo profile nào?
+3. Trên cluster ba VM Ubuntu `lab-k8s-master`, `lab-k8s-worker1`, `lab-k8s-worker2`, bạn
+   `kubectl apply --dry-run=server` trích đoạn manifest của bài. Việc API server **chấp nhận** hay
+   **từ chối** manifest quyết định bởi thứ gì, và việc Pod **chạy được** quyết định bởi thứ gì?
+   Hai điều đó có phải một không?
+4. Một HostProcess pod có đặt kèm một Windows container thường (không phải HostProcess) trong cùng
+   Pod được không? Bài giải thích bằng lý do gì?
+5. Ba tài khoản Windows service mà HostProcess container dùng được theo mặc định là gì, và bài
+   khuyên ưu tiên cái nào? Nếu muốn phân quyền chi tiết hơn ba tài khoản đó thì làm thế nào, và
+   thứ gì được tạo ra ngay trước khi container khởi động?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Bốn điều khiển: **`securityContext.windowsOptions.hostProcess`** — giá trị được phép chỉ có
+   `true`; **`hostNetwork`** — chỉ `true`, vì Pod chứa HostProcess container **phải dùng network
+   namespace của host**; **`securityContext.windowsOptions.runAsUserName`** — bắt buộc chỉ định,
+   giá trị là `NT AUTHORITY\SYSTEM`, `NT AUTHORITY\Local service`, `NT AUTHORITY\NetworkService`
+   hoặc tên một local usergroup; **`runAsNonRoot`** — chỉ được **không định nghĩa/Nil** hoặc
+   `false`. Lý do của cái cuối: **HostProcess container có quyền truy cập đặc quyền vào host**, nên
+   đòi nó chạy dưới danh nghĩa non-root là mâu thuẫn với chính bản chất của nó.
+2. **Không.** Bài nói thẳng: trong các chính sách của Pod Security Standards, **HostProcess pod bị
+   cấm bởi cả chính sách `baseline` lẫn `restricted`**. Bốn field đúng chỉ thỏa **điều kiện của
+   tính năng**, không thỏa **chính sách của namespace** — hai tầng khác nhau, và tầng chính sách
+   chặn trước. Đây là chỗ dễ sai vì cả bốn giá trị đều đúng theo bảng nên manifest "trông hợp lệ".
+   Khuyến nghị của bài: HostProcess pod nên chạy theo đúng profile **`privileged`**.
+3. **Không phải một.** Việc manifest được **chấp nhận** là chuyện của tầng API: schema Pod có
+   trường `windowsOptions.hostProcess` hay không, và chính sách pod security đang cưỡng chế ở
+   namespace đó. Việc Pod **chạy được** là chuyện của node: HostProcess container **chạy như một
+   tiến trình trên host Windows**, và cần **containerd 1.6 trở lên** (khuyến nghị 1.7). Trên ba VM
+   Ubuntu không có node Windows nào, mà trích đoạn của bài lại ghim `nodeSelector:
+   "kubernetes.io/os": windows` — nên kể cả khi API server nhận manifest, **không node nào khớp**
+   và Pod không thể chạy.
+4. **Không.** Mục *Các hạn chế* nêu rõ: **HostProcess pod chỉ có thể chứa các HostProcess
+   container**. Lý do là hạn chế của chính hệ điều hành Windows — **các Windows container không có
+   đặc quyền không thể chia sẻ vNIC với IP namespace của host**, mà HostProcess pod thì bắt buộc
+   `hostNetwork: true`.
+5. Ba tài khoản: **LocalSystem**, **LocalService**, **NetworkService**. Bài khuyên **ưu tiên
+   `LocalService` khi có thể**, vì đó là tài khoản **ít đặc quyền nhất** trong ba lựa chọn;
+   `LocalSystem` có đặc quyền cao nhất và **chỉ nên dùng khi thực sự cần thiết** — mục tiêu là giới
+   hạn đặc quyền để tránh gây hư hại cho host. Muốn chi tiết hơn thì dùng **tài khoản cục bộ**:
+   tạo một **local usergroup** trên node trước, rồi đặt **tên của usergroup đó** vào `runAsUserName`.
+   Ngay trước khi container khởi động, một **tài khoản user cục bộ tạm thời (ephemeral)** được tạo
+   ra và tham gia usergroup đã chỉ định, container chạy từ tài khoản đó — nhờ vậy **không phải quản
+   lý mật khẩu** cho tài khoản cục bộ nào. Cách này yêu cầu containerd 1.7+.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

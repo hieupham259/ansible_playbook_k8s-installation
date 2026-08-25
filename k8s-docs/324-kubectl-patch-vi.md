@@ -4,6 +4,56 @@
 >
 > Sử dụng kubectl patch để cập nhật các đối tượng API của Kubernetes tại chỗ (in place). Thực hiện một strategic merge patch hoặc một JSON merge patch.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 4 → nhóm [4a](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout), bài 3/7 ·
+Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B3.3 và B9.3.
+
+Đọc bài này ngay sau bài [319](319-declarative-config-vi.md). Hai bài nói về hai đường **khác nhau**
+để sửa một object đang chạy: 319 sửa qua **file cấu hình** rồi `apply`, còn bài này sửa **tại chỗ**
+bằng `patch` mà không đụng tới file cấu hình — mục *Tóm tắt* nói thẳng điều đó ở câu cuối.
+
+Bài dùng `tolerations` làm ví dụ cho một list bị thay thế. Taint và toleration thuộc
+[giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction); ở đây bạn chỉ cần thấy nó là **một
+list khác** có hành vi merge khác `containers`, chưa cần biết nó dùng để làm gì.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mục *Sử dụng strategic merge patch để cập nhật một Deployment*: patch mặc định **thêm** container
+  `patch-demo-ctr-2` vào list `containers` chứ không thay thế list. Bằng chứng là tên Pod đổi và cột
+  `READY` chuyển từ `1/1` sang `2/2`.
+- Mục *Ghi chú về strategic merge patch*: cũng là strategic merge patch, nhưng list `tolerations`
+  **bị thay thế**. Lý do nằm ở field chứ không ở loại patch — `Containers` mang tag
+  `patchStrategy:"merge"` với `patchMergeKey:"name"`, còn `Tolerations` không có tag `patchStrategy`
+  nên rơi về chiến lược mặc định là `replace`.
+- Bảng ba giá trị của tham số `type` — `json`, `merge`, `strategic` — và **mặc định là `strategic`**.
+  Với JSON merge patch (`--type merge`), muốn cập nhật một list thì phải ghi **cả list mới**, và list
+  mới **thay thế hoàn toàn** list cũ: ví dụ của bài làm Pod tụt về `1/1` với đúng một container.
+- Mục *retainKeys*: đặt `spec.strategy.type: Recreate` bị từ chối khi `spec.strategy.rollingUpdate`
+  còn giá trị. Chỉ thị `$retainKeys` liệt kê các khóa cần giữ; **mọi khóa vắng mặt trong danh sách
+  đó sẽ bị xóa** khi patch. Nó chỉ dùng được với field có `patchStrategy:"retainKeys"`, như
+  `Strategy` của `DeploymentSpec`.
+- Mục *Cập nhật số lượng replica của một đối tượng bằng `kubectl patch` với `--subresource`*:
+  `--subresource=scale` patch thẳng vào subresource `scale`, và output báo
+  `scale.autoscaling/nginx-deployment patched` chứ không phải tên Deployment. Ghi chú ngay sau đó:
+  chỉ định `--subresource` cho resource không có subresource ấy thì API server trả **404 Not Found**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Các khối `types.go`, OpenApi spec và link API reference dùng để tra `patchStrategy` / `patchMergeKey` | là chỗ tra cứu khi cần biết một field cụ thể sẽ merge hay replace, không phải đoạn để đọc hiểu | tra khi viết patch ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B9.3 |
+| Giá trị `type: json` (JSON Patch, RFC 6902) — chỉ xuất hiện trong bảng, bài không có ví dụ nào | bài này không thực hành nó; nó là loại patch thứ ba, khác cả `strategic` lẫn `merge` | [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B3.3, nơi JSON patch dùng phép `test` để tiền kiểm trước khi đổi `replicas` |
+| Ghi chú cuối mục *Tóm tắt*: strategic merge patch không được hỗ trợ cho custom resource | custom resource và CRD chưa học | [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) |
+| Ví dụ `tolerations` với `key: dedicated` và `key: disktype` xét như một cơ chế lập lịch | ở đây nó chỉ đóng vai một list có hành vi merge khác `containers` | bài [139](139-taint-and-toleration-vi.md) ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction) |
+
+---
+
 Trang này hướng dẫn cách dùng `kubectl patch` để cập nhật một đối tượng API tại chỗ. Các bài
 thực hành trong trang này minh họa một strategic merge patch và một JSON merge patch.
 
@@ -595,3 +645,53 @@ và
 * [Quản lý đối tượng Kubernetes bằng lệnh mệnh lệnh (imperative commands)](320-imperative-command-vi.md)
 * [Quản lý mệnh lệnh đối tượng Kubernetes bằng file cấu hình](321-imperative-config-vi.md)
 * [Quản lý khai báo đối tượng Kubernetes bằng file cấu hình](319-declarative-config-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. Vẫn `kubectl patch deployment patch-demo --patch-file <file>`, không đổi cờ `type`. Patch vào
+   `containers` thì **thêm** một container, patch vào `tolerations` thì **thay thế** cả list. Vì sao
+   cùng một loại patch lại cho hai hành vi khác nhau?
+2. **Câu bẫy.** Deployment đang có hai container. Bạn chạy patch với `--type merge` và một list
+   `containers` chỉ gồm một phần tử mang tên mới. Sau đó mỗi Pod có mấy container, và vì sao trực
+   giác "merge nghĩa là trộn" lại sai ở đây?
+3. Trên `lab-k8s-master`, một Deployment đang chạy với `strategy.rollingUpdate.maxSurge: 30%`. Bạn
+   patch `spec.strategy.type: Recreate` bằng strategic merge patch thường. API server trả lời thế
+   nào, và bạn phải sửa bản patch ra sao để nó đi qua?
+4. `kubectl patch deployment nginx-deployment --subresource='scale' --type='merge' -p '{"spec":{"replicas":3}}'`
+   in ra dòng gì, và chuyện gì xảy ra nếu bạn dùng `--subresource=scale` cho một resource không có
+   subresource đó?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Vì hành vi merge được quyết định **theo từng field**, không phải theo loại patch. Chiến lược
+   được chỉ định bởi khóa `patchStrategy` trong field tag ở mã nguồn Kubernetes: `Containers` của
+   `PodSpec` có **`patchStrategy:"merge"` với `patchMergeKey:"name"`** nên list được trộn và mỗi
+   container được nhận diện bằng `name`; `Tolerations` **không có khóa `patchStrategy`** nên
+   strategic merge patch dùng chiến lược mặc định là **`replace`**, thay cả list.
+2. **Mỗi Pod chỉ còn một container** — bài cho thấy cột `READY` tụt về `1/1`. Trực giác sai vì
+   `--type merge` không phải là "strategic merge patch"; nó là **JSON merge patch (RFC 7386)**, một
+   thứ khác hẳn. Với JSON merge patch, muốn cập nhật một list thì phải chỉ định **toàn bộ danh sách
+   mới**, và danh sách mới **thay thế hoàn toàn** danh sách hiện có. Cái trộn theo `patchMergeKey`
+   là `strategic` — đúng giá trị **mặc định** của tham số `type`, tức loại patch bạn dùng khi không
+   ghi cờ nào.
+3. API server **từ chối**, báo Deployment không hợp lệ tại `spec.strategy.rollingUpdate` với lý do
+   `Forbidden` — không thể đặt `type` thành `Recreate` khi `spec.strategy.rollingUpdate` đã có giá
+   trị được định nghĩa. Cách sửa là dùng chiến lược
+   **`retainKeys`**: thêm `$retainKeys: [type]` vào bản patch cùng với `type: Recreate`. Khai báo đó
+   nói rằng chỉ giữ khóa `type` của object `strategy`, nên `rollingUpdate` **bị xóa trong quá trình
+   patch**. Nó chạy được vì `Strategy` của `DeploymentSpec` có `patchStrategy:"retainKeys"`.
+4. In ra **`scale.autoscaling/nginx-deployment patched`** — tên của **subresource** được patch, không
+   phải `deployment.apps/nginx-deployment`. Kết quả là Deployment lên 3 Pod. Nếu resource không hỗ
+   trợ subresource được chỉ định, API server trả về lỗi **404 Not Found**. `--subresource` dùng được
+   với `get`, `patch`, `edit`, `apply` và `replace`, cho các subresource `status`, `scale` và `resize`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

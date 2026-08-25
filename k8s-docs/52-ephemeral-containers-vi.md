@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 8/11 · Kiểm chứng
-ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md).
 
 Bài ngắn nhất nhóm và là **công cụ xử lý sự cố**, không phải cơ chế vận hành. Bạn sẽ dùng nó
 nhiều ở các giai đoạn sau, nên lần đọc này chỉ cần nhớ nó giải quyết tình huống nào và bị cấm
@@ -115,7 +115,7 @@ Khi sử dụng ephemeral container, sẽ hữu ích nếu bật
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
 
 1. Vì sao ephemeral container không được đặt `resources`, `ports` hay `livenessProbe`?
-2. Một Pod trên `k8s-worker2` dùng image distroless và container chính đã crash. Vì sao
+2. Một Pod trên `lab-k8s-worker2` dùng image distroless và container chính đã crash. Vì sao
    `kubectl exec` không giúp được gì, ephemeral container giải quyết ra sao, và bạn nên bật thêm
    gì để nhìn được tiến trình của container kia?
 3. Bạn thêm nhầm một ephemeral container. Sửa lại bằng `kubectl edit` được không?

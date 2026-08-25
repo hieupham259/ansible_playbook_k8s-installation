@@ -10,9 +10,9 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster), bài 4/5 · Kiểm chứng trên
-cluster lab: in file định nghĩa repository trên `k8s-master` và xác định đúng minor version mà
+cluster lab: in file định nghĩa repository trên `lab-k8s-master` và xác định đúng minor version mà
 cluster đang lấy gói từ đó.
 
 Bài này là **một bước bên trong** quy trình của bài [221](221-kubeadm-upgrade-vi.md), không phải
@@ -240,7 +240,7 @@ minor khác, để có quyền truy cập vào các gói của phiên bản mino
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 17:
 
-1. Trên `k8s-master`, bạn mở `/etc/apt/sources.list.d/kubernetes.list` và thấy một dòng chứa
+1. Trên `lab-k8s-master`, bạn mở `/etc/apt/sources.list.d/kubernetes.list` và thấy một dòng chứa
    `core:/stable:/v1.35`. Bạn muốn nâng cluster lên minor kế tiếp. Phải sửa gì, và nếu **không**
    sửa thì `apt-get install kubeadm=<phiên bản mới>` sẽ báo gì?
 2. **Câu bẫy.** Bạn nâng cluster từ một bản patch lên bản patch khác trong cùng minor. Có phải

@@ -9,7 +9,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 25 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace),
 bài 7/7 · Kiểm chứng bằng chính các bước trong bài trên cluster lab: bài là task tự chứa, có mục
 dọn dẹp — quảng bá dongle trên một worker rồi gỡ đi, cluster trở về đúng trạng thái cũ.
@@ -79,7 +79,7 @@ Dưới đây là ví dụ về một PATCH request quảng bá bốn tài nguy�
 PATCH /api/v1/nodes/<your-node-name>/status HTTP/1.1
 Accept: application/json
 Content-Type: application/json-patch+json
-Host: k8s-master:8080
+Host: lab-k8s-master:8080
 
 [
   {
@@ -186,7 +186,7 @@ Khi đó một Container có thể request số byte lưu trữ đặc biệt b�
 PATCH /api/v1/nodes/<your-node-name>/status HTTP/1.1
 Accept: application/json
 Content-Type: application/json-patch+json
-Host: k8s-master:8080
+Host: lab-k8s-master:8080
 
 [
   {

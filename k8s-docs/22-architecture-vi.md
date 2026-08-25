@@ -180,7 +180,7 @@ kubeadm ghi manifest
         ↓
 /etc/kubernetes/manifests/
         ↓
-kubelet trên k8s-master đọc manifest
+kubelet trên lab-k8s-master đọc manifest
         ↓
 kubelet yêu cầu containerd chạy container
         ↓

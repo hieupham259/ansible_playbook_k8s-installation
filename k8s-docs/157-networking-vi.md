@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 14/16 · Kiểm chứng
-ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md).
 
 Đây là bài đầu của nhánh **Tầng hạ tầng mạng của cluster** — mô hình mạng nhìn từ góc quản trị
 viên chứ không phải người viết ứng dụng. Bài rất ngắn và phần lớn là tổng hợp lại thứ bạn vừa

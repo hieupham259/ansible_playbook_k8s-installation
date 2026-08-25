@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 11/11 · Kiểm chứng
-ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md).
 
 Bài này là **trang giới thiệu, không phải trang dạy**: mỗi mục chỉ có một đoạn và một ví dụ YAML
 rồi trỏ sang bài chuyên đề ở giai đoạn 7 và 9. Nhiệm vụ của lần đọc này là **nhận mặt các trường**
@@ -356,7 +356,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 1. Bạn viết `spec.priority: 10000` thẳng trong manifest Pod. Cách đó có đúng không, và cách đúng
    là gì?
-2. `k8s-master` bị taint nên Pod thường không lên đó. Cơ chế nào trong bài cho phép một Pod vẫn
+2. `lab-k8s-master` bị taint nên Pod thường không lên đó. Cơ chế nào trong bài cho phép một Pod vẫn
    được lập lịch lên node đó, và nó khác `nodeSelector` ở chỗ nào?
 3. Node affinity và pod affinity dựa trên label của cái gì? Pod affinity còn cần thêm trường nào?
 4. Bạn đặt `runtimeClassName: myclass` cho Pod nhưng chưa ai cài runtime đó. Theo bài, ai chịu
@@ -397,5 +397,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Đây là bài cuối của nhóm **3a — Pod và vòng đời**. Trả lời được câu hỏi của cả mười một bài thì
-bạn sẵn sàng vào Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)); câu nào còn
+bạn sẵn sàng vào [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md); câu nào còn
 hụt thì quay lại đúng bài tương ứng trước.

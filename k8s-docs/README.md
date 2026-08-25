@@ -4,7 +4,7 @@ Các bản dịch tiếng Việt của tài liệu chính thức trên <https://
 
 **Tổng cộng 398 bài**: số `00`–`185` là nhánh khái niệm (`/docs/concepts/`, `/docs/setup/`), số `186` trở lên là nhánh thực hành (`/docs/tasks/`).
 
-> **Muốn học theo lộ trình?** Xem [00-ALO-TRINH-ADMIN.md](00-ALO-TRINH-ADMIN.md) — giáo trình 15 giai đoạn dành cho người muốn trở thành Kubernetes administrator, kèm mục tiêu và checkpoint thực hành cho từng giai đoạn, và phần tiếp nối sang nhánh `/docs/tasks/` để vận hành thực tế.
+> **Muốn học theo lộ trình?** Xem [00-ALO-TRINH-ADMIN.md](00-ALO-TRINH-ADMIN.md) — giáo trình 30 giai đoạn dành cho người muốn trở thành Kubernetes administrator, chia hai phần: **Phần I — Nền tảng Kubernetes** (giai đoạn 1–15) và **Phần II — Vận hành cluster** (giai đoạn 16–30). Mỗi giai đoạn có mục tiêu và checkpoint thực hành riêng.
 >
 > **Muốn thực hành?** Xem [labs/](labs/README.md) — runbook chạy được cho từng nhóm bài, bắt đầu ở [Lab 00 — Môi trường](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 >

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 4/11 · Kiểm chứng
-ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md).
 
 Bài ngắn, và phần lớn nội dung đã xuất hiện dạng rút gọn ở [bài 47](47-pod-lifecycle-vi.md). Giá
 trị của nó là **thứ tự năm condition vòng đời** — đây là công cụ chẩn đoán chính khi một Pod

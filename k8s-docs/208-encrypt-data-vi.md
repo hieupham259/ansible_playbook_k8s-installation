@@ -9,10 +9,10 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu), bài 2/6 ·
 Kiểm chứng bằng việc trả [nợ lab "Mã hóa Secret at rest"](labs/README.md#5-sổ-nợ-lab) phát sinh
-từ Lab 3b: bật mã hóa trên `k8s-master`, verify bằng `etcdctl`, rồi mã hóa lại các Secret cũ.
+từ Lab 3b: bật mã hóa trên `lab-k8s-master`, verify bằng `etcdctl`, rồi mã hóa lại các Secret cũ.
 
 Bài này là "phần còn thiếu" của bài [109 — Secret](109-secret-vi.md): ở đó bạn đã biết Secret chỉ
 được encode base64 chứ không hề được mã hóa; bài này bịt lỗ hổng đó ở tầng lưu trữ etcd.
@@ -750,7 +750,7 @@ API server.
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 22:
 
-1. Trên `k8s-master` của cluster lab, bạn thêm flag `--encryption-provider-config` trỏ tới một
+1. Trên `lab-k8s-master` của cluster lab, bạn thêm flag `--encryption-provider-config` trỏ tới một
    file trong đó danh sách provider là `identity` đứng đầu, `aescbc` đứng sau. Secret mới tạo có
    được mã hóa trong etcd không? Cluster lúc này được coi là đã bật mã hóa at rest chưa?
 2. **Câu bẫy.** Bạn đã đặt `aescbc` làm provider đầu tiên, restart `kube-apiserver` thành công,

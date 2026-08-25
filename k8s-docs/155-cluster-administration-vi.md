@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 1/8 ·
-Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 12](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md).
 
 Đây là **trang mục lục** của cả nhánh quản trị cluster trên kubernetes.io, gần như toàn bộ là
 danh sách link. Giá trị của nó không nằm ở nội dung mà ở **cấu trúc**: biết công việc quản trị
@@ -146,7 +146,7 @@ Trước khi chọn một hướng dẫn, dưới đây là một số điểm c
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 12:
 
-1. Cluster lab của bạn là một control plane `k8s-master` cộng hai worker, chạy trên VM tự dựng
+1. Cluster lab của bạn là một control plane `lab-k8s-master` cộng hai worker, chạy trên VM tự dựng
    trong nhà. Chiếu vào danh sách cân nhắc ở mục *Lập kế hoạch cho cluster*, bạn đã chọn phương
    án nào ở từng câu hỏi?
 2. **Câu bẫy.** Sếp muốn một cluster duy nhất có worker nằm ở phòng máy công ty và worker nằm

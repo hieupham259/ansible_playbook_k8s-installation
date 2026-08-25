@@ -9,13 +9,19 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)) — bài này
-không nằm trong danh sách CP nào; nó là bài "khi hỏng thì tra" đi kèm
-[Giai đoạn 25 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace),
-cụ thể là hai bài [235 — Memory Manager](235-memory-manager-vi.md) và
-[259 — Topology Manager](259-topology-manager-vi.md). Nền tảng lý thuyết nằm ở bài
-[74 — Các trình quản lý tài nguyên](74-resource-managers-vi.md).
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 14 — Khả năng mở rộng](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng),
+bài 1/2 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md) phần B10.4, nơi lab đọc
+`topologyManagerPolicy` và `memoryManagerPolicy` **hiệu lực** của cả ba kubelet qua `configz`,
+cộng số NUMA node thật của máy, để chứng minh nhánh debug của bài không thể kích hoạt trên
+cluster này.
+
+Bài là bài "khi hỏng thì tra" của hai bài [235 — Memory Manager](235-memory-manager-vi.md) và
+[259 — Topology Manager](259-topology-manager-vi.md) ở
+[giai đoạn 25](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace). Nền tảng
+lý thuyết nằm ở bài [74 — Các trình quản lý tài nguyên](74-resource-managers-vi.md).
 
 Cluster lab chạy trên VM thường chỉ có một NUMA node và kubelet để policy mặc định, nên bạn
 sẽ không tự nhiên gặp lỗi trong bài; hãy đọc để biết **tra ở đâu** khi vận hành máy chủ vật
@@ -264,7 +270,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho m�
    là "gợi ý ưu tiên" và kubelet vẫn có thể cấp bộ nhớ ở nơi khác khi thiếu? Và muốn biết
    group hai NUMA node này còn trống bao nhiêu bộ nhớ "thông thường", bạn tính thế nào từ
    file trạng thái trong bài?
-4. Bạn nghi ngờ Memory Manager trên một node (giả sử `k8s-worker2` của cluster lab, nếu nó
+4. Bạn nghi ngờ Memory Manager trên một node (giả sử `lab-k8s-worker2` của cluster lab, nếu nó
    là máy vật lý nhiều NUMA node) đã ghim một pod Guaranteed vào NUMA node nào đó — bạn mở
    file nào trên node, và dòng `"systemReserved":3221225472` trong đó nói lên điều gì?
 

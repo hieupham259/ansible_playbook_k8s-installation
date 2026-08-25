@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 13](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao),
-bài 15/15 · Kiểm chứng ở Lab 13 (tùy chọn, chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 15/15 · Kiểm chứng ở [Lab 13](labs/LAB-13-DRA.md).
 
 **Giai đoạn 13 không bắt buộc với admin mới.** Phần lớn giai đoạn này là tính năng alpha/beta
 hoặc dành cho nền tảng chuyên biệt (AI/HPC, GPU). Chỉ đọc khi đã vững giai đoạn 1–12 hoặc khi
@@ -201,7 +201,8 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho m�
 </details>
 
 Hết giai đoạn 13. Câu nào chưa trả lời được thì quay lại đúng mục tương ứng.
-[Lab 13 — DRA](labs/README.md#4-bản-đồ-lab) là lab **tùy chọn và chưa viết**, và chỉ làm được
-nếu bạn có GPU hoặc thiết bị chuyên dụng. Nếu cluster lab của bạn không có, checkpoint của giai
+[Lab 13 — DRA](labs/LAB-13-DRA.md) là lab **tùy chọn**: nó kiểm năng lực DRA của cluster
+bằng năm phép đo rồi mới rẽ nhánh, và chỉ chạy được nhánh thực hành nếu bạn có GPU hoặc thiết
+bị chuyên dụng. Nếu cluster lab của bạn không có, checkpoint của giai
 đoạn chỉ yêu cầu một điều: giải thích được DRA khác device plugin truyền thống ở điểm nào —
 xem lại [bài 149](149-dynamic-resource-allocation-vi.md) nếu còn lấn cấn.

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 16/16 · Kiểm chứng
-ở Lab 5b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md).
 
 Bài cuối của giai đoạn, và ngắn nhất. Nó không dạy gì mới — nó **xếp lại năm thứ đều được gọi
 là "proxy"** để bạn không nhầm chúng với nhau. Từ "proxy" đã xuất hiện ở rất nhiều bài trước với
@@ -103,7 +103,7 @@ Proxy đã thay thế khả năng chuyển hướng (redirect). Chuyển hướn
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
 
-1. Trên `k8s-master` bạn chạy `kubectl proxy` rồi `curl` vào địa chỉ localhost của nó và lấy
+1. Trên `lab-k8s-master` bạn chạy `kubectl proxy` rồi `curl` vào địa chỉ localhost của nó và lấy
    được dữ liệu từ API mà không phải gửi token nào. Vì sao? Đoạn từ proxy tới apiserver có được
    mã hóa không?
 2. kube-proxy có định tuyến được request theo path HTTP — ví dụ đưa `/api` sang một Service khác
@@ -135,8 +135,8 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Đây là bài cuối của giai đoạn 5. Trả lời trôi chảy cả bốn câu nghĩa là bạn đã đủ nền cho **Lab
-5b — NetworkPolicy, Ingress và CNI** (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)),
+Đây là bài cuối của giai đoạn 5. Trả lời trôi chảy cả bốn câu nghĩa là bạn đã đủ nền cho [**Lab
+5b — NetworkPolicy, Ingress và CNI**](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md),
 nơi cluster đổi CNI, cài ingress controller và trả [nợ lab](labs/README.md#5-sổ-nợ-lab) của bài
 [84](84-network-policies-vi.md). Câu nào còn vướng thì quay lại đúng mục tương ứng trước khi vào
 lab.

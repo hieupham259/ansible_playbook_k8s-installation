@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 1/7 ·
-Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
 
 Đây là **trang mục lục**, không phải bài học. Cả trang chỉ có một câu giới thiệu và một danh
 sách năm trang con. Đọc mất chưa tới một phút; việc duy nhất cần làm là ghi nhớ phạm vi của
@@ -59,7 +59,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 1. Trong năm trang con được liệt kê, ba trang nào là ba bài kế tiếp bạn phải đọc trong nhóm
    3b? Hai trang còn lại vì sao không nằm trong danh sách phải đọc lúc này?
-2. Cluster lab của bạn có một control plane `k8s-master` và hai worker chạy Ubuntu 24.04.
+2. Cluster lab của bạn có một control plane `lab-k8s-master` và hai worker chạy Ubuntu 24.04.
    Trang con nào trong mục này chắc chắn không dùng tới, và trang con nào bạn đã dùng từ
    giai đoạn 1?
 3. Mục này tên là "Cấu hình". Vậy nó có bao gồm cách cấu hình `kube-apiserver` và `kubelet`
@@ -74,7 +74,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    thuộc **giai đoạn 15**.
 2. **Không dùng tới:** *Quản lý tài nguyên cho các node Windows*, vì cả ba VM đều là Ubuntu.
    **Đã dùng từ giai đoạn 1:** *Tổ chức truy cập cluster bằng các file kubeconfig* — đó chính
-   là file kubeconfig bạn dùng mỗi lần gõ `kubectl` trên `k8s-master`.
+   là file kubeconfig bạn dùng mỗi lần gõ `kubectl` trên `lab-k8s-master`.
 3. **Không.** Câu mở đầu trang giới hạn phạm vi rất rõ: đây là "các tài nguyên mà Kubernetes
    cung cấp để **cấu hình các Pod**". Toàn bộ năm trang con đều là tài nguyên API hoặc trường
    trong `spec` của Pod. Cấu hình của chính các thành phần control plane và kubelet là chuyện

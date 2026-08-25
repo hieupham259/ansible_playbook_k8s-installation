@@ -12,7 +12,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — giai đoạn 17 Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster),
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster),
 bài 5/5 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Đây là trang tổng quan **không gắn với công cụ nào**: nó cho khung chung của mọi cuộc nâng cấp,
@@ -164,7 +165,7 @@ Trả lời được các câu dưới đây mà không nhìn lại bài là đ�
    các thành phần, và cho biết bước cài `kubectl` phiên bản mới nằm ở chỗ nào trong quy trình.
 2. Cluster của bạn đang chạy v1.34 và bạn muốn lên v1.36. Có làm thẳng theo trang này được
    không? Vì sao?
-3. Đến lượt nâng cấp `k8s-worker2` trong cluster lab của bạn: bài yêu cầu làm gì với node
+3. Đến lượt nâng cấp `lab-k8s-worker2` trong cluster lab của bạn: bài yêu cầu làm gì với node
    trước tiên, sau đó bạn có những lựa chọn nào, và vì sao bước đầu tiên đó lại quan trọng khi
    nâng kubelet?
 4. Sau khi nâng cấp xong mà bạn bỏ qua việc "chuyển phiên bản API lưu trữ", chuyện gì sẽ xảy

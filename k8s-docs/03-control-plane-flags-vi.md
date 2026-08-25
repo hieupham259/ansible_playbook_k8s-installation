@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 3/9 ·
-Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 8a](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md).
 
 Hai bài trước bạn dựng cluster bằng **cờ dòng lệnh** — đúng như
 [A5.1 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a51-init-control-plane) làm. Bài này là cách thứ
@@ -299,7 +299,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    trong bài còn có thứ gì mà bạn bỏ sót?
 3. Bạn đặt file `kube-apiserver0+merge.yaml` vào thư mục patch. Nó được áp vào thời điểm nào
    trong quy trình của kubeadm, và điều gì xảy ra với tùy chỉnh đó khi bạn chạy `kubeadm upgrade`?
-4. Bạn muốn kube-proxy trên `k8s-worker2` chạy cấu hình khác hai node còn lại. Dùng
+4. Bạn muốn kube-proxy trên `lab-k8s-worker2` chạy cấu hình khác hai node còn lại. Dùng
    `KubeProxyConfiguration` được không?
 5. Lab 00 dựng cluster bằng cờ dòng lệnh. Nếu viết lại thành file cấu hình, bạn sẽ đặt cgroup
    driver của kubelet vào `kind` nào, và đặt `enable-admission-plugins` của API server vào

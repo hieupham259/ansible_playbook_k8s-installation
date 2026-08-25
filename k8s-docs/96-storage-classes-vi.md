@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 4/16 · Kiểm chứng ở
-Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md).
 
 Hơn một nửa bài là các mục theo từng nhà cung cấp lưu trữ (AWS, Azure, vSphere, Ceph,
 Portworx). Đó là tài liệu tra cứu, không phải nội dung học. Bốn trường quyết định mọi thứ ở
@@ -648,7 +648,7 @@ PersistentVolumeClaim.
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 6:
 
-1. Cluster lab của bạn có hai worker và chỉ `k8s-worker2` có đĩa dữ liệu dành cho lưu trữ.
+1. Cluster lab của bạn có hai worker và chỉ `lab-k8s-worker2` có đĩa dữ liệu dành cho lưu trữ.
    StorageClass để nguyên `volumeBindingMode` mặc định. Bạn tạo PVC trước rồi mới tạo Pod.
    Rủi ro là gì, và `WaitForFirstConsumer` sửa được chính xác điều gì?
 2. StorageClass của bạn không khai `reclaimPolicy`. Xóa PVC thì dữ liệu còn không? Muốn giữ

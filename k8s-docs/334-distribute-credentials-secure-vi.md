@@ -4,6 +4,55 @@
 >
 > Trang này hướng dẫn cách đưa (inject) dữ liệu nhạy cảm, chẳng hạn như mật khẩu và khóa mã hóa, vào Pod một cách an toàn.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
+→ [nhóm 3b — Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
+**bài 12/12 — bài cuối của nhóm** · Kiểm chứng ở
+[Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md), `phần B8` (volume + `items` +
+`defaultMode` ở `B8.1`, `secretKeyRef` và `envFrom secretRef` ở `B8.2`).
+
+Bài dài nhưng **lặp lại cùng một Secret `test-secret` qua nhiều đường tiêu thụ khác nhau**. Đọc
+theo trục đó thì gọn: tạo Secret → đưa vào Pod bằng volume → đưa vào Pod bằng biến môi trường →
+một ví dụ prod/test gộp cả hai. Bài không dạy khái niệm Secret — phần đó nằm ở
+[109](109-secret-vi.md) bạn đã đọc; ở đây chỉ là các cách **phân phối** cho Pod.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hai đường tạo cùng một Secret: viết file cấu hình với `data` mà bạn **tự chuyển sang base64**
+  trước, hoặc để `kubectl create secret generic --from-literal` làm hộ bước đó. `kubectl describe`
+  chỉ hiện **số byte** của từng key chứ không hiện giá trị.
+- Đường volume (mục *Tạo một Pod truy cập dữ liệu bí mật thông qua Volume*): **mỗi key trong `data`
+  trở thành một tên file** trong thư mục `mountPath`, mount `readOnly: true`; chương trình của bạn
+  phải đọc file ở thư mục đó chứ không đọc biến môi trường.
+- `.spec.volumes[].secret.items` chiếu key vào đường dẫn bạn chọn, và đổi luật: **chỉ key được
+  liệt kê mới được chiếu vào**, muốn đủ key thì phải liệt kê hết, và **key liệt kê mà không tồn tại
+  trong Secret thì volume không được tạo**.
+- `defaultMode` đặt bit quyền POSIX cho toàn bộ volume, mặc định là `0644`, và ghi đè được theo
+  từng key; trong manifest JSON phải viết giá trị **thập phân** vì JSON không hiểu ký hiệu bát phân.
+- Đường biến môi trường: `secretKeyRef` lấy **một key** và bạn **tự đặt tên biến** (`SECRET_USERNAME`),
+  còn `envFrom.secretRef` nạp **cả Secret** và **key trở thành tên biến**. Giới hạn kèm theo: một
+  container đã dùng Secret qua biến môi trường thì **không thấy** bản cập nhật của Secret cho tới
+  khi nó khởi động lại.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Đoạn cuối mục *Ví dụ prod/test*: rút gọn Pod spec bằng `serviceAccount: prod-db-client` | ServiceAccount chưa học; ở đây chỉ cần thấy hai Pod khác nhau đúng một field | [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
+| Ghi chú escape ký tự đặc biệt (`$`, `\`, `*`, `=`, `!`) khi truyền mật khẩu qua shell, và mẹo dùng `--from-file` để khỏi escape | là chi tiết thao tác của `kubectl create secret`, không phải cơ chế phân phối | bài [327](327-secret-kubectl-vi.md) cùng nhóm 3b, kiểm chứng ở `phần B6.1` của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
+| Câu "có các giải pháp bên thứ ba để kích hoạt việc khởi động lại khi secret thay đổi" | không thuộc Kubernetes core, cluster lab không cài thêm gì | ranh giới cập nhật giữa volume và biến môi trường đã học ở bài [109](109-secret-vi.md), kiểm chứng ở `phần B3.1` của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
+| Ba link `Secret` / `Volume` / `Pod` ở mục *Tài liệu tham khảo* | tra cứu API, không phải nội dung bài | bài [91](91-volumes-vi.md) ở [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) cho phần Volume |
+
+---
+
 Trang này hướng dẫn cách đưa (inject) dữ liệu nhạy cảm, chẳng hạn như mật khẩu và
 khóa mã hóa (encryption key), vào Pod một cách an toàn.
 
@@ -563,3 +612,57 @@ spec:
 
 - Tìm hiểu thêm về [Secret](109-secret-vi.md).
 - Tìm hiểu về [Volume](91-volumes-vi.md).
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Secret `mysecret` có hai key `username` và `password`. Bạn mount nó bằng volume và khai
+   `items` với đúng một mục `key: username`. Container thấy những file nào dưới `/etc/foo`? Nếu bạn
+   thêm vào `items` một key **không tồn tại** trong Secret thì chuyện gì xảy ra với Pod?
+2. **Câu bẫy.** Pod của bạn nạp Secret bằng `envFrom.secretRef` và đang chạy. Bạn `kubectl apply`
+   một bản Secret mới với mật khẩu khác. Tiến trình trong container đọc được mật khẩu mới chưa?
+3. Trên cluster lab, bạn tạo `test-secret` từ `lab-k8s-master`, mount vào một Pod chạy trên
+   `lab-k8s-worker1`, rồi `kubectl exec` vào đó và `cat /etc/secret-volume/password`. Bài nói kết
+   quả in ra là gì? Điều đó cho biết vai trò thật của bước base64 ở đầu bài là gì?
+4. Cùng một Secret `test-secret`, hai Pod tiêu thụ bằng hai cách: một Pod dùng `secretKeyRef`, một
+   Pod dùng `envFrom.secretRef`. Trong mỗi Pod, **tên biến môi trường** do ai quyết định?
+5. Bạn viết `defaultMode: 0400` cho một secret volume. Quyền mặc định khi **không** khai
+   `defaultMode` là bao nhiêu, và vì sao bài cảnh báo riêng về `0400` khi manifest được viết bằng
+   JSON?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Chỉ **một file**, tại `/etc/foo/my-group/my-username` — đúng `path` bạn chỉ định, **không** phải
+   `/etc/foo/username`. Key `password` **không được chiếu vào**, vì khi đã liệt kê `items` thì chỉ
+   các key trong danh sách được chiếu; muốn dùng hết thì phải liệt kê hết. Với key không tồn tại:
+   **volume sẽ không được tạo** — bài nói thẳng "mọi key được liệt kê phải tồn tại trong Secret
+   tương ứng. Nếu không, volume sẽ không được tạo".
+2. **Chưa.** Bài nói rõ: nếu một container đã sử dụng Secret qua biến môi trường thì một lần cập
+   nhật Secret **sẽ không được container đó nhìn thấy trừ khi nó được khởi động lại**. Trực giác
+   "apply xong là Pod thấy ngay" đến từ đường volume, không phải đường biến môi trường — biến môi
+   trường được nạp một lần lúc container khởi động. Muốn tiến trình thấy giá trị mới thì phải cho
+   container khởi động lại; bài chỉ nhắc rằng có giải pháp bên thứ ba làm việc đó tự động.
+3. In ra **đúng nguyên văn mật khẩu** `39528$vdg7Jb` — bài chép sẵn kết quả đó. Nghĩa là base64 chỉ
+   là **dạng biểu diễn** để nhét dữ liệu vào field `data` của manifest, **không phải một lớp bảo
+   vệ**: container nhận lại chuỗi gốc, và chính vì vậy bài còn cho phép bỏ hẳn bước này bằng
+   `kubectl create secret generic --from-literal`. `kubectl describe` giấu giá trị và chỉ hiện số
+   byte, nhưng đó là hành vi hiển thị của `kubectl`, không phải bảo vệ dữ liệu — đúng như bài
+   [109](109-secret-vi.md) đã nói khi bạn đọc nó ở đầu nhóm 3b.
+4. Với **`secretKeyRef`**: **bạn** quyết định — `name` của mục `env` là tên biến (`SECRET_USERNAME`),
+   còn `key` chỉ trỏ tới mẩu dữ liệu trong Secret; hai tên đó độc lập nhau. Với
+   **`envFrom.secretRef`**: **Secret** quyết định — bài nói "key trong Secret trở thành tên biến môi
+   trường trong Pod", nên biến sẽ tên đúng là `username` và `password`.
+5. Mặc định là **`0644`** khi bạn không chỉ định quyền nào. Cảnh báo về JSON là vì **đặc tả JSON
+   không hỗ trợ ký hiệu bát phân**: viết `0400` trong JSON thì nó bị hiểu là số **thập phân** `400`,
+   không phải quyền `r--------`. Trong JSON phải dùng giá trị thập phân tương ứng; viết YAML thì mới
+   được viết `defaultMode` ở dạng bát phân.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài **cuối cùng của nhóm 3b** —
+trả lời hết rồi thì mở [Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) và làm trọn
+lab trước khi sang [nhóm 3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn).

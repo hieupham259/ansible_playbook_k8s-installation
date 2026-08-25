@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 14/16 · Kiểm chứng ở
-Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6b](labs/LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md).
 
 Bài này là chỗ lưu trữ gặp lập lịch. Nó trả lời câu hỏi bạn đã đặt ra ở bài
 [96](96-storage-classes-vi.md): khi dùng `WaitForFirstConsumer`, scheduler lấy đâu ra thông tin
@@ -150,7 +150,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    `CSIStorageCapacity` không? Vậy ai quyết định volume nằm ở đâu, và Pod được lập lịch ra sao?
 2. Hai worker của bạn có dung lượng đĩa dành cho lưu trữ khác nhau. Ba điều kiện nào phải đủ
    thì scheduler mới loại bỏ node không đủ chỗ khi chọn nơi chạy Pod?
-3. Scheduler đã chọn `k8s-worker2` dựa trên `CSIStorageCapacity`, nhưng driver báo không tạo
+3. Scheduler đã chọn `lab-k8s-worker2` dựa trên `CSIStorageCapacity`, nhưng driver báo không tạo
    được volume ở đó. Chuyện gì xảy ra tiếp?
 4. Bật theo dõi dung lượng lưu trữ có bảo đảm Pod luôn được lập lịch thành công không? Vì sao?
 

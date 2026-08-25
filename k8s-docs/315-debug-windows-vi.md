@@ -9,14 +9,19 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)) — đọc kèm
-[Giai đoạn 15 — Windows](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows)
-(các bài [174](174-windows-vi.md), [175](175-windows-intro-vi.md),
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 15 — Windows, nếu môi trường có node Windows](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
+bài 4/4 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 15 — Node Windows](labs/LAB-15-NODE-WINDOWS.md) phần B8, nơi lab đi lại quy trình debug:
+`kubectl logs` chỉ thấy STDOUT (B8.1), pause image trên node (B8.2), và bảng đối chiếu từng mục
+của bài với bước tương ứng trong quy trình debug Linux đã dùng từ Lab 3a tới Lab 12 (B8.3).
+
+Cluster lab toàn node Linux, nên các lệnh PowerShell và HNS của bài chỉ chạy được ở nhánh A của
+Lab 15 — nhánh cần thêm một VM Windows Server. Bài đọc kèm nhóm bài của giai đoạn 15
+([174](174-windows-vi.md), [175](175-windows-intro-vi.md),
 [176](176-windows-user-guide-vi.md), [89](89-windows-networking-vi.md)) và bài
-[216 — Adding Windows nodes](216-adding-windows-nodes-vi.md). Cluster lab toàn node Linux,
-nên bài này chỉ cần khi môi trường của bạn có node Windows; Lab 15 (tùy chọn) mới là nơi
-thực hành.
+[216 — Adding Windows nodes](216-adding-windows-nodes-vi.md).
 
 **Phải hiểu ở lần đọc này:**
 
@@ -41,7 +46,7 @@ thực hành.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Các lệnh sửa chi tiết bằng PowerShell/HNS (`Get-HnsNetwork`, `start.ps1`, chạy lại `flanneld.exe`, biến proxy máy) | chỉ có ý nghĩa khi đứng trên một node Windows thật | Lab 15 (tùy chọn) khi bạn thêm VM Windows Server vào cluster |
+| Các lệnh sửa chi tiết bằng PowerShell/HNS (`Get-HnsNetwork`, `start.ps1`, chạy lại `flanneld.exe`, biến proxy máy) | chỉ có ý nghĩa khi đứng trên một node Windows thật | [Lab 15](labs/LAB-15-NODE-WINDOWS.md) nhánh A (tùy chọn), khi bạn thêm VM Windows Server vào cluster |
 | `wincat` trong pause container cho `kubectl port-forward` | chi tiết lịch sử của bản Kubernetes cũ | tra cứu tại chỗ khi gặp đúng thông báo lỗi này |
 
 ---
@@ -257,5 +262,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho m�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng; khi thực sự vận hành node
-Windows, làm Lab 15 (tùy chọn) và đọc lại nhóm bài
+Windows, làm [Lab 15](labs/LAB-15-NODE-WINDOWS.md) (tùy chọn) và đọc lại nhóm bài
 [Giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows).

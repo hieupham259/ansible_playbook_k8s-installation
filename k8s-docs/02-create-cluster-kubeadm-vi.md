@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 2/9 ·
-Kiểm chứng ở Lab 8a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 8a](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md).
 
 Đây là **bài trung tâm của giai đoạn 8**. Mục
 [A5 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a5-khởi-tạo-cluster) là bản rút gọn của nó:
@@ -673,17 +673,17 @@ Nếu bạn đang gặp khó khăn với kubeadm, vui lòng tham khảo
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 8:
 
 1. [A5.1 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a51-init-control-plane) truyền cả
-   `--control-plane-endpoint 'k8s-master:6443'` lẫn `--apiserver-advertise-address 192.168.100.111`.
+   `--control-plane-endpoint 'lab-k8s-master:6443'` lẫn `--apiserver-advertise-address 192.168.100.111`.
    Hai cờ này khác nhau chỗ nào? Nếu bỏ cờ thứ nhất thì sau này bạn mất khả năng gì, và sửa
    được bằng cách chạy lại lệnh không?
-2. Ngay sau `kubeadm init` trên `k8s-master`, `kubectl get pods -A` cho thấy Pod CoreDNS ở
+2. Ngay sau `kubeadm init` trên `lab-k8s-master`, `kubectl get pods -A` cho thấy Pod CoreDNS ở
    trạng thái `Pending`. Đây có phải sự cố không? Điều gì làm nó chạy?
 3. Vì sao Lab 00 phải truyền `--pod-network-cidr 10.244.0.0/16` chứ không để kubeadm tự chọn?
    Nếu bạn đặt giá trị này lệch với manifest Flannel v0.28.7 thì hỏng ở đâu?
-4. Trên cluster lab, Deployment của bạn không bao giờ có Pod chạy trên `k8s-master`, dù node đó
+4. Trên cluster lab, Deployment của bạn không bao giờ có Pod chạy trên `lab-k8s-master`, dù node đó
    `Ready`. Cơ chế nào gây ra điều đó? Và tại sao bạn **không** dùng được `--node-labels` của
    kubelet để tự gắn nhãn `node-role.kubernetes.io/worker` cho hai worker?
-5. Bạn muốn bỏ hẳn `k8s-worker2` khỏi cluster. Ba lệnh theo đúng thứ tự là gì, chạy ở đâu, và
+5. Bạn muốn bỏ hẳn `lab-k8s-worker2` khỏi cluster. Ba lệnh theo đúng thứ tự là gì, chạy ở đâu, và
    sau khi xong thì trên máy đó còn sót lại thứ gì mà kubeadm không dọn?
 
 <details>
@@ -695,7 +695,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    bạn mất đường nâng cấp lên HA: bài nói rõ **việc chuyển một cluster một control plane được
    tạo mà không có `--control-plane-endpoint` thành cluster HA không được kubeadm hỗ trợ**.
    Chạy lại `kubeadm init` thì trước đó phải **gỡ bỏ cluster** — nên đây là quyết định phải
-   chốt đúng một lần, và Lab 00 chốt sẵn bằng tên DNS `k8s-master`.
+   chốt đúng một lần, và Lab 00 chốt sẵn bằng tên DNS `lab-k8s-master`.
 2. **Không phải sự cố.** Bài viết rõ trong khối cảnh báo của mục *Cài đặt Pod network add-on*:
    **DNS của cluster (CoreDNS) sẽ không khởi động trước khi một mạng được cài đặt**. Chỉ khi
    bạn `kubectl apply` manifest CNI — với lab là Flannel — thì CoreDNS mới chuyển sang
@@ -714,9 +714,9 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    tự gán cho mình, và `node-role.kubernetes.io/*` nằm trong nhóm bị cấm — cố gán qua
    `--node-labels` thì **node sẽ không đăng ký được với API server**. Phải dùng `kubectl label`
    sau khi node đã join, với kubeconfig đặc quyền như `/etc/kubernetes/admin.conf`.
-5. `kubectl drain k8s-worker2 --delete-emptydir-data --force --ignore-daemonsets` (trên
-   control-plane node) → `kubeadm reset` (**trên chính `k8s-worker2`**) → `kubectl delete node
-   k8s-worker2`. Sau đó máy vẫn còn **các quy tắc iptables và bảng IPVS**: bài nói rõ quá trình
+5. `kubectl drain lab-k8s-worker2 --delete-emptydir-data --force --ignore-daemonsets` (trên
+   control-plane node) → `kubeadm reset` (**trên chính `lab-k8s-worker2`**) → `kubectl delete node
+   lab-k8s-worker2`. Sau đó máy vẫn còn **các quy tắc iptables và bảng IPVS**: bài nói rõ quá trình
    reset không đặt lại hay dọn dẹp chúng, muốn sạch thì phải tự chạy `iptables -F …` và
    `ipvsadm -C`. Bỏ bước drain là bỏ mất phần "đảm bảo node đã trống" mà bài yêu cầu làm trước.
 

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 16/16 · Kiểm chứng ở
-Lab 6b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6b](labs/LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md).
 
 Bài cuối của giai đoạn 6, dài chưa tới một trang, và toàn bộ là tính năng alpha phụ thuộc CSI
 driver. Đọc để biết **khi lưu trữ bên dưới hỏng thì Kubernetes báo cho bạn ở đâu** — đó là câu
@@ -120,6 +120,6 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Đây là bài cuối của giai đoạn 6. Trả lời trôi cả ba câu thì chuyển sang **Lab 6b — Snapshot và
-volume nâng cao** (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)); phần nào driver
+Đây là bài cuối của giai đoạn 6. Trả lời trôi cả ba câu thì chuyển sang [**Lab 6b — Snapshot và
+volume nâng cao**](labs/LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md); phần nào driver
 không hỗ trợ thì giữ nguyên trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) chứ đừng bỏ qua.

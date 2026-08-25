@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 1/16 · Kiểm chứng ở
-Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md).
 
 Bài này là **trang mục lục của cả giai đoạn**, không phải bài kỹ thuật. Nó nêu tên gần như mọi
 khái niệm mạng rồi trỏ sang bài khác. Đừng cố hiểu hết ở đây; thứ duy nhất phải nắm chắc là mô
@@ -159,8 +159,8 @@ mạng cho cluster của bạn, đồng thời cung cấp cái nhìn tổng quan
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
 
-1. Trong cluster lab, Pod CIDR là `10.244.0.0/16`. Một Pod trên `k8s-worker1` `curl` thẳng địa
-   chỉ IP của một Pod trên `k8s-worker2`. Theo mô hình mạng, gói tin có bị NAT không, và thành
+1. Trong cluster lab, Pod CIDR là `10.244.0.0/16`. Một Pod trên `lab-k8s-worker1` `curl` thẳng địa
+   chỉ IP của một Pod trên `lab-k8s-worker2`. Theo mô hình mạng, gói tin có bị NAT không, và thành
    phần nào chịu trách nhiệm làm cho đường đi đó chạy được?
 2. Hai container trong cùng một Pod gọi nhau bằng cách nào, và vì sao chúng không cần Service?
 3. Bạn `kubectl apply` một NetworkPolicy và API server trả lời `created`. Điều đó có nghĩa là

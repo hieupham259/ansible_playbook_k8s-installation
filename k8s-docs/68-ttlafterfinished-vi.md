@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 7/14 ·
-Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md).
 
 Bài ngắn nhất giai đoạn, và nó trả lời trực tiếp câu hỏi mà bài [67](67-job-vi.md) để mở:
 Job xong rồi thì ai dọn? Đọc mất năm phút. Toàn bộ giá trị nằm ở hai chỗ dễ hiểu sai — mốc
@@ -126,7 +126,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    xóa vào thời điểm nào tính từ lúc bạn `kubectl apply`?
 2. **Câu bẫy.** TTL của một Job đã hết hạn nhưng bạn thấy Job vẫn còn, nên `kubectl patch`
    nâng `ttlSecondsAfterFinished` lên và API trả về thành công. Job có chắc còn không?
-3. Cluster lab của bạn gồm ba VM `k8s-master`, `k8s-worker1`, `k8s-worker2`. Vì sao bài cảnh
+3. Cluster lab của bạn gồm ba VM `lab-k8s-master`, `lab-k8s-worker1`, `lab-k8s-worker2`. Vì sao bài cảnh
    báo về lệch thời gian, và hậu quả cụ thể là gì?
 4. Khi controller dọn một Job hết TTL, các Pod của Job đó ra sao?
 

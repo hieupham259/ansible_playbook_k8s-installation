@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 2/16 · Kiểm chứng ở
-Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md).
 
 Bài này rất dài vì mục *Các loại volume* liệt kê **toàn bộ** loại volume Kubernetes từng hỗ
 trợ, kể cả những loại đã bị gỡ bỏ hoặc vô hiệu hóa. Bạn chỉ cần đọc kỹ năm loại: `emptyDir`,
@@ -1295,7 +1295,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Bạn đặt `emptyDir.medium: "Memory"` và quên đặt `sizeLimit`. Hai hệ quả nào xảy ra?
 3. `hostPath` và `local` cùng lấy đĩa của node. Vì sao bài khuyên tránh `hostPath` và dùng
    `local` thay thế?
-4. Cluster lab của bạn (`k8s-master` + 2 worker) **chưa có StorageClass và chưa có provisioner**.
+4. Cluster lab của bạn (`lab-k8s-master` + 2 worker) **chưa có StorageClass và chưa có provisioner**.
    Trong các loại volume bài này liệt kê, những loại nào bạn mount được ngay hôm nay mà không
    cần cài thêm gì, và vì sao `persistentVolumeClaim` chưa dùng được?
 5. Bạn mount một ConfigMap bằng `subPath` để chỉ lấy đúng một file. Điều gì sẽ không còn hoạt

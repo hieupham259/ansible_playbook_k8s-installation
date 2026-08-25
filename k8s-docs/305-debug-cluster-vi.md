@@ -4,6 +4,58 @@
 >
 > Gỡ lỗi các sự cố cluster thường gặp.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
+bài 1/10 · Giai đoạn này của Phần II không có lab riêng: thực hành trực tiếp trên cluster lab ở mốc
+`04-metrics-ready` (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)), tự chấm bằng Checkpoint ghi ở
+cuối mục giai đoạn trong lộ trình.
+
+Đây là bài mở đầu giai đoạn 24 và nó nối tiếp bài
+[09 — Khắc phục sự cố kubeadm](09-troubleshooting-kubeadm-vi.md): ở đó là sự cố lúc **dựng**
+cluster, ở đây là sự cố của cluster **đang chạy**. Việc đầu tiên bài làm không phải là chẩn đoán mà
+là **phân tuyến** — biết mình đang ở nhánh nào trước khi gõ lệnh đầu tiên.
+
+**Phải hiểu ở lần đọc này:**
+
+- Đoạn mở đầu chia ba tuyến, và đi nhầm tuyến là mất giờ: trang này chỉ dành cho sự cố **cấp
+  cluster** và **đã giả định bạn loại trừ ứng dụng**; sự cố ứng dụng đi bài
+  [297](297-debug-application-vi.md), sự cố của chính `kubectl` đi bài
+  [314](314-troubleshoot-kubectl-vi.md).
+- Mục *Liệt kê cluster của bạn*: hai lệnh mở đầu mọi ca — `kubectl get nodes` để xác nhận mọi node
+  đăng ký đúng và đều `Ready`, rồi `kubectl cluster-info dump` khi cần bức tranh tổng thể.
+- Mục *Ví dụ: gỡ lỗi một node bị down*: cách đọc một node hỏng. Các Condition
+  (`MemoryPressure`, `DiskPressure`, `PIDPressure`, `Ready`) chuyển sang `Unknown` với
+  `Reason: NodeStatusUnknown` và message *Kubelet stopped posting node status*; hai taint
+  `node.kubernetes.io/unreachable` (`NoExecute` và `NoSchedule`) xuất hiện; và Pod trên node đó
+  **bị evict sau năm phút** ở trạng thái NotReady. `Unknown` không phải `False`.
+- Mục *Xem log*: nhớ đúng năm đường dẫn — control plane có `/var/log/kube-apiserver.log`,
+  `/var/log/kube-scheduler.log`, `/var/log/kube-controller-manager.log`; worker có
+  `/var/log/kubelet.log` và `/var/log/kube-proxy.log`. Kèm câu quan trọng nhất của mục: **trên hệ
+  thống dùng systemd, bạn có thể cần dùng `journalctl` thay vì xem trực tiếp các file log**.
+- Mục *Các kịch bản cụ thể*: phân biệt ba dạng lỗi rất dễ gộp nhầm — **apiserver crash** (Pod và
+  Service hiện có vẫn chạy bình thường trừ khi chúng phụ thuộc API, chỉ mất khả năng tạo/sửa/xóa),
+  **mất kho lưu trữ nền của apiserver** (apiserver không khởi động thành công, kubelet không kết
+  nối được nhưng vẫn chạy Pod cũ, phải khôi phục thủ công), và **một node đơn lẻ bị tắt** (Pod trên
+  đúng node đó ngừng chạy). Mục *Các biện pháp giảm thiểu* ghép mỗi hành động với dạng lỗi nó chặn.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Khối YAML dài của `kubectl get node -o yaml` | là bản đầy đủ của đúng thông tin mà `kubectl describe node` phía trên đã trình bày; phần cần đọc là khối `conditions` | Checkpoint [giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố), ca node `NotReady` trên `lab-k8s-worker2` |
+| Các biện pháp gắn với nhà cung cấp IaaS: tự khởi động lại VM, volume GCE PD / AWS EBS, snapshot định kỳ PD/EBS | cluster lab là ba VM tự dựng, không có IaaS phía dưới | phần tương đương cho cluster lab là snapshot etcd, đã học ở [giai đoạn 19](00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa) |
+| Biện pháp "dùng cấu hình tính sẵn sàng cao" | ở đây chỉ cần biết nó giảm thiểu dạng lỗi nào | bài [08](08-high-availability-vi.md) đã đọc ở [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) |
+| Con số phiên bản, tên node và tên CNI trong mọi output mẫu (`v1.23.3`, `kube-worker-1`, Weave) | là output chụp từ một cluster khác; cái cần đọc là **cấu trúc** output, không phải giá trị | phiên bản của cluster lab khóa ở [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) |
+
+---
+
 Tài liệu này nói về việc khắc phục sự cố (troubleshooting) ở cấp cluster; chúng tôi giả định
 rằng bạn đã loại trừ khả năng ứng dụng của bạn là nguyên nhân gốc của vấn đề bạn đang gặp phải.
 Xem [hướng dẫn khắc phục sự cố ứng dụng](297-debug-application-vi.md)
@@ -335,3 +387,58 @@ cluster của bạn để giảm thiểu các vấn đề đó.
 * Dùng `crictl` để [gỡ lỗi các node Kubernetes](307-crictl-vi.md)
 * Tìm hiểu thêm về [Kubernetes auditing](306-audit-vi.md)
 * Dùng `telepresence` để [phát triển và gỡ lỗi service cục bộ](309-local-debugging-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 24:
+
+1. Trên `lab-k8s-master`, `kubectl get nodes` hiện `lab-k8s-worker2` ở trạng thái `NotReady`. Bạn
+   chạy `kubectl describe node lab-k8s-worker2`. Trong bảng `Conditions` bạn kỳ vọng thấy `Status`
+   và `Reason` nào? Hai taint nào xuất hiện? Và Pod đang chạy trên node đó sẽ ra sao?
+2. **Câu bẫy.** kube-apiserver trên `lab-k8s-master` bị crash. Ứng dụng web đang chạy trên hai
+   worker có ngừng phục vụ người dùng không? Bạn mất khả năng làm những gì?
+3. Trên `lab-k8s-worker1` bạn không tìm thấy file `/var/log/kubelet.log`. Bài có lường trước tình
+   huống này không, và bạn đọc log của kubelet bằng cách nào?
+4. Phân biệt hai kịch bản "VM của API server bị tắt hoặc apiserver crash" và "mất kho lưu trữ nền
+   của API server". Hậu quả khác nhau ở đâu, và kịch bản nào đòi phải khôi phục thủ công trước khi
+   khởi động lại apiserver?
+5. Bài liệt kê hành động "dùng replication controller và service đứng trước các pod". Theo bảng
+   biện pháp giảm thiểu, hành động đó chặn được hai dạng lỗi nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Các Condition `MemoryPressure`, `DiskPressure`, `PIDPressure` và `Ready` đều có
+   **`Status: Unknown`**, `Reason: NodeStatusUnknown`, message *Kubelet stopped posting node
+   status* — chú ý `Unknown` chứ không phải `False`: control plane **không biết**, chứ không phải
+   biết là node khỏe hay ốm. Hai taint xuất hiện là
+   **`node.kubernetes.io/unreachable:NoExecute`** và
+   **`node.kubernetes.io/unreachable:NoSchedule`**. Pod trên node đó **bị evict sau năm phút** ở
+   trạng thái NotReady, đúng như bài mô tả trong ví dụ.
+2. **Không ngừng.** Bài nói rõ hậu quả của kịch bản này: các Pod và Service hiện có **tiếp tục hoạt
+   động bình thường, trừ khi chúng phụ thuộc vào Kubernetes API**. Thứ bạn mất là khả năng **dừng,
+   cập nhật, hoặc khởi chạy Pod, Service, replication controller mới** — nghĩa là mất control
+   plane chứ không mất data plane. Đây là lý do phải phân biệt "cluster hỏng" với "ứng dụng hỏng"
+   ngay từ đoạn mở đầu.
+3. **Có.** Bài viết thẳng: *trên các hệ thống dùng systemd, bạn có thể cần dùng `journalctl` thay
+   vì xem trực tiếp các file log*. Danh sách năm đường dẫn `/var/log/*.log` là quy ước, không phải
+   bảo đảm — trên cluster lab kubelet chạy dưới systemd nên log đi vào journal. Đọc bằng
+   `journalctl` cho unit kubelet trên chính node đó.
+4. **apiserver crash:** thành phần chết nhưng **trạng thái vẫn còn nguyên** — Pod và Service đang
+   chạy không bị ảnh hưởng, chỉ mất khả năng thay đổi; khởi động lại là xong. **Mất kho lưu trữ
+   nền:** kube-apiserver **không khởi động thành công và không trở nên healthy**, các kubelet không
+   kết nối được tới nó nhưng **vẫn tiếp tục chạy Pod hiện có và cung cấp service proxy như cũ**.
+   Kịch bản thứ hai là kịch bản **cần khôi phục thủ công hoặc tạo lại trạng thái của apiserver
+   trước khi khởi động lại nó**.
+5. **"Node bị tắt"** và **"lỗi phần mềm kubelet"**. Lý do chung của cả hai: khi Pod chết cùng node
+   hoặc cùng kubelet, các replication controller khởi chạy Pod mới ở nơi khác, và Service giữ
+   nguyên một địa chỉ cho client dù Pod đứng sau đã đổi chỗ. Cùng bảng đó còn ghép hai dạng lỗi này
+   với hành động "thiết kế ứng dụng chịu được việc khởi động lại bất ngờ".
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

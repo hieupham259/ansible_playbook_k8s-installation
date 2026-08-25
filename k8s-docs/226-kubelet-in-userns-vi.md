@@ -2,6 +2,54 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/kubelet-in-userns/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
+→ nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 1/11 ·
+[Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) **không kiểm chứng bài này**: mục 1.1 của lab ghi rõ lý
+do — rootless mode cần feature gate `KubeletInUserNamespace` và phải dựng lại toàn bộ node, lệch
+khỏi baseline của Lab 00, mà lab thì không cài phần mềm.
+
+Đây là bài **lệch mạch** của nhóm 3a: mọi bài khác nói về Pod, bài này nói về **thành phần Node**
+— kubelet, CRI, OCI runtime và CNI. Đọc để tách bạch hai chuyện rất dễ lẫn, và để biết rootless
+mode tồn tại. Phần lớn nội dung là con trỏ sang dự án bên thứ ba, không phải hướng dẫn làm được
+ngay.
+
+**Phải hiểu ở lần đọc này:**
+
+- Đối tượng của bài là **các thành phần Node chạy dưới người dùng không phải root** (_rootless
+  mode_), không phải Pod. Ghi chú ngay đầu bài tách bạch: nếu chỉ muốn chạy một Pod dưới người
+  dùng không phải root thì đó là [SecurityContext](291-security-context-vi.md), việc khác hẳn.
+- Điều kiện tiên quyết ở mục *Trước khi bạn bắt đầu*: **cgroup v2** (mục *Tạo cây cgroup được ủy
+  quyền* nói thẳng cgroup v1 **không được hỗ trợ**), systemd với user session, một số giá trị
+  sysctl, người dùng không đặc quyền phải có mặt trong `/etc/subuid` và `/etc/subgid`, và feature
+  gate `KubeletInUserNamespace` — alpha từ v1.22.
+- Feature gate đó làm đúng một việc dễ hình dung: cho kubelet **bỏ qua lỗi** khi đặt một danh
+  sách sysctl (`vm.overcommit_memory`, `vm.panic_on_oom`, `kernel.panic`, …), bỏ qua lỗi khi mở
+  `/dev/kmsg`, và cho kube-proxy bỏ qua lỗi khi đặt `RLIMIT_NOFILE`.
+- Cây cgroup phải được systemd **ủy quyền** bằng `Delegate=yes`, nên cả containerd/CRI-O lẫn
+  kubelet đều được cấu hình dùng `cgroupfs`, **không** dùng driver `systemd` — chính các dòng
+  chú thích trong ba khối cấu hình nói lý do.
+- Các hạn chế ở mục *Caveats*: volume "không cục bộ" như `nfs` và `iscsi` **không hoạt động**;
+  chỉ `local`, `hostPath`, `emptyDir`, `configMap`, `secret` và `downwardAPI` được biết là chạy
+  tốt. Một số CNI plugin cũng không chạy, Flannel (VXLAN) thì chạy tốt.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Chạy Kubernetes trong Rootless Docker/Podman bằng kind hoặc minikube | lộ trình không dùng kind hay minikube; cluster lab dựng bằng kubeadm | [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) |
+| sysbox, K3s, Usernetes | dự án bên thứ ba, chính bài cũng ghi Kubernetes không chịu trách nhiệm | không nằm trong lộ trình; cách dựng cluster mà lộ trình dùng ở [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) |
+| Cả mục *Tự tay triển khai một node chạy kubelet trong user namespace* — `unshare(2)`, cây cgroup ủy quyền, cấu hình mạng, cấu hình CRI | chính bài ghi mục này "dành cho các nhà phát triển bản phân phối, không dành cho người dùng cuối" | [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), khi bạn dựng node thật |
+| Hai khối YAML `KubeletConfiguration` và `KubeProxyConfiguration` | sửa cấu hình kubelet và kube-proxy của cluster đang chạy là chủ đề riêng | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.22 [alpha]`
 
 Tài liệu này mô tả cách chạy các thành phần Node của Kubernetes như kubelet, CRI, OCI và CNI
@@ -310,3 +358,56 @@ rootlesscontaine.rs.
 - [Usernetes](https://github.com/rootless-containers/usernetes)
 - [Chạy K3s với rootless mode](https://rancher.com/docs/k3s/latest/en/advanced/#running-k3s-with-rootless-mode-experimental)
 - [KEP-2033: Kubelet-in-UserNS (aka Rootless mode)](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/2033-kubelet-in-userns-aka-rootless)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. **Câu bẫy.** Hai chuyện cùng có chữ "không phải root" và rất dễ lẫn: chạy **thành phần Node**
+   dưới người dùng không phải root, và chạy **một Pod** dưới người dùng không phải root. Bài này
+   nói về cái nào, và nó chỉ đường sang đâu cho cái còn lại?
+2. Bạn muốn bật rootless mode cho `lab-k8s-worker2` của cluster lab. Theo mục *Trước khi bạn bắt
+   đầu*, phải có sẵn những gì trên node đó trước khi kubelet khởi động được trong user namespace?
+   Trong đó, thứ nào bài nói thẳng là **bắt buộc**, không có phương án thay thế?
+3. Bật feature gate `KubeletInUserNamespace` thì kubelet đổi hành vi ở chỗ nào? Kể ba nhóm lỗi
+   mà nó cho phép bỏ qua.
+4. Cả containerd/CRI-O lẫn kubelet trong bài đều được cấu hình dùng `cgroupfs` chứ không dùng
+   driver `systemd`. Lý do bài đưa ra là gì?
+5. Cluster rootless chạy được rồi, bạn định cho workload dùng volume `nfs` và một CNI plugin bất
+   kỳ. Mục *Caveats* cảnh báo gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Bài nói về **thành phần Node**: kubelet, CRI, OCI runtime và CNI — tức _rootless mode_, chạy
+   cả cái nền của node dưới một người dùng không đặc quyền. Ghi chú ngay đầu bài chặn trước sự
+   nhầm lẫn: **nếu bạn chỉ đang tìm cách chạy một Pod dưới người dùng không phải root, hãy xem
+   [SecurityContext](291-security-context-vi.md)**. Chỗ dễ sai là tưởng hai việc chỉ khác nhau về
+   quy mô; thật ra chúng nằm ở hai tầng khác nhau — một tầng là cách node được dựng, một tầng là
+   trường trong manifest Pod.
+2. Bài liệt kê năm thứ: **cgroup v2** đã bật, **systemd với user session**, một số **giá trị
+   sysctl** tùy bản phân phối, người dùng không đặc quyền **có mặt trong `/etc/subuid` và
+   `/etc/subgid`**, và feature gate **`KubeletInUserNamespace`**. Thứ bắt buộc không có đường lùi
+   là **cgroup v2**: mục *Tạo cây cgroup được ủy quyền* ghi rõ **cgroup v1 không được hỗ trợ**.
+   Ngoài ra còn cần một **cây cgroup ghi được**, ủy quyền qua systemd unit có `Delegate=yes`.
+3. Nó cho kubelet **bỏ qua lỗi** thay vì chết. Ba nhóm: **một, lỗi khi đặt các sysctl**
+   `vm.overcommit_memory`, `vm.panic_on_oom`, `kernel.panic`, `kernel.panic_on_oops`,
+   `kernel.keys.root_maxkeys`, `kernel.keys.root_maxbytes`; **hai, lỗi khi cố mở `/dev/kmsg`**;
+   **ba, lỗi của kube-proxy khi đặt `RLIMIT_NOFILE`**. Tất cả đều là những thao tác mà một tiến
+   trình không đặc quyền không được phép làm.
+4. Vì cây cgroup ở đây là **cây do systemd ủy quyền cho người dùng không đặc quyền**, chứ không
+   phải cây mà một systemd đang chạy bên trong namespace quản lý. Chú thích trong cả ba khối cấu
+   hình đều nói cùng một câu: *"Chúng ta dùng cgroupfs được systemd ủy quyền, nên không dùng
+   driver systemd (trừ khi bạn chạy một systemd khác bên trong namespace)."*
+5. Cảnh báo hai điều. Một, **hầu hết volume driver "không cục bộ" như `nfs` và `iscsi` không hoạt
+   động**; chỉ các volume cục bộ — `local`, `hostPath`, `emptyDir`, `configMap`, `secret`,
+   `downwardAPI` — được biết là chạy tốt. Hai, **một số CNI plugin có thể không hoạt động**, và
+   thứ bài xác nhận chạy tốt là **Flannel (VXLAN)**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

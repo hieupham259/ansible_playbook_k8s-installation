@@ -6,6 +6,61 @@
 > (kubeconfig), và cách chuyển đổi nhanh giữa các cluster bằng lệnh
 > `kubectl config use-context`.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 1 — Mô hình Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-1--mô-hình-kubernetes)
+→ nhóm [1b. Làm việc với object và kubectl](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 7/8 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 1b — Object, label, kubectl và kubeconfig](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md)
+phần B4, nơi lab tạo một context mới trên **bản sao** kubeconfig và chứng minh context thật của
+`lab-k8s-master` không đổi.
+
+Đây là bản thực hành của bài [111 — Tổ chức quyền truy cập cluster bằng file kubeconfig](111-kubeconfig-vi.md).
+Bạn chỉ có một cluster lab, nên hai cluster `development` và `test` trong bài là **giả**: các
+`server`, `fake-ca-file`, `fake-cert-file` không trỏ tới đâu cả. Điều đó không sao — mọi bước
+đều chạy được, vì bài chỉ thao tác trên file cấu hình chứ không gọi tới API server. Làm theo
+trên file tạm trong thư mục `config-exercise`, đúng như Lab 1b làm, và **không sửa
+`$HOME/.kube/config`**.
+
+**Phải hiểu ở lần đọc này:**
+
+- Một context là một **bộ ba (cluster, user, namespace)**, và `kubectl config use-context` đổi cả
+  ba cùng lúc. Bài nói thẳng ý nghĩa của `dev-frontend`: "dùng thông tin đăng nhập của user
+  `developer` để truy cập namespace `frontend` của cluster `development`".
+- Sửa kubeconfig bằng lệnh chứ không bằng tay: `kubectl config --kubeconfig=<file>` với
+  `set-cluster`, `set-credentials`, `set-context`, `use-context`, `view`; xóa bằng
+  `config unset users.<name>`, `clusters.<name>`, `contexts.<name>`. Cờ `--kubeconfig` quyết định
+  file nào bị sửa, nên đây là cách làm mà không đụng tới file cấu hình đang dùng thật.
+- `kubectl config view` in toàn bộ; thêm `--minify` thì **chỉ in phần gắn với context hiện tại**
+  — mục *Định nghĩa cluster, user và context* dùng nó để chứng minh mỗi lần `use-context` là một
+  bộ ba khác.
+- Biến môi trường `KUBECONFIG` là một **danh sách đường dẫn** (ngăn bằng `:` trên Linux/Mac, `;`
+  trên Windows), và `kubectl config view` in ra bản **hợp nhất** của mọi file trong danh sách —
+  đó là lý do context `dev-ramp-up` của `config-demo-2` xuất hiện cạnh ba context của
+  `config-demo`. Nhớ lưu giá trị cũ (`KUBECONFIG_SAVED`) và khôi phục ở mục *Dọn dẹp*.
+- Hai điều về an toàn và danh tính: cảnh báo đầu bài nói **chỉ dùng kubeconfig từ nguồn đáng tin
+  cậy**, vì một file được chế tác có thể dẫn tới thực thi mã độc hoặc lộ file — hãy soi nó như
+  soi một shell script. Và khi không chắc mình đang là ai trên cluster nào, `kubectl auth whoami`
+  trả lời đúng câu đó (mục *Kiểm tra chủ thể (subject) mà kubeconfig đại diện*).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| `set-credentials --username --password` cho cluster `test`, và ghi chú về client-go credential plugin | ở đây chỉ cần thấy user là một mục trong kubeconfig; cơ chế xác thực thật chưa học | [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
+| Hậu tố `-data` (`certificate-authority-data`, `client-certificate-data`, `client-key-data`) | chỉ là cách nhúng nội dung certificate thay cho đường dẫn file | [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) |
+| Quy tắc chi tiết khi hợp nhất nhiều file kubeconfig | ở đây chỉ cần thấy kết quả hợp nhất | bài [111 — kubeconfig](111-kubeconfig-vi.md) của chính nhóm 1b |
+| Các biến thể lệnh cho Windows PowerShell | mọi lệnh của lộ trình chạy trên VM Linux `lab-k8s-master` | ngoài phạm vi lộ trình — đọc khi máy trạm của bạn là Windows |
+
+---
+
 Trang này hướng dẫn cách cấu hình truy cập nhiều cluster bằng cách sử dụng
 các file cấu hình. Sau khi các cluster, user và context của bạn đã được định nghĩa
 trong một hoặc nhiều file cấu hình, bạn có thể chuyển đổi nhanh giữa các cluster bằng
@@ -420,3 +475,53 @@ cho context Kubernetes client mà bạn đã chọn: `kubectl auth whoami`.
 
 * [Tổ chức quyền truy cập cluster bằng file kubeconfig](111-kubeconfig-vi.md) — đã có [bản dịch tiếng Việt](111-kubeconfig-vi.md)
 * [kubectl config](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#config)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở nhóm 1b:
+
+1. Bạn chạy `kubectl config --kubeconfig=config-demo use-context dev-storage`. Ba thứ nào vừa
+   đổi cùng lúc, và lệnh `kubectl get pods` chạy ngay sau đó sẽ hỏi cluster nào, namespace nào,
+   với danh tính nào?
+2. **Câu bẫy.** Trong suốt bài, `$HOME/.kube/config` của bạn có bị sửa không? Cụ thể, cái gì
+   khiến các lệnh `kubectl config ...` của bài không đụng tới file đó — và mục nào của bài mới
+   thực sự kéo file đó vào cuộc?
+3. Bạn đặt `KUBECONFIG="config-demo:config-demo-2"` rồi chạy `kubectl config view`. Kết quả có
+   bốn context trong khi mỗi file chỉ định nghĩa một phần trong số đó. Cơ chế nào tạo ra kết
+   quả đó, và vì sao bài bắt bạn lưu `KUBECONFIG_SAVED` trước khi làm?
+4. Trên `lab-k8s-master`, bạn nhận một file kubeconfig từ đồng nghiệp và muốn biết mình sẽ là ai
+   khi dùng nó. Lệnh nào của bài trả lời được, và bài cảnh báo gì trước khi bạn dùng một file
+   kubeconfig lạ?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Đổi cùng lúc **cluster, user và namespace** — vì một context chính là bộ ba đó. Với
+   `dev-storage`, lệnh `kubectl get pods` sẽ hỏi cluster **`development`**, namespace
+   **`storage`**, bằng thông tin đăng nhập của user **`developer`**. Đây là lý do bài mô tả
+   context bằng một câu tiếng Việt gọn: dùng credential của user X để truy cập namespace Y của
+   cluster Z.
+2. **Không bị sửa.** Nguyên nhân là **mọi lệnh trong bài đều có cờ `--kubeconfig=config-demo`**,
+   nên chúng chỉ ghi vào file trong thư mục `config-exercise`. Chỗ dễ nhầm là nghĩ
+   `kubectl config` luôn tác động lên file cấu hình mặc định. Chỉ có hai mục cuối kéo
+   `$HOME/.kube/config` vào cuộc, và cũng chỉ **đọc**: mục *Khám phá thư mục $HOME/.kube* xem
+   trong đó có gì, và mục *Nối $HOME/.kube/config vào biến môi trường KUBECONFIG* thêm đường dẫn
+   của nó vào danh sách để `kubectl config view` hợp nhất — chứ không ghi đè nó.
+3. Vì `KUBECONFIG` là một **danh sách đường dẫn**, và `kubectl config view` in ra bản **hợp
+   nhất** của tất cả các file trong danh sách. Ba context của `config-demo` cộng với
+   `dev-ramp-up` của `config-demo-2` thành bốn. Bài bắt lưu `KUBECONFIG_SAVED` vì bước này
+   **ghi đè giá trị đang có** của biến môi trường; mục *Dọn dẹp* trả nó về nguyên trạng bằng
+   `export KUBECONFIG="$KUBECONFIG_SAVED"`.
+4. Lệnh là **`kubectl auth whoami`**: nó cho biết các thuộc tính chủ thể — username, groups — mà
+   bạn nhận được sau khi xác thực với context đang chọn; bài nói rõ điều này khó thấy khi bạn
+   quản lý nhiều hơn một cluster. Cảnh báo đi kèm: **chỉ dùng kubeconfig từ nguồn đáng tin cậy**,
+   vì một file được chế tác đặc biệt có thể dẫn tới **thực thi mã độc hoặc lộ file**; buộc phải
+   dùng file lạ thì kiểm tra nó cẩn thận trước, giống như kiểm tra một shell script.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 4/16 · Kiểm chứng ở
-Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md).
 
 Bài này là chỗ giải thích **vì sao gọi Service bằng tên lại chạy được**. Trọng tâm nằm ở ba
 thứ: dạng FQDN, danh sách `search` trong `/etc/resolv.conf`, và `ndots:5`. Các mục về Windows

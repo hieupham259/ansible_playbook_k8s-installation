@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
-bài 2/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 2/6 · Kiểm chứng ở [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md).
 
 Bài này và bài [134](134-resource-quotas-vi.md) ngay sau tạo thành một cặp rất dễ lẫn. Giữ
 chặt một câu phân biệt ngay từ đầu: **LimitRange đặt trần cho từng đối tượng, ResourceQuota

@@ -2,6 +2,65 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/migrate-from-psp/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
+dòng **Thực hành**, bài 6/10 · Kiểm chứng ở
+[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), phần B6.1–B6.4 (API
+`policy/v1beta1` không còn, manifest PSP của bài không apply được, không Pod nào còn annotation
+`kubernetes.io/psp`, và năm bước di trú đối chiếu với cluster đã qua mốc gỡ bỏ) cùng B8.2 (bước 1
+— rà soát quyền trên namespace).
+
+Bài này viết cho một cluster **vẫn còn PodSecurityPolicy**. Cluster lab của bạn thì không:
+PodSecurityPolicy đã bị gỡ khỏi Kubernetes, nên các bước 2, 3.d và 5 không thực hiện được — Lab 9b
+B6 chứng minh đúng điều đó bằng chính API. Vậy đọc bài này để làm gì? Để hiểu **vì sao Pod Security
+Admission có hình dạng như hôm nay**, và vì mục 1 cùng mục 3 vẫn áp dụng **nguyên vẹn** cho mọi
+cluster hiện nay. Lộ trình xếp bài [117](117-pod-security-policy-vi.md) là tài liệu lịch sử ở cuối
+giai đoạn 9 vì cùng lý do.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mục 0 — ba thứ PSP làm được mà Pod Security Admission **không**: đặt ràng buộc bảo mật mặc định
+  (PSA là admission controller **không mutating**, nó chỉ validate chứ không sửa Pod), kiểm soát
+  chi tiết định nghĩa chính sách (PSA chỉ có **3 mức chuẩn**), và độ chi tiết **dưới mức
+  namespace** (PSP gắn được theo từng ServiceAccount hoặc user). Ngoại lệ duy nhất PSA có: miễn
+  trừ tĩnh theo username và RuntimeClass.
+- Mục 1 — vì PSA được điều khiển bằng **nhãn trên namespace**, nên **bất kỳ ai cập nhật, patch
+  hoặc tạo được namespace cũng đổi được mức Pod Security của namespace đó**, và đó là đường vượt
+  qua một chính sách hạn chế hơn. Đây là lý do rà soát quyền namespace là **bước 1**, trước mọi
+  việc khác — và là mục còn nguyên giá trị trên cluster của bạn.
+- Mục 3.a và 3.b — hai công cụ thử trước khi siết, bắt hai loại vi phạm khác nhau:
+  `kubectl label --dry-run=server` đánh giá **Pod đang chạy** ngay lập tức, còn chế độ `audit` và
+  `warn` chạy dài ngày nên bắt được cả workload **hiện không chạy**. Bài cảnh báo rõ: các cách dựa
+  trên Pod *hiện có* bỏ sót CronJob, workload đã scale về 0, và workload chưa được triển khai.
+- Mục 2 — vì sao PSP mutating là chỗ khó nhất: PSP **không tách bạch field mutating với field
+  validating**, nên những Pod từng được PSP tự điền giá trị sẽ thiếu cấu hình khi bạn tắt PSP.
+  Quy trình an toàn ở 2.c: tìm Pod theo annotation `kubernetes.io/psp`, **so Pod đang chạy với
+  PodTemplate gốc** để phát hiện field bị PSP sửa, rồi đưa giá trị đó vào chính manifest.
+- Thứ tự sáu bước và lý do của thứ tự: rà quyền namespace → chuẩn hóa PSP → cập nhật từng
+  namespace (chọn mức → kiểm chứng → thực thi → bỏ qua PSP) → **rà quy trình tạo namespace** →
+  tắt PSP. Mục 4 nối thẳng sang bài [282](282-enforce-standards-admission-controller-vi.md): gắn
+  nhãn cho namespace hiện có là chưa đủ, vì namespace **mới** không có nhãn sẽ rơi về mặc định.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Danh sách field PSP ở 2.a và 2.b — `.spec.defaultAllowPrivilegeEscalation`, `.spec.allowedHostPaths`, `.spec.runAsGroup`, `.spec.supplementalGroups`… | là bảng tra cứu cho cluster **còn** PSP; API này đã bị gỡ khỏi Kubernetes | bài [117](117-pod-security-policy-vi.md) — lộ trình xếp là **tài liệu lịch sử**, đọc ở cuối giai đoạn 9; [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) B6.2 chứng minh manifest PSP không apply được |
+| Mục 3.d — gắn PSP `privileged` cho mọi service account để vô hiệu hóa PSP theo namespace | manifest dùng nhóm API `policy/v1beta1`, thứ không còn tồn tại | [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) B6.1 chứng minh nhóm API đã biến mất; không có bước thực hành nào khác trong lộ trình |
+| Mục 5 — tắt admission controller PodSecurityPolicy và đọc dòng log liệt kê plugin lúc apiserver khởi động | phải sửa cấu hình admission của API server | [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) bài [03](03-control-plane-flags-vi.md) và [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy); [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) B7.1 đọc chuỗi admission thật bằng đường khác |
+| Mutating / Validating Admission Webhook được đề xuất để bù các tính năng PSA thiếu | phải viết và triển khai một máy chủ webhook; một webhook sai cấu hình làm chết cả cluster | bài [173](173-admission-webhooks-vi.md), đọc sau trong giai đoạn 9; điểm mở rộng API nằm ở [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) |
+| Mục 3.b — phần vi phạm được **ghi vào audit log** ở chế độ `audit` | đọc được audit log cần một audit backend đang chạy | [giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu), bài [306](306-audit-vi.md) |
+
+---
+
 Trang này mô tả quy trình di chuyển từ PodSecurityPolicy sang admission controller PodSecurity
 tích hợp sẵn. Việc này có thể được thực hiện hiệu quả bằng cách kết hợp dry-run cùng các chế độ
 `audit` và `warn`, mặc dù sẽ trở nên khó hơn nếu các PSP có tính chất mutating (tự động sửa đổi
@@ -365,3 +424,65 @@ Khi bạn chắc chắn rằng admission controller PSP đã bị tắt (và sau
 đủ dài để tự tin rằng bạn sẽ không cần hoàn tác), bạn có thể thoải mái xóa các
 PodSecurityPolicy của mình cùng mọi Role, ClusterRole, RoleBinding và ClusterRoleBinding liên
 quan (chỉ cần bảo đảm rằng chúng không cấp thêm quyền nào khác không liên quan).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. **Câu bẫy.** Bạn đặt `enforce=restricted` cho namespace của một tenant, rồi cấp cho họ quyền
+   `patch` trên chính namespace đó để họ tự quản lý nhãn của mình. Chính sách bạn vừa đặt còn
+   giữ được không? Vì sao bài xếp việc rà quyền namespace thành **bước 1** của cả quy trình?
+2. Trên `lab-k8s-master`, `kubectl get podsecuritypolicies` báo lỗi vì API đã bị gỡ. Trong sáu
+   bước của bài, bước nào vẫn áp dụng nguyên vẹn cho cluster này, và bước nào không còn thực hiện
+   được?
+3. Pod Security Admission là admission controller **không mutating**. Nêu hệ quả cụ thể cho một
+   cluster đang dựa vào PSP để tự điền `fsGroup` hay `defaultAllowPrivilegeEscalation` cho Pod, và
+   bài đưa ra hai đường xử lý nào?
+4. Bạn có hai cách thử một mức chính sách trước khi thực thi: `kubectl label --dry-run=server` và
+   chế độ `audit`/`warn`. Mỗi cách bắt được thứ mà cách kia bỏ sót là gì?
+5. Bạn đã gắn nhãn Pod Security cho **toàn bộ** namespace hiện có trong cluster. Vì sao mục 4 vẫn
+   bảo bạn chưa xong, và nó nối sang bài nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không giữ được.** Mức Pod Security của một namespace **nằm trên chính nhãn của namespace
+   đó**, nên ai patch được namespace thì **tự nâng mức của mình lên `privileged`** được, và chính
+   sách bạn đặt biến mất trong một lệnh. Bài nói thẳng: quyền cập nhật, patch hoặc tạo namespace
+   có thể **bị lợi dụng để vượt qua một chính sách hạn chế hơn**. Đó là lý do bước 1 là **rà soát
+   quyền trên namespace**: siết chính sách trước khi siết quyền là siết vào chỗ trống. Nếu bắt
+   buộc phải trao quyền đó, bài chỉ còn một đường — dùng một **admission webhook** để đặt thêm
+   hạn chế lên việc thiết lập nhãn Pod Security trên object Namespace.
+2. Còn nguyên: **bước 1** (rà soát quyền trên namespace), **bước 3.a–3.c** (chọn mức, kiểm chứng
+   bằng dry-run và `audit`/`warn`, rồi thực thi bằng nhãn) và **bước 4** (rà quy trình tạo
+   namespace). Không còn thực hiện được: **bước 2** (đơn giản hóa và chuẩn hóa PSP), **bước 3.d**
+   (gắn PSP `privileged` để vô hiệu hóa PSP theo namespace) và **bước 5** (tắt admission
+   controller PodSecurityPolicy) — cả ba đều thao tác trên một API **không còn tồn tại**. Bước 0
+   thì đã được trả lời hộ: không còn lựa chọn nào khác để cân nhắc.
+3. Hệ quả: **PSA không sửa Pod trước khi validate**, nên những Pod trước đây được PSP tự điền
+   `fsGroup` hay `allowPrivilegeEscalation` sẽ **không còn giá trị đó** khi PSP tắt — và có thể
+   **không đáp ứng mức Pod Security** mà bạn vừa đặt, hoặc đơn giản là chạy sai vì thiếu cấu
+   hình. Hai đường bài đưa ra: **sửa đổi chính workload** để nó tự khai đủ ràng buộc, hoặc **dùng
+   một Mutating Admission Webhook** để thực hiện những thay đổi đó. Đây cũng là lý do bước 2.c
+   bảo bạn **so Pod đang chạy với PodTemplate gốc** — chênh lệch giữa hai thứ chính là những gì
+   PSP đang âm thầm điền vào.
+4. `--dry-run=server` chạy đủ kiểm tra Pod Security lên **những Pod hiện có** và cho kết quả
+   **ngay lập tức**, nhưng nó chỉ nhìn thấy thứ đang chạy — bài cảnh báo nó **bỏ sót CronJob, các
+   workload đã scale về 0, và các workload chưa được triển khai**. Chế độ `audit`/`warn` thì
+   ngược lại: không cho câu trả lời tức thì mà cần một **khoảng thời gian theo dõi**, nhưng vì nó
+   chấm **mọi Pod được tạo trong khoảng đó**, nó bắt được đúng nhóm workload không thường trực
+   kia. Bài gọi đây là phương án **thứ hai, tốt hơn để bắt các workload hiện không chạy**.
+5. Vì bạn mới xử lý **namespace hiện có**. Namespace **tạo mới sau đó** sẽ không có nhãn nào, mà
+   namespace không nhãn thì rơi về **mặc định của cluster** — tức là không chặn gì. Vì vậy mục 4
+   yêu cầu cập nhật **quy trình và chính sách tạo namespace**, và chỉ ra cách bịt lỗ hổng ở tầng
+   dưới: cấu hình tĩnh admission controller Pod Security để đặt mức `enforce`, `audit` và `warn`
+   mặc định cho các namespace **không có label**. Đó chính là bài
+   [282](282-enforce-standards-admission-controller-vi.md).
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

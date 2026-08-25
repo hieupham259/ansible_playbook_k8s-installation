@@ -2,6 +2,62 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
+bài 5/10 · Giai đoạn này của Phần II không có lab riêng: thực hành trực tiếp trên cluster lab ở mốc
+`04-metrics-ready` (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)), tự chấm bằng Checkpoint ghi ở
+cuối mục giai đoạn trong lộ trình.
+
+Bài này và bài [300 — Gỡ lỗi Pod đang chạy](300-debug-running-pod-vi.md) là **cặp dễ nhầm nhất của
+giai đoạn**, phải tách cho rõ ngay từ đầu. Bài 299 lo Pod **chưa chạy được**: `Pending`, `Waiting`,
+`Terminating`, crash — công cụ là `describe`, `Events` và `logs`. Bài 300 lo Pod **đã chạy rồi** và
+bạn cần vào bên trong: `exec`, ephemeral container, `kubectl debug`, shell trên node. Nhớ sai cặp
+này là dùng nhầm công cụ ngay ở bước đầu.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mục *Chẩn đoán vấn đề*: bước đầu tiên là **phân loại (triage)**, không phải gõ lệnh — vấn đề nằm
+  ở Pod, ở Replication Controller hay ở Service. Chọn xong nhánh mới đi tiếp; nhánh Pod mở đầu bằng
+  `kubectl describe pods ${POD_NAME}` để xem trạng thái container và các event gần đây.
+- Ranh giới `Pending` với `Waiting`, là **đã được lập lịch hay chưa**. `Pending` nghĩa là chưa lên
+  được node nào — nguyên nhân bài nêu là thiếu CPU/Memory trong cluster, hoặc dùng `hostPort` nên
+  số chỗ đặt bị giới hạn bằng số node. `Waiting` nghĩa là đã lên một worker node nhưng không chạy
+  được ở đó — nguyên nhân phổ biến nhất là lỗi kéo image, với ba việc phải kiểm: đúng tên image,
+  image đã push chưa, thử kéo tay xem có kéo được không.
+- Mục *Pod của tôi cứ ở trạng thái terminating*: Pod kẹt `Terminating` nghĩa là yêu cầu xóa đã được
+  đưa ra nhưng control plane **không gỡ được object**. Nguyên nhân điển hình là Pod có
+  [finalizer](29-finalizers-vi.md) cộng với một admission webhook chặn thao tác `UPDATE` trên
+  `pods`. Cách nhận diện: tìm ValidatingWebhookConfiguration hoặc MutatingWebhookConfiguration
+  nhắm vào `UPDATE` của tài nguyên `pods`.
+- Mục *Pod của tôi đang chạy nhưng không làm điều tôi yêu cầu*: key gõ sai trong manifest **bị bỏ
+  qua âm thầm** — gõ `commnd` thay `command` thì Pod vẫn được tạo nhưng không dùng dòng lệnh bạn
+  định. Hai việc kiểm: tạo lại với `kubectl apply --validate -f`, và so file gốc với bản trên
+  apiserver lấy bằng `kubectl get pods/mypod -o yaml`. Bản apiserver **thừa** dòng là bình thường;
+  **thiếu** dòng so với bản gốc mới là dấu hiệu có vấn đề.
+- Mục *Gỡ lỗi Service* và *Service của tôi thiếu endpoint*: bằng chứng đầu tiên của một Service là
+  EndpointSlice — `kubectl get endpointslices -l kubernetes.io/service-name=${SERVICE_NAME}`, số
+  endpoint phải khớp số Pod bạn kỳ vọng. Thiếu endpoint thì làm đúng hai việc: liệt kê Pod bằng
+  chính label mà Service dùng (`kubectl get pods --selector=...`), và xác minh `containerPort` của
+  Pod khớp `targetPort` của Service.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Gỡ lỗi Replication Controller* | Replication Controller là API đời cũ; ý duy nhất cần giữ là "hoặc nó tạo được Pod hoặc không, không tạo được thì quay về nhánh Pod" | ReplicaSet và Deployment đã học ở [giai đoạn 4a](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout) |
+| Cách viết và sửa admission webhook (trường bất biến, chính sách chỉ áp cho thay đổi mới) | ở đây chỉ cần **nhận diện** webhook là thủ phạm giữ Pod ở `Terminating`, chưa cần tự viết | bài [173](173-admission-webhooks-vi.md) đã đọc ở [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
+| Mục *Pod của tôi bị crash hoặc không khỏe mạnh* và mục *Lưu lượng mạng không được chuyển tiếp* | cả hai chỉ là con trỏ sang bài khác, không có nội dung riêng | bài [300](300-debug-running-pod-vi.md) (bài 7/10) và bài [301](301-debug-service-vi.md) (bài 6/10) của chính giai đoạn này |
+| Gợi ý `docker pull <image>` để thử kéo image bằng tay | cluster lab dùng containerd, không có `docker` | bài [307](307-crictl-vi.md) (bài 2/10) đã cho công cụ tương đương nói chuyện thẳng với runtime |
+
+---
+
 Hướng dẫn này giúp người dùng gỡ lỗi (debug) các ứng dụng được triển khai vào Kubernetes nhưng
 không hoạt động đúng như mong đợi. Đây *không phải* là hướng dẫn dành cho những người muốn gỡ lỗi
 cluster của mình. Cho việc đó, bạn nên xem
@@ -189,3 +245,55 @@ biểu hiện bất thường.
 
 Bạn cũng có thể xem [tài liệu xử lý sự cố](296-debug-vi.md) để biết
 thêm thông tin.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 24:
+
+1. Mỗi worker của bạn có 2 vCPU. Bạn tạo một Deployment với `requests.cpu: 4`. Pod sẽ dừng ở
+   trạng thái nào, và bạn đọc dòng nào trong output của lệnh nào để biết chắc nguyên nhân? Nếu
+   thay vào đó bạn gõ sai tên image, Pod dừng ở trạng thái nào?
+2. **Câu bẫy.** Một Pod trên `lab-k8s-worker2` kẹt ở `Waiting`. Đồng nghiệp đề nghị thêm node mới
+   vào cluster cho "đỡ chật". Đề nghị đó có giúp gì không, và vì sao?
+3. Bạn gõ nhầm `command` thành `commnd` trong manifest. Vì sao Pod vẫn được tạo và vẫn chạy? Bài
+   đưa hai cách phát hiện — nêu cả hai, và nói rõ khi so hai file YAML thì chênh lệch nào là bình
+   thường, chênh lệch nào là dấu hiệu lỗi.
+4. Service `web` không có endpoint nào, trong khi cả ba Pod đều `Running`. Theo bài, bạn kiểm đúng
+   hai thứ nào?
+5. Bạn `kubectl delete pod` và Pod kẹt mãi ở `Terminating`. Nguyên nhân điển hình bài nêu là gì, và
+   bạn nhận diện nó bằng cách tìm đối tượng nào trong cluster?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Pod sẽ kẹt ở **`Pending`**: nó **không được lập lịch lên node nào** vì cluster không đủ nguồn
+   cung CPU. Đọc bằng `kubectl describe pods ${POD_NAME}` — bài nói rõ ở đó sẽ có **thông báo từ
+   scheduler** giải thích vì sao không lập lịch được. Cách sửa mà bài nêu: xóa bớt Pod, điều chỉnh
+   resource request, hoặc thêm node. Gõ sai tên image thì khác hẳn: Pod **được lập lịch bình
+   thường** rồi kẹt ở **`Waiting`**, vì lỗi xảy ra sau khi đã chọn được node.
+2. **Không giúp gì.** `Waiting` nghĩa là Pod **đã được lập lịch lên một worker node rồi**, chỉ là
+   không chạy được trên máy đó. Thêm node chỉ chữa được `Pending`. Ở `Waiting` phải đi ba việc kiểm
+   của bài: tên image có đúng không, image đã được push lên registry chưa, và thử kéo image bằng
+   tay xem có kéo về được không.
+3. Vì **một key gõ sai đơn giản là bị bỏ qua**, không gây lỗi — Pod vẫn được tạo, chỉ là không dùng
+   dòng lệnh bạn định. Hai cách phát hiện: **(a)** xóa Pod rồi tạo lại với `--validate`
+   (`kubectl apply --validate -f mypod.yaml`), sẽ có dòng `unknown field: commnd`; **(b)** lấy bản
+   trên apiserver bằng `kubectl get pods/mypod -o yaml > mypod-on-apiserver.yaml` rồi so với file
+   gốc. **Bản apiserver có thêm dòng là bình thường**; **dòng có trong bản gốc mà mất ở bản
+   apiserver mới là dấu hiệu spec có vấn đề**.
+4. Đúng hai thứ: **(a)** liệt kê Pod bằng chính label mà Service đang dùng —
+   `kubectl get pods --selector=name=nginx,type=frontend` — và xác minh danh sách đó khớp với các
+   Pod bạn kỳ vọng phục vụ Service; **(b)** xác minh **`containerPort` của Pod khớp `targetPort` của
+   Service**. Cả hai đều không liên quan gì tới DNS hay kube-proxy.
+5. Nguyên nhân điển hình: **Pod có finalizer, và trong cluster có admission webhook chặn thao tác
+   `UPDATE` trên `pods`**, khiến control plane không gỡ được finalizer nên không xóa được object.
+   Nhận diện bằng cách kiểm tra cluster có **ValidatingWebhookConfiguration hoặc
+   MutatingWebhookConfiguration nào nhắm vào thao tác `UPDATE` với tài nguyên `pods`** hay không.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

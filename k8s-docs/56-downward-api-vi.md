@@ -14,7 +14,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 10/11 · Kiểm chứng
-ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md).
 
 Bài chủ yếu là **ba danh sách trường**. Đừng học thuộc chúng; thứ phải nhớ là **ranh giới giữa ba
 danh sách đó** — trường nào dùng được cả hai cơ chế, trường nào chỉ có ở biến môi trường, trường
@@ -191,7 +191,7 @@ Bạn có thể thử dùng downward API để phơi bày thông tin cấp conta
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
 
 1. Bạn muốn container nhận **tất cả** label của Pod. Dùng biến môi trường được không?
-2. Ứng dụng cần biết nó đang chạy trên `k8s-worker1` hay `k8s-worker2`. Trường nào cho biết điều
+2. Ứng dụng cần biết nó đang chạy trên `lab-k8s-worker1` hay `lab-k8s-worker2`. Trường nào cho biết điều
    đó, và nó dùng được qua cơ chế nào?
 3. Vì sao Kubernetes làm downward API, thay vì để container tự gọi API server hỏi về chính nó?
 4. Container không đặt `limits.memory`, nhưng manifest vẫn phơi bày `resource: limits.memory`.

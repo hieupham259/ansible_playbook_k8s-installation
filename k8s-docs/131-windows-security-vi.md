@@ -12,8 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
-bài 7/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
-[bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 7/7 · Kiểm chứng ở [Lab 15](labs/LAB-15-NODE-WINDOWS.md).
 
 **Lộ trình ghi rõ: bỏ qua hoàn toàn giai đoạn 15 nếu cluster của bạn chỉ có Linux.** Cluster lab
 ba VM Ubuntu của bạn không có node Windows.
@@ -143,6 +142,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Đây là bài cuối của **Giai đoạn 15**, và cũng là bài cuối của cả 15 giai đoạn lý thuyết. Nếu môi
-trường của bạn thực sự có node Windows thì tiếp tục với Lab 15 (tùy chọn, chưa viết, xem
-[bản đồ lab](labs/README.md#4-bản-đồ-lab)); nếu không thì chuyển thẳng sang phần thực hành vận
-hành ở [Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster).
+trường của bạn thực sự có node Windows thì tiếp tục với [Lab 15](labs/LAB-15-NODE-WINDOWS.md); nếu không thì chuyển thẳng sang phần thực hành vận
+hành ở [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster).

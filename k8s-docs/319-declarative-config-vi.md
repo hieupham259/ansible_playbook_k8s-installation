@@ -6,6 +6,57 @@
 > theo kiểu khai báo, cùng cơ chế apply tính toán patch từ file cấu hình, cấu hình thực tế
 > (live configuration) và annotation `last-applied-configuration`.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 4 → nhóm [4a](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout), bài 2/7 ·
+Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B9.2.
+
+**Đây là bài dài nhất trong nhóm 4a.** Nó gồm hai nửa rất khác nhau. Nửa đầu — từ *Cách tạo object*
+tới *Cách xóa object* — là một bài thực hành liền mạch, đọc kỹ. Nửa sau — từ *Cách apply tính toán
+khác biệt và merge các thay đổi* trở đi — là **bảng tra cứu cơ chế merge**: đọc một lượt cho biết
+có gì, rồi quay lại tra khi gặp một field cư xử không như bạn nghĩ. Đừng cố thuộc bốn bảng đó.
+
+Bài dùng đúng một ví dụ xuyên suốt: Deployment `nginx-deployment` với `minReadySeconds`, `image` và
+`replicas`. Bám lấy ba field đó thì cả bài gọn lại rất nhiều.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mục *Cách tạo object*: `kubectl apply` ghi nguyên nội dung file cấu hình vào annotation
+  `kubectl.kubernetes.io/last-applied-configuration`. Đó là **bộ nhớ** của apply — nơi nó ghi lại
+  những gì bạn đã khai ở lần áp dụng trước.
+- Mục *Cách cập nhật object* và *Tính toán merge patch*: kết quả của một lần apply được quyết định
+  bởi **ba nguồn** — file cấu hình, cấu hình thực tế, và annotation. Field cần **xóa** = có trong
+  annotation nhưng không còn trong file; field cần **đặt** = có trong file mà giá trị khác cấu hình
+  thực tế. Vì thế `minReadySeconds` bị xóa còn `replicas` do `kubectl scale` đặt thì **được giữ**.
+- Cảnh báo cuối mục *Cách cập nhật object*: **không được trộn `kubectl apply` với `create` và
+  `replace`**. Lý do rất cụ thể — hai lệnh kia không giữ lại annotation
+  `kubectl.kubernetes.io/last-applied-configuration`, nên apply mất mốc so sánh và không còn biết
+  field nào cần xóa.
+- Mục *Merge thay đổi cho các field kiểu list*: một list gồm toàn phần tử primitive (ví dụ `args`)
+  bị **thay thế cả cụm**; một list gồm phần tử phức hợp (ví dụ `containers`) được **merge theo
+  `patchMergeKey`** — với `containers` thì key là `name`. Hệ quả trong ví dụ của bài: container
+  `nginx-helper-d` chỉ có trong cấu hình thực tế nên **không bị đụng tới**, còn `nginx-helper-a`
+  bị xóa vì nó có trong annotation mà không còn trong file.
+- Mục *Giá trị mặc định của field*: field do API server đặt mặc định **không được tính mặc định lại**
+  trong một patch, trừ khi bị xóa tường minh. Đó là lý do đổi `strategy.type` sang `Recreate` mà
+  `strategy.rollingUpdate` cũ còn nguyên thì apply **thất bại**; và là lý do bài khuyên viết tường
+  minh selector, label PodTemplate và chiến lược rollout ngay từ file cấu hình đầu tiên.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Toàn bộ mục *Cách thay thế: `kubectl apply -f <directory> --prune`*, cả chế độ allow list lẫn apply set | cả hai còn ở trạng thái alpha và thao tác trên cả thư mục manifest; nhóm 4a chỉ apply từng file đã biết tên | phần dùng custom resource làm object cha của ApplySet cần CRD ở [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng); cách tổ chức thư mục manifest ở bài [322](322-kustomization-vi.md), [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
+| Ghi chú `kubectl diff` cần được cấp quyền `PATCH`, `CREATE` và `UPDATE` vì nó chạy dry-run phía server | quyền và phân quyền chưa học; trên cluster lab bạn dùng kubeconfig quản trị nên `diff` chạy được ngay | [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
+| Hai mục *Cách chuyển quyền sở hữu một field...* và *Thay đổi phương pháp quản lý*, gồm `kubectl replace --save-config` | là quy trình di trú cho cluster đã lỡ trộn nhiều cách quản lý; nhóm 4a chỉ dùng đúng một cách | bài [27](27-object-management-vi.md) và [321](321-imperative-config-vi.md) đã đọc ở [giai đoạn 1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl) |
+| Mục *Đánh đổi* và danh sách đọc trước ở *Tổng quan* | phần so sánh ba kiểu quản lý object đã học rồi, còn bài được dẫn thì nằm ở giai đoạn sau | phần so sánh ở bài [27](27-object-management-vi.md), [giai đoạn 1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl); bài [320](320-imperative-command-vi.md) ở [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
+
+---
 
 Các object Kubernetes có thể được tạo, cập nhật và xóa bằng cách lưu nhiều file cấu hình
 object trong một thư mục và dùng `kubectl apply` để tạo và cập nhật đệ quy các object đó khi
@@ -1120,3 +1171,62 @@ template:
 * [Tài liệu tham khảo lệnh Kubectl](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands/)
 * [Tài liệu tham khảo API Kubernetes](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/)
 
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 4:
+
+1. Trên `lab-k8s-master` bạn `kubectl apply -f web.yaml` với một file **không khai báo** `replicas`.
+   Sau đó bạn `kubectl scale deployment/web --replicas=5`. Rồi bạn apply lại **đúng file cũ, không
+   sửa gì**. Số replica sau cùng là bao nhiêu, và vì sao apply không kéo nó về giá trị mặc định?
+2. **Câu bẫy.** Vẫn file đó, lần apply đầu có `minReadySeconds: 5`. Bây giờ bạn **xóa dòng đó khỏi
+   file** rồi apply lại. `minReadySeconds` còn trên object không? So với câu 1: hai field đều không
+   có mặt trong file, vì sao kết cục ngược nhau?
+3. Bạn tạo Deployment bằng `kubectl create -f web.yaml`, rồi từ đó về sau quản lý nó bằng
+   `kubectl apply -f web.yaml`. Bài cảnh báo gì về cách làm này, và nó hỏng ở đúng chỗ nào?
+4. `args` và `containers` đều là list. Apply xử lý hai list này khác nhau ra sao? Một container tên
+   `nginx-helper-d` chỉ tồn tại trong cấu hình thực tế — không có trong file, không có trong
+   `last-applied-configuration` — thì sau khi apply nó còn hay mất?
+5. Một Deployment được tạo mà file cấu hình **không** khai báo `strategy`. Nay bạn thêm
+   `strategy.type: Recreate` vào file rồi apply. Chuyện gì xảy ra, vì sao, và bài khuyên viết tường
+   minh những field nào để tránh tình huống này?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Vẫn là 5.** Apply chỉ xóa những field **có trong `last-applied-configuration` mà không còn
+   trong file cấu hình**. `replicas` chưa bao giờ đi qua `apply` nên nó không nằm trong annotation;
+   nó cũng không nằm trong file. Rơi đúng vào dòng cuối của bảng merge field primitive: không có
+   trong file, không có trong last-applied-configuration → không làm gì, giữ giá trị thực tế. Đây
+   chính là điều bài mô tả ngay ở câu mở đầu: apply giữ lại các thay đổi đã ghi vào object đang chạy
+   mà không cần merge ngược vào file cấu hình.
+2. **Bị xóa.** Khác biệt nằm ở annotation, không nằm ở file. `minReadySeconds` **đã từng** được apply
+   nên nó **có trong `last-applied-configuration`**; bước 1 của phép tính merge — tìm field có mặt
+   trong `last-applied-configuration` nhưng không có trong file cấu hình — bắt đúng nó và xóa khỏi
+   cấu hình thực tế. `replicas` không có trong annotation nên bước đó không chạm tới. Chỗ dễ sai là
+   nghĩ apply ép object khớp với file; thực ra nó chỉ ép **phần nó từng sở hữu**.
+3. Bài cảnh báo thẳng: **trộn `kubectl apply` với `create` và `replace` không được hỗ trợ**. Hỏng ở
+   chỗ `create` và `replace` **không giữ lại annotation
+   `kubectl.kubernetes.io/last-applied-configuration`** — thứ mà apply dùng để tính toán các cập
+   nhật. Không có mốc đó, apply mất khả năng biết field nào đã bị bỏ khỏi file và cần xóa; nó chỉ
+   còn đặt được các field đang có mặt trong file.
+4. `args` là list gồm toàn phần tử primitive nên **bị thay thế cả cụm**: giá trị trong file trở
+   thành giá trị mới, mọi phần tử từng thêm vào cấu hình thực tế đều mất, và thứ tự khai trong file
+   được giữ nguyên. `containers` là list gồm phần tử phức hợp nên được **merge từng phần tử theo
+   `patchMergeKey`**, ở đây key là `name` — thêm, xóa hoặc cập nhật từng container, và **không bảo
+   toàn thứ tự**. `nginx-helper-d` **vẫn còn**: bài giải thích nó được giữ lại vì không có phần tử
+   nào mang tên đó xuất hiện trong last-applied-configuration.
+5. **Apply thất bại.** Khi tạo, API server đã đặt mặc định `strategy.type: RollingUpdate` **và** suy
+   ra `strategy.rollingUpdate` với `maxSurge`/`maxUnavailable`. Trong một patch request, field đã
+   được đặt mặc định **không được tính mặc định lại** trừ khi bị xóa tường minh — nên `rollingUpdate`
+   ở lại, trong khi `strategy.rollingUpdate` **không thể tồn tại cùng** `type: Recreate`. Bài khuyên
+   định nghĩa tường minh trong file cấu hình: **selector và label của PodTemplate** trên các workload
+   (Deployment, StatefulSet, Job, DaemonSet, ReplicaSet và ReplicationController) và **chiến lược
+   rollout của Deployment**. Cách xóa một field như vậy là đặt nó thành `null` rồi apply.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

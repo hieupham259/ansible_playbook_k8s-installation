@@ -2,6 +2,63 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
+dòng **Thực hành**, bài 7/10 · Kiểm chứng ở [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md):
+phần B4 (security context nhìn từ bên trong container), phần B2.4 (`runAsUser`, `runAsGroup`,
+`fsGroup`, `supplementalGroups` và quyền trên volume) và phần B5.1 (masked path cùng read-only
+path của `/proc`).
+
+Đây là bài dài nhất của nhóm Thực hành giai đoạn 9. Phần bạn thật sự cần ở lần đọc này chỉ là
+các field đặt được và đọc lại được trên cluster lab. Phần còn lại — `supplementalGroupsPolicy`,
+`fsGroupChangePolicy`, toàn bộ nhánh SELinux — là feature gate hoặc cơ chế của nền tảng mà ba
+node Ubuntu dựng bằng kubeadm không có. Bảng *Đọc lướt* bên dưới tách rõ hai phần đó; đừng cố
+hiểu hết trong một lượt.
+
+**Phải hiểu ở lần đọc này:**
+
+- `securityContext` có **hai cấp**. Cấp Pod (mục *Đặt security context cho một Pod*) áp cho mọi
+  Container trong Pod và áp cho cả Volume của Pod. Cấp Container (mục *Đặt security context cho
+  một Container*) chỉ áp cho đúng container đó, **ghi đè** cấp Pod khi trùng field, và **không**
+  ảnh hưởng tới Volume của Pod.
+- Bốn field danh tính khác nhau ở chỗ nào: `runAsUser` là uid của mọi tiến trình; `runAsGroup` là
+  group ID chính, bỏ trống thì rơi về `0` (root); `supplementalGroups` là các group bổ sung; còn
+  `fsGroup` quyết định group sở hữu volume và file tạo trong volume. Mục *Thảo luận* chốt lại: chỉ
+  `fsGroup` và `seLinuxOptions` mới tác động lên Volume.
+- Lệnh `id` trong container có thể trả về group mà bạn **không khai ở bất kỳ field nào**: theo mặc
+  định Kubernetes gộp thông tin group trong `/etc/group` của container image vào (mục *Tư cách
+  thành viên group ngầm định được định nghĩa trong `/etc/group` của container image*). Bài ghi rõ
+  việc gộp ngầm này có thể gây vấn đề bảo mật khi truy cập volume.
+- `allowPrivilegeEscalation` quyết định trực tiếp cờ kernel `no_new_privs`, và **luôn là `true`**
+  khi container chạy privileged hoặc có `CAP_SYS_ADMIN` — hai trường hợp đó đặt `false` cũng vô
+  nghĩa. Cùng danh sách đầu bài: `readOnlyRootFilesystem` mount root filesystem của container ở
+  chế độ chỉ đọc.
+- Capability khai trong manifest phải **bỏ tiền tố `CAP_`** (`SYS_TIME`, không phải `CAP_SYS_TIME`),
+  và kiểm chứng được bằng bitmap `CapPrm`/`CapEff` đọc từ `/proc/1/status` — mục *Đặt capabilities
+  cho một Container* so sánh hai bitmap để chỉ ra đúng bit 12 và bit 25. `seccompProfile` và
+  `appArmorProfile` dùng chung một khuôn: `type` nhận `RuntimeDefault`, `Unconfined` hoặc
+  `Localhost`, và chỉ `Localhost` mới đi kèm `localhostProfile`. Song song đó, mục *Quản lý truy
+  cập vào filesystem `/proc`* cho thấy runtime theo đặc tả OCI đã che sẵn một danh sách đường dẫn
+  và để `/proc/sys`, `/proc/bus`, `/proc/irq` ở chế độ chỉ đọc ngay cả khi bạn chưa đặt gì.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Cấu hình kiểm soát SupplementalGroups chi tiết cho một Pod* — `supplementalGroupsPolicy`, `status.containerStatuses[].user.linux`, `status.features` của Node | còn là beta và phải bật feature gate cho cả kubelet lẫn kube-apiserver, tức sửa cấu hình control plane | [giai đoạn 20 — cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy); Lab 9b xếp mục này vào phần không thực hành được |
+| *Cấu hình chính sách thay đổi quyền và quyền sở hữu volume cho Pod* (`fsGroupChangePolicy`) và *Ủy quyền việc thay đổi quyền và quyền sở hữu volume cho CSI driver* | chỉ có tác dụng với volume hỗ trợ quản lý quyền sở hữu bằng `fsGroup`, và provisioner của cluster lab không phải CSI driver | lý thuyết volume đã đọc ở [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ); phần CSI còn treo là [nợ #5](labs/README.md#5-sổ-nợ-lab) |
+| *Gán nhãn SELinux cho một Container*, *Gán lại nhãn SELinux cho volume một cách hiệu quả*, `SELinuxWarningController`, các feature gate `SELinux*` | chính bài nói field này **không có tác dụng** nếu module bảo mật SELinux không được nạp trên hệ điều hành host, mà node lab chạy Ubuntu | ranh giới giữa các module MAC nằm ở bài [127](127-linux-kernel-security-vi.md) cùng giai đoạn 9; Lab 9b phần B9.4 đọc xem module nào thật sự đang bật trên node |
+| `procMount: Unmasked` | bài ghi rõ nó đòi `spec.hostUsers: false`, tức container phải nằm trong user namespace | cơ chế user namespace đã đọc ở bài [55](55-user-namespaces-vi.md), [giai đoạn 3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời); Lab 9b chỉ kiểm chứng danh sách masked path mặc định, không mở chúng ra |
+| `seccompProfile` và `appArmorProfile` với `type: Localhost` — viết rồi nạp profile tùy chỉnh | file profile phải nằm sẵn trên **từng node** Pod có thể rơi vào; đó là thay đổi cấu hình node, không phải object của cluster | Lab 9b chỉ đi hai nhánh `RuntimeDefault` và `Unconfined`; thao tác đổi cấu hình node thuộc [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
+
+---
+
 Security context định nghĩa các thiết lập về đặc quyền (privilege) và kiểm soát truy cập
 (access control) cho một Pod hoặc Container. Các thiết lập security context bao gồm, nhưng
 không giới hạn ở:
@@ -994,3 +1051,62 @@ kubectl delete pod security-context-demo-4
 * Đọc về [User Namespaces](55-user-namespaces-vi.md)
   cho các pod Linux.
 * [Masked Paths trong đặc tả OCI Runtime](https://github.com/opencontainers/runtime-spec/blob/f66aad47309/config-linux.md#masked-paths)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Một Pod đặt `runAsUser: 1000` và `fsGroup: 2000` ở cấp Pod, còn container duy nhất trong Pod
+   đặt `runAsUser: 2000` ở cấp Container. Tiến trình trong container chạy dưới uid nào, và thư
+   mục `emptyDir` được mount vào container thuộc group nào? Nếu chuyển `fsGroup` xuống cấp
+   Container thì hỏng chỗ nào?
+2. **Câu bẫy.** Bạn đặt `allowPrivilegeEscalation: false` cho một container, nhưng cùng manifest
+   đó lại cho container chạy privileged (hoặc thêm `CAP_SYS_ADMIN`). Cờ `no_new_privs` cuối cùng
+   được đặt hay không?
+3. Trên `lab-k8s-worker2` bạn chạy một Pod khai đúng ba field `runAsUser: 1000`,
+   `runAsGroup: 3000`, `supplementalGroups: [4000]`, rồi `kubectl exec` vào và gõ `id`. Kết quả
+   trả về `groups=3000,4000,50000`. Group `50000` đến từ đâu, và vì sao bài xem đó là rủi ro bảo
+   mật chứ không chỉ là chi tiết lạ mắt?
+4. Bạn nạp một AppArmor profile tùy chỉnh lên `lab-k8s-worker1` rồi khai
+   `appArmorProfile.type: Localhost` cho Deployment của mình. Theo bài, vì sao đây là cấu hình
+   sai trên cluster có hai worker, còn `type: RuntimeDefault` thì không dính vấn đề ấy?
+5. Container của bạn chưa đặt bất kỳ field nào trong `securityContext` mà vẫn không ghi được vào
+   `/proc/sys`. Cơ chế nào chặn nó, và `readOnlyRootFilesystem: true` khác cơ chế đó ở chỗ nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Tiến trình chạy dưới **uid 2000**: thiết lập cấp Container **ghi đè** thiết lập cấp Pod khi hai
+   bên cùng khai một field. Thư mục `emptyDir` thuộc **group 2000** vì đó là giá trị `fsGroup`, và
+   `fsGroup` được áp lên volume chứ không phải lên tiến trình. Chuyển `fsGroup` xuống cấp Container
+   thì **mất tác dụng lên volume**: bài nói thẳng rằng thiết lập ở cấp Container không ảnh hưởng
+   đến các Volume của Pod — `fsGroup` chỉ có nghĩa trong `securityContext` cấp Pod.
+2. **Nó vẫn được đặt là `true`, tức leo thang đặc quyền vẫn được phép.** Bài liệt kê rõ hai trường
+   hợp `allowPrivilegeEscalation` luôn là true: container chạy privileged, hoặc container có
+   `CAP_SYS_ADMIN`. Giá trị `false` bạn viết ra **không thắng được** hai điều kiện đó, nên đọc
+   manifest thấy `allowPrivilegeEscalation: false` mà kết luận container đã bị khóa là sai.
+3. Nó đến từ **`/etc/group` bên trong container image**: theo mặc định Kubernetes **gộp** thông tin
+   group của image với thông tin group khai trong Pod, và user `1000` được định nghĩa trong image
+   vốn thuộc group `50000`. Rủi ro nằm ở chỗ tập group thực tế của tiến trình **rộng hơn** những gì
+   manifest thể hiện, mà group lại là thứ quyết định quyền truy cập file trên volume — bài dẫn
+   thẳng tới một issue của Kubernetes về đúng vấn đề này.
+4. Vì **bạn không biết trước Pod sẽ được lập lịch lên node nào**, nên bài yêu cầu profile
+   `Localhost` phải được nạp lên **tất cả** các node mà Pod có thể rơi vào; Pod xuống
+   `lab-k8s-worker2` sẽ không tìm thấy profile đã khai. `RuntimeDefault` thì khác: nó dùng
+   **profile mặc định của container runtime ngay trên node đó**, nên không phụ thuộc vào việc bạn
+   đã copy file gì lên node. Lưu ý thêm phần bài viết về AppArmor: khai tường minh
+   `type: RuntimeDefault` mà node **không** bật AppArmor thì Pod bị từ chối, còn bỏ trống field thì
+   giá trị mặc định chỉ được áp khi node có AppArmor.
+5. Chặn nó là **mặc định của container runtime theo đặc tả OCI**: `/proc/sys` nằm trong danh sách
+   *đường dẫn chỉ đọc*, bên cạnh danh sách *đường dẫn bị che* như `/proc/kcore` hay `/sys/firmware`.
+   Khác biệt: cơ chế đó chỉ chạm vào **một danh sách đường dẫn cố định trong `/proc` và `/sys`**,
+   còn `readOnlyRootFilesystem: true` mount **toàn bộ root filesystem** của container ở chế độ chỉ
+   đọc. Hai thứ độc lập nhau — có cái này không có nghĩa là có cái kia.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

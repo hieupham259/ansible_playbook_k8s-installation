@@ -2,6 +2,55 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
+dòng **Thực hành**, bài 1/10 · Kiểm chứng ở
+[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), phần B9.7.
+
+Nói thẳng một điều trước khi đọc: **cluster lab của bạn không có cloud provider**. Ba VM
+`lab-k8s-master`, `lab-k8s-worker1`, `lab-k8s-worker2` do bạn tự dựng, không nằm trên IaaS nào, nên
+không có `cloud-controller-manager`, không có `--cloud-provider=external`, và không node nào mang
+taint `node.cloudprovider.kubernetes.io/uninitialized`. Vì vậy bài này đọc để biết **thành phần
+nào vắng mặt và hệ quả của việc vắng mặt đó**, chứ không phải để làm theo. Lab 9b phần B9.7 kiểm
+chứng đúng sự vắng mặt ấy.
+
+**Phải hiểu ở lần đọc này:**
+
+- Vì sao có một binary riêng: cloud provider phát hành theo nhịp khác Kubernetes, nên phần mã đặc
+  thù được tách vào `cloud-controller-manager` — thứ liên kết được với **bất kỳ** provider nào
+  thỏa `cloudprovider.Interface` (đoạn mở đầu).
+- Cờ `--cloud-provider=external` trên `kubelet` và `kube-controller-manager` chỉ được đặt khi bạn
+  **có** một CCM bên ngoài; không có thì **không nên** đặt (mục *Chạy cloud-controller-manager*).
+- Hệ quả của cờ đó: thành phần khai `--cloud-provider=external` sẽ gắn taint
+  `node.cloudprovider.kubernetes.io/uninitialized` với effect `NoSchedule` lúc khởi tạo, đánh dấu
+  node cần **lần khởi tạo thứ hai** từ controller bên ngoài. CCM không khả dụng thì node mới nằm
+  lại ở trạng thái unschedulable (cùng mục).
+- Ba controller mà CCM có thể triển khai — node controller, service controller (load balancer cho
+  Service loại `LoadBalancer`), route controller — cộng với việc thông tin cloud của node không
+  còn lấy từ metadata cục bộ nữa mà đi qua CCM, nhờ đó có thể siết quyền gọi cloud API trên
+  kubelet (cùng mục).
+- Hạn chế phải nhớ: CCM **không** triển khai bất kỳ volume controller nào có trong
+  `kube-controller-manager`, vì tích hợp volume còn đòi phối hợp với kubelet (mục *Hỗ trợ Volume*).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Manifest DaemonSet ở mục *Ví dụ* — image, `--allocate-node-cidrs`, `--cluster-cidr`, `nodeSelector` | cần một cloud provider thật, và chính bài ghi manifest này "sẽ không chạy được ngay lập tức", chỉ là hướng dẫn tham khảo | không có bước thực hành nào trong lộ trình; nền để tự viết CCM là bài [203](203-developing-cloud-controller-manager-vi.md) đã đọc ở [giai đoạn 1](00-ALO-TRINH-ADMIN.md#giai-đoạn-1--mô-hình-kubernetes) |
+| Mục *Hỗ trợ Volume* ở phần CSI và flex volume plugin | ở đây chỉ cần biết **kết luận**: CCM không làm volume | CSI và vòng đời volume đã học ở [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) |
+| Mục *Vấn đề con gà và quả trứng* — TLS bootstrapping của kubelet | dựa lên vòng đời certificate mà lộ trình chưa dạy | [giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) |
+| Mục *Khả năng mở rộng* — điểm nghẽn và giới hạn tần suất gọi cloud API | chỉ có nghĩa ở cluster rất lớn trên cloud | [giai đoạn 12 — Quản trị cluster nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài [171](171-node-autoscaling-vi.md) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.11 [beta]`
 
 Vì các nhà cung cấp dịch vụ đám mây (cloud provider) phát triển và phát hành theo nhịp độ khác
@@ -202,3 +251,47 @@ này trong các bản phát hành sắp tới.
 
 Để xây dựng và phát triển cloud controller manager của riêng bạn, hãy đọc
 [Phát triển Cloud Controller Manager](203-developing-cloud-controller-manager-vi.md).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Trên `lab-k8s-master` bạn tạo một Service loại `LoadBalancer`. Theo bài, thành phần nào chịu
+   trách nhiệm cấp phát bộ cân bằng tải, và trên cluster lab của bạn thì ai đang làm việc đó?
+2. **Câu bẫy.** Một người nói: "Cứ đặt `--cloud-provider=external` cho kubelet, có CCM hay không
+   thì đặt vẫn an toàn." Sai ở đâu, và chuyện gì xảy ra với node mới join?
+3. Ngoài việc thêm ba controller, bật CCM còn đổi **đường lấy thông tin cloud của node**. Đổi
+   thế nào, và bài nói điều đó cho phép siết cái gì — kèm cái giá phải trả?
+4. Cluster của bạn chuyển sang CCM. Phần quản lý volume có chuyển theo ra khỏi
+   `kube-controller-manager` không?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Service controller của `cloud-controller-manager`** — bài liệt kê nó trong nhóm controller
+   mà CCM có thể triển khai: "chịu trách nhiệm về các bộ cân bằng tải trên cloud của bạn cho các
+   Service loại LoadBalancer". Trên cluster lab, câu trả lời là **không thành phần nào**: ba VM
+   không nằm trên IaaS, không có CCM nào chạy, nên không có ai nhận việc cấp phát load balancer.
+2. Sai ở chỗ coi cờ đó là **công tắc bật CCM**. Nó không bật gì cả — nó là lời **khai báo rằng đã
+   có** một CCM bên ngoài; bài nói rõ nếu không có CCM bên ngoài thì **không nên chỉ định** cờ
+   này. Hệ quả khi đặt nhầm: thành phần khai `--cloud-provider=external` gắn taint
+   `node.cloudprovider.kubernetes.io/uninitialized` với effect `NoSchedule` trong lúc khởi tạo và
+   chờ một lần khởi tạo thứ hai **không bao giờ tới**, nên **node mới bị bỏ lại ở trạng thái
+   không thể lập lịch**.
+3. **Thông tin cloud về node không còn được truy xuất bằng metadata cục bộ nữa; mọi lời gọi API
+   để lấy thông tin node đều đi qua cloud controller manager.** Bài nói điều đó cho phép **hạn
+   chế quyền truy cập cloud API trên các kubelet** để tăng cường bảo mật. Cái giá: CCM giờ chịu
+   gần như toàn bộ lời gọi API tới cloud từ bên trong cluster, nên với cluster lớn phải cân nhắc
+   nó có **chạm ngưỡng giới hạn tần suất (rate limit)** hay không.
+4. **Không.** Bài ghi thẳng trong mục *Hỗ trợ Volume*: cloud controller manager **không triển
+   khai bất kỳ volume controller nào** có trong `kube-controller-manager`, vì việc tích hợp
+   volume còn đòi hỏi phối hợp với các kubelet. Phần hỗ trợ đó chỉ được bổ sung dần khi CSI phát
+   triển.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

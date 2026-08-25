@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ), bài 1/7 · Không kiểm
 chứng riêng: đây là trang mục, việc thực hành nằm ở bốn bài con.
 
@@ -63,6 +63,10 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 1. Nhóm `tls/` gồm bốn bài. Nêu ngắn gọn mỗi bài giải quyết việc gì khác nhau.
 2. **Câu bẫy.** Bạn đã đọc bài [219](219-kubeadm-certs-vi.md) về `kubeadm certs`. Vậy nhóm `tls/`
    có phải chỉ là bản chi tiết hơn của bài đó không?
+3. Trên cluster lab ba VM, certificate của `kube-apiserver` sắp hết hạn và certificate của
+   kubelet trên `lab-k8s-worker2` cũng vậy. Hai thứ đó được xử lý bằng **hai con đường khác
+   nhau** — nói rõ mỗi con đường thuộc bài nào trong bốn bài của nhóm, hoặc thuộc bài
+   [219](219-kubeadm-certs-vi.md).
 
 <details>
 <summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
@@ -78,6 +82,14 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    Kubernetes** (CSR API, signer, kubelet rotation), tồn tại độc lập với kubeadm và dùng được
    trên cluster không do kubeadm dựng. Chỗ dễ nhầm: cả hai đều nói "certificate" và cùng nằm
    trong giai đoạn 18, nhưng một bên là công cụ của trình cài đặt, một bên là API của cluster.
+
+3. **Hai con đường tách bạch.** Certificate của `kube-apiserver` là certificate **do kubeadm sinh
+   ra và quản lý**, nên gia hạn bằng `kubeadm certs renew` — thuộc bài
+   [219](219-kubeadm-certs-vi.md), không thuộc nhóm `tls/`. Certificate của kubelet trên
+   `lab-k8s-worker2` thì đi đường **tự động gia hạn qua CSR API** của chính Kubernetes — thuộc
+   bài [398](398-certificate-rotation-vi.md). Điểm mấu chốt: kubelet **tự xin** certificate mới
+   và cluster ký cho nó, còn certificate của control plane thì **người vận hành phải ra lệnh
+   gia hạn**.
 
 </details>
 

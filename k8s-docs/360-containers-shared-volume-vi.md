@@ -4,6 +4,48 @@
 >
 > Trang này hướng dẫn cách dùng một Volume để giao tiếp giữa hai Container chạy trong cùng một Pod.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
+→ nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 11/11 —
+**bài cuối của nhóm** · Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B1.2.
+
+Bài đóng lại nhóm 3a bằng câu hỏi nền nhất: **vì sao một Pod lại có nhiều container**. Nó là cặp
+song sinh của bài [292](292-share-process-namespace-vi.md) — cùng một mục tiêu "hai container nói
+chuyện với nhau", nhưng qua **filesystem dùng chung** thay vì qua process namespace.
+
+**Phải hiểu ở lần đọc này:**
+
+- Cơ chế: một Volume khai báo ở **`.spec.volumes`** (ở đây là `emptyDir` tên `shared-data`), rồi
+  **cả hai container cùng mount nó** ở hai `mountPath` khác nhau — `/usr/share/nginx/html` cho
+  nginx và `/pod-data` cho debian. Thứ nối hai đường dẫn lại là **tên volume**.
+- Hai container trong một Pod **không buộc phải cùng vòng đời**: container debian ghi
+  `index.html` rồi **kết thúc**, container nginx vẫn chạy và phục vụ đúng file đó.
+  `kubectl get pod two-containers --output=yaml` cho thấy một container ở trạng thái `terminated`
+  còn một ở `running` **trong cùng một Pod**.
+- Giới hạn về dữ liệu, bài nói thẳng ở mục *Thảo luận*: Volume này chỉ cho phép giao tiếp **trong
+  suốt vòng đời của Pod**. **Pod bị xóa và được tạo lại thì mọi dữ liệu trong Volume dùng chung
+  bị mất.**
+- Lý do Pod có nhiều container: hỗ trợ **ứng dụng phụ trợ (helper application)** cho một ứng dụng
+  chính — bài kể data puller, data pusher, proxy. Hai đường giao tiếp điển hình là **hệ thống
+  file dùng chung** (bài này) hoặc **giao diện mạng loopback, localhost**.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| `restartPolicy: Never` trong manifest | `restartPolicy` là một chủ đề riêng của chính nhóm này | bài [47](47-pod-lifecycle-vi.md), thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B3 |
+| `containerID: docker://...` trong đầu ra ví dụ | trang gốc còn dùng cluster chạy Docker; runtime của cluster lab khác | [giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime) đã học, đối chiếu ở [Lab 2](labs/LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md) |
+| `apt-get update && apt-get install curl procps` bên trong container nginx | là cách trang gốc xem kết quả, không phải cơ chế cần học | [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B1.2 kiểm bằng gate so sánh nội dung |
+| Mục *Tiếp theo*: các bài blog/slide về composite container, bài *Cấu hình Pod dùng Volume để lưu trữ*, API reference `Volume` | Volume là chủ đề riêng, chưa học | bài [91](91-volumes-vi.md) ở [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) |
+
+---
+
 Trang này hướng dẫn cách dùng một Volume để giao tiếp giữa hai Container chạy
 trong cùng một Pod. Xem thêm cách cho phép các tiến trình giao tiếp bằng việc
 [chia sẻ process namespace](292-share-process-namespace-vi.md)
@@ -169,3 +211,50 @@ Volume dùng chung sẽ bị mất.
 * Xem [Volume](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#volume-v1-core).
 
 * Xem [Pod](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#pod-v1-core).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Container debian ghi vào `/pod-data`, container nginx đọc ở `/usr/share/nginx/html`. Hai đường
+   dẫn khác hẳn nhau — cái gì trong manifest nối chúng lại?
+2. **Câu bẫy.** `kubectl get pod two-containers --output=yaml` cho thấy container debian đã
+   `terminated` trong khi container nginx vẫn `running`. Đó có phải dấu hiệu Pod hỏng không? Và
+   vì sao file `index.html` không mất theo container đã chết?
+3. Trên cluster lab, Pod `two-containers` chạy trên `lab-k8s-worker1`. Bạn xóa Pod rồi apply lại
+   đúng manifest cũ, `curl localhost` trong nginx vẫn trả `Hello from the debian container`. Điều
+   đó có chứng minh Volume dùng chung giữ được dữ liệu qua các lần tạo lại Pod không?
+4. Bài nêu vì sao một Pod lại có nhiều container. Lý do đó là gì, và bài kể hai đường giao tiếp
+   nào giữa ứng dụng chính với ứng dụng phụ trợ?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Tên volume `shared-data`.** Nó được khai báo đúng một lần ở `.spec.volumes` dưới dạng
+   `emptyDir`, rồi mỗi container tham chiếu tới nó bằng `volumeMounts` với `name: shared-data`.
+   `mountPath` chỉ nói volume đó **xuất hiện ở đâu bên trong từng container** — nên hai container
+   nhìn cùng một nội dung ở hai đường dẫn khác nhau là chuyện bình thường, và đó chính là cách
+   debian ghi `index.html` vào đúng thư mục gốc của nginx.
+2. **Không phải Pod hỏng.** Container debian chạy đúng một lệnh — `echo ... > /pod-data/index.html`
+   — rồi kết thúc theo thiết kế; bài nói thẳng "Bạn có thể thấy Container debian đã kết thúc, còn
+   Container nginx vẫn đang chạy". Chỗ trực giác sai là nghĩ mọi container trong Pod phải cùng
+   sống cùng chết. File không mất vì nó nằm trên **Volume của Pod**, không nằm trong lớp ghi của
+   container debian — Volume là thứ tồn tại độc lập với từng container và được cả hai cùng mount.
+3. **Không.** Kết quả giống nhau là do container debian **chạy lại và ghi lại** file mỗi lần Pod
+   khởi động, chứ không phải do dữ liệu cũ còn đó. Mục *Thảo luận* nói rõ: Volume trong bài này
+   chỉ cung cấp cách giao tiếp **trong suốt vòng đời của Pod**, và **nếu Pod bị xóa rồi được tạo
+   lại, mọi dữ liệu lưu trong Volume dùng chung sẽ bị mất**.
+4. Lý do chính là **hỗ trợ các ứng dụng phụ trợ (helper application) trợ giúp cho một ứng dụng
+   chính** — bài lấy ví dụ data puller, data pusher và proxy, cùng mẫu hình web server đi kèm một
+   chương trình định kỳ kiểm tra Git repository để lấy cập nhật. Hai đường giao tiếp: qua **một
+   hệ thống file dùng chung** như bài này minh họa, hoặc qua **giao diện mạng loopback,
+   localhost**.
+
+</details>
+
+Bạn vừa đọc xong bài cuối của nhóm 3a. Câu nào chưa trả lời được thì quay lại đúng mục tương ứng,
+rồi mở [Lab 3a — Pod và vòng đời](labs/LAB-3A-POD-VA-VONG-DOI.md) và bắt đầu từ phần B0.

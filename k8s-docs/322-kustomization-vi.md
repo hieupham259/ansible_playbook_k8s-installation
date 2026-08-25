@@ -6,6 +6,63 @@
 > kustomization; từ kubectl 1.14, bạn có thể dùng trực tiếp `kubectl apply -k` để quản lý
 > object bằng file kustomization.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), dòng **Thực
+hành**, bài 3/10 · Bảng ánh xạ của [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) và
+[Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) **không có bài này**; phần Kustomize duy nhất
+đã được thực hành là [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B6.3 — `secretGenerator` và
+hậu tố hash, tức đúng một trường trong số hàng chục trường mà bài này liệt kê.
+
+**Đây là bài dài nhất của nhóm Thực hành giai đoạn 5**, và cũng là bài dễ đọc sai mục đích nhất. Nó
+là **tài liệu tra cứu một công cụ**, không phải bài học về Kubernetes: gần hết độ dài là các cặp
+"tạo file bằng `cat <<EOF`" rồi "chạy `kubectl kustomize ./` xem kết quả". Không có object hay khái
+niệm Kubernetes mới nào ở đây — Deployment, Service, ConfigMap và Secret bạn đã học rồi, và hai cơ
+chế patch thì bài [324](324-kubectl-patch-vi.md) ở giai đoạn 4 đã trình bày. Hãy đọc để nắm **bốn
+nhóm việc** Kustomize làm và cách chúng ghép lại thành base/overlay; đừng cố nhớ bảng trường ở cuối
+bài.
+
+Một điểm giúp đọc nhẹ hơn: `kubectl kustomize <thư mục>` chỉ **render ra màn hình**. Bạn chạy lại
+được gần như toàn bộ ví dụ của bài trên `lab-k8s-master` mà không tạo object nào trên cluster.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hai lệnh và ranh giới giữa chúng, nêu ngay đầu bài: `kubectl kustomize <thư mục>` **render** tập
+  tài nguyên ra stdout, còn `kubectl apply -k <thư mục>` mới gửi lên cluster. Mọi ví dụ trong bài
+  dừng ở lệnh thứ nhất, trừ mục *Cách apply/xem/xóa object bằng Kustomize*.
+- Mục *Sinh tài nguyên*: `configMapGenerator` và `secretGenerator` nhận ba nguồn — `files`, `envs`,
+  `literals`. Khác biệt quyết định nằm giữa `files` (cả nội dung file thành **giá trị của một key
+  duy nhất** mang tên file) và `envs` (mỗi biến trong file `.env` thành **một key riêng**); ghi chú
+  ngay dưới ví dụ `.env` nói đúng điều đó.
+- Mục *generatorOptions*: tên object sinh ra mang **hậu tố băm nội dung**, để nội dung đổi thì một
+  object mới được sinh ra; `disableNameSuffixHash: true` tắt hành vi này. Deployment tham chiếu theo
+  **tên khai báo** (`example-configmap-1`) và Kustomize tự thay bằng tên đã sinh
+  (`example-configmap-1-g4hk9g2ff8`) trong output.
+- Mục *Thiết lập các trường xuyên suốt*: `namespace`, `namePrefix`, `nameSuffix`, `commonAnnotations`
+  và `labels`. Chú ý `includeSelectors: true` — trong output của bài, `app: bingo` không chỉ vào
+  `metadata.labels` mà còn thay cả `spec.selector.matchLabels` lẫn label của Pod template.
+- Mục *Kết hợp và tùy biến* cộng mục *Base và Overlay*: `resources` gom các file lại; `patches` sửa
+  chúng (`StrategicMerge` và `Json6902`, chọn đích bằng `target`); `images` đổi image mà không cần
+  patch; `replacements` chép giá trị một trường của object này sang object kia. Một **base** là thư
+  mục có `kustomization.yaml`; một **overlay** là thư mục kustomization tham chiếu base qua
+  `resources` — và **base không biết gì về overlay**, nên một base dùng được cho nhiều overlay.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Trường `crds` trong bảng *Danh sách tính năng của Kustomize* | nó trỏ tới file định nghĩa OpenAPI cho các kiểu tài nguyên tự định nghĩa; chưa biết CustomResourceDefinition thì trường này vô nghĩa | [giai đoạn 14 — Khả năng mở rộng](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) |
+| `patchesStrategicMerge` và `patchesJson6902` trong cùng bảng đó | đây là hai trường cũ tương ứng với hai cơ chế mà phần thân bài đã gộp vào một trường `patches` duy nhất | bài [324 — Cập nhật object API tại chỗ bằng `kubectl patch`](324-kubectl-patch-vi.md), đã đọc ở [giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller) |
+| Câu "Base có thể là thư mục cục bộ hoặc thư mục từ một repo từ xa" ở mục *Base và Overlay* | bài chỉ nhắc một câu và không đưa cú pháp; mọi ví dụ đều dùng thư mục cục bộ `base/`, `dev/`, `prod/` | không có bài nào khác trong lộ trình dạy phần này; hai overlay cục bộ ở cuối mục đó là đủ cho giai đoạn 5 |
+
+---
+
 
 [Kustomize](https://github.com/kubernetes-sigs/kustomize) là một công cụ độc lập để tùy biến
 các object Kubernetes thông qua một
@@ -1067,3 +1124,59 @@ deployment.apps "dev-my-nginx" deleted
 * [Tài liệu tham khảo lệnh Kubectl](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands/)
 * [Tài liệu tham khảo Kubernetes API](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/)
 
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. `kubectl kustomize ./` và `kubectl apply -k ./` khác nhau ở chỗ nào? Sau khi chạy lệnh thứ nhất,
+   cluster có thêm object nào không?
+2. Bạn có file `application.properties` chứa đúng một dòng `FOO=Bar`, và một file `.env` cũng chứa
+   đúng dòng đó. Đưa file thứ nhất vào `files` của `configMapGenerator`, file thứ hai vào `envs`.
+   Phần `data` của hai ConfigMap sinh ra khác nhau thế nào?
+3. **Câu bẫy.** ConfigMap sinh ra có tên `example-configmap-1-8mbdf7882g`, nhưng trong
+   `deployment.yaml` bạn vẫn viết `configMap: name: example-configmap-1`. Vì sao Deployment vẫn mount
+   đúng? Và khi bạn sửa nội dung `application.properties` rồi render lại, chuyện gì xảy ra với tên
+   ConfigMap và với tham chiếu trong Deployment?
+4. Trong `kustomization.yaml` bạn đặt `labels` với `pairs: {app: bingo}` và `includeSelectors: true`.
+   Ngoài `metadata.labels`, nó còn đổi trường nào của Deployment? Vì sao đó là chỗ phải thận trọng?
+5. Trên `lab-k8s-master` bạn có thư mục `base/` (một Deployment và một Service tên `my-nginx`) cùng
+   hai overlay `dev/` và `prod/` chỉ khác nhau `namePrefix`. Bạn chạy `kubectl apply -k dev/` rồi
+   `kubectl apply -k prod/`. Cluster có bao nhiêu Deployment, tên là gì, và bạn phải sửa gì trong
+   `base/` để hai overlay cùng dùng được nó?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `kubectl kustomize <thư mục>` là lệnh **xem**: nó render tập tài nguyên đã được tùy biến ra
+   stdout. `kubectl apply -k <thư mục>` là lệnh **apply**: nó gửi kết quả đó lên API server. **Không**
+   — sau lệnh thứ nhất cluster không có gì thay đổi; đó là lý do gần như mọi ví dụ trong bài đều dừng
+   ở `kubectl kustomize ./`.
+2. Bản từ `files` có **một key duy nhất tên `application.properties`**, giá trị là toàn bộ nội dung
+   file (`FOO=Bar` nằm trong một khối nhiều dòng). Bản từ `envs` có **key `FOO` với giá trị `Bar`**.
+   Ghi chú của bài nói thẳng: mỗi biến trong file `.env` trở thành một key riêng biệt, khác với ví dụ
+   trước vốn nhúng cả file làm giá trị cho một key duy nhất.
+3. Vì **Kustomize tự thay tham chiếu**: bạn viết tên khai báo trong `deployment.yaml`, còn trong
+   output Kustomize đã đổi `configMap: name:` thành tên đã sinh — bài in ra đúng cặp
+   `example-configmap-1-g4hk9g2ff8` ở cả ConfigMap lẫn `volumes` của Deployment. Khi nội dung file
+   đổi, **hậu tố băm đổi, nên tên object đổi**, và Deployment được render lại cũng trỏ sang tên mới.
+   Chỗ trực giác dễ sai: đây **không phải** sửa ConfigMap cũ tại chỗ — mục *generatorOptions* nói rõ
+   mục đích của hậu tố là "bảo đảm rằng một ConfigMap hoặc Secret **mới** sẽ được sinh ra khi nội
+   dung thay đổi".
+4. Nó còn ghi vào **`spec.selector.matchLabels`** và **label của Pod template**: trong output của
+   bài, `app: nginx` biến mất, cả ba chỗ đều thành `app: bingo`. Phải thận trọng vì đó không còn là
+   nhãn trang trí — nó đụng vào **selector**, tức đụng vào cách Deployment nhận Pod. Bảng cuối bài
+   phân biệt rõ: trường `labels` "thêm label mà không tự động chèn selector tương ứng", còn
+   `includeSelectors: true` chính là thứ bật việc chèn selector đó.
+5. **Hai Deployment: `dev-my-nginx` và `prod-my-nginx`** (và tương ứng hai Service cùng tên tiền tố),
+   vì mỗi overlay tham chiếu `../base` qua `resources` rồi chồng `namePrefix` của riêng nó. Bạn
+   **không phải sửa gì trong `base/`**: bài nói rõ "một base không biết gì về overlay và có thể được
+   dùng trong nhiều overlay".
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

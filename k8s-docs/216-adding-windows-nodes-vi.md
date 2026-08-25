@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node), bài 3/4 · Chỉ kiểm chứng được nếu
 môi trường có thêm một VM Windows Server; xem **Lab 15 — Node Windows** (tùy chọn) trong
 [bản đồ lab](labs/README.md#4-bản-đồ-lab).
@@ -219,7 +219,7 @@ Xem [Cài đặt và thiết lập kubectl trên Windows](188-install-kubectl-wi
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 16:
 
-1. Cluster lab của bạn (`k8s-master` + hai worker Linux, CNI theo baseline Lab 00) muốn thêm
+1. Cluster lab của bạn (`lab-k8s-master` + hai worker Linux, CNI theo baseline Lab 00) muốn thêm
    một node Windows. Theo bài, bước nào **không** thể làm bằng một lệnh `kubectl apply` như với
    node Linux, và vì sao?
 2. **Câu bẫy.** Quy trình join node Windows dùng script PowerShell riêng, vậy lệnh `kubeadm join`

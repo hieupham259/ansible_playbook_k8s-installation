@@ -2,6 +2,55 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
+→ nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 4/11 ·
+Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B4.1, B4.2 và B4.3.
+
+Đây là bài **dài nhất** trong khối thực hành 3a và là bài thực hành quan trọng nhất của nhóm.
+Nó là mặt thi công của bài khái niệm [49](49-probes-vi.md): cùng ba loại probe, nhưng ở đây bạn
+nhìn thấy field cụ thể và hậu quả cụ thể. Bài đi theo **kiểu handler** (`exec`, `httpGet`,
+`tcpSocket`, `grpc`) rồi mới quay lại **loại probe** (startup, readiness), nên đừng lấy thứ tự
+mục làm thứ tự quan trọng.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bốn kiểu handler dùng chung một bộ field cấu hình, chỉ khác cách quyết định thành công: `exec`
+  thành công khi lệnh trả về 0; `httpGet` thành công khi mã trả về **≥ 200 và < 400**;
+  `tcpSocket` thành công khi **mở được kết nối**; `grpc` theo gRPC Health Checking Protocol.
+- Hai field nhịp độ có mặt ở mọi ví dụ: `initialDelaySeconds` là thời gian kubelet đợi trước lần
+  probe **đầu tiên**, `periodSeconds` là khoảng lặp giữa các lần probe.
+- Hậu quả của liveness thất bại, đọc thẳng trên ví dụ `liveness-exec`: kubelet **kill container
+  rồi khởi động lại nó**; `kubectl describe` hiện `Unhealthy` và `Killing`, còn `kubectl get pod`
+  hiện cột **`RESTARTS` tăng** — bộ đếm tăng ngay khi container thất bại quay lại trạng thái
+  running.
+- Readiness cấu hình **giống hệt** liveness, khác đúng tên field (`readinessProbe` thay
+  `livenessProbe`), nhưng hậu quả khác hẳn: Pod bị đánh dấu **chưa sẵn sàng** và không nhận lưu
+  lượng — container **không** bị kill. Hai loại probe này **không phụ thuộc nhau để thành công**;
+  muốn hoãn readiness thì dùng `initialDelaySeconds` hoặc một `startupProbe`, và readiness probe
+  chạy suốt **toàn bộ vòng đời** container.
+- Startup probe là ngân sách khởi động: `failureThreshold * periodSeconds` (ví dụ 30 × 10 = 300s)
+  che cho liveness trong lúc ứng dụng khởi động chậm. Thành công **một lần** thì liveness tiếp
+  quản; **không bao giờ thành công** thì container bị kill sau 300s và chịu sự chi phối của
+  `restartPolicy` của Pod.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Định nghĩa một gRPC liveness probe* và các chi tiết kỹ thuật kèm theo (không hỗ trợ `-tls`, không có mã lỗi, `ExecProbeTimeout`) | lộ trình không có ứng dụng gRPC nào; lab dùng probe `exec` | ranh giới bốn kiểu handler đã nằm ở bài [49](49-probes-vi.md) của chính nhóm 3a |
+| Câu "Pod sẽ nhận lưu lượng từ các Service" ở ví dụ TCP và ở mục readiness | Service chưa học; ở đây chỉ dừng được tới condition `Ready` của Pod | [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), thực hành ở Lab 5a |
+| Mục *Sử dụng port có tên* | cần khai báo `ports` của container và một Service trỏ vào nó mới thấy được ích lợi | [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
+| Mã Go của server `agnhost` và ghi chú về HTTP proxy cục bộ | là chi tiết của image ví dụ, không phải cơ chế probe | không cần cho lộ trình; cơ chế nằm ở bài [49](49-probes-vi.md) |
+
+---
+
 Trang này hướng dẫn cách cấu hình các probe liveness, readiness và startup cho container.
 
 Để biết thêm thông tin về probe, xem
@@ -416,3 +465,59 @@ và các container được khởi động lại khi chúng gặp lỗi.
   [Pod](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/),
   [Container](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#Container),
   [Probe](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#Probe)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Bốn kiểu handler của probe quyết định "thành công" bằng tiêu chí nào? Riêng `httpGet`, dải mã
+   trả về nào được coi là thành công?
+2. Bạn ghim Pod `liveness-exec` vào `lab-k8s-worker2` với `initialDelaySeconds: 5` và
+   `periodSeconds: 5`, container chạy `touch /tmp/healthy; sleep 30; rm -f /tmp/healthy; sleep
+   600`. Vì sao probe chỉ bắt đầu thất bại sau khoảng 30 giây, kubelet làm gì khi đó, và bạn nhìn
+   vào đâu để chứng minh container đã bị khởi động lại?
+3. **Câu bẫy.** Đổi `livenessProbe` thành `readinessProbe` mà giữ nguyên toàn bộ field bên dưới —
+   manifest gần như y hệt. Hai probe đó khác nhau ở đâu, và cái nào **không** giết container?
+4. Ứng dụng của bạn cần tới 4 phút để khởi động. Vì sao bài khuyên dùng `startupProbe` thay vì
+   nới `initialDelaySeconds` của liveness, và cặp field nào quyết định ngân sách khởi động? Nếu
+   startup probe không bao giờ thành công thì sao?
+5. Bài có một mục *Thận trọng* về quan hệ giữa readiness và liveness. Nó cảnh báo điều gì, và
+   bảo dùng gì nếu bạn muốn hoãn readiness probe?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. `exec`: kubelet thực thi lệnh trong container đích, **trả về 0 là thành công**, khác 0 là thất
+   bại. `httpGet`: kubelet gửi HTTP GET tới container; **mã ≥ 200 và < 400 là thành công**, mọi
+   mã khác là thất bại. `tcpSocket`: kubelet **cố mở một socket** tới port chỉ định, thiết lập
+   được kết nối là khỏe mạnh, không được là thất bại. `grpc`: theo gRPC Health Checking Protocol,
+   và **mọi lỗi đều được coi là probe thất bại** vì probe tích hợp sẵn không có mã lỗi riêng.
+2. Vì trong **30 giây đầu** file `/tmp/healthy` còn tồn tại nên `cat /tmp/healthy` trả về mã thành
+   công; sau 30 giây file bị xóa và lệnh trả về mã thất bại. Khi đó kubelet **kill container và
+   khởi động lại nó**. Bằng chứng: `kubectl describe pod` hiện `Warning Unhealthy ... Liveness
+   probe failed` và `Normal Killing ... will be restarted`, còn `kubectl get pod` hiện **cột
+   `RESTARTS` tăng lên** — bộ đếm tăng ngay khi container thất bại quay trở lại trạng thái
+   running.
+3. Khác nhau ở **hậu quả**, không ở cấu hình — bài nói thẳng "điểm khác biệt duy nhất là bạn dùng
+   field `readinessProbe` thay vì `livenessProbe`", và cấu hình HTTP/TCP của hai loại **giống hệt
+   nhau**. Liveness thất bại → **container bị kill và khởi động lại**. Readiness thất bại → Pod bị
+   **đánh dấu chưa sẵn sàng (unready)** và không nhận lưu lượng, **container vẫn chạy nguyên**.
+   Đây là chỗ dễ sai nhất: nhìn manifest gần như không phân biệt được, phải nhìn tên field.
+4. Vì nới `initialDelaySeconds` của liveness là đánh đổi: liveness đặt thưa để chịu được khởi
+   động chậm thì mất luôn **khả năng phản ứng nhanh với deadlock** — vốn là lý do tồn tại của
+   liveness probe. `startupProbe` tách hai nhu cầu đó ra. Ngân sách khởi động là
+   **`failureThreshold * periodSeconds`** — trong ví dụ 30 × 10 = **300 giây**. Startup thành công
+   **một lần** thì liveness tiếp quản. Nếu **không bao giờ thành công**, container **bị kill sau
+   300s** và chịu sự chi phối của `restartPolicy` của Pod.
+5. Cảnh báo rằng **readiness probe và liveness probe không phụ thuộc vào nhau để thành công** —
+   đừng trông chờ cái này chờ cái kia. Muốn đợi trước khi thực thi một readiness probe thì dùng
+   **`initialDelaySeconds`** hoặc một **`startupProbe`**. Kèm theo là ghi chú: readiness probe
+   chạy trên container **trong suốt toàn bộ vòng đời** của nó, không phải chỉ lúc khởi động.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

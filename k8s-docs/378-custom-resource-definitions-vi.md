@@ -4,6 +4,79 @@
 >
 > Trang này trình bày cách cài đặt một custom resource vào Kubernetes API bằng cách tạo một CustomResourceDefinition.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 28 — Mở rộng Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes), bài 4/11 ·
+Giai đoạn 28 **không có lab riêng**: kiểm chứng bằng *Checkpoint của giai đoạn 28* — tạo một CRD,
+apply một custom resource rồi đọc lại bằng `kubectl get`, thêm validation và chứng minh object sai
+bị từ chối — chạy trên cluster ba VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md). Phần lớn nội
+dung bài này bạn **đã làm bằng tay rồi** ở [Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md):
+B3 tạo CRD và đọc lại custom resource, B4 siết schema và xem trường lạ bị cắt tỉa, B5
+`shortNames`/`categories`/`additionalPrinterColumns`, B6 `scope` cùng RBAC cho kind mới, B6.5 bẫy
+"xóa namespace không dọn object phạm vi cluster", B7 subresource `status`, B8 vòng lặp điều khiển
+thủ công, B9 storage version. Lần đọc này là lần bạn đối chiếu những gì đã làm với tài liệu gốc.
+
+**Đây là tài liệu tham chiếu đầy đủ về CRD, không phải bài đọc một lượt.** Bài dài hơn 2000 dòng và
+quá nửa độ dài nằm ở một mục duy nhất — *Quy tắc kiểm tra hợp lệ* — vốn là một ngôn ngữ biểu thức
+riêng (CEL) với tám mục con. Mạch chính phải nắm ở lần đọc này gồm bốn mục đầu của phần thực hành:
+*Tạo một CustomResourceDefinition*, *Tạo các đối tượng tùy chỉnh*, *Xóa một CustomResourceDefinition*,
+*Khai báo structural schema* (kèm *Cắt tỉa trường*); cộng bốn mục nằm rải trong *Các chủ đề nâng cao*:
+*Kiểm tra hợp lệ*, *Cột hiển thị bổ sung*, *Subresource status* và *Category*. Mọi mục còn lại là
+phần tra khi cần — bảng bên dưới nói rõ tra ở đâu và khi nào.
+
+**Phải hiểu ở lần đọc này:**
+
+- Một CRD đăng ký một `kind` mới và làm API server sinh **một đường dẫn REST mới cho mỗi version**
+  khai trong `spec.versions`, dạng `/apis/<group>/<version>/<plural>`; `name` của object CRD bắt
+  buộc là `<plural>.<group>`; `spec.scope` quyết định custom object là `Namespaced` hay `Cluster`.
+  Bản thân CRD **không thuộc namespace nào**, còn xóa một namespace thì xóa hết custom object
+  namespaced trong đó (mục *Tạo một CustomResourceDefinition*). Endpoint mất vài giây mới sẵn sàng
+  — theo dõi condition `Established` hoặc thông tin discovery của API server. Chiều ngược lại: xóa
+  CRD **gỡ luôn endpoint REST và xóa toàn bộ custom object đang lưu trong đó**, tạo lại đúng CRD ấy
+  thì nó bắt đầu ở trạng thái rỗng (mục *Xóa một CustomResourceDefinition*).
+- Với `apiextensions.k8s.io/v1`, structural schema là **bắt buộc**: bốn quy tắc ở mục *Khai báo
+  structural schema* — có `type` khác rỗng ở node gốc và ở mọi trường/phần tử; trường nào khai
+  trong `allOf`/`anyOf`/`oneOf`/`not` phải khai cả ở ngoài; không đặt `description`, `type`,
+  `default`, `additionalProperties`, `nullable` bên trong các toán tử đó; `metadata` chỉ được ràng
+  buộc `name` và `generateName`. Vi phạm được báo ở condition `NonStructural` của CRD.
+- Hai cách API server xử lý dữ liệu sai là **khác nhau**: mục *Cắt tỉa trường* — trường không khai
+  báo bị **loại bỏ trước khi lưu**, request vẫn thành công; mục *Kiểm tra hợp lệ* — giá trị vi phạm
+  `pattern`, `minimum`, `maximum` làm **cả request bị từ chối**. Vì schema còn được công bố ra
+  OpenAPI (mục *Công bố schema kiểm tra hợp lệ trong OpenAPI*), `kubectl` chặn ngay ở phía client —
+  đó là lý do ví dụ cắt tỉa trong bài phải thêm `--validate=false`.
+- Subresource `status` (mục *Subresource status*) tách hai đường ghi: `PUT` tới `/status` bỏ qua mọi
+  thay đổi ngoài `status`, còn `PUT`/`POST`/`PATCH` lên chính resource bỏ qua thay đổi lên `status`;
+  `.metadata.generation` tăng theo mọi thay đổi **trừ** thay đổi lên `.metadata` hoặc `.status`.
+- `additionalPrinterColumns` (mục *Cột hiển thị bổ sung*), cùng `shortNames` và `categories` (mục
+  *Category*) đổi **bề mặt CLI** của kind mới, và chúng là thuộc tính của **server**: kubectl dựa
+  vào việc định dạng đầu ra ở phía server, chính API server quyết định `kubectl get` in ra cột nào.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Trước khi bạn bắt đầu* — minikube, các playground online, yêu cầu server ≥ 1.16 | cluster `lab-k8s-master` + `lab-k8s-worker1` + `lab-k8s-worker2` đã vượt yêu cầu này từ lâu và đúng dạng "ít nhất hai node không phải control plane host" mà bài đòi | không cần: dùng cluster của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md), phiên bản khóa ở bảng A1.3 của lab đó |
+| Ba ví dụ *không phải structural schema* số 1–3 và cách sửa từng ví dụ | chúng minh họa quy tắc 2 và 3 cho schema có `allOf`/`anyOf`; CRD bạn viết ở [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md) phần B3–B4 không dùng toán tử logic nào | tra lại chính mục [*Khai báo structural schema*](#specifying-a-structural-schema) của bài này khi CRD báo condition `NonStructural` |
+| *Kiểm soát việc cắt tỉa* (`x-kubernetes-preserve-unknown-fields`), *IntOrString*, *RawExtension* | ba lối thoát khỏi cắt tỉa mặc định; chỉ cần khi CRD phải chứa JSON tự do hoặc nhúng nguyên một object Kubernetes | không có bài nào khác trong lộ trình dạy ba phần này; nhánh cắt tỉa mặc định ở [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md) phần B4 là đủ cho giai đoạn 28, tra lại tại chỗ khi tự viết CRD như vậy |
+| *Phục vụ nhiều phiên bản của một CRD* | mục này chỉ có một câu và một link, không trình bày gì | bài [377 — Các phiên bản trong CustomResourceDefinition](377-custom-resource-definition-versioning-vi.md), **bài 5/11 ngay sau bài này** của giai đoạn 28; nền khái niệm ở bài [32 — Các phiên bản lưu trữ](32-storage-version-vi.md) đã đọc ở giai đoạn 1c |
+| *Finalizer* | pre-delete hook không phải thứ riêng của CRD — custom object dùng finalizer y hệt object dựng sẵn | bài [29 — Finalizers](29-finalizers-vi.md) đã đọc ở giai đoạn 1c và thực hành ở [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md) phần B1 |
+| *Validation ratcheting* và danh sách những kiểm tra hợp lệ **không** được ratcheting | cơ chế dành cho tác giả CRD muốn siết schema mà không phá dữ liệu cũ; bạn chưa có CRD nào đang chạy phải nâng cấp | đối chiếu với con đường còn lại — thêm hẳn một version mới — ở bài [377](377-custom-resource-definition-versioning-vi.md) ngay sau bài này |
+| *Quy tắc kiểm tra hợp lệ* (CEL) cùng tám mục con `messageExpression`, `message`, `reason`, `fieldPath`, `optionalOldSelf`, *Các hàm kiểm tra hợp lệ*, *Transition rule*, *Tài nguyên tiêu tốn bởi các hàm kiểm tra hợp lệ* | một ngôn ngữ biểu thức riêng, chiếm quá nửa độ dài bài; Checkpoint giai đoạn 28 chỉ đòi "object sai bị từ chối", việc mà `pattern`, `minimum`, `maximum` của mục *Kiểm tra hợp lệ* đã làm được | không có bài nào khác trong lộ trình dạy CEL; quay lại nhóm mục này khi cần ràng buộc liên trường (`self.minReplicas <= self.replicas`) hoặc ràng buộc bất biến giữa hai lần ghi |
+| *Giá trị mặc định* và *Defaulting và Nullable* | `default` chỉ có nghĩa khi đã làm chủ structural schema; ba thời điểm áp giá trị mặc định dính tới storage version | phần "khi đọc từ etcd, dùng giá trị mặc định của storage version" thuộc bài [32](32-storage-version-vi.md) đã đọc ở giai đoạn 1c; phần còn lại tra lại khi thêm trường mới vào một CRD đang chạy |
+| *Tương thích với OpenAPI V2* | phép chuyển đổi có mất mát, tồn tại để không phá `kubectl` từ 1.13 trở về trước | không có bài nào khác trong lộ trình dùng tới; `kubectl` của cluster lab tiêu thụ tài liệu OpenAPI v3 mà chính mục *Công bố schema kiểm tra hợp lệ trong OpenAPI* khuyến nghị |
+| *Priority*, *Type*, *Format* của cột hiển thị bổ sung | chi tiết trình bày: cột nào hiện ở `-o wide`, kiểu và định dạng lúc in | quay lại ba mục con này khi cần cột `-o wide`; [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md) phần B5 chỉ tạo cột với priority mặc định `0` |
+| *Field selector* và *Các trường có thể chọn cho custom resource* (`selectableFields`) | khái niệm field selector không mới; đây chỉ là cách mở thêm trường của kind bạn cho selector | bài [28 — Field selector](28-field-selectors-vi.md) đã đọc ở giai đoạn 1b; `selectableFields` tra lại khi CRD của bạn cần lọc theo trường nằm trong `spec` |
+| *Subresource scale* (`specReplicasPath`, `statusReplicasPath`, `labelSelectorPath`) và `kubectl scale` trên custom resource | subresource này chỉ có ích khi đã có thứ đứng sau nó để co giãn hoặc bảo vệ | HPA thực hành ở giai đoạn 11 với bài [342 — Hướng dẫn từng bước về HorizontalPodAutoscaler](342-hpa-walkthrough-vi.md); PodDisruptionBudget ở bài [339](339-configure-pdb-vi.md) |
+
+---
+
 Trang này trình bày cách cài đặt một
 [custom resource](179-custom-resources-vi.md)
 vào Kubernetes API bằng cách tạo một
@@ -2109,3 +2182,77 @@ crontabs/my-new-cron-object   3s
 
 * Phục vụ [nhiều phiên bản](377-custom-resource-definition-versioning-vi.md)
   của một CustomResourceDefinition.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 28.
+
+1. Khi bạn `kubectl apply` một object CustomResourceDefinition, API server tạo ra chính xác cái gì,
+   và vì sao `metadata.name` của CRD bắt buộc phải viết theo dạng `<plural>.<group>`? Ngay sau khi
+   lệnh apply trả về, bạn nhìn vào đâu để biết endpoint đã sẵn sàng nhận custom object?
+2. Trên `lab-k8s-master`, bạn tạo namespace `thu-nghiem`, apply vào đó một `CronTab`, rồi chạy
+   `kubectl delete namespace thu-nghiem`. Sau lệnh đó object `CronTab` còn không? Còn
+   CustomResourceDefinition `crontabs.stable.example.com` thì sao? Muốn dọn sạch cả kind lẫn dữ
+   liệu thì phải xóa gì, và việc đó kéo theo hậu quả gì với mọi custom object cùng kind trên toàn
+   cluster?
+3. **Câu bẫy.** Schema của bạn khai `spec.replicas` kiểu `integer` với `minimum: 1`, `maximum: 10`,
+   và **không** khai trường `spec.owner`. Bạn gửi thẳng lên API server một object có
+   `replicas: 15` và `owner: "team-a"`. API server xử lý hai trường sai này giống nhau hay khác
+   nhau? Nói rõ điều gì xảy ra với từng trường, và vì sao muốn thấy hành vi đó thì bài phải chạy
+   `kubectl create` kèm `--validate=false`.
+4. CRD của bạn đã bật `subresources: {status: {}}`. Một người dùng có quyền `patch` trên kind đó
+   chạy `kubectl patch <tên> --type=merge -p '{"status":{"phase":"Ready"}}'` lên chính resource.
+   Giá trị `.status.phase` có đổi không? Và khi controller ghi `status` qua đường `/status` thì
+   `.metadata.generation` có tăng không?
+5. Vì sao `kubectl get crontab` in ra đúng các cột `SPEC`, `REPLICAS`, `AGE` mà bạn không cấu hình
+   gì trên máy chạy `kubectl`, và vì sao `kubectl get all` lại liệt kê được một kind do bạn định
+   nghĩa?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. API server **tạo một đường dẫn tài nguyên RESTful mới cho mỗi version** khai trong
+   `spec.versions` — với ví dụ trong bài là `/apis/stable.example.com/v1/namespaces/*/crontabs/...`
+   vì `scope: Namespaced` — và đăng ký `kind` lấy từ `spec.names.kind`. `name` phải là
+   `<plural>.<group>` vì **nó phải khớp với các trường `spec` bên dưới**: `plural` là đoạn cuối của
+   URL và `group` là đoạn `/apis/<group>`; đặt tên khác đi thì CRD không hợp lệ. Về phần chờ: bài
+   ghi "có thể mất vài giây để endpoint được tạo xong" — **theo dõi condition `Established` của
+   CRD chuyển sang true**, hoặc theo dõi thông tin discovery của API server cho tới khi resource
+   xuất hiện.
+2. Object `CronTab` **mất theo namespace**: "việc xóa một namespace sẽ xóa toàn bộ custom object
+   trong namespace đó", y hệt object dựng sẵn. CustomResourceDefinition thì **vẫn còn nguyên**:
+   "bản thân các CustomResourceDefinition thì không thuộc namespace nào và có sẵn cho mọi
+   namespace" — nó là object phạm vi cluster nên `kubectl delete namespace` không chạm tới. Muốn
+   dọn cả kind thì phải **xóa chính CRD**, và hậu quả được bài nêu rõ: server **gỡ endpoint API
+   RESTful và xóa toàn bộ custom object đang được lưu trong đó** — tức mọi `CronTab` ở mọi
+   namespace, không riêng namespace bạn đang làm; tạo lại đúng CRD ấy sau này thì nó **bắt đầu ở
+   trạng thái rỗng**. Đây chính là thí nghiệm bạn đã chạy ở [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md)
+   phần B6.5.
+3. **Khác nhau hoàn toàn** — đây là chỗ trực giác "sai thì bị từ chối hết" đánh lừa. `replicas: 15`
+   vi phạm `maximum: 10`, thuộc mục *Kiểm tra hợp lệ*: **cả yêu cầu tạo bị từ chối**, kèm dòng
+   `spec.replicas in body should be less than or equal to 10`, và **không có gì được lưu**.
+   `owner` là trường **không được khai báo trong schema**, thuộc mục *Cắt tỉa trường*: nó **bị cắt
+   bỏ trước khi lưu xuống**, còn yêu cầu vẫn thành công — object lưu trong etcd đơn giản là không
+   có trường đó. Vì sao phải `--validate=false`: schema đã được **công bố ra OpenAPI tới client**,
+   nên `kubectl` tự kiểm tra trường không xác định và **từ chối object ngay trước khi gửi đi**; tắt
+   kiểm tra phía client mới quan sát được hành vi thật của API server.
+4. **Không đổi.** Khi subresource `status` đã bật, "yêu cầu `PUT`/`POST`/`PATCH` tới custom resource
+   sẽ bỏ qua các thay đổi lên phần status" — muốn ghi `status` phải đi qua đường `/status`, và yêu
+   cầu tới `/status` thì ngược lại "bỏ qua mọi thay đổi ngoại trừ phần status". Về `generation`:
+   **không tăng** — `.metadata.generation` tăng với mọi thay đổi **ngoại trừ** thay đổi lên
+   `.metadata` hoặc `.status`. Nhờ đó `generation` chỉ phản ánh ý muốn người dùng đặt trong `spec`,
+   còn controller ghi `status` bao nhiêu lần cũng không đụng tới nó.
+5. Vì **kubectl dựa vào việc định dạng đầu ra ở phía server**: "API server của cluster quyết định
+   những cột nào được hiển thị bởi lệnh `kubectl get`", và các cột đó đến từ
+   `additionalPrinterColumns` khai trong CRD (cột `NAME` là ngầm định, không cần khai). `kubectl get all`
+   liệt kê được kind mới vì `all` là một **category**: `spec.names.categories` khai kind đó thuộc
+   nhóm `all`, và `kubectl get <category-name>` liệt kê mọi tài nguyên thuộc nhóm đó. Cùng lý do
+   ấy, `shortNames` như `ct` cũng là khai báo trên CRD chứ không phải bí danh cấu hình ở máy bạn.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

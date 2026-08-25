@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 1/7 ·
-Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md).
 
 Lộ trình ghi rõ giai đoạn này **dành cho platform administrator / người phát triển operator**.
 Nếu bạn chỉ vận hành cluster và chạy workload có sẵn, bảy bài này không bắt buộc — nhưng bài 1

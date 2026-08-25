@@ -2,6 +2,49 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/configure-pod-container/assign-pod-level-resources/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 3/9 ·
+**Không kiểm chứng được trên cluster lab** — [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md)
+ghi rõ lý do ở bảng *Ánh xạ tài liệu sang bài thực hành*; phần gần nhất bạn làm được là B1,
+nơi request và limit được khai ở **cấp container**.
+
+Bài mô tả một tính năng còn sau feature gate `PodLevelResources`, mà baseline của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) không bật. Vì vậy đọc bài này để **phân biệt hai tầng
+khai báo tài nguyên**, không phải để chạy. Mọi ví dụ trong bài giả định gate đã bật.
+
+**Phải hiểu ở lần đọc này:**
+
+- Có **hai tầng** khai báo: `spec.resources` cho cả Pod và `spec.containers[*].resources` cho từng
+  container. Đoạn mở đầu nói rõ khi cả hai cùng tồn tại thì **cấp Pod được ưu tiên** — cho request,
+  cho limit, và cả khi xác định QoS class (mục *Đối với tài nguyên cấp Pod*).
+- Nhìn manifest là phân biệt được: ở các mục *Tạo một Pod với memory…* và *…với CPU…*, khối
+  `resources` nằm **ngang hàng với `containers`** bên trong `spec`, không nằm bên trong từng
+  container.
+- Ý nghĩa của limit cấp Pod: nó là **trần chung của tất cả container cộng lại**. Ở mục *Tạo một Pod
+  với request và limit ở cả cấp Pod lẫn cấp container*, một container khai riêng còn container kia
+  để trống, nhưng hai container **cộng lại** không vượt được `200Mi` và `1` CPU của cấp Pod.
+- Cũng ở mục đó: vì cấp Pod đã khai request, mức **đảm bảo** cho cả hai container là con số cấp Pod
+  (1 core và `100Mi`), chứ không phải tổng phần khai riêng của từng container.
+- Ranh giới của tính năng, mục *Giới hạn*: chỉ **CPU, memory và hugepages** đặt được ở cấp Pod; và
+  gate `PodLevelResources` phải bật cho **cả control plane lẫn mọi node**, không phải chỉ apiserver.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Cách bật feature gate `PodLevelResources` trên apiserver và kubelet | bật gate là sửa cấu hình cluster đang chạy, làm lệch baseline của Lab 00 | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
+| Topology Manager, Memory Manager, CPU Manager và gate `PodLevelResourceManagers` trong mục *Giới hạn* | thuộc cấu hình kubelet ở mức node | bài [74](74-resource-managers-vi.md) ở [giai đoạn 7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên) |
+| Resize tại chỗ tài nguyên cấp Pod và gate `InPlacePodLevelResourcesVerticalScaling` | cần biết cơ chế resize trước đã | bài [289](289-resize-container-resources-vi.md) rồi bài [290](290-resize-pod-resources-vi.md), cùng nhóm 3c |
+| Mọi lệnh `kubectl top` trong các ví dụ | cluster lab cố ý chưa có metrics-server | [giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.34 [beta]`
 
 Trang này hướng dẫn cách chỉ định tài nguyên CPU và memory cho một Pod ở cấp Pod (pod-level),
@@ -364,3 +407,42 @@ kubectl delete namespace pod-resources-example
 * [Cấu hình Quota Memory và CPU cho một Namespace](233-quota-memory-cpu-namespace-vi.md)
 
 * [Các trình quản lý tài nguyên cấp Pod](74-resource-managers-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở nhóm 3c:
+
+1. Một Pod khai `spec.resources.limits.memory: "200Mi"`; container A khai riêng
+   `limits.memory: "100Mi"`, container B không khai gì. B bị chặn ở mức nào, và tổng memory hai
+   container dùng được tối đa là bao nhiêu?
+2. **Câu bẫy.** Cùng một Pod khai tài nguyên ở cả cấp Pod lẫn cấp container. Trực giác nói bên nào
+   chặt hơn thì bên đó thắng. Bài nói gì, và điều đó ảnh hưởng tới việc xác định QoS class ra sao?
+3. `lab-k8s-worker1` chỉ có 2 vCPU. Một Pod hai container khai `spec.resources.requests.cpu: "1"`
+   trong khi phần khai riêng của các container cộng lại chỉ `0.5` CPU. Mức CPU **được đảm bảo** cho
+   Pod đó là bao nhiêu, và con số nào là con số scheduler phải tìm chỗ trên node?
+4. Chỉ nhìn một manifest, bạn dựa vào dấu hiệu nào để biết nó dùng tài nguyên cấp Pod chứ không
+   phải cấp container? Và những loại tài nguyên nào đặt được ở cấp Pod?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. B **không khai gì nên nó thừa hưởng ràng buộc từ cấp Pod**: trần thực tế của nó là limit cấp
+   Pod. Còn tổng thì bài nói thẳng: hai container **cộng lại không thể vượt `200Mi`** — limit cấp
+   Pod là ranh giới của cả Pod, không phải hạn mức riêng cấp thêm cho từng container.
+2. Trực giác đó **sai**. Bài liệt kê "Độ ưu tiên" thành mục riêng: khi tài nguyên được chỉ định ở
+   **cả hai** cấp thì **tài nguyên cấp Pod được ưu tiên**, bất kể con số nào chặt hơn. Điều này áp
+   dụng cả khi xác định **QoS class**: giá trị cấp Pod là thứ được dùng để xếp lớp cho Pod.
+3. Mức đảm bảo là **1 core CPU — con số của cấp Pod**, không phải `0.5` của phần khai riêng. Bài
+   nói rõ: vì request cấp Pod đã được chỉ định, mức đảm bảo cho **cả hai** container là con số cấp
+   Pod. Đó cũng là con số scheduler phải tìm chỗ, tức nửa số vCPU của một worker 2 nhân.
+4. Dấu hiệu là **vị trí của khối `resources`**: ở cấp Pod nó nằm **ngang hàng với `containers`**
+   ngay trong `spec`, còn ở cấp container nó nằm bên trong từng phần tử của `containers`. Các loại
+   đặt được ở cấp Pod chỉ gồm **CPU, memory và hugepages**.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

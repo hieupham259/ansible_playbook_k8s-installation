@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm), bài 6/9 ·
-Kiểm chứng ở Lab 8c (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 8c](labs/LAB-8C-HA-VOI-EXTERNAL-ETCD.md).
 
 Bài này **có điều kiện**: lộ trình ghi rõ nó *chỉ cần nếu chọn external etcd* ở bài
 [06](06-ha-topology-vi.md), và **phải dựng xong trước** bài [08](08-high-availability-vi.md).
@@ -371,7 +371,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 3. Sau khi làm xong, `ca.key` của etcd nằm trên host nào? Vì sao bài cố ý xóa nó khỏi
    `/tmp/${HOST1}` và `/tmp/${HOST2}` trước khi `scp`?
 4. Port 2379 và 2380 khác vai trò thế nào? Nếu firewall chỉ mở 2379 giữa ba host thì hỏng ở đâu?
-5. Cluster lab của bạn (`k8s-master` 192.168.100.111 + hai worker) hiện chạy etcd ở đâu? Bài
+5. Cluster lab của bạn (`lab-k8s-master` 192.168.100.111 + hai worker) hiện chạy etcd ở đâu? Bài
    này có áp dụng cho nó không?
 
 <details>
@@ -401,7 +401,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    Mở mỗi 2379 thì `etcdctl ... endpoint health` có thể chạm được từng endpoint, nhưng ba member
    **không hình thành được cluster** vì không nói chuyện với nhau; mục *Trước khi bạn bắt đầu*
    yêu cầu **cả hai** port TCP 2379 và 2380 thông giữa ba host.
-5. Etcd của cluster lab chạy **cục bộ ngay trên `k8s-master`**: câu đầu bài nói theo mặc định
+5. Etcd của cluster lab chạy **cục bộ ngay trên `lab-k8s-master`**: câu đầu bài nói theo mặc định
    **kubeadm chạy một instance etcd cục bộ trên mỗi node control plane**, và Lab 00 dùng đúng
    mặc định đó. Nên bài này **không áp dụng** cho cluster lab — nó chỉ dùng khi bạn cố ý chọn
    external etcd, tức Lab 8c với bộ VM riêng, và phải làm **trước** khi dựng control plane.

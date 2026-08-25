@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 9/14 ·
-Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md).
 
 Trên kubernetes.io bài này nằm trong mục kiến trúc, tức là chỗ của **giai đoạn 1**. Lộ trình
 cố ý **chuyển nó xuống đây** vì mọi gạch đầu dòng của nó đều là kết luận rút ra từ
@@ -107,8 +107,8 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 1. Một container bên trong Pod bị lỗi. Ai khởi động lại nó, và theo trường nào? Nếu cả Pod
    biến mất thì ai lo, và nó làm gì khác đi?
-2. **Câu bẫy.** Bạn xóa một Pod của DaemonSet đang chạy trên `k8s-worker2`. Pod thay thế có
-   thể được lập lịch sang `k8s-worker1` không? Còn nếu đó là Pod của một Deployment 3 replica
+2. **Câu bẫy.** Bạn xóa một Pod của DaemonSet đang chạy trên `lab-k8s-worker2`. Pod thay thế có
+   thể được lập lịch sang `lab-k8s-worker1` không? Còn nếu đó là Pod của một Deployment 3 replica
    thì sao?
 3. Bạn triển khai một ứng dụng có bug khiến nó thoát ngay sau khi khởi động. Kubernetes có
    "tự phục hồi" được không? Bài đặt ranh giới ở đâu?

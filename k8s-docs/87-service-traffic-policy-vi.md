@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 8/16 · Kiểm chứng ở
-Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md).
 
 Bài rất ngắn và là cặp đôi của bài trước: bài [86](86-topology-aware-routing-vi.md) giữ lưu
 lượng trong **zone**, bài này giữ lưu lượng trong **node**. Khác biệt quan trọng là bài này
@@ -86,8 +86,8 @@ Kube-proxy lọc các endpoint mà nó định tuyến tới dựa trên thiết
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
 
-1. Cluster lab có hai worker. Một Deployment 2 replica nằm hết trên `k8s-worker1`, và Service
-   của nó đặt `internalTrafficPolicy: Local`. Một Pod client trên `k8s-worker2` gọi Service đó
+1. Cluster lab có hai worker. Một Deployment 2 replica nằm hết trên `lab-k8s-worker1`, và Service
+   của nó đặt `internalTrafficPolicy: Local`. Một Pod client trên `lab-k8s-worker2` gọi Service đó
    thì kết quả ra sao?
 2. `internalTrafficPolicy: Local` có làm thay đổi lưu lượng đi vào từ bên ngoài cluster qua
    NodePort không?

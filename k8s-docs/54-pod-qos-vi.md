@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 5/7 ·
-Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
 
 Bài này là **hệ quả trực tiếp** của bài [110](110-manage-resources-containers-vi.md): QoS
 class không phải một trường bạn khai báo, mà là kết luận Kubernetes rút ra từ `requests` và
@@ -232,7 +232,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    `requests.memory: 64Mi` — và không có `limits.memory`. QoS class là gì?
 2. Một Pod có hai container: container A đặt request bằng limit cho cả CPU lẫn memory,
    container B không khai báo tài nguyên nào. QoS class của **Pod** là gì?
-3. Trên `k8s-worker2` đang chịu áp lực bộ nhớ có hai Pod: một Pod `BestEffort` đang dùng rất
+3. Trên `lab-k8s-worker2` đang chịu áp lực bộ nhớ có hai Pod: một Pod `BestEffort` đang dùng rất
    ít RAM, và một Pod `Burstable` đang dùng gấp ba lần request của nó. Pod nào là ứng viên bị
    trục xuất trước?
 4. Bạn muốn một workload trên cluster lab ít khả năng bị trục xuất nhất khi node thiếu tài

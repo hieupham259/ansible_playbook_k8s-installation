@@ -12,7 +12,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
 bài 3/10 · nối tiếp bài [305 — Troubleshooting Clusters](305-debug-cluster-vi.md) và bài
 [307 — crictl](307-crictl-vi.md); giai đoạn này không có lab riêng, thực hành trực tiếp trên
 cluster lab (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
@@ -157,7 +158,7 @@ pod "node-debugger-mynode-pdx84" deleted
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn này.
 
-1. Bạn không SSH được vào `k8s-worker2` nhưng node vẫn `Ready`. Lệnh nào cho bạn một shell
+1. Bạn không SSH được vào `lab-k8s-worker2` nhưng node vẫn `Ready`. Lệnh nào cho bạn một shell
    trên node đó, và Pod mà lệnh này tạo ra được đặt tên theo quy tắc nào?
 2. Trong shell của Pod debug, muốn đọc log kubelet của node thì bạn mở đường dẫn nào? Vì sao
    không phải là `/var/log/kubelet.log`?
@@ -171,8 +172,8 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 <details>
 <summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
 
-1. **`kubectl debug node/k8s-worker2 -it --image=ubuntu`.** Pod được `kubectl debug` **tự
-   sinh tên dựa trên tên node**, dạng `node-debugger-k8s-worker2-<hậu tố ngẫu nhiên>`.
+1. **`kubectl debug node/lab-k8s-worker2 -it --image=ubuntu`.** Pod được `kubectl debug` **tự
+   sinh tên dựa trên tên node**, dạng `node-debugger-lab-k8s-worker2-<hậu tố ngẫu nhiên>`.
 2. **`/host/var/log/kubelet.log`** — vì root filesystem của node được mount vào Pod debug tại
    **`/host`**, nên mọi đường dẫn trên node phải thêm tiền tố `/host`; `/var/log/` không có
    tiền tố chỉ là filesystem của chính container debug.

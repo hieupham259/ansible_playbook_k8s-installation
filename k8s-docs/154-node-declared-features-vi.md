@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
-bài 6/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 6/6 · Kiểm chứng ở [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md).
 
 **Lộ trình đánh dấu bài này là ĐỌC LƯỚT.** Đọc một lượt là đủ, không cần dừng lại nghiền ngẫm,
 và không có gì phải thực hành. Ba lý do: đây là tính năng beta từ v1.36 nên **cluster baseline
@@ -102,7 +102,7 @@ Bài này chỉ đọc lướt, nên ba câu là đủ. Trả lời được mà
    phải khai thêm gì trong Pod spec để nó hoạt động không?
 2. Node khai báo tính năng ở trường nào, và hai thành phần nào đọc trường đó, mỗi thành phần làm
    gì với nó?
-3. Cluster lab của bạn có một control plane `k8s-master` và hai worker, cả ba cùng Kubernetes
+3. Cluster lab của bạn có một control plane `lab-k8s-master` và hai worker, cả ba cùng Kubernetes
    v1.35.6. Cơ chế này có đang hoạt động trên cluster đó không? Và nó chống lại loại sự cố nào
    mà một cluster đồng nhất phiên bản như của bạn vốn không gặp?
 
@@ -134,6 +134,5 @@ Bài này chỉ đọc lướt, nên ba câu là đủ. Trả lời được mà
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của nhóm 7b — khi
-trả lời được hết sáu bài, bạn sẵn sàng vào Lab 7b (chưa viết, xem
-[bản đồ lab](labs/README.md#4-bản-đồ-lab)); trong lúc chờ, dùng checkpoint của
+trả lời được hết sáu bài, bạn sẵn sàng vào [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md); trong lúc chờ, dùng checkpoint của
 [Giai đoạn 7](00-ALO-TRINH-ADMIN.md#giai-đoạn-7--lập-lịch-và-chính-sách-tài-nguyên) để tự kiểm.

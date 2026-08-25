@@ -2,6 +2,53 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 2/9 ·
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B1.2, B2.2 và B4.1.
+
+Bài này là **bản song sinh** của bài [263](263-assign-cpu-resource-vi.md): cùng bố cục, cùng thứ
+tự mục, nhưng cho memory. Đọc để tìm chỗ hai bài **không** giống nhau — vượt limit CPU thì bị điều
+tiết, còn vượt limit memory thì bị **chấm dứt**. Đó là ranh giới quan trọng nhất của cả nhóm 3c.
+
+Bài chạy `kubectl top` ở vài bước; cluster lab chưa có metrics-server nên đọc để hiểu con số, đừng
+chờ chạy được lệnh đó.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mục *Vượt quá memory limit của Container*: container **được phép** vượt memory **request** nếu
+  Node còn memory rảnh, nhưng vượt **limit** thì thành ứng viên bị chấm dứt và sẽ bị chấm dứt nếu
+  tiếp tục tiêu thụ. Container chấm dứt được khởi động lại thì kubelet khởi động lại nó, y như với
+  mọi lỗi runtime khác.
+- Dấu vết của một lần bị kill, cũng ở mục đó: `STATUS` là `OOMKilled`, `lastState.terminated` ghi
+  `reason: OOMKilled` với `exitCode: 137`, cột `RESTARTS` tăng dần, `kubectl describe pod` cho
+  `BackOff restarting failed container`, và `kubectl describe nodes` ghi
+  `Memory cgroup out of memory`.
+- Mục *Chỉ định một memory request quá lớn so với các Node của bạn*: request/limit của Pod là
+  **tổng** của các container; lập lịch dựa trên **request**; request `1000Gi` khiến Pod ở
+  `Pending` vô thời hạn với `FailedScheduling ... Insufficient memory`.
+- Mục *Đơn vị memory*: memory đo bằng **byte**, viết kèm hậu tố thập phân `E, P, T, G, M, K` hoặc
+  nhị phân `Ei, Pi, Ti, Gi, Mi, Ki` — nên `128974848`, `129e6`, `129M` và `123Mi` xấp xỉ bằng nhau.
+- Mục *Nếu bạn không chỉ định memory limit*: container không có limit dùng được toàn bộ memory của
+  Node và có thể kích hoạt OOM Killer; hơn nữa khi OOM xảy ra thì chính container **không có
+  limit** lại là ứng viên bị kill với khả năng cao hơn.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Các bước cài và kiểm tra metrics-server, cùng mọi lệnh `kubectl top` | cluster lab cố ý chưa có metrics-server; Lab 3c đọc số liệu từ API object và cgroup v2 | [giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability) |
+| LimitRange gán memory limit mặc định cho namespace, nhắc ở mục *Nếu bạn không chỉ định memory limit* | ở đây chỉ cần biết có cơ chế đặt mặc định | bài [133](133-limit-range-vi.md) ở [giai đoạn 7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên) |
+| Cách Node chọn nạn nhân khi bản thân Node cạn memory, và OOM Killer ở mức Node | bài chỉ nhắc hệ quả một câu; cơ chế chọn và thứ tự trục xuất là chủ đề riêng | bài [142](142-node-pressure-eviction-vi.md) ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction) |
+| Nhánh *Dành cho người quản trị cluster* trong mục *Tiếp theo* (quota, ràng buộc theo namespace) | thuộc quản trị namespace, không phải cấu hình Pod | [giai đoạn 25](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace) |
+
+---
+
 Trang này hướng dẫn cách gán một *request* (yêu cầu) memory và một *limit* (giới hạn) memory cho
 Container. Container được đảm bảo có đủ lượng memory mà nó yêu cầu, nhưng không được phép sử
 dụng nhiều memory hơn limit của nó.
@@ -406,3 +453,50 @@ kubectl delete namespace mem-example
 * [Cấu hình quota cho các đối tượng API (Configure Quotas for API Objects)](./252-quota-api-object-vi.md)
 
 * [Thay đổi tài nguyên CPU và memory đã gán cho Container (Resize CPU and Memory Resources assigned to Containers)](289-resize-container-resources-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở nhóm 3c:
+
+1. `lab-k8s-worker2` có 6 GB RAM và đang gần như rảnh. Bạn chạy trên đó một Pod có
+   `requests.memory: "50Mi"`, `limits.memory: "100Mi"`, và tiến trình bên trong cấp phát 250M.
+   Node còn thừa hàng GB — container có được mượn chỗ trống đó không? Mô tả chuỗi trạng thái bạn
+   sẽ thấy khi chạy `kubectl get pod` lặp lại.
+2. **Câu bẫy.** Một Pod hiện `OOMKilled`. Có phải Node đã hết memory không? Dòng nào trong
+   `kubectl describe nodes` giúp bạn trả lời?
+3. `Pending` kèm `Insufficient memory` và `OOMKilled` — hai thứ này khác nhau ở chỗ nào? Cái nào
+   xảy ra trước khi container chạy, và cái nào xảy ra khi container đang chạy?
+4. Vì sao `129M` và `123Mi` được coi là xấp xỉ cùng một giá trị? Hai hậu tố đó khác nhau ở đâu?
+5. Bạn để trống memory limit cho một container "cho nhẹ manifest". Bài cảnh báo hai hệ quả gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Không.** Vượt **request** thì được mượn chỗ trống của Node, nhưng **limit là ranh giới cứng**:
+   cấp phát 250M trong khi limit là 100 MiB làm container thành ứng viên bị chấm dứt, và vì nó cứ
+   tiếp tục tiêu thụ nên nó **bị chấm dứt**. Container này khởi động lại được, nên kubelet khởi
+   động lại nó — chạy `kubectl get pod` lặp lại sẽ thấy **`OOMKilled` → `Running` → `OOMKilled`**
+   với cột `RESTARTS` tăng dần, và `describe pod` cho `BackOff restarting failed container`.
+2. **Không nhất thiết.** Container bị kill vì vượt **limit của chính nó**, tức cgroup memory của nó
+   cạn — Node hoàn toàn có thể còn rất nhiều memory rảnh. Bằng chứng là dòng
+   **`Memory cgroup out of memory`** trong `kubectl describe nodes`: chữ **cgroup** cho biết ranh
+   giới bị vượt là ranh giới của container chứ không phải của máy.
+3. **`Insufficient memory` là quyết định của lập lịch**, xảy ra **trước khi** container chạy:
+   scheduler so **request** với memory khả dụng của Node, không Node nào đủ nên Pod nằm `Pending`
+   vô thời hạn. **`OOMKilled` xảy ra khi container đang chạy** và chạm **limit**. Một bên là bài
+   toán "có chỗ đặt không", bên kia là "đang chạy có vượt trần không".
+4. Vì **`M` là hậu tố thập phân còn `Mi` là hậu tố nhị phân**. Bài liệt kê thẳng
+   `128974848, 129e6, 129M, 123Mi` là các cách viết xấp xỉ cùng một lượng byte — memory luôn đo
+   bằng byte, phần hậu tố chỉ là cách rút gọn.
+5. Một, container **không có giới hạn trên**: nó dùng được toàn bộ memory của Node và có thể kích
+   hoạt **OOM Killer**. Hai — phần trái trực giác — khi OOM xảy ra thì chính container **không có
+   giới hạn tài nguyên** lại **có khả năng bị kill cao hơn**. Trường hợp còn lại là namespace đã
+   đặt sẵn một limit mặc định và container được gán limit đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

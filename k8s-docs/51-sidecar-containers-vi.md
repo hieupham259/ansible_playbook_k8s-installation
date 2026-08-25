@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 7/11 · Kiểm chứng
-ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md).
 
 Bài này chỉ có nghĩa khi bạn vừa đọc xong [bài 50](50-init-containers-vi.md), vì sidecar trong
 Kubernetes **không phải một loại container mới**: nó là init container có một trường được đặt
@@ -291,7 +291,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    sidecar? Trường đó đổi điều gì về vòng đời?
 2. Pod khai báo `initContainers` gồm `A` là sidecar rồi `B` là init container thông thường. Kubelet
    chờ điều gì ở `A` trước khi chạy `B`?
-3. Bạn chạy trên `k8s-worker1` một Pod gồm một app container và hai sidecar gom log, rồi
+3. Bạn chạy trên `lab-k8s-worker1` một Pod gồm một app container và hai sidecar gom log, rồi
    `kubectl delete pod`. Container nào nhận TERM trước, và hai sidecar tắt theo thứ tự nào?
 4. Sau khi xóa Pod, công cụ giám sát báo sidecar thoát với mã khác 0. Có phải sự cố không?
 5. Init container thông thường và sidecar khác nhau thế nào về khả năng trao đổi dữ liệu với app

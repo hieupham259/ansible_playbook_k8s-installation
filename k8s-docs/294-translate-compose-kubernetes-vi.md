@@ -2,6 +2,55 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/translate-compose-kubernetes/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), dòng **Thực
+hành**, bài 1/10 · **Không có mục thực hành trong lab**: bảng ánh xạ của
+[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) và
+[Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) đều không có bài này — Kompose là một binary
+bên ngoài phải tải và cài thêm, còn hai lab của giai đoạn 5 không cài thêm công cụ nào.
+
+Bài nằm ở giai đoạn 5 vì thứ Kompose sinh ra chủ yếu là **Deployment và Service**: bạn chỉ đọc được
+kết quả chuyển đổi sau khi đã biết Service và các loại Service. Đọc bài này như một **bảng ánh xạ**
+từ khái niệm `docker-compose` sang object Kubernetes, không phải như hướng dẫn cài công cụ.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ranh giới của Kompose ở mục *Sử dụng Kompose*: `kompose convert` chỉ **sinh ra file YAML/JSON**
+  trong thư mục hiện tại; cluster chưa có gì cho tới khi bạn tự chạy `kubectl apply -f`. Kompose
+  không nói chuyện với cluster và không thay `kubectl`.
+- Mục *Các kiểu chuyển đổi thay thế*: mặc định mỗi service trong compose thành một **Deployment**
+  cộng một **Service**, định dạng YAML. `-j` đổi sang JSON, `--replication-controller` (kèm
+  `--replicas`), `--daemon-set`, còn `-c` sinh nguyên một Helm chart có `Chart.yaml` và `templates/`.
+- Mục *Label*: `kompose.service.type` quyết định loại Service được tạo — `nodeport`, `clusterip`
+  hoặc `loadbalancer`. Ghi chú kèm theo là ranh giới phải nhớ: label này **chỉ được đặt cùng
+  `ports`**, nếu không `kompose` sẽ thất bại.
+- Mục *Restart* — chỗ dễ bất ngờ nhất: `""` và `always` sinh ra **object controller** với
+  `restartPolicy: Always`, nhưng `on-failure` và `no` sinh ra một **Pod trần** với `restartPolicy`
+  lần lượt là `OnFailure` và `Never`. Ví dụ `pival` trong bài vì vậy là một Pod.
+- Mục *Cảnh báo về cấu hình Deployment*: có volume trong compose thì chiến lược của Deployment bị
+  đổi từ `RollingUpdate` sang `Recreate`, để tránh nhiều instance của một service dùng chung một
+  volume cùng lúc; và tên service chứa `_` bị đổi thành `-` vì Kubernetes không cho phép `_` trong
+  tên object — bài cảnh báo việc đổi tên này có thể làm hỏng một số file `docker-compose`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Cài đặt Kompose* — tải binary từ GitHub, `go get`, Homebrew | lần đọc này cần bảng ánh xạ compose → object, không cần chạy công cụ; hai lab của giai đoạn 5 không cài thêm gì | không có bài nào khác trong lộ trình dạy Kompose; nếu dùng thật thì cài ngoài phạm vi lab |
+| `kompose.service.expose` sinh ra một tài nguyên Ingress và **giả định ingress controller đã được cấu hình sẵn** | Ingress là phần sau của chính giai đoạn 5, và cluster lab chưa có ingress controller | bài [11 — Ingress](11-ingress-vi.md) và [12 — Ingress Controllers](12-ingress-controllers-vi.md) ở cuối [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng); controller được cài ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B8 |
+| File `mongodb-claim0-persistentvolumeclaim.yaml` trong output của lần convert nhiều file compose | PersistentVolumeClaim thuộc giai đoạn sau; ở đây chỉ cần thấy Kompose cũng sinh ra loại object đó | [giai đoạn 6 — Lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài [92](92-persistent-volumes-vi.md) |
+| `kompose convert --replication-controller` và cờ `--replicas` đi kèm | ReplicationController là tiền thân của ReplicaSet; lộ trình xếp nó vào diện đọc như tài liệu lịch sử | bài [70](70-replicationcontroller-vi.md) ở [giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller) |
+| Toàn bộ mục *Ví dụ `kompose convert` với OpenShift* — DeploymentConfig, ImageStream, BuildConfig | đây là object của OpenShift, không phải của Kubernetes | không có bài nào trong lộ trình; bỏ qua trừ khi bạn thật sự làm việc với OpenShift |
+
+---
+
 Kompose là gì? Đó là một công cụ chuyển đổi mọi thứ liên quan đến compose (cụ thể là Docker
 Compose) sang các trình điều phối container (Kubernetes hoặc OpenShift).
 
@@ -495,3 +544,50 @@ Kompose hỗ trợ các phiên bản Docker Compose: 1, 2 và 3. Chúng tôi h�
 Danh sách đầy đủ về tính tương thích giữa cả ba phiên bản được liệt kê trong
 [tài liệu chuyển đổi](https://github.com/kubernetes/kompose/blob/master/docs/conversion.md)
 của chúng tôi, bao gồm danh sách tất cả các key Docker Compose không tương thích.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
+
+1. Bạn chạy `kompose convert` và thấy sáu dòng `INFO Kubernetes file ... created`. Lúc đó cluster đã
+   có Deployment nào chưa? Bước nào mới thực sự tạo object, và điều đó nói gì về vị trí của Kompose
+   so với `kubectl`?
+2. **Câu bẫy.** Service `pival` trong compose đặt `restart: "on-failure"`. Kompose sinh ra object gì
+   — Deployment hay Pod — và `restartPolicy` bằng bao nhiêu? Vì sao trực giác "có khai `restart`
+   nghĩa là có controller lo việc khởi động lại" lại sai ở đây?
+3. Trên `lab-k8s-master`, bạn convert một file compose có hai service: `web_service`, và `nginx` mang
+   label `kompose.service.type: nodeport` nhưng không khai `ports`. Kết quả của từng service là gì?
+4. Mặc định `kompose convert` sinh ra những loại object nào và ở định dạng gì? Nêu ba cờ đổi được kết
+   quả đó, mỗi cờ đổi thành gì.
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Chưa có gì cả.** `kompose convert` chỉ ghi file YAML ra thư mục hiện tại — output của nó là các
+   dòng `... created` nói về **file**. Bài đi tiếp bằng
+   `kubectl apply -f web-tcp-service.yaml,...` và chỉ tới lúc đó output mới báo
+   `deployment.apps/web created`. Kompose là **công cụ dịch cấu hình đứng trước `kubectl`**, không
+   phải thứ thay thế `kubectl`: bản thân nó không chạy gì trên cluster.
+2. Một **Pod**, với `restartPolicy: OnFailure`. Bảng ở mục *Restart* chia bốn giá trị thành hai
+   nhóm: `""` và `always` cho ra **object controller** (`deployment` hoặc `replicationcontroller`)
+   với `Always`; còn `on-failure` và `no` cho ra **Pod** với `OnFailure` và `Never`. Trực giác sai vì
+   Kompose dùng chính trường `restart` làm **cách để bạn nói rằng bạn muốn Pod thường, không có
+   controller** — mục *Restart* mở đầu đúng bằng câu đó. Ví dụ `pival` chạy `perl` tính `pi` là một
+   tác vụ chạy xong là hết, và bài dịch nó thành Pod.
+3. `web_service` bị **đổi tên thành `web-service`**: mục *Cảnh báo về cấu hình Deployment* nói rõ
+   Kompose thay `_` bằng `-` vì Kubernetes không cho phép `_` trong tên object, và cảnh báo rằng
+   việc đổi tên đó có thể làm hỏng một số file `docker-compose`. Còn `nginx` thì **làm `kompose` thất
+   bại**: ghi chú ở mục *Label* nói `kompose.service.type` chỉ nên được định nghĩa cùng với `ports`,
+   nếu không `kompose` sẽ fail.
+4. Mặc định: **Deployment và Service**, định dạng **YAML**. Ba cờ đổi kết quả: `-j` cho ra JSON
+   (`*-deployment.json`); `--replication-controller` cho ra object ReplicationController, kèm
+   `--replicas` để đặt số bản sao (mặc định 1); `--daemon-set` cho ra DaemonSet. Ngoài ra `-c` sinh
+   nguyên một Helm chart với `Chart.yaml`, `README.md` và thư mục `templates/`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

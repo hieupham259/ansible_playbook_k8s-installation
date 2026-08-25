@@ -88,17 +88,17 @@ khi sang lab sau.
 | [6b — Snapshot và volume nâng cao](LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md) | 6 (phần còn lại) | `03-storage-ready` | trả về `03-storage-ready` | 2–3 | ✅ đã viết |
 | [7a — Lập lịch và eviction](LAB-7A-LAP-LICH-VA-EVICTION.md) | 7a (13 bài) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ✅ đã viết |
 | [7b — Quota và giới hạn tài nguyên](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) | 7b (6 bài) | `03-storage-ready` | trả về `03-storage-ready` | 2–3 | ✅ đã viết |
-| 8a — Dựng cluster bằng kubeadm | 8 (bài 01–05, 09) | `03-storage-ready` | phá cluster rồi **restore** `03-storage-ready` | 4 | ⬜ chưa viết |
-| 8b — HA với stacked etcd | 8 (bài 06, 08) | bộ VM riêng, dựng mới | **tạo** `8x-ha-stacked` | 4 | ⬜ chưa viết |
-| 8c — HA với external etcd | 8 (bài 06, 07, 08) | bộ VM riêng của lab 8b, reset | **tạo** `8x-ha-external` | 4 | ⬜ chưa viết |
-| 9a — ServiceAccount, authn/authz và RBAC | 9 (phần truy cập) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ⬜ chưa viết |
-| 9b — Pod Security và hardening | 9 (phần policy) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ⬜ chưa viết |
-| 11a — Observability | 11 (6 bài) | `03-storage-ready` | **tạo** `04-metrics-ready` | 3–4 | ⬜ chưa viết |
-| 11b — HPA và VPA | trả nợ giai đoạn 4 | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ⬜ chưa viết |
-| 12 — Vận hành vòng đời node | 12 (8 bài) | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ⬜ chưa viết |
-| 13 — DRA (tùy chọn) | 13 | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ⬜ chưa viết |
-| 14 — CRD và Operator | 14 (7 bài) | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ⬜ chưa viết |
-| 15 — Node Windows (tùy chọn) | 15 | `04-metrics-ready` + 1 VM Windows | **tạo** `15-windows-ready` | 4 | ⬜ chưa viết |
+| [8a — Dựng cluster bằng kubeadm](LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md) | 8 (bài 01–05, 09) | `03-storage-ready` | phá cluster rồi **restore** `03-storage-ready` | 4 | ✅ đã viết |
+| [8b — HA với stacked etcd](LAB-8B-HA-VOI-STACKED-ETCD.md) | 8 (bài 06, 08) | bộ VM riêng, dựng mới | **tạo** `8x-ha-stacked` | 4 | ✅ đã viết |
+| [8c — HA với external etcd](LAB-8C-HA-VOI-EXTERNAL-ETCD.md) | 8 (bài 06, 07, 08) | bộ VM riêng của lab 8b, reset | **tạo** `8x-ha-external` | 4 | ✅ đã viết |
+| [9a — ServiceAccount, authn/authz và RBAC](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) | 9 (phần truy cập) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ✅ đã viết |
+| [9b — Pod Security và hardening](LAB-9B-POD-SECURITY-VA-HARDENING.md) | 9 (phần policy) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ✅ đã viết |
+| [11a — Observability](LAB-11A-OBSERVABILITY.md) | 11 (6 bài) | `03-storage-ready` | **tạo** `04-metrics-ready` | 3–4 | ✅ đã viết |
+| [11b — HPA và VPA](LAB-11B-HPA-VA-VPA.md) | trả nợ giai đoạn 4 | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ✅ đã viết |
+| [12 — Vận hành vòng đời node](LAB-12-VAN-HANH-VONG-DOI-NODE.md) | 12 (8 bài) | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ✅ đã viết |
+| [13 — DRA (tùy chọn)](LAB-13-DRA.md) | 13 | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ✅ đã viết |
+| [14 — CRD và Operator](LAB-14-CRD-VA-OPERATOR.md) | 14 (7 bài) | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ✅ đã viết |
+| [15 — Node Windows (tùy chọn)](LAB-15-NODE-WINDOWS.md) | 15 | `04-metrics-ready` (nhánh thực hành cần thêm 1 VM Windows) | nhánh A **tạo** `15-windows-ready`; nhánh B **trả về** `04-metrics-ready` | 4 | ✅ đã viết |
 
 Trên chuỗi chính chỉ có **bốn lab tạo mốc mới**: 00, 5b, 6a và 11a. Hai lab HA (8b, 8c) dùng
 bộ VM riêng với mốc tiền tố `8x-`, và lab 15 thêm một VM Windows vào chuỗi chính rồi chụp mốc
@@ -116,7 +116,7 @@ bài gốc.
 
 | # | Nợ | Phát sinh ở | Vì cần | Trả ở |
 | --- | --- | --- | --- | --- |
-| 1 | Thực hành HPA và VPA | giai đoạn 4, bài [72](../72-horizontal-pod-autoscale-vi.md), [73](../73-vertical-pod-autoscale-vi.md) | metrics-server (giai đoạn 11) | Lab 11b |
+| 1 | Thực hành HPA và VPA | [Giai đoạn 4](../00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài [72](../72-horizontal-pod-autoscale-vi.md), [73](../73-vertical-pod-autoscale-vi.md) | metrics-server (giai đoạn 11); riêng VPA còn cần **add-on ngoài Kubernetes** chưa có trong A1.4 | **HPA đã trả** ở Lab 11b; **VPA chưa trả** |
 | 2 | `volumeClaimTemplates` của StatefulSet | giai đoạn 4, bài [65](../65-statefulset-vi.md) | StorageClass + provisioner (giai đoạn 6) | Lab 6a |
 | 3 | Service quản trị headless cho StatefulSet | giai đoạn 4, bài [65](../65-statefulset-vi.md) | Service headless (giai đoạn 5) | Lab 5a |
 | 4 | NetworkPolicy được thực thi thật | giai đoạn 5, bài [84](../84-network-policies-vi.md) | CNI hỗ trợ policy thay Flannel | Lab 5b |
@@ -124,7 +124,6 @@ bài gốc.
 | 6 | Mã hóa Secret at rest | giai đoạn 3, bài [109](../109-secret-vi.md) | sửa cấu hình apiserver | [giai đoạn 22](../00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu) |
 | 7 | Quản lý vòng đời certificate | giai đoạn 12, bài [156](../156-certificates-vi.md) | quy trình `kubeadm certs` | [giai đoạn 18](../00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) |
 | 8 | Backup và restore etcd | giai đoạn 8 | `etcdctl` và quy trình khôi phục | [giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa) |
-| 9 | Hai khối *Đọc bài này thế nào* và *Tự kiểm tra* cho 164 bài nhánh `/docs/tasks/` | mọi mục có dấu ⏳ trong lộ trình | công sức viết, không phải kiến thức | trả tại chỗ — xem [hướng dẫn trả nợ #9](../00-ALO-TRINH-ADMIN.md#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks) |
 
 Số hiệu nợ ở cột đầu **khớp với** [Sổ nợ lộ trình](../00-ALO-TRINH-ADMIN.md#sổ-nợ-lộ-trình). Trong file lộ trình, mỗi món nợ được đánh dấu ngay tại chỗ: `⏳ Nợ #N` ở nơi phát sinh và `✅ Trả nợ #N` ở nơi trả. Sửa một bảng thì phải sửa bảng kia.
 

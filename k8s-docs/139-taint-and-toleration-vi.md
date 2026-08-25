@@ -10,11 +10,11 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 4/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 Đây là **mặt đối ngẫu** của bài [138](138-assign-pod-node-vi.md): affinity là thuộc tính của
 Pod dùng để **thu hút** Pod về một tập node; taint là thuộc tính của node dùng để **đẩy** Pod
-ra. Bạn đã gặp cơ chế này từ Lab 1a mà chưa biết tên: control plane node `k8s-master` mang một
+ra. Bạn đã gặp cơ chế này từ Lab 1a mà chưa biết tên: control plane node `lab-k8s-master` mang một
 taint, và đó chính là lý do Pod thường của bạn luôn rơi xuống hai worker.
 
 Nửa sau của bài (*Eviction dựa trên taint*, *Taint Node theo điều kiện*) không nói về việc bạn
@@ -485,12 +485,12 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 1. Taint đặt trên đối tượng nào, toleration đặt trên đối tượng nào? Thêm toleration vào một
    Pod có làm Pod đó **được đưa** lên node bị taint không?
-2. Trên cluster lab, `k8s-master` mang một taint effect `NoSchedule`. Vì sao Pod bạn tạo bằng
+2. Trên cluster lab, `lab-k8s-master` mang một taint effect `NoSchedule`. Vì sao Pod bạn tạo bằng
    `kubectl run` không bao giờ lên node đó, và bạn phải làm gì nếu muốn một Pod cụ thể chạy
    được ở đó?
 3. Một node đang chạy 5 Pod. Bạn chạy `kubectl taint nodes <node> key1=value1:NoSchedule`.
    Năm Pod đó có bị đuổi không? Câu trả lời đổi thế nào nếu effect là `NoExecute`?
-4. Bạn rút mạng `k8s-worker2` để tạo sự cố. Node controller đặt taint gì, các Pod thường trên
+4. Bạn rút mạng `lab-k8s-worker2` để tạo sự cố. Node controller đặt taint gì, các Pod thường trên
    đó còn ở lại bao lâu trước khi bị thu hồi, và Pod của DaemonSet thì sao?
 5. Một node có ba taint. Pod của bạn có toleration khớp hai trong ba taint đó, taint còn lại
    có effect `NoSchedule`. Pod có được lập lịch lên node không? Nếu Pod **đã đang chạy** trên
@@ -506,7 +506,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    [138](138-assign-pod-node-vi.md).
 2. Vì effect `NoSchedule` nghĩa là **không Pod mới nào được lập lịch lên node bị taint trừ khi
    chúng có toleration khớp tương ứng** — Pod mặc định không có toleration nào nên bị loại
-   ngay ở bước lọc, và chỉ còn hai worker là ứng viên. Muốn một Pod lên được `k8s-master`, bạn
+   ngay ở bước lọc, và chỉ còn hai worker là ứng viên. Muốn một Pod lên được `lab-k8s-master`, bạn
    thêm vào PodSpec một toleration **khớp cả `key` lẫn `effect`** của taint đó (`operator:
    Exists`, hoặc `Equal` với `value` bằng đúng giá trị taint). Nhưng nhớ câu 1: khi đó Pod chỉ
    *được phép* lên, bộ lập lịch vẫn có thể chọn worker.

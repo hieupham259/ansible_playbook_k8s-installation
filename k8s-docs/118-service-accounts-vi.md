@@ -11,7 +11,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 3/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 3/18 · Kiểm chứng ở [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md).
 
 Đây là bài trả lời câu hỏi bạn đã gặp hai lần trước đó. Bài
 [24](24-control-plane-node-communication-vi.md) nói Pod kết nối an toàn tới API server bằng
@@ -369,7 +369,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 1. Ở [Lab 1a phần B8](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) bạn xóa ServiceAccount
    `default` trong một namespace rồi thấy nó xuất hiện lại. Bài này giải thích hành vi đó bằng
-   câu nào? Và nếu bạn tạo một namespace mới trên `k8s-master`, nó có sẵn ServiceAccount nào?
+   câu nào? Và nếu bạn tạo một namespace mới trên `lab-k8s-master`, nó có sẵn ServiceAccount nào?
 2. ServiceAccount và tài khoản người dùng — cái nào là object trong Kubernetes API? Bạn có thể
    liệt kê toàn bộ người dùng là con người của cluster bằng `kubectl` không, vì sao?
 3. Bài [24](24-control-plane-node-communication-vi.md) nói Pod gọi API server "bằng cách tận

@@ -230,6 +230,7 @@ số ở một chỗ, cho lab nào thật sự cần thì link về.
 | Traefik (Ingress) | chart `41.2.0`, appVersion `v3.7.10` | Lab 5b (ingress controller) |
 | Calico (CNI thay Flannel) | `v3.32.1` | Lab 5b (CNI có thực thi NetworkPolicy) |
 | local-path-provisioner (Storage) | `v0.0.37` | Lab 6a (StorageClass) |
+| metrics-server | `v0.9.0` | Lab 11a (mở khoá `kubectl top`, điều kiện của Lab 11b) |
 | cloudflared (Tunnel) | image `cloudflare/cloudflared:latest`, digest amd64 `sha256:b392761b…` | ngoài chuỗi lab hiện có |
 | Rancher (Cluster management) | chart/appVersion `2.14.3` | ngoài chuỗi lab hiện có |
 | MetalLB | `v0.16.0` | ngoài baseline; chỉ cần khi dùng Service `LoadBalancer` thật |

@@ -2,6 +2,53 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
+→ nhóm [3b. Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
+bài 2/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B7.3 — tạo Secret loại
+`kubernetes.io/dockerconfigjson` rồi mổ xẻ nội dung thật của nó.
+
+Bài viết cho tình huống có tài khoản Docker Hub và một image riêng tư thật. Cluster lab không có
+private registry nào, nên ở lần đọc này bạn chỉ thực hành **nửa đầu**: tạo Secret và đọc ngược nội
+dung của nó. Nửa sau — pull thật một image riêng tư — chỉ đọc để biết cấu trúc; lý do ghi ở bảng
+thứ hai trong mục 1.1 của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
+
+**Phải hiểu ở lần đọc này:**
+
+- Cluster dùng Secret **loại `kubernetes.io/dockerconfigjson`** để xác thực với registry. Khi tự
+  viết manifest (mục *Tạo Secret dựa trên thông tin xác thực có sẵn*) phải đủ ba điều: mục dữ liệu
+  mang đúng tên `.dockerconfigjson`, chuỗi base64 **liền mạch không ngắt dòng**, và `type` đúng.
+- Hai đường tạo Secret: chép lại `~/.docker/config.json` sẵn có bằng
+  `--from-file=.dockerconfigjson=<đường-dẫn>`, hoặc gõ thẳng credential bằng
+  `kubectl create secret docker-registry` (mục *Tạo Secret bằng cách cung cấp thông tin xác thực
+  trên dòng lệnh*) — kèm cảnh báo: gõ secret trên dòng lệnh khiến nó nằm lại trong **lịch sử
+  shell** và có thể bị người dùng khác trên máy nhìn thấy lúc `kubectl` đang chạy.
+- Nội dung thật của Secret, mục *Kiểm tra Secret `regcred`*: giải base64 field `.dockerconfigjson`
+  ra một JSON, trong JSON đó field `auth` **lại là base64** của `username:password`. Hai lớp base64
+  chồng lên nhau, và **không lớp nào là mã hóa** — bài kết luận Secret chứa token ủy quyền y hệt
+  file `~/.docker/config.json` trên máy bạn.
+- `imagePullSecrets` khai ở **cấp Pod** (`spec.imagePullSecrets`), không phải trong `containers`.
+  Ghi chú của bài nói rõ Secret phải tồn tại **trong đúng namespace nơi bạn định nghĩa Pod**.
+- Phân biệt hai kiểu hỏng: Pod ở `ImagePullBackOff` thì xem `kubectl describe pod`; nếu thấy event
+  reason **`FailedToRetrieveImagePullSecret`** thì Kubernetes **không tìm thấy Secret mang tên đó**
+  (sai tên hoặc sai namespace) — khác hẳn với việc tìm thấy Secret nhưng registry từ chối.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Đăng nhập vào Docker Hub* và file `~/.docker/config.json` sinh ra từ `docker login` | cần công cụ `docker` và một tài khoản registry thật; cluster lab không có registry riêng để đăng nhập | cách Kubernetes diễn giải file `config.json` đã học ở bài [40](40-images-vi.md), [giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime) |
+| Mục *Tạo một Pod sử dụng Secret của bạn* — pull thật một image riêng tư | cần registry và tài khoản thật, nằm ngoài baseline của Lab 00 | không kiểm chứng được trong lộ trình; lý do ghi ở bảng thứ hai mục 1.1 của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
+| Link *thêm image pull secret vào một service account* ở mục *Tiếp theo* | cần ServiceAccount, chưa học ở giai đoạn 3 | bài [279](279-configure-service-account-vi.md), [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
+
+---
+
 Trang này hướng dẫn cách tạo một Pod sử dụng Secret để pull image từ một container image
 registry hoặc repository riêng tư (private). Có rất nhiều private registry đang được sử dụng.
 Tác vụ này dùng [Docker Hub](https://www.docker.com/products/docker-hub) làm registry ví dụ.
@@ -277,3 +324,51 @@ cấu hình riêng đặc thù của runtime.
 * Xem field `imagePullSecrets` trong
   [định nghĩa container](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#containers)
   của một Pod
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
+
+1. Trên `lab-k8s-master` bạn chưa từng chạy `docker login` ở đâu cả. Bạn vẫn tạo được Secret cho
+   registry bằng đường nào, `type` của Secret đó là gì, và mục dữ liệu bên trong mang tên gì?
+2. Bạn chạy `kubectl get secret regcred -o jsonpath='{.data.\.dockerconfigjson}' | base64 --decode`
+   và trong JSON thấy `"auth":"c3R...zE2"`. Chuỗi đó là gì, đọc ra bằng cách nào, và kết luận gì về
+   mức bảo vệ của Secret registry?
+3. **Câu bẫy.** Pod của bạn nằm ở namespace `lab-3b` và khai `imagePullSecrets` trỏ tới `regcred`,
+   nhưng `regcred` lại được tạo ở namespace `default`. Pod hỏng kiểu gì, event nào xuất hiện, và
+   event đó nói lên điều gì khác với "registry từ chối mật khẩu"?
+4. Một Pod có hai container lấy image từ hai registry khác nhau. Bài cho phép làm thế nào, và
+   chuyện gì xảy ra nếu không thông tin xác thực nào khớp với registry của một image?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Dùng đường thứ hai: **`kubectl create secret docker-registry`** với `--docker-server`,
+   `--docker-username`, `--docker-password`, `--docker-email` — đường này không cần file
+   `~/.docker/config.json` có sẵn, nên không cần `docker login` trước. Loại Secret sinh ra là
+   **`kubernetes.io/dockerconfigjson`**, và mục dữ liệu bên trong mang tên **`.dockerconfigjson`**
+   (có dấu chấm đứng đầu). Bài cũng nhắc: bù lại, credential gõ trên dòng lệnh nằm lại trong lịch
+   sử shell.
+2. Đó là **base64 của `username:password` nối bằng dấu hai chấm**. Đọc ra bằng
+   `echo "c3R...zE2" | base64 --decode`, kết quả dạng `janedoe:xxxxxxxxxxx`. Kết luận: Secret
+   registry **không được bảo vệ gì hơn một chuỗi base64 lồng trong một chuỗi base64** — bài nói
+   thẳng dữ liệu của Secret "chứa token ủy quyền tương tự như file `~/.docker/config.json` cục bộ
+   của bạn". Ai đọc được Secret là có credential đăng nhập registry.
+3. Pod vào trạng thái **`ImagePullBackOff`**, và `kubectl describe pod` cho ra event reason
+   **`FailedToRetrieveImagePullSecret`** với thông điệp "Unable to retrieve some image pull
+   secrets". Đây là chỗ dễ nhầm: event đó **không** nói registry từ chối bạn — nó nói Kubernetes
+   **không tìm thấy Secret có tên đó**. Ghi chú của bài chỉ đúng chỗ phải sửa: "namespace cần dùng
+   chính là namespace nơi bạn đã định nghĩa Pod", nên Secret ở `default` là vô hình với Pod ở
+   `lab-3b`. Hai việc phải kiểm: **Secret có tồn tại đúng namespace không, và tên có gõ đúng không**.
+4. Được: **một Pod dùng được nhiều `imagePullSecrets`, và mỗi Secret chứa được nhiều thông tin xác
+   thực**. Việc pull được thử bằng **từng thông tin xác thực khớp với registry đó**. Nếu không có
+   cái nào khớp, việc pull vẫn được thử — nhưng **không có ủy quyền**, hoặc dùng cấu hình riêng đặc
+   thù của runtime; tức là image công khai vẫn kéo được, image riêng tư thì hỏng.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

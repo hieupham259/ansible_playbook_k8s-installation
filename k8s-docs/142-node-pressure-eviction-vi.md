@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 7/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 Điểm khác biệt lớn nhất so với mọi bài trước trong nhóm: **chủ thể ở đây là kubelet, không
 phải kube-scheduler**. Không có API nào được gọi, không có PodDisruptionBudget nào được hỏi —
@@ -618,11 +618,11 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 1. Kể ba tham số kubelet dùng để xếp thứ tự evict Pod, theo đúng thứ tự. Vì sao bài khẳng định
    kubelet **không** dùng QoS class để quyết định thứ tự, dù bảng thứ tự lại nhắc tên
    `BestEffort`, `Burstable`, `Guaranteed`?
-2. Trên `k8s-worker2`, bạn muốn evict sớm hơn nên đặt trong file cấu hình kubelet đúng một
+2. Trên `lab-k8s-worker2`, bạn muốn evict sớm hơn nên đặt trong file cấu hình kubelet đúng một
    dòng `evictionHard: memory.available: "500Mi"` và không đụng gì khác. Ngưỡng
    `nodefs.available` lúc này là bao nhiêu?
 3. Một Pod `Guaranteed` có bao giờ bị evict do áp lực node không?
-4. `k8s-worker2` sắp đầy đĩa. kubelet làm gì **trước khi** chấm dứt Pod của bạn? Điều kiện
+4. `lab-k8s-worker2` sắp đầy đĩa. kubelet làm gì **trước khi** chấm dứt Pod của bạn? Điều kiện
    node nào xuất hiện, và vì sao node đó cũng ngừng nhận Pod mới?
 5. So với `kubectl drain`, eviction do áp lực node đối xử với PodDisruptionBudget và
    `terminationGracePeriodSeconds` thế nào?

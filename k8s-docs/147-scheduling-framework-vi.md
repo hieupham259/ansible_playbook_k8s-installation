@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 12/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 Bài này **viết cho người phát triển plugin**, không phải cho quản trị viên. Nhưng đọc ở vị trí
 này thì nó có một giá trị khác: nó là **bản đồ ghép mọi cơ chế bạn vừa học vào một khung duy
@@ -340,7 +340,7 @@ Tìm hiểu thêm tại [nhiều profile (multiple profiles)](https://kubernetes
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 7:
 
-1. Trên cluster lab, `k8s-master` mang taint `NoSchedule` (bài
+1. Trên cluster lab, `lab-k8s-master` mang taint `NoSchedule` (bài
    [139](139-taint-and-toleration-vi.md)) và bạn đặt thêm `nodeSelector` cho Pod (bài
    [138](138-assign-pod-node-vi.md)). Hai ràng buộc đó được thực thi ở điểm mở rộng nào? Còn
    preemption của bài [141](141-pod-priority-preemption-vi.md) chạy ở đâu, và khi nào?

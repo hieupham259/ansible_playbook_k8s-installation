@@ -9,10 +9,20 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)), là phần
-"Tiếp theo" của bài [34 — Cloud Controller Manager](34-cloud-controller-vi.md) và có họ hàng
-gần nhất với [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster).
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 12 — Quản trị cluster nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao),
+bài 2/2 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 12 — Vận hành vòng đời node](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md) phần B10, nơi lab đọc
+bốn dữ kiện chứng minh quy trình này không áp dụng cho cluster lab — không `--cloud-provider`,
+không `cloud-controller-manager`, `providerID` rỗng, control plane một node — cộng nội dung role
+`system::leader-locking-kube-controller-manager` để giải thích vì sao bước cấp quyền RBAC là bắt
+buộc.
+
+Bài là phần "Tiếp theo" của bài [34 — Cloud Controller Manager](34-cloud-controller-vi.md) đã đọc
+ở [nhóm 1c](00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object), và quy trình của nó chạy
+trong lúc nâng cấp cuốn chiếu control plane — kỹ thuật của
+[giai đoạn 17](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster).
 
 Bài này chỉ áp dụng khi cluster chạy **trên một cloud provider** và có **control plane nhân
 bản (HA)** đang chạy các cloud controller trong `kube-controller-manager`. Cluster lab
@@ -295,7 +305,7 @@ controllerLeaders:
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc này:
 
-1. Cluster lab của bạn có một control plane duy nhất trên `k8s-master` và không đặt
+1. Cluster lab của bạn có một control plane duy nhất trên `lab-k8s-master` và không đặt
    `--cloud-provider`. Khi nâng cấp cluster này, bạn có cần Leader Migration không? Nêu hai
    điều kiện khiến một cluster thực sự cần nó.
 2. Trong lúc control plane còn lẫn node phiên bản N và N + 1, cơ chế nào bảo đảm controller

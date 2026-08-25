@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
-bài 4/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 4/6 · Kiểm chứng ở [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md).
 
 Bài này **đổi mặt phẳng cấu hình**. Hai bài trước là đối tượng API trong namespace; từ đây tới
 hết nhóm 7b là chính sách nằm trên kubelet của từng node — đúng nhánh thứ hai mà bài
@@ -157,7 +157,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 1. Giới hạn PID của một Pod được khai ở đâu? Vì sao hai bản sao giống hệt nhau của cùng một
    Pod trong cluster của bạn lại có thể chịu hai mức giới hạn PID khác nhau?
 2. Cluster lab của bạn có hai worker, mỗi máy 2 vCPU / 6 GB RAM. Bạn chỉ đặt `--pod-max-pids`
-   trên `k8s-worker2`. Một Pod chạy loạn được lập lịch lên `k8s-worker1` — chuyện gì xảy ra, và
+   trên `lab-k8s-worker2`. Một Pod chạy loạn được lập lịch lên `lab-k8s-worker1` — chuyện gì xảy ra, và
    bài khuyên làm gì để khỏi rơi vào tình huống này?
 3. Giới hạn PID theo từng Pod có đủ để kubelet và kube-proxy trên node không bị cạn PID không?
    Nếu không thì cơ chế nào lo việc đó, và nó khai ở đâu?
@@ -173,11 +173,11 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    PID khác nhau, **giới hạn thực tế áp lên một Pod phụ thuộc vào nơi nó được lập lịch tới** —
    hai bản sao giống hệt nhau rơi lên hai node cấu hình khác nhau sẽ nhận hai mức khác nhau. Đây
    là chỗ PID lệch hẳn khỏi `requests`/`limits`, vốn đi theo Pod.
-2. **Pod đó không bị chặn gì cả trên `k8s-worker1`** — không có giới hạn thì không có gì để
+2. **Pod đó không bị chặn gì cả trên `lab-k8s-worker1`** — không có giới hạn thì không có gì để
    cưỡng chế, và nó có thể ngốn PID tới mức làm mất ổn định node. Bài đưa ra đúng lời khuyên cho
    trường hợp này trong ghi chú thận trọng: vì giới hạn áp cho một Pod thay đổi theo nơi Pod
    được lập lịch, **cách dễ nhất là để tất cả các Node dùng cùng một mức giới hạn và dự trữ tài
-   nguyên PID**. Nghĩa là cấu hình phải đặt trên cả `k8s-worker1` lẫn `k8s-worker2`, không phải
+   nguyên PID**. Nghĩa là cấu hình phải đặt trên cả `lab-k8s-worker1` lẫn `lab-k8s-worker2`, không phải
    chỉ trên node bạn đang thử nghiệm.
 3. **Không đủ.** Bài nói thẳng: giới hạn PID theo từng Pod cho phép quản trị viên bảo vệ Pod này
    khỏi Pod khác, nhưng **không đảm bảo mọi Pod được lập lịch lên host đó không tác động đến

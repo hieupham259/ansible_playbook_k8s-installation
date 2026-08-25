@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài 7/7 ·
-Kiểm chứng ở Lab 14 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md).
 
 Giai đoạn này lộ trình ghi rõ là **dành cho platform administrator / người phát triển operator**.
 
@@ -550,12 +550,12 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 1. Câu bẫy phân biệt: với device plugin, Pod xin thiết bị bằng **thứ gì**, và hai ràng buộc nào
    áp lên con số đó? So với DRA ở bài [149](149-dynamic-resource-allocation-vi.md), vì sao cách
    này không diễn đạt được yêu cầu kiểu "cho tôi một thiết bị có thuộc tính X"?
-2. Một thiết bị trên `k8s-worker2` hỏng và device plugin báo unhealthy. Trong `kubectl describe
-   node k8s-worker2`, con số nào thay đổi và con số nào **không** đổi? Pod đang giữ đúng thiết bị
+2. Một thiết bị trên `lab-k8s-worker2` hỏng và device plugin báo unhealthy. Trong `kubectl describe
+   node lab-k8s-worker2`, con số nào thay đổi và con số nào **không** đổi? Pod đang giữ đúng thiết bị
    đó bị gì?
 3. Bạn viết một device plugin và cho nó đăng ký với kubelet ngay khi khởi động, rồi mới mở dịch
    vụ gRPC. Bài nói gì về thứ tự này?
-4. kubelet trên `k8s-worker2` được restart. Device plugin phải làm gì, và nhờ dấu hiệu nào nó
+4. kubelet trên `lab-k8s-worker2` được restart. Device plugin phải làm gì, và nhờ dấu hiệu nào nó
    biết cần làm?
 5. Bạn triển khai device plugin dạng DaemonSet. Hai điều kiện bắt buộc bài nêu là gì, và bạn
    được lợi gì khi chọn DaemonSet thay vì cài thủ công?

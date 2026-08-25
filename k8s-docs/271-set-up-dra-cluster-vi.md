@@ -6,6 +6,54 @@
 > trong một cluster Kubernetes bằng cách bật các API group và cấu hình các lớp thiết bị
 > (classes of devices). Các hướng dẫn này dành cho quản trị viên cluster.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 13 — Lập lịch và workload nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao)
+→ dòng **Thực hành**, **bài 5/5 — bài cuối của nhóm** · Kiểm chứng ở
+[Lab 13 — DRA](labs/LAB-13-DRA.md) phần B1.1, B3.2 và B11.
+
+Bài này viết cho **quản trị viên cluster** và là bài duy nhất trong nhóm nói về phía cung: bật API
+group, xác minh, cài driver, tạo lớp thiết bị. Mục *Xác minh rằng DRA đã được bật* chính là **phép
+kiểm đầu tiên** mà Lab 13 dùng để đo năng lực DRA của cluster rồi rẽ nhánh — lab **cấm** cài
+driver, bật feature gate hay tự tạo ResourceSlice để "có dữ liệu".
+
+**Phải hiểu ở lần đọc này:**
+
+- Bốn việc của quản trị viên theo đúng thứ tự bài đặt: (tùy chọn) bật thêm API group → **xác minh**
+  DRA → cài driver thiết bị → tạo DeviceClass. Kèm một điều kiện tiên quyết dễ bỏ qua: gắn thiết bị
+  trước, nhưng **đợi thiết lập xong DRA cho cluster rồi mới cài driver**, để tránh sự cố với driver.
+- Phép xác minh và cách đọc hai output của `kubectl get deviceclasses`: `No resources found` nghĩa
+  là **cấu hình đúng**; `error: the server doesn't have a resource type "deviceclasses"` nghĩa là
+  **nhóm API `resource.k8s.io` bị tắt**. Phân biệt "không có DeviceClass nào" với "không có kiểu
+  DeviceClass" là toàn bộ giá trị của mục này.
+- DRA nói chung đã stable, nhưng **một số khía cạnh vẫn alpha/beta và có kind API riêng**: bật
+  `resource.k8s.io/v1beta1` và `v1beta2` chỉ khi cần đỡ driver/workload cũ, `resource.k8s.io/v1alpha3`
+  cho các tính năng alpha. Nếu `.spec.resourceClaims` bị loại khỏi Pod hoặc Pod được lập lịch mà bỏ
+  qua ResourceClaim thì kiểm feature gate `DynamicResourceAllocation` trên bốn thành phần:
+  kube-apiserver, kube-controller-manager, kube-scheduler và kubelet.
+- **ResourceSlice do driver phát hành**, không do bạn tạo: `kubectl get resourceslices` là phép xác
+  minh driver đang hoạt động, và cột `NODE`/`DRIVER`/`POOL` cho biết thiết bị nằm ở đâu. Driver
+  không công bố được thì đọc log driver, không sửa ResourceSlice bằng tay.
+- DeviceClass là **danh mục do quản trị viên định nghĩa bằng selector CEL** trên thuộc tính mà
+  driver đã công bố trong ResourceSlice — ví dụ `device.driver == "driver.example.com"`. Vì thế
+  quy trình đúng là **đọc ResourceSlice trước** (`kubectl get resourceslice <tên> -o yaml`) để biết
+  có thuộc tính nào, rồi mới viết selector.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Cài đặt driver thiết bị* ở mức làm thật | driver do nhà cung cấp thiết bị phát hành; ba VM của lab không có thiết bị nào để cài driver | [Lab 13](labs/LAB-13-DRA.md) phần B1 đo năng lực rồi rẽ nhánh, và cấm cài driver |
+| Cách bật/tắt một API group cho kube-apiserver, và bước khắc phục "cấu hình lại và khởi động lại `kube-apiserver`" | là sửa cấu hình control plane của một cluster đang chạy | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) — bài [207](207-enable-disable-api-vi.md) và [196](196-configure-feature-gates-vi.md) |
+| Nội dung ví dụ của ResourceSlice — `attributes`, `capacity`, `nodeName` | cần một driver thật mới có ResourceSlice để đọc | bài [149](149-dynamic-resource-allocation-vi.md) mục *ResourceSlice*, đã đọc ở mạch chính giai đoạn 13 |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.35 [stable]`
 
 Trang này hướng dẫn cách cấu hình _cấp phát tài nguyên động (dynamic resource allocation — DRA)_
@@ -215,3 +263,60 @@ kubectl delete -f https://k8s.io/examples/dra/deviceclass.yaml
 
 * [Tìm hiểu thêm về DRA](149-dynamic-resource-allocation-vi.md)
 * [Cấp phát thiết bị cho workload bằng DRA](270-allocate-devices-dra-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 13:
+
+1. **Câu bẫy.** `kubectl get deviceclasses` in ra `No resources found`. DRA của cluster hỏng hay
+   chạy? Output nào mới là output của cluster chưa cấu hình đúng, và nó chỉ ra chuyện gì?
+2. Trên `lab-k8s-master`, giả sử `kubectl get deviceclasses` chạy được nhưng
+   `kubectl get resourceslices` trả về rỗng. Kết luận gì về cluster lab? Nếu bạn tạo thêm một
+   DeviceClass thì có thiết bị nào xuất hiện không, và vì sao?
+3. Bài đặt các việc theo thứ tự nào, và vì sao nó dặn **đợi thiết lập xong DRA cho cluster rồi mới
+   cài driver** thay vì làm ngược lại?
+4. Khi nào phải bật `resource.k8s.io/v1beta1` và `v1beta2`, khi nào phải bật
+   `resource.k8s.io/v1alpha3`? Nếu `.spec.resourceClaims` bị loại khỏi Pod thì kiểm cái gì, trên
+   những thành phần nào?
+5. Bạn muốn viết selector CEL cho một DeviceClass mới. Bài bảo lấy tên thuộc tính ở đâu, và vì sao
+   không thể tự nghĩ ra tên thuộc tính?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Đang chạy đúng.** `No resources found` là output mà bài nói ra khi "cấu hình của các thành
+   phần là chính xác" — nó chỉ nghĩa là **chưa có DeviceClass nào được tạo**. Output của cluster
+   chưa cấu hình đúng là `error: the server doesn't have a resource type "deviceclasses"`, tức
+   **apiserver không phục vụ kiểu đó** — ví dụ khi nhóm API `resource.k8s.io` bị tắt. Chỗ dễ sai
+   là gộp hai thứ làm một: "danh sách rỗng" khác hẳn "không có kiểu này".
+2. Kết luận: **nhóm API DRA có được phục vụ, nhưng không có driver nào đang công bố thiết bị** —
+   vì **ResourceSlice là thứ do driver phát hành**, và `kubectl get resourceslices` chính là phép
+   xác minh driver hoạt động mà bài quy định. Tạo thêm DeviceClass **không làm xuất hiện thiết bị
+   nào**: DeviceClass chỉ là **selector CEL lọc trên thuộc tính mà driver đã công bố**; lọc trên
+   một tập rỗng thì vẫn rỗng.
+3. Thứ tự: **(tùy chọn) bật thêm API group → xác minh DRA đã bật → cài driver thiết bị → tạo
+   DeviceClass**. Bài dặn gắn thiết bị vào cluster nhưng **đợi thiết lập xong tính năng DRA rồi mới
+   cài driver** để **tránh các sự cố tiềm ẩn với driver** — driver khởi động trên một cluster chưa
+   phục vụ nhóm API mà nó cần thì không có chỗ để công bố ResourceSlice.
+4. Bật **`v1beta1` và `v1beta2`** *chỉ khi và chỉ nếu* bạn muốn hỗ trợ **các DRA driver hoặc
+   workload cũ hơn** còn cần API v1beta1 từ Kubernetes 1.30 hoặc v1beta2 từ 1.32. Bật
+   **`v1alpha3`** cho **các tính năng alpha có kiểu API riêng**. Nếu `.spec.resourceClaims` bị loại
+   khỏi Pod — hoặc Pod được lập lịch mà không xét ResourceClaim — thì xác minh feature gate
+   **`DynamicResourceAllocation` không bị tắt** cho **kube-apiserver, kube-controller-manager,
+   kube-scheduler và kubelet**.
+5. Lấy từ **chính ResourceSlice mà driver đã phát hành**: `kubectl get resourceslice <tên> -o yaml`
+   rồi đọc phần `spec.devices[].attributes` và `capacity`; hoặc xem tài liệu của nhà cung cấp
+   driver. Không tự nghĩ ra được vì **thuộc tính là do driver công bố**, không phải do Kubernetes
+   quy định — selector viết cho một thuộc tính không tồn tại thì đơn giản là không khớp thiết bị
+   nào.
+
+</details>
+
+Hết nhóm Thực hành của giai đoạn 13. Câu nào chưa trả lời được thì quay lại đúng mục tương ứng,
+rồi mới mở [Lab 13 — DRA](labs/LAB-13-DRA.md) — lab **tùy chọn**, và vì ba VM của lab không có GPU
+nên nó chạy **nhánh đọc-hiểu**: phần B1 đo năng lực DRA thật của cluster bằng năm phép kiểm rồi
+chốt nhánh, thay vì cài driver để "có dữ liệu".

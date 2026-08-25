@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 11/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 **Lộ trình đánh dấu bài này là ĐỌC LƯỚT.** Cả trang chỉ nói về một núm vặn duy nhất,
 `percentageOfNodesToScore`, và núm đó **chỉ có tác dụng khi cluster có hàng trăm tới hàng
@@ -237,7 +237,7 @@ Các hạn chế và điều kiện này dự kiến sẽ thay đổi trong các
 
 Bài này chỉ đọc lướt, nên ba câu dưới đây là đủ cho lần đọc ở giai đoạn 7:
 
-1. Cluster lab của bạn có `k8s-master` và hai worker. Bạn đặt `percentageOfNodesToScore: 10`
+1. Cluster lab của bạn có `lab-k8s-master` và hai worker. Bạn đặt `percentageOfNodesToScore: 10`
    với hy vọng lập lịch nhanh hơn. Kết quả ra sao?
 2. Núm `percentageOfNodesToScore` đánh đổi giữa hai thứ gì, và điều gì xấu đi khi bạn đặt nó
    quá thấp?

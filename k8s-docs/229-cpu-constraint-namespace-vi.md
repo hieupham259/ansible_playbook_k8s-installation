@@ -5,6 +5,67 @@
 > Định nghĩa một khoảng giá trị CPU resource limit hợp lệ cho một namespace, để mọi Pod mới
 > trong namespace đó nằm trong khoảng mà bạn cấu hình.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 25 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace)
+— **trang con của bài 2/7**, mục [Quản lý tài nguyên Memory, CPU và API](228-manage-resources-tasks-vi.md);
+nó không có dòng riêng trong lộ trình. Phần II không có lab: thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) và tự chấm bằng **Checkpoint** ở cuối [mục giai đoạn
+25](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace).
+
+Sáu trang con của bài 2/7 chia làm ba cặp, và **ranh giới giữa chúng là chỗ dễ nhầm nhất của cả
+giai đoạn 25**. Trang này thuộc cặp thứ nhất: **LimitRange đặt `min`/`max`** — **từ chối** Pod
+khai ngoài khoảng. Cặp thứ hai ([230](230-cpu-default-namespace-vi.md),
+[232](232-memory-default-namespace-vi.md)) là LimitRange đặt `default`/`defaultRequest` — **điền
+vào** Pod không khai gì. Cặp thứ ba ([233](233-quota-memory-cpu-namespace-vi.md),
+[234](234-quota-pod-namespace-vi.md)) là **ResourceQuota** — trần của **cả namespace**.
+
+Lý thuyết bạn đã đọc ở bài [133](133-limit-range-vi.md) và [134](134-resource-quotas-vi.md) (giai
+đoạn 7b), và [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) đã thực hành đúng phần
+`min`/`max` từ chối ngay lúc tạo (phần B2.4, B2.5) cùng việc sửa LimitRange không đụng Pod đang
+chạy (phần B2.7). Cái giai đoạn 25 thêm vào ở trang này là **hai chi tiết chưa gặp**: LimitRange
+chỉ khai `min`/`max` thì Kubernetes **tự sinh** `default` và `defaultRequest`, và **câu chữ chính
+xác của hai thông báo từ chối** — thứ mà Checkpoint giai đoạn 25 bắt bạn đọc đúng.
+
+**Phải hiểu ở lần đọc này:**
+
+- Hậu quả và thời điểm, nêu ngay ở đoạn mở đầu và nói lại ở mục *Việc thực thi các ràng buộc CPU
+  tối thiểu và tối đa*: Pod không đáp ứng ràng buộc thì **không tạo được** trong namespace đó; và
+  ràng buộc chỉ được thực thi **khi Pod được tạo hoặc cập nhật** — sửa LimitRange **không** ảnh
+  hưởng tới Pod đã tạo trước đó.
+- Tác dụng phụ ở mục *Tạo một LimitRange và một Pod*: manifest chỉ khai `max: 800m` và
+  `min: 200m`, nhưng `kubectl get limitrange --output=yaml` in ra thêm **`default: 800m` và
+  `defaultRequest: 800m`** — bài nói thẳng là chúng được tạo tự động.
+- Ba việc control plane làm với mỗi Pod mới trong namespace, đúng theo thứ tự bài liệt kê: gán
+  request/limit **mặc định** cho container nào không tự khai → xác minh mọi container có request
+  **≥ 200 millicpu** → xác minh mọi container có limit **≤ 800 millicpu**.
+- Hai thông báo từ chối và cách đọc chúng — chất liệu trực tiếp của Checkpoint giai đoạn 25:
+  `maximum cpu usage per Container is 800m, but limit is 1500m` (đụng `max`, đối chiếu với
+  **limit**) và `minimum cpu usage per Container is 200m, but request is 100m` (đụng `min`, đối
+  chiếu với **request**). Cả hai là `Error from server (Forbidden)`.
+- Pod `constraints-cpu-demo-4` không khai gì cả **vẫn được tạo** và nhận `800m/800m`, vì control
+  plane áp [CPU request và limit mặc định](230-cpu-default-namespace-vi.md) sinh tự động ở gạch
+  đầu dòng thứ hai. Bài còn nhắc điều kiện tiên quyết: mỗi Node phải có ít nhất **1.0 CPU** khả
+  dụng, nếu không Pod tạo ra rồi vẫn có thể không chạy được.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Ghi chú về LimitRange cho **huge-pages** và **GPU** (`default` và `defaultRequest` phải bằng nhau) | hai worker VM không cấu hình hugepages và cluster lab không có GPU, nên không có gì để đối chiếu | GPU qua device plugin ở [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài [184](184-device-plugins-vi.md); [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) đã ghi đúng lý do hugepages không đo được |
+| Ghi chú về **in-place Pod resize** và việc resize bị từ chối khi vi phạm ràng buộc | resize tại chỗ là một bài riêng, không phải nội dung của LimitRange | bài [289](289-resize-container-resources-vi.md), dòng Thực hành của [giai đoạn 3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn) |
+| Mục *Trước khi bạn bắt đầu* — minikube và các playground | lộ trình cấm minikube, kind và cluster dùng chung | cluster VM ba node của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
+| Mục *Tiếp theo* — hai danh sách *Dành cho người quản trị cluster* và *Dành cho lập trình viên ứng dụng* | là con trỏ, không có nội dung mới | năm trang còn lại của bài 2/7 đọc ngay sau đây; nhánh lập trình viên đã đọc ở [giai đoạn 3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn) |
+
+---
+
 Trang này chỉ ra cách đặt giá trị tối thiểu và tối đa cho tài nguyên CPU mà các container và
 Pod trong một namespace được sử dụng. Bạn chỉ định các giá trị CPU tối thiểu và tối đa trong
 một object
@@ -345,3 +406,59 @@ kubectl delete namespace constraints-cpu-example
 * [Gán tài nguyên CPU và memory ở cấp Pod](265-assign-pod-level-resources-vi.md)
 
 * [Cấu hình Quality of Service cho Pod](288-quality-service-pod-vi.md)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 25:
+
+1. Pod vi phạm ràng buộc `min`/`max` bị chặn ở **thời điểm nào**, và điều gì xảy ra với các Pod
+   đã chạy sẵn khi bạn sửa lại LimitRange của namespace?
+2. Manifest LimitRange trong bài chỉ có `max` và `min`. Vậy vì sao
+   `kubectl get limitrange --output=yaml` lại in ra hai field nữa, chúng tên gì và mang giá trị
+   bao nhiêu?
+3. **Câu bẫy.** Pod `constraints-cpu-demo-4` không khai CPU request lẫn CPU limit. Namespace lại
+   đang thực thi `min: 200m`. Trực giác nói Pod này bị từ chối vì không có request nào để đem so
+   với mức tối thiểu. Bài cho kết quả gì, và lập luận nào giải thích kết quả đó?
+4. Hai thông báo `Error from server (Forbidden)` trong bài khác nhau ở chỗ nào? Chỉ rõ thông báo
+   nào đối chiếu **limit** với `max` và thông báo nào đối chiếu **request** với `min`.
+5. `lab-k8s-worker1` và `lab-k8s-worker2` mỗi node có 2 vCPU. Bài đặt điều kiện tiên quyết nào về
+   CPU của Node, và nó dự đoán khác nhau thế nào giữa node 1 CPU và node 2 CPU khi Pod
+   `constraints-cpu-demo-4` nhận request 800 millicpu?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Bị chặn **lúc tạo Pod** — đoạn mở đầu nói rõ: Pod không đáp ứng ràng buộc thì **không thể được
+   tạo** trong namespace đó, và output là `Error from server (Forbidden)`. Mục *Việc thực thi các
+   ràng buộc CPU tối thiểu và tối đa* bổ sung nửa còn lại: ràng buộc chỉ được thực thi **khi Pod
+   được tạo hoặc cập nhật**, nên **sửa LimitRange không ảnh hưởng tới các Pod đã tạo trước đó** —
+   chúng chạy tiếp với giá trị cũ.
+2. Vì khi bạn khai `max`/`min` mà bỏ trống phần mặc định, Kubernetes **tự tạo** chúng: output hiện
+   **`default: 800m` và `defaultRequest: 800m`**, tức **cả hai bằng đúng `max`**. Bài gọi thẳng
+   hiện tượng này ra: mặc dù bạn không chỉ định các giá trị mặc định trong file cấu hình của
+   LimitRange, chúng vẫn được tạo tự động.
+3. Pod đó **được tạo bình thường**, và container của nó có `requests.cpu: 800m` cùng
+   `limits.cpu: 800m`. Lập luận nằm ở ba bước mà control plane thực hiện: **bước gán mặc định chạy
+   trước bước kiểm tra**. Container không tự khai gì nên nhận `default`/`defaultRequest` — vốn
+   bằng `max` là 800m — rồi mới bị đem so với `min: 200m` và `max: 800m`, và nó **đạt cả hai**.
+   Trực giác sai vì cho rằng không khai nghĩa là request bằng 0; thực tế không có container nào
+   đi tới bước kiểm tra mà còn để trống.
+4. Khác ở **ngưỡng bị đụng** và **field bị đem ra so**. `maximum cpu usage per Container is 800m,
+   but limit is 1500m` — đụng **`max`**, và thứ bị so là **`limits.cpu`** của container.
+   `minimum cpu usage per Container is 200m, but request is 100m` — đụng **`min`**, và thứ bị so
+   là **`requests.cpu`**. Đọc đúng cặp *(ngưỡng, field)* là cách nhanh nhất biết phải sửa dòng nào
+   trong manifest.
+5. Điều kiện tiên quyết: **mỗi Node phải có ít nhất 1.0 CPU khả dụng cho các Pod**. Bài dự đoán:
+   nếu mỗi Node **chỉ có 1 CPU** thì có thể **không Node nào đủ CPU cấp phát được** để đáp ứng
+   request 800 millicpu, nên Pod tạo ra rồi vẫn có thể **không chạy**; còn với **Node 2 CPU** —
+   đúng cấu hình hai worker của bạn — thì bài nói bạn có lẽ có đủ để đáp ứng request đó. Đây là
+   ranh giới giữa **được chấp nhận** (LimitRange cho qua) và **chạy được** (Node còn chỗ), hai
+   việc khác nhau.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

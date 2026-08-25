@@ -5,6 +5,65 @@
 > Hướng dẫn cài đặt công cụ dòng lệnh kubectl trên Linux, xác minh cấu hình,
 > và thiết lập các tùy chọn như tự động hoàn thành cho shell và plugin `kubectl convert`.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 1 — Mô hình Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-1--mô-hình-kubernetes)
+→ nhóm [1b. Làm việc với object và kubectl](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl),
+bài 2/8 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 1b — Object, label, kubectl và kubeconfig](labs/LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md)
+phần B0, nơi lab chạy `kubectl version`, `kubectl cluster-info` và `kubectl get nodes` trên
+`lab-k8s-master`.
+
+Bài dài, nhưng phần lớn độ dài là biến thể theo distro và theo shell. `kubectl` trên cluster lab
+đã được cài từ
+[Lab 00 A4.3](labs/LAB-00-MOI-TRUONG-1.35.7.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl), nên đọc
+bài này để **hiểu bản cài đó đến từ đâu và kiểm chứng nó bằng gì**, không phải để cài lại. Con số
+phiên bản trong bài là ví dụ của trang gốc; phiên bản cluster lab đang khóa nằm ở
+[bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa).
+
+**Phải hiểu ở lần đọc này:**
+
+- Quy tắc lệch phiên bản ở mục *Trước khi bạn bắt đầu*: `kubectl` chỉ được lệch **một** phiên bản
+  minor so với control plane — client v1.36 giao tiếp được với control plane v1.35, v1.36 và
+  v1.37.
+- Khi tải binary bằng `curl`, binary và file `kubectl.sha256` phải là **cùng một phiên bản** thì
+  `sha256sum --check` mới in `kubectl: OK`. Cài bằng `install -o root -g root -m 0755` vào
+  `/usr/local/bin`, hoặc đưa vào `~/.local/bin` rồi thêm thư mục đó vào `$PATH` khi không có
+  quyền root.
+- Đường cài bằng trình quản lý gói lấy gói từ kho `pkgs.k8s.io`, và **mỗi minor version có một
+  kho riêng**: chuỗi `core:/stable:/v1.NN` nằm trong `/etc/apt/sources.list.d/kubernetes.list`
+  (hoặc `/etc/yum.repos.d/kubernetes.repo`). Muốn nâng `kubectl` sang minor khác thì phải sửa
+  chuỗi đó **trước** khi `apt-get update && apt-get upgrade` — bài dẫn sang
+  [217](217-change-package-repository-vi.md).
+- `kubectl version --client` chỉ chứng minh binary chạy được. Muốn nói chuyện với cluster thì cần
+  [file kubeconfig](111-kubeconfig-vi.md) — mặc định `~/.kube/config` — và bằng chứng là
+  `kubectl cluster-info` trả về một URL. Thông báo
+  `The connection to the server <server-name:port> was refused` nghĩa là kubectl chưa được cấu
+  hình đúng hoặc không kết nối được; mục *Xác minh cấu hình kubectl* còn đưa
+  `kubectl cluster-info dump` để soi tiếp.
+- Tự động hoàn thành cho Bash phụ thuộc gói **bash-completion**, không phải bản thân `kubectl`:
+  kiểm bằng `type _init_completion`, rồi source `kubectl completion bash` cho riêng user
+  (`~/.bashrc`) hoặc cho toàn hệ thống (`/etc/bash_completion.d/kubectl`). Nếu đặt alias
+  `k=kubectl` thì phải khai thêm `complete -o default -F __start_kubectl k`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Nhánh Red Hat, SUSE, Snap và Homebrew | VM lab chạy Ubuntu nên chỉ dùng nhánh Debian | không quay lại trong lộ trình — việc cài thật đã làm ở [Lab 00 A4.3](labs/LAB-00-MOI-TRUONG-1.35.7.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl) |
+| Cài plugin `kubectl convert` | chỉ cần khi phải chuyển manifest khỏi một API version bị loại bỏ | [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster) |
+| Lỗi *No Auth Provider Found* | chỉ gặp với cluster cloud-managed (AKS, GKE) | ngoài phạm vi lộ trình — cluster lab tự quản, không dùng auth provider của cloud |
+| Hoàn thành lệnh cho Fish, Zsh và mục *Cấu hình kuberc* | shell trên VM lab là bash | ngoài phạm vi lộ trình — đọc khi shell cá nhân của bạn không phải bash |
+
+---
+
 ## Trước khi bạn bắt đầu (Before you begin)
 
 Bạn phải sử dụng một phiên bản kubectl chỉ lệch trong phạm vi một phiên bản minor so với
@@ -535,3 +594,63 @@ Kubernetes mới hơn.
 * Nếu bạn cần truy cập một cluster mà bạn không tạo ra, hãy xem
   [tài liệu Chia sẻ quyền truy cập cluster](361-configure-access-multiple-clusters-vi.md).
 * Đọc [tài liệu tham khảo kubectl](https://kubernetes.io/docs/reference/kubectl/kubectl/)
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở nhóm 1b:
+
+1. Trên `lab-k8s-master`, `kubectl version --client` in ra phiên bản bình thường, nhưng
+   `kubectl get nodes` báo `The connection to the server ... was refused`. Bài kết luận điều gì
+   về binary, và bài chỉ ra thứ nào đang thiếu cùng lệnh nào để xác nhận đã có nó?
+2. **Câu bẫy.** Bạn tải `kubectl` bằng lệnh `curl` có `stable.txt` hôm nay, hôm sau mới tải
+   `kubectl.sha256` bằng đúng lệnh đó, rồi `sha256sum --check` báo `kubectl: FAILED`. Có phải
+   binary đã bị chỉnh sửa không, và bài đã dặn trước điều gì để tránh tình huống này?
+3. Cluster lab khóa control plane ở một minor version cụ thể. Nếu máy cá nhân của bạn có
+   `kubectl` lệch **hai** minor so với control plane đó, bài nói gì về việc dùng nó, và khoảng
+   nào mới được hỗ trợ?
+4. Bạn cài `kubectl` bằng `apt-get`. Vài tháng sau `apt-get update && apt-get upgrade` báo không
+   có gì để nâng, dù Kubernetes đã ra minor version mới. Cơ chế nào của kho `pkgs.k8s.io` giải
+   thích chuyện đó, và phải sửa file nào?
+5. Bạn đã chạy `echo 'source <(kubectl completion bash)' >>~/.bashrc` và nạp lại shell, nhưng gõ
+   `kubectl get po` rồi nhấn Tab vẫn không có gợi ý. Bài nêu điều kiện tiên quyết nào, và lệnh
+   nào kiểm tra được điều kiện đó?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Binary hoàn toàn bình thường** — `kubectl version --client` chỉ hỏi chính nó, không chạm
+   tới cluster. Thứ đang thiếu là **file kubeconfig** (mặc định `~/.kube/config`), thứ mà
+   kubectl cần để tìm và truy cập cluster. Lệnh xác nhận là **`kubectl cluster-info`**: thấy một
+   URL trong phản hồi nghĩa là đã cấu hình đúng; thấy đúng thông báo `... was refused` nghĩa là
+   chưa. Nếu `cluster-info` trả URL mà vẫn không truy cập được thì bài đưa tiếp
+   `kubectl cluster-info dump`.
+2. **Không kết luận được là binary bị chỉnh sửa** — nguyên nhân gần như chắc chắn là hai file
+   thuộc **hai phiên bản khác nhau**. Lệnh trong bài không cố định số phiên bản: nó gọi
+   `stable.txt` mỗi lần chạy, nên qua một ngày `stable.txt` đổi thì checksum tải về là của bản
+   khác. Bài đã dặn thẳng ở ghi chú: **hãy tải binary và checksum của cùng một phiên bản**. Muốn
+   chắc chắn thì thay `$(curl -L -s https://dl.k8s.io/release/stable.txt)` bằng một phiên bản cụ
+   thể cho cả hai lệnh tải.
+3. Bài nói **phải dùng phiên bản kubectl chỉ lệch trong phạm vi một phiên bản minor** so với
+   cluster, nên bản lệch hai minor **nằm ngoài phạm vi được hỗ trợ**. Khoảng được hỗ trợ là
+   một minor về mỗi phía: ví dụ của bài là client v1.36 giao tiếp được với control plane v1.35,
+   v1.36 và v1.37. Bài cũng khuyên dùng phiên bản kubectl tương thích mới nhất để tránh sự cố
+   không lường trước.
+4. Vì **mỗi minor version Kubernetes có một kho gói riêng** trên `pkgs.k8s.io`. Máy bạn vẫn trỏ
+   vào kho `core:/stable:/v1.NN` của minor cũ, nên trong tầm nhìn của `apt` thực sự không có gì
+   mới — nó không hề nhìn thấy kho của minor mới. Phải **tăng phiên bản trong
+   `/etc/apt/sources.list.d/kubernetes.list`** (hoặc `/etc/yum.repos.d/kubernetes.repo`,
+   `/etc/zypp/repos.d/kubernetes.repo`) rồi mới `apt-get update` và `apt-get upgrade`; quy trình
+   đầy đủ ở bài [217](217-change-package-repository-vi.md).
+5. Điều kiện tiên quyết là gói **bash-completion** phải được cài — script sinh ra bởi
+   `kubectl completion bash` **phụ thuộc vào nó**, còn `kubectl` thì không tự mang nó theo. Lệnh
+   kiểm tra là **`type _init_completion`**: chạy thành công là đã có; không thành công thì cài
+   bash-completion và thêm `source /usr/share/bash-completion/bash_completion` vào `~/.bashrc`,
+   rồi nạp lại shell và kiểm lại bằng đúng lệnh đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

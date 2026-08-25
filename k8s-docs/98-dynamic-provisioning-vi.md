@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 5/16 · Kiểm chứng ở
-Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md).
 
 Bài ngắn và gần như không có khái niệm mới sau bài [92](92-persistent-volumes-vi.md) và
 [96](96-storage-classes-vi.md). Giá trị của nó nằm ở chỗ nói rõ **ranh giới trách nhiệm** giữa

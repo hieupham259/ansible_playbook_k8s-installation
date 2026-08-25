@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), bài 2/16 · Kiểm chứng ở
-Lab 5a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md).
 
 Đây là **bài quan trọng nhất giai đoạn 5** và cũng là bài dài nhất. Một phần lớn nội dung viết
 cho cluster chạy trên cloud: annotation load balancer của từng nhà cung cấp, `loadBalancerClass`,
@@ -1113,8 +1113,8 @@ Tìm hiểu thêm về Service và cách chúng khớp vào Kubernetes:
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5:
 
 1. Cluster lab có một control plane và hai worker. Bạn tạo một Service `type: NodePort` cho một
-   Deployment 2 replica, và cả hai Pod tình cờ đều nằm trên `k8s-worker1`. Từ máy host bạn gọi
-   `<IP của k8s-worker2>:<nodePort>` — có ra không? Vì sao?
+   Deployment 2 replica, và cả hai Pod tình cờ đều nằm trên `lab-k8s-worker1`. Từ máy host bạn gọi
+   `<IP của lab-k8s-worker2>:<nodePort>` — có ra không? Vì sao?
 2. `port: 80` và `targetPort: 9376` trong một Service nghĩa là gì? Client kết nối vào số nào,
    và con số nào phải khớp với thứ ứng dụng đang lắng nghe?
 3. Một Service khai `type: ClusterIP` và `clusterIP: None`. Nó còn là `type: ClusterIP` không?

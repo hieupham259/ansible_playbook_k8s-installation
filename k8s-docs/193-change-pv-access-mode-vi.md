@@ -12,15 +12,21 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** đọc kèm [Checkpoint tiếp nối, giai đoạn 26 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-26--vận-hành-lưu-trữ)
-— trang này chưa nằm trong danh sách giai đoạn 26 của lộ trình, được dịch bổ sung vì cùng nhóm thao tác
-vận hành PV. Nên làm **sau** bài [194](194-change-pv-reclaim-policy-vi.md), vì bước đầu tiên của
-quy trình ở đây dùng chính thao tác đổi reclaim policy.
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 26 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-26--vận-hành-lưu-trữ),
+bài 3/4 · Phần II không có lab riêng: kiểm chứng bằng **Checkpoint của chính giai đoạn 26** trên
+cluster lab dựng ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) — đổi StorageClass mặc định, rồi
+đổi `reclaimPolicy` của một PV đang tồn tại từ `Delete` sang `Retain`, xóa PVC và chứng minh dữ
+liệu còn nguyên.
+
+Bài đứng ngay sau bài [194 — Thay đổi Reclaim Policy của một PersistentVolume](194-change-pv-reclaim-policy-vi.md)
+(bài 2/4 của giai đoạn) và phải làm **sau** bài đó, vì bước đầu tiên của quy trình ở đây dùng
+chính thao tác đổi reclaim policy.
 
 Khái niệm access mode (trong đó có `ReadWriteOncePod`) bạn đã đọc ở
 [bài 92](92-persistent-volumes-vi.md). Lưu ý: phần thực hành yêu cầu CSI driver hỗ trợ
-`ReadWriteOncePod`; nếu provisioner của Lab 6a (chưa viết, xem
-[bản đồ lab](labs/README.md#4-bản-đồ-lab)) không hỗ trợ, giữ ở mức đọc hiểu quy trình.
+`ReadWriteOncePod`; nếu provisioner của [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) không hỗ trợ, giữ ở mức đọc hiểu quy trình.
 
 **Phải hiểu ở lần đọc này:**
 
@@ -226,7 +232,7 @@ kubectl patch pv cat-pictures-pv -p '{"spec":{"persistentVolumeReclaimPolicy":"D
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint giai đoạn 26:
 
 1. Ba replica của Deployment "cat-pictures-writer" cùng mount một PVC `ReadWriteOnce` và cả ba
-   được lập lịch lên `k8s-worker1` của bạn. Có gì vi phạm access mode không? Đây chính là rủi
+   được lập lịch lên `lab-k8s-worker1` của bạn. Có gì vi phạm access mode không? Đây chính là rủi
    ro nào mà `ReadWriteOncePod` được sinh ra để bịt?
 2. Vì sao bước **đầu tiên** của quy trình di chuyển lại là đổi reclaim policy sang `Retain`,
    trước cả khi đụng tới access mode?

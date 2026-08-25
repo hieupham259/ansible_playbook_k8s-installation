@@ -10,10 +10,10 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 7/7 ·
-Kiểm chứng ở Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
 
 Bài ngắn nhất nhóm, nhưng nó giải thích chính **cluster của bạn**: `kube-apiserver`,
-`kube-controller-manager`, `kube-scheduler` và `etcd` trên `k8s-master` đều là static Pod. Bạn
+`kube-controller-manager`, `kube-scheduler` và `etcd` trên `lab-k8s-master` đều là static Pod. Bạn
 đã nhìn thấy chúng dưới dạng file manifest ở
 [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md#b2-kiểm-kê-component) mà chưa được
 gọi tên; bài này là cái tên đó. Nó cũng khép lại nhóm 3b bằng cách giải thích vì sao bài
@@ -115,13 +115,13 @@ DaemonSet yêu cầu một control plane đang chạy.
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
 
-1. Trên `k8s-master`, bạn chạy `kubectl delete pod kube-apiserver-k8s-master -n kube-system`.
+1. Trên `lab-k8s-master`, bạn chạy `kubectl delete pod kube-apiserver-lab-k8s-master -n kube-system`.
    Chuyện gì xảy ra với tiến trình API server đang chạy trên node đó?
 2. Các Pod control plane hiện ra trong `kubectl get pods -n kube-system`. Vậy control plane
    có quản lý được chúng qua API không?
 3. Vì sao kubeadm chạy `kube-apiserver` bằng static Pod chứ không phải bằng DaemonSet — vốn
    cũng là mô hình "mỗi node một Pod"?
-4. Bạn muốn chạy một agent thu thập log trên cả `k8s-worker1` và `k8s-worker2`. Dùng static
+4. Bạn muốn chạy một agent thu thập log trên cả `lab-k8s-worker1` và `lab-k8s-worker2`. Dùng static
    Pod hay DaemonSet, và vì sao?
 5. Bạn muốn một static Pod đọc mật khẩu từ một Secret. Có làm được không?
 
@@ -136,7 +136,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    giác cho rằng chúng là Pod bình thường do control plane quản lý. Mirror Pod tồn tại đúng để
    "các Pod đang chạy trên một node sẽ **được nhìn thấy** trên API server, **nhưng không thể
    bị điều khiển từ đó**". Dấu hiệu nhận ra chúng: tên có hậu tố là hostname của node —
-   `kube-apiserver-k8s-master` — và annotation `kubernetes.io/config.mirror`.
+   `kube-apiserver-lab-k8s-master` — và annotation `kubernetes.io/config.mirror`.
 3. Vì **DaemonSet yêu cầu một control plane đang chạy**, mà `kube-apiserver` *chính là* control
    plane đó — dùng DaemonSet sẽ tạo vòng lặp phụ thuộc không khởi động được. Static Pod thì
    "được kubelet khởi động **trước khi API server sẵn sàng**", nên nó là thứ duy nhất bootstrap
@@ -157,5 +157,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Nhóm 3b kết thúc ở đây. Câu nào chưa trả lời được thì quay lại đúng mục tương ứng, rồi chuyển
-sang Lab 3b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)) để kiểm chứng cả bảy
+sang [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) để kiểm chứng cả bảy
 bài trên cluster thật.

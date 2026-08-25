@@ -5,6 +5,51 @@
 > Thiết lập giám sát (monitoring) và ghi log (logging) để xử lý sự cố một cluster, hoặc gỡ lỗi
 > (debug) một ứng dụng chạy trong container.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability)
+→ dòng **Thực hành**, bài 1/7 · Kiểm chứng ở
+[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) phần B1.3, và phần B11.5 khi lab vẽ
+lại ranh giới trước khi sang giai đoạn 24.
+
+Đây là **trang mục lục** mở đầu cả nhánh `/docs/tasks/debug/`, không phải bài dạy thao tác.
+Nửa sau trang là hướng dẫn xin trợ giúp từ cộng đồng, không phải kiến thức kỹ thuật. Đọc nó để
+biết mình đang đứng ở nhánh nào và nhánh nào để dành lại.
+
+**Phải hiểu ở lần đọc này:**
+
+- Bốn nhánh mà trang chia ra và **tiêu chí chia**: *Gỡ lỗi ứng dụng của bạn* dành cho người
+  triển khai code và thắc mắc vì sao code không chạy; *Gỡ lỗi cluster của bạn* dành cho người
+  vận hành đang xử lý sự cố với **chính cluster**; *Ghi log trong Kubernetes* và *Giám sát
+  trong Kubernetes* dành cho quản trị viên muốn thiết lập hai trụ cột đó. Ở giai đoạn 11 bạn đi
+  hai nhánh cuối.
+- Việc trang yêu cầu làm **trước** khi đi tìm nguyên nhân: kiểm tra danh sách vấn đề đã biết
+  (known issues) của đúng bản phát hành mà cluster đang chạy.
+- Mục *Câu hỏi*: tài liệu kubernetes.io được chia theo loại câu hỏi — Concepts giải thích kiến
+  trúc, Setup hướng dẫn dựng, [Tasks](367-tasks-index-vi.md) chỉ cách làm một việc, Tutorials là
+  kịch bản đầu-cuối, Reference là đặc tả API và CLI. Biết loại câu hỏi nào tra ở đâu.
+- Mục *Stack Exchange, Stack Overflow hoặc Server Fault*: ranh giới phân loại — câu hỏi về
+  **phát triển phần mềm** cho ứng dụng container hỏi ở Stack Overflow, câu hỏi về **quản lý
+  cluster hoặc cấu hình** hỏi ở Server Fault.
+- Mục *Bug và yêu cầu tính năng*: phải tìm trong các issue đã có trước khi mở issue mới, và khi
+  báo bug phải kèm bộ dữ kiện tối thiểu — `kubectl version`, nhà cung cấp cloud / bản phân phối
+  OS / cấu hình mạng / phiên bản container runtime, và các bước tái hiện.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Nhánh *Gỡ lỗi cluster của bạn* — bài [305](305-debug-cluster-vi.md) | là quy trình chẩn đoán có hệ thống, cần `crictl` và ephemeral container chưa học ở giai đoạn 11 | [giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố), bài [305](305-debug-cluster-vi.md) |
+| Phần chẩn đoán Pod, Service và StatefulSet của nhánh *Gỡ lỗi ứng dụng* | giai đoạn 11 chỉ dùng `logs` và `exec`; phần còn lại là quy trình chẩn đoán riêng | [giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố), bài [299](299-debug-pods-vi.md), [301](301-debug-service-vi.md), [302](302-debug-statefulset-vi.md) |
+| Bảng kênh Slack theo quốc gia / ngôn ngữ, mục *Diễn đàn* | danh bạ cộng đồng, không phải cơ chế của Kubernetes | không thuộc giai đoạn nào — tra khi thật sự cần hỏi cộng đồng |
+
+---
+
 Đôi khi mọi thứ gặp trục trặc. Hướng dẫn này giúp bạn thu thập thông tin liên quan và giải quyết
 các vấn đề. Nó gồm bốn phần:
 
@@ -120,3 +165,56 @@ Nếu báo cáo một bug, hãy kèm theo thông tin chi tiết về cách tái 
 * Phiên bản Kubernetes: `kubectl version`
 * Nhà cung cấp cloud, bản phân phối hệ điều hành, cấu hình mạng, và phiên bản container runtime
 * Các bước để tái hiện vấn đề
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
+
+1. Trang chia bốn nhánh. Nhánh nào bạn đi ngay ở giai đoạn 11, nhánh nào để lại, và để lại tới
+   giai đoạn nào?
+2. **Câu bẫy.** Bạn là quản trị viên cluster. Vậy mọi sự cố bạn gặp đều tra ở nhánh *Gỡ lỗi
+   cluster của bạn*, đúng không? Trang chia nhánh theo **chức danh người hỏi** hay theo **thứ
+   đang hỏng**?
+3. Trên cluster lab, `lab-k8s-worker2` có một hành vi lạ mà bạn chưa lý giải được. Trước khi đào
+   sâu đi tìm nguyên nhân, trang bảo bạn kiểm tra thứ gì, và kiểm tra ở đâu?
+4. Bạn có hai câu hỏi: (a) "vì sao code trong container của tôi không kết nối được database",
+   (b) "nên đặt `--authorization-mode` nào cho kube-apiserver". Trang chỉ mỗi câu tới diễn đàn
+   nào, và tiêu chí phân loại là gì?
+5. Bạn định mở một issue trên GitHub báo một bug. Trang yêu cầu làm gì **trước** khi mở, và bắt
+   buộc kèm những dữ kiện nào?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Đi hai nhánh **Ghi log trong Kubernetes** và **Giám sát trong Kubernetes** — đó là hai nhánh
+   trang mô tả là dành cho quản trị viên muốn *thiết lập và quản lý* việc ghi log, và *bật tính
+   năng giám sát* cho cluster; chúng ứng đúng với nhóm bài [158](158-logging-vi.md)–[161](161-system-traces-vi.md)
+   của giai đoạn 11. Hai nhánh **Gỡ lỗi ứng dụng của bạn** và **Gỡ lỗi cluster của bạn** để lại
+   tới [giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố), vì chúng là quy trình
+   chẩn đoán chứ không phải việc dựng nguồn dữ liệu.
+2. **Không.** Trang chia nhánh theo **thứ đang hỏng**, không theo chức danh: nhánh *Gỡ lỗi ứng
+   dụng của bạn* được mô tả là cho "người dùng đang triển khai code lên Kubernetes và thắc mắc
+   vì sao nó không hoạt động", còn nhánh *Gỡ lỗi cluster của bạn* là cho người "xử lý sự cố với
+   **chính cluster Kubernetes**". Bạn là admin nhưng khi Pod bạn vừa triển khai không chạy thì
+   vẫn là nhánh thứ nhất. Đây là chỗ dễ sai: chức danh không quyết định nhánh.
+3. Kiểm tra **các vấn đề đã biết (known issues) của chính bản phát hành Kubernetes mà cluster
+   đang chạy** — trang trỏ thẳng tới trang releases của kho `kubernetes/kubernetes`. Cluster lab
+   chạy đúng một phiên bản đã khóa ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md), nên danh sách
+   cần đọc là danh sách của đúng phiên bản đó. Lý do: nếu đó là bug đã biết thì mọi công sức
+   chẩn đoán tiếp theo là lãng phí.
+4. Câu (a) là câu hỏi về **phát triển phần mềm** cho ứng dụng chạy trong container → **Stack
+   Overflow**. Câu (b) là câu hỏi về **quản lý cluster hoặc cấu hình** → **Server Fault**. Tiêu
+   chí là *loại vấn đề*, không phải mức độ khó. Trang còn nêu vài trang chuyên biệt khác trong
+   mạng lưới Stack Exchange (DevOps, Software Engineering, InfoSec) cho các lĩnh vực hẹp hơn.
+5. Trước khi mở: **tìm trong các issue hiện có** xem vấn đề đã được đề cập chưa. Khi báo bug
+   phải kèm: **phiên bản Kubernetes** (`kubectl version`); **nhà cung cấp cloud, bản phân phối
+   hệ điều hành, cấu hình mạng và phiên bản container runtime**; và **các bước để tái hiện** vấn
+   đề. Thiếu bộ này thì báo cáo không tái hiện được.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

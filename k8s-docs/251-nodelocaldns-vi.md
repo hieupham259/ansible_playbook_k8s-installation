@@ -2,6 +2,57 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/administer-cluster/nodelocaldns/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 21 — DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy),
+bài 4/14 · Phần II không có lab: thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) và tự chấm bằng **Checkpoint** ở cuối
+[mục giai đoạn 21](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy). Với bài này, phần
+kiểm chứng làm được ngay là: đọc chế độ kube-proxy của cluster lab rồi xác định nhánh cấu hình
+nào trong bài áp dụng cho nó.
+
+Bài này mô tả một **add-on tùy chọn**, không nằm trong danh mục add-on đã khóa của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md). Đọc để hiểu kiến trúc và biết khi nào cần bật; không
+cần cài lên cluster lab. Nó nối tiếp bài [10](10-dns-pod-service-vi.md) và bài
+[204](204-dns-custom-nameservers-vi.md) của chính giai đoạn 21.
+
+**Phải hiểu ở lần đọc này:**
+
+- Kiến trúc mới ở mục *Giới thiệu*: Pod ở chế độ DNS `ClusterFirst` thôi truy vấn `serviceIP` của
+  kube-dns mà hỏi thẳng agent cache **chạy trên cùng node**, nhờ đó bỏ qua quy tắc iptables DNAT
+  và việc theo dõi kết nối (connection tracking).
+- Agent cache cục bộ **không thay** kube-dns: mục *Giới thiệu* nói rõ nó vẫn truy vấn service
+  kube-dns cho các trường hợp cache miss của hostname trong cluster (hậu tố `cluster.local`).
+- Bốn lý do đáng nhớ ở mục *Động lực*: giảm độ trễ khi node không có instance kube-dns cục bộ;
+  tránh race condition của conntrack và tránh entry UDP lấp đầy bảng conntrack; nâng kết nối lên
+  TCP để entry conntrack được xóa ngay khi đóng thay vì chờ hết `nf_conntrack_udp_timeout`; giảm
+  tail latency do gói UDP rơi (3 lần thử lại + timeout 10s).
+- Hai nhánh cấu hình ở mục *Cấu hình* khác nhau ở đúng hai điểm: với kube-proxy chế độ IPTABLES,
+  pod `node-local-dns` lắng nghe **cả** IP service kube-dns lẫn `<node-local-address>` nên không
+  phải sửa `--cluster-dns`; với chế độ IPVS nó **chỉ** lắng nghe `<node-local-address>` (vì
+  interface IPVS đã chiếm cluster IP của kube-dns) nên **bắt buộc** sửa `--cluster-dns` của kubelet.
+- Ghi chú ở đầu mục *Cấu hình* về địa chỉ lắng nghe cục bộ, và cảnh báo ở mục *Đặt giới hạn
+  memory*: container bị OOMKilled **không dọn** các quy tắc lọc gói tin nó đã thêm lúc khởi động,
+  nên mỗi lần crash là một khoảng gián đoạn DNS ngắn.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Trước khi bạn bắt đầu* — minikube và các playground | lộ trình không dùng minikube hay cluster dùng chung | cluster VM ba node của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) là môi trường thực hành duy nhất |
+| Các lệnh `sed` thay `__PILLAR__*` trong manifest mẫu và `kubectl create -f nodelocaldns.yaml` | đây là bước triển khai một add-on ngoài baseline; Checkpoint giai đoạn 21 không yêu cầu nó | quay lại đúng mục *Cấu hình* của bài này khi vận hành cluster có QPS DNS cao; nền ConfigMap DNS đã có ở bài [204](204-dns-custom-nameservers-vi.md) |
+| Câu "tất cả metrics của CoreDNS sẵn có ở phạm vi từng node" và cách đo mức dùng memory đỉnh | chưa có pipeline metrics để đọc những con số đó | [Giai đoạn 23 — Giám sát và cảnh báo](00-ALO-TRINH-ADMIN.md#giai-đoạn-23--giám-sát-và-cảnh-báo) |
+| Dùng VerticalPodAutoscaler ở *chế độ recommender* để chọn giới hạn memory | VPA là add-on ngoài Kubernetes, chưa có trong baseline | **nợ #1 chưa trả** của [sổ nợ lộ trình](00-ALO-TRINH-ADMIN.md#sổ-nợ-lộ-trình) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.18 [stable]`
 
 Trang này cung cấp cái nhìn tổng quan về tính năng NodeLocal DNSCache trong Kubernetes.
@@ -174,3 +225,52 @@ Bạn có thể xác định một giới hạn memory phù hợp bằng cách c
 giới hạn và đo mức sử dụng đỉnh. Bạn cũng có thể thiết lập và dùng một
 [VerticalPodAutoscaler](https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler)
 ở _chế độ recommender_, rồi xem các khuyến nghị của nó.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 21:
+
+1. Trước khi bật NodeLocal DNSCache, một Pod ở chế độ DNS `ClusterFirst` gửi truy vấn tới đâu, và
+   truy vấn đó được đưa tới CoreDNS bằng cơ chế nào? Sau khi bật, hai thứ nào trên đường đi cũ
+   biến mất?
+2. **Câu bẫy.** Pod `node-local-dns` chạy CoreDNS ở chế độ cache. Vậy sau khi bật nó, service
+   kube-dns của cluster còn việc gì để làm không?
+3. Cluster lab dựng bằng kubeadm nên kube-proxy chạy ở chế độ mặc định là iptables. Nếu bạn bật
+   NodeLocal DNSCache trên `lab-k8s-worker1` và `lab-k8s-worker2`, pod `node-local-dns` sẽ lắng
+   nghe trên (những) địa chỉ nào, và bạn có phải sửa `--cluster-dns` của kubelet không? Câu trả
+   lời đổi thế nào nếu bạn chuyển kube-proxy sang chế độ IPVS?
+4. Vì sao bài khuyến nghị chọn địa chỉ lắng nghe cục bộ trong dải link-local `169.254.0.0/16`
+   (hoặc `fd00::/8` với IPv6) thay vì một địa chỉ bất kỳ?
+5. Một pod `node-local-dns` bị OOMKilled rồi được DaemonSet khởi động lại. Ngoài việc container
+   restart, bài cảnh báo hậu quả cụ thể nào nữa?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Pod truy vấn tới **`serviceIP` của kube-dns**, và địa chỉ đó được **quy tắc iptables do
+   kube-proxy thêm vào** chuyển thành một endpoint của kube-dns/CoreDNS. Sau khi bật, Pod hỏi
+   thẳng agent cache trên **cùng node**, nên bỏ được **iptables DNAT** và **connection tracking**
+   trên đường đi.
+2. **Còn.** Agent cache cục bộ **không thay thế** kube-dns: với hostname trong cluster (hậu tố
+   `cluster.local`) mà cache **miss**, nó vẫn truy vấn service kube-dns để lấy câu trả lời.
+   NodeLocal DNSCache rút ngắn đường đi cho phần lớn truy vấn, chứ không xóa vai trò của
+   CoreDNS trung tâm.
+3. Ở chế độ IPTABLES, pod `node-local-dns` lắng nghe trên **cả hai**: IP của service kube-dns
+   **và** `<node-local-address>`. Vì Pod vẫn hỏi được bằng IP cũ nên **không cần sửa
+   `--cluster-dns`**. Ở chế độ IPVS thì ngược lại: pod **chỉ** lắng nghe `<node-local-address>`
+   — interface dùng cho cân bằng tải IPVS đã chiếm cluster IP của kube-dns nên không bind được
+   — nên **bắt buộc sửa `--cluster-dns` của kubelet** thành `<node-local-address>`.
+4. Vì địa chỉ đó phải **được đảm bảo không xung đột với bất kỳ IP nào đang tồn tại trong
+   cluster**. Dải link-local có phạm vi cục bộ trên từng node nên thỏa điều kiện đó một cách
+   an toàn.
+5. Container bị OOMKilled **không dọn các quy tắc lọc gói tin mà nó đã thêm lúc khởi động**. Các
+   quy tắc còn sót lại vẫn điều hướng truy vấn DNS tới một Pod cục bộ đang không khỏe mạnh, nên
+   **mỗi lần crash tạo ra một khoảng gián đoạn DNS ngắn** cho toàn bộ Pod trên node đó.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

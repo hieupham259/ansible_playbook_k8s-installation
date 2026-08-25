@@ -9,9 +9,9 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu), bài 1/6 ·
-thực hành trực tiếp trên `k8s-master` của cluster VM [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
+thực hành trực tiếp trên `lab-k8s-master` của cluster VM [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này lấp mảnh cuối của chuỗi xử lý request đã học ở bài
 [119 — Kiểm soát truy cập vào Kubernetes API](119-controlling-access-vi.md): sau authentication →
@@ -401,7 +401,7 @@ Theo mặc định, truncate bị tắt ở cả `webhook` và `log`; quản tr�
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 22:
 
-1. Trên `k8s-master` của cluster lab, bạn thêm flag `--audit-policy-file` trỏ tới một policy
+1. Trên `lab-k8s-master` của cluster lab, bạn thêm flag `--audit-policy-file` trỏ tới một policy
    hợp lệ vào static Pod `kube-apiserver`, nhưng không thêm `--audit-log-path` lẫn
    `--audit-webhook-config-file`. Audit event có được lưu lại ở đâu không? Vì sao?
 2. **Câu bẫy.** Policy của bạn có rule đầu tiên là `level: None` cho `resources: ["pods"]`, và

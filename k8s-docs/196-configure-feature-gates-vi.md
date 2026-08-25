@@ -12,7 +12,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — giai đoạn 20 Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy),
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 20 — Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy),
 bài 4/6 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này là mặt "thao tác" của khái niệm feature gate mà bạn đã gặp rải rác suốt lộ trình mỗi
@@ -301,7 +302,7 @@ Trả lời được các câu dưới đây mà không nhìn lại bài là đ�
    có tắt nó đi được không? Tắt thì đánh đổi điều gì?
 2. Bạn bật một gate chỉ trên kube-apiserver trong khi tính năng đó cần cả
    kube-controller-manager. Bài cảnh báo điều gì về tình huống này?
-3. Trên `k8s-master` của cluster lab, bạn muốn bật `FeatureName=true` cho kube-apiserver đang
+3. Trên `lab-k8s-master` của cluster lab, bạn muốn bật `FeatureName=true` cho kube-apiserver đang
    chạy. Bạn sửa file nào, sửa chỗ nào trong file, và có phải tự tay khởi động lại pod không?
 4. Cùng là bật một gate trên cluster đang chạy, thao tác cho kubelet và cho kube-proxy khác
    nhau thế nào — từ chỗ sửa cho đến cách làm cấu hình mới có hiệu lực?

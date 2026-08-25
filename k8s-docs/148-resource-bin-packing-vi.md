@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 13/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 Bài cuối của nhóm, và cũng là bài duy nhất **thay đổi cách chấm điểm mặc định** thay vì thêm
 ràng buộc cho Pod. Mọi thứ ở đây là cấu hình cấp cluster trong `KubeSchedulerConfiguration`,
@@ -351,5 +351,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của nhóm 7a — khi
-trả lời được hết cả 13 bài, bạn sẵn sàng vào Lab 7a (chưa viết, xem
-[bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+trả lời được hết cả 13 bài, bạn sẵn sàng vào [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).

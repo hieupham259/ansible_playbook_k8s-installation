@@ -9,7 +9,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 18/18 · Kiểm chứng ở Lab 9b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 18/18 · Kiểm chứng ở [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md).
 
 Lộ trình đánh dấu bài này là **tài liệu lịch sử**, và xếp nó **sau Lab 9b** vì nó không có gì để
 thực hành. PodSecurityPolicy **đã bị gỡ khỏi Kubernetes** — cluster lab chạy v1.35.6 nên hoàn
@@ -66,7 +66,7 @@ Bài này là tài liệu lịch sử, nên ba câu dưới đây chỉ kiểm t
 1. PodSecurityPolicy bị đánh dấu lỗi thời ở phiên bản nào, và bị **gỡ bỏ** ở phiên bản nào? Hai
    mốc đó khác nhau ra sao về hậu quả với người vận hành?
 2. Cluster lab chạy Kubernetes v1.35.6. Bạn chạy một lệnh liệt kê PodSecurityPolicy trên
-   `k8s-master` thì nhận được gì, và vì sao?
+   `lab-k8s-master` thì nhận được gì, và vì sao?
 3. Bạn tiếp quản một cluster cũ đang dùng PodSecurityPolicy. Theo bài, hai hướng thay thế là
    gì, và bạn nên đọc tài liệu nào trước khi nâng cấp?
 

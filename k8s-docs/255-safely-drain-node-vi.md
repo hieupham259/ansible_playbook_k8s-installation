@@ -10,10 +10,10 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node), bài 1/4 · Kiểm chứng trên cluster
-lab: chạy trọn `cordon → drain → uncordon` trên `k8s-worker2` (node duy nhất được phép gây lỗi), và
-ở **Lab 12 — Vận hành vòng đời node** khi lab đó được viết.
+lab: chạy trọn `cordon → drain → uncordon` trên `lab-k8s-worker2` (node duy nhất được phép gây lỗi), và
+ở **Lab 12 — Vận hành vòng đời node** khi bạn tới lab đó.
 
 Đây là bài đầu của giai đoạn 16 và là thao tác bảo trì node dùng nhiều nhất trong thực tế. Nó dựa
 trực tiếp lên hai bài đã đọc ở mạch chính: [53](53-disruptions-vi.md) (PodDisruptionBudget)
@@ -174,8 +174,8 @@ Pod), bạn cũng có thể kích hoạt eviction theo cách lập trình bằng
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 16:
 
-1. Trên cluster lab, `k8s-worker2` đang chạy Pod của DaemonSet (CNI, kube-proxy). Bạn gõ
-   `kubectl drain k8s-worker2` và lệnh dừng lại báo lỗi. Vì sao phải thêm `--ignore-daemonsets`,
+1. Trên cluster lab, `lab-k8s-worker2` đang chạy Pod của DaemonSet (CNI, kube-proxy). Bạn gõ
+   `kubectl drain lab-k8s-worker2` và lệnh dừng lại báo lỗi. Vì sao phải thêm `--ignore-daemonsets`,
    và sau khi thêm cờ đó thì các Pod DaemonSet **có bị rút khỏi node** không?
 2. **Câu bẫy.** `cordon` và `drain` khác nhau ở chỗ nào? Sau khi drain xong, bảo trì xong và bật
    máy trở lại, node có tự nhận Pod mới không?
@@ -217,5 +217,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng, rồi thực hành trọn vòng
-`cordon → drain --ignore-daemonsets → uncordon` trên `k8s-worker2` trước khi sang bài kế của
+`cordon → drain --ignore-daemonsets → uncordon` trên `lab-k8s-worker2` trước khi sang bài kế của
 [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node).

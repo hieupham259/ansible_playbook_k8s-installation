@@ -13,10 +13,17 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)) — bài này không
-thuộc CP nào của lộ trình; nó là bản thực hành chi tiết cho kỹ thuật **imperative commands**,
-kỹ thuật thứ nhất trong ba kỹ thuật quản lý object mà bài
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng),
+bài 2/10 của dòng **Thực hành** · Kiểm chứng ở
+[Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md). Bảng ánh
+xạ 1.1 của lab không dành riêng một dòng cho bài này, nhưng chính các lệnh mà bài hệ thống hóa
+được lab chạy thật: `kubectl create namespace` ở B0, `kubectl label --overwrite` ở B3,
+`kubectl run` ở B4.4, `kubectl annotate` với `--overwrite` rồi với hậu tố `key-` ở B8.
+
+Bài là bản thực hành chi tiết cho kỹ thuật **imperative commands**, kỹ thuật thứ nhất trong ba
+kỹ thuật quản lý object mà bài
 [27 — Quản lý object trong Kubernetes](27-object-management-vi.md) đã so sánh.
 
 Bài này là bài tra cứu cú pháp: không có khái niệm mới, chỉ hệ thống hóa các lệnh `kubectl`

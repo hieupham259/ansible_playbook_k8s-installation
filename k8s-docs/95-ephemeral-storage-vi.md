@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài 8/16 · Kiểm chứng ở
-Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+[Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md).
 
 Đây là bài cuối của phần cốt lõi giai đoạn 6, và nó **không nói về volume** mà nói về đĩa của
 node: `emptyDir`, log container, lớp ghi được và container image đều ăn chung một chỗ. Bài này
@@ -393,6 +393,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Đây là bài cuối của phần cốt lõi giai đoạn 6. Trả lời trôi cả năm câu thì chuyển sang **Lab 6a
-— PV, PVC và StorageClass** (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)); câu nào
+Đây là bài cuối của phần cốt lõi giai đoạn 6. Trả lời trôi cả năm câu thì chuyển sang [**Lab 6a — PV, PVC và StorageClass**](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md); câu nào
 còn vướng thì quay lại đúng mục tương ứng trước khi vào lab.

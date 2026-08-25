@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 1/11 · Kiểm chứng
-ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md).
 
 Bài mở nhóm, rất ngắn và chỉ là **bản đồ**. Nó liệt kê các tài nguyên workload mà bạn sẽ học
 chi tiết ở giai đoạn 4. Ở lần đọc này chỉ cần nắm vai trò của từng loại và lý do vì sao bạn
@@ -145,7 +145,7 @@ dùng một [Ingress](./11-ingress-vi.md).
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 3:
 
-1. Một Pod đang chạy trên `k8s-worker2` và node đó gặp lỗi nghiêm trọng. Sau khi worker2 khỏe
+1. Một Pod đang chạy trên `lab-k8s-worker2` và node đó gặp lỗi nghiêm trọng. Sau khi worker2 khỏe
    lại, chính Pod đó có chạy tiếp không? Bài dùng từ gì để mô tả mức độ của lỗi này?
 2. Bạn cần mỗi node chạy đúng một Pod thu log. Dùng một Deployment với số replica bằng số node
    có tương đương DaemonSet không?

@@ -11,7 +11,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 5/18 · Kiểm chứng ở Lab 9a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+**Vị trí:** [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài 5/18 · Kiểm chứng ở [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md).
 
 Bài này **không dạy cú pháp RBAC**. Nó giả định bạn đã biết Role, ClusterRole, RoleBinding và
 ClusterRoleBinding là gì, rồi đi thẳng vào chỗ RBAC dễ bị dùng sai: các quyền nghe vô hại nhưng
@@ -269,7 +269,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. Vì sao bài nói các ranh giới **bên trong** một namespace nên được xem là yếu? Cụ thể, cấp
    quyền tạo Deployment trong một namespace thì ngầm cấp thêm những gì?
 3. Trên cluster lab, bạn định cấp cho một tài khoản giám sát quyền **get** trên `nodes/proxy`
-   để nó đọc dữ liệu từ `k8s-worker1` và `k8s-worker2`. Theo bài, bạn vừa cấp thêm khả năng gì,
+   để nó đọc dữ liệu từ `lab-k8s-worker1` và `lab-k8s-worker2`. Theo bài, bạn vừa cấp thêm khả năng gì,
    và hai cơ chế kiểm soát nào bị vượt qua?
 4. Thu hồi quyền của một tài khoản đã được gán `cluster-admin` khác gì thu hồi quyền của một
    tài khoản đã được thêm vào nhóm `system:masters`?
@@ -305,5 +305,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Đây là bài cuối của **phần truy cập** trong giai đoạn 9. Câu nào chưa trả lời được thì quay lại
-đúng mục tương ứng trước khi vào **Lab 9a — ServiceAccount, authn/authz và RBAC** (chưa viết,
-xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+đúng mục tương ứng trước khi vào [**Lab 9a — ServiceAccount, authn/authz và RBAC**](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md).

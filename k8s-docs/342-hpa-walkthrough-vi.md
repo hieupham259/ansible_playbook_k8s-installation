@@ -5,6 +5,62 @@
 > Tài liệu này dẫn bạn qua một ví dụ về việc bật HorizontalPodAutoscaler để tự động quản lý
 > quy mô (scale) cho một ứng dụng web mẫu.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability)
+→ dòng **Thực hành**, bài 7/7 — bài cuối của nhóm · Kiểm chứng ở
+[Lab 11b — HPA và VPA](labs/LAB-11B-HPA-VA-VPA.md) phần B3 (workload đích và Service), B4 (tạo
+HPA bằng hai cách, và các status condition lúc nghỉ), B6 (tăng tải rồi dừng tải) và B8 (HPA gặp
+`kubectl scale`). Đây là bài duy nhất của nhóm không kiểm chứng ở
+[Lab 11a](labs/LAB-11A-OBSERVABILITY.md), vì nó cần metrics-server mà Lab 11a mới cài xong.
+
+Bài dài nhất nhóm và **hơn một nửa nội dung không dùng được trên cluster lab**: từ mục
+*Autoscaling dựa trên nhiều metric và metric tùy chỉnh* trở đi, mọi thứ đều cần một adapter
+`custom.metrics.k8s.io` hoặc `external.metrics.k8s.io` của bên thứ ba. Phần bạn thật sự làm là
+bốn mục đầu cộng hai phụ lục. Đây cũng là chỗ **trả ⏳ [nợ #1](00-ALO-TRINH-ADMIN.md#sổ-nợ-lộ-trình)
+phần HPA**: bạn đã đọc lý thuyết ở bài [72](72-horizontal-pod-autoscale-vi.md) từ
+[giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller) nhưng phải hoãn thực hành
+vì chưa có metrics-server. Nếu bài 72 đã mờ, đọc lại nó trước.
+
+**Phải hiểu ở lần đọc này:**
+
+- Trình tự tối thiểu của bài: dựng Deployment `php-apache` (mỗi Pod khai `requests.cpu: 200m`)
+  cùng một Service, rồi `kubectl autoscale deployment php-apache --cpu=50% --min=1 --max=10`.
+  Cùng một object đó có thể tạo theo cách khai báo bằng manifest `autoscaling/v2` ở mục
+  *Tạo autoscaler theo cách khai báo*.
+- Mục tiêu `50%` là **phần trăm của `requests`**, không phải của dung lượng node: bài tính ra
+  mức trung bình mục tiêu là 100 milli-core trên mỗi Pod. Cột `TARGET` của `kubectl get hpa` là
+  giá trị trung bình **trên tất cả các Pod** do Deployment quản lý.
+- Điều kiện tiên quyết ở mục *Trước khi bạn bắt đầu*: cluster phải có **Metrics Server** — nó
+  thu metric tài nguyên từ các kubelet và phục vụ qua [Kubernetes API](21-kubernetes-api-vi.md)
+  bằng một [APIService](180-apiserver-aggregation-vi.md). Không có nó thì HPA không có số đo.
+- Đường đi của một lần scale (mục *Tạo HorizontalPodAutoscaler*): HPA **cập nhật Deployment** →
+  Deployment cập nhật ReplicaSet → ReplicaSet thêm hoặc bớt Pod. Ở mục *Tăng tải* và *Dừng tạo
+  tải* bạn thấy nó chạy hai chiều, và bài nói rõ số replica cuối **có thể khác ví dụ** vì tải
+  không được kiểm soát, cộng thêm việc ổn định mất vài phút.
+- Ba status condition ở phụ lục *Các status condition*: `AbleToScale` (HPA lấy và cập nhật được
+  scale, không bị backoff chặn), `ScalingActive` (tính được số replica mong muốn — `False`
+  thường là **vấn đề lấy metric**), `ScalingLimited` (khuyến nghị đã bị `minReplicas` hoặc
+  `maxReplicas` cắt). Cộng mục *Đại lượng*: `10500m` chính là `10.5`, nên một giá trị có thể
+  hiện lúc là `1`, lúc là `1500m`.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Autoscaling dựa trên nhiều metric và metric tùy chỉnh* — `type: Pods` và `type: Object` | cần một adapter `custom.metrics.k8s.io` của bên thứ ba; metrics-server không cung cấp API đó | [giai đoạn 23](00-ALO-TRINH-ADMIN.md#giai-đoạn-23--giám-sát-và-cảnh-báo) |
+| Mục *Autoscaling dựa trên các metric cụ thể hơn* — label selector cho metric | cùng lý do: selector được chuyển cho pipeline metric bên ngoài, mà cluster lab không có | [giai đoạn 23](00-ALO-TRINH-ADMIN.md#giai-đoạn-23--giám-sát-và-cảnh-báo) |
+| Mục *Autoscaling dựa trên các metric không liên quan đến object Kubernetes* — `type: External` | cần hệ thống giám sát ngoài cluster; chính bài khuyên hạn chế expose API này | [giai đoạn 23](00-ALO-TRINH-ADMIN.md#giai-đoạn-23--giám-sát-và-cảnh-báo) |
+| Câu `minikube addons enable metrics-server` ở mục *Trước khi bạn bắt đầu* | lộ trình không dùng minikube; metrics-server được cài bằng tay và có chẩn đoán lỗi certificate đi kèm | [Lab 11a](labs/LAB-11A-OBSERVABILITY.md) phần B5 |
+| Image `registry.k8s.io/hpa-example` và Pod `load-generator` chạy vòng lặp vô hạn | image nằm ngoài bộ đã khóa của baseline, và một vòng lặp không có trần rất dễ làm nghẽn hai worker nhỏ của cluster lab | [Lab 11b](labs/LAB-11B-HPA-VA-VPA.md) phần B3 và B6, nơi lab thay bằng image đã khóa và một Job có trần lẫn deadline |
+
+---
+
 Một [HorizontalPodAutoscaler](72-horizontal-pod-autoscale-vi.md)
 (gọi tắt là HPA)
 tự động cập nhật một tài nguyên workload (chẳng hạn một Deployment hoặc StatefulSet), với mục
@@ -586,3 +642,61 @@ kubectl create -f https://k8s.io/examples/application/hpa/php-apache.yaml
 ```
 horizontalpodautoscaler.autoscaling/php-apache created
 ```
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
+
+1. `kubectl autoscale deployment php-apache --cpu=50%` — 50% của cái gì? Với Deployment
+   `php-apache` của bài, con số tuyệt đối tương ứng trên mỗi Pod là bao nhiêu, và cột `TARGET`
+   của `kubectl get hpa` là giá trị của một Pod hay của cả nhóm?
+2. **Câu bẫy.** HPA có tự tạo và tự xóa Pod không? Kể lại đúng chuỗi mắt xích từ HPA tới Pod.
+3. Trên cluster lab, metrics-server chỉ được cài ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md) —
+   trước đó `kubectl top node` chạy trên `lab-k8s-master` không trả về số liệu nào. Vì sao không
+   thể chạy bài này ngay từ giai đoạn 4 lúc bạn đọc bài
+   [72](72-horizontal-pod-autoscale-vi.md)? Mục *Trước khi bạn bắt đầu* nêu điều kiện gì, và
+   Metrics Server phục vụ số liệu qua đường nào?
+4. `kubectl describe hpa` cho `ScalingActive: False`. Bài nói dấu hiệu đó thường chỉ ra chuyện
+   gì? Còn `ScalingLimited: True` nghĩa là gì và gợi ý bạn chỉnh trường nào?
+5. Bài nói một giá trị metric có thể "dao động giữa `1` và `1500m`". `1500m` bằng bao nhiêu theo
+   ký pháp thập phân, và vì sao cùng một đại lượng lại hiện ra ở hai dạng khác nhau?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. 50% của **lượng CPU mà container đã `request`**, không phải của dung lượng node. Mỗi Pod
+   `php-apache` request **200 milli-core**, nên mục tiêu tuyệt đối là **100 milli-core mỗi Pod**.
+   Cột `TARGET` là **giá trị trung bình trên tất cả các Pod** do Deployment tương ứng quản lý —
+   bài nói thẳng điều này ngay sau ví dụ `kubectl get hpa`, chứ không phải số của một Pod.
+2. **Không.** Đây là chỗ dễ sai vì nhìn `kubectl get hpa` thấy số replica đổi là tưởng HPA thao
+   tác thẳng lên Pod. Chuỗi thật là: **HPA cập nhật Deployment → Deployment cập nhật ReplicaSet →
+   ReplicaSet thêm hoặc bớt Pod dựa trên thay đổi trong `.spec` của nó**. Bài nhấn mạnh đây "là
+   một phần trong cách mọi Deployment hoạt động trong Kubernetes", không phải cơ chế riêng của
+   HPA.
+3. Vì bài đòi **cluster đã triển khai và cấu hình Metrics Server**; không có nó thì HPA không có
+   số đo nào để so với mục tiêu. Metrics Server **thu metric tài nguyên từ các kubelet** trong
+   cluster và **phục vụ chúng qua Kubernetes API bằng một APIService** — tức là thêm loại tài
+   nguyên mới đại diện cho các số đọc metric. Đó đúng là lý do lộ trình hoãn phần thực hành HPA
+   từ giai đoạn 4 xuống đây (⏳ [nợ #1](00-ALO-TRINH-ADMIN.md#sổ-nợ-lộ-trình)).
+4. `ScalingActive` cho biết HPA **có đang bật và có tính được scale mong muốn hay không**; khi nó
+   là `False` thì điều đó **thường cho thấy có vấn đề trong việc lấy metric**. `ScalingLimited` là
+   `True` nghĩa là **số replica mong muốn đã bị chặn bởi giá trị tối thiểu hoặc tối đa** của HPA
+   — dấu hiệu bạn có thể muốn nâng hoặc hạ `minReplicas`/`maxReplicas`.
+5. `1500m` là **`1.5`**. Mọi metric trong HPA và trong các API metric đều dùng ký pháp
+   **quantity**: API trả **số nguyên không hậu tố khi có thể**, và trả **đơn vị milli** trong các
+   trường hợp còn lại. Vì vậy cùng một đại lượng lúc hiện `1`, lúc hiện `1500m` — không phải hai
+   giá trị khác nhau, chỉ là hai cách viết.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của dòng **Thực hành**
+giai đoạn 11: đọc xong thì mở [Lab 11b — HPA và VPA](labs/LAB-11B-HPA-VA-VPA.md), nơi
+⏳ [nợ #1](00-ALO-TRINH-ADMIN.md#sổ-nợ-lộ-trình) được trả **phần HPA** trên chính mốc snapshot mà
+[Lab 11a](labs/LAB-11A-OBSERVABILITY.md) vừa tạo. Trước khi vào lab, đọc lại bài
+[72](72-horizontal-pod-autoscale-vi.md) — lab bám vào nó chứ không chỉ vào bài này. Phần VPA của
+nợ #1 vẫn **chưa được trả**: add-on VPA không nằm trong bộ đã khóa của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).

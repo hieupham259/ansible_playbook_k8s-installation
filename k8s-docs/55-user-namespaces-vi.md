@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 9/11 · Kiểm chứng
-ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md).
 
 Bài này **vốn viết cho người hardening node**, không phải bài giới thiệu Pod. Nó tham chiếu
 capability của Linux, Pod Security Standards và cấu hình kubelet — toàn thứ của giai đoạn 8 và 9.
@@ -358,7 +358,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    nào trên host?
 2. Bạn đặt `runAsUser: 1000` cho một Pod rồi bật user namespace cho nó. Quyền sở hữu file mà Pod
    ghi vào volume có đổi không?
-3. Trước khi thử tính năng này trên `k8s-worker2`, bạn phải kiểm những gì trên node? Ở đâu tra
+3. Trước khi thử tính năng này trên `lab-k8s-worker2`, bạn phải kiểm những gì trên node? Ở đâu tra
    được phiên bản đang chạy của cluster lab?
 4. Một Pod đang dùng `hostNetwork: true` để lấy IP của node. Bật thêm `hostUsers: false` cho nó
    được không?

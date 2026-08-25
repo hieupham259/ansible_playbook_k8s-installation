@@ -11,12 +11,16 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)), có họ hàng
-gần nhất với [Giai đoạn 21 — DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy),
-nối tiếp phần lý thuyết DNS ở bài [10](10-dns-pod-service-vi.md) và liên quan tới
-[Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster) vì `kubeadm upgrade` tự
-xử lý CoreDNS.
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 21 — DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy),
+bài 2/14 · Phần II không có lab riêng: kiểm chứng bằng **Checkpoint của chính giai đoạn 21** trên
+cluster lab dựng ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) — sửa Corefile của CoreDNS thêm một
+domain chuyển tiếp rồi kiểm chứng bằng `nslookup` từ trong Pod.
+
+Bài nối tiếp phần lý thuyết DNS ở bài [10](10-dns-pod-service-vi.md) và liên quan tới
+[Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster) vì
+`kubeadm upgrade` tự xử lý CoreDNS.
 
 Đây là trang rất ngắn, phần lớn là chỉ đường sang tài liệu của dự án CoreDNS trên GitHub.
 Với cluster lab dựng bằng kubeadm, bạn không phải làm gì thủ công: kubeadm đã cài CoreDNS

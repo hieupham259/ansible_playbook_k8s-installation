@@ -2,6 +2,50 @@
 
 > Bản dịch tiếng Việt của trang: https://kubernetes.io/docs/tasks/access-application-cluster/connecting-frontend-backend/
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
+→ [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), dòng
+**Thực hành**, bài 8/10 · Kiểm chứng ở
+[Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B12.
+
+Ba bài cuối của dòng Thực hành là ba **đường vào ứng dụng khác nhau** và rất dễ nhầm. Bài này nối
+hai tầng **bên trong** cluster bằng Service ClusterIP và tên DNS. Bài
+[364](364-create-external-load-balancer-vi.md) là đường từ **bên ngoài** vào qua load balancer của
+nhà cung cấp cloud. Bài [366](366-port-forward-vi.md) là đường **gỡ lỗi** từ máy trạm và không
+dùng cho production. Đọc bài này để nắm đường thứ nhất.
+
+**Phải hiểu ở lần đọc này:**
+
+- Mục *Tạo đối tượng Service `hello`*: Service của backend mới là chìa khóa — nó tạo một địa chỉ
+  IP bền vững và một bản ghi tên DNS, rồi dùng **selector** để tìm các Pod nhận lưu lượng.
+- Mục *Tạo frontend*: frontend **không** biết IP nào của backend. File `frontend-nginx.conf` chỉ
+  ghi `server hello;`, và `hello` chính là giá trị trường `name` của Service backend.
+- Selector của Service `hello` gồm **hai** label `app: hello` và `tier: backend`. Cả hai
+  Deployment đều mang `app: hello`, nên `tier` mới là thứ tách frontend khỏi backend.
+- Ranh giới của Service backend: bài nói thẳng rằng sau khi tạo xong, service này "chưa thể truy
+  cập được cũng như chưa phân giải được từ bên ngoài cluster". Muốn ra ngoài phải có một Service
+  khác — ở đây là Service `frontend` với `type: LoadBalancer`.
+- Mục *Trước khi bạn bắt đầu* cho phép thay Service có load balancer bên ngoài bằng Service kiểu
+  [NodePort](82-service-vi.md#type-nodeport) khi môi trường không hỗ trợ. Cluster lab đúng vào
+  trường hợp đó, nên đây là câu cần nhớ nhất của bài.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Tương tác với Service frontend* và *Gửi lưu lượng qua frontend* — chờ `EXTERNAL-IP` đổi từ `<pending>` sang IP thật rồi `curl` vào đó | cluster lab là kubeadm trên VM, không có cloud provider nào điền IP đó, nên hai bước này không chạy được nguyên xi | bài [364](364-create-external-load-balancer-vi.md) ngay sau đây giải thích ai điền IP; [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B6.3 chứng minh nó treo `<pending>`, còn B12 dựng lại bài này bằng NodePort |
+| Ghi chú "nên dùng ConfigMap thay vì đóng gói cấu hình nginx vào image" | ở đây chỉ là lời khuyên thực hành tốt, bài không có bước làm nào cho nó | bài [275](275-configure-pod-configmap-vi.md), đã đọc ở giai đoạn 3 |
+| Trường `lifecycle.preStop` trong `frontend-deployment.yaml` | không liên quan tới việc nối frontend với backend, bài không giải thích gì thêm | bài [42](42-container-lifecycle-hooks-vi.md), đã đọc ở giai đoạn 2 |
+
+---
+
 Tác vụ này hướng dẫn cách tạo một microservice _frontend_ và một microservice _backend_.
 Microservice backend là một dịch vụ chào hỏi (hello greeter). Frontend expose backend
 bằng nginx và một đối tượng Service của Kubernetes.
@@ -332,3 +376,51 @@ kubectl delete deployment frontend backend
 * Tìm hiểu thêm về [Service](82-service-vi.md)
 * Tìm hiểu thêm về [ConfigMap](275-configure-pod-configmap-vi.md)
 * Tìm hiểu thêm về [DNS cho Service và Pod](10-dns-pod-service-vi.md)
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 5.
+
+1. Cấu hình nginx của frontend chỉ có đúng một dòng `server hello;`. Chuỗi `hello` lấy từ đâu
+   trong manifest, và thứ gì trong cluster biến chuỗi đó thành một đích gọi được?
+2. Cả Deployment `backend` lẫn Deployment `frontend` đều mang label `app: hello`. Vì sao Service
+   `hello` vẫn chỉ gửi lưu lượng tới Pod của backend?
+3. **Câu bẫy.** Bạn đã tạo xong Deployment `backend` và Service `hello`, và `kubectl get svc` cho
+   thấy Service đã có IP. Từ máy trạm của mình, bạn `curl` thẳng vào IP đó được không? Bài nói gì
+   về điều này?
+4. Cluster lab của bạn là kubeadm trên ba VM `lab-k8s-master`, `lab-k8s-worker1` và
+   `lab-k8s-worker2`, không có cloud provider. Bạn apply nguyên xi `frontend-service.yaml`. Cột
+   `EXTERNAL-IP` sẽ ra gì, và bài đã chuẩn bị sẵn cách thay thế nào?
+5. Bạn scale Deployment `backend` từ 3 lên 5 replica. Có phải sửa `frontend-nginx.conf` và build
+   lại image frontend không? Vì sao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **`hello` là giá trị trường `name` của Service backend** trong
+   `examples/service/access/backend-service.yaml` — bài nói thẳng rằng tên DNS cấp cho Service
+   backend chính là trường `name` đó. Thứ biến nó thành đích gọi được là **bản thân đối tượng
+   Service**: nó tạo một địa chỉ IP bền vững và một bản ghi tên DNS, nên frontend chỉ cần biết
+   cái tên.
+2. Vì **selector của Service `hello` có hai label chứ không phải một**: `app: hello` *và*
+   `tier: backend`. Pod của frontend mang `tier: frontend` nên không khớp. Đây chính là lý do bài
+   đặt thêm label `tier` vào cả hai Deployment.
+3. **Không.** Bài viết thẳng: đến thời điểm đó "service này chưa thể truy cập được cũng như chưa
+   phân giải được (resolvable) từ bên ngoài cluster". Chỗ dễ nhầm là thấy Service **đã có IP** thì
+   tưởng IP ấy dùng được từ mọi nơi — IP và tên DNS đó chỉ có nghĩa **bên trong** cluster. Muốn
+   gọi từ ngoài phải qua Service `frontend`, thứ duy nhất trong bài khai báo
+   `type: LoadBalancer`.
+4. `EXTERNAL-IP` sẽ nằm ở **`<pending>` và không bao giờ đổi**, vì bài nói rõ bộ cân bằng tải là
+   thứ **do nhà cung cấp cloud cấp phát (provision)** — cluster lab không có ai làm việc đó. Cách
+   thay thế nằm ngay ở mục *Trước khi bạn bắt đầu*: dùng Service kiểu
+   [NodePort](82-service-vi.md#type-nodeport) thay cho Service có load balancer bên ngoài.
+5. **Không.** Frontend chỉ tham chiếu **tên** của Service backend, còn việc tìm ra tập Pod nào
+   đang đứng sau tên đó là việc của Service — nó dùng selector để tìm Pod. Đúng như mục tiêu bài
+   đặt ra ở đầu: dùng đối tượng Service để gửi lưu lượng tới **nhiều bản sao** của microservice
+   backend.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

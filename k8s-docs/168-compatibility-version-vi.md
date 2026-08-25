@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 12](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài 6/8 ·
-Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 12](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md).
 
 Bài chỉ dài mười mấy dòng nhưng đáng đọc kỹ, vì nó giới thiệu một ý tưởng thay đổi cách nghĩ về
 nâng cấp: **đổi binary và đổi hành vi là hai việc tách rời được**. Ghi nhớ ý đó, vì bài

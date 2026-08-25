@@ -8,6 +8,65 @@
 > phiên bản mới kèm việc chuyển đổi giữa các cách biểu diễn API. Trang này cũng mô tả cách nâng
 > cấp một object từ phiên bản này sang phiên bản khác.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 28 — Mở rộng Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes), bài 5/11 ·
+Phần II không có lab riêng: bạn thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) rồi tự chấm bằng **Checkpoint** của
+[giai đoạn 28](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes).
+Riêng bài này bạn **đã chạy một phần rồi** ở
+[Lab 14 phần B9](labs/LAB-14-CRD-VA-OPERATOR.md#b9-storage-version-và-statusstoredversions):
+tự viết CRD, thêm version `v2`, chuyển `storage` sang `v2`, gặp đúng lỗi khi cố gỡ một version
+còn nằm trong `status.storedVersions`, rồi chạy trọn *Phương án 2* của mục
+[Nâng cấp các object hiện có lên storage version mới](#upgrade-existing-objects-to-a-new-stored-version).
+Lần đọc này là để **đặt tên và hệ thống hóa** những gì tay bạn đã làm, cộng phần Lab 14 không
+chạm tới được.
+
+**Bài dài — đọc có chọn lọc.** Hơn một nghìn dòng, nhưng phần lớn là YAML lặp lại: gần như mọi
+ví dụ được viết hai lần, một bản dưới tiêu đề `#### apiextensions.k8s.io/v1` và một bản dưới
+tiêu đề `#### apiextensions.k8s.io/v1beta1`. Chỉ đọc bản `v1`. Bỏ qua các khối `v1beta1` thì
+bài rút lại còn khoảng một nửa, và không mất ý nào.
+
+**Phải hiểu ở lần đọc này:**
+
+- Ba pha tách rời của vòng đời một version, ở mục *Tổng quan*: **thêm** version mới (chọn
+  chiến lược chuyển đổi trước, rồi đưa vào `spec.versions` với `served: true`), **di trú**
+  storage, rồi mới **gỡ** version cũ. Mục *Gỡ bỏ một phiên bản* chốt điều kiện của pha ba:
+  `storage: true` đã sang version mới **và** version cũ đã biến mất khỏi
+  `status.storedVersions` — đúng cái chặn bạn ở Lab 14.
+- Ranh giới giữa `strategy: None` và `strategy: Webhook`, đọc ở mục *Ghi, đọc và cập nhật các
+  object CustomResourceDefinition có nhiều phiên bản*: `None` chỉ đổi chuỗi `apiVersion` (và
+  có thể cắt bỏ trường không xác định), nên chỉ dùng được khi các version chung một schema.
+  Cùng một dữ liệu nằm ở **trường khác nhau** giữa các version thì buộc phải có webhook.
+- Object đi từ version này sang version kia bằng cách nào, cũng ở mục đó: object được lưu ở
+  storage version **tại thời điểm ghi**, và object cũ **không bao giờ được chuyển đổi tự
+  động** khi storage version đổi — ghi lại object là cách duy nhất. Đọc là chuyện khác: bạn
+  yêu cầu version nào cũng được, nhưng bản trên đĩa không đổi.
+- `status.storedVersions` là nhật ký **mọi version từng được đánh dấu storage**, ở mục *Các
+  storage version trước đây*. Câu kết của mục này là lý do quy trình gỡ version phải chặt như
+  vậy: không object nào có thể nằm trong bộ lưu trữ ở một version chưa từng là storage version.
+- Version nào được `kubectl` dùng làm mặc định là do **thuật toán sắp xếp tên** ở mục *Thứ tự
+  ưu tiên của phiên bản* quyết định, không phải do thứ tự bạn viết trong `spec.versions`. Cộng
+  với mục *Deprecate một phiên bản*: `deprecated: true` và `deprecationWarning` chỉ thêm một
+  header cảnh báo vào phản hồi — request vẫn được phục vụ bình thường.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mọi khối `#### apiextensions.k8s.io/v1beta1` | đó là bản viết lại cùng một ví dụ cho phiên bản CRD API đã deprecated từ v1.16; trang gốc giữ để phục vụ cluster đời cũ | không cần trong lộ trình này — cả bài [378](378-custom-resource-definitions-vi.md) lẫn [Lab 14 phần B9](labs/LAB-14-CRD-VA-OPERATOR.md#b9-storage-version-và-statusstoredversions) đều chỉ dùng `apiextensions.k8s.io/v1` |
+| Toàn bộ mục *Chuyển đổi bằng webhook* — viết conversion webhook server, `webhookClientConfig`, chọn `url` hay `service`, `caBundle`, *Những thay đổi được phép* | ở lần đọc này chỉ cần biết **khi nào buộc phải dùng** webhook; dựng nó đòi một dịch vụ HTTPS trong cluster kèm certificate, đúng lý do [Lab 14 ghi ở bảng phần không thực hành được](labs/LAB-14-CRD-VA-OPERATOR.md#11-ánh-xạ-tài-liệu-sang-bài-thực-hành) | cơ chế API server gọi ra một webhook và hậu quả khi webhook hỏng đã đọc ở bài [173](173-admission-webhooks-vi.md), [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
+| Mục *Request và response của webhook* — cấu trúc JSON của `ConversionReview`, `convertedObjects`, `result` | chỉ cần khi bạn tự lập trình server chuyển đổi; không có công cụ nào trong baseline Lab 00 phát ra request này | cùng chỗ với dòng trên — bài [173](173-admission-webhooks-vi.md); ở giai đoạn 28 bạn dừng ở mức đọc được `spec.conversion` của một CRD |
+
+---
+
 ## Trước khi bạn bắt đầu (Before you begin)
 
 Bạn cần có một cluster Kubernetes, và công cụ dòng lệnh kubectl phải được cấu hình để giao
@@ -1082,3 +1141,64 @@ Sau đây là một quy trình ví dụ để nâng cấp từ `v1beta1` lên `v
 > ```bash
 > kubectl patch customresourcedefinitions <CRD_Name> --subresource='status' --type='merge' -p '{"status":{"storedVersions":["v1"]}}'
 > ```
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 28:
+
+1. Kể ba pha của việc đưa một CRD từ `v1beta1` lên `v1` rồi bỏ hẳn `v1beta1`. Trước khi xóa
+   `v1beta1` khỏi `spec.versions`, phải kiểm đúng hai điều kiện nào?
+2. **Câu bẫy.** Object của bạn đang được lưu ở `v1beta1`. Bạn `kubectl get` nó ở `v1`, thấy
+   `apiVersion: example.com/v1`. Bản nằm trong bộ lưu trữ đã chuyển sang `v1` chưa? Cách duy
+   nhất để nó thật sự chuyển sang storage version mới là gì?
+3. Trên `lab-k8s-master`, bạn dựng lại một CRD kiểu `clusterwidgets` như Lab 14 nhưng lần này
+   `v1` có một trường `hostPort: "localhost:1234"` còn `v2` tách thành `host` và `port`. Giữ
+   nguyên `conversion.strategy: None` như Lab 14 thì có chạy đúng không? Vì sao?
+4. Bạn đặt `deprecated: true` và `deprecationWarning` cho `v1beta1`. Client gọi `v1beta1` sau
+   đó sẽ bị từ chối hay vẫn được phục vụ? Việc này nằm ở pha nào trong ba pha của câu 1?
+5. CRD của bạn khai báo `spec.versions` theo đúng thứ tự này: `v2beta1`, rồi `v1`, rồi `v10`.
+   Chạy `kubectl get` không chỉ định version thì `kubectl` dùng version nào, và vì sao?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Thêm — di trú — gỡ.** *Thêm*: chọn chiến lược chuyển đổi, triển khai conversion webhook
+   nếu cần, rồi đưa `v1` vào `spec.versions` với `served: true` và đặt `spec.conversion`.
+   *Di trú*: nâng cấp các object hiện có lên storage version mới. *Gỡ*: chắc chắn mọi client
+   đã sang `v1`, đặt `served: false` cho `v1beta1`, rồi mới xóa nó khỏi `spec.versions`. Hai
+   điều kiện phải kiểm ở pha ba: **`storage: true` đã nằm ở `v1`**, và **`v1beta1` không còn
+   trong `status.storedVersions`**. Đây chính là thứ chặn bạn ở Lab 14: bài nói thẳng rằng
+   không thể bỏ một version cũ khỏi manifest cho tới khi dữ liệu đã di trú và version cũ đã
+   được gỡ khỏi `status.storedVersions`.
+2. **Chưa.** Bài viết rõ: khi bạn yêu cầu một object ở version khác với version đã lưu,
+   Kubernetes trả object về ở version bạn yêu cầu, **nhưng object đã lưu trên đĩa thì không bị
+   thay đổi**. Với `strategy: None`, thứ duy nhất bị đổi trong lượt trả về là chuỗi
+   `apiVersion` (và có thể là việc cắt bỏ trường không xác định). Cách duy nhất để object sang
+   storage version mới là **ghi lại object đó** — cập nhật nó, vì object hiện có không bao giờ
+   được chuyển đổi tự động khi storage version thay đổi. Đó đúng là bước 2 của *Phương án 2*:
+   liệt kê toàn bộ object rồi ghi lại chúng với đúng nội dung cũ.
+3. **Không.** `strategy: None` **giả định mọi phiên bản dùng chung một schema** và chỉ đặt lại
+   trường `apiVersion`. Ở đây cùng một dữ liệu được biểu diễn ở các trường khác nhau giữa hai
+   version, và bài cảnh báo đúng trường hợp này: không nên dùng `None` khi schema khác nhau
+   giữa phiên bản lưu trữ và phiên bản được yêu cầu. Object lưu ở `v1` đọc ra qua `v2` sẽ
+   không có `host` và `port`, còn `hostPort` thì không nằm trong schema `v2` nên bị cắt bỏ.
+   Trường hợp này **buộc phải dùng conversion webhook**. Lab 14 dùng được `None` chính vì ở đó
+   `v1` và `v2` dùng chung một schema.
+4. **Vẫn được phục vụ.** `deprecated: true` chỉ khiến server trả thêm **một header cảnh báo**
+   trong phản hồi API; `deprecationWarning` chỉ ghi đè nội dung cảnh báo mặc định. Nó không
+   chặn request nào. Nó nằm **giữa pha thêm và pha gỡ**: là cách báo trước cho client di trú,
+   trong khi thứ thật sự cắt đường truy cập là `served: false` ở pha gỡ — lúc đó client gọi
+   version cũ mới nhận lỗi not found.
+5. **`v10`.** Thứ tự khai báo trong `spec.versions` không có vai trò gì; kubectl dùng version
+   có **mức ưu tiên cao nhất** theo thuật toán phân tích tên. Theo thuật toán đó, các chuỗi
+   không mang hậu tố `beta`/`alpha` được coi là GA và xếp trước; trong nhóm GA, phần số sắp
+   xếp từ lớn tới nhỏ. Vậy `v10` đứng trên `v1`, và cả hai đứng trên `v2beta1` — dù `v2beta1`
+   được viết đầu tiên và mang số lớn hơn `v1`.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

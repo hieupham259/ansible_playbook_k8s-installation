@@ -14,7 +14,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài 2/14 ·
-Kiểm chứng ở Lab 4 (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md).
 
 Lộ trình bắt đọc ReplicaSet **trước** [Deployment](63-deployment-vi.md), dù bài này tự nói
 "có lẽ bạn sẽ không bao giờ cần thao tác trực tiếp với ReplicaSet". Lý do: Deployment vận
@@ -590,7 +590,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    mới có **cùng** `.spec.selector` nhưng pod template dùng image mới. Các Pod cũ có được cập
    nhật sang image mới không?
 3. ReplicaSet biết Pod nào là của nó bằng cách nào — chỉ bằng selector, hay còn thứ khác?
-4. Bạn scale một ReplicaSet từ 5 xuống 3. `k8s-worker1` đang chạy 4 Pod, `k8s-worker2` chạy 1
+4. Bạn scale một ReplicaSet từ 5 xuống 3. `lab-k8s-worker1` đang chạy 4 Pod, `lab-k8s-worker2` chạy 1
    Pod, và cả 5 Pod đều Running. Theo thuật toán trong bài, Pod trên node nào bị chọn xóa
    trước, và tiêu chí cuối cùng khi mọi thứ ngang nhau là gì?
 
@@ -616,7 +616,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    trì. Còn **selector** là thứ nó dùng để **nhận diện Pod mới cần thu nhận**: Pod nào không
    có OwnerReference, hoặc có OwnerReference không phải controller, mà khớp selector thì bị
    thu nhận.
-4. Xóa trước các Pod trên **`k8s-worker1`** — bài xếp "các pod trên node có nhiều replica hơn
+4. Xóa trước các Pod trên **`lab-k8s-worker1`** — bài xếp "các pod trên node có nhiều replica hơn
    được chọn trước các pod trên node có ít replica hơn". Thứ tự đầy đủ trước đó: Pod Pending
    và không lập lịch được bị thu hẹp trước tiên, rồi tới annotation
    `controller.kubernetes.io/pod-deletion-cost` thấp hơn. Sau tiêu chí node là **Pod được tạo

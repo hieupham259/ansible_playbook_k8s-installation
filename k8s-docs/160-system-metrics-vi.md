@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability), bài 2/6 · Kiểm chứng
-ở Lab 11a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md).
 
 Bài này có hai nửa rất khác nhau. Nửa đầu — *Metric trong Kubernetes*, *Vòng đời metric*,
 *Hiển thị metric ẩn* — là hợp đồng bạn phải nắm để pipeline giám sát không vỡ khi nâng cấp.
@@ -404,7 +404,7 @@ một giá trị nhãn không được phép theo các ràng buộc của allow-
 
 Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 11:
 
-1. Bạn dựng một scraper trên `k8s-master` để thu metric từ kubelet của `k8s-worker1`. Ngoài
+1. Bạn dựng một scraper trên `lab-k8s-master` để thu metric từ kubelet của `lab-k8s-worker1`. Ngoài
    việc thông được mạng tới endpoint, còn cần thứ gì nữa thì request mới không bị từ chối?
 2. `/metrics` của kubelet và `/metrics/cadvisor` của cùng kubelet đó có chịu chung một cam kết
    ổn định không? Điều đó ảnh hưởng thế nào tới dashboard bạn sắp dựng?

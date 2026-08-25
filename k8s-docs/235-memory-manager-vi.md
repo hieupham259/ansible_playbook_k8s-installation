@@ -2,6 +2,66 @@
 
 > Bản dịch tiếng Việt của trang: <https://kubernetes.io/docs/tasks/administer-cluster/memory-manager/>
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:**
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 25 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace),
+bài 5/7 · Phần II không có lab riêng: thực hành thẳng trên cluster VM của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md), tự chấm bằng **Checkpoint giai đoạn 25**.
+
+Bài này **khác hẳn** ba bài đầu giai đoạn 25: nó không phải chính sách theo namespace mà là chính
+sách **cấp node**, đặt trong `KubeletConfiguration` — mà việc đổi tham số kubelet của một node
+đang chạy thuộc [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy),
+bài [224](224-kubelet-config-file-vi.md). Nền lý thuyết đã có ở bài
+[74 — Các trình quản lý tài nguyên](74-resource-managers-vi.md) (nhóm 7b).
+
+Nói thẳng về giới hạn của cluster lab: cả ba VM chỉ có **một NUMA domain**, và chính sách mặc
+định là `None`. Trên cluster này bạn **đo được** hai thứ: đếm số NUMA node bằng
+`ls -d /sys/devices/system/node/node[0-9]*` và đọc `memoryManagerPolicy` **hiệu lực** qua
+`configz`, đúng như [Lab 14 phần B10.4](labs/LAB-14-CRD-VA-OPERATOR.md#b104-topology-manager-đang-ở-policy-nào)
+đã làm. Bạn **không đo được** hiệu quả của chính sách `Static`: với một NUMA domain thì "số NUMA
+node tối thiểu" luôn bằng 1, không có ranh giới nào để căn. Đọc bài để biết cấu hình đúng khi
+vận hành máy chủ vật lý nhiều socket, đừng sửa kubelet của lab để "thử cho biết".
+
+**Phải hiểu ở lần đọc này:**
+
+- Memory Manager đảm bảo cấp phát bộ nhớ (và hugepages) cho Pod thuộc lớp QoS `Guaranteed`, và
+  nó chỉ là một **hint provider**: nó sinh gợi ý NUMA affinity rồi đưa cho **Topology Manager**,
+  và chính Topology Manager mới quyết định Pod bị từ chối hay được chấp nhận vào node. Muốn căn
+  chỉnh bộ nhớ với tài nguyên khác thì **CPU Manager và Topology Manager phải được bật trước**
+  (mục mở đầu, *Memory Manager hoạt động như thế nào?* và *Điều kiện tiên quyết để căn chỉnh tài
+  nguyên*).
+- Ba chính sách đặt qua `memoryManagerPolicy`: `None` (mặc định — hành xử như thể Memory Manager
+  không tồn tại, trả về gợi ý topology mặc định), `Static` (chỉ Linux), `BestEffort` (chỉ
+  Windows). Dưới `Static`, chỉ Pod `Guaranteed` nhận gợi ý cụ thể; Pod `BestEffort` và `Burstable`
+  nhận gợi ý mặc định và không được dành riêng bộ nhớ (mục *Các chính sách*).
+- Khi chọn `Static` thì **bắt buộc** phải cấu hình `reservedMemory`. Lý do rất cụ thể: ngưỡng
+  `evictionHard` mặc định là `100Mi` chứ không phải 0, nên nếu bỏ qua, kubelet **không khởi động
+  Memory Manager** và báo lỗi (mục *Cấu hình bộ nhớ dành riêng* và khối Ghi chú của nó).
+- Ràng buộc số học phải thuộc: tổng `reservedMemory` trên tất cả NUMA node phải **bằng**
+  `kubeReserved` + `systemReserved` + `evictionHard` `memory.available`. Không tuân theo thì
+  Memory Manager báo lỗi ngay khi khởi động (mục *Ràng buộc về việc dành riêng bộ nhớ NUMA*).
+- Điều kiện để một Pod vào lớp `Guaranteed` theo đúng hai ví dụ của bài: `requests` **bằng**
+  `limits`, và **cả CPU lẫn memory đều phải được chỉ định**. CPU nguyên (`"2"`) hay CPU lẻ
+  (`"300m"`) đều thuộc `Guaranteed` (mục *Đưa một Pod vào lớp QoS Guaranteed*).
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| Mục *Trước khi bạn bắt đầu* — minikube và ba playground trực tuyến | cluster lab đã có sẵn ba VM; lộ trình không dùng minikube hay cluster dùng chung | [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
+| Mục *Hỗ trợ Windows* và chính sách `BestEffort` | ba node lab đều là Linux; tính năng còn alpha, cần feature gate và container runtime hỗ trợ | [Giai đoạn 15 — Windows](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows), chỉ mở khi môi trường thật có node Windows |
+| Mục *Cú pháp bộ nhớ dành riêng* (Ví dụ 1, Ví dụ 2, `hugepages-1Gi`) và *Các cấu hình cần tránh* | chỉ dùng được khi bật `Static` trên máy nhiều NUMA domain; VM lab chỉ có một | khi vận hành máy chủ vật lý nhiều socket; đối chiếu bài [74](74-resource-managers-vi.md) ở [nhóm 7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên) — đã đọc |
+| Sơ đồ luồng admission và các bộ đếm nội bộ *Node Map and Memory Maps* | là chi tiết cài đặt bên trong kubelet, chỉ cần khi phải tra lỗi thật | bài [313 — Khắc phục sự cố Topology Management](313-debug-topology-vi.md) (dòng Thực hành [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng)) — đã đọc, kiểm chứng ở [Lab 14 B10.4](labs/LAB-14-CRD-VA-OPERATOR.md#b104-topology-manager-đang-ở-policy-nào) |
+
+---
+
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.32 [stable]`
 
 *Memory Manager* (trình quản lý bộ nhớ) của Kubernetes kích hoạt tính năng cấp phát bộ nhớ
@@ -330,3 +390,56 @@ Lưu ý rằng cả yêu cầu về CPU lẫn bộ nhớ đều phải được 
 - Đọc [KEP](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager)
   (Kubernetes enhancement proposal — đề xuất cải tiến Kubernetes) về memory manager
 - Đọc về [các trình quản lý tài nguyên cấp Pod](74-resource-managers-vi.md#pod-level-resource-managers).
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 25:
+
+1. Memory Manager **không** tự quyết định một Pod được nhận hay bị từ chối. Vậy nó làm gì, ai ra
+   quyết định cuối cùng, và hai manager nào phải được bật sẵn thì bộ nhớ mới căn chỉnh được với
+   các tài nguyên khác trong spec của Pod?
+2. **Câu bẫy.** Bạn đặt `memoryManagerPolicy: Static` nhưng để trống `reservedMemory`, với lý do
+   "chưa muốn dành riêng gì cả thì cứ để 0". Kết quả là gì, và con số `100Mi` dính líu thế nào?
+3. Hai đoạn manifest ở mục *Đưa một Pod vào lớp QoS Guaranteed*: một Pod xin `cpu: "2"`, một Pod
+   xin `cpu: "300m"`, cả hai đều có `memory: "200Mi"`. Cả hai có cùng thuộc lớp `Guaranteed`
+   không? Điều kiện thật sự để vào lớp đó là gì?
+4. Trên `lab-k8s-worker2`, `ls -d /sys/devices/system/node/node[0-9]*` trả về đúng **một** dòng,
+   còn `configz` không thấy khóa `memoryManagerPolicy` nào được khai. Từ hai dữ kiện đó: chính
+   sách nào đang có hiệu lực, và vì sao bật `Static` trên chính máy này cũng **không** chứng minh
+   được điều bài nói?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. Memory Manager là một **hint provider**: nó dùng giao thức sinh gợi ý để đưa ra NUMA affinity
+   phù hợp nhất cho Pod rồi **giao gợi ý đó cho Topology Manager**. Quyết định cuối cùng thuộc về
+   **Topology Manager**, dựa trên cả gợi ý lẫn chính sách của chính nó — Pod bị từ chối hay được
+   chấp nhận vào node là ở bước đó. Hai manager phải bật trước: **CPU Manager** và **Topology
+   Manager**, mỗi cái với chính sách phù hợp trên node.
+2. **kubelet sẽ không khởi động Memory Manager và báo lỗi.** Lý do: `reservedMemory` phải bằng
+   `kubeReserved` + `systemReserved` + `evictionHard` `memory.available`, mà ngưỡng hard eviction
+   **mặc định đã là `100Mi`, không phải 0**. Nên "để trống cho bằng 0" phá vỡ công thức ngay từ
+   đầu. Với chính sách `Static`, việc chỉ định `reservedMemory` là **bắt buộc**, và khi tính bạn
+   phải cộng thêm đúng phần ngưỡng hard eviction đó — như ví dụ trong bài đặt `2148Mi`, tức 3GiB
+   trừ 100MiB.
+3. **Có, cả hai đều là `Guaranteed`.** Điều kiện không nằm ở chỗ CPU nguyên hay lẻ, mà ở chỗ
+   **`requests` bằng `limits`** và **cả CPU lẫn memory đều được chỉ định**. Bài nêu hẳn hai ví
+   dụ — một Pod CPU nguyên và một Pod dùng chung CPU (`300m`) — để chặn đúng cái nhầm này. (Lưu ý
+   đây là điều kiện vào lớp QoS `Guaranteed`; điều kiện được cấp **CPU độc quyền** dưới chính sách
+   `static` của CPU Manager lại là chuyện của bài [200](200-cpu-management-policies-vi.md).)
+4. Không khai tức là đang chạy giá trị mặc định, tức chính sách **`None`** — hành xử đúng như thể
+   Memory Manager không tồn tại và chỉ trả về gợi ý topology mặc định. Bật `Static` cũng vô nghĩa
+   trên máy này vì **máy chỉ có một NUMA domain**: đảm bảo cốt lõi của Memory Manager là cấp bộ
+   nhớ từ **số NUMA node tối thiểu** và ghim Pod vào một tập NUMA node, mà với đúng một node thì
+   mọi cách cấp phát đều thỏa mãn — không có ranh giới nào để căn, không có gì để đo. Ngoài ra
+   đổi `memoryManagerPolicy` là **sửa `KubeletConfiguration` của node đang chạy**, việc thuộc
+   [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy), bài
+   [224](224-kubelet-config-file-vi.md) — đừng làm chỉ để thử.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau.

@@ -13,9 +13,9 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+[Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
 → [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ), bài 3/7 · Kiểm chứng
-trên cluster lab: chạy `kubectl get csr` trên `k8s-master` và đọc được trạng thái CSR của kubelet ba
+trên cluster lab: chạy `kubectl get csr` trên `lab-k8s-master` và đọc được trạng thái CSR của kubelet ba
 node.
 
 Bài rất ngắn nhưng giải thích đúng cơ chế khiến cluster lab của bạn **không chết vì certificate

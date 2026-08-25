@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên),
-bài 3/6 · Kiểm chứng ở Lab 7b (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 3/6 · Kiểm chứng ở [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md).
 
 Đây là bài **dài nhất nhóm 7b** và hơn nửa số dòng là bảng tra tên tài nguyên cùng các mục con
 về *Phạm vi hạn ngạch*. Đừng học thuộc bảng — chúng để tra khi viết YAML. Phần thực sự phải
@@ -914,7 +914,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    sao, và bạn tìm nguyên nhân ở đâu?
 3. Vẫn namespace đó, bạn không muốn người dùng phải nhớ khai `requests` nhưng cũng không muốn
    Pod bị từ chối. Theo bài, bạn thêm cái gì và nó can thiệp vào lúc nào?
-4. Cluster lab của bạn có một control plane `k8s-master` và hai worker, mỗi worker 2 vCPU /
+4. Cluster lab của bạn có một control plane `lab-k8s-master` và hai worker, mỗi worker 2 vCPU /
    6 GB RAM. Bạn thêm worker thứ ba. Hạn ngạch của `team-a` có tự nới ra không? Và
    ResourceQuota có buộc Pod của `team-a` chỉ chạy trên một số node nhất định không?
 5. Hạn ngạch theo **số lượng đối tượng** bảo vệ được điều gì mà hạn ngạch CPU/memory không bảo
@@ -949,7 +949,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    phải sửa chính đối tượng hạn ngạch. Ý sau ở cuối cùng mục đó: hạn ngạch phân chia tổng tài
    nguyên của cluster nhưng **không tạo ràng buộc nào liên quan đến node** — Pod từ nhiều
    namespace vẫn chạy chung trên một node. Trên cluster của bạn, Pod của `team-a` và của
-   namespace khác hoàn toàn có thể cùng nằm trên `k8s-worker1`.
+   namespace khác hoàn toàn có thể cùng nằm trên `lab-k8s-worker1`.
 5. **Bảo vệ bộ lưu trữ của control plane, thứ mà trần CPU/memory hoàn toàn không chạm tới.**
    Một đống đối tượng nhỏ xíu chẳng tốn CPU hay RAM của node nhưng vẫn phá được cluster. Ví dụ
    bài đưa ra: giới hạn số Secret vì kích thước lớn của chúng — quá nhiều Secret có thể khiến

@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 7 → nhóm [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), bài 9/13 ·
-Kiểm chứng ở Lab 7a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+Kiểm chứng ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md).
 
 Bài này chỉ có tác dụng khi cluster dùng một container runtime "nặng" — bài lấy ví dụ Kata
 Containers chạy trên máy ảo Firecracker, tốn khoảng 120MiB cho mỗi Pod. Cluster lab dùng
@@ -253,7 +253,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    `kubectl describe node` cho ra hai con số khác nhau — vì sao?
 3. Trên cluster lab, mỗi worker có 2 vCPU. Bạn tạo một Pod xin tổng `1800m` CPU và dùng một
    RuntimeClass khai `podFixed.cpu: 250m`. Bộ lập lịch đi tìm node còn trống bao nhiêu CPU, và
-   Pod này có chạy được trên `k8s-worker1` hay `k8s-worker2` không?
+   Pod này có chạy được trên `lab-k8s-worker1` hay `lab-k8s-worker2` không?
 4. Kể ba chỗ mà Pod overhead thực sự thay đổi hành vi của hệ thống.
 
 <details>

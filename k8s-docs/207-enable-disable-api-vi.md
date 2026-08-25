@@ -11,7 +11,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — giai đoạn 20 Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy),
+**Vị trí:** [Phần II — Vận hành cluster](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 20 — Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy),
 bài 5/6 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này rất ngắn: nó chỉ dạy một flag. Đừng nhầm `--runtime-config` (bật/tắt **phiên bản
@@ -89,7 +90,7 @@ Trả lời được các câu dưới đây mà không nhìn lại bài là đ�
 3. **Không.** Đây là chỗ dễ nhầm: `api/legacy` không có nghĩa là "phiên bản cũ" nói chung, mà
    chỉ gồm các API **đã bị deprecated một cách tường minh** theo chính sách deprecation. Một
    API v1beta1 chưa bị deprecated không thuộc `api/legacy`.
-4. Flag thuộc tiến trình **`kube-apiserver`**, chạy dưới dạng **static pod trên `k8s-master`**.
+4. Flag thuộc tiến trình **`kube-apiserver`**, chạy dưới dạng **static pod trên `lab-k8s-master`**.
    Cách sửa dùng lại cơ chế của bài [196](196-configure-feature-gates-vi.md): thêm flag vào
    danh sách `command` trong manifest `/etc/kubernetes/manifests/kube-apiserver.yaml`; lưu
    file xong static pod tự khởi động lại, không cần restart thủ công.

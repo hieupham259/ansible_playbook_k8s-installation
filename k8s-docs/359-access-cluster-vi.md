@@ -4,6 +4,62 @@
 >
 > Chủ đề này thảo luận nhiều cách khác nhau để tương tác với cluster.
 
+---
+
+## Đọc bài này thế nào
+
+> Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
+> phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
+
+**Vị trí:** [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
+dòng **Thực hành**, bài 9/10 — bài cuối cùng trước khi mở lab · Kiểm chứng ở
+[Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md): phần B2.1 (`kubectl config view` và
+client certificate), phần B6.1 (dựng kubeconfig cho một ServiceAccount), phần B6.2 và B6.3
+(`kubectl proxy` và quyền mà nó mang theo), phần B6.4 (bốn loại proxy, cái nào thật sự có trên
+cluster này), phần B6.5 (nhánh *Không dùng kubectl proxy*).
+
+Bài này là mặt kia của bài [338](338-access-api-from-pod-vi.md) vừa đọc. Bài 338 đứng ở góc nhìn
+**tiến trình bên trong cluster**: không có kubeconfig, danh tính là ServiceAccount, mọi thứ nằm sẵn
+trong `/var/run/secrets/kubernetes.io/serviceaccount/`. Bài này đứng ở góc nhìn **người dùng bên
+ngoài**: có kubeconfig trong `~/.kube`, danh tính là client certificate, và phải tự lo phần định vị
+apiserver cùng xác minh TLS. Đọc xong hai bài phải phân biệt được ngay một đoạn `curl` đang đứng ở
+phía nào.
+
+**Phải hiểu ở lần đọc này:**
+
+- Truy cập cluster luôn cần đúng hai thứ: **vị trí** của cluster và **thông tin xác thực**. `kubectl`
+  làm hộ cả hai, và `kubectl config view` là chỗ đọc ra chúng (mục *Truy cập lần đầu với kubectl*).
+- Hai đường gọi thẳng REST API và cái giá của từng đường (mục *Truy cập trực tiếp REST API*): chạy
+  `kubectl proxy` là cách **được khuyến nghị** — nó dùng vị trí apiserver đã lưu, xác minh danh tính
+  apiserver bằng certificate tự ký nên không bị tấn công xen giữa, và tự xác thực hộ; còn tự cấp vị
+  trí và credential cho http client là **cách thay thế**, và khi đó bạn phải import root certificate
+  vào client thì mới phòng được MITM.
+- `kubectl proxy --port=8080` biến kubectl thành một reverse proxy: đoạn **client tới proxy đi bằng
+  HTTP** trên localhost, còn đoạn **proxy tới apiserver đi bằng HTTPS** và được kubectl gắn thêm
+  header xác thực. Vì vậy `curl http://localhost:8080/api/` chạy được mà không cần token nào.
+- Nhánh *Không dùng kubectl proxy*: lấy địa chỉ server từ kubeconfig bằng `kubectl config view
+  --minify`, lấy token của ServiceAccount từ một Secret kiểu
+  `kubernetes.io/service-account-token`, rồi tự gắn header `Authorization: Bearer`. Chính bài
+  cảnh báo: ví dụ đó dùng `--insecure` nên hở cho MITM — kubectl thật thì dùng root certificate
+  và client certificate lưu trong `~/.kube`.
+- Bảng *Rất nhiều loại proxy* là bản đồ để về sau không gọi nhầm tên: `kubectl proxy` (chạy trên máy
+  người dùng hoặc trong pod, thêm header xác thực), apiserver proxy (bastion nằm **trong** tiến
+  trình apiserver, tới được Node/Pod/Service), kube proxy (chạy trên **mỗi node**, proxy TCP/UDP,
+  **không hiểu HTTP**, chỉ để tới service), proxy/load-balancer đặt trước apiserver, và cloud load
+  balancer. Bài chốt: người dùng thường chỉ cần hai loại đầu.
+
+**Đọc lướt, chưa cần hiểu:**
+
+| Phần | Vì sao hoãn | Sẽ hiểu ở |
+| --- | --- | --- |
+| *Truy cập API bằng lập trình* — Go client, Python client, các ngôn ngữ khác | dành cho người **viết ứng dụng**; `go get` và `pip install` nằm ngoài bộ công cụ được khóa của lab | vai trò người viết controller xuất hiện ở [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài [181](181-operator-vi.md) |
+| *Truy cập API từ một Pod* | chỉ là một con trỏ, không có nội dung mới | bài [338](338-access-api-from-pod-vi.md) vừa đọc ngay trước bài này |
+| *Truy cập các service đang chạy trên cluster*, và chi tiết URL của **apiserver proxy** | ở đây chỉ cần biết apiserver proxy tồn tại và nó tới được Node/Pod/Service; cú pháp URL là chuyện của nhóm bài truy cập ứng dụng | bài [369](369-access-cluster-services-vi.md), [giai đoạn 30](00-ALO-TRINH-ADMIN.md#giai-đoạn-30--truy-cập-ứng-dụng-trong-cluster) |
+| Loại proxy thứ 4 và thứ 5 — *Proxy/Load-balancer đặt trước apiserver* và *Cloud Load Balancer* | cluster lab có **một** control plane và không có nhà cung cấp cloud, nên hai loại này không tồn tại để quan sát | load balancer đặt trước apiserver thuộc [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) phần HA; Lab 9a phần B6.4 chỉ ghi nhận loại nào có thật trên cluster này |
+| *Yêu cầu chuyển hướng* | khả năng redirect đã bị gỡ khỏi Kubernetes, không còn gì để dùng | thứ thay thế nó chính là mục *Truy cập trực tiếp REST API* ngay trong bài này |
+
+---
+
 ## Truy cập lần đầu với kubectl (Accessing for the first time with kubectl)
 
 Khi truy cập Kubernetes API lần đầu tiên, chúng tôi khuyên bạn dùng công cụ dòng lệnh
@@ -267,3 +323,64 @@ Có một số loại proxy khác nhau mà bạn có thể gặp khi dùng Kuber
 
 Người dùng Kubernetes thường sẽ không cần bận tâm tới bất kỳ loại nào ngoài hai loại đầu tiên.
 Quản trị viên cluster thường sẽ đảm bảo các loại còn lại được thiết lập đúng.
+
+---
+
+## Tự kiểm tra
+
+> Phần này không có trong trang gốc.
+
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 9:
+
+1. Theo bài, muốn truy cập một cluster bạn phải có đúng hai thứ. Hai thứ đó là gì, trên
+   `lab-k8s-master` bạn đọc chúng ra bằng lệnh nào, và bài nói chúng được cài ở thư mục nào?
+2. Bạn chạy `kubectl proxy --port=8080` trên `lab-k8s-master`, rồi `curl http://localhost:8080/api/`
+   **không kèm** token hay certificate nào mà vẫn nhận được JSON. Ai đã xác thực với apiserver, và
+   hai chặng `client → proxy` với `proxy → apiserver` chạy trên giao thức nào?
+3. **Câu bẫy.** `kubectl proxy` và `kube proxy` — hai cái tên chỉ khác một chữ. Chúng chạy ở đâu,
+   xử lý cái gì, và cái nào giúp bạn gọi được REST API của apiserver?
+4. Cả hai ví dụ ở mục *Không dùng kubectl proxy* đều kết thúc bằng `curl ... --insecure`. Cờ đó đánh
+   đổi điều gì, và bài chỉ ra cách làm đúng là gì?
+5. Cùng là một dòng `curl` gọi `/api`, đoạn shell của bài [338](338-access-api-from-pod-vi.md) và
+   đoạn shell của bài này lấy **địa chỉ apiserver** và **token** từ hai nguồn hoàn toàn khác nhau.
+   Nêu hai nguồn đó, và giải thích vì sao một Pod thường không dùng được cách của bài này.
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+1. **Vị trí (location) của cluster và thông tin xác thực (credentials) để truy cập nó.** Đọc bằng
+   `kubectl config view` — lệnh này in ra chính vị trí và credential mà kubectl đang biết. Bài nói
+   root certificate và client certificate được cài trong thư mục **`~/.kube`**; trên cluster lab,
+   đó là kubeconfig mà kubeadm đã đặt cho bạn.
+2. **Chính `kubectl proxy` xác thực hộ bạn**: nó chạy ở chế độ reverse proxy, tự định vị apiserver,
+   tự xác thực và **thêm các header xác thực** vào request. Hai chặng chạy trên hai giao thức khác
+   nhau: **client tới proxy dùng HTTP** (nên `curl http://localhost:8080` mới hợp lệ), còn **proxy
+   tới apiserver dùng HTTPS**, có xác minh danh tính apiserver bằng certificate tự ký nên không xảy
+   ra tấn công xen giữa. Hệ quả cần nhớ: cổng đó mang **danh tính của chính bạn**, ai chạm được vào
+   nó thì thao tác được với quyền của bạn.
+3. **Hai thứ khác hẳn nhau, không thay thế nhau.** `kubectl proxy` chạy trên máy tính của người dùng
+   hoặc trong một pod, proxy từ một địa chỉ localhost tới apiserver, định vị apiserver và thêm header
+   xác thực — client vào bằng HTTP, ra bằng HTTPS. `kube proxy` chạy **trên mỗi node**, proxy các
+   giao thức **UDP và TCP**, **không hiểu HTTP**, cung cấp cân bằng tải và **chỉ được dùng để truy
+   cập các service**. Muốn gọi REST API của apiserver thì chỉ `kubectl proxy` giúp được bạn.
+4. `--insecure` **bỏ qua việc xác minh certificate của apiserver**, và bài nói thẳng: điều này khiến
+   kết nối **dễ bị tấn công xen giữa (MITM)**. Cách làm đúng theo bài: dùng đúng thứ kubectl vẫn
+   dùng — **root certificate và client certificate lưu trong `~/.kube`** — và vì certificate của
+   cluster thường là tự ký nên có thể phải cấu hình đặc biệt cho http client nhận root certificate
+   đó. Còn nếu không muốn tự lo phần này thì quay lại **cách được khuyến nghị**: `kubectl proxy`.
+5. Bài 338 đứng **trong** cluster: địa chỉ lấy từ biến môi trường `KUBERNETES_SERVICE_HOST` hoặc tên
+   DNS `kubernetes.default.svc`, còn token và CA lấy từ ba file trong
+   `/var/run/secrets/kubernetes.io/serviceaccount/` mà Kubernetes tự đặt vào container. Bài này đứng
+   **ngoài** cluster: địa chỉ lấy từ **kubeconfig** của bạn (`kubectl config view --minify`), còn
+   token lấy bằng **chính `kubectl`** từ một Secret kiểu `kubernetes.io/service-account-token`. Pod
+   thường **không có kubeconfig và không có `kubectl`** trong image, nên nó không thể chạy hai lệnh
+   đầu của bài này — đó đúng là lý do bài 338 tồn tại như một bài riêng.
+
+</details>
+
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng, rồi đọc bài kế của dòng Thực hành —
+[190 — Truy cập cluster bằng Kubernetes API](190-access-cluster-api-vi.md), bài cuối của dòng.
+Xong bài đó thì mở
+[Lab 9a — ServiceAccount, authn/authz và RBAC](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md),
+rồi đọc tiếp nhóm bài policy của giai đoạn 9 trước khi vào
+[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md).

@@ -10,8 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows),
-bài 3/7 · Kiểm chứng ở Lab 15 (tùy chọn, chưa viết, xem
-[bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+bài 3/7 · Kiểm chứng ở [Lab 15](labs/LAB-15-NODE-WINDOWS.md).
 
 **Lộ trình ghi rõ: bỏ qua hoàn toàn giai đoạn 15 nếu cluster của bạn chỉ có Linux.** Bài này còn
 ghi ngay ở mục *Trước khi bạn bắt đầu* rằng bạn cần một cluster **có worker node chạy Windows

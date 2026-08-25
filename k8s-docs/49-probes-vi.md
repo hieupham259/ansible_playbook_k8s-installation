@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài 5/11 · Kiểm chứng
-ở Lab 3a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
+ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md).
 
 Trọng tâm của bài là **phân biệt ba loại probe**. Ba cái tên nghe giống nhau nhưng hậu quả khi
 thất bại thì hoàn toàn khác: một cái giết container, một cái chỉ cắt lưu lượng, một cái chỉ tồn
@@ -547,7 +547,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    thật lớn cho liveness probe, hay thêm startup probe? Bài lập luận thế nào?
 3. Trên cluster lab, bạn đặt cho một ứng dụng hay chậm dưới tải một liveness probe `httpGet` với
    `timeoutSeconds: 1` và `failureThreshold: 3`. Bài cảnh báo hậu quả gì, và vì sao hậu quả đó
-   lan sang cả các Pod đang khỏe trên `k8s-worker1` và `k8s-worker2`?
+   lan sang cả các Pod đang khỏe trên `lab-k8s-worker1` và `lab-k8s-worker2`?
 4. Container của bạn không khai báo probe nào. Kubelet coi kết quả probe là gì? Có ngoại lệ không?
 5. Vì sao bài khuyên cân nhắc trước khi dùng cơ chế `exec` trên cluster có mật độ pod cao?
 

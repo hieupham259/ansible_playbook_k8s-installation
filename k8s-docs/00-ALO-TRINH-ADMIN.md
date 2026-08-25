@@ -151,9 +151,9 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [X] [Namespaces](19-namespaces-vi.md) — trọng tâm: tài nguyên nào có namespace, tài nguyên nào cấp cluster.
 - [X] [Các label được khuyến nghị](31-common-labels-vi.md) — quy ước `app.kubernetes.io/*`.
 - [X] [Công cụ dòng lệnh kubectl](26-kubectl-vi.md) — cú pháp, các động từ chính.
-- [ ] [Tổ chức quyền truy cập cluster bằng file kubeconfig](111-kubeconfig-vi.md) — context, cluster, user; cần cho mọi thao tác về sau.
-- [ ] [Quản lý object trong Kubernetes](27-object-management-vi.md) — trọng tâm: khác biệt giữa imperative, declarative (`apply`) và khi nào dùng cái nào.
-- [ ] [Field selector](28-field-selectors-vi.md) — bổ sung cho label selector khi lọc theo trường.
+- [X] [Tổ chức quyền truy cập cluster bằng file kubeconfig](111-kubeconfig-vi.md) — context, cluster, user; cần cho mọi thao tác về sau.
+- [X] [Quản lý object trong Kubernetes](27-object-management-vi.md) — trọng tâm: khác biệt giữa imperative, declarative (`apply`) và khi nào dùng cái nào.
+- [X] [Field selector](28-field-selectors-vi.md) — bổ sung cho label selector khi lọc theo trường.
 
 **Thực hành:** [Cài đặt công cụ](185-tools-vi.md) · [Cài đặt và thiết lập kubectl trên Linux](186-install-kubectl-linux-vi.md) · [Cài đặt và thiết lập kubectl trên macOS](187-install-kubectl-macos-vi.md) · [Cài đặt và thiết lập kubectl trên Windows](188-install-kubectl-windows-vi.md) · [Quản lý các đối tượng Kubernetes](318-manage-kubernetes-objects-vi.md) · [Quản lý object Kubernetes theo kiểu imperative bằng file cấu hình](321-imperative-config-vi.md) · [Cấu hình truy cập nhiều cluster](361-configure-access-multiple-clusters-vi.md) · [Liệt kê tất cả Container image đang chạy trong Cluster](365-list-running-container-images-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 

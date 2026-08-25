@@ -42,9 +42,9 @@ thực ra là **ôn lại cơ chế bầu chọn leader thông thường**; ph�
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Hai flag bật tính năng: `--feature-gates` và `--runtime-config` trên API Server | phải sửa manifest static Pod của kube-apiserver | CP5 cấu hình lại cluster đang chạy |
-| Ràng buộc độ lệch phiên bản (version skew) mà tính năng này phục vụ | chỉ thành vấn đề thật trong một lần nâng cấp cluster nhiều control plane | CP2 nâng cấp cluster |
-| Đặc tả đầy đủ của API LeaseCandidate `v1beta1` | còn ở mức beta, các trường có thể đổi | CP2 nâng cấp cluster |
+| Hai flag bật tính năng: `--feature-gates` và `--runtime-config` trên API Server | phải sửa manifest static Pod của kube-apiserver | giai đoạn 20 cấu hình lại cluster đang chạy |
+| Ràng buộc độ lệch phiên bản (version skew) mà tính năng này phục vụ | chỉ thành vấn đề thật trong một lần nâng cấp cluster nhiều control plane | giai đoạn 17 nâng cấp cluster |
+| Đặc tả đầy đủ của API LeaseCandidate `v1beta1` | còn ở mức beta, các trường có thể đổi | giai đoạn 17 nâng cấp cluster |
 
 ---
 

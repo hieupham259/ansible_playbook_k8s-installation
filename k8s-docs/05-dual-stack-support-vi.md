@@ -45,7 +45,7 @@ cái gì **không** đổi được về sau.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Chọn khối IPv6 nào (`2000::/3`) và kích thước dải nên cấp | phụ thuộc dải được cấp cho tổ chức | không cần |
-| `--node-cidr-mask-size-ipv4` / `--node-cidr-mask-size-ipv6` của kube-controller-manager | tinh chỉnh cấp phát CIDR cho từng node | CP6 DNS, CNI và kube-proxy |
+| `--node-cidr-mask-size-ipv4` / `--node-cidr-mask-size-ipv6` của kube-controller-manager | tinh chỉnh cấp phát CIDR cho từng node | giai đoạn 21 DNS, CNI và kube-proxy |
 | Giá trị `token` và `caCertHashes` trong ví dụ `JoinConfiguration` | là dữ liệu thật của từng cluster, không phải cú pháp cần nhớ | không cần |
 | Trang *Kiểm chứng mạng dual-stack IPv4/IPv6* ở mục Tiếp theo | mạng lab chỉ có IPv4 | không cần |
 

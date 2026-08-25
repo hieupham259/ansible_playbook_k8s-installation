@@ -41,8 +41,8 @@ hai vai.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Hướng dẫn *Cấu hình mã hóa khi lưu trữ* | là thao tác sửa cấu hình API server; đã ghi trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) | CP7 audit/encryption |
-| *Cải thiện các chính sách quản lý etcd* — wipe/shred đĩa, TLS giữa các instance | thuộc vận hành etcd | CP4 etcd/backup |
+| Hướng dẫn *Cấu hình mã hóa khi lưu trữ* | là thao tác sửa cấu hình API server; đã ghi trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) | giai đoạn 22 audit/encryption |
+| *Cải thiện các chính sách quản lý etcd* — wipe/shred đĩa, TLS giữa các instance | thuộc vận hành etcd | giai đoạn 19 etcd/backup |
 | *Cấu hình truy cập tới Secret bên ngoài* — Secrets Store CSI Driver | cần CSI driver đã cài trên cluster | giai đoạn 6 |
 | *Các thực hành tốt khi sử dụng bộ nhớ swap* | swap thuộc quản trị node | giai đoạn 12, bài [170](170-swap-memory-management-vi.md) |
 

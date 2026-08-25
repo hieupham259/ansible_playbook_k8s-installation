@@ -10,8 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster), bài 3/5 · Chỉ kiểm chứng
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster), bài 3/5 · Chỉ kiểm chứng
 được nếu cluster có node Windows; xem **Lab 15 — Node Windows** (tùy chọn) trong
 [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
@@ -138,7 +138,7 @@ hãy chạy `kubectl version`.
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP2:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 17:
 
 1. So với nâng cấp một worker Linux, quy trình trên node Windows **giữ nguyên** những bước nào
    và **thay** những bước nào?

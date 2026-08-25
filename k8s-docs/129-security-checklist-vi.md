@@ -41,8 +41,8 @@ lớn cơ chế đã được 13 bài trước giải thích, ô nào bạn khô
 | --- | --- | --- |
 | Các đoạn văn giải thích dài dưới mỗi nhóm ô | là phần bù cho ô tương ứng, chỉ đọc khi ô đó không đạt | giai đoạn 9, đúng bài của ô đó |
 | Ô về cloud metadata API `169.254.169.254`, LoadBalancer và ExternalIPs | cluster lab không chạy trên nhà cung cấp cloud | không cần |
-| Ô *Log và kiểm toán* và ô mã hóa Secret khi lưu trữ | chưa bật audit, và đã ghi trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) | CP7 audit/encryption |
-| `--use-service-account-credentials`, thời hạn certificate, quy trình rà soát quyền định kỳ | thuộc vận hành control plane | CP3 vòng đời chứng chỉ |
+| Ô *Log và kiểm toán* và ô mã hóa Secret khi lưu trữ | chưa bật audit, và đã ghi trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) | giai đoạn 22 audit/encryption |
+| `--use-service-account-credentials`, thời hạn certificate, quy trình rà soát quyền định kỳ | thuộc vận hành control plane | giai đoạn 18 vòng đời chứng chỉ |
 | Ô về quét image, ký image và `sha256` digest | thuộc pipeline CI/CD ngoài cluster | bài [130](130-application-security-checklist-vi.md) |
 
 ---

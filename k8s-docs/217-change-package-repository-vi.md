@@ -10,8 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster), bài 4/5 · Kiểm chứng trên
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster), bài 4/5 · Kiểm chứng trên
 cluster lab: in file định nghĩa repository trên `k8s-master` và xác định đúng minor version mà
 cluster đang lấy gói từ đó.
 
@@ -238,7 +238,7 @@ minor khác, để có quyền truy cập vào các gói của phiên bản mino
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP2:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 17:
 
 1. Trên `k8s-master`, bạn mở `/etc/apt/sources.list.d/kubernetes.list` và thấy một dòng chứa
    `core:/stable:/v1.35`. Bạn muốn nâng cluster lên minor kế tiếp. Phải sửa gì, và nếu **không**
@@ -267,4 +267,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài
-[195](195-cluster-upgrade-vi.md) — bài cuối của [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster).
+[195](195-cluster-upgrade-vi.md) — bài cuối của [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster).

@@ -45,7 +45,7 @@ gì. Nửa sau bài so sánh hai sản phẩm cụ thể; phần đó chỉ có 
 | --- | --- | --- |
 | *Các ràng buộc Node do cấu hình autoscaler áp đặt* và *Tự động cấp phát* | phụ thuộc hoàn toàn vào sản phẩm autoscaler bạn chọn | không cần |
 | *Cluster Autoscaler*, *Karpenter* và *So sánh các hiện thực* | chọn hiện thực chỉ có nghĩa khi cluster thật sự chạy trên cloud | không cần |
-| *Descheduler* trong *Các thành phần liên quan* | là add-on riêng, hợp nhất theo chính sách tùy chỉnh | CP1 vòng đời node |
+| *Descheduler* trong *Các thành phần liên quan* | là add-on riêng, hợp nhất theo chính sách tùy chỉnh | giai đoạn 16 vòng đời node |
 | *Autoscaler cho workload dựa trên kích thước cluster* | co giãn theo số Node, không thuộc autoscaling Node | không cần |
 
 ---

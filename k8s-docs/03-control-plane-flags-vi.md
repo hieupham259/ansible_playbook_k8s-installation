@@ -44,11 +44,11 @@ là minh họa cú pháp.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Nội dung các flag ví dụ: `enable-admission-plugins`, `audit-log-path` | là cấu hình bảo mật và audit | giai đoạn 9, CP7 audit và mã hóa |
-| `UpgradeConfiguration` với `apply:` / `node:` | chỉ dùng khi chạy `kubeadm upgrade` | CP2 nâng cấp |
-| *Các flag của Etcd* (`election-timeout`) | tinh chỉnh etcd cần hiểu Raft và vận hành etcd | CP4 etcd backup |
-| *Tùy chỉnh CoreDNS*, `dns.disabled: true` | thay CoreDNS là việc của vận hành DNS | CP6 DNS, CNI và kube-proxy |
-| Ghi chú "Cấu hình lại một cluster kubeadm" ở đầu bài | sửa cluster **đang chạy** là quy trình khác | CP5 cấu hình lại cluster đang chạy |
+| Nội dung các flag ví dụ: `enable-admission-plugins`, `audit-log-path` | là cấu hình bảo mật và audit | giai đoạn 9, giai đoạn 22 audit và mã hóa |
+| `UpgradeConfiguration` với `apply:` / `node:` | chỉ dùng khi chạy `kubeadm upgrade` | giai đoạn 17 nâng cấp |
+| *Các flag của Etcd* (`election-timeout`) | tinh chỉnh etcd cần hiểu Raft và vận hành etcd | giai đoạn 19 etcd backup |
+| *Tùy chỉnh CoreDNS*, `dns.disabled: true` | thay CoreDNS là việc của vận hành DNS | giai đoạn 21 DNS, CNI và kube-proxy |
+| Ghi chú "Cấu hình lại một cluster kubeadm" ở đầu bài | sửa cluster **đang chạy** là quy trình khác | giai đoạn 20 cấu hình lại cluster đang chạy |
 
 ---
 

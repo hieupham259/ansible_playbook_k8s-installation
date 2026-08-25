@@ -41,9 +41,9 @@ giữa chúng.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| *Các luồng log của container* — feature gate `PodLogsQuerySplitStreams`, `?stream=Stderr` | là tính năng alpha, phải bật feature gate mới có | CP5 cấu hình lại cluster đang chạy |
+| *Các luồng log của container* — feature gate `PodLogsQuerySplitStreams`, `?stream=Stderr` | là tính năng alpha, phải bật feature gate mới có | giai đoạn 20 cấu hình lại cluster đang chạy |
 | Mục *Windows* trong *Vị trí log* (`C:\var\logs`, `C:\var\log\pods`) | cluster lab chỉ có node Linux | giai đoạn 15 (node Windows) |
-| `containerLogMaxWorkers`, `containerLogMonitorInterval`, `podLogsDir` | là tinh chỉnh cho cluster có khối lượng log rất lớn | CP5 cấu hình lại cluster đang chạy |
+| `containerLogMaxWorkers`, `containerLogMonitorInterval`, `podLogsDir` | là tinh chỉnh cho cluster có khối lượng log rất lớn | giai đoạn 20 cấu hình lại cluster đang chạy |
 | `kube-log-runner` | là công cụ chuyển hướng output khi không có shell hay systemd | bài [159](159-system-logs-vi.md) |
 | Bốn manifest ví dụ (`counter-pod`, hai file log, ConfigMap fluentd, sidecar agent) | đọc để thấy hình dạng là đủ; chạy chúng là việc của lab | Lab 11a |
 

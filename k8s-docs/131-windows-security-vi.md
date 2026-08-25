@@ -145,4 +145,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 Đây là bài cuối của **Giai đoạn 15**, và cũng là bài cuối của cả 15 giai đoạn lý thuyết. Nếu môi
 trường của bạn thực sự có node Windows thì tiếp tục với Lab 15 (tùy chọn, chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)); nếu không thì chuyển thẳng sang phần thực hành vận
-hành ở [Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks).
+hành ở [Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster).

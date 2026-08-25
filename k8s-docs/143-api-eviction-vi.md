@@ -41,7 +41,7 @@ lập nhau ở gần như mọi điểm.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Hai khối JSON `policy/v1` và `policy/v1beta1`, ví dụ `curl` | chỉ cần khi gọi API trực tiếp; `kubectl drain` đã gói sẵn | không cần |
-| Cách cấu hình PodDisruptionBudget | lý thuyết đã đọc ở bài [53](53-disruptions-vi.md); phần thao tác nằm ở nhánh tasks | [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node) |
+| Cách cấu hình PodDisruptionBudget | lý thuyết đã đọc ở bài [53](53-disruptions-vi.md); phần thao tác nằm ở nhánh tasks | [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node) |
 
 ---
 

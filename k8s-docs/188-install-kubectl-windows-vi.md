@@ -35,7 +35,7 @@ Windows cá nhân.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Cài plugin `kubectl convert` | chỉ cần khi di chuyển manifest khỏi API version bị loại bỏ lúc nâng cấp | [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster) |
+| Cài plugin `kubectl convert` | chỉ cần khi di chuyển manifest khỏi API version bị loại bỏ lúc nâng cấp | [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster) |
 | Lỗi "No Auth Provider Found" | chỉ gặp với cluster cloud-managed (AKS, GKE) | ngoài phạm vi lộ trình — đọc khi làm việc với cluster cloud |
 
 ---

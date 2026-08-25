@@ -12,7 +12,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP11 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#cp11--vận-hành-lưu-trữ),
+**Vị trí:** [Checkpoint tiếp nối, giai đoạn 26 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-26--vận-hành-lưu-trữ),
 bài 1/3 · Các trang CP không có lab riêng: thực hành ngay trên cluster lab, sau khi đã có
 StorageClass và dynamic provisioner từ Lab 6a (chưa viết, xem
 [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
@@ -149,7 +149,7 @@ Việc xóa StorageClass mặc định có thể không có tác dụng, vì nó
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint CP11:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint giai đoạn 26:
 
 1. Trên cluster lab của bạn, bạn patch annotation `is-default-class=true` cho một StorageClass
    thứ hai nhưng quên đặt `false` cho class cũ. PVC mới không khai báo `storageClassName` sẽ

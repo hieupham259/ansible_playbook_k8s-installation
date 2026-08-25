@@ -33,8 +33,8 @@ leader.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Ý "khả năng tương tác giữa các thành phần có thể được định nghĩa theo phiên bản được giả lập" | chỉ có nghĩa khi vận hành nhiều thành phần lệch phiên bản trong một lần nâng cấp thật | CP2 nâng cấp cluster |
-| Việc tra *thông điệp trợ giúp* của flag để biết dải phiên bản giả lập được hỗ trợ | là thao tác tại chỗ ngay trước khi nâng cấp | CP2 nâng cấp cluster |
+| Ý "khả năng tương tác giữa các thành phần có thể được định nghĩa theo phiên bản được giả lập" | chỉ có nghĩa khi vận hành nhiều thành phần lệch phiên bản trong một lần nâng cấp thật | giai đoạn 17 nâng cấp cluster |
+| Việc tra *thông điệp trợ giúp* của flag để biết dải phiên bản giả lập được hỗ trợ | là thao tác tại chỗ ngay trước khi nâng cấp | giai đoạn 17 nâng cấp cluster |
 
 ---
 

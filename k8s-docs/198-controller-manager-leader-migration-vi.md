@@ -10,9 +10,9 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)), là phần
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)), là phần
 "Tiếp theo" của bài [34 — Cloud Controller Manager](34-cloud-controller-vi.md) và có họ hàng
-gần nhất với [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster).
+gần nhất với [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster).
 
 Bài này chỉ áp dụng khi cluster chạy **trên một cloud provider** và có **control plane nhân
 bản (HA)** đang chạy các cloud controller trong `kube-controller-manager`. Cluster lab

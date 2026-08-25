@@ -10,8 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP3 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ), bài 5/7 · Kiểm chứng
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ), bài 5/7 · Kiểm chứng
 trên cluster lab: đóng cả ba vai — người xin, người phê duyệt, người ký — cho một CSR, rồi lấy
 certificate về.
 
@@ -48,7 +48,7 @@ trước khi làm, đừng cài giữa chừng.
 | --- | --- | --- |
 | Danh sách `signerName` được hỗ trợ sẵn | thuộc nhánh `/docs/reference/`, chưa có bản dịch | khi cần chọn signer thật thay cho signer ví dụ |
 | Cấu hình `tls.Config`/`RootCAs` phía ứng dụng Go | là việc của lập trình viên ứng dụng, không phải quản trị cluster | khi tự viết workload dùng mTLS |
-| Viết certificate controller tự động | chỉ cần khi dùng API này ở quy mô lớn | [CP13](00-ALO-TRINH-ADMIN.md#cp13--mở-rộng-kubernetes), sau khi biết mẫu controller |
+| Viết certificate controller tự động | chỉ cần khi dùng API này ở quy mô lớn | [giai đoạn 28](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes), sau khi biết mẫu controller |
 
 ---
 
@@ -414,7 +414,7 @@ controller manager cung cấp một cài đặt mặc định của signer. Đ�
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP3:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 18:
 
 1. Ba vai trong quy trình `certificates.k8s.io` là gì, và mỗi vai làm gì?
 2. **Câu bẫy.** Bạn `kubectl certificate approve` xong và lệnh báo thành công. Certificate đã có

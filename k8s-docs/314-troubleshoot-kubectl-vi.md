@@ -9,12 +9,12 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
+**Vị trí:** [Checkpoint tiếp nối, giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
 bài 4/10 · nối tiếp bài [308 — Debug node bằng Kubectl](308-kubectl-node-debug-vi.md);
 giai đoạn này không có lab riêng, thực hành trực tiếp trên cluster lab
 (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
-Bài này giải quyết tình huống ngược với các bài trước của CP9: không phải cluster hỏng, mà
+Bài này giải quyết tình huống ngược với các bài trước của giai đoạn 24: không phải cluster hỏng, mà
 là **bạn không nói chuyện được với cluster**. Giá trị của bài nằm ở trình tự loại trừ, không
 ở lệnh nào phức tạp.
 
@@ -198,7 +198,7 @@ nó vẫn được cài đặt và cấu hình đúng.
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP9:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 24:
 
 1. Trên máy trạm, `kubectl get nodes` treo rồi báo
    `Unable to connect to the server: dial tcp <server-ip>:8443: i/o timeout`. Lệnh nào bạn
@@ -243,4 +243,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau của
-[CP9](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố).
+[giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố).

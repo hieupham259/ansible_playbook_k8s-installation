@@ -10,8 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node), bài 2/4 · Kiểm chứng trên cluster
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node), bài 2/4 · Kiểm chứng trên cluster
 lab: đưa `k8s-worker2` ra khỏi cluster rồi join lại bằng token tự tạo, và ở **Lab 12 — Vận hành vòng
 đời node** khi lab đó được viết.
 
@@ -162,7 +162,7 @@ Vài giây sau, bạn sẽ thấy node này xuất hiện trong đầu ra của 
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP1:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 16:
 
 1. Cluster lab của bạn dựng từ Lab 00 đã lâu. Bây giờ bạn muốn join thêm một worker nhưng
    không còn giữ lệnh mà `kubeadm init` in ra. Nêu **một lệnh duy nhất** chạy trên `k8s-master`
@@ -195,4 +195,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài kế của [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node).
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài kế của [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node).

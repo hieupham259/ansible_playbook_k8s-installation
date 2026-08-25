@@ -10,8 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), mục
-[CP7 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu), bài 4/6),
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), mục
+[Giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu), bài 4/6),
 nối tiếp bài [208 — Encrypting Confidential Data at Rest](208-encrypt-data-vi.md): ở đó bạn đã
 thấy giới hạn của key cục bộ (key nằm ngay trên host), bài này là lời giải — đưa key mã hóa
 key (KEK) ra một KMS bên ngoài.

@@ -41,9 +41,9 @@ trong một namespace". Bạn đã có `requests`/`limits` từ bài
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Ràng buộc tỷ lệ request/limit, và min/max storage request cho PersistentVolumeClaim | bài chỉ liệt kê một dòng, không có ví dụ; trọng tâm nhóm 7b là `cpu` và `memory` | nhóm task CP10 *Quản trị tài nguyên theo namespace* ở cuối lộ trình |
+| Ràng buộc tỷ lệ request/limit, và min/max storage request cho PersistentVolumeClaim | bài chỉ liệt kê một dòng, không có ví dụ; trọng tâm nhóm 7b là `cpu` và `memory` | nhóm task giai đoạn 25 *Quản trị tài nguyên theo namespace* ở cuối lộ trình |
 | Câu "tổng limit của namespace nhỏ hơn tổng các limit của các Pod/Container" ở cuối mục *Ví dụ về ràng buộc tài nguyên* | đây đã là chuyện trần tổng, tức địa hạt của ResourceQuota | bài [134](134-resource-quotas-vi.md), ngay sau bài này |
-| Toàn bộ mục *Tiếp theo* | là loạt trang task hướng dẫn từng bước, không phải khái niệm | nhóm task CP10 ở cuối lộ trình |
+| Toàn bộ mục *Tiếp theo* | là loạt trang task hướng dẫn từng bước, không phải khái niệm | nhóm task giai đoạn 25 ở cuối lộ trình |
 
 ---
 

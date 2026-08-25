@@ -51,8 +51,8 @@ ly control plane node. Mọi thứ khác là tùy chọn hoặc tra cứu.
 | *Chuẩn bị các container image cần thiết* | chỉ cần khi node không có Internet egress | không cần |
 | *(Tùy chọn) Điều khiển cluster từ các máy khác*, `kubeadm kubeconfig user` | cần RBAC và ClusterRoleBinding | giai đoạn 9 |
 | *(Tùy chọn) Proxy API Server về localhost* | tiện ích, không đổi cách cluster chạy | không cần |
-| *Chính sách chênh lệch phiên bản* — phần `kubeadm upgrade` | quy trình nâng cấp là chủ đề riêng | CP2 nâng cấp |
-| *Khả năng chống chịu của cluster* — sao lưu `/var/lib/etcd` | cần `etcdctl` và quy trình khôi phục | CP4 etcd backup |
+| *Chính sách chênh lệch phiên bản* — phần `kubeadm upgrade` | quy trình nâng cấp là chủ đề riêng | giai đoạn 17 nâng cấp |
+| *Khả năng chống chịu của cluster* — sao lưu `/var/lib/etcd` | cần `etcdctl` và quy trình khôi phục | giai đoạn 19 etcd backup |
 | *Thêm control plane node* | là topology HA, có bài riêng | bài [06](06-ha-topology-vi.md) và [08](08-high-availability-vi.md) |
 | *Tương thích nền tảng* (arm64, ppc64le, s390x) | ba VM lab đều là amd64 | không cần |
 

@@ -37,7 +37,7 @@ dọn container/image trên đĩa node. Đừng lẫn hai phần đó.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Danh sách tài nguyên được dọn ở đầu bài (Job, PV, CSR…) | phần lớn chưa học | giai đoạn 4, 6, 9 |
-| `MinAge`, `MaxPerPodContainer`, `MaxContainers` | là tham số tinh chỉnh kubelet | giai đoạn 12 và CP5 |
+| `MinAge`, `MaxPerPodContainer`, `MaxContainers` | là tham số tinh chỉnh kubelet | giai đoạn 12 và giai đoạn 20 |
 | `imageMaximumGCAge` | cấu hình theo từng node | giai đoạn 12 |
 | Ghi chú owner reference cross-namespace | đã đọc ở bài [30](30-owners-dependents-vi.md) | không cần đọc lại |
 

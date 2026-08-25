@@ -57,7 +57,7 @@ tách riêng và `containerfs`.
 | *Các tính năng garbage collection của kubelet đã lỗi thời* | các flag đã bị thay bằng eviction | không cần |
 | *Lượng thu hồi eviction tối thiểu* (`--eviction-minimum-reclaim`) | tinh chỉnh khi eviction lặp lại nhiều lần | không cần |
 | *Hành vi khi node hết bộ nhớ* — bảng `oom_score_adj`, `oom_killer` | là cơ chế của kernel Linux, không phải eviction của kubelet | giai đoạn 2, bài [33](33-cgroups-vi.md) |
-| *Tài nguyên có thể lập lịch và chính sách eviction*, `--system-reserved`/`--kube-reserved` | thuộc phần dự trữ tài nguyên cho daemon hệ thống | [checkpoint tasks](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks) |
+| *Tài nguyên có thể lập lịch và chính sách eviction*, `--system-reserved`/`--kube-reserved` | thuộc phần dự trữ tài nguyên cho daemon hệ thống | [checkpoint tasks](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster) |
 | *Các vấn đề đã biết* — `active_file`, kubelet không thấy áp lực ngay | là trường hợp biên khi tinh chỉnh | không cần |
 
 ---

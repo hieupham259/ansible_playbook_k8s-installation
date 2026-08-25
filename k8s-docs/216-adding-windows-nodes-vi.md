@@ -10,8 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node), bài 3/4 · Chỉ kiểm chứng được nếu
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node), bài 3/4 · Chỉ kiểm chứng được nếu
 môi trường có thêm một VM Windows Server; xem **Lab 15 — Node Windows** (tùy chọn) trong
 [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
@@ -217,7 +217,7 @@ Xem [Cài đặt và thiết lập kubectl trên Windows](188-install-kubectl-wi
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP1:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 16:
 
 1. Cluster lab của bạn (`k8s-master` + hai worker Linux, CNI theo baseline Lab 00) muốn thêm
    một node Windows. Theo bài, bước nào **không** thể làm bằng một lệnh `kubectl apply` như với
@@ -248,4 +248,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Nếu cluster của bạn chỉ có Linux,
-đánh dấu bài này là đã đọc và sang bài kế của [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node).
+đánh dấu bài này là đã đọc và sang bài kế của [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node).

@@ -9,11 +9,11 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
+**Vị trí:** [Checkpoint tiếp nối, giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
 bài 6/10 · Các trang CP không có lab riêng: thực hành trực tiếp trên cluster lab ở mốc
 `04-metrics-ready` (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
-Đây là bài xương sống của CP9: một quy trình **loại trừ lần từ Service về Pod**. Giá trị của
+Đây là bài xương sống của giai đoạn 24: một quy trình **loại trừ lần từ Service về Pod**. Giá trị của
 bài không nằm ở từng lệnh — phần lớn bạn đã biết từ giai đoạn 5 — mà ở **thứ tự** kiểm tra:
 mỗi mục `##` khẳng định xong một tầng rồi mới được phép nghi ngờ tầng kế tiếp. Cách đọc tốt
 nhất là vừa đọc vừa chạy trên cluster lab với chính Deployment `hostnames` của bài.
@@ -711,7 +711,7 @@ thông tin.
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint CP9:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint giai đoạn 24:
 
 1. Trên cluster lab của bạn, từ một Pod busybox: `wget -qO- <Service-IP>:80` thất bại, nhưng
    gọi thẳng từng `<Pod-IP>:9376` đều trả về hostname, và `nslookup hostnames` phân giải

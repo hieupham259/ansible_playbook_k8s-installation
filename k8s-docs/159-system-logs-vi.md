@@ -38,9 +38,9 @@ cho người vận hành — nhận ra ranh giới đó rồi thì bài ngắn l
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | *Ghi log có cấu trúc* và *Ghi log theo ngữ cảnh* (`WithValues`, `WithName`, `ContextualLogging`) | viết cho người phát triển thành phần, không phải người vận hành | không cần |
-| *Định dạng log JSON* — `--logging-format=json` và các khóa `ts`, `v`, `err`, `msg` | chỉ có giá trị khi đã có pipeline phân tích log để đẩy vào | CP8 giám sát và cảnh báo |
-| *Truy vấn log* — `enableSystemLogHandler`, `/proxy/logs/?query=` | phải bật tùy chọn kubelet trên node đích và cấp quyền `nodes/proxy` | CP9 xử lý sự cố |
-| Bảng tùy chọn `boot`, `pattern`, `sinceTime`, `untilTime`, `tailLines` | phụ thuộc mục *Truy vấn log* ở trên | CP9 xử lý sự cố |
+| *Định dạng log JSON* — `--logging-format=json` và các khóa `ts`, `v`, `err`, `msg` | chỉ có giá trị khi đã có pipeline phân tích log để đẩy vào | giai đoạn 23 giám sát và cảnh báo |
+| *Truy vấn log* — `enableSystemLogHandler`, `/proxy/logs/?query=` | phải bật tùy chọn kubelet trên node đích và cấp quyền `nodes/proxy` | giai đoạn 24 xử lý sự cố |
+| Bảng tùy chọn `boot`, `pattern`, `sinceTime`, `untilTime`, `tailLines` | phụ thuộc mục *Truy vấn log* ở trên | giai đoạn 24 xử lý sự cố |
 
 ---
 

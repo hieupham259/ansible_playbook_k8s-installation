@@ -12,8 +12,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP10 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace),
+**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 25 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace),
 bài 4/7, nối tiếp bài [74 — Các trình quản lý tài nguyên](74-resource-managers-vi.md). Các
 trang CP không có lab riêng: thực hành trực tiếp trên cluster lab, và fault injection (đổi
 chính sách sai quy trình để xem kubelet crashloop) chỉ làm trên `k8s-worker2`.
@@ -240,7 +240,7 @@ tài liệu [Node ResourceManagers](74-resource-managers-vi.md).
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint CP10:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint giai đoạn 25:
 
 1. Trên `k8s-worker2` của bạn, bạn sửa `cpuManagerPolicy` từ `none` thành `static` trong
    file cấu hình kubelet rồi restart kubelet ngay, không làm gì thêm. Chuyện gì xảy ra và

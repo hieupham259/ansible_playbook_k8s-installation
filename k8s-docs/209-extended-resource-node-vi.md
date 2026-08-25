@@ -9,8 +9,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP10 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace),
+**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 25 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace),
 bài 7/7 · Kiểm chứng bằng chính các bước trong bài trên cluster lab: bài là task tự chứa, có mục
 dọn dẹp — quảng bá dongle trên một worker rồi gỡ đi, cluster trở về đúng trạng thái cũ.
 
@@ -239,7 +239,7 @@ kubectl describe node <your-node-name> | grep dongle
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP10:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 25:
 
 1. **Câu bẫy.** Để quảng bá `example.com/dongle: 4` trên một Node, bạn có cần cài driver hay bất
    kỳ phần mềm nào trên node để Kubernetes "nhìn thấy" dongle trước không? Nếu node thực tế
@@ -277,5 +277,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của
-[CP10](00-ALO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace) — hoàn thành loạt bài thực
-hành LimitRange và ResourceQuota của checkpoint này trên cluster lab trước khi sang CP11.
+[giai đoạn 25](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace) — hoàn thành loạt bài thực
+hành LimitRange và ResourceQuota của checkpoint này trên cluster lab trước khi sang giai đoạn 26.

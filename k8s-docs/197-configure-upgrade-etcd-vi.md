@@ -9,9 +9,9 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP4 — etcd, backup và khôi phục thảm họa](00-ALO-TRINH-ADMIN.md#cp4--etcd-backup-và-khôi-phục-thảm-họa),
-bài chính của checkpoint · Kiểm chứng bằng **bài tập bắt buộc của CP4**: backup etcd → cố ý xóa
+**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 19 — etcd, backup và khôi phục thảm họa](00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa),
+bài chính của checkpoint · Kiểm chứng bằng **bài tập bắt buộc của giai đoạn 19**: backup etcd → cố ý xóa
 vài Deployment → restore từ snapshot → chứng minh cluster trở về trạng thái cũ.
 
 Bài này viết chung cho cả người tự dựng etcd bên ngoài kubeadm. Cluster lab của bạn dùng etcd
@@ -44,7 +44,7 @@ cần đọc để hiểu bối cảnh; trọng tâm của lần đọc này là
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Khởi động etcd thủ công bằng lệnh `etcd` (một node, nhiều node, sau load balancer) | cluster lab dùng etcd static Pod do kubeadm dựng, không khởi động tay | bài [07](07-setup-ha-etcd-with-kubeadm-vi.md) khi dựng etcd cluster ngoài |
-| Tự sinh cặp key/cert cho etcd bằng script tls-setup | kubeadm đã sinh sẵn PKI trong `/etc/kubernetes/pki/etcd/` | [CP3 — vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ) |
+| Tự sinh cặp key/cert cho etcd bằng script tls-setup | kubeadm đã sinh sẵn PKI trong `/etc/kubernetes/pki/etcd/` | [Giai đoạn 18 — vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) |
 | Chống phân mảnh bằng công cụ `etcd-defrag` và CronJob | công cụ bên thứ ba, chỉ cần khi database tiến gần storage quota | khi vận hành thật, theo tài liệu maintenance của etcd |
 
 ---
@@ -526,7 +526,7 @@ chống phân mảnh diễn ra đều đặn. Xem
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP4:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 19:
 
 1. Cluster lab của bạn chỉ có một member etcd trên `k8s-master`. Giả sử etcd mất khả năng ghi
    (đĩa hỏng) nhưng hai worker vẫn chạy bình thường — theo lập luận của bài, chuyện gì xảy ra
@@ -576,5 +576,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng, rồi làm bài tập bắt buộc của
-[CP4](00-ALO-TRINH-ADMIN.md#cp4--etcd-backup-và-khôi-phục-thảm-họa) trên cluster lab trước khi
+[giai đoạn 19](00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa) trên cluster lab trước khi
 sang checkpoint kế.

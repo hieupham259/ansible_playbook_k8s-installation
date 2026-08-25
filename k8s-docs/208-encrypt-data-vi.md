@@ -9,8 +9,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP7 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu), bài 2/6 ·
+**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu), bài 2/6 ·
 Kiểm chứng bằng việc trả [nợ lab "Mã hóa Secret at rest"](labs/README.md#5-sổ-nợ-lab) phát sinh
 từ Lab 3b: bật mã hóa trên `k8s-master`, verify bằng `etcdctl`, rồi mã hóa lại các Secret cũ.
 
@@ -43,9 +43,9 @@ Bài này là "phần còn thiếu" của bài [109 — Secret](109-secret-vi.md
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Hai hàng `kms` v1/v2 trong bảng provider và mục "Lưu trữ key được quản lý (KMS)" | cluster lab không có dịch vụ KMS bên ngoài; lần đọc này chỉ cần nắm ý tưởng envelope encryption (DEK/KEK) | bài Using a KMS provider, bài 4/6 của chính [CP7](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu) |
+| Hai hàng `kms` v1/v2 trong bảng provider và mục "Lưu trữ key được quản lý (KMS)" | cluster lab không có dịch vụ KMS bên ngoài; lần đọc này chỉ cần nắm ý tưởng envelope encryption (DEK/KEK) | bài Using a KMS provider, bài 4/6 của chính [giai đoạn 22](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu) |
 | Mã hóa custom resource (ví dụ `pandas.awesome.bears.example`) | chưa học CustomResourceDefinition | giai đoạn 14, bài [179](179-custom-resources-vi.md) |
-| Mục "Cấu hình tự động nạp lại" (`--encryption-provider-config-automatic-reload`) | tối ưu vận hành khi xoay key thường xuyên, không thay đổi bản chất quy trình | khi thực hành xoay key trong bài tập của CP7 và bài Decrypt kế tiếp (bài 3/6 của CP7) |
+| Mục "Cấu hình tự động nạp lại" (`--encryption-provider-config-automatic-reload`) | tối ưu vận hành khi xoay key thường xuyên, không thay đổi bản chất quy trình | khi thực hành xoay key trong bài tập của giai đoạn 22 và bài Decrypt kế tiếp (bài 3/6 của giai đoạn 22) |
 
 ---
 
@@ -748,7 +748,7 @@ API server.
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP7:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 22:
 
 1. Trên `k8s-master` của cluster lab, bạn thêm flag `--encryption-provider-config` trỏ tới một
    file trong đó danh sách provider là `identity` đứng đầu, `aescbc` đứng sau. Secret mới tạo có
@@ -800,4 +800,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng, rồi trả
 [nợ lab "Mã hóa Secret at rest"](labs/README.md#5-sổ-nợ-lab) trên cluster lab trước khi sang bài
-Decrypt kế tiếp của [CP7](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu).
+Decrypt kế tiếp của [giai đoạn 22](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu).

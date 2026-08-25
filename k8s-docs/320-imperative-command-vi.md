@@ -14,7 +14,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — bài này không
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)) — bài này không
 thuộc CP nào của lộ trình; nó là bản thực hành chi tiết cho kỹ thuật **imperative commands**,
 kỹ thuật thứ nhất trong ba kỹ thuật quản lý object mà bài
 [27 — Quản lý object trong Kubernetes](27-object-management-vi.md) đã so sánh.

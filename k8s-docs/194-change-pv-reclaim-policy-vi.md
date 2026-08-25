@@ -11,7 +11,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP11 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#cp11--vận-hành-lưu-trữ),
+**Vị trí:** [Checkpoint tiếp nối, giai đoạn 26 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-26--vận-hành-lưu-trữ),
 bài 2/3 · nối tiếp phần reclaim policy của [bài 92](92-persistent-volumes-vi.md); thực hành
 ngay trên cluster lab sau Lab 6a (chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -139,7 +139,7 @@ thể được khôi phục thủ công.
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint CP11:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint giai đoạn 26:
 
 1. Trên cluster lab của bạn, một PVC được cấp phát động qua StorageClass và bạn chưa từng đụng
    tới reclaim policy. Bạn xóa PVC đó — chuyện gì xảy ra với PV và dữ liệu bên dưới?

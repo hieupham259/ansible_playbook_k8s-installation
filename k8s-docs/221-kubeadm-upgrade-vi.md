@@ -10,14 +10,14 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster), bài 1/5 · Kiểm chứng trên
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster), bài 1/5 · Kiểm chứng trên
 cluster lab: nâng cấp cluster ba VM lên một minor version kế tiếp, đúng thứ tự control plane trước
 rồi mới tới worker.
 
-Đây là **bài xương sống của CP2**; ba bài sau chỉ là phần thực thi trên từng loại node và từng
+Đây là **bài xương sống của giai đoạn 17**; ba bài sau chỉ là phần thực thi trên từng loại node và từng
 kho gói. Bài dựa lên bảng version skew ở [02](02-create-cluster-kubeadm-vi.md) và lệnh `drain`
-vừa học ở [CP1](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node).
+vừa học ở [giai đoạn 16](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node).
 
 Con số phiên bản trong bài là ví dụ của trang gốc. Phiên bản cluster lab đang khóa nằm ở [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) —
 đối chiếu ở đó, đừng lấy số trong bài.
@@ -35,7 +35,7 @@ Con số phiên bản trong bài là ví dụ của trang gốc. Phiên bản cl
   `kubeadm upgrade` → drain → nâng kubelet/kubectl → restart kubelet → uncordon**.
 - **Certificate được gia hạn tự động**: `kubeadm upgrade` tự renew các certificate nó quản lý
   trên node đó (tắt bằng `--certificate-renewal=false`). Đây là mối nối trực tiếp sang
-  [CP3](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ).
+  [giai đoạn 18](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ).
 - **Khôi phục khi thất bại:** `kubeadm upgrade` có tính lũy đẳng — chạy lại là được; nặng hơn thì
   `kubeadm upgrade apply --force`. kubeadm ghi sao lưu vào `/etc/kubernetes/tmp`
   (`kubeadm-backup-etcd-*` và `kubeadm-backup-manifests-*`) để khôi phục tay vào `/var/lib/etcd`
@@ -48,9 +48,9 @@ Con số phiên bản trong bài là ví dụ của trang gốc. Phiên bản cl
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Mẹo `killall -s SIGTERM kube-apiserver` trước khi nâng cấp có kèm etcd | tối ưu giảm downtime, chỉ đáng làm trên cluster có tải thật | [CP4](00-ALO-TRINH-ADMIN.md#cp4--etcd-backup-và-khôi-phục-thảm-họa), khi đã hiểu etcd |
+| Mẹo `killall -s SIGTERM kube-apiserver` trước khi nâng cấp có kèm etcd | tối ưu giảm downtime, chỉ đáng làm trên cluster có tải thật | [giai đoạn 19](00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa), khi đã hiểu etcd |
 | Thứ tự nâng addon trên cluster nhiều control plane (hành vi từ v1.28) | cluster lab chỉ có một control plane | Lab 8b và 8c (chưa viết), xem [bản đồ lab](labs/README.md#4-bản-đồ-lab) |
-| Cờ `--config` với kiểu API `UpgradeConfiguration` | chỉ cần khi cần tùy biến sâu quá trình nâng cấp | bài [220](220-kubeadm-reconfigure-vi.md) ở [CP5](00-ALO-TRINH-ADMIN.md#cp5--cấu-hình-lại-cluster-đang-chạy) |
+| Cờ `--config` với kiểu API `UpgradeConfiguration` | chỉ cần khi cần tùy biến sâu quá trình nâng cấp | bài [220](220-kubeadm-reconfigure-vi.md) ở [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
 | Ghi chú `FailCgroupV1` mặc định `true` | đã học nền cgroup v2 rồi, ở đây chỉ là hệ quả | bài [33](33-cgroups-vi.md) đã đọc ở giai đoạn 2 |
 
 ---
@@ -424,7 +424,7 @@ file sao lưu cho thành phần đó sẽ không được ghi ra.
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP2:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 17:
 
 1. Cluster lab của bạn đang ở phiên bản khóa trong [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa). Bạn muốn nhảy thẳng lên minor cao hơn hai
    bậc trong một lần. Kubeadm có cho không, và ngoài phiên bản thì bài đòi những điều kiện nền
@@ -436,7 +436,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 4. `kubeadm upgrade` đang chạy thì máy mất điện, cluster kẹt ở trạng thái dở dang. Theo bài, bạn
    có những đường nào để khôi phục, và kubeadm để lại sẵn cái gì ở đâu để cứu?
 5. Việc nâng cấp cluster liên quan gì tới certificate — tức tới
-   [CP3](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ)? Muốn **không** để nó đụng vào certificate
+   [giai đoạn 18](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ)? Muốn **không** để nó đụng vào certificate
    thì làm thế nào?
 
 <details>
@@ -464,7 +464,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    sao lưu này **không tự dọn** sau khi nâng cấp thành công.
 5. `kubeadm upgrade` **tự động gia hạn các certificate mà kubeadm quản lý trên node đó**. Hệ quả
    thực tế: cluster được nâng cấp đều đặn hiếm khi chết vì certificate hết hạn, còn cluster để
-   yên nhiều tháng thì certificate cứ trôi tới hạn — đó là lý do CP3 tồn tại thành chủ đề riêng.
+   yên nhiều tháng thì certificate cứ trôi tới hạn — đó là lý do giai đoạn 18 tồn tại thành chủ đề riêng.
    Muốn từ chối, dùng cờ **`--certificate-renewal=false`**.
 
 </details>

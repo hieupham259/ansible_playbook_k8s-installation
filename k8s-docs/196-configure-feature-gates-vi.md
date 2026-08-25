@@ -12,7 +12,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — CP5 Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#cp5--cấu-hình-lại-cluster-đang-chạy),
+**Vị trí:** [Checkpoint tiếp nối — giai đoạn 20 Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy),
 bài 4/6 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này là mặt "thao tác" của khái niệm feature gate mà bạn đã gặp rải rác suốt lộ trình mỗi

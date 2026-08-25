@@ -30,7 +30,7 @@ mà chưa biết vì sao điều đó quan trọng. Bài này trả lời.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Mục *Nâng cấp* và tình huống re-dial gRPC | chỉ gặp khi nâng cấp cluster thật | CP2 |
+| Mục *Nâng cấp* và tình huống re-dial gRPC | chỉ gặp khi nâng cấp cluster thật | giai đoạn 17 |
 | *Liệt kê theo kiểu streaming* và `CRIListStreaming` (alpha) | chỉ có ý nghĩa ở node hơn 10.000 container | không cần |
 
 ---

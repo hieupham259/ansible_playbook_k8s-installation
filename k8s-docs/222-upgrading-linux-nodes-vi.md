@@ -10,8 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster), bài 2/5 · Kiểm chứng trên
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster), bài 2/5 · Kiểm chứng trên
 cluster lab: nâng cấp `k8s-worker1` rồi `k8s-worker2` sau khi đã nâng `k8s-master`.
 
 Bài rất ngắn: nó chỉ là **phần thực thi trên node worker Linux** của quy trình đã học ở bài
@@ -38,7 +38,7 @@ Con số `1.36.x` trong bài là ví dụ của trang gốc. Phiên bản của 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Cú pháp cho CentOS/RHEL/Fedora (DNF và DNF5) | cluster lab dùng Ubuntu theo Lab 00 | khi vận hành cluster trên distro họ Red Hat |
-| Chi tiết đổi package repository | là một bước riêng, có bài riêng | bài [217](217-change-package-repository-vi.md), bài 4/5 của CP2 |
+| Chi tiết đổi package repository | là một bước riêng, có bài riêng | bài [217](217-change-package-repository-vi.md), bài 4/5 của giai đoạn 17 |
 
 ---
 
@@ -167,7 +167,7 @@ kubectl uncordon <node-to-uncordon>
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP2:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 17:
 
 1. Trên `k8s-worker2`, bạn chạy `kubeadm upgrade node` và lệnh báo thành công. `kubectl get nodes`
    vẫn hiển thị worker đó ở phiên bản cũ. Bạn đã bỏ sót bước nào?
@@ -199,4 +199,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài kế của [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster).
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài kế của [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster).

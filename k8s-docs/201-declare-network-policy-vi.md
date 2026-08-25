@@ -10,8 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), mục
-[CP6 — DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy)), nối tiếp bài
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), mục
+[Giai đoạn 21 — DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy)), nối tiếp bài
 [84 — Network Policy](84-network-policies-vi.md).
 
 Lưu ý cho cluster lab: snapshot `01-cluster-ready` của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md)
@@ -36,7 +36,7 @@ sau khi cluster đã chuyển sang CNI hỗ trợ NetworkPolicy (snapshot `02-ne
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Danh sách sáu network provider trong phần điều kiện tiên quyết | chỉ cần một CNI hỗ trợ NetworkPolicy; việc chọn và cài đặt CNI đó thuộc lab đổi CNI | mục Network Policy Providers của [CP6](00-ALO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy) và Lab 5b |
+| Danh sách sáu network provider trong phần điều kiện tiên quyết | chỉ cần một CNI hỗ trợ NetworkPolicy; việc chọn và cài đặt CNI đó thuộc lab đổi CNI | mục Network Policy Providers của [giai đoạn 21](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy) và Lab 5b |
 
 ---
 

@@ -35,7 +35,7 @@ chỉ cần biết những cơ chế đó tồn tại.
 | `--register-with-taints` | taint là chủ đề lập lịch | giai đoạn 7 |
 | `--node-labels` và node selector | label là nhóm bài kế tiếp | nhóm 1b |
 | Node authorization mode, NodeRestriction | thuộc kiểm soát truy cập | giai đoạn 9 |
-| `kubectl cordon`, drain, DaemonSet tolerate | quy trình bảo trì node | giai đoạn 12 và CP1 |
+| `kubectl cordon`, drain, DaemonSet tolerate | quy trình bảo trì node | giai đoạn 12 và giai đoạn 16 |
 | *Giới hạn tốc độ trục xuất*, availability zone | eviction là chủ đề riêng | giai đoạn 7 |
 | *Theo dõi dung lượng tài nguyên*, `requests` của container | cần hiểu tài nguyên Pod trước | giai đoạn 3 |
 | *Topology của node* | tính năng nâng cao của kubelet | giai đoạn 7 |

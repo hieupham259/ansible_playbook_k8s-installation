@@ -13,12 +13,12 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — CP5 Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#cp5--cấu-hình-lại-cluster-đang-chạy),
+**Vị trí:** [Checkpoint tiếp nối — giai đoạn 20 Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy),
 bài 1/6 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
-Bài này ngắn nhưng là **bản đồ tổng** của cả CP5: nó cho biết cấu hình của từng thành phần
+Bài này ngắn nhưng là **bản đồ tổng** của cả giai đoạn 20: nó cho biết cấu hình của từng thành phần
 (control plane, kubelet, kube-proxy, CoreDNS) nằm ở đâu, sửa thế nào, và — quan trọng nhất —
-thứ gì sẽ bị `kubeadm upgrade` ghi đè nếu bạn không chủ động giữ lại. Các bài sau của CP5 đi
+thứ gì sẽ bị `kubeadm upgrade` ghi đè nếu bạn không chủ động giữ lại. Các bài sau của giai đoạn 20 đi
 sâu vào từng trường hợp cụ thể.
 
 **Phải hiểu ở lần đọc này:**

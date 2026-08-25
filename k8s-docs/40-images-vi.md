@@ -37,7 +37,7 @@ registry, cần Secret của giai đoạn 3 mới làm được.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Toàn bộ mục *Sử dụng private registry*, `imagePullSecrets`, cách tạo Secret | cần học Secret trước | giai đoạn 3, bài [109](109-secret-vi.md) |
-| *Cách diễn giải config.json*, kubelet credential provider | cấu hình ở cấp node | giai đoạn 8 và CP5 |
+| *Cách diễn giải config.json*, kubelet credential provider | cấu hình ở cấp node | giai đoạn 8 và giai đoạn 20 |
 | *Bảo đảm kiểm tra thông tin xác thực khi pull image* | là chủ đề bảo mật | giai đoạn 9 |
 | `serializeImagePulls`, `maxParallelImagePulls` | tinh chỉnh kubelet | giai đoạn 12 |
 | *Pull image theo runtime class* (alpha) | cần RuntimeClass | bài [43](43-runtime-class-vi.md) |

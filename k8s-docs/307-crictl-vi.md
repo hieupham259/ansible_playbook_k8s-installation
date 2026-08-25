@@ -9,8 +9,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP9 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố), bài 2/10 · thực hành trực tiếp trên
+**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố), bài 2/10 · thực hành trực tiếp trên
 node của cluster VM [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này nối tiếp bài [00 — Container runtime](00-container-runtimes-vi.md): ở đó bạn đã dựng
@@ -272,7 +272,7 @@ Output tương tự như sau:
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP9:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 24:
 
 1. kubelet trên `k8s-worker2` của cluster lab không khởi động được, nên bạn không tin vào những
    gì `kubectl get pods` báo về node đó. SSH vào node, bạn dùng những lệnh `crictl` nào để biết
@@ -311,4 +311,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi đọc bài sau của
-[CP9](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố).
+[giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố).

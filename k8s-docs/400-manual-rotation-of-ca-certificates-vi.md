@@ -12,8 +12,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP3 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ), bài 7/7 — **bài cuối và
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ), bài 7/7 — **bài cuối và
 nguy hiểm nhất nhóm** · Chỉ làm trên cluster lab, sau khi đã snapshot cả ba VM.
 
 Đây là quy trình đụng vào **gốc tin cậy của toàn cluster**. Bài giả định control plane chạy HA
@@ -42,7 +42,7 @@ restart — bài nói rõ điều đó. Đọc trước bài [219](219-kubeadm-c
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Restart aggregated API server và webhook handler | cluster lab chưa có thành phần nào loại này | [CP13](00-ALO-TRINH-ADMIN.md#cp13--mở-rộng-kubernetes), sau khi dựng extension API server |
+| Restart aggregated API server và webhook handler | cluster lab chưa có thành phần nào loại này | [giai đoạn 28](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes), sau khi dựng extension API server |
 | Bước cloud-controller-manager | cluster lab là on-premise, không có thành phần này | bài [34](34-cloud-controller-vi.md) đã đọc ở giai đoạn 1c |
 | Quy trình thay thế cuốn chiếu cho StatefulSet | phụ thuộc cách ứng dụng của bạn dùng StatefulSet | bài [65](65-statefulset-vi.md) và [339](339-configure-pdb-vi.md) |
 
@@ -227,7 +227,7 @@ chơi (playground) Kubernetes sau:
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP3:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 18:
 
 1. Vì sao toàn bộ quy trình phải đi qua giai đoạn "mọi thành phần tin **cả hai** CA" thay vì thay
    thẳng CA cũ bằng CA mới?
@@ -265,5 +265,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Đây là bài cuối của [CP3 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ). Trả lời trôi cả năm câu thì chuyển sang
-[CP4 — etcd, backup và khôi phục thảm họa](00-ALO-TRINH-ADMIN.md#cp4--etcd-backup-và-khôi-phục-thảm-họa).
+Đây là bài cuối của [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ). Trả lời trôi cả năm câu thì chuyển sang
+[Giai đoạn 19 — etcd, backup và khôi phục thảm họa](00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa).

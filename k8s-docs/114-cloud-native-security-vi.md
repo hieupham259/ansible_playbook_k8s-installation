@@ -41,7 +41,7 @@ cluster. Bài này vẫn là bài khung; phần bạn thực sự thao tác đư
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Giai đoạn *Phát triển* và *Phân phối* | thuộc quy trình phát triển và chuỗi cung ứng, không phải thao tác trên cluster | bài [130](130-application-security-checklist-vi.md) |
-| Mã hóa khi lưu trữ cho đối tượng API, khóa sinh trong HSM | là thao tác cấu hình API server | CP7 audit/encryption |
+| Mã hóa khi lưu trữ cho đối tượng API, khóa sinh trong HSM | là thao tác cấu hình API server | giai đoạn 22 audit/encryption |
 | CertificateSigningRequests và việc hạn chế lạm dụng | chưa học các cơ chế xác thực | bài [123](123-hardening-authentication-vi.md) |
 | *Mạng và bảo mật* — service mesh, mã hóa của network plugin | NetworkPolicy đã học rồi; service mesh ngoài lộ trình | bài [84](84-network-policies-vi.md) |
 | *Khả năng quan sát và bảo mật runtime* | chưa học ba trụ cột observability | giai đoạn 11 |

@@ -21,7 +21,7 @@ khối *Thận trọng* đầu bài: **Secret mặc định KHÔNG được mã 
 "đã là Secret thì an toàn" thì coi như chưa đọc.
 
 Việc bật *Encryption at Rest* phải sửa cấu hình kube-apiserver nên không làm ở giai đoạn này;
-nó là [nợ lab](labs/README.md#5-sổ-nợ-lab) và được trả ở CP7 trong phần checkpoint tasks.
+nó là [nợ lab](labs/README.md#5-sổ-nợ-lab) và được trả ở giai đoạn 22 trong phần checkpoint tasks.
 
 **Phải hiểu ở lần đọc này:**
 
@@ -50,7 +50,7 @@ nó là [nợ lab](labs/README.md#5-sổ-nợ-lab) và được trả ở CP7 tr
 | *Secret bootstrap token* | là cơ chế đăng ký node lúc `kubeadm join` | giai đoạn 8, bài [02](02-create-cluster-kubeadm-vi.md) |
 | *Secret TLS* và việc dùng nó cho Ingress | chưa học Ingress | giai đoạn 5 |
 | *Secret để kéo container image*, `imagePullSecrets`, credential provider | phần gắn vào ServiceAccount cần RBAC | giai đoạn 9, bài [118](118-service-accounts-vi.md) |
-| Bật *Encryption at Rest* cho Secret | phải sửa cấu hình kube-apiserver | [nợ lab](labs/README.md#5-sổ-nợ-lab), trả ở CP7 |
+| Bật *Encryption at Rest* cho Secret | phải sửa cấu hình kube-apiserver | [nợ lab](labs/README.md#5-sổ-nợ-lab), trả ở giai đoạn 22 |
 | *Các lựa chọn thay thế cho Secret* — CSI provider, device plugin, CertificateSigningRequest | cần CSI và các cơ chế mở rộng | giai đoạn 6 và 14 |
 | *Các thực hành tốt cho Kubernetes Secret* (link cuối bài) | là checklist hardening | giai đoạn 9, bài [121](121-secrets-good-practices-vi.md) |
 
@@ -882,7 +882,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    hóa** trong kho dữ liệu nền của API server (etcd)", và giá trị base64 "bị che mờ nhưng
    không hề bí mật". Vì vậy **bất kỳ ai có quyền truy cập etcd đều đọc được mật khẩu thật**,
    y như người có quyền truy cập API. Muốn dữ liệu thật sự được mã hóa trong etcd thì phải
-   bật *Encryption at Rest* — thao tác thuộc CP7.
+   bật *Encryption at Rest* — thao tác thuộc giai đoạn 22.
 2. **Không giữ được.** Bài nêu thẳng trong khối *Thận trọng* đầu bài: "bất kỳ ai được phép tạo
    Pod trong một namespace đều có thể lợi dụng quyền đó để đọc **bất kỳ Secret nào** trong
    namespace đó; điều này bao gồm cả quyền truy cập gián tiếp như khả năng tạo một Deployment".

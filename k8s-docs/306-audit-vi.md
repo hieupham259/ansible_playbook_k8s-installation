@@ -9,8 +9,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP7 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu), bài 1/6 ·
+**Vị trí:** [Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu), bài 1/6 ·
 thực hành trực tiếp trên `k8s-master` của cluster VM [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này lấp mảnh cuối của chuỗi xử lý request đã học ở bài
@@ -399,7 +399,7 @@ Theo mặc định, truncate bị tắt ở cả `webhook` và `log`; quản tr�
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP7:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 22:
 
 1. Trên `k8s-master` của cluster lab, bạn thêm flag `--audit-policy-file` trỏ tới một policy
    hợp lệ vào static Pod `kube-apiserver`, nhưng không thêm `--audit-log-path` lẫn
@@ -446,4 +446,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài
 [208 — Mã hóa dữ liệu bí mật khi lưu trữ](208-encrypt-data-vi.md), bài 2/6 của
-[CP7](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu).
+[giai đoạn 22](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu).

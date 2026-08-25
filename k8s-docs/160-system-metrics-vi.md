@@ -37,9 +37,9 @@ phần đó chỉ tra khi cần.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | *Metric của kube-controller-manager* — `cloudprovider_gce_api_request_duration_seconds`… | là metric của cloud provider; cluster lab chạy trên VM tự dựng | không cần |
-| *Metric của kube-scheduler* — `kube_pod_resource_request`, `/metrics/resources` | là metric tùy chọn, phải bật bằng cờ hidden metrics mới thấy | CP8 giám sát và cảnh báo |
-| *Metric Pressure Stall Information (PSI) của kubelet* và mục *Yêu cầu* | đọc được số PSI là kỹ năng chẩn đoán, cần cgroup v2 và kernel ≥ 4.20 | CP9 xử lý sự cố |
-| *Tắt metric* (`--disabled-metrics`) và *Cưỡng chế cardinality* (`--allow-metric-labels`) | là tinh chỉnh khi pipeline đã chạy và đang tốn bộ nhớ | CP8 giám sát và cảnh báo |
+| *Metric của kube-scheduler* — `kube_pod_resource_request`, `/metrics/resources` | là metric tùy chọn, phải bật bằng cờ hidden metrics mới thấy | giai đoạn 23 giám sát và cảnh báo |
+| *Metric Pressure Stall Information (PSI) của kubelet* và mục *Yêu cầu* | đọc được số PSI là kỹ năng chẩn đoán, cần cgroup v2 và kernel ≥ 4.20 | giai đoạn 24 xử lý sự cố |
+| *Tắt metric* (`--disabled-metrics`) và *Cưỡng chế cardinality* (`--allow-metric-labels`) | là tinh chỉnh khi pipeline đã chạy và đang tốn bộ nhớ | giai đoạn 23 giám sát và cảnh báo |
 
 Nhớ mối liên hệ với lab: **Lab 11a** cài metrics-server và chụp snapshot `04-metrics-ready`;
 **Lab 11b** dùng chính snapshot đó để trả nợ phần thực hành HPA/VPA của giai đoạn 4 — bài

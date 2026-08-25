@@ -43,8 +43,8 @@ bài này bổ sung phần còn thiếu là **cái giá của từng mô hình**
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Ghi chú "kubeadm khởi tạo etcd cluster theo cách tĩnh" và link *Hướng dẫn Clustering* của etcd | cách etcd hình thành cluster là chủ đề vận hành etcd | CP4 etcd backup |
-| Cụm từ "tính dự phòng" ở mức số lượng member sống sót | cần quorum và bầu leader của etcd | CP4 etcd backup |
+| Ghi chú "kubeadm khởi tạo etcd cluster theo cách tĩnh" và link *Hướng dẫn Clustering* của etcd | cách etcd hình thành cluster là chủ đề vận hành etcd | giai đoạn 19 etcd backup |
+| Cụm từ "tính dự phòng" ở mức số lượng member sống sót | cần quorum và bầu leader của etcd | giai đoạn 19 etcd backup |
 | Hai hình vẽ topology trên kubernetes.io | chỉ minh họa lại phần chữ | không cần |
 | Cách dựng thật từng topology | là nội dung hai bài kế | bài [07](07-setup-ha-etcd-with-kubeadm-vi.md) và [08](08-high-availability-vi.md) |
 

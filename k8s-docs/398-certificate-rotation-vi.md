@@ -13,8 +13,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP3 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ), bài 3/7 · Kiểm chứng
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ), bài 3/7 · Kiểm chứng
 trên cluster lab: chạy `kubectl get csr` trên `k8s-master` và đọc được trạng thái CSR của kubelet ba
 node.
 
@@ -107,7 +107,7 @@ các kết nối đang có tới Kubernetes API để kết nối lại bằng c
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP3:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 18:
 
 1. Trên cluster lab, `kubectl get csr` cho thấy CSR của kubelet ở trạng thái `Approved,Issued`.
    Ai đã phê duyệt nó, và ai đã ký?
@@ -136,4 +136,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài kế của [CP3 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ).
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài kế của [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ).

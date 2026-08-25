@@ -41,10 +41,10 @@ nửa với nhau.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Cảnh báo về `unattended-upgrades` của Debian và `logind.conf.d` | là bước chuẩn bị node ngay trước khi bật tính năng thật | CP1 vòng đời node |
+| Cảnh báo về `unattended-upgrades` của Debian và `logind.conf.d` | là bước chuẩn bị node ngay trước khi bật tính năng thật | giai đoạn 16 vòng đời node |
 | Mục *Windows* trong *Bật tính năng tắt node nhẹ nhàng* | cluster lab chỉ có node Linux | giai đoạn 15 (node Windows) |
-| *Tắt node nhẹ nhàng dựa trên độ ưu tiên của Pod* — `shutdownGracePeriodByPodPriority` | là tinh chỉnh nhiều giai đoạn, chỉ đáng làm khi cluster có nhiều lớp workload | CP1 vòng đời node |
-| *Buộc tách storage khi hết thời gian chờ* — `disable-force-detach-on-timeout` | phải sửa cấu hình kube-controller-manager | CP5 cấu hình lại cluster đang chạy |
+| *Tắt node nhẹ nhàng dựa trên độ ưu tiên của Pod* — `shutdownGracePeriodByPodPriority` | là tinh chỉnh nhiều giai đoạn, chỉ đáng làm khi cluster có nhiều lớp workload | giai đoạn 16 vòng đời node |
+| *Buộc tách storage khi hết thời gian chờ* — `disable-force-detach-on-timeout` | phải sửa cấu hình kube-controller-manager | giai đoạn 20 cấu hình lại cluster đang chạy |
 | Metric `graceful_shutdown_start_time_seconds` và `graceful_shutdown_end_time_seconds` | cần pipeline metric đã dựng mới quan sát được | Lab 11a |
 
 ---

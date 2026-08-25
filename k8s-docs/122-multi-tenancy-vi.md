@@ -44,7 +44,7 @@ mô hình cô lập và, quan trọng hơn, chỉ ra **giới hạn của từng
 | *Sandbox cho container* — máy ảo, kernel không gian người dùng | cần RuntimeClass và một runtime thay thế | bài [43](43-runtime-class-vi.md) |
 | *Độ ưu tiên và công bằng của API* | là bài riêng ở cuối giai đoạn này | bài [166](166-flow-control-vi.md) |
 | *Chất lượng dịch vụ (QoS)* — bandwidth plugin, độ ưu tiên và chiếm chỗ của Pod | priority/preemption đã học rồi; bandwidth plugin còn là thử nghiệm | giai đoạn 7 |
-| *DNS* — hạn chế tra cứu liên namespace bằng policy của CoreDNS | là thao tác cấu hình CoreDNS | CP6 DNS/CNI/kube-proxy |
+| *DNS* — hạn chế tra cứu liên namespace bằng policy của CoreDNS | là thao tác cấu hình CoreDNS | giai đoạn 21 DNS/CNI/kube-proxy |
 | *Operator* | chưa học CRD và controller tùy chỉnh | giai đoạn 14 |
 | *Control plane ảo cho mỗi tenant*, super-cluster | kiến trúc ngoài phạm vi cluster lab một control plane | không cần |
 

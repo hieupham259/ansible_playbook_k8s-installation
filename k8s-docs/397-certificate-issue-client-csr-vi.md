@@ -13,8 +13,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP3 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ), bài 6/7 · Kiểm chứng
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ), bài 6/7 · Kiểm chứng
 trên cluster lab: tạo trọn một danh tính `myuser`, xác nhận bằng `kubectl --context myuser auth
 whoami`, rồi chứng minh nó **chưa làm được gì** cho tới khi có RoleBinding.
 
@@ -294,7 +294,7 @@ roleRef:
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP3:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 18:
 
 1. Kubernetes không có object `User`. Vậy khi bạn gọi API bằng certificate, cluster lấy **tên
    người dùng** và **group** của bạn từ đâu?
@@ -330,5 +330,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài cuối của [CP3 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ) —
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng trước khi sang bài cuối của [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) —
 [400](400-manual-rotation-of-ca-certificates-vi.md).

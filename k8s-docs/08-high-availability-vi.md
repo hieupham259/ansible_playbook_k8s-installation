@@ -53,8 +53,8 @@ ba VM **không** chạy được nội dung này; nó cần bộ VM riêng của
 | Cảnh báo về cloud provider, Service `LoadBalancer`, PersistentVolume động | lab chạy on-premises trên VM | không cần |
 | *Các container image* — khi host không pull được image | mạng lab có HTTPS egress | không cần |
 | *Giao diện dòng lệnh* | chỉ là lời khuyên cài `kubectl` | không cần |
-| *Phân phối certificate thủ công* và `kubeadm certs certificate-key` | chỉ cần khi cố ý bỏ `--upload-certs` | CP3 certificate |
-| Link *tài liệu về nâng cấp* ở đầu bài | HA đổi cách nâng cấp control plane | CP2 nâng cấp |
+| *Phân phối certificate thủ công* và `kubeadm certs certificate-key` | chỉ cần khi cố ý bỏ `--upload-certs` | giai đoạn 18 certificate |
+| Link *tài liệu về nâng cấp* ở đầu bài | HA đổi cách nâng cấp control plane | giai đoạn 17 nâng cấp |
 | Hai danh sách *Trước khi bạn bắt đầu* gần trùng nhau | chỉ đọc danh sách của topology bạn đã chọn | không cần |
 
 ---

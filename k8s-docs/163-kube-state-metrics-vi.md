@@ -35,7 +35,7 @@ API). Đọc bài này chủ yếu để đặt kube-state-metrics vào đúng �
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Câu truy vấn PromQL trong *Ví dụ: dùng metrics từ kube-state-metrics để truy vấn trạng thái cluster* | cú pháp PromQL, và cluster lab chưa có Prometheus | Lab 11a |
-| Quy tắc alert `PodsBlockedInTerminatingState` trong *Ví dụ: cảnh báo dựa trên kube-state-metrics* | cú pháp alert rule và cách gắn severity | CP8 giám sát và cảnh báo |
+| Quy tắc alert `PodsBlockedInTerminatingState` trong *Ví dụ: cảnh báo dựa trên kube-state-metrics* | cú pháp alert rule và cách gắn severity | giai đoạn 23 giám sát và cảnh báo |
 | Ghi chú miễn trừ trách nhiệm với dự án bên thứ ba | là tuyên bố pháp lý của dự án, không phải kiến thức kỹ thuật | không cần |
 
 ---

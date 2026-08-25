@@ -39,9 +39,9 @@ lời câu hỏi gì và ai sinh ra chúng — không phải đọc kỹ từng 
 | Chi tiết endpoint và mức ổn định của metric trong mục *Metrics* | ở đây mới là danh sách tên | bài [160](160-system-metrics-vi.md) |
 | Xoay vòng log và agent ghi log cấp node trong mục *Logs* | mới gói trong một câu | bài [158](158-logging-vi.md), [159](159-system-logs-vi.md) |
 | OpenTelemetry Collector, sampling và che dữ liệu trong mục *Traces* | cần cấu hình tracing thật trên thành phần | bài [161](161-system-traces-vi.md) |
-| Ghi log kiểm toán (audit logging) | audit policy và backend là chủ đề riêng | CP7 audit và mã hóa dữ liệu |
-| *Các công cụ quan sát phổ biến* — Cortex, Thanos, Loki, Jaeger… | danh mục bên thứ ba, chỉ tra khi đã phải chọn công cụ | CP8 giám sát và cảnh báo |
-| Các khối *Xem thêm (See also)* và *Tiếp theo* | trỏ sang nhánh `/docs/tasks/` chưa dịch | CP8 giám sát và cảnh báo |
+| Ghi log kiểm toán (audit logging) | audit policy và backend là chủ đề riêng | giai đoạn 22 audit và mã hóa dữ liệu |
+| *Các công cụ quan sát phổ biến* — Cortex, Thanos, Loki, Jaeger… | danh mục bên thứ ba, chỉ tra khi đã phải chọn công cụ | giai đoạn 23 giám sát và cảnh báo |
+| Các khối *Xem thêm (See also)* và *Tiếp theo* | trỏ sang nhánh `/docs/tasks/` chưa dịch | giai đoạn 23 giám sát và cảnh báo |
 
 Giai đoạn này là chỗ cluster lab thay đổi hạ tầng: **Lab 11a cài metrics-server và chụp
 snapshot `04-metrics-ready`**. Ngay sau đó **Lab 11b trả nợ phần thực hành HPA/VPA** mà bạn chỉ

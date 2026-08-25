@@ -50,8 +50,8 @@ là kỹ năng.
 | Các mục gắn với phiên bản đã quá cũ: RBAC v1.18/v1.17, Docker 1.13.1.84 trên CentOS 7, `kubeadm reset` unmount `/var/lib/kubelet`, `context deadline exceeded` | cluster lab chạy v1.35.6, không thể gặp | không cần |
 | *NIC mặc định khi dùng flannel trong Vagrant*, *IP không công khai được dùng cho container*, *`/usr` được mount ở chế độ chỉ đọc* | môi trường khác lab: Vagrant, cloud, Flatcar/CoreOS | không cần |
 | *kube-proxy được lập lịch trước khi node được cloud-controller-manager khởi tạo* | chỉ xảy ra với cloud provider | không cần |
-| *Xoay vòng client certificate của kubelet thất bại* | cần hiểu vòng đời và cách ký certificate | CP3 certificate |
-| *Nâng cấp thất bại do hash của etcd không thay đổi* | chỉ gặp khi nâng cấp từ v1.28.0–v1.28.2 | CP2 nâng cấp |
+| *Xoay vòng client certificate của kubelet thất bại* | cần hiểu vòng đời và cách ký certificate | giai đoạn 18 certificate |
+| *Nâng cấp thất bại do hash của etcd không thay đổi* | chỉ gặp khi nâng cấp từ v1.28.0–v1.28.2 | giai đoạn 17 nâng cấp |
 | *Không thể dùng metrics-server một cách an toàn trong cluster kubeadm* | chưa cài metrics-server | giai đoạn 11 |
 
 ---

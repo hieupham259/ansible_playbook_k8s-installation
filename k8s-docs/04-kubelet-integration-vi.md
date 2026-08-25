@@ -48,9 +48,9 @@ A4.3 dặn rằng kubelet restart liên tục **trước** `kubeadm init/join` l
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Ghi chú Dockershim ở đầu bài | cluster lab nói CRI thẳng với containerd | CP12 di chuyển khỏi dockershim |
-| Cơ chế TLS Bootstrap sinh ra "thông tin xác thực duy nhất" thế nào | chưa học cách cấp và xoay certificate | giai đoạn 9, CP3 certificate |
-| Toàn bộ field của `KubeletConfiguration` (`kubeadm config print init-defaults --component-configs`) | hàng chục field, chỉ tra khi cần | CP5 cấu hình lại cluster đang chạy |
+| Ghi chú Dockershim ở đầu bài | cluster lab nói CRI thẳng với containerd | giai đoạn 27 di chuyển khỏi dockershim |
+| Cơ chế TLS Bootstrap sinh ra "thông tin xác thực duy nhất" thế nào | chưa học cách cấp và xoay certificate | giai đoạn 9, giai đoạn 18 certificate |
+| Toàn bộ field của `KubeletConfiguration` (`kubeadm config print init-defaults --component-configs`) | hàng chục field, chỉ tra khi cần | giai đoạn 20 cấu hình lại cluster đang chạy |
 | File `kubelet.service` cơ bản và cách cài không dùng package manager | Lab 00 cài bằng gói DEB | không cần |
 
 ---

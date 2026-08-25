@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)), mở rộng của
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)), mở rộng của
 bài [34 — Cloud Controller Manager](34-cloud-controller-vi.md) và có liên hệ với bài
 [198 — Leader Migration](198-controller-manager-leader-migration-vi.md).
 

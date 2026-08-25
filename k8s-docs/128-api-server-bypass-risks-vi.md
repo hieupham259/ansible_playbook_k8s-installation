@@ -49,8 +49,8 @@ của kubeadm. Bài này chỉ ra **bốn đường đi vòng** qua luồng đó
 | --- | --- | --- |
 | Cấu hình xác thực kubelet ở chế độ webhook hoặc certificate | là thao tác sửa cấu hình kubelet | giai đoạn 8, bài [04](04-kubelet-integration-vi.md) |
 | *Các quyền chi tiết* thay cho quyền bao trùm `nodes/proxy` | tra cứu khi thiết kế RBAC cho dịch vụ giám sát | giai đoạn 11 |
-| Kiểm toán tập trung mọi truy cập vào thư mục static Pod manifest | cần audit backend | CP7 audit/encryption |
-| Kiểm soát private key của etcd, mutual TLS, CA riêng cho etcd | thuộc vòng đời chứng chỉ và vận hành etcd | CP3 chứng chỉ và CP4 etcd |
+| Kiểm toán tập trung mọi truy cập vào thư mục static Pod manifest | cần audit backend | giai đoạn 22 audit/encryption |
+| Kiểm soát private key của etcd, mutual TLS, CA riêng cho etcd | thuộc vòng đời chứng chỉ và vận hành etcd | giai đoạn 18 chứng chỉ và giai đoạn 19 etcd |
 
 ---
 

@@ -534,7 +534,7 @@ Nhóm thực hành đi kèm bài [82](82-service-vi.md), [85](85-dual-stack-vi.m
 
 ## Phần 26 — Tasks: TLS và vòng đời certificate
 
-Nhóm thực hành của [CP3](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ). Đi kèm bài [156](156-certificates-vi.md) và [219](219-kubeadm-certs-vi.md).
+Nhóm thực hành của [giai đoạn 18](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ). Đi kèm bài [156](156-certificates-vi.md) và [219](219-kubeadm-certs-vi.md).
 
 | # | Tài liệu | Kiến thức cần trước |
 |---|---|---|
@@ -578,7 +578,7 @@ Kubernetes Concepts mà còn đủ dùng cho việc quản trị cluster thực 
 `[x]` khi đã có tài liệu hướng dẫn đầy đủ và có bài thực hành kiểm chứng; việc một
 khái niệm chỉ được nhắc đến hoặc trỏ sang tài liệu bên ngoài chưa được coi là hoàn tất.
 
-> **Cập nhật:** phần lớn *tài liệu* cho các mục dưới đây **đã có bản dịch** trong thư mục (nhóm số `186` trở lên) và đã được nối vào lộ trình ở [CP1–CP12](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks). Cái còn thiếu là **bài lab kiểm chứng** — theo đúng tiêu chí của mục này, có tài liệu mà chưa có thực hành thì vẫn để `[ ]`. Xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
+> **Cập nhật:** phần lớn *tài liệu* cho các mục dưới đây **đã có bản dịch** trong thư mục (nhóm số `186` trở lên) và đã được nối vào lộ trình ở [giai đoạn 16–27](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster). Cái còn thiếu là **bài lab kiểm chứng** — theo đúng tiêu chí của mục này, có tài liệu mà chưa có thực hành thì vẫn để `[ ]`. Xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
 
 ### A. Vòng đời cluster và quản trị bằng kubeadm
 

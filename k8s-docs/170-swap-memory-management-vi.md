@@ -40,11 +40,11 @@ này để nắm ranh giới chứ chưa phải để bật nó lên.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| *Khả năng quan sát việc dùng swap* — `/metrics/resource`, `machine_swap_bytes`, `kubectl top --show-swap`, `node.status.nodeInfo.swap.capacity` | cần metrics-server và pipeline metric mới đọc được | Lab 11a, CP8 giám sát và cảnh báo |
+| *Khả năng quan sát việc dùng swap* — `/metrics/resource`, `machine_swap_bytes`, `kubectl top --show-swap`, `node.status.nodeInfo.swap.capacity` | cần metrics-server và pipeline metric mới đọc được | Lab 11a, giai đoạn 23 giám sát và cảnh báo |
 | *Khám phá swap bằng Node Feature Discovery* | là add-on riêng phải cài thêm, không thuộc core | không cần |
-| *Volume dựa trên bộ nhớ* — tùy chọn tmpfs `noswap`, kernel 6.3 | chi tiết kernel, chỉ quan trọng khi thật sự bật swap | CP5 cấu hình lại cluster đang chạy |
-| *Trục xuất Pod* — quan hệ giữa eviction threshold và `vm.min_free_kbytes` | là bài toán chỉnh ngưỡng trên node đã bật swap | CP5 cấu hình lại cluster đang chạy |
-| *Thực hành tốt khi dùng swap* — `memory.swap.max=0` cho system slice, `io.latency`, chọn đĩa | là runbook cho ngày bạn quyết định bật swap thật | CP1 vòng đời node |
+| *Volume dựa trên bộ nhớ* — tùy chọn tmpfs `noswap`, kernel 6.3 | chi tiết kernel, chỉ quan trọng khi thật sự bật swap | giai đoạn 20 cấu hình lại cluster đang chạy |
+| *Trục xuất Pod* — quan hệ giữa eviction threshold và `vm.min_free_kbytes` | là bài toán chỉnh ngưỡng trên node đã bật swap | giai đoạn 20 cấu hình lại cluster đang chạy |
+| *Thực hành tốt khi dùng swap* — `memory.swap.max=0` cho system slice, `io.latency`, chọn đĩa | là runbook cho ngày bạn quyết định bật swap thật | giai đoạn 16 vòng đời node |
 
 ---
 

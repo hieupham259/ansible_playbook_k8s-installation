@@ -49,8 +49,8 @@ certificate trên một host rồi phát đi) đều có lý do.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Ba cây thư mục liệt kê file bắt buộc trên `$HOST0`/`$HOST1`/`$HOST2` | là checklist lúc làm thật, không phải kiến thức | Lab 8c |
-| Vai trò riêng của từng certificate: `peer`, `server`, `healthcheck-client`, `apiserver-etcd-client` | chưa học PKI của cluster | CP3 certificate |
-| Cách chạy `etcdctl` bên trong container bằng `crictl run` | là bước kiểm tra tùy chọn | CP4 etcd backup |
+| Vai trò riêng của từng certificate: `peer`, `server`, `healthcheck-client`, `apiserver-etcd-client` | chưa học PKI của cluster | giai đoạn 18 certificate |
+| Cách chạy `etcdctl` bên trong container bằng `crictl run` | là bước kiểm tra tùy chọn | giai đoạn 19 etcd backup |
 | Ghi chú "etcd không hỗ trợ dual-stack" | dual-stack là bài riêng, đọc sau | bài [05](05-dual-stack-support-vi.md) |
 | `authentication.anonymous/webhook`, `authorization.mode` trong `KubeletConfiguration` | chưa học xác thực và ủy quyền | giai đoạn 9 |
 

@@ -46,8 +46,8 @@ cần hiểu chúng là thứ giữ cho số replica luôn đúng như khai báo
 | Dùng condition gián đoạn trong Pod failure policy của Job | chưa học Job | giai đoạn 4, bài [67](67-job-vi.md) |
 | anti-affinity và trải ứng dụng theo zone | chưa học lập lịch | giai đoạn 7a, bài [138](138-assign-pod-node-vi.md) |
 | `PriorityClass` như một nguồn gây gián đoạn | chưa học độ ưu tiên | giai đoạn 7a, bài [141](141-pod-priority-preemption-vi.md) |
-| Unhealthy Pod Eviction Policy (`AlwaysAllow`) | là tùy chọn khi cấu hình PDB thật | CP1 — Vòng đời node |
-| Thực hành cordon / drain / uncordon | cần quy trình bảo trì node | giai đoạn 12, bài [169](169-node-shutdown-vi.md) và CP1 |
+| Unhealthy Pod Eviction Policy (`AlwaysAllow`) | là tùy chọn khi cấu hình PDB thật | giai đoạn 16 — Vòng đời node |
+| Thực hành cordon / drain / uncordon | cần quy trình bảo trì node | giai đoạn 12, bài [169](169-node-shutdown-vi.md) và giai đoạn 16 |
 | *Tách biệt vai trò Chủ sở hữu Cluster và Chủ sở hữu Ứng dụng* | là mô hình tổ chức, không phải cơ chế | giai đoạn 9, bài [122](122-multi-tenancy-vi.md) |
 
 ---

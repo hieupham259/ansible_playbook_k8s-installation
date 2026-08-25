@@ -39,7 +39,7 @@ chọn công cụ. Nhóm mạng chiếm phần lớn độ dài; lướt qua tê
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Mô tả chi tiết từng nhà cung cấp mạng (ACI, Contiv, Contrail, NSX-T, Nuage, Terway…) | là bảng tra khi phải chọn CNI cho một môi trường cụ thể | CP6 DNS, CNI và kube-proxy |
+| Mô tả chi tiết từng nhà cung cấp mạng (ACI, Contiv, Contrail, NSX-T, Nuage, Terway…) | là bảng tra khi phải chọn CNI cho một môi trường cụ thể | giai đoạn 21 DNS, CNI và kube-proxy |
 | Multus, Knitter, Spiderpool, Nodus — nhiều interface, SR-IOV, RDMA, SFC | mạng chuyên biệt cho NFV và HPC, ngoài phạm vi admin phổ thông | không cần |
 | Dashboard và Headlamp | giao diện web, không cần thiết để vận hành bằng `kubectl` | không cần |
 | KubeVirt trong nhóm *Hạ tầng* | chạy máy ảo trên Kubernetes là một hướng riêng | không cần |

@@ -13,7 +13,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — bài này
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)) — bài này
 không thuộc CP nào của lộ trình vì hướng tới developer hơn là admin; nó là lời giải "hạng
 nặng" cho vấn đề mà bài [304 — Lấy shell vào container đang chạy](304-get-shell-running-container-vi.md)
 giải quyết thủ công.

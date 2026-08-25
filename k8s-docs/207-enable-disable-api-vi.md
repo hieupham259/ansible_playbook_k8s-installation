@@ -11,7 +11,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — CP5 Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#cp5--cấu-hình-lại-cluster-đang-chạy),
+**Vị trí:** [Checkpoint tiếp nối — giai đoạn 20 Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy),
 bài 5/6 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này rất ngắn: nó chỉ dạy một flag. Đừng nhầm `--runtime-config` (bật/tắt **phiên bản
@@ -75,7 +75,7 @@ Trả lời được các câu dưới đây mà không nhìn lại bài là đ�
 3. `api/legacy` có phải là "mọi API phiên bản cũ" (ví dụ mọi API v1beta1) không? Nếu không,
    nó gồm những gì?
 4. Trên cluster lab của bạn, flag này thuộc về tiến trình nào và tiến trình đó đang chạy ở
-   đâu — bạn sẽ sửa nó bằng cơ chế nào đã học trong CP5?
+   đâu — bạn sẽ sửa nó bằng cơ chế nào đã học trong giai đoạn 20?
 
 <details>
 <summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>

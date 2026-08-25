@@ -10,12 +10,12 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node), bài 1/4 · Kiểm chứng trên cluster
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node), bài 1/4 · Kiểm chứng trên cluster
 lab: chạy trọn `cordon → drain → uncordon` trên `k8s-worker2` (node duy nhất được phép gây lỗi), và
 ở **Lab 12 — Vận hành vòng đời node** khi lab đó được viết.
 
-Đây là bài đầu của CP1 và là thao tác bảo trì node dùng nhiều nhất trong thực tế. Nó dựa
+Đây là bài đầu của giai đoạn 16 và là thao tác bảo trì node dùng nhiều nhất trong thực tế. Nó dựa
 trực tiếp lên hai bài đã đọc ở mạch chính: [53](53-disruptions-vi.md) (PodDisruptionBudget)
 và [143](143-api-eviction-vi.md) (eviction do API khởi phát).
 
@@ -172,7 +172,7 @@ Pod), bạn cũng có thể kích hoạt eviction theo cách lập trình bằng
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP1:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 16:
 
 1. Trên cluster lab, `k8s-worker2` đang chạy Pod của DaemonSet (CNI, kube-proxy). Bạn gõ
    `kubectl drain k8s-worker2` và lệnh dừng lại báo lỗi. Vì sao phải thêm `--ignore-daemonsets`,
@@ -218,4 +218,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng, rồi thực hành trọn vòng
 `cordon → drain --ignore-daemonsets → uncordon` trên `k8s-worker2` trước khi sang bài kế của
-[CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node).
+[Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node).

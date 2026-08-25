@@ -44,8 +44,8 @@ có chỗ áp dụng. Đọc để biết **cơ chế và điều kiện kích h
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Toàn bộ *Các trình quản lý tài nguyên cấp Pod* — `.spec.resources`, pool dùng chung của pod, scope `pod` vs `container`, metrics, checkpoint | alpha ở v1.36 và cần feature gate `PodLevelResources` + `PodLevelResourceManagers`; cluster baseline của bạn chưa có | không cần |
-| *Các tùy chọn của chính sách static* — `full-pcpus-only`, `distribute-cpus-across-numa`, `align-by-socket`, `distribute-cpus-across-cores`, `strict-cpu-reservation`, `prefer-align-cpus-by-uncorecache` | đều là tinh chỉnh theo topology NUMA / socket / uncore cache của phần cứng thật; worker VM 2 vCPU không có các ranh giới đó | nhóm task CP10 ở cuối lộ trình (*Control CPU Management Policies*) |
-| Các chính sách cụ thể của Topology Manager, ví dụ `single-numa-node` | bài chỉ nêu tên khi nói về `align-by-socket`, chi tiết nằm ở trang task | nhóm task CP10 ở cuối lộ trình (*Control Topology Management Policies*) |
+| *Các tùy chọn của chính sách static* — `full-pcpus-only`, `distribute-cpus-across-numa`, `align-by-socket`, `distribute-cpus-across-cores`, `strict-cpu-reservation`, `prefer-align-cpus-by-uncorecache` | đều là tinh chỉnh theo topology NUMA / socket / uncore cache của phần cứng thật; worker VM 2 vCPU không có các ranh giới đó | nhóm task giai đoạn 25 ở cuối lộ trình (*Control CPU Management Policies*) |
+| Các chính sách cụ thể của Topology Manager, ví dụ `single-numa-node` | bài chỉ nêu tên khi nói về `align-by-socket`, chi tiết nằm ở trang task | nhóm task giai đoạn 25 ở cuối lộ trình (*Control Topology Management Policies*) |
 | *Trình quản lý thiết bị* và device plugin API | chưa học device plugin | giai đoạn 14, bài [184](184-device-plugins-vi.md) |
 
 ---

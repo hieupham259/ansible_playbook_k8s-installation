@@ -10,9 +10,9 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — bài này
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)) — bài này
 không nằm trong danh sách CP nào; nó là bài "khi hỏng thì tra" đi kèm
-[CP10 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#cp10--quản-trị-tài-nguyên-theo-namespace),
+[Giai đoạn 25 — Quản trị tài nguyên theo namespace](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace),
 cụ thể là hai bài [235 — Memory Manager](235-memory-manager-vi.md) và
 [259 — Topology Manager](259-topology-manager-vi.md). Nền tảng lý thuyết nằm ở bài
 [74 — Các trình quản lý tài nguyên](74-resource-managers-vi.md).

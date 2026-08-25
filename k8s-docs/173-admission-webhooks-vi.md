@@ -50,7 +50,7 @@ vòng lặp phụ thuộc, và những object tuyệt đối không được đ�
 | Bảng bốn cơ chế mutating/validating, phần so sánh webhook với admission policy dùng CEL | cần biết CEL và các điểm mở rộng API | giai đoạn 14 |
 | *Dùng cơ chế kiểm tra hợp lệ và đặt giá trị mặc định có sẵn cho CustomResourceDefinition* | chưa học CRD | giai đoạn 14 |
 | Chi tiết `matchConditions`, `matchPolicy`, chính sách gọi lại (reinvocation policy) | tra cứu khi cấu hình webhook thật | giai đoạn 9, khi làm Lab 9b |
-| Chính sách audit `RequestResponse` để bắt vòng lặp | cần audit backend | CP7 audit/encryption |
+| Chính sách audit `RequestResponse` để bắt vòng lặp | cần audit backend | giai đoạn 22 audit/encryption |
 | Danh sách ví dụ biến đổi lũy đẳng và không lũy đẳng | nắm nguyên tắc là đủ; ví dụ đọc khi tự viết webhook | giai đoạn 14 |
 | *Ví dụ về các bản hiện thực tốt* — cert-manager, Gatekeeper | dự án bên thứ ba | không cần |
 

@@ -46,8 +46,8 @@ quen từ bài [110](110-manage-resources-containers-vi.md).
 | --- | --- | --- |
 | `/proc/sys/kernel/pid_max` và giới hạn PID mặc định thấp của một số bản Linux | là cấu hình hệ điều hành, nằm ngoài Kubernetes | không cần |
 | Cách thực sự áp `--pod-max-pids` / `PodPidsLimit` lên từng node | bạn chưa dựng cluster nên chưa sửa được kubelet | giai đoạn 8, bài [04](04-kubelet-integration-vi.md) |
-| Cách đặt cụ thể `--system-reserved` và `--kube-reserved`, kèm phần dự trữ CPU/bộ nhớ đi cùng | là thao tác cấu hình trên node thật, không phải khái niệm | nhóm task CP5 ở cuối lộ trình (*Reserve Compute Resources for System Daemons*) |
-| Cách đặt ngưỡng eviction mềm và cứng cho `pid.available` | ở đây chỉ cần biết eviction **không** thay thế được giới hạn cứng | nhóm task CP5 ở cuối lộ trình |
+| Cách đặt cụ thể `--system-reserved` và `--kube-reserved`, kèm phần dự trữ CPU/bộ nhớ đi cùng | là thao tác cấu hình trên node thật, không phải khái niệm | nhóm task giai đoạn 20 ở cuối lộ trình (*Reserve Compute Resources for System Daemons*) |
+| Cách đặt ngưỡng eviction mềm và cứng cho `pid.available` | ở đây chỉ cần biết eviction **không** thay thế được giới hạn cứng | nhóm task giai đoạn 20 ở cuối lộ trình |
 
 ---
 

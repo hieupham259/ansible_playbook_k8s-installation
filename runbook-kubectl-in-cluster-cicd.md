@@ -6,7 +6,7 @@
 > rồi chỉ triển khai workload trong namespace `demo-incluster` theo RBAC tối thiểu.
 >
 > **Vị trí trong bộ lab:** lab độc lập nhưng tái sử dụng hạ tầng đã hoàn tất của
-> [Lab M1](LAB-M1-BA-CUM-RKE2-RANCHER-GITLAB.md): GitLab và build runner ở cụm CICD, Registry,
+> [Lab M1](rke2-multi-cluster-labs/LAB-M1-BA-CUM-RKE2-RANCHER-GITLAB.md): GitLab và build runner ở cụm CICD, Registry,
 > cụm App hai node, DNS `*.mc.lab`, CA lab và kết nối mạng giữa hai cụm. Lab này tạo namespace
 > mới nên không tranh quyền quản lý resource `demo-app` với Argo CD của M1.
 >

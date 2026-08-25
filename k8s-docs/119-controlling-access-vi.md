@@ -42,7 +42,7 @@ admission. Bài chỉ dài hơn 170 dòng — đọc kỹ, và nhớ **đúng th
 | `--secure-port`, `--bind-address`, `--tls-cert-file`, `--tls-private-key-file` | là thao tác cấu hình API server | giai đoạn 8, bài [03](03-control-plane-flags-vi.md) |
 | Danh sách các module xác thực cụ thể và ưu nhược điểm | được so sánh chi tiết ở bài riêng | bài [123](123-hardening-authentication-vi.md) |
 | Danh sách các module Admission Control khả dụng | là bảng tra cứu | bài [129](129-security-checklist-vi.md) |
-| Mục *Kiểm toán* | audit policy và backend là thao tác cấu hình | CP7 audit/encryption |
+| Mục *Kiểm toán* | audit policy và backend là thao tác cấu hình | giai đoạn 22 audit/encryption |
 
 ---
 

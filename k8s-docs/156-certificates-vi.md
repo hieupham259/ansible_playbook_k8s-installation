@@ -14,8 +14,8 @@ Kiểm chứng ở Lab 12 (chưa viết, xem [bản đồ lab](labs/README.md#4-
 
 **Đây là một trang trỏ hướng, không phải một bài học.** Toàn bộ nội dung là đúng một câu chỉ sang
 trang *Certificates* thuộc nhánh `/docs/tasks/` của kubernetes.io. Nó **không thay thế được module
-quản lý certificate** — phần đó nằm ở **CP3 vòng đời chứng chỉ** trong
-[Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), và đã được ghi sẵn
+quản lý certificate** — phần đó nằm ở **giai đoạn 18 vòng đời chứng chỉ** trong
+[Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), và đã được ghi sẵn
 trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab). Đọc xong bài này, đừng gạch chủ đề certificate ra
 khỏi danh sách.
 
@@ -23,7 +23,7 @@ khỏi danh sách.
 
 - Trang này chỉ trả lời câu hỏi **"tài liệu về certificate nằm ở đâu"**, không trả lời bất kỳ câu
   hỏi vận hành nào về certificate.
-- Việc thật sự cần học — kiểm tra hạn, gia hạn, xoay CA, phân phối lại kubeconfig — thuộc **CP3**,
+- Việc thật sự cần học — kiểm tra hạn, gia hạn, xoay CA, phân phối lại kubeconfig — thuộc **giai đoạn 18**,
   làm bằng quy trình `kubeadm certs`.
 - Vì đây là bài cuối của giai đoạn 12, đừng để cảm giác "đã đọc hết giai đoạn" biến thành "đã biết
   quản lý certificate".
@@ -32,7 +32,7 @@ khỏi danh sách.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Link *Certificates* sang nhánh `/docs/tasks/` | là cả một module quản lý vòng đời certificate, chưa dịch trong thư mục này | CP3 vòng đời chứng chỉ |
+| Link *Certificates* sang nhánh `/docs/tasks/` | là cả một module quản lý vòng đời certificate, chưa dịch trong thư mục này | giai đoạn 18 vòng đời chứng chỉ |
 
 ---
 
@@ -59,13 +59,13 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    nhánh `/docs/tasks/`. Nó **không** trả lời việc certificate nào tồn tại trong cluster, chúng
    hết hạn khi nào, gia hạn ra sao, hay xoay CA thế nào. Sáu dòng là toàn bộ nội dung, và biết
    điều đó cũng là một kết quả đọc hợp lệ.
-2. **Chưa đủ.** Bài này không chứa một thao tác nào. Phần thật nằm ở **CP3 — Vòng đời chứng chỉ**
-   trong [Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), với quy
+2. **Chưa đủ.** Bài này không chứa một thao tác nào. Phần thật nằm ở **giai đoạn 18 — Vòng đời chứng chỉ**
+   trong [Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), với quy
    trình `kubeadm certs` để kiểm tra hạn, gia hạn và xoay CA. Cái bẫy ở đây là tâm lý: một bài
    ngắn đọc hết trong ba mươi giây rất dễ bị tick "xong", trong khi lộ trình gọi nó đúng tên là
    **trang trỏ hướng**.
 3. Nó **phát sinh ở giai đoạn 12, chính bài này**, vì cần quy trình `kubeadm certs` mà lộ trình
-   chưa dạy tới, và được **trả ở CP3**. Xem [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) — dòng "Quản
+   chưa dạy tới, và được **trả ở giai đoạn 18**. Xem [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) — dòng "Quản
    lý vòng đời certificate".
 
 </details>

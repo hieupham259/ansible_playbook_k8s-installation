@@ -12,11 +12,11 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — CP2 Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster),
+**Vị trí:** [Checkpoint tiếp nối — giai đoạn 17 Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster),
 bài 5/5 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Đây là trang tổng quan **không gắn với công cụ nào**: nó cho khung chung của mọi cuộc nâng cấp,
-còn quy trình từng lệnh cho cluster kubeadm nằm ở bài *Upgrading kubeadm clusters* (CP2 bài 1)
+còn quy trình từng lệnh cho cluster kubeadm nằm ở bài *Upgrading kubeadm clusters* (giai đoạn 17 bài 1)
 mà bạn làm trước bài này. Giá trị của bài nằm ở **thứ tự các bước** và **các việc sau nâng cấp** —
 hai thứ dễ bị bỏ sót khi chỉ chăm chăm chạy lệnh.
 
@@ -199,7 +199,7 @@ Trả lời được các câu dưới đây mà không nhìn lại bài là đ�
 
 </details>
 
-Đây là bài cuối của **CP2 — Nâng cấp cluster**. Trả lời được cả năm câu thì chốt checkpoint
+Đây là bài cuối của **giai đoạn 17 — Nâng cấp cluster**. Trả lời được cả năm câu thì chốt checkpoint
 bằng một cuộc nâng cấp thật trên cluster lab theo bài
 [Upgrading kubeadm clusters](221-kubeadm-upgrade-vi.md),
-rồi mới sang [CP3 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ).
+rồi mới sang [Giai đoạn 18 — Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ).

@@ -33,8 +33,8 @@ một dữ liệu lưu trữ. Bài này trả lời câu hỏi kế tiếp: **d�
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Toàn bộ mục *Phiên bản lưu trữ cho custom resource* và ví dụ CRD `crontabs` | chưa học CRD | giai đoạn 14 |
-| Chi tiết KMS provider và cách bật mã hóa | là tác vụ vận hành riêng | CP7 |
-| Quy trình storage version migration | tác vụ vận hành | CP7 |
+| Chi tiết KMS provider và cách bật mã hóa | là tác vụ vận hành riêng | giai đoạn 22 |
+| Quy trình storage version migration | tác vụ vận hành | giai đoạn 22 |
 
 Đây là bài **khái niệm nền**. Ở giai đoạn 1 chỉ cần nhận ra vấn đề tồn tại; thao tác thật nằm
 ở phần checkpoint tasks.

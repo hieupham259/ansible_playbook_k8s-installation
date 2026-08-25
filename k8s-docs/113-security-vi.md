@@ -37,7 +37,7 @@ nhóm cơ chế bảo mật rồi trỏ sang trang chi tiết. Đọc để có 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Bảng *Bảo mật của nhà cung cấp cloud* | cluster lab chạy trên VM tự dựng, không có IaaS | không cần |
-| Chi tiết mã hóa khi lưu trữ và cấu hình audit | là thao tác cấu hình API server | CP7 audit/encryption |
+| Chi tiết mã hóa khi lưu trữ và cấu hình audit | là thao tác cấu hình API server | giai đoạn 22 audit/encryption |
 | RuntimeClass để định nghĩa cơ chế cô lập tùy chỉnh | chỉ được nhắc tên ở đây | bài [43](43-runtime-class-vi.md), đã đọc ở giai đoạn 2 |
 | ValidatingAdmissionPolicy và các hiện thực policy của hệ sinh thái | cần biết các điểm mở rộng API trước | giai đoạn 14 |
 | Mục *Tiếp theo* — CVE feed, chứng chỉ CKS | tài nguyên tham khảo, không phải nội dung học | không cần |

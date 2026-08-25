@@ -12,7 +12,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
+**Vị trí:** [Checkpoint tiếp nối, giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
 bài 3/10 · nối tiếp bài [305 — Troubleshooting Clusters](305-debug-cluster-vi.md) và bài
 [307 — crictl](307-crictl-vi.md); giai đoạn này không có lab riêng, thực hành trực tiếp trên
 cluster lab (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
@@ -38,7 +38,7 @@ này làm được gì và **không** làm được gì so với SSH thẳng và
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Debugging Profiles và `securityContext` cho Pod debug | cơ chế profile được trình bày ở bài khác trong cùng nhóm | bài [300 — Debug Running Pods](300-debug-running-pod-vi.md), cùng CP9 |
+| Debugging Profiles và `securityContext` cho Pod debug | cơ chế profile được trình bày ở bài khác trong cùng nhóm | bài [300 — Debug Running Pods](300-debug-running-pod-vi.md), cùng giai đoạn 24 |
 | Ghi chú "kubelet chạy trong filesystem namespace" | trường hợp hiếm, chỉ gặp với cách triển khai kubelet đặc thù | tra cứu khi cần |
 
 ---

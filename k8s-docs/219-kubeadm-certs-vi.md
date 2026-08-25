@@ -13,7 +13,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — CP3 Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ),
+**Vị trí:** [Checkpoint tiếp nối — giai đoạn 18 Vòng đời chứng chỉ](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ),
 bài 1/3 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài này dài nhưng thực chất là **hai bài trong một**: nửa đầu là quy trình vận hành hằng ngày
@@ -45,7 +45,7 @@ Cluster lab của bạn dùng CA do kubeadm tự sinh, nên nửa sau chỉ cầ
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| *Gia hạn certificate với Kubernetes certificates API* (signer tích hợp, cert-manager) | chủ đề nâng cao cho tổ chức cần tích hợp hạ tầng certificate riêng vào cluster | CP3 bài 3 — *Manage TLS Certificates in a Cluster* trình bày CSR API đầy đủ |
+| *Gia hạn certificate với Kubernetes certificates API* (signer tích hợp, cert-manager) | chủ đề nâng cao cho tổ chức cần tích hợp hạ tầng certificate riêng vào cluster | giai đoạn 18 bài 3 — *Manage TLS Certificates in a Cluster* trình bày CSR API đầy đủ |
 | Toàn bộ quy trình external CA: `kubeadm certs generate-csr`, ký bằng script `openssl`, nhúng vào kubeconfig | chỉ áp dụng khi cluster dùng CA bên ngoài — cluster lab của bạn không dùng | đọc lại cùng bài [191](191-certificates-manual-vi.md) khi phải vận hành external CA thật |
 | *Bật kubelet serving certificate có chữ ký* (`serverTLSBootstrap`) | chỉ cần khi dịch vụ ngoài như metrics-server phải xác thực TLS tới kubelet | giai đoạn 11 — khi cài metrics-server ở Lab 11a |
 | *Xoay certificate authority (CA)* | kubeadm không hỗ trợ sẵn; trang chỉ trỏ sang tài liệu khác | bài *Manual Rotation of CA Certificates* trên kubernetes.io, khi CA sắp hết hạn thật |

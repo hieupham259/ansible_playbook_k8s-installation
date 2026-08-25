@@ -12,7 +12,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối — CP6 DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#cp6--dns-cni-và-kube-proxy),
+**Vị trí:** [Checkpoint tiếp nối — giai đoạn 21 DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy),
 bài 1/7 · thực hành trực tiếp trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md).
 
 Bài [10](10-dns-pod-service-vi.md) đã dạy DNS *từ phía Pod* (tên miền nào tra được, `search`

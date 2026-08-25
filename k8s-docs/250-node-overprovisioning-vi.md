@@ -10,8 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:**
-[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)
-→ [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node), bài 4/4 · Kiểm chứng một phần
+[Checkpoint tiếp nối — nhánh `/docs/tasks/`](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)
+→ [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node), bài 4/4 · Kiểm chứng một phần
 trên cluster lab: tạo PriorityClass âm và Deployment giữ chỗ, rồi chứng minh Pod thường **preempt**
 được Pod giữ chỗ khi node hết dung lượng.
 
@@ -41,7 +41,7 @@ dựa lên [141](141-pod-priority-preemption-vi.md) đã đọc ở giai đoạn
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Hành vi riêng của Karpenter và các node autoscaler | cluster lab không có autoscaler | bài [171](171-node-autoscaling-vi.md) ở giai đoạn 12 |
-| Con số dự trữ cụ thể nên đặt bao nhiêu | phụ thuộc kích thước cluster và workload thật | khi vận hành cluster thật, sau CP8 (giám sát) |
+| Con số dự trữ cụ thể nên đặt bao nhiêu | phụ thuộc kích thước cluster và workload thật | khi vận hành cluster thật, sau giai đoạn 23 (giám sát) |
 
 ---
 
@@ -230,7 +230,7 @@ capacity-reservation   5/5     5            5           2m
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở CP1:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở giai đoạn 16:
 
 1. Vì sao phải dự trữ dung lượng bằng **Pod giữ chỗ đang chạy**, thay vì đơn giản là không
    triển khai gì lên một phần node và coi đó là dung lượng dự phòng?
@@ -267,5 +267,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của [CP1 — Vòng đời node](00-ALO-TRINH-ADMIN.md#cp1--vòng-đời-node) — làm xong
-thì chuyển sang [CP2 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#cp2--nâng-cấp-cluster).
+Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của [Giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node) — làm xong
+thì chuyển sang [Giai đoạn 17 — Nâng cấp cluster](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster).

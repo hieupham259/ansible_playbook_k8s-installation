@@ -12,8 +12,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** đọc kèm [Checkpoint tiếp nối, CP11 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#cp11--vận-hành-lưu-trữ)
-— trang này chưa nằm trong danh sách CP11 của lộ trình, được dịch bổ sung vì cùng nhóm thao tác
+**Vị trí:** đọc kèm [Checkpoint tiếp nối, giai đoạn 26 — Vận hành lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-26--vận-hành-lưu-trữ)
+— trang này chưa nằm trong danh sách giai đoạn 26 của lộ trình, được dịch bổ sung vì cùng nhóm thao tác
 vận hành PV. Nên làm **sau** bài [194](194-change-pv-reclaim-policy-vi.md), vì bước đầu tiên của
 quy trình ở đây dùng chính thao tác đổi reclaim policy.
 
@@ -223,7 +223,7 @@ kubectl patch pv cat-pictures-pv -p '{"spec":{"persistentVolumeReclaimPolicy":"D
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint CP11:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint giai đoạn 26:
 
 1. Ba replica của Deployment "cat-pictures-writer" cùng mount một PVC `ReadWriteOnce` và cả ba
    được lập lịch lên `k8s-worker1` của bạn. Có gì vi phạm access mode không? Đây chính là rủi

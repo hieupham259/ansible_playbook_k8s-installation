@@ -48,8 +48,8 @@ khác nhau — đó là khác biệt duy nhất về nội dung.
 | *Kiểm tra phiên bản hệ điều hành* — phần Windows | node Windows là giai đoạn riêng | giai đoạn 15 |
 | *Các bản phân phối dựa trên Red Hat*, SELinux `permissive` | lab chạy Ubuntu 24.04.4 | không cần |
 | *Không dùng trình quản lý gói* | Lab 00 cài bằng `apt` có ghim version | không cần |
-| Cảnh báo "chú ý đặc biệt khi nâng cấp" và `apt-mark hold` | nâng cấp là quy trình riêng | CP2 nâng cấp |
-| Docker Engine và `cri-dockerd` | cluster lab nói CRI thẳng với containerd | CP12 di chuyển khỏi dockershim |
+| Cảnh báo "chú ý đặc biệt khi nâng cấp" và `apt-mark hold` | nâng cấp là quy trình riêng | giai đoạn 17 nâng cấp |
+| Docker Engine và `cri-dockerd` | cluster lab nói CRI thẳng với containerd | giai đoạn 27 di chuyển khỏi dockershim |
 | *Kiểm tra các network adapter* (nhiều adapter, thêm IP route) | ba VM lab chỉ có một default route | không cần |
 
 ---

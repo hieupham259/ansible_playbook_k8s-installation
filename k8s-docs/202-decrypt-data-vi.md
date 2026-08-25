@@ -10,15 +10,15 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks), mục
-[CP7 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu)), là thao
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster), mục
+[Giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu)), là thao
 tác đảo ngược của bài
 [Encrypting Confidential Data at Rest](208-encrypt-data-vi.md)
 và nối dài phần lưu trữ Secret của bài [109 — Secret](109-secret-vi.md).
 
 Bài này mô tả thao tác **tắt** mã hóa. Hãy đọc nó để hiểu cơ chế thứ tự provider trong
 `EncryptionConfiguration`; chỉ làm thật khi cluster của bạn đã bật mã hóa từ trước (theo bài
-Encrypting Confidential Data at Rest của CP7).
+Encrypting Confidential Data at Rest của giai đoạn 22).
 
 **Phải hiểu ở lần đọc này:**
 
@@ -41,7 +41,7 @@ Encrypting Confidential Data at Rest của CP7).
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Chi tiết provider `aescbc` và định dạng key trong ví dụ YAML | bài này chỉ cần vị trí provider trong danh sách; cấu hình mã hóa và quản lý key thuộc bài bật mã hóa | bài [Encrypting Confidential Data at Rest](208-encrypt-data-vi.md) trong [CP7](00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu) |
+| Chi tiết provider `aescbc` và định dạng key trong ví dụ YAML | bài này chỉ cần vị trí provider trong danh sách; cấu hình mã hóa và quản lý key thuộc bài bật mã hóa | bài [Encrypting Confidential Data at Rest](208-encrypt-data-vi.md) trong [giai đoạn 22](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu) |
 | API `EncryptionConfiguration` (v1) đầy đủ | tài liệu tham chiếu field | khi cần tra cứu lúc vận hành thật |
 
 ---

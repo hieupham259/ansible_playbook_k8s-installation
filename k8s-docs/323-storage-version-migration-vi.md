@@ -13,9 +13,9 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** tài liệu tra cứu thuộc nhánh `/docs/tasks/`
-([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks)) — bài này là
+([Checkpoint tiếp nối](00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster)) — bài này là
 bản thực hành cho khái niệm ở bài [32 — Phiên bản lưu trữ](32-storage-version-vi.md), đồng thời
-nối tiếp cặp bài mã hóa at rest của CP7: [208 — Encrypting Confidential Data at
+nối tiếp cặp bài mã hóa at rest của giai đoạn 22: [208 — Encrypting Confidential Data at
 Rest](208-encrypt-data-vi.md) và [213 — KMS provider](213-kms-provider-vi.md) đã dạy cách
 **đổi khóa**, còn bài này dạy cách **ép ghi lại dữ liệu cũ** theo khóa mới.
 
@@ -46,7 +46,7 @@ lại control plane (kỹ thuật của bài [196](196-configure-feature-gates-v
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Các lệnh `etcdctl get ... \| hexdump -C` đọc thẳng etcd | cần đối số kết nối etcd và thao tác đã học ở CP4 | bài [197 — Vận hành etcd](197-configure-upgrade-etcd-vi.md) và mục xác minh của bài [213](213-kms-provider-vi.md) |
+| Các lệnh `etcdctl get ... \| hexdump -C` đọc thẳng etcd | cần đối số kết nối etcd và thao tác đã học ở giai đoạn 19 | bài [197 — Vận hành etcd](197-configure-upgrade-etcd-vi.md) và mục xác minh của bài [213](213-kms-provider-vi.md) |
 | Chi tiết viết conversion webhook cho CRD (`clientConfig`, `caBundle`) | thuộc phần mở rộng API, ngoài lộ trình admin | trang [Versions in CustomResourceDefinitions](377-custom-resource-definition-versioning-vi.md) khi cần |
 
 ---

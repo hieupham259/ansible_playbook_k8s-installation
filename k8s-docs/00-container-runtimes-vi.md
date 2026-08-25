@@ -44,7 +44,7 @@ biết vì sao. Đây là lúc đọc để hiểu những dòng lệnh đã gõ
 | Bật chuyển tiếp gói tin IPv4, tham số sysctl | đã chạy ở Lab 00; hiểu khi học mạng | giai đoạn 5 và 8 |
 | Ghi đè image sandbox (pause) | tinh chỉnh khi cần registry riêng | giai đoạn 8 |
 | Feature gate `KubeletCgroupDriverFromCRI` | tự phát hiện driver, còn đang chuyển tiếp | giai đoạn 12 |
-| Toàn bộ phần dockershim và di chuyển khỏi nó | chỉ cần khi tiếp quản cluster đời cũ | CP12 |
+| Toàn bộ phần dockershim và di chuyển khỏi nó | chỉ cần khi tiếp quản cluster đời cũ | giai đoạn 27 |
 
 ---
 

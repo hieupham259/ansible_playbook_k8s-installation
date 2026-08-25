@@ -39,10 +39,10 @@ bật nó trên cluster thật.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| `--tracing-config-file` và nội dung `TracingConfiguration` của kube-apiserver | phải sửa manifest static Pod của API server | CP5 cấu hình lại cluster đang chạy |
-| Đoạn cấu hình `tracing` trong `KubeletConfiguration` | phải sửa file cấu hình kubelet trên từng node rồi khởi động lại | CP5 cấu hình lại cluster đang chạy |
+| `--tracing-config-file` và nội dung `TracingConfiguration` của kube-apiserver | phải sửa manifest static Pod của API server | giai đoạn 20 cấu hình lại cluster đang chạy |
+| Đoạn cấu hình `tracing` trong `KubeletConfiguration` | phải sửa file cấu hình kubelet trên từng node rồi khởi động lại | giai đoạn 20 cấu hình lại cluster đang chạy |
 | Cấu hình receiver YAML của OpenTelemetry Collector | thuộc tài liệu OpenTelemetry, không phải Kubernetes | Lab 11a |
-| `OTEL_EXPORTER_OTLP_HEADERS` và `OTEL_RESOURCE_ATTRIBUTES` | chỉ cần khi đã có backend tracing thật cần xác thực | CP8 giám sát và cảnh báo |
+| `OTEL_EXPORTER_OTLP_HEADERS` và `OTEL_RESOURCE_ATTRIBUTES` | chỉ cần khi đã có backend tracing thật cần xác thực | giai đoạn 23 giám sát và cảnh báo |
 
 ---
 

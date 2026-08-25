@@ -39,9 +39,9 @@ danh sách link. Giá trị của nó không nằm ở nội dung mà ở **cấ
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| *Generate Certificates* trong *Bảo mật cluster* | quản lý vòng đời certificate là một module riêng, không gói trong một link | CP3 vòng đời chứng chỉ, bài [156](156-certificates-vi.md) |
-| *Auditing* | audit policy và backend là chủ đề riêng, cần sửa cấu hình API server | CP7 audit và mã hóa dữ liệu |
-| *Using Sysctls in a Kubernetes Cluster* | chỉnh tham số kernel chỉ cần cho workload đặc thù | CP5 cấu hình lại cluster đang chạy |
+| *Generate Certificates* trong *Bảo mật cluster* | quản lý vòng đời certificate là một module riêng, không gói trong một link | giai đoạn 18 vòng đời chứng chỉ, bài [156](156-certificates-vi.md) |
+| *Auditing* | audit policy và backend là chủ đề riêng, cần sửa cấu hình API server | giai đoạn 22 audit và mã hóa dữ liệu |
+| *Using Sysctls in a Kubernetes Cluster* | chỉnh tham số kernel chỉ cần cho workload đặc thù | giai đoạn 20 cấu hình lại cluster đang chạy |
 | *Admission Webhook Good Practices* | thiết kế webhook là việc mở rộng cluster, không phải vận hành | giai đoạn 14 (CRD và Operator) |
 | Link *tự động mở rộng node* trong *Quản lý cluster* | có bài riêng ngay trong giai đoạn này | bài [171](171-node-autoscaling-vi.md) |
 

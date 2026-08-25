@@ -11,7 +11,7 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** [Checkpoint tiếp nối, CP9 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#cp9--xử-lý-sự-cố),
+**Vị trí:** [Checkpoint tiếp nối, giai đoạn 24 — Xử lý sự cố](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố),
 bài 10/10 · Các trang CP không có lab riêng: thực hành trực tiếp trên cluster lab ở mốc
 `04-metrics-ready` (xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)).
 
@@ -32,7 +32,7 @@ tùy triệu chứng. Lý thuyết về StatefulSet bạn đã đọc ở [bài 
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Nội dung chi tiết của tác vụ *Deleting StatefulSet Pods* được trỏ tới | trang này chỉ đặt link; quy trình xóa cưỡng bức Pod của StatefulSet có rủi ro riêng, đọc khi gặp thật | mở link gốc trên kubernetes.io khi gặp Pod kẹt `Unknown`/`Terminating` — trang đó không nằm trong danh sách CP9 |
+| Nội dung chi tiết của tác vụ *Deleting StatefulSet Pods* được trỏ tới | trang này chỉ đặt link; quy trình xóa cưỡng bức Pod của StatefulSet có rủi ro riêng, đọc khi gặp thật | mở link gốc trên kubernetes.io khi gặp Pod kẹt `Unknown`/`Terminating` — trang đó không nằm trong danh sách giai đoạn 24 |
 
 ---
 
@@ -71,7 +71,7 @@ Tìm hiểu thêm về
 
 > Phần này không có trong trang gốc.
 
-Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint CP9:
+Trả lời được các câu sau mà không nhìn lại bài là đủ cho lần đọc ở checkpoint giai đoạn 24:
 
 1. Một Pod của StatefulSet trên `k8s-worker2` của bạn kẹt ở `Terminating` rất lâu sau khi
    node đó mất liên lạc. Theo trang này, bạn mở tài liệu nào tiếp theo — *Debug Pods* hay
@@ -98,7 +98,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Đây là bài cuối của **CP9 — Xử lý sự cố**. Toàn bộ nhóm này thực hành trực tiếp trên cluster
+Đây là bài cuối của **giai đoạn 24 — Xử lý sự cố**. Toàn bộ nhóm này thực hành trực tiếp trên cluster
 lab ở mốc `04-metrics-ready`; quy trình xương sống của nhóm nằm ở bài
 [301](301-debug-service-vi.md) — chưa tự chạy hết chuỗi loại trừ của bài đó thì nên làm trước
-khi rời CP9.
+khi rời giai đoạn 24.

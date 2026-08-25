@@ -76,7 +76,7 @@ khi sang lab sau.
 | [1a — Kiến trúc và mô hình điều khiển](LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md) | 1a (8 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
 | [1b — Object, label, kubectl và kubeconfig](LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md) | 1b (9 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
 | [1c — Vòng đời và cơ chế nền của object](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md) | 1c (7 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
-| 2 — Container, image, CRI và cgroup | 2 (8 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ⬜ chưa viết |
+| [2 — Container, image, CRI và cgroup](LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md) | 2 (8 bài + 2 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
 | 3a — Pod và vòng đời | 3a (11 bài + 11 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
 | 3b — Cấu hình ứng dụng | 3b (3 bài + 11 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
 | 3c — Tài nguyên, QoS và gián đoạn | 3c (4 bài + 8 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ⬜ chưa viết |
@@ -105,8 +105,8 @@ bộ VM riêng với mốc tiền tố `8x-`, và lab 15 thêm một VM Windows 
 riêng. Toàn bộ lab còn lại trả cluster về mốc cũ, nên bạn không cần chụp snapshot sau mỗi bài.
 
 Giai đoạn 10 không có lab riêng: toàn bộ nội dung nằm ở phần
-[Checkpoint tiếp nối](../00-ALO-TRINH-ADMIN.md#checkpoint-tiếp-nối--nhánh-docstasks) và được thực
-hành theo CP1–CP12 trên cluster đã có ở `04-metrics-ready`.
+[Checkpoint tiếp nối](../00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster) và được thực
+hành theo giai đoạn 16–27 trên cluster đã có ở `04-metrics-ready`.
 
 ## 5. Sổ nợ lab
 
@@ -121,11 +121,10 @@ bài gốc.
 | 3 | Service quản trị headless cho StatefulSet | giai đoạn 4, bài [65](../65-statefulset-vi.md) | Service headless (giai đoạn 5) | Lab 5a |
 | 4 | NetworkPolicy được thực thi thật | giai đoạn 5, bài [84](../84-network-policies-vi.md) | CNI hỗ trợ policy thay Flannel | Lab 5b |
 | 5 | Ảnh chụp nhanh và nhân bản volume | giai đoạn 6, bài [99](../99-volume-snapshots-vi.md)–[101](../101-volume-pvc-datasource-vi.md) | CSI driver có hỗ trợ snapshot | Lab 6b |
-| 6 | Mã hóa Secret at rest | giai đoạn 3, bài [109](../109-secret-vi.md) | sửa cấu hình apiserver | [CP7](../00-ALO-TRINH-ADMIN.md#cp7--audit-và-mã-hóa-dữ-liệu) |
-| 7 | Quản lý vòng đời certificate | giai đoạn 12, bài [156](../156-certificates-vi.md) | quy trình `kubeadm certs` | [CP3](../00-ALO-TRINH-ADMIN.md#cp3--vòng-đời-chứng-chỉ) |
-| 8 | Backup và restore etcd | giai đoạn 8 | `etcdctl` và quy trình khôi phục | [CP4](../00-ALO-TRINH-ADMIN.md#cp4--etcd-backup-và-khôi-phục-thảm-họa) |
+| 6 | Mã hóa Secret at rest | giai đoạn 3, bài [109](../109-secret-vi.md) | sửa cấu hình apiserver | [giai đoạn 22](../00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu) |
+| 7 | Quản lý vòng đời certificate | giai đoạn 12, bài [156](../156-certificates-vi.md) | quy trình `kubeadm certs` | [giai đoạn 18](../00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) |
+| 8 | Backup và restore etcd | giai đoạn 8 | `etcdctl` và quy trình khôi phục | [giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa) |
 | 9 | Hai khối *Đọc bài này thế nào* và *Tự kiểm tra* cho 164 bài nhánh `/docs/tasks/` | mọi mục có dấu ⏳ trong lộ trình | công sức viết, không phải kiến thức | trả tại chỗ — xem [hướng dẫn trả nợ #9](../00-ALO-TRINH-ADMIN.md#nợ-9--hai-khối-hướng-dẫn-đọc-cho-nhánh-docstasks) |
-| 10 | 103 bài thực hành `/docs/tasks/` chưa có vị trí trong lộ trình | toàn bộ nhánh tasks | cần chốt cách đặt (đã bác 2 phương án) | **chưa chốt** — xem [nợ #10](../00-ALO-TRINH-ADMIN.md#nợ-10--bài-thực-hành-chưa-có-vị-trí-trong-lộ-trình) |
 
 Số hiệu nợ ở cột đầu **khớp với** [Sổ nợ lộ trình](../00-ALO-TRINH-ADMIN.md#sổ-nợ-lộ-trình). Trong file lộ trình, mỗi món nợ được đánh dấu ngay tại chỗ: `⏳ Nợ #N` ở nơi phát sinh và `✅ Trả nợ #N` ở nơi trả. Sửa một bảng thì phải sửa bảng kia.
 

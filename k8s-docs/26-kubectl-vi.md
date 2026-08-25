@@ -33,7 +33,7 @@ cú pháp học bằng cách gõ trong lab.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Nhóm thao tác *Vận hành cluster* (drain, cordon) | là quy trình bảo trì node | giai đoạn 12 và CP1 |
+| Nhóm thao tác *Vận hành cluster* (drain, cordon) | là quy trình bảo trì node | giai đoạn 12 và giai đoạn 16 |
 | Plugin và Krew | mở rộng tùy chọn | khi cần |
 | JSONPath | học dần qua thực hành | dùng suốt lộ trình |
 

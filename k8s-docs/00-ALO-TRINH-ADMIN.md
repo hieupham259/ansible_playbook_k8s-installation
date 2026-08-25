@@ -40,7 +40,7 @@ Grep `⏳ Nợ` để thấy toàn bộ chỗ phát sinh, `✅ Trả nợ` để
 | 2 | `volumeClaimTemplates` của StatefulSet | [Giai đoạn 4](#giai-đoạn-4--workload-controller), bài [65](65-statefulset-vi.md) | StorageClass + provisioner (giai đoạn 6) | [Lab 6a](#giai-đoạn-6--lưu-trữ) |
 | 3 | Service headless quản trị cho StatefulSet | [Giai đoạn 4](#giai-đoạn-4--workload-controller), bài [65](65-statefulset-vi.md) | Service headless (giai đoạn 5) | [Lab 5a](#giai-đoạn-5--mạng-nền-tảng) |
 | 4 | NetworkPolicy được thực thi thật | [Giai đoạn 5](#giai-đoạn-5--mạng-nền-tảng), bài [84](84-network-policies-vi.md) | CNI hỗ trợ policy thay Flannel | [Lab 5b](#giai-đoạn-5--mạng-nền-tảng) |
-| 5 | Ảnh chụp nhanh và nhân bản volume | [Giai đoạn 6](#giai-đoạn-6--lưu-trữ), bài [99](99-volume-snapshots-vi.md)–[101](101-volume-pvc-datasource-vi.md) | CSI driver có hỗ trợ snapshot | [Lab 6b](#giai-đoạn-6--lưu-trữ) |
+| 5 | Ảnh chụp nhanh và nhân bản volume | [Giai đoạn 6](#giai-đoạn-6--lưu-trữ), bài [99](99-volume-snapshots-vi.md)–[101](101-volume-pvc-datasource-vi.md) | **CSI driver hỗ trợ snapshot** — `local-path-provisioner` của baseline dùng `rancher.io/local-path`, không phải CSI, nên **chưa đủ điều kiện** | Lab 6b, nhánh A — chạy lại sau khi cluster có CSI driver hỗ trợ snapshot |
 | 6 | Mã hóa Secret at rest | [Giai đoạn 3b](#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài [109](109-secret-vi.md) | sửa cấu hình apiserver | [giai đoạn 22](#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu) |
 | 7 | Quản lý vòng đời certificate | [Giai đoạn 12](#giai-đoạn-12--quản-trị-cluster-nâng-cao), bài [156](156-certificates-vi.md) | quy trình `kubeadm certs` | [giai đoạn 18](#giai-đoạn-18--vòng-đời-chứng-chỉ) |
 | 8 | Backup và restore etcd | [Giai đoạn 8](#giai-đoạn-8--dựng-cluster-bằng-kubeadm) | `etcdctl` và quy trình khôi phục | [giai đoạn 19](#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa) |
@@ -249,9 +249,9 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Downward API](56-downward-api-vi.md)
 - [ ] [Cấu hình Pod nâng cao](60-advanced-pod-config-vi.md)
 
-**Thực hành:** [Chạy các thành phần Node của Kubernetes dưới người dùng không phải root](226-kubelet-in-userns-vi.md) · [Cấu hình Pod và Container](262-configure-pod-container-vi.md) · [Gắn handler vào các sự kiện vòng đời của Container](272-attach-handler-lifecycle-event-vi.md) · [Cấu hình các probe Liveness, Readiness và Startup](274-configure-probes-vi.md) · [Cấu hình khởi tạo Pod](276-configure-pod-initialization-vi.md) · [Sử dụng Image Volume với một Pod](285-image-volumes-vi.md) · [Chia sẻ Process Namespace giữa các Container trong một Pod](292-share-process-namespace-vi.md) · [Tạo static Pod](293-static-pod-tasks-vi.md) · [Sử dụng user namespace với Pod](295-user-namespaces-tasks-vi.md) · [Expose thông tin Pod cho container thông qua file](335-downward-api-volume-vi.md) · [Expose thông tin Pod cho container thông qua biến môi trường](336-env-variable-expose-pod-info-vi.md) · [Giao tiếp giữa các Container trong cùng Pod bằng Volume dùng chung](360-containers-shared-volume-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
+**Thực hành:** [Chạy các thành phần Node của Kubernetes dưới người dùng không phải root](226-kubelet-in-userns-vi.md) · [Cấu hình Pod và Container](262-configure-pod-container-vi.md) · [Gắn handler vào các sự kiện vòng đời của Container](272-attach-handler-lifecycle-event-vi.md) · [Cấu hình các probe Liveness, Readiness và Startup](274-configure-probes-vi.md) · [Cấu hình khởi tạo Pod](276-configure-pod-initialization-vi.md) · [Sử dụng Image Volume với một Pod](285-image-volumes-vi.md) · [Chia sẻ Process Namespace giữa các Container trong một Pod](292-share-process-namespace-vi.md) · [Sử dụng user namespace với Pod](295-user-namespaces-tasks-vi.md) · [Expose thông tin Pod cho container thông qua file](335-downward-api-volume-vi.md) · [Expose thông tin Pod cho container thông qua biến môi trường](336-env-variable-expose-pod-info-vi.md) · [Giao tiếp giữa các Container trong cùng Pod bằng Volume dùng chung](360-containers-shared-volume-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 **Lab 3a — Pod và vòng đời** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
+- [ ] 🧪 [Lab 3a — Pod và vòng đời](labs/LAB-3A-POD-VA-VONG-DOI.md) — vòng đời Pod: phase và condition, `restartPolicy`, ba loại probe, init container, sidecar, kết thúc êm, ephemeral container và Downward API.
 
 #### 3b. Cấu hình ứng dụng: ConfigMap, Secret và dữ liệu cho Pod
 
@@ -261,7 +261,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Cấu hình một Pod để sử dụng ConfigMap](275-configure-pod-configmap-vi.md) · [Pull image từ một private registry](287-pull-image-private-registry-vi.md) · [Quản lý Secret](325-configmap-secret-vi.md) · [Quản lý Secret bằng file cấu hình](326-secret-config-file-vi.md) · [Quản lý Secret bằng kubectl](327-secret-kubectl-vi.md) · [Quản lý Secret bằng Kustomize](328-secret-kustomize-vi.md) · [Đưa dữ liệu vào ứng dụng](329-inject-data-application-vi.md) · [Định nghĩa command và argument cho container](330-define-command-argument-vi.md) · [Định nghĩa biến môi trường cho một Container](331-define-environment-variable-vi.md) · [Định nghĩa giá trị biến môi trường bằng một Init Container](332-define-env-via-file-vi.md) · [Định nghĩa các biến môi trường phụ thuộc](333-interdependent-env-variables-vi.md) · [Phân phối thông tin xác thực một cách an toàn bằng Secret](334-distribute-credentials-secure-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 **Lab 3b — Cấu hình ứng dụng** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Phần mã hóa Secret at rest là [nợ #6](#sổ-nợ-lộ-trình), trả ở [giai đoạn 22](#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu).
+- [ ] 🧪 [Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) — thực hành ConfigMap, Secret, biến môi trường và Downward API trên Pod trần; chứng minh Secret chỉ là base64. Phát sinh ⏳ **nợ #6** — mã hóa Secret at rest, trả ở [giai đoạn 22](#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu).
 
 #### 3c. Tài nguyên, QoS và gián đoạn
 
@@ -270,9 +270,9 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Sự gián đoạn](53-disruptions-vi.md) — gián đoạn tự nguyện vs không tự nguyện, PodDisruptionBudget.
 - [ ] [Pod tĩnh](58-static-pods-vi.md) — kubelet tự quản; chính là cách control plane của kubeadm chạy, cần cho giai đoạn 8.
 
-**Thực hành:** [Gán tài nguyên CPU cho Container và Pod](263-assign-cpu-resource-vi.md) · [Gán tài nguyên memory cho Container và Pod](264-assign-memory-resource-vi.md) · [Gán tài nguyên CPU và memory ở cấp Pod](265-assign-pod-level-resources-vi.md) · [Gán Extended Resource cho một Container](284-extended-resource-vi.md) · [Cấu hình Quality of Service cho Pod](288-quality-service-pod-vi.md) · [Thay đổi kích thước tài nguyên CPU và Memory được gán cho Container](289-resize-container-resources-vi.md) · [Thay đổi kích thước tài nguyên CPU và Memory được gán cho Pod](290-resize-pod-resources-vi.md) · [Chỉ định Disruption Budget cho ứng dụng của bạn](339-configure-pdb-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
+**Thực hành:** [Gán tài nguyên CPU cho Container và Pod](263-assign-cpu-resource-vi.md) · [Gán tài nguyên memory cho Container và Pod](264-assign-memory-resource-vi.md) · [Gán tài nguyên CPU và memory ở cấp Pod](265-assign-pod-level-resources-vi.md) · [Gán Extended Resource cho một Container](284-extended-resource-vi.md) · [Cấu hình Quality of Service cho Pod](288-quality-service-pod-vi.md) · [Thay đổi kích thước tài nguyên CPU và Memory được gán cho Container](289-resize-container-resources-vi.md) · [Thay đổi kích thước tài nguyên CPU và Memory được gán cho Pod](290-resize-pod-resources-vi.md) · [Chỉ định Disruption Budget cho ứng dụng của bạn](339-configure-pdb-vi.md) · [Tạo static Pod](293-static-pod-tasks-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 **Lab 3c — Tài nguyên, QoS và gián đoạn** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
+- [ ] 🧪 [Lab 3c — Tài nguyên, QoS và gián đoạn](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) — requests quyết định lập lịch còn limits quyết định thực thi — đọc thẳng `cpu.max`/`memory.max` trong cgroup v2; suy QoS từ manifest; Pod `Pending` vì vượt `Allocatable` thật; PodDisruptionBudget chặn Eviction API; static Pod và mirror Pod.
 
 **Checkpoint:** viết tay một Pod manifest có init container, sidecar, readiness + liveness probe, requests/limits, mount ConfigMap và Secret. Cố ý đặt request vượt sức node để thấy Pod `Pending`, rồi đọc `kubectl describe` tìm lý do. Xác định QoS class của 3 Pod khác nhau chỉ bằng cách nhìn manifest.
 
@@ -292,7 +292,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Sử dụng xóa theo tầng trong Cluster](260-use-cascading-deletion-vi.md) · [Quản lý object Kubernetes theo kiểu khai báo bằng file cấu hình](319-declarative-config-vi.md) · [Cập nhật đối tượng API tại chỗ bằng kubectl patch](324-kubectl-patch-vi.md) · [Chạy ứng dụng](337-run-application-vi.md) · [Chạy một ứng dụng Stateless bằng Deployment](345-run-stateless-application-vi.md) · [Scale thủ công theo chiều ngang cho một Deployment](346-scale-deployment-vi.md) · [Cập nhật một Deployment mà không gây gián đoạn](348-update-deployment-rolling-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 **Lab 4a — ReplicaSet, Deployment và rollout** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
+- [ ] 🧪 [Lab 4a — ReplicaSet, Deployment và rollout](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) — chuỗi Pod → ReplicaSet → Deployment qua `ownerReferences`, rollout/rollback, `maxSurge`/`maxUnavailable`, Recreate so với RollingUpdate, và rollout thất bại.
 
 #### 4b. StatefulSet, DaemonSet, Job và autoscaling
 
@@ -308,7 +308,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Xóa cưỡng bức Pod của StatefulSet](341-force-delete-stateful-set-pod-vi.md) · [Scale một StatefulSet](347-scale-stateful-set-vi.md) · [Chạy Job](349-job-tasks-vi.md) · [Chạy các tác vụ tự động với CronJob](350-automated-tasks-cron-jobs-vi.md) · [Xử lý song song thô sử dụng hàng đợi công việc](351-coarse-parallel-work-queue-vi.md) · [Indexed Job để xử lý song song với phân công việc tĩnh](353-indexed-parallel-processing-vi.md) · [Xử lý song song bằng cách khai triển template](355-parallel-processing-expansion-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 **Lab 4b — StatefulSet, DaemonSet và Job** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). StatefulSet chỉ thực hành phần định danh ổn định và thứ tự khởi tạo. ⏳ **Nợ #2** (`volumeClaimTemplates`) trả ở [Lab 6a](#giai-đoạn-6--lưu-trữ), ⏳ **nợ #3** (Service headless) trả ở [Lab 5a](#giai-đoạn-5--mạng-nền-tảng), ⏳ **nợ #1** (HPA/VPA) trả ở [Lab 11b](#giai-đoạn-11--observability). Không đóng giai đoạn 4 khi ba nợ này còn treo — xem [Sổ nợ lộ trình](#sổ-nợ-lộ-trình).
+- [ ] 🧪 [Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) — định danh ổn định và thứ tự khởi tạo của StatefulSet, DaemonSet với taint/toleration, Job và `backoffLimit`, TTL, CronJob. ⏳ Còn treo **nợ #1, #2, #3** — xem [Sổ nợ lộ trình](#sổ-nợ-lộ-trình).
 
 **Checkpoint:** tạo Deployment 3 replica, thực hiện rolling update, theo dõi `kubectl rollout status`, rồi rollback về revision trước. Xóa thủ công một Pod và quan sát ReplicaSet tạo lại. Giải thích được vì sao StatefulSet không thể thay bằng Deployment cho database.
 
@@ -330,7 +330,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Chuyển đổi file Docker Compose thành tài nguyên Kubernetes](294-translate-compose-kubernetes-vi.md) · [Quản lý object Kubernetes bằng lệnh imperative](320-imperative-command-vi.md) · [Quản lý object Kubernetes theo kiểu khai báo bằng Kustomize](322-kustomization-vi.md) · [Xóa một StatefulSet](340-delete-stateful-set-vi.md) · [Xử lý song song mịn sử dụng hàng đợi công việc](352-fine-parallel-work-queue-vi.md) · [Job với giao tiếp Pod-đến-Pod](354-job-pod-to-pod-communication-vi.md) · [Cấu hình DNS cho một cluster](362-configure-dns-cluster-vi.md) · [Kết nối Frontend với Backend bằng Service](363-connecting-frontend-backend-vi.md) · [Tạo bộ cân bằng tải bên ngoài](364-create-external-load-balancer-vi.md) · [Sử dụng Port Forwarding để truy cập ứng dụng trong Cluster](366-port-forward-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 **Lab 5a — Service, EndpointSlice và DNS** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). ✅ **Trả nợ #3 — Service headless quản trị cho StatefulSet**, phát sinh ở [giai đoạn 4](#giai-đoạn-4--workload-controller), bài [65](65-statefulset-vi.md). Đọc lại bài [65](65-statefulset-vi.md) trước khi làm phần đó.
+- [ ] 🧪 [Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) — ClusterIP/NodePort/ExternalName, EndpointSlice theo selector, DNS `ndots:5` và FQDN, `internalTrafficPolicy` theo node. ✅ **Trả nợ #3** — headless Service cho StatefulSet.
 - [ ] [Ingress](11-ingress-vi.md) — trọng tâm: rule, path type, IngressClass, TLS.
 - [ ] [Ingress Controllers](12-ingress-controllers-vi.md) — không có controller thì Ingress vô nghĩa.
 - [ ] [Gateway API](13-gateway-vi.md) — hướng thay thế Ingress; đọc để biết định hướng tương lai.
@@ -341,7 +341,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Mạng trong cluster](157-networking-vi.md) — mô hình mạng ở góc nhìn quản trị và các cách hiện thực.
 - [ ] [Network Plugin](183-network-plugins-vi.md) — CNI; cần trước khi cài CNI thật ở giai đoạn 8.
 - [ ] [Các loại proxy trong Kubernetes](164-proxies-vi.md) — kube-proxy và các loại proxy khác.
-- [ ] 🧪 **Lab 5b — NetworkPolicy, Ingress và CNI** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Lab này **đổi CNI** sang loại có thực thi NetworkPolicy (Flannel của baseline không hỗ trợ) và cài ingress controller, rồi tạo snapshot `02-net-ready`. ✅ **Trả nợ #4 — NetworkPolicy được thực thi thật**, phát sinh ở bài [84](84-network-policies-vi.md) ngay trên. Đọc lại bài [84](84-network-policies-vi.md) trước khi làm.
+- [ ] 🧪 [Lab 5b — NetworkPolicy, Ingress và CNI](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) — chứng minh Flannel **không** thực thi NetworkPolicy, đổi CNI sang Calico, chứng minh policy chặn thật, rồi cài ingress controller. ✅ **Trả nợ #4**. Tạo snapshot `02-net-ready`.
 
 **Checkpoint:** expose một Deployment bằng ClusterIP rồi NodePort; từ trong một Pod dùng `nslookup`/`curl` gọi Service bằng tên ngắn và FQDN. Viết một NetworkPolicy chặn toàn bộ ingress vào một namespace rồi mở đúng một cổng. Giải thích được khác biệt giữa Service, Ingress và load balancer bên ngoài.
 
@@ -362,7 +362,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Cấu hình Pod sử dụng projected Volume cho lưu trữ](277-configure-projected-volume-vi.md) · [Cấu hình Pod sử dụng Volume để lưu trữ](280-configure-volume-storage-vi.md) · [Chạy ứng dụng có trạng thái được nhân bản](343-run-replicated-stateful-application-vi.md) · [Chạy ứng dụng có trạng thái đơn thực thể](344-run-single-instance-stateful-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 **Lab 6a — PV, PVC và StorageClass** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). Cài provisioner và tạo snapshot `03-storage-ready`. ✅ **Trả nợ #2 — `volumeClaimTemplates` của StatefulSet**, phát sinh ở [giai đoạn 4](#giai-đoạn-4--workload-controller), bài [65](65-statefulset-vi.md). Đọc lại bài [65](65-statefulset-vi.md) trước khi làm phần đó.
+- [ ] 🧪 [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) — cài local-path-provisioner, vòng đời PV/PVC, `reclaimPolicy` Delete so với Retain, `volumeBindingMode`, và dữ liệu bền qua vòng đời Pod. ✅ **Trả nợ #2** — `volumeClaimTemplates`. Tạo snapshot `03-storage-ready`.
 - [ ] [Lớp thuộc tính Volume](97-volume-attributes-classes-vi.md)
 - [ ] [Ảnh chụp nhanh Volume](99-volume-snapshots-vi.md) — ⏳ **Nợ #5** bắt đầu từ đây và kéo tới bài [101](101-volume-pvc-datasource-vi.md): chỉ thực hành được nếu CSI driver đang dùng hỗ trợ snapshot; trả ở [Lab 6b](#giai-đoạn-6--lưu-trữ).
 - [ ] [Các lớp Volume Snapshot](100-volume-snapshot-classes-vi.md)
@@ -371,7 +371,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Dung lượng lưu trữ](103-storage-capacity-vi.md)
 - [ ] [Giới hạn volume theo từng Node](104-storage-limits-vi.md)
 - [ ] [Giám sát tình trạng volume](105-volume-health-monitoring-vi.md)
-- [ ] 🧪 **Lab 6b — Snapshot và volume nâng cao** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab). ✅ **Trả nợ #5 — ảnh chụp nhanh và nhân bản volume**, phát sinh ở bài [99](99-volume-snapshots-vi.md)–[101](101-volume-pvc-datasource-vi.md). Đọc lại ba bài đó trước khi làm. Nếu CSI driver không hỗ trợ snapshot thì nợ **chưa được trả** — ghi lại và giữ trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab).
+- [ ] 🧪 [Lab 6b — Snapshot và volume nâng cao](labs/LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md) — kiểm tra năng lực CSI driver rồi rẽ nhánh: chụp/khôi phục/nhân bản snapshot nếu driver hỗ trợ, hoặc ghi hồ sơ nợ nếu không. ⏳ **Nợ #5 chưa trả** với provisioner của baseline.
 
 **Checkpoint:** tạo StorageClass, xin một PVC và mount vào Pod; xóa Pod rồi tạo lại, chứng minh dữ liệu còn nguyên. Thử `reclaimPolicy: Retain` và `Delete` để thấy khác biệt khi xóa PVC. Chạy một StatefulSet có `volumeClaimTemplates` và quan sát PVC sinh ra theo từng replica.
 
@@ -399,7 +399,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Bảo đảm lập lịch cho các Pod add-on quan trọng](210-guaranteed-scheduling-critical-addon-pods-vi.md) · [Gán Pod vào Node bằng Node Affinity](266-assign-pods-nodes-node-affinity-vi.md) · [Gán Pod vào Node](267-assign-pods-nodes-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 **Lab 7a — Lập lịch và eviction** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
+- [ ] 🧪 [Lab 7a — Lập lịch và eviction](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) — chu trình filter/score của scheduler, `nodeSelector` và node affinity, taint/toleration, topology spread, PriorityClass và preemption, `schedulingGates`, và đọc ngưỡng eviction thật của kubelet.
 
 #### 7b. Chính sách giới hạn tài nguyên
 
@@ -410,7 +410,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Các trình quản lý tài nguyên](74-resource-managers-vi.md) — CPU manager, memory manager, topology manager của kubelet.
 - [ ] [Tính năng do Node khai báo](154-node-declared-features-vi.md) — đọc lướt.
 
-- [ ] 🧪 **Lab 7b — Quota và giới hạn tài nguyên** — chưa viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab).
+- [ ] 🧪 [Lab 7b — Quota và giới hạn tài nguyên](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) — LimitRange đặt mặc định và trần cho từng Pod, ResourceQuota đặt trần cho cả namespace, và mối liên hệ bắt buộc giữa hai thứ; đọc `podPidsLimit` và policy của resource manager từ cấu hình kubelet thật.
 
 **Checkpoint:** taint một node và chứng minh Pod thường không lên đó, rồi thêm toleration để lên được. Đặt ResourceQuota + LimitRange cho một namespace, thử tạo Pod vượt quota và đọc thông báo từ chối. Tạo tình huống node hết đĩa để quan sát eviction và thứ tự Pod bị trục xuất.
 

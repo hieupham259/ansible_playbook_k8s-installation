@@ -228,6 +228,7 @@ số ở một chỗ, cho lab nào thật sự cần thì link về.
 | Helm | `v3.21.3` | lab nào cần chart đầu tiên |
 | cert-manager | chart/appVersion `v1.21.1` | ngoài chuỗi lab hiện có |
 | Traefik (Ingress) | chart `41.2.0`, appVersion `v3.7.10` | Lab 5b (ingress controller) |
+| Calico (CNI thay Flannel) | `v3.32.1` | Lab 5b (CNI có thực thi NetworkPolicy) |
 | local-path-provisioner (Storage) | `v0.0.37` | Lab 6a (StorageClass) |
 | cloudflared (Tunnel) | image `cloudflare/cloudflared:latest`, digest amd64 `sha256:b392761b…` | ngoài chuỗi lab hiện có |
 | Rancher (Cluster management) | chart/appVersion `2.14.3` | ngoài chuỗi lab hiện có |

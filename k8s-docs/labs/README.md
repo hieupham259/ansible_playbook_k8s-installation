@@ -77,17 +77,17 @@ khi sang lab sau.
 | [1b — Object, label, kubectl và kubeconfig](LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md) | 1b (9 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
 | [1c — Vòng đời và cơ chế nền của object](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md) | 1c (7 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
 | [2 — Container, image, CRI và cgroup](LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md) | 2 (8 bài + 2 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
-| 3a — Pod và vòng đời | 3a (11 bài + 11 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
-| 3b — Cấu hình ứng dụng | 3b (3 bài + 11 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
-| 3c — Tài nguyên, QoS và gián đoạn | 3c (4 bài + 8 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ⬜ chưa viết |
-| 4a — ReplicaSet, Deployment và rollout | 4a (6 bài + 4 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ⬜ chưa viết |
-| 4b — StatefulSet, DaemonSet và Job | 4b (9 bài + 9 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
-| 5a — Service, EndpointSlice và DNS | 5 (phần Service/DNS) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ⬜ chưa viết |
-| 5b — NetworkPolicy, Ingress và CNI | 5 (phần policy/ingress) | `01-cluster-ready` | **tạo** `02-net-ready` | 3–4 | ⬜ chưa viết |
-| 6a — PV, PVC và StorageClass | 6 (phần cốt lõi) | `02-net-ready` | **tạo** `03-storage-ready` | 3–4 | ⬜ chưa viết |
-| 6b — Snapshot và volume nâng cao | 6 (phần còn lại) | `03-storage-ready` | trả về `03-storage-ready` | 2–3 | ⬜ chưa viết |
-| 7a — Lập lịch và eviction | 7a (13 bài) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ⬜ chưa viết |
-| 7b — Quota và giới hạn tài nguyên | 7b (6 bài) | `03-storage-ready` | trả về `03-storage-ready` | 2–3 | ⬜ chưa viết |
+| [3a — Pod và vòng đời](LAB-3A-POD-VA-VONG-DOI.md) | 3a (11 bài + 11 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
+| [3b — Cấu hình ứng dụng](LAB-3B-CAU-HINH-UNG-DUNG.md) | 3b (3 bài + 11 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
+| [3c — Tài nguyên, QoS và gián đoạn](LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) | 3c (4 bài + 8 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
+| [4a — ReplicaSet, Deployment và rollout](LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) | 4a (6 bài + 4 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
+| [4b — StatefulSet, DaemonSet và Job](LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) | 4b (9 bài + 9 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
+| [5a — Service, EndpointSlice và DNS](LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) | 5 (phần Service/DNS) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
+| [5b — NetworkPolicy, Ingress và CNI](LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) | 5 (phần policy/ingress) | `01-cluster-ready` | **tạo** `02-net-ready` | 3–4 | ✅ đã viết |
+| [6a — PV, PVC và StorageClass](LAB-6A-PV-PVC-VA-STORAGECLASS.md) | 6 (phần cốt lõi) | `02-net-ready` | **tạo** `03-storage-ready` | 3–4 | ✅ đã viết |
+| [6b — Snapshot và volume nâng cao](LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md) | 6 (phần còn lại) | `03-storage-ready` | trả về `03-storage-ready` | 2–3 | ✅ đã viết |
+| [7a — Lập lịch và eviction](LAB-7A-LAP-LICH-VA-EVICTION.md) | 7a (13 bài) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ✅ đã viết |
+| [7b — Quota và giới hạn tài nguyên](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) | 7b (6 bài) | `03-storage-ready` | trả về `03-storage-ready` | 2–3 | ✅ đã viết |
 | 8a — Dựng cluster bằng kubeadm | 8 (bài 01–05, 09) | `03-storage-ready` | phá cluster rồi **restore** `03-storage-ready` | 4 | ⬜ chưa viết |
 | 8b — HA với stacked etcd | 8 (bài 06, 08) | bộ VM riêng, dựng mới | **tạo** `8x-ha-stacked` | 4 | ⬜ chưa viết |
 | 8c — HA với external etcd | 8 (bài 06, 07, 08) | bộ VM riêng của lab 8b, reset | **tạo** `8x-ha-external` | 4 | ⬜ chưa viết |
@@ -120,7 +120,7 @@ bài gốc.
 | 2 | `volumeClaimTemplates` của StatefulSet | giai đoạn 4, bài [65](../65-statefulset-vi.md) | StorageClass + provisioner (giai đoạn 6) | Lab 6a |
 | 3 | Service quản trị headless cho StatefulSet | giai đoạn 4, bài [65](../65-statefulset-vi.md) | Service headless (giai đoạn 5) | Lab 5a |
 | 4 | NetworkPolicy được thực thi thật | giai đoạn 5, bài [84](../84-network-policies-vi.md) | CNI hỗ trợ policy thay Flannel | Lab 5b |
-| 5 | Ảnh chụp nhanh và nhân bản volume | giai đoạn 6, bài [99](../99-volume-snapshots-vi.md)–[101](../101-volume-pvc-datasource-vi.md) | CSI driver có hỗ trợ snapshot | Lab 6b |
+| 5 | Ảnh chụp nhanh và nhân bản volume | [Giai đoạn 6](../00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài [99](../99-volume-snapshots-vi.md)–[101](../101-volume-pvc-datasource-vi.md) | **CSI driver hỗ trợ snapshot** — `local-path-provisioner` của baseline dùng `rancher.io/local-path`, không phải CSI, nên **chưa đủ điều kiện** | Lab 6b, nhánh A — chạy lại sau khi cluster có CSI driver hỗ trợ snapshot |
 | 6 | Mã hóa Secret at rest | giai đoạn 3, bài [109](../109-secret-vi.md) | sửa cấu hình apiserver | [giai đoạn 22](../00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu) |
 | 7 | Quản lý vòng đời certificate | giai đoạn 12, bài [156](../156-certificates-vi.md) | quy trình `kubeadm certs` | [giai đoạn 18](../00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) |
 | 8 | Backup và restore etcd | giai đoạn 8 | `etcdctl` và quy trình khôi phục | [giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa) |

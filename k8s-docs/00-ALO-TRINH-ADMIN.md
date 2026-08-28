@@ -161,8 +161,8 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 #### 1c. Vòng đời và cơ chế nền của object
 
-- [ ] [Finalizers](29-finalizers-vi.md) — vì sao một object xóa mãi không đi.
-- [ ] [Đối tượng sở hữu và đối tượng phụ thuộc](30-owners-dependents-vi.md) — owner reference.
+- [X] [Finalizers](29-finalizers-vi.md) — vì sao một object xóa mãi không đi.
+- [X] [Đối tượng sở hữu và đối tượng phụ thuộc](30-owners-dependents-vi.md) — owner reference.
 - [ ] [Thu gom rác](36-garbage-collection-vi.md) — xóa cascade foreground/background; dựa trên hai bài trên.
 - [ ] [Các Lease](35-leases-vi.md) — heartbeat của node và bầu leader của control plane.
 - [ ] [Các phiên bản lưu trữ](32-storage-version-vi.md) — object được lưu trong etcd ở version nào.

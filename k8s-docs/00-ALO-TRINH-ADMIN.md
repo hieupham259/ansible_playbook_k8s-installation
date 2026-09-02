@@ -167,7 +167,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [X] [Các Lease](35-leases-vi.md) — heartbeat của node và bầu leader của control plane.
 - [X] [Các phiên bản lưu trữ](32-storage-version-vi.md) — object được lưu trong etcd ở version nào.
 - [X] [Proxy phiên bản hỗn hợp](37-mixed-version-proxy-vi.md) — đọc lướt, chỉ cần biết tồn tại khi cluster có nhiều version apiserver.
-- [ ] [Cloud Controller Manager](34-cloud-controller-vi.md) — nếu chạy on-premise thì đọc để biết phần nào **không** có.
+- [X] [Cloud Controller Manager](34-cloud-controller-vi.md) — nếu chạy on-premise thì đọc để biết phần nào **không** có.
 
 **Thực hành:** [Phát triển Cloud Controller Manager](203-developing-cloud-controller-manager-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 

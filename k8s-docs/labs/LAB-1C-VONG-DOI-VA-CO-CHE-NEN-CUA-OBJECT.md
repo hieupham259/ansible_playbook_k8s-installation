@@ -61,6 +61,7 @@ Hoàn thành lab khi có thể tự chứng minh và giải thích được:
 | [Storage versions](../32-storage-version-vi.md) | B4 — API representation, write và giới hạn quan sát storage version |
 | [Mixed Version Proxy](../37-mixed-version-proxy-vi.md) | B5 — Giới hạn của control plane một API server |
 | [Cloud Controller Manager](../34-cloud-controller-vi.md) | B6 — Bằng chứng cluster on-premise không có CCM |
+| [Phát triển Cloud Controller Manager](../203-developing-cloud-controller-manager-vi.md) — bài **Thực hành** của nhóm | B6 — mô hình plug-in out-of-tree/in-tree không kiểm chứng được trên cluster không có cloud provider; phần kiểm chứng được là `spec.providerID` để trống, tức chưa provider nào đăng ký |
 
 ### 1.2. Thời lượng
 

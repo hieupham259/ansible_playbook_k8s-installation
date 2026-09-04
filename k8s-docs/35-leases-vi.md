@@ -63,6 +63,31 @@ thành phần được chạy chủ động còn các instance khác ở trạng
 để tìm hiểu cách Kubernetes xây dựng trên nền Lease API nhằm chọn ra instance nào
 của thành phần đóng vai trò leader.
 
+> **Ghi chú giải thích bổ sung (nội dung bên ngoài tài liệu Kubernetes gốc):**
+>
+> Trong một cluster control plane, có thể quan sát thấy các Lease như
+> `kube-controller-manager`, `kube-scheduler` và `apiserver-<hash>`. Chúng không
+> cùng thực hiện một nhiệm vụ:
+>
+> | Lease | Mục đích | Thành phần gia hạn |
+> | --- | --- | --- |
+> | `kube-controller-manager` | Bầu leader giữa các instance `kube-controller-manager` | Instance controller manager đang giữ vai trò leader |
+> | `kube-scheduler` | Bầu leader giữa các instance `kube-scheduler` | Instance scheduler đang giữ vai trò leader |
+> | `apiserver-<hash>` | Công bố định danh của một instance `kube-apiserver`; **không** dùng để bầu leader | Chính instance `kube-apiserver` tương ứng |
+>
+> Với hai Lease bầu leader, `spec.holderIdentity` (`HOLDER`) nhận diện instance
+> đang giữ leadership, `spec.renewTime` (`RENEW`) là thời điểm gia hạn gần nhất,
+> còn `spec.leaseDurationSeconds` (`DURATION`) là khoảng thời gian leadership còn
+> hiệu lực nếu holder không tiếp tục gia hạn. Trong cấu hình HA, khi Lease hết hạn,
+> instance khác có thể tranh quyền leader.
+>
+> Với Lease `apiserver-<hash>`, `HOLDER` là định danh do kube-apiserver công bố;
+> label `kubernetes.io/hostname` (`HOST`) cho biết hostname của instance đó. Mỗi
+> kube-apiserver công bố một Lease định danh riêng, vì vậy cluster chỉ có một
+> kube-apiserver thường có đúng một Lease loại này. Nói ngắn gọn, hai Lease đầu
+> trả lời câu hỏi **instance nào đang là leader**, còn Lease thứ ba giúp nhận biết
+> **những kube-apiserver nào đang tồn tại**.
+
 ### Giải phóng khóa của kube-controller-manager khi thoát (Kube controller manager lock release on exit)
 
 **TRẠNG THÁI TÍNH NĂNG:** `Kubernetes v1.36 [alpha]`

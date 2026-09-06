@@ -6,7 +6,7 @@
 >
 > **Cách chạy bắt buộc:** thực hiện từng checkpoint theo thứ tự. Sau mỗi khối có nhãn **DỪNG — GỬI OUTPUT**, gửi nguyên output để kiểm tra; chỉ sang checkpoint tiếp theo khi kết quả được xác nhận **PASS**.
 >
-> **Môi trường:** mọi lệnh `kubectl` chạy trên `k8s-master` bằng user `ubuntu`, trừ khi tiêu đề ghi rõ worker hoặc máy build.
+> **Môi trường:** mọi lệnh `kubectl` chạy trên `k8s-master` bằng user `ubuntu`, trừ khi tiêu đề ghi rõ worker hoặc máy build. **Máy build** là máy Windows có Docker; mọi code block `bash` dành cho máy build phải chạy trong **Git Bash**, không chạy trong PowerShell hay WSL. Repository ứng dụng nằm tại `E:\courses\Ansible\three-tier-crud`, cùng cấp với repository chứa runbook này (§4.1); Git Bash dùng đường dẫn `E:/courses/Ansible/three-tier-crud`.
 
 ---
 
@@ -162,7 +162,7 @@ StorageClass `local-path` trong Phase 1 cấp volume nằm trên filesystem củ
 
 > Trước một lần cài mới trong tương lai, kiểm tra MongoDB 8.0 có patch bảo mật mới hơn hay không. Nếu đổi version, cập nhật **đồng thời** bảng này, manifest §8, gate pull image và checklist; không đổi riêng một chỗ.
 >
-> Bảng này cố ý không ghim sẵn version React/Vite/FastAPI/PyMongo: version chính xác được chốt **một lần** tại checkpoint 5.3, bằng lockfile pin đầy đủ cộng danh sách version trong output gửi kiểm tra. Sau checkpoint đó, build lại phải dùng đúng lockfile đã commit; không generate lại source, vì mỗi lần generate có thể sinh dependency khác nhau.
+> Bảng này cố ý không ghim sẵn version React/Vite/FastAPI/PyMongo: version chính xác được chốt **một lần** tại checkpoint 5.3, bằng lockfile pin đầy đủ (5.3.1) cộng output version đọc từ Dockerfile, `package.json` và `requirements.txt` (5.3.5). Sau checkpoint đó, build lại phải dùng đúng lockfile đã commit; không generate lại source, vì mỗi lần generate có thể sinh dependency khác nhau.
 
 ### 2.2. Sizing cho lab
 
@@ -264,6 +264,7 @@ PASS khi cả hai node trả image reference/ID, không có lỗi DNS, TLS, time
 | Frontend Service | `frontend:80` | Không |
 | Backend Service | `backend:8000` | Không |
 | MongoDB Service | `mongodb:27017` | Không |
+| Repository ứng dụng | `E:\courses\Ansible\three-tier-crud` trên máy build, Git repository riêng cùng cấp với repository chứa runbook; trong shell dùng `cd E:/courses/Ansible/three-tier-crud` | Chỉ khi đổi vị trí repo; khi đó sửa đồng thời khối Môi trường ở đầu file, §5, §6 và §8.1 |
 
 ### 4.2. Contract dữ liệu và API
 
@@ -297,7 +298,7 @@ Frontend luôn gọi URL tương đối `/api/...`; **không** hard-code IP, Clu
 
 ## 5. Gate tạo source code — prompt dùng ở bước sau
 
-Phase 2 hiện tại chỉ lưu yêu cầu. Khi sẵn sàng tạo source, mở một task Codex mới tại repository ứng dụng và gửi nguyên prompt dưới đây. Không tiếp tục §6 cho đến khi source gate cuối mục này PASS.
+Repository ứng dụng nằm tại `E:\courses\Ansible\three-tier-crud` (§4.1), là Git repository riêng, cùng cấp với repository chứa runbook này. Khi tạo hoặc tạo lại source, mở một task mới tại đúng thư mục đó và gửi nguyên prompt dưới đây. Không tiếp tục §6 cho đến khi source gate cuối mục này PASS.
 
 ### 5.1. Prompt tạo source
 
@@ -311,11 +312,11 @@ Kiến trúc bắt buộc:
   http://backend:8000/api/; giữ đúng path /api, forward các header chuẩn.
 - frontend chỉ gọi relative URL /api; không có MongoDB URI/credential hay backend ClusterIP trong bundle.
 - backend/: FastAPI + official PyMongo Async API (AsyncMongoClient), không dùng Motor; REST contract đúng bảng ở
-  runbook-k8s-vmware-phase2.md §4.2.
+  ../ansible_playbook_k8s-installation/runbook-k8s-vmware-phase2.md §4.2.
 - Backend đọc MONGODB_URI, MONGODB_DATABASE=cruddb, MONGODB_COLLECTION=items từ environment.
 - GET /api/health/live chỉ kiểm tra process FastAPI/event loop còn phản hồi, không gọi MongoDB.
 - GET /api/health/ready phải ping MongoDB với timeout hữu hạn và trả non-200 nếu DB chưa sẵn sàng.
-- Unit test phải chứng minh khi giả lập MongoDB down: /api/health/live vẫn 200 nhưng /api/health/ready non-200.
+- Unit test phải chứng minh khi giả lập MongoDB down: /api/health/live vẫn 200 nhưng /api/health/ready trả 503.
 - Tạo unique index cho field id theo cách idempotent khi startup.
 - Validate input: id/name không rỗng, giới hạn độ dài; description có giới hạn; trả status code rõ ràng.
 - Không log credential hoặc toàn bộ MONGODB_URI.
@@ -323,30 +324,52 @@ Kiến trúc bắt buộc:
 
 Supply chain/build:
 - Tạo Dockerfile riêng cho frontend/backend, multi-stage build, pin base image bằng version cụ thể.
+- Frontend Dockerfile dùng Node 24 LTS ở build stage, chạy `npm ci --ignore-scripts`, `npm test`
+  và `npm run build`; image runtime chỉ được tạo từ kết quả của stage đã chạy test thành công.
+- Backend Dockerfile cài các file requirements đã pin bằng `pip install --no-deps`, chạy `pip check`
+  và `python -m pytest -q`; image runtime chỉ được tạo từ stage phụ thuộc vào test đã thành công.
 - Container frontend và backend chạy non-root, không cần privileged, không ghi vào root filesystem
   ngoài /tmp nếu framework cần.
-- Tạo .dockerignore, package lockfile và Python lock/requirements được pin đầy đủ.
-- Không chạy npm/pip install ngoài build stage; không commit secrets.
+- Tạo .dockerignore và .gitignore. .gitignore phải loại `node_modules/`, `.venv/`, `dist/`,
+  `coverage/`, `.pytest_cache/`, `__pycache__/`, `.env` và `.env.*`.
+- Frontend phải có `package-lock.json` được commit và script `npm test` chạy toàn bộ frontend test.
+- `frontend/package.json` phải khai `engines.node` tương thích với Node 24 LTS của build stage và
+  version Vite đã chọn; Node.js dùng chạy checkpoint 5.3 phải thỏa range này.
+- Backend phải có `requirements.txt`, `requirements-dev.txt` và `pyproject.toml`; hai file requirements
+  được commit và pin đầy đủ toàn bộ dependency closure. `requirements-dev.txt` bao gồm runtime
+  requirements và pytest/test dependencies; `python -m pytest` chạy toàn bộ backend test.
+- `backend/pyproject.toml` phải khai `requires-python` tương thích với Python base image, toàn bộ
+  dependency đã chọn và tối thiểu Python 3.11; Python dùng chạy checkpoint 5.3 phải thỏa range này.
+- Không commit secrets.
 - Image backend listen 0.0.0.0:8000; image frontend listen 0.0.0.0:8080.
 
 Quality:
 - Unit tests backend cho create/read/update/delete, validation, duplicate và not-found.
 - Frontend tests tối thiểu cho API client và một CRUD flow.
-- README nêu rõ lệnh test/build, biến môi trường, API examples và danh sách version chính xác
+- README nêu rõ lệnh test, lệnh Docker build, biến môi trường, API examples và danh sách version chính xác
   đã chọn cho React, Vite, FastAPI, PyMongo, Python và mọi base image xuất hiện trong hai
   Dockerfile, kể cả base image của build stage.
 - Chỉ tạo thư mục k8s/ rỗng (có thể giữ bằng .gitkeep); không tự thiết kế manifest Kubernetes.
-- Các manifest tại §8–§11 của runbook-k8s-vmware-phase2.md là source of truth. Sau khi source/tests
-  hoàn tất, operator sẽ chép nguyên văn các manifest đó vào k8s/ và chỉ thay placeholder image/domain.
-- Không tự push image, không deploy cluster và không cài package trên máy của tôi nếu chưa được cho phép.
+- Các manifest tại §8–§11 của ../ansible_playbook_k8s-installation/runbook-k8s-vmware-phase2.md
+  là source of truth. Sau khi source/tests hoàn tất, operator sẽ chép nguyên văn các manifest đó
+  vào k8s/ và chỉ thay placeholder image/domain.
+- Trong task này, tôi cho phép chạy đúng các lệnh cài dependency phục vụ checkpoint 5.3:
+  `npm install --package-lock-only --ignore-scripts` chỉ khi cần tạo/cập nhật `package-lock.json`,
+  `npm ci --ignore-scripts`, và `.venv/Scripts/python -m pip install --no-deps -r requirements-dev.txt`
+  (trên Linux/macOS dùng `.venv/bin/python`). Không cài global, không cài phần mềm/tool khác,
+  không Docker build/push và không deploy cluster trong task này.
 - Kết thúc task với repository Git sạch: git init nếu repo chưa có, commit toàn bộ source vừa tạo;
   git status --short phải rỗng và git rev-parse HEAD phải trả về commit.
 
-Trước khi sửa file: đọc AGENTS.md và repository hiện có. Sau khi tạo, chạy các test/build có thể chạy bằng
-toolchain đã cài; báo rõ phần nào chưa verify. Không đổi contract nếu chưa hỏi tôi.
+Trước khi sửa file: đọc AGENTS.md của repository runbook (../ansible_playbook_k8s-installation/AGENTS.md)
+và repository hiện có. Sau khi tạo, chạy toàn bộ checkpoint 5.3 gồm kiểm tra Git/lockfile, cài dependency
+bằng đúng các lệnh đã cho phép ở trên, hai bộ test, scan secret và kiểm tra version; báo rõ phần nào chưa
+verify. Không chạy Docker trong §5 và không đổi contract nếu chưa hỏi tôi.
 ```
 
 ### 5.2. Cấu trúc source bắt buộc sau khi generate
+
+Cây dưới đây là nội dung của `E:\courses\Ansible\three-tier-crud` (§4.1):
 
 ```text
 three-tier-crud/
@@ -354,11 +377,13 @@ three-tier-crud/
 │   ├── Dockerfile
 │   ├── nginx.conf
 │   ├── package.json
-│   ├── lockfile
+│   ├── package-lock.json
 │   └── src/...
 ├── backend/
 │   ├── Dockerfile
-│   ├── dependency lock/requirements
+│   ├── pyproject.toml
+│   ├── requirements.txt
+│   ├── requirements-dev.txt
 │   ├── app/...
 │   └── tests/...
 ├── k8s/
@@ -366,34 +391,99 @@ three-tier-crud/
 └── README.md
 ```
 
+Điểm vào test bắt buộc, cố định để gate §5.3 không phụ thuộc vào nội dung README do task sinh ra: `npm test` trong `frontend/` chạy toàn bộ frontend test; `python -m pytest` trong `backend/` chạy toàn bộ backend test; `frontend/package-lock.json`, `backend/requirements.txt` và `backend/requirements-dev.txt` được commit và pin đầy đủ. README chỉ mô tả lại các lệnh này, không phải nguồn của gate.
+
 ### 5.3. Source gate
 
-Từ root repository ứng dụng, chạy các lệnh verify đúng theo README vừa tạo. Tối thiểu phải có:
+Gate này chỉ kiểm tra source, test, Git và secret. **Không dùng Docker ở đây**: toolchain Docker được kiểm ở §6.1 và hai image chỉ được build một lần duy nhất ở §6.3. Node.js trên máy build phải thỏa `engines.node` trong `frontend/package.json`; Python phải thỏa `requires-python` trong `backend/pyproject.toml`. Các lệnh dưới đây cài dependency vào `frontend/node_modules/` và `backend/.venv/`; hai thư mục này phải nằm trong `.gitignore` theo contract §5.1. Khi task Codex chạy checkpoint này, quyền cài dependency chỉ áp dụng cho đúng các lệnh được ghi trong prompt §5.1 và trong chính task đó; không mở rộng sang phần mềm hoặc lệnh cài khác. Mọi khối chạy trong **Git Bash** trên máy build, từ root repository ứng dụng (`E:\courses\Ansible\three-tier-crud`, §4.1); không dùng PowerShell hoặc WSL cho các block này.
+
+**5.3.1. Git và lockfile**
 
 ```bash
+cd E:/courses/Ansible/three-tier-crud
 git status --short
 git rev-parse --short=12 HEAD
-git ls-files | grep -Ei '(^|/)(\.env|.*secret.*|.*credential.*)$' || true
-grep -RInE 'mongodb://[^[:space:]]+:[^[:space:]@]+@|MONGO_INITDB_ROOT_PASSWORD=' . \
-  --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude='*.md' || true
+git ls-files frontend/package-lock.json backend/requirements.txt backend/requirements-dev.txt
+git ls-files
 ```
 
-Mục đích: chứng minh toàn bộ source đã được commit, xem danh sách file được track và phát hiện credential/MongoDB URI bị commit. `git status --short` phải rỗng và `git rev-parse` phải trả về hash — đây chính là commit sẽ thành tag image ở §6.2; thiếu commit thì §6.2 sinh tag rỗng. Hai lệnh grep phải không trả secret thật. Sau đó gửi:
+PASS khi `git status --short` rỗng, `git rev-parse` trả về hash (đây chính là commit sẽ thành tag image ở §6.2; thiếu commit thì §6.2 sinh tag rỗng) và lệnh `git ls-files` thứ nhất liệt kê đủ cả ba file lock/requirements. Lockfile là nơi chốt version theo §2.1; thiếu lockfile thì chưa PASS.
 
-- cây file;
-- output test frontend/backend;
-- output build frontend/backend;
-- `git status --short` (rỗng) và hash từ `git rev-parse --short=12 HEAD`;
-- danh sách version đã chốt theo README (React, Vite, FastAPI, PyMongo, Python và mọi base image trong hai Dockerfile, kể cả build stage);
+**5.3.2. Frontend test**
+
+```bash
+cd E:/courses/Ansible/three-tier-crud/frontend
+node --version && npm --version
+node -e 'const l=require("./package-lock.json"); const m=Object.entries(l.packages||{}).filter(([p,v])=>p && !v.link && !v.version); if(!l.lockfileVersion||m.length){console.error("unversioned package-lock entries:",m.map(([p])=>p));process.exit(1)} console.log("PASS: package-lock closure is versioned; lockfileVersion="+l.lockfileVersion)'
+npm ci --ignore-scripts
+npm test
+cd .. && git status --short
+```
+
+PASS khi version Node.js thỏa `engines.node` trong `frontend/package.json`, lệnh Node in `PASS: package-lock closure is versioned` và không liệt kê entry thiếu version, `npm ci` cài xong không lỗi, `npm test` báo tất cả test pass và `git status --short` sau đó vẫn rỗng (`npm ci` không được sửa `package-lock.json`). `--ignore-scripts` là cách bắt buộc trong contract Dockerfile §5.1.
+
+**5.3.3. Backend test**
+
+```bash
+cd E:/courses/Ansible/three-tier-crud/backend
+python --version
+python -m venv .venv
+.venv/Scripts/python -m pip install --no-deps -r requirements-dev.txt
+.venv/Scripts/python -m pip check
+.venv/Scripts/python -m pytest -q
+cd .. && git status --short
+```
+
+Đường dẫn `.venv/Scripts/` là bố cục venv trên Windows; trên Linux/macOS thay bằng `.venv/bin/`. PASS khi version Python thỏa `requires-python` trong `backend/pyproject.toml`, `pip check` in `No broken requirements found.` (closure pin đầy đủ, cùng cách Dockerfile backend cài với `--no-deps`), `pytest` báo tất cả test pass, gồm các test chứng minh MongoDB down thì `/api/health/live` vẫn 200 còn `/api/health/ready` trả 503, và `git status --short` sau test vẫn rỗng.
+
+**5.3.4. Scan secret**
+
+```bash
+cd E:/courses/Ansible/three-tier-crud
+git ls-files | grep -Ei '(^|/)(\.env|.*secret.*|.*credential.*)$' || true
+grep -RInE 'mongodb://[^[:space:]]+:[^[:space:]@]+@|MONGO_INITDB_ROOT_PASSWORD=' . \
+  --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.venv \
+  --exclude='*.md' || true
+```
+
+PASS khi cả hai lệnh không in ra dòng nào. `.venv/` và `node_modules/` bị loại vì dependency bên trong (ví dụ docstring của pymongo) có thể chứa URI mẫu; chúng không phải source của repository.
+
+**5.3.5. Version đã chốt**
+
+```bash
+cd E:/courses/Ansible/three-tier-crud
+grep -Hn '^FROM' frontend/Dockerfile backend/Dockerfile
+grep -E '^\s+"(react|react-dom|vite|typescript|vitest|@vitejs/plugin-react)":' frontend/package.json
+grep -E '^(fastapi|starlette|pydantic|pydantic-core|pymongo|uvicorn)==' backend/requirements.txt
+awk '
+  /^[[:space:]]*($|#)/ { next }
+  /^-r[[:space:]]+requirements\.txt[[:space:]]*$/ { next }
+  /^[A-Za-z0-9_.-]+==[^[:space:];]+([[:space:]]*;.*)?$/ { next }
+  { print FILENAME ":" FNR ": unpinned or unsupported requirement: " $0; bad=1 }
+  END { exit bad }
+' backend/requirements.txt backend/requirements-dev.txt && \
+  echo 'PASS: Python requirements closure is fully pinned'
+grep -HnE 'npm ci --ignore-scripts|npm test|python -m pytest -q|pip install --no-deps' \
+  frontend/Dockerfile backend/Dockerfile
+git status --short
+```
+
+PASS khi mọi dòng `FROM` có tag version cụ thể (không `latest`, không chỉ tên image), frontend build stage dùng Node 24 LTS, version in ra khớp bảng version trong README, awk in `PASS: Python requirements closure is fully pinned` mà không báo dòng sai, grep Dockerfile hiện đủ các lệnh cài/test bắt buộc của §5.1 và `git status --short` cuối cùng rỗng. Source of truth là Dockerfile, `package.json`/lockfile và các file requirements; README chỉ là bản mô tả, lệch thì sửa README. Đồng thời review thứ tự stage để xác nhận image runtime chỉ được tạo từ kết quả đã đi qua test; grep riêng lẻ không chứng minh được quan hệ giữa các stage.
+
+Sau đó gửi:
+
+- output `git ls-files` (cây file), `git status --short` (rỗng), hash từ `git rev-parse --short=12 HEAD` và output `git ls-files` của ba file lock/requirements;
+- output `npm test` và `pytest`;
+- output các lệnh version/Dockerfile contract ở 5.3.5 và `git status --short` cuối cùng;
 - kết quả scan secret (che giá trị nếu công cụ in ra).
 
-> **DỪNG — GỬI OUTPUT CHECKPOINT 5.3.** Chỉ sang §6 khi source, tests và hai Docker build đều PASS.
+> **DỪNG — GỬI OUTPUT CHECKPOINT 5.3.** Chỉ sang §6 khi Git, lockfile, toolchain, hai bộ test, version/Dockerfile contract và scan secret đều PASS. Mục này không build image; Docker bắt đầu từ §6.1.
 
 ---
 
 ## 6. Build và push image
 
-> Chưa chạy mục này khi source chưa được tạo. Lệnh chạy trên **máy build** đã có Docker và đăng nhập registry; mọi khối lệnh của §6 chạy từ **root repository ứng dụng** — `git rev-parse` ở §6.2 đọc commit của repository này và §6.3 dùng đường dẫn tương đối `./frontend`, `./backend`. Runbook không tự cài Docker hay tạo tài khoản registry.
+> Chỉ chạy mục này sau khi checkpoint 5.3 PASS. §6 là nơi **duy nhất** dùng Docker: §6.1 kiểm toolchain Docker/buildx, §6.2 chốt tên image theo commit, §6.3 build hai image một lần duy nhất (linux/amd64, tag = commit) và kiểm metadata, §6.4 push và pin digest. §5 không build image, nên không có kết quả build nào từ §5 được tái sử dụng ở đây. Lệnh chạy trong **Git Bash** trên máy build Windows đã có Docker và đăng nhập registry; không dùng PowerShell hoặc WSL. Mọi khối lệnh của §6 chạy từ **root repository ứng dụng** `E:\courses\Ansible\three-tier-crud` (§4.1; mở Git Bash rồi `cd E:/courses/Ansible/three-tier-crud` trước khối lệnh đầu tiên) — `git rev-parse` ở §6.2 đọc commit của repository này và §6.3 dùng đường dẫn tương đối `./frontend`, `./backend`. Runbook không tự cài Docker hay tạo tài khoản registry.
 
 ### 6.1. Verify toolchain máy build
 
@@ -437,6 +527,8 @@ Baseline giả định hai repository Docker Hub ở chế độ **public** đ�
 
 **Mục đích:** tạo image linux/amd64 cho worker VMware và kiểm tra architecture/user trong metadata trước khi push. Checkpoint này chưa chạy container nên không chứng minh image khởi động được; kiểm tra runtime và HTTP diễn ra tại §9.3–§9.4 (backend) và §10.2 (frontend/proxy).
 
+Đây là lần build image duy nhất của runbook. Contract §5.1 và review §5.3.5 yêu cầu Dockerfile của cả hai service chạy lại unit test trong stage build bằng toolchain của base image đã pin. Vì vậy test chạy hai lần là cố ý: §5.3 cho phản hồi nhanh trên toolchain máy build và tạo output checkpoint, còn lần chạy trong image bảo đảm không tạo ra được image từ source có test fail. Build fail ở bước test thì quay lại sửa source và làm lại từ §5.3, vì commit mới sinh tag mới ở §6.2.
+
 ```bash
 source ~/phase2-build.env
 docker buildx build --platform linux/amd64 --load \
@@ -447,7 +539,7 @@ docker image inspect "$FRONTEND_IMAGE" --format '{{.Id}} {{.Architecture}} {{.Co
 docker image inspect "$BACKEND_IMAGE" --format '{{.Id}} {{.Architecture}} {{.Config.User}}'
 ```
 
-PASS khi build thành công, architecture `amd64` và `Config.User` không phải rỗng/`root`/`0`.
+PASS khi output build cho thấy `npm test` và `python -m pytest -q` đều chạy thành công, hai image build thành công, architecture `amd64` và `Config.User` không phải rỗng/`root`/`0`.
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 6.3.**
 
@@ -575,7 +667,18 @@ Mục đích: tách config không nhạy cảm khỏi image. PASS khi database/c
 
 ### 8.1. Tạo manifest database
 
-Các lệnh `kubectl apply -f k8s/...` của §8–§11 chạy trên `k8s-master` theo quy ước ở đầu runbook, vì vậy thư mục `k8s/` phải tồn tại trên master: clone repository ứng dụng lên `k8s-master`, hoặc tạo thư mục `k8s/` trên master rồi chép các file manifest về repository để commit. Chạy mọi lệnh của §8–§11 từ thư mục cha của `k8s/`.
+Các lệnh `kubectl apply -f k8s/...` của §8–§11 chạy trên `k8s-master` theo quy ước ở đầu runbook, vì vậy thư mục `k8s/` phải tồn tại trên master. Repository ứng dụng nằm trên máy build tại `E:\courses\Ansible\three-tier-crud` (§4.1) và master không đọc được đường dẫn đó, nên dùng một trong hai cách:
+
+- repository đã có remote: clone lên master bằng `git clone <remote-url> ~/three-tier-crud`;
+- repository chưa có remote: tạo và commit các file `k8s/*.yaml` trong repository trên máy build, rồi chép lên master từ chính thư mục repo (dùng đường dẫn tương đối để `scp` trên Windows không hiểu nhầm ổ `E:` là hostname):
+
+```bash
+cd E:/courses/Ansible/three-tier-crud
+ssh ubuntu@192.168.100.111 'mkdir -p ~/three-tier-crud'
+scp -r k8s ubuntu@192.168.100.111:~/three-tier-crud/
+```
+
+IP master lấy theo §2.2 của Phase 1. Mỗi lần sửa manifest trên máy build phải `scp` lại. Chạy mọi lệnh của §8–§11 trên master từ thư mục cha của `k8s/`, tức `~/three-tier-crud`.
 
 Tạo `k8s/10-mongodb.yaml` trong repository ứng dụng bằng cách chép đúng manifest dưới đây; đây là **source of truth**, không hợp nhất với manifest do task tạo source tự sinh. Manifest tạo Service headless, script init app user và StatefulSet. Script trong `/docker-entrypoint-initdb.d` chỉ chạy khi data directory còn rỗng.
 
@@ -1570,7 +1673,8 @@ kubectl -n three-tier logs \
 ## 17. Checklist hoàn tất
 
 - [ ] Checkpoint 3.1–3.3: cluster, node conditions, kernel worker ngoài dải cấm, disk, storage, Traefik và pull image PASS.
-- [ ] Checkpoint 5.3: source đã được tạo và commit (`git rev-parse` có hash), version đã chốt, tests/build PASS, không lộ secret.
+- [ ] Checkpoint 5.3: source đã commit (`git rev-parse` có hash), lockfile/requirements pin đầy đủ được track, toolchain khớp contract, `npm test` và `pytest` PASS, Dockerfile chứa đúng stage/lệnh test, version khớp source, không lộ secret; chưa dùng Docker.
+- [ ] Checkpoint 6.1–6.4: Docker/buildx PASS, hai image linux/amd64 build một lần với tag commit, `Config.User` non-root, đã push và pin digest.
 - [ ] Manifest frontend/backend dùng tag Git kèm `@sha256:` đúng digest đã verify ở registry.
 - [ ] MongoDB `Running`, PVC 10Gi `Bound`, app user ping được, unique index tồn tại.
 - [ ] Backend `2/2`, frontend `2/2`, probes và EndpointSlice PASS.

@@ -433,9 +433,9 @@ Baseline giả định hai repository Docker Hub ở chế độ **public** đ�
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 6.2.**
 
-### 6.3. Build và smoke test image
+### 6.3. Build và kiểm tra metadata image
 
-**Mục đích:** tạo image linux/amd64 cho worker VMware và bắt lỗi container khởi động trước khi push.
+**Mục đích:** tạo image linux/amd64 cho worker VMware và kiểm tra architecture/user trong metadata trước khi push. Checkpoint này chưa chạy container nên không chứng minh image khởi động được; kiểm tra runtime và HTTP diễn ra tại §9.3–§9.4 (backend) và §10.2 (frontend/proxy).
 
 ```bash
 source ~/phase2-build.env
@@ -693,7 +693,7 @@ spec:
         - name: init
           configMap:
             name: mongodb-init
-            defaultMode: 0550
+            defaultMode: 0444
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -710,6 +710,8 @@ spec:
 > `startupProbe` và `readinessProbe` dùng `mongosh`, nên mỗi lần probe phải spawn một process Node.js. Baseline giữ command-level check ở startup/readiness nhưng giảm readiness xuống bốn lần/phút; liveness dùng TCP nhẹ hơn và chỉ kiểm tra `mongod` còn listen. Readiness mới là tín hiệu xác nhận database thực sự trả command.
 >
 > Runbook cố ý không khai `fsGroup`. StorageClass `local-path` mặc định tạo PV `hostPath` và setup directory mode `0777`; không được dựa vào `fsGroup` để sửa ownership hay coi đây là storage hardening. Verify loại volume thực tế ở §8.3.
+>
+> ConfigMap script dùng `defaultMode: 0444` để user `mongodb` đọc được file mount thuộc `root:root`. Entrypoint của image chuyển sang user `mongodb` rồi source script `.sh` bằng `. "$f"`, nên cần quyền đọc, không cần executable bit. Mode `0550` không cho user này đọc khi không có group phù hợp và sẽ làm init lỗi `Permission denied`. Script chỉ chứa logic, credential được đọc từ environment của Secret. Nguồn: [entrypoint của image MongoDB 8.0.29](https://github.com/docker-library/mongo/blob/7c24b37b8e53a41b56c450b653c582ff7c3f7fcb/8.0/docker-entrypoint.sh#L19).
 
 ```bash
 kubectl apply --dry-run=server -f k8s/10-mongodb.yaml
@@ -1094,13 +1096,16 @@ Test Nginx và reverse proxy qua frontend Service:
 kubectl -n three-tier port-forward svc/frontend 18081:80 \
   >/tmp/frontend-port-forward.log 2>&1 & FRONTEND_PF_PID=$!
 trap 'kill "$FRONTEND_PF_PID" 2>/dev/null' EXIT
-curl -sS -o /dev/null -w 'frontend=%{http_code}\n' \
+curl -sS --retry 10 --retry-connrefused --retry-delay 1 \
+  -o /dev/null -w 'frontend=%{http_code}\n' \
   http://127.0.0.1:18081/
 curl -sS -o /dev/null -w 'api-live=%{http_code}\n' \
   http://127.0.0.1:18081/api/health/live
 curl -sS -o /dev/null -w 'api-ready=%{http_code}\n' \
   http://127.0.0.1:18081/api/health/ready
 ```
+
+Lệnh curl đầu tiên retry khi cổng port-forward chưa mở để tránh báo lỗi do tiến trình nền chưa sẵn sàng; số lần retry hữu hạn. Nếu vẫn lỗi hoặc bất kỳ code nào khác `200`, checkpoint chưa PASS. Nguồn: [curl — --retry-connrefused](https://curl.se/docs/manpage.html#--retry-connrefused).
 
 PASS khi cả ba code là `200`. Cleanup:
 

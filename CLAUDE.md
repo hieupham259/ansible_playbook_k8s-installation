@@ -233,3 +233,21 @@ Khi được yêu cầu dịch một trang kubernetes.io sang tiếng Việt, d�
 Quy ước: file đặt tên `<số>-<slug>-vi.md` trong `k8s-docs/`, giữ nguyên cấu trúc và thứ tự mục
 của trang gốc, có link trang nguồn ở đầu file. Sau khi thêm bài mới, cập nhật cả
 `k8s-docs/README.md` và `k8s-docs/00-ALO-TRINH-ADMIN.md`.
+
+## Hướng dẫn step runbook
+
+Chỉ giao việc đọc và trích runbook cho agent `runbook-step-guide` (`.claude/agents/runbook-step-guide.md`)
+khi người dùng yêu cầu rõ ràng sử dụng agent này. Trong các trường hợp khác, main thread tự đọc
+runbook, đối chiếu output và cung cấp step tiếp theo.
+
+- Agent làm việc read-only, chỉ trả về nội dung bám đúng runbook; main thread chờ agent hoàn thành
+  rồi mới trả lời người dùng, không tự bổ sung bước.
+- Không tự thay đổi thứ tự, command, script, điều kiện PASS/STOP hoặc mở rộng sang bước nằm sau gate
+  kế tiếp.
+- Câu trả lời cuối ngắn gọn theo khuôn trong file agent: tình trạng, bước tiếp theo kèm dòng bắt
+  đầu, nơi chạy, nguyên văn nội dung cần thực hiện, ý nghĩa vài câu, gate PASS và output cần gửi
+  lại. Link tài liệu chính thức chỉ khi người dùng yêu cầu giải thích một command.
+- Nếu runbook thiếu, mâu thuẫn hoặc không khớp output thực tế, báo điểm chặn cho người dùng; không
+  tự tạo bước thay thế. Chỉ sửa runbook khi người dùng yêu cầu sửa rõ ràng.
+
+Không dùng `runbook-step-guide` cho yêu cầu không liên quan hoặc khi người dùng không yêu cầu agent này.

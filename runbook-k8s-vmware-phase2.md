@@ -554,9 +554,18 @@ FRONTEND_INSPECT=$(docker buildx imagetools inspect "$FRONTEND_IMAGE")
 BACKEND_INSPECT=$(docker buildx imagetools inspect "$BACKEND_IMAGE")
 printf '%s\n' "$FRONTEND_INSPECT"
 printf '%s\n' "$BACKEND_INSPECT"
+FRONTEND_IMAGE_CONFIG=$(docker buildx imagetools inspect --format '{{json .Image}}' "$FRONTEND_IMAGE")
+BACKEND_IMAGE_CONFIG=$(docker buildx imagetools inspect --format '{{json .Image}}' "$BACKEND_IMAGE")
+FRONTEND_PLATFORM=$(printf '%s\n' "$FRONTEND_IMAGE_CONFIG" | python -c \
+  'import json, sys; d=json.load(sys.stdin); print(d["os"] + "/" + d["architecture"])')
+BACKEND_PLATFORM=$(printf '%s\n' "$BACKEND_IMAGE_CONFIG" | python -c \
+  'import json, sys; d=json.load(sys.stdin); print(d["os"] + "/" + d["architecture"])')
+printf 'FRONTEND_PLATFORM=%s\nBACKEND_PLATFORM=%s\n' \
+  "$FRONTEND_PLATFORM" "$BACKEND_PLATFORM"
 FRONTEND_DIGEST=$(printf '%s\n' "$FRONTEND_INSPECT" | sed -n 's/^Digest:[[:space:]]*//p' | head -1)
 BACKEND_DIGEST=$(printf '%s\n' "$BACKEND_INSPECT" | sed -n 's/^Digest:[[:space:]]*//p' | head -1)
-if [[ "$FRONTEND_DIGEST" == sha256:* && "$BACKEND_DIGEST" == sha256:* ]]; then
+if [[ "$FRONTEND_DIGEST" == sha256:* && "$BACKEND_DIGEST" == sha256:* && \
+      "$FRONTEND_PLATFORM" == linux/amd64 && "$BACKEND_PLATFORM" == linux/amd64 ]]; then
   export FRONTEND_IMAGE_PINNED="${FRONTEND_IMAGE}@${FRONTEND_DIGEST}"
   export BACKEND_IMAGE_PINNED="${BACKEND_IMAGE}@${BACKEND_DIGEST}"
   printf 'export FRONTEND_IMAGE_PINNED=%q\nexport BACKEND_IMAGE_PINNED=%q\n' \
@@ -565,14 +574,15 @@ if [[ "$FRONTEND_DIGEST" == sha256:* && "$BACKEND_DIGEST" == sha256:* ]]; then
   printf 'FRONTEND_IMAGE_PINNED=%s\nBACKEND_IMAGE_PINNED=%s\n' \
     "$FRONTEND_IMAGE_PINNED" "$BACKEND_IMAGE_PINNED"
 else
-  echo 'STOP: could not extract both registry digests'
+  echo 'STOP: could not verify both registry digests and linux/amd64 platforms'
 fi
-unset FRONTEND_INSPECT BACKEND_INSPECT FRONTEND_DIGEST BACKEND_DIGEST
+unset FRONTEND_INSPECT BACKEND_INSPECT FRONTEND_IMAGE_CONFIG BACKEND_IMAGE_CONFIG \
+  FRONTEND_PLATFORM BACKEND_PLATFORM FRONTEND_DIGEST BACKEND_DIGEST
 ```
 
-Mục đích: registry trở thành nguồn image cho containerd trên worker và Deployment dùng đúng nội dung đã verify thay vì chỉ dựa vào tag. PASS khi:
+Mục đích: registry trở thành nguồn image cho containerd trên worker và Deployment dùng đúng nội dung đã verify thay vì chỉ dựa vào tag. Output mặc định của `imagetools inspect` có thể không in platform khi registry trả về single-platform manifest; `--format '{{json .Image}}'` đọc image config để kiểm tra trực tiếp `os` và `architecture`. PASS khi:
 
-- cả hai output inspect có manifest `linux/amd64` và digest `sha256:...`;
+- cả hai output inspect có digest `sha256:...`, `FRONTEND_PLATFORM=linux/amd64` và `BACKEND_PLATFORM=linux/amd64`;
 - hai biến `*_IMAGE_PINNED` có dạng `<repository>:<git-sha>@sha256:<digest>`;
 - `~/phase2-deploy.env` tồn tại trên máy build với mode `600`; không commit file này.
 

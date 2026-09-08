@@ -181,8 +181,8 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Mục tiêu:** hiểu tầng dưới Pod: image, runtime, CRI, cgroup — trước khi cấu hình runtime thật.
 
-- [ ] [Các Container](39-containers-vi.md)
-- [ ] [Các Image](40-images-vi.md) — trọng tâm: tag vs digest, `imagePullPolicy`, `imagePullSecrets`; đây là nguồn lỗi vận hành rất phổ biến.
+- [X] [Các Container](39-containers-vi.md)
+- [X] [Các Image](40-images-vi.md) — trọng tâm: tag vs digest, `imagePullPolicy`, `imagePullSecrets`; đây là nguồn lỗi vận hành rất phổ biến.
 - [ ] [Môi trường Container](41-container-environment-vi.md)
 - [ ] [Các hook vòng đời của Container](42-container-lifecycle-hooks-vi.md) — `postStart`, `preStop`; `preStop` liên quan trực tiếp đến shutdown êm ở giai đoạn 3.
 - [ ] [Container Runtime Interface (CRI)](44-cri-vi.md) — hợp đồng giữa kubelet và runtime.

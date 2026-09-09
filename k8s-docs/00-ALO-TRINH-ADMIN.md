@@ -183,7 +183,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 - [X] [Các Container](39-containers-vi.md)
 - [X] [Các Image](40-images-vi.md) — trọng tâm: tag vs digest, `imagePullPolicy`, `imagePullSecrets`; đây là nguồn lỗi vận hành rất phổ biến.
-- [ ] [Môi trường Container](41-container-environment-vi.md)
+- [X] [Môi trường Container](41-container-environment-vi.md)
 - [ ] [Các hook vòng đời của Container](42-container-lifecycle-hooks-vi.md) — `postStart`, `preStop`; `preStop` liên quan trực tiếp đến shutdown êm ở giai đoạn 3.
 - [ ] [Container Runtime Interface (CRI)](44-cri-vi.md) — hợp đồng giữa kubelet và runtime.
 - [ ] [Giới thiệu về cgroup v2](33-cgroups-vi.md) — nền tảng của mọi giới hạn tài nguyên học ở giai đoạn 3.

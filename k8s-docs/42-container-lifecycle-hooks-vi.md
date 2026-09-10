@@ -104,6 +104,58 @@ hook đó. Có ba loại hook handler có thể được hiện thực cho các 
 * HTTP - Thực thi một HTTP request tới một endpoint cụ thể trên Container.
 * Sleep - Tạm dừng container trong một khoảng thời gian được chỉ định.
 
+### Cách hiểu đúng: ai gọi hook và ai chạy handler?
+
+> Phần giải thích này không có trong trang gốc.
+
+Cụm "Container có thể truy cập một hook" ở trên không có nghĩa là container chủ động đi tìm
+hoặc gọi một hook. Hook cũng không phải là một API hay một endpoint để container truy cập.
+Cách hiểu chính xác là:
+
+* **Hook** là một thời điểm/sự kiện trong vòng đời do Kubernetes quản lý, chẳng hạn container
+  vừa được tạo (`PostStart`) hoặc sắp bị dừng (`PreStop`).
+* **Handler** là hành động mà người viết Pod manifest khai báo để thực hiện tại thời điểm đó.
+* **Kubelet** là thành phần nhận biết hook đã xảy ra và kích hoạt handler tương ứng.
+
+Có thể ghi nhớ luồng này như sau:
+
+```text
+sự kiện vòng đời xảy ra → kubelet kích hoạt hook → kubelet thực thi handler đã khai báo
+```
+
+Ví dụ:
+
+```yaml
+containers:
+  - name: web
+    image: myapp:v1
+    lifecycle:
+      postStart:
+        exec:
+          command: ["/bin/sh", "-c", "/app/initialize.sh"]
+      preStop:
+        httpGet:
+          path: /shutdown
+          port: 8080
+```
+
+Khi container `web` được tạo, kubelet kích hoạt `PostStart` và yêu cầu container runtime chạy
+`/app/initialize.sh` bên trong container. Khi Kubernetes bắt đầu dừng container, kubelet kích
+hoạt `PreStop`, gửi HTTP request tới endpoint `/shutdown`, chờ handler hoàn tất, rồi mới tiếp
+tục gửi tín hiệu dừng cho container.
+
+Ba loại handler chỉ là ba cách khác nhau để mô tả hành động cần làm:
+
+* `exec`: chạy một lệnh bên trong container; lệnh nhìn thấy filesystem và môi trường của
+  container, đồng thời dùng CPU và memory của container.
+* `httpGet`: kubelet gửi HTTP request tới Pod IP và port đã khai báo; ứng dụng trong container
+  phải đang phục vụ endpoint đó.
+* `sleep`: kubelet chờ đủ số giây đã khai báo. Nó không đóng băng tiến trình chính; trong thời
+  gian chờ của `PreStop`, ứng dụng vẫn có thể hoàn tất các request đang xử lý.
+
+Vì vậy, "đăng ký handler" trong ngữ cảnh này thực chất là **khai báo handler trong trường
+`lifecycle` của container ở Pod spec**, không phải container tự đăng ký callback bằng code.
+
 ### Thực thi hook handler (Hook handler execution)
 
 Khi một hook quản lý vòng đời của Container được gọi, hệ thống quản lý của

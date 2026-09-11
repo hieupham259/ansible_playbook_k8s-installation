@@ -186,8 +186,8 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [X] [Môi trường Container](41-container-environment-vi.md)
 - [X] [Các hook vòng đời của Container](42-container-lifecycle-hooks-vi.md) — `postStart`, `preStop`; `preStop` liên quan trực tiếp đến shutdown êm ở giai đoạn 3.
 - [X] [Container Runtime Interface (CRI)](44-cri-vi.md) — hợp đồng giữa kubelet và runtime.
-- [ ] [Giới thiệu về cgroup v2](33-cgroups-vi.md) — nền tảng của mọi giới hạn tài nguyên học ở giai đoạn 3.
-- [ ] [Runtime Class](43-runtime-class-vi.md) — chọn runtime khác nhau cho từng workload.
+- [X] [Giới thiệu về cgroup v2](33-cgroups-vi.md) — nền tảng của mọi giới hạn tài nguyên học ở giai đoạn 3.
+- [X] [Runtime Class](43-runtime-class-vi.md) — chọn runtime khác nhau cho từng workload.
 - [ ] [Các container runtime](00-container-runtimes-vi.md) — **đọc lý thuyết ở đây** (đặc biệt mục cgroup driver: kubelet và runtime phải khớp nhau). Phần cài đặt thực tế để dành làm cùng giai đoạn 8.
 
 **Thực hành:** [Cấu hình một kubelet image credential provider](225-kubelet-credential-provider-vi.md) · [Chuyển từ polling sang cập nhật trạng thái container dựa trên sự kiện CRI](257-switch-to-evented-pleg-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.

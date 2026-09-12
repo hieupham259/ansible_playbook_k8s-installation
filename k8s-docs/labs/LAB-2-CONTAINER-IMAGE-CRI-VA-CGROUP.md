@@ -79,7 +79,9 @@ Hai bài thực hành của giai đoạn 2 **không kiểm chứng được trê
 ## 2. Quy ước và an toàn
 
 - Mọi lệnh `kubectl` chạy trên `lab-k8s-master` trừ khi ghi rõ node khác.
-- Lệnh cần `sudo` để đọc cấu hình node chạy **trên chính node đó** qua SSH.
+- Lệnh cần `sudo` để đọc cấu hình node chạy **trên chính node đó** qua SSH. Baseline cho phép
+  `sudo` yêu cầu mật khẩu, nên remote command dùng `sudo -S`; nhập riêng mật khẩu SSH rồi mật
+  khẩu `sudo` khi được hỏi, không đặt mật khẩu trong command và không lưu vào evidence.
 - **Fault injection chỉ trên `lab-k8s-worker2`** — B4 và B7 ghim Pod lỗi vào node này.
 - Bằng chứng ghi vào `~/lab-evidence/2/`. Không lưu token, key hay certificate.
 - Lab **không** sửa `/etc/containerd/config.toml`, không sửa cấu hình kubelet, không cài gói.
@@ -112,22 +114,22 @@ mọi object lab tạo ra.
 Bài [39](../39-containers-vi.md) nói Kubernetes không tự chạy container. Xác minh trên node.
 
 ```bash
-ssh lab-k8s-worker1 'sudo crictl version'
-ssh lab-k8s-worker1 'sudo crictl version' | tee ~/lab-evidence/2/b1-crictl-version.txt
-```
+ssh lab-k8s-worker1 'sudo -S crictl version' \
+  | tee ~/lab-evidence/2/b1-crictl-version.txt
 
-Đọc output: dòng `RuntimeName` cho biết runtime nào đang chạy container, dòng `RuntimeApiVersion`
-cho biết phiên bản CRI API đang dùng.
-
-```bash
-RT="$(ssh lab-k8s-worker1 'sudo crictl version' | awk -F': *' '/RuntimeName/{print $2}')"
-API="$(ssh lab-k8s-worker1 'sudo crictl version' | awk -F': *' '/RuntimeApiVersion/{print $2}')"
+RT="$(awk -F': *' '/RuntimeName/{print $2}' ~/lab-evidence/2/b1-crictl-version.txt)"
+API="$(awk -F': *' '/RuntimeApiVersion/{print $2}' ~/lab-evidence/2/b1-crictl-version.txt)"
 echo "RuntimeName=$RT"
 echo "RuntimeApiVersion=$API"
 
 test "$RT" = 'containerd' && echo 'PASS: runtime la containerd'
 case "$API" in v1*) echo 'PASS: CRI API v1' ;; *) echo "FAIL: CRI API khong phai v1 ($API)" ;; esac
 ```
+
+Lệnh chỉ gọi `crictl version` một lần. Dòng `RuntimeName` cho biết runtime nào đang chạy
+container, còn `RuntimeApiVersion` cho biết phiên bản CRI API đang dùng. `sudo -S` đọc mật khẩu
+từ standard input của phiên SSH. Output được `tee` ghi vào file evidence rồi hai lệnh `awk` đọc
+lại chính file đó để lấy giá trị kiểm tra.
 
 **Ý nghĩa:** bài [44](../44-cri-vi.md) nói từ Kubernetes v1.26 kubelet **chỉ làm việc với CRI
 API `v1`**; runtime không hỗ trợ `v1` thì kubelet không đăng ký được node. Node của bạn đang
@@ -139,13 +141,11 @@ API `v1`**; runtime không hỗ trợ `v1` thì kubelet không đăng ký đư�
 
 ```bash
 ssh lab-k8s-worker1 'cat /etc/crictl.yaml'
-ssh lab-k8s-worker1 'sudo grep -i container-runtime-endpoint /var/lib/kubelet/kubeadm-flags.env' || \
+ssh lab-k8s-worker1 'sudo -S grep -i container-runtime-endpoint /var/lib/kubelet/kubeadm-flags.env' || \
   echo '(khong co trong kubeadm-flags.env — kubelet dung endpoint mac dinh cua containerd)'
-ssh lab-k8s-worker1 'sudo ls -l /run/containerd/containerd.sock'
-```
 
-```bash
-SOCK="$(ssh lab-k8s-worker1 'sudo ls /run/containerd/containerd.sock 2>/dev/null')"
+SOCK="$(ssh lab-k8s-worker1 'sudo -S ls -l /run/containerd/containerd.sock')"
+printf '%s\n' "$SOCK"
 test -n "$SOCK" && echo 'PASS: unix socket cua containerd ton tai'
 ```
 
@@ -154,7 +154,7 @@ test -n "$SOCK" && echo 'PASS: unix socket cua containerd ton tai'
 endpoint gRPC mà bài 44 mô tả. `crictl` và kubelet là **hai client khác nhau** cùng nói chuyện
 với **một server** là containerd — đó là lý do `crictl` thấy đúng những container mà kubelet tạo.
 
-**PASS:** dòng `PASS: unix socket cua containerd ton tai` xuất hiện.
+**PASS:** dòng `PASS: unix socket cua containerd ton tai` xuất hiện, không có lỗi SSH/`sudo`.
 
 ### B1.3. Chứng minh crictl và kubectl nhìn cùng một thứ
 
@@ -162,13 +162,13 @@ với **một server** là containerd — đó là lý do `crictl` thấy đúng
 kubectl -n kube-system get pods -o wide --field-selector spec.nodeName=lab-k8s-worker1 \
   | tee ~/lab-evidence/2/b1-kubectl-pods-worker1.txt
 
-ssh lab-k8s-worker1 'sudo crictl pods --state Ready' \
+ssh lab-k8s-worker1 'sudo -S crictl pods --state Ready' \
   | tee ~/lab-evidence/2/b1-crictl-pods-worker1.txt
 ```
 
 ```bash
 K="$(kubectl -n kube-system get pods --field-selector spec.nodeName=lab-k8s-worker1,status.phase=Running -o name | wc -l)"
-C="$(ssh lab-k8s-worker1 "sudo crictl pods --state Ready --namespace kube-system -q" | wc -l)"
+C="$(ssh lab-k8s-worker1 'sudo -S crictl pods --state Ready --namespace kube-system -q' | wc -l)"
 echo "kubectl thay $K Pod kube-system tren worker1"
 echo "crictl thay  $C pod sandbox kube-system tren worker1"
 test "$K" -eq "$C" && echo 'PASS: hai goc nhin khop nhau' \
@@ -191,40 +191,32 @@ for N in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
   V="$(ssh "$N" 'stat -fc %T /sys/fs/cgroup/')"
   echo "$N: $V"
 done | tee ~/lab-evidence/2/b2-cgroup-version.txt
+
+awk -F': ' '$2 != "cgroup2fs" {print "FAIL: " $1 " dung " $2}' \
+  ~/lab-evidence/2/b2-cgroup-version.txt
+test "$(grep -c ': cgroup2fs$' ~/lab-evidence/2/b2-cgroup-version.txt)" -eq 3 \
+  && echo 'PASS: ca ba node dung cgroup v2'
 ```
 
-```bash
-BAD=0
-for N in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
-  V="$(ssh "$N" 'stat -fc %T /sys/fs/cgroup/')"
-  test "$V" = 'cgroup2fs' || { echo "FAIL: $N dung $V"; BAD=1; }
-done
-test "$BAD" -eq 0 && echo 'PASS: ca ba node dung cgroup v2'
-```
+Mỗi node chỉ `ssh` một lần; gate đọc lại file evidence, cùng cách làm với B1.1.
 
 **Ý nghĩa:** `cgroup2fs` là cgroup v2, `tmpfs` là cgroup v1. Bài 33 ghi cgroup v1 đã
 **deprecated từ v1.35** và kubelet mặc định **không khởi động** trên node cgroup v1.
 
-**PASS:** dòng `PASS: ca ba node dung cgroup v2` xuất hiện.
+**PASS:** dòng `PASS: ca ba node dung cgroup v2` xuất hiện, không có dòng `FAIL:`.
 
 ### B2.2. Hai bên có dùng cùng một cgroup driver không
 
 Bài [00](../00-container-runtimes-vi.md#cgroup-drivers) nói **tối quan trọng** là kubelet và
-container runtime dùng cùng driver. Đọc cả hai phía.
+container runtime dùng cùng driver. Lấy giá trị ở cả hai phía rồi so.
 
 ```bash
-echo '--- kubelet ---'
-ssh lab-k8s-worker1 'sudo grep -i cgroupDriver /var/lib/kubelet/config.yaml'
-
-echo '--- containerd ---'
-ssh lab-k8s-worker1 'sudo grep -i SystemdCgroup /etc/containerd/config.toml'
-```
-
-```bash
-KD="$(ssh lab-k8s-worker1 "sudo awk -F': *' '/cgroupDriver/{print \$2}' /var/lib/kubelet/config.yaml")"
-CD="$(ssh lab-k8s-worker1 "sudo awk -F'= *' '/SystemdCgroup/{gsub(/ /,\"\",\$2); print \$2}' /etc/containerd/config.toml")"
-echo "kubelet cgroupDriver = $KD"
-echo "containerd SystemdCgroup = $CD"
+KD="$(ssh lab-k8s-worker1 "sudo -S awk -F': *' '/cgroupDriver/{print \$2}' /var/lib/kubelet/config.yaml")"
+CD="$(ssh lab-k8s-worker1 "sudo -S awk -F'= *' '/SystemdCgroup/{gsub(/ /,\"\",\$2); print \$2}' /etc/containerd/config.toml")"
+{
+  echo "kubelet cgroupDriver = $KD"
+  echo "containerd SystemdCgroup = $CD"
+} | tee ~/lab-evidence/2/b2-cgroup-driver.txt
 
 test "$KD" = 'systemd' && echo 'PASS: kubelet dung systemd'
 test "$CD" = 'true'    && echo 'PASS: containerd dung systemd'
@@ -312,16 +304,16 @@ for F in pull-latest pull-tag pull-notag; do
         -o jsonpath='{.spec.containers[0].imagePullPolicy}')"
   echo "$F -> imagePullPolicy=$P"
 done | tee ~/lab-evidence/2/b3-pullpolicy.txt
+
+grep -qxF 'pull-latest -> imagePullPolicy=Always' ~/lab-evidence/2/b3-pullpolicy.txt \
+  && echo 'PASS: :latest -> Always'
+grep -qxF 'pull-notag -> imagePullPolicy=Always' ~/lab-evidence/2/b3-pullpolicy.txt \
+  && echo 'PASS: khong tag -> Always (vi khong tag nghia la :latest)'
+grep -qxF 'pull-tag -> imagePullPolicy=IfNotPresent' ~/lab-evidence/2/b3-pullpolicy.txt \
+  && echo 'PASS: tag cu the -> IfNotPresent'
 ```
 
-```bash
-L="$(kubectl create -f ~/lab-work/2/pull-latest.yaml --dry-run=server -o jsonpath='{.spec.containers[0].imagePullPolicy}')"
-T="$(kubectl create -f ~/lab-work/2/pull-tag.yaml    --dry-run=server -o jsonpath='{.spec.containers[0].imagePullPolicy}')"
-N="$(kubectl create -f ~/lab-work/2/pull-notag.yaml  --dry-run=server -o jsonpath='{.spec.containers[0].imagePullPolicy}')"
-test "$L" = 'Always'       && echo 'PASS: :latest -> Always'
-test "$N" = 'Always'       && echo 'PASS: khong tag -> Always (vi khong tag nghia la :latest)'
-test "$T" = 'IfNotPresent' && echo 'PASS: tag cu the -> IfNotPresent'
-```
+Mỗi manifest chỉ dry-run một lần; `grep -x` đòi khớp nguyên dòng trong file evidence.
 
 **Ý nghĩa:** không tag nghĩa là `:latest`, nên hai trường hợp đầu cho cùng kết quả. Đây là quy
 tắc gây bất ngờ nhiều nhất của bài 40.
@@ -335,16 +327,13 @@ kubectl run digest-probe --image=busybox:1.36 --restart=Never -n lab-2 \
   --command -- sh -c 'sleep 3600'
 kubectl wait --for=condition=Ready pod/digest-probe -n lab-2 --timeout=180s
 
-kubectl get pod digest-probe -n lab-2 \
-  -o jsonpath='{.spec.containers[0].image}{"\n"}{.status.containerStatuses[0].imageID}{"\n"}' \
-  | tee ~/lab-evidence/2/b3-digest.txt
-```
-
-```bash
 SPEC="$(kubectl get pod digest-probe -n lab-2 -o jsonpath='{.spec.containers[0].image}')"
 RESOLVED="$(kubectl get pod digest-probe -n lab-2 -o jsonpath='{.status.containerStatuses[0].imageID}')"
-echo "spec.image  = $SPEC"
-echo "imageID     = $RESOLVED"
+{
+  echo "spec.image = $SPEC"
+  echo "imageID    = $RESOLVED"
+} | tee ~/lab-evidence/2/b3-digest.txt
+
 case "$SPEC"     in *:1.36)    echo 'PASS: spec ghi bang tag' ;; esac
 case "$RESOLVED" in *@sha256:*) echo 'PASS: runtime ghi lai bang digest' ;; esac
 ```
@@ -386,19 +375,18 @@ for i in $(seq 1 30); do
   sleep 5
 done
 echo "waiting.reason = $R"
-
 kubectl describe pod bad-image -n lab-2 | tee ~/lab-evidence/2/b4-describe.txt
-```
 
-```bash
-R="$(kubectl get pod bad-image -n lab-2 -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}')"
 case "$R" in
   ImagePullBackOff|ErrImagePull) echo "PASS: reason = $R" ;;
   *) echo "FAIL: reason khong nhu mong doi ($R)" ;;
 esac
-kubectl describe pod bad-image -n lab-2 | grep -q -i 'Failed to pull image' \
+grep -q -i 'Failed to pull image' ~/lab-evidence/2/b4-describe.txt \
   && echo 'PASS: describe co su kien Failed to pull image'
 ```
+
+Biến `R` lấy từ vòng chờ được dùng thẳng cho gate; `describe` chỉ chạy một lần và gate grep
+file evidence.
 
 **Ý nghĩa:** `ErrImagePull` là lần thất bại đầu; `ImagePullBackOff` là trạng thái chờ giữa các
 lần thử lại, với back-off tăng dần. Bài 40 nêu hai nguyên nhân thường gặp: **tên image sai** và
@@ -432,15 +420,15 @@ không phải tên container và không phải tên node.
 
 ```bash
 kubectl exec envcheck -n lab-2 -- env | sort | tee ~/lab-evidence/2/b5-env.txt
-kubectl exec envcheck -n lab-2 -- env | grep -E '^KUBERNETES_(SERVICE|PORT)' | sort
-```
 
-```bash
-kubectl exec envcheck -n lab-2 -- env | grep -q '^KUBERNETES_SERVICE_HOST=' \
+grep -q '^KUBERNETES_SERVICE_HOST=' ~/lab-evidence/2/b5-env.txt \
   && echo 'PASS: co bien KUBERNETES_SERVICE_HOST'
-kubectl exec envcheck -n lab-2 -- env | grep -q '^HOSTNAME=envcheck$' \
+grep -q '^HOSTNAME=envcheck$' ~/lab-evidence/2/b5-env.txt \
   && echo 'PASS: bien HOSTNAME khop ten Pod'
 ```
+
+Output đã `sort` nên các biến `KUBERNETES_*` đứng liền nhau; `exec` chỉ chạy một lần và gate
+grep file evidence.
 
 **Ý nghĩa:** bài 41 nói danh sách Service **tại thời điểm container được tạo** được đưa vào dưới
 dạng biến môi trường, giới hạn trong Service **cùng namespace** cộng Service của control plane.
@@ -523,7 +511,7 @@ và `handler`. Handler phải khớp một cấu hình có thật trong containe
 
 ```bash
 kubectl get runtimeclass -o wide || echo '(chua co RuntimeClass nao — dung nhu mong doi)'
-ssh lab-k8s-worker2 'sudo grep -n "runtimes" -A6 /etc/containerd/config.toml' \
+ssh lab-k8s-worker2 'sudo -S grep -n "runtimes" -A6 /etc/containerd/config.toml' \
   | tee ~/lab-evidence/2/b7-containerd-runtimes.txt
 ```
 
@@ -570,16 +558,17 @@ for i in $(seq 1 24); do
   test "$PH" = 'Running' && break
   sleep 5
 done
-kubectl describe pod rc-pod -n lab-2 | tee ~/lab-evidence/2/b7-describe.txt
-```
-
-```bash
-PH="$(kubectl get pod rc-pod -n lab-2 -o jsonpath='{.status.phase}')"
 echo "phase = $PH"
+echo "waiting.reason = $RE"
+kubectl describe pod rc-pod -n lab-2 | tee ~/lab-evidence/2/b7-describe.txt
+
 test "$PH" != 'Running' && echo 'PASS: Pod khong chay duoc vi handler khong ton tai'
-kubectl describe pod rc-pod -n lab-2 | grep -qi 'runtime' \
+grep -qi 'runtime' ~/lab-evidence/2/b7-describe.txt \
   && echo 'PASS: su kien co nhac toi runtime handler'
 ```
+
+Biến `PH` và `RE` lấy từ vòng chờ được dùng thẳng cho gate; `describe` chỉ chạy một lần và gate
+grep file evidence.
 
 **Ý nghĩa:** RuntimeClass **không tự tạo ra** khả năng chạy runtime khác. Nó chỉ **chọn** một
 cấu hình đã được thiết lập sẵn trong container runtime trên node. Đây là lý do bài 43 đặt bước
@@ -661,7 +650,9 @@ phát sinh trong nội dung bài học.
 
 | Triệu chứng | Nguyên nhân thường gặp | Xử lý |
 | --- | --- | --- |
+| B1/B2/B7 báo `sudo: a terminal is required to read the password` | User `ubuntu` cần mật khẩu `sudo`, còn remote command SSH là phiên không tương tác và không có pseudo-terminal | Dùng đúng command `sudo -S` trong lab; nhập riêng mật khẩu SSH rồi mật khẩu `sudo` khi được hỏi. Không đặt hoặc pipe mật khẩu trong command, không lưu vào evidence |
 | B1.3 báo `FAIL: lech` | Có Pod `kube-system` đang khởi động lại đúng lúc đếm, hoặc còn pod sandbox đã dừng | Chờ 30 giây rồi đếm lại; `crictl pods` mặc định chỉ đếm sandbox `Ready` |
+| B2.2 báo `FAIL: hai ben lech` dù hai dòng giá trị in ra đều đúng | File config có nhiều hơn một dòng khớp từ khóa (một mục runtime khác cũng khai `SystemdCgroup`, hoặc dòng comment), nên biến chứa nhiều dòng và `test` không khớp | Xem dòng thô kèm số dòng: `ssh lab-k8s-worker1 'sudo -S grep -n SystemdCgroup /etc/containerd/config.toml'` và `ssh lab-k8s-worker1 'sudo -S grep -n cgroupDriver /var/lib/kubelet/config.yaml'`. Giá trị có hiệu lực với runtime mặc định là dòng trong mục `runtimes.runc.options` |
 | B3.2 hoặc B5 treo ở `kubectl wait` | Không kéo được image `busybox` từ internet | Kiểm tra mạng của VM; nếu môi trường cô lập, thay bằng image đã có sẵn trên node (`sudo crictl images`) và sửa lại manifest |
 | B4 không bao giờ đạt `ImagePullBackOff` | Môi trường có proxy trả về lỗi khác, hoặc DNS trả IP cho tên miền `.invalid` | Đọc `kubectl describe` để lấy `reason` thật; gate chấp nhận cả `ErrImagePull` |
 | B6.2 không đọc được `/tmp/prestop.txt` | Bạn `exec` sau khi container đã dừng | Không phải lỗi — xem ghi chú trong B6.2 |
@@ -678,3 +669,7 @@ phát sinh trong nội dung bài học.
 - [About cgroup v2](https://kubernetes.io/docs/concepts/architecture/cgroups/)
 - [Runtime Class](https://kubernetes.io/docs/concepts/containers/runtime-class/)
 - [Container Runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
+- [OpenSSH `ssh`](https://man.openbsd.org/ssh)
+- [Ubuntu 24.04 `sudo`](https://manpages.ubuntu.com/manpages/noble/man8/sudo.8.html)
+- [GNU Bash — Pipelines](https://www.gnu.org/software/bash/manual/html_node/Pipelines.html)
+- [GNU Coreutils — `tee`](https://www.gnu.org/software/coreutils/manual/html_node/tee-invocation.html)

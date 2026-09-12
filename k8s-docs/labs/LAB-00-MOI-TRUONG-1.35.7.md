@@ -248,6 +248,11 @@ clone. Bản cài dùng cho các VM phải có:
 - Bật OpenSSH Server.
 - Tạo cùng user quản trị `ubuntu`, có quyền `sudo`.
 
+User `ubuntu` có thể vẫn cần nhập mật khẩu khi dùng `sudo`; baseline không yêu cầu
+`NOPASSWD`. Khi một lab chạy `sudo` bên trong remote command `ssh host '...'`, command phải
+dùng `sudo -S` để nhận mật khẩu qua standard input. Nhập mật khẩu tương tác khi được hỏi; không
+ghi mật khẩu vào command, pipeline, script hoặc file evidence.
+
 ### A2.1. VM được cài Ubuntu riêng
 
 Không tạo lại `machine-id` hoặc SSH host key. Chuyển thẳng tới A2.3 để đặt hostname và kiểm

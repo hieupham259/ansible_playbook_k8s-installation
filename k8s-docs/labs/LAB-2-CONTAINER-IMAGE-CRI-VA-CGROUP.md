@@ -636,12 +636,97 @@ Không đánh dấu lab hoàn tất chỉ vì command chạy hết. Tự trả l
 - [ ] Đồng hồ `terminationGracePeriodSeconds` bắt đầu chạy trước hay sau khi `PreStop` được gọi?
 - [ ] Tạo RuntimeClass trỏ tới handler chưa được cấu hình trên node thì chuyện gì xảy ra?
 
+<details>
+<summary><strong>Đáp án tham khảo — chỉ mở sau khi đã tự trả lời</strong></summary>
+
+1. **CRI client, server và giao thức:** kubelet là CRI client; container runtime — trong lab này
+   là containerd — là CRI server. Hai bên trao đổi bằng gRPC theo CRI API `v1` qua Unix socket.
+   `crictl` là một CRI client khác dùng để hỏi trực tiếp cùng runtime.
+
+2. **Runtime endpoint:** endpoint trên các node của lab là
+   `unix:///run/containerd/containerd.sock`. Phần `unix://` cho biết đây là Unix domain socket;
+   đường dẫn file socket là `/run/containerd/containerd.sock`.
+
+3. **Vì sao `crictl` và `kubectl` thấy cùng workload:** `kubectl` hỏi API server về Pod và trạng
+   thái mà kubelet cập nhật; `crictl` hỏi trực tiếp containerd qua CRI. Kubelet nhận desired state
+   từ API server, yêu cầu containerd tạo hoặc dừng Pod sandbox/container, đọc trạng thái runtime
+   qua CRI rồi ghi trạng thái đó về API server. Hai đường quan sát khác nhau nhưng cùng phản ánh
+   workload mà kubelet đang reconcile trên node.
+
+4. **Nhận biết cgroup v1/v2:** chạy `stat -fc %T /sys/fs/cgroup/` trên node. Output `cgroup2fs`
+   nghĩa là cgroup v2; trong baseline của bài, `tmpfs` biểu thị cgroup v1.
+
+5. **Kubelet và containerd lệch cgroup driver:** nếu kubelet dùng `systemd` còn containerd dùng
+   `cgroupfs`, hệ thống có hai trình quản lý với hai cách nhìn khác nhau về cây cgroup. Node có thể
+   không ổn định khi chịu áp lực CPU/memory và có thể lỗi khi quản lý hoặc tạo lại Pod sandbox.
+   Trên node dùng systemd, hai bên phải thống nhất dùng systemd cgroup driver.
+
+6. **`image: myapp` không có tag:** Kubernetes hiểu tham chiếu đó là `myapp:latest`, nên khi
+   `imagePullPolicy` bị bỏ trống, API server đặt mặc định thành `Always`.
+
+7. **Đổi tag sau khi Pod đã tồn tại:** không. `imagePullPolicy` được default khi object được tạo;
+   sửa image sang `:latest` sau đó không tự đổi giá trị policy đã lưu. Muốn đổi policy phải cập
+   nhật rõ trường `imagePullPolicy`.
+
+8. **`spec.image` so với `status.imageID`:** `spec.containers[0].image` là tham chiếu mong muốn
+   do người dùng khai báo, ví dụ `busybox:1.36`. `status.containerStatuses[0].imageID` là định
+   danh image thực tế mà runtime đã resolve, thường có dạng `...@sha256:<digest>`; kubelet nhận
+   giá trị này từ runtime qua CRI rồi cập nhật Pod status. Tag có thể được trỏ sang nội dung khác,
+   còn digest xác định bất biến một nội dung image cụ thể.
+
+9. **`ErrImagePull` và `ImagePullBackOff`:** `ErrImagePull` biểu thị một lần kéo image vừa thất
+   bại. `ImagePullBackOff` là khoảng chờ trước khi kubelet thử lại, với thời gian back-off tăng dần
+   sau các lần thất bại. Hai nguyên nhân thường gặp là sai tên/tag image và private registry thiếu
+   thông tin xác thực qua `imagePullSecrets`.
+
+10. **Hostname và biến môi trường Service:** hostname mặc định bên trong container là tên Pod.
+    Một Service được tạo sau container không xuất hiện thêm trong biến môi trường của container
+    đang chạy, vì các biến này chỉ được dựng lúc container được tạo. Service vẫn có thể được tìm
+    qua DNS mà không có giới hạn thời điểm này.
+
+11. **Thời điểm chạy `PostStart`:** `PostStart` chạy đồng thời với tiến trình chính; không có bảo
+    đảm hook hoàn tất trước `ENTRYPOINT`. Hook có thể làm chậm lúc container được coi là sẵn sàng
+    chuyển sang trạng thái chạy.
+
+12. **Đồng hồ termination grace period:** đồng hồ `terminationGracePeriodSeconds` bắt đầu trước
+    khi kubelet gọi `PreStop`. `PreStop` phải hoàn tất trước khi tín hiệu TERM được gửi trong luồng
+    bình thường, nhưng thời gian chạy hook vẫn tiêu thụ chính grace period đó và không cộng thêm
+    thời gian gia hạn.
+
+13. **RuntimeClass trỏ tới handler chưa cấu hình:** object RuntimeClass chỉ chọn một handler đã
+    tồn tại trong container runtime; nó không tự tạo cấu hình runtime mới. RuntimeClass và Pod
+    object có thể được tạo, nhưng kubelet không thể tạo Pod sandbox/container bằng handler thiếu,
+    nên Pod không đạt `Running` và Events sẽ báo lỗi liên quan đến runtime handler.
+
+</details>
+
 ### Bài giải thích cuối cùng
 
 Trong vài phút, kể lại bằng lời: từ lúc bạn `kubectl apply` một Pod có image `busybox:1.36` cho
 tới lúc container chạy trên `lab-k8s-worker1` — kubelet nhận desired state từ đâu, nó gọi ai và
 bằng giao thức nào, ai kéo image về, ai đặt giới hạn tài nguyên, và vì sao cgroup driver của hai
 bên phải giống nhau.
+
+<details>
+<summary><strong>Bài trả lời tham khảo</strong></summary>
+
+Khi người dùng chạy `kubectl apply`, `kubectl` gửi manifest tới API server. API server xác thực,
+áp defaulting và lưu desired state của Pod. Sau khi Pod được gán cho `lab-k8s-worker1`, kubelet
+trên node này quan sát desired state từ API server và bắt đầu reconcile trạng thái thực tế.
+
+Kubelet là CRI client. Nó gọi containerd — CRI server — bằng gRPC theo CRI API `v1` qua
+`/run/containerd/containerd.sock`. Containerd resolve tag `busybox:1.36` thành một digest cụ thể,
+kéo và unpack image nếu node chưa có, rồi dùng runtime OCI như `runc` để tạo tiến trình container.
+Kubelet nhận image ID và trạng thái container từ containerd qua CRI rồi cập nhật Pod status về API
+server, vì vậy `kubectl` có thể hiển thị trạng thái mà runtime đang thực hiện trên node.
+
+Các request/limit tài nguyên bắt nguồn từ Pod spec. Kubelet chuyển yêu cầu tài nguyên cần áp dụng
+qua CRI; containerd và `runc` tạo container/cgroup tương ứng, còn Linux kernel thực thi giới hạn
+CPU và memory. Kubelet và containerd phải cùng dùng systemd cgroup driver để cùng làm việc trên một
+cây cgroup do systemd quản lý. Nếu một bên dùng `systemd` và bên kia dùng `cgroupfs`, hai trình
+quản lý có cách nhìn khác nhau về tài nguyên và node có thể mất ổn định khi chịu áp lực.
+
+</details>
 
 ## 4. Troubleshooting của lab này
 

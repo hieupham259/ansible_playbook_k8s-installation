@@ -192,7 +192,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Cấu hình một kubelet image credential provider](225-kubelet-credential-provider-vi.md) · [Chuyển từ polling sang cập nhật trạng thái container dựa trên sự kiện CRI](257-switch-to-evented-pleg-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 2 — Container, image, CRI và cgroup](labs/LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md) — xác định runtime và CRI trên node, đối chiếu cgroup driver, quy tắc mặc định của `imagePullPolicy`, `ImagePullBackOff`, hook `PostStart`/`PreStop` và giới hạn của RuntimeClass.
+- [X] 🧪 [Lab 2 — Container, image, CRI và cgroup](labs/LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md) — xác định runtime và CRI trên node, đối chiếu cgroup driver, quy tắc mặc định của `imagePullPolicy`, `ImagePullBackOff`, hook `PostStart`/`PreStop` và giới hạn của RuntimeClass.
 
 **Checkpoint:** trên một máy Linux, giải thích được `containerd` và `runc` khác nhau chỗ nào, kiểm tra được cgroup version của máy, và nói được hậu quả khi kubelet dùng `systemd` còn runtime dùng `cgroupfs`.
 

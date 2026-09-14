@@ -204,7 +204,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 #### 3a. Pod và vòng đời
 
-- [ ] [Workload](45-workloads-vi.md)
+- [X] [Workload](45-workloads-vi.md)
 - [ ] [Pod](46-pods-vi.md)
 - [ ] [Vòng đời của Pod](47-pod-lifecycle-vi.md) — bài xương sống: phase, trạng thái container, `restartPolicy`, chấm dứt êm và `terminationGracePeriodSeconds`.
 - [ ] [Các Condition của Pod](48-pod-condition-vi.md)

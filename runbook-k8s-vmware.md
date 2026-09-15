@@ -3490,6 +3490,7 @@ trình này trực tiếp trên master bằng `sudo`; **không** chạy lại `k
 | Mở domain ra**404 page not found**                | Host header không khớp Ingress`host:` → set HTTP Host Header trong tunnel, hoặc sửa `host:` trong Ingress. Soi Router thực tế ở dashboard Traefik ([§9.3](#93-cài-đặt-traefik))                                                                                                                                                                                                                                                                                                                                           |
 | Ingress apply xong nhưng**không được route**  | Thiếu/sai`ingressClassName` → phải là `traefik`; kiểm tra `kubectl get ingress -A` cột CLASS và `kubectl get ingressclass`                                                                                                                                                                                                                                                                                                                                                                                                |
 | **UI Rancher 404** dù pod Running                 | `Ingress` không có/sai class hoặc host → kiểm tra `spec.ingressClassName=traefik` và `rancher.hieupn.site`; chart để class trống mặc định nên runbook đặt rõ trong [§14.3](#143-cài-rancher-helm-pin-2143)                                                                                                                                                                                                                                                                                                           |
+| Login Rancher sau reboot bị trả về `?timed-out`; `/v1/ext.cattle.io.selfuser` báo **404** | Nếu login page vẫn mở được thì không đồng nhất với lỗi Ingress ở dòng trên. Sau reboot, Rancher có thể hoàn tất `/healthz` trước khi extension API `ext.cattle.io/v1` sẵn sàng; Steve discovery quá sớm rồi giữ schema thiếu `SelfUser`. Chỉ restart Rancher sau khi node, Flannel và discovery API đã PASS theo mục ngay dưới; không xóa một `APIService` đang `Available=True`. |
 | `rancher.hieupn.site` lỗi **502/TLS/redirect-loop** | kiểm certificate Ready; mở route từ tab tunnel-specific **Published application routes**, không dùng modal Edit rút gọn ở trang Routes chung. Detail phải hiện `noTLSVerify: true`, `httpHostHeader: rancher.hieupn.site`, `originServerName: rancher.hieupn.site`; `noTLSVerify:` trống nghĩa là chưa bật                                                                                                                                              |
 | `curl -I rancher...` trả **302** nhưng đăng nhập xong lại **502** | `302` chỉ chứng minh Cloudflare Access chặn request trước origin; nó không test tunnel→Traefik. Kiểm ba Origin configurations ở §14.5.1 và log `cloudflared`                                                                                                                                                                                                                                                                                                                        |
 | Rancher pod`CrashLoop`/Pending                         | thiếu RAM/headroom; hoặc cert-manager CRDs chưa cài (`--set crds.enabled=true`)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -3498,6 +3499,129 @@ trình này trực tiếp trên master bằng `sudo`; **không** chạy lại `k
 | Rancher Shell/log stream rớt sau khi idle               | Reconnect rồi xác định hop đóng kết nối: Cloudflare, Traefik entrypoint `transport.respondingTimeouts` hay backend; annotation `nginx.ingress.kubernetes.io/proxy-*-timeout` không có tác dụng với Traefik `kubernetesIngress` chuẩn ở §9; phân biệt thêm với lỗi RBAC/10250                                                                                                                                                                                                                                                                |
 | Pull image private đã cache vẫn lỗi credential       | Kubernetes 1.35 bật beta`KubeletEnsureSecretPulledImages`; kiểm `imagePullSecrets` hợp lệ thay vì dựa vào image đã cache                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `curl -H Host` nội bộ OK nhưng Internet lỗi        | vấn đề ở tunnel/DNS, không phải cụm → soi log cloudflared + trạng thái tunnel                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+
+### Rancher đăng nhập 404 tại `/v1/ext.cattle.io.selfuser` sau khi reboot node
+
+Mục này chỉ áp dụng cho mẫu lỗi cụ thể sau: Cloudflare Access và form login Rancher vẫn mở được,
+nhưng sau khi nhập tài khoản UI quay lại `/dashboard/auth/login?timed-out` và request
+`/v1/ext.cattle.io.selfuser` trả `404`. Nếu toàn bộ hostname chỉ hiện một trang `404 page not found`
+thì quay lại kiểm Ingress/Host header ở bảng trên; đó là lỗi khác.
+
+#### Hiện tượng và chuỗi nguyên nhân
+
+`SelfUser` là resource imperative thuộc `ext.cattle.io/v1`; Rancher cung cấp API này qua Kubernetes
+Aggregation Layer bằng `APIService/v1.ext.cattle.io` và Service
+`cattle-system/imperative-api-extension` ở port `6666`. Sau khi các node reboot, trình tự có thể là:
+
+1. Container Rancher cũ biến mất cùng runtime. Kubernetes có thể chỉ ghi được
+   `lastState.terminated.reason=Unknown` và `exitCode=255`; log `--previous` kết thúc đột ngột, không
+   có dòng `FATAL`. Khi đã xác nhận node reboot, đây là exit status không xác định của container cũ,
+   không phải bằng chứng Rancher tự crash. `FATAL` + exit code `1` mới hướng tới lỗi ứng dụng;
+   `OOMKilled` + exit code `137` mới hướng tới thiếu bộ nhớ.
+2. `/run` trên Ubuntu là tmpfs nên file `/run/flannel/subnet.env` mất sau reboot. Flannel phải lấy lại
+   subnet rồi ghi lại file này; trong khoảng đó kubelet có thể báo `FailedCreatePodSandbox ...
+   loadFlannelSubnetEnv failed: open /run/flannel/subnet.env: no such file or directory`. Nếu lỗi tự
+   hết khi DaemonSet Flannel `Ready`, đây là race khởi động bình thường, không phải CNI hỏng.
+3. Rancher có thể trả `200` ở `/healthz` trước khi extension API port `6666` hoàn tất đăng ký.
+   Kube-apiserver chỉ đặt `APIService/v1.ext.cattle.io` thành `Available=True` sau đó.
+4. Steve trong Rancher đã discovery API khi `ext.cattle.io/v1` chưa sẵn sàng và có thể giữ schema
+   thiếu `ext.cattle.io.selfuser` dù APIService về sau đã khỏe. Dấu hiệu phân biệt quyết định là
+   `APIService=True` và Kubernetes discovery đã có `selfusers`, nhưng Rancher `/v1` vẫn trả `404`.
+   Đây là race/bug đã được ghi nhận ở Rancher 2.14.x, không phải cấu hình sai của lab.
+
+Chuỗi rút gọn:
+
+```text
+node reboot
+  -> containerd không biết exit status cũ (Unknown/255)
+  -> kubelet chờ Flannel tạo lại /run/flannel/subnet.env
+  -> Rancher /healthz lên trước ext API
+  -> Steve giữ schema thiếu SelfUser
+  -> dashboard gọi /v1/ext.cattle.io.selfuser và nhận 404
+```
+
+#### Chẩn đoán trước khi sửa
+
+Chạy trên `k8s-master`. Lấy log container cũ **trước khi rollout restart**, vì thay Pod sẽ làm mất
+đầu mối `--previous` của Pod hiện tại:
+
+```bash
+RANCHER_POD="$(kubectl -n cattle-system get pod -l app=rancher \
+  -o jsonpath='{.items[0].metadata.name}')"
+
+kubectl get nodes -o wide
+kubectl -n kube-flannel get pods -o wide
+
+kubectl -n cattle-system get pod "$RANCHER_POD" \
+  -o jsonpath='{range .status.containerStatuses[*]}{.name}{"\trestarts="}{.restartCount}{"\tlastReason="}{.lastState.terminated.reason}{"\texitCode="}{.lastState.terminated.exitCode}{"\tfinishedAt="}{.lastState.terminated.finishedAt}{"\n"}{end}'
+
+kubectl -n cattle-system logs "$RANCHER_POD" --previous --tail=1000
+
+kubectl get apiservice v1.ext.cattle.io -o wide
+kubectl describe apiservice v1.ext.cattle.io
+kubectl -n cattle-system get endpointslice \
+  -l kubernetes.io/service-name=imperative-api-extension -o wide
+kubectl get --raw /apis/ext.cattle.io/v1 | grep -o '"name":"selfusers"'
+```
+
+**STOP — chưa restart Rancher** nếu có một trong các trạng thái sau:
+
+- node chưa `Ready`;
+- DaemonSet Flannel chưa đủ một Pod `Running` trên mỗi node;
+- EndpointSlice của `imperative-api-extension` trống;
+- `APIService/v1.ext.cattle.io` là `False`, `FailedDiscoveryCheck` hoặc `MissingEndpoints`;
+- `kubectl get --raw /apis/ext.cattle.io/v1` còn `ServiceUnavailable` hoặc chưa có `selfusers`.
+
+Trong nhánh STOP, xử lý đúng node/runtime/CNI hoặc extension API trước; restart Rancher lúc dependency
+chưa sẵn sàng chỉ tái tạo cùng race. Riêng một vài event thiếu `subnet.env` ngay sau reboot không phải
+lý do để sửa hay cài lại Flannel nếu gate hiện tại đã PASS.
+
+#### Cách xử lý khi dependency đã PASS
+
+Chỉ đi tiếp khi mọi node `Ready`, Flannel rollout hoàn tất, endpoint port `6666` có địa chỉ,
+`APIService=True` và raw discovery đã in `"name":"selfusers"`. Restart riêng Rancher để Steve
+discovery lại schema từ đầu; **không** xóa APIService đang khỏe:
+
+```bash
+kubectl wait --for=condition=Ready node --all --timeout=180s
+kubectl -n kube-flannel rollout status daemonset/kube-flannel-ds --timeout=180s
+kubectl get --raw /apis/ext.cattle.io/v1 | grep -q '"name":"selfusers"' || {
+  echo 'STOP: ext.cattle.io/v1 chưa discovery được SelfUser' >&2
+  exit 1
+}
+
+kubectl -n cattle-system rollout restart deployment/rancher
+kubectl -n cattle-system rollout status deployment/rancher --timeout=10m
+
+DISCOVERY_RC=1
+for attempt in {1..36}; do
+  if kubectl get --raw /apis/ext.cattle.io/v1 2>/dev/null \
+    | grep -q '"name":"selfusers"'; then
+    DISCOVERY_RC=0
+    break
+  fi
+  echo "Đợi extension API của Rancher: lần $attempt/36"
+  sleep 5
+done
+
+if [ "$DISCOVERY_RC" -eq 0 ]; then
+  echo 'PASS: Rancher mới và ext.cattle.io/v1 đã sẵn sàng'
+else
+  echo 'STOP: extension API chưa sẵn sàng sau 180 giây' >&2
+fi
+
+( exit "$DISCOVERY_RC" )
+```
+
+Không chỉ dựa vào `kubectl wait --for=condition=Available apiservice/...`: ngay sau rollout, lệnh đó
+có thể đọc condition `True` còn lại từ endpoint cũ rồi PASS trong khi request discovery đầu tiên vẫn
+nhận `ServiceUnavailable`. Vòng lặp trên test trực tiếp API và chỉ PASS khi `selfusers` thực sự xuất
+hiện.
+
+Sau PASS, mở cửa sổ Incognito/Private mới, vào `https://rancher.hieupn.site` và đăng nhập lại; không
+dùng tab cũ còn `?timed-out`. Incognito chỉ loại session/cookie cũ, còn thao tác sửa phía server là
+`rollout restart deployment/rancher`. Nếu APIService đã khỏe mà login vẫn `404`, thu log Rancher và
+response của request `ext.cattle.io.selfuser`; không gửi `Cookie`, `Authorization` hoặc token.
 
 ### Lệnh chẩn đoán nhanh
 
@@ -3561,6 +3685,10 @@ kubectl get events -A --sort-by=.lastTimestamp | tail -30
 - Rancher — *Helm chart options v2.14*: [https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/helm-chart-options](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/helm-chart-options)
 - Rancher — *Communicating with downstream user clusters*: [https://ranchermanager.docs.rancher.com/reference-guides/rancher-manager-architecture/communicating-with-downstream-user-clusters](https://ranchermanager.docs.rancher.com/reference-guides/rancher-manager-architecture/communicating-with-downstream-user-clusters)
 - Rancher — *TLS settings và phạm vi của `agent-tls-mode`*: [https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-references/tls-settings](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-references/tls-settings)
+- Rancher — *Extension API Server / Kubernetes Aggregation Layer*: [https://ranchermanager.docs.rancher.com/api/extension-apiserver](https://ranchermanager.docs.rancher.com/api/extension-apiserver)
+- Rancher — *Users API workflow / SelfUser*: [https://ranchermanager.docs.rancher.com/api/workflows/users](https://ranchermanager.docs.rancher.com/api/workflows/users)
+- Rancher Dashboard — *bug 2.14.x: login 404 tại `v1/ext.cattle.io.selfuser`*: [https://github.com/rancher/dashboard/issues/19038](https://github.com/rancher/dashboard/issues/19038)
+- Flannel — *`flanneld` tạo `/run/flannel/subnet.env` sau khi lấy subnet*: [https://github.com/flannel-io/flannel/blob/master/Documentation/running.md](https://github.com/flannel-io/flannel/blob/master/Documentation/running.md)
 - cert-manager — *Supported releases*: [https://cert-manager.io/docs/releases/](https://cert-manager.io/docs/releases/)
 - cert-manager — *Installation bằng OCI Helm chart*: [https://cert-manager.io/docs/installation/helm/](https://cert-manager.io/docs/installation/helm/)
 - CoreDNS — *hosts plugin*: [https://coredns.io/plugins/hosts/](https://coredns.io/plugins/hosts/)

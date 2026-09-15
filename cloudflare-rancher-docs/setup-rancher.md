@@ -647,7 +647,17 @@ flowchart TB
         ING["Ingress rancher — cấu hình<br/>Host: rancher.hieupn.site"]
         SEC["Secret tls-rancher-ingress<br/>cert do CA riêng của Rancher ký"]
         CM["cert-manager"]
-        R["Pod Rancher :80<br/>namespace cattle-system"]
+        RSVC["Service rancher<br/>ClusterIP :80"]
+        KAPI["kube-apiserver<br/>Aggregation Layer"]
+        APISVC["APIService<br/>v1.ext.cattle.io"]
+        IMPSVC["Service imperative-api-extension<br/>ClusterIP :6666"]
+
+        subgraph RPOD["Pod Rancher — namespace cattle-system"]
+            RHTTP["Rancher UI + API :80"]
+            STEVE["Steve<br/>schema/API /v1"]
+            EXT["Extension API server :6666"]
+            SELF["SelfUser<br/>ext.cattle.io/v1"]
+        end
     end
 
     ADMIN -->|"1. DNS query"| PDNS
@@ -667,17 +677,45 @@ flowchart TB
     ING -.->|"Control plane: Traefik nạp rule"| T
     CM -.->|"cấp và tự gia hạn"| SEC
     SEC -.->|"Traefik đọc khi terminate TLS"| T
-    T -->|"HTTP :80 nội bộ"| R
+    T -->|"HTTP :80 nội bộ"| RSVC
+    RSVC -->|"chọn Pod"| RHTTP
+    RHTTP -->|"Dashboard gọi /v1/ext.cattle.io.selfuser"| STEVE
+    STEVE -->|"discovery + request SelfUser"| KAPI
+    APISVC -.->|"đăng ký group/version + backend"| KAPI
+    KAPI -->|"aggregate /apis/ext.cattle.io/v1"| IMPSVC
+    IMPSVC -->|"TCP 6666"| EXT
+    EXT -->|"xử lý resource"| SELF
 
     classDef ext fill:#e8eefc,stroke:#2b4c9b,stroke-width:1px,color:#10203f
     classDef k8s fill:#ffffff,stroke:#526070,stroke-width:1px,color:#10203f
     classDef cfg fill:#fdf3e0,stroke:#a8791f,stroke-width:1px,color:#3d2c07
     class ADMIN,PDNS,EDGE,ACCESS ext
-    class CF,DNS,LOCAL,TSVC,T,R k8s
-    class ROUTE,ING,SEC,CM cfg
+    class CF,DNS,LOCAL,TSVC,T,RSVC,KAPI,IMPSVC,RHTTP,STEVE,EXT,SELF k8s
+    class ROUTE,ING,SEC,CM,APISVC cfg
     style PUBLIC fill:#f1f5ff,stroke:#8094c4,stroke-width:1px,color:#20345f
     style K8S fill:#f4f6f9,stroke:#8a97a6,stroke-width:1px,color:#2b3543
+    style RPOD fill:#eefbf3,stroke:#48845f,stroke-width:1px,color:#183c25
 ```
+
+### Luồng nội bộ bên trong Rancher còn thiếu ở phiên bản sơ đồ cũ
+
+Đường Cloudflare/Tunnel/Traefik kết thúc khi Service `rancher:80` chọn được Pod. Nhưng request đăng
+nhập chưa kết thúc ở đó: JavaScript của Dashboard còn gọi `/v1/ext.cattle.io.selfuser` để hỏi danh
+tính của user vừa xác thực. Bên trong Rancher, **Steve** phải biết schema `SelfUser`; nó discovery
+schema từ kube-apiserver. Kube-apiserver lại dùng Aggregation Layer và object
+`APIService/v1.ext.cattle.io` để chuyển request tới Service
+`cattle-system/imperative-api-extension:6666`; Service này trỏ ngược vào extension API server nằm
+trong chính Pod Rancher.
+
+Vì vậy có hai readiness độc lập trong cùng một Pod:
+
+- `Rancher UI + API :80` và `/healthz` đã phục vụ được request;
+- extension API `:6666`, `APIService/v1.ext.cattle.io`, discovery `selfusers` và schema Steve đã
+  đồng bộ đầy đủ.
+
+Chặng đầu PASS không kéo theo chặng thứ hai PASS. Case reboot bên dưới xảy ra đúng trong khoảng
+giữa hai trạng thái này; Cloudflare, tunnel, Traefik, Ingress và Service `rancher:80` đều đã làm
+đúng việc nhưng Rancher vẫn trả `404` ở API nội bộ của Dashboard.
 
 Đường **bên phải**, xuất phát từ khối "Internet và Cloudflare" theo các bước đánh số `1` → `6`,
 là **đường người**: browser → public DNS → Edge → Access gác → tunnel → `cloudflared` → Traefik.
@@ -744,6 +782,532 @@ Hai chuỗi của sơ đồ, kể bằng lời — mô tả chung nhất trướ
 
 Hai chuỗi trong cụm chỉ khác nhau ở đầu vào (ai resolve tên gì, SNI do ai đặt) và ở bước 3
 (ai quyết định verify); từ Traefik trở xuống là một.
+
+## Sơ đồ sự cố sau reboot — `SelfUser` 404 và cluster `local` `Unavailable`
+
+Sơ đồ sau mô tả đúng incident đã quan sát: các node reboot, `/run` bị làm mới, Rancher lên trước
+extension API khoảng 39 giây, lỗi đăng nhập hết sau khi rollout restart Rancher lúc dependency đã
+sẵn sàng. Hậu kiểm sau đó phát hiện thêm một state lệch: card cluster `local` báo `Unavailable` dù
+Kubernetes API và cả ba node đều khỏe; rollout Rancher lần nữa cũng không đổi condition
+`Ready=False` của object quản lý cluster.
+
+```mermaid
+flowchart TD
+    subgraph BOOT["Pha 1 — node reboot và các Pod được dựng lại"]
+        A1["1. Các node reboot"]
+        A2["2. Container Rancher cũ biến mất<br/>Last State: Unknown, exitCode 255"]
+        A3["3. /run là tmpfs nên subnet.env bị mất"]
+        A4["4. Flannel khởi động lại và lấy Pod subnet"]
+        A5["5. Kubelet thử tạo sandbox Rancher quá sớm"]
+        A6["6. FailedCreatePodSandbox<br/>chưa có /run/flannel/subnet.env"]
+        A7["7. Flannel ghi lại subnet.env<br/>Kubelet retry thành công"]
+
+        A1 --> A2
+        A1 --> A3
+        A3 --> A4
+        A4 --> A5
+        A5 --> A6
+        A6 --> A7
+    end
+
+    subgraph RACE["Pha 2 — race giữa Rancher HTTP và extension API"]
+        B1["8. Pod Rancher bắt đầu chạy"]
+        B2["9. /healthz trên port 80 trả 200<br/>Pod được đánh dấu Ready"]
+        B3["10. Steve discovery ext.cattle.io/v1"]
+        B4["11. Extension API port 6666 chưa sẵn sàng"]
+        B5["12. Steve dựng schema thiếu SelfUser"]
+        B6["13. Extension API đăng ký xong sau đó"]
+        B7["14. APIService v1.ext.cattle.io = Available True<br/>chậm hơn Rancher khoảng 39 giây"]
+
+        B1 --> B2
+        B2 --> B3
+        B3 --> B4
+        B4 --> B5
+        B1 --> B6
+        B6 --> B7
+    end
+
+    subgraph FAILURE["Pha 3 — dependency đã khỏe nhưng schema Steve vẫn cũ"]
+        C1["15. Kubernetes raw discovery đã có selfusers"]
+        C2["16. Dashboard gọi<br/>/v1/ext.cattle.io.selfuser"]
+        C3["17. Steve không có schema tương ứng"]
+        C4["18. Rancher trả 404<br/>UI quay lại login với timed-out"]
+
+        C1 --> C2
+        B5 --> C3
+        C2 --> C3
+        C3 --> C4
+    end
+
+    subgraph RECOVERY["Pha 4 — restart đúng thành phần đang giữ state cũ"]
+        D1["19. Gate: node Ready, Flannel Ready,<br/>EndpointSlice có port 6666"]
+        D2["20. Gate: APIService True<br/>raw discovery có selfusers"]
+        D3["21. Rollout restart deployment rancher"]
+        D4["22. Pod Rancher mới khởi động<br/>khi extension API đã sẵn sàng"]
+        D5["23. Steve discovery lại<br/>và nhận schema SelfUser"]
+        D6["24. Dashboard gọi lại SelfUser thành công<br/>Đăng nhập hoàn tất"]
+
+        D1 --> D2
+        D2 --> D3
+        D3 --> D4
+        D4 --> D5
+        D5 --> D6
+    end
+
+    subgraph POSTCHECK["Pha 5 — hậu kiểm phát hiện management state chưa hồi phục"]
+        E1["25. Login và SelfUser đã hoạt động"]
+        E2["26. Card cluster local vẫn báo Unavailable"]
+        E3["27. Trang Nodes vẫn có 3 node Active<br/>Kubernetes readyz đều ok"]
+        E4["28. Cluster local: internal true, Connected True<br/>nhưng Ready False không có Reason hoặc Message"]
+        E5["29. Rollout Rancher lần nữa hoàn tất<br/>Ready vẫn False và timestamp không đổi"]
+        E6["30. Dừng restart lặp lại<br/>điều tra HealthSyncer và controller leader"]
+
+        E1 --> E2
+        E2 --> E3
+        E3 --> E4
+        E4 --> E5
+        E5 --> E6
+    end
+
+    A2 --> A5
+    A7 --> B1
+    B7 --> C1
+    C4 --> D1
+    D6 --> E1
+
+    classDef boot fill:#f4f6f9,stroke:#667281,stroke-width:1px,color:#1f2933
+    classDef race fill:#fff7db,stroke:#a8791f,stroke-width:1px,color:#3d2c07
+    classDef failure fill:#fdecec,stroke:#a94442,stroke-width:1px,color:#4a1717
+    classDef recovery fill:#eefbf3,stroke:#48845f,stroke-width:1px,color:#183c25
+    classDef postcheck fill:#f3edff,stroke:#7253a6,stroke-width:1px,color:#2c174d
+    class A1,A2,A3,A4,A5,A6,A7 boot
+    class B1,B2,B3,B4,B5,B6,B7 race
+    class C1,C2,C3,C4 failure
+    class D1,D2,D3,D4,D5,D6 recovery
+    class E1,E2,E3,E4,E5,E6 postcheck
+```
+
+Điểm sửa thật sự **cho lỗi đăng nhập `SelfUser`** là
+`kubectl -n cattle-system rollout restart deployment/rancher`: Pod mới chạy Steve discovery lại từ
+đầu khi `ext.cattle.io/v1` đã sẵn sàng. Nó không đồng nghĩa mọi management condition của cluster
+`local` đã được reconcile. Các lệnh kiểm node, Flannel, EndpointSlice, APIService và raw discovery
+chỉ là **gate trước khi restart**; Incognito/Private chỉ loại session `?timed-out` cũ ở browser.
+Không xóa một APIService đang `Available=True`, và không sửa Flannel nếu các event thiếu
+`subnet.env` chỉ xuất hiện ngắn lúc boot rồi toàn bộ DaemonSet đã Ready.
+
+### Luồng suy luận điều tra — từ triệu chứng đến đúng hung thủ
+
+Mục tiêu của điều tra không phải là tìm dòng log màu đỏ đầu tiên, mà là xác định **tầng nào đang trả
+lời sai trong chuỗi dependency**. Với case này, hãy luôn tách các khái niệm:
+
+- **trigger**: sự kiện khởi đầu chuỗi lỗi — các node reboot;
+- **điều kiện tạo race**: Rancher HTTP sẵn sàng trước extension API khoảng 39 giây;
+- **hung thủ giữ lỗi login tồn tại**: schema cache của Steve được dựng thiếu `SelfUser` và không
+  refresh sau khi extension API đã khỏe;
+- **hậu quả quản lý còn lại**: condition `Ready=False` của cluster `local` chưa được reconcile; phạm
+  vi đã thu hẹp tới local cluster controller/HealthSyncer nhưng chưa đủ bằng chứng chốt nhánh con.
+
+Flannel xuất hiện trong event vì nó đang khôi phục mạng sau reboot. Nó làm Pod Rancher khởi động
+chậm vài lần, nhưng **không phải thành phần tiếp tục trả 404** sau khi DaemonSet, EndpointSlice,
+APIService và raw discovery đều đã khỏe.
+
+#### Bản đồ quyết định dùng lại cho những lỗi tương tự
+
+```mermaid
+flowchart TD
+    A["Bắt đầu từ request lỗi cụ thể"] --> B{"UI và healthz có truy cập được không?"}
+    B -->|Không| B1["Điều tra DNS, TLS, Cloudflare, Traefik, Ingress và Service port 80"]
+    B -->|Có| C{"APIService ext.cattle.io có Available True không?"}
+    C -->|Không| C1["Describe APIService rồi kiểm Service, EndpointSlice, port 6666 và TLS nội bộ"]
+    C -->|Có| D{"EndpointSlice có backend Ready ở port 6666 không?"}
+    D -->|Không| D1["Điều tra selector, Pod readiness, CNI và extension API"]
+    D -->|Có| E{"Raw discovery có resource selfusers không?"}
+    E -->|Không| E1["Điều tra Aggregation Layer và discovery của extension API"]
+    E -->|Có| F{"Rancher vẫn trả 404 cho SelfUser không?"}
+    F -->|Không| F1["Backend đã khỏe; kiểm session hoặc cache phía browser"]
+    F -->|Có| G["Hai góc nhìn mâu thuẫn: Kubernetes biết SelfUser nhưng Steve không biết"]
+    G --> H{"Rancher có khởi động trước APIService không?"}
+    H -->|Không| H1["Tìm lỗi schema hoặc auth khác; chưa đủ bằng chứng kết luận startup race"]
+    H -->|Có| I["Giả thuyết: Steve discovery quá sớm và giữ schema thiếu SelfUser"]
+    I --> J["Chờ dependency khỏe rồi restart duy nhất deployment Rancher"]
+    J --> K{"SelfUser hoạt động sau restart không?"}
+    K -->|Không| K1["Bác bỏ giả thuyết cache đơn thuần; thu log mới và điều tra sâu hơn"]
+    K -->|Có| L["Kết luận: startup race làm schema Steve bị stale"]
+```
+
+#### Bước 0 — đóng băng hiện trường trước khi sửa
+
+Trước khi restart bất cứ thứ gì, ghi lại thời gian và trạng thái hiện tại. Nếu restart ngay, ta có
+thể làm mất `--previous` log, event và timestamp cần để dựng lại nguyên nhân.
+
+```bash
+date -Is
+kubectl get nodes -o wide
+kubectl -n cattle-system get pods -l app=rancher -o wide
+kubectl get apiservice v1.ext.cattle.io -o wide
+kubectl get --raw /apis/ext.cattle.io/v1
+```
+
+**Câu hỏi cần trả lời:** lỗi đang còn tồn tại ở Kubernetes backend, hay backend đã tự hồi phục nhưng
+một process phía trên vẫn giữ state cũ? Đây là câu hỏi xuyên suốt toàn bộ điều tra.
+
+#### Bước 1 — bắt đầu tại request hỏng và phân loại mã lỗi
+
+Triệu chứng chính xác là Dashboard tải được nhưng request
+`/v1/ext.cattle.io.selfuser` trả `404`, sau đó UI quay về trang login có `?timed-out`.
+
+Lý do bắt đầu ở đây: mỗi loại lỗi thu hẹp một nhóm tầng khác nhau.
+
+| Quan sát | Hướng suy luận đầu tiên |
+|---|---|
+| Không resolve được hostname | DNS |
+| Lỗi certificate/TLS | SNI, certificate, trust chain |
+| Timeout hoặc `502`/`503` | Tunnel, Traefik, Service hoặc Pod không reachable/ready |
+| UI và `/healthz` hoạt động, chỉ resource `/v1/...` trả `404` | Request đã qua đường mạng; tập trung vào routing/schema bên trong Rancher |
+
+Trong incident này, UI đã tải được và server trả một `404` có cấu trúc cho đúng API nội bộ. Vì vậy
+Cloudflare, tunnel, TLS, Traefik, Ingress và Service `rancher:80` **không phải nghi phạm chính**.
+Chúng vẫn có thể được kiểm tra xác nhận, nhưng không nên dành phần lớn thời gian ở đó.
+
+**Bước tiếp theo:** lần theo dependency riêng của resource `SelfUser`, không lần lại toàn bộ đường
+HTTPS từ Internet.
+
+#### Bước 2 — vẽ ngược dependency của resource đang lỗi
+
+`SelfUser` không chỉ do HTTP server port `80` xử lý. Chuỗi thực tế là:
+
+```text
+Dashboard
+  -> Rancher /v1 (Steve)
+  -> kube-apiserver Aggregation Layer
+  -> APIService/v1.ext.cattle.io
+  -> Service/cattle-system/imperative-api-extension:6666
+  -> extension API server trong Pod Rancher
+  -> resource selfusers
+```
+
+Lý do phải vẽ chuỗi này: `/healthz` chỉ chứng minh đầu chuỗi Rancher HTTP đã sống; nó không chứng
+minh port `6666`, APIService, discovery và schema Steve đã đồng bộ. Đây là chỗ dễ suy luận sai nhất.
+
+**Bước tiếp theo:** kiểm tra chuỗi từ Kubernetes Aggregation Layer xuống backend trước, vì đây là
+nguồn schema mà Steve phụ thuộc.
+
+#### Bước 3 — kiểm tra trạng thái thật của extension API ở thời điểm hiện tại
+
+```bash
+kubectl get apiservice v1.ext.cattle.io -o wide
+kubectl describe apiservice v1.ext.cattle.io
+
+kubectl -n cattle-system get svc imperative-api-extension -o wide
+kubectl -n cattle-system get endpointslice \
+  -l kubernetes.io/service-name=imperative-api-extension -o wide
+
+kubectl get --raw /apis/ext.cattle.io/v1
+```
+
+Cách đọc kết quả theo thứ tự:
+
+1. `APIService Available=False` → đọc `Reason`/`Message`, rồi kiểm Service, EndpointSlice, port
+   `6666`, certificate và khả năng kube-apiserver kết nối backend.
+2. APIService `True` nhưng EndpointSlice không có endpoint Ready → kiểm selector, Pod, readiness và
+   CNI; trạng thái `True` có thể chưa phản ánh kịp thay đổi vừa xảy ra.
+3. APIService và endpoint đều khỏe nhưng raw discovery không có `selfusers` → extension API hoặc
+   Aggregation Layer chưa phục vụ đúng resource/version.
+4. APIService `True`, endpoint Ready và raw discovery **có** `"name":"selfusers"` → Kubernetes đã
+   biết resource. Nếu Rancher `/v1/ext.cattle.io.selfuser` vẫn `404`, lỗi nằm phía trên Kubernetes
+   discovery, nghi mạnh vào schema/state của Steve.
+
+Incident này rơi đúng nhánh 4. Đây là bằng chứng quan trọng hơn các dòng `watcher channel closed`:
+**cùng lúc Kubernetes nhìn thấy `selfusers`, còn API `/v1` của Rancher lại không nhìn thấy nó**.
+
+**Bước tiếp theo:** tìm sự kiện lịch sử giải thích vì sao hai góc nhìn lệch nhau.
+
+#### Bước 4 — phân biệt trạng thái hiện tại với nguyên nhân lịch sử
+
+Một hệ thống có thể đã tự hồi phục nhưng process khác vẫn giữ kết quả discovery cũ. Vì vậy cần xem
+container trước đó, event Pod và dấu vết reboot, thay vì chỉ nhìn Pod hiện tại đang `Running`.
+
+```bash
+RANCHER_POD=$(kubectl -n cattle-system get pod \
+  -l app=rancher -o jsonpath='{.items[0].metadata.name}')
+
+kubectl -n cattle-system get pod "$RANCHER_POD" \
+  -o jsonpath='{range .status.containerStatuses[*]}{.name}{"\trestarts="}{.restartCount}{"\tlastReason="}{.lastState.terminated.reason}{"\texitCode="}{.lastState.terminated.exitCode}{"\tfinishedAt="}{.lastState.terminated.finishedAt}{"\n"}{end}'
+
+kubectl -n cattle-system logs "$RANCHER_POD" --previous --tail=1000
+kubectl -n cattle-system describe pod "$RANCHER_POD"
+kubectl -n kube-flannel get pods -o wide
+```
+
+Cách loại trừ:
+
+- `exitCode=137`, `Reason=OOMKilled` → điều tra memory/OOM;
+- exit code `1` kèm `FATAL`/panic ở cuối log → Rancher tự crash vì lỗi ứng dụng;
+- `Reason=Unknown`, `exitCode=255`, log dừng đột ngột, đồng thời nhiều system Pod trên cùng node có
+  restart age gần nhau → nghi node hoặc container runtime bị gián đoạn;
+- event `FailedCreatePodSandbox` vì thiếu `/run/flannel/subnet.env` ngay sau đó, rồi Flannel và các
+  Pod đều Ready → phù hợp trình tự node boot lại, không chứng minh một lỗi CNI còn kéo dài.
+
+Không nên kết luận reboot chỉ từ riêng số `255`. Trong incident này, kết luận đến từ **tổ hợp**:
+Last State `Unknown`, log cũ kết thúc đột ngột, các Flannel Pod restart cùng đợt, file dưới `/run`
+bị thiếu trong lúc dựng sandbox, và thực tế các VM vừa reboot.
+
+Nếu cần xác nhận ở hệ điều hành, chạy trên từng node liên quan:
+
+```bash
+uptime -s
+last -x reboot | head
+journalctl --list-boots
+```
+
+**Bước tiếp theo:** khi đã biết có reboot, dựng timeline startup để kiểm tra giả thuyết race.
+
+#### Bước 5 — dựng timeline thay vì đọc log rời rạc
+
+Lấy hai mốc có thể so sánh trực tiếp:
+
+```bash
+kubectl -n cattle-system get pod "$RANCHER_POD" \
+  -o jsonpath='{.status.containerStatuses[0].state.running.startedAt}{"\n"}'
+
+kubectl get apiservice v1.ext.cattle.io \
+  -o jsonpath='{range .status.conditions[?(@.type=="Available")]}{.lastTransitionTime}{"\t"}{.status}{"\n"}{end}'
+```
+
+Timeline quan sát được trong incident:
+
+```text
+03:01:37  Rancher container bắt đầu chạy
+03:02:16  APIService v1.ext.cattle.io chuyển Available=True
+---------
+   39 s   cửa sổ Rancher/Steve có thể discovery khi extension API chưa sẵn sàng
+```
+
+Đây chưa phải bằng chứng cuối cùng rằng Steve giữ cache sai, nhưng nó tạo một giả thuyết kiểm chứng
+được: **Steve khởi động trong cửa sổ 39 giây, dựng schema khi chưa có `SelfUser`, rồi không refresh
+schema sau khi APIService trở thành Available**.
+
+**Bước tiếp theo:** tìm phép thử chỉ thay đổi đúng process được nghi là đang giữ state cũ.
+
+#### Bước 6 — dùng mâu thuẫn trạng thái để khoanh đúng process
+
+Tại thời điểm này ta đã có bốn sự thật:
+
+1. đường HTTP tới Rancher hoạt động;
+2. Service/EndpointSlice port `6666` có backend;
+3. kube-apiserver raw discovery có `selfusers`;
+4. Steve vẫn trả `404` cho `/v1/ext.cattle.io.selfuser`.
+
+Do ba tầng dưới đã khỏe mà tầng Steve vẫn sai, object Kubernetes không còn là nơi giữ lỗi. State
+stale phải nằm trong process Rancher/Steve hoặc một cache gắn với process đó. Xóa browser cache hay
+dùng Incognito chỉ tác động phía client, nên không thể làm Steve học lại schema.
+
+Đây là nguyên tắc tổng quát có thể dùng lại: **khi hai API nhìn cùng một dependency nhưng trả hai
+sự thật khác nhau, tìm cache/process nằm giữa hai API; đừng tiếp tục sửa dependency đã chứng minh
+khỏe**.
+
+#### Bước 7 — chỉ restart sau gate, rồi coi restart như một thí nghiệm
+
+Trước hết phải bảo đảm dependency đã ổn định. Nếu restart Rancher khi extension API vẫn chưa sẵn
+sàng, ta có thể tái tạo đúng race một lần nữa.
+
+Gate trước restart:
+
+- toàn bộ node `Ready`;
+- DaemonSet Flannel rollout thành công;
+- Pod Rancher hiện tại `Ready`;
+- EndpointSlice của `imperative-api-extension` có endpoint Ready ở port `6666`;
+- APIService `Available=True`;
+- raw discovery trả về `selfusers`.
+
+```bash
+kubectl wait --for=condition=Ready node --all --timeout=180s
+kubectl -n kube-flannel rollout status daemonset/kube-flannel-ds --timeout=180s
+kubectl -n cattle-system get pods -l app=rancher -o wide
+kubectl -n cattle-system get endpointslice \
+  -l kubernetes.io/service-name=imperative-api-extension -o wide
+kubectl get apiservice v1.ext.cattle.io -o wide
+kubectl get --raw /apis/ext.cattle.io/v1 | grep -o '"name":"selfusers"'
+```
+
+Sau đó chỉ thay đổi **một biến** — process Rancher/Steve:
+
+```bash
+kubectl -n cattle-system rollout restart deployment/rancher
+kubectl -n cattle-system rollout status deployment/rancher --timeout=10m
+
+for attempt in $(seq 1 90); do
+  if kubectl get --raw /apis/ext.cattle.io/v1 2>/dev/null \
+    | grep -q '"name":"selfusers"'; then
+    echo 'PASS: ext.cattle.io discovery đã có selfusers'
+    break
+  fi
+  if [ "$attempt" -eq 90 ]; then
+    echo 'STOP: hết 180 giây nhưng discovery chưa có selfusers' >&2
+    exit 1
+  fi
+  sleep 2
+done
+```
+
+Không nên chỉ dựa vào `/healthz` hoặc một lần `kubectl wait apiservice`: Rancher port `80` có thể
+Ready trước port `6666`, còn condition APIService có thể chưa cập nhật đúng vào đúng khoảnh khắc
+rollout. Poll raw discovery tới khi chính resource cần dùng xuất hiện là gate sát thực tế hơn.
+
+Kết quả thí nghiệm: không sửa Cloudflare, Traefik, Flannel, Service hay APIService; chỉ tạo process
+Rancher mới sau khi dependency khỏe. `SelfUser` xuất hiện và login thành công. Vì vậy restart không
+chỉ là workaround — nó còn là phép thử xác nhận nơi giữ state lỗi chính là Rancher/Steve.
+
+#### Bước 8 — hậu kiểm cluster `local`: node `Active` nhưng card báo `Unavailable`
+
+Sau khi `SelfUser` và login đã hoạt động, trang danh sách cluster vẫn hiển thị `local =
+Unavailable`; khi mở cluster, cả ba node lại `Active` và có CPU/RAM/Pod metrics. Đây không phải hai
+kết quả mâu thuẫn, vì chúng đọc hai nguồn trạng thái khác nhau:
+
+```text
+Trang Nodes
+  -> Rancher proxy tới Kubernetes API
+  -> đọc Node.status.conditions
+  -> ba node Ready nên hiển thị Active
+
+Trang Clusters
+  -> đọc clusters.management.cattle.io/local
+  -> condition Ready=False
+  -> hiển thị Unavailable
+```
+
+Các bằng chứng đã thu được:
+
+| Bằng chứng | Kết quả | Điều được chứng minh |
+|---|---|---|
+| `spec.internal` của cluster `local` | `true` | Đây là cluster host Rancher, không phải downstream cần tunnel cluster-agent |
+| Condition `Connected` | `True` | Rancher không coi đường kết nối tới cluster bị ngắt |
+| Condition `Ready` | `False`, không `Reason`/`Message`, timestamp `2026-09-15T04:01:00Z` | Chính field này làm card hiện `Unavailable`; chưa có chẩn đoán nguyên nhân trong condition |
+| `kubectl get --raw '/readyz?verbose'` | Toàn bộ check `ok` | Kubernetes API và etcd hiện khỏe từ đường kubeconfig đang dùng |
+| `kubectl get nodes` | Ba node `Ready` | Không phải node-level outage |
+| `APIService/v1.ext.cattle.io` và raw discovery | `True`, có `selfusers` | Nhánh extension API đã hồi phục |
+| Rollout Rancher lần hai | Rollout thành công nhưng `Ready=False` và timestamp không đổi | Restart lặp lại không phải lời giải cho management condition này |
+
+Trong Rancher v2.14.3, `HealthSyncer` của từng cluster chạy theo chu kỳ 15 giây, gọi `/readyz` qua
+REST client nội bộ của Rancher rồi cập nhật `ClusterConditionReady`. Riêng cluster có
+`spec.internal=true` được connectivity controller coi là kết nối nội bộ và duy trì
+`Connected=True`; nó không cần một `cattle-cluster-agent` downstream. Vì vậy nhánh nghi phạm còn
+lại là **local cluster controller/HealthSyncer chưa chạy, chưa giành leader, dùng một client nội bộ
+đang lỗi, hoặc không reconcile lại condition** — không phải Kubernetes node hay Flannel.
+
+Việc rollout lần hai không đổi cả status lẫn timestamp là tín hiệu phải **dừng restart lặp lại**.
+Nếu HealthSyncer đã ghi một kết quả mới thì ít nhất timestamp hoặc condition phải thay đổi. Tuy
+nhiên, nếu condition được đọc ngay sau rollout, cần cho controller qua vài chu kỳ 15 giây trước khi
+kết luận nó bị kẹt.
+
+Theo dõi sáu chu kỳ mà không thay đổi hệ thống:
+
+```bash
+for i in $(seq 1 6); do
+  date -u
+  kubectl get clusters.management.cattle.io local \
+    -o jsonpath='{range .status.conditions[?(@.type=="Ready")]}Ready={.status}{" reason="}{.reason}{" message="}{.message}{" updated="}{.lastUpdateTime}{"\n"}{end}'
+  sleep 15
+done
+```
+
+Kiểm tra Pod mới có đang giữ controller leader lease hay không:
+
+```bash
+kubectl -n cattle-system get pods -l app=rancher -o wide
+
+kubectl -n kube-system get lease cattle-controllers \
+  -o jsonpath='holder={.spec.holderIdentity}{" renewTime="}{.spec.renewTime}{" leaseDuration="}{.spec.leaseDurationSeconds}{"\n"}'
+```
+
+Lấy log của đúng Pod Rancher mới; các pattern trước đó chỉ tập trung vào `SelfUser` nên có thể bỏ
+sót lỗi khởi tạo cluster controller:
+
+```bash
+RANCHER_POD=$(kubectl -n cattle-system get pod \
+  -l app=rancher -o jsonpath='{.items[0].metadata.name}')
+
+kubectl -n cattle-system logs "$RANCHER_POD" \
+  --since=30m --timestamps |
+  grep -Ei 'Starting cluster controllers for local|Starting user controllers|failed to start.*controller|failed to start user controllers|failed to wait for caches|cluster health|readyz|updateClusterHealth|context deadline|ClusterUnavailable|local'
+```
+
+Gate suy luận cho nhánh này:
+
+1. `Ready` tự chuyển `True` trong các lần lấy mẫu → controller chỉ sync chậm sau rollout; reload UI.
+2. Lease còn giữ tên Pod cũ → chờ leader lease hết hạn/chuyển sang Pod mới; chưa kết luận
+   HealthSyncer lỗi.
+3. Lease thuộc Pod mới nhưng log không có `Starting cluster controllers for local` → local user
+   controller context chưa khởi động.
+4. Log có `failed to start`, `failed to wait for caches`, `readyz`, timeout hoặc connection error →
+   dòng lỗi đó là đầu mối trực tiếp; điều tra dependency được nêu trong message.
+5. Lease thuộc Pod mới, local controllers đã start, `/readyz` tiếp tục PASS nhưng condition không đổi
+   sau nhiều chu kỳ → đủ cơ sở coi đây là state/controller stale hoặc bug reconcile; lúc đó mới mở
+   rộng sang debug log level/controller-specific evidence.
+
+Tại thời điểm ghi tài liệu, đã xác nhận phạm vi lỗi nằm ở **Rancher management state của cluster
+`local`**. Chưa đủ output của leader lease và log khởi tạo controller để chọn chính xác một trong
+ba hung thủ cuối: leader handover, HealthSyncer chưa start, hay HealthSyncer/client bị kẹt. Giữ ranh
+giới này để không biến giả thuyết thành kết luận.
+
+#### Bước 9 — kết luận đúng cấp độ nguyên nhân
+
+| Vai trò | Kết luận trong incident | Vì sao |
+|---|---|---|
+| Sự kiện kích hoạt | Các node/VM reboot | Dấu vết runtime, Flannel, `/run` và lịch sử VM cùng khớp |
+| Hiện tượng tạm thời | Kubelet chờ Flannel tạo lại `subnet.env` | Tự hết khi Flannel Ready; không còn lỗi mạng kéo dài |
+| Khoảng hở readiness | `/healthz :80` PASS trước extension API `:6666` | APIService chỉ Available sau Rancher khoảng 39 giây |
+| Race | Steve discovery `ext.cattle.io/v1` quá sớm | Nó khởi động trong khoảng extension API chưa sẵn sàng |
+| Hung thủ giữ lỗi | Schema/state stale trong Steve thiếu `SelfUser` | Raw Kubernetes có resource nhưng Rancher `/v1` vẫn 404 |
+| Bước fix lỗi login | Rollout restart `deployment/rancher` sau khi dependency PASS | Process mới discovery lại đầy đủ và login hoạt động |
+| Hậu quả quản lý còn lại | `clusters.management.cattle.io/local` giữ `Ready=False` | Kubernetes và node khỏe nhưng card cluster vẫn `Unavailable` |
+| Trạng thái điều tra hậu quả còn lại | Đã khoanh tới local cluster controller/HealthSyncer; chưa chốt nhánh con | Cần leader lease, chuỗi lấy mẫu 15 giây và log khởi tạo controller |
+
+Chuỗi suy luận hoàn chỉnh:
+
+```text
+404 ở đúng resource
+-> đường HTTP chung vẫn sống
+-> lần dependency riêng của SelfUser
+-> APIService, endpoint và raw discovery hiện đều khỏe
+-> nhưng Steve vẫn không có schema
+-> tìm lịch sử và thấy node reboot
+-> dựng timeline thấy Rancher lên trước extension API 39 giây
+-> giả thuyết startup race + schema stale
+-> chờ dependency PASS, chỉ restart Rancher
+-> Steve discovery lại, SelfUser hoạt động
+-> xác nhận hung thủ của lỗi login là state stale của Steve do startup race sau reboot
+-> hậu kiểm thấy local Ready=False dù API và node khỏe
+-> rollout lần hai không đổi condition hoặc timestamp
+-> dừng restart và chuyển sang điều tra leader lease + HealthSyncer
+```
+
+#### Những kết luận sai cần tránh
+
+- **“Thấy Flannel trong event nên Flannel đang hỏng.”** Sai nếu lỗi chỉ nằm ở lúc boot và hiện tại
+  DaemonSet, node, endpoint cùng raw discovery đều khỏe.
+- **“APIService `True` nên toàn bộ Rancher chắc chắn khỏe.”** Sai vì Steve là consumer riêng và có
+  thể đang giữ schema cũ.
+- **“`/healthz` trả 200 nên login phải hoạt động.”** Sai vì probe port `80` không bao phủ extension
+  API port `6666` và việc Steve đã học schema hay chưa.
+- **“Incognito fix được nên lỗi do browser.”** Incognito chỉ loại session/cookie cũ; backend
+  `SelfUser` phải hoạt động trước thì login mới hoàn tất.
+- **“Restart là nguyên nhân.”** Restart là bước phục hồi và thí nghiệm xác nhận. Nguyên nhân gốc là
+  startup race; sự kiện kích hoạt race là node reboot.
+- **“Restart đã sửa `SelfUser` thì mọi trạng thái Rancher đều phải Active.”** Sai vì schema Steve và
+  `ClusterConditionReady` do các controller/luồng reconcile khác nhau duy trì.
+- **“Thấy rollout thành công nhưng `Ready=False` thì cứ rollout tiếp.”** Sai vì rollout chỉ chứng
+  minh Deployment/Pod health; lặp lại không giải thích vì sao condition và timestamp không đổi.
+- **“Xóa hoặc tạo lại APIService.”** Không có cơ sở khi object đã `Available=True` và raw discovery
+  đã trả đúng resource; thao tác đó thay đổi thêm biến và làm mất bằng chứng.
+
+Nguồn cơ chế: [Rancher — Extension API Server](https://ranchermanager.docs.rancher.com/api/extension-apiserver),
+[Rancher — SelfUser](https://ranchermanager.docs.rancher.com/api/workflows/users),
+[upstream bug có cùng `v1/ext.cattle.io.selfuser` 404](https://github.com/rancher/dashboard/issues/19038)
+và [Flannel — quá trình tạo `/run/flannel/subnet.env`](https://github.com/flannel-io/flannel/blob/master/Documentation/running.md).
+Nguồn cho nhánh `local Unavailable`:
+[Rancher v2.14.3 — HealthSyncer cập nhật `ClusterConditionReady`](https://github.com/rancher/rancher/blob/v2.14.3/pkg/controllers/managementuser/healthsyncer/healthsyncer.go#L130-L195)
+và [connectivity của internal cluster](https://github.com/rancher/rancher/blob/v2.14.3/pkg/controllers/management/clusterconnected/clusterconnected.go#L83-L88).
 
 ## Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`
 
@@ -917,6 +1481,7 @@ phần, do hai "tác giả" tạo ra ở hai thời điểm khác nhau**:
 | Thành phần trong `cattle-system` | Ai tạo | Khi nào |
 | --- | --- | --- |
 | Deployment `rancher`, Service, Ingress, `Issuer` | Helm chart | Lúc `helm install` |
+| Service `imperative-api-extension` + `APIService/v1.ext.cattle.io` | Rancher Server | Lúc runtime khởi động extension API; readiness bất đồng bộ với `/healthz` |
 | `Certificate` + Secret `tls-rancher-ingress` | cert-manager (ingress-shim) | Ngay sau install, bất đồng bộ |
 | Secret `bootstrap-secret` | Rancher Server | Lần khởi động đầu tiên |
 | Deployment `rancher-webhook` | Rancher Server | Sau khi server chạy |
@@ -1038,7 +1603,9 @@ Từng lệnh bám đúng chuỗi bất đồng bộ của cert-manager:
 - `curl -skS --resolve "rancher.hieupn.site:443:$TRAEFIK_IP" https://…/healthz` — bài test quyết
   định: `--resolve` ép kết nối tới ClusterIP Traefik nhưng vẫn gửi SNI/Host thật, mô phỏng đúng
   cách client nội bộ và `cloudflared` sẽ gọi; `-k` vì máy master cũng không tin CA riêng (mục đào sâu 4);
-  `/healthz` trả `200` chứng minh chuỗi Traefik → TLS → Ingress → Pod Rancher sống.
+  `/healthz` trả `200` chứng minh chuỗi Traefik → TLS → Ingress → Pod Rancher sống; nó **chưa**
+  chứng minh extension API `:6666`, `APIService/v1.ext.cattle.io` hoặc schema Steve `SelfUser`
+  đã sẵn sàng.
 
 ### §14.5 — Access rồi mới publish
 
@@ -1444,7 +2011,7 @@ và certificate khớp CA của chế độ `strict`. Xem
 | --- | --- | --- |
 | Render gate §14.3 | Manifest đúng nhánh Ingress, đúng host/class/Secret, không lạc sang Gateway | Chart chạy được trên cluster thật |
 | `helm install --wait` | Deployment Rancher Ready | Certificate đã cấp (sinh bất đồng bộ); đường vào hoạt động |
-| §14.4 `curl --resolve /healthz` | Chuỗi nội bộ Traefik → TLS → Ingress → Pod Rancher sống | Đường public: tunnel, route, Access |
+| §14.4 `curl --resolve /healthz` | Chuỗi nội bộ Traefik → TLS → Ingress → Rancher HTTP `:80` sống | Đường public: tunnel, route, Access; extension API `:6666`, `APIService` và schema Steve `SelfUser` đã sẵn sàng |
 | §14.5 `curl` nhận `302/401/403` | DNS public → Edge → Access hoạt động | Chặng tunnel → origin (response sinh ở Access, **trước khi** request xuống tunnel) |
 | §14.6 đăng nhập UI | End-to-end **đường người**, gồm cả origin parameters | Cấu hình phía client nội bộ |
 | §14.7 inventory + settings | `server-url`/`agent-tls-mode` đúng như pin; inventory runtime đúng thực tế (cụm `local` không có `cattle-cluster-agent`) | Hành vi TLS của `fleet-agent`/`system-agent`; reachability và hành vi thật của downstream agent |

@@ -761,17 +761,66 @@ chỉ điều tra nếu Flannel không rollout xong.
 
 Chạy nguyên văn các tầng sau của [§8 Phase 1](runbook-k8s-vmware.md#8-verify-cụm), gửi output
 từng tầng: **8.1** (control plane), **8.2** (node, taint, podCIDR), **8.3** (Pod networking
-cross-node — tầng hay bị bỏ qua nhất), **8.7** gate nhanh (Helm, `local-path`, metrics), rồi **8.9**
-dọn resource test. Sau đó kiểm tra đường Internet đã có từ trước:
+cross-node — tầng hay bị bỏ qua nhất). Hai tầng tiếp theo **không** chạy nguyên văn mà theo các
+khối dưới đây.
+
+**8.7 — chỉ phần kiểm tra, không chạy phần cài.**
+[§8.7 Phase 1](runbook-k8s-vmware.md#87-tầng-7--công-cụ-và-add-on-kubeadm-không-cài-sẵn) chủ yếu là
+bước cài: `curl ... get-helm-3 | bash`, `helm upgrade --install metrics-server`, `kubectl apply`
+local-path. Helm nằm trên đĩa master, metrics-server và `local-path` nằm trong snapshot 14/08, nên
+restore không làm mất chúng. Chạy lại phần cài chỉ nâng Helm theo script nhánh `main` hoặc apply đè
+add-on. Chỉ chạy các lệnh kiểm tra của mục đó, trên **`k8s-master`**:
+
+```bash
+helm version --short
+# PASS: v3.18.0 trở lên
+
+kubectl -n kube-system rollout status deploy/metrics-server
+kubectl top nodes ; kubectl top pods -A      # PASS: ra số liệu, không "metrics not available"
+
+kubectl get storageclass
+# PASS: local-path (default)
+kubectl -n local-path-storage rollout status deploy/local-path-provisioner
+# PASS: successfully rolled out
+```
+
+Phần test PVC thật của §8.7 (`pvc-test`, `pvc-test-pod`) là tùy chọn; checkpoint 8.2 của Phase 2
+(PVC MongoDB `Bound`) kiểm lại khả năng cấp volume.
+
+**8.9 — chỉ xóa Pod test.** **Không** chạy nguyên văn
+[§8.9 Phase 1](runbook-k8s-vmware.md#89-dọn-dẹp-resource-test). Hai dòng `kubectl delete deploy web`
+và `kubectl delete svc web web-np` của nó dọn resource test của §8.5, mà §8.5 **trùng tên** với app
+mẫu của [§10 Phase 1](runbook-k8s-vmware.md#10-deploy-app-mẫu--ingress) (Deployment, Service,
+Ingress `web` trong namespace `default`). Trong Phase 1, §8.9 chạy trước §10 nên không xung đột.
+Sau restore, app mẫu đã có trong snapshot, và hai dòng đó sẽ xóa nó, làm bước kiểm tra Internet bên
+dưới FAIL. §4.4 không chạy §8.5, nên resource test duy nhất cần dọn là hai Pod của §8.3:
+
+```bash
+kubectl delete pod nettest-w1 nettest-w2
+```
+
+Sau đó kiểm tra đường Internet đã có từ trước:
 
 ```bash
 kubectl get ingress -A
-kubectl -n cloudflare logs -l app=cloudflared --tail=20 --prefix | grep -iE 'registered|connected|error'
+# PASS: có default/web, class traefik, host app.hieupn.site
+
+kubectl -n cloudflare logs -l app=cloudflared --tail=-1 --prefix | grep -i 'registered tunnel connection'
+# PASS: mỗi Pod cloudflared (tên ở [pod/...] đầu dòng) có ít nhất một dòng
+kubectl -n cloudflare logs -l app=cloudflared --tail=-1 --prefix | grep -i 'error' | tail -10
+# PASS: không in dòng nào, hoặc chỉ lỗi lẻ tẻ lúc khởi động, không lặp tới hiện tại
+
 curl -sS -o /dev/null -w 'app=%{http_code}\n' https://app.hieupn.site/
-# PASS: log cloudflared có "Registered tunnel connection", không error lặp; app trả 200
+# PASS: app=200
 ```
 
-PASS khi mọi tầng của §8 PASS và app mẫu trả `200` qua Internet. Tunnel lên lại được vì Secret
+Hai lệnh log phải dùng `--tail=-1`: khi chọn Pod bằng selector `-l`, `kubectl logs` mặc định chỉ lấy
+10 dòng cuối mỗi Pod. Dòng `Registered tunnel connection` chỉ được in lúc cloudflared kết nối, nên
+một cửa sổ cố định (`--tail=20`, `--tail=50`) sẽ để nó trôi mất khi Pod log thêm, kể cả khối
+precheck dài lúc khởi động của cloudflared. `--prefix` để biết dòng nào thuộc Pod nào, vì cả hai
+replica đều phải đăng ký. Lần chạy 01/10/2026: mỗi Pod 4 dòng (`connIndex=0..3`), không có `error`.
+
+PASS khi mọi tầng ở trên PASS và app mẫu trả `200` qua Internet. Tunnel lên lại được vì Secret
 token nằm trong snapshot 14/08 và tunnel phía Cloudflare chưa bao giờ bị xóa.
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 4.4.** Tới đây cụm đã **khỏe ở mức 14/08**; các mục sau chỉ cài
@@ -1195,7 +1244,7 @@ Sự cố dựng lại cụm sau §7 thuộc [bảng lỗi Phase 1](runbook-k8s-
 - [ ] §2.4: đã chạy `grep`, ghi lại năm số đếm và nhánh **dự đoán** (chuẩn / thiếu cloudflared / nghi có Rancher); nhánh **thật** chốt ở §4.2 theo kết quả API sau restore.
 - [ ] §3.1–§3.3: control plane dừng sạch; `/var/lib/etcd.corrupt-*` được giữ; restore thoát mã 0.
 - [ ] §4.1–§4.2: 4 static Pod Running, ATTEMPT ổn định giữa hai lần xem; `readyz` PASS; revision > 10⁹; kết quả `get ns` và `get deploy,secret -n cloudflare` đã đọc và nhánh cho §4.3–§5 đã chốt theo bảng §4.2.
-- [ ] §4.3–§4.4: 3 node Ready; đủ bảy tầng §8 Phase 1; app mẫu 200 qua Internet.
+- [ ] §4.3–§4.4: 3 node Ready; §8 Phase 1 tầng 8.1, 8.2, 8.3, 8.7 (phần kiểm tra) PASS; §8.9 chỉ xóa `nettest-w1`/`nettest-w2`, app mẫu `web` còn nguyên; app mẫu 200 qua Internet.
 - [ ] §4.5: đã kiểm kê thư mục PV mồ côi của MongoDB trên hai worker và ghi rõ quyết định giữ/bỏ.
 - [ ] §5: backup §14.0.1 mới đã tạo và copy ra host; §14.7 PASS — UI Rancher `local` Active qua Cloudflare Access.
 - [ ] §6: Phase 2 checkpoint 7.1, 8.2, 9.3, 10.2 PASS.

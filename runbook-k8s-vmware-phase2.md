@@ -1392,6 +1392,8 @@ NEW_MONGO_UID=$(kubectl -n three-tier get pod mongodb-0 -o jsonpath='{.metadata.
 printf 'OLD_UID=%s\nNEW_UID=%s\n' "$OLD_MONGO_UID" "$NEW_MONGO_UID"
 test "$OLD_MONGO_UID" != "$NEW_MONGO_UID"
 kubectl -n three-tier get pod mongodb-0 -o wide
+kubectl -n three-tier get pod mongodb-0 \
+  -o custom-columns='POD:.metadata.name,NODE:.spec.nodeName,PVC:.spec.volumes[*].persistentVolumeClaim.claimName'
 curl -sS -i -H "Host: $APP_HOST" \
   "http://$ING_IP/api/items/phase2-persist-001"
 unset OLD_MONGO_UID NEW_MONGO_UID
@@ -1449,6 +1451,25 @@ Trong Cloudflare Zero Trust → Networks → Tunnels (UI mới có thể hiện 
 - không trỏ tunnel trực tiếp tới `frontend`, `backend` hoặc `mongodb`.
 
 Lý do: Traefik cần nhận đúng Host header để chọn Ingress; giữ một điểm vào chung như Phase 1.
+
+**Origin request and connection settings: giữ mặc định.** Trong form route, nhóm **Origin request and connection settings** (UI khác hiển thị **Additional application settings**) gồm HTTP Settings, Connection, Access, TLS — không mở ra chỉnh gì. Route này không đặt origin parameter nào, khác với route Rancher ở [§14.5.1 của Phase 1](runbook-k8s-vmware.md#1451-bắt-buộc-cấu-hình-và-verify-origin-parameters-của-route-rancher). Khác biệt nằm ở chặng cuối `cloudflared → Traefik`, quyết định bởi Ingress đích có terminate TLS tại Traefik hay không:
+
+| Route | Service URL | Ingress đích | Chặng cuối `cloudflared → Traefik` | Origin parameter |
+| --- | --- | --- | --- | --- |
+| `rancher.hieupn.site` (Phase 1 §14.5) | `https://traefik.traefik.svc.cluster.local:443` | Có khối `tls:` với Secret `tls-rancher-ingress` — cert do CA riêng của Rancher ký; Traefik terminate TLS ở `:443` | TLS handshake thật | Bắt buộc `noTLSVerify: true`; runbook ghim thêm `originServerName`, `httpHostHeader` |
+| App CRUD (§13.2, giống app demo Phase 1 §12.3.3) | `http://traefik.traefik.svc.cluster.local:80` | `k8s/40-ingress.yaml` không có khối `tls:`; Traefik phục vụ HTTP thường ở `:80` | HTTP thường, không có handshake | Không cần |
+
+Ý nghĩa ba origin parameter của route Rancher ([Cloudflare — Origin parameters](https://developers.cloudflare.com/tunnel/advanced/origin-parameters/)):
+
+- `noTLSVerify` — mặc định `false`, nghĩa là `cloudflared` verify cert của origin. Cert Rancher do CA riêng ký, không nằm trong trust store của `cloudflared`, nên để `false` thì lỗi `x509: certificate signed by unknown authority` và browser nhận Cloudflare `502`. Đây là tham số **bắt buộc thật sự**.
+- `originServerName` — hostname `cloudflared` mong đợi trong cert của origin; đặt SNI `rancher.hieupn.site` để Traefik trả đúng cert trong `tls-rancher-ingress` thay vì cert default.
+- `httpHostHeader` — đặt Host header cho request gửi tới origin; giữ `Host: rancher.hieupn.site` để Traefik khớp đúng router của Ingress Rancher.
+
+Chỉ thiếu `noTLSVerify` mới chắc chắn sập; khi đã `noTLSVerify: true`, thiếu `originServerName` thường không gây lỗi thấy được. Hai tham số còn lại được ghim để cấu hình tường minh và verify bằng mắt ở gate — xem mục "Ba origin parameter của route Rancher" và mục 11 ngay trước đó trong [`cloudflare-rancher-docs/setup-rancher.md`](cloudflare-rancher-docs/setup-rancher.md#12-ba-origin-parameter-của-route-rancher).
+
+App CRUD không cần cả ba: chặng cuối không có TLS nên `noTLSVerify`/`originServerName` không có gì để tác động; `cloudflared` giữ nguyên hostname public trong Host header ([§12.3.3 của Phase 1](runbook-k8s-vmware.md#1233-thêm-published-application)) nên Traefik vẫn khớp Ingress `three-tier` mà không cần `httpHostHeader` — đúng cơ chế đã test bằng Host header ở §11.3 và §13.1. HTTPS mà browser thấy được terminate tại Cloudflare Edge bằng cert public.
+
+> **Access không phải origin parameter.** Rancher có thêm Cloudflare Access application — một lớp riêng ở edge trả lời "ai được gửi request tới hostname này" ([§14.5 của Phase 1](runbook-k8s-vmware.md#145-bảo-vệ-rancher-bằng-cloudflare-access-rồi-publish-qua-tunnel)). Baseline Phase 2 không bật Access cho app CRUD; nếu bật, request `curl` không có Access session ở §13.3 sẽ nhận `302/401/403` thay vì `200`. Hệ quả: sau §13.2, API CRUD công khai với mọi người trên Internet mà không cần đăng nhập — giới hạn đã ghi ở [§15.2](#152-những-gì-baseline-chưa-giải-quyết).
 
 ### 13.3. Verify tunnel và public endpoint
 
@@ -1721,3 +1742,4 @@ kubectl -n three-tier logs \
 - MongoDB Kubernetes Controllers — topology guidance: [https://www.mongodb.com/docs/kubernetes/current/tutorial/configure-mdb-cr/](https://www.mongodb.com/docs/kubernetes/current/tutorial/configure-mdb-cr/)
 - Flannel — NetworkPolicy guidance: [https://github.com/flannel-io/flannel](https://github.com/flannel-io/flannel)
 - Traefik — Kubernetes Ingress provider: [https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-ingress/](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-ingress/)
+- Cloudflare — Tunnel origin parameters (`noTLSVerify`, `originServerName`, `httpHostHeader`): [https://developers.cloudflare.com/tunnel/advanced/origin-parameters/](https://developers.cloudflare.com/tunnel/advanced/origin-parameters/)

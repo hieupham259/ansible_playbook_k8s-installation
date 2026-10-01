@@ -177,8 +177,33 @@ $Stamp = '<STAMP>'   # cùng giá trị STAMP đã đặt ở block bash phía t
 (Get-FileHash "E:\courses\Ansible\ansible_playbook_k8s-installation\k8s-backups\$Stamp.tar.gz" -Algorithm SHA256).Hash.ToLower()
 ```
 
-PASS khi: hai hash SHA-256 trùng nhau và trùng hash ghi lại lúc backup; `etcd-snapshot.db` khác
-rỗng; và **một trong hai** kết quả về PKI dưới đây.
+**Điều kiện chung:** hai hash SHA-256 của archive trên `k8s-master` và host Windows trùng nhau;
+`etcd-snapshot.db` tồn tại, khác rỗng; file `~/etcd-restore-snapshot-path.txt` in đúng đường dẫn
+snapshot vừa kiểm tra; và **một trong hai** kết quả về PKI dưới đây đạt yêu cầu.
+Nếu hai hash hiện tại khác nhau hoặc thiếu bất kỳ điều kiện chung nào, **chưa PASS**; gửi output
+để đối chiếu trước khi tiếp tục, kể cả khi không còn hash ban đầu.
+
+**Chọn nhánh theo bằng chứng checksum còn lưu:**
+
+- **Còn hash ghi lúc tạo backup:** PASS khi đủ điều kiện chung và hai hash hiện tại cùng trùng
+  hash ban đầu. Hash lệch bản ghi ban đầu → **STOP**, gửi output; không dùng nhánh thiếu hash để
+  bỏ qua một khác biệt đã biết.
+- **Không còn hash/output lúc tạo backup:** ghi rõ việc thiếu bằng chứng này tại checkpoint.
+  Khi đủ điều kiện chung, ghi **PASS có giới hạn — được sang §2.3 để kiểm tra tiếp snapshot**.
+  Hai hash hiện tại chỉ chứng minh hai archive hiện tại trùng nhau về checksum; **chưa chứng minh
+  archive không thay đổi kể từ lúc tạo backup**. Không gọi hash vừa tính lại là hash ban đầu.
+
+Nhánh thiếu hash **không bỏ qua gate nào phía sau**: §2.3 đọc metadata bằng
+`etcdutl snapshot status`, §2.4 đối chiếu trạng thái trong snapshot, rồi mới xét điều kiện sang §3.
+Bảng `snapshot status` đọc được **chưa phải bằng chứng đã kiểm tra hash toàn vẹn nhúng trong
+snapshot**, và cột `HASH` của bảng không phải SHA-256 của archive `.tar.gz`.
+Với snapshot tạo bằng `etcdctl snapshot save`, `etcdutl snapshot restore` ở §3.3 kiểm tra hash
+toàn vẹn nhúng trong snapshot; giữ nguyên lệnh restore, **không thêm `--skip-hash-check`**.
+Nếu restore báo lỗi, dừng theo gate §3.3 và phân loại lỗi tại §3.4; không suy ra thiếu hash ban
+đầu đồng nghĩa snapshot hỏng hay cho phép reset. Cơ chế kiểm tra này áp dụng cho snapshot etcd,
+không thay thế bằng chứng checksum ban đầu của toàn bộ archive chứa cả `/etc/kubernetes`.
+Nguồn: [etcd v3.6 — Status of a snapshot](https://etcd.io/docs/v3.6/op-guide/recovery/#status-of-a-snapshot)
+và [Integrity Checks](https://etcd.io/docs/v3.6/op-guide/recovery/#integrity-checks).
 
 **Nếu `diff` in `PASS: pki unchanged`:** cert hiện tại vẫn là cert lúc backup, chỉ cần restore
 data etcd, không đụng `/etc/kubernetes`. Sang checkpoint.
@@ -217,6 +242,9 @@ sudo kubeadm certs check-expiration
   chạy lại mục 3; xong mới sang §2.3.
 
 > **DỪNG — GỬI OUTPUT CHECKPOINT 2.2.**
+> Gửi STAMP, hai hash hiện tại, kết quả kiểm tra snapshot/đường dẫn và PKI; kèm hash ban đầu nếu
+> còn lưu, hoặc ghi rõ **không còn hash/output lúc tạo backup**. Chỉ sang §2.3 khi nhánh tương ứng
+> đạt PASS hoặc PASS có giới hạn như quy định trên; các điều kiện STOP về PKI vẫn áp dụng đầy đủ.
 
 ### 2.3. Xác nhận công cụ restore và tham số etcd
 
@@ -319,10 +347,26 @@ Nhánh rẽ khi không PASS:
 > Tài liệu Kubernetes yêu cầu: **dừng mọi API server → restore etcd → khởi động lại API server**,
 > và khuyến nghị restart `kube-scheduler`, `kube-controller-manager`, `kubelet` sau restore để
 > không thành phần nào giữ dữ liệu cũ. Với kubeadm, cả bốn thành phần control plane là static Pod
-> do kubelet dựng từ `/etc/kubernetes/manifests/`; cách dừng đúng là **dời manifest ra khỏi thư
-> mục** để kubelet tự gỡ Pod, rồi dừng kubelet.
+> do kubelet dựng từ `/etc/kubernetes/manifests/`. Cách dừng: **dời manifest ra khỏi thư mục** để
+> kubelet không dựng lại Pod, **dừng kubelet**, rồi **dừng pod sandbox bằng `crictl`**. Không chờ
+> kubelet tự gỡ Pod — §3.1 giải thích vì sao.
 
 ### 3.1. Đóng băng control plane
+
+**Vì sao không chờ kubelet tự gỡ static Pod.** kubelet nhận Pod từ hai nguồn: thư mục manifest và
+API server. Khi chưa thấy **mọi** nguồn gửi trạng thái đầu tiên, kubelet bỏ qua việc xóa Pod (hàm
+`deletePod` trả `skipping delete because sources aren't ready yet`) và bỏ qua cả vòng dọn định kỳ
+(housekeeping). Trong sự cố của runbook này, apiserver chết từ lúc node boot nên nguồn API không
+bao giờ sẵn sàng. Dời manifest xong, container đang `Running` (lần chạy 01/10/2026:
+`kube-controller-manager`, `kube-scheduler`) vẫn chạy mãi; chờ thêm hay restart kubelet đều không
+đổi. Vì vậy §3.1 dừng kubelet trước rồi dừng sandbox bằng `crictl`. Cách này cũng đúng khi
+apiserver còn sống (lặp lại §3.1 từ §3.4/§4.1). Nguồn:
+[`pkg/kubelet/kubelet.go` nhánh `release-1.35`](https://github.com/kubernetes/kubernetes/blob/release-1.35/pkg/kubelet/kubelet.go)
+— hàm `deletePod` và nhánh `housekeepingCh` trong `syncLoopIteration`.
+
+**Khối 1 — dời manifest. Chỉ chạy một lần.** Chạy lại sẽ sinh `STAMP` mới, ghi đè
+`~/etcd-restore-stamp.txt` và làm §3.2/§4.1 mất dấu thư mục đang giữ manifest. Nếu đã có
+`/etc/kubernetes/manifests.off-*` từ lần chạy trước, bỏ khối 1, sang khối 2.
 
 ```bash
 STAMP=$(date +%Y%m%d-%H%M%S)
@@ -331,21 +375,32 @@ sudo mkdir -m 700 "/etc/kubernetes/manifests.off-$STAMP"
 sudo mv /etc/kubernetes/manifests/*.yaml "/etc/kubernetes/manifests.off-$STAMP/"
 sudo ls "/etc/kubernetes/manifests.off-$STAMP/"   # thư mục 700 của root, phải sudo mới đọc được
 # PASS: đủ etcd.yaml, kube-apiserver.yaml, kube-controller-manager.yaml, kube-scheduler.yaml
+ls /etc/kubernetes/manifests/
+# PASS: không in gì — thư mục manifest đã rỗng
+```
 
-# kubelet quét thư mục manifest theo chu kỳ (phụ thuộc cấu hình, mặc định cỡ 20 giây);
-# đợi tới khi không còn container control plane nào, tối đa 36 lần x 5 giây.
-for i in $(seq 1 36); do
-  LEFT=$(sudo crictl ps -q --name '^(etcd|kube-apiserver|kube-controller-manager|kube-scheduler)$' | wc -l)
-  [ "$LEFT" -eq 0 ] && break
-  echo "Đợi kubelet gỡ static Pod: còn $LEFT container, lần $i/36"; sleep 5
-done
-sudo crictl ps --name '^(etcd|kube-apiserver|kube-controller-manager|kube-scheduler)$'
-# PASS: bảng chỉ có dòng tiêu đề
+**Khối 2 — dừng kubelet rồi dừng sandbox.** Thứ tự là bắt buộc: dừng kubelet trước để sau bước
+này không còn gì dựng lại hay restart container control plane.
 
+```bash
 sudo systemctl stop kubelet
 sudo systemctl is-active kubelet
 # PASS: inactive
+
+# Dừng mọi pod sandbox của bốn static Pod, gồm cả sandbox NotReady của các lần crashloop trước.
+# Dừng sandbox là dừng mọi container trong nó; sandbox được giữ lại, không xóa.
+for p in $(sudo crictl pods -q --namespace kube-system \
+    --name '^(etcd|kube-apiserver|kube-controller-manager|kube-scheduler)-k8s-master$'); do
+  sudo crictl stopp "$p"
+done
+sudo crictl ps --name '^(etcd|kube-apiserver|kube-controller-manager|kube-scheduler)$'
+# PASS: bảng chỉ có dòng tiêu đề
 ```
+
+Số dòng `Stopped sandbox ...` có thể nhiều hơn 4 (lần chạy 01/10/2026: 6) vì gồm cả sandbox cũ;
+dừng một sandbox đã dừng là vô hại. Tới §4.1, kubelet start lại với đủ manifest và dựng sandbox
+mới cho cả bốn Pod, tức là `kube-controller-manager` và `kube-scheduler` cũng được restart — đúng
+khuyến nghị ở đầu §3.
 
 > Lưu `$STAMP`: các bước sau dùng lại để tìm đúng thư mục manifest và thư mục data cũ. Mở phiên SSH
 > mới thì chạy `STAMP=$(cat ~/etcd-restore-stamp.txt)`.
@@ -1112,7 +1167,7 @@ và chấp nhận I/O chậm hơn. §8.1–§8.3 là bắt buộc, §8.4 thì kh
 | Triệu chứng | Nguyên nhân | Xử lý |
 | --- | --- | --- |
 | §2.3 `ctr run` báo `image ... not found` | Sai tên image hoặc namespace containerd | Dùng đúng `-n k8s.io`; tên image lấy từ `sudo crictl images \| grep etcd` |
-| §3.1 sau 3 phút vẫn còn container control plane | kubelet chưa quét lại thư mục manifest, hoặc manifest chưa dời hết | `ls /etc/kubernetes/manifests/` phải rỗng; nếu rỗng mà container vẫn còn, `sudo systemctl restart kubelet` rồi đợi tiếp |
+| §3.1 dời manifest xong mà container control plane vẫn `Running` (thường `kube-controller-manager`, `kube-scheduler`) | apiserver chết nên kubelet chưa thấy nguồn API sẵn sàng và bỏ qua mọi lần xóa Pod; chờ thêm hay `systemctl restart kubelet` đều không đổi | Chạy khối 2 của §3.1: dừng kubelet rồi `crictl stopp`. Nếu `ls /etc/kubernetes/manifests/` còn file `.yaml`, dời nốt vào `/etc/kubernetes/manifests.off-$(cat ~/etcd-restore-stamp.txt)/`; **không** chạy lại khối 1 |
 | §3.3 `data-dir ... exists` | `/var/lib/etcd` chưa được đổi tên (lần đầu) hoặc còn data dir dở của lần FAIL trước | Lần đầu: §3.2. Đã qua §3.2 rồi: §3.4 bước 1, **không** chạy lại §3.2 |
 | §3.3 `expected sha256 <a>, got <b>` | Checksum nhúng của snapshot không khớp: file bị sửa hoặc copy dở | §3.4: dọn data dir dở, lấy bản từ host, so hash, chạy lại §3.3 |
 | §3.3 `snapshot missing hash but --skip-hash-check=false` | File chốt không trỏ tới snapshot do `etcdctl snapshot save` tạo | Kiểm `cat ~/etcd-restore-snapshot-path.txt`; không thêm `--skip-hash-check`; xem bảng §3.4 |
@@ -1157,6 +1212,7 @@ Sự cố dựng lại cụm sau §7 thuộc [bảng lỗi Phase 1](runbook-k8s-
 - Kubernetes — *kubeadm reset* (xóa gì, không xóa gì: CNI, iptables, `$HOME/.kube`): [https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-reset/](https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-reset/)
 - Kubernetes — *Creating a cluster with kubeadm*: [https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/)
 - Kubernetes — *Create static Pods* (kubelet quét thư mục manifest): [https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/](https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/)
+- Kubernetes — mã nguồn kubelet nhánh `release-1.35` (`deletePod` và housekeeping bỏ qua xóa Pod khi chưa thấy đủ nguồn; vì sao §3.1 dùng `crictl stopp`): [https://github.com/kubernetes/kubernetes/blob/release-1.35/pkg/kubelet/kubelet.go](https://github.com/kubernetes/kubernetes/blob/release-1.35/pkg/kubelet/kubelet.go)
 - bbolt — *README* (mô hình transaction, `NoFreelistSync`): [https://github.com/etcd-io/bbolt](https://github.com/etcd-io/bbolt)
 - Flannel — *running.md* (`/run/flannel/subnet.env`, interface `flannel.1`): [https://github.com/flannel-io/flannel/blob/master/Documentation/running.md](https://github.com/flannel-io/flannel/blob/master/Documentation/running.md)
 - Rancher — *local-path-provisioner* (thư mục hostPath `/opt/local-path-provisioner`): [https://github.com/rancher/local-path-provisioner](https://github.com/rancher/local-path-provisioner)

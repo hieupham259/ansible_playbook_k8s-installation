@@ -3176,6 +3176,14 @@ Rancher là giao diện quản trị cụm, không nên chỉ dựa vào màn h�
 5. Trong **Access policies**, chọn **Create new policy**. Đặt tên mô tả, ví dụ `Allow Rancher admins`; **Action** = **Allow**; rule **Include** dùng selector **Emails** với đúng email quản trị (hoặc **Emails ending in** chỉ khi thực sự muốn cho phép cả domain). Không chọn `Everyone`, không tạo policy `Bypass Everyone`; bật MFA nếu IdP hỗ trợ.
 6. **Save policy**, xác nhận policy xuất hiện với Action `Allow`, rồi **Create/Save application**. Trong danh sách Applications phải thấy destination `rancher.hieupn.site`, policy vừa tạo và type `Self-hosted`. Access mặc định deny người không khớp policy.
 
+**Mở lại policy đã lưu để kiểm tra rule Include** (cũng áp dụng khi Access application đã tồn tại sau restore):
+
+1. Vào **Zero Trust → Access controls → Applications** → bấm application **`rancher`** → tab **Policies**.
+2. Trong bảng **Access policies**, bấm tên policy **`Allow Rancher admins`** (hoặc tên bạn đã đặt ở bước 5) để xem chi tiết policy hiện có.
+3. Xác nhận **Action = Allow**; trong rule **Include**, **Selector = Emails** và **Value** là đúng email quản trị. Nếu chủ động cho phép cả domain thì đối chiếu selector **Emails ending in** với domain đã chọn ở bước 5. Không dùng `Everyone` hoặc `Bypass Everyone`.
+
+Tên `Allow Rancher admins`, action `Allow` hay cột **Rules = 1** chưa chứng minh rule cho phép đúng tài khoản; phải mở phần **Include** và kiểm tra selector/value. Khi chỉ verify cấu hình hiện có, không tạo application hay policy mới.
+
 > **Cả 6 bước trên thuộc về một lớp duy nhất — Access** — và chỉ tạo ra một đối tượng: Access application cho `rancher.hieupn.site` kèm policy của nó. Phân rã: bước 1–3 tạo vỏ application, bước 4 khai báo *cái gì được bảo vệ*, bước 5 khai báo *ai được qua*, bước 6 lưu và xác nhận. Bước 4 dễ nhầm là bước tạo route vì cũng điền Subdomain/Domain, nhưng nó **không tạo routing nào** — chỉ gắn cổng gác vào hostname tại edge của Cloudflare. Đường đi thật của hostname vào cluster là **Published application route** ngay bên dưới, thuộc về tunnel, không thuộc về Access. Hai lớp trả lời hai câu hỏi khác nhau: route trả lời "request tới hostname này đi đường nào vào cluster", Access trả lời "ai được phép gửi request tới đó ngay từ edge". Vì vậy `app.hieupn.site` ([§12.3.3](#1233-thêm-published-application)) chỉ cần route mà không cần Access — app demo cố ý mở cho cả Internet, không có gì để gác. Trình tự "Access trước, publish sau" cũng là chủ đích: dựng cổng gác xong mới mở đường, để không có khoảnh khắc nào Rancher phơi ra Internet mà chưa có ai gác.
 
 Sau khi Access application đã tồn tại, thêm **Published application route** theo đường dẫn tunnel cụ thể ở [§12.3.3](#1233-thêm-published-application): **Zero Trust → Networks → Connectors** (hoặc **Tunnels & Mesh**) → `homelab-k8s` → **Published application routes** → **Add route → Published application**.
@@ -3191,7 +3199,7 @@ Sau khi Access application đã tồn tại, thêm **Published application route
 
 #### 14.5.1. Bắt buộc cấu hình và verify origin parameters của route Rancher
 
-Modal Edit ở trang **Routes** dùng chung có thể chỉ hiện Hostname, Path và Service URL — **không có nghĩa ba origin parameter bên dưới đã được lưu**. Đóng modal rút gọn đó; vào tunnel `homelab-k8s` → tab **Published application routes** → chọn `rancher.hieupn.site` → **Edit** → mở **Additional application settings**, rồi đặt:
+Modal Edit ở trang **Routes** dùng chung có thể chỉ hiện Hostname, Path và Service URL — **không có nghĩa ba origin parameter bên dưới đã được lưu**. Đóng modal rút gọn đó; vào **Zero Trust → Networks → Connectors** (hoặc **Tunnels & Mesh**) → tunnel `homelab-k8s` → tab **Published application routes** → chọn `rancher.hieupn.site` → **Edit** → mở **Additional application settings** (UI khác hiển thị **Origin request and connection settings**), rồi đặt:
 
 | Trường                                                     | Giá trị                      |
 | ------------------------------------------------------------ | ------------------------------ |
@@ -3199,13 +3207,15 @@ Modal Edit ở trang **Routes** dùng chung có thể chỉ hiện Hostname, Pat
 | **TLS → Origin Server Name**                           | `rancher.hieupn.site`          |
 | **HTTP Settings → HTTP Host Header**                   | `rancher.hieupn.site`          |
 
-Save, mở lại route từ chính tab **Published application routes**. Phần **Basic Information** phải hiện Public hostname `rancher.hieupn.site`, Path `*` và Service `https://traefik.traefik.svc.cluster.local:443`. Phần **Origin configurations** chỉ PASS khi hiện đủ:
+**Tìm Origin configurations đã lưu:** sau khi chỉnh sửa, chọn **Save**. Từ chính tab **Published application routes** của tunnel `homelab-k8s`, bấm hostname màu xanh **`rancher.hieupn.site`** để mở lại thông tin route đã lưu. Nếu chỉ verify route hiện có, mở trực tiếp route theo đường dẫn này. Phần **Basic Information** phải hiện Public hostname `rancher.hieupn.site`, Path `*` và Service `https://traefik.traefik.svc.cluster.local:443`. Phần **Origin configurations** chỉ PASS khi hiện đủ:
 
 ```text
 noTLSVerify: true
 httpHostHeader: rancher.hieupn.site
 originServerName: rancher.hieupn.site
 ```
+
+Số **3** ở cột **Origin configurations** trong bảng route chỉ là số lượng cấu hình, không chứng minh các giá trị đã đúng. Trong form **Edit**, hai trường **Origin Server Name** và **No TLS Verify** nằm ở nhóm **TLS**; trường **HTTP Host Header** nằm ở nhóm **HTTP Settings**. Ảnh chỉ có nhóm TLS chưa đủ kiểm tra `httpHostHeader`; sau khi sửa phải Save và mở lại route để xác nhận đủ ba giá trị đã lưu.
 
 Nếu UI chỉ hiện `noTLSVerify:` mà không có `true`, flag đang **chưa bật** (mặc định là `false`) — STOP và Edit lại. Đây là trạng thái làm `cloudflared` từ chối CA riêng của Rancher trong TLS handshake và trình duyệt nhận Cloudflare `502 Bad gateway` sau khi đăng nhập Access.
 

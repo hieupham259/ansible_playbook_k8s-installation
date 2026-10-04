@@ -19,6 +19,34 @@
 
 ---
 
+## Mục lục
+
+1. [Kiến trúc đích và khác biệt so với M1](#1-kiến-trúc-đích-và-khác-biệt-so-với-m1)
+   - [Sổ SPOF — nói thẳng những gì M2 KHÔNG làm HA](#sổ-spof--nói-thẳng-những-gì-m2-không-làm-ha)
+2. [Hạ tầng: vì sao phải thuê, và thuê gì](#2-hạ-tầng-vì-sao-phải-thuê-và-thuê-gì)
+3. [Mạng: ma trận firewall default-deny và DNS](#3-mạng-ma-trận-firewall-default-deny-và-dns)
+4. [IaC: Ansible + vault + CI validation](#4-iac-ansible--vault--ci-validation)
+5. [Load balancer: haproxy + keepalived](#5-load-balancer-haproxy--keepalived)
+6. [Ba cụm RKE2 HA với Cilium](#6-ba-cụm-rke2-ha-với-cilium)
+7. [Rancher HA và import hai cụm downstream](#7-rancher-ha-và-import-hai-cụm-downstream)
+8. [Security: Projects, RBAC tenant, quota, PSA, NetworkPolicy](#8-security-projects-rbac-tenant-quota-psa-networkpolicy)
+9. [Observability: monitoring mọi cụm + alert bắn thật](#9-observability-monitoring-mọi-cụm--alert-bắn-thật)
+10. [Backup: ba tầng, chứng minh bằng restore](#10-backup-ba-tầng-chứng-minh-bằng-restore)
+    - [10.1. etcd snapshot của từng cụm RKE2](#101-etcd-snapshot-của-từng-cụm-rke2)
+    - [10.2. rancher-backup → MinIO](#102-rancher-backup--minio)
+    - [10.3. Longhorn, GitLab, PostgreSQL: backup và restore-verify](#103-longhorn-gitlab-postgresql-backup-và-restore-verify)
+11. [Diễn tập DR — bốn kịch bản có PASS](#11-diễn-tập-dr--bốn-kịch-bản-có-pass)
+    - [11.1. Mất một server node (cụm App)](#111-mất-một-server-node-cụm-app)
+    - [11.2. Drain node có volume Longhorn (trả nợ bài học M1)](#112-drain-node-có-volume-longhorn-trả-nợ-bài-học-m1)
+    - [11.3. Mất nguyên cụm quản trị — bài học đắt nhất của mô hình Rancher](#113-mất-nguyên-cụm-quản-trị--bài-học-đắt-nhất-của-mô-hình-rancher)
+    - [11.4. Restore etcd (cụm CICD)](#114-restore-etcd-cụm-cicd)
+12. [Nâng cấp tuần tự và đường lui](#12-nâng-cấp-tuần-tự-và-đường-lui)
+13. [Gate tổng — đối chiếu 10 hạng mục capstone](#13-gate-tổng--đối-chiếu-10-hạng-mục-capstone)
+14. [Quy ước gate-fail và troubleshooting](#14-quy-ước-gate-fail-và-troubleshooting)
+15. [Nguồn chính thức](#15-nguồn-chính-thức)
+
+---
+
 ## 1. Kiến trúc đích và khác biệt so với M1
 
 ```mermaid

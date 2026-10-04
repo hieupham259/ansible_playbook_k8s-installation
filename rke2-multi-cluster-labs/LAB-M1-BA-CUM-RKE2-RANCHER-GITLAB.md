@@ -19,6 +19,45 @@
 
 ---
 
+## Mục lục
+
+1. [Bức tranh toàn cảnh](#1-bức-tranh-toàn-cảnh)
+2. [Quy hoạch](#2-quy-hoạch)
+   - [2.1. Phiên bản được khóa](#21-phiên-bản-được-khóa)
+   - [2.2. VM, mạng và DNS](#22-vm-mạng-và-dns)
+   - [2.3. Biến đầu vào](#23-biến-đầu-vào)
+   - [2.4. Quy ước khi một gate FAIL](#24-quy-ước-khi-một-gate-fail)
+3. [Hạ tầng: mạng, router và các VM](#3-hạ-tầng-mạng-router-và-các-vm)
+   - [3.1. Tạo 4 VMnet host-only](#31-tạo-4-vmnet-host-only)
+   - [3.2. Dựng VM gốc Ubuntu 24.04 và nhân bản 6 VM](#32-dựng-vm-gốc-ubuntu-2404-và-nhân-bản-6-vm)
+   - [3.3. Bảng đối chiếu Netplan — không thao tác lại](#33-bảng-đối-chiếu-netplan--không-thao-tác-lại)
+   - [3.4. Router: NAT, DNS và firewall giữa các dải](#34-router-nat-dns-và-firewall-giữa-các-dải)
+   - [3.5. Gate hạ tầng](#35-gate-hạ-tầng)
+4. [Cụm Admin: RKE2 + cert-manager + CA lab + Rancher](#4-cụm-admin-rke2--cert-manager--ca-lab--rancher)
+   - [4.1. RKE2 server với Traefik ngay từ đầu](#41-rke2-server-với-traefik-ngay-từ-đầu)
+   - [4.2. Helm, cert-manager và CA của lab](#42-helm-cert-manager-và-ca-của-lab)
+   - [4.3. Rancher với tls.source=secret + privateCA](#43-rancher-với-tlssourcesecret--privateca)
+5. [Cụm App: RKE2 hai node + Longhorn + import vào Rancher](#5-cụm-app-rke2-hai-node--longhorn--import-vào-rancher)
+   - [5.1. RKE2 server và agent](#51-rke2-server-và-agent)
+   - [5.2. Chuẩn bị node cho Longhorn](#52-chuẩn-bị-node-cho-longhorn)
+   - [5.3. Cài Longhorn với mặc định 2 replica](#53-cài-longhorn-với-mặc-định-2-replica)
+   - [5.4. Import cụm App vào Rancher](#54-import-cụm-app-vào-rancher)
+6. [Cụm CICD: PostgreSQL ngoài + GitLab + runner](#6-cụm-cicd-postgresql-ngoài--gitlab--runner)
+   - [6.1. RKE2 server, Helm và import](#61-rke2-server-helm-và-import)
+   - [6.2. PostgreSQL + Redis + MinIO trên mc-db1](#62-postgresql--redis--minio-trên-mc-db1)
+   - [6.3. GitLab qua Helm, ingress Traefik, DB ngoài](#63-gitlab-qua-helm-ingress-traefik-db-ngoài)
+   - [6.4. gitlab-runner với Kubernetes executor](#64-gitlab-runner-với-kubernetes-executor)
+7. [Cert wildcard + reflector và ArgoCD mỗi cụm](#7-cert-wildcard--reflector-và-argocd-mỗi-cụm)
+   - [7.1. Reflector nhân bản wildcard cert theo namespace](#71-reflector-nhân-bản-wildcard-cert-theo-namespace)
+   - [7.2. ArgoCD instance riêng cho từng cụm](#72-argocd-instance-riêng-cho-từng-cụm)
+8. [Monitoring tập trung qua Rancher (tùy chọn theo RAM)](#8-monitoring-tập-trung-qua-rancher-tùy-chọn-theo-ram)
+9. [Gate cuối của Lab M1](#9-gate-cuối-của-lab-m1)
+   - [9.1. Pilot là chính lượt chạy end-to-end của Lab M1](#91-pilot-là-chính-lượt-chạy-end-to-end-của-lab-m1)
+10. [Troubleshooting của lab này](#10-troubleshooting-của-lab-này)
+11. [Nguồn chính thức](#11-nguồn-chính-thức)
+
+---
+
 ## 1. Bức tranh toàn cảnh
 
 Đọc kỹ sơ đồ này trước khi gõ lệnh đầu tiên. Mọi mục từ §3 trở đi chỉ là dựng dần từng khối

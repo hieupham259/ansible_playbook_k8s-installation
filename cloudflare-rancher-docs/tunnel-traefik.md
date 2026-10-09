@@ -117,6 +117,110 @@ sequenceDiagram
 
 Sơ đồ tuần tự đọc từ trên xuống dưới. Mũi tên đi sang phải là chiều request vào ứng dụng; các mũi tên nét đứt quay sang trái là chiều response trở về browser. `Cloudflare public DNS` chỉ dẫn browser tới Edge, còn `CoreDNS` chỉ được Pod trong cluster dùng để tìm ClusterIP của Service Traefik.
 
+## Đối chiếu cấu hình: hostname chọn tunnel, Service URL chọn origin
+
+Ở §12.3.3 của runbook, vào **Zero Trust → Networks → Connectors**
+(UI mới có thể hiện **Tunnels & Mesh**) → tunnel `homelab-k8s` →
+**Published application routes** → **Add route** → **Published application**,
+rồi khai báo:
+
+| Trường | Giá trị | Vai trò |
+| --- | --- | --- |
+| **Subdomain** | `app` (để trống nếu dùng root domain) | Ghép với Domain để xác định hostname public |
+| **Domain** | `hieupn.site` | Cùng Subdomain tạo hostname `app.hieupn.site` |
+| **Service URL** | `http://traefik.traefik.svc.cluster.local:80` | Đích mà connector `cloudflared` gọi sau khi nhận request từ tunnel |
+
+**Cách hiểu:** tạo route cho `app.hieupn.site` **bên trong tunnel
+`homelab-k8s`** là thiết lập lối vào đúng tunnel; Service URL là thiết lập
+“vào tunnel rồi thì connector gọi đâu trong cụm”.
+
+Subdomain và Domain xác định **hostname**, còn tunnel đang được chọn khi tạo route
+xác định **tunnel nhận request**. Hai trường hostname tự chúng không xác định tunnel.
+Service URL cũng không giúp Cloudflare nhận diện cluster: nhiều cluster có thể có
+cùng tên Service `traefik.traefik.svc.cluster.local`.
+
+Các bước tiên quyết và bước cấu hình nối với nhau như sau:
+
+| Bước runbook | Thiết lập gì? | Vai trò khi request chạy |
+| --- | --- | --- |
+| §9.3 | Helm tạo Service `traefik` trong namespace `traefik`, loại `ClusterIP` | Có địa chỉ nội bộ ổn định dẫn tới Pod Traefik |
+| §11 | Chuẩn bị domain và chuyển DNS authoritative sang Cloudflare; zone phải `Active` | Có nền DNS public để publish hostname |
+| §12.1 | Tạo tunnel `homelab-k8s`, có ID riêng, và lấy token | Xác định danh tính tunnel |
+| §12.2 | Deploy `cloudflared` bằng token của tunnel | Cloudflare nhận biết các connection đang mở thuộc tunnel nào |
+| §12.3.1 | Đổi Ingress sang Host `app.hieupn.site`, test nội bộ PASS | Traefik có rule khớp hostname public |
+| §12.3.3 | Save Published application route trong đúng tunnel và kiểm tra DNS record `Proxied` | Gắn hostname với tunnel, đồng thời khai báo origin connector phải gọi |
+| §13 | Kiểm tra DNS, HTTPS headers và body/trình duyệt | Xác nhận đường public hoạt động end-to-end |
+
+Với **Full Setup** của runbook, Cloudflare tự tạo DNS record khi thêm Published
+application route. Chỉ coi cấu hình hoàn tất khi route đã lưu đúng, record tồn tại
+đúng một lần và connector/tunnel đang **Healthy**.
+
+Token gắn connector với **tunnel**, không khóa connector vào một Kubernetes cluster
+cụ thể. Nếu dùng cùng token để chạy `cloudflared` ở cluster khác, connector đó cũng
+có thể tham gia cùng tunnel. Khi cần tách đường vào giữa các cluster, dùng tunnel/token
+riêng và giữ token bí mật.
+
+### Từ Service URL tới kết nối nội bộ
+
+§12.3.3 là **bước lưu cấu hình**; khi request đến, Edge và connector sử dụng cấu hình
+đã lưu. Route có vai trò ở cả hai phía:
+
+1. **Tại Cloudflare:** hostname `app.hieupn.site` được ánh xạ tới tunnel
+   `homelab-k8s`; request được truyền xuống một connector Healthy của tunnel đó.
+2. **Tại connector:** `cloudflared` dùng Service URL để gọi origin nội bộ.
+   Đây là remotely-managed tunnel, nên cấu hình origin nằm trên dashboard;
+   manifest `cloudflared.yaml` ở §12.2 chỉ cần token để tham gia tunnel,
+   không cần ghi thêm địa chỉ Traefik.
+3. **Tại Traefik:** Ingress tiếp tục quyết định hostname/path này thuộc ứng dụng nào.
+
+Service URL chỉ dẫn rõ ba việc:
+
+| Phần URL | Chỉ dẫn cho `cloudflared` |
+| --- | --- |
+| `http://` | Dùng HTTP để gọi origin |
+| `traefik.traefik.svc.cluster.local` | Phân giải tên Service `traefik` trong namespace `traefik` |
+| `:80` | Kết nối tới port 80 của địa chỉ đã phân giải |
+
+CoreDNS không chọn ngẫu nhiên một Service. Nó trả ClusterIP của Service có
+**đúng tên và namespace được hỏi**. Service đã được tạo ở §9.3; DNS Kubernetes
+cung cấp ánh xạ tên Service tương ứng, không cần nhập record hoặc entry `hosts`
+riêng cho Traefik. CoreDNS được triển khai khi `kubeadm init` ở §6 và kiểm tra tại
+§8.4; Pod `cloudflared` ở §12.2 dùng DNS policy mặc định `ClusterFirst`.
+
+Ví dụ CoreDNS trả `10.96.123.45` (IP minh họa), connector mở connection tới
+`10.96.123.45:80`. **Tên DNS được dùng để tìm IP; IP được dùng để mở kết nối.**
+DNS có thể được cache và connection có thể được tái sử dụng, nên không phải mỗi
+request đều tạo một DNS query và connection mới.
+
+Trong cấu hình lab không override Host, HTTP request gửi qua connection đó vẫn mang
+`Host: app.hieupn.site`. Phân biệt:
+
+| Thông tin | Mục đích |
+| --- | --- |
+| `traefik.traefik.svc.cluster.local` | Tìm IP Service origin |
+| ClusterIP Traefik + port 80 | Đích kết nối mạng |
+| `Host: app.hieupn.site` và path | Traefik dùng để khớp rule Ingress |
+
+### Phân loại vai trò trong toàn bộ luồng
+
+| Nhóm | Thành phần | Nhiệm vụ |
+| --- | --- | --- |
+| Tìm địa chỉ | Public DNS, CoreDNS | Trả IP cần kết nối |
+| Nhận/chuyển tiếp HTTP | Cloudflare Edge, `cloudflared`, Traefik | Proxy request và response |
+| Cấu hình chỉ đường | Published application route, Ingress | Khai báo tunnel/origin và Host/path → backend |
+| Địa chỉ và chuyển tiếp mạng | Service, ClusterIP, EndpointSlice | Cung cấp địa chỉ ổn định và thông tin backend |
+| Xử lý ứng dụng | Pod web | Tạo response |
+
+Trong nhóm mạng, **Service** khai báo cách truy cập nhóm backend, **ClusterIP** là
+địa chỉ ảo, **EndpointSlice** lưu thông tin các endpoint; dataplane Kubernetes thực
+hiện chuyển tiếp khi đi qua Service IP. Chúng không phải ba chương trình proxy HTTP.
+Traefik cũng có thể gọi trực tiếp Pod endpoint tùy cấu hình.
+
+Public DNS và CoreDNS chỉ tham gia tìm địa chỉ, không chuyển tiếp HTTP.
+Published application route và Ingress là cấu hình, không phải hop mạng.
+Response từ Pod web quay về qua Traefik → `cloudflared` → tunnel → Edge → browser;
+không quay qua hai hệ DNS.
+
 ## Cách đọc toàn bộ luồng §12 → §13 theo ngôn ngữ đơn giản
 
 Có thể hình dung Cloudflare Edge là **cổng tiếp nhận công khai**, Tunnel là **đường hầm đã mở sẵn**, Pod `cloudflared` là **đầu đường hầm nằm trong cluster**, Traefik là **lễ tân đọc hostname để chọn ứng dụng**, Service là **địa chỉ ổn định của một nhóm backend**, còn Pod web là **server thật sự xử lý request và tạo response**.

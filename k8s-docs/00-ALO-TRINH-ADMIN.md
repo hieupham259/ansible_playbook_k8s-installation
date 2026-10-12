@@ -207,7 +207,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [X] [Workload](45-workloads-vi.md)
 - [X] [Pod](46-pods-vi.md)
 - [X] [Vòng đời của Pod](47-pod-lifecycle-vi.md) — bài xương sống: phase, trạng thái container, `restartPolicy`, chấm dứt êm và `terminationGracePeriodSeconds`.
-- [ ] [Các Condition của Pod](48-pod-condition-vi.md)
+- [X] [Các Condition của Pod](48-pod-condition-vi.md)
 - [ ] [Các probe Liveness, Readiness và Startup](49-probes-vi.md) — trọng tâm: phân biệt ba loại; cấu hình sai liveness là nguyên nhân kinh điển của restart loop.
 - [ ] [Container khởi tạo](50-init-containers-vi.md)
 - [ ] [Các container sidecar](51-sidecar-containers-vi.md) — sidecar hiện là init container có `restartPolicy: Always`.

@@ -1175,6 +1175,159 @@ trên Windows và trạng thái Pod Running không thay thế kiểm tra đườ
 
 </details>
 
+#### Câu 2/6 — Tunnel Healthy nhưng app trả 502
+
+Bạn quan sát:
+
+- `nslookup app.hieupn.site` trả Cloudflare Edge IP.
+- Dashboard tunnel `homelab-k8s` hiển thị **Healthy**.
+- Browser truy cập `https://app.hieupn.site/` nhận **502 Bad Gateway**.
+- Origin trên Cloudflare được cấu hình là `http://traefik.traefik.svc.cluster.local:80`.
+
+Trên **máy master**, chạy đúng hai lệnh:
+
+```bash
+ING_IP=$(kubectl -n traefik get svc traefik \
+  -o jsonpath='{.spec.clusterIP}')
+
+curl -v -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+Lệnh curl trả đúng nội dung app. Request này xuất phát từ terminal trên máy master,
+dùng trực tiếp ClusterIP; **không chạy trong Pod connector, không đi qua tunnel,
+không phân giải hostname Service Traefik**. Lệnh kubectl phía trước chỉ lấy ClusterIP
+từ Kubernetes API, không kiểm tra CoreDNS.
+
+Hãy trả lời:
+
+1. Tunnel Healthy chứng minh điều gì? Vì sao đường public vẫn có thể trả 502?
+2. Lệnh curl trên master ở đề bài chứng minh những phần nào hoạt động? Nó đã chứng minh
+   **Pod cloudflared phân giải được tên Service và kết nối được tới Traefik** chưa? Vì sao?
+3. Để kiểm tra đường **connector → origin**, cần kiểm tra cấu hình gì trên Cloudflare
+   và thực hiện các phép kiểm tra DNS/HTTP từ đâu? Nêu lệnh hoặc cách kiểm tra.
+4. Nếu log connector báo `lookup traefik.traefik.svc.cluster.local ... no such host`,
+   ưu tiên kiểm tra những gì? Đây có phải bằng chứng rule Ingress sai không?
+   Có nên sửa token hoặc mở inbound router không?
+
+**Câu hỏi bổ sung:** từ **môi trường mạng của chính Pod connector**, bằng debug container
+có công cụ phù hợp, bạn thấy:
+
+- Phân giải `traefik.traefik.svc.cluster.local` thất bại.
+- Gọi trực tiếp ClusterIP Traefik trên port 80, với `Host: app.hieupn.site`,
+  trả đúng nội dung app.
+
+Khoanh vùng lỗi ở phần nào? Những nguyên nhân nào cần kiểm tra tiếp?
+Có cần sửa Ingress hay restart Pod web không?
+
+<details>
+<summary>Đáp án vòng 2 — câu 2/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Healthy chỉ chứng minh kết nối tunnel, không chứng minh origin**
+
+Tunnel Healthy cho biết có kết nối connector hoạt động với Cloudflare.
+Nó không tự chứng minh connector phân giải được hostname origin, gọi được Service
+Traefik hoặc nhận được response backend đúng.
+
+502 có thể liên quan đường connector → origin: sai Service URL/port, lỗi DNS,
+không kết nối được hoặc origin gặp lỗi. Mã 502 riêng lẻ không xác định chính xác
+thành phần tạo lỗi; cần đối chiếu log của request/connector và các phép test.
+Nếu có nhiều replica, trạng thái Healthy chung cũng không chứng minh mọi replica
+đều gọi được origin.
+
+**2. Test trên master chưa chứng minh đường gọi từ connector**
+
+| Phép kiểm tra | Đường được kiểm tra |
+| --- | --- |
+| Curl trên master tới ClusterIP, đặt Host public | Mạng master → Service Traefik → Traefik khớp Ingress → backend web |
+| Connector gọi origin URL | DNS/mạng Pod connector → Service Traefik → Traefik → backend |
+
+Hai nguồn request có thể có routing, firewall hoặc chính sách mạng khác nhau.
+Master gọi được không có nghĩa Pod connector gọi được. Test trực tiếp ClusterIP
+còn bỏ qua bước DNS nội bộ, nên không chứng minh hostname Service được phân giải.
+
+**3. Kiểm tra cấu hình và test từ đúng môi trường**
+
+Trên Cloudflare, mở route trong **đúng tunnel → Published application routes**
+theo §12.3.3. Đối chiếu scheme `http`, tên
+`traefik.traefik.svc.cluster.local`, port `80` và các Host override nếu có.
+
+Kiểm tra Service và endpoint để biết origin tồn tại:
+
+```bash
+kubectl -n traefik get svc traefik -o wide
+kubectl -n traefik get endpointslice \
+  -l kubernetes.io/service-name=traefik -o wide
+```
+
+Các lệnh get này đọc trạng thái qua API, không tự kiểm tra đường connector → origin.
+
+Đọc log **connector hiện đang chạy**, đối chiếu cả hai Pod:
+
+```bash
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
+kubectl -n cloudflare logs <pod-cloudflared> --tail=100
+```
+
+Lệnh `cloudflared ... tunnel run` khởi chạy connector mới; không phải lệnh đọc
+log Pod Kubernetes hiện tại. Không cần chạy thêm connector để chẩn đoán.
+
+Thực hiện test bằng công cụ sẵn có trong container; nếu image thiếu shell/công cụ,
+dùng debug container chia sẻ môi trường mạng của chính Pod connector.
+Kiểm tra thêm cấu hình DNS của Pod, `/etc/resolv.conf` và DNS policy của môi trường
+test để bảo đảm test phản ánh cách connector phân giải tên.
+
+Trong môi trường đó:
+
+```bash
+nslookup traefik.traefik.svc.cluster.local
+
+curl -v -H 'Host: app.hieupn.site' \
+  http://traefik.traefik.svc.cluster.local:80/
+```
+
+So sánh thêm với request trực tiếp ClusterIP, thay IP minh họa bằng IP thật:
+
+```bash
+curl -v -H 'Host: app.hieupn.site' http://10.96.123.45:80/
+```
+
+Nếu dùng Pod test riêng, kết quả có ích nhưng chưa chắc đại diện connector vì
+label, node, DNS configuration và chính sách mạng có thể khác.
+Chỉ kiểm tra trên master không thay thế test từ môi trường connector.
+
+**4. No such host khoanh vùng bước phân giải tên**
+
+Lỗi này cho biết connector không phân giải được hostname origin. Nó chưa có IP để
+mở connection tới Traefik cho request đó; vì vậy **chưa có bằng chứng Ingress sai**.
+
+Ưu tiên kiểm tra:
+
+| Hạng mục | Điều cần đối chiếu |
+| --- | --- |
+| Service URL §12.3.3 | Tên Service/namespace/domain nội bộ có gõ đúng không |
+| Service §9.3 | Service traefik có tồn tại trong namespace traefik không |
+| Pod connector §12.2 | dnsPolicy/dnsConfig và resolver thực tế có đúng không |
+| DNS trong cluster §8.4 | CoreDNS Pods, Service DNS, endpoints, cấu hình/log và khả năng trả lời |
+| Đường Pod → DNS | UDP/TCP 53, routing/firewall và NetworkPolicy có hiệu lực |
+
+Không cần sửa token hoặc mở inbound router để xử lý lỗi DNS origin này.
+Lý do là **lỗi quan sát được thuộc bước phân giải origin**, không phải vì Healthy
+tự chứng minh mọi request đã xuống đúng connector hoặc mọi cấu hình token đều đúng.
+
+**Đáp án câu bổ sung**
+
+Khoanh vùng ở **phân giải DNS nội bộ của hostname origin**. Test trực tiếp IP
+thành công chứng minh connector có đường tới Traefik/backend khi bỏ qua DNS.
+
+Chưa đủ bằng chứng chốt CoreDNS đang chạy lỗi. Còn các khả năng: tên/namespace sai,
+cấu hình resolver của Pod sai, đường Pod → DNS bị chặn, hoặc CoreDNS/configuration
+DNS Kubernetes có vấn đề. Đối chiếu các hạng mục ở bảng trên trước khi sửa.
+
+Không sửa Ingress hoặc restart Pod web để chữa lỗi này: request trực tiếp IP với
+Host thật đã khớp route và nhận đúng nội dung app.
+
+</details>
+
 Câu nào chưa trả lời được thì quay lại §9–§13 và phần giải thích tương ứng trước
 khi học Rancher ở §14 hoặc chuyển sang các tình huống xử lý sự cố nâng cao.
 

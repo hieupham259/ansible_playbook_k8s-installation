@@ -182,10 +182,19 @@ nằm sẵn trong snapshot cho các lab sau.
 
 | Thành phần | Namespace | Cài ở | Snapshot chứa nó |
 | --- | --- | --- | --- |
-| Calico (CNI có thực thi NetworkPolicy) | theo manifest của Calico | Lab 5b | `02-net-ready` trở đi |
+| Flannel (CNI **không** thực thi NetworkPolicy) | `kube-flannel` | Lab 00 | chỉ `01-cluster-ready`; Lab 5b gỡ nó |
+| Calico (CNI có thực thi NetworkPolicy) | theo manifest của Calico | Lab 5b, thay Flannel | `02-net-ready` trở đi |
 | Helm, Traefik, IngressClass `traefik` | `traefik` | Lab 5b | `02-net-ready` trở đi |
 | local-path-provisioner, StorageClass mặc định `local-path` | `local-path-storage` | Lab 6a | `03-storage-ready` trở đi |
 | metrics-server | `kube-system` | Lab 11a | `04-metrics-ready` |
+
+**Vì sao có hai CNI.** Lab 00 cố ý cài Flannel — CNI đơn giản nhất, không thực thi NetworkPolicy —
+và để việc đổi sang CNI có thực thi policy thành một bài học của Lab 5b
+([A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa)). Vì vậy dự án chạy trên
+Flannel từ Lab 3a tới Lab 5a. NetworkPolicy viết ở Lab 5a hợp lệ nhưng **chưa chặn gì** (nợ lab #4,
+`TD-09`). Lab 5b chứng minh điều đó trước, rồi gỡ dự án, đổi CNI sang Calico và chụp `02-net-ready`.
+Từ Lab 6a trở đi, mọi snapshot đều chạy Calico. Kiến trúc đích ở mục 3.1 là trạng thái sau Lab 14,
+nên chỉ có Calico.
 
 Repo dự án giữ **ghi chép** cách cài các thành phần này trong thư mục `platform/` (xem
 [mục 5.1](#51-vị-trí-và-cấu-trúc)) để Lab 8a dựng lại cluster được từ repo.

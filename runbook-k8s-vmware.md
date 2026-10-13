@@ -28,7 +28,7 @@
 11. [Mua &amp; cấu hình domain trên Cloudflare](#section-11)
 12. [Tạo Cloudflare Tunnel (chạy trong cụm)](#12-tạo-cloudflare-tunnel-chạy-trong-cụm)
 13. [Trỏ domain &amp; kiểm tra trên Internet](#13-trỏ-domain--kiểm-tra-trên-internet)
-    - [Tự kiểm tra — xử lý lỗi 404 và backend Service](#tự-kiểm-tra--xử-lý-lỗi-404-và-backend-service)
+    - [Tự kiểm tra — luồng truy cập và xử lý sự cố](#tự-kiểm-tra--luồng-truy-cập-và-xử-lý-sự-cố)
 14. [Cài Rancher 2.14.3 &amp; quản lý cụm](#14-cài-rancher-2143--quản-lý-cụm)
 15. [Vận hành &amp; troubleshooting](#15-vận-hành--troubleshooting)
 16. [Nguồn official](#16-nguồn-official)
@@ -2713,9 +2713,9 @@ Traefik Service/Pod → Ingress Router (Host match) → Service web → Pod web
 
 ---
 
-## Tự kiểm tra — xử lý lỗi 404 và backend Service
+## Tự kiểm tra — luồng truy cập và xử lý sự cố
 
-Phần này ghi câu **3/6–5/6 vòng 2** cùng đáp án chuẩn, gồm lỗi 404, backend Service và chịu lỗi replica. Các câu vòng 1 cùng câu 1–2 vòng 2
+Phần này ghi câu **3/6–6/6 vòng 2** cùng đáp án chuẩn, gồm lỗi 404, backend Service, chịu lỗi replica và nền tảng TLS. Các câu vòng 1 cùng câu 1–2 vòng 2
 nằm trong [Tự kiểm tra của tunnel-traefik.md](cloudflare-rancher-docs/tunnel-traefik.md#tự-kiểm-tra).
 Tự trả lời trước khi mở khối đáp án.
 
@@ -3144,7 +3144,174 @@ dùng các lệnh ở trên để xác nhận cluster thực tế.
 
 </details>
 
+### Câu 6/6 — HTTPS, SNI, certificate và ranh giới TLS
+
+Trong bài, người dùng mở `https://app.hieupn.site/`. Cloudflare Tunnel có
+Published application route với Service URL
+`http://traefik.traefik.svc.cluster.local:80`; Traefik chuyển tới Pod web bằng
+HTTP. Hãy trả lời trước khi mở đáp án:
+
+1. Vì sao browser dùng HTTPS trong khi `cloudflared` gọi origin bằng HTTP?
+   Public DNS quyết định giao thức không? Đoạn nội bộ HTTP được bảo vệ tới mức
+   nào?
+2. TLS của browser kết thúc ở đâu? Liệt kê giao thức trên các chặng tiếp theo;
+   phân biệt các kết nối/phiên mã hóa độc lập.
+3. Chỉ đổi Service URL sang `https://traefik.traefik.svc.cluster.local:443`
+   đã đủ chưa? Cần chuẩn bị gì ở Traefik, certificate và `cloudflared`? Có nhất
+   thiết phải đổi giá trị Host/path của Ingress không?
+4. SNI xuất hiện vào lúc nào, giải quyết việc gì? So sánh SNI với DNS, HTTP
+   `Host`/`:authority` và tên trong certificate.
+5. Nếu certificate origin do CA riêng cấp hoặc chỉ có tên public
+   `app.hieupn.site` trong khi Service URL mang tên nội bộ, client TLS sẽ kiểm
+   tra những gì? `originServerName`, `caPool` và `noTLSVerify` khác nhau ra sao?
+
+<details>
+<summary>Đáp án vòng 2 — câu 6/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**Nhận xét câu trả lời ban đầu**
+
+- **Câu 1:** đúng là Service URL `http://...:80` khiến `cloudflared` gọi Traefik
+  bằng HTTP. Cần sửa hai chỗ: browser dùng HTTPS vì URL có scheme `https`,
+  **không phải vì DNS hay dashboard trả IP cho HTTPS**; mạng nội bộ không phải
+  bằng chứng đoạn HTTP đã được mã hóa/xác thực. Mức cô lập mạng và bảo vệ TLS
+  là hai cơ chế khác nhau.
+- **Câu 2:** đúng cho bài này: TLS của browser kết thúc ở Cloudflare Edge và
+  Traefik → Pod web dùng HTTP. Còn một kết nối tunnel được mã hóa riêng giữa
+  `cloudflared` và Cloudflare; `cloudflared` → Traefik đang dùng HTTP riêng.
+  Không có một phiên TLS liên tục từ browser đến Pod.
+- **Câu 3:** đúng khi nói chỉ đổi Service URL là chưa đủ. Nhưng **không nhất
+  thiết đổi Host/path rule** của Ingress: rule định tuyến `app.hieupn.site` + `/`
+  có thể giữ nguyên. Traefik cần listener/entrypoint HTTPS, certificate và
+  private key phù hợp, cấu hình TLS/router phù hợp; `cloudflared` phải tin
+  certificate và kiểm tra đúng tên. Tùy cấu hình controller mà cần thêm TLS vào
+  Ingress hoặc loại cấu hình router tương ứng.
+
+**Sơ đồ nền tảng: bất kỳ ứng dụng HTTPS nào**
+
+Sơ đồ bắt đầu từ lúc người dùng **nhập URL HTTPS vào browser**. URL chưa phải
+HTTP request: browser phải tìm địa chỉ, tạo kết nối và hoàn tất TLS trước.
+“Public endpoint” có thể là chính server ứng dụng hoặc một proxy phía trước.
+
+```mermaid
+flowchart TD
+    U["Người dùng nhập https://host/path?query"] --> D["DNS: tìm IP của host"]
+    D --> N["Mở kết nối tới IP:443: TCP hoặc QUIC"]
+    N --> T["TLS: ClientHello/SNI → server certificate → xác minh → khóa phiên"]
+    T --> H["Gửi HTTP: method, path, Host/:authority, headers, body nếu có"]
+    H --> X{"Public endpoint là gì?"}
+    X -->|Ứng dụng| A["Ứng dụng nhận HTTP request"]
+    X -->|Proxy/Edge| P["Proxy đọc HTTP và chọn route"]
+    P --> C["Mở/chọn kết nối tiếp: TLS riêng nếu đích dùng HTTPS"]
+    C --> R["Chuyển HTTP request tới proxy kế tiếp hoặc ứng dụng"]
+    R --> A
+    A --> O["HTTP response quay về qua các chặng tương ứng"]
+```
+
+Nếu có nhiều proxy, lặp lại bước **chọn route → kết nối chặng kế tiếp → gửi
+HTTP**. Proxy có thể tái sử dụng kết nối sẵn có, thay vì mở một TCP/TLS
+connection mới cho từng request. Sơ đồ không giả định ứng dụng chạy trong
+Kubernetes hay đặt sau Cloudflare.
+
+**Từng bước: DNS, transport, TLS, rồi mới HTTP**
+
+1. Browser tách URL thành `https`, hostname `host`, cổng mặc định `443`, path
+   `/path` và query `query`. DNS (hoặc cache DNS) cung cấp IP của điểm vào;
+   nó không quyết định scheme, certificate hay backend HTTP. Tên public có thể
+   đi qua CNAME/proxy trước khi ra IP cuối cùng.
+2. Browser mở kết nối mạng tới IP/cổng đó. Với HTTPS trên TCP, hai bên làm
+   TCP handshake rồi bắt tay TLS. Với HTTP/3, QUIC chạy trên UDP và tích hợp
+   thiết lập TLS; không mô tả HTTP/3 bằng TCP handshake.
+3. Browser gửi TLS `ClientHello`: phiên bản/thuật toán hỗ trợ, dữ liệu trao đổi
+   khóa, **SNI** cho hostname mà nó muốn gặp, và thường có **ALPN** để thương
+   lượng giao thức HTTP. SNI giúp đầu nhận dùng chung IP/cổng chọn ngữ cảnh
+   TLS và certificate **trước khi nó nhận HTTP request**. SNI là tên do client
+   khai, không tự chứng minh server đáng tin hay cấp quyền truy cập.
+4. Server gửi thông tin bắt tay và certificate. Browser kiểm tra certificate
+   còn hợp lệ, chuỗi chứng nhận dẫn tới CA được tin cậy, và tên trong SAN của
+   certificate khớp hostname trong URL. Bước bắt tay cũng xác minh server nắm
+   private key tương ứng và tạo khóa đối xứng cho phiên. Certificate hỗ trợ
+   xác thực danh tính; nó không phải khóa dùng trực tiếp để mã hóa mọi HTTP
+   request. Nếu kiểm tra bắt buộc thất bại, browser không tiếp tục request
+   một cách bình thường.
+5. Khi TLS hoàn tất, browser gửi HTTP request được bảo vệ trong phiên TLS,
+   ví dụ `GET /path?query`. Với HTTP/1.1 có `Host: host`; HTTP/2/3 dùng
+   `:authority` mang tên đích tương ứng. POST có thể mang body. Server hoặc
+   proxy giải mã HTTP, áp dụng route theo hostname/path và các rule liên quan.
+6. Nếu điểm vào là proxy, proxy có thể kết thúc phiên TLS này và tạo một HTTP
+   request cho chặng sau. HTTPS ở chặng sau đòi hỏi **một phiên TLS khác**:
+   proxy lúc này là TLS client và phải xác minh server của chặng ấy. HTTP ở
+   chặng sau không có TLS bảo vệ cho đoạn truyền đó. Cuối cùng ứng dụng nhận
+   method, path/query, headers và body theo cách proxy chuyển tiếp; ứng dụng
+   tạo response, mỗi proxy trả response trên kết nối tương ứng về browser.
+
+Với TLS 1.3, các thông điệp như ServerHello, Certificate, CertificateVerify
+và Finished có trình tự và mức mã hóa riêng trong handshake; sơ đồ trên rút
+gọn chúng thành bước xác minh và tạo khóa. Session resumption/0-RTT cũng có
+thể làm trình tự thực tế khác đi; phần giải thích dùng full handshake thông
+thường.
+
+| Thông tin | Có từ lúc nào? | Trả lời câu hỏi gì? |
+| --- | --- | --- |
+| DNS/IP | Trước khi kết nối | Mở kết nối mạng tới đâu? |
+| SNI trong TLS ClientHello | Trước HTTP | Server cần chọn cấu hình TLS/certificate cho tên nào? |
+| Certificate và SAN | Trong TLS handshake | Client có xác minh đúng server cho tên kỳ vọng không? |
+| HTTP `Host` hoặc `:authority` | Sau khi lập TLS, nằm trong HTTP | HTTP request hướng tới hostname nào để chọn route? |
+| HTTP path/query | Trong HTTP | Request nhắm tới tài nguyên/hành động nào? |
+
+SNI **không thay thế** `Host`/`:authority`: TLS server cần chọn certificate
+trước khi xử lý HTTP; HTTP router dựa trên request đã được nhận. Nếu dùng
+Encrypted ClientHello (ECH), một phần ClientHello/SNI có thể được che giấu;
+mô tả ở trên là trường hợp SNI thông thường.
+
+**Áp dụng cho chuỗi Cloudflare Tunnel của bài**
+
+| Chặng | Kết nối và giao thức | Vai trò, TLS |
+| --- | --- | --- |
+| Browser → Cloudflare Edge | Browser tìm Edge IP, kết nối cổng HTTPS, gửi SNI `app.hieupn.site`, xác minh certificate rồi gửi HTTP | TLS phiên 1 kết thúc tại Edge; Edge đọc hostname/path và tra route |
+| `cloudflared` ↔ Cloudflare | Connector chủ động duy trì kết nối tunnel outbound được mã hóa; Edge chuyển request qua kết nối thích hợp | Phiên/kết nối bảo vệ riêng, không dùng khóa TLS của browser |
+| `cloudflared` → Traefik | Connector phân giải Service URL qua DNS nội bộ, kết nối ClusterIP của Service Traefik port 80, gửi HTTP với Host public nếu không override | Hiện tại không có TLS, vì Service URL là `http://...:80` |
+| Traefik → ứng dụng | Traefik khớp Ingress/router rồi gọi backend phù hợp | HTTP trong demo; ứng dụng nhận request và tạo response |
+
+“Tunnel đã mở outbound” nghĩa là kết nối hai chiều được duy trì để nhận và
+chuyển dữ liệu; request người dùng không phải **response HTTP** của một lệnh
+outbound ban đầu. Request public tới Edge, được proxy vào tunnel; connector
+lại tạo/chọn kết nối tới origin. Không cần mở inbound tới IP của lab.
+
+**Đổi riêng chặng connector → origin sang HTTPS**
+
+Với Service URL `https://traefik.traefik.svc.cluster.local:443`, connector sẽ
+là **TLS client** và Traefik sẽ là **TLS server**. Trước khi chạy được, cần:
+
+- Service/cổng/entrypoint Traefik thực sự phục vụ TLS; Traefik có certificate,
+  private key và router/Ingress TLS phù hợp. Host/path rule có thể giữ nguyên.
+- Xác định tên mà connector kỳ vọng ở certificate. Nếu certificate chỉ hợp lệ
+  cho `app.hieupn.site` nhưng URL kết nối là tên `*.svc.cluster.local`, cần
+  cấu hình phù hợp, chẳng hạn `originServerName: app.hieupn.site`, để kiểm tra
+  đúng danh tính; đối chiếu thêm SNI nếu có cấu hình `matchSNItoHost`.
+- Nếu dùng CA nội bộ, cung cấp CA cho connector bằng `caPool` và bảo đảm file
+  CA thực sự có trong môi trường chạy của `cloudflared`. HTTP `Host`/`:authority`
+  phục vụ routing sau TLS; `httpHostHeader` chỉ cần cấu hình khi muốn đặt lại
+  hostname HTTP mà connector gửi tới origin.
+
+`noTLSVerify: true` làm connector bỏ qua xác minh certificate origin: dữ liệu
+vẫn được mã hóa bằng TLS, nhưng connector không còn xác thực chắc chắn danh
+tính origin. Nó không sửa lỗi TCP sai port, listener không nói TLS hay HTTP
+router sai. Nó cũng không thay đổi việc browser xác minh certificate của Edge.
+
+Phân biệt khi chẩn đoán: **không nối được cổng** là lỗi network/listener;
+**TLS handshake/certificate fail** là lỗi cấu hình TLS, tên hoặc CA;
+**TLS thành công nhưng 404** thường cần kiểm tra HTTP `Host`, path và router.
+
+Đọc thêm tài liệu gốc: [RFC 6066 — SNI](https://www.rfc-editor.org/rfc/rfc6066.html),
+[RFC 8446 — TLS 1.3](https://www.rfc-editor.org/rfc/rfc8446.html),
+[RFC 9525 — xác minh tên server](https://www.rfc-editor.org/rfc/rfc9525.html),
+[RFC 9110 — HTTP semantics](https://www.rfc-editor.org/rfc/rfc9110.html),
+[Cloudflare Tunnel origin parameters](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/).
+
+</details>
+
 ---
+
 
 ## 14. Cài Rancher 2.14.3 & quản lý cụm
 

@@ -1328,10 +1328,432 @@ Host thật đã khớp route và nhận đúng nội dung app.
 
 </details>
 
-Các câu **3/6–5/6 vòng 2** về 404, EndpointSlice và replica nằm trong
-[phần tự kiểm tra của runbook](../runbook-k8s-vmware.md#tự-kiểm-tra--xử-lý-lỗi-404-và-backend-service).
+#### Câu 3/6 — App trả 404
 
-### Câu 6/6 — HTTPS, SNI, certificate và ranh giới TLS
+Bạn quan sát:
+
+- DNS public trả đúng Cloudflare Edge IP.
+- Tunnel `homelab-k8s` Healthy.
+- Browser mở `https://app.hieupn.site/` nhận **404 Not Found**.
+- Published application route trỏ tới `http://traefik.traefik.svc.cluster.local:80`.
+
+Trên **máy master**, chạy:
+
+```bash
+ING_IP=$(kubectl -n traefik get svc traefik \
+  -o jsonpath='{.spec.clusterIP}')
+
+curl -i -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+Kết quả cũng là 404. Test này gọi trực tiếp Service Traefik từ master, không đi
+qua Cloudflare hoặc connector.
+
+1. Đã đủ bằng chứng kết luận rule Ingress sai chưa? Những thành phần nào có thể
+   tạo response 404?
+2. Cần kiểm tra những trường nào trong Ingress `web`? Nêu lệnh kiểm tra.
+3. Nếu Ingress vẫn khai `host: app.example.com`, tại sao request không khớp?
+   Sửa ở đâu và kiểm tra lại thế nào?
+4. Nếu Host, path và IngressClass đúng, làm sao phân biệt **Traefik không tìm được
+   router phù hợp** với **request đã tới ứng dụng nhưng ứng dụng trả 404**?
+
+**Câu hỏi bổ sung:** Deployment web có hai replica. Gửi một request nhưng chỉ xem
+log Pod web replica 1 và không thấy request đó: có thể kết luận Traefik không chuyển
+request tới backend không? Cần kiểm tra thêm gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Chưa đủ kết luận Ingress sai**
+
+Test nội bộ cũng trả 404 cho thấy có thể tái hiện lỗi mà không đi qua Cloudflare,
+nhưng chưa xác định tầng nào tạo response. Hai khả năng cần phân biệt:
+
+| Thành phần | Ví dụ tạo 404 |
+| --- | --- |
+| Traefik | Không có router khớp Host/path/entrypoint |
+| Ứng dụng backend | Request đã tới app nhưng app không có resource/path được yêu cầu |
+
+Đường public còn có thể có response do các rule/worker phía Edge nếu được cấu hình;
+không dùng một status giống nhau để kết luận chắc chắn cả hai response cùng nguồn.
+
+Ingress là object cấu hình, không tự phát HTTP response. Sai backend port hoặc
+Service không có backend thường liên quan lỗi cấu hình/kết nối/không có backend,
+có thể dẫn tới 502/503 hoặc router không được nạp tùy trường hợp; phải xem log,
+không quy mọi lỗi Service/Deployment thành 404.
+
+**2. Kiểm tra cả rule, class, namespace và router thực tế**
+
+```bash
+kubectl -n default get ingress web -o yaml
+kubectl -n default describe ingress web
+```
+
+Trong lab, app nằm ở namespace default. Đối chiếu:
+
+- `spec.ingressClassName: traefik`.
+- `spec.rules[].host: app.hieupn.site`.
+- Path `/` và `pathType: Prefix`.
+- Backend Service name `web` và Service port `80`.
+- Ingress và Service backend cùng namespace.
+- Events và log Traefik về việc đọc/nạp cấu hình.
+
+Nếu cần:
+
+```bash
+kubectl get ingressclass traefik -o yaml
+kubectl -n default get svc web -o yaml
+kubectl -n default get endpointslice \
+  -l kubernetes.io/service-name=web -o wide
+kubectl -n traefik logs deployment/traefik --tail=100
+```
+
+YAML đúng trên API chưa tự chứng minh Traefik đã nạp router đúng. Có thể xem
+dashboard nội bộ theo §9.3.2 để đối chiếu router/service thực tế.
+
+**3. Host khác nhau nên không khớp; sửa source manifest theo §12.3.1**
+
+Request mang `Host: app.hieupn.site`; rule còn `app.example.com` nên không khớp.
+Mở `~/demo-app.yaml`, trong object Ingress đổi:
+
+```yaml
+- host: app.example.com
+```
+
+thành:
+
+```yaml
+- host: app.hieupn.site
+```
+
+Sau đó:
+
+```bash
+kubectl apply --dry-run=client -f ~/demo-app.yaml
+kubectl apply -f ~/demo-app.yaml
+
+kubectl -n default get ingress web \
+  -o jsonpath='{.spec.rules[*].host}{"\n"}'
+
+ING_IP=$(kubectl -n traefik get svc traefik \
+  -o jsonpath='{.spec.clusterIP}')
+
+curl -i -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+PASS khi object hiện Host đúng và request trả nội dung demo mong đợi. Field
+host không có scheme `https://` hoặc dấu `/`. Khi test nội bộ PASS, kiểm tra
+lại URL public theo §13.
+
+**4. Dùng bằng chứng của đúng request, không suy từ việc thiếu log**
+
+Đối chiếu cùng thời điểm, Host, path và dấu nhận diện request khi có:
+
+- **Access log Traefik nếu đã bật:** router/backend nào được chọn, status trả client
+  và origin status nếu có. Log thông thường của Deployment không tự thay thế access log.
+- **Access log app nếu đã bật:** đúng request/path với status 404 là bằng chứng app
+  đã nhận request và tạo response đó.
+- **Dashboard/configuration Traefik:** router của Ingress có thực sự tồn tại và
+  khớp entrypoint/Host/path không?
+- **Gọi trực tiếp Service web** từ môi trường có đường mạng tới Service, giữ cùng
+  Host/path để so sánh với chặng qua Traefik.
+
+Ví dụ chạy trong Pod/debug container có curl và dùng cluster DNS:
+
+```bash
+curl -i -H 'Host: app.hieupn.site' \
+  http://web.default.svc.cluster.local:80/
+```
+
+Test này bỏ qua Traefik và tunnel; kết hợp log để kết luận nguồn 404. Nếu app trả
+404 trực tiếp, điều tra routing/resource phía app. Nếu app trả đúng nội dung nhưng
+qua Traefik trả 404, điều tra router/configuration/header/path thực tế ở Traefik.
+
+Không thấy request trong log chưa chứng minh app không nhận: có thể access log chưa
+bật, log ở nơi khác, đang xem nhầm replica hoặc ngoài khoảng thời gian cần kiểm tra.
+
+**Đáp án câu bổ sung**
+
+**Không thể kết luận.** Request có thể tới replica 2; kiểm tra access log của cả
+hai Pod và đối chiếu đúng request.
+
+```bash
+kubectl -n default get pods -l app=web -o wide
+kubectl -n default logs <pod-web-1> --tail=100
+kubectl -n default logs <pod-web-2> --tail=100
+```
+
+Ngay cả khi cả hai không có dòng log tương ứng, cần xác nhận access logging đã bật,
+đang xem đúng nơi ghi log và đúng khoảng thời gian. Đối chiếu access log/router
+Traefik trước khi kết luận request chưa tới backend.
+
+</details>
+
+#### Câu 4/6 — Service và EndpointSlice không có backend Ready
+
+Bạn quan sát:
+
+- Tunnel Healthy.
+- Ingress web có đúng Host, path và IngressClass.
+- Service web tồn tại, selector là `app: web`.
+- Hai Pod web đều Running nhưng mang label `app: demo`.
+- EndpointSlice của Service web không có endpoint.
+
+Hãy trả lời:
+
+1. Vì sao Service tồn tại và Pod Running nhưng request vẫn không tới ứng dụng?
+2. Lỗi cấu hình nằm ở đâu? Sửa thế nào và dùng lệnh gì để kiểm tra?
+3. Nếu label/selector đã khớp nhưng Pod có condition `Ready=False`, Pod có được dùng
+   làm backend phục vụ bình thường không? Giả sử Service không bật
+   `publishNotReadyAddresses`.
+4. EndpointSlice có endpoint Ready đã đủ chứng minh app trả đúng HTTP response chưa?
+   Cần test thêm gì?
+
+**Câu hỏi bổ sung:** nếu gọi trực tiếp Pod IP trả đúng app nhưng gọi ClusterIP
+Service thất bại, ưu tiên kiểm tra những cấu hình hoặc thành phần nào?
+Khi so sánh phải gọi cùng giao thức, Host/path từ cùng vị trí mạng, đồng thời dùng
+đúng Pod port và Service port tương ứng.
+
+<details>
+<summary>Đáp án vòng 2 — câu 4/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Selector không khớp nên không có backend được chọn**
+
+Service chọn Pod có label `app: web`; hai Pod hiện có mang `app: demo` nên không
+được chọn. Service/ClusterIP tồn tại không đồng nghĩa có endpoint để chuyển tiếp.
+Pod Running không thay thế việc label khớp và readiness đạt.
+
+Selector Service **chọn backend**, không quản lý vòng đời Pod. Không có backend
+qua Service này không có nghĩa không thể gọi Pod IP trực tiếp.
+
+**2. Sửa sự không khớp, không đặt lại selector giống giá trị đang có**
+
+Với dữ kiện đề bài, đổi Service selector từ app:web sang app:demo là một cách sửa,
+nếu app:demo là label đúng của ứng dụng:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector:
+    app: demo
+  ports:
+    - port: 80
+      targetPort: 80
+```
+
+Sửa trong source manifest demo-app.yaml, apply rồi kiểm tra:
+
+```bash
+kubectl apply -f demo-app.yaml
+kubectl -n default get pods --show-labels
+kubectl -n default get svc web -o yaml
+kubectl -n default get endpointslice \
+  -l kubernetes.io/service-name=web -o yaml
+```
+
+Không sửa thành `selector: { app: web }` rồi coi là xong: đó chính là giá trị
+hiện tại nên lỗi vẫn còn. `get svc web -o wide` chưa chứng minh Service có
+endpoint Ready; cần xem địa chỉ, port và `conditions.ready` trong EndpointSlice.
+
+Cách khác là thống nhất label Pod template về app:web. Khi chọn cách này, selector
+Deployment phải khớp template; selector Deployment đã tạo thường không sửa trực
+tiếp được. Nếu nó đã là app:demo, cần lập kế hoạch tạo/thay Deployment phù hợp,
+không chỉ apply một selector mới rồi mong Kubernetes chấp nhận. Không đổi label
+Pod thủ công làm giải pháp lâu dài vì Deployment tạo lại Pod theo template.
+
+**3. Ready=False không phục vụ traffic thông thường qua Service**
+
+Với giả định không bật publishNotReadyAddresses, endpoint chưa Ready không được
+chọn cho traffic thông thường qua Service; Traefik cũng thông thường chỉ dùng
+backend Ready do Kubernetes provider cung cấp. Endpoint có thể vẫn xuất hiện trong
+EndpointSlice với `ready: false`: có địa chỉ không đồng nghĩa đủ điều kiện phục vụ.
+
+Pod/container vẫn có thể chạy. Readiness không tự kill/restart container;
+các connection đang có và truy cập trực tiếp Pod IP không được bảo đảm dừng tức thì.
+
+**4. Ready chưa chứng minh response đúng**
+
+Cần gọi Service từ môi trường có cluster DNS/network, quan sát status và body:
+
+```bash
+curl -i -H 'Host: app.hieupn.site' \
+  http://web.default.svc.cluster.local:80/
+```
+
+Sau đó test qua Traefik từ master theo §12.3.1:
+
+```bash
+ING_IP=$(kubectl -n traefik get svc traefik \
+  -o jsonpath='{.spec.clusterIP}')
+curl -i -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+Khi đường nội bộ PASS, kiểm tra public theo §13. Endpoint Ready phản ánh trạng thái
+readiness, không kiểm tra mọi method/path và tính đúng của dữ liệu ứng dụng.
+
+**Đáp án câu bổ sung**
+
+Ưu tiên đường **Service → backend và Service dataplane**, nhưng trước hết bảo đảm
+hai phép test tương đương: cùng nguồn mạng, Host/path, giao thức và đúng các port.
+
+- Service selector có khớp Pod label không?
+- EndpointSlice có đúng Pod IP, port và endpoint Ready không?
+- Service port/targetPort, protocol và named port nếu dùng có đúng không?
+- App có thực sự lắng nghe Pod port được Service chỉ định không?
+- kube-proxy hoặc dataplane thay thế có hoạt động và lập rule Service đúng không?
+- Routing/CNI, firewall hoặc NetworkPolicy có hiệu lực có chặn đường tương ứng không?
+
+Lệnh đối chiếu trong lab:
+
+```bash
+kubectl -n default get svc web -o yaml
+kubectl -n default get pods --show-labels -o wide
+kubectl -n default get endpointslice \
+  -l kubernetes.io/service-name=web -o yaml
+kubectl -n kube-system get pods -l k8s-app=kube-proxy -o wide
+```
+
+Nếu gọi trực tiếp IP, phép test không phụ thuộc DNS. Không vội sửa Ingress hay
+restart app khi đường Service đang lỗi. Kiểm tra Service/kube-proxy theo §8.5,
+mạng Pod theo §8.3 và selector/manifest theo §10.1.
+
+</details>
+
+#### Câu 5/6 — Một replica chết
+
+Lab có **hai Pod cloudflared và hai Pod web**. Xét riêng:
+
+- **A:** một Pod cloudflared chết; connector còn lại vẫn Healthy.
+- **B:** một Pod web chết; Pod web còn lại Ready và hoạt động bình thường.
+
+1. Trong mỗi tình huống, request mới có thể tiếp tục được phục vụ không?
+   Điều kiện là gì?
+2. Request đang xử lý qua Pod vừa chết có chắc chắn hoàn tất không? Vì sao?
+3. Connector replica 1 có gắn cố định với Pod web replica 1 không?
+   Ai chọn connector và ai chọn backend web?
+4. Hai replica có tự bảo đảm chịu được việc một worker chết không?
+   Cần kiểm tra cách đặt Pod trên node và cấu hình gì thêm?
+
+**Thông tin về lab:** với cài mới đúng §9.3, chart Traefik 41.0.2 có mặc định
+`deployment.kind: Deployment`, `deployment.replicas: 1`; lệnh runbook không
+override số replica. Vì vậy mặc định là **2 connector, 1 Traefik, 2 web**.
+Cluster đã được chỉnh riêng hoặc nâng cấp release cần kiểm tra số replica thực tế.
+
+**Câu hỏi bổ sung:**
+
+1. Hai Pod web nằm trên hai worker khác nhau, nhưng Traefik Pod duy nhất nằm trên
+   worker vừa chết. Connector còn Healthy và một Pod web còn Ready.
+   App public có chắc tiếp tục hoạt động không? Vì sao phải xét cả Traefik?
+2. Nếu Traefik có hai Pod thay vì một, câu trả lời thay đổi thế nào?
+   So sánh khi chúng nằm trên hai worker khác nhau và cùng nằm trên worker chết.
+
+<details>
+<summary>Đáp án vòng 2 — câu 5/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Request mới có thể tiếp tục, nếu toàn bộ đường đi còn hoạt động**
+
+| Tình huống | Điều kiện tiếp tục phục vụ |
+| --- | --- |
+| A — mất một connector | Cloudflare chọn được connector còn Healthy; connector đó phân giải/gọi được origin; Traefik và backend còn phục vụ |
+| B — mất một Pod web | Traefik/Service dataplane chọn được backend web còn Ready và gọi được app; connector và Traefik vẫn hoạt động |
+
+Pod còn lại phải đủ năng lực chịu tải và các dependency còn hoạt động. Không có
+ngưỡng bắt buộc tải phải thấp/trung bình: cần tải không vượt khả năng thực tế.
+Phát hiện lỗi/cập nhật endpoint và routing mất thời gian, nên request mới vẫn có
+thể gặp lỗi trong giai đoạn chuyển tiếp; không bảo đảm failover tức thì.
+
+**2. Request đang xử lý không được bảo đảm hoàn tất**
+
+Pod có thể chết đột ngột dù CPU/memory trước đó bình thường. Connection/stream đang
+xử lý có thể đứt; trạng thái trong bộ nhớ của process mất. Replica còn lại không
+tự tiếp quản nguyên trạng request.
+
+Nếu client/proxy retry, đó là gửi lại request theo chính sách cụ thể, không phải
+tiếp tục process đã chết. POST có thể đã thực hiện thao tác nhưng client chưa nhận
+response; retry có thể gây thao tác trùng. Khi cần retry an toàn, ứng dụng phải
+thiết kế tính idempotent hoặc cơ chế chống trùng phù hợp.
+
+**3. Hai lần lựa chọn độc lập**
+
+| Quyết định | Bên thực hiện |
+| --- | --- |
+| Connector của tunnel | Cloudflare chọn trong các connector khả dụng |
+| Pod web khi Traefik gọi endpoint trực tiếp | Traefik chọn backend từ thông tin Kubernetes |
+| Backend khi kết nối qua Service ClusterIP | Service dataplane, ví dụ rule do kube-proxy lập, lựa chọn/chuyển tiếp |
+
+Kernel trên master không chọn connector. Master không phải điểm trung chuyển bắt
+buộc của request. Khi sử dụng kube-proxy, nó lập rule; dataplane xử lý traffic
+trên node liên quan, không phải mọi request đều đi qua master.
+
+Connector 1 không ghép cố định với web 1. Điều này không phụ thuộc việc workload
+là Deployment hay StatefulSet; StatefulSet không tự tạo quan hệ ghép connector/backend.
+
+**4. Replica phải được phân tán và đủ khả năng phục vụ**
+
+Nếu cả hai replica trên worker chết, mất cả hai. Kiểm tra node của các Pod:
+
+```bash
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
+kubectl -n traefik get deployment traefik
+kubectl -n traefik get pods -o wide
+kubectl -n default get pods -l app=web -o wide
+```
+
+Dùng `topologySpreadConstraints` theo topology node hoặc Pod anti-affinity phù hợp
+để phân tán replica. Ràng buộc mềm là ưu tiên, không bảo đảm tách node; ràng buộc
+cứng có thể khiến Pod Pending nếu không đủ node/tài nguyên phù hợp.
+
+Cần xét cả connector, Traefik, web, DNS/network và các dependency khác; còn đủ
+tài nguyên, endpoint và đường mạng trên node sống. Replica của một tầng không
+bảo đảm HA cho toàn bộ chuỗi. PDB hỗ trợ giới hạn gián đoạn tự nguyện như drain,
+không ngăn worker chết đột ngột.
+
+DaemonSet dùng khi muốn Pod trên mỗi node đủ điều kiện. Không cần đổi web/connector
+sang DaemonSet chỉ để phân tán hai replica. Tăng replicas cho Deployment và cấu
+hình phân tán thường phù hợp hơn với mục tiêu đó.
+
+**Đáp án bổ sung 1 — Traefik duy nhất chết**
+
+**Không chắc tiếp tục hoạt động; nếu chưa có Traefik thay thế Ready, đường public
+bị gián đoạn.** Connector và web còn sống nhưng thiếu process ở giữa:
+
+| Chặng | Trạng thái |
+| --- | --- |
+| Edge → connector | Có thể còn hoạt động |
+| Connector → Service Traefik | ClusterIP tồn tại nhưng không còn Traefik backend hoạt động |
+| Traefik → web | Không thực hiện được vì Traefik duy nhất đã chết |
+
+Service là object/địa chỉ ảo, không chạy thay chương trình Traefik. Ingress là
+cấu hình, không tự proxy request. Request không tự bỏ qua Traefik để tới web
+vì Service URL vẫn trỏ Service Traefik.
+
+Kubernetes có thể tạo lại Traefik trên node khác nếu scheduler, tài nguyên và
+các điều kiện liên quan cho phép. Cần chờ Pod mới Ready, có mạng và nạp routing;
+trong lúc đó vẫn có thể gián đoạn. Đây là lý do phải xét cả Traefik khi đánh giá
+chịu lỗi worker.
+
+Mặc định chart được đối chiếu tại:
+[Traefik chart v41.0.2 — values.yaml](https://github.com/traefik/traefik-helm-chart/blob/v41.0.2/traefik/values.yaml).
+Không suy ra số Pod hiện tại chỉ từ mặc định nếu release đã được thay đổi;
+dùng các lệnh ở trên để xác nhận cluster thực tế.
+
+**Đáp án bổ sung 2 — Có hai Traefik Pod**
+
+- **Hai node khác nhau, còn một Traefik Ready trên node sống:** request mới có thể
+  tiếp tục nếu connector gọi được Service, endpoint Traefik còn lại được chọn,
+  Traefik gọi được web Ready và phần còn lại đủ năng lực phục vụ.
+- **Cả hai trên worker chết:** vẫn mất toàn bộ Traefik và gián đoạn.
+- Trong cả hai trường hợp, request đang chạy qua Traefik vừa chết có thể thất bại;
+  replica còn lại không tự tiếp quản nguyên trạng request đó.
+
+**Hai replica chỉ giúp chịu lỗi node khi cách đặt Pod và toàn bộ đường đi phù hợp.**
+
+</details>
+
+#### Câu 6/6 — HTTPS, SNI, certificate và ranh giới TLS
 
 Trong bài, người dùng mở `https://app.hieupn.site/`. Cloudflare Tunnel có
 Published application route với Service URL

@@ -43,7 +43,7 @@ trong ba điều:
 
 1. Trạng thái cluster đổi (cần CNI khác, StorageClass, ingress controller, metrics-server,
    topology HA) — phải là lab riêng vì nó tạo snapshot mới.
-2. Thời lượng vượt 2–4 giờ.
+2. Thời lượng vượt 2–4 giờ cho một phiên (lab dạng dự án được hai phiên — xem mục bên dưới).
 3. Checkpoint vượt khoảng 8–12 gạch đầu dòng vấn đáp.
 
 Giai đoạn nhỏ và đồng nhất thì một lab là đủ. Không tự ý gộp nhiều nhóm bài vào một lab để
@@ -110,12 +110,23 @@ gõ theo. Khung 12 mục ở trên giữ nguyên, với các điều chỉnh sau
   *Điều tra*, *Diễn tập sự cố*, *Vận hành*), **Bối cảnh**, **Yêu cầu**, **Ràng buộc**, **Đọc lại**
   (link tới đúng mục của bài dịch), **Bàn giao**, **Nghiệm thu** (các dòng `PASS:`), **Câu hỏi
   thiết kế**, rồi ba khối `<details>`: *Gợi ý*, *Script nghiệm thu*, *Lời giải tham khảo*.
-- **Yêu cầu** viết theo hành vi phải đạt, không nêu tên field hay lệnh cần dùng. Field và lệnh chỉ
-  xuất hiện trong khối gập.
-- **Script nghiệm thu** kiểm **hành vi và hợp đồng**, không kiểm cách viết manifest. Tên, label,
-  cổng, đường dẫn cố định lấy từ mục 4 của `DU-AN-BOOKSTORE.md`; không đổi hợp đồng trong lab.
+- **Yêu cầu** viết theo hành vi phải đạt. Chỉ hai thứ được nêu nguyên văn: **hợp đồng** (mục 4 của
+  `DU-AN-BOOKSTORE.md`) và **cơ chế bắt buộc** của bài học — cơ chế mà ticket tồn tại để thực hành;
+  nêu cơ chế bắt buộc thì phải có câu hỏi thiết kế hỏi vì sao và phương án thay thế. Mọi field và
+  lệnh khác là lựa chọn của người học, chỉ xuất hiện trong khối gập. Ba lớp này mô tả ở
+  [README mục 7.3](k8s-docs/labs/README.md#73-nguyên-tắc-thiết-kế).
+- **Script nghiệm thu** kiểm **hành vi, hợp đồng và cơ chế bắt buộc**, không kiểm lựa chọn của người
+  học. Tên, label, cổng, đường dẫn cố định lấy từ mục 4 của `DU-AN-BOOKSTORE.md`; không đổi hợp đồng
+  trong lab. Gate phải phân biệt "không kiểm được" với "đạt": lệnh kiểm (`kubectl`, `ssh`) lỗi thì
+  FAIL hoặc STOP, không bao giờ suy ra PASS từ việc output không chứa một chuỗi.
 - Ticket loại *Tính năng* thay đổi repo `~/bookstore`; ticket *Điều tra* và *Diễn tập* dùng Pod thử
-  nghiệm ở `~/lab-work/<mã>/` và xóa khi xong. Diễn tập chỉ trên `lab-k8s-worker2`.
+  nghiệm ở `~/lab-work/<mã>/` và xóa khi xong. Diễn tập chỉ trên `lab-k8s-worker2`; ngoại lệ đã định
+  (8a, 8b, 8c) ở README mục 7.3, nguyên tắc 8.
+- **Thời lượng:** tối đa hai phiên, mỗi phiên 2–4 giờ. Mục 1.2 của mỗi lab ghi **điểm dừng** và **gate
+  tiếp tục** khớp với trạng thái ở điểm dừng đó — điểm dừng chưa có Bookstore hay chưa có Kubernetes
+  thì không được đòi smoke hay A5.5. Mặc định và các ngoại lệ ở
+  [README mục 7.5](k8s-docs/labs/README.md#75-cách-làm-một-ticket). Cần quá hai phiên thì tách lab.
+  Cột giờ là ước lượng tới khi có số đo pilot.
 - Script dùng chung (`deploy.sh`, `teardown.sh`, `smoke.sh`) là công cụ: lab nào đổi chúng thì
   đưa nguyên văn. Mỗi lab kết thúc bằng phiên bản `tests/smoke.sh` của chính nó.
 - Đóng sprint: smoke PASS → commit → tag `lab-<mã>` → bundle ra ngoài VM → teardown → gate không

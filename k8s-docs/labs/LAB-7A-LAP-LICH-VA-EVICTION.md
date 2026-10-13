@@ -602,6 +602,10 @@ DATA_LABEL=bookstore.example.com/data
 WORKERS='lab-k8s-worker1 lab-k8s-worker2'
 # Kind namespaced được dọn theo label ở mọi namespace (3b, 4a, 5a, 5b, 6a).
 KINDS='statefulsets,deployments,daemonsets,cronjobs,jobs,replicasets,pods,poddisruptionbudgets,services,networkpolicies,ingresses,configmaps,secrets,persistentvolumeclaims'
+# Lệnh chạy trên worker: liệt kê thư mục <pv>_bookstore_<pvc> của local-path-provisioner (6a). Thư mục
+# gốc chưa từng có nghĩa là không có gì; lỗi ssh, sudo hay find thì trả mã khác 0 — "không kiểm được"
+# không bao giờ được hiểu thành "không còn gì".
+LP_ON_NODE="sudo -n test ! -e /opt/local-path-provisioner || sudo find /opt/local-path-provisioner -mindepth 1 -maxdepth 1 -name '*_bookstore_*'"
 
 # 1. db tắt êm trước: xóa StatefulSet không bảo đảm Pod tắt có thứ tự (bài 65, mục Hạn chế).
 if kubectl -n "$NS" get statefulset db >/dev/null 2>&1; then
@@ -631,7 +635,8 @@ done
 
 # 4. Dữ liệu sót trên node: thư mục <pv>_bookstore_<pvc> của local-path-provisioner (6a).
 for N in $WORKERS; do
-  ssh "$N" "sudo find /opt/local-path-provisioner -mindepth 1 -maxdepth 1 -name '*_bookstore_*' -exec rm -rf {} +" || true
+  ssh -o BatchMode=yes "$N" "$LP_ON_NODE -exec rm -rf {} +" \
+    || { echo "teardown: STOP - khong xoa duoc thu muc du lieu tren $N (ssh, sudo hoac find loi)"; exit 1; }
 done
 
 # 5. Label và taint mà dự án đặt lên node (7a).
@@ -646,18 +651,37 @@ for N in $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}'); do
 done
 
 # 6. Tự kiểm: không còn gì của dự án.
-LEFT_CLUSTER="$( { kubectl get namespace,priorityclass,storageclass -l "$SEL" --no-headers
-                   kubectl get storageclass bookstore-retain --no-headers --ignore-not-found; } 2>/dev/null | wc -l)"
-LEFT_NS="$( { kubectl get all -A -l "$SEL" --no-headers
-              kubectl get "$KINDS,endpointslices" -A -l "$SEL" --no-headers; } 2>/dev/null | wc -l)"
-LEFT_PV="$(pv_rows | awk -F'|' -v ns="$NS" '$2=="bookstore-retain" || $3==ns || $5=="bookstore"' | wc -l)"
-LEFT_NODE="$(kubectl get nodes -l "$DATA_LABEL" --no-headers 2>/dev/null | wc -l)"
-LEFT_TAINT="$(kubectl get nodes -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}' \
-              | grep -c '^bookstore\.example\.com/' || true)"
+# Mỗi truy vấn kiểm kê chạy riêng và phải thành công: API không trả lời hay Forbidden thì dừng —
+# "không hỏi được" không bao giờ được đếm thành "không còn gì". dem <biến> <lệnh...> cộng số dòng
+# output của lệnh vào biến; hàm chạy trong shell chính nên exit dừng cả script.
+dem() {
+  local v="$1" out; shift
+  out="$("$@" 2>/dev/null)" || { echo "teardown: STOP - truy van loi, chua ket luan sach: $*"; exit 1; }
+  printf -v "$v" '%d' "$(( ${!v:-0} + $(printf '%s\n' "$out" | awk 'NF' | wc -l) ))"
+}
+taints() {    # key của taint mà dự án đặt lên node (7a); lấy dữ liệu trước, lọc sau
+  local t; t="$(kubectl get nodes -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}')" || return 1
+  printf '%s\n' "$t" | awk '/^bookstore\.example\.com\//'
+}
+pv_left() {   # PV của dự án; lấy dữ liệu trước, lọc sau
+  local r; r="$(pv_rows)" || return 1
+  printf '%s\n' "$r" | awk -F'|' -v ns="$NS" '$2=="bookstore-retain" || $3==ns || $5=="bookstore"'
+}
+LEFT_CLUSTER=0; LEFT_NS=0; LEFT_PV=0; LEFT_NODE=0; LEFT_TAINT=0
+dem LEFT_CLUSTER kubectl get namespace,priorityclass,storageclass -l "$SEL" --no-headers
+dem LEFT_CLUSTER kubectl get storageclass bookstore-retain --no-headers --ignore-not-found
+dem LEFT_NS kubectl get all -A -l "$SEL" --no-headers
+dem LEFT_NS kubectl get "$KINDS,endpointslices" -A -l "$SEL" --no-headers
+dem LEFT_PV pv_left
+dem LEFT_NODE kubectl get nodes -l "$DATA_LABEL" --no-headers
+dem LEFT_TAINT taints
+# Mỗi worker cho một trong ba kết quả: còn thư mục, đã xác nhận không còn, hoặc không kiểm được.
+# Kết quả thứ ba dừng script: chưa kết luận sạch thì không được chụp snapshot.
 LEFT_DIR=0
 for N in $WORKERS; do
-  C="$(ssh "$N" "sudo find /opt/local-path-provisioner -mindepth 1 -maxdepth 1 -name '*_bookstore_*' 2>/dev/null | wc -l")"
-  LEFT_DIR=$((LEFT_DIR + ${C:-0}))
+  L="$(ssh -o BatchMode=yes "$N" "$LP_ON_NODE")" \
+    || { echo "teardown: STOP - khong kiem duoc thu muc du lieu tren $N; chua ket luan sach, KHONG chup snapshot"; exit 1; }
+  LEFT_DIR=$((LEFT_DIR + $(printf '%s\n' "$L" | grep -c . || true)))
 done
 TOTAL=$((LEFT_CLUSTER + LEFT_NS + LEFT_PV + LEFT_NODE + LEFT_TAINT + LEFT_DIR))
 if [ "$TOTAL" -eq 0 ]; then
@@ -1391,6 +1415,8 @@ khác.
 <summary>Script nghiệm thu — script này chính là cuộc diễn tập</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/7a; W2=lab-k8s-worker2; LW=~/lab-work/7a
 cpu2m() { case "$1" in '') echo 0 ;; *m) echo "${1%m}" ;; *) awk -v x="$1" 'BEGIN{printf "%d\n", x*1000}' ;; esac; }
 jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
@@ -1448,7 +1474,7 @@ EOF
 
 kubectl apply -f "$LW/lap-cho.yaml" >/dev/null
 for i in $(seq 1 40); do
-  [ "$(kubectl -n "$NS" get pods -l app=lap-cho --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)" -eq 2 ] && break
+  [ "$(sl kubectl -n "$NS" get pods -l app=lap-cho --field-selector=status.phase=Running --no-headers)" -eq 2 ] && break
   sleep 3
 done
 V="$(kubectl get priorityclass bookstore-batch -o jsonpath='{.value}')"
@@ -2643,6 +2669,48 @@ else
   fail 'chay thu db-backup that bai'
 fi
 k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+# Hợp đồng ghi file backup (6a): đọc thẳng PVC, không tin log — tối đa 10 bản mỗi loại,
+# không còn file tạm cũ hơn một giờ.
+RD="smoke-doc-backup-$(date +%s)"
+k apply -f - >/dev/null 2>&1 <<POD
+apiVersion: v1
+kind: Pod
+metadata:
+  name: $RD
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: doc
+    image: busybox:1.37
+    command: ["sh", "-c", "ls -1 /backup; echo ---; find /backup -maxdepth 1 -name '*.tmp' -mmin +60"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: [ALL]}
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+    volumeMounts:
+    - {name: b, mountPath: /backup, readOnly: true}
+  volumes:
+  - name: b
+    persistentVolumeClaim: {claimName: backup-store, readOnly: true}
+POD
+if k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1; then
+  OUT="$(k logs "$RD" 2>/dev/null)"
+  NB="$(echo "$OUT" | sed '/^---$/,$d' | grep -c '^bookstore-.*\.sql$')"
+  NO="$(echo "$OUT" | sed '/^---$/,$d' | grep -Ec '^dbbackup-.*\.(sql|dump)$')"
+  NT="$(echo "$OUT" | sed '1,/^---$/d' | grep -c .)"
+  { [ "$NB" -le 10 ] && [ "$NO" -le 10 ] && [ "$NT" -eq 0 ]; } \
+    && pass "backup-store: $NB ban db-backup, $NO ban operator, khong file tam cu" \
+    || fail "backup-store sai hop dong 6a ($NB ban db-backup, $NO ban operator, $NT file tam cu)"
+else
+  fail 'khong doc duoc noi dung backup-store'
+fi
+k delete pod "$RD" --ignore-not-found --wait=false >/dev/null 2>&1
 [ "$(jp pvc/backup-store '{.status.phase}')" = 'Bound' ] && pass 'PVC backup-store Bound' || fail 'PVC backup-store chua Bound'
 
 # 9. DaemonSet node-agent trên mọi node
@@ -2697,6 +2765,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore
 SEL=app.kubernetes.io/part-of=bookstore
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
@@ -2712,8 +2782,8 @@ for F in 'adr/*-hien-trang-lap-lich.md' 'adr/*-db-node-affinity.md' 'adr/*-trai-
 done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ADR va postmortem cua sprint 10'
 grep -q '| 7a |' docs/tech-debt.md && echo 'PASS: tech-debt.md ghi no phat sinh o 7a'
-{ [ "$(kubectl get namespace,priorityclass,storageclass -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all -A -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } && echo 'PASS: khong con object nao cua du an'
+{ [ "$(sl kubectl get namespace,priorityclass,storageclass -l "$SEL" --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all -A -l "$SEL" --no-headers)" -eq 0 ]; } && echo 'PASS: khong con object nao cua du an'
 [ -z "$(kubectl get pv -o jsonpath='{range .items[*]}{.spec.claimRef.namespace}{"\n"}{end}' | grep -x bookstore)" ] \
   && echo 'PASS: khong con PV nao cua du an'
 { [ -z "$(kubectl get nodes -l bookstore.example.com/data -o name)" ] && \
@@ -2722,8 +2792,9 @@ grep -q '| 7a |' docs/tech-debt.md && echo 'PASS: tech-debt.md ghi no phat sinh 
 test -z "$(kubectl get nodes lab-k8s-worker1 lab-k8s-worker2 -o jsonpath='{.items[*].spec.taints}')" && echo 'PASS: hai worker sach taint'
 [ "$(kubectl get node lab-k8s-master -o jsonpath='{.spec.taints[*].key}')" = 'node-role.kubernetes.io/control-plane' ] \
   && echo 'PASS: taint control plane con nguyen'
-kubectl get runtimeclass bookstore-overhead-thu >/dev/null 2>&1 && echo 'FAIL: con RuntimeClass thu nghiem' \
-  || echo 'PASS: khong con RuntimeClass thu nghiem'
+if R="$(kubectl get runtimeclass bookstore-overhead-thu --ignore-not-found -o name)"; then
+  [ -z "$R" ] && echo 'PASS: khong con RuntimeClass thu nghiem' || echo 'FAIL: con RuntimeClass thu nghiem'
+else echo 'STOP: khong hoi duoc API'; fi
 test ! -e ~/lab-work/7a && echo 'PASS: da don lab-work'
 
 kubectl wait --for=condition=Ready node --all --timeout=180s

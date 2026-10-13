@@ -30,8 +30,10 @@ cũ của Lab 00 khóa baseline thấp hơn đã xoá 16/08/2026; xem lịch s�
 
 1. **Trạng thái cluster đổi.** Lab cần hạ tầng mới (CNI khác, StorageClass, ingress
    controller, metrics-server, topology HA) thì phải là lab riêng, vì nó tạo snapshot mới.
-2. **Thời lượng vượt 2–4 giờ.** Quá ngưỡng này thì không ai làm hết trong một phiên, và làm
-   dở thì không có gate để quay lại.
+2. **Thời lượng vượt 2–4 giờ cho một phiên.** Quá ngưỡng này thì không ai làm hết trong một
+   phiên, và làm dở thì không có gate để quay lại. Lab dạng dự án (3a → 14) được phép **hai
+   phiên**, cả lab 4–6 giờ, vì giữa hai phiên có gate quay lại được định nghĩa ở
+   [mục 7.5](#75-cách-làm-một-ticket). Cần quá hai phiên thì tách lab.
 3. **Bộ "kết quả phải đạt" không còn kiểm chứng độc lập được.** Khoảng 8–12 gạch đầu dòng
    checkpoint là giới hạn trên của thứ người học tự vấn đáp được một lần.
 
@@ -141,7 +143,8 @@ Số hiệu nợ ở cột đầu **khớp với** [Sổ nợ lộ trình](../00
 ## 6. Quy ước chung trong mọi lab
 
 - Bằng chứng ghi vào `~/lab-evidence/<mã lab>/`, ví dụ `~/lab-evidence/1a/`.
-- Fault injection chỉ chạy trên `lab-k8s-worker2`.
+- Fault injection chỉ chạy trên `lab-k8s-worker2`. Ngoại lệ (8a, 8b, 8c) liệt kê ở
+  [mục 7.3, nguyên tắc 8](#73-nguyên-tắc-thiết-kế).
 - Dòng bắt đầu bằng `PASS:` là điều kiện phải đạt; không đi tiếp khi gate fail.
 - Số phiên bản chỉ tồn tại ở [bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa);
   lab khác link về đó thay vì chép lại con số.
@@ -171,8 +174,9 @@ Dạng dự án nhắm tới ba điều:
 1. **Mỗi việc trong lab đòi đúng kiểu suy nghĩ của khối *Tự kiểm tra*:** đọc lại một mục cụ thể,
    suy ra cơ chế, chọn field hay cách làm, rồi chứng minh bằng bằng chứng trên cluster thật.
 2. **Kiến thức nối vào nhau.** Mọi nhóm bài áp lên cùng một hệ thống, nên sprint sau dựa vào kết quả
-   sprint trước. Ví dụ: readiness probe viết ở 3a là thứ quyết định Pod bị gỡ khỏi EndpointSlice ở
-   5a; PodDisruptionBudget đặt ở 3c là thứ chặn hay cho phép drain ở 12; requests chốt ở 3c là mẫu số
+   sprint trước. Ví dụ: readiness probe viết ở 3a là thứ quyết định ở 5a Pod có nằm trong tập
+   backend sẵn sàng nhận lưu lượng hay không — endpoint vẫn còn trong EndpointSlice, chỉ mang
+   `ready=false`; PodDisruptionBudget đặt ở 3c là thứ chặn hay cho phép drain ở 12; requests chốt ở 3c là mẫu số
    của HPA ở 11b.
 3. **Giống công việc thật của người quản trị:** nhận yêu cầu, điều tra, thay đổi hệ thống, diễn
    tập sự cố, viết quyết định thiết kế và postmortem, bàn giao cho sprint sau.
@@ -198,7 +202,7 @@ bài** của lộ trình, và để lại hệ thống ở một trạng thái r
 | 8 — kubeadm | 8a (12), 8b (13), 8c (14) | dựng lại cluster từ repo; đánh giá HA stacked và external etcd |
 | 9 — Bảo mật | 9a (15), 9b (16) | danh tính và quyền tối thiểu; Pod Security `restricted`, tenant thứ hai |
 | 11 — Observability | 11a (17), 11b (18) | metric, log theo node, metrics-server; HPA cho `web` |
-| 12, 13, 14 | 12 (19), 13 (20, tùy chọn), 14 (21) | bảo trì node không gián đoạn; đánh giá DRA; operator sao lưu và nghiệm thu cuối |
+| 12, 13, 14 | 12 (19), 13 (20, tùy chọn), 14 (21) | bảo trì node có kế hoạch; đánh giá DRA; operator sao lưu và nghiệm thu cuối |
 
 Trạng thái đích sau Lab 14 là một hệ thống gần với production: ba tầng có controller, mạng
 zero-trust, dữ liệu bền, quyền tối thiểu, quan sát được, tự co giãn, bảo trì được, và một API khai
@@ -217,24 +221,38 @@ báo riêng cho việc sao lưu — xem [mục 3 của file dự án](DU-AN-BOOK
    | Nợ lab `#N` ([mục 5](#5-sổ-nợ-lab)) | phần **bài học** chưa thực hành được | `#4` — NetworkPolicy chưa được thực thi vì Flannel |
    | Nợ kỹ thuật `TD-nn` ([mục 8 của file dự án](DU-AN-BOOKSTORE.md#8-sổ-nợ-kỹ-thuật-dự-án)) | điểm yếu của **hệ thống** | `TD-03` — `api` tìm `db` bằng IP Pod, trả ở 5a bằng Service |
 
-3. **Hợp đồng cố định, cách làm tự do.** Tên object, label, cổng, đường dẫn, dữ liệu mẫu và bố cục
-   repo được chốt ở [mục 4 và 5.5 của file dự án](DU-AN-BOOKSTORE.md#4-hợp-đồng-kỹ-thuật). Người học
-   tự chọn cách viết manifest; script nghiệm thu chỉ kiểm hợp đồng và hành vi, nên mọi cách làm đúng
-   đều PASS.
+3. **Ba lớp trong một ticket: hợp đồng, cơ chế bắt buộc, lựa chọn của người học.**
+
+   | Lớp | Là gì | Ticket nêu ở đâu | Script nghiệm thu |
+   | --- | --- | --- | --- |
+   | Hợp đồng giao tiếp | Tên object, label, cổng, đường dẫn, dữ liệu mẫu, bố cục repo — chốt ở [mục 4 và 5.5 của file dự án](DU-AN-BOOKSTORE.md#4-hợp-đồng-kỹ-thuật) | **Yêu cầu**, nguyên văn | kiểm |
+   | Cơ chế bắt buộc của bài học | Cơ chế mà nhóm bài đang dạy và ticket tồn tại để thực hành — `nodeSelector` thay `nodeName` ở 3a, ba loại probe, PDB `minAvailable` ở 3c | **Yêu cầu** được gọi tên, kèm câu hỏi thiết kế hỏi vì sao chọn nó và phương án thay thế là gì | kiểm |
+   | Lựa chọn của người học | Cách viết manifest, cách tổ chức file, lệnh dùng để đạt hành vi | không nêu; chỉ ở *Gợi ý* và *Lời giải tham khảo* | không kiểm |
+
+   Mọi cách làm đạt hợp đồng và dùng đúng cơ chế bắt buộc đều PASS. Script chỉ xác nhận đã bàn giao
+   và hành vi đúng; nó không chứng minh lập luận đúng — phần đó do câu hỏi thiết kế và checkpoint vấn
+   đáp đánh giá.
 4. **Repo là nguồn sự thật, cluster là môi trường tạm.** Mỗi lab mở đầu bằng việc dựng lại toàn bộ
    hệ thống chỉ từ repo và kết thúc bằng teardown. Thứ gì chỉ tồn tại trên cluster cũ — một lệnh
    `kubectl edit` quên đưa vào repo — sẽ lộ ra ngay ở lab sau. Snapshot chỉ chứa hạ tầng, không chứa
    dự án.
-5. **Yêu cầu nói "phải đạt gì", không nói "gõ gì".** Tên field và lệnh chỉ xuất hiện trong khối gập
-   *Gợi ý* và *Lời giải tham khảo*.
+5. **Yêu cầu nói "phải đạt gì", không nói "gõ gì".** Ngoài hợp đồng và cơ chế bắt buộc ở nguyên
+   tắc 3, tên field và lệnh chỉ xuất hiện trong khối gập *Gợi ý* và *Lời giải tham khảo*.
 6. **Kiểm chứng bằng bằng chứng, không bằng cảm nhận.** Mỗi ticket có dòng `PASS:` và script nghiệm
    thu; mỗi lab kết thúc bằng `tests/smoke.sh` **tích lũy** — bộ kiểm thử hồi quy cho mọi hợp đồng
    còn hiệu lực tới sprint đó.
 7. **Lập luận là sản phẩm bàn giao.** Mỗi ticket có câu hỏi thiết kế; câu trả lời ghi vào repo dưới
    dạng ADR hoặc postmortem, như một đội vận hành thật.
-8. **An toàn như các lab cũ.** Diễn tập sự cố chỉ chạy trên `lab-k8s-worker2`; không cài thêm phần
-   mềm ngoài [bảng A1.3, A1.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00);
-   chuỗi snapshot ở [mục 3](#3-chuỗi-snapshot) giữ nguyên.
+8. **An toàn như các lab cũ.** Diễn tập sự cố mặc định chỉ chạy trên `lab-k8s-worker2`; không cài
+   thêm phần mềm ngoài [bảng A1.3, A1.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00);
+   chuỗi snapshot ở [mục 3](#3-chuỗi-snapshot) giữ nguyên. Ngoại lệ đã định, mỗi lab tự khai phạm vi
+   phá hoại ở mục 2 của nó:
+
+   | Lab | Đích diễn tập | Vì sao |
+   | --- | --- | --- |
+   | 8a | `lab-k8s-master` và cả ba node | Bài học là dựng lại cluster từ con số không; đường lùi là snapshot `03-storage-ready` |
+   | 8b, 8c | Bộ VM `lab-ha-*` riêng, không chạm cluster chính | Quorum và topology HA chỉ thử được khi tắt control plane hay etcd; `lab-ha-1` giữ repo nên không bao giờ bị tắt |
+   | 12 | Bảo trì `lab-k8s-worker1` là **vận hành có kế hoạch**, không phải diễn tập | Mọi diễn tập sự cố của Lab 12 vẫn chỉ trên `lab-k8s-worker2` |
 
 ### 7.4. Giải phẫu một lab dự án
 
@@ -285,8 +303,29 @@ vào `k8s/`.
    thích được lựa chọn.
 
 Bí quá khoảng 20 phút thì mở *Gợi ý*; quá khoảng 45 phút thì mở *Lời giải*. Ticket và mục có dấu ⭐
-là tùy chọn. Phần cốt lõi của mỗi lab khoảng 4 giờ; cả lab 4–6 giờ, nên chia hai phiên — dừng giữa
-chừng không cần teardown.
+là tùy chọn. Phần cốt lõi của mỗi lab khoảng 4 giờ; cả lab 4–6 giờ, chia **hai phiên**. Dừng giữa
+chừng không cần teardown, nhưng phải đi qua gate giữa phiên:
+
+- **Cuối phiên 1** — dừng đúng **điểm dừng mà mục 1.2 của lab chỉ ra**; lab không ghi thì dừng ở
+  ranh giới ticket, không dừng giữa một ticket *Diễn tập sự cố* hay khi node đang cordon hoặc mang
+  taint thử nghiệm. Commit phần đã làm (`wip: ...` nếu dở), ghi mã ticket cuối đã PASS vào
+  `~/lab-evidence/<mã lab>/phien.txt`. Tắt máy được nếu mục 1.2 cho phép; không chụp snapshot.
+- **Đầu phiên 2** — chạy **gate tiếp tục ghi ở mục 1.2 của chính lab**. Gate đó khớp với trạng thái mà
+  lab cố ý để lại ở điểm dừng; gate chung không thay được nó. Mọi gate tiếp tục đều có `PASS:`
+  `git status` sạch và HEAD là commit cuối phiên 1. Phần còn lại theo mốc:
+
+  | Trạng thái ở điểm dừng | Gate tiếp tục | Lab |
+  | --- | --- | --- |
+  | Cluster chính, Bookstore đang chạy | [A5.5 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab) rồi `./scripts/deploy.sh` thành công. Không chạy smoke của tag trước: ticket phiên 1 có thể đã đổi hợp đồng | mặc định — 3a → 5a, 6a → 7b, 9a → 11b |
+  | Như trên, cộng kiểm của riêng lab | 12, 13: A5.5 và `./tests/smoke.sh`; 14: A5.5, `deploy.sh` và `./scripts/backup-operator.sh status` | 12, 13, 14 |
+  | Cluster chính, nền mạng mới, Bookstore **đã gỡ** | A5.5 và gate chỉ đọc ở mục 1.2 của 5b. Không `deploy.sh`, không smoke: dự án chỉ được dựng lại ở B5 | 5b |
+  | Cluster chính trước khi phá — phiên 2 không dừng giữa chừng | A5.5 và `./tests/smoke.sh`; nghỉ lâu thì làm lại B5 (RPO tính từ lúc dump) | 8a |
+  | Bộ VM HA, cluster stacked đã dựng, chưa có Bookstore | Trên `lab-ha-1`: chạy lại Script nghiệm thu của B6 (chỉ đọc). A5.5 và smoke là của cluster chính, không áp dụng | 8b (giữa phiên 2 và 3) |
+  | Bộ VM HA, mới có cụm etcd, **chưa có Kubernetes** | Trên `lab-ha-1`: chạy lại Script nghiệm thu của B6 (chỉ đọc). Chưa có API server nên A5.5, `kubectl` và smoke đều không áp dụng | 8c |
+
+  Ticket cuối trong `phien.txt` là *Tính năng* thì chạy lại Script nghiệm thu của nó để chắc phần đã
+  commit tái tạo được hành vi; ticket *Điều tra* hay *Diễn tập* thì không chạy lại — bằng chứng đã
+  nằm trong `~/lab-evidence/`. Gate nào fail thì sửa trước khi mở ticket mới.
 
 ### 7.6. Người học bàn giao gì sau mỗi sprint
 
@@ -320,4 +359,10 @@ chừng không cần teardown.
   cũ đã kiểm chứng, nhưng thời gian chờ, chuỗi thông báo lỗi và vài hành vi biên có thể lệch. Gặp
   chỗ không khớp thì ghi lại bằng chứng và sửa lab, không sửa tay trên cluster cho qua.
 - Thời lượng dài hơn lab runbook vì phần suy luận và đọc lại tài liệu. Cột **Giờ** ở
-  [mục 4](#4-bản-đồ-lab) là con số của dạng mới.
+  [mục 4](#4-bản-đồ-lab) là **ước lượng**, chưa đo với người học. Lần pilot đầu ghi riêng ba phần:
+  đọc và suy luận, thao tác và chờ, bàn giao (ADR, postmortem, bundle) — rồi sửa cột này và ranh giới
+  hai phiên theo số đo, không theo số dòng tài liệu.
+- Ticket đổi Flannel sang Calico ở Lab 5b (B3) là **thí nghiệm migration**, không phải quy trình Calico
+  hỗ trợ: tài liệu yêu cầu hệ thống của Calico nói cluster đã dùng CNI khác thì không migrate được.
+  Ticket chỉ chạy trên ba VM có snapshot `01-cluster-ready` làm đường lùi; xem
+  [mục 2.1 của Lab 5b](LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md#21-đổi-cni-là-thao-tác-phá-hoại).

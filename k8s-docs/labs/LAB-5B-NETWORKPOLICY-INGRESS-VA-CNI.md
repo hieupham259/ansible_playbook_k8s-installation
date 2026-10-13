@@ -114,8 +114,25 @@ Ba điểm cố ý dừng ở phần đo được, không phát sinh nợ:
 4–5 giờ. Phần cốt lõi (B0–B7, B9) khoảng 4 giờ rưỡi nếu không bí lâu ở ticket nào; B8 và các mục ⭐
 là tùy chọn. **B3 dài nhất (60–90 phút) và rủi ro nhất** — đừng bắt đầu B3 khi không còn đủ thời gian
 chạy hết B3 và B4. Chia hai phiên: phiên 1 làm B0–B4 (kết thúc khi cluster đã có Calico và Traefik,
-dự án chưa triển khai lại); phiên 2 làm B5–B9. Giữa hai phiên có thể tắt ba VM; đầu phiên 2 chạy lại
-gate ngắn A5.5.
+dự án chưa triển khai lại); phiên 2 làm B5–B9. Giữa hai phiên có thể tắt ba VM. Đầu phiên 2 chạy lại
+gate ngắn A5.5, rồi gate tiếp tục dưới đây — chỉ đọc, kiểm đúng trạng thái mà phiên 1 để lại. **Không**
+chạy `deploy.sh` hay smoke: dự án chỉ được dựng lại ở B5, và smoke của tag `lab-5a` còn đòi NodePort
+`30080` mà sprint này sẽ bỏ.
+
+```bash
+kubectl -n kube-system rollout status daemonset/calico-node --timeout=300s >/dev/null \
+  && echo 'PASS: calico-node chay du tren moi node'
+kubectl -n traefik rollout status deployment/traefik --timeout=300s >/dev/null && echo 'PASS: Traefik san sang'
+kubectl get ingressclass traefik >/dev/null && echo 'PASS: co IngressClass traefik'
+if R="$(kubectl get namespace kube-flannel --ignore-not-found -o name)"; then
+  [ -z "$R" ] && echo 'PASS: khong con Flannel' || echo 'FAIL: namespace kube-flannel con'
+else echo 'STOP: khong hoi duoc API'; fi
+if R="$(kubectl get namespace -l app.kubernetes.io/part-of=bookstore -o name)"; then
+  [ -z "$R" ] && echo 'PASS: Bookstore chua trien khai lai — dung diem dung cua phien 1' \
+    || echo 'FAIL: da co namespace du an — phien 1 khong dung o diem dung'
+else echo 'STOP: khong hoi duoc API'; fi
+test -z "$(git -C ~/bookstore status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
+```
 
 ---
 
@@ -161,6 +178,23 @@ Khi B3 hỏng và không sửa được trong vài phút bằng [mục 4](#4-tro
 [gate A5.4](LAB-00-MOI-TRUONG-1.35.7.md#a54-gate-01-cluster-ready), rồi làm lại từ B0. Không
 restore riêng một VM.
 
+**Phạm vi của B3: thí nghiệm, không phải quy trình được nhà phát hành hỗ trợ.** Trang
+[System requirements của Calico](https://docs.tigera.io/calico/3.32/getting-started/kubernetes/requirements),
+mục *Other network providers*, nói thẳng: cluster đã dùng CNI khác thì không migrate sang Calico được.
+Kubernetes của baseline nằm trong danh sách được Calico test; vấn đề là **cách chuyển**, không phải
+version. Vì vậy:
+
+- B3 là thí nghiệm migration trên môi trường **hủy được** — ba VM có snapshot `01-cluster-ready`.
+  Gate của B3 PASS một lần không biến quy trình thành bảo đảm của Calico, và cũng không phải quy
+  trình để mang ra một cluster thật.
+- Đường đúng với một cluster cần Calico là **dựng cluster mới với Calico từ đầu** — nhánh A của runbook,
+  Lab 8a dùng đúng nhánh đó.
+- Lưu bằng chứng của từng bước vào `~/lab-evidence/5b/b3-*.txt`, kể cả lần hỏng và lần restore nếu có.
+  Chuỗi lab chưa được pilot trọn trên đúng baseline ([README mục 7.8](README.md#78-giới-hạn-hiện-tại)).
+
+Lab vẫn giữ B3 vì hai lý do: lộ trình cần cluster thật từ giai đoạn 1 nhưng tới giai đoạn 5 mới học
+NetworkPolicy, và tự tay đổi plugin là cách rõ nhất để thấy ai cấp IP Pod, ai nạp cấu hình CNI.
+
 ### 2.2. Phiên bản hạ tầng nằm ở đâu
 
 Calico, Helm và chart Traefik (kèm `appVersion`) đã chốt ở
@@ -192,6 +226,8 @@ Repo, thư mục làm việc và điểm xuất phát của mạng. Nếu vừa 
 từ bundle theo [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm) trước:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 mkdir -p ~/lab-work/5b ~/lab-evidence/5b
 test -d ~/bookstore/.git || git clone ~/bookstore-lab-5a.bundle ~/bookstore
 cd ~/bookstore
@@ -203,7 +239,7 @@ kubectl get namespace bookstore >/dev/null 2>&1 \
 kubectl -n kube-flannel get daemonset kube-flannel-ds >/dev/null 2>&1 && echo 'PASS: CNI dang la Flannel'
 kubectl -n kube-system get daemonset calico-node >/dev/null 2>&1 \
   && echo 'FAIL: cluster da co Calico - khong phai 01-cluster-ready' || echo 'PASS: chua co Calico'
-test "$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)" -eq 0 && echo 'PASS: chua co IngressClass nao'
+test "$(sl kubectl get ingressclass --no-headers)" -eq 0 && echo 'PASS: chua co IngressClass nao'
 ```
 
 Dựng lại hệ thống của sprint 6 bằng script của chính sprint đó:
@@ -660,6 +696,8 @@ một runbook trong repo.
 - Calico: [Install on on-premises deployments](https://docs.tigera.io/calico/latest/getting-started/kubernetes/self-managed-onprem/onpremises),
   tab *Manifest* — với kubeadm, Pod CIDR khác mặc định thì không cần sửa gì vì Calico tự dò. Lab
   không tin lời đó: có gate đối chiếu.
+- Calico: [System requirements](https://docs.tigera.io/calico/3.32/getting-started/kubernetes/requirements),
+  mục *Other network providers* — vì sao B3 chỉ là thí nghiệm ([mục 2.1](#21-đổi-cni-là-thao-tác-phá-hoại)).
 - [A5.2 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a52-cài-flannel-v0289) — hình dạng thao tác cài một
   CNI bằng manifest.
 
@@ -689,6 +727,8 @@ một runbook trong repo.
 3. `.spec.podCIDR` của từng node không đổi, nhưng IP Pod mới không nhất thiết nằm trong `/24` đó. Có
    mâu thuẫn với bài 157 không?
 4. Đường lùi khi B3 hỏng giữa chừng là gì, và vì sao không restore riêng một VM?
+5. Calico nói gì về việc chuyển từ CNI khác sang nó? Vậy gate của B3 PASS chứng minh được điều gì,
+   không chứng minh được điều gì — và với một cluster thật cần Calico, bạn chọn đường nào?
 
 <details>
 <summary>Gợi ý</summary>
@@ -710,6 +750,8 @@ một runbook trong repo.
 <summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 EV=~/lab-evidence/5b
 SEL='app.kubernetes.io/part-of=bookstore'
 on() { if [ "$1" = "$(hostname)" ]; then bash -c "$2"; else ssh "$1" "$2"; fi; }
@@ -723,8 +765,8 @@ echo "${TRAEFIK_CHART:-}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || BAD=1
 [ "$BAD" -eq 0 ] && echo 'PASS: platform/versions.env du bon gia tri, dung dang'
 
 # 1. Dự án đã gỡ
-{ [ "$(kubectl get namespace,priorityclass -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all -A -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } && echo 'PASS: khong con object cua du an'
+{ [ "$(sl kubectl get namespace,priorityclass -l "$SEL" --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all -A -l "$SEL" --no-headers)" -eq 0 ]; } && echo 'PASS: khong con object cua du an'
 
 # 2. Flannel ở tầng API
 { ! kubectl get namespace kube-flannel >/dev/null 2>&1 && ! kubectl get clusterrole flannel >/dev/null 2>&1 \
@@ -835,7 +877,9 @@ TRAEFIK_CHART='<chart Traefik, dạng X.Y.Z>'
 TRAEFIK_APP='<appVersion Traefik, dạng vX.Y.Z>'
 ```
 
-Quy trình đã kiểm, chạy trên `lab-k8s-master` trong một phiên shell:
+Quy trình thí nghiệm, chạy trên `lab-k8s-master` trong một phiên shell. Đây **không** phải quy trình
+Calico hỗ trợ ([mục 2.1](#21-đổi-cni-là-thao-tác-phá-hoại)) và chưa được pilot trọn trên đúng
+baseline: mọi gate của B3 là bắt buộc, đường lùi duy nhất là restore cả ba VM về `01-cluster-ready`.
 
 ```bash
 . ~/bookstore/platform/versions.env
@@ -888,7 +932,9 @@ Cài bằng một manifest; mọi object nằm trong kube-system. Với kubeadm,
 tải manifest → đọc image và CALICO_IPV4POOL_CIDR → apply → chờ calico-node, calico-kube-controllers
 → gate C.
 
-## B. Thay Flannel trên cluster đang chạy (Lab 5b)
+## B. Thay Flannel trên cluster đang chạy (Lab 5b) — chỉ là thí nghiệm
+Calico không hỗ trợ migrate từ CNI khác (System requirements, mục Other network providers). Chỉ chạy
+trên môi trường hủy được; cluster thật cần Calico thì dựng mới theo nhánh A.
 0. teardown dự án  1. gỡ Flannel ở tầng API  2. dọn từng node, containerd trước kubelet
 3. apply Calico  4. tạo lại Pod còn IP cũ (CoreDNS)  → gate C.
 Đường lùi: restore cả ba VM về 01-cluster-ready.
@@ -911,6 +957,10 @@ Pod dùng mạng Pod có annotation cni.projectcalico.org/podIP; TCP xuyên node
    lớn thành khối nhỏ gán cho từng node.
 4. Restore **cả ba VM** về `01-cluster-ready` rồi clone repo từ bundle. Với cluster một control plane,
    etcd trên master và trạng thái mạng trên worker phải cùng một mốc; restore lệch là có hai thế giới.
+5. Calico nói không migrate được từ CNI khác. Gate PASS chứng minh **cluster lab này, lần này** đã về
+   trạng thái mạng đúng — không chứng minh quy trình an toàn ở cluster khác hay lần chạy khác, và không
+   biến nó thành quy trình nhà phát hành bảo đảm. Cluster thật cần Calico thì dựng mới với Calico từ đầu
+   (nhánh A, Lab 8a) rồi chuyển workload sang; dữ liệu và manifest nằm ngoài cluster nên làm được.
 
 </details>
 
@@ -1060,9 +1110,11 @@ EOF
 Phần 1 — trước khi cài:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=ing-thu; EV=~/lab-evidence/5b
 W1="$(kubectl get node lab-k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
-[ "$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: cluster chua co IngressClass nao'
+[ "$(sl kubectl get ingressclass --no-headers)" -eq 0 ] && echo 'PASS: cluster chua co IngressClass nao'
 kubectl apply -f ~/lab-work/5b/ing-thu.yaml
 kubectl -n "$NS" wait --for=condition=Ready pod/som --timeout=180s
 kubectl -n "$NS" describe ingress som > "$EV/b4-ingress-som-truoc.txt"
@@ -1805,9 +1857,18 @@ kubectl delete namespace -l "$SEL" --ignore-not-found --wait=true --timeout=300s
 kubectl delete "$KINDS" --all-namespaces -l "$SEL" --ignore-not-found --wait=true --timeout=120s
 kubectl delete priorityclass -l "$SEL" --ignore-not-found
 
-LEFT="$(kubectl get namespace,priorityclass -l "$SEL" --no-headers 2>/dev/null | wc -l)"
-LEFT_NS="$( { kubectl get all -A -l "$SEL" --no-headers
-              kubectl get "$KINDS,endpointslices" -A -l "$SEL" --no-headers; } 2>/dev/null | wc -l)"
+# Mỗi truy vấn kiểm kê chạy riêng và phải thành công: API không trả lời hay Forbidden thì dừng —
+# "không hỏi được" không bao giờ được đếm thành "không còn gì". dem <biến> <lệnh...> cộng số dòng
+# output của lệnh vào biến; hàm chạy trong shell chính nên exit dừng cả script.
+dem() {
+  local v="$1" out; shift
+  out="$("$@" 2>/dev/null)" || { echo "teardown: STOP - truy van loi, chua ket luan sach: $*"; exit 1; }
+  printf -v "$v" '%d' "$(( ${!v:-0} + $(printf '%s\n' "$out" | awk 'NF' | wc -l) ))"
+}
+LEFT=0; LEFT_NS=0
+dem LEFT kubectl get namespace,priorityclass -l "$SEL" --no-headers
+dem LEFT_NS kubectl get all -A -l "$SEL" --no-headers
+dem LEFT_NS kubectl get "$KINDS,endpointslices" -A -l "$SEL" --no-headers
 if [ "$LEFT" -eq 0 ] && [ "$LEFT_NS" -eq 0 ]; then
   echo 'teardown: sach'
 else
@@ -2591,6 +2652,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate: repo đủ, cluster **chỉ còn hạ tầng**:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore
 SEL='app.kubernetes.io/part-of=bookstore'
 on() { if [ "$1" = "$(hostname)" ]; then bash -c "$2"; else ssh "$1" "$2"; fi; }
@@ -2612,11 +2675,11 @@ for F in networkpolicy-tren-flannel mang-cluster-va-chon-cni quy-trinh-doi-cni i
 done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ADR cua sprint 7'
 
-{ [ "$(kubectl get namespace,priorityclass -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
-  && [ "$(kubectl get all,configmaps,secrets,networkpolicies,ingresses -A -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get namespace,priorityclass -l "$SEL" --no-headers)" -eq 0 ] \
+  && [ "$(sl kubectl get all,configmaps,secrets,networkpolicies,ingresses -A -l "$SEL" --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an'
-{ [ "$(kubectl get networkpolicy -A --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
-  && [ "$(kubectl get ingress -A --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get networkpolicy -A --no-headers)" -eq 0 ] \
+  && [ "$(sl kubectl get ingress -A --no-headers)" -eq 0 ]; } \
   && echo 'PASS: cluster khong con NetworkPolicy hay Ingress nao'
 [ "$(kubectl get ns -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | sort | tr '\n' ' ')" \
   = 'default kube-node-lease kube-public kube-system traefik ' ] && echo 'PASS: chi con namespace he thong va traefik'

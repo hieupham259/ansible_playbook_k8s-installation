@@ -79,7 +79,7 @@ Bốn phần bị hoãn có chủ đích, là **nợ lab** — nói được vì
 | Thực hành static Pod (bài [293](../293-static-pod-tasks-vi.md)) | khái niệm ở bài [58](../58-static-pods-vi.md), nhóm 3c | Lab 3c |
 | Request/limit hiệu dụng của init container và sidecar (bài 50, 51) | `requests`/`limits` của bài [110](../110-manage-resources-containers-vi.md) | Lab 3c |
 | Phase `Unknown` (bài 47) | cắt liên lạc với node, giai đoạn 12 | Lab 12 |
-| Readiness thất bại gỡ Pod khỏi EndpointSlice (bài 49) | Service, giai đoạn 5 | Lab 5a |
+| Readiness thất bại loại Pod khỏi tập backend sẵn sàng nhận lưu lượng — endpoint `ready=false` (bài 49) | Service, giai đoạn 5 | Lab 5a |
 
 ### 1.2. Thời lượng
 
@@ -243,7 +243,16 @@ set -euo pipefail
 SEL='app.kubernetes.io/part-of=bookstore'
 kubectl delete namespace -l "$SEL" --ignore-not-found --wait=true --timeout=300s
 kubectl delete priorityclass -l "$SEL" --ignore-not-found
-LEFT="$(kubectl get namespace,priorityclass -l "$SEL" --no-headers 2>/dev/null | wc -l)"
+# Mỗi truy vấn kiểm kê chạy riêng và phải thành công: API không trả lời hay Forbidden thì dừng —
+# "không hỏi được" không bao giờ được đếm thành "không còn gì". dem <biến> <lệnh...> cộng số dòng
+# output của lệnh vào biến; hàm chạy trong shell chính nên exit dừng cả script.
+dem() {
+  local v="$1" out; shift
+  out="$("$@" 2>/dev/null)" || { echo "teardown: STOP - truy van loi, chua ket luan sach: $*"; exit 1; }
+  printf -v "$v" '%d' "$(( ${!v:-0} + $(printf '%s\n' "$out" | awk 'NF' | wc -l) ))"
+}
+LEFT=0
+dem LEFT kubectl get namespace,priorityclass -l "$SEL" --no-headers
 if [ "$LEFT" -eq 0 ]; then echo 'teardown: sach'; else echo "teardown: con $LEFT object"; exit 1; fi
 EOF
 
@@ -407,6 +416,8 @@ câu hỏi thiết kế.
 2. `db` có cần liveness probe không? Dẫn đúng câu của bài 49 về khi nào **không cần** liveness.
 3. Init container của bạn có bất biến kết quả không, nếu kubelet chạy lại nó lần thứ hai trên cùng
    `emptyDir`? Khi nào Pod chạy lại init container?
+4. Yêu cầu bắt buộc `nodeSelector` thay vì đặt thẳng `nodeName`. Với mỗi cách, ai quyết định Pod
+   chạy ở node nào, và trường nào của Pod ghi lại quyết định đó?
 
 <details>
 <summary>Gợi ý</summary>
@@ -556,6 +567,11 @@ kubectl -n bookstore get pod db -w     # Ctrl+C khi READY 1/1
    `restartPolicy`. Một liveness đặt sai cho DB còn gây hại: giết DB đang bận đúng lúc tải cao.
 3. Có — `cat >` ghi đè cả file nên chạy lại cho cùng kết quả. Init container chạy lại khi Pod
    khởi động lại hoặc sandbox bị dựng lại (bài 50, *Các lý do khởi động lại Pod*).
+4. `nodeSelector` là ràng buộc gửi cho **scheduler** (bài 60, *Node selector*): scheduler chọn trong
+   các node mang đúng label rồi ghi kết quả vào `spec.nodeName` qua subresource `binding` (bài 46).
+   Đặt thẳng `nodeName` là tự làm thay việc đó — scheduler bị bỏ qua hoàn toàn. Dự án cần đi qua
+   scheduler vì các sprint sau đặt thêm điều kiện lên chính quyết định này (tài nguyên ở 3c, taint ở
+   B9); nghiệm thu đọc `spec.nodeName` để biết kết quả, đọc `nodeSelector` để biết cơ chế.
 
 </details>
 
@@ -2033,10 +2049,12 @@ cd ~/bookstore && ./scripts/teardown.sh
 5. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 test -z "$(git -C ~/bookstore status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
 git -C ~/bookstore describe --tags --exact-match HEAD | grep -qx 'lab-3a' && echo 'PASS: HEAD mang tag lab-3a'
 test -s ~/bookstore-lab-3a.bundle && echo 'PASS: co bundle'
-test "$(kubectl get namespace,priorityclass -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 \
+test "$(sl kubectl get namespace,priorityclass -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 \
   && echo 'PASS: khong con object nao cua du an'
 test ! -e ~/lab-work/3a && echo 'PASS: da don lab-work'
 

@@ -92,7 +92,7 @@ Các phần dưới đây bị hoãn có chủ đích — nói được vì sao 
 | Phần hoãn | Vì cần | Trả ở |
 | --- | --- | --- |
 | Canary chia **lưu lượng thật**: Service chọn tập con label chung của hai bản phát hành (bài 61, mục *Triển khai canary*; bài 63, *Deployment kiểu canary*) | Service, giai đoạn 5 | Lab 5a — B10 chỉ dựng cấu trúc label và tỷ lệ bản sao |
-| Đo gián đoạn ở mức **request** trong lúc rollout (client gọi một địa chỉ ổn định) | Service và EndpointSlice | Lab 5a — B4 đo ở mức controller (`availableReplicas`) |
+| Đo gián đoạn ở mức **request** trong lúc rollout (client gọi một địa chỉ ổn định) | Service và EndpointSlice | Lab 5a B3 (rollback và phát hành lại `web`); thay toàn bộ Pod `api` đo ở Lab 12 B6. B4 ở đây đo ở mức controller (`availableReplicas`) |
 | `kubectl autoscale`, HPA làm chủ `replicas` (bài 61, 63, 64, 346) | metrics-server, giai đoạn 11 | **[Nợ lab #1](README.md#5-sổ-nợ-lab)**, Lab 11b |
 | *Scale theo tỷ lệ* khi autoscaler scale giữa chừng một rollout (bài 63) | HPA | đọc ở bài 72, Lab 11b |
 | `.status.terminatingReplicas` (bài 63, 64) | feature gate `DeploymentReplicaSetTerminatingReplicas`, không bật ở baseline | không thực hành |
@@ -100,7 +100,7 @@ Các phần dưới đây bị hoãn có chủ đích — nói được vì sao 
 
 Hai mục của bài [339](../339-configure-pdb-vi.md) mà Lab 3c để lại cho giai đoạn 4 — *Xác định ứng
 dụng cần bảo vệ* và cách ngân sách tính trên số bản sao mong muốn của controller — được trả ở B3.
-Nợ lab của các sprint trước (phase `Unknown` — Lab 12; readiness gỡ Pod khỏi EndpointSlice — Lab 5a;
+Nợ lab của các sprint trước (phase `Unknown` — Lab 12; readiness loại Pod khỏi backend nhận lưu lượng — Lab 5a;
 nợ lab #6 — giai đoạn 22) không đổi.
 
 ### 1.2. Thời lượng
@@ -298,6 +298,8 @@ Cần sáu file: `thu-tran.yaml` (hai Pod trần), `thu-tran-3.yaml`, `thu-rs.ya
 `thu-rs-sai-selector.yaml`, `thu-rs-sai-restart.yaml`.
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/4a; W=~/lab-work/4a
 jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
 dem() { kubectl -n "$NS" get pods -l thu=rs --no-headers 2>/dev/null | grep -vc Terminating; }
@@ -362,12 +364,12 @@ kubectl explain replicaset.spec.selector > "$EV/b1-rs-selector.txt"
 grep -Eq '^replicationcontrollers +rc ' "$EV/b1-api-resources.txt" && echo 'PASS: API con ReplicationController, ten tat rc'
 { grep -q 'matchExpressions' "$EV/b1-rs-selector.txt" && ! grep -q 'matchExpressions' "$EV/b1-rc-selector.txt"; } \
   && echo 'PASS: selector cua rc la map phang, khong co matchExpressions'
-[ "$(kubectl get rc -A --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: cluster khong co rc nao'
+[ "$(sl kubectl get rc -A --no-headers)" -eq 0 ] && echo 'PASS: cluster khong co rc nao'
 
 # 6. Dọn
 kubectl -n "$NS" delete rs thu-rs-v2 --ignore-not-found --wait=true
 kubectl -n "$NS" delete pod -l thu=rs --ignore-not-found --wait=true
-[ "$(kubectl -n "$NS" get rs,pods -l thu=rs --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: da don object thu nghiem'
+[ "$(sl kubectl -n "$NS" get rs,pods -l thu=rs --no-headers)" -eq 0 ] && echo 'PASS: da don object thu nghiem'
 ```
 
 </details>
@@ -569,8 +571,17 @@ kubectl delete namespace -l "$SEL" --ignore-not-found --wait=true --timeout=300s
 kubectl delete "$KINDS" --all-namespaces -l "$SEL" --ignore-not-found --wait=true --timeout=120s
 kubectl delete priorityclass -l "$SEL" --ignore-not-found
 
-LEFT="$( { kubectl get namespace,priorityclass -l "$SEL" --no-headers
-           kubectl get "$KINDS" --all-namespaces -l "$SEL" --no-headers; } 2>/dev/null | wc -l)"
+# Mỗi truy vấn kiểm kê chạy riêng và phải thành công: API không trả lời hay Forbidden thì dừng —
+# "không hỏi được" không bao giờ được đếm thành "không còn gì". dem <biến> <lệnh...> cộng số dòng
+# output của lệnh vào biến; hàm chạy trong shell chính nên exit dừng cả script.
+dem() {
+  local v="$1" out; shift
+  out="$("$@" 2>/dev/null)" || { echo "teardown: STOP - truy van loi, chua ket luan sach: $*"; exit 1; }
+  printf -v "$v" '%d' "$(( ${!v:-0} + $(printf '%s\n' "$out" | awk 'NF' | wc -l) ))"
+}
+LEFT=0
+dem LEFT kubectl get namespace,priorityclass -l "$SEL" --no-headers
+dem LEFT kubectl get "$KINDS" --all-namespaces -l "$SEL" --no-headers
 if [ "$LEFT" -eq 0 ]; then echo 'teardown: sach'; else echo "teardown: con $LEFT object"; exit 1; fi
 EOF
 
@@ -915,13 +926,15 @@ repo.
 <summary>Script nghiệm thu — chạy sau khi tự làm xong; script teardown rồi deploy lại</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/4a; W=~/lab-work/4a
 WEB='app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=web'
 API='app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=api'
 cd ~/bookstore
 jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
 books() { kubectl -n "$NS" exec deploy/web -c status-writer -- wget -qO- "http://$1:3000/books" 2>/dev/null | grep -o '"title"' | wc -l; }
-cho_dem() { for i in $(seq 1 90); do [ "$(kubectl -n "$NS" get pods -l "$1" --no-headers 2>/dev/null | wc -l)" -eq "$2" ] && return 0; sleep 2; done; return 1; }
+cho_dem() { for i in $(seq 1 90); do [ "$(sl kubectl -n "$NS" get pods -l "$1" --no-headers)" -eq "$2" ] && return 0; sleep 2; done; return 1; }
 pdb_cho() {   # chờ PDB $1 tính xong với expectedPods = currentHealthy = $2
   for i in $(seq 1 45); do
     [ "$(jp "pdb/$1" '{.status.observedGeneration}')" = "$(jp "pdb/$1" '{.metadata.generation}')" ] \
@@ -1164,7 +1177,7 @@ một quyết định có chủ đích trong repo, rồi phát hành thử bản
 
 **Ràng buộc:** không dùng `kubectl set image`, `kubectl annotate`, `kubectl edit` trên `web` và
 `api`; không dùng cờ `--record`. Chưa có Service, nên "không gián đoạn" đo ở mức controller
-(`availableReplicas`) — đo ở mức request là phần hoãn sang Lab 5a.
+(`availableReplicas`) — đo ở mức request là phần hoãn sang Lab 5a B3.
 
 **Đọc lại:**
 
@@ -1743,9 +1756,11 @@ kubectl -n "$NS" rollout status deployment/drill-web --timeout=180s >/dev/null &
 Dọn:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 kubectl -n "$NS" delete deployment drill-web --wait=true
-for i in $(seq 1 60); do [ "$(kubectl -n "$NS" get rs,pods -l "$DR" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && break; sleep 2; done
-[ "$(kubectl -n "$NS" get deploy,rs,pods -l "$DR" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: da don drill-web'
+for i in $(seq 1 60); do [ "$(sl kubectl -n "$NS" get rs,pods -l "$DR" --no-headers)" -eq 0 ] && break; sleep 2; done
+[ "$(sl kubectl -n "$NS" get deploy,rs,pods -l "$DR" --no-headers)" -eq 0 ] && echo 'PASS: da don drill-web'
 ```
 
 </details>
@@ -2002,9 +2017,11 @@ kubectl -n "$NS" rollout history deployment/thu-rolling > "$EV/b7-history-gc.txt
 Dọn:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 kubectl -n "$NS" delete deployment thu-rolling thu-recreate --ignore-not-found --wait=true
-for i in $(seq 1 60); do [ "$(kubectl -n "$NS" get rs,pods -l "$THU" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && break; sleep 2; done
-[ "$(kubectl -n "$NS" get deploy,rs,pods -l "$THU" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: da xoa hai Deployment thu nghiem'
+for i in $(seq 1 60); do [ "$(sl kubectl -n "$NS" get rs,pods -l "$THU" --no-headers)" -eq 0 ] && break; sleep 2; done
+[ "$(sl kubectl -n "$NS" get deploy,rs,pods -l "$THU" --no-headers)" -eq 0 ] && echo 'PASS: da xoa hai Deployment thu nghiem'
 ```
 
 </details>
@@ -2148,6 +2165,8 @@ về repo trong chính ticket này. Không `kubectl edit` trên `web`. Không d�
 <summary>Script nghiệm thu — chạy sau khi đã tự viết thu-patch.yaml và patch-them-container.yaml; script này chính là cuộc điều tra</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/4a; W=~/lab-work/4a
 WEB='app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=web'
 cd ~/bookstore
@@ -2209,8 +2228,8 @@ kubectl -n "$NS" patch deployment thu-patch --type=json \
 [ "$(jp deployment/thu-patch '{.spec.replicas}')" = '2' ] && echo 'PASS: replicas van la 2'
 NRS="$(kubectl -n "$NS" get rs -l app.kubernetes.io/name=thu-patch --no-headers | wc -l)"
 kubectl -n "$NS" scale deployment/thu-patch --replicas=0
-for i in $(seq 1 60); do [ "$(kubectl -n "$NS" get pods -l app.kubernetes.io/name=thu-patch --no-headers 2>/dev/null | wc -l)" -eq 0 ] && break; sleep 2; done
-{ [ "$(kubectl -n "$NS" get pods -l app.kubernetes.io/name=thu-patch --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+for i in $(seq 1 60); do [ "$(sl kubectl -n "$NS" get pods -l app.kubernetes.io/name=thu-patch --no-headers)" -eq 0 ] && break; sleep 2; done
+{ [ "$(sl kubectl -n "$NS" get pods -l app.kubernetes.io/name=thu-patch --no-headers)" -eq 0 ] \
   && kubectl -n "$NS" get deployment thu-patch >/dev/null 2>&1 \
   && [ "$(kubectl -n "$NS" get rs -l app.kubernetes.io/name=thu-patch --no-headers | wc -l)" = "$NRS" ]; } \
   && echo 'PASS: scale ve 0: het Pod, con Deployment va ReplicaSet'
@@ -2219,6 +2238,8 @@ for i in $(seq 1 60); do [ "$(kubectl -n "$NS" get pods -l app.kubernetes.io/nam
 ⭐ Phần D và dọn — chạy tiếp trong cùng shell:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 U0="$(jp deployment/thu-patch '{.metadata.uid}')"
 kubectl replace --force -f "$W/thu-patch.yaml" > "$EV/b8-replace.txt" 2>&1
 { grep -q 'deleted' "$EV/b8-replace.txt" && grep -q 'replaced' "$EV/b8-replace.txt" \
@@ -2229,8 +2250,8 @@ grep -q 'missing the kubectl.kubernetes.io/last-applied-configuration' "$EV/b8-a
   && echo 'PASS: apply canh bao thieu annotation'
 
 kubectl -n "$NS" delete deployment thu-patch --ignore-not-found --wait=true
-for i in $(seq 1 60); do [ "$(kubectl -n "$NS" get rs,pods -l app.kubernetes.io/name=thu-patch --no-headers 2>/dev/null | wc -l)" -eq 0 ] && break; sleep 2; done
-[ "$(kubectl -n "$NS" get deploy,rs,pods -l app.kubernetes.io/name=thu-patch --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+for i in $(seq 1 60); do [ "$(sl kubectl -n "$NS" get rs,pods -l app.kubernetes.io/name=thu-patch --no-headers)" -eq 0 ] && break; sleep 2; done
+[ "$(sl kubectl -n "$NS" get deploy,rs,pods -l app.kubernetes.io/name=thu-patch --no-headers)" -eq 0 ] \
   && echo 'PASS: da xoa thu-patch'
 ```
 
@@ -2376,6 +2397,8 @@ bằng tay ngoài bước xóa một Pod của yêu cầu 1. Không dùng `--gra
 <summary>Script nghiệm thu — chạy sau khi đã tự viết thu-xoa.yaml; script này chính là cuộc điều tra</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/4a; W=~/lab-work/4a
 WEB='app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=web'
 cd ~/bookstore
@@ -2417,7 +2440,7 @@ diff -q "$EV/b9-history-truoc.txt" "$EV/b9-history-sau.txt" >/dev/null && echo '
 # B. foreground và background trên thu-xoa
 X='app.kubernetes.io/name=thu-xoa'
 tao() { kubectl apply -f "$W/thu-xoa.yaml" >/dev/null; kubectl -n "$NS" rollout status deployment/thu-xoa --timeout=180s >/dev/null; }
-sach() { for i in $(seq 1 90); do [ "$(kubectl -n "$NS" get deploy,rs,pods -l "$X" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && return 0; sleep 2; done; return 1; }
+sach() { for i in $(seq 1 90); do [ "$(sl kubectl -n "$NS" get deploy,rs,pods -l "$X" --no-headers)" -eq 0 ] && return 0; sleep 2; done; return 1; }
 tao
 kubectl -n "$NS" delete deployment thu-xoa --cascade=foreground --wait=false
 for i in $(seq 1 30); do FIN="$(jp deployment/thu-xoa '{.metadata.finalizers}')"; [ -n "$FIN" ] && break; sleep 1; done
@@ -2630,6 +2653,8 @@ cat > ~/bookstore/tests/smoke.sh <<'EOF'
 # (3c); controller, phát hành có lý do, mọi bản sao web phục vụ đúng nội dung và phiên bản (4a).
 # Tên Pod web, api không cố định: lấy theo label. Script không in mật khẩu.
 set -u
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd "$(dirname "$0")/.."
 NS=bookstore
 SEL='app.kubernetes.io/part-of=bookstore'
@@ -2648,7 +2673,7 @@ sec() { k get secret db-credentials -o go-template="{{index .data \"$1\"}}" 2>/d
 
 # 0. Chờ Pod đang kết thúc của lần phát hành trước biến mất
 for X in "$WEB:3" "$API:2"; do
-  for i in $(seq 1 45); do [ "$(k get pods -l "${X%:*}" --no-headers 2>/dev/null | wc -l)" -eq "${X##*:}" ] && break; sleep 2; done
+  for i in $(seq 1 45); do [ "$(sl k get pods -l "${X%:*}" --no-headers)" -eq "${X##*:}" ] && break; sleep 2; done
 done
 
 # 1. Namespace và object cấp cluster
@@ -2807,6 +2832,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
 git describe --tags --exact-match HEAD | grep -qx 'lab-4a' && echo 'PASS: HEAD mang tag lab-4a'
@@ -2822,8 +2849,8 @@ for F in 'adr/*-replicaset.md' 'adr/*-web-deployment.md' 'adr/*-api-deployment.m
   ls docs/$F >/dev/null 2>&1 || { echo "FAIL: thieu docs/$F"; BAD=1; }
 done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ADR, postmortem va runbook cua sprint 4'
-{ [ "$(kubectl get namespace,priorityclass -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
-  && [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get namespace,priorityclass -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] \
+  && [ "$(sl kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an'
 test ! -e ~/lab-work/4a && echo 'PASS: da don lab-work'
 
@@ -2873,10 +2900,11 @@ Không đánh dấu lab hoàn tất chỉ vì script nghiệm thu PASS. Tự tr�
 
 Nợ còn mở sau lab này — nói được **vì sao chưa trả**:
 
-- **Phần hoãn của sprint** (mục 1.1): canary chia lưu lượng thật và đo gián đoạn ở mức request — cần
-  Service, Lab 5a; `kubectl autoscale` và HPA làm chủ `replicas` — **nợ lab #1**, Lab 11b. Nợ lab của
-  các sprint trước không đổi: phase `Unknown` (Lab 12), readiness gỡ Pod khỏi EndpointSlice (Lab 5a),
-  **nợ lab #6** (giai đoạn 22).
+- **Phần hoãn của sprint** (mục 1.1): canary chia lưu lượng thật (Lab 5a B7) và đo gián đoạn ở mức
+  request (Lab 5a B3; `api` ở Lab 12 B6) — cần Service; `kubectl autoscale` và HPA làm chủ
+  `replicas` — **nợ lab #1**, Lab 11b. Nợ lab của các sprint trước không đổi: phase `Unknown`
+  (Lab 12), readiness loại Pod khỏi tập backend sẵn sàng nhận lưu lượng (Lab 5a), **nợ lab #6**
+  (giai đoạn 22).
 - **Nợ kỹ thuật:** `TD-01` **trả một phần** — `web`, `api` đã có controller, `db` còn là Pod trần
   (Lab 4b). `TD-03` vẫn mở và giờ có thêm hệ quả: mỗi lần `db` đổi IP, `api` sinh một revision (Lab
   5a). `TD-04` (Lab 6a), `TD-06` (Lab 9b), `TD-07` (Lab 9a) vẫn mở. `TD-02`, `TD-05` đã trả ở các

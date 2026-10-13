@@ -2139,14 +2139,21 @@ for F in 'adr/*-ngan-sach-tai-nguyen.md' 'adr/*-qos-tung-thanh-phan.md' 'adr/*-t
   ls docs/$F >/dev/null 2>&1 || { echo "FAIL: thieu docs/$F"; BAD=1; }
 done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ADR va postmortem cua sprint 3'
-test "$( { kubectl get namespace,priorityclass -l "$SEL" --no-headers
-           kubectl get pods,configmaps,secrets -A -l "$SEL" --no-headers; } 2>/dev/null | wc -l)" -eq 0 \
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
+{ test "$(sl kubectl get namespace,priorityclass -l "$SEL" --no-headers)" -eq 0 \
+  && test "$(sl kubectl get pods,configmaps,secrets -A -l "$SEL" --no-headers)" -eq 0; } \
   && echo 'PASS: khong con object nao cua du an'
 test ! -e ~/lab-work/3c && echo 'PASS: da don lab-work'
-kubectl get node lab-k8s-worker2 -o jsonpath='{.status.capacity}' | grep -q 'dongle' \
-  && echo 'FAIL: worker2 con extended resource' || echo 'PASS: worker2 khong con extended resource'
-ssh lab-k8s-worker2 'sudo -S ls -A /etc/kubernetes/manifests 2>/dev/null' | grep -q 'lab3c' \
-  && echo 'FAIL: worker2 con static Pod cua lab' || echo 'PASS: worker2 khong con static Pod cua lab'
+# Hai phép kiểm "không còn": đọc phải thành công trước, rồi mới xét có hay không.
+if CAP="$(kubectl get node lab-k8s-worker2 -o jsonpath='{.status.capacity}')"; then
+  case "$CAP" in *dongle*) echo 'FAIL: worker2 con extended resource' ;;
+                 *) echo 'PASS: worker2 khong con extended resource' ;; esac
+else echo 'STOP: khong doc duoc Node lab-k8s-worker2'; fi
+if M="$(ssh lab-k8s-worker2 'sudo -S test ! -e /etc/kubernetes/manifests || sudo -S ls -A /etc/kubernetes/manifests')"; then
+  case "$M" in *lab3c*) echo 'FAIL: worker2 con static Pod cua lab' ;;
+               *) echo 'PASS: worker2 khong con static Pod cua lab' ;; esac
+else echo 'STOP: khong doc duoc /etc/kubernetes/manifests tren worker2 (ssh hoac sudo loi)'; fi
 test "$(sudo ls -1 /etc/kubernetes/manifests | grep -c '\.yaml$')" -eq 4 && echo 'PASS: bon manifest control plane nguyen ven'
 
 kubectl wait --for=condition=Ready node --all --timeout=180s

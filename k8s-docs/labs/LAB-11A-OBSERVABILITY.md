@@ -1169,14 +1169,22 @@ WORKERS='lab-k8s-worker1 lab-k8s-worker2'
 KINDS='statefulsets,deployments,daemonsets,cronjobs,jobs,replicasets,pods,poddisruptionbudgets,services,networkpolicies,ingresses,configmaps,secrets,persistentvolumeclaims,roles,rolebindings,resourcequotas,limitranges,serviceaccounts'
 # Thư mục volume tên <PV>_<namespace>_<PVC>: khớp namespace bookstore và bookstore-* (6a).
 LP_FIND="sudo find $LP_ROOT -mindepth 1 -maxdepth 1 \( -name '*_bookstore_*' -o -name '*_bookstore-*_*' \)"
+# Lệnh chạy trên worker. Thư mục gốc chưa từng có nghĩa là không có gì để dọn; lỗi ssh, sudo hay find
+# thì trả mã khác 0 — "không kiểm được" không bao giờ được hiểu thành "không còn gì".
+LP_ON_NODE="sudo -n test ! -e $LP_ROOT || $LP_FIND"
 
 # PV do provisioner sinh không mang label dự án: nhận diện theo namespace của claim hoặc theo class;
 # PV tạo tay thì mang label dự án (6a).
+# Hai truy vấn chạy riêng: một cái lỗi thì hàm trả lỗi, không trả về một danh sách thiếu.
 project_pvs() {
-  { kubectl get pv -o jsonpath='{range .items[*]}{.metadata.name} {.spec.claimRef.namespace} {.spec.storageClassName}{"\n"}{end}' \
-      | awk '$2 == "bookstore" || $2 ~ /^bookstore-/ || $3 == "bookstore-retain" {print $1}'
-    kubectl get pv -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'; } | sort -u
+  local a b
+  a="$(kubectl get pv -o jsonpath='{range .items[*]}{.metadata.name} {.spec.claimRef.namespace} {.spec.storageClassName}{"\n"}{end}')" || return 1
+  b="$(kubectl get pv -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')" || return 1
+  { printf '%s\n' "$a" | awk '$2 == "bookstore" || $2 ~ /^bookstore-/ || $3 == "bookstore-retain" {print $1}'
+    printf '%s\n' "$b"; } | awk 'NF' | sort -u
 }
+# Liệt kê thư mục dữ liệu còn lại trên một worker; mã thoát khác 0 = không kiểm được worker đó.
+lp_left() { ssh -o BatchMode=yes "$1" "$LP_ON_NODE"; }
 
 # 1. db tắt êm trước khi xóa namespace (4b).
 if kubectl -n "$NS" get statefulset db >/dev/null 2>&1; then
@@ -1189,7 +1197,8 @@ kubectl delete namespace -l "$SEL" --ignore-not-found --wait=true --timeout=300s
 kubectl delete "$KINDS" --all-namespaces -l "$SEL" --ignore-not-found --wait=true --timeout=120s
 
 # 3. PV còn lại và thư mục dữ liệu trên node — reclaimPolicy Retain giữ lại cả hai (6a).
-for PV in $(project_pvs); do
+PVS="$(project_pvs)" || { echo 'teardown: STOP - khong liet ke duoc PV cua du an'; exit 1; }
+for PV in $PVS; do
   P="$(kubectl get pv "$PV" -o jsonpath='{.spec.hostPath.path}{.spec.local.path}' 2>/dev/null || true)"
   N="$(kubectl get pv "$PV" -o jsonpath='{.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]}' 2>/dev/null || true)"
   kubectl delete pv "$PV" --ignore-not-found --wait=true --timeout=120s
@@ -1201,7 +1210,8 @@ for PV in $(project_pvs); do
 done
 #    Thư mục còn sót trên mọi worker, kể cả của PV đã mất từ trước (6a).
 for W in $WORKERS; do
-  ssh "$W" "$LP_FIND -exec rm -rf {} +" || true
+  ssh -o BatchMode=yes "$W" "$LP_ON_NODE -exec rm -rf {} +" \
+    || { echo "teardown: STOP - khong xoa duoc thu muc du lieu tren $W (ssh, sudo hoac find loi)"; exit 1; }
 done
 
 # 4. Object cấp cluster mang label dự án (StorageClass của dự án xóa cả theo tên, 6a), rồi label và
@@ -1217,18 +1227,33 @@ for N in $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}'); do
 done
 
 # 5. Tự kiểm.
-LEFT="$( { kubectl get namespace,priorityclass,storageclass,clusterrole,clusterrolebinding -l "$SEL" --no-headers
-           kubectl get storageclass bookstore-retain --no-headers --ignore-not-found; } 2>/dev/null | wc -l)"
-LEFT_NS="$( { kubectl get all -A -l "$SEL" --no-headers
-              kubectl get "$KINDS,endpointslices" -A -l "$SEL" --no-headers; } 2>/dev/null | wc -l)"
-LEFT_PV="$(project_pvs | wc -l)"
-LEFT_NODE="$(kubectl get nodes -l bookstore.example.com/data --no-headers 2>/dev/null | wc -l)"
-LEFT_TAINT="$(kubectl get nodes -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}' \
-              | grep -c '^bookstore\.example\.com/' || true)"
+# Mỗi truy vấn kiểm kê chạy riêng và phải thành công: API không trả lời hay Forbidden thì dừng —
+# "không hỏi được" không bao giờ được đếm thành "không còn gì". dem <biến> <lệnh...> cộng số dòng
+# output của lệnh vào biến; hàm chạy trong shell chính nên exit dừng cả script.
+dem() {
+  local v="$1" out; shift
+  out="$("$@" 2>/dev/null)" || { echo "teardown: STOP - truy van loi, chua ket luan sach: $*"; exit 1; }
+  printf -v "$v" '%d' "$(( ${!v:-0} + $(printf '%s\n' "$out" | awk 'NF' | wc -l) ))"
+}
+taints() {    # key của taint mà dự án đặt lên node (7a); lấy dữ liệu trước, lọc sau
+  local t; t="$(kubectl get nodes -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}')" || return 1
+  printf '%s\n' "$t" | awk '/^bookstore\.example\.com\//'
+}
+LEFT=0; LEFT_NS=0; LEFT_PV=0; LEFT_NODE=0; LEFT_TAINT=0
+dem LEFT kubectl get namespace,priorityclass,storageclass,clusterrole,clusterrolebinding -l "$SEL" --no-headers
+dem LEFT kubectl get storageclass bookstore-retain --no-headers --ignore-not-found
+dem LEFT_NS kubectl get all -A -l "$SEL" --no-headers
+dem LEFT_NS kubectl get "$KINDS,endpointslices" -A -l "$SEL" --no-headers
+dem LEFT_PV project_pvs
+dem LEFT_NODE kubectl get nodes -l bookstore.example.com/data --no-headers
+dem LEFT_TAINT taints
+#    Mỗi worker cho một trong ba kết quả: còn thư mục, đã xác nhận không còn, hoặc không kiểm được.
+#    Kết quả thứ ba dừng script: chưa kết luận sạch thì không được chụp snapshot.
 LEFT_DIR=0
 for W in $WORKERS; do
-  C="$(ssh "$W" "$LP_FIND 2>/dev/null | wc -l" || echo 0)"
-  LEFT_DIR=$(( LEFT_DIR + ${C:-0} ))
+  L="$(lp_left "$W")" \
+    || { echo "teardown: STOP - khong kiem duoc thu muc du lieu tren $W; chua ket luan sach, KHONG chup snapshot"; exit 1; }
+  LEFT_DIR=$(( LEFT_DIR + $(printf '%s\n' "$L" | grep -c . || true) ))
 done
 if [ $(( LEFT + LEFT_NS + LEFT_PV + LEFT_NODE + LEFT_TAINT + LEFT_DIR )) -eq 0 ]; then
   echo 'teardown: sach'
@@ -1275,6 +1300,8 @@ Job trong bản render thì bước migration được bỏ qua, không làm h�
 <summary>Script nghiệm thu — chạy sau khi tự làm xong; script teardown rồi deploy lại</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; SYS=bookstore-system; EV=~/lab-evidence/11a
 SEL='app.kubernetes.io/part-of=bookstore'
 cd ~/bookstore
@@ -1285,7 +1312,7 @@ cd ~/bookstore
 lbl() { kubectl get namespace "$SYS" -o jsonpath="{.metadata.labels.$1}"; }
 { [ "$(lbl 'app\.kubernetes\.io/part-of')" = 'bookstore' ] && [ "$(lbl 'pod-security\.kubernetes\.io/enforce')" = 'privileged' ]; } \
   && echo 'PASS: bookstore-system mang label du an, enforce privileged'
-[ "$(kubectl -n "$NS" get daemonset,service,serviceaccount --field-selector metadata.name=node-agent --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl kubectl -n "$NS" get daemonset,service,serviceaccount --field-selector metadata.name=node-agent --no-headers)" -eq 0 ] \
   && echo 'PASS: bookstore khong con node-agent, ke ca ServiceAccount'
 { [ "$(kubectl -n "$SYS" get ds node-agent -o jsonpath='{.spec.template.spec.serviceAccountName}')" = 'node-agent' ] \
   && [ "$(kubectl -n "$SYS" get sa node-agent -o jsonpath='{.automountServiceAccountToken}|{.metadata.labels.app\.kubernetes\.io/component}')" = 'false|agent' ]; } \
@@ -1896,7 +1923,11 @@ cmd() { kubectl -n kube-system get pod "$1-$M" -o jsonpath='{range .spec.contain
 # 1-2. Hai loại thành phần, hai vị trí
 ssh "$W1" 'sudo journalctl -u kubelet --no-pager -n 10' > "$EV/b6-journal-kubelet.txt"
 test -s "$EV/b6-journal-kubelet.txt" && echo 'PASS: kubelet tren worker1 ghi journald'
-ssh "$W1" 'sudo test -e /var/log/kubelet.log' && echo 'FAIL: co /var/log/kubelet.log' || echo 'PASS: khong co /var/log/kubelet.log'
+case "$(ssh -o BatchMode=yes "$W1" 'sudo -n true && if sudo test -e /var/log/kubelet.log; then echo CO; else echo KHONG; fi')" in
+  KHONG) echo 'PASS: khong co /var/log/kubelet.log' ;;
+  CO)    echo 'FAIL: co /var/log/kubelet.log' ;;
+  *)     echo 'STOP: khong kiem duoc worker1 (ssh hoac sudo loi) — chua ket luan' ;;
+esac
 BAD=0
 for c in kube-apiserver kube-scheduler kube-controller-manager; do
   sudo ls -d /var/log/pods/kube-system_${c}-* >/dev/null 2>&1 || BAD=1
@@ -2263,6 +2294,8 @@ cat > ~/bookstore/tests/smoke.sh <<'EOF'
 # tra của smoke Lab 9b (node-agent và ServiceAccount của nó nay ở bookstore-system), thêm node-agent ở
 # bookstore-system, /logs.txt, NetworkPolicy của bookstore-system và metric. Không in mật khẩu.
 set -u
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd "$(dirname "$0")/.."
 NS=bookstore
 SYS=bookstore-system
@@ -2301,8 +2334,13 @@ for N in "$NS" "$TNS"; do
   dry_priv "$N" | grep -q "violates PodSecurity \"restricted:$PSA_VER\"" \
     && pass "$N tu choi Pod dac quyen" || fail "$N khong tu choi Pod dac quyen"
 done
-kubectl label --dry-run=server --overwrite ns "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1 \
-  | grep -q 'violate' && fail 'co Pod dang chay vi pham restricted' || pass 'moi Pod dang chay dat restricted'
+# Lệnh dry-run phải thành công thì "không có cảnh báo" mới có nghĩa: Forbidden, timeout hay lỗi
+# chứng chỉ là FAIL, không phải "sạch".
+if PSW="$(kubectl label --dry-run=server --overwrite ns "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1)"; then
+  echo "$PSW" | grep -q 'violate' && fail 'co Pod dang chay vi pham restricted' || pass 'moi Pod dang chay dat restricted'
+else
+  fail "khong hoi duoc Pod Security bang dry-run: $PSW"
+fi
 
 # 2. Object cấp cluster, label node (3a, 6a, 7a, 9a)
 PRIO="$(kubectl get priorityclass bookstore-critical -o jsonpath='{.value}' 2>/dev/null)"
@@ -2439,6 +2477,48 @@ else
   fail 'chay thu db-backup that bai'
 fi
 k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+# Hợp đồng ghi file backup (6a): đọc thẳng PVC, không tin log — tối đa 10 bản mỗi loại,
+# không còn file tạm cũ hơn một giờ.
+RD="smoke-doc-backup-$(date +%s)"
+k apply -f - >/dev/null 2>&1 <<POD
+apiVersion: v1
+kind: Pod
+metadata:
+  name: $RD
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: doc
+    image: busybox:1.37
+    command: ["sh", "-c", "ls -1 /backup; echo ---; find /backup -maxdepth 1 -name '*.tmp' -mmin +60"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: [ALL]}
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+    volumeMounts:
+    - {name: b, mountPath: /backup, readOnly: true}
+  volumes:
+  - name: b
+    persistentVolumeClaim: {claimName: backup-store, readOnly: true}
+POD
+if k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1; then
+  OUT="$(k logs "$RD" 2>/dev/null)"
+  NB="$(echo "$OUT" | sed '/^---$/,$d' | grep -c '^bookstore-.*\.sql$')"
+  NO="$(echo "$OUT" | sed '/^---$/,$d' | grep -Ec '^dbbackup-.*\.(sql|dump)$')"
+  NT="$(echo "$OUT" | sed '1,/^---$/d' | grep -c .)"
+  { [ "$NB" -le 10 ] && [ "$NO" -le 10 ] && [ "$NT" -eq 0 ]; } \
+    && pass "backup-store: $NB ban db-backup, $NO ban operator, khong file tam cu" \
+    || fail "backup-store sai hop dong 6a ($NB ban db-backup, $NO ban operator, $NT file tam cu)"
+else
+  fail 'khong doc duoc noi dung backup-store'
+fi
+k delete pod "$RD" --ignore-not-found --wait=false >/dev/null 2>&1
 [ "$(jp pvc/backup-store '{.status.phase}')" = 'Bound' ] && pass 'PVC backup-store Bound (sau lan chay thu)' || fail 'PVC backup-store chua Bound'
 
 # 11. Danh tính và quyền (9a, 9b); ServiceAccount node-agent chuyển sang bookstore-system (11a)
@@ -2495,7 +2575,7 @@ DEV='--as=dev --as-group=bookstore-devs'
 NODES="$(kubectl get nodes --no-headers | wc -l)"
 R="$(kubectl -n "$SYS" get daemonset node-agent -o jsonpath='{.status.numberReady}' 2>/dev/null)"
 [ "${R:-0}" -eq "$NODES" ] && pass "node-agent Ready tren $R/$NODES node" || fail "node-agent ${R:-0}/$NODES node"
-[ "$(k get daemonset,service,serviceaccount --field-selector metadata.name=node-agent --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl k get daemonset,service,serviceaccount --field-selector metadata.name=node-agent --no-headers)" -eq 0 ] \
   && pass 'khong con node-agent trong bookstore, ke ca ServiceAccount' || fail 'con node-agent trong bookstore'
 [ "$(kubectl -n "$SYS" get svc node-agent -o jsonpath='{.spec.internalTrafficPolicy}/{.spec.ports[0].port}' 2>/dev/null)" = 'Local/9100' ] \
   && pass 'Service node-agent Local, cong 9100' || fail 'Service node-agent sai'
@@ -2520,7 +2600,7 @@ done
 # 14. Metric (11a)
 [ "$(kubectl get apiservice v1beta1.metrics.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null)" = 'True' ] \
   && pass 'APIService v1beta1.metrics.k8s.io Available' || fail 'Metrics API chua Available'
-[ "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq "$NODES" ] && pass 'kubectl top node du moi node' || fail 'kubectl top node thieu node'
+[ "$(sl kubectl top node --no-headers)" -eq "$NODES" ] && pass 'kubectl top node du moi node' || fail 'kubectl top node thieu node'
 TOP=''
 for i in $(seq 1 18); do
   TOP="$(kubectl top pod -n "$NS" --no-headers 2>/dev/null)"
@@ -2593,6 +2673,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate cuối về repo, dự án và tính toàn vẹn của node:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore; EV=~/lab-evidence/11a
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
 git describe --tags --exact-match HEAD | grep -qx 'lab-11a' && echo 'PASS: HEAD mang tag lab-11a'
@@ -2606,7 +2688,7 @@ for F in 'adr/*-nguon-metric.md' 'adr/*-quyen-doc-metric.md' 'adr/*-metrics-serv
 done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ADR, postmortem va runbook cua sprint 17'
 grep -q 'TD-16' docs/tech-debt.md && grep -q 'TD-17' docs/tech-debt.md && echo 'PASS: tech-debt.md co TD-16, TD-17'
-test "$(kubectl get namespace,priorityclass,storageclass,clusterrole,clusterrolebinding -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 \
+test "$(sl kubectl get namespace,priorityclass,storageclass,clusterrole,clusterrolebinding -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 \
   && echo 'PASS: khong con object nao cua du an'
 test ! -e ~/lab-work/11a && echo 'PASS: da don lab-work'
 
@@ -2628,6 +2710,8 @@ diff -u "$EV/b0-config-sha.txt" "$EV/b8-config-sha.txt" \
    `03-storage-ready`:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 R="$(kubectl -n kube-system get deploy metrics-server -o jsonpath='{.status.readyReplicas}')"
 AV="$(kubectl get apiservice v1beta1.metrics.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')"
 { test "${R:-0}" -ge 1 && test "$AV" = 'True'; } && echo 'PASS: metrics-server Ready, Metrics API Available'
@@ -2635,7 +2719,7 @@ test -z "$(kubectl -n kube-system get deploy metrics-server -o jsonpath='{.metad
   && echo 'PASS: metrics-server khong mang label du an'
 test "$(kubectl top node --no-headers | wc -l)" -eq 3 && echo 'PASS: kubectl top node — dieu kien dau vao cua Lab 11b'
 test "$(kubectl top pod -n kube-system --no-headers | wc -l)" -gt 0 && echo 'PASS: kubectl top pod chay duoc'
-{ test "$(kubectl get pv --no-headers 2>/dev/null | wc -l)" -eq 0 && test "$(kubectl get pvc -A --no-headers 2>/dev/null | wc -l)" -eq 0; } \
+{ test "$(sl kubectl get pv --no-headers)" -eq 0 && test "$(sl kubectl get pvc -A --no-headers)" -eq 0; } \
   && echo 'PASS: khong con PV, PVC nao'
 SC="$(kubectl get sc -o jsonpath='{range .items[*]}{.metadata.name}={.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}')"
 { test "$(echo "$SC" | grep -c .)" -eq 1 && echo "$SC" | grep -q '=true$'; } && echo 'PASS: dung mot StorageClass mac dinh nhu 03-storage-ready'

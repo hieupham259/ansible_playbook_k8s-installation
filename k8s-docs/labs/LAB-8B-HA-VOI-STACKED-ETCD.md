@@ -125,7 +125,10 @@ Phần còn lại khoảng **4–5 giờ**, nên chia hai phiên:
   B11 là tùy chọn.
 
 Giữa hai phiên được phép tắt cả sáu VM theo [mục 2.3](#23-trình-tự-an-toàn-khi-tắt-và-bật-máy);
-mọi biến và hàm nằm trong `~/lab-work/8b/bien.sh` nên không phụ thuộc phiên shell.
+mọi biến và hàm nằm trong `~/lab-work/8b/bien.sh` nên không phụ thuộc phiên shell. Gate tiếp tục đầu
+phiên 3, trên `lab-ha-1`: chạy lại Script nghiệm thu của B6 — chỉ đọc, nó tự `source` file biến — và
+`git -C ~/bookstore status --porcelain` phải rỗng. Gate ngắn A5.5 và smoke là của cluster chính, không
+áp dụng cho bộ VM HA; Bookstore chỉ lên cluster này ở B7.
 
 Mọi bước phải chờ đều viết dưới dạng `kubectl wait --timeout` hoặc **vòng lặp có điều kiện dừng và
 số vòng tối đa**. Lab không cam kết con số giây nào cho việc hội tụ: thời gian phụ thuộc cấu hình
@@ -1867,10 +1870,23 @@ KEYS="$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.labels}{"\n"}
         | grep -o '"bookstore\.example\.com/[^"]*"' | tr -d '"' | sort -u || true)"
 for K in $KEYS; do kubectl label nodes --all "$K-" >/dev/null || true; done
 
-LEFT="$(kubectl get namespace,priorityclass,storageclass,persistentvolume -l "$SEL" --no-headers 2>/dev/null | wc -l)"
-LEFT_NS="$( { kubectl get all -A -l "$SEL" --no-headers
-              kubectl get configmaps,secrets,pvc -A -l "$SEL" --no-headers; } 2>/dev/null | wc -l)"
-LEFT_LB="$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.labels}{"\n"}{end}' | grep -c 'bookstore\.example\.com/' || true)"
+# Mỗi truy vấn kiểm kê chạy riêng và phải thành công: API không trả lời hay Forbidden thì dừng —
+# "không hỏi được" không bao giờ được đếm thành "không còn gì". dem <biến> <lệnh...> cộng số dòng
+# output của lệnh vào biến; hàm chạy trong shell chính nên exit dừng cả script.
+dem() {
+  local v="$1" out; shift
+  out="$("$@" 2>/dev/null)" || { echo "teardown: STOP - truy van loi, chua ket luan sach: $*"; exit 1; }
+  printf -v "$v" '%d' "$(( ${!v:-0} + $(printf '%s\n' "$out" | awk 'NF' | wc -l) ))"
+}
+node_labels() {   # node còn mang label bookstore.example.com/*; lấy dữ liệu trước, lọc sau
+  local l; l="$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.labels}{"\n"}{end}')" || return 1
+  printf '%s\n' "$l" | awk '/bookstore\.example\.com\//'
+}
+LEFT=0; LEFT_NS=0; LEFT_LB=0
+dem LEFT kubectl get namespace,priorityclass,storageclass,persistentvolume -l "$SEL" --no-headers
+dem LEFT_NS kubectl get all -A -l "$SEL" --no-headers
+dem LEFT_NS kubectl get configmaps,secrets,pvc -A -l "$SEL" --no-headers
+dem LEFT_LB node_labels
 if [ "$LEFT" -eq 0 ] && [ "$LEFT_NS" -eq 0 ] && [ "$LEFT_LB" -eq 0 ]; then
   echo 'teardown: sach'
 else
@@ -3199,6 +3215,8 @@ if ((Test-Path $b) -and ((Get-Item $b).Length -gt 0)) { "PASS: co $b" } else { "
 ### B13.3. Gỡ dự án và gate cluster HA còn nguyên vẹn
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 # Chay tren lab-ha-1
 source ~/lab-work/8b/bien.sh
 kubectl delete namespace lab-8b --ignore-not-found --wait=true --timeout=300s
@@ -3222,12 +3240,12 @@ grep -i -A6 'ha-lab' README.md | grep -c -e 'scripts/deploy-ha-lab.sh' -e 'scrip
   | grep -qx 3 && echo 'PASS: README.md ban giao ba lenh cua bo VM HA cho Lab 8c'
 
 grep -q 'teardown: sach' "$EV/b13-teardown.txt" && echo 'PASS: teardown-ha-lab go sach du an'
-{ [ "$(kubectl get namespace,priorityclass,storageclass,persistentvolume -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get namespace,priorityclass,storageclass,persistentvolume -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an'
 test "$(kubectl get namespace lab-8b --ignore-not-found -o name | wc -l)" -eq 0 && echo 'PASS: namespace lab-8b da bien mat'
-test "$(kubectl get pods -n default --no-headers 2>/dev/null | wc -l)" -eq 0 && echo 'PASS: namespace default khong con Pod'
-test "$(kubectl get svc -n default --no-headers 2>/dev/null | wc -l)" -eq 1 && echo 'PASS: default chi con Service kubernetes'
+test "$(sl kubectl get pods -n default --no-headers)" -eq 0 && echo 'PASS: namespace default khong con Pod'
+test "$(sl kubectl get svc -n default --no-headers)" -eq 1 && echo 'PASS: default chi con Service kubernetes'
 ```
 
 Bốn diễn tập đã tắt máy nhiều lần. Gate dưới đây chứng minh không lần nào để lại di chứng:

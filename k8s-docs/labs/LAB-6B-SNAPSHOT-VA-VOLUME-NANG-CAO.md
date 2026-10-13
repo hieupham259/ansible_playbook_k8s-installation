@@ -185,9 +185,16 @@ cat "$EV/b0-baseline.env"
 [ "$PV_BEFORE" -eq 0 ] && [ "$PVC_BEFORE" -eq 0 ] && echo 'PASS: chua co PV, PVC nao'
 R="$(kubectl -n local-path-storage get deployment local-path-provisioner -o jsonpath='{.status.readyReplicas}')"
 [ "${R:-0}" -ge 1 ] && echo 'PASS: local-path-provisioner dang chay'
+# Liệt kê /opt/local-path-provisioner trên worker. Thư mục gốc chưa từng có thì in rỗng, thoát 0;
+# lỗi ssh, sudo hay find thì thoát khác 0 — "không đọc được" không bao giờ được hiểu thành "rỗng".
+lp_ls() {
+  ssh -o BatchMode=yes "$1" \
+    'sudo -n test ! -e /opt/local-path-provisioner || sudo -n find /opt/local-path-provisioner -mindepth 1 -maxdepth 1'
+}
 for N in lab-k8s-worker1 lab-k8s-worker2; do
-  [ "$(ssh "$N" 'sudo ls -A /opt/local-path-provisioner 2>/dev/null | wc -l')" -eq 0 ] \
-    && echo "PASS: $N khong con thu muc du lieu cu"
+  if ! L="$(lp_ls "$N")"; then echo "STOP: khong kiem duoc $N (ssh, sudo hoac find loi)"
+  elif [ -z "$L" ]; then echo "PASS: $N khong con thu muc du lieu cu"
+  else echo "FAIL: $N con $(printf '%s\n' "$L" | grep -c .) muc trong /opt/local-path-provisioner"; fi
 done
 ```
 
@@ -975,6 +982,8 @@ local-path, con số đó không cấp phát đĩa thật nên không hại node
 <summary>Script nghiệm thu — chạy sau khi tự viết thu-500gi.yaml</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore-thu; EV=~/lab-evidence/6b; W=~/lab-work/6b
 . "$EV/b1-nang-luc.env"
 
@@ -1019,7 +1028,7 @@ fi
 
 # 3. Giới hạn volume theo node
 NODE_N="$(kubectl get nodes --no-headers | wc -l)"
-[ "$(kubectl get csinodes --no-headers 2>/dev/null | wc -l)" -eq "$NODE_N" ] && echo 'PASS: moi Node co dung mot CSINode'
+[ "$(sl kubectl get csinodes --no-headers)" -eq "$NODE_N" ] && echo 'PASS: moi Node co dung mot CSINode'
 kubectl get csinodes -o custom-columns='NODE:.metadata.name,DRIVER:.spec.drivers[*].name,COUNT:.spec.drivers[*].allocatable.count' \
   | tee "$EV/b3-csinode.txt"
 ENTRIES="$(kubectl get csinodes -o jsonpath='{range .items[*]}{range .spec.drivers[*]}{.name}{"\n"}{end}{end}' | grep -c .)"
@@ -1733,8 +1742,13 @@ kubectl get namespace "$RNS" >/dev/null 2>&1 && echo 'FAIL: namespace tam con' |
 read -r PVR PATHR < "$EV/b6-pv.txt"
 for i in $(seq 1 60); do kubectl get pv "$PVR" >/dev/null 2>&1 || break; sleep 5; done
 kubectl get pv "$PVR" >/dev/null 2>&1 && echo 'FAIL: PV cua DB tam con' || echo 'PASS: PV cua DB tam bien mat theo PVC (Delete)'
-ssh lab-k8s-worker2 "sudo test -e '$PATHR'" \
-  && echo 'FAIL: thu muc du lieu cua DB tam con tren worker2' || echo 'PASS: thu muc du lieu cua DB tam da duoc don'
+# Ba kết quả tách bạch: CON, MAT, hoặc rỗng khi ssh/sudo lỗi — rỗng không phải "đã dọn".
+case "$(ssh -o BatchMode=yes lab-k8s-worker2 \
+          "sudo -n true && if sudo test -e '$PATHR'; then echo CON; else echo MAT; fi")" in
+  MAT) echo 'PASS: thu muc du lieu cua DB tam da duoc don' ;;
+  CON) echo 'FAIL: thu muc du lieu cua DB tam con tren worker2' ;;
+  *)   echo 'STOP: khong kiem duoc worker2 (ssh hoac sudo loi) — chua ket luan, sua ket noi roi chay lai khoi C' ;;
+esac
 test ! -e "$W/restore.env" && echo 'PASS: da xoa restore.env'
 kubectl delete namespace bookstore-thu --ignore-not-found --wait=true
 kubectl get namespace bookstore-thu >/dev/null 2>&1 || echo 'PASS: namespace bookstore-thu da xoa'
@@ -2360,16 +2374,26 @@ spec:
   containers:
   - name: doc
     image: busybox:1.37
-    command: ["ls", "/backup"]
+    command: ["sh", "-c", "ls -1 /backup; echo ---; find /backup -maxdepth 1 -name '*.tmp' -mmin +60"]
     volumeMounts:
     - {name: b, mountPath: /backup, readOnly: true}
   volumes:
   - name: b
     persistentVolumeClaim: {claimName: backup-store, readOnly: true}
 POD
-  k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1
-  k logs "$RD" 2>/dev/null | grep -qx "$(basename "$F")" \
-    && pass 'ban dump van tren backup-store sau khi Job bi xoa' || fail 'khong thay ban dump tren backup-store'
+  # Hợp đồng ghi file backup (6a): đọc thẳng PVC, không tin log — tối đa 10 bản, không còn file tạm
+  # cũ hơn một giờ. Đọc PVC hỏng thì FAIL, không phải "0 bản".
+  if k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1; then
+    OUT="$(k logs "$RD" 2>/dev/null)"
+    echo "$OUT" | sed '/^---$/,$d' | grep -qx "$(basename "$F")" \
+      && pass 'ban dump van tren backup-store sau khi Job bi xoa' || fail 'khong thay ban dump tren backup-store'
+    NB="$(echo "$OUT" | sed '/^---$/,$d' | grep -c '^bookstore-.*\.sql$')"
+    NT="$(echo "$OUT" | sed '1,/^---$/d' | grep -c .)"
+    { [ "$NB" -le 10 ] && [ "$NT" -eq 0 ]; } && pass "backup-store giu $NB ban (toi da 10), khong file tam cu" \
+      || fail "backup-store sai hop dong 6a ($NB ban, $NT file tam cu)"
+  else
+    fail 'khong doc duoc noi dung backup-store'
+  fi
   k delete pod "$RD" --ignore-not-found --wait=false >/dev/null 2>&1
 fi
 
@@ -2395,10 +2419,13 @@ chmod +x ~/bookstore/tests/smoke.sh
 
 ```bash
 cd ~/bookstore
-kubectl get namespace bookstore-restore-test >/dev/null 2>&1 \
-  && echo 'FAIL: namespace dien tap bookstore-restore-test con sot' || echo 'PASS: khong con namespace dien tap'
-kubectl -n bookstore get pod backup-reader >/dev/null 2>&1 \
-  && echo 'FAIL: Pod doc ban dump backup-reader con sot' || echo 'PASS: khong con Pod doc ban dump'
+# --ignore-not-found: "không có" là output rỗng với mã 0; lỗi API là mã khác 0, không bị hiểu thành "không có".
+if R="$(kubectl get namespace bookstore-restore-test --ignore-not-found -o name)"; then
+  [ -z "$R" ] && echo 'PASS: khong con namespace dien tap' || echo 'FAIL: namespace dien tap bookstore-restore-test con sot'
+else echo 'STOP: khong hoi duoc API'; fi
+if R="$(kubectl -n bookstore get pod backup-reader --ignore-not-found -o name)"; then
+  [ -z "$R" ] && echo 'PASS: khong con Pod doc ban dump' || echo 'FAIL: Pod doc ban dump backup-reader con sot'
+else echo 'STOP: khong hoi duoc API'; fi
 ./scripts/teardown.sh && ./scripts/deploy.sh > ~/lab-evidence/6b/b8-deploy.txt 2>&1
 ./tests/smoke.sh > ~/lab-evidence/6b/b8-smoke.txt 2>&1; echo "smoke exit=$?"
 cat ~/lab-evidence/6b/b8-smoke.txt
@@ -2434,6 +2461,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 7. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore
 . ~/lab-evidence/6b/b0-baseline.env
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
@@ -2449,24 +2478,31 @@ grep 'TD-10' docs/tech-debt.md | grep -q 'chấp nhận có điều kiện' && e
 git grep -l 'PostgreSQL database dump' >/dev/null 2>&1 && echo 'FAIL: repo chua ban dump' || echo 'PASS: repo khong chua ban dump'
 ls ~/bookstore-backups/*.sql >/dev/null 2>&1 && echo 'PASS: co ban dump ngoai cluster tren master'
 
-{ [ "$(kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an'
-{ [ "$(kubectl get pv --no-headers 2>/dev/null | wc -l)" -eq "$PV_BEFORE" ] && \
-  [ "$(kubectl get pvc -A --no-headers 2>/dev/null | wc -l)" -eq "$PVC_BEFORE" ]; } \
+{ [ "$(sl kubectl get pv --no-headers)" -eq "$PV_BEFORE" ] && \
+  [ "$(sl kubectl get pvc -A --no-headers)" -eq "$PVC_BEFORE" ]; } \
   && echo "PASS: so PV, PVC ve dung muc dau lab ($PV_BEFORE, $PVC_BEFORE)"
 { [ "$(kubectl get storageclass -o name | sort | tr '\n' ' ')" = "$SC_BEFORE" ] && \
   [ "$(kubectl get storageclass --no-headers | awk '/\(default\)/{print $1}')" = "$SC_DEFAULT" ]; } \
   && echo "PASS: StorageClass ve dung 03-storage-ready ($SC_DEFAULT mac dinh)"
 [ "$(kubectl get namespace -o name | sort | tr '\n' ' ')" = "$NS_BEFORE" ] \
   && echo 'PASS: danh sach namespace khong doi — namespace cua provisioner con nguyen'
-{ [ "$(kubectl get csidriver --no-headers 2>/dev/null | wc -l)" -eq "$CSIDRIVER_BEFORE" ] && \
+{ [ "$(sl kubectl get csidriver --no-headers)" -eq "$CSIDRIVER_BEFORE" ] && \
   [ "$(kubectl get crd -o name 2>/dev/null | grep -c '\.snapshot\.storage\.k8s\.io$')" -eq "$SNAPCRD_BEFORE" ] && \
-  [ "$(kubectl get volumeattributesclass --no-headers 2>/dev/null | wc -l)" -eq "$VAC_BEFORE" ]; } \
+  [ "$(sl kubectl get volumeattributesclass --no-headers)" -eq "$VAC_BEFORE" ]; } \
   && echo 'PASS: lab khong cai them CSI driver, CRD snapshot hay VolumeAttributesClass'
+# Liệt kê /opt/local-path-provisioner trên worker. Thư mục gốc chưa từng có thì in rỗng, thoát 0;
+# lỗi ssh, sudo hay find thì thoát khác 0 — "không đọc được" không bao giờ được hiểu thành "rỗng".
+lp_ls() {
+  ssh -o BatchMode=yes "$1" \
+    'sudo -n test ! -e /opt/local-path-provisioner || sudo -n find /opt/local-path-provisioner -mindepth 1 -maxdepth 1'
+}
 for N in lab-k8s-worker1 lab-k8s-worker2; do
-  [ "$(ssh "$N" 'sudo ls -A /opt/local-path-provisioner 2>/dev/null | wc -l')" -eq 0 ] \
-    && echo "PASS: $N khong con thu muc du lieu nao"
+  if ! L="$(lp_ls "$N")"; then echo "STOP: khong kiem duoc $N (ssh, sudo hoac find loi) — khong chup snapshot"
+  elif [ -z "$L" ]; then echo "PASS: $N khong con thu muc du lieu nao"
+  else echo "FAIL: $N con $(printf '%s\n' "$L" | grep -c .) muc trong /opt/local-path-provisioner"; fi
 done
 test ! -e ~/lab-work/6b && echo 'PASS: da don lab-work'
 

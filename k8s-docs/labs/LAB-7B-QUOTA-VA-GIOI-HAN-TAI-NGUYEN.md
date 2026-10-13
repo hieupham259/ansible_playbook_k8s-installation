@@ -2074,6 +2074,48 @@ else
   fail 'chay thu db-backup that bai'
 fi
 k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+# Hợp đồng ghi file backup (6a): đọc thẳng PVC, không tin log — tối đa 10 bản mỗi loại,
+# không còn file tạm cũ hơn một giờ.
+RD="smoke-doc-backup-$(date +%s)"
+k apply -f - >/dev/null 2>&1 <<POD
+apiVersion: v1
+kind: Pod
+metadata:
+  name: $RD
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: doc
+    image: busybox:1.37
+    command: ["sh", "-c", "ls -1 /backup; echo ---; find /backup -maxdepth 1 -name '*.tmp' -mmin +60"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: [ALL]}
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+    volumeMounts:
+    - {name: b, mountPath: /backup, readOnly: true}
+  volumes:
+  - name: b
+    persistentVolumeClaim: {claimName: backup-store, readOnly: true}
+POD
+if k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1; then
+  OUT="$(k logs "$RD" 2>/dev/null)"
+  NB="$(echo "$OUT" | sed '/^---$/,$d' | grep -c '^bookstore-.*\.sql$')"
+  NO="$(echo "$OUT" | sed '/^---$/,$d' | grep -Ec '^dbbackup-.*\.(sql|dump)$')"
+  NT="$(echo "$OUT" | sed '1,/^---$/d' | grep -c .)"
+  { [ "$NB" -le 10 ] && [ "$NO" -le 10 ] && [ "$NT" -eq 0 ]; } \
+    && pass "backup-store: $NB ban db-backup, $NO ban operator, khong file tam cu" \
+    || fail "backup-store sai hop dong 6a ($NB ban db-backup, $NO ban operator, $NT file tam cu)"
+else
+  fail 'khong doc duoc noi dung backup-store'
+fi
+k delete pod "$RD" --ignore-not-found --wait=false >/dev/null 2>&1
 [ "$(jp pvc/backup-store '{.status.phase}')" = Bound ] && pass 'PVC backup-store Bound (sau lan chay thu)' || fail 'PVC backup-store chua Bound'
 NODES="$(kubectl get nodes --no-headers | wc -l)"
 [ "$(jp daemonset/node-agent '{.status.numberReady}')" = "$NODES" ] && pass "node-agent Ready tren $NODES node" || fail 'node-agent chua du node'
@@ -2123,6 +2165,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
 git describe --tags --exact-match HEAD | grep -qx 'lab-7b' && echo 'PASS: HEAD mang tag lab-7b'
@@ -2137,13 +2181,13 @@ for F in ngan-sach-namespace.md 'adr/*-ngan-sach-namespace.md' 'adr/*-limitrange
   ls docs/$F >/dev/null 2>&1 || { echo "FAIL: thieu docs/$F"; BAD=1; }
 done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ngan sach, ADR va postmortem cua sprint 11'
-{ [ "$(kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an'
-[ "$(kubectl get resourcequota,limitrange -A --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl kubectl get resourcequota,limitrange -A --no-headers)" -eq 0 ] \
   && echo 'PASS: khong con ResourceQuota, LimitRange nao trong cluster'
 [ -z "$(kubectl get nodes -l bookstore.example.com/data -o name)" ] && echo 'PASS: label du lieu da go khoi node'
-[ "$(kubectl get pv --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: khong con PV nao — dung 03-storage-ready'
+[ "$(sl kubectl get pv --no-headers)" -eq 0 ] && echo 'PASS: khong con PV nao — dung 03-storage-ready'
 test ! -e ~/lab-work/7b && echo 'PASS: da don lab-work'
 { echo "lab-k8s-master $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
   for n in lab-k8s-worker1 lab-k8s-worker2; do

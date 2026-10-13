@@ -282,8 +282,17 @@ SEL='app.kubernetes.io/part-of=bookstore'
 kubectl delete namespace -l "$SEL" --ignore-not-found --wait=true --timeout=300s
 kubectl delete pods,configmaps,secrets --all-namespaces -l "$SEL" --ignore-not-found --wait=true --timeout=120s
 kubectl delete priorityclass -l "$SEL" --ignore-not-found
-LEFT="$( { kubectl get namespace,priorityclass -l "$SEL" --no-headers
-           kubectl get pods,configmaps,secrets --all-namespaces -l "$SEL" --no-headers; } 2>/dev/null | wc -l)"
+# Mỗi truy vấn kiểm kê chạy riêng và phải thành công: API không trả lời hay Forbidden thì dừng —
+# "không hỏi được" không bao giờ được đếm thành "không còn gì". dem <biến> <lệnh...> cộng số dòng
+# output của lệnh vào biến; hàm chạy trong shell chính nên exit dừng cả script.
+dem() {
+  local v="$1" out; shift
+  out="$("$@" 2>/dev/null)" || { echo "teardown: STOP - truy van loi, chua ket luan sach: $*"; exit 1; }
+  printf -v "$v" '%d' "$(( ${!v:-0} + $(printf '%s\n' "$out" | awk 'NF' | wc -l) ))"
+}
+LEFT=0
+dem LEFT kubectl get namespace,priorityclass -l "$SEL" --no-headers
+dem LEFT kubectl get pods,configmaps,secrets --all-namespaces -l "$SEL" --no-headers
 if [ "$LEFT" -eq 0 ]; then echo 'teardown: sach'; else echo "teardown: con $LEFT object"; exit 1; fi
 EOF
 
@@ -2600,8 +2609,10 @@ git -C ~/bookstore describe --tags --exact-match HEAD | grep -qx 'lab-3b' && ech
 git -C ~/bookstore bundle verify ~/bookstore-lab-3b.bundle >/dev/null 2>&1 && echo 'PASS: bundle hop le'
 test "$(git -C ~/bookstore ls-files secrets)" = 'secrets/.gitkeep' && test -s ~/bookstore/secrets/db.env \
   && echo 'PASS: secrets/db.env con tren master, git khong theo doi'
-test "$( { kubectl get namespace,priorityclass -l "$SEL" --no-headers
-           kubectl get pods,configmaps,secrets -A -l "$SEL" --no-headers; } 2>/dev/null | wc -l)" -eq 0 \
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
+{ test "$(sl kubectl get namespace,priorityclass -l "$SEL" --no-headers)" -eq 0 \
+  && test "$(sl kubectl get pods,configmaps,secrets -A -l "$SEL" --no-headers)" -eq 0; } \
   && echo 'PASS: khong con object nao cua du an'
 test ! -e ~/lab-work/3b && echo 'PASS: da don lab-work'
 test "$(sudo grep -c -- '--encryption-provider-config' /etc/kubernetes/manifests/kube-apiserver.yaml || true)" = '0' \

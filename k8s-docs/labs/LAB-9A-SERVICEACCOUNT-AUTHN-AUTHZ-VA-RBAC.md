@@ -771,7 +771,8 @@ và là chỗ đầu tiên đặt nguyên tắc quyền tối thiểu lên một
 2. Mỗi lần backup thành công, ConfigMap có bốn key: `last-run` (thời điểm UTC dạng
    `2026-10-13T08:00:00Z`), `file` (đường dẫn bản dump), `bytes` (kích thước), `pod` (tên Pod đã chạy).
    Dòng log `db-backup: OK <file> <bytes> byte` chỉ in khi **cả** dump lẫn cập nhật trạng thái thành
-   công. Dump hỏng thì trạng thái giữ nguyên.
+   công. Dump hỏng thì trạng thái giữ nguyên. Hợp đồng ghi file của Lab 6a giữ nguyên dù tách
+   container: ghi tạm → kiểm → đổi tên, giữ tối đa 10 bản `bookstore-*.sql`, dọn file tạm bỏ dở.
 3. ServiceAccount `db-backup` chỉ được `get` và `patch` đúng ConfigMap tên `backup-status`: không sửa
    ConfigMap khác, không `list`, không `update`, không Secret.
 4. Token API chỉ có mặt trong **đúng một** container — container gọi API — sống tối đa 10 phút, và
@@ -926,6 +927,8 @@ kubectl -n "$NS" delete pod np-thu --wait=true
 <summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/9a
 cd ~/bookstore
 jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
@@ -979,7 +982,7 @@ kubectl -n "$NS" delete job "$J" --wait=true
 kubectl -n "$NS" exec deploy/web -c status-writer -- timeout 10 wget -qO- --no-check-certificate \
   https://kubernetes.default.svc/version >/dev/null 2>&1 \
   && echo 'FAIL: web toi duoc API server' || echo 'PASS: web van khong toi duoc API server'
-[ "$(kubectl get clusterrole,clusterrolebinding -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl kubectl get clusterrole,clusterrolebinding -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] \
   && echo 'PASS: du an khong co object RBAC cap cluster'
 ```
 
@@ -1105,9 +1108,12 @@ Spec Pod trong `jobTemplate` của CronJob `db-backup`. Phần `env` của `pg-d
               set -e
               echo "pg-dump: $(id)"
               grep NoNewPrivs /proc/self/status | sed 's/^/pg-dump: /'
+              find /backup -maxdepth 1 -name 'bookstore-*.sql.tmp' -mmin +60 -delete   # 6a
               F="/backup/bookstore-$(date +%Y%m%dT%H%M%S).sql"
-              pg_dump --no-owner --file="$F"
-              grep -q 'CREATE TABLE api.books' "$F"
+              pg_dump --no-owner --file="$F.tmp"                                   # 6a: ghi tạm
+              grep -q 'CREATE TABLE api.books' "$F.tmp"
+              mv "$F.tmp" "$F"                                       # 6a: chỉ đổi tên sau khi kiểm
+              ls -1t /backup/bookstore-*.sql | tail -n +11 | xargs -r rm -f        # 6a: giữ 10 bản
               B="$(wc -c < "$F")"
               printf 'FILE=%s\nBYTES=%s\n' "$F" "$B" > /run/backup/result
               echo "pg-dump: xong $F $B byte, chu so huu $(stat -c '%u:%g' "$F")"
@@ -1871,6 +1877,8 @@ object thật dùng dry-run. Không ghi token vào bằng chứng; phản hồi 
 <summary>Script nghiệm thu — script này chính là cuộc diễn tập; viết Job diễn tập trước</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/9a; W=~/lab-work/9a
 cd ~/bookstore
 SRV="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
@@ -1924,7 +1932,7 @@ kubectl -n "$NS" get events --field-selector involvedObject.name="$JN" \
 cat "$EV/b6-chang3-events.txt"
 { grep -q 'FailedCreate' "$EV/b6-chang3-events.txt" && grep -q 'error looking up service account' "$EV/b6-chang3-events.txt"; } \
   && echo 'PASS: chang 3 — Pod bi tu choi vi ServiceAccount khong ton tai'
-[ "$(kubectl -n "$NS" get pods -l batch.kubernetes.io/job-name="$JN" --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl kubectl -n "$NS" get pods -l batch.kubernetes.io/job-name="$JN" --no-headers)" -eq 0 ] \
   && echo 'PASS: Job ton tai nhung khong co Pod nao'
 [ "$(kubectl auth can-i create pods -n "$NS" --as=system:serviceaccount:kube-system:job-controller)" = yes ] \
   && echo 'PASS: chang 2 cho phep job-controller tao Pod — thu giet request nam o chang 3'
@@ -2485,6 +2493,48 @@ else
   fail 'chay thu db-backup that bai'
 fi
 k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+# Hợp đồng ghi file backup (6a): đọc thẳng PVC, không tin log — tối đa 10 bản mỗi loại,
+# không còn file tạm cũ hơn một giờ.
+RD="smoke-doc-backup-$(date +%s)"
+k apply -f - >/dev/null 2>&1 <<POD
+apiVersion: v1
+kind: Pod
+metadata:
+  name: $RD
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: doc
+    image: busybox:1.37
+    command: ["sh", "-c", "ls -1 /backup; echo ---; find /backup -maxdepth 1 -name '*.tmp' -mmin +60"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: [ALL]}
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+    volumeMounts:
+    - {name: b, mountPath: /backup, readOnly: true}
+  volumes:
+  - name: b
+    persistentVolumeClaim: {claimName: backup-store, readOnly: true}
+POD
+if k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1; then
+  OUT="$(k logs "$RD" 2>/dev/null)"
+  NB="$(echo "$OUT" | sed '/^---$/,$d' | grep -c '^bookstore-.*\.sql$')"
+  NO="$(echo "$OUT" | sed '/^---$/,$d' | grep -Ec '^dbbackup-.*\.(sql|dump)$')"
+  NT="$(echo "$OUT" | sed '1,/^---$/d' | grep -c .)"
+  { [ "$NB" -le 10 ] && [ "$NO" -le 10 ] && [ "$NT" -eq 0 ]; } \
+    && pass "backup-store: $NB ban db-backup, $NO ban operator, khong file tam cu" \
+    || fail "backup-store sai hop dong 6a ($NB ban db-backup, $NO ban operator, $NT file tam cu)"
+else
+  fail 'khong doc duoc noi dung backup-store'
+fi
+k delete pod "$RD" --ignore-not-found --wait=false >/dev/null 2>&1
 [ "$(jp pvc/backup-store '{.status.phase}')" = Bound ] && pass 'PVC backup-store Bound (sau lan chay thu)' || fail 'PVC backup-store chua Bound'
 
 # 8. Danh tính và quyền
@@ -2568,6 +2618,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore; EV=~/lab-evidence/9a; SEL=app.kubernetes.io/part-of=bookstore
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
 git describe --tags --exact-match HEAD | grep -qx 'lab-9a' && echo 'PASS: HEAD mang tag lab-9a'
@@ -2585,8 +2637,8 @@ done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ADR, postmortem, runbook cua sprint 15'
 grep -q 'TD-15' docs/tech-debt.md && grep 'TD-07' docs/tech-debt.md | grep -q '9a' && echo 'PASS: tech-debt.md cap nhat TD-07, TD-15'
 
-{ [ "$(kubectl get namespace,priorityclass,storageclass,clusterrole,clusterrolebinding -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all,configmaps,secrets,serviceaccounts,roles,rolebindings,networkpolicies -A -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get namespace,priorityclass,storageclass,clusterrole,clusterrolebinding -l "$SEL" --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all,configmaps,secrets,serviceaccounts,roles,rolebindings,networkpolicies -A -l "$SEL" --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an, ke ca RBAC'
 test -z "$(kubectl get nodes -l bookstore.example.com/data -o name)" && echo 'PASS: label node cua du an da go'
 { echo "clusterrole=$(kubectl get clusterrole --no-headers | wc -l)"

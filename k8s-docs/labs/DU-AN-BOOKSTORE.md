@@ -117,7 +117,7 @@ Các vấn đề đã ghi nhận:
 | R14 | Mọi Pod đạt Pod Security Standard `restricted`; có mô hình nhiều tenant | Lab 9b |
 | R15 | Có metric, log tập trung theo node, và quy trình chẩn đoán | Lab 11a |
 | R16 | Tầng web tự co giãn theo tải | Lab 11b |
-| R17 | Bảo trì node không làm gián đoạn dịch vụ | Lab 12 |
+| R17 | Bảo trì node có kế hoạch: bảo trì `lab-k8s-worker1` không làm rơi request nào ở tầng ứng dụng (`web`, `api`) trên đường đo của mục 3.1; bảo trì `lab-k8s-worker2` — node của `db` — trong cửa sổ bảo trì, downtime của DB được đo và dữ liệu giữ nguyên. Đường vào chưa HA nằm ngoài yêu cầu này (`TD-18`) | Lab 12 |
 | R18 | Đánh giá được khả năng dùng thiết bị chuyên dụng cho tính năng tương lai | Lab 13 (tùy chọn) |
 | R19 | Backup được vận hành bằng API khai báo của chính dự án | Lab 14 |
 
@@ -160,6 +160,16 @@ cho biết sau mỗi lab hệ thống trông như thế nào.
  Nền cluster: Calico (5b) · Traefik (5b) · local-path-provisioner (6a) · metrics-server (11a)
 ```
 
+**Đường vào đã định.** Có hai đường tới Traefik, và chúng không chịu bảo trì giống nhau:
+
+- **Đường đo** — NodePort HTTPS của Traefik trên IP của `lab-k8s-master`, Host `bookstore.lab.local`.
+  Master không bao giờ bị bảo trì trong chuỗi chính, nên đây là đường Lab 12 đo và `R17` dùng. Traefik
+  chỉ có một bản sao: nếu Pod của nó nằm trên worker đang bảo trì thì đường đo cũng rơi request vài
+  giây. Lỗi đó thuộc tầng ingress của hạ tầng nền, không thuộc tầng ứng dụng — nợ `TD-18`.
+- **Đường trình duyệt** — file hosts trên máy host Windows trỏ tới IP **một** worker. Bảo trì đúng
+  worker đó thì trình duyệt mất kết nối dù `web` vẫn chạy trên node kia. Cũng là nợ `TD-18`, không nằm
+  trong cam kết của `R17`.
+
 ### 3.2. Thành phần ứng dụng
 
 | Thành phần | Workload cuối | Image | Vai trò | Xuất hiện |
@@ -195,6 +205,13 @@ Flannel từ Lab 3a tới Lab 5a. NetworkPolicy viết ở Lab 5a hợp lệ nh�
 `TD-09`). Lab 5b chứng minh điều đó trước, rồi gỡ dự án, đổi CNI sang Calico và chụp `02-net-ready`.
 Từ Lab 6a trở đi, mọi snapshot đều chạy Calico. Kiến trúc đích ở mục 3.1 là trạng thái sau Lab 14,
 nên chỉ có Calico.
+
+Việc đổi CNI trên cluster đang chạy ở Lab 5b là **thí nghiệm trên môi trường hủy được**, không phải
+quy trình nhà phát hành hỗ trợ: trang
+[System requirements của Calico](https://docs.tigera.io/calico/3.32/getting-started/kubernetes/requirements)
+nói cluster đã dùng CNI khác thì không migrate sang Calico được. Lab 5b có snapshot `01-cluster-ready`
+làm đường lùi và bắt lưu bằng chứng từng bước. Cluster thật cần Calico thì dựng mới với Calico từ đầu
+— đúng đường Lab 8a đi.
 
 Repo dự án giữ **ghi chép** cách cài các thành phần này trong thư mục `platform/` (xem
 [mục 5.1](#51-vị-trí-và-cấu-trúc)) để Lab 8a dựng lại cluster được từ repo.
@@ -289,8 +306,8 @@ Ràng buộc lập lịch đích:
 | Xóa nhầm StatefulSet hoặc PVC | Dữ liệu còn trên PV `Retain`; khôi phục được | 6a |
 | Mất toàn bộ cluster | Dựng lại bằng kubeadm, cài nền, triển khai từ repo, khôi phục từ bản dump | 8a |
 | Mất một control plane (HA) | API vẫn trả lời; mất quorum thì workload đang chạy vẫn phục vụ | 8b, 8c |
-| Bảo trì `lab-k8s-worker1` | `web`, `api` không gián đoạn nhờ PDB và bản sao trên node kia | 12 |
-| Bảo trì `lab-k8s-worker2` | `db` gián đoạn **có kế hoạch** trong cửa sổ bảo trì: PV local gắn node nên `db-0` không chuyển được | 12 |
+| Bảo trì `lab-k8s-worker1` | `web`, `api` không làm rơi request **trên đường đo** của mục 3.1 nhờ PDB, bản sao trên node kia và tắt êm (`preStop` của nginx và `api`); mọi request lỗi đo được phải phân loại theo tầng. Traefik một bản sao bị evict, hay trình duyệt trỏ file hosts vào worker1, là lỗi của đường vào (`TD-18`) | 12 |
+| Bảo trì `lab-k8s-worker2` | `db` gián đoạn **có kế hoạch** trong cửa sổ bảo trì: PV local gắn node nên `db-0` không chuyển được. Downtime của `/api/books` được đo, dữ liệu sau cửa sổ giữ nguyên; bảo trì không downtime là nợ `TD-19` | 12 |
 
 ---
 
@@ -370,6 +387,7 @@ workload.
 | `node-agent` | 9100 (`http`) | `/node.json` | JSON `node`, `load`, `updated` của node mà agent đang chạy |
 | | | `/logs.txt` | Từ 11a: văn bản thuần liệt kê file log của Pod `bookstore` trên node đó |
 | `db-backup` | — | — | Mỗi lần chạy thành công in một dòng log bắt đầu bằng `db-backup: OK` |
+| `db-backup`, Job của `backup-operator` | — | `/backup` trên PVC `backup-store` | Từ 6a: ghi file tạm → kiểm file có bảng `api.books` → mới đổi sang tên chính thức; giữ tối đa 10 bản mỗi loại (`bookstore-*.sql` của CronJob, `dbbackup-*` của operator); dọn file tạm bỏ dở cũ hơn một giờ. Sprint nào đổi cách chạy backup cũng phải giữ hợp đồng này |
 
 Service (từ 5a): `web` cổng 80 → `http`; `api` cổng 3000 → `http`; `db` headless, cổng 5432;
 `node-agent` cổng 9100 → `http` với `internalTrafficPolicy: Local`.
@@ -528,7 +546,7 @@ khai đi qua `deploy.sh` (Lab 3b, ADR 0007).
 | 9b | label Pod Security trên namespace (bước trung gian `enforce: baseline` rồi `restricted`); `k8s/tenants/staging/` (chỉ chạy `web`, `staging-quota`, `staging-limits`, Role `staging-developer`, NetworkPolicy cô lập); `docs/security-review.md`, `docs/pss-kiem-ke.md` | áp thêm `k8s/tenants/*`; `deploy.sh` coi cảnh báo Pod Security là lỗi |
 | 11a | `k8s/system/` (namespace `bookstore-system`, `node-agent` cùng ServiceAccount của nó chuyển sang đây); `platform/metrics-server/` | áp `k8s/system` trước `k8s/app` |
 | 11b | `k8s/app/web/hpa.yaml`; bỏ `replicas` khỏi Deployment `web`; công cụ tải `tests/load/` | không đổi; `smoke.sh` chờ HPA đưa `web` lên min |
-| 12 | `tests/availability-probe.sh`, `tests/availability-report.sh`; `docs/runbook-bao-tri-node.md`; ⭐ `preStop` cho `api` | không đổi |
+| 12 | `tests/availability-probe.sh`, `tests/availability-report.sh`; `docs/runbook-bao-tri-node.md`; `preStop` cho `api` | không đổi |
 | 13 | chỉ `docs/` (ADR, bản nháp `docs/dra/*.draft.yaml`) | không đổi |
 | 14 | `k8s/cluster/crd-dbbackup.yaml`; `scripts/backup-operator.sh` (`run` mặc định, `once`, `start`, `stop`, `restart`, `status`); `k8s/app/rbac/backup-operator.yaml`; DbBackup `baseline` trong `k8s/app`; quota nâng `count/jobs.batch` lên 16, thêm `count/dbbackups.bookstore.example.com` | CRD được áp và chờ `Established` trước mọi custom resource; `deploy.sh` khởi động operator và chờ `baseline` thành công; `teardown.sh` dừng operator, xóa custom resource trước CRD |
 
@@ -557,9 +575,9 @@ Mỗi ticket là một mục `B<n>` có cấu trúc cố định:
 | Phần | Nội dung |
 | --- | --- |
 | Tiêu đề | `## B<n>. [BS-<mã lab>-<nn>] <tên ticket>` |
-| **Loại** | *Tính năng* (thay đổi hệ thống), *Điều tra* (thí nghiệm để trả lời một câu hỏi thiết kế), *Diễn tập sự cố* (cố ý gây lỗi trên `lab-k8s-worker2` rồi chẩn đoán), hoặc *Vận hành* (thay đổi hạ tầng nền) |
+| **Loại** | *Tính năng* (thay đổi hệ thống), *Điều tra* (thí nghiệm để trả lời một câu hỏi thiết kế), *Diễn tập sự cố* (cố ý gây lỗi trên `lab-k8s-worker2` rồi chẩn đoán — ngoại lệ 8a, 8b, 8c ở [README mục 7.3](README.md#73-nguyên-tắc-thiết-kế)), hoặc *Vận hành* (thay đổi hạ tầng nền) |
 | **Bối cảnh** | Vì sao dự án cần việc này lúc này |
-| **Yêu cầu** | Điều phải đúng khi xong, viết theo hành vi |
+| **Yêu cầu** | Điều phải đúng khi xong, viết theo hành vi. Được nêu nguyên văn: hợp đồng ở mục 4 và **cơ chế bắt buộc** của bài học (ví dụ `nodeSelector` thay `nodeName` ở 3a). Cách làm còn lại là lựa chọn của người học — xem [nguyên tắc 3 ở README mục 7.3](README.md#73-nguyên-tắc-thiết-kế) |
 | **Ràng buộc** | Giới hạn về kiến thức, node, tên, cách làm |
 | **Đọc lại** | Mục cụ thể trong bài dịch cần đọc lại trước khi làm |
 | **Bàn giao** | File trong repo, file bằng chứng |
@@ -577,6 +595,10 @@ Trình tự làm:
 4. Trả lời **Câu hỏi thiết kế** vào repo.
 5. Mở **Lời giải tham khảo**, so với cách của bạn. Khác nhau không có nghĩa là sai — miễn script
    nghiệm thu PASS và bạn giải thích được lựa chọn.
+
+Script nghiệm thu kiểm hợp đồng, cơ chế bắt buộc và hành vi; nó xác nhận **đã bàn giao**, không chứng
+minh lập luận đúng. File ADR có mặt, có từ khóa, chưa phải là ADR tốt — câu hỏi thiết kế và checkpoint
+vấn đáp mới đánh giá lập luận.
 
 ### 6.3. Đóng sprint
 
@@ -734,7 +756,8 @@ Nhóm bài [5 — phần Service/DNS](../00-ALO-TRINH-ADMIN.md#giai-đoạn-5--m
 
 - Service headless `db` (trả nợ lab #3), `api` dùng `db-0.db`; Service `api`; nginx proxy `/api/`;
   Service `web` NodePort `30080`. Bỏ hẳn việc chèn IP lúc triển khai — trả `TD-03`.
-- EndpointSlice: Pod NotReady bị gỡ khỏi Service (trả nợ lab của 3a).
+- EndpointSlice: Pod NotReady bị loại khỏi tập backend sẵn sàng nhận lưu lượng — endpoint còn, mang
+  `ready=false`; khác với gỡ selector hay xóa Pod, khi endpoint mất hẳn (trả nợ lab của 3a).
 - DNS: `ndots:5`, FQDN, `hostname`/`subdomain`.
 - Kustomize đầy đủ, `configMapGenerator` gây rollout khi cấu hình đổi.
 - Canary chia lưu lượng thật (trả nợ của 4a); Service `node-agent` với
@@ -854,10 +877,12 @@ Nhóm bài [11](../00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability).
 - Job sinh tải có trần; quan sát scale lên, scale xuống, `behavior`.
 - Xung đột với `kubectl scale` và với `kubectl apply`. Trả nợ lab #1 phần HPA.
 
-#### Sprint 19 — Lab 12: Bảo trì node
+#### Sprint 19 — Lab 12: Bảo trì node có kế hoạch
 
-- Bảo trì `lab-k8s-worker1`: cordon → drain → tắt → bật → uncordon; đo sẵn sàng qua Ingress.
-- Bảo trì `lab-k8s-worker2` nơi có `db` và PV cục bộ: cửa sổ bảo trì, ADR.
+- Bảo trì `lab-k8s-worker1`: cordon → drain → tắt → bật → uncordon; đo sẵn sàng liên tục trên đường
+  đo của [mục 3.1](#31-sơ-đồ-tổng-thể).
+- Bảo trì `lab-k8s-worker2` nơi có `db` và PV cục bộ: cửa sổ bảo trì, đo downtime, đối chiếu dữ liệu
+  trước và sau, ADR.
 - Graceful node shutdown, swap, add-on, Lease; phase `Unknown` (trả nợ lab của 3a). Nợ lab #7
   vẫn mở.
 

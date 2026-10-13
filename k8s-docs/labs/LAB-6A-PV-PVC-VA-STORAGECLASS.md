@@ -334,9 +334,16 @@ for i in $(seq 1 60); do U1="$(jp pod/db-0 '{.metadata.uid}')"; [ -n "$U1" ] && 
 kubectl -n "$NS" wait --for=condition=Ready pod/db-0 --timeout=300s
 echo "uid cu=$U0 ; uid moi=$U1" >> "$EV/b1-don-hang.txt"
 [ "$U1" != "$U0" ] && echo 'PASS: StatefulSet tao lai db-0 cung ten, khac UID'
-for i in $(seq 1 30); do ssh lab-k8s-worker2 "sudo test -d '$DIR'" || break; sleep 2; done
-ssh lab-k8s-worker2 "sudo test -d '$DIR'" \
-  && echo 'FAIL: thu muc emptyDir cua Pod cu van con' || echo 'PASS: thu muc emptyDir cua Pod cu da bi xoa khoi node'
+# Ba kết quả tách bạch: CON, MAT, hoặc rỗng khi ssh/sudo lỗi — rỗng không phải "đã bị xóa".
+con_dir() {
+  ssh -o BatchMode=yes lab-k8s-worker2 "sudo -n true && if sudo test -d '$DIR'; then echo CON; else echo MAT; fi"
+}
+for i in $(seq 1 30); do [ "$(con_dir)" = CON ] || break; sleep 2; done
+case "$(con_dir)" in
+  MAT) echo 'PASS: thu muc emptyDir cua Pod cu da bi xoa khoi node' ;;
+  CON) echo 'FAIL: thu muc emptyDir cua Pod cu van con' ;;
+  *)   echo 'STOP: khong kiem duoc worker2 (ssh hoac sudo loi) — chua ket luan' ;;
+esac
 NA="$(SQL 'SELECT count(*) FROM api.books')"
 echo "so sach sau khi thay Pod=$NA" >> "$EV/b1-don-hang.txt"
 { ! con_don && [ "${NA:-0}" -lt "$NB" ]; } && echo "PASS: don hang $ID mat, so sach tu $NB tut ve $NA"
@@ -854,6 +861,13 @@ workers() {
   kubectl get nodes -l '!node-role.kubernetes.io/control-plane' \
     -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'
 }
+# Liệt kê thư mục dữ liệu của dự án trên một worker. Thư mục gốc chưa từng có nghĩa là không có gì;
+# lỗi ssh, sudo hay find thì trả mã khác 0 — "không kiểm được" không bao giờ được hiểu thành
+# "không còn gì".
+dirs_on() {
+  ssh -o BatchMode=yes "$1" \
+    "sudo -n test ! -e $BASE || sudo find $BASE -mindepth 1 -maxdepth 1 -name '*_${NS}_*'"
+}
 
 # 1. db tắt êm trước khi xóa (bài 65, mục Hạn chế).
 if kubectl -n "$NS" get statefulset db >/dev/null 2>&1; then
@@ -877,8 +891,11 @@ done
 
 # 4. Thư mục dữ liệu trên node, chỉ sau khi PV đã bị xóa. Thư mục volume tên <PV>_<namespace>_<PVC>,
 #    nên mẫu *_bookstore_* chỉ khớp dữ liệu của namespace bookstore.
-for N in $(workers); do
-  ssh -o BatchMode=yes "$N" "sudo sh -c 'rm -rf $BASE/*_${NS}_*'"
+WS="$(workers)" && [ -n "$WS" ] \
+  || { echo 'teardown: STOP - khong lay duoc danh sach worker tu API server'; exit 1; }
+for N in $WS; do
+  ssh -o BatchMode=yes "$N" "sudo -n sh -c 'rm -rf $BASE/*_${NS}_*'" \
+    || { echo "teardown: STOP - khong xoa duoc thu muc du lieu tren $N (ssh hoac sudo loi)"; exit 1; }
 done
 
 # 5. Object cấp cluster.
@@ -886,14 +903,26 @@ kubectl delete storageclass "$SC" --ignore-not-found
 kubectl delete storageclass,priorityclass -l "$SEL" --ignore-not-found
 
 # 6. Tự kiểm.
-LEFT="$( { kubectl get namespace,priorityclass,storageclass -l "$SEL" --no-headers
-           kubectl get storageclass "$SC" --no-headers --ignore-not-found
-           kubectl get "all,$KINDS,endpointslices" -A -l "$SEL" --no-headers
-           pv_du_an; } 2>/dev/null | wc -l)"
+# Mỗi truy vấn kiểm kê chạy riêng và phải thành công: API không trả lời hay Forbidden thì dừng —
+# "không hỏi được" không bao giờ được đếm thành "không còn gì". dem <biến> <lệnh...> cộng số dòng
+# output của lệnh vào biến; hàm chạy trong shell chính nên exit dừng cả script.
+dem() {
+  local v="$1" out; shift
+  out="$("$@" 2>/dev/null)" || { echo "teardown: STOP - truy van loi, chua ket luan sach: $*"; exit 1; }
+  printf -v "$v" '%d' "$(( ${!v:-0} + $(printf '%s\n' "$out" | awk 'NF' | wc -l) ))"
+}
+LEFT=0
+dem LEFT kubectl get namespace,priorityclass,storageclass -l "$SEL" --no-headers
+dem LEFT kubectl get storageclass "$SC" --no-headers --ignore-not-found
+dem LEFT kubectl get "all,$KINDS,endpointslices" -A -l "$SEL" --no-headers
+dem LEFT pv_du_an
+# Mỗi worker cho một trong ba kết quả: còn thư mục, đã xác nhận không còn, hoặc không kiểm được.
+# Kết quả thứ ba dừng script: chưa kết luận sạch thì không được chụp snapshot.
 DIRS=0
-for N in $(workers); do
-  D="$(ssh -o BatchMode=yes "$N" "sudo sh -c 'ls -d $BASE/*_${NS}_* 2>/dev/null | wc -l'")"
-  DIRS=$((DIRS + D))
+for N in $WS; do
+  L="$(dirs_on "$N")" \
+    || { echo "teardown: STOP - khong kiem duoc thu muc du lieu tren $N; chua ket luan sach, KHONG chup snapshot"; exit 1; }
+  DIRS=$((DIRS + $(printf '%s\n' "$L" | grep -c . || true)))
 done
 if [ "$LEFT" -eq 0 ] && [ "$DIRS" -eq 0 ]; then
   echo 'teardown: sach'
@@ -1201,7 +1230,8 @@ là một quyết định thiết kế, không phải chi tiết.
    `k8s/app/kustomization.yaml`.
 2. CronJob `db-backup` ghi bản dump vào PVC đó, mount tại `/backup`, thay cho `emptyDir`. Mỗi lần
    chạy: dump ra file tạm, kiểm file có bảng `api.books`, rồi mới đổi sang tên chính thức — một bản dở
-   dang không bao giờ mang tên của bản hoàn chỉnh; giữ tối đa **10** bản mới nhất; in đúng một dòng
+   dang không bao giờ mang tên của bản hoàn chỉnh; giữ tối đa **10** bản mới nhất; file tạm bỏ dở của
+   một lần chạy hỏng trước đó (cũ hơn một giờ) được dọn; in đúng một dòng
    `db-backup: OK <đường dẫn file> <số byte> byte`. Lịch, `concurrencyPolicy`,
    `startingDeadlineSeconds`, giới hạn lịch sử, số lần thử lại của Lab 4b giữ nguyên.
 3. Pod của Job backup chạy trên một worker **chọn có chủ đích**, ghim bằng `nodeSelector`; PV của
@@ -1244,6 +1274,10 @@ là một quyết định thiết kế, không phải chi tiết.
 - `PASS:` xóa hai Job rồi, cả hai bản dump vẫn nằm trên PVC.
 - `PASS:` `thu-doc-backup` tự lên node của PV và đọc được dump; một Job backup chạy thành công trong
   lúc nó đang mount PVC.
+- `PASS:` sau hơn 10 lần chạy, PVC giữ đúng tối đa 10 bản `bookstore-*.sql` — đếm bằng file trên PVC,
+  không bằng log.
+- `PASS:` một lần chạy không kết nối được DB thì Job `Failed` và **không** sinh thêm file nào mang tên
+  bản hoàn chỉnh.
 - `PASS:` `thu-sai-node` `Pending`, lý do nhắc tới xung đột node affinity của volume; hai Pod thử
   nghiệm đã xóa.
 - `PASS:` `docs/tech-debt.md` có `TD-08` đã trả và `TD-10`.
@@ -1324,6 +1358,28 @@ grep -q '^db-backup: OK' "$EV/b4-backup-3.txt" \
   && echo 'PASS: Job ghi thanh cong trong luc Pod khac dang mount PVC tren cung node'
 kubectl -n "$NS" delete job thu-backup-3 --wait=true
 
+# Giữ tối đa 10 bản: chạy tuần tự thêm 9 lần (tổng 12), đếm bằng file trên PVC.
+dem() { kubectl -n "$NS" exec thu-doc-backup -- sh -c 'ls -1 /backup/bookstore-*.sql 2>/dev/null | wc -l'; }
+: > "$EV/b4-backup-nhieu.txt"
+for i in $(seq 4 12); do chay "thu-backup-$i" >> "$EV/b4-backup-nhieu.txt" 2>&1; sleep 1; done
+kubectl -n "$NS" get job -o name | grep '/thu-backup-' | xargs -r kubectl -n "$NS" delete --wait=true
+N="$(dem)"; echo "so ban bookstore-*.sql tren PVC: $N" | tee "$EV/b4-retention.txt"
+{ [ "$(grep -c '^db-backup: OK' "$EV/b4-backup-nhieu.txt")" -eq 9 ] && [ "$N" -eq 10 ]; } \
+  && echo 'PASS: sau 12 lan chay PVC giu dung 10 ban'
+
+# Một lần dump thất bại: PGHOST trỏ tới tên không tồn tại; Job phải Failed, không thêm bản hoàn chỉnh.
+TRUOC="$(kubectl -n "$NS" exec thu-doc-backup -- ls -1 /backup | sort)"
+kubectl -n "$NS" create job thu-backup-loi --from=cronjob/db-backup --dry-run=client -o yaml \
+  | kubectl set env --local -f - PGHOST=khong-ton-tai.invalid -o yaml \
+  | kubectl apply -f - >/dev/null
+kubectl -n "$NS" wait --for=condition=Failed job/thu-backup-loi --timeout=300s >/dev/null \
+  && echo 'PASS: Job backup khong ket noi duoc DB thi Failed'
+SAU="$(kubectl -n "$NS" exec thu-doc-backup -- ls -1 /backup | sort)"
+MOI="$(comm -13 <(echo "$TRUOC") <(echo "$SAU") | grep -E '^bookstore-.*\.sql$' || true)"
+echo "file moi sau lan chay loi: [${MOI}]" | tee -a "$EV/b4-retention.txt"
+[ -z "$MOI" ] && echo 'PASS: lan dump loi khong sinh file mang ten ban hoan chinh'
+kubectl -n "$NS" delete job thu-backup-loi --wait=true
+
 kubectl apply -f "$W/thu-sai-node.yaml"
 sleep 15
 kubectl -n "$NS" describe pod thu-sai-node > "$EV/b4-sai-node.txt" 2>&1
@@ -1394,6 +1450,7 @@ tag `lab-5b`. `PGHOST` giữ đúng giá trị ở tag `lab-5b` của bạn (t�
             - -c
             - |
               set -e
+              find /backup -maxdepth 1 -name 'bookstore-*.sql.tmp' -mmin +60 -delete
               F="/backup/bookstore-$(date +%Y%m%dT%H%M%S).sql"
               pg_dump --no-owner --file="$F.tmp"
               grep -q 'CREATE TABLE api.books' "$F.tmp"
@@ -2419,8 +2476,11 @@ N="$(jp pod/thu-eph '{.spec.nodeName}')"; PV="$(jp pvc/thu-eph-scratch '{.spec.v
   && echo "PASS: PVC <Pod>-<volume> do controller tao, Pod la chu, thu muc tren $N"
 kubectl -n "$NS" delete pod thu-eph --wait=true
 for i in $(seq 1 60); do { kubectl -n "$NS" get pvc thu-eph-scratch || kubectl get pv "$PV"; } >/dev/null 2>&1 || break; sleep 2; done
+# Thư mục trên node: CON, MAT, hoặc rỗng khi ssh/sudo lỗi — rỗng không phải "đã mất".
+TM="$(ssh -o BatchMode=yes "$N" "sudo -n true && if sudo sh -c 'ls -d /opt/local-path-provisioner/*_bookstore_thu-eph-scratch' >/dev/null 2>&1; then echo CON; else echo MAT; fi")"
+[ -n "$TM" ] || echo "STOP: khong kiem duoc $N (ssh hoac sudo loi) — chua ket luan"
 { ! kubectl -n "$NS" get pvc thu-eph-scratch >/dev/null 2>&1 && ! kubectl get pv "$PV" >/dev/null 2>&1 && \
-  ! ssh "$N" "sudo sh -c 'ls -d /opt/local-path-provisioner/*_bookstore_thu-eph-scratch'" >/dev/null 2>&1; } \
+  [ "$TM" = MAT ]; } \
   && echo 'PASS: xoa Pod thi PVC, PV va thu muc tren node deu mat'
 
 kubectl apply -f - <<'EOF'
@@ -2709,16 +2769,26 @@ spec:
   containers:
   - name: doc
     image: busybox:1.37
-    command: ["ls", "/backup"]
+    command: ["sh", "-c", "ls -1 /backup; echo ---; find /backup -maxdepth 1 -name '*.tmp' -mmin +60"]
     volumeMounts:
     - {name: b, mountPath: /backup, readOnly: true}
   volumes:
   - name: b
     persistentVolumeClaim: {claimName: backup-store, readOnly: true}
 POD
-  k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1
-  k logs "$RD" 2>/dev/null | grep -qx "$(basename "$F")" \
-    && pass 'ban dump van tren backup-store sau khi Job bi xoa' || fail 'khong thay ban dump tren backup-store'
+  # Hợp đồng ghi file backup (6a): đọc thẳng PVC, không tin log — tối đa 10 bản, không còn file tạm
+  # cũ hơn một giờ. Đọc PVC hỏng thì FAIL, không phải "0 bản".
+  if k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1; then
+    OUT="$(k logs "$RD" 2>/dev/null)"
+    echo "$OUT" | sed '/^---$/,$d' | grep -qx "$(basename "$F")" \
+      && pass 'ban dump van tren backup-store sau khi Job bi xoa' || fail 'khong thay ban dump tren backup-store'
+    NB="$(echo "$OUT" | sed '/^---$/,$d' | grep -c '^bookstore-.*\.sql$')"
+    NT="$(echo "$OUT" | sed '1,/^---$/d' | grep -c .)"
+    { [ "$NB" -le 10 ] && [ "$NT" -eq 0 ]; } && pass "backup-store giu $NB ban (toi da 10), khong file tam cu" \
+      || fail "backup-store sai hop dong 6a ($NB ban, $NT file tam cu)"
+  else
+    fail 'khong doc duoc noi dung backup-store'
+  fi
   k delete pod "$RD" --ignore-not-found --wait=false >/dev/null 2>&1
 fi
 
@@ -2769,6 +2839,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate cuối — repo, dự án, tầng lưu trữ:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
 git describe --tags --exact-match HEAD | grep -qx 'lab-6a' && echo 'PASS: HEAD mang tag lab-6a'
@@ -2787,18 +2859,25 @@ for F in 'adr/*-local-path-provisioner.md' 'adr/*-du-lieu-ben-db.md' 'adr/*-mat-
 done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ADR, postmortem va runbook cua sprint 8'
 
-{ [ "$(kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an'
-{ [ "$(kubectl get pv --no-headers 2>/dev/null | wc -l)" -eq 0 ] && [ "$(kubectl get pvc -A --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get pv --no-headers)" -eq 0 ] && [ "$(sl kubectl get pvc -A --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con PV, PVC nao trong cluster'
 SCS="$(kubectl get storageclass -o jsonpath='{range .items[*]}{.metadata.name}={.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}')"
 { [ "$SCS" = 'local-path=true' ] && \
   [ "$(kubectl -n local-path-storage get deploy local-path-provisioner -o jsonpath='{.status.readyReplicas}')" -ge 1 ]; } \
   && echo 'PASS: dung mot StorageClass local-path mac dinh, provisioner dang chay'
+# Liệt kê /opt/local-path-provisioner trên worker. Thư mục gốc chưa từng có thì in rỗng, thoát 0;
+# lỗi ssh, sudo hay find thì thoát khác 0 — "không đọc được" không bao giờ được hiểu thành "rỗng".
+lp_ls() {
+  ssh -o BatchMode=yes "$1" \
+    'sudo -n test ! -e /opt/local-path-provisioner || sudo -n find /opt/local-path-provisioner -mindepth 1 -maxdepth 1'
+}
 for N in lab-k8s-worker1 lab-k8s-worker2; do
-  [ "$(ssh "$N" 'sudo sh -c "ls -A /opt/local-path-provisioner 2>/dev/null | wc -l"')" -eq 0 ] \
-    && echo "PASS: $N khong con thu muc volume nao" || echo "FAIL: $N con thu muc trong /opt/local-path-provisioner"
+  if ! L="$(lp_ls "$N")"; then echo "STOP: khong kiem duoc $N (ssh, sudo hoac find loi) — khong chup snapshot"
+  elif [ -z "$L" ]; then echo "PASS: $N khong con thu muc volume nao"
+  else echo "FAIL: $N con $(printf '%s\n' "$L" | grep -c .) muc trong /opt/local-path-provisioner"; fi
 done
 test ! -e ~/lab-work/6a && echo 'PASS: da don lab-work'
 

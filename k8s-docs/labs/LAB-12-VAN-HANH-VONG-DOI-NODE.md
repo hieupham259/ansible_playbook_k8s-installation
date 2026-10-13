@@ -6,7 +6,7 @@
 > **Điểm kết thúc:** teardown trả cluster về đúng `04-metrics-ready`, **không tạo snapshot mới**. Repo
 > `~/bookstore` có tag `lab-12` và một bản bundle nằm ngoài VM. Lab tắt rồi bật lại hai worker nhưng
 > không cài thêm gì và không sửa cấu hình node hay control plane nào.
-> **Sprint dự án:** Sprint 19 — Bảo trì node không gián đoạn của [dự án Bookstore](DU-AN-BOOKSTORE.md).
+> **Sprint dự án:** Sprint 19 — Bảo trì node có kế hoạch của [dự án Bookstore](DU-AN-BOOKSTORE.md).
 > **Lab trước:** [Lab 11b — HPA và VPA](LAB-11B-HPA-VA-VPA.md).
 > **Lab sau:** [Lab 13 — DRA](LAB-13-DRA.md) (tùy chọn) hoặc [Lab 14 — CRD và Operator](LAB-14-CRD-VA-OPERATOR.md).
 >
@@ -20,7 +20,7 @@ tám bài khái niệm [155](../155-cluster-administration-vi.md), [169](../169-
 [167](../167-coordinated-leader-election-vi.md), [156](../156-certificates-vi.md) và hai bài thực hành
 [189](../189-administer-cluster-vi.md), [198](../198-controller-manager-leader-migration-vi.md). Mọi
 ticket dựa vào [hợp đồng kỹ thuật](DU-AN-BOOKSTORE.md#4-hợp-đồng-kỹ-thuật) của dự án; kế hoạch gốc
-của sprint nằm ở [mục 7.2](DU-AN-BOOKSTORE.md#sprint-19--lab-12-bảo-trì-node).
+của sprint nằm ở [mục 7.2](DU-AN-BOOKSTORE.md#sprint-19--lab-12-bảo-trì-node-có-kế-hoạch).
 
 Sprint 18 để lại một hệ thống đầy đủ: `web` 2–5 bản sao do HPA điều khiển, `api` hai bản sao, PDB
 cho cả hai, `db-0` trên `lab-k8s-worker2` với PV local `Retain`, Ingress HTTPS qua Traefik,
@@ -114,8 +114,8 @@ DB một instance trên PV local — ghi ở B8. Nợ lab #1 (phần VPA), #5, #
 
 ### 1.2. Thời lượng
 
-4–5 giờ. Phần cốt lõi (B0–B5, B7–B9) khoảng 4 giờ, trong đó hai vòng tắt–bật máy chiếm phần lớn
-thời gian chờ. B6 và các mục ⭐ là tùy chọn; ⭐ của B7 làm cửa sổ bảo trì worker2 dài thêm vài phút.
+4–5 giờ. Phần cốt lõi (B0–B9) khoảng 4 giờ, trong đó hai vòng tắt–bật máy chiếm phần lớn thời gian
+chờ. Các mục ⭐ là tùy chọn; ⭐ của B7 làm cửa sổ bảo trì worker2 dài thêm vài phút.
 Thời gian chờ phụ thuộc cấu hình cluster và phần cứng host, nên mọi bước chờ trong lab là vòng lặp
 có điều kiện dừng hoặc `kubectl wait --timeout`. Có thể chia hai phiên: phiên 1 làm B0–B5, phiên 2
 làm B6–B9; đầu phiên 2 chạy lại gate ngắn A5.5 và `./tests/smoke.sh`.
@@ -154,7 +154,8 @@ Các quy ước còn lại:
   vậy.
 - Repo dự án: `~/bookstore`. Manifest thử nghiệm: `~/lab-work/12/`. Bằng chứng: `~/lab-evidence/12/`.
 - **Bảo trì worker1 là vận hành có kế hoạch, không phải fault injection.** Nó đi qua drain và tắt máy
-  êm — đúng việc [mục 3.7](DU-AN-BOOKSTORE.md#37-chịu-lỗi-và-vận-hành) hứa là không gián đoạn. Mọi
+  êm — đúng việc [mục 3.7](DU-AN-BOOKSTORE.md#37-chịu-lỗi-và-vận-hành) hứa là không rơi request ở
+  tầng ứng dụng trên đường đo của [mục 3.1](DU-AN-BOOKSTORE.md#31-sơ-đồ-tổng-thể). Mọi
   **diễn tập sự cố** của lab (Pod thử nghiệm mất liên lạc, khởi động lại kubelet, PDB thử chặn drain)
   chỉ chạy trên `lab-k8s-worker2`.
 - **Không dùng `--force`, không dùng `--disable-eviction` với `kubectl drain`.** Cái đầu xóa vĩnh viễn
@@ -178,7 +179,7 @@ Các quy ước còn lại:
 
 ---
 
-# Phần B — Sprint 19: Bảo trì node không gián đoạn
+# Phần B — Sprint 19: Bảo trì node có kế hoạch
 
 ## B0. Nhận bàn giao sprint
 
@@ -198,8 +199,10 @@ kubectl get pods -n default
 Ba điều kiện riêng của mốc `04-metrics-ready` và của lab này:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 kubectl top node
-test "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 \
+test "$(sl kubectl top node --no-headers)" -eq 3 \
   && echo 'PASS: dung moc 04-metrics-ready — top node du ba node'
 test "$(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.unschedulable}{"\n"}{end}' | grep -c true)" -eq 0 \
   && echo 'PASS: chua node nao bi cordon'
@@ -780,7 +783,10 @@ done | tee "$EV/b3-kubelet-swap.txt"
 for n in lab-k8s-worker1 lab-k8s-worker2; do
   SGP="$(cfgz shutdownGracePeriod "$EV/b3-configz-$n.json")"
   SGC="$(cfgz shutdownGracePeriodCriticalPods "$EV/b3-configz-$n.json")"
-  LOCK="$(ssh "$n" 'systemd-inhibit --list --no-pager' 2>/dev/null | grep -ci kubelet)"
+  # Đọc lỗi thì LOCK=loi, không phải 0 — dòng tóm tắt khi đó không khớp gate.
+  if I="$(ssh -o BatchMode=yes "$n" 'systemd-inhibit --list --no-pager')"; then
+    LOCK="$(printf '%s\n' "$I" | grep -ci kubelet || true)"
+  else LOCK=loi; fi
   echo "$n shutdownGracePeriod=${SGP:-<vang>} shutdownGracePeriodCriticalPods=${SGC:-<vang>} khoa_kubelet=$LOCK"
 done | tee "$EV/b3-shutdown.txt"
 [ "$(grep -c 'shutdownGracePeriod=0s shutdownGracePeriodCriticalPods=0s khoa_kubelet=0' "$EV/b3-shutdown.txt")" -eq 2 ] \
@@ -1343,10 +1349,10 @@ touch "$CSV.stop"; wait "$PROBE"
 
 </details>
 
-## B6. [BS-12-06] ⭐ api tắt êm không làm rơi request
+## B6. [BS-12-06] api tắt êm không làm rơi request
 
-**Loại:** Tính năng — tùy chọn. Làm khi B5 đo được lỗi trên `/api/books` trùng lúc Pod `api` bị evict
-hoặc bị thay.
+**Loại:** Tính năng. Ticket này cũng là phép đo `R4` cho `api` mà Lab 4a hoãn lại: thay toàn bộ Pod
+`api` dưới probe. Nếu B5 đo được lỗi trên `/api/books` trùng lúc Pod `api` bị evict, đây là nơi sửa.
 
 **Bối cảnh:** Lab 3a cho `nginx` một `preStop` giữ nó phục vụ thêm vài giây, vì việc gỡ Pod khỏi danh
 sách đích của Service diễn ra **song song** với việc tắt Pod. `api` thì chưa có: image PostgREST không
@@ -1372,14 +1378,17 @@ Security `restricted`.
 - Bài [143](../143-api-eviction-vi.md#cách-hoạt-động-của-eviction-khởi-phát-qua-api-how-api-initiated-eviction-works)
   — bước 2 và bước 3 diễn ra cùng lúc.
 
-**Bàn giao:** manifest `api` trong `k8s/app/api/`; `~/lab-evidence/12/b6-*`; một dòng trong postmortem
-của B5: lỗi loại (b) đã sửa ở đâu.
+**Bàn giao:** manifest `api` trong `k8s/app/api/`; `~/lab-evidence/12/b6-*`; trong postmortem của B5,
+mục *Đã sửa*: lỗi loại (b) đã sửa ở đâu, và dòng tóm tắt `/api/books` của lần thay Pod `api` dưới
+probe — bằng chứng `R4` cho `api` mà Lab 14 sẽ dẫn.
 
 **Nghiệm thu:**
 
 - `PASS:` container `postgrest` có handler chờ ở `preStop`; ân hạn lớn hơn thời gian chờ.
 - `PASS:` thay đổi nằm trong repo.
-- `PASS:` thay toàn bộ Pod `api` dưới probe: 0 lỗi trên `/api/books`.
+- `PASS:` việc thay Pod **đã thật sự xảy ra**: lệnh thành công, không còn Pod `api` nào của trước khi
+  thay, revision tăng.
+- `PASS:` dưới probe: ít nhất 20 mẫu, 0 lỗi trên `/api/books`.
 
 **Câu hỏi thiết kế** — trả lời trong postmortem của B5, mục *Đã sửa*:
 
@@ -1408,13 +1417,35 @@ G="$(kubectl -n "$NS" get deployment api -o jsonpath='{.spec.template.spec.termi
 grep -rq 'preStop' ~/bookstore/k8s/app/api/ && echo 'PASS: thay doi nam trong repo'
 
 CSV="$EV/b6-probe.csv"
+# Số request lỗi chỉ có nghĩa khi việc thay Pod đã thật sự xảy ra: lệnh thành công, mọi Pod api của
+# trước khi thay đều đã đi, revision tăng. Lệnh hỏng mà hệ thống cũ vẫn trả 200 là FAIL.
+uid_api() { kubectl -n "$NS" get pods -l app.kubernetes.io/component=api \
+              -o jsonpath='{range .items[*]}{.metadata.uid}{"\n"}{end}' | sort; }
+rev_api() { kubectl -n "$NS" get deployment api -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}'; }
+U0="$(uid_api)"; R0="$(rev_api)"; R1=0; CHUNG=-1; OK=1
+{ [ -n "$U0" ] && [ "${R0:-0}" -gt 0 ]; } || { echo 'STOP: khong doc duoc Pod hoac revision cua api'; OK=0; }
 nohup ~/bookstore/tests/availability-probe.sh "$CSV" 0.5 > "$CSV.log" 2>&1 &
 PROBE=$!; sleep 10
-kubectl -n "$NS" rollout restart deployment/api
-kubectl -n "$NS" rollout status deployment/api --timeout=300s
-sleep 15; touch "$CSV.stop"; wait "$PROBE"
+if [ "$OK" -eq 1 ] && kubectl -n "$NS" rollout restart deployment/api > "$EV/b6-restart.txt" 2>&1 \
+   && kubectl -n "$NS" rollout status deployment/api --timeout=300s >> "$EV/b6-restart.txt" 2>&1; then
+  # Pod cũ còn chạy preStop và ân hạn sau khi rollout status báo xong — chờ chúng đi hết.
+  for _ in $(seq 1 60); do
+    U1="$(uid_api)"
+    [ -n "$U1" ] && CHUNG="$(comm -12 <(printf '%s\n' "$U0") <(printf '%s\n' "$U1") | grep -c . || true)"
+    [ "$CHUNG" = 0 ] && break; sleep 2
+  done
+  R1="$(rev_api)"
+else OK=0; echo "FAIL: rollout restart hoac rollout status cua api loi — xem $EV/b6-restart.txt"; fi
+sleep 15; touch "$CSV.stop"; wait "$PROBE"   # probe luôn được dừng, kể cả khi thao tác hỏng
+{ [ "$OK" -eq 1 ] && [ "$CHUNG" = 0 ] && [ "${R1:-0}" -gt "$R0" ]; } \
+  && echo "PASS: moi Pod api da duoc thay — khong UID cu nao con lai, revision $R0 -> $R1" \
+  || echo 'FAIL: chua chung minh duoc toan bo Pod api da duoc thay'
 ~/bookstore/tests/availability-report.sh "$CSV" | tee "$EV/b6-tom-tat.txt"
-grep -q '^duong_dan=/api/books .* loi=0 ' "$EV/b6-tom-tat.txt" && echo 'PASS: thay toan bo Pod api ma /api/books khong loi'
+TL="$(grep '^duong_dan=/api/books ' "$EV/b6-tom-tat.txt")"
+MAU="$(printf '%s\n' "$TL" | sed -n 's/.* mau=\([0-9]*\) .*/\1/p')"
+LOI="$(printf '%s\n' "$TL" | sed -n 's/.* loi=\([0-9]*\) .*/\1/p')"
+{ [ "$OK" -eq 1 ] && [ "$CHUNG" = 0 ] && [ "${MAU:-0}" -ge 20 ] && [ "$LOI" = 0 ]; } \
+  && echo "PASS: thay toan bo Pod api duoi probe: $MAU mau, 0 loi tren /api/books"
 ```
 
 </details>
@@ -1922,7 +1953,10 @@ gì yêu cầu `R17` **chưa** đạt.
 3. `docs/tech-debt.md`: hai nợ mới — đường vào chưa HA (một IP node trong file hosts, ingress controller
    một bản sao, không PDB); DB một instance trên PV local, bảo trì node của nó là downtime. Mỗi nợ có
    bằng chứng trong `~/lab-evidence/12/`.
-4. Một đoạn đánh giá `R17` trong runbook: đạt cho phần nào, chưa đạt cho phần nào, số đo nào chứng minh.
+4. Một đoạn đánh giá `R17` trong runbook, theo đúng hai vế của yêu cầu ở
+   [mục 2.2 của file dự án](DU-AN-BOOKSTORE.md#22-yêu-cầu-của-hệ-thống-mới): worker1 — số lỗi trên đường
+   đo; worker2 — downtime DB đo được và dữ liệu giữ nguyên. Ghi riêng những gì nằm **ngoài** `R17`
+   (đường trình duyệt qua file hosts, bảo trì worker2 không downtime) và nợ tương ứng.
 
 **Ràng buộc:** hai nợ mới mang mã `TD-18` và `TD-19`, cố định theo [mục 8 của file dự án](DU-AN-BOOKSTORE.md#8-sổ-nợ-kỹ-thuật-dự-án). Không sửa hạ tầng nền để "trả" nợ trong sprint này.
 
@@ -2008,9 +2042,12 @@ Hai dòng nợ:
 | TD-19 | DB một instance trên PV local của worker2: bảo trì worker2 là downtime DB | 12 | chấp nhận có điều kiện: cửa sổ bảo trì theo runbook mục 3 | mở | ~/lab-evidence/12/b7-cua-so.txt |
 ```
 
-Đánh giá `R17`: đạt cho `web` và `api` khi bảo trì một worker (B5, cộng B6 nếu đã làm); **chưa đạt**
-cho `db` — đó là quyết định kiến trúc (một instance, PV local) chứ không phải thiếu sót vận hành; và
-chưa đạt ở đường vào khi node trong file hosts được bảo trì.
+Đánh giá `R17` theo hai vế của yêu cầu: **đạt** cho worker1 — trên đường đo (NodePort Traefik qua IP
+master) không request lỗi nào do `web`, `api` sau B6; đợt `000` nếu có đều rơi vào lúc Pod Traefik bị
+evict, đã phân loại trong postmortem B5; **đạt** cho worker2 — DB ngừng `<db_ngung_s>` giây trong cửa
+sổ, số sách và đơn hàng đánh dấu còn nguyên (B7). **Ngoài** `R17`: đường vào chưa HA — Traefik một
+bản sao, file hosts trỏ một worker — `TD-18`; bảo trì worker2 không downtime — quyết định kiến trúc
+(một instance, PV local), `TD-19`.
 
 Ý chính cho câu hỏi thiết kế:
 
@@ -2044,6 +2081,8 @@ cat > ~/bookstore/tests/smoke.sh <<'EOF'
 # Tên ConfigMap đọc từ spec của workload (configMapGenerator gắn hậu tố hash từ 5a). Số bản sao web do
 # HPA quyết định. Không in mật khẩu.
 set -u
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd "$(dirname "$0")/.."
 NS=bookstore
 SYS=bookstore-system
@@ -2102,8 +2141,13 @@ for N in "$NS" "$TNS"; do
   dry_priv "$N" | grep -q "violates PodSecurity \"restricted:$PSA_VER\"" \
     && pass "$N tu choi Pod dac quyen" || fail "$N khong tu choi Pod dac quyen"
 done
-kubectl label --dry-run=server --overwrite ns "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1 \
-  | grep -q 'violate' && fail 'co Pod dang chay vi pham restricted' || pass 'moi Pod dang chay dat restricted'
+# Lệnh dry-run phải thành công thì "không có cảnh báo" mới có nghĩa: Forbidden, timeout hay lỗi
+# chứng chỉ là FAIL, không phải "sạch".
+if PSW="$(kubectl label --dry-run=server --overwrite ns "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1)"; then
+  echo "$PSW" | grep -q 'violate' && fail 'co Pod dang chay vi pham restricted' || pass 'moi Pod dang chay dat restricted'
+else
+  fail "khong hoi duoc Pod Security bang dry-run: $PSW"
+fi
 
 # 2. Object cấp cluster, label node (3a, 6a, 7a, 9a)
 PRIO="$(kubectl get priorityclass bookstore-critical -o jsonpath='{.value}' 2>/dev/null)"
@@ -2129,7 +2173,7 @@ N_CL="$(kubectl get clusterrole,clusterrolebinding -l "$SEL" --no-headers 2>/dev
 LA="$(jp deployment/web '{.metadata.annotations.kubectl\.kubernetes\.io/last-applied-configuration}')"
 { [ -n "$LA" ] && ! echo "$LA" | grep -q '"replicas"'; } \
   && pass 'manifest web khong khai replicas — HPA so huu truong nay' || fail 'manifest web con replicas'
-[ "$(k get job,networkpolicy,pod -l app.kubernetes.io/component=loadtest --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl k get job,networkpolicy,pod -l app.kubernetes.io/component=loadtest --no-headers)" -eq 0 ] \
   && pass 'khong con object kiem thu tai' || fail 'con object loadtest tren cluster'
 
 # 3. Cấu hình, bí mật, PDB, hạn mức, trạng thái backup (3b, 3c, 5b, 7b, 9a)
@@ -2292,6 +2336,48 @@ else
   fail 'chay thu db-backup that bai'
 fi
 k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+# Hợp đồng ghi file backup (6a): đọc thẳng PVC, không tin log — tối đa 10 bản mỗi loại,
+# không còn file tạm cũ hơn một giờ.
+RD="smoke-doc-backup-$(date +%s)"
+k apply -f - >/dev/null 2>&1 <<POD
+apiVersion: v1
+kind: Pod
+metadata:
+  name: $RD
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: doc
+    image: busybox:1.37
+    command: ["sh", "-c", "ls -1 /backup; echo ---; find /backup -maxdepth 1 -name '*.tmp' -mmin +60"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: [ALL]}
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+    volumeMounts:
+    - {name: b, mountPath: /backup, readOnly: true}
+  volumes:
+  - name: b
+    persistentVolumeClaim: {claimName: backup-store, readOnly: true}
+POD
+if k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1; then
+  OUT="$(k logs "$RD" 2>/dev/null)"
+  NB="$(echo "$OUT" | sed '/^---$/,$d' | grep -c '^bookstore-.*\.sql$')"
+  NO="$(echo "$OUT" | sed '/^---$/,$d' | grep -Ec '^dbbackup-.*\.(sql|dump)$')"
+  NT="$(echo "$OUT" | sed '1,/^---$/d' | grep -c .)"
+  { [ "$NB" -le 10 ] && [ "$NO" -le 10 ] && [ "$NT" -eq 0 ]; } \
+    && pass "backup-store: $NB ban db-backup, $NO ban operator, khong file tam cu" \
+    || fail "backup-store sai hop dong 6a ($NB ban db-backup, $NO ban operator, $NT file tam cu)"
+else
+  fail 'khong doc duoc noi dung backup-store'
+fi
+k delete pod "$RD" --ignore-not-found --wait=false >/dev/null 2>&1
 [ "$(jp pvc/backup-store '{.status.phase}')" = 'Bound' ] && pass 'PVC backup-store Bound (sau lan chay thu)' || fail 'PVC backup-store chua Bound'
 
 # 11. Danh tính và quyền (9a, 9b); ServiceAccount node-agent chuyển sang bookstore-system (11a)
@@ -2348,7 +2434,7 @@ DEV='--as=dev --as-group=bookstore-devs'
 NODES="$(kubectl get nodes --no-headers | wc -l)"
 R="$(kubectl -n "$SYS" get daemonset node-agent -o jsonpath='{.status.numberReady}' 2>/dev/null)"
 [ "${R:-0}" -eq "$NODES" ] && pass "node-agent Ready tren $R/$NODES node" || fail "node-agent ${R:-0}/$NODES node"
-[ "$(k get daemonset,service,serviceaccount --field-selector metadata.name=node-agent --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl k get daemonset,service,serviceaccount --field-selector metadata.name=node-agent --no-headers)" -eq 0 ] \
   && pass 'khong con node-agent trong bookstore, ke ca ServiceAccount' || fail 'con node-agent trong bookstore'
 [ "$(kubectl -n "$SYS" get svc node-agent -o jsonpath='{.spec.internalTrafficPolicy}/{.spec.ports[0].port}' 2>/dev/null)" = 'Local/9100' ] \
   && pass 'Service node-agent Local, cong 9100' || fail 'Service node-agent sai'
@@ -2377,7 +2463,7 @@ done
 # 14. Metric (11a)
 [ "$(kubectl get apiservice v1beta1.metrics.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null)" = 'True' ] \
   && pass 'APIService v1beta1.metrics.k8s.io Available' || fail 'Metrics API chua Available'
-[ "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq "$NODES" ] && pass 'kubectl top node du moi node' || fail 'kubectl top node thieu node'
+[ "$(sl kubectl top node --no-headers)" -eq "$NODES" ] && pass 'kubectl top node du moi node' || fail 'kubectl top node thieu node'
 TOP=''
 for i in $(seq 1 18); do
   TOP="$(kubectl top pod -n "$NS" --no-headers 2>/dev/null)"
@@ -2450,6 +2536,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore; EV=~/lab-evidence/12; SEL='app.kubernetes.io/part-of=bookstore'
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
 git describe --tags --exact-match HEAD | grep -qx 'lab-12' && echo 'PASS: HEAD mang tag lab-12'
@@ -2457,10 +2545,10 @@ test -s ~/bookstore-lab-12.bundle && echo 'PASS: co bundle'
 { test -x tests/availability-probe.sh && test -x tests/availability-report.sh && test -s docs/runbook-bao-tri-node.md \
   && ls docs/postmortem/12-bao-tri-worker1.md docs/postmortem/12-bao-tri-worker2.md >/dev/null 2>&1; } \
   && echo 'PASS: cong cu, runbook va postmortem cua sprint 19 nam trong repo'
-[ "$(kubectl get namespace,priorityclass,storageclass,pv,clusterrole,clusterrolebinding -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
-  && [ "$(kubectl get all -A -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl kubectl get namespace,priorityclass,storageclass,pv,clusterrole,clusterrolebinding -l "$SEL" --no-headers)" -eq 0 ] \
+  && [ "$(sl kubectl get all -A -l "$SEL" --no-headers)" -eq 0 ] \
   && echo 'PASS: khong con object nao cua du an'
-[ "$(kubectl get nodes -l bookstore.example.com/data --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: da go label node cua du an'
+[ "$(sl kubectl get nodes -l bookstore.example.com/data --no-headers)" -eq 0 ] && echo 'PASS: da go label node cua du an'
 test ! -e ~/lab-work/12 && echo 'PASS: da don lab-work'
 
 # Node trở về nguyên trạng sau hai lần tắt–bật
@@ -2480,7 +2568,7 @@ test ! -e ~/lab-work/12 && echo 'PASS: da don lab-work'
 diff -u "$EV/b0-config-sha.txt" "$EV/b9-config-sha.txt" && echo 'PASS: sau file cau hinh khong doi'
 
 # Hạ tầng của mốc 04-metrics-ready còn nguyên
-[ "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 ] && echo 'PASS: top node du ba node'
+[ "$(sl kubectl top node --no-headers)" -eq 3 ] && echo 'PASS: top node du ba node'
 [ "$(kubectl get storageclass -o jsonpath='{range .items[*]}{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' | grep -c '^true$')" -eq 1 ] \
   && [ "$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)" -ge 1 ] \
   && [ "$(kubectl get apiservice v1beta1.metrics.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')" = 'True' ] \

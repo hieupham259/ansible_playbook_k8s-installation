@@ -118,8 +118,10 @@ một lượt đo từ máy host). Phép đo từ máy host của kịch bản A
 
 Chia hai phiên: phiên 1 làm B0–B6 (kết thúc với cụm etcd chạy, chưa có Kubernetes), phiên 2 làm
 B7–B13. Giữa hai phiên có thể tắt cả sáu VM theo thứ tự ở [mục 2.4](#24-các-quy-ước-còn-lại): kubelet
-trên ba host etcd khởi động lại static Pod etcd khi máy bật. Đầu phiên 2 kiểm lại bằng script nghiệm
-thu của B6.
+trên ba host etcd khởi động lại static Pod etcd khi máy bật. Gate tiếp tục đầu phiên 2: trên
+`lab-ha-1`, chạy lại Script nghiệm thu của B6 — chỉ đọc; trên `lab-ha-4`, nơi giữ repo,
+`git -C ~/bookstore status --porcelain` phải rỗng. Điểm dừng này **chưa có Kubernetes**: không có API
+server, nên gate ngắn A5.5, `kubectl` và smoke đều không áp dụng.
 
 Mọi bước chờ phụ thuộc cấu hình cluster và phần cứng host, nên đều viết dưới dạng
 `kubectl wait --timeout` hoặc vòng lặp có điều kiện dừng và số vòng tối đa, không phải một con số cố
@@ -731,24 +733,33 @@ kubectl --request-timeout=10s get nodes > "$EV/b2-kubectl-sau-reset.txt" 2>&1
 grep -qiE 'refused|no such host|Unable to connect|timeout|no configuration' "$EV/b2-kubectl-sau-reset.txt" \
   && echo 'PASS: khong con API server — dung nhu mong doi'
 
+# Hai phép kiểm trên node, ba kết quả tách bạch. Lỗi ssh, sudo hay find thì in rỗng — rỗng không
+# bao giờ được hiểu thành "đã xóa" hay "rỗng".
+co() {          # <node> <đường dẫn> → CON | MAT
+  ssh -o BatchMode=yes "$1" "sudo -n true && if sudo -n test -e '$2'; then echo CON; else echo MAT; fi"
+}
+dem_trong() {   # <node> <thư mục> → số mục bên trong; thư mục không có thì 0
+  ssh -o BatchMode=yes "$1" \
+    "if sudo -n test ! -e '$2'; then echo 0; else L=\$(sudo -n find '$2' -mindepth 1 -maxdepth 1) && printf '%s\n' \"\$L\" | grep -c . ; fi"
+}
 OKR=0
 : > "$EV/b2-reset-xoa.txt"
 for n in $ALL; do
-  M="$(ssh -o BatchMode=yes "$n" 'sudo ls -A /etc/kubernetes/manifests 2>/dev/null | wc -l')"
-  A="$(ssh -o BatchMode=yes "$n" 'sudo test -e /etc/kubernetes/admin.conf && echo 1 || echo 0')"
-  P="$(ssh -o BatchMode=yes "$n" 'sudo test -d /etc/kubernetes/pki && echo 1 || echo 0')"
-  K="$(ssh -o BatchMode=yes "$n" 'sudo test -e /etc/kubernetes/kubelet.conf && echo 1 || echo 0')"
-  echo "$n -> manifests=$M admin.conf=$A pki=$P kubelet.conf=$K" | tee -a "$EV/b2-reset-xoa.txt"
-  test "$M" -eq 0 && test "$A" -eq 0 && test "$P" -eq 0 && test "$K" -eq 0 && OKR=$(( OKR + 1 ))
+  M="$(dem_trong "$n" /etc/kubernetes/manifests)"
+  A="$(co "$n" /etc/kubernetes/admin.conf)"
+  P="$(co "$n" /etc/kubernetes/pki)"
+  K="$(co "$n" /etc/kubernetes/kubelet.conf)"
+  echo "$n -> manifests=${M:-?} admin.conf=${A:-?} pki=${P:-?} kubelet.conf=${K:-?}" | tee -a "$EV/b2-reset-xoa.txt"
+  [ "$M" = 0 ] && [ "$A" = MAT ] && [ "$P" = MAT ] && [ "$K" = MAT ] && OKR=$(( OKR + 1 ))
 done
 test "$OKR" -eq 5 \
   && echo 'PASS: reset da xoa manifest, admin.conf, kubelet.conf va thu muc pki tren ca nam node'
 
 OKE=0
 for n in "$N1" "$N2" "$N3"; do
-  C="$(ssh -o BatchMode=yes "$n" 'sudo ls -A /var/lib/etcd 2>/dev/null | wc -l')"
-  echo "$n -> so muc trong /var/lib/etcd: $C"
-  test "$C" -eq 0 && OKE=$(( OKE + 1 ))
+  C="$(dem_trong "$n" /var/lib/etcd)"
+  echo "$n -> so muc trong /var/lib/etcd: ${C:-? (khong kiem duoc)}"
+  [ "$C" = 0 ] && OKE=$(( OKE + 1 ))
 done
 test "$OKE" -eq 3 && echo 'PASS: /var/lib/etcd rong tren ca ba host'
 
@@ -758,12 +769,14 @@ grep -Eq '^cni_con=[1-9]' "$EV/b2-reset-khong-don.txt" \
   && grep -Eq '^iptables_con=[1-9]' "$EV/b2-reset-khong-don.txt" \
   && echo 'PASS: evidence chung minh reset KHONG don CNI, kubeconfig cua user, luat kube-proxy'
 
+# Node nào chưa xác nhận được là sạch — còn thứ cần dọn, hoặc không kiểm được — đều bị đếm.
 CNI_AFTER=0; KC_AFTER=0; IPT_AFTER=0
 for n in $ALL; do
-  ssh -o BatchMode=yes "$n" 'test -d /etc/cni/net.d' && CNI_AFTER=$(( CNI_AFTER + 1 ))
-  ssh -o BatchMode=yes "$n" 'test -e "$HOME/.kube/config"' && KC_AFTER=$(( KC_AFTER + 1 ))
-  C="$(ssh -o BatchMode=yes "$n" 'sudo iptables-save 2>/dev/null | grep -c "KUBE-"')"
-  test "$C" -gt 0 && IPT_AFTER=$(( IPT_AFTER + 1 ))
+  [ "$(co "$n" /etc/cni/net.d)" = MAT ] || CNI_AFTER=$(( CNI_AFTER + 1 ))
+  [ "$(ssh -o BatchMode=yes "$n" 'if test -e "$HOME/.kube/config"; then echo CON; else echo MAT; fi')" = MAT ] \
+    || KC_AFTER=$(( KC_AFTER + 1 ))
+  C="$(ssh -o BatchMode=yes "$n" 'R=$(sudo -n iptables-save) && printf "%s\n" "$R" | grep -c "KUBE-"')"
+  [ "$C" = 0 ] || IPT_AFTER=$(( IPT_AFTER + 1 ))
 done
 echo "con /etc/cni/net.d=$CNI_AFTER | con kubeconfig=$KC_AFTER | con KUBE-=$IPT_AFTER"
 test "$CNI_AFTER" -eq 0 && test "$KC_AFTER" -eq 0 && test "$IPT_AFTER" -eq 0 \
@@ -773,7 +786,8 @@ POD_LEFT=0
 for n in $ALL; do
   C=0
   for i in $(seq 1 24); do
-    C="$(ssh -o BatchMode=yes "$n" 'sudo crictl pods -q 2>/dev/null | wc -l')"
+    # crictl lỗi thì C rỗng: phép so sánh sai, không bao giờ thành "không còn sandbox".
+    C="$(ssh -o BatchMode=yes "$n" 'P=$(sudo -n crictl pods -q 2>/dev/null) && printf "%s\n" "$P" | grep -c .')"
     test "$C" -eq 0 && break
     sleep 5
   done
@@ -3212,18 +3226,23 @@ riêng sprint 14 — hình dạng external, `db-0` ở `lab-ha-4` — nằm ở 
 1. Kiểm thử khói lần cuối và hình dạng external. Chạy trên **`lab-ha-4`**:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 source ~/lab-work/8c/ham-do.sh
 cd ~/bookstore
 eval "$TEARDOWN_HA" > "$EV/b13-teardown-truoc.txt" 2>&1 \
   && eval "$DEPLOY_HA" > "$EV/b13-deploy.txt" 2>&1 \
   && echo 'PASS: dung lai sach tu repo bang teardown-ha-lab va deploy-ha-lab'
-eval "$SMOKE_HA" > "$EV/b13-smoke.txt" 2>&1; grep '^INFO' "$EV/b13-smoke.txt"
-grep -q '^FAIL' "$EV/b13-smoke.txt" && echo 'FAIL: smoke-ha-lab con loi' \
-  || echo 'PASS: smoke-ha-lab khong co dong FAIL'
+# smoke-ha-lab thoát khác 0 khi có dòng FAIL hoặc không chạy được — dựa vào mã thoát, không chỉ vào
+# việc không thấy chữ FAIL.
+if eval "$SMOKE_HA" > "$EV/b13-smoke.txt" 2>&1 && ! grep -q '^FAIL' "$EV/b13-smoke.txt"; then
+  echo 'PASS: smoke-ha-lab thoat 0, khong co dong FAIL'
+else echo 'FAIL: smoke-ha-lab con loi — xem b13-smoke.txt'; fi
+grep '^INFO' "$EV/b13-smoke.txt" || true
 test "$(kubectl -n bookstore get pod db-0 -o jsonpath='{.spec.nodeName}')" = 'lab-ha-4' \
   && echo 'PASS: db-0 van o lab-ha-4 sau khi dung lai tu repo'
 test "$(kubectl get nodes --no-headers | wc -l)" -eq 2 \
-  && test "$(kubectl -n kube-system get pod -l component=etcd --no-headers 2>/dev/null | wc -l)" -eq 0 \
+  && test "$(sl kubectl -n kube-system get pod -l component=etcd --no-headers)" -eq 0 \
   && echo 'PASS: van dung hinh dang external — 2 node, 0 Pod etcd'
 ehealth > "$EV/b13-health.txt" 2>&1
 test "$(grep -c 'is healthy' "$EV/b13-health.txt")" -eq 3 \

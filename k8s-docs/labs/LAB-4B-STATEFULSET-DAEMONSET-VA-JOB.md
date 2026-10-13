@@ -344,9 +344,18 @@ kubectl delete namespace -l "$SEL" --ignore-not-found --wait=true --timeout=300s
 kubectl delete "$KINDS" --all-namespaces -l "$SEL" --ignore-not-found --wait=true --timeout=120s
 kubectl delete priorityclass -l "$SEL" --ignore-not-found
 
-LEFT="$(kubectl get namespace,priorityclass -l "$SEL" --no-headers 2>/dev/null | wc -l)"
-LEFT_NS="$( { kubectl get all -A -l "$SEL" --no-headers
-              kubectl get "$KINDS" -A -l "$SEL" --no-headers; } 2>/dev/null | wc -l)"
+# Mỗi truy vấn kiểm kê chạy riêng và phải thành công: API không trả lời hay Forbidden thì dừng —
+# "không hỏi được" không bao giờ được đếm thành "không còn gì". dem <biến> <lệnh...> cộng số dòng
+# output của lệnh vào biến; hàm chạy trong shell chính nên exit dừng cả script.
+dem() {
+  local v="$1" out; shift
+  out="$("$@" 2>/dev/null)" || { echo "teardown: STOP - truy van loi, chua ket luan sach: $*"; exit 1; }
+  printf -v "$v" '%d' "$(( ${!v:-0} + $(printf '%s\n' "$out" | awk 'NF' | wc -l) ))"
+}
+LEFT=0; LEFT_NS=0
+dem LEFT kubectl get namespace,priorityclass -l "$SEL" --no-headers
+dem LEFT_NS kubectl get all -A -l "$SEL" --no-headers
+dem LEFT_NS kubectl get "$KINDS" -A -l "$SEL" --no-headers
 if [ "$LEFT" -eq 0 ] && [ "$LEFT_NS" -eq 0 ]; then
   echo 'teardown: sach'
 else
@@ -391,6 +400,8 @@ nguyên khối số 1 của bản cũ và chỉ thay phần còn lại.
 <summary>Script nghiệm thu — chạy sau khi tự làm xong; script teardown rồi deploy lại</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/4b
 cd ~/bookstore
 jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
@@ -428,7 +439,7 @@ kubectl -n "$NS" run dns-thu --rm -i --restart=Never --image=busybox:1.37 \
 grep -Eq "can't find|NXDOMAIN" "$EV/b1-dns.txt" && echo 'PASS: ten DNS db-0.db chua phan giai duoc'
 
 { [ -z "$(jp statefulset/db '{.spec.volumeClaimTemplates}')" ] && \
-  [ "$(kubectl -n "$NS" get pvc --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
+  [ "$(sl kubectl -n "$NS" get pvc --no-headers)" -eq 0 ] && \
   jp statefulset/db '{.spec.template.spec.volumes[*].emptyDir}' | grep -q '{}'; } \
   && echo 'PASS: du lieu tren emptyDir, khong co PVC (no lab #2)'
 
@@ -826,6 +837,8 @@ không tự gỡ, và một đồng nghiệp xóa cưỡng bức Pod "cho nhanh"
 <summary>Script nghiệm thu — chạy sau B2; script này chính là cuộc diễn tập</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/4b
 jp() { kubectl -n "$NS" get pod "$1" -o jsonpath="$2" 2>/dev/null; }
 img() { jp "$1" '{.spec.containers[0].image}'; }
@@ -875,7 +888,7 @@ OWN="$(kubectl -n "$NS" get pods -l lab=sts-thu -o jsonpath='{.items[*].metadata
   [ "$(kubectl -n "$NS" get pods -l lab=sts-thu --no-headers | wc -l)" -eq 3 ] && [ -z "$OWN" ]; } \
   && echo 'PASS: StatefulSet bien mat, ba Pod o lai khong con chu'
 kubectl -n "$NS" delete pods -l lab=sts-thu --wait=true
-[ "$(kubectl -n "$NS" get pods -l lab=sts-thu --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: da don Pod mo coi bang label'
+[ "$(sl kubectl -n "$NS" get pods -l lab=sts-thu --no-headers)" -eq 0 ] && echo 'PASS: da don Pod mo coi bang label'
 ```
 
 File `b3-crictl-sau-force.txt` chỉ để đọc, không phải gate: tùy thời điểm, bạn có thể thấy container
@@ -1169,6 +1182,8 @@ Tên file mà script đọc: `mig-hong-never.yaml.tpl`, `mig-hong-onfailure.yaml
 `ttl-thu.yaml`, đều ở `~/lab-work/4b/`.
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/4b; W=~/lab-work/4b
 jp() { kubectl -n "$NS" get job "$1" -o jsonpath="$2" 2>/dev/null; }
 cond() { jp "$1" "{.status.conditions[?(@.type==\"$2\")].$3}"; }
@@ -1186,7 +1201,7 @@ for i in $(seq 1 90); do kubectl -n "$NS" get job ttl-thu >/dev/null 2>&1 || bre
 GONE=$(date +%s)
 echo "tao=$T_CREATE xong=$C_EPOCH mat=$GONE" | tee "$EV/b5-ttl.txt"
 { ! kubectl -n "$NS" get job ttl-thu >/dev/null 2>&1 && [ $((GONE - C_EPOCH)) -ge 15 ] && \
-  [ "$(kubectl -n "$NS" get pods -l batch.kubernetes.io/job-name=ttl-thu --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+  [ "$(sl kubectl -n "$NS" get pods -l batch.kubernetes.io/job-name=ttl-thu --no-headers)" -eq 0 ]; } \
   && echo 'PASS: TTL dem tu luc Job xong, Pod bi xoa theo tang'
 
 for i in $(seq 1 90); do
@@ -1375,6 +1390,8 @@ bền thuộc giai đoạn 6 — nên đây mới là nửa đầu của lời g
 <summary>Script nghiệm thu — chạy sau khi đã `deploy.sh` và tự viết `backup-cham.yaml`</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/4b; W=~/lab-work/4b
 cd ~/bookstore
 jp() { kubectl -n "$NS" get cronjob db-backup -o jsonpath="$1" 2>/dev/null; }
@@ -1410,9 +1427,9 @@ sleep 5
 [ "$(kubectl -n "$NS" get "$J" -o jsonpath='{.status.active}')" = '1' ] && echo 'PASS: suspend khong dung Job dang chay'
 kubectl -n "$NS" delete cronjob backup-cham --wait=true
 for i in $(seq 1 60); do
-  [ "$(kubectl -n "$NS" get jobs,pods -l lab=backup-cham --no-headers 2>/dev/null | wc -l)" -eq 0 ] && break; sleep 2
+  [ "$(sl kubectl -n "$NS" get jobs,pods -l lab=backup-cham --no-headers)" -eq 0 ] && break; sleep 2
 done
-[ "$(kubectl -n "$NS" get jobs,pods -l lab=backup-cham --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl kubectl -n "$NS" get jobs,pods -l lab=backup-cham --no-headers)" -eq 0 ] \
   && echo 'PASS: xoa CronJob keo theo Job va Pod'
 ```
 
@@ -1999,6 +2016,8 @@ không dựng hàng đợi.
 <summary>Script nghiệm thu — chạy sau khi tự viết `bao-cao.yaml.tpl`</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/4b; W=~/lab-work/4b; J=bao-cao-ton-kho
 jp() { kubectl -n "$NS" get job "$1" -o jsonpath="$2" 2>/dev/null; }
 DB_IP="$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.status.podIP}')"
@@ -2049,7 +2068,7 @@ if [ -f "$W/hang-doi-thu.yaml" ]; then
   kubectl -n "$NS" delete job hang-doi-thu --wait=true
 fi
 
-[ "$(kubectl -n "$NS" get jobs -l '!app.kubernetes.io/part-of' --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: khong con Job thu nghiem'
+[ "$(sl kubectl -n "$NS" get jobs -l '!app.kubernetes.io/part-of' --no-headers)" -eq 0 ] && echo 'PASS: khong con Job thu nghiem'
 ```
 
 </details>
@@ -2189,6 +2208,8 @@ Deployment `web` ở sprint này.
 <summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/4b
 cd ~/bookstore
 F=docs/hpa-web.draft.yaml
@@ -2197,7 +2218,7 @@ echo "$OUT" | tee "$EV/b10-dry-run.txt"
 set -- $OUT
 { [ "$1" = 'Deployment/web' ] && [ "${2:-0}" -ge 2 ] && [ "${3:-9}" -le 5 ] && [ "$4" = 'cpu/Utilization' ]; } \
   && echo 'PASS: API server chap nhan thiet ke HPA web, 2-5 ban sao, CPU Utilization'
-[ "$(kubectl -n "$NS" get hpa --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: chua tao HPA that'
+[ "$(sl kubectl -n "$NS" get hpa --no-headers)" -eq 0 ] && echo 'PASS: chua tao HPA that'
 ls docs/adr/*-hpa-web.md >/dev/null 2>&1 && echo 'PASS: co ADR hpa-web'
 
 { [ -n "$(kubectl -n "$NS" get deployment web -o jsonpath='{.spec.template.spec.containers[?(@.name=="nginx")].resources.requests.cpu}')" ] && \
@@ -2411,6 +2432,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
 git describe --tags --exact-match HEAD | grep -qx 'lab-4b' && echo 'PASS: HEAD mang tag lab-4b'
@@ -2424,8 +2447,8 @@ for F in 'adr/*-db-statefulset.md' 'adr/*-job-migrate.md' 'adr/*-db-backup.md' '
   ls docs/$F >/dev/null 2>&1 || { echo "FAIL: thieu docs/$F"; BAD=1; }
 done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ADR va postmortem cua sprint 5'
-{ [ "$(kubectl get namespace,priorityclass -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get namespace,priorityclass -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an'
 test ! -e ~/lab-work/4b && echo 'PASS: da don lab-work'
 

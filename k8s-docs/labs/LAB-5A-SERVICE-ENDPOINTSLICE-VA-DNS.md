@@ -90,13 +90,14 @@ Bốn phần **không kiểm chứng được trên cluster lab**, đọc để 
 | `hostnameOverride` của bài 57 | Tính năng beta ở baseline; chính bài nói nó không đổi bản ghi DNS của Pod — thứ lab này đo |
 | Tùy chỉnh CoreDNS (bài 362 trỏ sang bài 204) | Sửa Corefile là đụng `kube-system`, thuộc giai đoạn 21; B6 chỉ đọc addon mặc định |
 
-Lab này **trả** ba món nợ — đọc lại bài gốc trước ticket tương ứng:
+Lab này **trả** bốn món nợ — đọc lại bài gốc trước ticket tương ứng:
 
 | Nợ | Phát sinh ở | Trả ở | Đọc lại trước khi làm |
 | --- | --- | --- | --- |
 | Nợ lab #3 — Service headless quản trị cho StatefulSet | Lab 4b, bài 65 | B1 | Bài [65](../65-statefulset-vi.md), mục [*Định danh mạng ổn định*](../65-statefulset-vi.md#stable-network-id) và [*Hạn chế*](../65-statefulset-vi.md#limitations) |
-| Readiness thất bại gỡ Pod khỏi EndpointSlice (nợ lab của 3a) | Lab 3a, bài 49 | B5 | Bài [49](../49-probes-vi.md), mục [*Readiness probe*](../49-probes-vi.md#readiness-probe) |
+| Readiness thất bại loại Pod khỏi tập backend sẵn sàng nhận lưu lượng (nợ lab của 3a) | Lab 3a, bài 49 | B5 | Bài [49](../49-probes-vi.md), mục [*Readiness probe*](../49-probes-vi.md#readiness-probe) |
 | Canary chia lưu lượng thật qua Service (nợ lab của 4a) | Lab 4a, bài 61 | B7 | Bài [61](../61-management-vi.md), mục [*Triển khai canary*](../61-management-vi.md#canary-deployments) |
+| Đo gián đoạn ở mức request trong lúc rollout và rollback `web` (phần hoãn của 4a) | Lab 4a, bài 63 | B3 | Bài [63](../63-deployment-vi.md), mục [*Rollback một Deployment*](../63-deployment-vi.md#rolling-back-a-deployment) |
 
 Nợ còn **mở** sau sprint — nói được vì sao ở checkpoint:
 
@@ -614,10 +615,22 @@ kubectl delete namespace -l "$SEL" --ignore-not-found --wait=true --timeout=300s
 kubectl delete "$KINDS" --all-namespaces -l "$SEL" --ignore-not-found --wait=true --timeout=120s
 kubectl delete priorityclass -l "$SEL" --ignore-not-found
 
-LEFT="$(kubectl get namespace,priorityclass -l "$SEL" --no-headers 2>/dev/null | wc -l)"
-LEFT_NS="$(kubectl get "$KINDS,endpointslices" --all-namespaces -l "$SEL" --no-headers 2>/dev/null | wc -l)"
-NP="$(kubectl get services -A -o jsonpath='{range .items[*]}{range .spec.ports[*]}{.nodePort}{"\n"}{end}{end}' \
-      | grep -cx 30080 || true)"
+# Mỗi truy vấn kiểm kê chạy riêng và phải thành công: API không trả lời hay Forbidden thì dừng —
+# "không hỏi được" không bao giờ được đếm thành "không còn gì". dem <biến> <lệnh...> cộng số dòng
+# output của lệnh vào biến; hàm chạy trong shell chính nên exit dừng cả script.
+dem() {
+  local v="$1" out; shift
+  out="$("$@" 2>/dev/null)" || { echo "teardown: STOP - truy van loi, chua ket luan sach: $*"; exit 1; }
+  printf -v "$v" '%d' "$(( ${!v:-0} + $(printf '%s\n' "$out" | awk 'NF' | wc -l) ))"
+}
+np30080() {   # Service còn giữ NodePort 30080; lấy dữ liệu trước, lọc sau
+  local p; p="$(kubectl get services -A -o jsonpath='{range .items[*]}{range .spec.ports[*]}{.nodePort}{"\n"}{end}{end}')" || return 1
+  printf '%s\n' "$p" | awk '$0 == "30080"'
+}
+LEFT=0; LEFT_NS=0; NP=0
+dem LEFT kubectl get namespace,priorityclass -l "$SEL" --no-headers
+dem LEFT_NS kubectl get "$KINDS,endpointslices" --all-namespaces -l "$SEL" --no-headers
+dem NP np30080
 if [ "$LEFT" -eq 0 ] && [ "$LEFT_NS" -eq 0 ] && [ "$NP" -eq 0 ]; then
   echo 'teardown: sach'
 else
@@ -879,6 +892,10 @@ trong Pod template bằng tay; ticket này cho thấy bộ sinh ConfigMap của 
 5. Chứng minh đổi cấu hình là một rollout: chỉ sửa file trong repo rồi `./scripts/deploy.sh`, `web` có
    ReplicaSet mới trỏ tới ConfigMap tên mới, còn ConfigMap cũ vẫn tồn tại. Lần phát hành này vẫn ghi
    lý do vào lịch sử rollout như quy ước Lab 4a.
+6. Trả phần hoãn của Lab 4a — "không gián đoạn" đo ở mức **request**, không chỉ ở `availableReplicas`:
+   `web` được rollback về revision trước rồi phát hành lại từ repo, trong suốt thời gian đó một client
+   gọi `/` liên tục qua NodePort trên IP của `lab-k8s-master` không nhận request lỗi nào. Số mẫu, số
+   lỗi và thời gian của từng lần rollout ghi vào ADR. Sau phép đo, `web` chạy đúng cấu hình trong repo.
 
 **Ràng buộc:** không địa chỉ IP nào trong cấu hình nginx. Không `kubectl edit`/`patch`. Ticket này
 **không** teardown — yêu cầu 5 cần lịch sử rollout. Lỡ teardown thì sửa thêm một dòng chú thích trong
@@ -908,6 +925,9 @@ trong Pod template bằng tay; ticket này cho thấy bộ sinh ConfigMap của 
   API.
 - `PASS:` `web` có ReplicaSet mới nhất trỏ ConfigMap khác ReplicaSet trước; ConfigMap cũ còn đó;
   revision mới nhất có lý do phát hành.
+- `PASS:` rollback rồi phát hành lại `web` **đã thật sự xảy ra**: cả hai lệnh thành công, template trỏ
+  ConfigMap cũ rồi trở lại ConfigMap mới trong repo, revision tăng sau mỗi chặng.
+- `PASS:` dưới phép đo liên tục qua hai chặng: ít nhất 20 mẫu, 0 lỗi trên `/`.
 - `PASS:` (PowerShell trên host) nội dung `/api/books` có chuỗi `title`.
 
 **Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-cong-vao-web.md`:
@@ -922,6 +942,8 @@ trong Pod template bằng tay; ticket này cho thấy bộ sinh ConfigMap của 
    còn lại để làm gì?
 4. Gọi `<IP master>:30080` thì master không chạy Pod `web` nào — vì sao vẫn `200`, và đổi lại mất gì
    (gợi ý: bài 364, IP nguồn)?
+5. Phép đo của yêu cầu 6 cho 0 lỗi nhờ những cơ chế nào đã có từ Lab 3a, 4a — kể đủ, mỗi cơ chế lo
+   phần nào? Vì sao phép đo này gọi `/` chứ không gọi `/api/books`, và vì sao gọi qua IP master?
 
 <details>
 <summary>Gợi ý</summary>
@@ -933,6 +955,9 @@ trong Pod template bằng tay; ticket này cho thấy bộ sinh ConfigMap của 
    revision: `kubectl -n bookstore get rs -l app.kubernetes.io/component=web -o wide`.
 5. Từ máy host Windows:
    `(Invoke-WebRequest -UseBasicParsing http://192.168.100.222:30080/api/books).Content`.
+6. Rollback: `kubectl -n bookstore rollout undo deployment/web`. Phát hành lại: `./scripts/deploy.sh` —
+   repo vẫn là nguồn sự thật. Client đo: một vòng `curl -s -o /dev/null -w '%{http_code}'` chạy nền,
+   ghi mỗi mẫu một dòng.
 
 </details>
 
@@ -971,8 +996,47 @@ CUR="$(kubectl -n "$NS" get deployment web -o jsonpath='{.spec.template.spec.vol
 { [ "$(grep -c . "$EV/b3-rs.txt")" -ge 2 ] && [ -n "$OLD" ] && [ "$NEW" != "$OLD" ] && [ "$CUR" = "$NEW" ] && \
   kubectl -n "$NS" get configmap "$OLD" >/dev/null 2>&1; } \
   && echo "PASS: doi default.conf sinh ConfigMap $NEW, web rollout sang ReplicaSet moi; $OLD van con"
-kubectl -n "$NS" rollout history deployment/web | awk 'NF' | tail -1 | tee -a "$EV/b3-rs.txt" | grep -q '<none>' \
-  && echo 'FAIL: revision moi nhat cua web khong co ly do' || echo 'PASS: revision moi nhat cua web co ly do phat hanh'
+if H="$(kubectl -n "$NS" rollout history deployment/web)"; then
+  printf '%s\n' "$H" | awk 'NF' | tail -1 | tee -a "$EV/b3-rs.txt" | grep -q '<none>' \
+    && echo 'FAIL: revision moi nhat cua web khong co ly do' || echo 'PASS: revision moi nhat cua web co ly do phat hanh'
+else echo 'STOP: khong doc duoc lich su rollout cua web'; fi
+
+# Phần hoãn của Lab 4a: đo ở mức request trong lúc rollback rồi phát hành lại web. Client gọi / qua
+# NodePort trên IP master — master không chạy Pod web và không bị đụng tới trong phép đo.
+# Số mẫu không lỗi chỉ có nghĩa khi cả hai chặng đã thật sự xảy ra: mỗi lệnh phải thành công, và sau
+# mỗi chặng template phải trỏ đúng ConfigMap mong đợi với revision tăng lên. Hệ thống cũ vẫn trả 200
+# trong khi lệnh phát hành thất bại là FAIL, không phải PASS.
+cm_web()  { kubectl -n "$NS" get deployment web -o jsonpath='{.spec.template.spec.volumes[*].configMap.name}' | cut -d' ' -f1; }
+rev_web() { kubectl -n "$NS" get deployment web -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}'; }
+M="$(nip lab-k8s-master)"; D="$EV/b3-do-rollout.txt"; T1=0; T2=0; OK=1
+REV0="$(rev_web)"; REV1=0; REV2=0
+{ [ -n "$OLD" ] && [ "$(cm_web)" = "$NEW" ] && [ "${REV0:-0}" -gt 0 ]; } \
+  || { echo 'STOP: web chua o cau hinh moi nhat hoac khong co revision truoc — xem lai cac dong PASS o tren'; OK=0; }
+rm -f "$D.stop"; : > "$D"
+( while [ ! -e "$D.stop" ]; do
+    echo "$(date +%s) $(curl -s -o /dev/null -m 2 -w '%{http_code}' "http://$M:30080/")" >> "$D"; sleep 0.5
+  done ) &
+PROBE=$!; sleep 5; T0="$(date +%s)"
+# Chặng 1 — rollback về revision trước, tức ConfigMap cũ.
+if [ "$OK" -eq 1 ] && kubectl -n "$NS" rollout undo deployment/web > "$EV/b3-undo.txt" 2>&1 \
+   && kubectl -n "$NS" rollout status deployment/web --timeout=300s >/dev/null \
+   && [ "$(cm_web)" = "$OLD" ] && REV1="$(rev_web)" && [ "${REV1:-0}" -gt "$REV0" ]; then
+  T1="$(date +%s)"
+else OK=0; echo "FAIL: rollback khong xay ra that — xem $EV/b3-undo.txt"; fi
+# Chặng 2 — phát hành lại từ repo, tức ConfigMap mới.
+if [ "$OK" -eq 1 ] && (cd ~/bookstore && ./scripts/deploy.sh > "$EV/b3-phat-hanh-lai.txt" 2>&1) \
+   && kubectl -n "$NS" rollout status deployment/web --timeout=300s >/dev/null \
+   && [ "$(cm_web)" = "$NEW" ] && REV2="$(rev_web)" && [ "${REV2:-0}" -gt "$REV1" ]; then
+  T2="$(date +%s)"
+else [ "$OK" -eq 1 ] && echo "FAIL: phat hanh lai khong xay ra that — xem $EV/b3-phat-hanh-lai.txt"; OK=0; fi
+sleep 5; touch "$D.stop"; wait "$PROBE"   # probe luôn được dừng, kể cả khi một chặng hỏng
+N="$(wc -l < "$D")"; L="$(awk '$2 != "200"' "$D" | wc -l)"
+RB=-; PH=-; [ "$T1" -gt 0 ] && RB=$((T1 - T0)); [ "$T2" -gt 0 ] && PH=$((T2 - T1))
+echo "mau=$N loi=$L revision=$REV0->$REV1->$REV2 rollback_s=$RB phat_hanh_lai_s=$PH" | tee "$EV/b3-do-tom-tat.txt"
+[ "$OK" -eq 1 ] \
+  && echo "PASS: rollback ($NEW -> $OLD) va phat hanh lai ($OLD -> $NEW) da xay ra, revision $REV0 -> $REV1 -> $REV2"
+{ [ "$OK" -eq 1 ] && [ "$N" -ge 20 ] && [ "$L" -eq 0 ]; } \
+  && echo "PASS: duoi phep do lien tuc qua hai chang: $N mau, 0 loi tren /"
 ```
 
 Trên máy host Windows, PowerShell — sửa IP cho đúng worker của bạn:
@@ -1076,6 +1140,13 @@ kubectl -n bookstore get configmap -l app.kubernetes.io/component=web
 4. Mọi node lắng nghe cổng NodePort và chuyển tiếp tới một endpoint sẵn sàng bất kỳ
    (`externalTrafficPolicy: Cluster`, mặc định). Đổi lại: thêm một chặng sang node khác và backend
    không thấy IP nguồn thật của client (bài 364). B9 đo phương án `Local`.
+5. Ba lớp cùng giữ 0 lỗi: `maxUnavailable: 0` (Lab 4a) không hạ Pod cũ khi Pod mới chưa sẵn sàng;
+   readiness (Lab 3a) quyết định khi nào Pod mới được nhận request; `preStop` của nginx (Lab 3a) giữ
+   Pod cũ phục vụ trong lúc Service thôi gửi request tới nó — việc đó chạy song song với việc tắt Pod
+   (B5). Đo `/` vì revision trước chưa có proxy `/api/`: trong lúc hai cấu hình cùng chạy, `/api/books`
+   trả 404 từ Pod cũ — đó là khác biệt hành vi giữa hai bản, không phải gián đoạn. Gọi qua IP master vì
+   master không chạy Pod `web` và không bị đụng tới, nên lỗi đo được chỉ có thể do rollout. `api` chưa
+   được đo ở đây: Lab 12 B6 đo việc thay toàn bộ Pod `api` dưới probe.
 
 </details>
 
@@ -1154,6 +1225,8 @@ nghiệm xóa khi xong.
 <summary>Script nghiệm thu — chạy sau `./scripts/deploy.sh` và sau khi tự viết `itp-thu.yaml`</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/5a; W=~/lab-work/5a
 svc() { kubectl -n "$NS" get service "$1" -o jsonpath="$2" 2>/dev/null; }
 
@@ -1190,7 +1263,7 @@ kubectl -n "$NS" exec hoi-w2 -- wget -qO- -T 3 http://itp-thu/ > "$EV/b4-itp-w2.
 kubectl -n "$NS" exec hoi-w2 -- nslookup itp-thu > "$EV/b4-itp-dns.txt" 2>&1 \
   && echo 'PASS: ten itp-thu van phan giai tu worker2 — loi nam o dinh tuyen, khong o DNS'
 kubectl delete -f "$W/itp-thu.yaml" --wait=true >/dev/null \
-  && [ "$(kubectl -n "$NS" get pod,svc -l lab=itp-thu --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && [ "$(sl kubectl -n "$NS" get pod,svc -l lab=itp-thu --no-headers)" -eq 0 ] \
   && echo 'PASS: da xoa object thu nghiem'
 ```
 
@@ -1673,6 +1746,8 @@ không còn Pod nào khi xong. Object thử nghiệm mang label `lab` và bị x
 <summary>Script nghiệm thu — script này chính là cuộc điều tra</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/5a
 WEB="$(kubectl -n "$NS" get pod -l 'app.kubernetes.io/component=web,!lab' -o jsonpath='{.items[0].metadata.name}')"
 inpod() { kubectl -n "$NS" exec "$WEB" -c status-writer -- "$@"; }
@@ -1702,7 +1777,7 @@ kubectl -n default run dns-ngoai --rm -i --restart=Never --image=busybox:1.37 --
 { ! sed -n '1,/^---$/p' "$EV/b6-ngoai-ns.txt" | grep -q "$API_IP" && \
   sed -n '/^---$/,$p' "$EV/b6-ngoai-ns.txt" | grep -q "$API_IP"; } \
   && echo 'PASS: tu namespace default, api khong phan giai, api.bookstore thi co'
-[ "$(kubectl -n default get pods --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: namespace default khong con Pod'
+[ "$(sl kubectl -n default get pods --no-headers)" -eq 0 ] && echo 'PASS: namespace default khong con Pod'
 
 # 4. Định danh DNS của db-0
 DB_IP="$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.status.podIP}')"
@@ -1826,6 +1901,8 @@ nhưng chưa có Service nên chưa chia được lưu lượng thật. Trước
 <summary>Script nghiệm thu — chạy sau khi canary Ready</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/5a
 cd ~/bookstore
 nip() { kubectl get node "$1" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'; }
@@ -1866,7 +1943,7 @@ for i in $(seq 1 30); do [ "$(uniq_ready)" -eq 3 ] && break; sleep 1; done
 for i in $(seq 1 30); do curl -s -m 3 "http://$W1:30080/status.json"; done | versions > "$EV/b7-sau-rut.txt"
 { [ "$(uniq_ready)" -eq 3 ] && ! grep -q -- '-canary$' "$EV/b7-sau-rut.txt"; } \
   && echo 'PASS: rut canary — Service ve 3 endpoint, khong request nao toi phien ban canary'
-{ [ "$(kubectl -n "$NS" get deployment,pod -l lab=canary --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
+{ [ "$(sl kubectl -n "$NS" get deployment,pod -l lab=canary --no-headers)" -eq 0 ] && \
   ! grep -rq 'web-canary' k8s; } && echo 'PASS: khong con object canary, k8s/ khong chua canary'
 ```
 
@@ -2333,6 +2410,8 @@ trỏ tới FQDN của Service `api`. Chứng minh:
 <summary>Script nghiệm thu — chạy sau khi tự viết `duong-vao.yaml`</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/5a; W=~/lab-work/5a
 nip() { kubectl get node "$1" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'; }
 svc() { kubectl -n "$NS" get service "$1" -o jsonpath="$2" 2>/dev/null; }
@@ -2373,7 +2452,7 @@ T="$(kubectl -n "$NS" exec "$WEB" -c status-writer -- wget -qO- http://api-ngoai
 [ "$T" -ge 5 ] && echo "PASS: goi /books qua ten ExternalName van ra $T cuon"
 
 kubectl delete -f "$W/duong-vao.yaml" --wait=true >/dev/null
-[ "$(kubectl -n "$NS" get svc -l lab=duong-vao --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: da xoa ba Service thu nghiem'
+[ "$(sl kubectl -n "$NS" get svc -l lab=duong-vao --no-headers)" -eq 0 ] && echo 'PASS: da xoa ba Service thu nghiem'
 ```
 
 </details>
@@ -2674,6 +2753,8 @@ muốn "bật định tuyến theo zone cho rẻ". Trả lời cả hai bằng s
 <summary>Script nghiệm thu — script này chính là cuộc điều tra</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/5a
 ip2int() { local a b c d; IFS=. read -r a b c d <<<"$1"; echo $(( (a<<24)+(b<<16)+(c<<8)+d )); }
 int2ip() { local n=$1; echo "$(( (n>>24)&255 )).$(( (n>>16)&255 )).$(( (n>>8)&255 )).$(( n&255 ))"; }
@@ -2708,7 +2789,7 @@ thu() {   # $1 = ten, $2 = clusterIP; dry-run phía server, không tạo object
 thu cip-tinh "$(int2ip $((NET + 99)))" > "$EV/b11-tinh.txt" && echo "PASS: dry-run server chap nhan ClusterIP tinh $(int2ip $((NET + 99)))"
 thu cip-ngoai "$(int2ip $((NET + SIZE + 1)))" > "$EV/b11-ngoai.txt" \
   && echo 'FAIL: chap nhan dia chi ngoai dai' || { cat "$EV/b11-ngoai.txt"; echo 'PASS: dia chi ngoai dai bi API server tu choi'; }
-[ "$(kubectl -n "$NS" get svc -l lab=cip --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: khong Service nao duoc tao'
+[ "$(sl kubectl -n "$NS" get svc -l lab=cip --no-headers)" -eq 0 ] && echo 'PASS: khong Service nao duoc tao'
 
 # Định tuyến theo topology
 kubectl -n "$NS" create service clusterip api-topo --tcp=3000:http --dry-run=client -o yaml \
@@ -2814,6 +2895,8 @@ nếu một ngày các phân vùng cần trao đổi kết quả.
 <summary>Script nghiệm thu — chạy sau khi tự viết hai manifest</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/5a; W=~/lab-work/5a
 WEB="$(kubectl -n "$NS" get pod -l 'app.kubernetes.io/component=web,!lab' -o jsonpath='{.items[0].metadata.name}')"
 
@@ -2829,9 +2912,9 @@ GRACE="$(kubectl -n "$NS" get pod sts-thu-0 --template '{{.spec.terminationGrace
 kubectl -n "$NS" delete statefulset -l lab=sts-thu
 sleep "$GRACE"
 kubectl -n "$NS" wait --for=delete pod -l lab=sts-thu --timeout=60s
-{ [ "$(kubectl -n "$NS" get pod -l lab=sts-thu --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
+{ [ "$(sl kubectl -n "$NS" get pod -l lab=sts-thu --no-headers)" -eq 0 ] && \
   kubectl -n "$NS" get service sts-thu >/dev/null 2>&1 && \
-  [ "$(kubectl -n "$NS" get pvc --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+  [ "$(sl kubectl -n "$NS" get pvc --no-headers)" -eq 0 ]; } \
   && echo 'PASS: Pod di theo StatefulSet, Service quan tri van con, khong co PVC (no lab #2)'
 kubectl -n "$NS" delete service sts-thu
 
@@ -2845,7 +2928,7 @@ kubectl -n "$NS" logs -l job-name=kiem-ket-noi --tail=-1 > "$EV/b12-job.log"
 [ "$(grep -c '^da goi duoc' "$EV/b12-job.log")" -eq 9 ] && echo 'PASS: du 9 lan goi thanh cong giua ba Pod'
 
 kubectl delete -f "$W/kiem-ket-noi.yaml" --wait=true >/dev/null
-[ "$(kubectl -n "$NS" get statefulset,job,service,pod -l 'lab in (sts-thu,kiem-ket-noi)' --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl kubectl -n "$NS" get statefulset,job,service,pod -l 'lab in (sts-thu,kiem-ket-noi)' --no-headers)" -eq 0 ] \
   && echo 'PASS: khong con object thu nghiem'
 ```
 
@@ -3027,6 +3110,8 @@ tắc chuyển đổi bài 294 mô tả — **không** cài Kompose.
 <summary>Script nghiệm thu — chạy sau khi viết ADR</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=bookstore; EV=~/lab-evidence/5a
 cd ~/bookstore
 SEL='app.kubernetes.io/part-of=bookstore'
@@ -3049,7 +3134,7 @@ M="$(jp statefulset/db '{.spec.template.spec.containers[?(@.name=="postgres")].v
 jp statefulset/db "{.spec.template.spec.volumes[?(@.name==\"$M\")].configMap.name}" | grep -q '^db-init' \
   && echo 'PASS: ./sql thanh ConfigMap db-init mount o /docker-entrypoint-initdb.d'
 { jp statefulset/db '{.spec.template.spec.volumes[*].emptyDir}' | grep -q '{}' && \
-  [ "$(kubectl -n "$NS" get pvc --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+  [ "$(sl kubectl -n "$NS" get pvc --no-headers)" -eq 0 ]; } \
   && echo 'PASS: volume dbdata hien van la emptyDir — TD-04 con mo'
 [ "$(jp cronjob/db-backup '{.spec.concurrencyPolicy}')" = 'Forbid' ] \
   && echo 'PASS: vong lap backup thanh CronJob khong chay chong (ban dump van chua ben — TD-08)'
@@ -3294,6 +3379,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
 git describe --tags --exact-match HEAD | grep -qx 'lab-5a' && echo 'PASS: HEAD mang tag lab-5a'
@@ -3315,11 +3402,13 @@ for F in 'adr/*-service-ba-tang.md' 'adr/*-goi-nhau-bang-ten.md' 'adr/*-cong-vao
   ls docs/$F >/dev/null 2>&1 || { echo "FAIL: thieu docs/$F"; BAD=1; }
 done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ADR, postmortem va runbook cua sprint 6'
-{ [ "$(kubectl get namespace,priorityclass -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get namespace,priorityclass -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an'
-kubectl get services -A -o jsonpath='{range .items[*]}{range .spec.ports[*]}{.nodePort}{"\n"}{end}{end}' | grep -qx 30080 \
-  && echo 'FAIL: NodePort 30080 van bi giu' || echo 'PASS: NodePort 30080 da duoc tra'
+if NPS="$(kubectl get services -A -o jsonpath='{range .items[*]}{range .spec.ports[*]}{.nodePort}{"\n"}{end}{end}')"; then
+  printf '%s\n' "$NPS" | grep -qx 30080 \
+    && echo 'FAIL: NodePort 30080 van bi giu' || echo 'PASS: NodePort 30080 da duoc tra'
+else echo 'STOP: khong doc duoc danh sach Service'; fi
 test ! -e ~/lab-work/5a && echo 'PASS: da don lab-work'
 
 kubectl wait --for=condition=Ready node --all --timeout=180s
@@ -3377,7 +3466,8 @@ Nợ còn mở sau lab này — nói được **vì sao chưa trả**:
 - Nợ kỹ thuật: `TD-09` mới (lưu lượng giữa các tầng chưa bị giới hạn — Lab 5b), `TD-04` (dữ liệu trên
   `emptyDir` — Lab 6a), `TD-08` (bản dump chưa có nơi bền — Lab 6a), `TD-06` (`db` khởi động bằng root
   — Lab 9b), `TD-07` (quyền debug — Lab 9a). **Đã trả ở lab này:** nợ lab #3, nợ readiness →
-  EndpointSlice của Lab 3a, nợ canary của Lab 4a, `TD-03`.
+  EndpointSlice của Lab 3a, nợ canary và phép đo rollout ở mức request (phần `web`) của Lab 4a,
+  `TD-03`. Phép đo rollout của `api` chờ Lab 12 B6.
 
 ### Bài giải thích cuối cùng
 

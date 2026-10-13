@@ -201,7 +201,9 @@ kubectl get pods -n default
 Mốc `04-metrics-ready` nghĩa là metrics-server trả số liệu cho cả ba node:
 
 ```bash
-test "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 \
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
+test "$(sl kubectl top node --no-headers)" -eq 3 \
   && echo 'PASS: metrics-server tra so lieu ca ba node'
 ```
 
@@ -209,12 +211,14 @@ Repo và thư mục làm việc. Nếu vừa restore snapshot, repo đã mất �
 [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm) trước:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 mkdir -p ~/lab-work/13 ~/lab-evidence/13
 test -d ~/bookstore/.git || git clone ~/bookstore-lab-12.bundle ~/bookstore
 cd ~/bookstore
 git describe --tags --exact-match HEAD 2>/dev/null | grep -qx 'lab-12' && echo 'PASS: HEAD dung tag lab-12'
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong co thay doi chua commit'
-test "$(kubectl get namespace -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 \
+test "$(sl kubectl get namespace -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 \
   && echo 'PASS: cluster chua co du an' || echo 'FAIL: con namespace du an tu lan truoc'
 ```
 
@@ -1236,6 +1240,8 @@ chạy thí nghiệm.
 <summary>Script nghiệm thu — chạy sau khi tự làm xong; bước 4 là thí nghiệm, chạy liền mạch</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 NS=lab-13; EV=~/lab-evidence/13; W=~/lab-work/13; W2=lab-k8s-worker2
 
 # 1. Bề mặt API lập lịch theo nhóm
@@ -1294,8 +1300,8 @@ else
   { [ "$RUN" -eq 2 ] && [ "$PEN" -eq 1 ] && echo "$M" | grep -q 'Insufficient cpu'; } \
     && echo 'PASS: hai worker chay va giu CPU, worker thu ba Pending vi thieu CPU — khoi dong mot phan'
   kubectl -n "$NS" delete job huan-luyen-thu --wait=true
-  for i in $(seq 1 40); do [ "$(kubectl -n "$NS" get pods -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && break; sleep 3; done
-  [ "$(kubectl -n "$NS" get pods -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: da xoa Job thi nghiem'
+  for i in $(seq 1 40); do [ "$(sl kubectl -n "$NS" get pods -l "$SEL" --no-headers)" -eq 0 ] && break; sleep 3; done
+  [ "$(sl kubectl -n "$NS" get pods -l "$SEL" --no-headers)" -eq 0 ] && echo 'PASS: da xoa Job thi nghiem'
 fi
 
 # 5. Bản nháp Job cho batch thật
@@ -2147,24 +2153,26 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 EV=~/lab-evidence/13; . "$EV/b0-anh-nen.env"
 cd ~/bookstore
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
 git describe --tags --exact-match HEAD | grep -qx 'lab-13' && echo 'PASS: HEAD mang tag lab-13'
 test -s ~/bookstore-lab-13.bundle && echo 'PASS: co bundle'
 test -z "$(git diff --name-only lab-12 lab-13 -- . ':(exclude)docs')" && echo 'PASS: lab-13 chi doi docs/ so voi lab-12'
-{ [ "$(kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an'
-[ "$(kubectl get namespace,deviceclass -l lab=lab-13 --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl kubectl get namespace,deviceclass -l lab=lab-13 --no-headers)" -eq 0 ] \
   && echo 'PASS: khong con object thu nghiem cua lab 13'
 test ! -e ~/lab-work/13 && echo 'PASS: da don lab-work'
-{ [ "$(kubectl get deviceclasses --no-headers 2>/dev/null | wc -l)" -eq "$DC_BEFORE" ] && \
-  [ "$(kubectl get resourceslices --no-headers 2>/dev/null | wc -l)" -eq "$SLICE_BEFORE" ]; } \
+{ [ "$(sl kubectl get deviceclasses --no-headers)" -eq "$DC_BEFORE" ] && \
+  [ "$(sl kubectl get resourceslices --no-headers)" -eq "$SLICE_BEFORE" ]; } \
   && echo "PASS: DeviceClass, ResourceSlice ve dung muc dau ($DC_BEFORE, $SLICE_BEFORE)"
 [ "$(kubectl api-resources -o name 2>/dev/null | sort -u | wc -l)" -eq "$API_BEFORE" ] \
   && echo "PASS: so API resource khong doi ($API_BEFORE) — khong bat nhom API nao"
-[ "$(kubectl get crd -o name 2>/dev/null | wc -l)" -eq "$CRD_BEFORE" ] && echo "PASS: so CRD khong doi ($CRD_BEFORE)"
+[ "$(sl kubectl get crd -o name)" -eq "$CRD_BEFORE" ] && echo "PASS: so CRD khong doi ($CRD_BEFORE)"
 kubectl get --raw /metrics > "$EV/b9-apiserver-metrics.txt"
 { [ "$(grep -c '^kubernetes_feature_enabled{' "$EV/b9-apiserver-metrics.txt")" -eq "$FG_ALL_BEFORE" ] && \
   [ "$(grep '^kubernetes_feature_enabled{' "$EV/b9-apiserver-metrics.txt" | grep -c ' 1$')" -eq "$FG_ON_BEFORE" ]; } \
@@ -2173,7 +2181,7 @@ kubectl get --raw /metrics > "$EV/b9-apiserver-metrics.txt"
 [ "$(kubectl get priorityclass -o name | sort | tr '\n' ' ')" = "$PC_BEFORE" ] && echo 'PASS: danh sach PriorityClass khong doi'
 [ "$(kubectl get nodes --no-headers --show-labels | awk '{print $1, $NF}' | sort | md5sum | cut -d' ' -f1)" = "$LBL_BEFORE" ] \
   && echo 'PASS: nhan cua ca ba node khong doi'
-test "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 && echo 'PASS: metrics-server van tra so lieu ca ba node'
+test "$(sl kubectl top node --no-headers)" -eq 3 && echo 'PASS: metrics-server van tra so lieu ca ba node'
 
 kubectl wait --for=condition=Ready node --all --timeout=180s
 test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'

@@ -163,7 +163,9 @@ kubectl get pods -n default
 Mốc `04-metrics-ready` và cluster chưa có dấu vết của dự án:
 
 ```bash
-test "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 && echo 'PASS: kubectl top node du ba node'
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
+test "$(sl kubectl top node --no-headers)" -eq 3 && echo 'PASS: kubectl top node du ba node'
 test "$(kubectl get apiservice v1beta1.metrics.k8s.io \
   -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')" = 'True' \
   && echo 'PASS: APIService metrics.k8s.io Available'
@@ -399,7 +401,11 @@ lại kết quả ngay trên object đó. Ticket này tạo kind; B4 tạo thứ
    - `database` bắt buộc, chỉ nhận `bookstore`;
    - `format` là `plain` hoặc `custom`, bỏ trống thì thành `plain`;
    - `note` tùy chọn, tối đa 120 ký tự;
-   - trường không khai báo không được lưu.
+   - trường không khai báo không được lưu;
+   - **tên** của `DbBackup` là một DNS label (chữ thường, số, gạch nối; không dấu chấm), tối đa 54 ký
+     tự. Mặc định API server nhận mọi DNS subdomain tới 253 ký tự, nhưng B4 đặt tên Job là
+     `dbbackup-<tên>` và đưa tên vào một label — cả hai giới hạn 63 ký tự. Tên vượt giới hạn phải bị
+     từ chối ngay khi tạo, không được để controller gặp lỗi về sau.
 4. `status` gồm `phase` (`Running`, `Succeeded`, `Failed`), `jobName`, `file`, `sizeBytes` (số
    nguyên), `startTime`, `completionTime` (thời điểm), `observedGeneration`, `message`. `status` chỉ
    ghi được qua đường riêng, và ghi `status` không làm tăng `metadata.generation`.
@@ -410,8 +416,9 @@ lại kết quả ngay trên object đó. Ticket này tạo kind; B4 tạo thứ
 7. Chứng minh trên một namespace dùng một lần: `DbBackup` mất theo namespace, CRD thì không.
 
 **Ràng buộc:** không viết webhook. Không dùng trường nào ngoài những trường bài 179 đã nêu tên trong
-hai bảng và ví dụ YAML — riêng từ khóa schema (`required`, `enum`, `default`, `maxLength`) là phần
-*validation theo OpenAPI v3.0* mà bảng đó dẫn tới. Mọi thử nghiệm làm trong namespace `bookstore-thu`,
+hai bảng và ví dụ YAML — riêng từ khóa schema (`required`, `enum`, `default`, `maxLength`, `pattern`)
+là phần *validation theo OpenAPI v3.0* mà bảng đó dẫn tới. Không dùng `x-kubernetes-validations`
+(CEL): bài 378 dạy nó ở giai đoạn 28. Mọi thử nghiệm làm trong namespace `bookstore-thu`,
 **không** trong `bookstore`: chưa có controller nào, và B4 sẽ xử lý mọi `DbBackup` còn sót trong
 `bookstore`.
 
@@ -426,6 +433,14 @@ hai bảng và ví dụ YAML — riêng từ khóa schema (`required`, `enum`, `
   [*Các trường có thể chọn lọc*](../179-custom-resources-vi.md#crd-selectable-fields) cho khung của
   một CRD có `additionalPrinterColumns`.
 - Bài [178](../178-api-extension-vi.md) — với CRD, control plane phục vụ và lưu.
+- Bài [378](../378-custom-resource-definitions-vi.md), chỉ hai đoạn mà dòng Validation của bài 179 dẫn
+  tới: [*Kiểm tra hợp lệ*](../378-custom-resource-definitions-vi.md#validation) (từ khóa OpenAPI v3.0,
+  ví dụ `pattern`) và quy tắc 4 của
+  [*structural schema*](../378-custom-resource-definitions-vi.md#specifying-a-structural-schema) — schema
+  chỉ được ràng buộc `metadata.name` và `metadata.generateName`.
+- Bài [17 — Tên và ID](../17-names-vi.md), mục
+  [*Tên DNS Subdomain*](../17-names-vi.md#dns-subdomain-names) và
+  [*Tên label theo RFC 1123*](../17-names-vi.md#dns-label-names) — hai giới hạn 253 và 63 ký tự.
 - [Mục 5.5 của file dự án](DU-AN-BOOKSTORE.md#55-bố-cục-repo-theo-sprint) — hàng "14".
 
 **Bàn giao:** `k8s/cluster/crd-dbbackup.yaml`; hai script mới; `docs/adr/NNNN-crd-dbbackup.md`;
@@ -438,6 +453,7 @@ hai bảng và ví dụ YAML — riêng từ khóa schema (`required`, `enum`, `
   category; chỉ có `v1alpha1`, `storedVersions` là `["v1alpha1"]`.
 - `PASS:` `/apis/bookstore.example.com/v1alpha1` do chính kube-apiserver phục vụ, không Service nào.
 - `PASS:` ba object sai bị API server từ chối: thiếu `database`, `database` lạ, `note` quá dài.
+- `PASS:` tên ở biên: 54 ký tự được nhận; 55 ký tự và tên có dấu chấm bị từ chối.
 - `PASS:` trường lạ bị từ chối ở chế độ `strict`; qua `ignore` thì object được tạo nhưng trường lạ
   không được lưu; `format` bỏ trống đọc ra `plain`.
 - `PASS:` `kubectl get dbb` có bốn cột yêu cầu; `kubectl get bookstore` liệt kê `DbBackup`.
@@ -650,14 +666,22 @@ WORKERS='lab-k8s-worker1 lab-k8s-worker2'
 KINDS='statefulsets,deployments,daemonsets,cronjobs,jobs,replicasets,pods,poddisruptionbudgets,services,networkpolicies,ingresses,configmaps,secrets,persistentvolumeclaims,roles,rolebindings,resourcequotas,limitranges,serviceaccounts'
 # Thư mục volume tên <PV>_<namespace>_<PVC>: khớp namespace bookstore và bookstore-* (6a).
 LP_FIND="sudo find $LP_ROOT -mindepth 1 -maxdepth 1 \( -name '*_bookstore_*' -o -name '*_bookstore-*_*' \)"
+# Lệnh chạy trên worker. Thư mục gốc chưa từng có nghĩa là không có gì để dọn; lỗi ssh, sudo hay find
+# thì trả mã khác 0 — "không kiểm được" không bao giờ được hiểu thành "không còn gì".
+LP_ON_NODE="sudo -n test ! -e $LP_ROOT || $LP_FIND"
 
 # PV do provisioner sinh không mang label dự án: nhận diện theo namespace của claim hoặc theo class;
 # PV tạo tay thì mang label dự án (6a).
+# Hai truy vấn chạy riêng: một cái lỗi thì hàm trả lỗi, không trả về một danh sách thiếu.
 project_pvs() {
-  { kubectl get pv -o jsonpath='{range .items[*]}{.metadata.name} {.spec.claimRef.namespace} {.spec.storageClassName}{"\n"}{end}' \
-      | awk '$2 == "bookstore" || $2 ~ /^bookstore-/ || $3 == "bookstore-retain" {print $1}'
-    kubectl get pv -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'; } | sort -u
+  local a b
+  a="$(kubectl get pv -o jsonpath='{range .items[*]}{.metadata.name} {.spec.claimRef.namespace} {.spec.storageClassName}{"\n"}{end}')" || return 1
+  b="$(kubectl get pv -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')" || return 1
+  { printf '%s\n' "$a" | awk '$2 == "bookstore" || $2 ~ /^bookstore-/ || $3 == "bookstore-retain" {print $1}'
+    printf '%s\n' "$b"; } | awk 'NF' | sort -u
 }
+# Liệt kê thư mục dữ liệu còn lại trên một worker; mã thoát khác 0 = không kiểm được worker đó.
+lp_left() { ssh -o BatchMode=yes "$1" "$LP_ON_NODE"; }
 
 # 1. [14] Dừng controller trước, để nó không tạo Job mới trong lúc gỡ.
 if [ -x scripts/backup-operator.sh ]; then ./scripts/backup-operator.sh stop; fi
@@ -678,7 +702,8 @@ kubectl delete namespace -l "$SEL" --ignore-not-found --wait=true --timeout=300s
 kubectl delete "$KINDS" --all-namespaces -l "$SEL" --ignore-not-found --wait=true --timeout=120s
 
 # 5. PV còn lại và thư mục dữ liệu trên node — reclaimPolicy Retain giữ lại cả hai (6a).
-for PV in $(project_pvs); do
+PVS="$(project_pvs)" || { echo 'teardown: STOP - khong liet ke duoc PV cua du an'; exit 1; }
+for PV in $PVS; do
   P="$(kubectl get pv "$PV" -o jsonpath='{.spec.hostPath.path}{.spec.local.path}' 2>/dev/null || true)"
   N="$(kubectl get pv "$PV" -o jsonpath='{.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]}' 2>/dev/null || true)"
   kubectl delete pv "$PV" --ignore-not-found --wait=true --timeout=120s
@@ -690,7 +715,8 @@ for PV in $(project_pvs); do
 done
 #    Thư mục còn sót trên mọi worker, kể cả của PV đã mất từ trước (6a).
 for W in $WORKERS; do
-  ssh "$W" "$LP_FIND -exec rm -rf {} +" || true
+  ssh -o BatchMode=yes "$W" "$LP_ON_NODE -exec rm -rf {} +" \
+    || { echo "teardown: STOP - khong xoa duoc thu muc du lieu tren $W (ssh, sudo hoac find loi)"; exit 1; }
 done
 
 # 6. Object cấp cluster mang label dự án — [14] CRD xóa sau namespace để namespace không kẹt
@@ -710,18 +736,33 @@ done
 rm -f secrets/*.kubeconfig
 
 # 8. Tự kiểm: cluster, thư mục dữ liệu trên worker, tiến trình trên master.
-LEFT="$( { kubectl get namespace,priorityclass,storageclass,crd,clusterrole,clusterrolebinding -l "$SEL" --no-headers
-           kubectl get storageclass bookstore-retain --no-headers --ignore-not-found; } 2>/dev/null | wc -l)"
-LEFT_NS="$( { kubectl get all -A -l "$SEL" --no-headers
-              kubectl get "$KINDS,endpointslices" -A -l "$SEL" --no-headers; } 2>/dev/null | wc -l)"
-LEFT_PV="$(project_pvs | wc -l)"
-LEFT_NODE="$(kubectl get nodes -l bookstore.example.com/data --no-headers 2>/dev/null | wc -l)"
-LEFT_TAINT="$(kubectl get nodes -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}' \
-              | grep -c '^bookstore\.example\.com/' || true)"
+# Mỗi truy vấn kiểm kê chạy riêng và phải thành công: API không trả lời hay Forbidden thì dừng —
+# "không hỏi được" không bao giờ được đếm thành "không còn gì". dem <biến> <lệnh...> cộng số dòng
+# output của lệnh vào biến; hàm chạy trong shell chính nên exit dừng cả script.
+dem() {
+  local v="$1" out; shift
+  out="$("$@" 2>/dev/null)" || { echo "teardown: STOP - truy van loi, chua ket luan sach: $*"; exit 1; }
+  printf -v "$v" '%d' "$(( ${!v:-0} + $(printf '%s\n' "$out" | awk 'NF' | wc -l) ))"
+}
+taints() {    # key của taint mà dự án đặt lên node (7a); lấy dữ liệu trước, lọc sau
+  local t; t="$(kubectl get nodes -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}')" || return 1
+  printf '%s\n' "$t" | awk '/^bookstore\.example\.com\//'
+}
+LEFT=0; LEFT_NS=0; LEFT_PV=0; LEFT_NODE=0; LEFT_TAINT=0
+dem LEFT kubectl get namespace,priorityclass,storageclass,crd,clusterrole,clusterrolebinding -l "$SEL" --no-headers
+dem LEFT kubectl get storageclass bookstore-retain --no-headers --ignore-not-found
+dem LEFT_NS kubectl get all -A -l "$SEL" --no-headers
+dem LEFT_NS kubectl get "$KINDS,endpointslices" -A -l "$SEL" --no-headers
+dem LEFT_PV project_pvs
+dem LEFT_NODE kubectl get nodes -l bookstore.example.com/data --no-headers
+dem LEFT_TAINT taints
+#    Mỗi worker cho một trong ba kết quả: còn thư mục, đã xác nhận không còn, hoặc không kiểm được.
+#    Kết quả thứ ba dừng script: chưa kết luận sạch thì không được chụp snapshot.
 LEFT_DIR=0
 for W in $WORKERS; do
-  C="$(ssh "$W" "$LP_FIND 2>/dev/null | wc -l" || echo 0)"
-  LEFT_DIR=$(( LEFT_DIR + ${C:-0} ))
+  L="$(lp_left "$W")" \
+    || { echo "teardown: STOP - khong kiem duoc thu muc du lieu tren $W; chua ket luan sach, KHONG chup snapshot"; exit 1; }
+  LEFT_DIR=$(( LEFT_DIR + $(printf '%s\n' "$L" | grep -c . || true) ))
 done
 LEFT_OP=0
 if [ -x scripts/backup-operator.sh ] && ./scripts/backup-operator.sh status >/dev/null 2>&1; then LEFT_OP=1; fi
@@ -762,7 +803,9 @@ manifest của `k8s/app` nằm trong `k8s/app/kustomization.yaml`, và Job `db-m
    `schema.openAPIV3Schema`, `subresources`, `additionalPrinterColumns`. Ví dụ YAML trong bài 179 là
    khung đủ dùng.
 2. Từ khóa schema: `required: [...]` ở object cha, `enum: [...]`, `default: ...`, `maxLength: ...`;
-   kiểu thời điểm là `type: string` với `format: date-time`.
+   kiểu thời điểm là `type: string` với `format: date-time`. Ràng buộc tên: khai `metadata` cạnh
+   `spec` trong `properties` của gốc schema, bên trong chỉ có `name` với `maxLength` và `pattern`.
+   54 = 63 − độ dài tiền tố `dbbackup-`.
 3. Thử object sai mà không ghi gì: `kubectl create --dry-run=server -f ...`.
 4. Trường lạ: so `kubectl create --validate=strict` với `--validate=ignore`.
 5. Ghi `status` qua đường riêng: `kubectl patch ... --subresource=status --type=merge -p '...'`.
@@ -807,6 +850,14 @@ dbb note-dai "{database: bookstore, note: $(printf 'x%.0s' $(seq 1 130))}" \
 grep -q 'spec.database: Required value' "$EV/b2-sai-1.txt" && echo 'PASS: thieu database bi tu choi'
 grep -q 'spec.database: Unsupported value' "$EV/b2-sai-2.txt" && echo 'PASS: database la bi tu choi'
 grep -q 'spec.note: Too long' "$EV/b2-sai-3.txt" && echo 'PASS: note qua 120 ky tu bi tu choi'
+dbb "$(printf 'a%.0s' $(seq 1 54))" '{database: bookstore}' \
+  | kubectl create --dry-run=server -f - > "$EV/b2-ten-54.txt" 2>&1 && echo 'PASS: ten 54 ky tu duoc nhan'
+dbb "$(printf 'a%.0s' $(seq 1 55))" '{database: bookstore}' \
+  | kubectl create --dry-run=server -f - > "$EV/b2-ten-55.txt" 2>&1
+grep -q 'metadata.name: Too long' "$EV/b2-ten-55.txt" && echo 'PASS: ten 55 ky tu bi tu choi'
+dbb co.dau-cham '{database: bookstore}' | kubectl create --dry-run=server -f - > "$EV/b2-ten-cham.txt" 2>&1
+{ grep -q 'metadata.name' "$EV/b2-ten-cham.txt" && grep -q 'should match' "$EV/b2-ten-cham.txt"; } \
+  && echo 'PASS: ten co dau cham bi tu choi du la DNS subdomain hop le'
 
 dbb la '{database: bookstore, mauNen: xanh}' | kubectl create --validate=strict -f - > "$EV/b2-strict.txt" 2>&1
 grep -qi 'unknown field' "$EV/b2-strict.txt" && echo 'PASS: che do strict tu choi truong la'
@@ -876,6 +927,10 @@ spec:
         type: object
         required: [spec]
         properties:
+          metadata:                 # schema chỉ được ràng buộc name và generateName (bài 378)
+            type: object
+            properties:
+              name: {type: string, maxLength: 54, pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'}
           spec:
             type: object
             required: [database]
@@ -911,6 +966,8 @@ kubectl get crd dbbackups.bookstore.example.com
 2. Validation ở API server chặn **mọi** client như nhau, kể cả client gọi thẳng REST, và chặn **trước
    khi ghi**. Bài 179: validation "cho phép bạn phát triển API độc lập với các client của mình". Một
    yêu cầu sai bị từ chối ngay trên `kubectl apply`, thay vì nằm trong etcd chờ operator báo `Failed`.
+   Tên cũng vậy: một tên DNS subdomain 65 ký tự hợp lệ với API server nhưng không làm tên Job hay
+   giá trị label được. Chặn ở CRD thì lỗi hiện ra với người gõ lệnh, không phải trong log controller.
 3. Không có subresource thì ai sửa được object là sửa được `status` — người dùng có thể tự khai
    `Succeeded` cho một bản backup chưa từng chạy. Có subresource thì RBAC tách được quyền ghi `spec`
    (người dùng) và quyền ghi `status` (controller), và `generation` thành tín hiệu "có việc mới".
@@ -1207,14 +1264,20 @@ vòng lặp shell chạy trên master dưới ServiceAccount `backup-operator` �
      `phase: Succeeded`, `file`, `sizeBytes`, `completionTime`.
    - Job `Failed`: ghi `phase: Failed`, `completionTime`, `message`.
    - `phase` là `Running` mà Job không còn: ghi `phase: Failed` với `message` nói rõ — **không** tạo lại.
+   - Không tạo được Job: lỗi **không tự khỏi** (API server báo object Job không hợp lệ) thì ghi
+     `phase: Failed` với `message`, không thử lại; lỗi **tạm thời** (quota đang đầy, API server không trả
+     lời) thì không ghi gì, thử lại ở vòng sau.
+   - `DbBackup` là yêu cầu **một lần**: đã `Succeeded` hay `Failed` thì sửa `spec` cũng không chạy lại.
+     Muốn bản backup mới thì tạo `DbBackup` mới.
 3. Job do operator tạo:
    - tên `dbbackup-<tên DbBackup>`; label `app.kubernetes.io/part-of=bookstore`,
      `app.kubernetes.io/component=backup`, `app.kubernetes.io/name=postgresql`,
      `app.kubernetes.io/managed-by=backup-operator`, `bookstore.example.com/dbbackup=<tên>`;
      `ownerReferences` trỏ về đúng `DbBackup` đó với vai trò controller;
    - `pg_dump` database `bookstore` qua `db-0.db`, mật khẩu từ Secret `db-credentials`, định dạng theo
-     `spec.format`; ghi một file mới vào PVC `backup-store` ở `/backup`; kiểm file có bảng `api.books`;
-     in **đúng hợp đồng** của `db-backup`
+     `spec.format`; ghi một file mới vào PVC `backup-store` ở `/backup` theo cùng hợp đồng ghi file của
+     Lab 6a — ghi tạm, kiểm file có bảng `api.books`, rồi mới đổi sang tên chính thức; giữ tối đa 10
+     bản `dbbackup-*`; dọn file tạm bỏ dở — và in **đúng hợp đồng** của `db-backup`
      ([mục 4.2](DU-AN-BOOKSTORE.md#42-cổng-đường-dẫn-và-điểm-kiểm-tra-sức-khỏe)): một dòng
      `db-backup: OK <file> <bytes> byte`;
    - đạt Pod Security `restricted`; tới được `db` qua NetworkPolicy đang có; có `requests`/`limits`
@@ -1355,6 +1418,7 @@ cập nhật; `docs/runbook-backup-operator.md`; `docs/adr/NNNN-backup-operator.
 - `PASS:` thử gắn nhãn `enforce=restricted` cho `bookstore` ở chế độ dry-run server không ra cảnh báo
   nào.
 - `PASS:` chạy `once` hai lần khi mọi thứ đã khớp: không `DbBackup` nào bị ghi, không Job nào được tạo.
+- `PASS:` `DbBackup` tên dài đúng 54 ký tự: Job `dbbackup-<tên>` 63 ký tự được tạo, backup `Succeeded`.
 - `PASS:` có runbook, ADR, và một dòng nợ về `backup-operator` trong `docs/tech-debt.md`.
 
 **Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-backup-operator.md`:
@@ -1368,6 +1432,9 @@ cập nhật; `docs/runbook-backup-operator.md`; `docs/adr/NNNN-backup-operator.
 4. TTL của Job và `ownerReferences` cùng dọn Job — mỗi cơ chế dọn trong trường hợp nào? Vì sao TTL
    không làm mất kết quả backup?
 5. Vì sao đọc kết quả từ log của **Pod thành công** thay vì `kubectl logs job/<tên>`?
+6. Tạo Job thất bại: lỗi nào thử lại là đúng, lỗi nào thử lại là vô ích? CRD đã chặn tên dài ở B2 —
+   vì sao controller vẫn cần nhánh ghi `Failed`? Và vì sao sửa `spec` của một `DbBackup` đã xong không
+   làm nó chạy lại?
 
 <details>
 <summary>Gợi ý</summary>
@@ -1481,8 +1548,12 @@ kubectl -n "$NS" get job "$J" -o yaml > "$EV/b4-job.yaml"
   && [ -n "$(jj '{.spec.template.spec.containers[0].resources.limits.memory}')" ]; } && echo 'PASS: co TTL, requests, limits'
 # Đặt lại đúng mức enforce đang có thì policy không đổi, Pod đang chạy không được đánh giá lại;
 # đổi enforce-version mới buộc đánh giá (cùng cách với smoke 9b).
-W1="$(kubectl label --dry-run=server --overwrite namespace "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1)"
-echo "$W1" | grep -q 'violate' && echo "FAIL: $W1" || echo 'PASS: moi Pod trong bookstore dat restricted, ke ca Pod cua operator'
+# Lệnh dry-run phải thành công thì "không có cảnh báo" mới có nghĩa; lỗi công cụ là FAIL.
+if W1="$(kubectl label --dry-run=server --overwrite namespace "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1)"; then
+  echo "$W1" | grep -q 'violate' && echo "FAIL: $W1" || echo 'PASS: moi Pod trong bookstore dat restricted, ke ca Pod cua operator'
+else
+  echo "FAIL: khong hoi duoc Pod Security bang dry-run: $W1"
+fi
 
 RV0="$(s baseline '{.metadata.resourceVersion}')"
 JN0="$(kubectl -n "$NS" get jobs -l app.kubernetes.io/managed-by=backup-operator --no-headers | wc -l)"
@@ -1491,10 +1562,28 @@ RV1="$(s baseline '{.metadata.resourceVersion}')"
 JN1="$(kubectl -n "$NS" get jobs -l app.kubernetes.io/managed-by=backup-operator --no-headers | wc -l)"
 { [ "$RV0" = "$RV1" ] && [ "$JN0" = "$JN1" ]; } && echo 'PASS: chay lai vong lap khi da khop khong ghi gi, khong tao Job'
 
+# Tên ở biên: 54 ký tự là dài nhất CRD nhận; Job dbbackup-<tên> dài đúng 63 ký tự vẫn phải tạo được.
+kubectl -n "$NS" delete dbbackup b4-custom --wait=true >/dev/null   # trả chỗ trong count/jobs.batch
+NB="$(printf 'b%.0s' $(seq 1 54))"
+kubectl apply -f - >/dev/null <<YAML
+apiVersion: $GRP/v1alpha1
+kind: DbBackup
+metadata:
+  name: $NB
+  namespace: $NS
+  labels: {app.kubernetes.io/part-of: bookstore, app.kubernetes.io/component: backup}
+spec: {database: bookstore, note: ten o bien}
+YAML
+wait_phase "$NB"
+{ [ "$(s "$NB" '{.status.phase}')" = 'Succeeded' ] && [ "$(s "$NB" '{.status.jobName}')" = "dbbackup-$NB" ] \
+  && [ "$(printf 'dbbackup-%s' "$NB" | wc -c)" -eq 63 ]; } \
+  && echo 'PASS: ten 54 ky tu: Job 63 ky tu duoc tao, backup Succeeded'
+kubectl -n "$NS" delete dbbackup "$NB" --wait=true >/dev/null
+
 { test -s docs/runbook-backup-operator.md && grep -qE '^\| *TD-[0-9]+ .*backup-operator' docs/tech-debt.md \
   && ls docs/adr/*-backup-operator.md >/dev/null 2>&1; } && echo 'PASS: co runbook, ADR va no operator ngoai cluster'
 kubectl -n "$NS" delete pod doc-backup --wait=true >/dev/null
-kubectl -n "$NS" delete dbbackup b4-custom --wait=true >/dev/null
+kubectl -n "$NS" delete dbbackup b4-custom --ignore-not-found --wait=true >/dev/null
 ```
 
 </details>
@@ -1572,10 +1661,13 @@ spec:
         - -c
         - |
           set -e
+          find /backup -maxdepth 1 -name 'dbbackup-*.tmp' -mmin +60 -delete
           F="\$OUT-\$(date -u +%Y%m%dT%H%M%SZ).\$EXT"
-          pg_dump --no-owner --format="\$FMT" --file="\$F"
-          if [ "\$FMT" = c ]; then pg_restore --list "\$F" | grep -q 'TABLE api books'
-          else grep -q 'CREATE TABLE api.books' "\$F"; fi
+          pg_dump --no-owner --format="\$FMT" --file="\$F.tmp"
+          if [ "\$FMT" = c ]; then pg_restore --list "\$F.tmp" | grep -q 'TABLE api books'
+          else grep -q 'CREATE TABLE api.books' "\$F.tmp"; fi
+          mv "\$F.tmp" "\$F"
+          ls -1t /backup/dbbackup-*.sql /backup/dbbackup-*.dump 2>/dev/null | tail -n +11 | xargs -r rm -f
           echo "db-backup: OK \$F \$(wc -c < "\$F") byte"
         securityContext:
           allowPrivilegeEscalation: false
@@ -1591,7 +1683,7 @@ YAML
 }
 
 reconcile_one() {   # $1 = tên một DbBackup → đưa thực tế về đúng spec, ghi status; lỗi thì return 1
-  local name="$1" line phase uid av gen fmt job conds pod out file size
+  local name="$1" line phase uid av gen fmt job conds pod out file size err
   line="$(k get "$RES" "$name" \
     -o jsonpath='{.status.phase}|{.metadata.uid}|{.apiVersion}|{.metadata.generation}|{.spec.format}')" || return 1
   IFS='|' read -r phase uid av gen fmt <<< "$line"
@@ -1603,7 +1695,14 @@ reconcile_one() {   # $1 = tên một DbBackup → đưa thực tế về đúng
       set_status "$name" "{\"phase\":\"Failed\",\"completionTime\":\"$(now)\",\"message\":\"Job $job bien mat truoc khi xong\"}"
       log "$name: Failed — Job bien mat"; return 0
     fi
-    job_manifest "$name" "$uid" "$av" "${fmt:-plain}" | k create -f - >/dev/null || return 1
+    if ! err="$(job_manifest "$name" "$uid" "$av" "${fmt:-plain}" | k create -f - 2>&1 >/dev/null)"; then
+      case "$err" in
+        *' is invalid'*)                                         # thử lại bao nhiêu lần cũng vậy
+          set_status "$name" "{\"phase\":\"Failed\",\"completionTime\":\"$(now)\",\"message\":\"Job $job khong hop le, khong tao duoc\"}"
+          log "$name: Failed — $err"; return 0 ;;
+      esac
+      log "$name: chua tao duoc Job — $err"; return 1            # quota, mạng: vòng sau thử lại
+    fi
     set_status "$name" "{\"phase\":\"Running\",\"jobName\":\"$job\",\"startTime\":\"$(now)\",\"observedGeneration\":$gen}"
     log "$name: tao Job $job"; return 0
   fi
@@ -1683,6 +1782,13 @@ manifest `DbBackup`, `kubectl -n bookstore get dbb -w`); *Chép bản dump ra m�
 5. `backoffLimit: 1` cho phép một Pod thất bại rồi một Pod thành công; `kubectl logs job/<tên>` chọn
    **một** Pod của Job, có thể đúng Pod thất bại — operator sẽ ghi `Failed` cho một bản backup thực ra
    đã xong.
+6. Quota đầy hay API server không trả lời là lỗi **tạm thời**: TTL dọn Job cũ, mạng trở lại, vòng sau
+   tạo được. API server báo Job `is invalid` là lỗi **của đầu vào**: thử lại bao nhiêu vòng cũng cùng một
+   kết quả, nên ghi `Failed` để người yêu cầu thấy ngay trên object. Chặn tên ở CRD (B2) làm nhánh này
+   hiếm, nhưng controller không được giả định mọi đầu vào đều đã qua kiểm tra — schema có thể đổi, hoặc
+   object cũ được tạo trước khi có ràng buộc. `DbBackup` là yêu cầu một lần: `phase` đã kết thúc thì
+   vòng lặp bỏ qua, nên sửa `spec` chỉ tăng `generation` — `observedGeneration` ở `status` cho thấy
+   kết quả ứng với `spec` nào. Muốn bản mới thì tạo `DbBackup` mới.
 
 </details>
 
@@ -2073,6 +2179,10 @@ spec:
         type: object
         required: [spec]
         properties:
+          metadata:                 # schema chỉ được ràng buộc name và generateName (bài 378)
+            type: object
+            properties:
+              name: {type: string, maxLength: 54, pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'}
           spec:
             type: object
             required: [database]
@@ -2184,6 +2294,8 @@ làm Lab 13;
 <summary>Script nghiệm thu — chỉ đọc</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 EV=~/lab-evidence/14
 cd ~/bookstore
 for N in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
@@ -2199,7 +2311,7 @@ SOCK="$(ssh lab-k8s-worker2 'sudo ls -1 /var/lib/kubelet/device-plugins/' | grep
 
 kubectl api-resources --api-group=resource.k8s.io > "$EV/b7-dra.txt" 2>&1
 if [ "$(grep -c resource.k8s.io "$EV/b7-dra.txt")" -gt 0 ]; then
-  [ "$(kubectl get resourceslices --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  [ "$(sl kubectl get resourceslices --no-headers)" -eq 0 ] \
     && echo 'PASS: API DRA duoc phuc vu nhung khong driver nao cong bo thiet bi'
 else
   echo 'PASS: nhom API DRA khong duoc phuc vu tren cluster nay'
@@ -2317,6 +2429,8 @@ cat > ~/bookstore/tests/smoke.sh <<'EOF'
 # Tích lũy: kiểm mọi hợp đồng còn hiệu lực ở DU-AN-BOOKSTORE.md mục 3 và 4. Mỗi dòng ghi mã yêu cầu
 # R<n> mà nó làm bằng chứng. R9, R12, R18 có bằng chứng ở tài liệu, không kiểm trên cluster đang chạy.
 set -u
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd "$(dirname "$0")/.."
 NS=bookstore; SYS=bookstore-system; STG=bookstore-staging
 SEL='app.kubernetes.io/part-of=bookstore'
@@ -2347,9 +2461,20 @@ for X in "$NS:restricted" "$STG:restricted" "$SYS:privileged"; do
      "bookstore|$L" "R14 namespace $N mang label du an, enforce=$L"
 done
 # Đặt lại đúng mức enforce đang có thì policy không đổi và Pod đang chạy không được đánh giá lại;
-# đổi enforce-version mới buộc đánh giá (cùng cách với smoke 9b).
-W="$(kubectl label --dry-run=server --overwrite namespace "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1)"
-if echo "$W" | grep -q 'violate'; then fail "R14 co Pod vi pham restricted: $W"; else pass 'R14 moi Pod trong bookstore dat restricted'; fi
+# đổi enforce-version mới buộc đánh giá (cùng cách với smoke 9b). Lệnh dry-run phải thành công thì
+# "không có cảnh báo" mới có nghĩa: Forbidden, timeout hay lỗi chứng chỉ là FAIL, không phải "sạch".
+if PSW="$(kubectl label --dry-run=server --overwrite namespace "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1)"; then
+  if echo "$PSW" | grep -q 'violate'; then fail "R14 co Pod vi pham restricted: $PSW"; else pass 'R14 moi Pod trong bookstore dat restricted'; fi
+else
+  fail "R14 khong hoi duoc Pod Security bang dry-run: $PSW"
+fi
+# Đối chứng: cùng đường admission phải từ chối một Pod đặc quyền ở hai namespace restricted.
+for N in "$NS" "$STG"; do
+  printf '%s\n' 'apiVersion: v1' 'kind: Pod' 'metadata: {name: smoke-dac-quyen}' 'spec:' \
+    '  containers: [{name: c, image: busybox:1.37, securityContext: {privileged: true}}]' \
+    | kubectl -n "$N" create --dry-run=server -f - 2>&1 | grep -q 'violates PodSecurity "restricted' \
+    && pass "R14 doi chung: $N tu choi Pod dac quyen" || fail "R14 doi chung: $N khong tu choi Pod dac quyen"
+done
 
 # 2. Object cấp cluster và node (R8, R10, R13, R17, R19)
 PRIO="$(kubectl get priorityclass bookstore-critical -o jsonpath='{.value}' 2>/dev/null)"
@@ -2429,7 +2554,7 @@ MISS="$(k get pods -l "$SEL" --field-selector=status.phase=Running \
 ORPHAN="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.name}:{.metadata.ownerReferences[0].kind}{"\n"}{end}' \
   2>/dev/null | grep -c ':$')"
 [ "$ORPHAN" -eq 0 ] && pass 'R1 moi Pod cua du an co controller' || fail "R1 co $ORPHAN Pod tran"
-[ "$(k get job,networkpolicy,pod -l app.kubernetes.io/component=loadtest --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl k get job,networkpolicy,pod -l app.kubernetes.io/component=loadtest --no-headers)" -eq 0 ] \
   && pass 'R16 khong con object kiem thu tai' || fail 'R16 con object loadtest tren cluster'
 
 # 6. Tác vụ nền (R5, R8, R10, R13, R15)
@@ -2447,6 +2572,48 @@ if k create job "$J" --from=cronjob/db-backup >/dev/null 2>&1 \
   pass 'R5 chay thu db-backup thanh cong'
 else fail 'R5 chay thu db-backup that bai'; fi
 k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+# Hợp đồng ghi file backup (6a): đọc thẳng PVC, không tin log — tối đa 10 bản mỗi loại,
+# không còn file tạm cũ hơn một giờ.
+RD="smoke-doc-backup-$(date +%s)"
+k apply -f - >/dev/null 2>&1 <<POD
+apiVersion: v1
+kind: Pod
+metadata:
+  name: $RD
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: doc
+    image: busybox:1.37
+    command: ["sh", "-c", "ls -1 /backup; echo ---; find /backup -maxdepth 1 -name '*.tmp' -mmin +60"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: [ALL]}
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+    volumeMounts:
+    - {name: b, mountPath: /backup, readOnly: true}
+  volumes:
+  - name: b
+    persistentVolumeClaim: {claimName: backup-store, readOnly: true}
+POD
+if k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1; then
+  OUT="$(k logs "$RD" 2>/dev/null)"
+  NB="$(echo "$OUT" | sed '/^---$/,$d' | grep -c '^bookstore-.*\.sql$')"
+  NO="$(echo "$OUT" | sed '/^---$/,$d' | grep -Ec '^dbbackup-.*\.(sql|dump)$')"
+  NT="$(echo "$OUT" | sed '1,/^---$/d' | grep -c .)"
+  { [ "$NB" -le 10 ] && [ "$NO" -le 10 ] && [ "$NT" -eq 0 ]; } \
+    && pass "R8 backup-store: $NB ban db-backup, $NO ban operator, khong file tam cu" \
+    || fail "R8 backup-store sai hop dong 6a ($NB ban db-backup, $NO ban operator, $NT file tam cu)"
+else
+  fail 'R8 khong doc duoc noi dung backup-store'
+fi
+k delete pod "$RD" --ignore-not-found --wait=false >/dev/null 2>&1
 k get configmap backup-status >/dev/null 2>&1 && pass 'R13 db-backup bao cao qua ConfigMap backup-status' \
   || fail 'R13 thieu ConfigMap backup-status'
 NODES="$(kubectl get nodes --no-headers | wc -l)"
@@ -2669,7 +2836,7 @@ Tag `lab-14`; smoke: `~/lab-evidence/14/b8-smoke.txt` (cluster mốc `04-metrics
 | R1 | Health check đúng vai trò; container hỏng tự được thay | smoke `PASS: R1 ...`; `docs/postmortem/3a-db-bien-mat.md` | ĐẠT |
 | R2 | Cấu hình, bí mật tách khỏi manifest và image | smoke `PASS: R2 ...`; `git ls-files secrets` chỉ `.gitkeep` | ĐẠT |
 | R3 | Tài nguyên khai báo; chịu gián đoạn tự nguyện | smoke `PASS: R3 ...` (requests/limits, QoS, PDB) | ĐẠT |
-| R4 | Phát hành không gián đoạn, rollback được | smoke `PASS: R4 ...`; `<postmortem rollout hỏng của 4a>` | ĐẠT |
+| R4 | Phát hành không gián đoạn, rollback được | smoke `PASS: R4 ...` (chiến lược, PDB); `<ADR cong-vao-web của 5a>` — rollback rồi phát hành lại `web` dưới phép đo liên tục, 0 lỗi; `docs/postmortem/12-bao-tri-worker1.md`, mục *Đã sửa* — thay toàn bộ Pod `api` dưới probe, 0 lỗi trên `/api/books`; `<postmortem rollout hỏng của 4a>` | ĐẠT — số đo ở mức request của 5a B3 và Lab 12 B6, không chỉ trạng thái cuối Ready |
 | R5 | DB định danh ổn định; migration, backup, agent là workload riêng | smoke `PASS: R5 ...` | ĐẠT |
 | R6 | Các tầng tìm nhau bằng tên | smoke `PASS: R6 ...` | ĐẠT |
 | R7 | Zero-trust giữa các tầng; HTTPS từ ngoài | smoke `PASS: R7 ...`; `<ADR https-ingress của 5b>` | ĐẠT CÓ ĐIỀU KIỆN — certificate tự ký, client không tin; Traefik → web là plaintext |
@@ -2682,7 +2849,7 @@ Tag `lab-14`; smoke: `~/lab-evidence/14/b8-smoke.txt` (cluster mốc `04-metrics
 | R14 | Pod Security `restricted`; nhiều tenant | smoke `PASS: R14 ...` | ĐẠT |
 | R15 | Metric, log theo node, quy trình chẩn đoán | smoke `PASS: R15 ...`; `<runbook, postmortem của 11a>` | ĐẠT CÓ ĐIỀU KIỆN — chưa có nơi lưu metric, log dài hạn |
 | R16 | `web` tự co giãn | smoke `PASS: R16 ...`; `<evidence, ADR của 11b>` | ĐẠT |
-| R17 | Bảo trì node không gián đoạn | smoke `PASS: R17 ...`; `docs/runbook-bao-tri-node.md`; `docs/postmortem/12-bao-tri-worker1.md` | ĐẠT CÓ ĐIỀU KIỆN — `db` một instance trên PV local: bảo trì worker2 cần cửa sổ bảo trì |
+| R17 | Bảo trì node có kế hoạch: worker1 không rơi request ở tầng ứng dụng trên đường đo; worker2 trong cửa sổ, downtime đo được, dữ liệu giữ nguyên | smoke `PASS: R17 ...`; `docs/runbook-bao-tri-node.md` (đoạn đánh giá `R17`); `docs/postmortem/12-bao-tri-worker1.md` | ĐẠT — đúng hai vế đã định, số đo ở Lab 12. Ngoài `R17` và còn là nợ: đường vào chưa HA — Traefik một bản sao, file hosts (`TD-18`); bảo trì worker2 không downtime (`TD-19`) |
 | R18 | Đánh giá thiết bị chuyên dụng | `<ADR thiết bị của B7>`; `<ADR dra-bookstore nếu làm Lab 13>` | ĐẠT |
 | R19 | Backup bằng API khai báo của dự án | smoke `PASS: R19 ...`; `docs/runbook-backup-operator.md` | ĐẠT CÓ ĐIỀU KIỆN — operator chạy ngoài cluster |
 ```
@@ -2739,9 +2906,11 @@ Khung `docs/retro.md`:
 
 1. Điển hình: `R7` (certificate tự ký — dấu hiệu: ai đó tắt kiểm tra certificate trên client để "cho
    chạy"), `R13` (quyền tạo workload của CI và operator — dấu hiệu: Job, Pod lạ mang
-   `managed-by=backup-operator`), `R15` (log mất khi xoay vòng), `R17` (`db` ngừng trong cửa sổ bảo
-   trì worker2), `R19` (operator ngoài cluster — dấu hiệu: smoke báo `R19 backup-operator khong chay`,
-   `DbBackup` có `PHASE` rỗng lâu).
+   `managed-by=backup-operator`), `R15` (log mất khi xoay vòng), `R19` (operator ngoài cluster — dấu
+   hiệu: smoke báo `R19 backup-operator khong chay`, `DbBackup` có `PHASE` rỗng lâu). `R17` không nằm
+   trong danh sách: cửa sổ DB và đường đo đã là một phần của chính yêu cầu, nên kết luận là `ĐẠT`; phần
+   vượt ra ngoài — đường vào chưa HA, bảo trì worker2 không downtime — là nợ `TD-18`, `TD-19`, theo
+   dõi bằng số đo của Lab 12.
 2. *Operator ngoài cluster* sang giai đoạn 28 vì cần đóng gói controller thành image và chạy như
    Deployment — thứ dự án không có toolchain. metrics-server sang giai đoạn 20, metric/log dài hạn sang
    giai đoạn 23 — cả hai cần sửa cấu hình cluster hoặc thêm hạ tầng. Nợ lab `#6`, `#7`, `#8` vốn đã xếp
@@ -2797,6 +2966,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 5. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 EV=~/lab-evidence/14
 cd ~/bookstore
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
@@ -2812,14 +2983,16 @@ for F in 'adr/*-chon-co-che-mo-rong.md' 'adr/*-crd-dbbackup.md' 'adr/*-rbac-dbba
   ls docs/$F >/dev/null 2>&1 || { echo "FAIL: thieu docs/$F"; BAD=1; }
 done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ADR, postmortem, runbook, bien ban nghiem thu va retro'
-grep -E '^\| *TD-' docs/tech-debt.md | grep -qE '\| *mở *\|' && echo 'FAIL: con no ky thuat mo' \
-  || echo 'PASS: so no ky thuat da dong'
+{ test -s docs/tech-debt.md && grep -qE '^\| *TD-' docs/tech-debt.md \
+  && ! grep -E '^\| *TD-' docs/tech-debt.md | grep -qE '\| *mở *\|'; } \
+  && echo 'PASS: so no ky thuat da dong' || echo 'FAIL: con no ky thuat mo, hoac khong doc duoc docs/tech-debt.md'
 
 { [ "$(kubectl get namespace,priorityclass,storageclass,crd,clusterrole,clusterrolebinding \
        -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
-  && [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+  && [ "$(sl kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an'
-./scripts/backup-operator.sh status >/dev/null 2>&1 && echo 'FAIL: operator con chay' || echo 'PASS: backup-operator da dung'
+{ test -x scripts/backup-operator.sh && ! ./scripts/backup-operator.sh status >/dev/null 2>&1; } \
+  && echo 'PASS: backup-operator da dung' || echo 'FAIL: operator con chay, hoac thieu scripts/backup-operator.sh'
 ls secrets/*.kubeconfig >/dev/null 2>&1 && echo 'FAIL: con kubeconfig chua token' || echo 'PASS: khong con kubeconfig chua token'
 test ! -e ~/lab-work/14 && echo 'PASS: da don lab-work'
 
@@ -2838,7 +3011,7 @@ diff "$EV/b0-ton-kho.txt" "$EV/b9-ton-kho.txt" \
 diff -q "$EV/b0-kubelet-sha.txt" "$EV/b9-kubelet-sha.txt" >/dev/null && echo 'PASS: cau hinh kubelet khong doi suot lab'
 [ -z "$(grep -rl 'eyJ' "$EV" 2>/dev/null)" ] && echo 'PASS: bang chung khong chua chuoi giong JWT'
 
-test "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 && echo 'PASS: kubectl top node du ba node'
+test "$(sl kubectl top node --no-headers)" -eq 3 && echo 'PASS: kubectl top node du ba node'
 test "$(kubectl get apiservice v1beta1.metrics.k8s.io \
   -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')" = 'True' && echo 'PASS: metrics.k8s.io Available'
 test "$(kubectl get storageclass \

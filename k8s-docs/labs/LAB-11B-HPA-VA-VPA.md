@@ -162,10 +162,12 @@ kubectl get pods -n default
 Mốc `04-metrics-ready` được định nghĩa bằng nguồn metric chạy được, và chưa có HPA nào:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 MS="$(kubectl -n kube-system get deployment metrics-server -o jsonpath='{.status.readyReplicas}')"
 [ "${MS:-0}" -ge 1 ] && echo 'PASS: metrics-server Ready'
-[ "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 ] && echo 'PASS: kubectl top node tra du ba node'
-[ "$(kubectl get hpa -A --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: cluster chua co HPA nao'
+[ "$(sl kubectl top node --no-headers)" -eq 3 ] && echo 'PASS: kubectl top node tra du ba node'
+[ "$(sl kubectl get hpa -A --no-headers)" -eq 0 ] && echo 'PASS: cluster chua co HPA nao'
 ```
 
 Lab trả nợ — gate tự khai báo. Đổi biến thành `roi` **sau khi** đã đọc lại bốn bài 71, 72, 73, 342:
@@ -523,6 +525,8 @@ hai mất khả năng co giãn. Chưa đụng tới `replicas` của Deployment 
 <summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 . ~/lab-work/11b/ham.sh
 cd ~/bookstore
 
@@ -570,7 +574,7 @@ A="$(kubectl -n "$NS" autoscale deployment web --name=web-thu --min=2 --max=5 --
 B="$(jp hpa/web "$F")"
 echo "autoscale: $A | repo: $B" | tee "$EV/b2-autoscale-vs-repo.txt"
 { [ -n "$B" ] && [ "$A" = "$B" ]; } && echo 'PASS: kubectl autoscale va manifest cho cung dich, khoang va muc tieu'
-[ "$(kubectl -n "$NS" get hpa --no-headers 2>/dev/null | wc -l)" -eq 1 ] && echo 'PASS: namespace chi co mot HPA'
+[ "$(sl kubectl -n "$NS" get hpa --no-headers)" -eq 1 ] && echo 'PASS: namespace chi co mot HPA'
 
 # 6. PDB web ở minReplicas
 MIN="$(jp hpa/web '{.spec.minReplicas}')"
@@ -998,6 +1002,8 @@ của sprint 7: mặc định Pod trong `bookstore` không gọi được `web`,
 <summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 . ~/lab-work/11b/ham.sh
 cd ~/bookstore
 { test -f tests/load/job.yaml && test -f tests/load/networkpolicy.yaml && \
@@ -1103,7 +1109,7 @@ goi do-khac && echo 'FAIL: Pod khong mang label loadtest cung goi duoc web' \
 # 3. Dọn
 kubectl -n "$NS" delete -f "$WK/do-mang.yaml" --wait=true
 kubectl -n "$NS" delete -f tests/load/ --ignore-not-found --wait=true
-{ [ "$(kubectl -n "$NS" get all,networkpolicy -l app.kubernetes.io/component=loadtest --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
+{ [ "$(sl kubectl -n "$NS" get all,networkpolicy -l app.kubernetes.io/component=loadtest --no-headers)" -eq 0 ] && \
   ls docs/adr/*-kiem-thu-tai.md >/dev/null 2>&1; } && echo 'PASS: khong con object loadtest; co ADR kiem-thu-tai'
 ```
 
@@ -1533,6 +1539,8 @@ kubectl -n bookstore describe resourcequota bookstore-quota
 <summary>Script nghiệm thu — chạy sau khi đã đọc ticket; script này chính là cuộc diễn tập</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 . ~/lab-work/11b/ham.sh
 cd ~/bookstore
 MIN="$(jp hpa/web '{.spec.minReplicas}')"; MAX="$(jp hpa/web '{.spec.maxReplicas}')"
@@ -1611,7 +1619,7 @@ echo "chu ky 1: UP_ROUND=$UP_ROUND DOWN_ROUND=$DOWN_ROUND PEAK=$PEAK POLL=${POLL
 
 # 7. Dọn
 kubectl -n "$NS" delete -f tests/load/ --ignore-not-found --wait=true
-{ [ "$(kubectl -n "$NS" get all,networkpolicy -l app.kubernetes.io/component=loadtest --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
+{ [ "$(sl kubectl -n "$NS" get all,networkpolicy -l app.kubernetes.io/component=loadtest --no-headers)" -eq 0 ] && \
   test -f docs/postmortem/11b-dien-tap-tai.md; } && echo 'PASS: khong con object loadtest; co postmortem'
 ```
 
@@ -1713,6 +1721,8 @@ mục tiêu ở ticket này — chỉ đổi một biến để so được.
 <summary>Script nghiệm thu — chạy sau khi tự làm xong; script chạy chu kỳ tải thứ hai</summary>
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 . ~/lab-work/11b/ham.sh
 cd ~/bookstore
 ./scripts/deploy.sh > "$EV/b7-deploy.txt" 2>&1
@@ -1756,7 +1766,7 @@ echo "buoc bot lon nhat giua hai lan quan sat: $BUOC Pod" | tee -a "$EV/b7-behav
 [ "$BUOC" -le 1 ] && echo 'PASS: khong buoc nao bot qua mot Pod'
 
 kubectl -n "$NS" delete -f tests/load/ --ignore-not-found --wait=true
-{ [ "$(kubectl -n "$NS" get all,networkpolicy -l app.kubernetes.io/component=loadtest --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
+{ [ "$(sl kubectl -n "$NS" get all,networkpolicy -l app.kubernetes.io/component=loadtest --no-headers)" -eq 0 ] && \
   ls docs/adr/*-hpa-web-behavior.md >/dev/null 2>&1; } && echo 'PASS: khong con object loadtest; co ADR hpa-web-behavior'
 ```
 
@@ -2114,6 +2124,8 @@ cat > ~/bookstore/tests/smoke.sh <<'EOF'
 # của HPA thay cho số cố định. Tên ConfigMap đọc từ spec của workload (configMapGenerator gắn hậu tố
 # hash từ 5a). Không in mật khẩu.
 set -u
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd "$(dirname "$0")/.."
 NS=bookstore
 SYS=bookstore-system
@@ -2162,8 +2174,13 @@ for N in "$NS" "$TNS"; do
   dry_priv "$N" | grep -q "violates PodSecurity \"restricted:$PSA_VER\"" \
     && pass "$N tu choi Pod dac quyen" || fail "$N khong tu choi Pod dac quyen"
 done
-kubectl label --dry-run=server --overwrite ns "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1 \
-  | grep -q 'violate' && fail 'co Pod dang chay vi pham restricted' || pass 'moi Pod dang chay dat restricted'
+# Lệnh dry-run phải thành công thì "không có cảnh báo" mới có nghĩa: Forbidden, timeout hay lỗi
+# chứng chỉ là FAIL, không phải "sạch".
+if PSW="$(kubectl label --dry-run=server --overwrite ns "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1)"; then
+  echo "$PSW" | grep -q 'violate' && fail 'co Pod dang chay vi pham restricted' || pass 'moi Pod dang chay dat restricted'
+else
+  fail "khong hoi duoc Pod Security bang dry-run: $PSW"
+fi
 
 # 2. Object cấp cluster, label node (3a, 6a, 7a, 9a)
 PRIO="$(kubectl get priorityclass bookstore-critical -o jsonpath='{.value}' 2>/dev/null)"
@@ -2189,7 +2206,7 @@ N_CL="$(kubectl get clusterrole,clusterrolebinding -l "$SEL" --no-headers 2>/dev
 LA="$(jp deployment/web '{.metadata.annotations.kubectl\.kubernetes\.io/last-applied-configuration}')"
 { [ -n "$LA" ] && ! echo "$LA" | grep -q '"replicas"'; } \
   && pass 'manifest web khong khai replicas — HPA so huu truong nay' || fail 'manifest web con replicas'
-[ "$(k get job,networkpolicy,pod -l app.kubernetes.io/component=loadtest --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl k get job,networkpolicy,pod -l app.kubernetes.io/component=loadtest --no-headers)" -eq 0 ] \
   && pass 'khong con object kiem thu tai' || fail 'con object loadtest tren cluster'
 
 # 3. Cấu hình, bí mật, PDB, hạn mức, trạng thái backup (3b, 3c, 5b, 7b, 9a)
@@ -2336,6 +2353,48 @@ else
   fail 'chay thu db-backup that bai'
 fi
 k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+# Hợp đồng ghi file backup (6a): đọc thẳng PVC, không tin log — tối đa 10 bản mỗi loại,
+# không còn file tạm cũ hơn một giờ.
+RD="smoke-doc-backup-$(date +%s)"
+k apply -f - >/dev/null 2>&1 <<POD
+apiVersion: v1
+kind: Pod
+metadata:
+  name: $RD
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: doc
+    image: busybox:1.37
+    command: ["sh", "-c", "ls -1 /backup; echo ---; find /backup -maxdepth 1 -name '*.tmp' -mmin +60"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: [ALL]}
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+    volumeMounts:
+    - {name: b, mountPath: /backup, readOnly: true}
+  volumes:
+  - name: b
+    persistentVolumeClaim: {claimName: backup-store, readOnly: true}
+POD
+if k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1; then
+  OUT="$(k logs "$RD" 2>/dev/null)"
+  NB="$(echo "$OUT" | sed '/^---$/,$d' | grep -c '^bookstore-.*\.sql$')"
+  NO="$(echo "$OUT" | sed '/^---$/,$d' | grep -Ec '^dbbackup-.*\.(sql|dump)$')"
+  NT="$(echo "$OUT" | sed '1,/^---$/d' | grep -c .)"
+  { [ "$NB" -le 10 ] && [ "$NO" -le 10 ] && [ "$NT" -eq 0 ]; } \
+    && pass "backup-store: $NB ban db-backup, $NO ban operator, khong file tam cu" \
+    || fail "backup-store sai hop dong 6a ($NB ban db-backup, $NO ban operator, $NT file tam cu)"
+else
+  fail 'khong doc duoc noi dung backup-store'
+fi
+k delete pod "$RD" --ignore-not-found --wait=false >/dev/null 2>&1
 [ "$(jp pvc/backup-store '{.status.phase}')" = 'Bound' ] && pass 'PVC backup-store Bound (sau lan chay thu)' || fail 'PVC backup-store chua Bound'
 
 # 11. Danh tính và quyền (9a, 9b); ServiceAccount node-agent chuyển sang bookstore-system (11a)
@@ -2392,7 +2451,7 @@ DEV='--as=dev --as-group=bookstore-devs'
 NODES="$(kubectl get nodes --no-headers | wc -l)"
 R="$(kubectl -n "$SYS" get daemonset node-agent -o jsonpath='{.status.numberReady}' 2>/dev/null)"
 [ "${R:-0}" -eq "$NODES" ] && pass "node-agent Ready tren $R/$NODES node" || fail "node-agent ${R:-0}/$NODES node"
-[ "$(k get daemonset,service,serviceaccount --field-selector metadata.name=node-agent --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl k get daemonset,service,serviceaccount --field-selector metadata.name=node-agent --no-headers)" -eq 0 ] \
   && pass 'khong con node-agent trong bookstore, ke ca ServiceAccount' || fail 'con node-agent trong bookstore'
 [ "$(kubectl -n "$SYS" get svc node-agent -o jsonpath='{.spec.internalTrafficPolicy}/{.spec.ports[0].port}' 2>/dev/null)" = 'Local/9100' ] \
   && pass 'Service node-agent Local, cong 9100' || fail 'Service node-agent sai'
@@ -2421,7 +2480,7 @@ done
 # 14. Metric (11a)
 [ "$(kubectl get apiservice v1beta1.metrics.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null)" = 'True' ] \
   && pass 'APIService v1beta1.metrics.k8s.io Available' || fail 'Metrics API chua Available'
-[ "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq "$NODES" ] && pass 'kubectl top node du moi node' || fail 'kubectl top node thieu node'
+[ "$(sl kubectl top node --no-headers)" -eq "$NODES" ] && pass 'kubectl top node du moi node' || fail 'kubectl top node thieu node'
 TOP=''
 for i in $(seq 1 18); do
   TOP="$(kubectl top pod -n "$NS" --no-headers 2>/dev/null)"
@@ -2494,6 +2553,8 @@ cd ~/bookstore && ./scripts/teardown.sh
 6. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore
 EV=~/lab-evidence/11b
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
@@ -2510,9 +2571,9 @@ for F in 'adr/*-hpa-web-production.md' 'adr/*-web-bo-replicas.md' 'adr/*-kiem-th
   ls docs/$F >/dev/null 2>&1 || { echo "FAIL: thieu docs/$F"; BAD=1; }
 done
 [ "$BAD" -eq 0 ] && grep -l 'bị thay bởi' docs/adr/*-hpa-web.md >/dev/null 2>&1 && echo 'PASS: du ADR va postmortem cua sprint 18'
-{ [ "$(kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all,hpa -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get hpa -A --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } && echo 'PASS: khong con object nao cua du an, khong con HPA nao'
+{ [ "$(sl kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all,hpa -A -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get hpa -A --no-headers)" -eq 0 ]; } && echo 'PASS: khong con object nao cua du an, khong con HPA nao'
 test ! -e ~/lab-work/11b && echo 'PASS: da don lab-work'
 
 {
@@ -2523,7 +2584,7 @@ test ! -e ~/lab-work/11b && echo 'PASS: da don lab-work'
 } > "$EV/b10-khong-dung-vao.txt"
 diff -u "$EV/b0-khong-dung-vao.txt" "$EV/b10-khong-dung-vao.txt" \
   && echo 'PASS: kube-controller-manager va metrics-server khong doi mot ky tu nao'
-[ "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 ] && echo 'PASS: kubectl top node van tra du ba node'
+[ "$(sl kubectl top node --no-headers)" -eq 3 ] && echo 'PASS: kubectl top node van tra du ba node'
 
 kubectl wait --for=condition=Ready node --all --timeout=180s
 test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'

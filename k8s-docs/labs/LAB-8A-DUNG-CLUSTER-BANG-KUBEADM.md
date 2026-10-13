@@ -2650,6 +2650,48 @@ else
   fail 'chay thu db-backup that bai'
 fi
 k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+# Hợp đồng ghi file backup (6a): đọc thẳng PVC, không tin log — tối đa 10 bản mỗi loại,
+# không còn file tạm cũ hơn một giờ.
+RD="smoke-doc-backup-$(date +%s)"
+k apply -f - >/dev/null 2>&1 <<POD
+apiVersion: v1
+kind: Pod
+metadata:
+  name: $RD
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: doc
+    image: busybox:1.37
+    command: ["sh", "-c", "ls -1 /backup; echo ---; find /backup -maxdepth 1 -name '*.tmp' -mmin +60"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: [ALL]}
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+    volumeMounts:
+    - {name: b, mountPath: /backup, readOnly: true}
+  volumes:
+  - name: b
+    persistentVolumeClaim: {claimName: backup-store, readOnly: true}
+POD
+if k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1; then
+  OUT="$(k logs "$RD" 2>/dev/null)"
+  NB="$(echo "$OUT" | sed '/^---$/,$d' | grep -c '^bookstore-.*\.sql$')"
+  NO="$(echo "$OUT" | sed '/^---$/,$d' | grep -Ec '^dbbackup-.*\.(sql|dump)$')"
+  NT="$(echo "$OUT" | sed '1,/^---$/d' | grep -c .)"
+  { [ "$NB" -le 10 ] && [ "$NO" -le 10 ] && [ "$NT" -eq 0 ]; } \
+    && pass "backup-store: $NB ban db-backup, $NO ban operator, khong file tam cu" \
+    || fail "backup-store sai hop dong 6a ($NB ban db-backup, $NO ban operator, $NT file tam cu)"
+else
+  fail 'khong doc duoc noi dung backup-store'
+fi
+k delete pod "$RD" --ignore-not-found --wait=false >/dev/null 2>&1
 [ "$(jp pvc/backup-store '{.status.phase}')" = 'Bound' ] && pass 'PVC backup-store Bound' || fail 'PVC backup-store chua Bound'
 
 # 9. DaemonSet node-agent
@@ -2748,6 +2790,8 @@ scp "$dest\evidence\b0-truoc.txt" "${masterUser}@${masterHost}:~/"
    snapshot. Gate ngắn A5.5, chạy nguyên văn, rồi bốn bằng chứng:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 kubectl wait --for=condition=Ready node --all --timeout=180s
 test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
 kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
@@ -2757,14 +2801,21 @@ kubectl get pods -n default
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' > ~/b11-node-ct.txt
 grep -A3 'node creationTimestamp' ~/b0-truoc.txt | tail -3 | diff - ~/b11-node-ct.txt \
   && echo 'PASS: ca ba Node object la object cu — creationTimestamp trung ho so truoc lab'
-sudo grep -q 'bookstore.example.com/kubeadm-patch' /etc/kubernetes/manifests/kube-scheduler.yaml \
-  && echo 'FAIL: con patch cua cluster dung lai' || echo 'PASS: manifest kube-scheduler khong co patch cua cluster dung lai'
-kubectl get pods -A --no-headers | grep -qi flannel && echo 'FAIL: thay Flannel — revert nham 01-cluster-ready' \
-  || echo 'PASS: khong co CNI cua 01-cluster-ready'
+# grep: 0 = có, 1 = không có, khác = không đọc được file — chỉ mã 1 mới là PASS.
+sudo grep -q 'bookstore.example.com/kubeadm-patch' /etc/kubernetes/manifests/kube-scheduler.yaml
+case $? in
+  0) echo 'FAIL: con patch cua cluster dung lai' ;;
+  1) echo 'PASS: manifest kube-scheduler khong co patch cua cluster dung lai' ;;
+  *) echo 'STOP: khong doc duoc manifest kube-scheduler' ;;
+esac
+if PODS="$(kubectl get pods -A --no-headers)"; then
+  printf '%s\n' "$PODS" | grep -qi flannel && echo 'FAIL: thay Flannel — revert nham 01-cluster-ready' \
+    || echo 'PASS: khong co CNI cua 01-cluster-ready'
+else echo 'STOP: khong hoi duoc API'; fi
 { kubectl -n kube-system get ds calico-node >/dev/null 2>&1 && kubectl get ingressclass traefik >/dev/null 2>&1 && \
   [ "$(kubectl get storageclass local-path -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}')" = 'true' ]; } \
   && echo 'PASS: du ba thanh phan nen cua 03-storage-ready'
-[ "$(kubectl get namespace,priorityclass,storageclass,pv -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+[ "$(sl kubectl get namespace,priorityclass,storageclass,pv -l app.kubernetes.io/part-of=bookstore --no-headers)" -eq 0 ] \
   && echo 'PASS: moc khong chua object nao cua du an'
 test ! -e ~/lab-evidence/8a && echo 'PASS: ~/lab-evidence/8a da mat cung restore — ban luu nam tren may host'
 test ! -e ~/lab-work/8a && echo 'PASS: ~/lab-work/8a (lenh join, bi mat cu) da mat cung restore'
@@ -2807,6 +2858,8 @@ lại ra máy host — Lab 8b và Lab 9a bắt đầu từ tag này.
 9. Gate cuối:
 
 ```bash
+# sl <lệnh...>: đếm dòng output; lệnh lỗi thì in "loi" để mọi phép so sánh số đều sai, không ra PASS.
+sl() { local o; o="$("$@" 2>/dev/null)" || { echo loi; return 1; }; printf '%s\n' "$o" | awk 'NF' | wc -l; }
 cd ~/bookstore
 test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
 git describe --tags --exact-match HEAD | grep -qx 'lab-8a' && echo 'PASS: HEAD mang tag lab-8a'
@@ -2819,9 +2872,9 @@ done
 [ "$BAD" -eq 0 ] && echo 'PASS: du ADR va postmortem cua sprint 12'
 grep -q 'TD-14' docs/tech-debt.md && echo 'PASS: tech-debt.md co TD-14'
 SEL=app.kubernetes.io/part-of=bookstore
-{ [ "$(kubectl get namespace,priorityclass,storageclass,pv -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get all -A -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
-  [ "$(kubectl get nodes -l bookstore.example.com/data --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+{ [ "$(sl kubectl get namespace,priorityclass,storageclass,pv -l "$SEL" --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get all -A -l "$SEL" --no-headers)" -eq 0 ] && \
+  [ "$(sl kubectl get nodes -l bookstore.example.com/data --no-headers)" -eq 0 ]; } \
   && echo 'PASS: khong con object nao cua du an, label node da go'
 rm -f ~/b0-truoc.txt ~/b11-node-ct.txt
 

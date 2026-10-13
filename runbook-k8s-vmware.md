@@ -2715,7 +2715,7 @@ Traefik Service/Pod → Ingress Router (Host match) → Service web → Pod web
 
 ## Tự kiểm tra — xử lý lỗi 404 và backend Service
 
-Phần này ghi câu **3/6 và 4/6 vòng 2** cùng đáp án chuẩn. Các câu vòng 1 cùng câu 1–2 vòng 2
+Phần này ghi câu **3/6–5/6 vòng 2** cùng đáp án chuẩn, gồm lỗi 404, backend Service và chịu lỗi replica. Các câu vòng 1 cùng câu 1–2 vòng 2
 nằm trong [Tự kiểm tra của tunnel-traefik.md](cloudflare-rancher-docs/tunnel-traefik.md#tự-kiểm-tra).
 Tự trả lời trước khi mở khối đáp án.
 
@@ -3010,6 +3010,137 @@ kubectl -n kube-system get pods -l k8s-app=kube-proxy -o wide
 Nếu gọi trực tiếp IP, phép test không phụ thuộc DNS. Không vội sửa Ingress hay
 restart app khi đường Service đang lỗi. Kiểm tra Service/kube-proxy theo §8.5,
 mạng Pod theo §8.3 và selector/manifest theo §10.1.
+
+</details>
+
+### Câu 5/6 — Một replica chết
+
+Lab có **hai Pod cloudflared và hai Pod web**. Xét riêng:
+
+- **A:** một Pod cloudflared chết; connector còn lại vẫn Healthy.
+- **B:** một Pod web chết; Pod web còn lại Ready và hoạt động bình thường.
+
+1. Trong mỗi tình huống, request mới có thể tiếp tục được phục vụ không?
+   Điều kiện là gì?
+2. Request đang xử lý qua Pod vừa chết có chắc chắn hoàn tất không? Vì sao?
+3. Connector replica 1 có gắn cố định với Pod web replica 1 không?
+   Ai chọn connector và ai chọn backend web?
+4. Hai replica có tự bảo đảm chịu được việc một worker chết không?
+   Cần kiểm tra cách đặt Pod trên node và cấu hình gì thêm?
+
+**Thông tin về lab:** với cài mới đúng §9.3, chart Traefik 41.0.2 có mặc định
+`deployment.kind: Deployment`, `deployment.replicas: 1`; lệnh runbook không
+override số replica. Vì vậy mặc định là **2 connector, 1 Traefik, 2 web**.
+Cluster đã được chỉnh riêng hoặc nâng cấp release cần kiểm tra số replica thực tế.
+
+**Câu hỏi bổ sung:**
+
+1. Hai Pod web nằm trên hai worker khác nhau, nhưng Traefik Pod duy nhất nằm trên
+   worker vừa chết. Connector còn Healthy và một Pod web còn Ready.
+   App public có chắc tiếp tục hoạt động không? Vì sao phải xét cả Traefik?
+2. Nếu Traefik có hai Pod thay vì một, câu trả lời thay đổi thế nào?
+   So sánh khi chúng nằm trên hai worker khác nhau và cùng nằm trên worker chết.
+
+<details>
+<summary>Đáp án vòng 2 — câu 5/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Request mới có thể tiếp tục, nếu toàn bộ đường đi còn hoạt động**
+
+| Tình huống | Điều kiện tiếp tục phục vụ |
+| --- | --- |
+| A — mất một connector | Cloudflare chọn được connector còn Healthy; connector đó phân giải/gọi được origin; Traefik và backend còn phục vụ |
+| B — mất một Pod web | Traefik/Service dataplane chọn được backend web còn Ready và gọi được app; connector và Traefik vẫn hoạt động |
+
+Pod còn lại phải đủ năng lực chịu tải và các dependency còn hoạt động. Không có
+ngưỡng bắt buộc tải phải thấp/trung bình: cần tải không vượt khả năng thực tế.
+Phát hiện lỗi/cập nhật endpoint và routing mất thời gian, nên request mới vẫn có
+thể gặp lỗi trong giai đoạn chuyển tiếp; không bảo đảm failover tức thì.
+
+**2. Request đang xử lý không được bảo đảm hoàn tất**
+
+Pod có thể chết đột ngột dù CPU/memory trước đó bình thường. Connection/stream đang
+xử lý có thể đứt; trạng thái trong bộ nhớ của process mất. Replica còn lại không
+tự tiếp quản nguyên trạng request.
+
+Nếu client/proxy retry, đó là gửi lại request theo chính sách cụ thể, không phải
+tiếp tục process đã chết. POST có thể đã thực hiện thao tác nhưng client chưa nhận
+response; retry có thể gây thao tác trùng. Khi cần retry an toàn, ứng dụng phải
+thiết kế tính idempotent hoặc cơ chế chống trùng phù hợp.
+
+**3. Hai lần lựa chọn độc lập**
+
+| Quyết định | Bên thực hiện |
+| --- | --- |
+| Connector của tunnel | Cloudflare chọn trong các connector khả dụng |
+| Pod web khi Traefik gọi endpoint trực tiếp | Traefik chọn backend từ thông tin Kubernetes |
+| Backend khi kết nối qua Service ClusterIP | Service dataplane, ví dụ rule do kube-proxy lập, lựa chọn/chuyển tiếp |
+
+Kernel trên master không chọn connector. Master không phải điểm trung chuyển bắt
+buộc của request. Khi sử dụng kube-proxy, nó lập rule; dataplane xử lý traffic
+trên node liên quan, không phải mọi request đều đi qua master.
+
+Connector 1 không ghép cố định với web 1. Điều này không phụ thuộc việc workload
+là Deployment hay StatefulSet; StatefulSet không tự tạo quan hệ ghép connector/backend.
+
+**4. Replica phải được phân tán và đủ khả năng phục vụ**
+
+Nếu cả hai replica trên worker chết, mất cả hai. Kiểm tra node của các Pod:
+
+```bash
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
+kubectl -n traefik get deployment traefik
+kubectl -n traefik get pods -o wide
+kubectl -n default get pods -l app=web -o wide
+```
+
+Dùng `topologySpreadConstraints` theo topology node hoặc Pod anti-affinity phù hợp
+để phân tán replica. Ràng buộc mềm là ưu tiên, không bảo đảm tách node; ràng buộc
+cứng có thể khiến Pod Pending nếu không đủ node/tài nguyên phù hợp.
+
+Cần xét cả connector, Traefik, web, DNS/network và các dependency khác; còn đủ
+tài nguyên, endpoint và đường mạng trên node sống. Replica của một tầng không
+bảo đảm HA cho toàn bộ chuỗi. PDB hỗ trợ giới hạn gián đoạn tự nguyện như drain,
+không ngăn worker chết đột ngột.
+
+DaemonSet dùng khi muốn Pod trên mỗi node đủ điều kiện. Không cần đổi web/connector
+sang DaemonSet chỉ để phân tán hai replica. Tăng replicas cho Deployment và cấu
+hình phân tán thường phù hợp hơn với mục tiêu đó.
+
+**Đáp án bổ sung 1 — Traefik duy nhất chết**
+
+**Không chắc tiếp tục hoạt động; nếu chưa có Traefik thay thế Ready, đường public
+bị gián đoạn.** Connector và web còn sống nhưng thiếu process ở giữa:
+
+| Chặng | Trạng thái |
+| --- | --- |
+| Edge → connector | Có thể còn hoạt động |
+| Connector → Service Traefik | ClusterIP tồn tại nhưng không còn Traefik backend hoạt động |
+| Traefik → web | Không thực hiện được vì Traefik duy nhất đã chết |
+
+Service là object/địa chỉ ảo, không chạy thay chương trình Traefik. Ingress là
+cấu hình, không tự proxy request. Request không tự bỏ qua Traefik để tới web
+vì Service URL vẫn trỏ Service Traefik.
+
+Kubernetes có thể tạo lại Traefik trên node khác nếu scheduler, tài nguyên và
+các điều kiện liên quan cho phép. Cần chờ Pod mới Ready, có mạng và nạp routing;
+trong lúc đó vẫn có thể gián đoạn. Đây là lý do phải xét cả Traefik khi đánh giá
+chịu lỗi worker.
+
+Mặc định chart được đối chiếu tại:
+[Traefik chart v41.0.2 — values.yaml](https://github.com/traefik/traefik-helm-chart/blob/v41.0.2/traefik/values.yaml).
+Không suy ra số Pod hiện tại chỉ từ mặc định nếu release đã được thay đổi;
+dùng các lệnh ở trên để xác nhận cluster thực tế.
+
+**Đáp án bổ sung 2 — Có hai Traefik Pod**
+
+- **Hai node khác nhau, còn một Traefik Ready trên node sống:** request mới có thể
+  tiếp tục nếu connector gọi được Service, endpoint Traefik còn lại được chọn,
+  Traefik gọi được web Ready và phần còn lại đủ năng lực phục vụ.
+- **Cả hai trên worker chết:** vẫn mất toàn bộ Traefik và gián đoạn.
+- Trong cả hai trường hợp, request đang chạy qua Traefik vừa chết có thể thất bại;
+  replica còn lại không tự tiếp quản nguyên trạng request đó.
+
+**Hai replica chỉ giúp chịu lỗi node khi cách đặt Pod và toàn bộ đường đi phù hợp.**
 
 </details>
 

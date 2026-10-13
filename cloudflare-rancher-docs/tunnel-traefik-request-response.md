@@ -8,6 +8,48 @@ Dùng request ví dụ:
 https://app.hieupn.site/?page=2
 ```
 
+**Sơ đồ tổng quan của request và response:**
+
+```mermaid
+flowchart TD
+    B["Browser"]
+    D["Public DNS"]
+    E["Cloudflare Edge<br/>Nhận HTTPS :443"]
+    R["Published application route<br/>Hostname → tunnel và origin"]
+
+    subgraph K["Kubernetes trong lab"]
+        C["Pod cloudflared<br/>Nhận request qua tunnel"]
+        DNS["CoreDNS"]
+        ST["Service Traefik<br/>ClusterIP :80"]
+        T["Pod Traefik<br/>Chọn ứng dụng theo Host và path"]
+        I["Ingress web<br/>Host app.hieupn.site → Service web:80"]
+        SW["Service web<br/>Nhóm backend ứng dụng"]
+        W["Một Pod web được chọn<br/>Xử lý request và tạo response"]
+    end
+
+    B <-->|"HTTPS"| E
+    E <-->|"Tunnel mã hóa đã mở sẵn"| C
+    C <-->|"HTTP nội bộ"| ST
+    ST <--> T
+    T <-->|"HTTP tới backend"| SW
+    SW <--> W
+
+    B -.->|"Hỏi IP hostname"| D
+    D -.->|"Trả Edge IP"| B
+    C -.->|"Hỏi tên Service Traefik"| DNS
+    DNS -.->|"Trả ClusterIP"| C
+
+    R -.->|"Cấu hình chỉ đường"| E
+    I -.->|"Traefik đọc rule"| T
+```
+
+Đường nét đứt biểu diễn truy vấn DNS hoặc cấu hình được đọc, không phải hop HTTP.
+Pod `cloudflared` trong hình là **một** connector được chọn từ hai replica.
+`Service web` biểu diễn nhóm backend: với cấu hình Traefik mặc định trong runbook,
+Traefik thường chọn Pod IP rồi mở kết nối trực tiếp tới Pod web, không có process
+HTTP tên là Service web. Xem [đường gói tin Traefik → web](traefik-to-web-pod-network.md)
+để hiểu chặng này ở tầng Linux.
+
 Các đoạn HTTP được viết theo HTTP/1.1 để dễ nhìn. Browser thực tế có thể dùng HTTP/2 hoặc HTTP/3. Giả sử request được chuyển tới origin, không bị Edge chặn hoặc trả ngay từ cache.
 
 ### Bước 1 — §12 chuẩn bị đường đi trước khi có request

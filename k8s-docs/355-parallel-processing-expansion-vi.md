@@ -15,7 +15,7 @@
 → [4b. StatefulSet, DaemonSet, Job và autoscaling](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling),
 bài 7/7 của dòng **Thực hành** · Kiểm chứng ở
 [Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md),
-**phần B10**.
+**ticket B9** (phần ⭐; `deploy.sh` của dự án dùng đúng kỹ thuật này từ ticket B1).
 
 Đây là **bài cuối của nhóm 4b** và là mẫu song song thứ ba. Đọc nó cạnh hai mẫu kia để chốt ranh
 giới: [351](351-coarse-parallel-work-queue-vi.md) là **một Job, nhiều Pod, lấy việc từ hàng đợi**;
@@ -45,7 +45,7 @@ bài này là **nhiều Job, mỗi Job một mục việc**.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Ví dụ nâng cao bằng Jinja2: file `job.yaml.jinja2`, `pip install --user jinja2`, alias `render_template` | là công cụ sinh manifest ở phía client, không phải cơ chế Kubernetes; nắm ý tưởng khai triển template là đủ | [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B10 chỉ khai triển bằng `sed`, đúng phần làm được bằng công cụ có sẵn |
+| Ví dụ nâng cao bằng Jinja2: file `job.yaml.jinja2`, `pip install --user jinja2`, alias `render_template` | là công cụ sinh manifest ở phía client, không phải cơ chế Kubernetes; nắm ý tưởng khai triển template là đủ | [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) ticket B9 chỉ khai triển bằng `sed`, đúng phần làm được bằng công cụ có sẵn |
 | Mục *Sử dụng Job trong workload thực tế* — mỗi Pod ghi output vào PersistentVolume hoặc một dịch vụ lưu trữ bên ngoài | PersistentVolume chưa được học, và [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) không tạo PVC | [giai đoạn 6 — Lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) |
 | Link *các label được khuyến nghị* (bài [31](31-common-labels-vi.md)) trong ghi chú về khóa `jobgroup` | ở đây chỉ cần biết `jobgroup` là label bạn tự đặt, không có gì đặc biệt | bài [31](31-common-labels-vi.md) đã đọc ở [1b. Làm việc với object và kubectl](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl) |
 | Gợi ý tự viết [controller](25-controllers-vi.md) để quản lý các đối tượng Job một cách tự động | viết controller riêng là chủ đề mở rộng Kubernetes, cần công cụ chưa học | [giai đoạn 14 — Khả năng mở rộng](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) |

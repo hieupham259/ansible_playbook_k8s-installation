@@ -11,7 +11,7 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 7/11 ·
-Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B8.1.
+Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B8.
 
 Bài bật một trường duy nhất, nhưng mục cuối — *Hiểu về chia sẻ process namespace* — mới là phần
 phải đọc kỹ: nó liệt kê ba thứ **đổi hành vi** khi bạn bật trường đó, và cả ba đều là bẫy vận
@@ -39,10 +39,10 @@ hành.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Ý "cấu hình một sidecar container xử lý log" ở đoạn mở đầu | sidecar là một bài riêng của chính nhóm này | bài [51](51-sidecar-containers-vi.md), thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B6 |
-| Ý "khắc phục sự cố các container image không kèm shell" | đó là việc của ephemeral container và `kubectl debug` | bài [52](52-ephemeral-containers-vi.md), thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B8.2 |
+| Ý "cấu hình một sidecar container xử lý log" ở đoạn mở đầu | sidecar là một bài riêng của chính nhóm này | bài [51](51-sidecar-containers-vi.md), thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B5 |
+| Ý "khắc phục sự cố các container image không kèm shell" | đó là việc của ephemeral container và `kubectl debug` | bài [52](52-ephemeral-containers-vi.md), thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B8 |
 | Capability của Linux kernel **là gì** (ở đây chỉ cần biết `SYS_PTRACE` là thứ phải thêm) | capability, seccomp, AppArmor, SELinux là một chủ đề bảo mật riêng | bài [127](127-linux-kernel-security-vi.md) ở [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), thực hành ở Lab 9b |
-| `stdin: true` và `tty: true` trong manifest | chỉ để `kubectl exec -it` có shell tương tác | dùng ngay ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B8.1 |
+| `stdin: true` và `tty: true` trong manifest | chỉ để `kubectl exec -it` có shell tương tác | [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B8 thay bằng `kubectl exec` không tương tác vào ephemeral container |
 
 ---
 

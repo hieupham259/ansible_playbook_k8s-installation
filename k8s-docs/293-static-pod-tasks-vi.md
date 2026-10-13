@@ -10,9 +10,9 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 9/9 ·
-Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B8: B8.1 kiểm kê static Pod
-của control plane, B8.2 xóa mirror Pod bằng `kubectl`, B8.3 và B8.4 dựng rồi xóa một static Pod
-thử nghiệm trên `lab-k8s-worker2`.
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B7: kiểm kê static Pod
+của control plane (chỉ đọc), dựng một static Pod thử nghiệm trên `lab-k8s-worker2`, xóa mirror Pod
+bằng `kubectl`, rồi xóa thật bằng cách gỡ file.
 
 Đây là **bài cuối của nhóm 3c** và là vế thực hành của bài [58](58-static-pods-vi.md). Bài viết cho
 CRI-O trên Fedora, còn cluster lab chạy containerd trên Ubuntu theo
@@ -49,7 +49,7 @@ bài mô tả, nên nhầm lẫn ở đây là nhầm lẫn trên chính cluster
 | Bước "Cấu hình kubelet để đặt `staticPodPath`" và đối số deprecated `--pod-manifest-path`, cùng link tới bài [224](224-kubelet-config-file-vi.md) | sửa file cấu hình kubelet là làm lệch baseline của Lab 00; Lab 3c chỉ **đọc** `staticPodPath` có sẵn | bài [224](224-kubelet-config-file-vi.md) ở [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
 | Toàn mục *Manifest static Pod đặt trên web* — `staticPodURL` và `--manifest-url` | cần dựng thêm một web server và vẫn phải sửa cấu hình kubelet; ở đây chỉ cần biết đường này tồn tại | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
 | `crictl logs`, cách đọc URI kèm checksum SHA-256 của image trong output `crictl ps`, và link *Debug các node Kubernetes bằng `crictl`* | debug ở tầng runtime là chủ đề riêng; Lab 3c kiểm chứng static Pod bằng `kubectl` chứ không qua `crictl` | bài [307](307-crictl-vi.md) ở [giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố) |
-| Các mục *Tiếp theo* về sinh manifest static Pod cho thành phần control plane và cho etcd cục bộ, cùng bài [07](07-setup-ha-etcd-with-kubeadm-vi.md) | `kubeadm` sinh ra đúng bốn manifest bạn sẽ đọc ở B8.1, nhưng cách nó sinh ra thì chưa học | [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) |
+| Các mục *Tiếp theo* về sinh manifest static Pod cho thành phần control plane và cho etcd cục bộ, cùng bài [07](07-setup-ha-etcd-with-kubeadm-vi.md) | `kubeadm` sinh ra đúng bốn manifest bạn sẽ đọc ở ticket B7, nhưng cách nó sinh ra thì chưa học | [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) |
 
 ---
 
@@ -367,4 +367,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Đây là bài cuối của nhóm
 [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn): trả lời trôi chảy cả năm câu rồi thì mở
 [Lab 3c — Tài nguyên, QoS và gián đoạn](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) và chạy từ B0
-tới B9.
+tới mục đóng sprint B10.

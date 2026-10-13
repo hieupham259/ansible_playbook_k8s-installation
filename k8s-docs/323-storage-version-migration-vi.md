@@ -16,7 +16,7 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 14 — Khả năng mở rộng](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng),
 bài 2/2 của dòng **Thực hành** · Kiểm chứng ở
-[Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md) phần B9, nơi lab đọc
+[Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md) ticket B6, nơi lab đọc
 `status.storedVersions` của một CRD thật, chứng minh API server **từ chối** gỡ version còn nằm
 trong `storedVersions`, rồi chạy trọn quy trình nâng cấp thủ công ba bước bằng `kubectl`. Bản
 thân object `StorageVersionMigration` thì lab **không** tạo, vì lý do nêu ở đoạn dưới.

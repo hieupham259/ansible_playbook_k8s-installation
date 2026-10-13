@@ -14,8 +14,8 @@
 
 **Vị trí:** [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), dòng **Thực
-hành**, bài 7/10 · Kiểm chứng ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B0.3 và
-B4.1 — xác nhận addon DNS của cluster là CoreDNS do kubeadm cài, Service của nó tên `kube-dns`, và
+hành**, bài 7/10 · Kiểm chứng ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket
+B6 — xác nhận addon DNS của cluster là CoreDNS do kubeadm cài, Service của nó tên `kube-dns`, và
 `nameserver` trong Pod trỏ đúng ClusterIP đó.
 
 Trang này chỉ dài ba câu và là một **trang cửa ngõ**: nó nói cluster của bạn đã có sẵn addon DNS
@@ -36,7 +36,7 @@ ghi rõ lab chỉ **đọc** addon mặc định, không sửa ConfigMap của C
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Toàn bộ phần cấu hình CoreDNS mà bài trỏ sang | sửa Corefile là đụng vào `kube-system`; ở giai đoạn 5 bạn chỉ đọc addon mặc định | bài [204 — Tùy chỉnh DNS Service](204-dns-custom-nameservers-vi.md), [giai đoạn 21 — DNS, CNI và kube-proxy](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy) |
-| Ý "được cài đặt mặc định cùng với kubeadm" — addon được cài ở bước nào của quá trình dựng cluster | bạn chưa tự chạy `kubeadm init`, nên chưa thấy bước cài addon | [Lab 8a](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md) phần B7.6, [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) |
+| Ý "được cài đặt mặc định cùng với kubeadm" — addon được cài ở bước nào của quá trình dựng cluster | bạn chưa tự chạy `kubeadm init`, nên chưa thấy bước cài addon | [Lab 8a](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md) ticket B7, [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) |
 
 ---
 
@@ -78,7 +78,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    rằng mọi cluster đều chạy CoreDNS. Cluster cũ hơn, hoặc cluster dựng bằng công cụ khác, có thể
    mang addon DNS khác; và bài cũng chỉ nói "hầu hết các môi trường **được hỗ trợ**" mới bật addon
    mặc định. Việc cần làm là đọc thẳng addon đang chạy trong `kube-system`, đúng như Lab 5a làm ở
-   phần B0.3.
+   ticket B6.
 
 </details>
 

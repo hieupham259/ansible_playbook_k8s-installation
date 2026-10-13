@@ -1,294 +1,270 @@
 # Lab 8c — HA với external etcd
 
-> **Điểm bắt đầu:** snapshot `8x-ha-stacked` trên **cả sáu VM** của nhánh HA — mốc do Lab 8b tạo,
-> xem [chuỗi snapshot](README.md#3-chuỗi-snapshot). Nhánh HA có tiền tố `8x-` và **không nằm trên
-> chuỗi snapshot chính**.
-> **Điểm kết thúc:** **tạo** snapshot `8x-ha-external` trên cả sáu VM. Lab này thay đổi hạ tầng
-> vĩnh viễn — nó phá cụm stacked của Lab 8b và dựng lại theo topology external etcd — nên bắt buộc
-> chụp mốc mới trước khi rời máy.
-> **Lab trước:** [Lab 8b — HA với stacked etcd](LAB-8B-HA-VOI-STACKED-ETCD.md), lab đã dựng bộ VM
-> này và chụp `8x-ha-stacked`.
+> **Điểm bắt đầu:** snapshot `8x-ha-stacked` trên **cả sáu VM** của nhánh HA — mốc do
+> [Lab 8b](LAB-8B-HA-VOI-STACKED-ETCD.md) tạo, xem [chuỗi snapshot](README.md#3-chuỗi-snapshot). Nhánh
+> HA có tiền tố `8x-` và **không nằm trên chuỗi snapshot chính**. Repo dự án ở tag `lab-8b`, mang
+> sang bằng bundle `bookstore-lab-8b.bundle` đang nằm trên máy host.
+> **Điểm kết thúc:** **tạo** snapshot `8x-ha-external` trên cả sáu VM. Lab phá cụm stacked của Lab 8b
+> và dựng lại theo topology external etcd — thay đổi hạ tầng vĩnh viễn, nên bắt buộc chụp mốc mới.
+> Repo có tag `lab-8c`, bundle `bookstore-lab-8c.bundle` mang về máy host; chuỗi chính tiếp tục ở
+> [Lab 9a](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) với tag đó trên `lab-k8s-master` — cách đưa
+> repo về nằm ở bước cuối của [B13](#b13-đóng-sprint-cleanup-và-gate-cuối).
+> **Sprint dự án:** Sprint 14 — Kiểm chứng HA với external etcd của [dự án Bookstore](DU-AN-BOOKSTORE.md).
+> **Lab trước:** [Lab 8b — HA với stacked etcd](LAB-8B-HA-VOI-STACKED-ETCD.md), lab đã dựng bộ VM này.
+> **Lab sau:** [Lab 9a — ServiceAccount, authn/authz và RBAC](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md).
 > **Bộ VM chính** (`lab-k8s-master`, `lab-k8s-worker1`, `lab-k8s-worker2`) **không được đụng tới**
-> trong toàn bộ lab; B0 và B15 đều có gate chứng minh điều đó.
+> trong toàn bộ lab; B0 và B13 đều có gate chứng minh điều đó.
 >
-> **Cập nhật và đối chiếu phiên bản:** 25/08/2026.
+> **Cập nhật và đối chiếu phiên bản:** 13/10/2026.
 
-Lab này đi cùng mục
-[Giai đoạn 8 — Dựng cluster bằng kubeadm](../00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm)
-— ba bài [06 — Các lựa chọn topology cho tính sẵn sàng cao](../06-ha-topology-vi.md),
-[07 — Thiết lập cluster etcd có tính sẵn sàng cao với kubeadm](../07-setup-ha-etcd-with-kubeadm-vi.md)
-và [08 — Tạo cluster có tính sẵn sàng cao với kubeadm](../08-high-availability-vi.md).
-**Bài 07 là bài trục**: hơn một nửa phần B của lab là dựng cụm etcd ngoài theo đúng tám bước của nó.
-Hai bài nền dùng để tra cứu là
-[02 — Tạo một cluster với kubeadm](../02-create-cluster-kubeadm-vi.md) (phần `kubeadm reset` và gỡ
-bỏ node) và [09 — Xử lý sự cố kubeadm](../09-troubleshooting-kubeadm-vi.md).
+Lab này đi cùng [Giai đoạn 8 — Dựng cluster bằng kubeadm](../00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm),
+ba bài [06 — Các lựa chọn topology cho tính sẵn sàng cao](../06-ha-topology-vi.md),
+[07 — Thiết lập cluster etcd có tính sẵn sàng cao với kubeadm](../07-setup-ha-etcd-with-kubeadm-vi.md) và
+[08 — Tạo cluster có tính sẵn sàng cao với kubeadm](../08-high-availability-vi.md). **Bài 07 là bài
+trục**: nửa đầu sprint dựng cụm etcd ngoài theo đúng tám bước của nó. Hai bài nền dùng để tra cứu là
+[02 — Tạo một cluster với kubeadm](../02-create-cluster-kubeadm-vi.md) và
+[09 — Xử lý sự cố kubeadm](../09-troubleshooting-kubeadm-vi.md). Kế hoạch gốc của sprint nằm ở
+[mục 7.2 của file dự án](DU-AN-BOOKSTORE.md#sprint-13-14--lab-8b-8c-kiểm-chứng-ha); hợp đồng kỹ thuật
+ở [mục 4](DU-AN-BOOKSTORE.md#4-hợp-đồng-kỹ-thuật).
 
-Lab 8b đã chứng minh nhánh **stacked** của bài 08. Lab 8c đi nhánh còn lại: **external etcd**. Hai
-lab dùng **chung một bộ VM**, và chính việc đổi vai của sáu máy đó là cách rẻ nhất để thấy sự khác
-nhau giữa hai topology — cùng phần cứng, cùng load balancer, chỉ khác chỗ etcd đứng.
+Sprint 13 (Lab 8b) đã đưa Bookstore lên một cluster HA stacked có worker riêng bằng overlay
+`ha-lab` và bộ lệnh `-ha-lab`, đo sẵn sàng từ máy host bằng `scripts/do-san-sang.ps1` qua bốn sự cố,
+và chốt phần stacked của ADR topology. Sprint 14 đi nhánh còn lại của bài 08: **external etcd**.
+Hai lab dùng **chung một bộ VM**; chính việc đổi vai sáu máy là cách rẻ nhất để so hai topology —
+cùng phần cứng, cùng load balancer, chỉ khác chỗ etcd đứng. Sprint có hai nửa:
 
-Cluster của lab này giữ nguyên baseline của
-[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); lab **không chép lại
-con số phiên bản nào**. Kubernetes, Flannel và Pod CIDR đọc từ A1.3 rồi điền vào biến ở B0.4; image
-etcd **không ghim tay** mà lấy đúng cách bài 07 chỉ — `kubeadm config images list` — rồi gate rằng
-tag thật trong static Pod manifest khớp con số kubeadm khai.
+- **Vận hành** (B2–B8): reset cụm stacked, dựng cụm etcd ba member, dựng control plane dùng etcd
+  ngoài. Đây là thao tác hạ tầng; quy trình, lệnh và gate đã được kiểm chứng trên cluster thật và nằm
+  nguyên trong khối *Lời giải tham khảo* của từng ticket.
+- **Dự án** (B9–B12): triển khai lại overlay `ha-lab` với một patch của riêng sprint, đo lại bằng
+  đúng công cụ của Lab 8b khi mất etcd member, mất quorum, mất control plane, rồi hoàn thiện ADR
+  topology bằng bảng `## Số đo Lab 8c` và kết luận cho production.
 
-Lab dùng Deployment và Service của
-[giai đoạn 4](../00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller) và
-[giai đoạn 5](../00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) làm công cụ chứng minh cluster sống.
-**Không** dùng CRD (giai đoạn 14), audit log và mã hóa at rest (giai đoạn 22), metrics-server hay
-HPA (giai đoạn 11), ResourceQuota (nhóm 7b) — tất cả đều đứng sau giai đoạn 8. Và **không** làm
-backup/restore etcd: đó là [nợ #8](README.md#5-sổ-nợ-lab), trả ở
-[giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa). `etcdctl`
-trong lab này **chỉ được dùng để đọc**.
+Cluster giữ nguyên baseline của
+[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); lab không chép lại con
+số phiên bản nào trong văn bản. Kubernetes, Flannel và Pod CIDR đọc từ A1.3 rồi điền vào biến ở B0;
+image etcd **không ghim tay** mà lấy đúng cách bài 07 chỉ — `kubeadm config images list`.
 
-Trước khi bắt đầu, đọc [quy trình mở đầu A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab)
-của Lab 00 để nhớ nguyên tắc "gate PASS rồi mới mở nội dung". A5.5 viết cho bộ VM chính; nhánh HA có
-gate mở đầu riêng ở [B0](#b0-gate-mở-đầu-và-workspace) vì nó chạy trên bộ VM khác và bắt đầu từ mốc
-khác. Chạy ngay gate ngắn dưới đây trên **máy host Windows**, PowerShell, trước khi bật bất kỳ máy
-nào:
-
-```powershell
-$vmrun = 'C:\Program Files\VMware\VMware Workstation\vmrun.exe'
-if (Test-Path $vmrun) { 'PASS: tim thay vmrun' } else { 'FAIL: sua duong dan vmrun' }
-& $vmrun -T ws list
-```
-
-**PASS:** dòng `PASS: tim thay vmrun` xuất hiện, và danh sách VM đang chạy **không chứa** máy nào
-tên `lab-k8s-*`. Bộ VM chính phải đang tắt trong suốt lab này; B0.1 kiểm lại điều đó chặt hơn.
+[Quy trình mở đầu A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab) viết cho bộ VM
+chính; nhánh HA dùng nguyên tắc của nó — gate PASS rồi mới mở nội dung — với gate riêng ở B0, vì lab
+chạy trên bộ VM khác và bắt đầu từ mốc khác.
 
 ---
 
 ## 1. Kết quả phải đạt
 
-Hoàn thành lab khi có thể tự chứng minh và giải thích được:
+Hoàn thành lab khi Bookstore chạy được trên cluster external etcd, có số đo sẵn sàng của sprint 14
+đặt cạnh số đo của sprint 13 trong một ADR đã chấp nhận, **và** bạn chứng minh, giải thích được:
 
-- Hai topology HA của bài [06](../06-ha-topology-vi.md) khác nhau ở **quan hệ giữa etcd member và
-  `kube-apiserver`**, và chỉ ra được quan hệ đó bằng số liệu đọc từ hai cluster mình đã tự dựng.
-- `kubeadm reset` **xóa gì** và **không xóa gì** — bốn thứ còn lại sau reset cùng cách dọn từng thứ
-  — chứng minh bằng gate chứ không bằng trí nhớ.
-- Vì sao trên ba host etcd, kubelet phải chạy bằng một unit file **có độ ưu tiên cao hơn** unit của
-  kubeadm, và vì sao ở bước đó kubelet **không nói chuyện với API server nào**.
-- Vì sao mỗi host etcd cần **bộ certificate riêng**, SAN của chúng phải chứa gì, và vì sao `ca.key`
-  không được rời host đầu tiên — chứng minh bằng danh sách file thật trên cả ba host.
-- Hai vai trò của port `2380` và `2379`, đọc ra từ chính `kubeadmcfg.yaml` và từ static Pod manifest
-  mà kubeadm sinh.
-- Cụm etcd ba thành viên chạy **trước khi có bất kỳ cluster Kubernetes nào**, kiểm bằng
-  `etcdctl member list`, `endpoint health` và `endpoint status` với đúng ba cờ certificate.
-- Khối `etcd.external` trong `ClusterConfiguration` là **thứ duy nhất** phân biệt hai nhánh của bài
-  [08](../08-high-availability-vi.md), và vì sao nhánh này **buộc** phải dùng `--config`.
-- Ba bằng chứng độc lập rằng cluster đang dùng etcd ngoài: không Pod `component=etcd` nào, không
-  `etcd.yaml` trong `/etc/kubernetes/manifests/`, và `--etcd-servers` của `kube-apiserver` trỏ tới
-  ba host etcd.
-- **Tính tách rời** của topology external, bằng ba phép thử thật: mất một etcd node, mất hai etcd
-  node, mất một control plane node — và đối chiếu từng phép với điều đã xảy ra ở Lab 8b.
-- Vì sao **hai** control plane cộng **ba** etcd member vẫn là cấu hình hợp lệ, quorum nằm ở tầng
-  nào, và đánh đổi mà lab phải chấp nhận khi không còn worker riêng.
-- Xóa `/etc/kubernetes/manifests/kube-apiserver.yaml` trên một control plane node rồi khôi phục,
-  chứng minh cluster vẫn phục vụ qua load balancer trong suốt thời gian đó.
-- Cleanup đúng phạm vi: cụm etcd ngoài và hai control plane còn nguyên, taint control plane trở về
-  mặc định kubeadm, snapshot `8x-ha-external` có trên đủ sáu VM, và bộ VM chính không hề bị chạm.
+- Hai topology của bài [06](../06-ha-topology-vi.md) khác nhau ở **quan hệ giữa etcd member và
+  `kube-apiserver`** — một-một hay nhiều-nhiều — chỉ ra bằng cấu hình đọc từ hai cluster tự dựng.
+- `kubeadm reset` xóa gì và **không** xóa gì; vì sao gỡ control plane bằng reset chứ không bằng tắt
+  máy; vì sao với etcd ngoài, reset một control plane node không xóa dữ liệu cluster.
+- Vì sao trên ba host etcd, kubelet chạy bằng một unit **có độ ưu tiên cao hơn** unit của kubeadm và
+  **không nói chuyện với API server nào**.
+- Vì sao mỗi host etcd cần bộ certificate riêng, SAN của chúng chứa gì, và vì sao `ca.key` không
+  rời host đầu tiên; hai vai trò của port `2380` và `2379`.
+- Cụm etcd ba member chạy **trước khi có bất kỳ cluster Kubernetes nào**, kiểm chỉ bằng ba lệnh
+  `etcdctl` chỉ đọc.
+- Khối `etcd.external` là **thứ duy nhất** phân biệt hai nhánh của bài [08](../08-high-availability-vi.md),
+  vì sao nhánh này **buộc** dùng file cấu hình, và ba bằng chứng độc lập rằng cluster dùng etcd ngoài.
+- Với Bookstore đang chạy: mất một etcd member không ai nhận ra; **mất quorum etcd** làm API ngừng
+  nhưng ứng dụng vẫn phục vụ; **mất một control plane node** trong cluster không có worker riêng làm
+  ứng dụng gián đoạn một phần rồi tự hồi phục; mất một `kube-apiserver` thì ứng dụng không hề biết.
+  Mỗi câu có số đo từ máy host làm bằng chứng.
+- Quorum nằm ở tầng nào, vì sao hai control plane cộng ba etcd member vẫn hợp lệ, số host tối thiểu
+  của từng topology cho Bookstore production, và topology nào dự án chọn — kèm điều kiện đổi quyết
+  định.
+- Cleanup đúng phạm vi: Bookstore gỡ sạch, taint control plane về mặc định kubeadm, mốc
+  `8x-ha-external` có trên đủ sáu VM, bộ VM chính không hề bị chạm, repo `lab-8c` sẵn sàng cho Lab 9a.
 
 ### 1.1. Ánh xạ tài liệu sang bài thực hành
 
-| Bài trong nhóm | Phần lab kiểm chứng |
+| Bài trong nhóm | Ticket kiểm chứng |
 | --- | --- |
-| [06 — Các lựa chọn topology cho tính sẵn sàng cao](../06-ha-topology-vi.md) | B1 — đọc cụm stacked **đang chạy** của Lab 8b lần cuối: mỗi control plane node đúng một etcd member, tức quan hệ một-một của [topology stacked](../06-ha-topology-vi.md#stacked-etcd-topology); B11 — sau khi dựng xong, chứng minh quan hệ nhiều-nhiều của [topology external](../06-ha-topology-vi.md#external-etcd-topology) bằng `--etcd-servers` của **cả hai** apiserver cùng trỏ tới **cả ba** etcd host; B13 — "hỏng theo cặp" của stacked so với "tách rời" của external, đo bằng ba phép thử tắt máy; [mục 2.2](#22-vì-sao-hai-control-plane-cộng-ba-etcd-vẫn-hợp-lệ) — bảng đánh đổi số host |
-| [07 — Thiết lập cluster etcd HA với kubeadm](../07-setup-ha-etcd-with-kubeadm-vi.md) | B4 — bước 1, kubelet làm trình quản lý dịch vụ cho etcd trên ba host; B5 — bước 2, `kubeadmcfg.yaml` riêng cho từng member; B6 — bước 3, 4 và 5, sinh CA, sinh certificate từng member, phân phối và giữ `ca.key` ở lại; B7 — bước 6 và 7, checklist file bắt buộc trên từng host rồi `kubeadm init phase etcd local`; B8 — bước 8, kiểm sức khỏe cụm bằng `etcdctl` chỉ đọc |
-| [08 — Tạo cluster HA với kubeadm](../08-high-availability-vi.md) | B3 — mục *Tạo bộ cân bằng tải cho kube-apiserver*, phần chung của cả hai phương pháp, đổi backend sang hai control plane mới; B9 — mục *Các node etcd bên ngoài*: chép ba file certificate sang control plane đầu tiên, viết `kubeadm-config.yaml` với `etcd.external`, `kubeadm init --config --upload-certs`, cài CNI; B10 — mục *Các bước cho các node control plane còn lại* và ghi chú cân bằng lại CoreDNS; B14 — kiểm chứng `ControlPlaneEndpoint` luôn khớp địa chỉ load balancer bằng cách bỏ đi một apiserver |
-| [02 — Tạo một cluster với kubeadm](../02-create-cluster-kubeadm-vi.md) (bài nền) | B2 — mục *Gỡ bỏ node* và *Dọn dẹp control plane*: thứ tự `drain` → `kubeadm reset` → `kubectl delete node`, và bốn thứ reset **không** dọn; B12 — mục *Cách ly control plane node*, gỡ taint `node-role.kubernetes.io/control-plane` |
-| [09 — Xử lý sự cố kubeadm](../09-troubleshooting-kubeadm-vi.md) (bài nền) | [Mục 4](#4-troubleshooting-của-lab-này) — dùng đúng công dụng của một trang tra cứu: `kubeadm reset` bị treo khi container runtime không xóa container, lỗi certificate TLS của `$HOME/.kube/config`, Pod control plane crashloop |
+| [06 — Các lựa chọn topology cho tính sẵn sàng cao](../06-ha-topology-vi.md) | B1 — cụm stacked **đang chạy** của Lab 8b lần cuối: mỗi apiserver chỉ biết etcd member cục bộ, tập node chạy etcd trùng tập node chạy apiserver ([topology stacked](../06-ha-topology-vi.md#stacked-etcd-topology)); B8 — `--etcd-servers` của **cả hai** apiserver trỏ tới **cả ba** etcd host, quan hệ nhiều-nhiều ([topology external](../06-ha-topology-vi.md#external-etcd-topology)); B10, B11 — "hỏng theo cặp" so với "tách rời", đo bằng bốn kịch bản với Bookstore đang chạy; B12 — số host tối thiểu, đánh đổi, ADR |
+| [07 — Thiết lập cluster etcd HA với kubeadm](../07-setup-ha-etcd-with-kubeadm-vi.md) | B4 — bước 1, kubelet làm trình quản lý dịch vụ cho etcd; B5 — bước 2 đến 6: `kubeadmcfg.yaml` riêng từng member, CA, certificate từng member, phân phối, checklist file; B6 — bước 7 và 8: `kubeadm init phase etcd local`, kiểm sức khỏe cụm bằng `etcdctl` chỉ đọc |
+| [08 — Tạo cluster HA với kubeadm](../08-high-availability-vi.md) | B3 — *Tạo bộ cân bằng tải cho kube-apiserver*, đổi backend sang hai control plane mới; B7 — *Các node etcd bên ngoài*: chép ba file certificate, `etcd.external`, `kubeadm init --config --upload-certs`, cài CNI; B8 — join control plane còn lại, cân bằng lại CoreDNS; B11 — load balancer ngừng gửi request tới apiserver đã mất, `ControlPlaneEndpoint` không đổi |
+| [02 — Tạo một cluster với kubeadm](../02-create-cluster-kubeadm-vi.md) *(bài nền)* | B2 — *Gỡ bỏ node*, *Dọn dẹp control plane*: thứ tự `drain` → `kubeadm reset` → `kubectl delete node`, và những thứ reset **không** dọn; B9 — *Cách ly control plane node*: gỡ taint để Bookstore chạy được; B13 — trả taint về mặc định |
+| [09 — Xử lý sự cố kubeadm](../09-troubleshooting-kubeadm-vi.md) *(bài nền)* | [Mục 4](#4-troubleshooting-của-lab-này) — dùng đúng công dụng trang tra cứu: reset treo khi runtime không xóa container, lỗi certificate TLS của kubeconfig cũ, init treo khi chờ control plane |
 
-Các phần dưới đây **không kiểm chứng được trong lab này**, ghi rõ lý do thay vì bỏ trống:
+Các phần **không kiểm chứng được** trong lab này, kèm lý do:
 
 | Phần | Vì sao không thực hành ở đây |
 | --- | --- |
-| Bài [07](../07-setup-ha-etcd-with-kubeadm-vi.md) — vai trò riêng của từng certificate `peer`, `server`, `healthcheck-client`, `apiserver-etcd-client` ở mức PKI | Lab **sinh và phân phối** đủ bốn bộ, và B6.4 đọc SAN của chúng, nhưng không đi vào vòng đời PKI: ký lại, xoay CA, đọc chuỗi tin cậy. Đó là **[nợ #7](README.md#5-sổ-nợ-lab)**, trả ở [giai đoạn 18](../00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) với bài [219](../219-kubeadm-certs-vi.md) |
-| Bài [07](../07-setup-ha-etcd-with-kubeadm-vi.md) — chạy `etcdctl` bằng `crictl run` từ một image rời | Lab đạt cùng mục đích mà không kéo thêm image nào: `crictl exec` vào **chính container etcd đang chạy**, nơi `etcdctl` đã có sẵn trong image mà kubeadm chọn. Cách của bài chỉ cần khi etcd chưa chạy — không phải tình huống của B8 |
-| Bài [07](../07-setup-ha-etcd-with-kubeadm-vi.md) — ghi chú "etcd không hỗ trợ dual-stack" | Toàn bộ nhánh HA chạy IPv4. Dual-stack là bài [05](../05-dual-stack-support-vi.md) riêng của giai đoạn 8, và bật nó lên đòi dựng lại cả cụm etcd lẫn control plane |
-| Backup và restore etcd bằng `etcdctl snapshot save`/`restore` | **[Nợ #8](README.md#5-sổ-nợ-lab)**, phát sinh từ giai đoạn 8 và **chưa được trả ở lab này**. Lab dùng `etcdctl` **chỉ để đọc** — `member list`, `endpoint health`, `endpoint status` — đúng phần bài 07 dạy. Trả ở [giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa) |
-| Bài [08](../08-high-availability-vi.md) — mục *Cài đặt các worker* | Bộ VM của nhánh HA có **đúng sáu máy** và cả sáu đã có vai; xem [mục 2.2](#22-vì-sao-hai-control-plane-cộng-ba-etcd-vẫn-hợp-lệ). Lệnh `kubeadm join` cho worker đã được thực hành ở [A5.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a53-join-hai-worker) và ở Lab 8b; ở đây workload chạy trên control plane sau khi gỡ taint |
-| Bài [08](../08-high-availability-vi.md) — mục *Phân phối certificate thủ công* | Lab dùng `--upload-certs`, tức nhánh còn lại của cùng mục đó. Chép tay bằng `ssh-agent` và `scp` là **cách khác cho cùng một việc**, không thêm kiến thức mới, và nhân đôi thời lượng vốn đã 4 giờ. B6 **đã** thực hành chính kỹ thuật `scp` certificate đó, ở tầng etcd |
-| Bài [08](../08-high-availability-vi.md) — load balancer có tính sẵn sàng cao | Nhánh HA chỉ có một máy `lab-ha-lb`, nên load balancer là **điểm hỏng đơn** — xem [mục 2.3](#23-một-load-balancer-vẫn-là-điểm-hỏng-đơn). Dựng cặp LB cần thêm máy thứ bảy và một giao thức VIP; cả hai nằm ngoài phạm vi giai đoạn 8 |
-| Bài [06](../06-ha-topology-vi.md) — cấu hình ba control plane node đầy đủ theo khuyến nghị | Cần bảy máy: 3 etcd + 3 control plane + 1 LB. Bộ VM có sáu. [Mục 2.2](#22-vì-sao-hai-control-plane-cộng-ba-etcd-vẫn-hợp-lệ) trình bày đánh đổi này ở dạng bài học chứ không giấu nó đi |
+| Bài 07 — vai trò riêng của từng certificate `peer`, `server`, `healthcheck-client`, `apiserver-etcd-client` ở mức PKI | Lab sinh và phân phối đủ bốn bộ và đọc SAN của `server.crt`, nhưng không đi vào vòng đời PKI. Đó là **[nợ #7](README.md#5-sổ-nợ-lab)**, trả ở [giai đoạn 18](../00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) |
+| Bài 07 — chạy `etcdctl` bằng `crictl run` từ một image rời | Lab đạt cùng mục đích không kéo thêm image: `crictl exec` vào chính container etcd đang chạy. Cách của bài chỉ cần khi etcd chưa chạy |
+| Bài 07 — "etcd không hỗ trợ dual-stack" | Nhánh HA chạy IPv4. Dual-stack là bài [05](../05-dual-stack-support-vi.md) riêng và đòi dựng lại cả hai tầng |
+| Backup và restore etcd | **[Nợ #8](README.md#5-sổ-nợ-lab)**, chưa trả ở lab này. `etcdctl` chỉ dùng để đọc. Trả ở [giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa) |
+| Bài 08 — *Cài đặt các worker* | Sáu máy đã có vai hết; xem [mục 2.1](#21-bảng-đổi-vai-của-sáu-vm). Lệnh join worker đã thực hành ở [A5.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a53-join-hai-worker) và Lab 8b; ở đây Bookstore chạy trên control plane sau khi gỡ taint |
+| Bài 08 — *Phân phối certificate thủ công* | Lab dùng `--upload-certs`. B5 đã thực hành chính kỹ thuật `scp` certificate, ở tầng etcd |
+| Bài 08 — load balancer có tính sẵn sàng cao | Nhánh HA chỉ có một `lab-ha-lb`, nên nó là điểm hỏng đơn — Lab 8b đã chứng minh. Cặp LB cần máy thứ bảy và một VIP, ngoài phạm vi giai đoạn 8; B12 ghi nó thành điều kiện của production |
+| Bài 06 — ba control plane node đầy đủ cho topology external | Cần bảy máy: 3 etcd + 3 control plane + 1 LB. Bộ VM có sáu. B12 biến đánh đổi này thành câu hỏi thiết kế |
 
-Đây **không phải nợ lộ trình mới**. Nợ #7 và nợ #8 vốn đã có trong [sổ nợ lab](README.md#5-sổ-nợ-lab)
-và **không được trả ở lab này**; những phần còn lại là giới hạn cố định của môi trường lab.
+Nợ của sprint — nói được ở checkpoint:
+
+- **Nợ lab:** không phát sinh, không trả. **[Nợ #7](README.md#5-sổ-nợ-lab)** (vòng đời certificate)
+  và **[nợ #8](README.md#5-sổ-nợ-lab)** (backup và restore etcd) vẫn mở sau lab này.
+- **Nợ kỹ thuật:** không phát sinh, không trả. Các mã còn mở ở tag `lab-8b` giữ nguyên — xem
+  `docs/tech-debt.md` của repo và [mục 8 của file dự án](DU-AN-BOOKSTORE.md#8-sổ-nợ-kỹ-thuật-dự-án).
+  Những chỗ overlay `ha-lab` hạ chuẩn so với chuỗi chính (dữ liệu `db` trên `emptyDir`, không
+  Ingress) là thỏa hiệp của môi trường HA, đã ghi ở Lab 8b, không phải nợ mới.
 
 ### 1.2. Thời lượng
 
-4 giờ, tính từ lúc gate B0 đã PASS. Ba đoạn tốn thời gian nhất là B2 (reset năm node), B6–B7
-(certificate và static Pod trên ba host) và B13 (ba phép thử tắt máy, mỗi phép có hai chiều tắt và
-bật). **Mọi bước chờ phụ thuộc cấu hình cluster và phần cứng host**, nên chúng đều được viết dưới
-dạng `kubectl wait --timeout` hoặc vòng lặp có điều kiện dừng và số vòng tối đa, không phải một con
-số cố định.
+4–5 giờ, tính từ lúc B0 PASS. Ba đoạn tốn thời gian nhất là B2 (reset năm node), B5–B6 (certificate
+và static Pod trên ba host) và B10–B11 (bốn kịch bản, mỗi kịch bản có một chu kỳ tắt–bật máy kèm
+một lượt đo từ máy host). Phép đo từ máy host của kịch bản A ở B10 đánh dấu ⭐ là tùy chọn.
+
+Chia hai phiên: phiên 1 làm B0–B6 (kết thúc với cụm etcd chạy, chưa có Kubernetes), phiên 2 làm
+B7–B13. Giữa hai phiên có thể tắt cả sáu VM theo thứ tự ở [mục 2.4](#24-các-quy-ước-còn-lại): kubelet
+trên ba host etcd khởi động lại static Pod etcd khi máy bật. Đầu phiên 2 kiểm lại bằng script nghiệm
+thu của B6.
+
+Mọi bước chờ phụ thuộc cấu hình cluster và phần cứng host, nên đều viết dưới dạng
+`kubectl wait --timeout` hoặc vòng lặp có điều kiện dừng và số vòng tối đa, không phải một con số cố
+định.
 
 ---
 
 ## 2. Quy ước và an toàn
 
 > **Cảnh báo — lab này PHÁ một cluster đang chạy.** B2 chạy `kubeadm reset` trên năm node của cụm
-> stacked mà Lab 8b đã dựng. Đó là thao tác **không hoàn tác được bằng lệnh**; đường lui duy nhất là
-> snapshot. Không mở B2 khi gate B0.2 chưa PASS.
+> stacked mà Lab 8b đã dựng. Thao tác **không hoàn tác được bằng lệnh**; đường lui duy nhất là
+> snapshot. Không mở B2 khi B0 chưa PASS.
 
-> **Cảnh báo — lab này TẮT máy ảo nhiều lần, kể cả hai máy cùng lúc.** B13 cố ý làm mất quorum của
-> cụm etcd. Dữ liệu etcd nằm trên đĩa của từng member nên cụm hồi phục khi các máy bật lại, nhưng
-> **chỉ khi bạn tắt đúng máy và bật lại đủ máy**. Đọc hết [mục 2.1](#21-bảng-đổi-vai-của-sáu-vm)
-> trước khi chạm vào bất kỳ nút nguồn nào.
+> **Cảnh báo — lab này TẮT máy ảo nhiều lần, kể cả hai máy cùng lúc.** B10 cố ý làm mất quorum của
+> cụm etcd. Dữ liệu etcd nằm trên đĩa từng member nên cụm hồi phục khi máy bật lại, nhưng **chỉ khi
+> bạn tắt đúng máy và bật lại đủ máy**. Đọc hết mục 2.1 trước khi chạm vào nút nguồn nào.
 
 ### 2.1. Bảng đổi vai của sáu VM
 
-Lab 8c chạy trên **đúng bộ VM mà Lab 8b đã dựng**, không thêm máy nào. Spec máy, cách cài OS,
-containerd và kubeadm nằm ở
-[bộ VM riêng của nhóm lab HA](LAB-8B-HA-VOI-STACKED-ETCD.md#21-bộ-vm-riêng-của-nhóm-lab-ha) và ở
-[phần A của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a4-chuẩn-bị-os-và-container-runtime); lab này
-**không chép lại** một dòng nào trong đó.
-
-Tên máy được đặt trung tính (`lab-ha-1` … `lab-ha-5`) chính là để đổi vai giữa hai lab:
+Lab 8c chạy trên **đúng bộ VM mà Lab 8b đã dựng**, không thêm máy. Spec máy, cách cài OS, containerd
+và kubeadm nằm ở [Lab 8b](LAB-8B-HA-VOI-STACKED-ETCD.md) và
+[phần A của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a4-chuẩn-bị-os-và-container-runtime); lab này không
+chép lại.
 
 | Tên máy | IP | Vai ở Lab 8b | **Vai ở Lab 8c** | Ghi chú của Lab 8c |
 | --- | --- | --- | --- | --- |
 | `lab-ha-lb` | `192.168.100.230` | load balancer | load balancer | Giữ vai, **đổi backend** ở B3 |
-| `lab-ha-1` | `192.168.100.231` | control plane 1 | **etcd node 1** | `$HOST0` của bài 07 — nơi sinh CA, nơi `ca.key` ở lại |
-| `lab-ha-2` | `192.168.100.232` | control plane 2 | **etcd node 2** | `$HOST1` của bài 07 |
-| `lab-ha-3` | `192.168.100.233` | control plane 3 | **etcd node 3** | `$HOST2` của bài 07 |
-| `lab-ha-4` | `192.168.100.234` | worker 1 | **control plane 1** | Nơi chạy `kubeadm init`; **node mặc định gõ lệnh của lab này** |
-| `lab-ha-5` | `192.168.100.235` | worker 2 | **control plane 2** | Node join thêm, và là **fault target duy nhất** ở tầng control plane |
+| `lab-ha-1` | `192.168.100.231` | control plane 1 | **etcd node 1** | `$HOST0` của bài 07 — nơi sinh CA, nơi `ca.key` ở lại; **không bao giờ bị tắt** |
+| `lab-ha-2` | `192.168.100.232` | control plane 2 | **etcd node 2** | `$HOST1` của bài 07; bị tắt ở B10 |
+| `lab-ha-3` | `192.168.100.233` | control plane 3 | **etcd node 3** | `$HOST2` của bài 07; bị tắt ở B10 |
+| `lab-ha-4` | `192.168.100.234` | worker 1 | **control plane 1** | Nơi `kubeadm init`; giữ repo `~/bookstore`, kubeconfig quản trị; chạy `db-0`; **không bao giờ bị tắt** |
+| `lab-ha-5` | `192.168.100.235` | worker 2 | **control plane 2** | **Fault target duy nhất** ở tầng control plane (B11) |
 
 Hệ quả phải nhớ suốt lab:
 
-- **`controlPlaneEndpoint` là `192.168.100.230:6443`**, tức `lab-ha-lb`. Không phải IP của một
-  control plane node nào. Bài [08](../08-high-availability-vi.md) đặt thành yêu cầu riêng: địa chỉ
-  của load balancer phải **luôn khớp** với `ControlPlaneEndpoint` của kubeadm.
-- **Backend của HAProxy đổi thành `192.168.100.234:6443` và `192.168.100.235:6443`.** Ở Lab 8b nó
-  trỏ tới `.231`, `.232`, `.233` — ba máy giờ đã thành etcd node và **không còn nghe cổng 6443
-  nữa**. Quên bước này thì `kubeadm init` treo ở giai đoạn chờ control plane.
-- **Ba etcd host nghe `2379` và `2380`, không nghe `6443`.** Hai control plane node nghe `6443`,
-  không nghe `2379`/`2380`. Đây là ranh giới cụ thể của cái mà bài 06 gọi là *tách rời*.
-- **Fault injection ở tầng control plane chỉ chạy trên `lab-ha-5`.** `lab-ha-4` giữ kubeconfig quản
-  trị và là nơi bạn quan sát; mất nó là mất đường quan sát. Riêng B13 tắt thêm etcd node — đó là nội
-  dung bài học, có mục riêng, và luôn bật lại ngay sau khi đo xong.
-- **Quy ước "fault injection chỉ trên `lab-k8s-worker2`" của
-  [mục 6 README](README.md#6-quy-ước-chung-trong-mọi-lab) áp cho bộ VM chính.** Bộ VM chính **không
-  chạy** trong lab này; trên nhánh HA, vai "máy được phép làm hỏng" thuộc về `lab-ha-5`.
+- **`controlPlaneEndpoint` là `192.168.100.230:6443`**, tức `lab-ha-lb` — không phải IP của một
+  control plane node nào. Backend của HAProxy đổi thành `.234` và `.235` ở B3.
+- **Ba etcd host nghe `2379`/`2380`, không nghe `6443`. Hai control plane node nghe `6443`, không nghe
+  `2379`/`2380`.** Đây là ranh giới cụ thể của chữ *tách rời* trong bài 06.
+- **Cluster mới không có worker riêng**: 3 etcd + 2 control plane + 1 LB là sáu máy. Bookstore chạy
+  trên hai control plane node sau khi gỡ taint ở B9; B13 trả taint về mặc định trước khi chụp mốc.
+  Vì sao cấu hình này vẫn hợp lệ và production phải khác thế nào là câu hỏi thiết kế của B12.
+- **Một load balancer là điểm hỏng đơn** — Lab 8b đã chứng minh. Bốn kịch bản của B10–B11 chứng minh
+  tính tách rời giữa etcd và control plane, **không** chứng minh cluster chịu được mọi loại hỏng hóc.
+- Quy ước "fault injection chỉ trên `lab-k8s-worker2`" của [mục 6 README](README.md#6-quy-ước-chung-trong-mọi-lab)
+  áp cho bộ VM chính, bộ này **không chạy** trong lab. Trên nhánh HA: tầng control plane chỉ phá
+  `lab-ha-5`; tầng etcd chỉ tắt `lab-ha-2`, `lab-ha-3`, và luôn bật lại ngay sau khi đo.
 
-### 2.2. Vì sao hai control plane cộng ba etcd vẫn hợp lệ
+### 2.2. Repo, ba lệnh của bộ VM HA và công cụ đo
 
-Đây là chỗ dễ tưởng lab đang làm ẩu, nên đọc kỹ. Bài [06](../06-ha-topology-vi.md) viết rằng topology
-external **yêu cầu số lượng host gấp đôi** so với stacked: tối thiểu **ba host cho control plane** và
-**ba host cho etcd**, chưa tính worker. Bộ VM của nhánh HA có **sáu máy**, trong đó một máy đã là
-load balancer. Làm phép trừ thì còn năm máy cho hai tầng — không đủ cho khuyến nghị đầy đủ. Lab chọn
-**3 etcd + 2 control plane** và **không có worker riêng**.
+- Repo dự án trong sprint này nằm ở **`~/bookstore` trên `lab-ha-4`**, clone từ bundle `lab-8b` ở
+  B0.5. Bản `~/bookstore` mà Lab 8b để lại trên `lab-ha-1` không dùng nữa — máy đó thành etcd host.
+- **Repo chỉ được đổi ở `docs/` và `k8s/overlays/ha-lab/`.** `k8s/app/`, `k8s/cluster/`, `scripts/`,
+  `tests/`, `platform/` giữ nguyên như tag `lab-8b`: chuỗi chính ở Lab 9a dùng `k8s/app` và ba script
+  của nó, còn bộ VM HA dùng lại nguyên bộ công cụ của Lab 8b.
+- Lab 8b bàn giao ba lệnh cho bộ VM HA, chạy từ gốc repo và ghi trong `README.md` dưới tiêu đề chứa
+  `ha-lab`: `./scripts/deploy-ha-lab.sh`, `./scripts/teardown-ha-lab.sh`, `./tests/smoke-ha-lab.sh`.
+  B0.5 gán chúng vào `DEPLOY_HA`, `TEARDOWN_HA`, `SMOKE_HA`; lab này không viết lại script nào.
+- **Đo từ máy host** bằng chính `scripts/do-san-sang.ps1` của Lab 8b: mỗi nửa giây gọi hai đường —
+  ứng dụng `/api/books` qua NodePort `30080` của `lab-ha-4` (không qua API server) và `/readyz` qua
+  load balancer (không qua ứng dụng) — ghi `do-<Ten>.csv` dạng `ms,app,api`. `lab-ha-4` vẫn là node
+  của cluster mới, load balancer vẫn ở `.230`, nên hai URL mặc định của script đúng nguyên; chỉ thư
+  mục ghi đổi sang `lab-evidence\8c`. Cùng script, cùng nhịp, cùng công thức — số đo hai sprint đặt
+  cạnh nhau được trong ADR.
+- **Đo trên `lab-ha-4`** bằng `~/lab-work/8c/ham-do.sh` (B9): `cp_ok`, `app_ok`, `ehealth`, và
+  `tom_tat` chép nguyên công thức của `bien.sh` Lab 8b. Lab không dùng lại `bien.sh` vì nó gắn với
+  topology stacked — tên ba control plane, `etcdctl` qua static Pod trên `lab-ha-1` — và nằm trên
+  `lab-ha-1`, máy sắp thành etcd host.
 
-Lựa chọn đó không tùy tiện. Nó rơi đúng vào điểm mà bài 06 muốn dạy:
+### 2.3. Ba file biến, để không mất trạng thái giữa các shell
 
-- **Quorum nằm ở tầng etcd, không nằm ở tầng control plane.** Bài
-  [08](../08-high-availability-vi.md) nói rõ hai mức khác nhau: với etcd, "việc có số lẻ thành viên
-  trong cluster etcd **là một yêu cầu** để đạt được quorum bỏ phiếu tối ưu"; còn với control plane
-  thì chỉ là "việc có số lẻ node control plane **có thể giúp ích** cho việc bầu chọn leader". Một
-  bên là yêu cầu, một bên là khuyến nghị — và lab giữ nguyên vẹn cái là yêu cầu: **ba etcd member**.
-- **Vì tách rời, số control plane không quyết định số bản sao dữ liệu.** Bài 06 mô tả topology
-  external là nơi "mỗi etcd host giao tiếp với `kube-apiserver` của **từng** control plane node" —
-  quan hệ nhiều-nhiều. Thêm hay bớt một `kube-apiserver` không thêm hay bớt một bản sao dữ liệu nào,
-  vì trạng thái nằm ở cụm etcd. Đó chính là câu bài 06 viết: mất một instance control plane "có ít
-  tác động hơn và **không ảnh hưởng đến tính dự phòng của cluster** nhiều như topology HA xếp chồng".
-- **So thẳng với Lab 8b thì thấy ngay.** Ở stacked, ba control plane node **là** ba etcd member; bớt
-  một máy là bớt cả hai thứ cùng lúc — bài 06 gọi đó là **hỏng theo cặp**. Ở external, bớt
-  `lab-ha-5` chỉ bớt một `kube-apiserver`; cụm etcd vẫn ba member. B13 đo đúng hai vế này.
+Lab chạy trên sáu máy Linux cộng máy host; biến được ghi ra file và **mọi khối lệnh tự nạp lại**:
 
-Bảng đối chiếu để nhớ:
+| File | Tạo ở | Nằm trên | Chứa |
+| --- | --- | --- | --- |
+| `~/lab-work/8c/bien-ha.sh` | B0.4 | `lab-ha-1`, chép sang `lab-ha-4` | `K8S_VER`, `FLANNEL_VER`, `POD_CIDR`, `LB`, `E1`–`E3`, `CP1`, `CP2`, `N1`–`N5`, `ALL`, `WK`, `EV` |
+| `~/lab-work/8c/bien-du-an.sh` | B0.5 | `lab-ha-4` | `DEPLOY_HA`, `TEARDOWN_HA`, `SMOKE_HA` |
+| `~/lab-work/8c/ham-do.sh` | B9 | `lab-ha-4` | hàm đo, nạp luôn hai file trên |
 
-| | Lab 8b — stacked | Lab 8c — external |
-| --- | --- | --- |
-| Số máy chạy `kube-apiserver` | 3 | 2 |
-| Số etcd member | 3, nằm trên chính ba máy đó | 3, nằm trên ba máy khác |
-| Tắt **một** máy control plane | mất 1 apiserver **và** 1 etcd member | mất 1 apiserver, etcd vẫn 3 member |
-| Tắt **một** máy etcd | không tồn tại tình huống riêng biệt này | mất 1 etcd member, apiserver vẫn 2 |
-| Cụm còn chịu được mất bao nhiêu etcd member | 1 | 1 |
-| Số máy phải trả | 3, cộng worker | 3 + 2, cộng worker |
-
-**Đánh đổi phải nói thẳng:** vì hết máy, cluster của Lab 8c **không có worker riêng**. Để chạy được
-một Deployment, B12 **gỡ taint** `node-role.kubernetes.io/control-plane` trên cả hai control plane
-node — đúng thao tác mà bài [02](../02-create-cluster-kubeadm-vi.md) mô tả ở mục *Cách ly control
-plane node*. **Production không làm vậy**: bài 02 nói mặc định cluster không lập lịch Pod trên
-control plane node **vì lý do bảo mật**, và một workload thoát ra được sẽ đứng ngay cạnh
-`admin.conf`, khóa CA và cổng `10250`. Ở đây gỡ taint là thỏa hiệp có ý thức của môi trường lab, và
-B15 **trả taint về nguyên trạng** trước khi chụp snapshot.
-
-Cấu hình khuyến nghị đầy đủ cần **bảy** máy: 3 etcd + 3 control plane + 1 LB, cộng worker. Nếu host
-Windows của bạn dư RAM cho máy thứ bảy thì thêm một control plane node là cách nâng cấp đúng — nhưng
-bộ VM chuẩn của chuỗi lab dừng ở sáu, và mọi gate trong file này viết theo con số sáu.
-
-### 2.3. Một load balancer vẫn là điểm hỏng đơn
-
-`lab-ha-lb` là máy duy nhất đứng trước hai `kube-apiserver`. Nó chết thì `controlPlaneEndpoint` chết
-theo, và cluster mất đường vào dù cả hai control plane node còn sống. Lab 8b đã bàn kỹ điều này khi
-dựng load balancer; xem [Lab 8b](LAB-8B-HA-VOI-STACKED-ETCD.md). Ở đây chỉ nhắc lại một câu để không
-ai kết luận sai từ ba phép thử của B13: **B13 chứng minh tính tách rời giữa etcd và control plane,
-không chứng minh cluster chịu được mọi loại hỏng hóc.**
+Trên máy host, khối biến của B0.1 — cùng tên biến với Lab 8b: `$vmrun`, `$mainVmx`, `$haVmx`,
+`$backup`, `$ev`, `$probe`, `$haUser`, hai hàm `Start-Probe`, `Send-Probe` — phải chạy lại mỗi khi mở
+cửa sổ PowerShell mới. `Start-Probe` mở một cửa sổ riêng cho lượt đo, nên cửa sổ chính luôn rảnh để
+tắt, bật máy bằng `vmrun`.
 
 ### 2.4. Các quy ước còn lại
 
-- **Mọi khối lệnh đều mở đầu bằng dòng ghi rõ chạy trên máy nào.** Lab có sáu máy Linux cộng một máy
-  host Windows; đây là chỗ dễ sai nhất của cả chuỗi lab. Không khối nào trong phần B được phép mơ hồ
-  về node. Khi không có dòng đó, mặc định là `lab-ha-4`.
-- **Các khối PowerShell chạy trên máy host Windows**, luôn mở đầu bằng "Chạy trên **máy host**".
-  Chúng dùng lại hai biến `$vmrun` và `$vmxHA` đặt ở B0.1, nên giữ nguyên cửa sổ PowerShell đó suốt
-  lab.
-- **Chạy phần B trong cùng một phiên shell trên mỗi máy.** Gate của lab so sánh với biến đặt ở B0.4
-  (`K8S_VER`, `FLANNEL_VER`, `POD_CIDR`, `LB`, `E1`, `E2`, `E3`, `CP1`, `CP2`, `EV`, `WK`); mở shell
-  mới giữa chừng là mất hết. Với ba host etcd, B4 và B6 hướng dẫn đặt lại cùng bộ biến trên từng máy.
-- **Bằng chứng ghi vào `~/lab-evidence/8c/`** trên máy sinh ra nó; manifest và file tạm ghi vào
-  `~/lab-work/8c/`. Vì lab chạy trên sáu máy, mỗi file evidence mang tên node ở cuối để gộp lại
-  không lẫn.
-- **Không con số phiên bản nào được viết cứng.** Kubernetes, Flannel và Pod CIDR điền vào biến ở
-  B0.4 từ [bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); thành phần ngoài Lab 00
-  tra ở [bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00). **Image etcd
-  không điền tay**: B7.3 lấy nó từ `kubeadm config images list` rồi gate rằng manifest dùng đúng tag
-  đó.
-- **HAProxy lấy từ gói phân phối của Ubuntu, không ghim version.** Nó không nằm trong A1.3 vì nó
-  không phải thành phần Kubernetes; nó chỉ chuyển tiếp TCP. Lab 8b đã cài nó trên `lab-ha-lb`.
-- **Tuyệt đối không chạm bộ VM chính.** `lab-k8s-master`, `lab-k8s-worker1`, `lab-k8s-worker2` phải
-  ở trạng thái *Powered off* và giữ nguyên snapshot `03-storage-ready` từ đầu đến cuối. B0.1 kiểm
-  trước, B15.5 kiểm sau.
-- **`etcdctl` chỉ dùng để đọc.** Ba lệnh được phép trong lab này là `member list`, `endpoint health`
-  và `endpoint status`. `snapshot save`, `snapshot restore`, `member add`, `member remove`, `put`,
-  `del` đều **cấm** — chúng thuộc [nợ #8](README.md#5-sổ-nợ-lab) và
-  [giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa).
-- Image dùng cho workload của lab là `busybox:1.37` đã khóa ở
-  [bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) — cùng image mà gate A5.4 của Lab
-  00 dùng, nên không phát sinh thành phần mới.
-- Dòng bắt đầu bằng `**PASS:**` là gate; không đi tiếp khi gate fail.
+- **Mọi khối lệnh mở đầu bằng dòng ghi rõ chạy trên máy nào.** Không ghi thì mặc định là
+  `lab-ha-4`. Khối PowerShell luôn ghi "Chạy trên **máy host**" và cửa sổ nào.
+- **Bằng chứng ghi vào `~/lab-evidence/8c/`** trên máy sinh ra nó; file tạm vào `~/lab-work/8c/`. File
+  đo của máy host nằm ở `$HOME\lab-evidence\8c\`, `Send-Probe` chép sang `~/lab-evidence/8c/` của
+  `lab-ha-4`; mỗi lần `tom_tat` ghi thêm một dòng vào `~/lab-evidence/8c/so-do.txt`.
+- **Không con số phiên bản nào viết cứng** trong văn bản; biến điền từ
+  [bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa). HAProxy lấy từ gói của Ubuntu,
+  không ghim version — nó không phải thành phần Kubernetes.
+- **Tuyệt đối không chạm bộ VM chính.** Ba máy `lab-k8s-*` ở trạng thái *Powered off* và giữ nguyên
+  `03-storage-ready` từ đầu tới gate cuối của B13. Bước *Bàn giao cho Lab 9a* chạy **sau** gate đó.
+- **`etcdctl` chỉ dùng để đọc**: `member list`, `endpoint health`, `endpoint status`. `snapshot save`,
+  `snapshot restore`, `member add`, `member remove`, `put`, `del` đều **cấm** — chúng thuộc nợ #8.
+- Nhiều gate đọc file chỉ root đọc được trên node khác bằng `ssh <node> 'sudo …'` — quy trình đã
+  kiểm chứng của lab này. Lab 8b chọn quy ước ngược lại (gõ lệnh root trực tiếp trên máy đó) vì
+  `sudo` của Ubuntu mặc định đòi mật khẩu. B0.3 kiểm điều kiện này trước; không đạt thì xem
+  [mục 4](#4-troubleshooting-của-lab-này).
+- Thứ tự bật cả bộ: `lab-ha-lb` → `lab-ha-1` → `lab-ha-2` → `lab-ha-3` → `lab-ha-4` → `lab-ha-5`. Tắt
+  theo thứ tự **ngược lại**. Tắt bằng `sudo shutdown -h now` trên chính máy đó (hoặc qua `ssh`), rồi
+  xác nhận *Powered off* bằng `vmrun`. Chỉ dùng `vmrun … stop … hard` khi mục 4 chỉ dẫn, và ghi điều
+  đó vào evidence.
+- Không bao giờ restore riêng một VM: mọi lần restore là **cả sáu VM cùng một mốc**.
+- Dòng bắt đầu bằng `PASS:` là gate; không đi tiếp khi gate fail. Dòng `FAIL:` trong script nghiệm thu
+  nghĩa là ticket chưa xong.
 
 ---
 
-# Phần B — Thực hành kiến thức giai đoạn 8 (HA external etcd)
+# Phần B — Sprint 14: Kiểm chứng HA với external etcd
 
-> **Node gõ lệnh đổi giữa chừng.** Từ B0 đến hết B2, cụm đang chạy là cụm **stacked** của Lab 8b,
-> nên kubeconfig quản trị nằm trên `lab-ha-1`; mọi lệnh `kubectl` chạy ở đó. Từ B9 trở đi, cluster
-> mới có kubeconfig trên `lab-ha-4`, và **`lab-ha-4` là node mặc định** cho phần còn lại của lab.
-> Mỗi khối lệnh đều ghi rõ node; đừng suy từ thói quen.
+> **Node gõ lệnh đổi giữa chừng.** Từ B0 tới hết B2, cụm đang chạy là cụm **stacked** của Lab 8b, nên
+> kubeconfig quản trị nằm trên `lab-ha-1`; mọi lệnh `kubectl` chạy ở đó. Từ B7 trở đi, cluster mới có
+> kubeconfig trên `lab-ha-4`, và **`lab-ha-4` là node mặc định** cho phần còn lại. Mỗi khối lệnh ghi rõ
+> node; đừng suy từ thói quen.
 
-## B0. Gate mở đầu và workspace
+## B0. Nhận bàn giao sprint
 
-**Mục đích:** chứng minh điểm bắt đầu đúng — bộ VM chính còn nguyên và đang tắt, sáu VM HA còn mốc
-`8x-ha-stacked`, cụm stacked bật lên chạy được — rồi khóa các con số phiên bản vào biến.
+**Mục đích:** chứng minh điểm bắt đầu đúng — bộ VM chính tắt và còn nguyên, sáu VM HA còn mốc
+`8x-ha-stacked`, cụm stacked bật lên chạy được và không còn gì của dự án — rồi khóa phiên bản vào
+biến và nhận repo ở đúng tag `lab-8b`.
+
+Nhịp chuẩn của B0 có thêm `deploy.sh` và `smoke.sh` trên snapshot đầu vào. Sprint này dời bước đó
+sang B9: cluster đích **chưa tồn tại**, còn cụm stacked đầu vào sắp bị phá ở B2 và đã được Lab 8b
+nghiệm thu Bookstore trước khi chụp `8x-ha-stacked`. Dựng Bookstore lên nó rồi gỡ ngay không chứng
+minh thêm điều gì.
 
 ### B0.1. Gate trên máy host: hai bộ VM, hai trạng thái
 
-Chạy trên **máy host**, PowerShell. Sửa đường dẫn `.vmx` nếu VM của bạn nằm chỗ khác; **giữ nguyên
-thứ tự** của `$vmxHA` vì B0.1 và B15 đều bật/tắt máy theo đúng thứ tự này:
+Biến của máy host — **cùng tên** với Lab 8b để dùng chung thói quen; chỉ `$ev` và hai hàm đổi sang
+thư mục `8c` và máy `lab-ha-4`. Chạy trên **máy host**, PowerShell, và **chạy lại nguyên khối này mỗi
+khi mở cửa sổ PowerShell mới**. Sửa đường dẫn `.vmx` và `$haUser` cho đúng máy của bạn; **giữ nguyên
+thứ tự** của `$haVmx` vì các bước bật, tắt dùng đúng thứ tự này:
 
 ```powershell
-$vmrun = 'C:\Program Files\VMware\VMware Workstation\vmrun.exe'
-
-$vmxMain = @(
+$vmrun   = 'C:\Program Files\VMware\VMware Workstationmrun.exe'
+$mainVmx = @(
   'E:\Virtual Machines\lab-k8s-master\lab-k8s-master.vmx'
   'E:\Virtual Machines\lab-k8s-worker1\lab-k8s-worker1.vmx'
   'E:\Virtual Machines\lab-k8s-worker2\lab-k8s-worker2.vmx'
 )
-
-$vmxHA = @(
+$haVmx = @(
   'E:\Virtual Machines\lab-ha-lb\lab-ha-lb.vmx'
   'E:\Virtual Machines\lab-ha-1\lab-ha-1.vmx'
   'E:\Virtual Machines\lab-ha-2\lab-ha-2.vmx'
@@ -296,14 +272,31 @@ $vmxHA = @(
   'E:\Virtual Machines\lab-ha-4\lab-ha-4.vmx'
   'E:\Virtual Machines\lab-ha-5\lab-ha-5.vmx'
 )
+$backup = "$HOME\lab-backup"            # noi cac bundle cua du an nam
+$ev     = "$HOME\lab-evidence\8c"       # file do tu may host (B9 -> B11)
+$probe  = "$backup\do-san-sang.ps1"     # script do cua Lab 8b, chep lai tu repo o B0.5
+$haUser = '<user-quan-tri-tren-bo-VM-HA>'
+New-Item -ItemType Directory -Force -Path $ev | Out-Null
 
+# Mo mot cua so PowerShell moi chay script do, ghi vao $ev; cua so giu lai de doc dong KET QUA.
+function Start-Probe([string]$Ten, [int]$Giay) {
+  $f = '-NoExit -NoProfile -ExecutionPolicy Bypass -File "{0}" -Ten {1} -Giay {2} -Thu "{3}"'
+  Start-Process powershell -ArgumentList ($f -f $probe, $Ten, $Giay, $ev)
+}
+# Chep file do do-<Ten>.csv sang lab-ha-4 de script nghiem thu doc.
+function Send-Probe([string]$Ten) {
+  scp "$ev\do-$Ten.csv" "$($haUser)@192.168.100.234:lab-evidence/8c/"
+}
+
+if (Test-Path $vmrun) { 'PASS: tim thay vmrun' } else { 'FAIL: sua duong dan vmrun' }
+if ($haUser -match '^<') { 'FAIL: chua dien $haUser' } else { 'PASS: da dien $haUser' }
 $running = & $vmrun -T ws list
 ```
 
-Gate thứ nhất — **bộ VM chính phải tắt và còn `03-storage-ready`**:
+Bộ VM chính phải tắt và còn `03-storage-ready`:
 
 ```powershell
-foreach ($f in $vmxMain) {
+foreach ($f in $mainVmx) {
   $isOff  = ($running -notcontains $f)
   $snaps  = & $vmrun -T ws listSnapshots $f | Select-Object -Skip 1
   $hasSnap = ($snaps -ccontains '03-storage-ready')
@@ -313,13 +306,10 @@ foreach ($f in $vmxMain) {
 }
 ```
 
-**PASS:** đúng ba dòng `PASS:`. Còn một dòng `FAIL:` thì **dừng**. Bộ VM chính là nơi 15 lab khác
-đang đứng; Lab 8c không được đụng vào nó, và bật nó song song với sáu VM HA sẽ vắt kiệt RAM host.
-
-Gate thứ hai — **sáu VM HA phải còn `8x-ha-stacked`**:
+Sáu VM HA phải còn `8x-ha-stacked`:
 
 ```powershell
-foreach ($f in $vmxHA) {
+foreach ($f in $haVmx) {
   $snaps = & $vmrun -T ws listSnapshots $f | Select-Object -Skip 1
   $stacked = ($snaps -ccontains '8x-ha-stacked')
   $vmready = ($snaps -ccontains '8x-vm-ready')
@@ -329,29 +319,26 @@ foreach ($f in $vmxHA) {
 }
 ```
 
-**PASS:** sáu dòng bắt đầu bằng `PASS`. Một dòng `FAIL:` nghĩa là máy đó chưa qua Lab 8b — quay lại
-[Lab 8b](LAB-8B-HA-VOI-STACKED-ETCD.md) trước, đừng dựng tay.
-
-Dòng `PASS-YEU:` không chặn bạn, nhưng phải biết hệ quả: `8x-vm-ready` là mốc "VM sạch đã cài
-kubeadm" mà Lab 8b chụp, và nó là **đường lui của B2**. Thiếu nó thì khi gate reset fail bạn chỉ còn
-đường quay về `8x-ha-stacked` và làm lại từ đầu. Ghi lại máy nào thiếu.
-
-Bật sáu VM theo đúng thứ tự mảng — load balancer trước, control plane của cụm stacked sau, hai
-worker cuối:
+Bật sáu VM theo đúng thứ tự mảng:
 
 ```powershell
-foreach ($f in $vmxHA) { & $vmrun -T ws start $f }
+foreach ($f in $haVmx) { & $vmrun -T ws start $f }
 & $vmrun -T ws list
 ```
 
-**PASS:** `vmrun list` liệt kê đủ sáu `.vmx` của `$vmxHA` và **không** liệt kê máy nào của
-`$vmxMain`. Giữ nguyên cửa sổ PowerShell này — B13 và B15 dùng lại `$vmrun`, `$vmxHA`, `$vmxMain`.
+**PASS:** `PASS: tim thay vmrun`, `PASS: da dien $haUser`; đúng ba dòng `PASS:` cho bộ VM chính; sáu dòng bắt đầu bằng `PASS`
+cho bộ HA; `vmrun list` liệt kê đủ sáu `.vmx` của `$haVmx` và **không** máy nào của `$mainVmx`.
 
-### B0.2. Gate trên cluster: cụm stacked của Lab 8b còn sống
+Một dòng `FAIL:` ở bộ HA nghĩa là máy đó chưa qua Lab 8b — quay lại Lab 8b, đừng dựng tay. Dòng
+`PASS-YEU:` không chặn, nhưng `8x-vm-ready` là **đường lui của B2**; thiếu nó thì khi gate reset fail,
+bạn chỉ còn cách quay về `8x-ha-stacked` và làm lại từ đầu. Ghi lại máy nào thiếu.
 
-Chạy trên **`lab-ha-1`** (control plane 1 của cụm stacked):
+### B0.2. Gate trên cluster: cụm stacked còn sống và sạch dự án
+
+Chạy trên **`lab-ha-1`**:
 
 ```bash
+mkdir -p ~/lab-evidence/8c
 kubectl wait --for=condition=Ready node --all --timeout=600s
 kubectl get nodes -o wide
 test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
@@ -365,73 +352,79 @@ echo "node=$NODE_N | control plane=$CP_N | Pod etcd=$ETCD_POD_N | Pod apiserver=
 test "$NODE_N" -eq 5 && test "$CP_N" -eq 3 \
   && test "$ETCD_POD_N" -eq 3 && test "$API_POD_N" -eq 3 \
   && echo 'PASS: dung moc 8x-ha-stacked — 3 control plane, 3 Pod etcd, 2 worker'
+
+LEFT_BS="$( { kubectl get namespace,priorityclass -l app.kubernetes.io/part-of=bookstore --no-headers
+              kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers; } 2>/dev/null | wc -l)"
+test "$LEFT_BS" -eq 0 \
+  && echo 'PASS: cum stacked khong con object nao cua du an — Lab 8b da teardown truoc khi chup moc' \
+  || echo "GHI NHAN: con $LEFT_BS object cua du an — Lab 8b dong sprint chua dung; B2 se xoa sach"
+
+# Trang thong ke CSV cua HAProxy ma Lab 8b dung (cong 8404): ba backend cua cum stacked deu UP.
+curl -s --max-time 10 "http://192.168.100.230:8404/stats;csv"   | awk -F, '$1=="k8s-controlplane" && $2!="BACKEND" {print $2"="$18}' > ~/lab-evidence/8c/b0-lb.txt
+cat ~/lab-evidence/8c/b0-lb.txt
+test "$(grep -c '=UP$' ~/lab-evidence/8c/b0-lb.txt)" -eq 3   && echo 'PASS: load balancer cua Lab 8b con du ba backend UP, trang thong ke 8404 hoat dong'
 ```
 
-**PASS:** dòng `PASS: readyz ok` và dòng `PASS: dung moc 8x-ha-stacked …` cùng xuất hiện. Con số
-**3 Pod etcd** ở đây là dữ kiện quan trọng nhất của cả lab: B11 sẽ chứng minh cluster mới có **0**
-Pod như vậy. Nếu gate fail, restore cả sáu VM về `8x-ha-stacked` rồi chạy lại B0 — đừng vá tay một
-cụm sắp bị phá.
+Khối trên là bản rút gọn của gate ngắn phiên bản HA mà Lab 8b chạy ở B13.4 trước khi chụp mốc.
 
-### B0.3. Workspace và bằng chứng "trước"
+**PASS:** `PASS: readyz ok`, `PASS: dung moc 8x-ha-stacked …` và `PASS: load balancer … ba backend UP`
+cùng xuất hiện. Con số **3 Pod etcd**
+là dữ kiện quan trọng nhất của lab: B8 sẽ chứng minh cluster mới có **0** Pod như vậy. Gate fail thì
+restore cả sáu VM về `8x-ha-stacked` rồi chạy lại B0 — đừng vá tay một cụm sắp bị phá. Dòng
+`GHI NHAN:` không chặn lab nhưng phải ghi vào postmortem đầu tiên của sprint (B10).
 
-Chạy trên **`lab-ha-1`**:
+### B0.3. SSH không mật khẩu giữa các node
 
-```bash
-mkdir -p ~/lab-work/8c ~/lab-evidence/8c
-WK=~/lab-work/8c
-EV=~/lab-evidence/8c
+Lab dùng `ssh`/`scp` giữa các node ở nhiều bước — đúng điều kiện mà bài
+[07](../07-setup-ha-etcd-with-kubeadm-vi.md#trước-khi-bạn-bắt-đầu-before-you-begin) đặt ra: "một hạ
+tầng nào đó để sao chép file giữa các host". Hai máy cần gọi được bốn máy còn lại: `lab-ha-1` (B1–B6)
+và `lab-ha-4` (B7 trở đi).
 
-{
-  echo "=== $(date -Is) — cum stacked cua Lab 8b, ngay truoc khi reset ==="
-  echo '--- nodes'; kubectl get nodes -o wide
-  echo '--- control plane pods'; kubectl -n kube-system get pods -l tier=control-plane -o wide
-  echo '--- etcd-servers cua tung apiserver'
-  for n in lab-ha-1 lab-ha-2 lab-ha-3; do
-    echo "== $n"
-    ssh "$n" "sudo grep -E '^\s+- --etcd-servers=' /etc/kubernetes/manifests/kube-apiserver.yaml"
-  done
-  echo '--- kubeadm-config ClusterConfiguration'
-  kubectl -n kube-system get cm kubeadm-config -o jsonpath='{.data.ClusterConfiguration}'
-} | tee "$EV/b0-truoc-stacked.txt"
-
-test -s "$EV/b0-truoc-stacked.txt" && echo 'PASS: da ghi anh chup cum stacked truoc khi pha'
-```
-
-**PASS:** dòng `PASS: da ghi anh chup …` xuất hiện, và trong file có ba dòng `--etcd-servers=`.
-File này là bằng chứng đối chiếu của B1 và B11; **giữ lại**, đừng xóa ở cleanup.
-
-Nếu `ssh lab-ha-2` hỏi mật khẩu, đó là điều bình thường — Lab 8b không bắt buộc dựng SSH key. Lab
-8c dùng `ssh`/`scp` giữa các node ở nhiều bước (B6, B9), nên nếu chưa có key thì **tạo ngay bây
-giờ** trên `lab-ha-1` để phần sau không bị hỏi mật khẩu giữa chừng:
+Chạy trên **`lab-ha-1`**, rồi lặp lại y hệt trên **`lab-ha-4`**:
 
 ```bash
 test -f ~/.ssh/id_ed25519 || ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519
 
-# Ke ca chinh lab-ha-1: nhieu gate cua B2 va B7 chay vong lap ssh qua ca nam node,
-# trong do co ca may dang go lenh.
+# Ke ca chinh may dang go lenh: nhieu gate chay vong lap ssh qua ca nam node.
 for n in lab-ha-1 lab-ha-2 lab-ha-3 lab-ha-4 lab-ha-5; do
   ssh-copy-id -o StrictHostKeyChecking=accept-new "$n"
 done
 
 OKSSH=0
 for n in lab-ha-1 lab-ha-2 lab-ha-3 lab-ha-4 lab-ha-5; do
-  ssh -o BatchMode=yes "$n" 'hostname' >/dev/null 2>&1 && OKSSH=$(( OKSSH + 1 ))     || echo "FAIL: ssh khong mat khau toi $n"
+  ssh -o BatchMode=yes "$n" 'hostname' >/dev/null 2>&1 && OKSSH=$(( OKSSH + 1 )) \
+    || echo "FAIL: ssh khong mat khau toi $n"
 done
-echo "ssh khong mat khau toi $OKSSH/5 node"
-test "$OKSSH" -eq 5 && echo 'PASS: ssh giua cac node HA da thong'
+echo "$(hostname -s): ssh khong mat khau toi $OKSSH/5 node"
+test "$OKSSH" -eq 5 && echo "PASS: ssh tu $(hostname -s) toi cac node HA da thong"
 ```
 
-**PASS:** dòng `PASS: ssh giua cac node HA da thong` xuất hiện. Đây là điều kiện mà chính bài
-[07](../07-setup-ha-etcd-with-kubeadm-vi.md) đặt ra ở mục *Trước khi bạn bắt đầu*: "một hạ tầng nào
-đó để sao chép file giữa các host. Ví dụ, `ssh` và `scp`".
-
-### B0.4. Khóa phiên bản vào biến
-
-Ba giá trị dưới đây **không được viết cứng vào lab này**. Mở
-[bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa), đọc ba dòng
-*Kubernetes control plane*, *CNI (Flannel manifest release)* và *Pod CIDR*, rồi điền:
+Nhiều gate của lab đọc file chỉ root đọc được trên máy khác bằng `ssh <node> 'sudo …'`. Lab 8b gõ
+lệnh root trực tiếp trên từng máy vì `sudo` của Ubuntu mặc định đòi mật khẩu; kiểm ngay bây giờ máy
+của bạn thuộc trường hợp nào. Chạy trên **`lab-ha-1`**, rồi trên **`lab-ha-4`**:
 
 ```bash
+OKSUDO=0
+for n in lab-ha-1 lab-ha-2 lab-ha-3 lab-ha-4 lab-ha-5; do
+  ssh -o BatchMode=yes "$n" 'sudo -n true' 2>/dev/null && OKSUDO=$(( OKSUDO + 1 ))     || echo "GHI NHAN: sudo tren $n doi mat khau khi khong co tty"
+done
+test "$OKSUDO" -eq 5 && echo 'PASS: ssh <node> sudo chay duoc khong can tty tren ca nam node'
+```
+
+**PASS:** dòng `PASS: ssh tu lab-ha-1 …` và `PASS: ssh tu lab-ha-4 …` cùng xuất hiện. Dòng
+`PASS: ssh <node> sudo …` vắng mặt không chặn lab, nhưng mọi gate có `ssh <node> 'sudo …'` sẽ trả
+rỗng: chạy phần bên trong dấu nháy **trực tiếp trên máy đó** theo quy ước của Lab 8b — xem
+[mục 4](#4-troubleshooting-của-lab-này).
+
+### B0.4. Khóa phiên bản và địa chỉ vào file biến
+
+Ba giá trị dưới đây **không viết cứng vào lab**. Mở
+[bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa), đọc ba dòng
+*Kubernetes control plane*, *CNI (Flannel manifest release)* và *Pod CIDR*, rồi điền. Chạy trên
+**`lab-ha-1`**:
+
+```bash
+mkdir -p ~/lab-work/8c ~/lab-evidence/8c
 # Dien tu bang A1.3 cua Lab 00. Vi du dinh dang: vX.Y.Z / vX.Y.Z / 10.x.0.0/16
 K8S_VER='<dien Kubernetes control plane tu A1.3>'
 FLANNEL_VER='<dien Flannel manifest release tu A1.3>'
@@ -448,32 +441,18 @@ case "$POD_CIDR" in
   [0-9]*.[0-9]*.[0-9]*.[0-9]*/[0-9]*) ;;
   *) echo "FAIL: POD_CIDR='$POD_CIDR' khong co dang CIDR"; BAD=1 ;;
 esac
-
 test "$BAD" -eq 0 && echo "PASS: K8S_VER=$K8S_VER FLANNEL_VER=$FLANNEL_VER POD_CIDR=$POD_CIDR"
-```
 
-**PASS:** dòng `PASS: K8S_VER=… FLANNEL_VER=… POD_CIDR=…` xuất hiện, không còn dòng `FAIL:`.
-
-Đối chiếu `K8S_VER` với binary thật đang có trên máy — nếu lệch thì cluster mới sẽ không khớp
-baseline:
-
-```bash
 test "$(kubeadm version -o short)" = "$K8S_VER" \
   && echo 'PASS: kubeadm tren lab-ha-1 dung version cua A1.3' \
   || echo "FAIL: kubeadm la $(kubeadm version -o short), A1.3 ghi $K8S_VER"
-```
 
-**PASS:** dòng `PASS: kubeadm tren lab-ha-1 dung version cua A1.3` xuất hiện. Nếu FAIL, xử lý theo
-[A4.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl) — không đi
-tiếp với version lệch.
-
-Đặt luôn địa chỉ của sáu máy vào biến, dùng lại suốt lab:
-
-```bash
 LB='192.168.100.230'
 E1='192.168.100.231'; E2='192.168.100.232'; E3='192.168.100.233'
 CP1='192.168.100.234'; CP2='192.168.100.235'
 N1='lab-ha-1'; N2='lab-ha-2'; N3='lab-ha-3'; N4='lab-ha-4'; N5='lab-ha-5'
+ALL="$N1 $N2 $N3 $N4 $N5"
+WK=~/lab-work/8c; EV=~/lab-evidence/8c
 
 OKIP=0
 for pair in "$N1 $E1" "$N2 $E2" "$N3 $E3" "$N4 $CP1" "$N5 $CP2"; do
@@ -483,133 +462,359 @@ for pair in "$N1 $E1" "$N2 $E2" "$N3 $E3" "$N4 $CP1" "$N5 $CP2"; do
 done
 echo "cap ten/IP dung: $OKIP/5"
 test "$OKIP" -eq 5 && echo 'PASS: /etc/hosts khop bang doi vai o muc 2.1'
+
+test "$BAD" -eq 0 && test "$OKIP" -eq 5 \
+  && declare -p K8S_VER FLANNEL_VER POD_CIDR LB E1 E2 E3 CP1 CP2 N1 N2 N3 N4 N5 ALL WK EV \
+     > ~/lab-work/8c/bien-ha.sh
+ssh lab-ha-4 'mkdir -p ~/lab-work/8c ~/lab-evidence/8c'
+scp ~/lab-work/8c/bien-ha.sh lab-ha-4:lab-work/8c/
+ssh lab-ha-4 'source ~/lab-work/8c/bien-ha.sh && test "$CP1" = 192.168.100.234 && test -n "$K8S_VER"' \
+  && echo 'PASS: lab-ha-1 va lab-ha-4 co cung file bien-ha.sh'
 ```
 
-**PASS:** dòng `PASS: /etc/hosts khop bang doi vai o muc 2.1` xuất hiện. Sai ở đây là sai suốt lab:
-mọi certificate SAN, mọi endpoint etcd và cả `--etcd-servers` đều xây trên năm cặp tên/IP này.
+**PASS:** bốn dòng `PASS:` về phiên bản, `kubeadm`, `/etc/hosts` và file biến xuất hiện, không còn
+dòng `FAIL:`. Placeholder chưa điền làm gate FAIL ngay — đó là mục đích của nó. Sai `/etc/hosts` là sai
+suốt lab: mọi SAN, mọi endpoint etcd và `--etcd-servers` đều xây trên năm cặp tên/IP này. `kubeadm`
+lệch version thì xử lý theo
+[A4.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl).
 
----
+### B0.5. Nhận repo ở tag `lab-8b`
 
-## B1. Bài 06 — đọc cụm stacked lần cuối trước khi phá
+Chép bundle sang `lab-ha-4` — máy giữ repo suốt sprint. Chạy trên **máy host**:
 
-**Mục đích:** biến bài [06](../06-ha-topology-vi.md) từ hai đoạn văn thành hai con số đọc được trên
-cluster thật, ngay trước khi cluster đó biến mất. B11 sẽ đọc lại đúng hai con số này trên cluster
-external và so.
+```powershell
+$b8b = Join-Path $backup 'bookstore-lab-8b.bundle'
+if ((Test-Path $b8b) -and ((Get-Item $b8b).Length -gt 0)) { "PASS: co $b8b" } else { "FAIL: thieu $b8b" }
+scp $b8b "$($haUser)@192.168.100.234:"
+```
 
-### B1.1. Quan hệ một-một của topology stacked
+Chạy trên **`lab-ha-4`**:
+
+```bash
+source ~/lab-work/8c/bien-ha.sh
+git --version >/dev/null && echo 'PASS: co git'
+git bundle verify ~/bookstore-lab-8b.bundle >/dev/null 2>&1 && echo 'PASS: bundle lab-8b toan ven'
+test -e ~/bookstore || git clone -q ~/bookstore-lab-8b.bundle ~/bookstore
+cd ~/bookstore
+git describe --tags --exact-match HEAD 2>/dev/null | grep -qx 'lab-8b' && echo 'PASS: HEAD dung tag lab-8b'
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong co thay doi chua commit'
+{ test -n "$(git config user.name)" && test -n "$(git config user.email)"; }   && echo 'PASS: git co danh tinh commit' || echo 'FAIL: dat git config --global user.name/user.email nhu Lab 8b'
+
+BAD=0
+for F in k8s/overlays/ha-lab/kustomization.yaml k8s/overlays/ha-lab/db-emptydir.yaml          scripts/deploy-ha-lab.sh scripts/teardown-ha-lab.sh tests/smoke-ha-lab.sh scripts/do-san-sang.ps1; do
+  test -f "$F" || { echo "FAIL: thieu $F"; BAD=1; }
+done
+test "$BAD" -eq 0 && echo 'PASS: du overlay ha-lab, ba lenh -ha-lab va script do cua Lab 8b'
+
+ADR_TOPO="$(ls docs/adr/*-topology-ha.md 2>/dev/null | head -n 1)"
+test -n "$ADR_TOPO" && grep -q '^## External (Lab 8c)' "$ADR_TOPO" && grep -q '^## Số đo Lab 8b' "$ADR_TOPO"   && echo "PASS: ADR topology cua Lab 8b cho san cho Lab 8c: $ADR_TOPO"
+```
+
+Ba lệnh của bộ VM HA nằm trong `README.md`, dưới tiêu đề chứa `ha-lab`. Gán chúng vào ba biến — đúng
+ba đường dẫn Lab 8b đã chốt, chạy từ gốc repo:
+
+```bash
+cd ~/bookstore
+grep -i -A6 'ha-lab' README.md
+DEPLOY_HA='./scripts/deploy-ha-lab.sh'
+TEARDOWN_HA='./scripts/teardown-ha-lab.sh'
+SMOKE_HA='./tests/smoke-ha-lab.sh'
+test "$(grep -i -A6 'ha-lab' README.md | grep -c -e "$DEPLOY_HA" -e "$TEARDOWN_HA" -e "$SMOKE_HA")" -eq 3   && declare -p DEPLOY_HA TEARDOWN_HA SMOKE_HA > ~/lab-work/8c/bien-du-an.sh   && echo 'PASS: ba lenh cua README khop ba bien, da ghi vao bien-du-an.sh'
+```
+
+Script đo của Lab 8b phải là **đúng bản trong repo ở tag `lab-8b`** — bản trên máy host có thể đã bị
+sửa tay. Chạy trên **máy host**:
+
+```powershell
+scp "$($haUser)@192.168.100.234:bookstore/scripts/do-san-sang.ps1" "$probe"
+if (Test-Path $probe) { "PASS: co script do $probe" } else { "FAIL: thieu $probe" }
+```
+
+**PASS:** đủ các dòng `PASS:` của B0.5, không dòng `FAIL:`.
+
+Thiếu file nào, hoặc README không liệt kê đủ ba lệnh, nghĩa là Lab 8b bàn giao **chưa đủ** — có thứ
+chỉ tồn tại trong trí nhớ của người làm. Quay lại bổ sung repo ở tag `lab-8b` (commit, tag lại, bundle lại), đừng tự chế
+lệnh ở đây ([mục 6.1 của file dự án](DU-AN-BOOKSTORE.md#61-mở-đầu)).
+
+## B1. [BS-8C-01] Bằng chứng cuối cùng của topology stacked
+
+**Loại:** Điều tra — trên cụm stacked, chỉ đọc.
+
+**Bối cảnh:** ADR chọn topology cần hai bộ số đặt cạnh nhau. Cụm stacked của Lab 8b sẽ biến mất ở
+B2; đây là lần cuối đọc được hình dạng của nó từ một cluster thật. B8 sẽ đọc đúng những trường này trên
+cluster external để so.
+
+**Yêu cầu:**
+
+1. Ghi một ảnh chụp cụm stacked ngay trước khi phá: node, Pod control plane theo node, cờ trỏ tới etcd
+   của **từng** `kube-apiserver`, và cấu hình cluster mà kubeadm lưu trong cluster.
+2. Chứng minh bằng dữ liệu: mỗi `kube-apiserver` chỉ biết đúng etcd member nằm trên **chính node của
+   nó**.
+3. Chứng minh bằng dữ liệu: tập node chạy etcd **trùng khít** tập node chạy `kube-apiserver`.
+4. Ghi con số "số apiserver / số etcd member / số máy" của cụm stacked để dùng ở B8 và B12.
+
+**Ràng buộc:** chỉ đọc. Không sửa gì trên cụm stacked; nó sắp bị phá có kiểm soát ở B2.
+
+**Đọc lại:**
+
+- Bài [06](../06-ha-topology-vi.md): [*Topology etcd xếp chồng*](../06-ha-topology-vi.md#stacked-etcd-topology)
+  — câu về etcd member "chỉ giao tiếp với `kube-apiserver` của chính node đó" và rủi ro hỏng hóc theo
+  cặp.
+- Bài [22](../22-architecture-vi.md#nhieu-ban-apiserver) — nhiều bản `kube-apiserver` sau một load
+  balancer, trạng thái nằm ở etcd.
+
+**Bàn giao:** `~/lab-evidence/8c/b1-*.txt` trên `lab-ha-1`; mục `## External (Lab 8c)` của ADR
+topology (hoàn thiện ở B12).
+
+**Nghiệm thu:**
+
+- `PASS:` file ảnh chụp cụm stacked tồn tại và có ba dòng `--etcd-servers=`.
+- `PASS:` cả ba `kube-apiserver` trỏ `--etcd-servers` tới `https://127.0.0.1:2379`.
+- `PASS:` tập node chạy etcd và tập node chạy apiserver đều có ba phần tử và trùng nhau.
+
+**Câu hỏi thiết kế** — trả lời trong ADR topology, mục `## External (Lab 8c)`:
+
+1. `kube-apiserver` trên `lab-ha-1` có bao giờ nói chuyện với etcd member trên `lab-ha-2` không? Vậy
+   ba member vẫn là **một** cụm nhờ đâu?
+2. Viết lại "hỏng theo cặp" của bài 06 bằng ngôn ngữ hai tập node vừa đo. Máy nào của cụm stacked
+   tắt đi mà **không** làm mất etcd member?
+3. Lab 8b đã đo Bookstore khi mất control plane trên cụm này. Từ số đo đó, hỏng theo cặp ảnh hưởng
+   tới **người dùng Bookstore** ở đâu, và ảnh hưởng tới **người vận hành** ở đâu?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Cờ của apiserver nằm trong static Pod manifest trên đĩa từng control plane node, đọc qua `ssh`.
+- Pod control plane mang label `tier=control-plane` và `component=<tên>`; cột `.spec.nodeName` cho biết
+  nó nằm ở đâu.
+- Cấu hình cluster mà kubeadm lưu nằm trong một ConfigMap ở `kube-system`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; script này chính là cuộc điều tra</summary>
 
 Chạy trên **`lab-ha-1`**:
 
 ```bash
-kubectl -n kube-system get pod -l component=etcd -o wide \
-  | tee "$EV/b1-etcd-pods-stacked.txt"
+source ~/lab-work/8c/bien-ha.sh
 
-for n in "$N1" "$N2" "$N3"; do
-  echo "== $n"
-  ssh "$n" "sudo grep -E '^\s+- --etcd-servers=' /etc/kubernetes/manifests/kube-apiserver.yaml"
-done | tee "$EV/b1-etcd-servers-stacked.txt"
+{
+  echo "=== $(date -Is) — cum stacked cua Lab 8b, ngay truoc khi reset ==="
+  echo '--- nodes'; kubectl get nodes -o wide
+  echo '--- control plane pods'; kubectl -n kube-system get pods -l tier=control-plane -o wide
+  echo '--- etcd-servers cua tung apiserver'
+  for n in lab-ha-1 lab-ha-2 lab-ha-3; do
+    echo "== $n"
+    ssh "$n" "sudo grep -E '^\s+- --etcd-servers=' /etc/kubernetes/manifests/kube-apiserver.yaml"
+  done
+  echo '--- kubeadm-config ClusterConfiguration'
+  kubectl -n kube-system get cm kubeadm-config -o jsonpath='{.data.ClusterConfiguration}'
+} > "$EV/b1-truoc-stacked.txt"
+test "$(grep -c -- '--etcd-servers=' "$EV/b1-truoc-stacked.txt")" -eq 3 \
+  && echo 'PASS: da ghi anh chup cum stacked, du ba dong --etcd-servers'
 
-CNT_LOCAL="$(grep -c 'etcd-servers=https://127.0.0.1:2379' "$EV/b1-etcd-servers-stacked.txt")"
+CNT_LOCAL="$(grep -c 'etcd-servers=https://127.0.0.1:2379' "$EV/b1-truoc-stacked.txt")"
 echo "so apiserver tro toi etcd cuc bo cua chinh no: $CNT_LOCAL/3"
-
 test "$CNT_LOCAL" -eq 3 \
   && echo 'PASS: stacked — moi apiserver chi noi chuyen voi etcd member tren chinh node do'
-```
-
-**PASS:** dòng `PASS: stacked — …` xuất hiện, và `kubectl get pod -l component=etcd` liệt kê đúng ba
-Pod, mỗi Pod trên một node khác nhau.
-
-**Ý nghĩa:** đây là câu của bài 06 dịch sang dữ liệu. Bài viết: trong stacked, "mỗi control plane
-node tạo một etcd member cục bộ và etcd member này **chỉ giao tiếp với `kube-apiserver` của chính
-node đó**". Bằng chứng là ba dòng `--etcd-servers=https://127.0.0.1:2379` — ba apiserver, ba địa chỉ
-loopback, **không apiserver nào biết địa chỉ của hai member kia**. Ba member vẫn hợp thành một cụm
-etcd và nói chuyện với nhau qua port peer, nhưng quan hệ *apiserver ↔ member* thì đúng là một-một.
-
-Ghi con số này ra giấy: **stacked = 3 apiserver, 3 etcd member, 3 máy**. B11 sẽ cho ra
-**2 apiserver, 3 etcd member, 5 máy**.
-
-### B1.2. "Hỏng theo cặp" đọc từ chính bảng node
-
-```bash
-kubectl get nodes -o custom-columns='NODE:.metadata.name,ROLES:.metadata.labels.node-role\.kubernetes\.io/control-plane' \
-  | tee "$EV/b1-nodes-stacked.txt"
 
 kubectl -n kube-system get pods -l tier=control-plane \
   -o custom-columns='POD:.metadata.name,NODE:.spec.nodeName,COMP:.metadata.labels.component' \
-  | tee "$EV/b1-tier-cp-stacked.txt"
-
-PAIR="$(awk '$3=="etcd"{print $2}' "$EV/b1-tier-cp-stacked.txt" | sort -u | wc -l)"
-APISRV="$(awk '$3=="kube-apiserver"{print $2}' "$EV/b1-tier-cp-stacked.txt" | sort -u | wc -l)"
-echo "node co etcd=$PAIR | node co apiserver=$APISRV"
-
-test "$PAIR" -eq "$APISRV" && test "$PAIR" -eq 3 \
+  > "$EV/b1-tier-cp-stacked.txt"
+ETCD_NODES="$(awk '$3=="etcd"{print $2}' "$EV/b1-tier-cp-stacked.txt" | sort -u)"
+API_NODES="$(awk '$3=="kube-apiserver"{print $2}' "$EV/b1-tier-cp-stacked.txt" | sort -u)"
+echo "node co etcd: $(echo $ETCD_NODES) | node co apiserver: $(echo $API_NODES)"
+test "$(echo "$ETCD_NODES" | wc -l)" -eq 3 && test "$ETCD_NODES" = "$API_NODES" \
   && echo 'PASS: tap node chay etcd TRUNG KHIT tap node chay apiserver — do la "hong theo cap"'
 ```
 
-**PASS:** dòng `PASS: tap node chay etcd TRUNG KHIT …` xuất hiện.
+</details>
 
-**Ý nghĩa:** bài 06 gọi rủi ro của stacked là **hỏng hóc theo cặp**: "nếu một node bị sập, cả một
-etcd member lẫn một instance control plane đều bị mất, và tính dự phòng bị suy giảm". Hai tập node
-trùng khít nhau chính là định nghĩa toán học của câu đó. Sau khi dựng xong external, hai tập này sẽ
-**rời nhau hoàn toàn** — giao bằng rỗng — và B13 sẽ đo hệ quả của việc rời nhau ấy.
+<details>
+<summary>Lời giải tham khảo — ý chính cho ADR</summary>
 
----
+1. Không. Ba dòng `--etcd-servers=https://127.0.0.1:2379` là ba địa chỉ loopback: không apiserver nào
+   biết địa chỉ của hai member kia. Ba member vẫn là một cụm vì chúng nói chuyện với nhau qua port
+   peer; quan hệ *apiserver ↔ member* là một-một, quan hệ *member ↔ member* là cả cụm.
+2. Hai tập trùng khít nghĩa là mọi máy giữ etcd đều giữ apiserver và ngược lại. Không có máy nào của
+   cụm stacked tắt được mà chỉ mất một thứ — trừ worker và load balancer, vốn không giữ etcd.
+3. Người dùng Bookstore: theo số đo của Lab 8b, mất một control plane không làm ứng dụng gián đoạn vì
+   Pod chạy trên worker riêng; mất quorum làm API chết nhưng ứng dụng vẫn phục vụ. Người vận hành: sau
+   khi mất một máy stacked, cụm đứng sát mép quorum — mất thêm một máy là không deploy, không scale,
+   không thay được Pod nào nữa. Ghi con số của bạn: **stacked = 3 apiserver, 3 etcd member, 3 máy**.
 
-## B2. `kubeadm reset` — phá cụm stacked có hiểu
+</details>
 
-**Mục đích:** đây **không phải bước dọn dẹp**, đây là nội dung học. Bài
-[02](../02-create-cluster-kubeadm-vi.md) dạy hai điều mà người mới hay bỏ qua: thứ tự đúng khi gỡ
-node, và việc `kubeadm reset` là dọn dẹp **best-effort** — nó để lại bốn thứ mà bạn phải tự dọn.
-Chưa dọn hết bốn thứ đó thì cụm etcd của B7 sẽ dựng trên nền bẩn và hỏng theo cách rất khó chẩn
-đoán.
+## B2. [BS-8C-02] Gỡ cụm stacked bằng `kubeadm reset`
 
-> **Không hoàn tác được.** Sau B2.2, cụm stacked của Lab 8b không còn. Bạn vẫn còn snapshot
-> `8x-ha-stacked` để quay lại, nhưng không còn lệnh nào undo được. Đảm bảo B0.1 và B0.2 đều PASS
-> trước khi chạy dòng đầu tiên.
+**Loại:** Vận hành — trên cả năm node Kubernetes của bộ HA.
 
-### B2.1. Đọc trước: reset xóa gì và không xóa gì
+**Bối cảnh:** sáu máy sắp đổi vai. Cụm stacked phải biến mất **sạch**: cụm etcd mới ở B6 khai
+`initial-cluster-state: new`, và bất kỳ dữ liệu, cấu hình mạng hay kubeconfig nào còn sót sẽ làm nó
+hỏng theo cách rất khó chẩn đoán. Đây không phải bước dọn dẹp mà là nội dung học: thứ tự gỡ node, và
+việc `kubeadm reset` chỉ dọn ở mức *best-effort*.
 
-Bài 02 nói ngắn gọn ở mục *Gỡ bỏ node* và *Dọn dẹp control plane*: `kubeadm reset` "kích hoạt việc
-dọn dẹp ở mức nỗ lực tốt nhất có thể (best-effort)", và "quá trình reset **không** đặt lại hay dọn
-dẹp các quy tắc iptables hoặc các bảng IPVS". Bài dẫn tiếp sang
-[tài liệu tham khảo `kubeadm reset`](https://v1-35.docs.kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-reset/)
-cho danh sách đầy đủ. Gộp lại thành bảng làm việc:
+**Yêu cầu:**
+
+1. Không còn API server nào của cụm stacked trả lời. Trên năm node `lab-ha-1` … `lab-ha-5` không còn
+   static Pod manifest, kubeconfig hệ thống của cluster, thư mục PKI. Ba máy sắp thành etcd node có
+   thư mục dữ liệu etcd **rỗng**.
+2. Gỡ theo đúng thứ tự của bài 02: mỗi node được rút workload trước, reset **trên chính node đó**,
+   rồi xóa khỏi cluster. Worker trước; control plane xa trước; `lab-ha-1` — nơi gõ lệnh — cuối cùng.
+3. **Trước khi dọn tay**, chứng minh ba thứ mà reset **không** dọn — cấu hình CNI trên node,
+   kubeconfig của user, quy tắc mạng do kube-proxy tạo — bằng số đếm ghi vào
+   `~/lab-evidence/8c/b2-reset-khong-don.txt`. Sau đó dọn sạch cả ba trên năm node.
+4. Container runtime trên năm node không còn sandbox nào.
+
+**Ràng buộc:**
+
+- Không mở ticket khi B0 chưa PASS. Không tắt máy thay cho reset.
+- Rút workload không dùng `--force`: ở mốc `8x-ha-stacked` không được có Pod trần nào.
+- Lệnh xóa iptables ở đây xóa **toàn bộ** quy tắc của máy; chấp nhận được chỉ vì
+  [A4.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a44-firewall-cho-mạng-lab-cô-lập) đã tắt UFW trên mạng
+  lab cô lập. Đừng mang nó sang máy có firewall thật.
+- Thao tác **không hoàn tác được**. Nếu chưa từng reset một cluster nhiều node, mở *Lời giải tham
+  khảo* và làm đúng trình tự đó — mục tiêu của ticket Vận hành là làm đúng và giải thích được. Gate
+  fail sau một lần thử lại thì đi [đường lui ở cuối ticket](#đường-lui-khi-gate-reset-không-đạt).
+
+**Đọc lại:**
+
+- Bài [02](../02-create-cluster-kubeadm-vi.md): [*Gỡ bỏ node*](../02-create-cluster-kubeadm-vi.md#gỡ-bỏ-node-remove-the-node),
+  [*Dọn dẹp control plane*](../02-create-cluster-kubeadm-vi.md#dọn-dẹp-control-plane-clean-up-the-control-plane).
+- [Tài liệu tham khảo `kubeadm reset` v1.35](https://v1-35.docs.kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-reset/)
+  — danh sách đầy đủ những gì reset làm, và ghi chú về external etcd.
+- Bài [09](../09-troubleshooting-kubeadm-vi.md#kubeadm-bị-treo-khi-xóa-các-container-được-quản-lý-kubeadm-blocks-when-removing-managed-containers)
+  — reset treo khi runtime không xóa được container.
+
+**Bàn giao:** `~/lab-evidence/8c/b2-*.txt` trên `lab-ha-1`; mục *Gỡ cluster cũ* trong
+`docs/runbook-ha-external-etcd.md` (repo trên `lab-ha-4`).
+
+**Nghiệm thu:**
+
+- `PASS:` `kubectl` trên `lab-ha-1` không còn tới được API server nào.
+- `PASS:` cả năm node không còn manifest, `admin.conf`, `kubelet.conf`, thư mục `pki`.
+- `PASS:` `/var/lib/etcd` rỗng trên ba host sắp thành etcd node.
+- `PASS:` evidence cho thấy cấu hình CNI, kubeconfig của user và chuỗi `KUBE-` còn **sau** reset.
+- `PASS:` sau khi dọn: không node nào còn `/etc/cni/net.d`, kubeconfig cũ, chuỗi `KUBE-`, sandbox.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/runbook-ha-external-etcd.md`, mục *Gỡ cluster cũ*:
+
+1. Kể những thứ `kubeadm reset` **không** dọn. Với mỗi thứ, cluster mới dựng trên máy đó hỏng ra sao
+   nếu bạn quên dọn?
+2. Vì sao gỡ control plane bằng reset chứ không bằng tắt máy? Theo dõi số etcd member của cụm stacked
+   đi từ 3 xuống 1 qua từng lần reset — điều gì xảy ra nếu bạn tắt `lab-ha-3` thay vì reset nó, rồi
+   lại tắt tiếp `lab-ha-2`?
+3. Từ B7, object của Bookstore — Deployment, Secret, ConfigMap — nằm trong cụm etcd ngoài. Sau này
+   reset `lab-ha-5` có xóa chúng không? Đó là mặt nào của tính tách rời?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Bài 02 cho thứ tự ba bước và nói rõ reset là dọn dẹp *best-effort*, không đặt lại iptables hay
+  IPVS. Tài liệu tham khảo của `kubeadm reset` liệt kê phần còn lại.
+- Reset một control plane có một phase gỡ etcd member cục bộ khỏi cụm. Phase đó cần API server còn
+  sống — lý do `lab-ha-1` đi cuối.
+- Đếm quy tắc kube-proxy: `iptables-save | grep -c KUBE-`. Đếm sandbox: `crictl pods -q`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+Chạy trên **`lab-ha-1`**:
+
+```bash
+source ~/lab-work/8c/bien-ha.sh
+
+kubectl --request-timeout=10s get nodes > "$EV/b2-kubectl-sau-reset.txt" 2>&1
+grep -qiE 'refused|no such host|Unable to connect|timeout|no configuration' "$EV/b2-kubectl-sau-reset.txt" \
+  && echo 'PASS: khong con API server — dung nhu mong doi'
+
+OKR=0
+: > "$EV/b2-reset-xoa.txt"
+for n in $ALL; do
+  M="$(ssh -o BatchMode=yes "$n" 'sudo ls -A /etc/kubernetes/manifests 2>/dev/null | wc -l')"
+  A="$(ssh -o BatchMode=yes "$n" 'sudo test -e /etc/kubernetes/admin.conf && echo 1 || echo 0')"
+  P="$(ssh -o BatchMode=yes "$n" 'sudo test -d /etc/kubernetes/pki && echo 1 || echo 0')"
+  K="$(ssh -o BatchMode=yes "$n" 'sudo test -e /etc/kubernetes/kubelet.conf && echo 1 || echo 0')"
+  echo "$n -> manifests=$M admin.conf=$A pki=$P kubelet.conf=$K" | tee -a "$EV/b2-reset-xoa.txt"
+  test "$M" -eq 0 && test "$A" -eq 0 && test "$P" -eq 0 && test "$K" -eq 0 && OKR=$(( OKR + 1 ))
+done
+test "$OKR" -eq 5 \
+  && echo 'PASS: reset da xoa manifest, admin.conf, kubelet.conf va thu muc pki tren ca nam node'
+
+OKE=0
+for n in "$N1" "$N2" "$N3"; do
+  C="$(ssh -o BatchMode=yes "$n" 'sudo ls -A /var/lib/etcd 2>/dev/null | wc -l')"
+  echo "$n -> so muc trong /var/lib/etcd: $C"
+  test "$C" -eq 0 && OKE=$(( OKE + 1 ))
+done
+test "$OKE" -eq 3 && echo 'PASS: /var/lib/etcd rong tren ca ba host'
+
+cat "$EV/b2-reset-khong-don.txt"
+grep -Eq '^cni_con=[1-9]' "$EV/b2-reset-khong-don.txt" \
+  && grep -Eq '^kubeconfig_con=[1-9]' "$EV/b2-reset-khong-don.txt" \
+  && grep -Eq '^iptables_con=[1-9]' "$EV/b2-reset-khong-don.txt" \
+  && echo 'PASS: evidence chung minh reset KHONG don CNI, kubeconfig cua user, luat kube-proxy'
+
+CNI_AFTER=0; KC_AFTER=0; IPT_AFTER=0
+for n in $ALL; do
+  ssh -o BatchMode=yes "$n" 'test -d /etc/cni/net.d' && CNI_AFTER=$(( CNI_AFTER + 1 ))
+  ssh -o BatchMode=yes "$n" 'test -e "$HOME/.kube/config"' && KC_AFTER=$(( KC_AFTER + 1 ))
+  C="$(ssh -o BatchMode=yes "$n" 'sudo iptables-save 2>/dev/null | grep -c "KUBE-"')"
+  test "$C" -gt 0 && IPT_AFTER=$(( IPT_AFTER + 1 ))
+done
+echo "con /etc/cni/net.d=$CNI_AFTER | con kubeconfig=$KC_AFTER | con KUBE-=$IPT_AFTER"
+test "$CNI_AFTER" -eq 0 && test "$KC_AFTER" -eq 0 && test "$IPT_AFTER" -eq 0 \
+  && echo 'PASS: da don tay ca ba thu reset bo lai'
+
+POD_LEFT=0
+for n in $ALL; do
+  C=0
+  for i in $(seq 1 24); do
+    C="$(ssh -o BatchMode=yes "$n" 'sudo crictl pods -q 2>/dev/null | wc -l')"
+    test "$C" -eq 0 && break
+    sleep 5
+  done
+  echo "$n -> sandbox con lai: $C"
+  test "$C" -eq 0 && POD_LEFT=$(( POD_LEFT + 1 ))
+done
+test "$POD_LEFT" -eq 5 && echo 'PASS: container runtime khong con sandbox nao cua Kubernetes'
+```
+
+Vòng lặp sandbox có số vòng tối đa vì thời gian dọn container phụ thuộc cấu hình và phần cứng host;
+hết vòng mà còn sandbox là đúng tình huống của bài 09 — xem [mục 4](#4-troubleshooting-của-lab-này).
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo — quy trình đã kiểm chứng</summary>
+
+Bảng làm việc gộp từ bài 02 và tài liệu tham khảo của `kubeadm reset`:
 
 | Nhóm | Thứ | Reset có tự dọn không |
 | --- | --- | --- |
 | Static Pod manifest | `/etc/kubernetes/manifests/*.yaml` | **Có** |
-| kubeconfig của cluster | `/etc/kubernetes/admin.conf`, `kubelet.conf`, `controller-manager.conf`, `scheduler.conf` | **Có** |
+| kubeconfig của cluster | `admin.conf`, `kubelet.conf`, `controller-manager.conf`, `scheduler.conf` | **Có** |
 | PKI của cluster | `/etc/kubernetes/pki/` | **Có** |
-| Thành viên etcd cục bộ | member của node này bị gỡ khỏi cụm etcd (phase `remove-etcd-member`) | **Có** |
-| Dữ liệu etcd | `/var/lib/etcd/` khi etcd là **cục bộ** | **Có** — nhưng tài liệu ghi rõ reset **không** xóa dữ liệu etcd khi dùng **external** etcd |
+| Thành viên etcd cục bộ | member của node bị gỡ khỏi cụm (phase `remove-etcd-member`) | **Có** |
+| Dữ liệu etcd | `/var/lib/etcd/` khi etcd **cục bộ** | **Có** — nhưng **không** xóa khi dùng **external** etcd |
 | Cấu hình CNI | `/etc/cni/net.d/` | **Không** |
 | kubeconfig của user | `$HOME/.kube/` | **Không** |
-| Quy tắc mạng do kube-proxy tạo | iptables / nftables / IPVS | **Không** |
+| Quy tắc mạng của kube-proxy | iptables / nftables / IPVS | **Không** |
 
-Dòng cuối cùng của cột giữa là thứ đáng nhớ nhất cho **chính lab này**: từ B9 trở đi cluster dùng
-external etcd, nên nếu sau này bạn reset `lab-ha-4` hay `lab-ha-5`, **dữ liệu trong cụm etcd không
-mất đi đâu cả**. Đó là một mặt khác của tính tách rời.
-
-### B2.2. Gỡ hai worker theo đúng thứ tự của bài 02
-
-Bài 02 quy định thứ tự: `kubectl drain` → `kubeadm reset` **trên chính node đó** →
-`kubectl delete node`.
-
-Chạy trên **`lab-ha-1`** — bước drain:
+**1. Gỡ hai worker.** Chạy trên **`lab-ha-1`**:
 
 ```bash
+source ~/lab-work/8c/bien-ha.sh
 for n in "$N4" "$N5"; do
   kubectl drain "$n" --delete-emptydir-data --ignore-daemonsets --timeout=300s
 done
 kubectl get nodes | tee "$EV/b2-nodes-drained.txt"
-
-DRAINED="$(grep -c 'SchedulingDisabled' "$EV/b2-nodes-drained.txt")"
-test "$DRAINED" -eq 2 && echo 'PASS: ca hai worker da cordon va drain xong'
+test "$(grep -c 'SchedulingDisabled' "$EV/b2-nodes-drained.txt")" -eq 2 \
+  && echo 'PASS: ca hai worker da cordon va drain xong'
 ```
-
-**PASS:** dòng `PASS: ca hai worker da cordon va drain xong` xuất hiện. `--ignore-daemonsets` là bắt
-buộc vì Pod DaemonSet không trục xuất được; `--delete-emptydir-data` cần cho Pod hạ tầng dùng
-`emptyDir`. **Không dùng `--force`** — không Pod trần nào được phép tồn tại ở mốc `8x-ha-stacked`.
 
 Chạy **trên `lab-ha-4`**, rồi lặp lại y hệt **trên `lab-ha-5`**:
 
@@ -620,24 +825,15 @@ sudo kubeadm reset -f | tee ~/reset.log
 Quay lại **`lab-ha-1`**:
 
 ```bash
+source ~/lab-work/8c/bien-ha.sh
 for n in "$N4" "$N5"; do kubectl delete node "$n"; done
-kubectl get nodes | tee "$EV/b2-nodes-3cp.txt"
-
-LEFT="$(kubectl get nodes --no-headers | wc -l)"
-echo "node con lai: $LEFT"
-test "$LEFT" -eq 3 && echo 'PASS: chi con ba control plane node'
+test "$(kubectl get nodes --no-headers | wc -l)" -eq 3 && echo 'PASS: chi con ba control plane node'
 ```
 
-**PASS:** dòng `PASS: chi con ba control plane node` xuất hiện.
-
-### B2.3. Reset hai control plane node thứ hai và thứ ba
-
-Thứ tự ngược: bỏ node xa trước, giữ `lab-ha-1` đến cuối cùng vì nó là nơi bạn đang gõ lệnh và là nơi
-API server còn sống để nhận lệnh `remove-etcd-member`.
-
-Chạy trên **`lab-ha-1`** — drain `lab-ha-3`:
+**2. Gỡ `lab-ha-3`, rồi `lab-ha-2`.** Chạy trên **`lab-ha-1`**:
 
 ```bash
+source ~/lab-work/8c/bien-ha.sh
 kubectl drain "$N3" --delete-emptydir-data --ignore-daemonsets --timeout=300s
 ```
 
@@ -651,25 +847,12 @@ grep -i 'etcd' ~/reset.log
 Quay lại **`lab-ha-1`**:
 
 ```bash
+source ~/lab-work/8c/bien-ha.sh
 kubectl delete node "$N3"
-
 MEM="$(kubectl -n kube-system get pod -l component=etcd --no-headers | wc -l)"
 echo "Pod etcd con lai: $MEM"
 test "$MEM" -eq 2 && echo 'PASS: cum etcd con 2 member, quorum van du (2/2)'
 test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: API van phuc vu'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** `kubeadm reset` trên một control plane node chạy phase `remove-etcd-member` — nó **gỡ
-member cục bộ ra khỏi cụm etcd** trước khi dọn node. Nhờ vậy cụm đi từ 3 member xuống 2 member một
-cách có trật tự thay vì mất một member đột ngột. Đây cũng là lý do bạn **không được tắt máy thay cho
-reset**: tắt máy để lại một member chết trong danh sách, và cụm 3 member mất 1 vẫn đủ quorum nhưng
-cụm 2 member mất 1 thì không.
-
-Lặp lại y hệt cho `lab-ha-2`. Chạy trên **`lab-ha-1`**:
-
-```bash
 kubectl drain "$N2" --delete-emptydir-data --ignore-daemonsets --timeout=300s
 ```
 
@@ -682,258 +865,109 @@ sudo kubeadm reset -f | tee ~/reset.log
 Quay lại **`lab-ha-1`**:
 
 ```bash
+source ~/lab-work/8c/bien-ha.sh
 kubectl delete node "$N2"
-
-LEFT="$(kubectl get nodes --no-headers | wc -l)"
-echo "node con lai: $LEFT"
-test "$LEFT" -eq 1 && echo 'PASS: chi con lab-ha-1'
+test "$(kubectl get nodes --no-headers | wc -l)" -eq 1 && echo 'PASS: chi con lab-ha-1'
 ```
 
-**PASS:** dòng `PASS: chi con lab-ha-1` xuất hiện.
-
-### B2.4. Reset control plane node cuối cùng
-
-Chạy **trên `lab-ha-1`**. Sau lệnh này không còn API server nào; mọi lệnh `kubectl` sẽ báo lỗi kết
-nối, và đó là điều đúng:
+**3. Reset node cuối.** Chạy **trên `lab-ha-1`** — sau lệnh này mọi `kubectl` báo lỗi kết nối, và đó
+là điều đúng. Thông báo lỗi đến từ `$HOME/.kube/config` vẫn còn nguyên:
 
 ```bash
 sudo kubeadm reset -f | tee ~/reset.log
-
-kubectl --request-timeout=10s get nodes 2>&1 | tee "$EV/b2-kubectl-sau-reset.txt"
-grep -qiE 'refused|no such host|Unable to connect|timeout' "$EV/b2-kubectl-sau-reset.txt" \
-  && echo 'PASS: khong con API server — dung nhu mong doi'
 ```
 
-**PASS:** dòng `PASS: khong con API server …` xuất hiện.
-
-**Ý nghĩa:** thông báo lỗi này đến từ `$HOME/.kube/config` — file **vẫn còn nguyên** dù cluster đã
-biến mất. Đó là bằng chứng sống cho dòng "kubeconfig của user" trong bảng B2.1, và cũng là nguyên
-nhân của mục *Lỗi certificate TLS* trong bài [09](../09-troubleshooting-kubeadm-vi.md): một
-kubeconfig cũ trỏ vào một cluster mới sẽ báo `x509: certificate signed by unknown authority`. B2.6
-xóa nó.
-
-### B2.5. Gate "reset đã xóa những gì"
-
-Chạy trên **`lab-ha-1`**. Khối này kiểm cả năm node qua `ssh`, nên nó phải chạy sau khi B0.3 đã dựng
-SSH key:
+Nếu gate `/var/lib/etcd` của script nghiệm thu fail — reset là best-effort — xóa tay rồi chạy lại
+gate. **Không mang lệnh này sang cluster thật**: ở đó `/var/lib/etcd` là toàn bộ trạng thái Kubernetes.
 
 ```bash
-mkdir -p ~/lab-evidence/8c; EV=~/lab-evidence/8c
-ALL='lab-ha-1 lab-ha-2 lab-ha-3 lab-ha-4 lab-ha-5'
-
-OKR=0
-: > "$EV/b2-reset-xoa.txt"
-for n in $ALL; do
-  M="$(ssh -o BatchMode=yes "$n" 'sudo ls -A /etc/kubernetes/manifests 2>/dev/null | wc -l')"
-  A="$(ssh -o BatchMode=yes "$n" 'sudo test -e /etc/kubernetes/admin.conf && echo 1 || echo 0')"
-  P="$(ssh -o BatchMode=yes "$n" 'sudo test -d /etc/kubernetes/pki && echo 1 || echo 0')"
-  K="$(ssh -o BatchMode=yes "$n" 'sudo test -e /etc/kubernetes/kubelet.conf && echo 1 || echo 0')"
-  echo "$n -> manifests=$M admin.conf=$A pki=$P kubelet.conf=$K" | tee -a "$EV/b2-reset-xoa.txt"
-  test "$M" -eq 0 && test "$A" -eq 0 && test "$P" -eq 0 && test "$K" -eq 0 \
-    && OKR=$(( OKR + 1 ))
-done
-
-echo "node sach: $OKR/5"
-test "$OKR" -eq 5 \
-  && echo 'PASS: reset da xoa manifest, admin.conf, kubelet.conf va thu muc pki tren ca nam node'
-```
-
-**PASS:** dòng `PASS: reset da xoa …` xuất hiện. Node nào chưa sạch thì xem
-[mục 4](#4-troubleshooting-của-lab-này) — trường hợp hay gặp nhất là `kubeadm reset` bị treo ở bước
-xóa container, đúng tình huống bài [09](../09-troubleshooting-kubeadm-vi.md) mô tả.
-
-Dữ liệu etcd của ba control plane cũ — đây là thứ **bắt buộc** phải sạch, vì B7 dựng cụm etcd mới
-với `initial-cluster-state: new`:
-
-```bash
-OKE=0
-for n in "$N1" "$N2" "$N3"; do
-  C="$(ssh -o BatchMode=yes "$n" 'sudo ls -A /var/lib/etcd 2>/dev/null | wc -l')"
-  echo "$n -> so muc trong /var/lib/etcd: $C"
-  test "$C" -eq 0 && OKE=$(( OKE + 1 ))
-done
-echo "host etcd sach du lieu: $OKE/3"
-
-test "$OKE" -eq 3 && echo 'PASS: /var/lib/etcd rong tren ca ba host — reset da xoa du lieu etcd cuc bo'
-```
-
-**PASS:** dòng `PASS: /var/lib/etcd rong …` xuất hiện.
-
-Nếu còn dữ liệu — reset là best-effort, nên khả năng đó có thật — xóa tay rồi chạy lại gate. Chỉ
-chạy khi con số ở trên khác 0:
-
-```bash
+source ~/lab-work/8c/bien-ha.sh
 for n in "$N1" "$N2" "$N3"; do ssh "$n" 'sudo rm -rf /var/lib/etcd/*'; done
 ```
 
-> **Không mang lệnh này sang cluster thật.** Ở đây `/var/lib/etcd` chứa dữ liệu của một cụm bạn vừa
-> cố ý phá. Trên cluster đang chạy, đó là **toàn bộ trạng thái** của Kubernetes.
-
-### B2.6. Gate "reset KHÔNG xóa những gì" — và dọn tay từng thứ
-
-Ba thứ dưới đây phải **còn** sau reset. Gate xác nhận chúng còn, rồi mới dọn.
-
-Chạy trên **`lab-ha-1`** — thứ nhất, cấu hình CNI:
+**4. Ghi bằng chứng ba thứ reset bỏ lại, rồi dọn.** Chạy trên **`lab-ha-1`**:
 
 ```bash
+source ~/lab-work/8c/bien-ha.sh
+: > "$EV/b2-reset-khong-don.txt"
+
 CNI_LEFT=0
 for n in $ALL; do
   C="$(ssh -o BatchMode=yes "$n" 'sudo ls -A /etc/cni/net.d 2>/dev/null | wc -l')"
   echo "$n -> file trong /etc/cni/net.d: $C"
   test "$C" -gt 0 && CNI_LEFT=$(( CNI_LEFT + 1 ))
 done
-echo "node con cau hinh CNI: $CNI_LEFT/5"
-
-test "$CNI_LEFT" -ge 1 \
-  && echo 'PASS: reset KHONG don /etc/cni/net.d — dung nhu tai lieu ghi'
-```
-
-**PASS:** dòng `PASS: reset KHONG don /etc/cni/net.d …` xuất hiện. Dọn tay:
-
-```bash
+echo "cni_con=$CNI_LEFT" | tee -a "$EV/b2-reset-khong-don.txt"
+test "$CNI_LEFT" -ge 1 && echo 'PASS: reset KHONG don /etc/cni/net.d — dung nhu tai lieu ghi'
 for n in $ALL; do ssh "$n" 'sudo rm -rf /etc/cni/net.d'; done
 
-CNI_AFTER=0
-for n in $ALL; do
-  ssh -o BatchMode=yes "$n" 'test -d /etc/cni/net.d' && CNI_AFTER=$(( CNI_AFTER + 1 ))
-done
-echo "node con thu muc /etc/cni/net.d: $CNI_AFTER/5"
-test "$CNI_AFTER" -eq 0 && echo 'PASS: da don cau hinh CNI cu tren ca nam node'
-```
-
-**PASS:** dòng `PASS: da don cau hinh CNI cu …` xuất hiện. Bỏ bước này thì Flannel của cluster mới
-sẽ đọc phải file `.conflist` của Flannel cũ và Pod có thể nhận IP thuộc dải của cụm đã chết.
-
-Thứ hai, kubeconfig của user. Chạy trên **`lab-ha-1`**:
-
-```bash
 KC_LEFT=0
 for n in "$N1" "$N2" "$N3"; do
   ssh -o BatchMode=yes "$n" 'test -e "$HOME/.kube/config"' && KC_LEFT=$(( KC_LEFT + 1 ))
 done
-echo "node con \$HOME/.kube/config: $KC_LEFT/3"
-
-test "$KC_LEFT" -ge 1 \
-  && echo 'PASS: reset KHONG don $HOME/.kube — dung nhu tai lieu ghi'
-
+echo "kubeconfig_con=$KC_LEFT" | tee -a "$EV/b2-reset-khong-don.txt"
+test "$KC_LEFT" -ge 1 && echo 'PASS: reset KHONG don $HOME/.kube — dung nhu tai lieu ghi'
 for n in "$N1" "$N2" "$N3"; do ssh "$n" 'rm -rf "$HOME/.kube"'; done
 
-KC_AFTER=0
-for n in "$N1" "$N2" "$N3"; do
-  ssh -o BatchMode=yes "$n" 'test -e "$HOME/.kube/config"' && KC_AFTER=$(( KC_AFTER + 1 ))
-done
-test "$KC_AFTER" -eq 0 && echo 'PASS: da xoa kubeconfig cu cua user tren ba control plane cu'
-```
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện. Bài 02 còn cho một cách gọn hơn khi bạn chỉ muốn
-bỏ tham chiếu tới một cluster mà giữ các cluster khác: `kubectl config delete-cluster`. Ở đây file
-chỉ có một cluster nên xóa cả file là đủ.
-
-Thứ ba, quy tắc mạng do kube-proxy để lại. Chạy trên **`lab-ha-1`**:
-
-```bash
 IPT_LEFT=0
 for n in $ALL; do
   C="$(ssh -o BatchMode=yes "$n" 'sudo iptables-save 2>/dev/null | grep -c "KUBE-"')"
   echo "$n -> dong iptables con chua KUBE-: $C"
   test "$C" -gt 0 && IPT_LEFT=$(( IPT_LEFT + 1 ))
 done
-echo "node con luat kube-proxy: $IPT_LEFT/5"
-
-test "$IPT_LEFT" -ge 1 \
-  && echo 'PASS: reset KHONG dat lai iptables — dung cau bai 02 viet'
-```
-
-**PASS:** dòng `PASS: reset KHONG dat lai iptables …` xuất hiện. Dọn bằng đúng hai lệnh bài 02 đưa:
-
-```bash
+echo "iptables_con=$IPT_LEFT" | tee -a "$EV/b2-reset-khong-don.txt"
+test "$IPT_LEFT" -ge 1 && echo 'PASS: reset KHONG dat lai iptables — dung cau bai 02 viet'
 for n in $ALL; do
   ssh "$n" 'sudo sh -c "iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X"'
   ssh "$n" 'command -v ipvsadm >/dev/null 2>&1 && sudo ipvsadm -C || echo "khong co ipvsadm, bo qua"'
 done
-
-IPT_AFTER=0
-for n in $ALL; do
-  C="$(ssh -o BatchMode=yes "$n" 'sudo iptables-save 2>/dev/null | grep -c "KUBE-"')"
-  echo "$n -> con lai: $C"
-  test "$C" -eq 0 && IPT_AFTER=$(( IPT_AFTER + 1 ))
-done
-echo "node da sach luat: $IPT_AFTER/5"
-test "$IPT_AFTER" -eq 5 && echo 'PASS: khong node nao con chuoi KUBE- cua kube-proxy'
 ```
 
-**PASS:** dòng `PASS: khong node nao con chuoi KUBE- …` xuất hiện.
+Bài 02 còn một cách gọn hơn khi chỉ muốn bỏ tham chiếu tới một cluster mà giữ cluster khác trong
+kubeconfig: `kubectl config delete-cluster`. Ở đây file chỉ có một cluster nên xóa cả thư mục.
 
-> Hai lệnh trên **xóa toàn bộ** quy tắc iptables của máy, không riêng phần Kubernetes. Chấp nhận
-> được ở đây vì [A4.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a44-firewall-cho-mạng-lab-cô-lập) đã
-> tắt UFW trên mạng lab cô lập, nên không có luật nào khác cần giữ. **Đừng chạy chúng trên máy có
-> firewall thật.**
+Ý chính cho runbook:
 
-Cuối cùng, không container nào của Kubernetes còn sống. Chạy trên **`lab-ha-1`**:
+1. Reset bỏ lại cấu hình CNI (Flannel mới đọc phải `.conflist` cũ, Pod có thể nhận IP của dải cụm đã
+   chết), kubeconfig của user (`kubectl` gọi vào cluster mới bằng CA cũ → lỗi certificate TLS của bài
+   09), quy tắc kube-proxy (Service cũ còn trong kernel), và — với external etcd — dữ liệu etcd.
+2. Reset control plane chạy phase `remove-etcd-member`: cụm đi 3 → 2 → 1 có trật tự, danh sách
+   member luôn khớp số máy sống. Tắt máy để lại một member chết trong danh sách: cụm 3 member mất 1
+   vẫn đủ quorum, nhưng cụm còn 2 member đăng ký mà mất thêm 1 thì không.
+3. Không. Tài liệu tham khảo ghi rõ reset không xóa dữ liệu etcd khi etcd là external; object của
+   Bookstore sống ở ba host etcd, không ở control plane nào. Mất hay dựng lại một control plane không
+   chạm vào dữ liệu cluster.
 
-```bash
-POD_LEFT=0
-for n in $ALL; do
-  C=0
-  for i in $(seq 1 24); do
-    C="$(ssh -o BatchMode=yes "$n" 'sudo crictl pods -q 2>/dev/null | wc -l')"
-    test "$C" -eq 0 && break
-    sleep 5
-  done
-  echo "$n -> sandbox con lai: $C"
-  test "$C" -eq 0 && POD_LEFT=$(( POD_LEFT + 1 ))
-done
-echo "node khong con sandbox: $POD_LEFT/5"
+</details>
 
-test "$POD_LEFT" -eq 5 && echo 'PASS: container runtime khong con sandbox nao cua Kubernetes'
-```
+### Đường lui khi gate reset không đạt
 
-**PASS:** dòng `PASS: container runtime khong con sandbox nao …` xuất hiện. Vòng lặp có số vòng tối
-đa vì thời gian dọn container **phụ thuộc cấu hình và phần cứng host**; hết vòng mà vẫn còn sandbox
-thì đó đúng là tình huống *"kubeadm bị treo khi xóa các container được quản lý"* của bài
-[09](../09-troubleshooting-kubeadm-vi.md) — xem [mục 4](#4-troubleshooting-của-lab-này).
-
-### B2.7. Fallback — khi gate reset không đạt
-
-Không cố sửa một node reset dở. Nếu bất kỳ gate nào của B2.5 hoặc B2.6 còn fail sau một lần thử lại,
-chuyển sang mốc `8x-vm-ready` — mốc "VM sạch đã cài kubeadm, chưa có cluster" mà Lab 8b chụp.
-
-Chạy trên **máy host**, PowerShell, dùng lại `$vmrun` và `$vmxHA`:
+Không cố sửa một node reset dở. Nếu gate nào của B2 còn fail sau một lần thử lại, chuyển sang mốc
+`8x-vm-ready` — "VM sạch đã cài kubeadm, chưa có cluster" mà Lab 8b chụp. Chạy trên **máy host**, cửa
+sổ chính:
 
 ```powershell
-foreach ($f in $vmxHA) {
+foreach ($f in $haVmx) {
   $snaps = & $vmrun -T ws listSnapshots $f | Select-Object -Skip 1
   if ($snaps -ccontains '8x-vm-ready') { "PASS: $f co 8x-vm-ready" } else { "FAIL: $f KHONG co" }
 }
 ```
 
-**PASS:** sáu dòng `PASS:`. Còn dòng `FAIL:` thì fallback này không dùng được — quay về
-`8x-ha-stacked` và chạy lại từ B0.
-
-Tắt rồi khôi phục cả sáu VM, sau đó bật lại theo thứ tự mảng:
+**PASS:** sáu dòng `PASS:`. Còn dòng `FAIL:` thì đường lui này không dùng được — quay về
+`8x-ha-stacked` và chạy lại từ B0. Đủ sáu thì tắt, khôi phục cả sáu, bật lại theo thứ tự mảng:
 
 ```powershell
-foreach ($f in $vmxHA) { & $vmrun -T ws stop $f soft }
-foreach ($f in $vmxHA) { & $vmrun -T ws revertToSnapshot $f '8x-vm-ready' }
-foreach ($f in $vmxHA) { & $vmrun -T ws start $f }
+foreach ($f in $haVmx) { & $vmrun -T ws stop $f soft }
+foreach ($f in $haVmx) { & $vmrun -T ws revertToSnapshot $f '8x-vm-ready' }
+foreach ($f in $haVmx) { & $vmrun -T ws start $f }
 & $vmrun -T ws list
 ```
 
-**PASS:** `vmrun list` liệt kê đủ sáu máy HA. Khôi phục là thao tác **trên cả sáu VM cùng một mốc** —
-không bao giờ khôi phục riêng một máy, đúng ghi chú cuối
-[mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường).
-
-Gate riêng cho đường fallback. Chạy trên **`lab-ha-1`** sau khi sáu máy đã lên:
+Mốc `8x-vm-ready` có trước khóa SSH, file biến và repo. Chạy lại **B0.3, B0.4, B0.5**, rồi gate riêng
+của đường lui trên **`lab-ha-1`**:
 
 ```bash
-mkdir -p ~/lab-work/8c ~/lab-evidence/8c
-WK=~/lab-work/8c; EV=~/lab-evidence/8c
-ALL='lab-ha-1 lab-ha-2 lab-ha-3 lab-ha-4 lab-ha-5'
-
-# Moc 8x-vm-ready co truoc B0.3 nen khoa SSH da bien mat cung snapshot — dung lai truoc.
-test -f ~/.ssh/id_ed25519 || ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519
-for n in $ALL; do ssh-copy-id -o StrictHostKeyChecking=accept-new "$n"; done
-
+source ~/lab-work/8c/bien-ha.sh
 OKF=0
 for n in $ALL; do
   R="$(ssh -o BatchMode=yes "$n" '
@@ -948,28 +982,120 @@ for n in $ALL; do
     v*' active 0 0 0') OKF=$(( OKF + 1 )) ;;
   esac
 done
-echo "node dat moc 8x-vm-ready: $OKF/5"
-
 test "$OKF" -eq 5 \
-  && echo 'PASS: fallback thanh cong — kubeadm da cai, containerd chay, khong con dau vet cluster'
+  && echo 'PASS: duong lui thanh cong — kubeadm da cai, containerd chay, khong con dau vet cluster'
 ```
 
-**PASS:** dòng `PASS: fallback thanh cong …` xuất hiện. Sau đó chạy lại **B0.3 và B0.4** (workspace,
-SSH key, biến), **bỏ qua B0.2, B1 và phần còn lại của B2** — không còn cụm stacked để đọc, và bằng
-chứng của B1 bạn đã ghi ở `$EV/b0-truoc-stacked.txt` từ trước. Đi thẳng tới B3.
+**PASS:** dòng `PASS: duong lui thanh cong …` xuất hiện. Bỏ qua B0.2, B1 và phần còn lại của B2 —
+không còn cụm stacked để đọc; nếu B1 chưa kịp chạy, lấy số liệu stacked từ evidence của Lab 8b. Đi
+thẳng tới B3.
 
----
+## B3. [BS-8C-03] Load balancer trỏ sang hai control plane mới
 
-## B3. Bài 08 — đổi backend của load balancer
+**Loại:** Vận hành — trên `lab-ha-lb`.
 
-**Mục đích:** thực hành mục *Tạo bộ cân bằng tải cho kube-apiserver* — phần bài
-[08](../08-high-availability-vi.md) ghi rõ là **bước đầu tiên và chung cho cả hai phương pháp**. Ở
-Lab 8b, backend là ba máy `.231`, `.232`, `.233`. Ba máy đó sắp thành etcd node và sẽ không nghe
-`6443` nữa, nên backend phải trỏ sang `.234` và `.235` **trước** khi `kubeadm init` chạy.
+**Bối cảnh:** bài 08 đặt việc dựng load balancer là **bước đầu tiên, chung cho cả hai phương pháp**.
+Lab 8b đã dựng nó: khối cấu hình `#--- Lab 8b` nối vào cuối `/etc/haproxy/haproxy.cfg`, frontend
+`k8s-apiserver`, backend `k8s-controlplane` trỏ tới `.231`, `.232`, `.233`, trang thống kê ở cổng
+`8404`. Ba máy đó sắp thành etcd node và sẽ không nghe `6443` nữa; backend phải trỏ sang hai control
+plane mới **trước** khi `kubeadm init` chạy. Mọi thứ khác của Lab 8b — timeout dài cho watch, trang
+thống kê — giữ nguyên.
 
-### B3.1. Ghi lại cấu hình cũ rồi thay backend
+**Yêu cầu:**
+
+1. Load balancer vẫn nghe `6443`, chuyển tiếp **TCP**, health check TCP trên port apiserver; trang
+   thống kê `8404` vẫn chạy.
+2. Backend `k8s-controlplane` chỉ gồm `192.168.100.234:6443` và `192.168.100.235:6443`; không còn
+   backend nào trỏ tới ba host etcd. Chỉ những dòng `server` đổi; phần còn lại của khối Lab 8b nguyên.
+3. Cấu hình của Lab 8b được lưu thành `~/lab-evidence/8c/b3-haproxy-cfg-8b.bak` trước khi sửa; version
+   HAProxy quan sát được ghi lại.
+4. Từ `lab-ha-4`, kết nối tới load balancer **không timeout** (bị đóng là bình thường lúc này), và
+   trang thống kê liệt kê đúng hai backend mới.
+
+**Ràng buộc:** không dùng health check HTTP. Không cài lại HAProxy, không ghim version. Repo không
+đổi ở ticket này: `platform/ha-lab/haproxy-k8s.cfg` mô tả load balancer của Lab 8b; cấu hình của Lab 8c
+ghi vào runbook (`docs/`).
+
+**Đọc lại:** bài [08](../08-high-availability-vi.md),
+[*Tạo bộ cân bằng tải cho kube-apiserver*](../08-high-availability-vi.md#tạo-bộ-cân-bằng-tải-cho-kube-apiserver-create-load-balancer-for-kube-apiserver)
+— bốn yêu cầu, và cách đọc kết quả `nc -zv`; `platform/ha-lab/README.md` trong repo — Lab 8b ghi cách
+dựng load balancer.
+
+**Bàn giao:** `/etc/haproxy/haproxy.cfg` trên `lab-ha-lb`; `~/lab-evidence/8c/b3-*` trên `lab-ha-lb`
+và `lab-ha-4`; mục *Load balancer* trong runbook.
+
+**Nghiệm thu:**
+
+- `PASS:` HAProxy `active`, nghe `6443` và `8404`; đã lưu cấu hình của Lab 8b.
+- `PASS:` đúng hai backend `.234`, `.235`; không backend nào trỏ `.231`–`.233`.
+- `PASS:` từ `lab-ha-4`, kết nối tới `192.168.100.230:6443` không timeout; trang thống kê liệt kê
+  đúng `lab-ha-4`, `lab-ha-5`.
+
+**Câu hỏi thiết kế** — trả lời trong runbook, mục *Load balancer*:
+
+1. Quên đổi backend thì `kubeadm init` ở B7 hỏng ra sao? Sót đúng **một** backend cũ thì sao?
+2. Trước khi init, kết nối tới load balancer bị *refused* và bị *timeout* mang hai kết luận nào?
+3. Vì sao health check là TCP chứ không gọi `/readyz` của apiserver?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Đọc khối của Lab 8b trước: `sed -n '/^#--- Lab 8b/,$p' /etc/haproxy/haproxy.cfg`. Ba dòng
+  `server lab-ha-N …:6443 check` là thứ duy nhất phải đổi. `haproxy -c -f` kiểm cú pháp trước khi
+  restart.
+- Không chắc `nc` có trên bản cài minimal; `bash` có `/dev/tcp`. Mã thoát `124` của `timeout` là
+  ranh giới giữa *timeout* và *bị đóng*.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 Chạy trên **`lab-ha-lb`**:
+
+```bash
+EV=~/lab-evidence/8c
+systemctl is-active haproxy | grep -qx active && echo 'PASS: haproxy active'
+sudo ss -lntp | grep -E ':6443|:8404' > "$EV/b3-listen.txt"
+grep -q ':6443' "$EV/b3-listen.txt" && grep -q ':8404' "$EV/b3-listen.txt" \
+  && echo 'PASS: LB dang nghe 6443 va trang thong ke 8404'
+test "$(grep -c '192.168.100.23[45]:6443' /etc/haproxy/haproxy.cfg)" -eq 2 \
+  && echo 'PASS: backend tro dung hai control plane moi'
+test "$(grep -c '192.168.100.23[123]:6443' /etc/haproxy/haproxy.cfg)" -eq 0 \
+  && echo 'PASS: khong con backend nao tro toi ba host etcd'
+test -s "$EV/b3-haproxy-cfg-8b.bak" && echo 'PASS: da luu cau hinh cua Lab 8b'
+```
+
+Chạy trên **`lab-ha-4`**:
+
+```bash
+source ~/lab-work/8c/bien-ha.sh
+timeout 3 bash -c 'echo > /dev/tcp/192.168.100.230/6443' 2>/dev/null
+RC=$?
+echo "ma thoat: $RC"
+case "$RC" in
+  124) echo 'FAIL: TIMEOUT — lab-ha-4 khong toi duoc load balancer' ;;
+  *)   echo 'PASS: khong timeout — duong toi LB thong; ket noi bi dong la binh thuong vi chua co apiserver' ;;
+esac
+
+curl -s --max-time 10 "http://192.168.100.230:8404/stats;csv" \
+  | awk -F, '$1=="k8s-controlplane" && $2!="BACKEND" {print $2"="$18}' > "$EV/b3-lbstat.txt"
+cat "$EV/b3-lbstat.txt"
+test "$(grep -c '^lab-ha-[45]=' "$EV/b3-lbstat.txt")" -eq 2 \
+  && test "$(grep -c '^lab-ha-[123]=' "$EV/b3-lbstat.txt")" -eq 0 \
+  && echo 'PASS: trang thong ke liet ke dung hai backend lab-ha-4, lab-ha-5'
+```
+
+Hai backend đang `DOWN` lúc này là đúng — chưa có apiserver nào. Chúng chuyển `UP` ở B7 và B8.
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo — quy trình đã kiểm chứng</summary>
+
+Chạy trên **`lab-ha-lb`**. Ba lệnh `sed` thay đúng ba dòng `server` mà Lab 8b viết — dòng của
+`lab-ha-1`, `lab-ha-2` đổi thành hai control plane mới, dòng của `lab-ha-3` bị xóa; frontend, timeout,
+`default-server` và trang thống kê không đổi:
 
 ```bash
 mkdir -p ~/lab-evidence/8c
@@ -978,112 +1104,129 @@ EV=~/lab-evidence/8c
 haproxy -v | head -n 1 | tee "$EV/b3-haproxy-version.txt"
 sudo cp -a /etc/haproxy/haproxy.cfg "$EV/b3-haproxy-cfg-8b.bak"
 grep -nE 'server|bind' /etc/haproxy/haproxy.cfg | tee "$EV/b3-backend-cu.txt"
-```
 
-**PASS:** `haproxy -v` in ra một dòng version, và `$EV/b3-backend-cu.txt` cho thấy backend đang trỏ
-tới `192.168.100.231/232/233`. Nếu `haproxy` không có trên máy thì Lab 8b chưa hoàn tất — cài lại từ
-gói phân phối của Ubuntu (`sudo apt-get install -y haproxy`) và **không ghim version**: HAProxy ở
-đây chỉ chuyển tiếp TCP, nó không phải thành phần Kubernetes nên không nằm trong
-[bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa).
-
-Ghi cấu hình mới. Khối `global`/`defaults` dưới đây cố ý tối giản để file này đứng độc lập được; nếu
-cấu hình của Lab 8b có thêm phần bạn muốn giữ, chỉ thay hai khối `frontend` và `backend`:
-
-```bash
-sudo tee /etc/haproxy/haproxy.cfg >/dev/null <<'EOF'
-global
-    daemon
-    maxconn 4096
-
-defaults
-    mode                tcp
-    timeout connect     10s
-    timeout client      4h
-    timeout server      4h
-    retries             3
-
-frontend kube-apiserver
-    bind *:6443
-    default_backend kube-apiserver-backend
-
-backend kube-apiserver-backend
-    option tcp-check
-    balance roundrobin
-    server cp1 192.168.100.234:6443 check inter 2s fall 3 rise 2
-    server cp2 192.168.100.235:6443 check inter 2s fall 3 rise 2
-EOF
+sudo sed -i \
+  -e 's/^    server lab-ha-1 192\.168\.100\.231:6443 check$/    server lab-ha-4 192.168.100.234:6443 check/' \
+  -e 's/^    server lab-ha-2 192\.168\.100\.232:6443 check$/    server lab-ha-5 192.168.100.235:6443 check/' \
+  -e '/^    server lab-ha-3 192\.168\.100\.233:6443 check$/d' \
+  /etc/haproxy/haproxy.cfg
+sed -n '/^#--- Lab 8b/,$p' /etc/haproxy/haproxy.cfg
 
 sudo haproxy -c -f /etc/haproxy/haproxy.cfg
 sudo systemctl restart haproxy
 systemctl is-active haproxy
 ```
 
-**PASS:** `haproxy -c` in `Configuration file is valid`; `systemctl is-active haproxy` trả `active`.
+`haproxy -c` phải in `Configuration file is valid`, và khối in ra phải có đúng hai dòng `server` mới.
+Nếu cấu hình của bạn lệch khuôn của Lab 8b (thụt lề khác, tên server khác) thì `sed` không khớp dòng
+nào — sửa ba dòng đó bằng trình soạn thảo, rồi chạy lại script nghiệm thu.
 
-**Ý nghĩa:** `mode tcp` cộng `option tcp-check` là đúng thứ bài 08 mô tả — load balancer **chuyển
-tiếp TCP** và health check là **kiểm tra TCP trên cổng mà kube-apiserver lắng nghe (mặc định
-`:6443`)**. Không có kiểm tra HTTP nào ở đây, vì `/readyz` của apiserver đòi certificate client và
-load balancer không có certificate đó.
+Ý chính cho runbook:
 
-### B3.2. Gate: LB nghe đúng cổng, trỏ đúng hai backend mới
+1. Không đổi backend thì load balancer chuyển request tới ba máy không còn nghe `6443`: `kubeadm init`
+   treo ở giai đoạn chờ control plane khỏe. Sót một backend cũ thì health check giữ nó `DOWN`, nhưng
+   trong lúc chờ đủ số lần kiểm thất bại, request vẫn rơi vào máy etcd và trả lỗi kết nối khó hiểu.
+2. Bài 08: *connection refused* là mong đợi — gói tin tới được node, chỉ chưa có ai nghe. *Timeout*
+   nghĩa là load balancer không giao tiếp được với control plane — sửa trước khi đi tiếp. Chiều node →
+   LB không ra *refused* vì HAProxy đã nghe `6443` (Lab 8b đã giải thích).
+3. `/readyz` của apiserver qua HTTPS cần kiểm chứng đầu bên kia; load balancer chỉ chuyển tiếp TCP nên
+   kiểm TCP là đúng tầng. Bài 08 viết đúng như vậy: health check cho apiserver là kiểm tra TCP trên cổng
+   nó lắng nghe.
 
-Chạy trên **`lab-ha-lb`**:
+</details>
+
+## B4. [BS-8C-04] Ba host etcd: kubelet chỉ làm trình quản lý dịch vụ
+
+**Loại:** Vận hành — trên `lab-ha-1`, `lab-ha-2`, `lab-ha-3`.
+
+**Bối cảnh:** ba host phải chạy etcd **trước khi có bất kỳ cluster Kubernetes nào**. Bài 07 giải bài
+toán đó bằng cách trưng dụng kubelet làm trình quản lý dịch vụ cục bộ cho static Pod.
+
+**Yêu cầu:**
+
+1. Trên cả ba host, kubelet chạy (`active`) bằng một unit drop-in **có độ ưu tiên cao hơn** unit mà
+   gói kubeadm cài, trỏ kubelet vào một file `KubeletConfiguration` riêng — đúng bước 1 của bài 07.
+2. Kubelet đó chỉ nghe trên loopback, ủy quyền mọi request, đọc static Pod từ
+   `/etc/kubernetes/manifests`, và không có kubeconfig nào để đăng ký với API server.
+3. Cgroup driver khớp container runtime của baseline; endpoint runtime đúng chuỗi bài 07 viết.
+
+**Ràng buộc:** file cấu hình giống hệt nhau trên ba host. Không sửa cấu hình containerd.
+
+**Đọc lại:** bài [07](../07-setup-ha-etcd-with-kubeadm-vi.md),
+[*Thiết lập cluster*](../07-setup-ha-etcd-with-kubeadm-vi.md#thiết-lập-cluster-setting-up-the-cluster)
+bước 1; bài [58](../58-static-pods-vi.md) — static Pod do kubelet quản lý; mục cgroup driver ở
+[A4.2 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a42-cài-containerd-và-runc-đúng-version).
+
+**Bàn giao:** hai file trong `/etc/systemd/system/kubelet.service.d/` trên ba host;
+`~/lab-evidence/8c/b4-*-<host>.txt`; mục *Host etcd* trong runbook.
+
+**Nghiệm thu** — trên **cả ba** host:
+
+- `PASS:` kubelet `active`, `ExecStart` trỏ vào `KubeletConfiguration` riêng, drop-in
+  `20-etcd-service-manager.conf` đang được áp dụng.
+- `PASS:` không có `/etc/kubernetes/kubelet.conf`; kubelet nghe `127.0.0.1`; `authorization.mode` là
+  `AlwaysAllow`; thư mục static Pod đã có.
+
+**Câu hỏi thiết kế** — trả lời trong runbook, mục *Host etcd*:
+
+1. Vì sao phải tạo drop-in thay vì dùng unit mà gói kubeadm đã cài? Tiền tố `20-` và dòng
+   `ExecStart=` rỗng ở đầu file làm gì?
+2. Sau bước này, kubelet trên ba máy nói chuyện với API server nào? Ba máy có bao giờ xuất hiện trong
+   `kubectl get nodes` của cluster Bookstore không?
+3. Hai giá trị nào trong `KubeletConfiguration` bám vào baseline của Lab 00, và đổi chúng thì sao?
+
+<details>
+<summary>Gợi ý</summary>
+
+- systemd nạp drop-in theo thứ tự tên file; file sau ghi đè file trước.
+- Trong file unit, một `ExecStart=` rỗng xóa lệnh đã khai trước đó.
+- `systemctl show kubelet -p ExecStart` và `systemctl cat kubelet` cho thấy unit đang được ghép thế nào.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy trên từng host etcd sau khi tự làm xong</summary>
 
 ```bash
-sudo ss -lntp | grep ':6443' | tee "$EV/b3-listen.txt"
-grep -c '192.168.100.234:6443\|192.168.100.235:6443' /etc/haproxy/haproxy.cfg
-grep -c '192.168.100.231:6443\|192.168.100.232:6443\|192.168.100.233:6443' /etc/haproxy/haproxy.cfg
+EV=~/lab-evidence/8c; mkdir -p "$EV"
+ME="$(hostname -s)"
+ACT=''
+for i in $(seq 1 24); do
+  ACT="$(systemctl is-active kubelet)"
+  test "$ACT" = 'active' && break
+  sleep 5
+done
+echo "kubelet tren $ME: $ACT"
 
-test -s "$EV/b3-listen.txt" && echo 'PASS: LB dang nghe 6443'
-test "$(grep -c '192.168.100.23[45]:6443' /etc/haproxy/haproxy.cfg)" -eq 2 \
-  && echo 'PASS: backend tro dung hai control plane moi'
-test "$(grep -c '192.168.100.23[123]:6443' /etc/haproxy/haproxy.cfg)" -eq 0 \
-  && echo 'PASS: khong con backend nao tro toi ba host etcd'
+systemctl show kubelet -p ExecStart > "$EV/b4-execstart-$ME.txt"
+systemctl cat kubelet | grep -n 'etcd-service-manager' > "$EV/b4-unit-$ME.txt"
+
+test "$ACT" = 'active' && echo 'PASS: kubelet dang chay'
+grep -q 'kubelet.service.d/kubelet.conf' "$EV/b4-execstart-$ME.txt" \
+  && echo 'PASS: ExecStart da tro vao KubeletConfiguration rieng cua etcd'
+test -s "$EV/b4-unit-$ME.txt" && echo 'PASS: unit 20-etcd-service-manager.conf dang duoc ap dung'
+
+test ! -e /etc/kubernetes/kubelet.conf \
+  && echo 'PASS: khong co kubelet.conf — kubelet khong dang ky voi API server nao'
+grep -q 'address: 127.0.0.1' /etc/systemd/system/kubelet.service.d/kubelet.conf \
+  && echo 'PASS: kubelet chi nghe tren loopback'
+grep -q 'mode: AlwaysAllow' /etc/systemd/system/kubelet.service.d/kubelet.conf \
+  && echo 'PASS: authorization.mode la AlwaysAllow — khong co API server de hoi'
+test -d /etc/kubernetes/manifests && echo 'PASS: staticPodPath da san sang'
 ```
 
-**PASS:** ba dòng `PASS:` của bước này xuất hiện. Dòng thứ ba là gate quan trọng nhất: bỏ sót một
-backend cũ thì load balancer sẽ round-robin request tới một máy etcd và bạn nhận về lỗi TLS khó hiểu
-ngay giữa `kubeadm init`.
+Bảy dòng `PASS:` trên mỗi host. Vòng lặp có số vòng tối đa vì thời gian kubelet lên phụ thuộc cấu
+hình và phần cứng host.
 
-Kiểm đường đi từ phía control plane tương lai. Chạy trên **`lab-ha-4`**:
+</details>
 
-```bash
-timeout 3 bash -c 'echo > /dev/tcp/192.168.100.230/6443' 2>/dev/null
-RC=$?
-echo "ma thoat: $RC"
-case "$RC" in
-  124) echo 'FAIL: TIMEOUT — lab-ha-4 khong toi duoc load balancer' ;;
-  *)   echo 'PASS: khong timeout — duong toi LB thong; ket noi bi dong la binh thuong vi chua co apiserver' ;;
-esac
-```
+<details>
+<summary>Lời giải tham khảo — quy trình đã kiểm chứng</summary>
 
-**PASS:** dòng bắt đầu bằng `PASS: khong timeout …` xuất hiện.
-
-**Ý nghĩa:** bài 08 dạy đọc chính xác kết quả của phép thử này bằng `nc -zv -w 2 <LB_IP> <PORT>`:
-**`connection refused` là điều được mong đợi** vì API server chưa chạy, còn **timeout nghĩa là load
-balancer không giao tiếp được với node control plane**. Lab dùng `/dev/tcp` của bash thay `nc` vì
-`nc` không chắc có sẵn trên bản cài minimal, và mã thoát `124` của `timeout` cho ta đúng ranh giới
-đó ở dạng kiểm chứng được. Bằng chứng thật rằng LB hoạt động sẽ đến ở B9.5, khi `curl` qua
-`https://192.168.100.230:6443/version` trả về JSON.
-
----
-
-## B4. Bài 07 bước 1 — kubelet làm trình quản lý dịch vụ cho etcd
-
-**Mục đích:** ba host `lab-ha-1`, `lab-ha-2`, `lab-ha-3` phải chạy etcd **trước khi có bất kỳ cluster
-Kubernetes nào**. Bài [07](../07-setup-ha-etcd-with-kubeadm-vi.md) giải bài toán đó bằng cách trưng
-dụng kubelet làm trình quản lý dịch vụ cục bộ cho static Pod.
-
-### B4.1. Ghi đè unit của kubelet trên cả ba host
-
-> **Chạy nguyên mục B4 trên cả ba host etcd**: `lab-ha-1`, rồi `lab-ha-2`, rồi `lab-ha-3`. Lặp lại y
-> hệt, không đổi gì giữa các máy — file này giống nhau trên cả ba.
+Chạy nguyên khối trên **`lab-ha-1`**, rồi **`lab-ha-2`**, rồi **`lab-ha-3`** — giống hệt nhau:
 
 ```bash
 mkdir -p ~/lab-work/8c ~/lab-evidence/8c
-WK=~/lab-work/8c; EV=~/lab-evidence/8c
-ME="$(hostname -s)"
-
 sudo mkdir -p /etc/systemd/system/kubelet.service.d /etc/kubernetes/manifests
 
 sudo tee /etc/systemd/system/kubelet.service.d/kubelet.conf >/dev/null <<'EOF'
@@ -1113,79 +1256,162 @@ sudo systemctl daemon-reload
 sudo systemctl restart kubelet
 ```
 
-Hai giá trị trong `kubelet.conf` bám vào baseline, **không** được đổi:
+Ý chính cho runbook:
 
-- `cgroupDriver: systemd` phải khớp cgroup driver của containerd. Baseline đặt
-  `SystemdCgroup = true` ở
-  [A4.2 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a42-cài-containerd-và-runc-đúng-version); đổi một
-  bên là kubelet và runtime đá nhau.
-- `containerRuntimeEndpoint: unix:///var/run/containerd/containerd.sock` là giá trị bài 07 viết.
-  Trên Ubuntu, `/var/run` là symlink tới `/run`, nên nó trỏ về đúng socket mà
-  [`/etc/crictl.yaml` của A4.3](LAB-00-MOI-TRUONG-1.35.7.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl)
-  khai. Giữ nguyên chuỗi của bài để dễ đối chiếu.
+1. Bài 07: **etcd được tạo trước**, nên phải có unit file có độ ưu tiên cao hơn unit kubelet do
+   kubeadm cung cấp — unit đó giả định có API server để bootstrap. `20-…` đứng sau `10-kubeadm.conf`
+   theo thứ tự chữ cái nên ghi đè nó; dòng `ExecStart=` rỗng xóa lệnh cũ, thiếu nó thì unit có hai
+   `ExecStart` và không khởi động được.
+2. Không API server nào: không kubeconfig, không đăng ký Node, nghe loopback, `AlwaysAllow`. Ba máy
+   **không bao giờ** xuất hiện trong `kubectl get nodes` — cluster chỉ biết chúng qua ba địa chỉ IP.
+3. `cgroupDriver: systemd` phải khớp `SystemdCgroup = true` của containerd ở A4.2 — lệch thì kubelet
+   và runtime đá nhau. `containerRuntimeEndpoint` trỏ `/var/run/containerd/containerd.sock`; trên
+   Ubuntu `/var/run` là symlink tới `/run`, nên đó đúng là socket mà `/etc/crictl.yaml` của A4.3 khai.
 
-### B4.2. Gate: kubelet chạy bằng unit mới và không nói chuyện với API server nào
+</details>
 
-Chạy trên **từng host etcd**:
+## B5. [BS-8C-05] Cấu hình và certificate cho từng etcd member
+
+**Loại:** Vận hành — sinh trên `lab-ha-1`, phân phối sang `lab-ha-2`, `lab-ha-3`.
+
+**Bối cảnh:** cụm etcd tĩnh hình thành từ ba file cấu hình **khác nhau** ở địa chỉ và SAN nhưng
+**giống nhau** ở danh sách thành viên. Mô hình của bài 07 là sinh mọi certificate trên một host và chỉ
+phân phối những file **cần thiết** — điểm học nằm ở chữ *cần thiết*.
+
+**Yêu cầu:**
+
+1. Trên `lab-ha-1` có ba file `kubeadmcfg.yaml`, mỗi file cho một member, theo bước 2 của bài 07:
+   SAN là IP của chính member đó; danh sách `initial-cluster` liệt kê **cả ba** member; trạng thái cụm
+   là cụm mới; peer ở `2380`, client ở `2379`.
+2. CA của etcd sinh bằng kubeadm trên `lab-ha-1`; không công cụ mã hóa ngoài nào.
+3. Mỗi host có đủ **chín** file bắt buộc của bước 6 bài 07; `server.crt` của mỗi host chỉ chứa IP của
+   chính host đó trong SAN.
+4. `ca.key` của etcd tồn tại **đúng một chỗ**: `/etc/kubernetes/pki/etcd/` trên `lab-ha-1`. Không
+   bản sao nào nằm trong thư mục sắp gửi đi, không bản sao nào trên `lab-ha-2`, `lab-ha-3`.
+
+**Ràng buộc:** giữ đúng thứ tự sinh của bài 07 (`HOST2` → `HOST1` → `HOST0`). Không `mv` vào
+`/etc/kubernetes/pki` khi thư mục đó đã tồn tại.
+
+**Đọc lại:** bài [07](../07-setup-ha-etcd-with-kubeadm-vi.md),
+[*Trước khi bạn bắt đầu*](../07-setup-ha-etcd-with-kubeadm-vi.md#trước-khi-bạn-bắt-đầu-before-you-begin)
+— hai port TCP; [*Thiết lập cluster*](../07-setup-ha-etcd-with-kubeadm-vi.md#thiết-lập-cluster-setting-up-the-cluster)
+bước 2 đến 6.
+
+**Bàn giao:** `/tmp/192.168.100.23{1,2,3}/kubeadmcfg.yaml` trên `lab-ha-1` (dọn ở B13); `pki` trên ba
+host; `~/lab-evidence/8c/b5-*.txt` trên `lab-ha-1`; mục *Certificate etcd* trong runbook.
+
+**Nghiệm thu:**
+
+- `PASS:` ba file cấu hình đúng SAN riêng và đúng danh sách ba member chung.
+- `PASS:` không bản sao `ca.key` nào trong thư mục sắp gửi đi; `ca.key` vẫn ở `lab-ha-1`.
+- `PASS:` cả ba host đủ chín file bắt buộc; chỉ `lab-ha-1` giữ `ca.key`.
+- `PASS:` `server.crt` trên mỗi host có SAN đúng IP của chính host đó.
+
+**Câu hỏi thiết kế** — trả lời trong runbook, mục *Certificate etcd*:
+
+1. Trong `kubeadmcfg.yaml`, trường nào **riêng** của từng host, trường nào **chung** cả cụm? Vì sao
+   trường chung phải giống hệt nhau trên ba host?
+2. Vì sao mỗi host cần `server.crt` riêng? SAN trên `lab-ha-2` phải chứa gì, và khi Bookstore đang
+   chạy thì ai là bên kiểm tra SAN đó?
+3. Vì sao hai lệnh xóa `ca.key` khỏi thư mục tạm là nội dung bảo mật chứ không phải dọn rác?
+4. Firewall chỉ mở TCP `2379` giữa ba host, chặn `2380`. Kiểm sức khỏe từng endpoint có ra kết quả
+   không? Cụm có hình thành không?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Bài 07 chạy cả bước 2 đến 5 trong một shell root. Lab dùng `sudo` từng lệnh, nên thư mục tạm thuộc
+  `root` — trả quyền về user trước khi `scp`.
+- `openssl x509 -noout -text -in <file>` đọc SAN. `openssl` chỉ dùng để **đọc**, không để sinh.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+Chạy trên **`lab-ha-1`**:
 
 ```bash
-ACT=''
-for i in $(seq 1 24); do
-  ACT="$(systemctl is-active kubelet)"
-  test "$ACT" = 'active' && break
-  sleep 5
+source ~/lab-work/8c/bien-ha.sh
+HOST0="$E1"; HOST1="$E2"; HOST2="$E3"
+
+OKC=0
+for H in "$HOST0" "$HOST1" "$HOST2"; do
+  F="/tmp/$H/kubeadmcfg.yaml"
+  SAN="$(grep -c "\"$H\"" "$F")"
+  IC="$(grep -c "initial-cluster$" "$F")"
+  ALL3="$(grep -c "$HOST0:2380,.*$HOST1:2380,.*$HOST2:2380" "$F")"
+  STATE="$(grep -c 'value: new' "$F")"
+  echo "$F -> SAN=$SAN initial-cluster=$IC du-ba-member=$ALL3 state-new=$STATE"
+  test "$SAN" -eq 2 && test "$IC" -eq 1 && test "$ALL3" -eq 1 && test "$STATE" -eq 1 \
+    && OKC=$(( OKC + 1 ))
 done
-echo "kubelet tren $ME: $ACT"
+cp /tmp/"$HOST0"/kubeadmcfg.yaml "$EV/b5-kubeadmcfg-host0.txt"
+test "$OKC" -eq 3 \
+  && echo 'PASS: ba file kubeadmcfg.yaml dung SAN rieng va dung danh sach ba member chung'
 
-systemctl show kubelet -p ExecStart | tee "$EV/b4-execstart-$ME.txt"
-systemctl cat kubelet | grep -n 'etcd-service-manager' | tee "$EV/b4-unit-$ME.txt"
+CAK_TMP="$(sudo find /tmp/${HOST1} /tmp/${HOST2} -name ca.key -type f | wc -l)"
+CAK_LOCAL="$(sudo find /etc/kubernetes/pki -name ca.key -type f | wc -l)"
+echo "ca.key trong thu muc se gui di: $CAK_TMP | ca.key giu lai tren HOST0: $CAK_LOCAL"
+test "$CAK_TMP" -eq 0 && test "$CAK_LOCAL" -eq 1 \
+  && echo 'PASS: khong ban sao ca.key nao roi lab-ha-1, ca.key cua etcd van o lai'
 
-test "$ACT" = 'active' && echo 'PASS: kubelet dang chay'
-grep -q 'kubelet.service.d/kubelet.conf' "$EV/b4-execstart-$ME.txt" \
-  && echo 'PASS: ExecStart da tro vao KubeletConfiguration rieng cua etcd'
-test -s "$EV/b4-unit-$ME.txt" \
-  && echo 'PASS: unit 20-etcd-service-manager.conf dang duoc ap dung'
+check_host () {
+  local n="$1" want_cakey="$2"
+  echo "== $n"
+  ssh -o BatchMode=yes "$n" 'sudo ls -1 /etc/kubernetes/pki /etc/kubernetes/pki/etcd'
+  local CK
+  CK="$(ssh -o BatchMode=yes "$n" 'sudo test -f /etc/kubernetes/pki/etcd/ca.key && echo 1 || echo 0')"
+  local NEED
+  NEED="$(ssh -o BatchMode=yes "$n" '
+    c=0
+    for f in /etc/kubernetes/pki/apiserver-etcd-client.crt \
+             /etc/kubernetes/pki/apiserver-etcd-client.key \
+             /etc/kubernetes/pki/etcd/ca.crt \
+             /etc/kubernetes/pki/etcd/healthcheck-client.crt \
+             /etc/kubernetes/pki/etcd/healthcheck-client.key \
+             /etc/kubernetes/pki/etcd/peer.crt \
+             /etc/kubernetes/pki/etcd/peer.key \
+             /etc/kubernetes/pki/etcd/server.crt \
+             /etc/kubernetes/pki/etcd/server.key; do
+      sudo test -f "$f" && c=$(( c + 1 ))
+    done
+    echo "$c"')"
+  echo "$n -> du file bat buoc: $NEED/9 | co ca.key: $CK (mong doi $want_cakey)"
+  test "$NEED" -eq 9 && test "$CK" -eq "$want_cakey" && return 0
+  return 1
+}
+
+OKH=0
+check_host "$N1" 1 && OKH=$(( OKH + 1 ))
+check_host "$N2" 0 && OKH=$(( OKH + 1 ))
+check_host "$N3" 0 && OKH=$(( OKH + 1 ))
+test "$OKH" -eq 3 && echo 'PASS: du chin file bat buoc tren ca ba host, va chi HOST0 giu ca.key'
+
+for pair in "$N1 $HOST0" "$N2 $HOST1" "$N3 $HOST2"; do
+  set -- $pair
+  echo "== $1 (mong doi SAN chua $2)"
+  ssh -o BatchMode=yes "$1" \
+    "sudo openssl x509 -noout -text -in /etc/kubernetes/pki/etcd/server.crt \
+       | grep -A1 'Subject Alternative Name'"
+done > "$EV/b5-san.txt"
+OKS=0
+for pair in "$N1 $HOST0" "$N2 $HOST1" "$N3 $HOST2"; do
+  set -- $pair
+  ssh -o BatchMode=yes "$1" \
+    "sudo openssl x509 -noout -text -in /etc/kubernetes/pki/etcd/server.crt" \
+    | grep -A1 'Subject Alternative Name' | grep -q "IP Address:$2" \
+    && OKS=$(( OKS + 1 )) || echo "FAIL: server.crt tren $1 khong co SAN $2"
+done
+test "$OKS" -eq 3 && echo 'PASS: moi server.crt chi hop le cho dia chi cua chinh host do'
 ```
 
-**PASS:** ba dòng `PASS:` xuất hiện trên **cả ba host**. Vòng lặp có số vòng tối đa vì thời gian
-kubelet lên **phụ thuộc cấu hình và phần cứng host**.
+</details>
 
-Chứng minh vế còn lại — kubelet này **không** thuộc cluster nào:
+<details>
+<summary>Lời giải tham khảo — quy trình đã kiểm chứng</summary>
 
-```bash
-test ! -e /etc/kubernetes/kubelet.conf \
-  && echo 'PASS: khong co kubelet.conf — kubelet khong dang ky voi API server nao'
-grep -q 'address: 127.0.0.1' /etc/systemd/system/kubelet.service.d/kubelet.conf \
-  && echo 'PASS: kubelet chi nghe tren loopback'
-grep -q 'mode: AlwaysAllow' /etc/systemd/system/kubelet.service.d/kubelet.conf \
-  && echo 'PASS: authorization.mode la AlwaysAllow — khong co API server de hoi'
-test -d /etc/kubernetes/manifests \
-  && echo 'PASS: staticPodPath da san sang'
-```
-
-**PASS:** bốn dòng `PASS:` xuất hiện trên cả ba host.
-
-**Ý nghĩa:** bài 07 giải thích vì sao phải làm chuyện lạ đời này: **etcd được tạo trước**, nên phải
-tạo một unit file **có độ ưu tiên cao hơn** unit kubelet mà kubeadm cung cấp. Số `20-` ở đầu tên file
-chính là độ ưu tiên: systemd nạp các file drop-in theo thứ tự chữ cái, nên `20-etcd-service-manager.conf`
-đứng sau `10-kubeadm.conf` và ghi đè nó. Dòng `ExecStart=` rỗng phía trên là cú pháp systemd để
-**xóa** lệnh cũ trước khi đặt lệnh mới; thiếu dòng rỗng đó thì unit có hai `ExecStart` và không khởi
-động được.
-
-Kết quả là một kubelet chạy ở chế độ độc lập: nó chỉ đọc thư mục `staticPodPath` và chạy những gì
-tìm thấy ở đó. Không kubeconfig, không đăng ký Node, không ai trong Kubernetes biết ba máy này tồn
-tại. Bài 07 nói thẳng điều đó ở phần *Tự kiểm tra*: chạy hết tám bước xong, **bạn vẫn chưa có một
-cluster Kubernetes nào**.
-
----
-
-## B5. Bài 07 bước 2 — `kubeadmcfg.yaml` cho từng member
-
-**Mục đích:** mỗi etcd member có một file cấu hình riêng, khác nhau ở SAN và ở địa chỉ của chính nó,
-nhưng **giống nhau** ở danh sách `initial-cluster`. Hiểu chỗ nào riêng và chỗ nào chung là hiểu cách
-một cụm etcd tĩnh hình thành.
-
-Chạy trên **`lab-ha-1`** — đây là `$HOST0` của bài 07 cho toàn bộ B5, B6:
+**Bước 2 của bài 07 — ba file cấu hình.** Chạy trên **`lab-ha-1`**, đây là `$HOST0` cho toàn bộ ticket:
 
 ```bash
 WK=~/lab-work/8c; EV=~/lab-evidence/8c
@@ -1242,75 +1468,13 @@ EOF
 done
 ```
 
-Gate:
-
-```bash
-OKC=0
-for H in "$HOST0" "$HOST1" "$HOST2"; do
-  F="/tmp/$H/kubeadmcfg.yaml"
-  SAN="$(grep -c "\"$H\"" "$F")"
-  IC="$(grep -c "initial-cluster$" "$F")"
-  ALL3="$(grep -c "$HOST0:2380,.*$HOST1:2380,.*$HOST2:2380" "$F")"
-  STATE="$(grep -c 'value: new' "$F")"
-  echo "$F -> SAN=$SAN initial-cluster=$IC du-ba-member=$ALL3 state-new=$STATE"
-  test "$SAN" -eq 2 && test "$IC" -eq 1 && test "$ALL3" -eq 1 && test "$STATE" -eq 1 \
-    && OKC=$(( OKC + 1 ))
-done
-echo "file cau hinh dung: $OKC/3"
-
-test "$OKC" -eq 3 \
-  && echo 'PASS: ba file kubeadmcfg.yaml dung SAN rieng va dung danh sach ba member chung'
-
-cp /tmp/"$HOST0"/kubeadmcfg.yaml "$EV/b5-kubeadmcfg-host0.txt"
-```
-
-**PASS:** dòng `PASS: ba file kubeadmcfg.yaml …` xuất hiện. `SAN=2` là đúng: mỗi file khai IP của
-chính nó **hai lần** — một lần trong `serverCertSANs`, một lần trong `peerCertSANs`.
-
-**Ý nghĩa — đọc kỹ hai cột riêng và chung:**
-
-| Trường | Riêng của từng host hay chung cả cụm | Vì sao |
-| --- | --- | --- |
-| `nodeRegistration.name`, `extraArgs.name` | riêng | định danh member trong cụm etcd |
-| `serverCertSANs`, `peerCertSANs` | riêng | certificate của member chỉ hợp lệ cho **địa chỉ của chính nó** |
-| `listen-peer-urls`, `initial-advertise-peer-urls` (`:2380`) | riêng | địa chỉ mà member này nhận và quảng bá lưu lượng **giữa các member** |
-| `listen-client-urls`, `advertise-client-urls` (`:2379`) | riêng | địa chỉ mà **client** — `kube-apiserver`, `etcdctl` — kết nối vào |
-| `initial-cluster` | **chung** | cả ba member phải thấy **cùng một** danh sách thì cụm mới hình thành |
-| `initial-cluster-state: new` | **chung** | khai rằng đây là cụm mới, không phải member join vào cụm có sẵn |
-
-Đây cũng là chỗ trả lời câu hỏi của bài 07 về hai port: **`2380` là port peer**, **`2379` là port
-client**. Chặn `2380` thì ba member không hình thành được cụm dù `etcdctl` vẫn chạm được từng
-endpoint qua `2379`. Mục *Trước khi bạn bắt đầu* của bài 07 yêu cầu **cả hai** port TCP thông giữa ba
-host; [A4.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a44-firewall-cho-mạng-lab-cô-lập) đã tắt UFW nên
-điều kiện đó có sẵn.
-
----
-
-## B6. Bài 07 bước 3–5 — CA, certificate từng member, và phân phối
-
-**Mục đích:** thực hành mô hình mà bài 07 gọi là "tạo tất cả các certificate trên một node và chỉ
-phân phối các file **cần thiết** đến các node khác". Điểm học nằm ở chữ *cần thiết*.
-
-### B6.1. Sinh CA của etcd
-
-Chạy trên **`lab-ha-1`**:
+**Bước 3 và 4 — CA rồi certificate từng member**, đúng thứ tự `HOST2` → `HOST1` → `HOST0`. Chạy trên
+**`lab-ha-1`**, cùng shell:
 
 ```bash
 sudo kubeadm init phase certs etcd-ca
+sudo ls -l /etc/kubernetes/pki/etcd/ | tee "$EV/b5-ca.txt"
 
-sudo ls -l /etc/kubernetes/pki/etcd/ | tee "$EV/b6-ca.txt"
-sudo test -f /etc/kubernetes/pki/etcd/ca.crt && echo 'PASS: co ca.crt'
-sudo test -f /etc/kubernetes/pki/etcd/ca.key && echo 'PASS: co ca.key'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện. Bài 07 nói rõ kubeadm **chứa đủ cơ chế mã hóa** để làm việc
-này — không cần `openssl`, `cfssl` hay công cụ ngoài nào.
-
-### B6.2. Sinh bốn certificate cho từng member
-
-Chạy trên **`lab-ha-1`**, đúng thứ tự của bài 07 — `HOST2` trước, `HOST1` giữa, `HOST0` cuối:
-
-```bash
 sudo kubeadm init phase certs etcd-server --config=/tmp/${HOST2}/kubeadmcfg.yaml
 sudo kubeadm init phase certs etcd-peer --config=/tmp/${HOST2}/kubeadmcfg.yaml
 sudo kubeadm init phase certs etcd-healthcheck-client --config=/tmp/${HOST2}/kubeadmcfg.yaml
@@ -1334,38 +1498,11 @@ sudo find /tmp/${HOST2} -name ca.key -type f -delete
 sudo find /tmp/${HOST1} -name ca.key -type f -delete
 ```
 
-Gate — `ca.key` chỉ được tồn tại đúng một chỗ:
-
-```bash
-CAK_TMP="$(sudo find /tmp/${HOST1} /tmp/${HOST2} -name ca.key -type f | wc -l)"
-CAK_LOCAL="$(sudo find /etc/kubernetes/pki -name ca.key -type f | wc -l)"
-echo "ca.key trong thu muc se gui di: $CAK_TMP | ca.key giu lai tren HOST0: $CAK_LOCAL"
-
-test "$CAK_TMP" -eq 0 && echo 'PASS: khong ban sao ca.key nao sap roi lab-ha-1'
-test "$CAK_LOCAL" -eq 1 && echo 'PASS: ca.key cua etcd van o lai lab-ha-1'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** hai lệnh `find … -name ca.key -delete` không phải thao tác dọn dẹp tùy hứng. **CA key
-ký được certificate mới**; ai cầm nó thì tự cấp được certificate hợp lệ cho cụm etcd này. Các member
-chỉ cần certificate **đã ký** của chính chúng cộng `ca.crt` để xác minh lẫn nhau, nên `ca.key` không
-có lý do gì rời `lab-ha-1`. Lệnh `find /etc/kubernetes/pki -not -name ca.crt -not -name ca.key -type
-f -delete` xen giữa các vòng cũng cùng một logic ngược lại: dọn certificate của host trước để vòng
-sau không phát nhầm sang host sau.
-
-### B6.3. Phân phối sang hai host còn lại
-
-Bài 07 chạy trong shell root nên `scp` đọc được mọi file. Lab dùng `sudo` từng lệnh, nên thư mục tạm
-đang thuộc `root` — trả quyền sở hữu về user trước khi gửi:
+**Bước 5 — phân phối.** Bài 07 chạy trong shell root nên `scp` đọc được mọi file; ở đây thư mục tạm
+đang thuộc `root`, trả quyền về user trước khi gửi. Chạy trên **`lab-ha-1`**:
 
 ```bash
 sudo chown -R "$(id -u):$(id -g)" /tmp/${HOST1} /tmp/${HOST2}
-```
-
-Gửi đi, đúng cách bài 07 mô tả. Chạy trên **`lab-ha-1`**:
-
-```bash
 USER=ubuntu
 for H in "$HOST1" "$HOST2"; do
   scp -r /tmp/${H}/* ${USER}@${H}:
@@ -1377,7 +1514,7 @@ Chạy **trên `lab-ha-2`**, rồi lặp lại y hệt **trên `lab-ha-3`**:
 ```bash
 test ! -e /etc/kubernetes/pki \
   && echo 'PASS: chua co /etc/kubernetes/pki — an toan de di chuyen vao' \
-  || echo 'FAIL: da ton tai /etc/kubernetes/pki, quay lai B2.5'
+  || echo 'FAIL: da ton tai /etc/kubernetes/pki, quay lai B2'
 
 sudo chown -R root:root ~/pki
 sudo mv ~/pki /etc/kubernetes/
@@ -1385,195 +1522,118 @@ sudo chmod 600 /etc/kubernetes/pki/apiserver-etcd-client.key
 sudo find /etc/kubernetes/pki -name '*.key' -exec chmod 600 {} \;
 ```
 
-**PASS:** dòng `PASS: chua co /etc/kubernetes/pki …` xuất hiện **trước** khi bạn chạy `mv`. Thấy
-`FAIL:` thì dừng: `mv` vào một thư mục đã tồn tại sẽ tạo `/etc/kubernetes/pki/pki` và mọi bước sau
-hỏng theo.
+Dòng `PASS:` phải xuất hiện **trước** khi chạy `mv`. Thấy `FAIL:` thì dừng: `mv` vào thư mục đã tồn
+tại sẽ tạo `/etc/kubernetes/pki/pki` và mọi bước sau hỏng theo.
 
-### B6.4. Bước 6 của bài 07 — checklist file bắt buộc trên từng host
+Ý chính cho runbook:
 
-Chạy trên **`lab-ha-1`**:
+| Trường | Riêng hay chung | Vì sao |
+| --- | --- | --- |
+| `nodeRegistration.name`, `extraArgs.name` | riêng | định danh member trong cụm etcd |
+| `serverCertSANs`, `peerCertSANs` | riêng | certificate của member chỉ hợp lệ cho **địa chỉ của chính nó** |
+| `listen-peer-urls`, `initial-advertise-peer-urls` (`:2380`) | riêng | nơi member nhận và quảng bá lưu lượng **giữa các member** |
+| `listen-client-urls`, `advertise-client-urls` (`:2379`) | riêng | nơi **client** — `kube-apiserver`, `etcdctl` — kết nối vào |
+| `initial-cluster` | **chung** | cả ba phải thấy **cùng một** danh sách thì cụm mới hình thành |
+| `initial-cluster-state: new` | **chung** | khai đây là cụm mới, không phải member join vào cụm có sẵn |
 
-```bash
-check_host () {
-  local n="$1" want_cakey="$2"
-  echo "== $n"
-  ssh -o BatchMode=yes "$n" 'sudo ls -1 /etc/kubernetes/pki /etc/kubernetes/pki/etcd'
-  local CK
-  CK="$(ssh -o BatchMode=yes "$n" 'sudo test -f /etc/kubernetes/pki/etcd/ca.key && echo 1 || echo 0')"
-  local NEED
-  NEED="$(ssh -o BatchMode=yes "$n" '
-    c=0
-    for f in /etc/kubernetes/pki/apiserver-etcd-client.crt \
-             /etc/kubernetes/pki/apiserver-etcd-client.key \
-             /etc/kubernetes/pki/etcd/ca.crt \
-             /etc/kubernetes/pki/etcd/healthcheck-client.crt \
-             /etc/kubernetes/pki/etcd/healthcheck-client.key \
-             /etc/kubernetes/pki/etcd/peer.crt \
-             /etc/kubernetes/pki/etcd/peer.key \
-             /etc/kubernetes/pki/etcd/server.crt \
-             /etc/kubernetes/pki/etcd/server.key; do
-      sudo test -f "$f" && c=$(( c + 1 ))
-    done
-    echo "$c"')"
-  echo "$n -> du file bat buoc: $NEED/9 | co ca.key: $CK (mong doi $want_cakey)"
-  test "$NEED" -eq 9 && test "$CK" -eq "$want_cakey" && return 0
-  return 1
-}
+- TLS xác minh danh tính của **địa chỉ được kết nối tới**. Khi Bookstore chạy, chính
+  `kube-apiserver` trên `lab-ha-4`, `lab-ha-5` mở kết nối tới `https://192.168.100.232:2379` và từ chối
+  nếu certificate không có `192.168.100.232` trong SAN. Ba địa chỉ thì ba certificate.
+- CA key **ký được certificate mới**; ai cầm nó tự cấp được danh tính hợp lệ cho cụm etcd — tức đọc,
+  ghi được toàn bộ trạng thái cluster, gồm cả Secret `db-credentials`. Member chỉ cần certificate đã ký
+  của chính nó cộng `ca.crt`. Lệnh `find … -not -name ca.crt -not -name ca.key -delete` giữa các vòng
+  là cùng logic: dọn certificate của host trước để không phát nhầm sang host sau.
+- `2380` là port peer, `2379` là port client. Chặn `2380` thì từng endpoint vẫn trả lời qua `2379`
+  nhưng ba member không nói chuyện được với nhau, không bầu được leader, cụm không hình thành. Bài 07
+  yêu cầu **cả hai** port thông; A4.4 đã tắt UFW nên điều kiện đó có sẵn.
 
-OKH=0
-check_host "$N1" 1 && OKH=$(( OKH + 1 ))
-check_host "$N2" 0 && OKH=$(( OKH + 1 ))
-check_host "$N3" 0 && OKH=$(( OKH + 1 ))
-echo "host dat checklist: $OKH/3"
+</details>
 
-test "$OKH" -eq 3 \
-  && echo 'PASS: du chin file bat buoc tren ca ba host, va chi HOST0 giu ca.key'
-```
+## B6. [BS-8C-06] Cụm etcd ba member chạy trước mọi cluster
 
-**PASS:** dòng `PASS: du chin file bat buoc …` xuất hiện. Đây chính là ba cây thư mục mà bài 07 liệt
-kê ở bước 6, viết lại thành gate: `$HOST0` có **cả `ca.crt` và `ca.key`**; `$HOST1` và `$HOST2` chỉ
-có `ca.crt`.
+**Loại:** Vận hành — trên `lab-ha-1`, `lab-ha-2`, `lab-ha-3`.
 
-Đọc SAN để thấy vì sao mỗi host cần bộ certificate riêng. Chạy trên **`lab-ha-1`**:
+**Bối cảnh:** ba bộ certificate và ba file cấu hình phải thành ba etcd đang chạy, hợp thành **một**
+cụm — trước khi có API server nào. Đây cũng là lần đầu lab dùng `etcdctl`, nên giới hạn "chỉ đọc" bắt
+đầu có hiệu lực từ đây.
 
-```bash
-for pair in "$N1 $HOST0" "$N2 $HOST1" "$N3 $HOST2"; do
-  set -- $pair
-  echo "== $1 (mong doi SAN chua $2)"
-  ssh -o BatchMode=yes "$1" \
-    "sudo openssl x509 -noout -text -in /etc/kubernetes/pki/etcd/server.crt \
-       | grep -A1 'Subject Alternative Name'"
-done | tee "$EV/b6-san.txt"
+**Yêu cầu:**
 
-OKS=0
-for pair in "$N1 $HOST0" "$N2 $HOST1" "$N3 $HOST2"; do
-  set -- $pair
-  ssh -o BatchMode=yes "$1" \
-    "sudo openssl x509 -noout -text -in /etc/kubernetes/pki/etcd/server.crt" \
-    | grep -A1 'Subject Alternative Name' | grep -q "IP Address:$2" \
-    && OKS=$(( OKS + 1 )) || echo "FAIL: server.crt tren $1 khong co SAN $2"
-done
-echo "certificate co SAN dung: $OKS/3"
+1. Static Pod manifest của etcd do kubeadm sinh trên cả ba host (bước 7 của bài 07); image trong
+   manifest đúng là image mà kubeadm khai cho phiên bản Kubernetes của baseline — **không ai ghim tay**.
+2. Image đã có sẵn trên cả ba host trước khi sinh manifest; ba container etcd ở trạng thái chạy.
+3. Manifest cho thấy peer ở `2380`, client ở `2379`.
+4. Kiểm sức khỏe cụm bằng đúng ba cờ certificate của bước 8 bài 07, chỉ bằng ba lệnh đọc: ba member
+   `started` đúng ba tên đã khai, ba endpoint healthy, đúng **một** leader.
+5. Chứng minh chưa có Kubernetes: `lab-ha-1` không có `admin.conf`, không có manifest apiserver, và chỉ
+   chạy đúng một container. Ghi ảnh chụp cụm etcd vào evidence.
 
-test "$OKS" -eq 3 \
-  && echo 'PASS: moi server.crt chi hop le cho dia chi cua chinh host do'
-```
+**Ràng buộc:** `etcdctl` chỉ `member list`, `endpoint health`, `endpoint status`. Không kéo image
+`etcdctl` riêng.
 
-**PASS:** dòng `PASS: moi server.crt chi hop le …` xuất hiện.
+**Đọc lại:** bài [07](../07-setup-ha-etcd-with-kubeadm-vi.md),
+[*Trước khi bạn bắt đầu*](../07-setup-ha-etcd-with-kubeadm-vi.md#trước-khi-bạn-bắt-đầu-before-you-begin)
+— gạch đầu dòng về `kubeadm config images list/pull`;
+[*Thiết lập cluster*](../07-setup-ha-etcd-with-kubeadm-vi.md#thiết-lập-cluster-setting-up-the-cluster)
+bước 7 và 8; [A5.1 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a51-init-control-plane) — vì sao giữ cờ
+`--kubernetes-version`.
 
-**Ý nghĩa:** đây là câu trả lời cho "vì sao mỗi host cần bộ certificate riêng". TLS xác minh **danh
-tính của địa chỉ được kết nối tới**. `kube-apiserver` mở kết nối tới `https://192.168.100.232:2379`
-và sẽ từ chối nếu certificate mà server trình ra không có `192.168.100.232` trong SAN. Ba member ba
-địa chỉ nên phải ba certificate; dùng chung một certificate thì hoặc là bạn phải nhét cả ba IP vào
-SAN của nó, hoặc là hai trong ba kết nối sẽ hỏng. `serverCertSANs` và `peerCertSANs` trong
-`kubeadmcfg.yaml` ở B5 chính là chỗ khai điều đó, và `openssl` vừa đọc lại kết quả.
+**Bàn giao:** `/etc/kubernetes/manifests/etcd.yaml` trên ba host; `~/lab-evidence/8c/b6-*.txt` trên
+`lab-ha-1`; mục *Cụm etcd* trong runbook.
 
----
+**Nghiệm thu:**
 
-## B7. Bài 07 bước 7 — sinh static Pod manifest cho từng host
+- `PASS:` ba host có image etcd kubeadm khai, có `etcd.yaml`, và tag trong manifest khớp tag kubeadm khai.
+- `PASS:` ba container etcd đang chạy; manifest khai `2380` cho peer, `2379` cho client.
+- `PASS:` ba member `started` đúng tên; ba endpoint healthy; đúng một leader.
+- `PASS:` `lab-ha-1` chưa có cluster Kubernetes: không `admin.conf`, không `kube-apiserver.yaml`, một
+  container.
 
-**Mục đích:** biến ba bộ certificate cộng ba file cấu hình thành ba etcd đang chạy, và chốt rằng
-**image etcd là do kubeadm chọn**, không do bạn ghim tay.
+**Câu hỏi thiết kế** — trả lời trong runbook, mục *Cụm etcd*:
 
-### B7.1. Chốt image etcd trước khi sinh manifest
+1. Vì sao version etcd không nằm trong bảng A1.3, và vì sao lấy danh sách image phải kèm phiên bản
+   Kubernetes cụ thể?
+2. `etcdctl` ở đâu ra mà không cần kéo image nào? Ba cờ certificate trong lệnh kiểm sức khỏe để làm gì?
+3. Chạy xong bước 8, bạn đã có cluster Kubernetes chưa? Ba máy này có phải Node của cluster Bookstore
+   không, và bài 06 gọi tình trạng đó bằng chữ gì?
+
+<details>
+<summary>Gợi ý</summary>
+
+- `kubeadm config images list --kubernetes-version …` in đủ image của control plane; lọc dòng etcd.
+- Static Pod của kubeadm mount `/etc/kubernetes/pki/etcd` vào đúng đường dẫn đó trong container, nên
+  `crictl exec` vào container etcd dùng được nguyên đường dẫn certificate trên host.
+- `etcdctl` của etcd 3.5 trở lên mặc định dùng API v3; biến `ETCDCTL_API=3` của bài 07 không bắt buộc.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 Chạy trên **`lab-ha-1`**:
 
 ```bash
+source ~/lab-work/8c/bien-ha.sh
+HOST0="$E1"
+
 KV="$(kubeadm version -o short)"
 ETCD_IMG="$(sudo kubeadm config images list --kubernetes-version "$KV" 2>/dev/null | grep '/etcd:')"
-echo "kubeadm $KV khai image etcd: $ETCD_IMG"
-echo "$ETCD_IMG" | tee "$EV/b7-etcd-image-khai.txt"
+echo "$ETCD_IMG" > "$EV/b6-etcd-image-khai.txt"
+test -n "$ETCD_IMG" && echo "PASS: kubeadm $KV khai image etcd: $ETCD_IMG"
 
-test -n "$ETCD_IMG" && echo 'PASS: da lay duoc image etcd tu kubeadm, khong ghim tay'
-```
-
-**PASS:** dòng `PASS: da lay duoc image etcd tu kubeadm …` xuất hiện.
-
-**Ý nghĩa:** bài 07 yêu cầu mỗi host "có quyền truy cập đến container image registry của Kubernetes
-(`registry.k8s.io`) **hoặc liệt kê/pull image etcd cần thiết bằng `kubeadm config images list/pull`**".
-Đó là cách đúng để biết version etcd: **kubeadm tự chọn bản etcd hợp với phiên bản Kubernetes**, nên
-con số đó không thuộc về bạn và không có chỗ trong
-[bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa). `--kubernetes-version "$KV"` giữ
-kubeadm khỏi dò remote và chọn một patch khác binary đang cài — cùng lý do
-[A5.1 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a51-init-control-plane) giữ cờ đó.
-
-Kéo trước image trên **cả ba host etcd** để bước sau không lẫn giữa "chưa tải xong" và "cấu hình
-sai". Chạy trên **`lab-ha-1`**:
-
-```bash
+OKI=0; OKM=0; OKT=0
 for n in "$N1" "$N2" "$N3"; do
-  echo "== $n"
-  ssh "$n" "sudo crictl pull '$ETCD_IMG'"
-done
-
-OKI=0
-for n in "$N1" "$N2" "$N3"; do
-  ssh -o BatchMode=yes "$n" "sudo crictl images -q '$ETCD_IMG'" | grep -q . \
-    && OKI=$(( OKI + 1 )) || echo "FAIL: $n chua co image"
-done
-echo "host da co image etcd: $OKI/3"
-test "$OKI" -eq 3 && echo 'PASS: ca ba host deu co image etcd kubeadm khai'
-```
-
-**PASS:** dòng `PASS: ca ba host deu co image etcd …` xuất hiện. Fail ở đây gần như luôn là DNS hoặc
-egress — xử lý theo
-[tầng 4 của A5.4 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a545-tầng-4--dns-trong-cluster-và-ra-internet).
-
-### B7.2. Sinh manifest trên từng host
-
-Chạy **trên `lab-ha-1`**:
-
-```bash
-sudo kubeadm init phase etcd local --config=/tmp/${HOST0}/kubeadmcfg.yaml
-```
-
-Chạy **trên `lab-ha-2`**, rồi **trên `lab-ha-3`** — file cấu hình của hai máy này nằm ở thư mục home
-vì `scp` của B6.3 đã đặt nó ở đó:
-
-```bash
-sudo kubeadm init phase etcd local --config=$HOME/kubeadmcfg.yaml
-```
-
-Gate, chạy trên **`lab-ha-1`**:
-
-```bash
-OKM=0
-for n in "$N1" "$N2" "$N3"; do
+  ssh -o BatchMode=yes "$n" "sudo crictl images -q '$ETCD_IMG'" | grep -q . && OKI=$(( OKI + 1 ))
   M="$(ssh -o BatchMode=yes "$n" 'sudo test -f /etc/kubernetes/manifests/etcd.yaml && echo 1 || echo 0')"
-  echo "$n -> co etcd.yaml: $M"
   test "$M" -eq 1 && OKM=$(( OKM + 1 ))
-done
-echo "host co static Pod manifest: $OKM/3"
-test "$OKM" -eq 3 && echo 'PASS: ca ba host da co /etc/kubernetes/manifests/etcd.yaml'
-```
-
-**PASS:** dòng `PASS: ca ba host da co … etcd.yaml` xuất hiện.
-
-### B7.3. Gate: image thật khớp image kubeadm khai, và etcd đã chạy
-
-Chạy trên **`lab-ha-1`**:
-
-```bash
-OKT=0
-for n in "$N1" "$N2" "$N3"; do
   REAL="$(ssh -o BatchMode=yes "$n" \
     "sudo grep -E '^[[:space:]]+image:' /etc/kubernetes/manifests/etcd.yaml | awk '{print \$2}'")"
   echo "$n -> image trong manifest: $REAL"
-  test "$REAL" = "$ETCD_IMG" && OKT=$(( OKT + 1 )) \
-    || echo "FAIL: $n dung '$REAL', kubeadm khai '$ETCD_IMG'"
+  test "$REAL" = "$ETCD_IMG" && OKT=$(( OKT + 1 )) || echo "FAIL: $n dung '$REAL', kubeadm khai '$ETCD_IMG'"
 done
-echo "manifest dung image: $OKT/3"
+test "$OKI" -eq 3 && test "$OKM" -eq 3 && test "$OKT" -eq 3 \
+  && echo 'PASS: ca ba host co image, co etcd.yaml, tag thuc te khop dung thu kubeadm khai'
 
-test "$OKT" -eq 3 \
-  && echo 'PASS: tag etcd thuc te khop dung thu kubeadm khai — khong ai ghim tay'
-```
-
-**PASS:** dòng `PASS: tag etcd thuc te khop …` xuất hiện.
-
-Chờ ba container etcd lên. Chạy trên **`lab-ha-1`**:
-
-```bash
 OKR2=0
 for n in "$N1" "$N2" "$N3"; do
   C=0
@@ -1585,54 +1645,15 @@ for n in "$N1" "$N2" "$N3"; do
   echo "$n -> container etcd dang chay: $C"
   test "$C" -ge 1 && OKR2=$(( OKR2 + 1 ))
 done
-echo "host co etcd chay: $OKR2/3"
-
 test "$OKR2" -eq 3 && echo 'PASS: ca ba etcd member da chay duoi dang static Pod'
-```
 
-**PASS:** dòng `PASS: ca ba etcd member da chay …` xuất hiện. Vòng lặp có số vòng tối đa vì thời gian
-etcd bầu leader và ổn định **phụ thuộc cấu hình và phần cứng host**. Hết vòng mà container không lên
-thì đọc log của kubelet trước: `ssh <node> 'journalctl -u kubelet -n 80 --no-pager'`, rồi xem
-[mục 4](#4-troubleshooting-của-lab-này).
-
-Đọc luôn hai port trong manifest — đây là chỗ nhìn thấy `2379`/`2380` bằng mắt:
-
-```bash
 ssh "$N1" "sudo grep -E 'listen-(peer|client)-urls|advertise' /etc/kubernetes/manifests/etcd.yaml" \
-  | tee "$EV/b7-urls-host0.txt"
+  > "$EV/b6-urls-host0.txt"
+grep -q "listen-peer-urls=https://$HOST0:2380" "$EV/b6-urls-host0.txt" \
+  && grep -q "listen-client-urls=https://$HOST0:2379" "$EV/b6-urls-host0.txt" \
+  && echo 'PASS: 2380 la port giua cac member, 2379 la port cho client'
 
-grep -q "listen-peer-urls=https://$HOST0:2380" "$EV/b7-urls-host0.txt" \
-  && echo 'PASS: 2380 la port giua cac member'
-grep -q "listen-client-urls=https://$HOST0:2379" "$EV/b7-urls-host0.txt" \
-  && echo 'PASS: 2379 la port cho client'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện.
-
----
-
-## B8. Bài 07 bước 8 — kiểm sức khỏe cụm etcd, chỉ đọc
-
-**Mục đích:** chứng minh ba member đã hợp thành **một** cụm, bằng đúng ba cờ certificate mà bài 07
-đưa. Đây cũng là bước đầu tiên trong lab dùng `etcdctl`, nên đọc kỹ giới hạn.
-
-> **Chỉ đọc.** Ba lệnh được phép trong lab này là `member list`, `endpoint health`, `endpoint
-> status`. `snapshot save`, `snapshot restore`, `member add/remove`, `put`, `del` đều **cấm** — chúng
-> thuộc [nợ #8](README.md#5-sổ-nợ-lab), trả ở
-> [giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa).
-
-### B8.1. Đặt hàm `ectl` trên host etcd
-
-Bài 07 nói: nếu `etcdctl` không có sẵn thì chạy nó **bên trong một container image**, làm việc trực
-tiếp với container runtime chứ không qua Kubernetes. Lab làm đúng ý đó theo cách rẻ nhất: `etcdctl`
-đã nằm sẵn trong image mà kubeadm chọn, và container etcd **đang chạy**, nên chỉ cần `crictl exec`
-vào chính nó — không kéo thêm image nào.
-
-Chạy trên **`lab-ha-1`**:
-
-```bash
 EPS="https://192.168.100.231:2379,https://192.168.100.232:2379,https://192.168.100.233:2379"
-
 ectl () {
   local cid
   cid="$(sudo crictl ps --name etcd --state Running -q | head -n 1)"
@@ -1644,106 +1665,213 @@ ectl () {
     --endpoints "$EPS" "$@"
 }
 
-ectl version && echo 'PASS: goi duoc etcdctl trong container etcd'
-```
+ectl member list > "$EV/b6-member-list.txt"
+test "$(grep -c ', started,' "$EV/b6-member-list.txt")" -eq 3 \
+  && grep -q 'lab-ha-1' "$EV/b6-member-list.txt" \
+  && grep -q 'lab-ha-2' "$EV/b6-member-list.txt" \
+  && grep -q 'lab-ha-3' "$EV/b6-member-list.txt" \
+  && echo 'PASS: cum etcd co du ba member started, dung ba ten khai o initial-cluster'
 
-**PASS:** dòng `PASS: goi duoc etcdctl trong container etcd` xuất hiện. Ba cờ `--cert`, `--key`,
-`--cacert` là đúng bộ bài 07 đưa; đường dẫn bên trong container trùng đường dẫn trên host vì static
-Pod của kubeadm mount `/etc/kubernetes/pki/etcd` vào đúng chỗ đó.
+ectl endpoint health > "$EV/b6-endpoint-health.txt" 2>&1
+test "$(grep -c 'is healthy' "$EV/b6-endpoint-health.txt")" -eq 3 \
+  && echo 'PASS: ca ba endpoint deu healthy'
 
-`etcdctl` của etcd 3.5 trở lên mặc định dùng API v3, nên không cần biến `ETCDCTL_API=3` mà bài 07 đặt
-ở đầu lệnh. Nếu `ectl version` báo lỗi về API version, thêm biến đó theo đúng cách bài viết.
-
-### B8.2. `member list`, `endpoint health`, `endpoint status`
-
-Chạy trên **`lab-ha-1`**:
-
-```bash
-ectl member list | tee "$EV/b8-member-list.txt"
-MEM="$(grep -c ', started,' "$EV/b8-member-list.txt")"
-echo "member o trang thai started: $MEM"
-test "$MEM" -eq 3 && echo 'PASS: cum etcd co du ba member'
-
-for h in lab-ha-1 lab-ha-2 lab-ha-3; do
-  grep -q "$h" "$EV/b8-member-list.txt" || echo "FAIL: thieu member $h"
-done
-grep -q 'lab-ha-1' "$EV/b8-member-list.txt" \
-  && grep -q 'lab-ha-2' "$EV/b8-member-list.txt" \
-  && grep -q 'lab-ha-3' "$EV/b8-member-list.txt" \
-  && echo 'PASS: ba member dung ba ten khai o initial-cluster'
-```
-
-```bash
-ectl endpoint health | tee "$EV/b8-endpoint-health.txt"
-HEA="$(grep -c 'is healthy' "$EV/b8-endpoint-health.txt")"
-echo "endpoint khoe: $HEA/3"
-test "$HEA" -eq 3 && echo 'PASS: ca ba endpoint deu healthy'
-```
-
-```bash
-ectl endpoint status --write-out=table | tee "$EV/b8-endpoint-status.txt"
+ectl endpoint status --write-out=table > "$EV/b6-endpoint-status.txt"
 LEAD="$(ectl endpoint status --write-out=fields | grep -c 'IsLeader.*true')"
-echo "so member dang la leader: $LEAD"
 test "$LEAD" -eq 1 && echo 'PASS: dung mot leader trong cum'
-```
 
-**PASS:** bốn dòng `PASS:` của B8.2 xuất hiện. Nếu `--write-out=fields` không được hỗ trợ ở bản
-etcdctl trong image của bạn, đọc cột `IS LEADER` trong bảng của lệnh ngay trên và đếm bằng mắt — kết
-luận phải giống nhau: **đúng một** `true`.
+test ! -e /etc/kubernetes/admin.conf && test ! -e /etc/kubernetes/manifests/kube-apiserver.yaml \
+  && test "$(sudo crictl ps --state Running -q | wc -l)" -eq 1 \
+  && echo 'PASS: chua co cluster Kubernetes — lab-ha-1 chi chay dung mot container etcd'
 
-### B8.3. Chốt lại: vẫn chưa có Kubernetes nào
-
-Chạy trên **`lab-ha-1`**:
-
-```bash
-test ! -e /etc/kubernetes/admin.conf \
-  && echo 'PASS: khong co admin.conf — chua co cluster Kubernetes'
-test ! -e /etc/kubernetes/manifests/kube-apiserver.yaml \
-  && echo 'PASS: khong co kube-apiserver.yaml tren host etcd'
-sudo crictl ps --state Running -o table | tee "$EV/b8-containers-host0.txt"
-
-NON_ETCD="$(sudo crictl ps --state Running -q | wc -l)"
-echo "container dang chay tren lab-ha-1: $NON_ETCD"
-test "$NON_ETCD" -eq 1 && echo 'PASS: dung mot container — chi etcd, khong co thanh phan control plane nao'
-```
-
-**PASS:** ba dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** đây là câu chốt của bài 07. Bạn vừa dựng xong **một cụm etcd ba thành viên chạy dưới
-dạng static Pod do một kubelet quản lý**, và **chưa có API server, chưa có cluster Kubernetes**. Ba
-máy này sẽ **không bao giờ** xuất hiện trong `kubectl get nodes` của cluster sắp dựng — chúng không
-join, không có kubelet.conf, không có danh tính trong Kubernetes. Đó chính xác là điều bài
-[06](../06-ha-topology-vi.md) gọi là etcd "nằm **bên ngoài** cluster hình thành từ các node đang
-chạy các thành phần control plane".
-
-Ghi bằng chứng để B13 đối chiếu:
-
-```bash
 {
   echo "=== $(date -Is) — cum etcd external, truoc khi dung control plane ==="
   ectl member list
   ectl endpoint health
   ectl endpoint status --write-out=table
-} | tee "$EV/b8-etcd-truoc-control-plane.txt"
-
-test -s "$EV/b8-etcd-truoc-control-plane.txt" && echo 'PASS: da ghi bang chung cum etcd'
+} > "$EV/b6-etcd-truoc-control-plane.txt" 2>&1
+test -s "$EV/b6-etcd-truoc-control-plane.txt" && echo 'PASS: da ghi bang chung cum etcd'
 ```
 
-**PASS:** dòng `PASS: da ghi bang chung cum etcd` xuất hiện.
+Nếu `--write-out=fields` không được hỗ trợ ở bản `etcdctl` trong image, đọc cột `IS LEADER` trong
+`b6-endpoint-status.txt` — kết luận phải là **đúng một** `true`. Vòng lặp chờ container có số vòng
+tối đa vì thời gian etcd bầu leader và ổn định phụ thuộc cấu hình và phần cứng host.
 
----
+</details>
 
-## B9. Bài 08 — control plane đầu tiên với `etcd.external`
+<details>
+<summary>Lời giải tham khảo — quy trình đã kiểm chứng</summary>
 
-**Mục đích:** đây là mục *Các node etcd bên ngoài* của bài [08](../08-high-availability-vi.md). Bài
-nói việc thiết lập cluster với etcd ngoài "tương tự với quy trình dùng cho stacked etcd, **ngoại
-trừ** việc bạn cần thiết lập etcd trước, và bạn cần truyền thông tin etcd vào file cấu hình kubeadm".
-Ba mục B trước đã làm vế thứ nhất; B9 làm vế thứ hai.
-
-### B9.1. Chép ba file certificate sang control plane đầu tiên
-
-Bài 08 liệt kê đúng ba file phải chép **từ bất kỳ node etcd nào** sang control plane node đầu tiên.
+Chốt image và kéo trước lên cả ba host để bước sau không lẫn giữa "chưa tải xong" và "cấu hình sai".
 Chạy trên **`lab-ha-1`**:
+
+```bash
+source ~/lab-work/8c/bien-ha.sh
+KV="$(kubeadm version -o short)"
+ETCD_IMG="$(sudo kubeadm config images list --kubernetes-version "$KV" 2>/dev/null | grep '/etcd:')"
+echo "kubeadm $KV khai image etcd: $ETCD_IMG"
+for n in "$N1" "$N2" "$N3"; do
+  echo "== $n"
+  ssh "$n" "sudo crictl pull '$ETCD_IMG'"
+done
+```
+
+Bước 7 của bài 07. Chạy **trên `lab-ha-1`**:
+
+```bash
+export HOST0='192.168.100.231'
+sudo kubeadm init phase etcd local --config=/tmp/${HOST0}/kubeadmcfg.yaml
+```
+
+Chạy **trên `lab-ha-2`**, rồi **trên `lab-ha-3`** — file cấu hình nằm ở home vì `scp` của B5 đặt nó ở đó:
+
+```bash
+sudo kubeadm init phase etcd local --config=$HOME/kubeadmcfg.yaml
+```
+
+Kéo image fail gần như luôn là DNS hoặc egress — xử lý theo
+[tầng 4 của A5.4 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a545-tầng-4--dns-trong-cluster-và-ra-internet).
+
+Ý chính cho runbook:
+
+1. Bài 07 yêu cầu host truy cập được `registry.k8s.io` **hoặc** liệt kê/pull image etcd bằng
+   `kubeadm config images list/pull`: kubeadm tự chọn bản etcd hợp với phiên bản Kubernetes, nên con số
+   đó không thuộc về bạn và không có chỗ trong A1.3. `--kubernetes-version` giữ kubeadm khỏi dò remote
+   và chọn một patch khác binary đang cài — cùng lý do A5.1 giữ cờ đó.
+2. `etcdctl` nằm sẵn trong image etcd mà kubeadm chọn; `crictl exec` vào chính container đang chạy là
+   cách rẻ nhất của ý "chạy `etcdctl` trong container, làm việc trực tiếp với runtime" của bài 07. Ba
+   cờ: `--cacert` để xác minh certificate etcd trình ra, cặp `--cert`/`--key` là danh tính client.
+3. Chưa. Bạn có một cụm etcd ba member chạy dưới dạng static Pod do kubelet quản lý — chưa API server,
+   chưa cluster. Ba máy sẽ **không bao giờ** là Node của cluster Bookstore; bài 06 gọi đó là etcd nằm
+   **bên ngoài** cluster hình thành từ các node chạy control plane.
+
+</details>
+
+## B7. [BS-8C-07] Control plane đầu tiên với `etcd.external`
+
+**Loại:** Vận hành — trên `lab-ha-4`, chép certificate từ `lab-ha-1`.
+
+**Bối cảnh:** bài 08 nói dựng cluster với etcd ngoài "tương tự quy trình stacked, **ngoại trừ** việc
+bạn cần thiết lập etcd trước, và cần truyền thông tin etcd vào file cấu hình kubeadm". B4–B6 đã làm
+vế thứ nhất; ticket này làm vế thứ hai. Từ đây `lab-ha-4` là node quản trị.
+
+**Yêu cầu:**
+
+1. `lab-ha-4` có đúng ba file mà bài 08 yêu cầu chép từ một node etcd, đặt đúng đường dẫn, khóa riêng
+   chỉ root đọc được; **không** có `ca.key` của etcd.
+2. File cấu hình kubeadm ở `~/lab-work/8c/kubeadm-config.yaml`: phiên bản Kubernetes và dải Pod đúng
+   A1.3; endpoint control plane là **load balancer**; khối etcd khai **ngoài**, đủ ba endpoint và ba
+   đường dẫn certificate; không còn khối etcd cục bộ. File được kiểm **trước** khi `init`.
+3. `kubeadm init` với file cấu hình và tải certificate control plane lên cluster — thành công; output
+   lưu ở `~/lab-evidence/8c/b7-init.log`, rồi xóa khỏi file các dòng chứa token và certificate key.
+4. Kubeconfig quản trị của user trên `lab-ha-4` trỏ tới load balancer.
+5. CNI của baseline cài xong, dải mạng của nó khớp dải Pod trong file cấu hình; cluster có **đúng một**
+   node — ba host etcd không xuất hiện.
+6. Gọi được API server **qua load balancer**; `/readyz` trả `ok`.
+
+**Ràng buộc:** không dùng `--certificate-key` cùng `--config`. Không ghim tay số phiên bản — nạp từ
+`bien-ha.sh`. Không ngắt `kubeadm init` giữa chừng.
+
+**Đọc lại:** bài [08](../08-high-availability-vi.md):
+[*Các node etcd bên ngoài*](../08-high-availability-vi.md#các-node-etcd-bên-ngoài-external-etcd-nodes)
+— ba mục con *Thiết lập cluster etcd*, *Thiết lập node control plane đầu tiên* và các bước cho node còn
+lại; ghi chú về `--config` và `--certificate-key` ở
+[*Các bước cho node control plane đầu tiên*](../08-high-availability-vi.md#các-bước-cho-node-control-plane-đầu-tiên-steps-for-the-first-control-plane-node);
+bài [02](../02-create-cluster-kubeadm-vi.md#pod-network) — dải Pod của kubeadm và của CNI phải là một.
+
+**Bàn giao:** `/etc/kubernetes/pki/etcd/ca.crt` và cặp `apiserver-etcd-client` trên `lab-ha-4`;
+`~/lab-work/8c/kubeadm-config.yaml` (nội dung chép vào runbook, mục *Control plane external*);
+`~/lab-evidence/8c/b7-*` trên `lab-ha-4`.
+
+**Nghiệm thu:**
+
+- `PASS:` `kubeadm` trên `lab-ha-4` đúng version A1.3.
+- `PASS:` đủ ba file certificate, không có `ca.key`.
+- `PASS:` file cấu hình trỏ load balancer, khai đủ ba endpoint etcd ngoài, không khai etcd cục bộ, có
+  dải Pod.
+- `PASS:` `kubeadm init` thành công; kubeconfig trỏ load balancer.
+- `PASS:` dải mạng của Flannel khớp dải Pod; đúng một node.
+- `PASS:` `/version` qua load balancer trả JSON; `/readyz` là `ok`.
+
+**Câu hỏi thiết kế** — trả lời trong runbook, mục *Control plane external*:
+
+1. Vì sao nhánh external **buộc** dùng file cấu hình chứ không dùng cờ dòng lệnh? Cờ nào của
+   `kubeadm init` không dùng chung được với file cấu hình, và nếu cần nó thì khai ở đâu?
+2. Ba file chép sang `lab-ha-4` mỗi file đóng vai gì khi `kube-apiserver` kết nối tới `2379`? Vì sao
+   thiếu `ca.key` ở đây là đúng?
+3. Đặt cạnh cấu hình stacked của Lab 8b: đâu là **toàn bộ** khác biệt giữa hai nhánh của bài 08?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Mẫu `ClusterConfiguration` có sẵn trong bài 08; thêm `networking.podSubnet` theo ghi chú CNI của
+  chính bài đó.
+- `scp` bằng user thường không đọc được khóa dưới `/etc/kubernetes`; đọc bằng `sudo` ra file tạm có
+  quyền `600` rồi gửi.
+- Kubeconfig cho user thường: đúng bốn lệnh của A5.1 trong Lab 00.
+- Manifest Flannel lấy theo release ghi ở A1.3; ConfigMap `kube-flannel-cfg` chứa `net-conf.json`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+Chạy trên **`lab-ha-4`**:
+
+```bash
+source ~/lab-work/8c/bien-ha.sh
+
+test "$(kubeadm version -o short)" = "$K8S_VER" \
+  && echo "PASS: kubeadm tren $(hostname -s) dung version cua A1.3" \
+  || echo "FAIL: kubeadm la $(kubeadm version -o short), A1.3 ghi $K8S_VER"
+
+OK9=0
+for f in /etc/kubernetes/pki/etcd/ca.crt \
+         /etc/kubernetes/pki/apiserver-etcd-client.crt \
+         /etc/kubernetes/pki/apiserver-etcd-client.key; do
+  sudo test -f "$f" && OK9=$(( OK9 + 1 )) || echo "FAIL: thieu $f"
+done
+sudo ls -l /etc/kubernetes/pki /etc/kubernetes/pki/etcd > "$EV/b7-pki.txt"
+test "$OK9" -eq 3 && ! sudo test -f /etc/kubernetes/pki/etcd/ca.key \
+  && echo 'PASS: du ba file certificate bai 08 yeu cau, khong co ca.key'
+
+CFG="$WK/kubeadm-config.yaml"
+cp "$CFG" "$EV/b7-kubeadm-config.txt"
+grep -q "controlPlaneEndpoint: \"${LB}:6443\"" "$CFG" \
+  && echo 'PASS: controlPlaneEndpoint tro toi load balancer, khong tro toi mot control plane node'
+test "$(grep -c 'https://192.168.100.23[123]:2379' "$CFG")" -eq 3 && echo 'PASS: khai du ba endpoint etcd'
+grep -q '^    external:' "$CFG" && echo 'PASS: dung khoi etcd.external'
+grep -q '^    local:' "$CFG" && echo 'FAIL: con khoi etcd.local — day la cau hinh stacked' \
+  || echo 'PASS: khong co khoi etcd.local'
+grep -qE 'podSubnet: [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+' "$CFG" && echo 'PASS: podSubnet da duoc dien tu A1.3'
+
+grep -q 'Your Kubernetes control-plane has initialized successfully' "$EV/b7-init.log" \
+  && echo 'PASS: kubeadm init thanh cong'
+SRV="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
+test "$SRV" = "https://${LB}:6443" && echo 'PASS: kubeconfig tro toi load balancer, dung ControlPlaneEndpoint'
+
+kubectl -n kube-flannel rollout status daemonset/kube-flannel-ds --timeout=300s
+NET="$(kubectl -n kube-flannel get configmap kube-flannel-cfg \
+  -o jsonpath='{.data.net-conf\.json}' | tr -d ' \n')"
+echo "$NET" | grep -q "\"Network\":\"${POD_CIDR}\"" \
+  && echo 'PASS: dai Pod network cua Flannel khop podSubnet trong kubeadm-config.yaml'
+
+kubectl wait --for=condition=Ready node --all --timeout=300s
+kubectl get nodes -o wide > "$EV/b7-node-1.txt"
+test "$(kubectl get nodes --no-headers | wc -l)" -eq 1 \
+  && echo 'PASS: dung mot node — ba host etcd KHONG xuat hien trong cluster'
+
+curl -sk "https://${LB}:6443/version" > "$EV/b7-version-qua-lb.txt"
+grep -q 'gitVersion' "$EV/b7-version-qua-lb.txt" && echo 'PASS: goi duoc API server qua load balancer'
+test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo — quy trình đã kiểm chứng</summary>
+
+**Chép ba file certificate.** Chạy trên **`lab-ha-1`**:
 
 ```bash
 CONTROL_PLANE="ubuntu@192.168.100.234"
@@ -1756,70 +1884,23 @@ rm -f /tmp/apiserver-etcd-client.crt /tmp/apiserver-etcd-client.key
 ```
 
 Hai lệnh `sudo cat > /tmp/…` thay cho `scp /etc/kubernetes/pki/…` của bài 08 vì bài chạy trong shell
-root còn lab dùng `sudo` từng lệnh: `scp` chạy bằng user thường không đọc được file khóa dưới
-`/etc/kubernetes`. Nội dung file không đổi; `ca.crt` đọc được nên `scp` thẳng.
+root còn lab dùng `sudo` từng lệnh. Nội dung file không đổi.
 
 Chạy **trên `lab-ha-4`** — đặt file vào đúng chỗ và khóa quyền:
 
 ```bash
-mkdir -p ~/lab-work/8c ~/lab-evidence/8c
-WK=~/lab-work/8c; EV=~/lab-evidence/8c
-
 sudo mkdir -p /etc/kubernetes/pki/etcd
 sudo mv ~/ca.crt /etc/kubernetes/pki/etcd/ca.crt
 sudo mv ~/apiserver-etcd-client.crt /etc/kubernetes/pki/apiserver-etcd-client.crt
 sudo mv ~/apiserver-etcd-client.key /etc/kubernetes/pki/apiserver-etcd-client.key
 sudo chown -R root:root /etc/kubernetes/pki
 sudo chmod 600 /etc/kubernetes/pki/apiserver-etcd-client.key
-
-sudo ls -l /etc/kubernetes/pki /etc/kubernetes/pki/etcd | tee "$EV/b9-pki.txt"
-
-OK9=0
-for f in /etc/kubernetes/pki/etcd/ca.crt \
-         /etc/kubernetes/pki/apiserver-etcd-client.crt \
-         /etc/kubernetes/pki/apiserver-etcd-client.key; do
-  sudo test -f "$f" && OK9=$(( OK9 + 1 )) || echo "FAIL: thieu $f"
-done
-echo "file certificate etcd tren control plane: $OK9/3"
-
-test "$OK9" -eq 3 && echo 'PASS: du ba file certificate ma bai 08 yeu cau'
-sudo test -f /etc/kubernetes/pki/etcd/ca.key \
-  && echo 'FAIL: ca.key cua etcd KHONG duoc co mat o day' \
-  || echo 'PASS: khong co ca.key — control plane khong ky duoc certificate etcd moi'
 ```
 
-**PASS:** hai dòng `PASS:` xuất hiện, không có dòng `FAIL:`.
-
-**Ý nghĩa:** ba file này là toàn bộ những gì `kube-apiserver` cần để nói chuyện với cụm etcd ngoài:
-`ca.crt` để **xác minh** certificate mà etcd trình ra, còn cặp `apiserver-etcd-client.crt/.key` là
-**danh tính client** của apiserver khi kết nối vào port `2379`. Không có `ca.key` ở đây là đúng: một
-client không cần khả năng ký certificate mới.
-
-### B9.2. Đặt biến và viết `kubeadm-config.yaml`
-
-Chạy trên **`lab-ha-4`**. Điền lại ba giá trị từ
-[bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa), giống B0.4 — máy này là
-shell khác nên biến của `lab-ha-1` không có ở đây:
+**File cấu hình.** Chạy trên **`lab-ha-4`**:
 
 ```bash
-K8S_VER='<dien Kubernetes control plane tu A1.3>'
-FLANNEL_VER='<dien Flannel manifest release tu A1.3>'
-POD_CIDR='<dien Pod CIDR tu A1.3>'
-
-LB='192.168.100.230'
-E1='192.168.100.231'; E2='192.168.100.232'; E3='192.168.100.233'
-CP1='192.168.100.234'; CP2='192.168.100.235'
-N4='lab-ha-4'; N5='lab-ha-5'
-
-test "$(kubeadm version -o short)" = "$K8S_VER" \
-  && echo "PASS: kubeadm tren $(hostname -s) dung version cua A1.3" \
-  || echo "FAIL: kubeadm la $(kubeadm version -o short), A1.3 ghi $K8S_VER"
-```
-
-**PASS:** dòng `PASS: kubeadm tren lab-ha-4 dung version cua A1.3` xuất hiện. Placeholder chưa điền
-sẽ làm gate này FAIL ngay — đó là mục đích của nó.
-
-```bash
+source ~/lab-work/8c/bien-ha.sh
 cat > "$WK/kubeadm-config.yaml" <<EOF
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
@@ -1838,146 +1919,195 @@ etcd:
     certFile: /etc/kubernetes/pki/apiserver-etcd-client.crt
     keyFile: /etc/kubernetes/pki/apiserver-etcd-client.key
 EOF
-
-cat "$WK/kubeadm-config.yaml" | tee "$EV/b9-kubeadm-config.txt"
+cat "$WK/kubeadm-config.yaml"
 ```
 
-Gate trước khi chạy `init` — file cấu hình sai thì `kubeadm init` mới phát hiện ra sau khi đã đổi
-trạng thái máy:
+Chạy phần kiểm file cấu hình của script nghiệm thu **trước** bước sau: file sai thì `kubeadm init` chỉ
+phát hiện ra sau khi đã đổi trạng thái máy.
+
+**Init và kubeconfig.** Chạy **trên `lab-ha-4`**, không ngắt giữa chừng:
 
 ```bash
-grep -q "controlPlaneEndpoint: \"${LB}:6443\"" "$WK/kubeadm-config.yaml" \
-  && echo 'PASS: controlPlaneEndpoint tro toi load balancer, khong tro toi mot control plane node'
-test "$(grep -c 'https://192.168.100.23[123]:2379' "$WK/kubeadm-config.yaml")" -eq 3 \
-  && echo 'PASS: khai du ba endpoint etcd'
-grep -q '^    external:' "$WK/kubeadm-config.yaml" \
-  && echo 'PASS: dung khoi etcd.external'
-grep -q '^    local:' "$WK/kubeadm-config.yaml" \
-  && echo 'FAIL: con khoi etcd.local — day la cau hinh stacked' \
-  || echo 'PASS: khong co khoi etcd.local'
-grep -qE 'podSubnet: [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+' "$WK/kubeadm-config.yaml" \
-  && echo 'PASS: podSubnet da duoc dien tu A1.3'
-```
+source ~/lab-work/8c/bien-ha.sh
+sudo kubeadm init --config "$WK/kubeadm-config.yaml" --upload-certs | tee "$EV/b7-init.log"
 
-**PASS:** năm dòng `PASS:` xuất hiện, không có dòng `FAIL:`.
-
-**Ý nghĩa — đây là toàn bộ khác biệt giữa hai nhánh của bài 08.** Bài ghi chú thẳng: "sự khác biệt
-giữa stacked etcd và external etcd ở đây là thiết lập external etcd yêu cầu một file cấu hình với
-các endpoint của etcd nằm dưới đối tượng `external` của `etcd`. Trong trường hợp topology stacked
-etcd, điều này được quản lý tự động." Và đó cũng là lý do nhánh này **buộc** dùng `--config`: không
-có cờ dòng lệnh nào của `kubeadm init` khai được khối `etcd.external`.
-
-Một hệ quả kèm theo mà bài 08 cảnh báo: `--config` **không dùng chung được với `--certificate-key`**.
-Nếu bạn muốn tự chọn certificate key thì phải đặt trường `certificateKey` trong `InitConfiguration`
-và trong `JoinConfiguration: controlPlane`. Lab đi đường khác — dùng `--upload-certs` rồi lấy key ở
-B10.1 — nên không vướng ràng buộc đó.
-
-### B9.3. `kubeadm init`
-
-Chạy **trên `lab-ha-4`**. Không ngắt lệnh này giữa chừng:
-
-```bash
-sudo kubeadm init --config "$WK/kubeadm-config.yaml" --upload-certs | tee "$EV/b9-init.log"
-```
-
-```bash
-grep -q 'Your Kubernetes control-plane has initialized successfully' "$EV/b9-init.log" \
-  && echo 'PASS: kubeadm init thanh cong'
-grep -q 'etcd' "$EV/b9-init.log" && grep -c 'external etcd' "$EV/b9-init.log"
-```
-
-**PASS:** dòng `PASS: kubeadm init thanh cong` xuất hiện. Nếu lệnh dừng ở giai đoạn chờ control plane
-khỏe, nguyên nhân thường gặp nhất là load balancer chưa đổi backend — quay lại B3.2 kiểm hai gate ở
-đó trước khi làm gì khác.
-
-Cấu hình kubeconfig cho user thường, đúng bốn lệnh của
-[A5.1 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a51-init-control-plane); phần giải thích từng lệnh
-nằm ở đó, không chép lại:
-
-```bash
 mkdir -p "$HOME/.kube"
 sudo cp /etc/kubernetes/admin.conf "$HOME/.kube/config"
 sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
 chmod 600 "$HOME/.kube/config"
-
-kubectl config current-context
-SRV="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
-echo "server trong kubeconfig: $SRV"
-
-test "$SRV" = "https://${LB}:6443" \
-  && echo 'PASS: kubeconfig tro toi load balancer, dung ControlPlaneEndpoint'
 ```
 
-**PASS:** dòng `PASS: kubeconfig tro toi load balancer …` xuất hiện. Đây là bằng chứng đầu tiên rằng
-`ControlPlaneEndpoint` đã "luôn khớp với địa chỉ của load balancer" như bài 08 đòi hỏi: kubeadm ghi
-chính giá trị đó vào kubeconfig, và mọi node join sau này cũng nhận đúng địa chỉ đó.
+`b7-init.log` chứa token và certificate key — chúng là bí mật. Sau khi script nghiệm thu đọc xong,
+xóa hai dòng `kubeadm join` khỏi file: `sed -i '/kubeadm join\|--discovery-token\|--certificate-key/d'
+"$EV/b7-init.log"`.
 
-### B9.4. Cài CNI
+Init dừng ở giai đoạn chờ control plane khỏe thì nguyên nhân thường gặp nhất là load balancer chưa đổi
+backend — chạy lại script nghiệm thu của B3 trước khi làm gì khác.
 
-Chạy trên **`lab-ha-4`**:
+**CNI.** Chạy trên **`lab-ha-4`**:
 
 ```bash
+source ~/lab-work/8c/bien-ha.sh
 kubectl apply -f \
   "https://github.com/flannel-io/flannel/releases/download/${FLANNEL_VER}/kube-flannel.yml"
-
 kubectl -n kube-flannel rollout status daemonset/kube-flannel-ds --timeout=300s
-kubectl -n kube-flannel get pods -o wide | tee "$EV/b9-flannel.txt"
-
-NET="$(kubectl -n kube-flannel get configmap kube-flannel-cfg \
-  -o jsonpath='{.data.net-conf\.json}' | tr -d ' \n')"
-echo "net-conf.json: $NET"
-
-echo "$NET" | grep -q "\"Network\":\"${POD_CIDR}\"" \
-  && echo 'PASS: dai Pod network cua Flannel khop podSubnet trong kubeadm-config.yaml'
 ```
 
-**PASS:** rollout thành công và dòng `PASS: dai Pod network cua Flannel khop podSubnet …` xuất hiện.
-Lệch hai giá trị này là rơi đúng cảnh báo của bài [02](../02-create-cluster-kubeadm-vi.md): dải mà
-kubeadm cấp phát và dải mà YAML của plugin dùng phải là một, và phải sửa **cả hai chỗ cùng lúc**.
+Ý chính cho runbook:
 
-```bash
-kubectl wait --for=condition=Ready node --all --timeout=300s
-kubectl get nodes -o wide | tee "$EV/b9-node-1.txt"
-kubectl -n kube-system get pods -o wide | tee "$EV/b9-kube-system.txt"
+1. Không cờ dòng lệnh nào của `kubeadm init` khai được khối `etcd.external`, nên file cấu hình là bắt
+   buộc. Bài 08: `--config` và `--certificate-key` không dùng chung — cần khóa tự chọn thì đặt trường
+   `certificateKey` trong `InitConfiguration` và `JoinConfiguration: controlPlane`. Lab dùng
+   `--upload-certs` rồi sinh khóa mới ở B8, nên không vướng ràng buộc đó.
+2. `ca.crt` để **xác minh** certificate mà etcd trình ra; cặp `apiserver-etcd-client` là **danh tính
+   client** của apiserver. Một client không cần khả năng ký certificate mới.
+3. Bài 08 ghi chú thẳng: khác biệt là external cần file cấu hình với endpoint etcd dưới `etcd.external`;
+   với stacked, "điều này được quản lý tự động". Mọi thứ khác — load balancer, `--upload-certs`, CNI,
+   join — giống hệt Lab 8b.
 
-test "$(kubectl get nodes --no-headers | wc -l)" -eq 1 \
-  && echo 'PASS: dung mot node — ba host etcd KHONG xuat hien trong cluster'
-```
+</details>
 
-**PASS:** dòng `PASS: dung mot node — ba host etcd KHONG xuat hien …` xuất hiện.
+## B8. [BS-8C-08] Control plane thứ hai và ba bằng chứng "external"
 
-**Ý nghĩa:** đây là hình ảnh trực quan nhất của chữ *bên ngoài*. Ba máy `lab-ha-1/2/3` đang chạy etcd
-phục vụ chính cluster này, nhưng chúng **không phải Node của nó** — kubelet trên đó không có
-`kubelet.conf`, không đăng ký với API server nào, đúng như B4.2 đã gate. Cluster nhìn thấy etcd chỉ
-qua ba địa chỉ IP trong `--etcd-servers`.
+**Loại:** Vận hành, kèm kiểm chứng — trên `lab-ha-4` và `lab-ha-5`.
 
-### B9.5. Gate: load balancer đã thật sự phục vụ
+**Bối cảnh:** cluster cần control plane thứ hai để có thứ mà tắt ở B11. Sau đó, ba nguồn độc lập —
+Kubernetes, đĩa của node, cấu hình apiserver — phải cùng chỉ về một kết luận: etcd nằm ngoài.
+
+**Yêu cầu:**
+
+1. `lab-ha-5` join làm control plane bằng một certificate key **sinh mới** — không phụ thuộc khoảng
+   cách thời gian từ lúc init.
+2. Cluster có hai node, mỗi node đúng một bộ `kube-apiserver`, `kube-controller-manager`,
+   `kube-scheduler`.
+3. CoreDNS được cân bằng lại theo ghi chú của bài 08; ghi lại Pod CoreDNS nằm ở đâu trước và sau.
+4. Ba bằng chứng external: **không** Pod `component=etcd` nào; **không** `etcd.yaml` trên đĩa của hai
+   control plane; `--etcd-servers` của **cả hai** apiserver liệt kê **cả ba** etcd host, không cái nào
+   trỏ loopback.
+5. Cấu hình cluster mà kubeadm lưu trong cluster khai etcd ngoài và endpoint là load balancer.
+6. Ảnh chụp "sau" của cluster external nằm cạnh ảnh chụp "trước" của B1. Token và certificate key
+   **không** nằm trong evidence.
+
+**Ràng buộc:** join từng node một. Không ghi token, certificate key vào `~/lab-evidence/`.
+
+**Đọc lại:** bài [08](../08-high-availability-vi.md#các-node-etcd-bên-ngoài-external-etcd-nodes) — các
+bước cho control plane còn lại, hạn hai giờ của khóa giải mã, ghi chú CoreDNS; bài
+[06](../06-ha-topology-vi.md#external-etcd-topology) — mỗi etcd host giao tiếp với `kube-apiserver` của
+**từng** control plane node; bài [58](../58-static-pods-vi.md#mirror-pods) — mirror Pod.
+
+**Bàn giao:** `~/lab-evidence/8c/b8-*` trên `lab-ha-4`; mục `## External (Lab 8c)` của ADR topology.
+
+**Nghiệm thu:**
+
+- `PASS:` hai node, hai bộ ba thành phần control plane.
+- `PASS:` CoreDNS đã rollout lại (trải hai node hay không đều được ghi nhận, không bắt buộc).
+- `PASS:` 0 Pod `component=etcd`; không control plane nào có `etcd.yaml`.
+- `PASS:` cả hai apiserver trỏ tới cả ba etcd host, không loopback, đúng ba cờ certificate.
+- `PASS:` `ClusterConfiguration` trong cluster khai `external`, đủ ba endpoint, endpoint là LB.
+- `PASS:` evidence không chứa token hay certificate key.
+
+**Câu hỏi thiết kế** — trả lời trong ADR topology, mục `## External (Lab 8c)`:
+
+1. Đặt hai dòng `--etcd-servers` của cluster này cạnh ba dòng của B1. Chỉ nhìn cấu hình đó, bạn phân
+   biệt được hai topology không — và quan hệ nào hiện ra?
+2. Vì sao cluster có 0 Pod `component=etcd` trong khi etcd rõ ràng đang chạy?
+3. ConfigMap `kubeadm-config` khai `external`. Ai đọc nó về sau, và vì sao điều đó quan trọng hơn file
+   `kubeadm-config.yaml` còn nằm trong `~/lab-work/8c/`?
+4. Vì sao không biến "CoreDNS trải đều hai node" thành gate cứng?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Bài 08 chỉ cách tải lại certificate và tạo khóa giải mã mới trên một control plane đã join; `kubeadm
+  token create --print-join-command` sinh phần còn lại của lệnh join.
+- Cờ `--etcd-*` của apiserver đọc từ static Pod manifest trên đĩa từng control plane.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 Chạy trên **`lab-ha-4`**:
 
 ```bash
-curl -sk "https://${LB}:6443/version" | tee "$EV/b9-version-qua-lb.txt"; echo
-grep -q 'gitVersion' "$EV/b9-version-qua-lb.txt" \
-  && echo 'PASS: goi duoc API server qua load balancer'
+source ~/lab-work/8c/bien-ha.sh
 
-test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
+kubectl wait --for=condition=Ready node --all --timeout=600s
+kubectl get nodes -o wide > "$EV/b8-nodes.txt"
+NODE_N="$(kubectl get nodes --no-headers | wc -l)"
+CP_N="$(kubectl get nodes -l 'node-role.kubernetes.io/control-plane' --no-headers | wc -l)"
+API_N="$(kubectl -n kube-system get pod -l component=kube-apiserver --no-headers | wc -l)"
+CM_N="$(kubectl -n kube-system get pod -l component=kube-controller-manager --no-headers | wc -l)"
+SC_N="$(kubectl -n kube-system get pod -l component=kube-scheduler --no-headers | wc -l)"
+echo "node=$NODE_N control plane=$CP_N apiserver=$API_N controller-manager=$CM_N scheduler=$SC_N"
+test "$NODE_N" -eq 2 && test "$CP_N" -eq 2 \
+  && test "$API_N" -eq 2 && test "$CM_N" -eq 2 && test "$SC_N" -eq 2 \
+  && echo 'PASS: hai control plane node, moi node mot bo ba thanh phan control plane'
+
+kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide > "$EV/b8-coredns-sau.txt"
+DNS_NODES="$(kubectl -n kube-system get pods -l k8s-app=kube-dns \
+  -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' | sort -u | wc -l)"
+test -n "$(kubectl -n kube-system get deploy coredns \
+  -o jsonpath='{.spec.template.metadata.annotations.kubectl\.kubernetes\.io/restartedAt}')" \
+  && echo 'PASS: CoreDNS da duoc rollout lai'
+test "$DNS_NODES" -eq 2 && echo 'GHI NHAN: hai Pod CoreDNS nam tren hai node khac nhau' \
+  || echo 'GHI NHAN: hai Pod CoreDNS van cung mot node — hop le, scheduler khong bat buoc trai deu'
+
+ETCD_POD_N="$(kubectl -n kube-system get pod -l component=etcd --no-headers 2>/dev/null | wc -l)"
+sudo ls -1 /etc/kubernetes/manifests/ > "$EV/b8-manifests-cp1.txt"
+ssh "$N5" 'sudo ls -1 /etc/kubernetes/manifests/' > "$EV/b8-manifests-cp2.txt"
+OKM=0
+for f in "$EV/b8-manifests-cp1.txt" "$EV/b8-manifests-cp2.txt"; do
+  grep -q 'etcd.yaml' "$f" && echo "FAIL: $f co etcd.yaml" || OKM=$(( OKM + 1 ))
+  grep -q 'kube-apiserver.yaml' "$f" || echo "FAIL: $f thieu kube-apiserver.yaml"
+done
+test "$ETCD_POD_N" -eq 0 && test "$OKM" -eq 2 \
+  && echo 'PASS: 0 Pod etcd, khong control plane node nao chay static Pod etcd'
+
+{
+  echo "== lab-ha-4"
+  sudo grep -E '^[[:space:]]+- --etcd-' /etc/kubernetes/manifests/kube-apiserver.yaml
+  echo "== lab-ha-5"
+  ssh "$N5" "sudo grep -E '^[[:space:]]+- --etcd-' /etc/kubernetes/manifests/kube-apiserver.yaml"
+} > "$EV/b8-etcd-flags.txt"
+SRV_LINES="$(grep -c -- '--etcd-servers=' "$EV/b8-etcd-flags.txt")"
+BOTH3="$(grep -- '--etcd-servers=' "$EV/b8-etcd-flags.txt" \
+  | grep -c "https://${E1}:2379,https://${E2}:2379,https://${E3}:2379")"
+LOOP="$(grep -c -- '--etcd-servers=https://127.0.0.1:2379' "$EV/b8-etcd-flags.txt")"
+CAF="$(grep -c -- '--etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt' "$EV/b8-etcd-flags.txt")"
+CRT="$(grep -c -- '--etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt' "$EV/b8-etcd-flags.txt")"
+KEY="$(grep -c -- '--etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key' "$EV/b8-etcd-flags.txt")"
+echo "etcd-servers=$SRV_LINES | du ba host=$BOTH3 | loopback=$LOOP | cafile=$CAF certfile=$CRT keyfile=$KEY"
+test "$SRV_LINES" -eq 2 && test "$BOTH3" -eq 2 && test "$LOOP" -eq 0 \
+  && test "$CAF" -eq 2 && test "$CRT" -eq 2 && test "$KEY" -eq 2 \
+  && echo 'PASS: CA HAI apiserver deu tro toi CA BA host etcd — quan he nhieu-nhieu'
+
+kubectl -n kube-system get cm kubeadm-config -o jsonpath='{.data.ClusterConfiguration}' \
+  > "$EV/b8-clusterconfig.txt"
+grep -q 'external:' "$EV/b8-clusterconfig.txt" && ! grep -q '  local:' "$EV/b8-clusterconfig.txt" \
+  && test "$(grep -c 'https://192.168.100.23[123]:2379' "$EV/b8-clusterconfig.txt")" -eq 3 \
+  && grep -q "controlPlaneEndpoint: ${LB}:6443" "$EV/b8-clusterconfig.txt" \
+  && echo 'PASS: ClusterConfiguration luu trong cluster khai etcd.external va endpoint la LB'
+
+{
+  echo "=== $(date -Is) — cluster external etcd, sau khi dung xong ==="
+  echo '--- nodes'; kubectl get nodes -o wide
+  echo '--- control plane pods'; kubectl -n kube-system get pods -l tier=control-plane -o wide
+  echo '--- so Pod component=etcd'; echo "$ETCD_POD_N"
+  echo '--- etcd flags'; cat "$EV/b8-etcd-flags.txt"
+  echo '--- ClusterConfiguration'; cat "$EV/b8-clusterconfig.txt"
+} > "$EV/b8-sau-external.txt"
+grep -rqE -- '--certificate-key [0-9a-f]{64}|--token [a-z0-9]{6}\.' "$EV" \
+  && echo 'FAIL: evidence co token hoac certificate key — xoa ngay' \
+  || echo 'PASS: evidence khong chua token hay certificate key'
 ```
 
-**PASS:** hai dòng `PASS:` xuất hiện. Đây là phép thử mà B3.2 hẹn lại: lúc đó `/dev/tcp` chỉ chứng
-minh "không timeout", giờ `curl` chứng minh load balancer chuyển tiếp được TCP tới một apiserver
-đang sống.
+</details>
 
----
+<details>
+<summary>Lời giải tham khảo — quy trình đã kiểm chứng</summary>
 
-## B10. Bài 08 — join control plane thứ hai
-
-**Mục đích:** mục *Các bước cho các node control plane còn lại*. Bài 08 nói các bước "giống như với
-thiết lập stacked etcd", và cảnh báo khóa giải mã từ `--certificate-key` **mặc định hết hạn sau hai
-giờ**.
-
-### B10.1. Sinh lệnh join, không phụ thuộc thời gian
-
-Chạy trên **`lab-ha-4`**:
+**Sinh lệnh join, không phụ thuộc thời gian.** Chạy trên **`lab-ha-4`**:
 
 ```bash
 CERT_KEY="$(sudo kubeadm init phase upload-certs --upload-certs | tail -n 1)"
@@ -1987,24 +2117,13 @@ echo "$JOIN_CP"
 
 echo "$JOIN_CP" | grep -q -- '--control-plane' && echo 'PASS: lenh join co co --control-plane'
 echo "$JOIN_CP" | grep -q -- '--certificate-key' && echo 'PASS: lenh join co khoa giai ma'
-echo "$JOIN_CP" | grep -q "${LB}:6443" && echo 'PASS: lenh join tro toi load balancer'
+echo "$JOIN_CP" | grep -q "192.168.100.230:6443" && echo 'PASS: lenh join tro toi load balancer'
 ```
 
-**PASS:** ba dòng `PASS:` xuất hiện.
+Certificate key và token là bí mật: bài 08 cảnh báo khóa "cho phép truy cập vào dữ liệu nhạy cảm của
+cluster", còn ai có token đều thêm node được. Không ghi chúng vào evidence.
 
-**Ý nghĩa:** thay vì chép lại lệnh join in ra ở B9.3, lab sinh lại nó. Đây đúng là cách bài 08 chỉ
-để chữa lỗi hết hạn: "để tải lên lại các certificate và tạo một khóa giải mã mới, hãy dùng lệnh sau
-trên một node control plane đã được join vào cluster: `sudo kubeadm init phase upload-certs
---upload-certs`". Làm vậy thì khoảng cách thời gian giữa B9 và B10 không còn quan trọng — bạn có thể
-nghỉ giữa chừng mà không hỏng bài.
-
-> **Certificate key là bí mật.** Bài 08 cảnh báo nó "cho phép truy cập vào dữ liệu nhạy cảm của
-> cluster". Token trong `JOIN_BASE` cũng vậy: ai có nó đều thêm node được vào cluster. **Không** ghi
-> hai giá trị này vào `~/lab-evidence/8c/`.
-
-### B10.2. Join `lab-ha-5`
-
-Chạy **trên `lab-ha-5`**, dán nguyên lệnh `JOIN_CP` vừa in ra ở bước trên, chạy bằng `sudo`:
+**Join.** Chạy **trên `lab-ha-5`**, dán nguyên chuỗi `JOIN_CP` vừa in, chạy bằng `sudo`:
 
 ```bash
 sudo kubeadm join 192.168.100.230:6443 \
@@ -2013,355 +2132,113 @@ sudo kubeadm join 192.168.100.230:6443 \
   --control-plane --certificate-key <key-that>
 ```
 
-**PASS:** output có dòng `This node has joined the cluster` và
-`This node has joined the cluster and a new control plane instance was created`. Không copy
-placeholder ở trên — dùng chuỗi thật mà B10.1 in ra.
+Output phải có `This node has joined the cluster and a new control plane instance was created`.
 
-Chạy trên **`lab-ha-4`**:
+**Cân bằng lại CoreDNS.** Chạy trên **`lab-ha-4`**:
 
 ```bash
-kubectl wait --for=condition=Ready node --all --timeout=600s
-kubectl get nodes -o wide | tee "$EV/b10-nodes.txt"
-
-NODE_N="$(kubectl get nodes --no-headers | wc -l)"
-CP_N="$(kubectl get nodes -l 'node-role.kubernetes.io/control-plane' --no-headers | wc -l)"
-API_N="$(kubectl -n kube-system get pod -l component=kube-apiserver --no-headers | wc -l)"
-CM_N="$(kubectl -n kube-system get pod -l component=kube-controller-manager --no-headers | wc -l)"
-SC_N="$(kubectl -n kube-system get pod -l component=kube-scheduler --no-headers | wc -l)"
-echo "node=$NODE_N control plane=$CP_N apiserver=$API_N controller-manager=$CM_N scheduler=$SC_N"
-
-test "$NODE_N" -eq 2 && test "$CP_N" -eq 2 \
-  && test "$API_N" -eq 2 && test "$CM_N" -eq 2 && test "$SC_N" -eq 2 \
-  && echo 'PASS: hai control plane node, moi node mot bo ba thanh phan control plane'
-```
-
-**PASS:** dòng `PASS: hai control plane node …` xuất hiện.
-
-**Ý nghĩa:** con số `2 / 2 / 2` này là điểm chung mà bài [06](../06-ha-topology-vi.md) nêu cho **cả
-hai** topology: "mỗi control plane node chạy một instance của `kube-apiserver`, `kube-scheduler` và
-`kube-controller-manager`". Cái khác nằm ở dòng thứ tư mà bảng này **không có** — số Pod `etcd`. B11
-đo đúng dòng đó.
-
-### B10.3. Cân bằng lại CoreDNS
-
-Bài 08 có ghi chú riêng: vì các node được khởi tạo tuần tự, Pod CoreDNS nhiều khả năng đều nằm trên
-node đầu tiên. Chạy trên **`lab-ha-4`**:
-
-```bash
-kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide | tee "$EV/b10-coredns-truoc.txt"
-
+source ~/lab-work/8c/bien-ha.sh
+kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide | tee "$EV/b8-coredns-truoc.txt"
 kubectl -n kube-system rollout restart deployment coredns
 kubectl -n kube-system rollout status deployment coredns --timeout=300s
-kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide | tee "$EV/b10-coredns-sau.txt"
-
-DNS_NODES="$(kubectl -n kube-system get pods -l k8s-app=kube-dns \
-  -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' | sort -u | wc -l)"
-echo "so node dang chua Pod CoreDNS: $DNS_NODES"
-
-test "$DNS_NODES" -ge 1 && echo 'PASS: CoreDNS da duoc rollout lai'
-test "$DNS_NODES" -eq 2 \
-  && echo 'PASS: hai Pod CoreDNS nam tren hai node khac nhau' \
-  || echo 'GHI NHAN: hai Pod CoreDNS van cung mot node — hop le, scheduler khong bat buoc trai deu'
 ```
 
-**PASS:** dòng `PASS: CoreDNS da duoc rollout lai` xuất hiện, cộng một trong hai dòng còn lại. Đây là
-chỗ **không được** biến thành gate cứng: bài 08 chỉ nói rollout restart là cách "cung cấp tính sẵn
-sàng cao hơn", không hứa scheduler sẽ trải đều. Ghi kết quả thật vào evidence.
+Ý chính cho ADR, mục `## External (Lab 8c)`:
 
----
+1. Phân biệt được. Stacked: ba dòng `--etcd-servers=https://127.0.0.1:2379` — quan hệ **một-một**.
+   External: hai dòng, mỗi dòng liệt kê **cả ba** địa chỉ — quan hệ **nhiều-nhiều**, đúng câu "mỗi
+   etcd host giao tiếp với `kube-apiserver` của từng control plane node". Cùng một trường cấu hình, hai
+   hình dạng dữ liệu. Ghi con số: **external = 2 apiserver, 3 etcd member, 5 máy**.
+2. etcd không còn là workload của cluster này: kubelet trên ba host etcd không đăng ký Node, nên static
+   Pod của chúng không có mirror Pod trong API server để mà đếm. Stacked có **3** Pod như vậy, external
+   có **0**.
+3. Các lệnh kubeadm về sau — `join`, `upgrade`, `reset` — đọc cấu hình từ ConfigMap đó, không từ file
+   của bạn. Cluster tự khai nó dùng etcd ngoài; node join sau này được cấu hình theo khai báo đó, và
+   `reset` trên `lab-ha-4`/`lab-ha-5` biết không được xóa dữ liệu etcd.
+4. Bài 08 chỉ nói rollout restart là cách "cung cấp tính sẵn sàng cao hơn", không hứa scheduler trải
+   đều. Gate phải kiểm điều tài liệu cam kết, không kiểm điều mình mong.
 
-## B11. Bằng chứng "external" thật sự
+</details>
 
-**Mục đích:** ba phép kiểm độc lập chứng minh cluster đang dùng etcd ngoài. Một phép nhìn từ phía
-Kubernetes, một phép nhìn từ đĩa của node, một phép nhìn từ cấu hình apiserver. Ba nguồn khác nhau
-cùng chỉ về một kết luận thì kết luận đó chắc.
+## B9. [BS-8C-09] Triển khai Bookstore lên cluster external etcd
 
-### B11.1. Không Pod `component=etcd` nào
+**Loại:** Tính năng.
 
-Chạy trên **`lab-ha-4`**:
+**Bối cảnh:** Lab 8b đo sẵn sàng của Bookstore trên một cluster stacked **có worker riêng**. Cluster
+này không có worker: sáu máy đã dùng hết cho 3 etcd + 2 control plane + 1 LB. Muốn có số đo đặt cạnh
+số đo của Lab 8b, Bookstore phải chạy được ở đây — dựng lại **chỉ từ repo**, bằng đúng overlay và lệnh
+mà Lab 8b bàn giao. Đây cũng là bước "dựng lại hệ thống từ repo" mà B0 đã dời sang.
 
-```bash
-kubectl -n kube-system get pod -l component=etcd -o wide | tee "$EV/b11-etcd-pods.txt"
-ETCD_POD_N="$(kubectl -n kube-system get pod -l component=etcd --no-headers 2>/dev/null | wc -l)"
-echo "Pod component=etcd trong cluster nay: $ETCD_POD_N"
+Overlay `ha-lab` của Lab 8b cố ý **gỡ mọi ghim node** của `db` và `db-backup`: trên cluster stacked,
+scheduler chọn worker nào cũng được. Ở đây điều đó không còn đủ — xem câu hỏi thiết kế 1.
 
-test "$ETCD_POD_N" -eq 0 \
-  && echo 'PASS: 0 Pod etcd — etcd khong con do control plane quan ly'
-```
+**Yêu cầu:**
 
-**PASS:** dòng `PASS: 0 Pod etcd …` xuất hiện.
+1. Hai control plane node nhận được workload: taint cách ly control plane được gỡ trên **cả hai**,
+   trạng thái taint trước và sau ghi vào `~/lab-evidence/8c/b9-taint-truoc.txt` và `b9-taint-sau.txt`.
+   Đây là thỏa hiệp của môi trường lab; B13 trả lại.
+2. Bookstore triển khai **chỉ** bằng `./scripts/deploy-ha-lab.sh`, chạy được hai lần liên tiếp không
+   lỗi; `./tests/smoke-ha-lab.sh` không có dòng `FAIL:`.
+3. `db-0` chạy trên **`lab-ha-4`** — node không bao giờ bị tắt trong sprint này. Thay đổi duy nhất của
+   repo là **một patch thêm vào overlay** `k8s/overlays/ha-lab/`, chồng lên các patch của Lab 8b mà
+   không phá chúng: render vẫn không có Ingress, PVC, claim template, ghim node của chuỗi chính.
+   `k8s/app/`, `k8s/cluster/`, `scripts/`, `tests/`, `platform/` giống hệt tag `lab-8b`.
+4. `web` có Pod chạy trên **cả hai** node.
+5. Từ `lab-ha-4` và từ máy host, `GET http://192.168.100.234:30080/api/books` trả `200` cùng danh sách
+   sách.
+6. `~/lab-work/8c/ham-do.sh` đặt đúng chỗ (công cụ, chép nguyên văn ở dưới). Đường nền đo bằng
+   `scripts/do-san-sang.ps1` của Lab 8b trong 120 giây: ít nhất 100 mẫu, ứng dụng và API đều ≥ 99%.
 
-**Ý nghĩa:** đối chiếu thẳng với con số bạn đã ghi ở B0.2: cụm stacked của Lab 8b có **3** Pod như
-vậy. Cluster này có **0**. Không phải vì etcd biến mất — B8 đã chứng minh nó đang chạy trên ba máy
-khác — mà vì nó **không còn là workload của Kubernetes**. kubelet trên ba host etcd không đăng ký
-Node, nên static Pod của chúng không có mirror Pod trong API server để mà đếm.
+**Ràng buộc:** không lệnh imperative nào lên object của Bookstore — chỉ gỡ taint là thao tác trên
+node. Không sửa file nào của Lab 8b trong overlay; chỉ **thêm** một file patch và một mục vào
+`patches`. Không đặt Pod nào lên ba host etcd (chúng không phải Node — thấy điều đó là đã sai từ B4).
 
-### B11.2. Không `etcd.yaml` trên đĩa của control plane
+**Đọc lại:**
 
-Chạy trên **`lab-ha-4`**:
+- Bài [02](../02-create-cluster-kubeadm-vi.md),
+  [*Cách ly control plane node*](../02-create-cluster-kubeadm-vi.md#cách-ly-control-plane-node-control-plane-node-isolation)
+  — lệnh gỡ taint và lý do mặc định không lập lịch Pod lên control plane.
+- Bài [139](../139-taint-and-toleration-vi.md#concepts) — taint và toleration, hai cách để một Pod
+  lên được node có taint.
+- Bài [322](../322-kustomization-vi.md): [*Tùy biến*](../322-kustomization-vi.md#tùy-biến-customizing)
+  — `patches` áp **theo thứ tự khai báo**, StrategicMerge và Json6902, trường `target`;
+  [*Base và Overlay*](../322-kustomization-vi.md#base-và-overlay-bases-and-overlays).
+- `k8s/overlays/ha-lab/kustomization.yaml` và `db-emptydir.yaml` trong repo — Lab 8b đã xóa trường
+  nào của `db`, bằng cơ chế gì.
 
-```bash
-sudo ls -1 /etc/kubernetes/manifests/ | tee "$EV/b11-manifests-cp1.txt"
-ssh -o StrictHostKeyChecking=accept-new "$N5" 'sudo ls -1 /etc/kubernetes/manifests/' \
-  | tee "$EV/b11-manifests-cp2.txt"
+**Bàn giao:** một file patch và một mục `patches` mới trong `k8s/overlays/ha-lab/`; mục *Triển khai
+Bookstore trên cluster không có worker* trong `docs/runbook-ha-external-etcd.md`;
+`~/lab-evidence/8c/b9-*`, `do-nen.csv`.
 
-OKM=0
-for f in "$EV/b11-manifests-cp1.txt" "$EV/b11-manifests-cp2.txt"; do
-  grep -q 'etcd.yaml' "$f" && echo "FAIL: $f co etcd.yaml" || OKM=$(( OKM + 1 ))
-  grep -q 'kube-apiserver.yaml' "$f" || echo "FAIL: $f thieu kube-apiserver.yaml"
-done
-echo "control plane node khong co etcd.yaml: $OKM/2"
+**Nghiệm thu:**
 
-test "$OKM" -eq 2 \
-  && echo 'PASS: khong control plane node nao chay static Pod etcd'
-```
+- `PASS:` trước đó cả hai node mang taint control plane; giờ không node nào mang.
+- `PASS:` ngoài `docs/` và `k8s/overlays/ha-lab/`, repo giống hệt tag `lab-8b`; các file patch của
+  Lab 8b không đổi.
+- `PASS:` render không có Ingress, PVC, claim template, ghim node của chuỗi chính; `db` ghim
+  `lab-ha-4`.
+- `PASS:` `deploy-ha-lab.sh` thành công hai lần liên tiếp; `smoke-ha-lab.sh` không có dòng `FAIL:`.
+- `PASS:` `db-0` trên `lab-ha-4`; `web` có Pod trên hai node; `/api/books` qua NodePort trả sách.
+- `PASS:` đường nền từ máy host: ít nhất 100 mẫu, ứng dụng và API đều ≥ 99%.
 
-**PASS:** dòng `PASS: khong control plane node nao chay static Pod etcd` xuất hiện, và cả hai file
-đều liệt kê `kube-apiserver.yaml`, `kube-controller-manager.yaml`, `kube-scheduler.yaml`.
-
-Nếu `ssh lab-ha-5` hỏi mật khẩu, tạo key giống B0.3 — B13 và B14 còn cần đường `ssh` này.
-
-### B11.3. `--etcd-servers` trỏ tới ba host etcd
-
-Chạy trên **`lab-ha-4`**:
-
-```bash
-{
-  echo "== lab-ha-4"
-  sudo grep -E '^[[:space:]]+- --etcd-' /etc/kubernetes/manifests/kube-apiserver.yaml
-  echo "== lab-ha-5"
-  ssh "$N5" "sudo grep -E '^[[:space:]]+- --etcd-' /etc/kubernetes/manifests/kube-apiserver.yaml"
-} | tee "$EV/b11-etcd-flags.txt"
-
-SRV_LINES="$(grep -c -- '--etcd-servers=' "$EV/b11-etcd-flags.txt")"
-BOTH3="$(grep -- '--etcd-servers=' "$EV/b11-etcd-flags.txt" \
-  | grep -c "https://${E1}:2379,https://${E2}:2379,https://${E3}:2379")"
-LOOP="$(grep -c -- '--etcd-servers=https://127.0.0.1:2379' "$EV/b11-etcd-flags.txt")"
-CAF="$(grep -c -- '--etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt' "$EV/b11-etcd-flags.txt")"
-CRT="$(grep -c -- '--etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt' "$EV/b11-etcd-flags.txt")"
-KEY="$(grep -c -- '--etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key' "$EV/b11-etcd-flags.txt")"
-echo "etcd-servers=$SRV_LINES | du ba host=$BOTH3 | tro loopback=$LOOP | cafile=$CAF certfile=$CRT keyfile=$KEY"
-
-test "$SRV_LINES" -eq 2 && test "$BOTH3" -eq 2 \
-  && echo 'PASS: CA HAI apiserver deu tro toi CA BA host etcd — quan he nhieu-nhieu'
-test "$LOOP" -eq 0 \
-  && echo 'PASS: khong apiserver nao tro toi etcd cuc bo'
-test "$CAF" -eq 2 && test "$CRT" -eq 2 && test "$KEY" -eq 2 \
-  && echo 'PASS: ca ba cofile certificate deu dung duong dan da khai trong kubeadm-config.yaml'
-```
-
-**PASS:** ba dòng `PASS:` xuất hiện.
-
-**Ý nghĩa — đây là chỗ bài 06 được chứng minh bằng số.** Ở B1.1, ba apiserver của cụm stacked cho ra
-ba dòng `--etcd-servers=https://127.0.0.1:2379`: quan hệ **một-một**, mỗi apiserver chỉ biết member
-cục bộ. Ở đây, hai apiserver cho ra hai dòng liệt kê **cả ba** địa chỉ etcd: quan hệ **nhiều-nhiều**,
-đúng câu "mỗi etcd host giao tiếp với `kube-apiserver` của từng control plane node". Cùng một trường
-cấu hình, hai topology, hai hình dạng dữ liệu.
-
-### B11.4. `ClusterConfiguration` trong ConfigMap `kubeadm-config`
-
-Chạy trên **`lab-ha-4`**:
+Hàm đo phía cluster, chép nguyên văn trên **`lab-ha-4`**. `tom_tat` là đúng công thức trong `bien.sh`
+của Lab 8b — cùng cách tính thì hai bảng số đo mới so được:
 
 ```bash
-kubectl -n kube-system get cm kubeadm-config -o jsonpath='{.data.ClusterConfiguration}' \
-  | tee "$EV/b11-clusterconfig.txt"; echo
+cat > ~/lab-work/8c/ham-do.sh <<'EOF'
+# Cong cu do cua Lab 8c tren lab-ha-4. Nap bang: source ~/lab-work/8c/ham-do.sh
+source ~/lab-work/8c/bien-ha.sh
+source ~/lab-work/8c/bien-du-an.sh
+APP_URL="http://${CP1}:30080/api/books"
+EPS="https://${E1}:2379,https://${E2}:2379,https://${E3}:2379"
 
-grep -q 'external:' "$EV/b11-clusterconfig.txt" \
-  && echo 'PASS: ClusterConfiguration luu trong cluster khai etcd.external'
-grep -q '  local:' "$EV/b11-clusterconfig.txt" \
-  && echo 'FAIL: con khai etcd.local' \
-  || echo 'PASS: khong khai etcd.local'
-test "$(grep -c "https://192.168.100.23[123]:2379" "$EV/b11-clusterconfig.txt")" -eq 3 \
-  && echo 'PASS: du ba endpoint etcd trong ClusterConfiguration'
-grep -q "controlPlaneEndpoint: ${LB}:6443" "$EV/b11-clusterconfig.txt" \
-  && echo 'PASS: controlPlaneEndpoint luu trong cluster van la dia chi load balancer'
-```
+# Control plane: /readyz qua load balancer (kubeconfig tro toi LB).
+cp_ok () { test "$(kubectl --request-timeout=15s get --raw='/readyz' 2>/dev/null)" = 'ok'; }
 
-**PASS:** bốn dòng `PASS:` xuất hiện, không có dòng `FAIL:`.
+# Ung dung: /api/books qua NodePort tren lab-ha-4 — duong nay KHONG di qua API server.
+app_ok () { curl -s --max-time 5 "$APP_URL" 2>/dev/null | grep -q '"title"'; }
 
-**Ý nghĩa:** ConfigMap `kubeadm-config` là nơi kubeadm **lưu lại** cấu hình cluster để các lệnh sau
-— `kubeadm join`, `kubeadm upgrade`, `kubeadm reset` — đọc lại. Nói cách khác, cluster **tự khai
-báo** rằng nó dùng etcd ngoài, và mọi node join sau này sẽ được cấu hình theo đúng khai báo đó chứ
-không phải theo file `kubeadm-config.yaml` còn nằm trong `~/lab-work/8c/` của bạn. Đây cũng là nguồn
-mà `kubeadm reset` trên `lab-ha-4`/`lab-ha-5` sẽ đọc để biết **không được xóa dữ liệu etcd** — đúng
-dòng cuối bảng ở B2.1.
-
-Ghi ảnh chụp "sau" để đối chiếu với `b0-truoc-stacked.txt`:
-
-```bash
-{
-  echo "=== $(date -Is) — cluster external etcd, sau khi dung xong ==="
-  echo '--- nodes'; kubectl get nodes -o wide
-  echo '--- control plane pods'; kubectl -n kube-system get pods -l tier=control-plane -o wide
-  echo '--- so Pod component=etcd'; kubectl -n kube-system get pod -l component=etcd --no-headers | wc -l
-  echo '--- etcd flags'; cat "$EV/b11-etcd-flags.txt"
-  echo '--- ClusterConfiguration'; cat "$EV/b11-clusterconfig.txt"
-} | tee "$EV/b11-sau-external.txt"
-
-test -s "$EV/b11-sau-external.txt" && echo 'PASS: da ghi anh chup cluster external'
-```
-
-**PASS:** dòng `PASS: da ghi anh chup cluster external` xuất hiện.
-
----
-
-## B12. Workload chứng minh cluster phục vụ được
-
-**Mục đích:** một cluster "khỏe" theo `/readyz` vẫn có thể không chạy nổi một Pod. B12 dựng một
-Deployment và một Service — công cụ của giai đoạn 4 và 5 — để B13 và B14 có thứ thật để đo trong lúc
-tắt máy.
-
-### B12.1. Gỡ taint control plane, có ý thức
-
-Chạy trên **`lab-ha-4`**:
-
-```bash
-kubectl get nodes -o custom-columns='NODE:.metadata.name,TAINTS:.spec.taints' \
-  | tee "$EV/b12-taint-truoc.txt"
-
-kubectl taint nodes --all node-role.kubernetes.io/control-plane-
-
-kubectl get nodes -o custom-columns='NODE:.metadata.name,TAINTS:.spec.taints' \
-  | tee "$EV/b12-taint-sau.txt"
-
-TAINT_LEFT="$(kubectl get nodes \
-  -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}' \
-  | grep -c 'node-role.kubernetes.io/control-plane')"
-echo "node con taint control-plane: $TAINT_LEFT"
-
-grep -q 'control-plane' "$EV/b12-taint-truoc.txt" \
-  && echo 'PASS: truoc do ca hai node deu mang taint control-plane'
-test "$TAINT_LEFT" -eq 0 && echo 'PASS: da go taint tren ca hai node'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện.
-
-> **Đây là thỏa hiệp của môi trường lab, không phải cách làm đúng.** Cluster này không có worker
-> riêng vì bộ VM chỉ có sáu máy — xem [mục 2.2](#22-vì-sao-hai-control-plane-cộng-ba-etcd-vẫn-hợp-lệ).
-> Bài [02](../02-create-cluster-kubeadm-vi.md) nói mặc định cluster **không lập lịch Pod trên control
-> plane node vì lý do bảo mật**. B15.2 trả taint về nguyên trạng trước khi chụp snapshot.
-
-### B12.2. Deployment và Service
-
-Chạy trên **`lab-ha-4`**:
-
-```bash
-kubectl create namespace lab-8c
-
-cat > "$WK/web.yaml" <<'EOF'
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: web
-  namespace: lab-8c
-spec:
-  replicas: 4
-  selector:
-    matchLabels:
-      app: web
-  template:
-    metadata:
-      labels:
-        app: web
-    spec:
-      containers:
-        - name: httpd
-          image: busybox:1.37
-          command:
-            - sh
-            - -c
-            - 'mkdir -p /www && echo web-8c-ok > /www/index.html && httpd -f -p 8080 -h /www'
-          ports:
-            - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: web
-  namespace: lab-8c
-spec:
-  selector:
-    app: web
-  ports:
-    - port: 80
-      targetPort: 8080
-EOF
-
-kubectl apply -f "$WK/web.yaml"
-kubectl -n lab-8c rollout status deploy/web --timeout=300s
-kubectl -n lab-8c get pods -o wide | tee "$EV/b12-pods.txt"
-kubectl -n lab-8c get endpointslice -l kubernetes.io/service-name=web | tee "$EV/b12-eps.txt"
-```
-
-```bash
-READY="$(kubectl -n lab-8c get deploy web -o jsonpath='{.status.readyReplicas}')"
-SPREAD="$(kubectl -n lab-8c get pods -l app=web \
-  -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' | sort -u | wc -l)"
-echo "replica Ready=$READY | so node dang chay Pod web=$SPREAD"
-
-test "$READY" -eq 4 && echo 'PASS: du bon replica Ready'
-test "$SPREAD" -eq 2 && echo 'PASS: Pod trai tren ca hai control plane node'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện.
-
-Kiểm Service từ bên trong cluster. Chạy trên **`lab-ha-4`**:
-
-```bash
-kubectl -n lab-8c run probe --image=busybox:1.37 --restart=Never --command -- sleep 3600
-kubectl -n lab-8c wait --for=condition=Ready pod/probe --timeout=180s
-
-kubectl -n lab-8c exec probe -- wget -q -O- http://web \
-  | grep -qx 'web-8c-ok' && echo 'PASS: goi duoc Service bang ten ngan — DNS, ClusterIP va kube-proxy cung song'
-```
-
-**PASS:** dòng `PASS: goi duoc Service bang ten ngan …` xuất hiện.
-
-Đặt sẵn một hàm để B13 và B14 gọi lại — nó là phép đo "cluster còn phục vụ không", dùng chung cho cả
-ba phép thử:
-
-```bash
-serve_check () {
-  local ns='lab-8c'
-  local rz body
-  rz="$(kubectl --request-timeout=15s get --raw='/readyz' 2>&1)"
-  body="$(kubectl --request-timeout=20s -n "$ns" exec probe -- wget -q -O- http://web 2>&1)"
-  if [ "$rz" = 'ok' ] && [ "$body" = 'web-8c-ok' ]; then
-    echo 'SERVE: yes'
-  else
-    echo "SERVE: no (readyz=[$rz])"
-  fi
-}
-
-serve_check | tee "$EV/b12-serve-baseline.txt"
-grep -q 'SERVE: yes' "$EV/b12-serve-baseline.txt" \
-  && echo 'PASS: ham serve_check hoat dong, moc goc la SERVE: yes'
-```
-
-**PASS:** dòng `PASS: ham serve_check hoat dong …` xuất hiện.
-
----
-
-## B13. Chứng minh tính tách rời — ba phép thử tắt máy
-
-**Mục đích:** phần đắt nhất của lab. Bài [06](../06-ha-topology-vi.md) khẳng định topology external
-**tách rời** control plane và etcd member, nên mất một instance control plane hoặc một etcd member
-"có ít tác động hơn". Ba phép thử dưới đây biến khẳng định đó thành số đo, và mỗi phép đều có một
-dòng đối chiếu thẳng với Lab 8b.
-
-> **Đọc trước khi chạy.** Phép thử thứ hai **cố ý làm mất quorum** của cụm etcd: API server ngừng
-> phục vụ. Dữ liệu vẫn nằm trên đĩa của cả ba member, nên cụm hồi phục khi hai máy bật lại. Điều
-> kiện là bạn **tắt đúng máy** và **bật lại đủ máy**. Không bao giờ tắt cả ba etcd node cùng lúc
-> trong lab này, và không tắt máy thay cho `kubeadm reset` khi muốn gỡ hẳn một member.
-
-### B13.0. Hai hàm đo dùng chung
-
-Chạy trên **`lab-ha-4`**. `serve_check` đã có từ B12.2; thêm hàm đọc sức khỏe cụm etcd qua
-`lab-ha-1` — máy này **không bị tắt** trong bất kỳ phép thử nào:
-
-```bash
-EPS='https://192.168.100.231:2379,https://192.168.100.232:2379,https://192.168.100.233:2379'
-
+# Suc khoe cum etcd, hoi qua lab-ha-1 — may nay khong bao gio bi tat.
 ehealth () {
   ssh -o BatchMode=yes -o ConnectTimeout=10 lab-ha-1 \
     'CID=$(sudo crictl ps --name etcd --state Running -q | head -n 1);
@@ -2373,75 +2250,342 @@ ehealth () {
        --command-timeout=10s endpoint health 2>&1'
 }
 
-ehealth | tee "$EV/b13-0-health-goc.txt"
-H0="$(grep -c 'is healthy' "$EV/b13-0-health-goc.txt")"
-echo "endpoint khoe truoc khi thu: $H0/3"
-
-test "$H0" -eq 3 && echo 'PASS: moc goc — ca ba etcd member khoe'
-serve_check | grep -q 'SERVE: yes' && echo 'PASS: moc goc — cluster dang phuc vu'
+# Tom tat file do "ms,app,api" cua scripts/do-san-sang.ps1 — cung cong thuc voi bien.sh cua Lab 8b.
+# Dat MAU; APP, API (% san sang tinh theo THOI GIAN); APP_MAX, API_MAX (giay gian doan lien tuc dai
+# nhat); CUOI_APP, CUOI_API (1 neu 10 mau cuoi deu 200). In mot dong va ghi them vao $EV/so-do.txt.
+tom_tat () {
+  MAU=0; APP=0; API=0; APP_MAX=0; API_MAX=0; CUOI_APP=0; CUOI_API=0
+  test -s "$1" || { echo "FAIL: chua co $1 — chep file do tu may host sang"; return 1; }
+  eval "$(awk -F, '
+    BEGIN { n = 0 }
+    { sub(/\r$/, "") }
+    NR > 1 && $1 ~ /^[0-9]+$/ { t[n] = $1; a[n] = $2; p[n] = $3; n++ }
+    END {
+      if (n < 2) { print "MAU=0 APP=0 API=0 APP_MAX=0 API_MAX=0 CUOI_APP=0 CUOI_API=0"; exit }
+      tot = t[n-1] - t[0]; ad = 0; pd = 0; ar = 0; pr = 0; am = 0; pm = 0
+      for (i = 0; i < n - 1; i++) {
+        dt = t[i+1] - t[i]
+        if (a[i] != "200") { ad += dt; ar += dt; if (ar > am) am = ar } else ar = 0
+        if (p[i] != "200") { pd += dt; pr += dt; if (pr > pm) pm = pr } else pr = 0
+      }
+      ca = 1; cp = 1
+      for (i = (n > 10 ? n - 10 : 0); i < n; i++) {
+        if (a[i] != "200") ca = 0
+        if (p[i] != "200") cp = 0
+      }
+      printf "MAU=%d APP=%.1f API=%.1f APP_MAX=%d API_MAX=%d CUOI_APP=%d CUOI_API=%d\n",
+        n, 100 * (1 - ad / tot), 100 * (1 - pd / tot), am / 1000, pm / 1000, ca, cp
+    }' "$1")"
+  echo "$(basename "$1"): mau=$MAU app=$APP% api=$API%" \
+       "| gian doan dai nhat: app=${APP_MAX}s api=${API_MAX}s" | tee -a "$EV/so-do.txt"
+}
+ge () { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a >= b) }'; }
+lt () { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a < b) }'; }
+EOF
+source ~/lab-work/8c/ham-do.sh && type cp_ok app_ok ehealth tom_tat >/dev/null \
+  && echo 'PASS: ham-do.sh nap duoc'
 ```
 
-**PASS:** hai dòng `PASS:` xuất hiện. Không mở B13.1 khi mốc gốc chưa đúng `3/3` và `SERVE: yes`.
+Phía máy host không có công cụ mới: `Start-Probe <Ten> <Giay>` của B0.1 mở cửa sổ riêng chạy
+`do-san-sang.ps1` với `-Thu` trỏ vào `$ev` (`lab-evidence\8c`); `Send-Probe <Ten>` chép
+`do-<Ten>.csv` sang `lab-ha-4`. Hai URL mặc định của script — NodePort `30080` trên `lab-ha-4`,
+`/readyz` qua load balancer — vẫn đúng trên cluster external.
 
-### B13.1. Phép thử 1 — tắt **một** etcd node
+**Câu hỏi thiết kế** — trả lời trong runbook, mục *Triển khai Bookstore trên cluster không có worker*:
+
+1. Vì sao `db-0` phải ở `lab-ha-4`? Nếu để scheduler chọn như Lab 8b và nó rơi vào `lab-ha-5`, kịch
+   bản tắt `lab-ha-5` ở B11 đo được cái gì? Vì sao quy tắc "DB ở node được phép phá" của chuỗi chính
+   lại đảo ngược ở đây?
+2. Patch của bạn phải đứng **sau** `db-emptydir.yaml` của Lab 8b trong danh sách `patches`. Đặt nó
+   trước thì render ra gì, vì sao?
+3. Có hai cách cho Bookstore lên control plane: gỡ taint trên node, hoặc thêm toleration vào overlay.
+   Mỗi cách mở cửa cho những Pod nào? Lab chọn cách thứ nhất — cái giá là gì, production làm khác thế
+   nào?
+4. Vì sao thay đổi nằm ở overlay chứ không ở `k8s/app`? Lab 9a sẽ hỏng ở đâu nếu bạn sửa base?
+
+<details>
+<summary>Gợi ý</summary>
+
+- `db-emptydir.yaml` của Lab 8b đặt `nodeSelector: null` và `nodeAffinity: null` — StrategicMerge
+  xóa trường bằng `null`. Kustomize áp `patches` theo thứ tự khai báo: patch sau thấy kết quả của patch
+  trước.
+- Patch kiểu `Json6902` với thao tác `add` tạo trường nếu chưa có và thay nếu đã có.
+- Xem bản render không đụng cluster:
+  `kubectl kustomize --load-restrictor=LoadRestrictionsNone k8s/overlays/ha-lab` (cần `secrets/` —
+  `deploy-ha-lab.sh` sinh nó ở lần chạy đầu).
+- Đường nền: `Start-Probe nen 120`, chờ cửa sổ đo in `KET QUA`, rồi `Send-Probe nen`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 Chạy trên **`lab-ha-4`**:
+
+```bash
+source ~/lab-work/8c/ham-do.sh
+cd ~/bookstore
+NS=bookstore
+
+TAINT_LEFT="$(kubectl get nodes \
+  -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}' \
+  | grep -c 'node-role.kubernetes.io/control-plane')"
+grep -q 'control-plane' "$EV/b9-taint-truoc.txt" && test "$TAINT_LEFT" -eq 0 \
+  && echo 'PASS: truoc do hai node mang taint control-plane, gio da go tren ca hai'
+
+test -z "$(git diff --name-only lab-8b -- . ':!k8s/overlays/ha-lab' ':!docs')" \
+  && test -z "$(git ls-files --others --exclude-standard | grep -vE '^(k8s/overlays/ha-lab|docs)/')" \
+  && echo 'PASS: ngoai docs/ va k8s/overlays/ha-lab/, repo giong het tag lab-8b'
+git diff --quiet lab-8b -- k8s/overlays/ha-lab/db-emptydir.yaml k8s/overlays/ha-lab/backup-emptydir.yaml \
+  k8s/overlays/ha-lab/web-nodeport.yaml k8s/overlays/ha-lab/quota-nodeport.yaml \
+  && echo 'PASS: cac file patch cua Lab 8b khong doi'
+
+eval "$DEPLOY_HA" > "$EV/b9-deploy.txt" 2>&1 && echo 'PASS: deploy-ha-lab lan 1 thanh cong'
+eval "$DEPLOY_HA" > "$EV/b9-deploy-lan-2.txt" 2>&1 && echo 'PASS: deploy-ha-lab lan 2 thanh cong'
+eval "$SMOKE_HA" > "$EV/b9-smoke.txt" 2>&1; grep '^INFO' "$EV/b9-smoke.txt"
+grep -q '^FAIL' "$EV/b9-smoke.txt" && echo 'FAIL: smoke-ha-lab con loi' \
+  || echo 'PASS: smoke-ha-lab khong co dong FAIL'
+
+kubectl kustomize --load-restrictor=LoadRestrictionsNone k8s/overlays/ha-lab > "$WK/b9-render.yaml"
+grep -Eq '^kind: (Ingress|PersistentVolumeClaim|StorageClass)$|volumeClaimTemplates:|lab-k8s-|bookstore\.example\.com/data' \
+  "$WK/b9-render.yaml" && echo 'FAIL: patch moi lam hong phan go cua Lab 8b' \
+  || echo 'PASS: render van khong co Ingress, PVC, claim template, ghim node cua chuoi chinh'
+test "$(kubectl -n "$NS" get statefulset db \
+  -o jsonpath='{.spec.template.spec.nodeSelector.kubernetes\.io/hostname}')" = 'lab-ha-4' \
+  && echo 'PASS: StatefulSet db ghim lab-ha-4'
+
+kubectl -n "$NS" get pods -o wide > "$EV/b9-pods.txt"
+test "$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.spec.nodeName}')" = 'lab-ha-4' \
+  && echo 'PASS: db-0 chay tren lab-ha-4'
+WEB_SEL='app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=web'
+WEB_NODES="$(kubectl -n "$NS" get pods -l "$WEB_SEL" --field-selector=status.phase=Running \
+  -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' | sort -u | wc -l)"
+test "$WEB_NODES" -eq 2 && echo 'PASS: web co Pod tren ca hai node'
+curl -s --max-time 5 "$APP_URL" > "$EV/b9-books.json"
+N="$(grep -o '"title"' "$EV/b9-books.json" | wc -l)"
+test "$N" -ge 5 && echo "PASS: /api/books qua NodePort tra $N cuon sach"
+```
+
+`$WK/b9-render.yaml` chứa Secret đã render — nó nằm ở `lab-work`, bị xóa ở B13, không vào evidence.
+
+Rồi trên **máy host**: `Start-Probe nen 120`; khi cửa sổ đo in `KET QUA`: `Send-Probe nen`. Trên
+**`lab-ha-4`**:
+
+```bash
+source ~/lab-work/8c/ham-do.sh
+head -n 1 "$EV/do-nen.csv" | tr -d '\r' | grep -qx 'ms,app,api' && echo 'PASS: file do dung dinh dang ms,app,api'
+tom_tat "$EV/do-nen.csv"
+test "$MAU" -ge 100 && ge "$APP" 99 && ge "$API" 99 \
+  && echo "PASS: duong nen tu may host — $MAU mau, ung dung va API deu >= 99%"
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+Gỡ taint, có ý thức. Chạy trên **`lab-ha-4`**:
+
+```bash
+source ~/lab-work/8c/ham-do.sh
+kubectl get nodes -o custom-columns='NODE:.metadata.name,TAINTS:.spec.taints' \
+  | tee "$EV/b9-taint-truoc.txt"
+kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+kubectl get nodes -o custom-columns='NODE:.metadata.name,TAINTS:.spec.taints' \
+  | tee "$EV/b9-taint-sau.txt"
+```
+
+Patch ghim `db` — một thao tác, vì `db-emptydir.yaml` của Lab 8b đã xóa cả `nodeSelector` lẫn
+`nodeAffinity` của chuỗi chính:
+
+```yaml
+# k8s/overlays/ha-lab/db-tren-lab-ha-4.yaml — Lab 8c: db-0 o node khong bi tat trong dien tap.
+# Ap SAU db-emptydir.yaml (Lab 8b): patch do da xoa nodeSelector/nodeAffinity, patch nay them lai
+# dung mot rang buoc cho cluster external. "add" tao truong neu chua co, thay neu da co.
+- op: add
+  path: /spec/template/spec/nodeSelector
+  value:
+    kubernetes.io/hostname: lab-ha-4
+```
+
+Thêm vào **cuối** danh sách `patches` của `k8s/overlays/ha-lab/kustomization.yaml`, sau mọi mục của
+Lab 8b:
+
+```yaml
+# Lab 8c: cluster external khong co worker; db o node khong bi tat trong dien tap.
+- target:
+    group: apps
+    version: v1
+    kind: StatefulSet
+    name: db
+  path: db-tren-lab-ha-4.yaml
+```
+
+Triển khai, kiểm, commit phần thay đổi của overlay:
+
+```bash
+source ~/lab-work/8c/ham-do.sh
+cd ~/bookstore
+eval "$DEPLOY_HA" && eval "$SMOKE_HA"
+kubectl -n bookstore get pods -o wide
+git add k8s/overlays/ha-lab && git commit -m 'lab-8c: overlay ha-lab ghim db-0 vao lab-ha-4'
+```
+
+Ý chính cho runbook:
+
+1. `db` chỉ có một bản sao, dữ liệu trên `emptyDir`: node của nó tắt là `/api/books` chết suốt thời
+   gian tắt, bất kể control plane ra sao. Ở Lab 8b vị trí `db-0` không quan trọng vì diễn tập chính
+   không tắt worker. Ở đây control plane **là** worker: để scheduler chọn thì `db-0` có thể rơi vào
+   `lab-ha-5`, và B11 đo **mất DB** chứ không đo **mất control plane**. Chuỗi chính đặt `db` ở node
+   được phép phá vì diễn tập ở đó *nhắm vào* DB; sprint này diễn tập *nhắm vào* control plane và etcd,
+   nên DB phải đứng ngoài vùng phá.
+2. Patch đứng trước `db-emptydir.yaml` thì `nodeSelector: null` của Lab 8b chạy sau và xóa luôn ràng
+   buộc vừa thêm — render không có ghim nào, `db-0` lại tùy scheduler. Bài 322: patch áp theo thứ tự
+   khai báo.
+3. Gỡ taint mở control plane cho **mọi** Pod của mọi người; toleration trong overlay chỉ mở cho Pod của
+   Bookstore — hẹp hơn, nhưng là thêm một thay đổi trong repo. Lab chọn gỡ taint vì đó là quy trình bài
+   02 mô tả và B13 trả lại nguyên trạng. Giá phải trả: bài 02 nói mặc định không lập lịch Pod lên
+   control plane **vì lý do bảo mật** — workload thoát ra được sẽ đứng cạnh `admin.conf`, khóa CA và
+   cổng `10250`. Production có worker riêng và giữ taint.
+4. Chuỗi chính ở Lab 9a triển khai `k8s/app` trên cluster có worker, `db` gắn với volume local-path trên
+   `lab-k8s-worker2`. Ghim `lab-ha-4` vào base thì `db-0` của chuỗi chính `Pending` mãi — node đó không
+   tồn tại ở bộ VM chính.
+
+</details>
+
+## B10. [BS-8C-10] Diễn tập: mất một etcd member, rồi mất quorum
+
+**Loại:** Diễn tập sự cố — tắt `lab-ha-3`, rồi `lab-ha-2` và `lab-ha-3`. Không bao giờ tắt `lab-ha-1`.
+
+**Bối cảnh:** ADR cần biết điều gì xảy ra với **người dùng Bookstore** khi tầng etcd gặp nạn, không chỉ
+điều gì xảy ra với `kubectl`. Ở Lab 8b, muốn mất etcd member thì phải tắt một control plane — hai thứ
+dính nhau. Ở đây tầng etcd tắt được riêng, nên lần đầu tiên đo được ảnh hưởng của **riêng** etcd.
+
+**Yêu cầu:**
+
+1. **Kịch bản A — mất một member** (tắt `lab-ha-3`): cụm còn đúng hai endpoint khỏe; API và Bookstore
+   vẫn phục vụ; hai node của cluster vẫn `Ready`. Bật lại thì cụm về ba member khỏe. ⭐ Đo từ máy host
+   suốt kịch bản.
+2. **Kịch bản B — mất quorum** (tắt `lab-ha-2` và `lab-ha-3`): API ngừng phục vụ; **không** endpoint
+   nào khỏe, kể cả member còn sống; Bookstore **vẫn trả lời** suốt thời gian đó. Đo từ máy host suốt
+   kịch bản, giữ hai máy tắt đủ lâu để API chết liên tục ít nhất 60 giây.
+3. Bật lại: cụm về ba member khỏe, API phục vụ, `SMOKE_HA` PASS — không mất object nào của Bookstore.
+4. Postmortem có dòng thời gian, số đo của hai đường, so sánh với kịch bản mất quorum của Lab 8b.
+
+**Ràng buộc:** không tắt `lab-ha-1` — nó giữ `ehealth`. Không bao giờ tắt cả ba etcd host. Không chạy
+`etcdctl` ngoài ba lệnh đọc; không `member remove` để "chữa" cụm. Trong lúc mất quorum không chạy
+lệnh nào ghi vào cluster. Luôn chạy hết phần bật lại ở cuối kịch bản. Dòng `GHI NHAN` ở B0.2 (nếu có)
+cũng ghi vào postmortem này.
+
+**Đọc lại:**
+
+- Bài [08](../08-high-availability-vi.md#external-etcd), mục *Trước khi bạn bắt đầu*, nhánh *External
+  etcd*: số lẻ member etcd **là một yêu cầu** để đạt quorum bỏ phiếu tối ưu.
+- Bài [06](../06-ha-topology-vi.md#external-etcd-topology) — mất một etcd member "có ít tác động hơn".
+- Bài [23](../23-nodes-vi.md#node-heartbeats) — nhịp tim của node; bài [35](../35-leases-vi.md#bầu-chọn-leader-leader-election)
+  — Lease và bầu leader của control plane.
+- Lab 8b, [B11](LAB-8B-HA-VOI-STACKED-ETCD.md#b11-bs-8b-11-diễn-tập-mất-quorum) — kịch bản `mat-quorum`
+  trên cụm stacked; số đo của nó nằm ở bảng `## Số đo Lab 8b` của ADR topology.
+
+**Bàn giao:** `docs/postmortem/8c-mat-quorum-etcd.md`; `~/lab-evidence/8c/b10-*` và
+`do-mat-quorum.csv` (⭐ `do-mat-mot-etcd.csv`) trên `lab-ha-4`.
+
+**Nghiệm thu:**
+
+- `PASS:` mốc gốc: ba endpoint khỏe, API và Bookstore phục vụ.
+- `PASS:` kịch bản A: hai endpoint khỏe, API và Bookstore phục vụ, hai node `Ready`; bật lại về ba.
+- `PASS:` ⭐ file đo A: ứng dụng ≥ 99%, API ≥ 90%, mười mẫu cuối đều `200`.
+- `PASS:` kịch bản B: API ngừng phục vụ, không endpoint nào khỏe, Bookstore trả lời 12/12 lần thử.
+- `PASS:` bật lại: ba endpoint khỏe, API phục vụ, `SMOKE_HA` không có dòng `FAIL`.
+- `PASS:` file đo B: API gián đoạn liên tục ≥ 60 giây, ứng dụng ≥ 99% (cùng ngưỡng Lab 8b), mười mẫu
+  cuối đều `200`.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/postmortem/8c-mat-quorum-etcd.md`:
+
+1. `lab-ha-1` vẫn chạy, container etcd của nó vẫn sống. Vì sao nó báo **không** khỏe? Định nghĩa
+   quorum bằng chính con số của cụm bạn — đừng nói "vì hỏng".
+2. Trong lúc mất quorum, người dùng Bookstore thấy gì, người vận hành mất gì? Dẫn số đo của hai đường.
+   Nhờ đâu ứng dụng vẫn trả lời khi không còn API server?
+3. Để mất quorum, Lab 8b phải tắt mấy máy, là máy gì; Lab 8c phải tắt mấy máy, là máy gì? Với người
+   dùng Bookstore, hai lần mất quorum khác nhau không? Điều đó nói gì về chỗ topology external thật
+   sự giúp và chỗ nó không giúp?
+4. Ở kịch bản A, vì sao `kubectl get nodes` không đổi gì? Cụm stacked có tình huống tương đương không?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Bắt đầu lượt đo (`Start-Probe`) **trước** khi tắt máy, để file có đoạn "trước sự cố" làm nền.
+  Thời lượng lượt đo phải phủ cả lúc máy boot lại.
+- Thông báo lỗi của `kubectl` lúc mất quorum đến từ đâu: từ `kubectl`, từ load balancer, hay từ chính
+  apiserver? Đọc kỹ evidence trước khi viết postmortem.
+- `kube-proxy` ghi quy tắc chuyển tiếp Service vào kernel của từng node — bài 8b đã nói điều này ở
+  kịch bản mất quorum của nó.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi đọc xong; script này chính là cuộc diễn tập</summary>
+
+**Mốc gốc.** Chạy trên **`lab-ha-4`**:
+
+```bash
+source ~/lab-work/8c/ham-do.sh
+ehealth > "$EV/b10-0-health-goc.txt" 2>&1
+H0="$(grep -c 'is healthy' "$EV/b10-0-health-goc.txt")"
+echo "endpoint khoe truoc khi thu: $H0/3"
+test "$H0" -eq 3 && cp_ok && app_ok \
+  && echo 'PASS: moc goc — ba etcd member khoe, API va Bookstore phuc vu'
+```
+
+Không mở kịch bản A khi mốc gốc chưa PASS.
+
+**Kịch bản A — tắt `lab-ha-3`.** ⭐ Trên **máy host**, mở lượt đo năm phút trong cửa sổ riêng:
+
+```powershell
+Start-Probe mat-mot-etcd 300
+```
+
+Khoảng nửa phút sau, chạy trên **`lab-ha-4`**:
 
 ```bash
 ssh lab-ha-3 'sudo shutdown -h now' || true
 ```
 
-Chạy trên **máy host**, PowerShell, dùng lại `$vmrun` và `$vmxHA`:
+Chạy trên **máy host**, cửa sổ chính — lặp lại tới khi đạt; **không** `vmrun stop … hard` trừ khi
+[mục 4](#4-troubleshooting-của-lab-này) chỉ dẫn:
 
 ```powershell
-$e3 = $vmxHA | Where-Object { $_ -like '*lab-ha-3*' }
+$e3 = $haVmx | Where-Object { $_ -like '*lab-ha-3*' }
 $running = & $vmrun -T ws list
 if ($running -notcontains $e3) { "PASS: lab-ha-3 da Powered off" }
 else { "CHUA TAT: doi them roi chay lai lenh nay" }
 ```
 
-**PASS:** dòng `PASS: lab-ha-3 da Powered off` xuất hiện. Chạy lại khối này cho tới khi đạt; **không**
-dùng `vmrun stop … hard` trừ khi [mục 4](#4-troubleshooting-của-lab-này) chỉ dẫn.
-
 Đo, trên **`lab-ha-4`**:
 
 ```bash
+source ~/lab-work/8c/ham-do.sh
 H1=0
 for i in $(seq 1 24); do
-  ehealth > "$EV/b13-1-health.txt" 2>&1
-  H1="$(grep -c 'is healthy' "$EV/b13-1-health.txt")"
+  ehealth > "$EV/b10-a-health.txt" 2>&1
+  H1="$(grep -c 'is healthy' "$EV/b10-a-health.txt")"
   test "$H1" -eq 2 && break
   sleep 5
 done
-cat "$EV/b13-1-health.txt"
+cat "$EV/b10-a-health.txt"
 echo "endpoint khoe khi mat mot member: $H1/3"
-
-serve_check | tee "$EV/b13-1-serve.txt"
+kubectl get nodes > "$EV/b10-a-nodes.txt"
 
 test "$H1" -eq 2 && echo 'PASS: dung hai member con khoe — quorum 2/3 van du'
-grep -q 'SERVE: yes' "$EV/b13-1-serve.txt" \
-  && echo 'PASS: cluster VAN phuc vu day du khi mat mot etcd node'
-
-kubectl get nodes | tee "$EV/b13-1-nodes.txt"
-kubectl -n lab-8c get deploy web | tee "$EV/b13-1-deploy.txt"
-test "$(kubectl get nodes --no-headers | wc -l)" -eq 2 \
-  && echo 'PASS: hai control plane node van Ready — chung khong lien quan gi toi may vua tat'
+cp_ok && app_ok && echo 'PASS: API va Bookstore VAN phuc vu khi mat mot etcd node'
+test "$(grep -c ' Ready ' "$EV/b10-a-nodes.txt")" -eq 2 \
+  && echo 'PASS: hai node van Ready — chung khong lien quan gi toi may vua tat'
 ```
 
-**PASS:** ba dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** `2/3` là con số của quorum. Cụm ba member chịu được mất **một**; hai member còn lại vẫn
-đủ đa số để ghi. Và điều đáng chú ý hơn nằm ở phía Kubernetes: `kubectl get nodes` vẫn trả về **hai**
-node, không node nào đổi trạng thái. Máy vừa tắt không phải Node của cluster này, nên cluster không
-có gì để báo mất.
-
-**Đối chiếu Lab 8b:** ở cụm stacked, không tồn tại phép thử này. Không có máy nào chỉ chạy etcd —
-tắt bất kỳ máy nào cũng đồng thời là tắt một `kube-apiserver`. Đó chính là **hỏng theo cặp**.
-
-Bật lại và chờ hồi phục. Chạy trên **máy host**:
+Bật lại. Chạy trên **máy host**, cửa sổ chính:
 
 ```powershell
-$e3 = $vmxHA | Where-Object { $_ -like '*lab-ha-3*' }
+$e3 = $haVmx | Where-Object { $_ -like '*lab-ha-3*' }
 & $vmrun -T ws start $e3
 $running = & $vmrun -T ws list
 if ($running -contains $e3) { "PASS: lab-ha-3 dang chay" } else { "FAIL: VM chua len" }
@@ -2450,94 +2594,83 @@ if ($running -contains $e3) { "PASS: lab-ha-3 dang chay" } else { "FAIL: VM chua
 Chạy trên **`lab-ha-4`**:
 
 ```bash
+source ~/lab-work/8c/ham-do.sh
 H1b=0
 for i in $(seq 1 60); do
-  ehealth > "$EV/b13-1-health-hoi-phuc.txt" 2>&1
-  H1b="$(grep -c 'is healthy' "$EV/b13-1-health-hoi-phuc.txt")"
+  ehealth > "$EV/b10-a-health-hoi-phuc.txt" 2>&1
+  H1b="$(grep -c 'is healthy' "$EV/b10-a-health-hoi-phuc.txt")"
   test "$H1b" -eq 3 && break
   sleep 5
 done
-cat "$EV/b13-1-health-hoi-phuc.txt"
 echo "endpoint khoe sau khi bat lai: $H1b/3"
-
 test "$H1b" -eq 3 && echo 'PASS: cum etcd tro lai du ba member khoe'
 ```
 
-**PASS:** dòng `PASS: cum etcd tro lai du ba member khoe` xuất hiện. Vòng lặp có số vòng tối đa vì
-thời gian máy boot và member bắt kịp log **phụ thuộc cấu hình và phần cứng host**.
+⭐ Khi cửa sổ đo in `KET QUA`, trên **máy host**: `Send-Probe mat-mot-etcd`. Rồi trên **`lab-ha-4`**:
 
-### B13.2. Phép thử 2 — tắt **hai** etcd node, mất quorum
+```bash
+source ~/lab-work/8c/ham-do.sh
+tom_tat "$EV/do-mat-mot-etcd.csv"
+ge "$APP" 99 && ge "$API" 90 && test "$CUOI_APP" -eq 1 && test "$CUOI_API" -eq 1 \
+  && echo 'PASS: mat mot etcd member — nguoi dung khong nhan ra, API chi chop toi da vai mau'
+```
 
-> **Đây là phép thử phá hoại có kiểm soát.** Tắt `lab-ha-2` và `lab-ha-3`; **giữ `lab-ha-1` chạy**.
-> Đừng bỏ dở phép thử này giữa chừng — luôn chạy hết phần bật lại ở cuối mục.
+**Kịch bản B — tắt `lab-ha-2` và `lab-ha-3`, mất quorum.** Trên **máy host**, mở lượt đo tám phút —
+đủ cho cả lúc tắt, lúc chết và lúc hai máy boot lại:
 
-Chạy trên **`lab-ha-4`**:
+```powershell
+Start-Probe mat-quorum 480
+```
+
+Khoảng nửa phút sau, chạy trên **`lab-ha-4`**:
 
 ```bash
 ssh lab-ha-2 'sudo shutdown -h now' || true
 ssh lab-ha-3 'sudo shutdown -h now' || true
 ```
 
-Chạy trên **máy host**, PowerShell:
+Chạy trên **máy host**, cửa sổ chính:
 
 ```powershell
-$two = $vmxHA | Where-Object { $_ -like '*lab-ha-2*' -or $_ -like '*lab-ha-3*' }
+$two = $haVmx | Where-Object { $_ -like '*lab-ha-2*' -or $_ -like '*lab-ha-3*' }
 $running = & $vmrun -T ws list
 $still = $two | Where-Object { $running -contains $_ }
 if ($still.Count -eq 0) { "PASS: lab-ha-2 va lab-ha-3 deu Powered off" }
 else { "CHUA TAT: $($still -join ', ')" }
 ```
 
-**PASS:** dòng `PASS: lab-ha-2 va lab-ha-3 deu Powered off` xuất hiện.
-
-Đo, trên **`lab-ha-4`**:
+Đo, trên **`lab-ha-4`**. Khối này tự giữ hai máy tắt thêm một phút trong lúc thử Bookstore 12 lần:
 
 ```bash
-SERVE2='chua do'
+source ~/lab-work/8c/ham-do.sh
+CPX='song'
 for i in $(seq 1 24); do
-  SERVE2="$(serve_check)"
-  echo "$SERVE2" | grep -q 'SERVE: no' && break
+  cp_ok || { CPX='chet'; break; }
   sleep 5
 done
-echo "$SERVE2" | tee "$EV/b13-2-serve.txt"
+kubectl --request-timeout=15s get nodes > "$EV/b10-b-kubectl.txt" 2>&1
+cat "$EV/b10-b-kubectl.txt"
+test "$CPX" = 'chet' && echo 'PASS: mat quorum — API server ngung phuc vu'
 
-kubectl --request-timeout=15s get nodes 2>&1 | tee "$EV/b13-2-kubectl.txt"
-
-echo "$SERVE2" | grep -q 'SERVE: no' \
-  && echo 'PASS: mat quorum — API server ngung phuc vu'
-```
-
-**PASS:** dòng `PASS: mat quorum — API server ngung phuc vu` xuất hiện. Đọc kỹ `b13-2-kubectl.txt`:
-thông báo lỗi ở đó đến **từ apiserver**, không phải từ `kubectl` — apiserver còn sống và còn nhận kết
-nối, nó chỉ không đọc/ghi được dữ liệu nữa.
-
-```bash
-ehealth > "$EV/b13-2-health.txt" 2>&1
-cat "$EV/b13-2-health.txt"
-H2="$(grep -c 'is healthy' "$EV/b13-2-health.txt")"
+ehealth > "$EV/b10-b-health.txt" 2>&1
+cat "$EV/b10-b-health.txt"
+H2="$(grep -c 'is healthy' "$EV/b10-b-health.txt")"
 echo "endpoint khoe khi mat hai member: $H2/3"
-
 test "$H2" -eq 0 \
-  && echo 'PASS: khong endpoint nao healthy — ke ca member con song, vi mot mot khong lam nen da so'
+  && echo 'PASS: khong endpoint nao healthy — ke ca member con song, vi mot khong lam nen da so'
+
+OKAPP=0
+for i in $(seq 1 12); do app_ok && OKAPP=$(( OKAPP + 1 )); sleep 5; done
+echo "Bookstore tra loi dung $OKAPP/12 lan trong luc mat quorum" | tee "$EV/b10-b-app.txt"
+test "$OKAPP" -eq 12 \
+  && echo 'PASS: Bookstore VAN phuc vu trong luc mat quorum — mat phang du lieu khong can API'
 ```
 
-**PASS:** dòng `PASS: khong endpoint nao healthy …` xuất hiện.
-
-**Ý nghĩa — đây là chỗ nhiều người hiểu sai.** `lab-ha-1` **vẫn đang chạy**, container etcd của nó
-vẫn sống, `crictl exec` vẫn vào được. Nhưng nó vẫn báo không healthy, vì một member trên ba **không
-lập thành đa số**: nó không có quyền xác nhận một ghi nào, nên nó cũng không dám khẳng định dữ liệu
-nó đang giữ là mới nhất. Quorum không phải "còn ít nhất một bản sao"; quorum là "có quá nửa số
-member đồng ý".
-
-Và hệ quả dây chuyền: `kube-apiserver` không có nơi lưu trạng thái thì **không phục vụ được**, dù cả
-hai control plane node vẫn bật, vẫn nghe cổng `6443`, và load balancer vẫn chuyển tiếp TCP bình
-thường. Đó là câu trả lời cho "vì sao quorum nằm ở tầng etcd" trong
-[mục 2.2](#22-vì-sao-hai-control-plane-cộng-ba-etcd-vẫn-hợp-lệ).
-
-Bật lại. Chạy trên **máy host**:
+Giữ hai máy tắt tới khi lượt đo đã chạy khoảng ba phút, rồi bật lại. Chạy trên **máy host**, cửa sổ
+chính:
 
 ```powershell
-$two = $vmxHA | Where-Object { $_ -like '*lab-ha-2*' -or $_ -like '*lab-ha-3*' }
+$two = $haVmx | Where-Object { $_ -like '*lab-ha-2*' -or $_ -like '*lab-ha-3*' }
 foreach ($f in $two) { & $vmrun -T ws start $f }
 $running = & $vmrun -T ws list
 $up = $two | Where-Object { $running -contains $_ }
@@ -2547,106 +2680,208 @@ if ($up.Count -eq 2) { "PASS: ca hai VM da chay lai" } else { "FAIL: con thieu V
 Chạy trên **`lab-ha-4`**:
 
 ```bash
+source ~/lab-work/8c/ham-do.sh
 H2b=0
 for i in $(seq 1 72); do
-  ehealth > "$EV/b13-2-health-hoi-phuc.txt" 2>&1
-  H2b="$(grep -c 'is healthy' "$EV/b13-2-health-hoi-phuc.txt")"
+  ehealth > "$EV/b10-b-health-hoi-phuc.txt" 2>&1
+  H2b="$(grep -c 'is healthy' "$EV/b10-b-health-hoi-phuc.txt")"
   test "$H2b" -eq 3 && break
   sleep 5
 done
-cat "$EV/b13-2-health-hoi-phuc.txt"
 echo "endpoint khoe sau khi bat lai: $H2b/3"
-
-SERVE2b=''
-for i in $(seq 1 36); do
-  SERVE2b="$(serve_check)"
-  echo "$SERVE2b" | grep -q 'SERVE: yes' && break
-  sleep 5
-done
-echo "$SERVE2b" | tee "$EV/b13-2-serve-hoi-phuc.txt"
+for i in $(seq 1 36); do cp_ok && break; sleep 5; done
 
 test "$H2b" -eq 3 && echo 'PASS: cum etcd hoi phuc du ba member'
-grep -q 'SERVE: yes' "$EV/b13-2-serve-hoi-phuc.txt" \
-  && echo 'PASS: cluster phuc vu tro lai, khong mat du lieu'
-
-kubectl -n lab-8c get deploy web -o wide | tee "$EV/b13-2-deploy-hoi-phuc.txt"
-test "$(kubectl -n lab-8c get deploy web -o jsonpath='{.status.readyReplicas}')" -eq 4 \
-  && echo 'PASS: Deployment cua B12 con nguyen — du lieu nam tren dia cua tung member'
+cp_ok && echo 'PASS: API phuc vu tro lai, khong mat du lieu'
+( cd ~/bookstore && eval "$SMOKE_HA" ) > "$EV/b10-b-smoke-sau.txt" 2>&1 \
+  && ! grep -q '^FAIL' "$EV/b10-b-smoke-sau.txt" \
+  && echo 'PASS: Bookstore nguyen ven sau khi quorum tro lai'
 ```
 
-**PASS:** ba dòng `PASS:` xuất hiện.
-
-### B13.3. Phép thử 3 — tắt **một** control plane node
-
-Đây là phép thử phân biệt hai topology rõ nhất. Chạy trên **`lab-ha-4`**:
+Khi cửa sổ đo in `KET QUA`, trên **máy host**: `Send-Probe mat-quorum`. Rồi trên **`lab-ha-4`**:
 
 ```bash
-kubectl get nodes -o wide | tee "$EV/b13-3-nodes-truoc.txt"
+source ~/lab-work/8c/ham-do.sh
+tom_tat "$EV/do-mat-quorum.csv"
+ge "$API_MAX" 60 && echo "PASS: API chet lien tuc ${API_MAX} giay — da do duoc mat quorum that"
+ge "$APP" 99 && echo "PASS: ung dung van dat ${APP}% trong cung khoang do"
+test "$CUOI_APP" -eq 1 && test "$CUOI_API" -eq 1 && echo 'PASS: ket thuc luot do ca hai duong deu 200'
+```
+
+Các vòng lặp có số vòng tối đa vì thời gian máy boot và member bắt kịp log phụ thuộc cấu hình và
+phần cứng host.
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo — ý chính của postmortem</summary>
+
+1. Quorum không phải "còn ít nhất một bản sao" mà là "**quá nửa** số member đồng ý". Cụm có ba member,
+   quá nửa là hai. Còn một member thì nó không xác nhận được một lần ghi nào, nên cũng không dám khẳng
+   định dữ liệu nó giữ là mới nhất — báo không khỏe dù tiến trình vẫn chạy. Bật lại **một** trong hai
+   máy là đủ: hai trên ba đã là đa số.
+2. Người dùng: theo số đo, ứng dụng gần như không gián đoạn — Pod đã chạy vẫn chạy, `kube-proxy` trên
+   mỗi node đã ghi quy tắc chuyển tiếp Service vào kernel, và đường `web` → `api` → `db-0` không cần
+   hỏi API server ở bước nào. Người vận hành: mất toàn
+   bộ khả năng **thay đổi** — không deploy, không scale, Pod chết không ai thay, node mới không join
+   được. Lỗi của `kubectl` lúc đó đến **từ apiserver**: nó còn sống, còn nhận kết nối qua load
+   balancer, chỉ không đọc ghi được dữ liệu. Mất control plane là mất quyền điều khiển, chưa phải mất
+   dịch vụ — nhưng cluster ở trạng thái đó chỉ chờ một Pod chết là bắt đầu suy sụp.
+3. Lab 8b: tắt **hai control plane node** (mất luôn hai apiserver). Lab 8c: tắt **hai etcd host**, hai
+   apiserver vẫn sống. Với người dùng Bookstore, hai lần như nhau: ứng dụng vẫn chạy, API chết. Topology
+   external **không** làm quorum bền hơn — ba member vẫn chịu được mất một. Thứ nó đổi là **cái gì kéo
+   theo cái gì**: mất control plane không còn kéo theo mất member, và ngược lại.
+4. Ba máy etcd không phải Node của cluster, nên cluster không có gì để báo mất. Cụm stacked không có
+   tình huống này: không máy nào chỉ chạy etcd, tắt máy nào cũng là tắt luôn một apiserver — chính là
+   hỏng theo cặp.
+
+</details>
+
+## B11. [BS-8C-11] Diễn tập: mất một control plane
+
+**Loại:** Diễn tập sự cố — chỉ trên `lab-ha-5`.
+
+**Bối cảnh:** đây là phép thử phân biệt hai topology rõ nhất, và là phép thử mà
+[checkpoint giai đoạn 8](../00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) yêu cầu: tắt
+một control plane node và chứng minh cluster vẫn phục vụ; xóa `kube-apiserver.yaml` rồi khôi phục. Hai
+kịch bản cùng làm mất một `kube-apiserver`, nhưng một kịch bản mất cả máy, kịch bản kia chỉ mất một
+static Pod — và trên cluster không có worker riêng, "cả máy" còn gồm cả một nửa Bookstore.
+
+**Yêu cầu:**
+
+1. **Kịch bản C — tắt `lab-ha-5`**: API vẫn phục vụ qua load balancer; cụm etcd vẫn ba member khỏe;
+   node `lab-ha-5` chuyển `Ready=Unknown`; EndpointSlice của `web` không còn endpoint sẵn sàng nào trên
+   `lab-ha-5`; sau đó Bookstore phục vụ trọn vẹn trở lại **dù `lab-ha-5` vẫn tắt**. Bật lại: node
+   `Ready`, hai apiserver chạy, `SMOKE_HA` PASS. Đo từ máy host suốt kịch bản.
+2. **Kịch bản D — mất static Pod apiserver trên `lab-ha-5`**: còn đúng một Pod `kube-apiserver`, nằm
+   trên `lab-ha-4`; API và Bookstore vẫn phục vụ; node `lab-ha-5` vẫn `Ready`. Khôi phục: hai apiserver
+   chạy, không còn bản sao file lạc. Đo từ máy host suốt kịch bản.
+3. Postmortem đặt hai kịch bản cạnh nhau và cạnh kịch bản tắt control plane của Lab 8b.
+
+**Ràng buộc:** chỉ chạm `lab-ha-5`; mất `lab-ha-4` là mất đường quan sát và mất `db-0`. Ở kịch bản D
+dùng `mv`, không `rm`, và không `kubectl delete pod` — bài học là kubelet phản ứng với thư mục.
+
+**Đọc lại:**
+
+- Bài [08](../08-high-availability-vi.md#tạo-bộ-cân-bằng-tải-cho-kube-apiserver-create-load-balancer-for-kube-apiserver)
+  — load balancer chỉ phân phối tới control plane **khỏe**, health check TCP.
+- Bài [23](../23-nodes-vi.md#node-controller) — node controller đặt `Ready` thành `Unknown` khi mất
+  liên lạc, và chờ bao lâu trước khi trục xuất.
+- Bài [83](../83-endpoint-slices-vi.md#conditions) — condition `ready` của endpoint lấy từ `Ready` của
+  Pod.
+- Bài [139](../139-taint-and-toleration-vi.md#eviction-dựa-trên-taint-taint-based-evictions) — taint
+  `node.kubernetes.io/unreachable` và `tolerationSeconds`.
+- Bài [58](../58-static-pods-vi.md) — static Pod và mirror Pod.
+- Lab 8b, [B9](LAB-8B-HA-VOI-STACKED-ETCD.md#b9-bs-8b-09-diễn-tập-mất-một-control-plane-node) và
+  [B10](LAB-8B-HA-VOI-STACKED-ETCD.md#b10-bs-8b-10-diễn-tập-một-kube-apiserver-mất-manifest) — cùng hai
+  kịch bản `mat-mot-cp`, `mat-manifest-apiserver` trên cụm stacked có worker riêng.
+
+**Bàn giao:** `docs/postmortem/8c-mat-control-plane.md`; `~/lab-evidence/8c/b11-*`,
+`do-mat-mot-cp.csv`, `do-mat-manifest-apiserver.csv` trên `lab-ha-4`.
+
+**Nghiệm thu:**
+
+- `PASS:` kịch bản C: API phục vụ, etcd 3/3, `lab-ha-5` `Unknown`, EndpointSlice bỏ endpoint trên
+  `lab-ha-5`, Bookstore trả lời 12/12 lần thử trong lúc máy vẫn tắt.
+- `PASS:` C bật lại: `lab-ha-5` `Ready`, hai apiserver `Running`, `SMOKE_HA` không có dòng `FAIL`.
+- `PASS:` file đo C: ứng dụng **có** gián đoạn (dưới 100%), API ≥ 90%, mười mẫu cuối đều `200`.
+- `PASS:` kịch bản D: một Pod apiserver, trên `lab-ha-4`; API, Bookstore và `/version` qua LB phục vụ;
+  `lab-ha-5` vẫn `Ready`.
+- `PASS:` D khôi phục: hai apiserver `Running`, không còn bản sao ở `/root`.
+- `PASS:` file đo D: ứng dụng ≥ 99%, API ≥ 90%, mười mẫu cuối đều `200`.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/postmortem/8c-mat-control-plane.md`:
+
+1. Vì sao ở C node chuyển `Unknown` còn ở D vẫn `Ready`? Ai quyết định ngừng gửi request **API** tới
+   `lab-ha-5`, và ai quyết định ngừng gửi request **ứng dụng** tới Pod trên `lab-ha-5`?
+2. Ở C, Bookstore gián đoạn bao lâu theo số đo của bạn, và vì sao không về 0 ngay lập tức? Kể chuỗi sự
+   kiện từ lúc máy tắt tới lúc EndpointSlice bỏ endpoint. Độ dài khoảng đó phụ thuộc cấu hình nào?
+3. Lab 8b tắt một control plane mà Bookstore không gián đoạn; ở đây có. Đó là do topology etcd hay do
+   điều gì khác? Kết luận gì cho production của Bookstore?
+4. Sau kịch bản C, cụm stacked của Lab 8b và cluster này mỗi bên còn chịu được mất thêm bao nhiêu etcd
+   member? Đó là câu nào của bài 06?
+5. Ở D, ai xóa Pod apiserver — bạn hay kubelet? Ai ghi được vào thư mục đó thì làm được gì?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Bắt đầu lượt đo **trước** khi tắt máy; chọn thời lượng phủ cả lúc máy boot lại.
+- Endpoint của một EndpointSlice có `nodeName` và `conditions.ready`; jsonpath duyệt được
+  `.items[*].endpoints[*]`.
+- Static Pod manifest dời ra ngoài `/etc/kubernetes/manifests` thì kubelet dừng container và mirror Pod
+  biến mất; dời vào lại thì ngược lại.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi đọc xong; script này chính là cuộc diễn tập</summary>
+
+**Kịch bản C.** Trên **máy host**, mở lượt đo tám phút trong cửa sổ riêng:
+
+```powershell
+Start-Probe mat-mot-cp 480
+```
+
+Khoảng nửa phút sau, chạy trên **`lab-ha-4`**:
+
+```bash
+source ~/lab-work/8c/ham-do.sh
+kubectl get nodes -o wide > "$EV/b11-c-nodes-truoc.txt"
+kubectl -n bookstore get pods -o wide > "$EV/b11-c-pods-truoc.txt"
 ssh lab-ha-5 'sudo shutdown -h now' || true
 ```
 
-Chạy trên **máy host**, PowerShell:
+Chạy trên **máy host**, cửa sổ chính:
 
 ```powershell
-$cp2 = $vmxHA | Where-Object { $_ -like '*lab-ha-5*' }
+$cp2 = $haVmx | Where-Object { $_ -like '*lab-ha-5*' }
 $running = & $vmrun -T ws list
 if ($running -notcontains $cp2) { "PASS: lab-ha-5 da Powered off" }
 else { "CHUA TAT: doi them roi chay lai lenh nay" }
 ```
 
-**PASS:** dòng `PASS: lab-ha-5 da Powered off` xuất hiện.
-
 Đo, trên **`lab-ha-4`**:
 
 ```bash
-serve_check | tee "$EV/b13-3-serve.txt"
-grep -q 'SERVE: yes' "$EV/b13-3-serve.txt" \
-  && echo 'PASS: cluster VAN phuc vu qua load balancer khi mat mot control plane node'
-
-ehealth > "$EV/b13-3-health.txt" 2>&1
-H3="$(grep -c 'is healthy' "$EV/b13-3-health.txt")"
-cat "$EV/b13-3-health.txt"
-echo "endpoint etcd khoe: $H3/3"
-test "$H3" -eq 3 \
+source ~/lab-work/8c/ham-do.sh
+cp_ok && echo 'PASS: API VAN phuc vu qua load balancer khi mat mot control plane node'
+ehealth > "$EV/b11-c-health.txt" 2>&1
+test "$(grep -c 'is healthy' "$EV/b11-c-health.txt")" -eq 3 \
   && echo 'PASS: cum etcd VAN du ba member — tat control plane khong dung toi etcd'
 
 ST=''
 for i in $(seq 1 60); do
   ST="$(kubectl --request-timeout=15s get node lab-ha-5 \
     -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)"
-  test "$ST" != 'True' && break
+  test "$ST" = 'Unknown' && break
   sleep 5
 done
+kubectl get nodes > "$EV/b11-c-nodes-down.txt"
 echo "Ready condition cua lab-ha-5 = $ST"
-kubectl get nodes | tee "$EV/b13-3-nodes-down.txt"
-test "$ST" = 'Unknown' \
-  && echo 'PASS: node controller doi Ready thanh Unknown khi mat heartbeat'
+test "$ST" = 'Unknown' && echo 'PASS: node controller doi Ready thanh Unknown khi mat heartbeat'
 
-API_UP="$(kubectl -n kube-system get pod -l component=kube-apiserver \
-  --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)"
-echo "Pod kube-apiserver dang Running: $API_UP"
+EP5=1
+for i in $(seq 1 36); do
+  EP5="$(kubectl -n bookstore get endpointslice -l kubernetes.io/service-name=web \
+    -o jsonpath='{range .items[*].endpoints[*]}{.nodeName}={.conditions.ready}{"\n"}{end}' \
+    | grep -c '^lab-ha-5=true')"
+  test "$EP5" -eq 0 && break
+  sleep 5
+done
+kubectl -n bookstore get endpointslice -o wide > "$EV/b11-c-eps.txt"
+kubectl -n bookstore get pods -o wide > "$EV/b11-c-pods-down.txt"
+test "$EP5" -eq 0 && echo 'PASS: EndpointSlice cua web khong con endpoint ready nao tren lab-ha-5'
+
+OKAPP=0
+for i in $(seq 1 12); do app_ok && OKAPP=$(( OKAPP + 1 )); sleep 5; done
+echo "Bookstore tra loi dung $OKAPP/12 lan khi lab-ha-5 van tat" | tee "$EV/b11-c-app.txt"
+test "$OKAPP" -eq 12 && echo 'PASS: Bookstore phuc vu tron ven tro lai du lab-ha-5 van tat'
 ```
 
-**PASS:** ba dòng `PASS:` xuất hiện.
-
-**Ý nghĩa — đặt cạnh Lab 8b thì thấy toàn bộ nội dung của bài 06:**
-
-| Đo cái gì | Lab 8b, tắt một control plane | Lab 8c, tắt `lab-ha-5` |
-| --- | --- | --- |
-| Số `kube-apiserver` còn lại | 2/3 | 1/2 |
-| Số etcd member còn khỏe | **2/3 — mất một member cùng lúc** | **3/3 — không member nào bị đụng** |
-| Cluster còn phục vụ | có | có |
-| Còn chịu được mất thêm bao nhiêu etcd member | **0** | **1** |
-
-Dòng cuối là điều bài 06 gọi là "tính dự phòng bị suy giảm". Ở stacked, sau khi mất một máy bạn đang
-đứng **sát mép**: mất thêm một máy nữa là mất quorum. Ở external, sau khi mất `lab-ha-5` bạn vẫn còn
-nguyên biên độ ở tầng etcd — đúng câu bài viết: mất một instance control plane "không ảnh hưởng đến
-tính dự phòng của cluster nhiều như topology HA xếp chồng".
-
-Bật lại. Chạy trên **máy host**:
+Bật lại. Chạy trên **máy host**, cửa sổ chính:
 
 ```powershell
-$cp2 = $vmxHA | Where-Object { $_ -like '*lab-ha-5*' }
+$cp2 = $haVmx | Where-Object { $_ -like '*lab-ha-5*' }
 & $vmrun -T ws start $cp2
 $running = & $vmrun -T ws list
 if ($running -contains $cp2) { "PASS: lab-ha-5 dang chay" } else { "FAIL: VM chua len" }
@@ -2655,9 +2890,9 @@ if ($running -contains $cp2) { "PASS: lab-ha-5 dang chay" } else { "FAIL: VM chu
 Chạy trên **`lab-ha-4`**:
 
 ```bash
+source ~/lab-work/8c/ham-do.sh
 kubectl wait --for=condition=Ready node/lab-ha-5 --timeout=600s
-kubectl get nodes -o wide | tee "$EV/b13-3-nodes-up.txt"
-
+kubectl get nodes -o wide > "$EV/b11-c-nodes-up.txt"
 API_UP2=0
 for i in $(seq 1 60); do
   API_UP2="$(kubectl -n kube-system get pod -l component=kube-apiserver \
@@ -2665,51 +2900,39 @@ for i in $(seq 1 60); do
   test "$API_UP2" -eq 2 && break
   sleep 5
 done
-echo "Pod kube-apiserver dang Running: $API_UP2"
-
 test "$API_UP2" -eq 2 && echo 'PASS: ca hai kube-apiserver da chay lai'
-serve_check | grep -q 'SERVE: yes' && echo 'PASS: cluster phuc vu binh thuong'
+( cd ~/bookstore && eval "$SMOKE_HA" ) > "$EV/b11-c-smoke-sau.txt" 2>&1 \
+  && ! grep -q '^FAIL' "$EV/b11-c-smoke-sau.txt" \
+  && echo 'PASS: Bookstore nguyen ven sau khi lab-ha-5 tro lai'
 ```
 
-**PASS:** hai dòng `PASS:` xuất hiện.
-
----
-
-## B14. Checkpoint giai đoạn 8 — xóa `kube-apiserver.yaml` rồi khôi phục
-
-**Mục đích:** [Checkpoint của giai đoạn 8](../00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm)
-yêu cầu "phá rồi khôi phục: tắt một control plane node và chứng minh cluster vẫn phục vụ; xóa
-`/etc/kubernetes/manifests/kube-apiserver.yaml` rồi khôi phục". Vế thứ nhất đã xong ở B13.3; B14 làm
-vế thứ hai — và lần này cluster mất một apiserver **mà không mất node**, nên phép đo sạch hơn.
-
-> **Chỉ chạm `lab-ha-5`.** Đây là fault target duy nhất ở tầng control plane, theo
-> [mục 2.1](#21-bảng-đổi-vai-của-sáu-vm). Xóa file này trên `lab-ha-4` là tự cắt đường quan sát của
-> chính mình.
-
-### B14.1. Chuyển manifest ra khỏi thư mục static Pod
-
-Chạy trên **`lab-ha-4`**:
+Khi cửa sổ đo in `KET QUA`, trên **máy host**: `Send-Probe mat-mot-cp`. Rồi trên **`lab-ha-4`**:
 
 ```bash
-ssh lab-ha-5 \
-  'sudo mv /etc/kubernetes/manifests/kube-apiserver.yaml /root/kube-apiserver.yaml'
+source ~/lab-work/8c/ham-do.sh
+tom_tat "$EV/do-mat-mot-cp.csv"
+lt "$APP" 100 && echo "PASS: ung dung CO gian doan — ${APP}%, dai nhat ${APP_MAX} giay"
+ge "$API" 90 && echo "PASS: API van dat ${API}% — load balancer bo backend da mat"
+test "$CUOI_APP" -eq 1 && test "$CUOI_API" -eq 1 && echo 'PASS: ket thuc luot do ca hai duong deu 200'
+```
 
-ssh lab-ha-5 'sudo ls -1 /etc/kubernetes/manifests/' | tee "$EV/b14-manifests-thieu.txt"
-grep -q 'kube-apiserver.yaml' "$EV/b14-manifests-thieu.txt" \
+**Kịch bản D.** Trên **máy host**, mở lượt đo năm phút trong cửa sổ riêng:
+
+```powershell
+Start-Probe mat-manifest-apiserver 300
+```
+
+Khoảng nửa phút sau, chạy trên **`lab-ha-4`**:
+
+```bash
+source ~/lab-work/8c/ham-do.sh
+ssh lab-ha-5 'sudo mv /etc/kubernetes/manifests/kube-apiserver.yaml /root/kube-apiserver.yaml'
+ssh lab-ha-5 'sudo ls -1 /etc/kubernetes/manifests/' > "$EV/b11-d-manifests-thieu.txt"
+grep -q 'kube-apiserver.yaml' "$EV/b11-d-manifests-thieu.txt" \
   && echo 'FAIL: file van con trong thu muc' \
   || echo 'PASS: kube-apiserver.yaml da roi khoi /etc/kubernetes/manifests'
-ssh lab-ha-5 'sudo test -f /root/kube-apiserver.yaml' \
-  && echo 'PASS: da giu ban sao o /root, khoi phuc duoc'
-```
+ssh lab-ha-5 'sudo test -f /root/kube-apiserver.yaml' && echo 'PASS: da giu ban sao o /root, khoi phuc duoc'
 
-**PASS:** hai dòng `PASS:` xuất hiện, không có dòng `FAIL:`. Dùng `mv` chứ không `rm` là có chủ ý:
-bài học ở đây là **kubelet phản ứng với nội dung thư mục**, không phải luyện gõ lại một manifest.
-
-### B14.2. Đo trong lúc thiếu một apiserver
-
-Chạy trên **`lab-ha-4`**:
-
-```bash
 APIN=2
 for i in $(seq 1 36); do
   APIN="$(kubectl --request-timeout=15s -n kube-system get pod -l component=kube-apiserver \
@@ -2717,55 +2940,23 @@ for i in $(seq 1 36); do
   test "$APIN" -le 1 && break
   sleep 5
 done
-kubectl -n kube-system get pod -l component=kube-apiserver -o wide | tee "$EV/b14-api-pods.txt"
-echo "Pod kube-apiserver con lai: $APIN"
+kubectl -n kube-system get pod -l component=kube-apiserver -o wide > "$EV/b11-d-api-pods.txt"
+ONNODE="$(kubectl -n kube-system get pod -l component=kube-apiserver -o jsonpath='{.items[0].spec.nodeName}')"
+test "$APIN" -eq 1 && test "$ONNODE" = 'lab-ha-4' \
+  && echo 'PASS: chi con mot kube-apiserver, cua lab-ha-4 — kubelet tren lab-ha-5 da xoa Pod theo thu muc'
 
-test "$APIN" -eq 1 \
-  && echo 'PASS: chi con mot kube-apiserver — kubelet tren lab-ha-5 da xoa Pod theo manifest'
-
-ONNODE="$(kubectl -n kube-system get pod -l component=kube-apiserver \
-  -o jsonpath='{.items[0].spec.nodeName}')"
-echo "apiserver con lai nam tren: $ONNODE"
-test "$ONNODE" = 'lab-ha-4' && echo 'PASS: apiserver con lai dung la cua lab-ha-4'
-```
-
-```bash
-serve_check | tee "$EV/b14-serve.txt"
-grep -q 'SERVE: yes' "$EV/b14-serve.txt" \
-  && echo 'PASS: cluster VAN phuc vu qua load balancer voi mot apiserver'
-
+cp_ok && app_ok && echo 'PASS: API va Bookstore VAN phuc vu voi mot apiserver'
 curl -sk "https://${LB}:6443/version" | grep -q 'gitVersion' \
   && echo 'PASS: goi thang qua load balancer van co ket qua'
-
-READY5="$(kubectl get node lab-ha-5 \
-  -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
-echo "lab-ha-5 Ready=$READY5"
-test "$READY5" = 'True' \
-  && echo 'PASS: lab-ha-5 VAN Ready — kubelet cua no van song, chi thieu apiserver'
+READY5="$(kubectl get node lab-ha-5 -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
+test "$READY5" = 'True' && echo 'PASS: lab-ha-5 VAN Ready — kubelet cua no van song, chi thieu apiserver'
 ```
 
-**PASS:** bốn dòng `PASS:` của B14.2 xuất hiện.
-
-**Ý nghĩa:** ba kết luận từ một thao tác.
-
-1. **Static Pod bám vào thư mục, không bám vào API server.** Bạn không xóa Pod bằng `kubectl`; bạn
-   dời một file, và kubelet trên `lab-ha-5` tự dừng container rồi xóa mirror Pod. Đây là điều bài
-   [128](../128-api-server-bypass-risks-vi.md) của giai đoạn 9 sẽ quay lại ở góc bảo mật: ai ghi được
-   vào `/etc/kubernetes/manifests` thì chạy được container trên node mà không đi qua API server.
-2. **Load balancer làm đúng việc của nó.** Health check TCP trên `:6443` thấy `lab-ha-5` không còn
-   nghe cổng đó, nên nó ngừng gửi request sang. Bạn không phải sửa gì trong kubeconfig — địa chỉ vẫn
-   là `ControlPlaneEndpoint`, còn việc chọn backend nào là chuyện của HAProxy.
-3. **Node vẫn `Ready`.** kubelet là thứ báo cáo Node status, và kubelet không chết. Đây là khác biệt
-   so với B13.3, nơi cả máy tắt: ở đó Node chuyển `Unknown`, ở đây thì không. Hai sự cố khác nhau cho
-   hai triệu chứng khác nhau — nhớ cặp này để chẩn đoán nhanh trên cluster thật.
-
-### B14.3. Khôi phục
-
-Chạy trên **`lab-ha-4`**:
+Khoảng hai phút sau, khôi phục. Chạy trên **`lab-ha-4`**:
 
 ```bash
+source ~/lab-work/8c/ham-do.sh
 ssh lab-ha-5 'sudo mv /root/kube-apiserver.yaml /etc/kubernetes/manifests/kube-apiserver.yaml'
-
 APIN2=0
 for i in $(seq 1 60); do
   APIN2="$(kubectl -n kube-system get pod -l component=kube-apiserver \
@@ -2773,139 +2964,360 @@ for i in $(seq 1 60); do
   test "$APIN2" -eq 2 && break
   sleep 5
 done
-kubectl -n kube-system get pod -l component=kube-apiserver -o wide | tee "$EV/b14-api-pods-hoi-phuc.txt"
-echo "Pod kube-apiserver Running: $APIN2"
-
+kubectl -n kube-system get pod -l component=kube-apiserver -o wide > "$EV/b11-d-api-pods-hoi-phuc.txt"
 ssh lab-ha-5 'sudo test -f /root/kube-apiserver.yaml' \
   && echo 'FAIL: ban sao van con o /root' \
   || echo 'PASS: da tra file ve dung cho, khong con ban sao lac'
-test "$APIN2" -eq 2 && echo 'PASS: ca hai kube-apiserver da chay lai'
-serve_check | grep -q 'SERVE: yes' && echo 'PASS: cluster phuc vu binh thuong'
+test "$APIN2" -eq 2 && cp_ok && app_ok && echo 'PASS: ca hai kube-apiserver da chay lai, cluster binh thuong'
 ```
 
-**PASS:** ba dòng `PASS:` xuất hiện, không có dòng `FAIL:`.
+Khi cửa sổ đo in `KET QUA`, trên **máy host**: `Send-Probe mat-manifest-apiserver`. Rồi trên
+**`lab-ha-4`**:
 
----
+```bash
+source ~/lab-work/8c/ham-do.sh
+tom_tat "$EV/do-mat-manifest-apiserver.csv"
+ge "$APP" 99 && ge "$API" 90 && test "$CUOI_APP" -eq 1 && test "$CUOI_API" -eq 1 \
+  && echo 'PASS: mat mot apiserver — ung dung khong biet, API chi chop trong luc LB doi backend'
+```
 
-## B15. Cleanup, snapshot `8x-ha-external` và gate cuối
+</details>
 
-**Mục đích:** xóa mọi thứ của bài học, trả taint control plane về mặc định kubeadm, chụp mốc mới
-trên đủ sáu VM, và chứng minh bộ VM chính không hề bị chạm.
+<details>
+<summary>Lời giải tham khảo — ý chính của postmortem</summary>
 
-### B15.1. Xóa object và file tạm của bài học
+1. Node status do **kubelet** báo. Ở C kubelet chết theo máy, node controller mất nhịp tim nên đặt
+   `Unknown`; ở D kubelet vẫn sống nên node vẫn `Ready`. Hai sự cố khác nhau cho hai triệu chứng khác
+   nhau — nhớ cặp này để chẩn đoán nhanh. Request **API**: health check TCP của HAProxy thấy `:6443` trên
+   `lab-ha-5` không còn trả lời và ngừng gửi; kubeconfig không đổi gì, địa chỉ vẫn là
+   `ControlPlaneEndpoint`. Request **ứng dụng**: khi node `Unknown`, Pod trên đó mất `Ready`, condition
+   `ready` của endpoint đi theo (bài 83), `kube-proxy` trên `lab-ha-4` ngừng chọn chúng.
+2. Gián đoạn kéo dài từ lúc máy tắt tới lúc EndpointSlice bỏ endpoint: trong khoảng đó `kube-proxy` trên
+   `lab-ha-4` vẫn chọn ngẫu nhiên cả Pod trên máy đã chết, nên một phần request rơi vào khoảng không.
+   Chuỗi: kubelet ngừng gửi nhịp tim → node controller kiểm định kỳ và đặt `Unknown` sau một khoảng ân
+   hạn → Pod mất `Ready` → EndpointSlice cập nhật → `kube-proxy` cập nhật quy tắc. Độ dài phụ thuộc cấu
+   hình của `kube-controller-manager` (chu kỳ kiểm và khoảng ân hạn), không phải hằng số. Pod **không**
+   bị thay ngay: bài 23 nói node controller chờ trước khi trục xuất; bài 139 gọi đó là
+   `tolerationSeconds` của taint `unreachable`.
+3. Không phải do topology etcd. Lab 8b có **worker riêng**: tắt control plane không đụng tới Pod nào.
+   Ở đây control plane **cũng là** worker, nên mất nó là mất một nửa sức chứa của Bookstore. Kết luận
+   cho production: workload chạy trên worker riêng, giữ taint control plane — bất kể chọn topology nào.
+4. Stacked sau khi mất một control plane: còn 2/3 member, chịu thêm **0** — mất máy nữa là mất quorum.
+   External sau khi mất `lab-ha-5`: etcd vẫn 3/3, chịu thêm **1**. Bài 06: mất một instance control plane
+   "không ảnh hưởng đến tính dự phòng của cluster nhiều như topology HA xếp chồng".
+5. Kubelet — nó đọc thư mục static Pod, dừng container và mirror Pod biến mất; bạn không gọi API nào.
+   Ai ghi được vào `/etc/kubernetes/manifests` thì chạy được container trên node mà không đi qua API
+   server — lý do quyền trên thư mục đó là chuyện bảo mật, sẽ quay lại ở giai đoạn 9.
+
+</details>
+
+## B12. [BS-8C-12] ADR: topology HA cho production của Bookstore
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** yêu cầu
+[R12](DU-AN-BOOKSTORE.md#22-yêu-cầu-của-hệ-thống-mới) của dự án đòi "đánh giá được topology HA". Lab 8b
+đã mở `docs/adr/NNNN-topology-ha.md`, chốt phần stacked — dự đoán, bảng `## Số đo Lab 8b`, rủi ro
+SPOF — và để trống `## External (Lab 8c)`. Hai sprint đã dựng cả hai topology trên cùng phần cứng và
+đo cùng ứng dụng bằng cùng script. Ticket này đặt hai bộ số cạnh nhau và biến chúng thành một quyết
+định có điều kiện.
+
+**Yêu cầu:**
+
+1. Hoàn thiện **đúng file ADR của Lab 8b**, không tạo ADR mới. Dòng *Sprint* thêm Lab 8c; trạng thái
+   **chấp nhận** cho cả ADR.
+2. `## External (Lab 8c)`: thay dòng chờ điền bằng hình dạng cluster external đo ở B1 và B8 — số
+   apiserver, số etcd member, số máy, giá trị `--etcd-servers` — và câu trả lời câu hỏi thiết kế của
+   B1, B8.
+3. `## Số đo Lab 8c`: bảng **cùng cột** với `## Số đo Lab 8b` (kịch bản, ứng dụng, API, gián đoạn dài
+   nhất ứng dụng / API), một dòng cho mỗi kịch bản `mat-mot-etcd`, `mat-mot-cp`,
+   `mat-manifest-apiserver`, `mat-quorum`, lấy từ `~/lab-evidence/8c/so-do.txt`. Kịch bản nào không có
+   ở topology kia thì ghi rõ trong lời bình dưới bảng.
+4. `## Kết luận`: số host tối thiểu cho **Bookstore production** theo từng topology, tách từng nhóm
+   máy; độ phức tạp vận hành của external liệt kê bằng những việc cụ thể sprint 14 làm thêm so với
+   sprint 13 (lấy từ runbook); topology được chọn, kèm **điều kiện đổi quyết định**; những gì
+   production phải có **bất kể** topology; nợ còn mở (#7, #8).
+5. Runbook và hai postmortem của sprint đầy đủ các mục mà ticket trước yêu cầu.
+
+**Ràng buộc:** số trong bảng là số **bạn đo**, không chép từ lời giải. Không sửa bảng
+`## Dự đoán và đo` hay `## Số đo Lab 8b` của Lab 8b — đó là lịch sử. Không đưa vào ADR thứ chưa học:
+đề xuất cần kiến thức giai đoạn sau (cặp load balancer với VIP) thì ghi thành điều kiện của
+production, không thiết kế chi tiết.
+
+**Đọc lại:** bài [06](../06-ha-topology-vi.md) — cả hai mục topology, đặc biệt các câu về số host tối
+thiểu; bài [08](../08-high-availability-vi.md#external-etcd), mục *Trước khi bạn bắt đầu* — "số lẻ"
+**là yêu cầu** với etcd nhưng chỉ **có thể giúp ích** với control plane; bài
+[02](../02-create-cluster-kubeadm-vi.md#resilience) — khả năng chống chịu của cluster một control plane;
+[mục 3.7 của file dự án](DU-AN-BOOKSTORE.md#37-chịu-lỗi-và-vận-hành).
+
+**Bàn giao:** `docs/adr/NNNN-topology-ha.md`; `docs/runbook-ha-external-etcd.md`; hai postmortem.
+
+**Nghiệm thu:**
+
+- `PASS:` ADR topology của Lab 8b đã hoàn thiện: `## External (Lab 8c)` không còn chờ điền, có
+  `## Số đo Lab 8c` và `## Kết luận`, trạng thái **chấp nhận**.
+- `PASS:` bảng `## Số đo Lab 8c` có đủ bốn kịch bản, mỗi dòng hai ô phần trăm.
+- `PASS:` `## Kết luận` nói tới quorum, worker riêng, load balancer, và nợ #8.
+- `PASS:` bảng `## Số đo Lab 8b` không đổi so với tag `lab-8b`.
+- `PASS:` runbook có các mục của B2–B9 và chứa cấu hình `etcd.external` đã dùng; có hai postmortem.
+
+**Câu hỏi thiết kế** — trả lời trong `## Kết luận` của ADR:
+
+1. Quorum nằm ở tầng nào? Vì sao **2 control plane + 3 etcd member** là cấu hình hợp lệ, còn 2 control
+   plane stacked thì không phải HA? Dẫn đúng hai câu của bài 08 về "số lẻ".
+2. Số host tối thiểu của Bookstore production theo từng topology là bao nhiêu? Tính rõ: control plane,
+   etcd, worker, load balancer.
+3. Đặt `mat-quorum` và `mat-mot-cp` của hai bảng cạnh nhau. Topology etcd **thay đổi** gì và **không
+   thay đổi** gì với người dùng Bookstore? Với người vận hành?
+4. Những việc nào sprint 14 phải làm thêm so với sprint 13? Việc nào sẽ lặp lại ở mỗi lần nâng cấp,
+   xoay certificate hay thay máy?
+5. Điều kiện nào thì dự án đổi sang external? Thành phần nào vẫn là điểm hỏng đơn trong **cả hai**
+   topology như lab đã dựng?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Số đo của Lab 8b nằm sẵn trong bảng `## Số đo Lab 8b` của ADR và trong `~/lab-evidence/8b/so-do.txt`
+  của sprint 13. Thiếu số nào thì ghi "không đo" — đừng bịa.
+- Hai kịch bản không đối xứng: `mat-mot-etcd` không tồn tại riêng ở stacked; `mat-lb` không đo lại ở 8c
+  vì load balancer và cấu hình của nó giống hệt.
+- Số host tối thiểu của bài 06 chưa tính worker và load balancer.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 Chạy trên **`lab-ha-4`**:
 
 ```bash
-kubectl delete namespace lab-8c --wait=true --timeout=300s
+cd ~/bookstore
+ADR="$(ls docs/adr/*-topology-ha.md 2>/dev/null | head -n 1)"
+test -n "$ADR" && echo "PASS: co ADR topology cua Lab 8b: $ADR"
+grep -q '^## External (Lab 8c)' "$ADR" && ! grep -q '(Lab 8c điền)' "$ADR" \
+  && grep -q '^## Số đo Lab 8c' "$ADR" && grep -q '^## Kết luận' "$ADR" \
+  && grep -q 'Trạng thái: chấp nhận' "$ADR" \
+  && echo 'PASS: ADR da dien phan external, co so do Lab 8c, ket luan, trang thai chap nhan'
 
-rm -f "$WK/web.yaml" "$WK/kubeadm-config.yaml"
-rmdir "$WK"
-
-NS_LEFT="$(kubectl get namespace lab-8c --ignore-not-found -o name 2>/dev/null | wc -l)"
-POD_DEF="$(kubectl get pods -n default --no-headers 2>/dev/null | wc -l)"
-echo "namespace lab-8c con=$NS_LEFT | Pod trong default=$POD_DEF"
-
-test "$NS_LEFT" -eq 0 && echo 'PASS: namespace lab-8c da bien mat'
-test "$POD_DEF" -eq 0 && echo 'PASS: namespace default khong con Pod nao'
-test ! -e "$WK" && echo 'PASS: manifest tam da xoa het'
-```
-
-**PASS:** ba dòng `PASS:` xuất hiện. `rmdir` cố ý không dùng `-rf`: nó fail nếu thư mục còn file lạ,
-và `test ! -e` biến điều đó thành gate. Thư mục `~/lab-evidence/8c/` trên **cả sáu máy** thì **giữ
-lại** — đó là bằng chứng, và snapshot sắp chụp sẽ mang theo nó.
-
-Trên `lab-ha-1` còn ba thư mục tạm chứa certificate của B5–B6. Chạy trên **`lab-ha-4`**:
-
-```bash
-ssh lab-ha-1 'rm -rf /tmp/192.168.100.231 /tmp/192.168.100.232 /tmp/192.168.100.233'
-ssh lab-ha-1 'ls -d /tmp/192.168.100.23* 2>/dev/null | wc -l' \
-  | grep -qx '0' && echo 'PASS: da xoa thu muc tam chua certificate tren lab-ha-1'
-
-for n in lab-ha-2 lab-ha-3; do
-  ssh "$n" 'rm -f $HOME/kubeadmcfg.yaml'
+SO8C="$(sed -n '/^## Số đo Lab 8c/,/^## /p' "$ADR")"
+BAD=0
+for S in mat-mot-etcd mat-mot-cp mat-manifest-apiserver mat-quorum; do
+  echo "$SO8C" | grep -Eq "^\| *$S *\|.*%.*%" || { echo "FAIL: bang So do Lab 8c thieu $S"; BAD=1; }
 done
-echo 'PASS: da xoa kubeadmcfg.yaml con lai o thu muc home cua hai host etcd'
+test "$BAD" -eq 0 && echo 'PASS: bang So do Lab 8c du bon kich ban'
+
+KL="$(sed -n '/^## Kết luận/,/^## /p' "$ADR")"
+echo "$KL" | grep -qi 'quorum' && echo "$KL" | grep -qi 'worker' \
+  && echo "$KL" | grep -qiE 'load balancer|LB' && echo "$KL" | grep -q '#8' \
+  && echo 'PASS: ket luan neu quorum, worker rieng, load balancer va no #8'
+diff <(git show "lab-8b:$ADR" | sed -n '/^## Số đo Lab 8b/,/^## /p') \
+     <(sed -n '/^## Số đo Lab 8b/,/^## /p' "$ADR") >/dev/null \
+  && echo 'PASS: bang So do Lab 8b giu nguyen nhu tag lab-8b'
+
+RB=docs/runbook-ha-external-etcd.md
+BAD=0
+for k in 'Gỡ cluster cũ' 'Load balancer' 'Host etcd' 'Certificate etcd' 'Cụm etcd' \
+         'Control plane external' 'Triển khai Bookstore'; do
+  grep -q "$k" "$RB" || { echo "FAIL: runbook thieu muc $k"; BAD=1; }
+done
+grep -q 'external:' "$RB" && test "$(grep -c 'https://192.168.100.23[123]:2379' "$RB")" -ge 3 \
+  || { echo 'FAIL: runbook chua chua cau hinh etcd.external da dung'; BAD=1; }
+test "$BAD" -eq 0 && echo 'PASS: runbook du cac muc va cau hinh'
+test -s docs/postmortem/8c-mat-quorum-etcd.md && test -s docs/postmortem/8c-mat-control-plane.md \
+  && echo 'PASS: co hai postmortem cua sprint 14'
 ```
 
-**PASS:** hai dòng `PASS:` xuất hiện. Certificate của etcd **vẫn ở nguyên** `/etc/kubernetes/pki` —
-cụm etcd đang chạy bằng chúng; chỉ các bản sao trong `/tmp` và `$HOME` bị xóa.
+</details>
 
-### B15.2. Trả taint control plane về mặc định kubeadm
+<details>
+<summary>Lời giải tham khảo — phần Lab 8c của ADR và ý chính</summary>
 
-Chạy trên **`lab-ha-4`**:
+Ba mục mà Lab 8c thêm hoặc điền — số trong ngoặc nhọn là số **của bạn**:
+
+```markdown
+## External (Lab 8c)
+
+Cùng sáu VM, đổi vai: 3 etcd host (lab-ha-1..3), 2 control plane (lab-ha-4, lab-ha-5), cùng LB.
+External = 2 apiserver, 3 etcd member, 5 máy; stacked = 3 / 3 / 3. `--etcd-servers` của cả hai
+apiserver liệt kê cả ba etcd host (nhiều-nhiều); ở stacked mỗi apiserver chỉ `127.0.0.1:2379`
+(một-một). 0 Pod `component=etcd`, không `etcd.yaml` trên control plane. Không worker riêng: Bookstore
+chạy trên control plane sau khi gỡ taint, `db-0` ghim lab-ha-4 (overlay, patch của Lab 8c).
+
+## Số đo Lab 8c
+
+Đo từ máy host bằng scripts/do-san-sang.ps1 (CSV ms,app,api), tỷ lệ theo thời gian, cả cửa sổ.
+
+| Kịch bản | Ứng dụng | API | Gián đoạn dài nhất ứng dụng / API |
+| --- | --- | --- | --- |
+| mat-mot-etcd | {…}% | {…}% | {…}s / {…}s |
+| mat-mot-cp | {…}% | {…}% | {…}s / {…}s |
+| mat-manifest-apiserver | {…}% | {…}% | {…}s / {…}s |
+| mat-quorum | {…}% | {…}% | {…}s / {…}s |
+
+mat-mot-etcd không tồn tại riêng ở stacked. mat-mot-cp của 8c tắt một máy vừa là control plane vừa
+là worker — khác 8b, nơi workload ở worker riêng. mat-lb không đo lại: LB và cấu hình giống 8b.
+
+## Kết luận
+
+| Production | Stacked | External |
+| --- | --- | --- |
+| Control plane | 3 | 3 |
+| etcd riêng | 0 | 3 |
+| Worker | ≥ 2 | ≥ 2 |
+| Load balancer | 2 + VIP | 2 + VIP |
+| Tổng tối thiểu | 7 | 10 |
+
+Quyết định: stacked, 3 control plane, worker riêng, giữ taint control plane. Đổi sang external khi …
+Production phải có bất kể topology: … Nợ còn mở: #7, #8.
+```
+
+Ý chính:
+
+1. Quorum nằm ở **tầng etcd**. Bài 08: với etcd, số lẻ thành viên "**là một yêu cầu**" để đạt quorum
+   bỏ phiếu tối ưu; với control plane, số lẻ chỉ "**có thể giúp ích**" cho việc bầu leader. External
+   giữ nguyên vẹn thứ là yêu cầu — ba member — nên hai control plane vẫn hợp lệ: thêm bớt một apiserver
+   không thêm bớt bản sao dữ liệu nào. Stacked hai control plane là hai member: mất một là mất quorum,
+   nên bài 06 đòi tối thiểu ba.
+2. Stacked: 3 control plane (kiêm etcd) + 2 worker + 2 load balancer = **7**. External: 3 control plane
+   + 3 etcd + 2 worker + 2 load balancer = **10** — đúng "gấp đôi số host" ở tầng control plane mà bài
+   06 nói. Cặp load balancer kèm VIP chưa học trong giai đoạn 8; ghi là điều kiện của production.
+3. `mat-quorum`: hai topology như nhau với người dùng — API chết, ứng dụng chạy tiếp. Khác ở chỗ phải
+   mất **cái gì**: stacked mất quorum khi mất hai control plane; external chỉ khi mất hai etcd host.
+   `mat-mot-cp`: gián đoạn ở 8c đến từ việc control plane **cũng là** worker, không phải từ etcd. Với
+   người vận hành: external rộng biên hơn sau một sự cố (vẫn chịu được mất thêm một member) và tách được
+   hai loại hỏng — đổi lại gấp đôi máy và nhiều việc hơn.
+4. Việc thêm: kubelet làm trình quản lý dịch vụ trên ba host etcd, một CA và tám certificate riêng của
+   etcd phải sinh, phân phối, giữ `ca.key` đúng một chỗ, chép certificate client sang control plane,
+   file cấu hình `etcd.external` bắt buộc, kiểm etcd bằng `etcdctl` ngoài Kubernetes. Lặp lại ở mỗi lần
+   xoay certificate (nợ #7) và khi thay một host etcd; backup etcd (nợ #8) phải làm trên host riêng.
+5. Đổi sang external khi tải etcd hoặc yêu cầu cô lập sự cố giữa etcd và control plane lớn hơn chi phí
+   gấp đôi máy và vận hành — không phải trường hợp của một hiệu sách nhỏ. Điểm hỏng đơn trong cả hai:
+   **một** load balancer (Lab 8b đã đo `mat-lb`). Thêm vào đó, `db` một bản sao ghim một node vẫn là
+   điểm hỏng đơn của chính ứng dụng — topology control plane không chữa được nó.
+
+</details>
+
+## B13. Đóng sprint: cleanup và gate cuối
+
+**Mục đích:** bàn giao repo `lab-8c` ra máy host, gỡ Bookstore, trả taint control plane về mặc định,
+chụp `8x-ha-external` trên đủ sáu VM, chứng minh bộ VM chính không bị chạm — rồi chuẩn bị repo cho
+Lab 9a.
+
+Sprint này **không đổi script kiểm thử nào**: nó không thêm hợp đồng vào hệ thống, chỉ thêm tài liệu
+và một patch của overlay HA. `tests/smoke.sh` ở tag `lab-8c` vẫn là bộ kiểm thử tích lũy của chuỗi
+chính mà Lab 9a chạy ở B0 của nó; trên bộ VM HA, kiểm thử khói tích lũy là `tests/smoke-ha-lab.sh` của
+Lab 8b — nó không khẳng định Pod nằm ở node nào, nên chạy nguyên trên cluster external. Kiểm thêm của
+riêng sprint 14 — hình dạng external, `db-0` ở `lab-ha-4` — nằm ở bước 1 và bước 5.
+
+1. Kiểm thử khói lần cuối và hình dạng external. Chạy trên **`lab-ha-4`**:
 
 ```bash
+source ~/lab-work/8c/ham-do.sh
+cd ~/bookstore
+eval "$TEARDOWN_HA" > "$EV/b13-teardown-truoc.txt" 2>&1 \
+  && eval "$DEPLOY_HA" > "$EV/b13-deploy.txt" 2>&1 \
+  && echo 'PASS: dung lai sach tu repo bang teardown-ha-lab va deploy-ha-lab'
+eval "$SMOKE_HA" > "$EV/b13-smoke.txt" 2>&1; grep '^INFO' "$EV/b13-smoke.txt"
+grep -q '^FAIL' "$EV/b13-smoke.txt" && echo 'FAIL: smoke-ha-lab con loi' \
+  || echo 'PASS: smoke-ha-lab khong co dong FAIL'
+test "$(kubectl -n bookstore get pod db-0 -o jsonpath='{.spec.nodeName}')" = 'lab-ha-4' \
+  && echo 'PASS: db-0 van o lab-ha-4 sau khi dung lai tu repo'
+test "$(kubectl get nodes --no-headers | wc -l)" -eq 2 \
+  && test "$(kubectl -n kube-system get pod -l component=etcd --no-headers 2>/dev/null | wc -l)" -eq 0 \
+  && echo 'PASS: van dung hinh dang external — 2 node, 0 Pod etcd'
+ehealth > "$EV/b13-health.txt" 2>&1
+test "$(grep -c 'is healthy' "$EV/b13-health.txt")" -eq 3 \
+  && echo 'PASS: cum etcd du ba member khoe sau bon kich ban'
+```
+
+2. `docs/tech-debt.md`: sprint không phát sinh, không trả nợ kỹ thuật nào. Bổ sung vào dòng ghi chú về
+   overlay `ha-lab` mà Lab 8b đã viết: *Lab 8c thêm patch ghim `db-0` vào `lab-ha-4` cho cluster không
+   có worker — vẫn là môi trường đo, không phải dữ liệu thật*. Nợ lab #7, #8 vẫn mở; chúng nằm ở
+   [sổ nợ lab](README.md#5-sổ-nợ-lab), không ở file này.
+
+3. Commit, tag, đóng gói, chép ra máy host theo
+   [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm). Chạy trên **`lab-ha-4`**:
+
+```bash
+cd ~/bookstore
+git status --short
+git add -A && git commit -m 'lab-8c: sprint 14 — HA external etcd, ADR topology production'
+git tag lab-8c
+git bundle create ~/bookstore-lab-8c.bundle --all && git bundle verify ~/bookstore-lab-8c.bundle
+test -z "$(git diff --name-only lab-8b lab-8c | grep -vE '^(docs/|k8s/overlays/ha-lab/)')" \
+  && echo 'PASS: sprint chi doi docs/ va k8s/overlays/ha-lab/'
+```
+
+Chạy trên **máy host**, cửa sổ chính:
+
+```powershell
+scp "$($haUser)@192.168.100.234:bookstore-lab-8c.bundle" "$backup\"
+$b8c = Join-Path $backup 'bookstore-lab-8c.bundle'
+if ((Test-Path $b8c) -and ((Get-Item $b8c).Length -gt 0)) { "PASS: co $b8c" } else { "FAIL: thieu $b8c" }
+```
+
+4. Gỡ Bookstore. Chạy trên **`lab-ha-4`**:
+
+```bash
+source ~/lab-work/8c/ham-do.sh
+cd ~/bookstore && eval "$TEARDOWN_HA" | tee "$EV/b13-teardown.txt"
+grep -q 'teardown: sach' "$EV/b13-teardown.txt" && echo 'PASS: teardown-ha-lab tu kiem: sach'
+SEL='app.kubernetes.io/part-of=bookstore'
+LEFT="$( { kubectl get namespace,priorityclass,storageclass -l "$SEL" --no-headers
+           kubectl get all,configmaps,secrets,pvc -A -l "$SEL" --no-headers; } 2>/dev/null | wc -l)"
+test "$LEFT" -eq 0 && echo 'PASS: khong con object nao cua du an'
+test "$(kubectl get nodes --show-labels --no-headers | grep -c 'bookstore\.example\.com/')" -eq 0 \
+  && echo 'PASS: khong node nao con label cua du an'
+```
+
+5. Trả taint control plane về mặc định kubeadm và gate sức khỏe hai tầng. Chạy trên **`lab-ha-4`**:
+
+```bash
+source ~/lab-work/8c/ham-do.sh
 kubectl taint nodes --all node-role.kubernetes.io/control-plane:NoSchedule
-
-kubectl get nodes -o custom-columns='NODE:.metadata.name,TAINTS:.spec.taints' \
-  | tee "$EV/b15-taint-cuoi.txt"
-
+kubectl get nodes -o custom-columns='NODE:.metadata.name,TAINTS:.spec.taints' | tee "$EV/b13-taint-cuoi.txt"
 TAINT_N="$(kubectl get nodes \
   -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"="}{.effect}{"\n"}{end}{end}' \
   | grep -c '^node-role.kubernetes.io/control-plane=NoSchedule$')"
-echo "node mang taint control-plane:NoSchedule: $TAINT_N/2"
+test "$TAINT_N" -eq 2 && echo 'PASS: ca hai node da tro lai trang thai mac dinh cua kubeadm'
 
-test "$TAINT_N" -eq 2 \
-  && echo 'PASS: ca hai node da tro lai trang thai mac dinh cua kubeadm'
-```
-
-**PASS:** dòng `PASS: ca hai node da tro lai trang thai mac dinh cua kubeadm` xuất hiện.
-
-Snapshot `8x-ha-external` vì thế được định nghĩa là: **2 control plane + 3 etcd node ngoài + 1 load
-balancer, Flannel, taint control plane ở mặc định kubeadm, không workload.** Lab nào dùng lại mốc này
-mà cần chạy workload thì tự gỡ taint bằng đúng lệnh của B12.1 và tự chịu trách nhiệm với ghi chú bảo
-mật ở đó.
-
-### B15.3. Gate sức khỏe cuối trên cả hai tầng
-
-Chạy trên **`lab-ha-4`**:
-
-```bash
 kubectl wait --for=condition=Ready node --all --timeout=300s
 test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
 kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
 kubectl -n kube-system get deployment coredns
+kubectl get pods -n default
 
-NODE_N="$(kubectl get nodes --no-headers | wc -l)"
-ETCD_POD_N="$(kubectl -n kube-system get pod -l component=etcd --no-headers 2>/dev/null | wc -l)"
-echo "node=$NODE_N | Pod component=etcd=$ETCD_POD_N"
-
-test "$NODE_N" -eq 2 && test "$ETCD_POD_N" -eq 0 \
-  && echo 'PASS: van dung hinh dang external — 2 node, 0 Pod etcd'
-
-ehealth > "$EV/b15-health.txt" 2>&1
-HF="$(grep -c 'is healthy' "$EV/b15-health.txt")"
-cat "$EV/b15-health.txt"
-test "$HF" -eq 3 && echo 'PASS: cum etcd du ba member khoe sau ba phep thu cua B13'
-```
-
-**PASS:** ba dòng `PASS:` xuất hiện; lệnh `--field-selector` trả `No resources found`; CoreDNS đủ
-replica `READY`.
-
-Ghi bằng chứng cuối:
-
-```bash
 {
   echo "=== $(date -Is) — trang thai cuoi Lab 8c ==="
   echo '--- nodes'; kubectl get nodes -o wide
-  echo '--- taints'
-  kubectl get nodes -o custom-columns='NODE:.metadata.name,TAINTS:.spec.taints'
+  echo '--- taints'; cat "$EV/b13-taint-cuoi.txt"
   echo '--- control plane pods'; kubectl -n kube-system get pods -l tier=control-plane -o wide
   echo '--- so Pod component=etcd'; kubectl -n kube-system get pod -l component=etcd --no-headers | wc -l
   echo '--- namespaces'; kubectl get namespaces
-  echo '--- etcd health'; cat "$EV/b15-health.txt"
-} | tee "$EV/b15-cuoi.txt"
-
-test -s "$EV/b15-cuoi.txt" && echo 'PASS: da ghi bang chung cuoi'
+  echo '--- etcd health'; ehealth
+} > "$EV/b13-cuoi.txt" 2>&1
+test -s "$EV/b13-cuoi.txt" && echo 'PASS: da ghi bang chung cuoi'
 ```
 
-**PASS:** dòng `PASS: da ghi bang chung cuoi` xuất hiện.
+6. Dọn file tạm. Certificate của etcd **ở nguyên** `/etc/kubernetes/pki` — cụm etcd chạy bằng chúng;
+   chỉ các bản sao trong `/tmp`, `$HOME` và thư mục làm việc bị xóa. Chạy trên **`lab-ha-4`**:
 
-### B15.4. Tắt sáu VM và chụp `8x-ha-external`
+```bash
+ssh lab-ha-1 'rm -rf /tmp/192.168.100.231 /tmp/192.168.100.232 /tmp/192.168.100.233 ~/lab-work/8c'
+for n in lab-ha-2 lab-ha-3; do ssh "$n" 'rm -f $HOME/kubeadmcfg.yaml; rm -rf ~/lab-work/8c'; done
+rm -rf ~/lab-work/8c
 
-Tắt theo thứ tự ngược với thứ tự bật. Từ `lab-ha-4`, tắt `lab-ha-5` trước, rồi ba host etcd, cuối
-cùng mới tắt chính `lab-ha-4`; `lab-ha-lb` tắt riêng từ phiên SSH của nó. Chạy trên **`lab-ha-4`**:
+test "$(ssh lab-ha-1 'ls -d /tmp/192.168.100.23* 2>/dev/null | wc -l')" -eq 0 \
+  && echo 'PASS: da xoa thu muc tam chua certificate tren lab-ha-1'
+test ! -e ~/lab-work/8c && test -z "$(git -C ~/bookstore status --porcelain)" \
+  && git -C ~/bookstore describe --tags --exact-match HEAD | grep -qx 'lab-8c' \
+  && echo 'PASS: da don lab-work; repo sach, HEAD mang tag lab-8c'
+```
+
+Thư mục `~/lab-evidence/8c/` trên các máy **giữ lại** — snapshot sắp chụp mang theo nó. Repo
+`~/bookstore` trên `lab-ha-4` cũng ở lại trong snapshot, nhưng bản dùng tiếp là bundle trên máy host.
+
+7. Tắt sáu VM và chụp `8x-ha-external`. Tắt theo thứ tự ngược với thứ tự bật. Chạy trên **`lab-ha-4`**:
 
 ```bash
 ssh lab-ha-5 'sudo shutdown -h now' || true
@@ -2913,57 +3325,36 @@ for n in lab-ha-3 lab-ha-2 lab-ha-1; do ssh "$n" 'sudo shutdown -h now' || true;
 sudo shutdown -h now
 ```
 
-Tắt `lab-ha-lb` từ phiên SSH riêng của nó, **trên `lab-ha-lb`**:
-
-```bash
-sudo shutdown -h now
-```
-
-Chạy trên **máy host**, PowerShell — chờ đủ sáu máy về *Powered off*:
+Chạy **trên `lab-ha-lb`** từ phiên SSH riêng của nó: `sudo shutdown -h now`. Rồi trên **máy host**,
+cửa sổ chính, chờ đủ sáu máy về *Powered off*:
 
 ```powershell
 $running = & $vmrun -T ws list
-$still = $vmxHA | Where-Object { $running -contains $_ }
+$still = $haVmx | Where-Object { $running -contains $_ }
 if ($still.Count -eq 0) { "PASS: ca sau VM HA da Powered off" }
 else { "CHUA TAT: $($still -join ', ')" }
 ```
 
-**PASS:** dòng `PASS: ca sau VM HA da Powered off` xuất hiện. Chạy lại cho tới khi đạt; chụp snapshot
-khi VM đã tắt để mốc không kèm trạng thái RAM, đúng nguyên tắc
-[A5.4.8 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a548-dọn-resource-test-ghi-evidence-và-chụp-snapshot).
-
-Chụp trên **cả sáu VM**: chuột phải VM → **Snapshot → Take Snapshot** → ô *Name* điền đúng chuỗi:
-
-```text
-8x-ha-external
-```
-
-Ô *Description* ghi `dung bang LAB-8C-HA-VOI-EXTERNAL-ETCD.md, chup <ngay>`.
-
-Quy tắc tên gọi, giống hệt quy tắc của Lab 00: đúng nguyên văn `8x-ha-external` trên cả sáu VM,
-không hậu tố theo VM, không thêm ngày, không đổi hoa thường, không thừa khoảng trắng. Snapshot thuộc
-về từng VM nên sáu snapshot trùng tên không xung đột.
-
-Verify trên **máy host**, PowerShell:
+Chụp trên **cả sáu VM**: chuột phải VM → **Snapshot → Take Snapshot**, ô *Name* điền đúng chuỗi
+`8x-ha-external` — không hậu tố theo VM, không thêm ngày, không đổi hoa thường. Ô *Description* ghi
+`dung bang LAB-8C-HA-VOI-EXTERNAL-ETCD.md (Sprint 14), chup <ngay>`. Rồi kiểm:
 
 ```powershell
-foreach ($f in $vmxHA) {
+foreach ($f in $haVmx) {
   $snaps = & $vmrun -T ws listSnapshots $f | Select-Object -Skip 1
-  if ($snaps -ccontains '8x-ha-external') { "PASS: $f" }
-  else { "FAIL: $f -> $($snaps -join ', ')" }
+  if ($snaps -ccontains '8x-ha-external') { "PASS: $f" } else { "FAIL: $f -> $($snaps -join ', ')" }
 }
 ```
 
-**PASS:** đúng sáu dòng `PASS:`, không có dòng `FAIL:`. `-ccontains` phân biệt hoa thường nên gate
-này bắt được cả lỗi gõ sai tên.
+Mốc `8x-ha-external` là: 2 control plane + 3 etcd node ngoài + 1 load balancer, Flannel, taint control
+plane ở mặc định kubeadm, không workload, không object nào của Bookstore. Lab nào dùng lại mốc này mà
+cần chạy workload thì tự gỡ taint theo B9 và tự chịu trách nhiệm với ghi chú bảo mật ở đó.
 
-### B15.5. Gate cuối cùng: bộ VM chính vẫn nguyên vẹn
-
-Chạy trên **máy host**, PowerShell:
+8. Gate cuối: bộ VM chính vẫn nguyên vẹn. Chạy trên **máy host**, cửa sổ chính:
 
 ```powershell
 $running = & $vmrun -T ws list
-foreach ($f in $vmxMain) {
+foreach ($f in $mainVmx) {
   $isOff = ($running -notcontains $f)
   $snaps = & $vmrun -T ws listSnapshots $f | Select-Object -Skip 1
   $has03 = ($snaps -ccontains '03-storage-ready')
@@ -2973,135 +3364,160 @@ foreach ($f in $vmxMain) {
 }
 ```
 
-**PASS:** đúng ba dòng `PASS: … khong bi cham`. Ba điều kiện của gate này nói ba chuyện khác nhau:
-máy vẫn tắt (không ai bật nhầm), mốc `03-storage-ready` vẫn còn (chuỗi snapshot chính không hỏng), và
-**không có snapshot nào tiền tố `8x-`** trên chúng (không ai chụp nhầm mốc của nhánh HA lên bộ VM
-chính).
+**PASS:** toàn bộ dòng `PASS:` của bước 1–6; sáu dòng `PASS:` của snapshot; đúng ba dòng
+`PASS: … khong bi cham`. Lệnh field selector trả `No resources found`, CoreDNS đủ replica, namespace
+`default` không có Pod. Ba điều kiện của gate cuối nói ba chuyện: không ai bật nhầm bộ VM chính, mốc
+`03-storage-ready` còn, và không ai chụp nhầm mốc `8x-` lên nó.
 
-Lab 8c kết thúc ở đây. Để sáu VM HA ở trạng thái tắt; lab sau — nếu bạn quay lại nhánh HA — bật máy
-theo thứ tự của `$vmxHA` và bắt đầu từ mốc `8x-ha-external`.
+9. **Bàn giao cho Lab 9a** — chạy **khi mở Lab 9a**, sau gate cuối ở trên, khi bộ HA đã tắt và bộ VM
+   chính đã bật theo [A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab) ở mốc
+   `03-storage-ready`. Repo trên `lab-k8s-master` đang ở tag cũ hơn — snapshot mang nó về quá khứ;
+   thay bằng bản `lab-8c` từ bundle.
+
+Chạy trên **máy host** (`$mainUser` là user trên `lab-k8s-master`, thường khác `$haUser`):
+
+```powershell
+$backup   = "$HOME\lab-backup"
+$mainUser = '<user-tren-lab-k8s-master>'
+scp "$backup\bookstore-lab-8c.bundle" "$($mainUser)@192.168.100.221:"
+```
+
+Chạy trên **`lab-k8s-master`**:
+
+```bash
+git bundle verify ~/bookstore-lab-8c.bundle >/dev/null 2>&1 && echo 'PASS: bundle lab-8c toan ven'
+if [ -d ~/bookstore/.git ]; then
+  if [ -n "$(git -C ~/bookstore status --porcelain)" ]; then
+    echo 'FAIL: ~/bookstore cu con thay doi chua commit — xu ly truoc khi thay'
+  else
+    mv ~/bookstore ~/bookstore-truoc-8c && echo 'PASS: da cat repo cu sang ~/bookstore-truoc-8c'
+  fi
+fi
+test -e ~/bookstore || git clone -q ~/bookstore-lab-8c.bundle ~/bookstore
+test -d ~/bookstore-truoc-8c/secrets && cp -a ~/bookstore-truoc-8c/secrets/. ~/bookstore/secrets/
+git -C ~/bookstore describe --tags --exact-match HEAD | grep -qx 'lab-8c' \
+  && echo 'PASS: repo tren lab-k8s-master o tag lab-8c — san sang cho Lab 9a'
+```
+
+**PASS:** `PASS: bundle lab-8c toan ven` và `PASS: repo tren lab-k8s-master o tag lab-8c …`. Chép lại
+`secrets/` cũ giữ nguyên certificate TLS và mật khẩu mà máy host có thể đã tin; không có nó thì
+`deploy.sh` của chuỗi chính tự sinh bí mật mới, cũng hợp lệ vì teardown đã xóa dữ liệu. Xóa
+`~/bookstore-truoc-8c` sau khi B0 của Lab 9a PASS.
 
 ---
 
 ## 3. Checkpoint 8c
 
-Không đánh dấu lab hoàn tất chỉ vì command chạy hết. Tự trả lời, không nhìn tài liệu:
+Không đánh dấu lab hoàn tất chỉ vì script nghiệm thu PASS. Tự trả lời, không nhìn tài liệu:
 
-- [ ] Bạn có sáu máy và muốn dựng HA. Kể ra **hai** cách chia vai — một theo stacked, một theo
-      external — và với mỗi cách nói rõ: mấy máy chạy `kube-apiserver`, mấy máy giữ etcd member, còn
-      mấy máy làm worker. Bài 06 khuyến nghị bao nhiêu host cho external, và vì sao lab vẫn dựng
-      được với sáu?
-- [ ] Trong cluster bạn vừa dựng, `--etcd-servers` của apiserver trên `lab-ha-4` trỏ tới đâu? Của
-      `lab-ha-5` thì sao? Ở Lab 8b hai giá trị đó là gì? Chỉ nhìn hai dòng cấu hình này, bạn phân
-      biệt được hai topology không — và vì sao?
-- [ ] `kubeadm reset` vừa chạy xong trên một node. Kể **bốn** thứ nó **không** dọn, và với mỗi thứ
-      nói hậu quả cụ thể nếu bạn dựng cluster mới mà quên dọn nó. Riêng dữ liệu etcd: reset xóa nó
-      trong trường hợp nào và **không** xóa trong trường hợp nào?
-- [ ] Trên ba host etcd, vì sao phải tạo `20-etcd-service-manager.conf` thay vì dùng unit kubelet mà
-      gói `kubeadm` đã cài? Con số `20-` có nghĩa gì? Dòng `ExecStart=` rỗng ở đầu để làm gì? Sau
-      bước đó, kubelet trên ba máy ấy đang nói chuyện với API server nào?
-- [ ] Sau khi chạy hết bài 07, `ca.key` của etcd nằm trên máy nào, và vì sao hai lệnh
-      `find /tmp/… -name ca.key -delete` là **nội dung bảo mật** chứ không phải dọn rác? Ba member
-      lại có ba `server.crt` **khác nhau** — vì sao không dùng chung một certificate cho cả ba, SAN
-      của `server.crt` trên `lab-ha-2` phải chứa gì, và ai là bên kiểm tra SAN đó?
-- [ ] Firewall của bạn chỉ mở TCP `2379` giữa ba host etcd, chặn `2380`. `etcdctl endpoint health`
-      chạy từ một host có ra kết quả không? Cụm etcd có hình thành được không? Giải thích bằng vai
-      trò của từng port.
-- [ ] Bạn dựng cluster với `kubeadm init --config`. Vì sao nhánh external **buộc** phải dùng
-      `--config` chứ không dùng được cờ dòng lệnh? Cờ nào của `kubeadm init` **không** dùng chung
-      được với `--config`, và nếu cần nó thì phải khai ở đâu?
-- [ ] Kể **ba** bằng chứng độc lập chứng minh cluster đang dùng etcd ngoài, mỗi bằng chứng lấy từ
-      một nguồn khác nhau. Vì sao `kubectl -n kube-system get pod -l component=etcd` trả về 0 Pod
-      trong khi etcd rõ ràng đang chạy? Ba máy etcd có xuất hiện trong `kubectl get nodes` không?
-- [ ] Bạn tắt `lab-ha-1`. Cluster còn phục vụ không? Bạn tắt tiếp `lab-ha-2` — còn phục vụ không?
-      `lab-ha-3` vẫn đang chạy và container etcd của nó vẫn sống, vậy vì sao `endpoint health` báo
-      **không** healthy? Giải thích bằng định nghĩa của quorum, đừng nói "vì hỏng".
-- [ ] Bạn tắt `lab-ha-5`. So với việc tắt một control plane node ở Lab 8b, cluster của bạn **mất
-      thêm** cái gì và **không mất** cái gì? Sau sự cố đó, mỗi cluster còn chịu được mất thêm bao
-      nhiêu etcd member? Đó chính là câu nào của bài 06?
-- [ ] Bạn `mv` file `kube-apiserver.yaml` ra khỏi `/etc/kubernetes/manifests` trên `lab-ha-5`. Ai
-      xóa Pod — bạn hay kubelet? Vì sao `kubectl get nodes` vẫn báo `lab-ha-5` là `Ready`, khác hẳn
-      lúc bạn tắt hẳn máy đó? Ai quyết định ngừng gửi request sang máy ấy?
-- [ ] **Nợ #8 chưa được trả ở lab này.** Món nợ đó là gì, vì sao lab chỉ cho phép ba lệnh `etcdctl`
-      và cấm hẳn `snapshot save`/`restore`, và nó được trả ở giai đoạn nào? Trước khi làm giai đoạn
-      đó bạn phải đọc lại bài nào?
+- [ ] Sáu máy, muốn dựng HA cho Bookstore. Kể hai cách chia vai — stacked và external — với mỗi cách:
+      mấy máy chạy `kube-apiserver`, mấy máy giữ etcd member, mấy máy làm worker. Vì sao lab vẫn dựng
+      được external với sáu máy, và cái giá là gì?
+- [ ] `--etcd-servers` của apiserver trên `lab-ha-4` trỏ tới đâu? Ở Lab 8b, ba giá trị đó là gì? Chỉ
+      nhìn cấu hình đó, phân biệt hai topology thế nào?
+- [ ] `kubeadm reset` vừa chạy xong. Kể những thứ nó **không** dọn và hậu quả nếu quên từng thứ. Dữ
+      liệu etcd bị xóa khi nào, không bị xóa khi nào — và vì sao reset `lab-ha-5` không làm mất object
+      nào của Bookstore?
+- [ ] Trên ba host etcd: vì sao cần `20-etcd-service-manager.conf`, tiền tố `20-` và dòng `ExecStart=`
+      rỗng làm gì, kubelet ở đó nói chuyện với API server nào?
+- [ ] `ca.key` của etcd nằm đâu và vì sao? Vì sao ba `server.crt` khác nhau, SAN trên `lab-ha-2` chứa
+      gì, ai kiểm SAN đó khi Bookstore đang chạy? Chặn `2380` nhưng mở `2379` thì sao?
+- [ ] Vì sao nhánh external buộc dùng `--config`? Cờ nào không dùng chung được với nó, khai thay ở đâu?
+      Kể ba bằng chứng độc lập rằng cluster dùng etcd ngoài, và vì sao 0 Pod `component=etcd`.
+- [ ] Mất quorum etcd: số đo của bạn cho ứng dụng và API là bao nhiêu? `lab-ha-1` vẫn chạy mà vì sao
+      không khỏe? Người dùng mất gì, người vận hành mất gì?
+- [ ] Tắt `lab-ha-5`: Bookstore gián đoạn bao lâu theo số đo, vì sao không về 0 ngay, chuỗi sự kiện
+      nào đưa nó về 0? Vì sao Lab 8b không có gián đoạn này — có phải do topology etcd không?
+- [ ] Dời `kube-apiserver.yaml` khỏi thư mục static Pod trên `lab-ha-5`: ai xóa Pod, vì sao node vẫn
+      `Ready`, ai ngừng gửi request API sang đó, ứng dụng có biết không?
+- [ ] Sau khi mất một control plane, stacked và external mỗi bên còn chịu được mất thêm bao nhiêu etcd
+      member? Quorum nằm ở tầng nào, và vì sao 2 control plane + 3 etcd vẫn hợp lệ?
+- [ ] ADR của bạn chọn topology nào cho Bookstore production, cần tối thiểu bao nhiêu host, đổi quyết
+      định khi nào? Thành phần nào vẫn là điểm hỏng đơn trong cả hai topology lab đã dựng?
+- [ ] Vì sao `db-0` phải ở `lab-ha-4` trong sprint này, trong khi chuỗi chính đặt `db` ở node được phép
+      phá? Vì sao thay đổi đó nằm ở overlay chứ không ở `k8s/app`?
+
+Nợ còn mở sau lab này — nói được **vì sao chưa trả**:
+
+- **Nợ lab #8** — backup và restore etcd. Bạn đã dựng cụm etcd ba member và đọc được sức khỏe của nó,
+  nhưng chưa có quy trình sao lưu nào; `etcdctl` bị giới hạn ở ba lệnh đọc. Đường lui duy nhất vẫn là
+  snapshot VM. Trả ở [giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa)
+  — đọc lại bài [07](../07-setup-ha-etcd-with-kubeadm-vi.md) trước khi làm.
+- **Nợ lab #7** — vòng đời certificate, dù lab vừa sinh một CA và tám certificate của etcd. Trả ở
+  [giai đoạn 18](../00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ).
+- **Nợ kỹ thuật:** không phát sinh, không trả; các mã còn mở ở tag `lab-8b` giữ nguyên.
 
 ### Bài giải thích cuối cùng
 
-Trong vài phút, kể lại bằng lời hai luồng sau, không nhìn tài liệu:
+Trong vài phút, kể lại hai luồng, không nhìn tài liệu:
 
-1. **Từ một cụm stacked đang chạy tới một cluster external etcd.** Bắt đầu từ lúc bạn quyết định đổi
-   topology. Kể đủ sáu chặng: gỡ cluster cũ theo thứ tự nào và vì sao thứ tự đó quan trọng; bốn thứ
-   bạn phải dọn tay sau `kubeadm reset`; vì sao bước tiếp theo là sửa load balancer chứ không phải
-   chạy `kubeadm init`; ba host etcd đi qua những gì để thành một cụm — kubelet, cấu hình, certificate,
-   static Pod — và ở mỗi bước cái gì là **riêng** của từng host, cái gì là **chung**; thứ duy nhất
-   trong `kubeadm-config.yaml` khiến cluster mới dùng etcd ngoài; và cuối cùng, ba bằng chứng bạn
-   trưng ra khi có người hỏi "sao biết nó là external?".
-2. **Cái giá và cái được của tách rời.** Đi qua ba phép thử của B13 và với mỗi phép nói: bạn tắt gì,
-   cluster phản ứng ra sao, cụm etcd phản ứng ra sao, và **Lab 8b sẽ khác ở chỗ nào**. Rồi trả lời
-   ba câu ranh giới: quorum nằm ở tầng nào và vì sao hai control plane vẫn hợp lệ; vì sao ba phép
-   thử đó **không** chứng minh cluster chịu được mọi loại hỏng hóc — chỉ ra thành phần vẫn là điểm
-   hỏng đơn; và vì sao cluster này không có worker riêng, việc gỡ taint control plane đánh đổi cái
-   gì, production làm khác thế nào. Kết bằng: **một chủ đề của giai đoạn 8 mà lab cố ý không làm**,
-   và nó được trả ở đâu.
+1. **Từ cụm stacked đang chạy tới Bookstore trên cluster external.** Gỡ cluster cũ theo thứ tự nào và
+   vì sao; những thứ phải dọn tay sau reset; vì sao sửa load balancer trước khi `init`; ba host etcd đi
+   qua những gì để thành một cụm — kubelet, cấu hình, certificate, static Pod — và ở mỗi bước cái gì
+   **riêng** từng host, cái gì **chung**; thứ duy nhất trong file cấu hình khiến cluster dùng etcd
+   ngoài; ba bằng chứng khi có người hỏi "sao biết nó là external?"; rồi Bookstore lên cluster đó bằng
+   repo — gỡ taint, ghim `db-0`, lệnh của Lab 8b.
+2. **Cái giá và cái được của tách rời, bằng số đo.** Đi qua bốn kịch bản: tắt gì, API phản ứng ra sao,
+   Bookstore phản ứng ra sao theo số đo từ máy host, và Lab 8b khác ở chỗ nào. Kết bằng quyết định
+   trong ADR, số host tối thiểu cho production, điểm hỏng đơn còn lại, và chủ đề của giai đoạn 8 mà lab
+   cố ý không làm.
 
-Khi mọi checkbox được đánh dấu và bạn không còn nhầm *etcd member* với *control plane node*,
-*port 2380* với *port 2379*, *`etcd.local`* với *`etcd.external`*, hay *node bị tắt* với *node thiếu
-một static Pod* — Lab 8c và
+Khi không còn nhầm *etcd member* với *control plane node*, *port 2380* với *port 2379*,
+*`etcd.local`* với *`etcd.external`*, *node bị tắt* với *node thiếu một static Pod*, hay *mất quorum*
+với *mất dịch vụ* — Lab 8c và
 [giai đoạn 8](../00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) hoàn tất.
-
-Lab này **không phát sinh nợ mới** và **không trả nợ nào**; xem
-[sổ nợ lab](README.md#5-sổ-nợ-lab). Riêng **[nợ #8](README.md#5-sổ-nợ-lab) — backup và restore etcd
-— vẫn đang treo sau khi bạn học xong Lab 8c**: bạn đã dựng được một cụm etcd ba thành viên và đọc
-được sức khỏe của nó, nhưng **chưa có quy trình sao lưu và khôi phục nào**. Cho tới
-[giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa), đường lui
-duy nhất của bạn vẫn là snapshot VM `8x-ha-external`. [Nợ #7](README.md#5-sổ-nợ-lab) — vòng đời
-certificate — cũng chưa trả, dù lab này vừa sinh ra một CA và tám certificate.
 
 ---
 
 ## 4. Troubleshooting của lab này
 
 Sự cố **dựng môi trường** — VM không ping nhau, swap bật lại, containerd hỏng, package sai version —
-nằm ở [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường). Sự cố **của
-kubeadm nói chung** tra ở [bài 09 — Xử lý sự cố kubeadm](../09-troubleshooting-kubeadm-vi.md); đó là
-trang tra cứu, không đọc tuần tự. Bảng dưới chỉ liệt kê sự cố phát sinh từ **nội dung bài học 8c**.
+nằm ở [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường). Sự cố của kubeadm
+nói chung tra ở [bài 09](../09-troubleshooting-kubeadm-vi.md). Bảng dưới chỉ liệt kê sự cố phát sinh từ
+nội dung sprint 14.
 
 | Triệu chứng | Kiểm tra | Xử lý đúng phạm vi |
 | --- | --- | --- |
-| **B2.5/B2.6: `kubeadm reset` treo ở `Removing kubernetes-managed containers`** | `sudo crictl ps -a`; `systemctl is-active containerd` | Đây đúng tình huống *"kubeadm bị treo khi xóa các container được quản lý"* của [bài 09](../09-troubleshooting-kubeadm-vi.md): container runtime dừng hoạt động và không xóa container. Cách bài đưa: **khởi động lại container runtime rồi chạy lại `kubeadm reset`**, và dùng `crictl` để gỡ lỗi trạng thái runtime. Thử đúng một lần; vẫn treo thì sang [fallback B2.7](#b27-fallback--khi-gate-reset-không-đạt) |
-| B2.5: `/var/lib/etcd` còn dữ liệu sau reset | `ssh <node> 'sudo ls -A /var/lib/etcd'` | Reset là **best-effort**. Xóa tay bằng lệnh trong B2.5 rồi chạy lại gate. **Bắt buộc phải sạch**: B7 dựng cụm mới với `initial-cluster-state: new`, và dữ liệu cũ làm member từ chối khởi động hoặc khởi động với cluster ID sai |
-| B2 hoặc B9: `kubectl` báo `x509: certificate signed by unknown authority` | `ls -l $HOME/.kube/config`; `kubectl config view --minify` | Kubeconfig cũ trỏ vào cluster mới — đúng mục *Lỗi certificate TLS* của [bài 09](../09-troubleshooting-kubeadm-vi.md). Xóa `$HOME/.kube` theo B2.6 rồi chép lại `admin.conf` theo B9.3. **Đừng** thêm `--insecure-skip-tls-verify` để đi tiếp |
-| B4.2: kubelet trên host etcd không lên `active` | `ssh <node> 'journalctl -u kubelet -n 80 --no-pager'`; `systemctl cat kubelet` | Đọc từ trên xuống. **(1)** Lỗi cú pháp YAML trong `kubelet.conf` → viết lại bằng heredoc của B4.1, đừng sửa tay. **(2)** Unit có hai `ExecStart` → thiếu dòng `ExecStart=` rỗng trong `20-etcd-service-manager.conf`. **(3)** Lỗi cgroup driver → đối chiếu `SystemdCgroup = true` theo [A4.2 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a42-cài-containerd-và-runc-đúng-version) |
-| B6.3: `scp -r /tmp/${H}/*` báo `Permission denied` | `ls -l /tmp/192.168.100.232` | Thư mục còn thuộc `root` vì các lệnh `kubeadm init phase certs` chạy bằng `sudo`. Chạy lệnh `chown` đầu B6.3 rồi `scp` lại. **Không** `scp` bằng `sudo scp` — khóa SSH nằm ở home của user thường |
-| B6.3: `mv pki /etc/kubernetes/` tạo ra `/etc/kubernetes/pki/pki` | `sudo ls -R /etc/kubernetes/pki \| head` | Thư mục đích đã tồn tại từ trước, tức gate ngay trên `mv` đã FAIL mà bạn đi tiếp. Xóa `/etc/kubernetes/pki` trên đúng host đó, chạy lại B6.3 từ đầu cho host đó — certificate trong `/tmp` trên `lab-ha-1` vẫn còn nên không phải sinh lại |
-| B7.3: container etcd không lên sau nhiều vòng | `ssh <node> 'journalctl -u kubelet -n 80 --no-pager'`; `ssh <node> 'sudo crictl ps -a'`; `ssh <node> 'sudo crictl logs <id>'` | **(1)** Log etcd báo `cluster ID mismatch` hoặc `member already bootstrapped` → `/var/lib/etcd` chưa sạch, quay lại B2.5. **(2)** Log báo không kết nối được peer → hai host chưa thông port `2380`; kiểm UFW theo [A4.4](LAB-00-MOI-TRUONG-1.35.7.md#a44-firewall-cho-mạng-lab-cô-lập). **(3)** `ImagePullBackOff` → chạy lại phần pull image ở B7.1 |
-| B7.3: image trong manifest khác `$ETCD_IMG` | `sudo grep image: /etc/kubernetes/manifests/etcd.yaml`; `kubeadm version -o short` trên từng host | Một trong ba host cài `kubeadm` khác version. Sửa ở tầng package theo [A4.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl), rồi xóa `etcd.yaml` trên host đó và chạy lại `kubeadm init phase etcd local`. **Không** sửa tay tag trong manifest |
-| B8.1: `crictl ps --name etcd` không trả về id | `sudo crictl ps -a --name etcd`; `sudo crictl pods` | Container chưa `Running` — quay lại B7.3. Nếu nó ở trạng thái `Exited`, đọc `sudo crictl logs` của chính container đó trước khi làm gì khác |
-| B8.2: `endpoint health` chỉ khỏe 1/3 hoặc 2/3 | `ectl member list`; `ssh <host thiếu> 'sudo crictl ps --name etcd'` | Đếm xem host nào vắng mặt rồi xử lý host đó theo dòng B7.3 ở trên. Đừng chạy `member add`/`member remove` để "sửa" — hai lệnh đó nằm ngoài phạm vi lab, xem [mục 2.4](#24-các-quy-ước-còn-lại) |
-| **B9.3: `kubeadm init` dừng ở giai đoạn chờ control plane khỏe** | Trên `lab-ha-lb`: `grep server /etc/haproxy/haproxy.cfg`; trên `lab-ha-4`: `sudo crictl ps -a`; `sudo crictl logs <id apiserver>` | Ba nguyên nhân theo thứ tự thường gặp. **(1)** Backend HAProxy chưa đổi → quay lại B3.2. **(2)** Log apiserver báo không kết nối được etcd → kiểm ba file certificate ở B9.1 và `endpoint health` ở B8.2. **(3)** `--etcd-servers` sai địa chỉ → sửa `kubeadm-config.yaml`, `sudo kubeadm reset -f`, rồi `init` lại |
-| B9.3: log apiserver có lỗi TLS khi nối tới etcd | `sudo crictl logs <id apiserver> \| grep -i etcd`; trên host etcd: `sudo openssl x509 -noout -text -in /etc/kubernetes/pki/etcd/server.crt \| grep -A1 'Alternative Name'` | SAN của `server.crt` không chứa IP mà apiserver đang gọi tới, hoặc `apiserver-etcd-client.crt` không do CA của cụm etcd ký. Cả hai đều là lỗi ở B5/B6: chạy lại B6.4 để đối chiếu SAN từng host trước khi sinh lại certificate |
-| B10.2: `kubeadm join --control-plane` báo lỗi giải mã certificate | Thời gian giữa `upload-certs` và `join`; `kubectl -n kube-system get secret kubeadm-certs` | Secret `kubeadm-certs` và khóa giải mã **hết hạn sau hai giờ** (bài 08). Sinh lại theo B10.1 — đó chính là công dụng của `kubeadm init phase upload-certs --upload-certs` — rồi join lại |
-| B12.2: Pod `web` kẹt `Pending` | `kubectl -n lab-8c describe pod <ten> \| tail -20` | Nếu lý do là `untolerated taint node-role.kubernetes.io/control-plane` thì B12.1 chưa chạy hoặc chạy hụt — kiểm `TAINT_LEFT` rồi gỡ taint lại. Nếu là `Insufficient cpu/memory` thì hai control plane node không đủ chỗ cho 4 replica; giảm `replicas` xuống 2 rồi chạy lại B12.2 và ghi con số thật vào evidence |
-| B13.2: sau khi bật lại hai máy, `endpoint health` mãi không đủ 3/3 | `ehealth`; trên từng host: `sudo crictl ps --name etcd`; `sudo crictl logs <id>` | Tăng số vòng trong `seq` của vòng lặp hồi phục — thời gian member bắt kịp log **phụ thuộc cấu hình**. Nếu log báo `cluster ID mismatch`, đã có ai xóa `/var/lib/etcd` của một member trong lúc thử; đó là lệch state, restore cả sáu VM về `8x-ha-stacked` và làm lại từ B0 |
-| B13: `serve_check` báo `SERVE: no` ở chỗ lẽ ra phải `yes` | `kubectl --request-timeout=15s get --raw='/readyz?verbose'`; `kubectl -n lab-8c get pod probe` | Phân biệt hai nguyên nhân: `/readyz` khác `ok` là vấn đề ở control plane hoặc etcd — đo tiếp bằng `ehealth`. `/readyz` là `ok` mà `wget` fail thì vấn đề nằm ở Pod `probe` hoặc Service, không liên quan tới phép thử — tạo lại `probe` theo B12.2 rồi đo lại |
-| B14.2: xóa manifest mà `kubectl -n kube-system get pod -l component=kube-apiserver` vẫn trả 2 | `ssh lab-ha-5 'sudo ls -1 /etc/kubernetes/manifests'`; `ssh lab-ha-5 'sudo crictl ps --name kube-apiserver'` | Bạn `mv` nhầm máy, hoặc mirror Pod chưa kịp biến mất. Kiểm thư mục trên đúng `lab-ha-5` trước; tăng số vòng của vòng lặp rồi đo lại. **Không** `kubectl delete pod` — làm thế là bỏ mất bài học về static Pod |
-| B15.4: một VM không chuyển sang *Powered off* | Chạy lại khối PowerShell của B15.4; `vmrun -T ws list` | Node đang tắt dịch vụ, chờ thêm rồi chạy lại. Chỉ khi chờ mãi không xong mới dùng `vmrun -T ws stop <vmx> hard`, và khi đó **ghi vào evidence** rằng lần tắt này là cưỡng bức — snapshot chụp sau một lần tắt cưỡng bức có thể mang theo trạng thái ghi dở của etcd |
-| B15.5: bộ VM chính có snapshot tiền tố `8x-` | So sánh với danh sách `$vmxMain` trong B0.1 | Bạn đã chụp nhầm mốc của nhánh HA lên bộ VM chính. Xóa đúng snapshot chụp nhầm trong Snapshot Manager của VMware, **giữ nguyên `03-storage-ready`**, rồi chạy lại gate. Đừng xóa snapshot nào khác |
+| Mọi gate qua `ssh <node> 'sudo …'` trả rỗng hoặc báo `a terminal is required` | `ssh <node> 'sudo -n true'` (B0.3) | `sudo` trên VM đòi mật khẩu — đúng giả định của Lab 8b. Chạy phần bên trong dấu nháy trực tiếp trên máy đó (quy ước của Lab 8b) rồi đối chiếu với dòng `PASS:` tương ứng, hoặc nhập mật khẩu qua `ssh -t` cho lệnh đơn lẻ. Không tắt mật khẩu `sudo` chỉ để qua gate |
+| B0.5: `git describe` không ra `lab-8b` | `git -C ~/bookstore tag`; ngày của file bundle trên máy host | Bundle cũ. Lấy bundle mới nhất của Lab 8b, xóa `~/bookstore` trên `lab-ha-4` rồi clone lại |
+| B0.5: thiếu một trong ba lệnh `-ha-lab`, overlay hoặc `scripts/do-san-sang.ps1` | `git -C ~/bookstore ls-files scripts tests k8s/overlays`; `grep -i -A6 ha-lab ~/bookstore/README.md` | Lab 8b bàn giao chưa đủ. Bổ sung repo ở tag `lab-8b`, đừng tự chế lệnh trong sprint này |
+| **B2: `kubeadm reset` treo ở `Removing kubernetes-managed containers`** | `sudo crictl ps -a`; `systemctl is-active containerd` | Đúng tình huống *kubeadm bị treo khi xóa các container được quản lý* của bài 09: khởi động lại container runtime rồi chạy lại reset, dùng `crictl` gỡ lỗi. Thử đúng một lần; vẫn treo thì sang [đường lui](#đường-lui-khi-gate-reset-không-đạt) |
+| B2: `/var/lib/etcd` còn dữ liệu sau reset | `ssh <node> 'sudo ls -A /var/lib/etcd'` | Reset là best-effort. Xóa tay theo lời giải B2 rồi chạy lại gate. Bắt buộc sạch: B6 dựng cụm mới với `initial-cluster-state: new` |
+| B2, B7: `kubectl` báo `x509: certificate signed by unknown authority` | `kubectl config view --minify` | Kubeconfig cũ trỏ vào cluster mới — mục *Lỗi certificate TLS* của bài 09. Xóa `$HOME/.kube` rồi chép lại `admin.conf`. Không thêm `--insecure-skip-tls-verify` |
+| B4: kubelet trên host etcd không lên `active` | `journalctl -u kubelet -n 80 --no-pager`; `systemctl cat kubelet` | (1) YAML sai trong `kubelet.conf` → viết lại bằng heredoc. (2) Hai `ExecStart` → thiếu dòng `ExecStart=` rỗng. (3) Lỗi cgroup driver → đối chiếu `SystemdCgroup = true` ở [A4.2](LAB-00-MOI-TRUONG-1.35.7.md#a42-cài-containerd-và-runc-đúng-version) |
+| B5: `scp -r /tmp/${H}/*` báo `Permission denied` | `ls -l /tmp/192.168.100.232` | Thư mục còn thuộc `root`. Chạy `chown` đầu bước 5 rồi `scp` lại. Không `sudo scp` — khóa SSH nằm ở home của user thường |
+| B5: xuất hiện `/etc/kubernetes/pki/pki` | `sudo ls -R /etc/kubernetes/pki \| head` | Gate trước `mv` đã FAIL mà vẫn đi tiếp. Xóa `/etc/kubernetes/pki` trên đúng host đó, làm lại bước 5 cho host đó — bản trong `/tmp` trên `lab-ha-1` vẫn còn |
+| B6: container etcd không lên | `journalctl -u kubelet -n 80 --no-pager`; `sudo crictl ps -a`; `sudo crictl logs <id>` | (1) `cluster ID mismatch` hoặc `member already bootstrapped` → `/var/lib/etcd` chưa sạch, quay lại B2. (2) Không kết nối được peer → `2380` chưa thông; kiểm UFW theo [A4.4](LAB-00-MOI-TRUONG-1.35.7.md#a44-firewall-cho-mạng-lab-cô-lập). (3) `ImagePullBackOff` → kéo lại image |
+| B6: image trong manifest khác image kubeadm khai | `kubeadm version -o short` trên từng host | Một host cài `kubeadm` khác version. Sửa ở tầng package theo [A4.3](LAB-00-MOI-TRUONG-1.35.7.md#a43-cài-kubeadm-kubelet-kubectl-và-crictl), xóa `etcd.yaml` rồi chạy lại `kubeadm init phase etcd local`. Không sửa tay tag |
+| B6: `endpoint health` chỉ khỏe 1/3 hoặc 2/3 | `member list`; `ssh <host> 'sudo crictl ps --name etcd'` | Xử lý host vắng mặt theo dòng trên. Không `member add`/`member remove` |
+| **B7: `kubeadm init` dừng ở giai đoạn chờ control plane** | Trên `lab-ha-lb`: `grep server /etc/haproxy/haproxy.cfg`; trên `lab-ha-4`: `sudo crictl logs <id apiserver>` | Đúng mục *kubeadm bị treo khi chờ control plane* của bài 09. (1) Backend HAProxy chưa đổi → B3. (2) Log apiserver không kết nối được etcd → kiểm ba file certificate và sức khỏe cụm ở B6. (3) Endpoint etcd sai → sửa file cấu hình, `sudo kubeadm reset -f`, `init` lại |
+| B7: log apiserver có lỗi TLS khi nối tới etcd | Trên host etcd: `sudo openssl x509 -noout -text -in /etc/kubernetes/pki/etcd/server.crt \| grep -A1 'Alternative Name'` | SAN không chứa IP apiserver đang gọi, hoặc certificate client không do CA của cụm ký. Đối chiếu SAN theo script nghiệm thu B5 trước khi sinh lại |
+| B8: `kubeadm join --control-plane` lỗi giải mã certificate | Thời gian từ lúc tải certificate tới lúc join | Secret `kubeadm-certs` và khóa giải mã hết hạn sau hai giờ (bài 08). Sinh lại theo lời giải B8 rồi join lại |
+| B9: Pod Bookstore `Pending`, lý do `untolerated taint` | `kubectl -n bookstore describe pod <ten> \| tail -20` | Taint control plane chưa gỡ trên node đó — chạy lại bước gỡ taint |
+| B9: Pod Bookstore `Pending`, lý do `Insufficient cpu` hoặc `memory` | `kubectl describe node lab-ha-4 \| grep -A8 'Allocated resources'` | Hai control plane của bộ HA nhỏ hơn worker của bộ chính. Giảm `replicas` của `web` bằng patch trong overlay (giữ Pod trên hai node), hoặc nâng RAM `lab-ha-4`, `lab-ha-5` khi máy tắt. Ghi lựa chọn vào runbook |
+| B9: `db-0` vẫn nằm trên `lab-ha-5` | `kubectl kustomize --load-restrictor=LoadRestrictionsNone k8s/overlays/ha-lab \| grep -A12 'kind: StatefulSet'` | Patch đứng trước `db-emptydir.yaml` của Lab 8b nên `nodeSelector: null` của nó xóa mất ràng buộc mới, hoặc `target` không khớp. Đưa patch xuống cuối `patches`, đọc bản render trước khi triển khai lại |
+| Cửa sổ đo của `Start-Probe` báo `khong tim thay curl.exe` hoặc lỗi không tìm thấy file | `Get-Command curl.exe`; `Test-Path $probe` | Windows thiếu `curl.exe` đi kèm hệ điều hành, hoặc `$probe` chưa được chép ở B0.5. Dừng, báo lại — lab không tự cài phần mềm lên máy host |
+| Đường nền: `app` luôn `000` | `kubectl -n bookstore get svc web`; ping `192.168.100.234` từ máy host | Sai IP hoặc NodePort, hoặc Service `web` không phải NodePort `30080` — xem lại B9 |
+| Đường nền: `api` luôn `401` hoặc `403` | `curl.exe -sk https://192.168.100.230:6443/version` | Apiserver không cho truy cập ẩn danh vào endpoint sức khỏe — khác mặc định kubeadm mà Lab 8b đã dựa vào. Lab không đổi cấu hình apiserver: ghi vào postmortem và dùng `cp_ok` trên `lab-ha-4` làm số liệu API |
+| B10: Bookstore lỗi trong lúc mất quorum | `sudo crictl ps -a` trên `lab-ha-4`; log của `api`, `web` sau khi API trở lại | Không ép số liệu. Tìm container nào khởi động lại và vì sao, ghi vào postmortem — đó là phát hiện, không phải lỗi thao tác |
+| B10: bật lại hai máy mà `endpoint health` mãi không đủ 3/3 | `ehealth`; trên từng host `sudo crictl logs <id etcd>` | Tăng số vòng chờ — thời gian member bắt kịp phụ thuộc cấu hình. Log báo `cluster ID mismatch` nghĩa là ai đó đã xóa dữ liệu của một member: lệch state, restore cả sáu VM về mốc gần nhất |
+| B11: `lab-ha-5` mãi không thành `Unknown` | `kubectl get node lab-ha-5 -o yaml \| grep -A5 'type: Ready'` | Máy chưa tắt thật — kiểm `vmrun list`. Thời gian chuyển trạng thái phụ thuộc cấu hình của `kube-controller-manager`; tăng số vòng chờ |
+| B11: dời manifest mà vẫn thấy hai Pod apiserver | `ssh lab-ha-5 'sudo ls -1 /etc/kubernetes/manifests'` | Dời nhầm máy, hoặc mirror Pod chưa kịp biến mất. Không `kubectl delete pod` — làm thế là bỏ mất bài học về static Pod |
+| B13: `teardown-ha-lab.sh` in `teardown: con …` | `kubectl get all,configmaps,secrets -A -l app.kubernetes.io/part-of=bookstore` | Thường là namespace còn `Terminating` vì `db-0` đang trong ân hạn — chờ rồi chạy lại. Còn sót mãi thì ghi lại để sửa script ở repo; sprint này không đổi `scripts/` |
+| B13: một VM không chuyển sang *Powered off* | `vmrun -T ws list` | Chờ thêm. Chỉ khi chờ mãi không xong mới `vmrun -T ws stop <vmx> hard`, và ghi vào evidence rằng lần tắt đó là cưỡng bức |
+| B13: bộ VM chính có snapshot tiền tố `8x-` | So với `$mainVmx` ở B0.1 | Chụp nhầm. Xóa đúng snapshot đó trong Snapshot Manager, giữ nguyên `03-storage-ready` |
 
 ---
 
 ## 5. Nguồn chính thức
 
-Các phần giải thích trong thân bài ưu tiên snapshot tài liệu Kubernetes v1.35
-(`https://v1-35.docs.kubernetes.io/`) để hành vi, flag và trường cấu hình khớp minor version của
-cluster trong [bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa).
+Phần giải thích ưu tiên snapshot tài liệu Kubernetes v1.35 để hành vi, flag và trường cấu hình khớp
+minor version trong [bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa).
 
 - [Kubernetes v1.35 — Options for Highly Available Topology](https://v1-35.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/ha-topology/)
 - [Kubernetes v1.35 — Set up a High Availability etcd Cluster with kubeadm](https://v1-35.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/setup-ha-etcd-with-kubeadm/)
 - [Kubernetes v1.35 — Creating Highly Available Clusters with kubeadm](https://v1-35.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/)
 - [Kubernetes v1.35 — Creating a cluster with kubeadm](https://v1-35.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/)
-- [Kubernetes v1.35 — Installing kubeadm](https://v1-35.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
 - [Kubernetes v1.35 — Troubleshooting kubeadm](https://v1-35.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/troubleshooting-kubeadm/)
 - [Kubernetes v1.35 — `kubeadm reset`](https://v1-35.docs.kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-reset/)
 - [Kubernetes v1.35 — `kubeadm init`](https://v1-35.docs.kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-init/)
@@ -3109,7 +3525,13 @@ cluster trong [bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-
 - [Kubernetes v1.35 — `kubeadm join`](https://v1-35.docs.kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-join/)
 - [Kubernetes v1.35 — kubeadm Configuration (v1beta4)](https://v1-35.docs.kubernetes.io/docs/reference/config-api/kubeadm-config.v1beta4/)
 - [Kubernetes v1.35 — Static Pods](https://v1-35.docs.kubernetes.io/docs/tasks/configure-pod-container/static-pod/)
+- [Kubernetes v1.35 — Nodes](https://v1-35.docs.kubernetes.io/docs/concepts/architecture/nodes/)
+- [Kubernetes v1.35 — EndpointSlices](https://v1-35.docs.kubernetes.io/docs/concepts/services-networking/endpoint-slices/)
+- [Kubernetes v1.35 — Taints and Tolerations](https://v1-35.docs.kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+- [Kubernetes v1.35 — Declarative Management of Kubernetes Objects Using Kustomize](https://v1-35.docs.kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/)
+- [Kubernetes v1.35 — Using RBAC Authorization, mục *Default roles and role bindings*](https://v1-35.docs.kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings) (vai trò `system:public-info-viewer` cho `/readyz`, `/version`)
 - [Kubernetes v1.35 — Debugging Kubernetes nodes with crictl](https://v1-35.docs.kubernetes.io/docs/tasks/debug/debug-cluster/crictl/)
 - [Kubernetes v1.35 — Operating etcd clusters for Kubernetes](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/)
-- [kubeadm — Options for Software Load Balancing](https://git.k8s.io/kubeadm/docs/ha-considerations.md#options-for-software-load-balancing) (nguồn mà bài 08 dẫn cho phần load balancer)
-- [HAProxy — Configuration Manual](https://docs.haproxy.org/) (cú pháp `frontend`/`backend` dùng ở B3)
+- [kubeadm — Options for Software Load Balancing](https://git.k8s.io/kubeadm/docs/ha-considerations.md#options-for-software-load-balancing)
+- [HAProxy — Configuration Manual](https://docs.haproxy.org/)
+- [curl — Manual, tùy chọn `--write-out`](https://curl.se/docs/manpage.html#-w)

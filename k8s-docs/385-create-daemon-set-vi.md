@@ -21,7 +21,7 @@ Pod bằng `kubectl get pods -o wide`, rồi xóa theo đúng lệnh ở mục *
 Đây là DaemonSet bạn sẽ dùng lại suốt giai đoạn 29 — bài [388](388-update-daemon-set-vi.md) rolling
 update nó, bài [387](387-rollback-daemon-set-vi.md) rollback nó, bài
 [386](386-pods-some-nodes-vi.md) giới hạn nó xuống một nhóm node. Bạn đã dựng một DaemonSet đơn giản
-hơn ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B4; bài này thêm init container và
+hơn ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) ticket B7; bài này thêm init container và
 volume `hostPath`. Chép manifest ra file local thay vì `apply` thẳng URL — ba bài sau đều cần sửa
 chính manifest đó. Lưu ý một chi tiết thực tế: container chính là `registry.k8s.io/pause`, một image
 tối giản, nên bước `kubectl exec ... -- cat` có thể không chạy được; `/var/log` được mount từ host

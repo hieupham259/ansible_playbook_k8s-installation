@@ -16,9 +16,9 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability),
 bài 4/7 của dòng **Thực hành** · Kiểm chứng ở
-[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) phần B11.5. Lab chỉ kiểm chứng phần
+[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) ticket B7. Lab chỉ kiểm chứng phần
 **đọc được** của bài: cách thủ công mà chính bài này dẫn tới là "lấy một shell vào container
-đang chạy", tức B11; còn `telepresence connect` và `telepresence intercept` thì lab **không**
+đang chạy", tức B7; còn `telepresence connect` và `telepresence intercept` thì lab **không**
 chạy vì Telepresence cài một sidecar traffic-agent vào Pod ứng dụng — tức sửa workload — trong
 khi Lab 11a nằm trên chuỗi snapshot và phải chụp `04-metrics-ready` sạch.
 

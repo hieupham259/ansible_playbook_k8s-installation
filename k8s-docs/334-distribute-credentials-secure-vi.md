@@ -16,8 +16,8 @@
 → [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → [nhóm 3b — Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
 **bài 12/12 — bài cuối của nhóm** · Kiểm chứng ở
-[Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md), `phần B8` (volume + `items` +
-`defaultMode` ở `B8.1`, `secretKeyRef` và `envFrom secretRef` ở `B8.2`).
+[Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md), ticket B5 (volume + `items` +
+`defaultMode`, `secretKeyRef`) và ticket B8 (`envFrom secretRef`).
 
 Bài dài nhưng **lặp lại cùng một Secret `test-secret` qua nhiều đường tiêu thụ khác nhau**. Đọc
 theo trục đó thì gọn: tạo Secret → đưa vào Pod bằng volume → đưa vào Pod bằng biến môi trường →
@@ -47,8 +47,8 @@ một ví dụ prod/test gộp cả hai. Bài không dạy khái niệm Secret �
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Đoạn cuối mục *Ví dụ prod/test*: rút gọn Pod spec bằng `serviceAccount: prod-db-client` | ServiceAccount chưa học; ở đây chỉ cần thấy hai Pod khác nhau đúng một field | [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
-| Ghi chú escape ký tự đặc biệt (`$`, `\`, `*`, `=`, `!`) khi truyền mật khẩu qua shell, và mẹo dùng `--from-file` để khỏi escape | là chi tiết thao tác của `kubectl create secret`, không phải cơ chế phân phối | bài [327](327-secret-kubectl-vi.md) cùng nhóm 3b, kiểm chứng ở `phần B6.1` của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
-| Câu "có các giải pháp bên thứ ba để kích hoạt việc khởi động lại khi secret thay đổi" | không thuộc Kubernetes core, cluster lab không cài thêm gì | ranh giới cập nhật giữa volume và biến môi trường đã học ở bài [109](109-secret-vi.md), kiểm chứng ở `phần B3.1` của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
+| Ghi chú escape ký tự đặc biệt (`$`, `\`, `*`, `=`, `!`) khi truyền mật khẩu qua shell, và mẹo dùng `--from-file` để khỏi escape | là chi tiết thao tác của `kubectl create secret`, không phải cơ chế phân phối | bài [327](327-secret-kubectl-vi.md) cùng nhóm 3b, kiểm chứng ở ticket B8 của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
+| Câu "có các giải pháp bên thứ ba để kích hoạt việc khởi động lại khi secret thay đổi" | không thuộc Kubernetes core, cluster lab không cài thêm gì | ranh giới cập nhật giữa volume và biến môi trường đã học ở bài [109](109-secret-vi.md), kiểm chứng ở ticket B7 của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
 | Ba link `Secret` / `Volume` / `Pod` ở mục *Tài liệu tham khảo* | tra cứu API, không phải nội dung bài | bài [91](91-volumes-vi.md) ở [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) cho phần Volume |
 
 ---

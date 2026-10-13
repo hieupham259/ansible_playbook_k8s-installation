@@ -13,7 +13,7 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 14 — Khả năng mở rộng](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng),
 bài 1/2 của dòng **Thực hành** · Kiểm chứng ở
-[Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md) phần B10.4, nơi lab đọc
+[Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md) ticket B7, nơi lab đọc
 `topologyManagerPolicy` và `memoryManagerPolicy` **hiệu lực** của cả ba kubelet qua `configz`,
 cộng số NUMA node thật của máy, để chứng minh nhánh debug của bài không thể kích hoạt trên
 cluster này.

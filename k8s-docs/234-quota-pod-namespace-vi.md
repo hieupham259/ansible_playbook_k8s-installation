@@ -25,8 +25,8 @@ lượng object**. Checkpoint giai đoạn 25 gọi đích danh việc "đặt q
 chứng minh nó chặn", nên đây là bài phải làm được chứ không chỉ đọc.
 
 Cái bẫy Deployment của trang này bạn đã dựng ở
-[Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) phần B3, và quota theo số lượng object ở
-phần B4. Đọc lại ở đây để lấy **đúng chỗ thông báo từ chối xuất hiện** — nó không nằm trên
+[Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) ticket B3 và B5, và quota theo số lượng object
+ở ticket B4. Đọc lại ở đây để lấy **đúng chỗ thông báo từ chối xuất hiện** — nó không nằm trên
 terminal như ở bài [233](233-quota-memory-cpu-namespace-vi.md).
 
 **Phải hiểu ở lần đọc này:**

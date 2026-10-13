@@ -13,8 +13,8 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 7 — Lập lịch và chính sách tài nguyên](00-ALO-TRINH-ADMIN.md#giai-đoạn-7--lập-lịch-và-chính-sách-tài-nguyên)
 → [7a. Scheduling và eviction](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), dòng **Thực hành**,
-bài 3/3 · Kiểm chứng ở [Lab 7a — Lập lịch và eviction](labs/LAB-7A-LAP-LICH-VA-EVICTION.md), phần
-B2.1–B2.2.
+bài 3/3 · Kiểm chứng ở [Lab 7a — Lập lịch và eviction](labs/LAB-7A-LAP-LICH-VA-EVICTION.md), ticket
+B2.
 
 Đây là **bài cuối của nhóm Thực hành 7a**. Nó bắt đầu bằng đúng bước gắn label như bài
 [266](266-assign-pods-nodes-node-affinity-vi.md) vừa đọc, rồi rẽ sang hai cách đơn giản nhất để
@@ -36,8 +36,8 @@ ghim Pod: `nodeSelector` và `nodeName`. Đọc để chốt lại ranh giới g
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Hệ quả của việc `nodeName` bỏ qua scheduler | trang này chỉ đưa manifest, không nói gì về hệ quả | bài [137](137-kube-scheduler-vi.md) và [138](138-assign-pod-node-vi.md#nodename) đã đọc ở đầu [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction); [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) B1.3 và B4.5 |
-| Các cách ràng buộc khác — node affinity, taint và toleration, topology spread | trang này cố ý chỉ trình bày hai cách đơn giản nhất | bài [266](266-assign-pods-nodes-node-affinity-vi.md) vừa đọc và bài [139](139-taint-and-toleration-vi.md), [140](140-topology-spread-constraints-vi.md) ở đầu [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction); [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) B2–B5 |
+| Hệ quả của việc `nodeName` bỏ qua scheduler | trang này chỉ đưa manifest, không nói gì về hệ quả | bài [137](137-kube-scheduler-vi.md) và [138](138-assign-pod-node-vi.md#nodename) đã đọc ở đầu [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction); [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) ticket B1 và B7 |
+| Các cách ràng buộc khác — node affinity, taint và toleration, topology spread | trang này cố ý chỉ trình bày hai cách đơn giản nhất | bài [266](266-assign-pods-nodes-node-affinity-vi.md) vừa đọc và bài [139](139-taint-and-toleration-vi.md), [140](140-topology-spread-constraints-vi.md) ở đầu [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction); [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) ticket B2–B4 và B7 |
 | Mục *Tiếp theo* — label và selector nói chung | ở đây chỉ cần biết label gắn trên Node | bài [18](18-labels-vi.md) đã đọc ở [1b](00-ALO-TRINH-ADMIN.md#1b-làm-việc-với-object-và-kubectl) |
 
 ---
@@ -209,7 +209,8 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 </details>
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Trả lời trôi chảy được cả ba bài thực
-hành của nhóm rồi thì mở [Lab 7a — Lập lịch và eviction](labs/LAB-7A-LAP-LICH-VA-EVICTION.md): B2.1
-và B2.2 chạy lại chính bài này, B2.3 và B2.4 chạy bài
-[266](266-assign-pods-nodes-node-affinity-vi.md), còn B6.1 kiểm chứng bài
-[210](210-guaranteed-scheduling-critical-addon-pods-vi.md) trên add-on thật của cluster.
+hành của nhóm rồi thì mở [Lab 7a — Lập lịch và eviction](labs/LAB-7A-LAP-LICH-VA-EVICTION.md): ticket
+B2 dùng lại chính bài này cho label dữ liệu của dự án, B2 và B4 dùng bài
+[266](266-assign-pods-nodes-node-affinity-vi.md) (`required` cho `db`, `preferred` cho tác vụ nền), còn
+B4 kiểm chứng bài [210](210-guaranteed-scheduling-critical-addon-pods-vi.md) trên add-on thật của
+cluster.

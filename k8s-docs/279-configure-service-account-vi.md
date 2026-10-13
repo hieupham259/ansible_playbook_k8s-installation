@@ -14,9 +14,10 @@
 → [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
 dòng **Thực hành**, bài 3/10 · Kiểm chứng ở
 [Lab 9a — ServiceAccount, authn/authz và RBAC](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md):
-phần B2.4 (`kubectl create token`), B4.3 (plugin ServiceAccount chèn gì vào Pod mới), B5.4 (từ
-chối tự động mount ở hai cấp), B5.5 (chiếu token với audience riêng), B6.5 (token dài hạn dạng
-Secret) và B6.6 (issuer discovery).
+ticket B1 (plugin ServiceAccount chèn gì vào Pod mới, kể cả `imagePullSecrets`), B2 (từ chối tự động
+mount ở hai cấp, `serviceAccountName` bất biến), B3 (chiếu token vào volume cho đúng một container)
+và B4 (`kubectl create token --duration`, vì sao không dùng token dài hạn dạng Secret, ⭐ issuer
+discovery).
 
 Đây là bài dài nhất trong nhóm Thực hành của giai đoạn 9, và nó gộp bốn việc khác nhau vào một
 trang: gán danh tính cho Pod, lấy token, gắn imagePullSecrets, và chiếu token vào volume. Chỉ hai
@@ -54,10 +55,10 @@ là chuyện kéo image, đọc lướt là đủ. Bài này đứng ngay trên 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Bốn cờ `--service-account-issuer`, `--service-account-key-file`, `--service-account-signing-key-file`, `--api-audiences` trong ghi chú của mục *Chiếu token* | là cờ của `kube-apiserver`; Lab 9a **cấm sửa cấu hình control plane** và biến điều đó thành gate | [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) bài [03](03-control-plane-flags-vi.md) và [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
-| Toàn bộ mục *Thêm ImagePullSecrets vào một service account*, phần kéo image thật từ registry riêng | cần một private registry và mạng ra ngoài; baseline không có | `imagePullSecrets` trên Pod là bài [40](40-images-vi.md) đã đọc ở [giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime); [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) B4.3 chỉ kiểm chứng phần thuộc chặng admission — Secret được **chèn** vào `.spec.imagePullSecrets` của Pod mới |
-| Mục *Khám phá issuer của service account* — OIDC discovery, JWKS, `--service-account-jwks-uri` | chỉ cần khi liên kết danh tính của cluster với một hệ thống bên ngoài | [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) B6.6 chỉ **đọc** tài liệu discovery; so sánh các cơ chế xác thực nằm ở bài [123](123-hardening-authentication-vi.md), đọc sau Lab 9a trong cùng giai đoạn 9 |
-| `kubectl create token --bound-object-kind Node ...` | token gắn Node là công cụ của thành phần chạy trên node, không phải của quản trị viên đang cấp danh tính cho ứng dụng | [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) B2.6 kiểm chứng cơ chế bound token bằng object mà lab tạo được |
-| Payload JWT mẫu ở mục *Chiếu token* — `jti`, `nbf`, `warnafter` | ở lần đọc này chỉ cần đọc được `sub`, `aud`, `iss` và khối `kubernetes.io` | [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) B2.4 và B2.5 giải mã đúng ba claim đó trên token thật |
+| Toàn bộ mục *Thêm ImagePullSecrets vào một service account*, phần kéo image thật từ registry riêng | cần một private registry và mạng ra ngoài; baseline không có | `imagePullSecrets` trên Pod là bài [40](40-images-vi.md) đã đọc ở [giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime); [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) ticket B1 chỉ kiểm chứng phần thuộc chặng admission — Secret được **chèn** vào `.spec.imagePullSecrets` của Pod mới |
+| Mục *Khám phá issuer của service account* — OIDC discovery, JWKS, `--service-account-jwks-uri` | chỉ cần khi liên kết danh tính của cluster với một hệ thống bên ngoài | [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) ticket B4 (phần ⭐) chỉ **đọc** tài liệu discovery; so sánh các cơ chế xác thực nằm ở bài [123](123-hardening-authentication-vi.md), đọc sau Lab 9a trong cùng giai đoạn 9 |
+| `kubectl create token --bound-object-kind Node ...` | token gắn Node là công cụ của thành phần chạy trên node, không phải của quản trị viên đang cấp danh tính cho ứng dụng | [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) ticket B4 kiểm chứng cơ chế bound token bằng cách xóa rồi tạo lại ServiceAccount `ci-deployer` |
+| Payload JWT mẫu ở mục *Chiếu token* — `jti`, `nbf`, `warnafter` | ở lần đọc này chỉ cần đọc được `sub`, `aud`, `iss` và khối `kubernetes.io` | [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) ticket B4 giải mã `sub`, `iss`, `exp` trên token CI thật; ticket B6 dựng lại token sai `aud` |
 
 ---
 

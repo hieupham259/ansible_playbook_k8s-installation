@@ -11,7 +11,7 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 4/11 ·
-Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B4.1, B4.2 và B4.3.
+Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B2, B3 và B4.
 
 Đây là bài **dài nhất** trong khối thực hành 3a và là bài thực hành quan trọng nhất của nhóm.
 Nó là mặt thi công của bài khái niệm [49](49-probes-vi.md): cùng ba loại probe, nhưng ở đây bạn

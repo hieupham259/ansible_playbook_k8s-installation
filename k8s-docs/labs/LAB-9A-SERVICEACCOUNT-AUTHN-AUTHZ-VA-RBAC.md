@@ -1,2498 +1,147 @@
 # Lab 9a — ServiceAccount, authn/authz và RBAC
 
-> **Điểm bắt đầu:** snapshot `03-storage-ready` — mốc do Lab 6a tạo, xem
-> [chuỗi snapshot](README.md#3-chuỗi-snapshot).
-> **Điểm kết thúc:** cleanup trả cluster về đúng `03-storage-ready`, **không tạo snapshot mới**.
-> Lab này không cài thêm bất kỳ thành phần hạ tầng nào và **không sửa cấu hình kube-apiserver**.
-> **Lab trước:** Lab 8c — HA với external etcd (chưa viết, xem
-> [bản đồ lab](README.md#4-bản-đồ-lab)) chạy trên **bộ VM riêng** và không đụng tới chuỗi chính,
-> nên cluster vào lab này vẫn phải ở đúng `03-storage-ready`: có StorageClass mặc định, không
-> workload, không object nào của lab trước.
+> **Điểm bắt đầu:** snapshot `03-storage-ready` trên **bộ VM chính** (`lab-k8s-master`,
+> `lab-k8s-worker1`, `lab-k8s-worker2`) — xem [chuỗi snapshot](README.md#3-chuỗi-snapshot). Repo
+> `~/bookstore` ở tag `lab-8c`, mang về từ bundle `bookstore-lab-8c.bundle` của bộ VM HA — B0 làm
+> việc này, vì sau khi Lab 8a restore snapshot thì repo trên master vẫn đứng ở `lab-8a`.
+> **Điểm kết thúc:** teardown trả cluster về đúng `03-storage-ready`, **không tạo snapshot mới**.
+> Repo `~/bookstore` có tag `lab-9a` và một bản bundle nằm ngoài VM. Lab không tạo object cấp
+> cluster nào và không sửa cấu hình control plane hay kubelet.
+> **Sprint dự án:** Sprint 15 — Danh tính và quyền của [dự án Bookstore](DU-AN-BOOKSTORE.md).
+> **Lab trước:** [Lab 8c — HA với external etcd](LAB-8C-HA-VOI-EXTERNAL-ETCD.md) (bộ VM riêng).
+> **Lab sau:** [Lab 9b — Pod Security và hardening](LAB-9B-POD-SECURITY-VA-HARDENING.md).
 >
-> **Cập nhật và đối chiếu phiên bản:** 25/08/2026.
+> **Cập nhật và đối chiếu phiên bản:** 13/10/2026.
 
-Lab này đi cùng **phần truy cập** của mục
+Lab này đi cùng **phần truy cập** của
 [Giai đoạn 9 — Bảo mật và multi-tenancy](../00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy):
-năm bài khái niệm [113](../113-security-vi.md), [114](../114-cloud-native-security-vi.md),
-[118](../118-service-accounts-vi.md), [119](../119-controlling-access-vi.md),
-[120](../120-rbac-good-practices-vi.md), cộng ba bài thực hành
-[279](../279-configure-service-account-vi.md), [338](../338-access-api-from-pod-vi.md),
-[359](../359-access-cluster-vi.md).
+năm bài khái niệm 113, 114, 118, 119, 120 và khối **Thực hành** đứng ngay trước 🧪 Lab 9a trong lộ
+trình. Mọi ticket dựa vào hợp đồng kỹ thuật ở
+[mục 4 của file dự án](DU-AN-BOOKSTORE.md#4-hợp-đồng-kỹ-thuật), thiết kế danh tính ở
+[mục 3.5](DU-AN-BOOKSTORE.md#35-thiết-kế-bảo-mật) và bố cục repo ở
+[mục 5.5](DU-AN-BOOKSTORE.md#55-bố-cục-repo-theo-sprint). Kế hoạch gốc của sprint nằm ở
+[mục 7.2](DU-AN-BOOKSTORE.md#sprint-15--lab-9a-danh-tính-và-quyền).
 
 **Phần policy của giai đoạn 9 không thuộc lab này.** Pod Security Standards, Pod Security
-Admission, security context, seccomp/AppArmor, admission webhook và checklist hardening nằm ở
-Lab 9b — Pod Security và hardening (chưa viết, xem [bản đồ lab](README.md#4-bản-đồ-lab)), cùng
-với bốn bài thực hành [282](../282-enforce-standards-admission-controller-vi.md),
-[283](../283-enforce-standards-namespace-labels-vi.md), [286](../286-migrate-from-psp-vi.md),
-[291](../291-security-context-vi.md). Lab 9a dừng đúng ở ranh giới đó: nó đi hết ba chặng của
-bài [119](../119-controlling-access-vi.md) nhưng **không** cấu hình bất kỳ admission controller
-nào — chặng ba chỉ được kiểm chứng bằng các plugin đã bật sẵn trên baseline.
+Admission, seccomp/AppArmor, admission webhook và checklist hardening đọc **sau** Lab 9a trong lộ
+trình (bài 115, 116 trở đi) và thực hành ở Lab 9b. Vì vậy sprint này **không** gắn nhãn Pod
+Security nào lên namespace, kể cả ở chế độ `warn` hay `audit`.
 
 Cluster giữ nguyên baseline của
-[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); lab này **không
-chép lại con số phiên bản nào** và **không cài thêm gì**. Thành phần ngoài baseline đang chạy —
-CNI thay Flannel, ingress controller, dynamic provisioner — đã khóa ở
-[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) và do Lab 5b, Lab 6a
-cài; lab 9a chỉ **đọc** chúng, không đụng vào.
-
-Topology vẫn là một control plane `lab-k8s-master` mang taint `NoSchedule` và hai worker
-`lab-k8s-worker1`, `lab-k8s-worker2`. Lab dùng Pod, ConfigMap, Secret, Deployment và
-`nodeSelector` của các giai đoạn đã học làm công cụ. **Không** dùng Pod Security Admission và
-security context (Lab 9b), metrics-server và HPA
-([giai đoạn 11](../00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability)), DRA
-([giai đoạn 13](../00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao)), CRD và
-admission webhook ([giai đoạn 14](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng)).
+[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa). Ba image ứng dụng
+nằm ở [bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00); lab này không chép
+lại con số phiên bản nào trong phần văn bản và **không thêm image nào** ngoài hai bảng đó.
 
 Trước khi bắt đầu, chạy [quy trình mở đầu A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab)
-trên `lab-k8s-master`, rồi thêm ba lệnh riêng của lab này:
-
-```bash
-kubectl wait --for=condition=Ready node --all --timeout=180s
-test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
-kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
-kubectl -n kube-system get deployment coredns
-kubectl get pods -n default
-
-# Ba lenh rieng cua lab 9a: dung diem bat dau, va ban co phan quyen chua co gi cua lab.
-kubectl get storageclass | grep -q '(default)' \
-  && echo 'PASS: co StorageClass mac dinh — dung diem bat dau 03-storage-ready'
-test -z "$(kubectl get namespace -o name | grep 'namespace/lab-9a' || true)" \
-  && echo 'PASS: chua co namespace nao ten lab-9a'
-test -z "$(kubectl get clusterrole,clusterrolebinding -l lab=9a -o name 2>/dev/null)" \
-  && echo 'PASS: chua co ClusterRole hay ClusterRoleBinding nao mang label lab=9a'
-```
-
-**PASS:** ba node `Ready`; có dòng `PASS: readyz ok`; lệnh field selector trả `No resources found`;
-CoreDNS đủ replica `READY`; namespace `default` không có Pod; **ba dòng `PASS:` riêng của lab đều
-xuất hiện**. Nếu dòng cuối fail, cluster còn sót object phạm vi cluster của một lần chạy trước —
-dọn theo B7.1 rồi chạy lại gate này trước khi đi tiếp.
+trên `lab-k8s-master`. B0 bên dưới chạy lại đúng gate đó.
 
 ---
 
 ## 1. Kết quả phải đạt
 
-Hoàn thành lab khi có thể tự chứng minh và giải thích được:
+Hoàn thành lab khi hệ thống Bookstore đạt trạng thái sau sprint 15 — **mỗi chủ thể có đúng danh
+tính và đúng quyền nó cần, không hơn** — **và** bạn chứng minh, giải thích được:
 
-- **Ba chặng của bài [119](../119-controlling-access-vi.md), đúng thứ tự**: chỉ ra được một
-  request cụ thể chết ở **chặng nào**, bằng bằng chứng lấy từ chính API server — mã `401` cho
-  xác thực, `403` cho phân quyền, và một câu thông báo hoàn toàn khác cho kiểm soát tiếp nhận.
-- Ranh giới của chặng ba: chứng minh được admission **không** chạm vào request chỉ đọc, và
-  ngược lại, chứng minh được admission **sửa** object trước khi nó được ghi — thứ mà cả hai
-  chặng trước không làm được.
-- **ServiceAccount là danh tính của Pod** ([118](../118-service-accounts-vi.md)): chỉ ra được
-  token nằm ở đâu trong Pod, nó tới đó bằng cơ chế nào, và chứng minh được `sub` của token
-  chính là danh tính mà API server dùng để quyết định.
-- Pod chạy bằng ServiceAccount `default` **không làm được gì ngoài quyền tối thiểu**: chứng minh
-  bằng chính Pod đó — gọi được endpoint discovery nhưng bị `403` khi đọc ConfigMap trong chính
-  namespace của nó.
-- Phân biệt **bốn** thứ của bài [120](../120-rbac-good-practices-vi.md) bằng thực nghiệm chứ
-  không bằng định nghĩa: Role, ClusterRole, RoleBinding, ClusterRoleBinding — kể cả tổ hợp
-  **không tồn tại**, và kể cả trường hợp ClusterRole bị RoleBinding **giới hạn lại** vào đúng
-  một namespace.
-- Nguyên tắc quyền tối thiểu, đo được: một ServiceAccount chỉ đọc ConfigMap trong đúng một
-  namespace — chứng minh nó **không** đọc được ở namespace khác, **không** làm được verb khác,
-  và **không** đụng được vào Secret.
-- `kubectl auth can-i` với `--as`, `--as-group`, `--list`, và quan hệ của nó với object
-  SubjectAccessReview mà bài [119](../119-controlling-access-vi.md) in ra dưới dạng JSON.
-- Vì sao RBAC gắn được vào một user hay group **không hề tồn tại** trong API server, và vì sao
-  điều đó không mâu thuẫn với việc Kubernetes không có object `User`.
-- Cơ chế RBAC tự chặn leo thang đặc quyền: một chủ thể được phép tạo Role vẫn **không** tạo nổi
-  một Role rộng hơn quyền nó đang có.
-- **Client bên ngoài xác thực thế nào** ([359](../359-access-cluster-vi.md)): dựng được
-  kubeconfig cho một ServiceAccount, chạy được `kubectl proxy`, và giải thích được vì sao quyền
-  của proxy chính là quyền của kubeconfig mà nó dùng.
-- Vì sao token dài hạn dạng Secret bị khuyến cáo tránh: chứng minh bằng chính payload của hai
-  loại token đặt cạnh nhau.
-- Cleanup đúng phạm vi: xóa hết **object phạm vi cluster** lab tạo ra, chứng minh **cấu hình
-  control plane không hề bị sửa**, chứng minh **không token nào lọt vào thư mục bằng chứng**, và
-  đưa cluster về đúng `03-storage-ready`.
+- Một request tới API server đi qua TLS, rồi **xác thực → phân quyền → kiểm soát tiếp nhận → validate
+  rồi ghi**. Với mỗi chặng, chỉ ra một request **của chính hệ thống Bookstore** chết ở đó và dấu hiệu
+  nhận ra từ phía client: `401`, `403` kèm tên danh tính, và một câu từ chối nói về **nội dung
+  object** trong khi `kubectl auth can-i` vẫn trả `yes`.
+- Trước sprint, mọi Pod chạy dưới ServiceAccount `default` và mang token API dù không cần; vì sao
+  NetworkPolicy chặn đường tới API server **chưa đủ** để coi token đó vô hại.
+- Mỗi thành phần một ServiceAccount; tắt tự động mount ở cấp nào, cấp nào thắng khi hai cấp cùng
+  khai; vì sao không đổi được ServiceAccount của Pod đang chạy.
+- `db-backup` ghi trạng thái vào ConfigMap `backup-status` qua Kubernetes API với quyền tối thiểu đo
+  được: đúng hai verb, đúng một object; token chỉ có trong đúng một container, sống ngắn, và client
+  xác minh server bằng CA của cluster. Vì sao công cụ gọi API phải chọn giữa các image đã khóa, và
+  NetworkPolicy tới API server trên CNI của cluster phải viết theo đích nào.
+- Danh tính CI `ci-deployer`: token có thời hạn, kubeconfig riêng ngoài git, thu hồi ngay bằng cách
+  xóa ServiceAccount — và vì sao tạo lại ServiceAccount **cùng tên** là trao lại nguyên quyền cũ.
+- Vì sao quyền sửa Deployment gần như bằng quyền đọc Secret và mượn ServiceAccount khác (`TD-15`).
+- Kubernetes không có object `User`; quyền của nhóm `bookstore-devs` chỉ dựa vào **tên nhóm** mà chặng
+  xác thực trả ra. `kubectl auth can-i --as --as-group` chính là một SubjectAccessReview.
+- Quyền gắn debug container là quyền riêng trên subresource — cơ chế giới hạn `TD-07`.
+- `securityContext` cấp Pod và cấp container: ai chạy bằng uid nào, cờ `no_new_privs`, và
+  `runAsNonRoot` được kiểm ở **kubelet** chứ không ở API server.
+- Sysctl an toàn đặt cho một Pod mà không chạm node; sysctl không an toàn được lập lịch nhưng không
+  chạy, và dấu vết nằm ở đâu.
 
 ### 1.1. Ánh xạ tài liệu sang bài thực hành
 
-| Bài trong phần truy cập của giai đoạn 9 | Kiểm chứng ở |
+| Bài trong phần truy cập của giai đoạn 9 | Ticket kiểm chứng |
 | --- | --- |
-| [113 — Bảo mật](../113-security-vi.md) | B1.2 — bài là trang mục lục năm nhóm cơ chế; lab đối chiếu từng nhóm với thứ **đọc được từ cluster này**: kiểm soát truy cập API (toàn bộ lab), TLS khi truyền (B1.1), Secret chỉ là "bảo vệ cơ bản" (B3.4), admission controller (B4), kiểm toán (chưa bật — ghi ở bảng lý do) |
-| [114 — Bảo mật Cloud Native](../114-cloud-native-security-vi.md) | B1.3 — bốn giai đoạn vòng đời đối chiếu với những gì các lab trước đã làm; ba lĩnh vực của giai đoạn *Runtime* và chứng minh lĩnh vực **truy cập** là lab này: mọi Pod đang chạy đều mang một danh tính ServiceAccount, không Pod nào không có |
-| [118 — Tài khoản dịch vụ](../118-service-accounts-vi.md) | B2.4 — token của ServiceAccount là JWT ký, `sub` là danh tính; B2.5 — claim audience; B2.6 — bound token chết theo object nó gắn vào; B5.1 — `default` và trần quyền discovery; B5.2 — token được chiếu vào Pod ở đâu; B5.4 — `automountServiceAccountToken` |
-| [119 — Kiểm soát truy cập vào Kubernetes API](../119-controlling-access-vi.md) | B1.1 — bốn bước và tầng TLS; B2 — chặng 1 và mã `401`; B3 — chặng 2, mã `403` và SubjectAccessReview; B4 — chặng 3 và bước 4 validate rồi ghi |
-| [120 — Thực hành tốt về RBAC](../120-rbac-good-practices-vi.md) | B3.2–B3.9 — bốn tổ hợp Role/ClusterRole nhân RoleBinding/ClusterRoleBinding và quyền tối thiểu; B3.4 — `list` trên Secret lộ nội dung; B3.10 — verb `escalate` và cơ chế chặn leo thang; B3.11 — rà soát binding mặc định, `cluster-admin` và `system:unauthenticated`; B6.4 — vì sao `get` trên `nodes/proxy` không phải quyền chỉ đọc |
-| [279 — Cấu hình Service Account cho Pod](../279-configure-service-account-vi.md) | B2.4 — `kubectl create token`; B4.3 — plugin ServiceAccount chèn `serviceAccountName`, projected volume và `imagePullSecrets`; B5.4 — từ chối tự động mount ở hai cấp và thứ tự ưu tiên; B5.5 — chiếu token với audience riêng; B6.5 — token dài hạn dạng Secret; B6.6 — issuer discovery |
-| [338 — Truy cập Kubernetes API từ một Pod](../338-access-api-from-pod-vi.md) | B5.1 — Pod gọi API bằng token của mình, không proxy; B5.2 — ba file và hai biến môi trường mà bài liệt kê, đối chiếu giá trị với cluster; B5.3 — cùng một Pod, hai namespace, hai kết quả |
-| [359 — Truy cập cluster](../359-access-cluster-vi.md) | B2.1 — `kubectl config view` và client certificate; B6.1 — kubeconfig cho một ServiceAccount; B6.2, B6.3 — `kubectl proxy` và quyền của nó; B6.4 — bốn loại proxy, cái nào thật sự có trên cluster này; B6.5 — nhánh *Không dùng kubectl proxy* của bài |
+| [113 — Bảo mật](../113-security-vi.md) | B1 — đối chiếu năm nhóm cơ chế với cluster: kiểm soát truy cập API (cả sprint), TLS khi truyền, Secret là "bảo vệ cơ bản", admission, audit chưa bật; B6 — admission chặn theo nội dung object |
+| [114 — Bảo mật Cloud Native](../114-cloud-native-security-vi.md) | B1 — lĩnh vực *truy cập* của giai đoạn Runtime: mọi Pod thường đều mang một danh tính, kể cả thành phần của cluster; B2 — mỗi workload một danh tính riêng |
+| [118 — Tài khoản dịch vụ](../118-service-accounts-vi.md) | B1 — ServiceAccount `default` và trần quyền discovery; B2 — ba bước dùng ServiceAccount, tắt tự động tiêm; B3 — cấp quyền tối thiểu, token qua projected volume; B4 — token có hạn qua TokenRequest, bound token chết theo object; B6 — năm bước kiểm bearer token, sai audience là `401` |
+| [119 — Kiểm soát truy cập vào Kubernetes API](../119-controlling-access-vi.md) | B1 — tầng TLS, chặng 1 rút username và group từ client certificate; B5 — chặng 2 và SubjectAccessReview; B6 — dựng lại request chết ở từng chặng và ở bước 4 |
+| [120 — Thực hành tốt về RBAC](../120-rbac-good-practices-vi.md) | B3 — đặc quyền tối thiểu cho `db-backup`; B4 — *Tạo workload* (`TD-15`), *Sửa đổi Namespace*, *Yêu cầu token*; B5 — `list` trên Secret, `nodes/proxy`, `escalate`/`bind`/`impersonate`, rà soát định kỳ |
+| [254 — Quản trị Cloud Controller Manager](../254-running-cloud-controller-vi.md) | B1 — cluster **không có** cloud-controller-manager: không cờ `--cloud-provider=external`, không taint `uninitialized`; mục *Yêu cầu* của bài thành một dòng trong ma trận danh tính (CCM nếu có cũng là một chủ thể cần RBAC). Không thực hành gì thêm — lab không có nhà cung cấp cloud |
+| [258 — Sử dụng sysctl](../258-sysctl-cluster-vi.md) | B8 — sysctl an toàn cho `api` qua `securityContext` cấp Pod, giá trị trong Pod khác trên node; diễn tập sysctl không an toàn bị kubelet từ chối |
+| [279 — Cấu hình Service Account cho Pod](../279-configure-service-account-vi.md) | B1 — plugin ServiceAccount chèn ServiceAccount, volume token và `imagePullSecrets`; B2 — từ chối tự động mount ở hai cấp, `serviceAccountName` bất biến; B3 — chiếu token vào volume; B4 — `kubectl create token --duration`, ⭐ issuer discovery |
+| [282 — Thực thi PSS bằng cấu hình admission controller](../282-enforce-standards-admission-controller-vi.md) | **Không thực hành ở lab này.** Cần khái niệm của bài 115, 116 — lộ trình xếp **sau** Lab 9a — và phần áp dụng là sửa cờ `kube-apiserver`. Thực hành ở Lab 9b |
+| [283 — Thực thi PSS bằng nhãn namespace](../283-enforce-standards-namespace-labels-vi.md) | **Không thực hành ở lab này**, cùng lý do với bài 282: nhãn Pod Security (kể cả `warn`/`audit`) là việc của Lab 9b |
+| [286 — Di chuyển từ PodSecurityPolicy](../286-migrate-from-psp-vi.md) | B4 — chỉ mục 1 *Rà soát quyền trên namespace*: chứng minh CI không sửa được Namespace `bookstore`. Phần còn lại cần PSS — Lab 9b |
+| [291 — Cấu hình Security Context](../291-security-context-vi.md) | B7 — `runAsUser`/`runAsGroup` cấp Pod, ghi đè cấp container, `allowPrivilegeEscalation` và `NoNewPrivs`, group ngầm định từ `/etc/group`; B8 — `securityContext.sysctls` cấp Pod. Phần `readOnlyRootFilesystem`, capability, seccomp thuộc Lab 9b |
+| [338 — Truy cập Kubernetes API từ một Pod](../338-access-api-from-pod-vi.md) | B1 — Pod gọi discovery bằng token tự mount; B3 — container báo trạng thái gọi REST trực tiếp, không proxy: ba file, CA, `kubernetes.default.svc` |
+| [359 — Truy cập cluster](../359-access-cluster-vi.md) | B1 — `kubectl config view`, client certificate; B4 — kubeconfig cho ServiceAccount, `kubectl proxy` mang đúng quyền của kubeconfig, ⭐ các loại proxy có thật trên cluster |
+| [190 — Truy cập cluster bằng Kubernetes API](../190-access-cluster-api-vi.md) | B4 — gọi REST thẳng bằng token kèm CA thay cho `--insecure`; `kubectl proxy` bằng kubeconfig của CI |
 
-Các phần dưới đây **không kiểm chứng được trong lab này**, ghi rõ lý do thay vì bỏ trống:
+Các phần dưới đây **không kiểm chứng được** trong lab này:
 
-| Phần | Vì sao không thực hành ở đây |
+| Phần | Vì sao |
 | --- | --- |
-| Bài [113](../113-security-vi.md): mã hóa khi lưu trữ, cấu hình audit logging | Phải sửa cờ của `kube-apiserver` và thêm file policy. Lab này **cấm sửa cấu hình control plane** — B0.3 và B7.3 biến điều đó thành gate. Nội dung thuộc [giai đoạn 22](../00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu); mã hóa Secret at rest là **nợ #6** trong [sổ nợ lab](README.md#5-sổ-nợ-lab) |
-| Bài [113](../113-security-vi.md): bảng bảo mật của nhà cung cấp cloud, `ValidatingAdmissionPolicy`, các hiện thực policy của hệ sinh thái | Cluster lab chạy trên VM tự dựng, không có IaaS. `ValidatingAdmissionPolicy` và policy engine bên thứ ba cần điểm mở rộng API — [giai đoạn 14](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) |
-| Bài [113](../113-security-vi.md), [114](../114-cloud-native-security-vi.md): Pod Security Standards, RuntimeClass, module bảo mật Linux (AppArmor, seccomp) | Thuộc **phần policy** của giai đoạn 9, tức Lab 9b. Lab 9a không được cài trước hạ tầng của lab sau, xem [nguyên tắc không nhảy cóc](README.md#2-nguyên-tắc-không-nhảy-cóc) |
-| Bài [114](../114-cloud-native-security-vi.md): giai đoạn vòng đời *Phát triển* và *Phân phối* | Thuộc quy trình phát triển và chuỗi cung ứng, không có thao tác nào trên cluster để kiểm chứng. Chính bài dịch xếp hai giai đoạn này vào *Đọc lướt*; checklist tương ứng là bài [130](../130-application-security-checklist-vi.md) ở Lab 9b |
-| Bài [114](../114-cloud-native-security-vi.md): *Bảo vệ runtime — tính toán* và *lưu trữ*, service mesh, khởi động đo lường bằng mật mã | Hai lĩnh vực tính toán và lưu trữ đã thực hành ở [Lab 3c](LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md), [Lab 7a](LAB-7A-LAP-LICH-VA-EVICTION.md), [Lab 7b](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md), [Lab 6a](LAB-6A-PV-PVC-VA-STORAGECLASS.md) và [Lab 6b](LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md); B1.3 chỉ đối chiếu lại, không làm lại. Service mesh và measured boot nằm ngoài lộ trình |
-| Bài [118](../118-service-accounts-vi.md): *Giới hạn audience trên node* (`ServiceAccountNodeAudienceRestriction`) | Là hardening cho danh tính kubelet và cần quy tắc RBAC cho chính kubelet. Bài dịch hoãn tới [128](../128-api-server-bypass-risks-vi.md), tức Lab 9b |
-| Bài [118](../118-service-accounts-vi.md): annotation `kubernetes.io/enforce-mountable-secrets` | Chính bài ghi **deprecated** và khuyên dùng namespace riêng thay thế. Lab không dạy cơ chế đã bị khai tử; phần thay thế nằm ở bài [121](../121-secrets-good-practices-vi.md) (Lab 9b) |
-| Bài [118](../118-service-accounts-vi.md): TokenReview API, xác minh OIDC trong mã của bạn, SPIFFE, service mesh, IAM của cloud | Dành cho người **viết dịch vụ**, không phải quản trị viên cluster. So sánh các cơ chế xác thực nằm ở bài [123](../123-hardening-authentication-vi.md), thuộc Lab 9b |
-| Bài [119](../119-controlling-access-vi.md): policy ABAC, module phân quyền Webhook, `--secure-port` / `--bind-address` / `--tls-cert-file` | Cluster kubeadm chạy RBAC; bật thêm module phân quyền hoặc đổi cờ TLS là **sửa cấu hình kube-apiserver**. Thuộc [giai đoạn 8](../00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) bài [03](../03-control-plane-flags-vi.md) và [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy). B3.1 vẫn dựng đúng object SubjectAccessReview mà bài in ra, chỉ khác là chạy trên module RBAC |
-| Bài [119](../119-controlling-access-vi.md): bật/tắt từng admission controller, admission webhook | Cần cờ `--enable-admission-plugins` và cấu hình webhook. Lab chỉ kiểm chứng các plugin **đã bật sẵn** trên baseline. Webhook nằm ở bài [173](../173-admission-webhooks-vi.md), Lab 9b |
-| Bài [120](../120-rbac-good-practices-vi.md): thêm người dùng vào `system:masters`, cấp `cluster-admin`, verb `bind` và `impersonate`, quyền phê duyệt CSR, quyền tạo PersistentVolume | Đây là danh sách những thứ **không được làm**. Lab chứng minh chúng nguy hiểm bằng cách **đọc** binding có sẵn (B3.11) và bằng cách chứng minh ServiceAccount của lab không có chúng (B3.10), chứ không tạo ra một chủ thể nguy hiểm rồi thử. Xoay CA và CSR là **nợ #7**, trả ở [giai đoạn 18](../00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) |
-| Bài [120](../120-rbac-good-practices-vi.md): *Kiểm soát các admission webhook*, *Sửa đổi Namespace* (patch label), hạn ngạch số lượng đối tượng | Webhook thuộc bài [173](../173-admission-webhooks-vi.md); rủi ro patch label namespace chỉ có nghĩa khi đã bật Pod Security Admission, tức bài [116](../116-pod-security-admission-vi.md) — cả hai ở Lab 9b. Hạn ngạch số lượng đối tượng đã làm ở [Lab 7b](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) |
-| Bài [279](../279-configure-service-account-vi.md): `imagePullSecrets` kéo image thật từ private registry | Cần một registry riêng và mạng ra ngoài. B4.3 kiểm chứng đúng phần thuộc chặng admission: Secret được **chèn** vào `.spec.imagePullSecrets` của Pod mới. Việc kéo image từ registry riêng nằm ngoài baseline |
-| Bài [279](../279-configure-service-account-vi.md): `--bound-object-kind Node`, ghi đè `--service-account-jwks-uri` | Token gắn Node là công cụ của thành phần chạy trên node; ghi đè JWKS URI là cờ của `kube-apiserver`. B2.6 kiểm chứng cơ chế bound token bằng object mà lab tạo được, B6.6 chỉ **đọc** tài liệu discovery |
-| Bài [338](../338-access-api-from-pod-vi.md): thư viện client Go/Python, `kubectl proxy` chạy dạng sidecar | Cần cài SDK hoặc một image có `kubectl`. Baseline chỉ khóa `busybox:1.37`, và lab **không cài thêm phần mềm**. B5 đi đúng nhánh *Không sử dụng proxy* mà chính bài mô tả bằng shell; nhánh proxy được kiểm chứng ở B6.2 trên `lab-k8s-master` |
-| Bài [359](../359-access-cluster-vi.md): Proxy hoặc Load-balancer đặt trước apiserver, Cloud Load Balancer | Cluster lab có **một** control plane và không có nhà cung cấp cloud, nên hai loại proxy này không tồn tại để quan sát. Load balancer trước apiserver là nội dung của lab 8b và 8c trên bộ VM riêng |
+| Bài 113, 119: mã hóa khi lưu trữ, audit log, ABAC, webhook phân quyền, bật/tắt admission plugin | Đều là sửa cờ `kube-apiserver`; lab cấm sửa cấu hình control plane và biến điều đó thành gate. Mã hóa Secret là **nợ lab #6**, trả ở [giai đoạn 22](../00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu) |
+| Bài 118: TokenReview, SPIFFE, OIDC, giới hạn audience trên node | Dành cho người viết dịch vụ xác minh token, hoặc là hardening danh tính kubelet — bài [123](../123-hardening-authentication-vi.md), [128](../128-api-server-bypass-risks-vi.md), Lab 9b |
+| Bài 279: kéo image thật từ registry riêng | Cần registry và tài khoản thật; B1 chỉ kiểm phần thuộc chặng tiếp nhận |
+| Bài 338: thư viện client Go/Python, `kubectl proxy` dạng sidecar | Cần cài SDK hoặc image có `kubectl` — ngoài A1.3/A1.4 |
+| Bài 359: proxy hoặc load balancer trước API server, cloud load balancer | Cluster chính có một control plane, không có cloud. Load balancer trước API server là nội dung Lab 8b, 8c |
+
+Lab **không phát sinh nợ lab mới** và **không trả nợ lab nào**. Nợ kỹ thuật: **giới hạn `TD-07`**
+(quyền gỡ lỗi thành quyền riêng của nhóm trực), **phát sinh `TD-15`** (quyền sửa Deployment của CI
+gián tiếp đọc được Secret); `TD-06` vẫn mở, trả ở 9b.
 
 ### 1.2. Thời lượng
 
-3–4 giờ, tính từ lúc gate mở đầu đã PASS. Lab không cài gì, nhưng số bước rất nhiều và mỗi bước
-đều yêu cầu **đọc kỹ một câu thông báo** rồi đối chiếu với bài. Phần lớn thời gian nằm ở B3 và
-B5. Các bước phải chờ control plane hội tụ đều viết dưới dạng vòng lặp có điều kiện thoát, không
-phải con số cố định.
+4–5 giờ. Phần cốt lõi (B0–B9, trừ các mục ⭐) khoảng 4 giờ. Ticket dài nhất là B3 (khoảng 50 phút)
+vì có một điều tra NetworkPolicy. Có thể chia hai phiên: phiên 1 làm B0–B4, phiên 2 làm B5–B9.
+Giữa hai phiên cứ để nguyên cluster; đầu phiên 2 chạy lại gate ngắn A5.5 và `./scripts/deploy.sh`.
 
 ---
 
 ## 2. Quy ước và an toàn
 
-- Mọi lệnh `kubectl` chạy trên `lab-k8s-master` bằng user quản trị có kubeconfig, **trừ khi ghi
-  rõ node khác**. Lệnh cần `sudo` để đọc file trên node chạy trên chính node đó.
-- **Chạy toàn bộ phần B trong cùng một phiên shell.** Gần như mọi gate so sánh với biến và các
-  hàm trợ giúp đặt ở B0 (`SRV`, `CACERT`, `jwt_pay`, `jwt_claim`, `api_code`, `api_body`, các
-  biến đếm `*_N0`); mở shell mới giữa chừng là mất hết và các gate sau sẽ sai.
-
-**An toàn bí mật — quy ước bắt buộc của lab này:**
-
-- **Không bao giờ ghi token thô vào `~/lab-evidence/9a/`.** Bằng chứng chỉ chứa: mã HTTP, câu
-  thông báo của API server, output của `kubectl auth whoami`, `kubectl auth can-i`, và **các
-  claim đã giải mã** của JWT (`sub`, `aud`, `iss`) — không bao giờ chứa chuỗi token. B7.4 là
-  gate tự động kiểm điều này.
-- Token chỉ tồn tại trong **biến shell** và trong file dưới `~/lab-work/9a/` với quyền `600`.
-  Thư mục `~/lab-work/9a/` bị xóa ở B7.1; các biến bị `unset` ở cùng bước.
-- Luôn truyền token **qua biến**, không gõ giá trị token vào dòng lệnh — nếu không, nó nằm lại
-  trong `~/.bash_history`. Vẫn phải nhớ rằng `-H "Authorization: Bearer $TOK"` đặt giá trị vào
-  `argv` của tiến trình `curl`; trên máy nhiều người dùng thì phải dùng file cấu hình của `curl`
-  thay vì tham số. Lab chấp nhận đánh đổi này vì cluster lab là máy một người dùng.
-- Nơi duy nhất lab **giải mã** token là payload JWT — phần công khai của token, không phải chữ
-  ký. Không bước nào in cả chuỗi token ra màn hình.
-
-**An toàn quyền hạn — quy ước bắt buộc của lab này:**
-
-- Lab tạo **object phạm vi cluster**. Cấp quyền quá rộng ở phạm vi này là loại lỗi không tự lộ
-  ra: không Pod nào crash, không gate nào đỏ, nhưng một ServiceAccount trong một namespace bất
-  kỳ bỗng đọc được toàn cluster. Vì vậy lab khai báo trước, đúng và đủ, những gì nó tạo:
-
-  | Object phạm vi cluster | Nội dung | Tạo ở | Xóa ở |
-  | --- | --- | --- | --- |
-  | ClusterRole `lab-9a-doc-node` | `get`, `list` trên `nodes` — **không** có `nodes/proxy`, không verb ghi | B3.6 | B7.1 |
-  | ClusterRoleBinding `lab-9a-doc-node` | gắn ClusterRole trên cho đúng **một** ServiceAccount | B3.6 | B7.1 |
-
-  Mọi object phạm vi cluster của lab mang label `lab=9a`. B7.1 xóa theo label, B7.2 gate rằng
-  không còn cái nào và **số lượng ClusterRole/ClusterRoleBinding của cluster trở về đúng con số
-  đọc ở B0**.
-- **Tuyệt đối không cấp `cluster-admin`** cho bất kỳ chủ thể nào lab tạo ra, và **không thêm ai
-  vào nhóm `system:masters`**. Bài [120](../120-rbac-good-practices-vi.md) nói rõ quyền của
-  `system:masters` **không thu hồi được** bằng cách xóa binding — nghĩa là một sai lầm ở đó
-  không dọn được bằng cleanup, chỉ dọn được bằng restore snapshot. B3.11 gate rằng không object
-  nào của lab dính vào hai thứ đó.
-- Không ClusterRole nào của lab chứa wildcard, `secrets`, `escalate`, `bind`, `impersonate`,
-  `nodes/proxy`, hay quyền tạo PersistentVolume — đúng danh sách rủi ro leo thang đặc quyền mà
-  bài [120](../120-rbac-good-practices-vi.md) liệt kê.
-- Chỉ dùng `--as` và `--as-group` của `kubectl` để **kiểm chứng**. Đó là quyền mạo danh, và bạn
-  có nó vì kubeconfig quản trị có nó — không phải vì lab cấp thêm cho ai.
-
-**Phạm vi và cách quay lui:**
-
-- **Không cài thêm hạ tầng**, không tạo snapshot mới, **không sửa cấu hình `kube-apiserver`,
-  kubelet hay manifest trong `/etc/kubernetes/manifests`.** B0.3 ghi checksum, B7.3 đối chiếu —
-  đó là gate chứng minh bạn không đụng vào.
-- Lab tạo đúng hai Namespace: `lab-9a` (namespace chính) và `lab-9a-khac` (namespace phụ, dùng
-  để chứng minh ranh giới namespace). Cả hai bị xóa ở B7.1.
-- **Fault injection chỉ trên `lab-k8s-worker2`.** Lab này không có bước phá hoại; các Pod cần
-  ghim node đều ghim vào `lab-k8s-worker2` và chỉ **đọc** từ bên trong container.
-- Image dùng cho toàn bộ lab là `busybox:1.37` đã khóa ở
-  [bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) và đã có sẵn trên cả ba node
-  từ Lab 00, nên lab không phụ thuộc mạng ra ngoài.
-- Manifest tạm và file chứa token ghi vào `~/lab-work/9a/`; bằng chứng ghi vào
-  `~/lab-evidence/9a/`.
-- Dòng bắt đầu bằng `PASS:` là gate; không đi tiếp khi gate fail.
-
-**Cách quay lui khi hỏng:** tắt **cả ba VM**, restore **cả ba** về `03-storage-ready` — không bao
-giờ restore riêng một VM, xem ghi chú cuối
-[mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường) — rồi bật lại theo
-thứ tự master → worker 1 → worker 2, chạy lại gate mở đầu và bắt đầu lại từ B0.
+- Mọi lệnh `kubectl` chạy trên `lab-k8s-master` bằng kubeconfig quản trị, trừ khi ghi rõ node khác.
+- **Fault injection chỉ trên `lab-k8s-worker2`.** Mọi Pod thử nghiệm và diễn tập ghim node này.
+- Repo dự án: `~/bookstore`. Manifest thử nghiệm: `~/lab-work/9a/` (quyền `700`, vì có lúc chứa
+  certificate và token). Bằng chứng: `~/lab-evidence/9a/`.
+- Lab chỉ dùng kiến thức tới phần truy cập của giai đoạn 9 và các giai đoạn trước. **Không** gắn
+  nhãn Pod Security, không dùng ValidatingAdmissionPolicy hay admission webhook, không
+  `readOnlyRootFilesystem`, capability, seccomp — các thứ đó thuộc Lab 9b.
+- **An toàn bí mật:** không bao giờ ghi token thô vào `~/lab-evidence/9a/`. Bằng chứng chỉ chứa mã
+  HTTP, câu thông báo của API server, kết quả `kubectl auth whoami`/`can-i` và **claim đã giải mã**.
+  Token chỉ sống trong biến shell, trong `secrets/` của repo (quyền `600`, bị `.gitignore` chặn) hoặc
+  trong `~/lab-work/9a/`. Gate cuối quét thư mục bằng chứng.
+- **An toàn quyền:** không cấp `cluster-admin`, không thêm ai vào `system:masters`, không tạo
+  ClusterRole hay ClusterRoleBinding — mọi quyền của dự án nằm trong namespace `bookstore`. Cờ `--as`
+  và `--as-group` chỉ dùng để **kiểm chứng**; bạn có quyền mạo danh vì kubeconfig quản trị có nó.
+- **Không sửa** `/etc/kubernetes/manifests/*` hay cấu hình kubelet. B0 ghi checksum, B9 đối chiếu.
+- Object thử nghiệm không mang label `app.kubernetes.io/part-of`, nằm trong `bookstore` hoặc trong
+  namespace thử nghiệm `lab-9a-thu` (chỉ sống trong B1), và bị xóa khi xong ticket. Pod thử nghiệm
+  trong `bookstore` khai `requests`/`limits` nhỏ vì namespace có hạn mức từ Lab 7b.
+- `kubectl patch`, `kubectl debug`, `kubectl delete serviceaccount` chỉ dùng trên object thử nghiệm
+  hoặc trong diễn tập. Repo là nguồn sự thật duy nhất của hệ thống.
+- Chạy mỗi script nghiệm thu trong một shell liền mạch. Dòng `PASS:` là gate; dòng `FAIL:` nghĩa là
+  ticket chưa xong.
 
 ---
 
-# Phần B — Thực hành kiến thức 9a
+# Phần B — Sprint 15: Danh tính và quyền
 
-## B0. Chuẩn bị workspace, hai namespace và ảnh chụp "trước"
+## B0. Nhận bàn giao sprint
 
-**Mục đích:** dựng chỗ làm việc, tạo hai namespace, định nghĩa các hàm trợ giúp mà toàn bộ lab
-dùng để **so giá trị** thay vì so chuỗi, và chụp lại trạng thái "trước" của cả tồn kho RBAC lẫn
-cấu hình control plane — hai thứ mà B7 sẽ đối chiếu để chứng minh lab không để lại gì.
+**Mục đích:** xác nhận bộ VM chính ở đúng `03-storage-ready`, đưa repo ở tag `lab-8c` từ bộ VM HA về
+`lab-k8s-master`, và chứng minh hệ thống của sprint 11 dựng lại được **chỉ từ repo**.
 
-### B0.1. Workspace, hai namespace và ba hàm trợ giúp
-
-```bash
-mkdir -p ~/lab-work/9a ~/lab-evidence/9a
-chmod 700 ~/lab-work/9a
-kubectl config current-context
-kubectl get nodes -o wide
-kubectl create namespace lab-9a
-kubectl create namespace lab-9a-khac
-```
-
-Toàn bộ lab đọc claim của JWT bằng ba hàm dưới đây. Chúng chỉ giải mã **payload** — phần công
-khai của token — và không bao giờ in cả chuỗi token:
-
-```bash
-jwt_pay() {
-  P="$(printf '%s' "$1" | cut -d. -f2)"
-  case $(( ${#P} % 4 )) in 2) P="${P}==" ;; 3) P="${P}=" ;; esac
-  printf '%s' "$P" | tr -- '-_' '+/' | base64 -d 2>/dev/null
-}
-jwt_claim() { jwt_pay "$1" | sed -n "s/.*\"$2\":\"\([^\"]*\)\".*/\1/p"; }
-jwt_aud()   { jwt_pay "$1" | sed -n 's/.*"aud":\(\[[^]]*\]\).*/\1/p'; }
-```
-
-Kiểm chứng ba hàm bằng một chuỗi cố định, **không phải token thật**, để biết chúng chạy đúng
-trước khi đem đi làm gate:
-
-```bash
-FAKE='aaa.eyJzdWIiOiJsYWItOWEtdGVzdCIsImF1ZCI6WyJsYWItOWEtYXVkIl19.bbb'
-echo "sub=$(jwt_claim "$FAKE" sub) | aud=$(jwt_aud "$FAKE")"
-
-test "$(jwt_claim "$FAKE" sub)" = 'lab-9a-test' \
-  && test "$(jwt_aud "$FAKE")" = '["lab-9a-aud"]' \
-  && echo 'PASS: ba ham giai ma claim cua JWT hoat dong dung'
-
-P1="$(kubectl get namespace lab-9a      -o jsonpath='{.status.phase}')"
-P2="$(kubectl get namespace lab-9a-khac -o jsonpath='{.status.phase}')"
-test "$P1" = 'Active' && test "$P2" = 'Active' \
-  && echo 'PASS: hai namespace cua lab da Active'
-```
-
-**Ý nghĩa:** `lab-9a` là namespace chính; `lab-9a-khac` là **đối chứng** — cùng một chủ thể,
-cùng một verb, chạy ở đây thì được, chạy ở kia thì không. Bài
-[120](../120-rbac-good-practices-vi.md) nói namespace là đơn vị tách các mức tin cậy, và hai
-namespace cạnh nhau là cách chứng minh câu đó thay vì tin lời.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B0.2. Địa chỉ API server, CA, và hai hàm gọi API thô
-
-Bài [359](../359-access-cluster-vi.md) nói kubectl **tự lo** việc định vị và xác thực với
-apiserver. Cả lab này thì cố tình bỏ kubectl ra khỏi đường đi ở những chỗ cần đọc **mã HTTP**,
-vì mã HTTP mới là thứ phân biệt chặng 1 với chặng 2. Hai giá trị dưới đây đọc từ chính
-kubeconfig, không viết cứng:
-
-```bash
-SRV="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
-CACERT=/etc/kubernetes/pki/ca.crt
-echo "server = $SRV | ca = $CACERT"
-
-api_code() {   # $1 = duong dan; $2 = token, de rong thi khong gui header nao
-  if [ -n "$2" ]; then
-    curl -s -o /dev/null -w '%{http_code}' --cacert "$CACERT" \
-      -H "Authorization: Bearer $2" "${SRV}$1"
-  else
-    curl -s -o /dev/null -w '%{http_code}' --cacert "$CACERT" "${SRV}$1"
-  fi
-}
-api_body() {
-  if [ -n "$2" ]; then
-    curl -s --cacert "$CACERT" -H "Authorization: Bearer $2" "${SRV}$1"
-  else
-    curl -s --cacert "$CACERT" "${SRV}$1"
-  fi
-}
-```
-
-```bash
-test -s "$CACERT" && echo 'PASS: doc duoc certificate CA cua cluster'
-case "$SRV" in https://*) echo 'PASS: kubeconfig tro toi mot endpoint https' ;; esac
-
-curl -s -o /dev/null --cacert "$CACERT" "${SRV}/version"; RC_TLS=$?
-echo "curl exit code khi co CA = $RC_TLS"
-test "$RC_TLS" -eq 0 \
-  && echo 'PASS: bat tay TLS thanh cong — certificate cua API server duoc chinh CA nay ky'
-```
-
-**Ý nghĩa:** đây chính là câu của bài [119](../119-controlling-access-vi.md): nếu cluster dùng
-CA riêng thì client cần **một bản sao certificate CA đó** để tin được kết nối và chắc rằng nó
-không bị chặn bắt giữa đường. `curl` trả về 0 nghĩa là chuỗi tin cậy khớp — chưa nói gì về việc
-bạn là ai, vì xác thực còn chưa bắt đầu.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B0.3. Tồn kho "trước" — RBAC và cấu hình control plane
-
-Lab tạo object phạm vi cluster, nên phải biết chính xác cluster đang có bao nhiêu cái **trước**
-khi bắt đầu. B7.2 sẽ so lại đúng những con số này:
-
-```bash
-CR_N0="$(kubectl get clusterrole --no-headers | wc -l)"
-CRB_N0="$(kubectl get clusterrolebinding --no-headers | wc -l)"
-SA_N0="$(kubectl get serviceaccount -A --no-headers | wc -l)"
-NS_N0="$(kubectl get namespace --no-headers | wc -l)"
-
-{
-  echo "=== $(date -Is) — ton kho RBAC truoc Lab 9a ==="
-  echo "clusterrole=$CR_N0 clusterrolebinding=$CRB_N0 serviceaccount=$SA_N0 namespace=$NS_N0"
-  echo '--- clusterrole/clusterrolebinding mang label lab=9a ---'
-  kubectl get clusterrole,clusterrolebinding -l lab=9a 2>&1
-} | tee ~/lab-evidence/9a/b0-truoc.txt
-
-test "$CR_N0" -gt 0 && test "$CRB_N0" -gt 0 \
-  && echo 'PASS: doc duoc so luong ClusterRole va ClusterRoleBinding hien co'
-test -z "$(kubectl get clusterrole,clusterrolebinding -l lab=9a -o name 2>/dev/null)" \
-  && echo 'PASS: chua object pham vi cluster nao mang label lab=9a'
-```
-
-Và checksum của cấu hình control plane cùng cấu hình kubelet — thứ B7.3 sẽ so lại:
-
-```bash
-{
-  echo "apiserver-manifest $(sudo sha256sum /etc/kubernetes/manifests/kube-apiserver.yaml \
-    | awk '{print $1}')"
-  echo "kubelet-master $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
-  for n in lab-k8s-worker1 lab-k8s-worker2; do
-    echo "kubelet-$n $(ssh "$n" 'sudo sha256sum /var/lib/kubelet/config.yaml' | awk '{print $1}')"
-  done
-} | tee ~/lab-evidence/9a/b0-cauhinh-sha.txt
-
-test "$(wc -l < ~/lab-evidence/9a/b0-cauhinh-sha.txt)" -eq 4 \
-  && test "$(awk '{print $2}' ~/lab-evidence/9a/b0-cauhinh-sha.txt \
-       | grep -c '^[0-9a-f]\{64\}$')" -eq 4 \
-  && echo 'PASS: ghi duoc checksum cua manifest apiserver va cau hinh kubelet ba node'
-```
-
-**Ý nghĩa:** cám dỗ lớn nhất của một lab về authn/authz là "thêm một cờ vào apiserver để xem
-module kia chạy thế nào". Bốn dòng checksum này biến lời hứa "chỉ đọc" thành thứ kiểm chứng
-được, đúng như [Lab 7b](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) đã làm với cấu hình kubelet.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B1. Bản đồ: bốn bước của một request, và những gì cluster này tự khai ra
-
-**Mục đích:** dựng khung trước khi đi vào từng chặng. Bài [119](../119-controlling-access-vi.md)
-vẽ **bốn bước**; bài [113](../113-security-vi.md) là mục lục **năm nhóm** cơ chế; bài
-[114](../114-cloud-native-security-vi.md) chia **bốn giai đoạn** vòng đời. B1 đối chiếu cả ba
-khung đó với cluster thật, chỉ bằng thao tác đọc.
-
-### B1.1. Tầng 0 — bảo mật tầng truyền tải
-
-Trước cả bước 1 là TLS. Ba phép thử dưới đây đều **không** mang credential nào, nên chúng chỉ
-nói về tầng truyền tải:
-
-```bash
-API_HOSTPORT="${SRV#https://}"
-
-# 1) Noi HTTP thuan toi cong TLS.
-curl -s -o ~/lab-evidence/9a/b1-http-tho.txt -w 'http_code=%{http_code}\n' \
-  "http://${API_HOSTPORT}/version" | tee ~/lab-evidence/9a/b1-http-code.txt
-cat ~/lab-evidence/9a/b1-http-tho.txt
-
-# 2) HTTPS nhung khong dua CA cho client.
-curl -s -o /dev/null "${SRV}/version"; RC_NOCA=$?
-echo "curl exit code khi KHONG co CA = $RC_NOCA"
-
-# 3) HTTPS co CA — da lam o B0.2, nhac lai de doi chieu.
-curl -s -o /dev/null --cacert "$CACERT" "${SRV}/version"; RC_CA=$?
-echo "curl exit code khi CO CA = $RC_CA"
-```
-
-```bash
-grep -qi 'HTTP request to an HTTPS server' ~/lab-evidence/9a/b1-http-tho.txt \
-  && echo 'PASS: cong 6443 tu noi ro no chi phuc vu HTTPS'
-test "$RC_NOCA" -ne 0 && test "$RC_CA" -eq 0 \
-  && echo 'PASS: khong co CA thi client tu choi tin server; co CA thi bat tay xong'
-```
-
-**Ý nghĩa:** hai kết quả này ứng với hai câu của bài [119](../119-controlling-access-vi.md).
-Thứ nhất: API server lắng nghe **được bảo vệ bằng TLS**, nên một client nói HTTP thuần bị chặn
-ngay ở tầng dưới cùng, chưa hề chạm tới xác thực. Thứ hai: vì cluster dùng CA riêng, client
-**phải có bản sao certificate CA** thì mới tin được kết nối. Và ở đúng giai đoạn này, client có
-thể **xuất trình TLS client certificate** — đó là thứ kubeconfig quản trị của bạn đang làm, B2.1
-sẽ mở ra xem.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B1.2. Năm nhóm cơ chế của bài 113 — cái nào đọc được từ cluster này
-
-```bash
-{
-  echo "=== $(date -Is) — doi chieu nam nhom co che cua bai 113 ==="
-  echo '--- 1. Kiem soat truy cap API: module RBAC co san sang khong ---'
-  kubectl get --raw '/apis/rbac.authorization.k8s.io/v1' >/dev/null 2>&1 \
-    && echo 'rbac.authorization.k8s.io/v1: co'
-  echo "so luong ClusterRole dung san: $CR_N0"
-  echo '--- 2. Ma hoa khi truyen: xem B1.1 ---'
-  echo '--- 3. Secret API ---'
-  kubectl api-resources --api-group='' --no-headers | awk '$1=="secrets"'
-  echo '--- 4. Admission control: plugin duoc bat tren baseline ---'
-  sudo grep -E 'admission-plugins' /etc/kubernetes/manifests/kube-apiserver.yaml || \
-    echo '(khong co co --enable-admission-plugins tuong minh)'
-  echo '--- 5. Kiem toan ---'
-  sudo grep -cE 'audit-policy-file|audit-log-path' \
-    /etc/kubernetes/manifests/kube-apiserver.yaml
-} | tee ~/lab-evidence/9a/b1-nhom-co-che.txt
-```
-
-```bash
-RBAC_OK="$(kubectl get --raw '/apis/rbac.authorization.k8s.io/v1' >/dev/null 2>&1 \
-  && echo yes || echo no)"
-SEC_OK="$(kubectl api-resources --api-group='' --no-headers | awk '$1=="secrets"' | wc -l)"
-AUDIT_N="$(sudo grep -cE 'audit-policy-file|audit-log-path' \
-  /etc/kubernetes/manifests/kube-apiserver.yaml || true)"
-echo "rbac=$RBAC_OK secrets_api=$SEC_OK audit_flags=$AUDIT_N"
-
-test "$RBAC_OK" = 'yes' && echo 'PASS: nhom 1 — API group RBAC dang phuc vu'
-test "$SEC_OK" -eq 1   && echo 'PASS: nhom 3 — Secret API co mat'
-test "$AUDIT_N" -eq 0  && echo 'PASS: nhom 5 — audit chua duoc bat tren baseline, dung du kien'
-```
-
-**Ý nghĩa:** bài [113](../113-security-vi.md) gọi kiểm soát quyền truy cập tới Kubernetes API là
-**nhóm then chốt** — và đó chính là toàn bộ lab này. Ba nhóm còn lại được đối chiếu ở đúng mức
-mà cluster cho phép: mã hóa khi truyền đã chứng minh ở B1.1, Secret sẽ được chứng minh ở B3.4 là
-chỉ có **sự bảo vệ cơ bản**, còn admission sẽ chứng minh ở B4. Nhóm kiểm toán **chưa bật** —
-đúng như bảng lý do ở [mục 1.1](#11-ánh-xạ-tài-liệu-sang-bài-thực-hành) đã ghi; bật nó là việc
-của giai đoạn 22.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B1.3. Bốn giai đoạn vòng đời của bài 114 — và vì sao lab này là lĩnh vực *truy cập*
-
-Bài [114](../114-cloud-native-security-vi.md) chia vòng đời thành *Phát triển*, *Phân phối*,
-*Triển khai*, *Runtime*; giai đoạn Runtime lại gồm ba lĩnh vực **truy cập**, **tính toán**,
-**lưu trữ**. Bảng dưới đây là nơi lộ trình đã hoặc sẽ chạm vào từng ô:
-
-| Giai đoạn / lĩnh vực | Ở đâu trong lộ trình |
-| --- | --- |
-| Phát triển, Phân phối | ngoài phạm vi thao tác trên cluster — xem bảng lý do ở [mục 1.1](#11-ánh-xạ-tài-liệu-sang-bài-thực-hành) |
-| Triển khai — namespace là cơ chế cô lập | B0.1 và toàn bộ B3 của lab này |
-| Runtime — **truy cập** | **lab này**, từ B1 tới B6 |
-| Runtime — tính toán | [Lab 3c](LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md), [Lab 7a](LAB-7A-LAP-LICH-VA-EVICTION.md), [Lab 7b](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md); phần Pod Security Standards ở Lab 9b |
-| Runtime — lưu trữ | [Lab 6a](LAB-6A-PV-PVC-VA-STORAGECLASS.md), [Lab 6b](LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md) |
-
-Phần đọc được từ cluster: bài nói dùng **ServiceAccount để cung cấp và quản lý danh tính bảo mật
-cho workload**. Nếu câu đó đúng thì trên cluster này **không Pod nào** đang chạy mà không có
-danh tính:
-
-```bash
-kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"|"}{.metadata.name}{"|"}{.spec.serviceAccountName}{"|"}{.metadata.annotations.kubernetes\.io/config\.mirror}{"\n"}{end}' \
-  > ~/lab-evidence/9a/b1-pod-sa.txt
-column -t -s'|' ~/lab-evidence/9a/b1-pod-sa.txt 2>/dev/null \
-  || cat ~/lab-evidence/9a/b1-pod-sa.txt
-
-POD_ALL="$(   grep -c '.'                 ~/lab-evidence/9a/b1-pod-sa.txt)"
-POD_CO_SA="$( awk -F'|' '$3!=""'          ~/lab-evidence/9a/b1-pod-sa.txt | wc -l)"
-POD_KHONG="$( awk -F'|' '$3==""'          ~/lab-evidence/9a/b1-pod-sa.txt | wc -l)"
-POD_MIRROR="$(awk -F'|' '$3=="" && $4!=""' ~/lab-evidence/9a/b1-pod-sa.txt | wc -l)"
-SA_ALL="$(kubectl get serviceaccount -A --no-headers | wc -l)"
-echo "pod=$POD_ALL | co serviceAccountName=$POD_CO_SA | khong co=$POD_KHONG"
-echo "trong so khong co, la mirror Pod cua static Pod: $POD_MIRROR"
-echo "serviceaccount toan cluster=$SA_ALL"
-
-test "$POD_CO_SA" -gt 0 && test "$POD_KHONG" -eq "$POD_MIRROR" \
-  && echo 'PASS: moi Pod thuong deu mang danh tinh; chi mirror Pod la ngoai le'
-test "$SA_ALL" -ge "$NS_N0" \
-  && echo 'PASS: moi namespace deu co it nhat mot ServiceAccount'
-```
-
-**Ý nghĩa:** không Pod thường nào chạy "vô danh". Con số `SA_ALL` lớn hơn hoặc bằng số namespace
-vì mỗi namespace được tạo ra đều **có sẵn** một ServiceAccount `default` — đúng câu của bài
-[118](../118-service-accounts-vi.md), và hai namespace bạn vừa tạo ở B0.1 cũng vậy. Ai điền
-`serviceAccountName` cho những Pod không khai gì thì B4.3 trả lời.
-
-Ngoại lệ nằm ở **mirror Pod** — bản sao trong API của các static Pod control plane. Chúng do
-kubelet đăng ký chứ không do bạn tạo, và cơ chế ở B4.3 cố ý không đụng vào chúng, nên chúng
-không có `serviceAccountName`. Vì sao static Pod là một đường vòng đáng lo thì bài
-[128](../128-api-server-bypass-risks-vi.md) trả lời, ở Lab 9b.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B2. Chặng 1 — Xác thực
-
-**Mục đích:** chứng minh chặng 1 làm đúng một việc: biến một request thành một `username`, hoặc
-từ chối bằng **401**. Và chứng minh nó **không** quan tâm bạn được phép làm gì — đó là việc của
-chặng 2.
-
-### B2.1. Bạn đang là ai, và điều đó tới từ đâu
-
-```bash
-kubectl auth whoami | tee ~/lab-evidence/9a/b2-whoami-admin.txt
-kubectl config view --minify | tee ~/lab-evidence/9a/b2-kubeconfig.txt
-
-ADMIN_USER="$(kubectl auth whoami -o jsonpath='{.status.userInfo.username}')"
-ADMIN_GROUPS="$(kubectl auth whoami -o jsonpath='{.status.userInfo.groups}')"
-echo "username = $ADMIN_USER"
-echo "groups   = $ADMIN_GROUPS"
-```
-
-`kubectl config view` che phần nhạy cảm. Lấy đúng client certificate mà kubeconfig đang xuất
-trình rồi đọc subject của nó:
-
-```bash
-kubectl config view --raw --minify \
-  -o jsonpath='{.users[0].user.client-certificate-data}' \
-  | base64 -d > ~/lab-work/9a/admin-client.crt
-chmod 600 ~/lab-work/9a/admin-client.crt
-
-openssl x509 -noout -subject -in ~/lab-work/9a/admin-client.crt \
-  | tee ~/lab-evidence/9a/b2-client-cert-subject.txt
-
-CN_CERT="$(openssl x509 -noout -subject -in ~/lab-work/9a/admin-client.crt \
-  | sed -n 's/.*CN *= *\([^,\/]*\).*/\1/p' | sed 's/[[:space:]]*$//')"
-echo "CN trong client certificate = $CN_CERT"
-echo "username API server tra ve  = $ADMIN_USER"
-
-test -n "$CN_CERT" && test "$CN_CERT" = "$ADMIN_USER" \
-  && echo 'PASS: username o chang 1 duoc rut ra tu CN cua client certificate'
-test -n "$ADMIN_GROUPS" \
-  && echo 'PASS: authenticator con cung cap thong tin nhom cho chang sau'
-```
-
-**Ý nghĩa:** đúng ba câu của bài [119](../119-controlling-access-vi.md). Client xuất trình TLS
-client certificate **ở giai đoạn TLS**; module xác thực bằng client certificate dùng nó ở
-**bước 1**; kết quả là một `username`, và **một số authenticator còn cung cấp thông tin thành
-viên nhóm**. Trường `O` trong subject chính là nhóm — hãy đọc lại
-`b2-client-cert-subject.txt` và đối chiếu với dòng `groups`. Cả hai giá trị này là thứ chặng 2
-sẽ dùng ở B3.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B2.2. Danh tính đó không phải một object
-
-```bash
-{
-  echo '--- co resource type nao ten users hay groups khong ---'
-  kubectl api-resources --no-headers | awk '$1=="users" || $1=="groups"'
-  echo "(so dong ben tren la ket qua)"
-  echo '--- thu get users ---'
-  kubectl get users 2>&1 | head -3
-} | tee ~/lab-evidence/9a/b2-khong-co-object-user.txt
-```
-
-```bash
-U_RES="$(kubectl api-resources --no-headers | awk '$1=="users" || $1=="groups"' | wc -l)"
-kubectl get users >/dev/null 2>&1; RC_U=$?
-echo "resource type users/groups = $U_RES | exit code cua kubectl get users = $RC_U"
-
-test "$U_RES" -eq 0 && echo 'PASS: khong co resource type nao ten users hay groups'
-test "$RC_U" -ne 0  && echo 'PASS: kubectl khong liet ke duoc nguoi dung'
-test "$SA_N0" -gt 0 && echo 'PASS: nguoc lai, ServiceAccount thi liet ke duoc — no la object that'
-```
-
-**Ý nghĩa:** bài [118](../118-service-accounts-vi.md) chốt điểm này bằng một bảng: ServiceAccount
-nằm **trong** Kubernetes API, còn user hay group nằm **bên ngoài**. Bài
-[119](../119-controlling-access-vi.md) nói cùng chuyện theo hướng khác: Kubernetes dùng username
-để ra quyết định và ghi log, nhưng **không có đối tượng `User`** và không lưu username trong API.
-Điều đó không cản RBAC gắn quyền vào một user hay group — B3.9 chứng minh.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B2.3. Ba cách trượt chặng 1 — và một cách không trượt
-
-```bash
-# 1) Bearer token khong phai token cua ai ca.
-C_RAC="$(api_code /api 'day-khong-phai-mot-token')"
-
-# 2) Khong gui credential nao, toi mot endpoint co du lieu.
-C_AN_API="$(api_code /api '')"
-
-# 3) Khong gui credential nao, toi endpoint thong tin cong khai.
-C_AN_VER="$(api_code /version '')"
-
-# Cluster nay co bat xac thuc an danh khong — doc tu manifest, khong doan.
-if sudo grep -q 'anonymous-auth=false' /etc/kubernetes/manifests/kube-apiserver.yaml; then
-  ANON=off; EXP_API=401; EXP_VER=401
-else
-  ANON=on;  EXP_API=403; EXP_VER=200
-fi
-
-{
-  echo "anonymous-auth = $ANON"
-  echo "token rac            -> $C_RAC (ky vong 401)"
-  echo "khong credential /api    -> $C_AN_API (ky vong $EXP_API)"
-  echo "khong credential /version -> $C_AN_VER (ky vong $EXP_VER)"
-} | tee ~/lab-evidence/9a/b2-ma-http.txt
-```
-
-```bash
-test "$C_RAC" = '401' \
-  && echo 'PASS: token khong hop le bi chan o chang 1 voi ma 401'
-test "$C_AN_API" = "$EXP_API" && test "$C_AN_VER" = "$EXP_VER" \
-  && echo 'PASS: request khong credential cho ket qua dung voi cau hinh anonymous-auth doc duoc'
-test "$C_AN_API" != '200' \
-  && echo 'PASS: khong ai doc duoc du lieu API ma khong co danh tinh'
-```
-
-**Ý nghĩa:** đây là cái bẫy đáng nhớ nhất của chặng 1. Bài
-[119](../119-controlling-access-vi.md) nói request **không xác thực được** thì bị từ chối với
-**401**. Nhưng "không gửi credential" và "gửi credential sai" là **hai chuyện khác nhau**: token
-rác làm mọi authenticator thất bại nên nhận `401`; còn khi `anonymous-auth` đang bật, request
-trắng vẫn **qua được chặng 1** dưới danh tính `system:anonymous` rồi mới chết ở **chặng 2** với
-`403`. Mã `403` cho một request không có credential nào là dấu hiệu bạn phải đi rà binding của
-nhóm `system:unauthenticated` — đúng khuyến nghị gia cố của bài
-[120](../120-rbac-good-practices-vi.md), làm ở B3.11.
-
-Cũng vì thế `/version` trả `200` mà `/api` thì không: chúng là hai đường dẫn được phân quyền
-khác nhau, không phải hai mức xác thực khác nhau.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B2.4. Một danh tính phi con người vượt qua chặng 1
-
-Bài [118](../118-service-accounts-vi.md) mô tả ba bước dùng một service account: **tạo object**,
-**cấp quyền**, **gán cho Pod**. B2 làm bước một; B3 làm bước hai; B5 làm bước ba.
-
-```bash
-kubectl create serviceaccount sa-doc-cm -n lab-9a
-kubectl get serviceaccount sa-doc-cm -n lab-9a -o yaml \
-  | tee ~/lab-evidence/9a/b2-sa-doc-cm.yaml
-
-TOK_RO="$(kubectl create token sa-doc-cm -n lab-9a)"
-```
-
-Không in `TOK_RO` ra màn hình. Chỉ đọc các claim công khai của nó:
-
-```bash
-{
-  echo "sub = $(jwt_claim "$TOK_RO" sub)"
-  echo "iss = $(jwt_claim "$TOK_RO" iss)"
-  echo "aud = $(jwt_aud "$TOK_RO")"
-} | tee ~/lab-evidence/9a/b2-claim-token-sa.txt
-
-SUB_RO="$(jwt_claim "$TOK_RO" sub)"
-test "$SUB_RO" = 'system:serviceaccount:lab-9a:sa-doc-cm' \
-  && echo 'PASS: claim sub cua token chinh la danh tinh cua ServiceAccount'
-jwt_pay "$TOK_RO" | grep -q '"exp"' \
-  && echo 'PASS: token co claim exp — day la token co thoi han'
-```
-
-Bây giờ dùng token đó gọi API server thật:
-
-```bash
-C_DISC="$(api_code /api "$TOK_RO")"
-C_CM="$(  api_code /api/v1/namespaces/lab-9a/configmaps "$TOK_RO")"
-api_body /api/v1/namespaces/lab-9a/configmaps "$TOK_RO" \
-  | tee ~/lab-evidence/9a/b2-403-configmaps.txt
-echo
-echo "GET /api = $C_DISC | GET configmaps trong lab-9a = $C_CM"
-```
-
-```bash
-test "$C_DISC" = '200' \
-  && echo 'PASS: token duoc chap nhan o chang 1 — endpoint discovery tra ve 200'
-test "$C_CM" = '403' \
-  && echo 'PASS: cung token do bi chan o chang 2 voi ma 403'
-grep -q 'system:serviceaccount:lab-9a:sa-doc-cm' ~/lab-evidence/9a/b2-403-configmaps.txt \
-  && echo 'PASS: chinh API server goi ten danh tinh no da rut ra o chang 1'
-```
-
-**Ý nghĩa:** hai mã HTTP trên cùng một token là bằng chứng gọn nhất cho việc hai chặng là **hai
-chặng**. Chặng 1 đã thành công — nếu không thì cả hai request đều `401`. Cái chết ở request thứ
-hai là chặng 2, và câu thông báo nêu đúng tên danh tính mà chặng 1 vừa sinh ra. Đây cũng là bằng
-chứng cho câu của bài [118](../118-service-accounts-vi.md): ServiceAccount mới tạo **không có
-quyền hạn nào** ngoài các quyền API discovery mặc định.
-
-**PASS:** năm dòng `PASS:` của bước này xuất hiện.
-
-### B2.5. Chữ ký đúng, hạn còn, nhưng sai audience thì vẫn là 401
-
-Bài [118](../118-service-accounts-vi.md) liệt kê năm việc API server làm với một bearer token:
-kiểm chữ ký, kiểm hết hạn, kiểm tham chiếu object trong claim, kiểm token còn hiệu lực, và kiểm
-**claim về audience**. Bốn cái đầu đều đạt ở token dưới đây; chỉ cái thứ năm sai:
-
-```bash
-TOK_AUD="$(kubectl create token sa-doc-cm -n lab-9a --audience=lab-9a-khong-ai-nghe)"
-
-{
-  echo "sub = $(jwt_claim "$TOK_AUD" sub)"
-  echo "aud = $(jwt_aud "$TOK_AUD")"
-} | tee ~/lab-evidence/9a/b2-claim-token-sai-aud.txt
-
-C_AUD="$(api_code /api "$TOK_AUD")"
-echo "GET /api voi token sai audience = $C_AUD"
-```
-
-```bash
-test "$(jwt_claim "$TOK_AUD" sub)" = "$SUB_RO" \
-  && echo 'PASS: van dung mot ServiceAccount, chi khac audience'
-jwt_aud "$TOK_AUD" | grep -q 'lab-9a-khong-ai-nghe' \
-  && echo 'PASS: token mang dung audience da yeu cau'
-test "$C_AUD" = '401' \
-  && echo 'PASS: sai audience thi chet o chang 1 — 401, khong phai 403'
-test "$C_DISC" = '200' && test "$C_AUD" = '401' \
-  && echo 'PASS: hai token cua cung mot SA, hai ket qua khac nhau chi vi audience'
-```
-
-**Ý nghĩa:** đây là chỗ dễ chẩn đoán sai nhất trong vận hành. Ứng dụng báo `401`, người ta đi
-kiểm RBAC — nhưng RBAC nằm ở chặng 2 và request này chưa bao giờ tới đó. Audience là cách thu
-hẹp phạm vi của token để nó **chỉ dùng được ở đúng nơi bạn định**, và một token phát cho hệ
-thống khác thì với API server nó không phải token hợp lệ. B5.5 dựng lại đúng tình huống này bằng
-projected volume trong một Pod.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
-### B2.6. Token gắn với vòng đời của object — xóa object là token chết
-
-```bash
-kubectl create serviceaccount sa-tam -n lab-9a
-TOK_TAM="$(kubectl create token sa-tam -n lab-9a)"
-
-C_TAM_1="$(api_code /api "$TOK_TAM")"
-echo "truoc khi xoa SA: GET /api = $C_TAM_1"
-test "$C_TAM_1" = '200' && echo 'PASS: token cua sa-tam dang xac thuc duoc'
-```
-
-```bash
-kubectl delete serviceaccount sa-tam -n lab-9a
-
-i=0; C_TAM_2=""
-while [ "$i" -lt 60 ]; do
-  C_TAM_2="$(api_code /api "$TOK_TAM")"
-  test "$C_TAM_2" = '401' && break
-  i=$(( i + 1 )); sleep 1
-done
-echo "sau khi xoa SA: GET /api = $C_TAM_2 (sau $i vong lap)"
-
-test "$C_TAM_2" = '401' \
-  && echo 'PASS: token het hieu luc ngay khi object ma no gan vao bien mat'
-unset TOK_TAM
-```
-
-**Ý nghĩa:** bài [118](../118-service-accounts-vi.md) gọi token do API `TokenRequest` phát hành
-là **bound token** — nó gắn với vòng đời của client đang dùng ServiceAccount đó, và API server
-còn kiểm rằng **tham chiếu object vẫn tồn tại**, so khớp bằng unique ID. Xóa ServiceAccount là
-xóa mất tham chiếu, nên bước kiểm thứ ba trong danh sách năm bước thất bại — vẫn là chặng 1, vẫn
-là `401`. Thời gian để thay đổi lan tới API server **phụ thuộc cấu hình**, nên bước này viết
-dưới dạng vòng lặp có điều kiện thoát chứ không phải một con số.
-
-Đây cũng là lý do bài khuyến nghị **TokenReview API** thay vì tự xác minh bằng OIDC: OIDC vẫn
-coi token là hợp lệ cho tới khi nó chạm mốc hết hạn, còn API server thì vô hiệu ngay.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B3. Chặng 2 — Phân quyền và RBAC
-
-**Mục đích:** chứng minh chặng 2 nhận vào đúng ba thứ mà bài
-[119](../119-controlling-access-vi.md) liệt kê — **username**, **hành động**, **đối tượng chịu
-tác động** — rồi trả lời có hoặc không. Và phân biệt bốn thứ của bài
-[120](../120-rbac-good-practices-vi.md) bằng thực nghiệm.
-
-### B3.1. Ba cách hỏi cùng một câu hỏi
-
-`kubectl auth can-i` chính là cách gõ tay của object mà bài
-[119](../119-controlling-access-vi.md) in ra dưới dạng JSON. Định nghĩa một hàm dựng object đó
-thật, để về sau đối chiếu hai đường:
-
-```bash
-sar() {   # $1 = chu the, $2 = verb, $3 = resource, $4 = namespace (de rong neu pham vi cluster)
-  kubectl create -o jsonpath='{.status.allowed}' -f - <<YAML
-apiVersion: authorization.k8s.io/v1
-kind: SubjectAccessReview
-spec:
-  user: "$1"
-  resourceAttributes:
-    namespace: "$4"
-    verb: "$2"
-    resource: "$3"
-YAML
-}
-
-SA_RO='system:serviceaccount:lab-9a:sa-doc-cm'
-```
-
-Ba cách hỏi, cùng một chủ thể chưa được cấp gì:
-
-```bash
-A1="$(kubectl auth can-i list configmaps -n lab-9a --as="$SA_RO")"
-A2="$(sar "$SA_RO" list configmaps lab-9a)"
-A3="$(api_code /api/v1/namespaces/lab-9a/configmaps "$TOK_RO")"
-echo "can-i = $A1 | SubjectAccessReview.allowed = $A2 | ma HTTP that = $A3"
-
-test "$A1" = 'no' && test "$A2" = 'false' && test "$A3" = '403' \
-  && echo 'PASS: ba duong hoi cho cung mot cau tra loi: chua duoc phep'
-```
-
-**Ý nghĩa:** `kubectl auth can-i` không phải một heuristic phía client — nó gửi một
-SubjectAccessReview và đọc `.status.allowed`, đúng object mà bài
-[119](../119-controlling-access-vi.md) minh họa. Vì thế nó là **công cụ kiểm chứng chính** của
-lab: mọi bước sau đây hỏi bằng `can-i`, rồi thỉnh thoảng đối chiếu lại bằng mã HTTP thật.
-
-Cờ `--as` là quyền **mạo danh**. Bạn dùng được nó vì kubeconfig quản trị có quyền đó; bài
-[120](../120-rbac-good-practices-vi.md) xếp verb `impersonate` vào danh sách rủi ro leo thang
-đặc quyền chính vì lý do này. Lab không cấp `impersonate` cho bất kỳ chủ thể nào nó tạo ra.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
-### B3.2. Role và RoleBinding — quyền tối thiểu trong đúng một namespace
-
-```bash
-cat > ~/lab-work/9a/b3-role.yaml <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: doc-configmap
-  namespace: lab-9a
-rules:
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["get", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: doc-configmap
-  namespace: lab-9a
-subjects:
-- kind: ServiceAccount
-  name: sa-doc-cm
-  namespace: lab-9a
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: doc-configmap
-EOF
-
-kubectl apply -f ~/lab-work/9a/b3-role.yaml
-kubectl create configmap cau-hinh-mau -n lab-9a --from-literal=khoa=gia-tri
-kubectl describe rolebinding doc-configmap -n lab-9a \
-  | tee ~/lab-evidence/9a/b3-rolebinding.txt
-```
-
-```bash
-i=0; C_OK=''
-while [ "$i" -lt 30 ]; do
-  C_OK="$(api_code /api/v1/namespaces/lab-9a/configmaps "$TOK_RO")"
-  test "$C_OK" = '200' && break
-  i=$(( i + 1 )); sleep 1
-done
-echo "GET configmaps trong lab-9a sau khi bind = $C_OK (sau $i vong lap)"
-
-test "$C_OK" = '200' \
-  && echo 'PASS: cung mot token, cung mot request — chi khac la da co RoleBinding'
-test "$(kubectl auth can-i list configmaps -n lab-9a --as="$SA_RO")" = 'yes' \
-  && test "$(sar "$SA_RO" list configmaps lab-9a)" = 'true' \
-  && echo 'PASS: can-i va SubjectAccessReview deu doi sang cho phep'
-api_body /api/v1/namespaces/lab-9a/configmaps "$TOK_RO" \
-  | grep -q 'ConfigMapList' \
-  && echo 'PASS: du lieu tra ve dung la danh sach ConfigMap'
-```
-
-**Ý nghĩa:** ba bước của bài [118](../118-service-accounts-vi.md) vừa xong bước hai. Không có gì
-trong Pod, trong token hay trong kubeconfig thay đổi — chỉ có một cặp Role và RoleBinding xuất
-hiện trong namespace. Quyết định của chặng 2 là **trạng thái của cluster**, không phải thuộc
-tính của credential.
-
-`RoleBinding` gắn ai với cái gì; `Role` mô tả cái gì. Hai object tách nhau vì cùng một Role
-thường được gắn cho nhiều chủ thể.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B3.3. Ranh giới namespace: cùng chủ thể, cùng verb, namespace khác
-
-```bash
-kubectl create configmap cau-hinh-mau -n lab-9a-khac --from-literal=khoa=gia-tri
-
-C_KHAC="$(api_code /api/v1/namespaces/lab-9a-khac/configmaps "$TOK_RO")"
-A_KHAC="$(kubectl auth can-i list configmaps -n lab-9a-khac --as="$SA_RO")"
-S_KHAC="$(sar "$SA_RO" list configmaps lab-9a-khac)"
-api_body /api/v1/namespaces/lab-9a-khac/configmaps "$TOK_RO" \
-  | tee ~/lab-evidence/9a/b3-403-namespace-khac.txt
-echo
-echo "lab-9a = $C_OK | lab-9a-khac = $C_KHAC | can-i = $A_KHAC | SAR = $S_KHAC"
-```
-
-```bash
-test "$C_OK" = '200' && test "$C_KHAC" = '403' \
-  && echo 'PASS: Role chi co tac dung trong namespace chua no'
-test "$A_KHAC" = 'no' && test "$S_KHAC" = 'false' \
-  && echo 'PASS: can-i va SubjectAccessReview deu tu choi o namespace khac'
-grep -q 'lab-9a-khac' ~/lab-evidence/9a/b3-403-namespace-khac.txt \
-  && echo 'PASS: thong bao goi dung ten namespace bi tu choi'
-```
-
-**Ý nghĩa:** đây là hình ảnh trực quan nhất của "phạm vi namespace". Object Role nằm trong
-`lab-9a`; RoleBinding cũng nằm trong `lab-9a`; quyền vì thế **dừng lại ở biên của `lab-9a`**.
-Bài [120](../120-rbac-good-practices-vi.md) khuyên gán quyền ở cấp namespace **nếu có thể**, và
-đây là lý do: phạm vi ảnh hưởng của một sai lầm bị chặn lại bởi chính cấu trúc của object.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B3.4. Ranh giới verb và ranh giới loại tài nguyên
-
-```bash
-{
-  echo "=== quyen that su cua $SA_RO trong lab-9a ==="
-  kubectl auth can-i --list -n lab-9a --as="$SA_RO"
-} | tee ~/lab-evidence/9a/b3-can-i-list.txt
-
-for v in get list watch create update delete; do
-  printf '%-7s configmaps -> %s\n' "$v" \
-    "$(kubectl auth can-i "$v" configmaps -n lab-9a --as="$SA_RO")"
-done | tee ~/lab-evidence/9a/b3-verb-matrix.txt
-
-for r in secrets pods serviceaccounts; do
-  printf 'list %-16s -> %s\n' "$r" \
-    "$(kubectl auth can-i list "$r" -n lab-9a --as="$SA_RO")"
-done | tee -a ~/lab-evidence/9a/b3-verb-matrix.txt
-```
-
-```bash
-test "$(kubectl auth can-i get    configmaps -n lab-9a --as="$SA_RO")" = 'yes' \
-  && test "$(kubectl auth can-i list   configmaps -n lab-9a --as="$SA_RO")" = 'yes' \
-  && echo 'PASS: dung hai verb da cap thi duoc'
-CHAN=0
-for v in watch create update delete; do
-  test "$(kubectl auth can-i "$v" configmaps -n lab-9a --as="$SA_RO")" = 'no' \
-    && CHAN=$(( CHAN + 1 ))
-done
-test "$CHAN" -eq 4 && echo 'PASS: bon verb khong cap thi deu bi tu choi, ke ca watch'
-test "$(kubectl auth can-i list secrets -n lab-9a --as="$SA_RO")" = 'no' \
-  && echo 'PASS: Role chi noi configmaps thi khong dung toi Secret'
-```
-
-Bài [120](../120-rbac-good-practices-vi.md) cảnh báo rằng `list` trên Secret **cũng làm lộ nội
-dung**, chứ không riêng `get`. Chứng minh bằng một Secret vô hại do bạn tự tạo:
-
-```bash
-kubectl create secret generic vi-du-khong-bi-mat -n lab-9a \
-  --from-literal=ghi-chu=day-la-du-lieu-mau
-
-EXP_B64="$(printf '%s' 'day-la-du-lieu-mau' | base64 -w0)"
-HIT="$(kubectl get secrets -n lab-9a -o yaml | grep -c "$EXP_B64")"
-echo "so lan gia tri xuat hien trong phan hoi List = $HIT"
-
-test "$HIT" -ge 1 \
-  && echo 'PASS: mot phan hoi List chua luon noi dung cua Secret'
-test "$(kubectl auth can-i list secrets -n lab-9a --as="$SA_RO")" = 'no' \
-  && echo 'PASS: va vi the sa-doc-cm khong duoc phep list Secret'
-```
-
-**Ý nghĩa:** trực giác "list chỉ ra tên, get mới ra nội dung" là sai trong Kubernetes. Phản hồi
-List **bao gồm nội dung của tất cả các Secret**, nên `list` và `watch` ngang với `get` về mức lộ
-dữ liệu. Đây cũng là nội dung mà bài [113](../113-security-vi.md) gọi là **sự bảo vệ cơ bản**:
-Secret API giữ giá trị tách khỏi ConfigMap và tách khỏi manifest, nhưng ai đọc được nó thì đọc
-được thật — biện pháp kế tiếp là mã hóa khi lưu trữ, thuộc giai đoạn 22.
-
-**PASS:** năm dòng `PASS:` của bước này xuất hiện.
-
-### B3.5. ClusterRole gắn bằng RoleBinding — quyền bị giới hạn lại vào namespace của binding
-
-Dùng một ClusterRole **có sẵn** của cluster, không tạo thêm object phạm vi cluster nào:
-
-```bash
-kubectl get clusterrole view -o yaml | head -20 \
-  | tee ~/lab-evidence/9a/b3-clusterrole-view.txt
-
-kubectl create serviceaccount sa-view -n lab-9a-khac
-cat > ~/lab-work/9a/b3-view-binding.yaml <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: xem-trong-lab-9a-khac
-  namespace: lab-9a-khac
-subjects:
-- kind: ServiceAccount
-  name: sa-view
-  namespace: lab-9a-khac
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: view
-EOF
-kubectl apply -f ~/lab-work/9a/b3-view-binding.yaml
-
-SA_VIEW='system:serviceaccount:lab-9a-khac:sa-view'
-```
-
-```bash
-V1="$(kubectl auth can-i list configmaps -n lab-9a-khac --as="$SA_VIEW")"
-V2="$(kubectl auth can-i list configmaps -n lab-9a      --as="$SA_VIEW")"
-V3="$(kubectl auth can-i list secrets    -n lab-9a-khac --as="$SA_VIEW")"
-V4="$(kubectl auth can-i list nodes                     --as="$SA_VIEW")"
-{
-  echo "configmaps trong lab-9a-khac (namespace cua binding) = $V1"
-  echo "configmaps trong lab-9a      (namespace khac)        = $V2"
-  echo "secrets    trong lab-9a-khac                         = $V3"
-  echo "nodes      (pham vi cluster)                         = $V4"
-} | tee ~/lab-evidence/9a/b3-clusterrole-qua-rolebinding.txt
-
-test "$V1" = 'yes' && test "$V2" = 'no' \
-  && echo 'PASS: ClusterRole gan bang RoleBinding chi co tac dung trong namespace cua binding'
-test "$V3" = 'no' \
-  && echo 'PASS: ClusterRole view khong bao gom Secret — quyen la thu Role mo ta, khong phai pham vi'
-test "$V4" = 'no' \
-  && echo 'PASS: RoleBinding khong voi toi duoc tai nguyen pham vi cluster'
-```
-
-**Ý nghĩa:** đây là chỗ hay nhầm nhất trong bốn thứ. `ClusterRole` chỉ nói **quyền gì**; thứ
-quyết định **ở đâu** là loại binding. Gắn bằng `RoleBinding` thì một ClusterRole rộng bị **thu
-lại** đúng bằng namespace chứa binding. Nhờ đó bạn viết một ClusterRole `view` duy nhất rồi tái
-sử dụng cho từng namespace, thay vì nhân bản Role ở mọi nơi.
-
-Hai kết quả còn lại tách bạch hai chuyện khác nhau: `secrets` bị từ chối vì **Role không chứa
-nó**, còn `nodes` bị từ chối vì **binding sai loại** — tài nguyên phạm vi cluster không thuộc
-namespace nào để một RoleBinding cấp.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B3.6. ClusterRole gắn bằng ClusterRoleBinding — hiệu lực toàn cluster
-
-Đây là hai object phạm vi cluster duy nhất mà lab tạo ra. Chúng đã được khai báo ở
-[mục 2](#2-quy-ước-và-an-toàn): chỉ `get` và `list` trên `nodes`, không `nodes/proxy`, không verb
-ghi, và mang label `lab=9a` để B7 dọn được theo label.
-
-```bash
-kubectl create serviceaccount sa-doc-node -n lab-9a
-
-cat > ~/lab-work/9a/b3-clusterrole-node.yaml <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: lab-9a-doc-node
-  labels:
-    lab: "9a"
-rules:
-- apiGroups: [""]
-  resources: ["nodes"]
-  verbs: ["get", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: lab-9a-doc-node
-  labels:
-    lab: "9a"
-subjects:
-- kind: ServiceAccount
-  name: sa-doc-node
-  namespace: lab-9a
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: lab-9a-doc-node
-EOF
-kubectl apply -f ~/lab-work/9a/b3-clusterrole-node.yaml
-
-SA_NODE='system:serviceaccount:lab-9a:sa-doc-node'
-TOK_NODE="$(kubectl create token sa-doc-node -n lab-9a)"
-```
-
-```bash
-N1="$(kubectl auth can-i list nodes --as="$SA_NODE")"
-N2="$(kubectl auth can-i get  nodes --subresource=proxy --as="$SA_NODE")"
-N3="$(kubectl auth can-i delete nodes --as="$SA_NODE")"
-N4="$(kubectl auth can-i list configmaps -n lab-9a --as="$SA_NODE")"
-C_NODE="$(api_code /api/v1/nodes "$TOK_NODE")"
-{
-  echo "list nodes            = $N1"
-  echo "get nodes/proxy       = $N2"
-  echo "delete nodes          = $N3"
-  echo "list configmaps lab-9a = $N4"
-  echo "ma HTTP GET /api/v1/nodes = $C_NODE"
-} | tee ~/lab-evidence/9a/b3-clusterrolebinding.txt
-
-test "$N1" = 'yes' && test "$C_NODE" = '200' \
-  && echo 'PASS: ClusterRoleBinding cap duoc tai nguyen pham vi cluster'
-test "$N2" = 'no' \
-  && echo 'PASS: khong cap nodes/proxy — dung danh sach ru ro cua bai 120'
-test "$N3" = 'no' && test "$N4" = 'no' \
-  && echo 'PASS: hieu luc toan cluster khong co nghia la lam duoc moi thu'
-```
-
-**Ý nghĩa:** `ClusterRoleBinding` mở quyền ra **toàn cluster**: mọi namespace, cộng các tài
-nguyên không thuộc namespace nào. Vì thế bài [120](../120-rbac-good-practices-vi.md) xếp nó sau
-`RoleBinding` trong thứ tự ưu tiên — dùng khi thật sự cần, và với một ClusterRole hẹp nhất có
-thể.
-
-Chú ý `N2`. Bài [120](../120-rbac-good-practices-vi.md) cảnh báo rằng verb **get** trên
-`nodes/proxy` **không phải quyền chỉ đọc**: nó mở đường vào Kubelet API, cho phép lấy log và
-thực thi lệnh trong mọi Pod của node đó, và **bỏ qua cả audit logging lẫn admission control**.
-ClusterRole của lab cố ý dừng ở `nodes`; B6.4 sẽ dùng chính đường `nodes/proxy` bằng quyền quản
-trị để bạn thấy nó làm được gì.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B3.7. Cùng ClusterRole đó, gắn bằng RoleBinding thì không còn gì
-
-```bash
-kubectl create serviceaccount sa-doc-node-ns -n lab-9a
-cat > ~/lab-work/9a/b3-node-rolebinding.yaml <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: doc-node-trong-namespace
-  namespace: lab-9a
-subjects:
-- kind: ServiceAccount
-  name: sa-doc-node-ns
-  namespace: lab-9a
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: lab-9a-doc-node
-EOF
-kubectl apply -f ~/lab-work/9a/b3-node-rolebinding.yaml
-
-SA_NODE_NS='system:serviceaccount:lab-9a:sa-doc-node-ns'
-```
-
-```bash
-M1="$(kubectl auth can-i list nodes --as="$SA_NODE_NS")"
-M2="$(kubectl auth can-i list nodes -n lab-9a --as="$SA_NODE_NS")"
-M3="$(sar "$SA_NODE_NS" list nodes '')"
-echo "list nodes = $M1 | list nodes -n lab-9a = $M2 | SubjectAccessReview = $M3"
-
-test "$M1" = 'no' && test "$M2" = 'no' && test "$M3" = 'false' \
-  && echo 'PASS: cung mot ClusterRole, doi loai binding la mat sach quyen'
-test "$(kubectl auth can-i list nodes --as="$SA_NODE")" = 'yes' \
-  && echo 'PASS: doi chung — SA duoc gan bang ClusterRoleBinding thi van duoc'
-```
-
-**Ý nghĩa:** bốn thứ của bài [120](../120-rbac-good-practices-vi.md) không phải bốn mức mạnh
-yếu. Chúng là **hai trục**: Role và ClusterRole trả lời "quyền gì và định nghĩa ở đâu";
-RoleBinding và ClusterRoleBinding trả lời "hiệu lực ở đâu". Ô giao nhau `ClusterRole × RoleBinding`
-vừa cho ra một kết quả không trực giác: quyền đã viết sẵn trong ClusterRole, mà chủ thể vẫn
-không dùng được, vì `nodes` không nằm trong bất kỳ namespace nào để binding này với tới.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B3.8. Ô còn lại của bảng không tồn tại
-
-```bash
-cat > ~/lab-work/9a/b3-to-hop-sai.yaml <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: lab-9a-to-hop-sai
-  labels:
-    lab: "9a"
-subjects:
-- kind: ServiceAccount
-  name: sa-doc-cm
-  namespace: lab-9a
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: doc-configmap
-EOF
-
-kubectl apply -f ~/lab-work/9a/b3-to-hop-sai.yaml 2>&1 \
-  | tee ~/lab-evidence/9a/b3-to-hop-sai.txt
-```
-
-```bash
-grep -qi 'roleRef' ~/lab-evidence/9a/b3-to-hop-sai.txt \
-  && echo 'PASS: API server tu choi va chi thang vao truong roleRef'
-grep -qi 'ClusterRole' ~/lab-evidence/9a/b3-to-hop-sai.txt \
-  && echo 'PASS: thong bao noi ro gia tri duy nhat duoc chap nhan la ClusterRole'
-test -z "$(kubectl get clusterrolebinding lab-9a-to-hop-sai --ignore-not-found -o name)" \
-  && echo 'PASS: khong object nao duoc tao'
-```
-
-**Ý nghĩa:** một `ClusterRoleBinding` **không thể** trỏ tới một `Role`, vì Role sống trong một
-namespace còn binding thì không. Chỗ chết của request này đáng chú ý: nó **không** phải chặng 2
-— bạn là quản trị viên, `kubectl auth can-i create clusterrolebindings` trả `yes`. Nó cũng không
-phải chặng 3 theo nghĩa chính sách. Nó là **bước 4** trong sơ đồ của bài
-[119](../119-controlling-access-vi.md): sau khi vượt hết admission controller, object được
-**kiểm tra tính hợp lệ bằng các thủ tục dành cho đúng loại API** rồi mới ghi vào object store.
-Đây là bước thứ tư, và nó tồn tại để chặn những object vô nghĩa về cấu trúc.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B3.9. Chủ thể có thể là một danh tính không hề tồn tại
-
-```bash
-cat > ~/lab-work/9a/b3-binding-nhom.yaml <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: doc-configmap-cho-nhom
-  namespace: lab-9a
-subjects:
-- kind: Group
-  name: lab-9a-doc
-  apiGroup: rbac.authorization.k8s.io
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: doc-configmap
-EOF
-kubectl apply -f ~/lab-work/9a/b3-binding-nhom.yaml
-```
-
-```bash
-G1="$(kubectl auth can-i list configmaps -n lab-9a \
-       --as=nguoi-chua-bao-gio-ton-tai --as-group=lab-9a-doc)"
-G2="$(kubectl auth can-i list configmaps -n lab-9a \
-       --as=nguoi-chua-bao-gio-ton-tai)"
-G3="$(kubectl auth can-i list configmaps -n lab-9a \
-       --as=nguoi-khac --as-group=lab-9a-doc)"
-{
-  echo "user bat ky + group lab-9a-doc  = $G1"
-  echo "cung user do, khong co group    = $G2"
-  echo "user khac  + group lab-9a-doc   = $G3"
-} | tee ~/lab-evidence/9a/b3-subject-nhom.txt
-
-test "$G1" = 'yes' && test "$G2" = 'no' && test "$G3" = 'yes' \
-  && echo 'PASS: quyet dinh phu thuoc vao nhom, khong phu thuoc vao ten nguoi dung'
-test "$U_RES" -eq 0 \
-  && echo 'PASS: va ca hai danh tinh do van khong ton tai duoi dang object nao'
-```
-
-**Ý nghĩa:** chỗ này khép lại mâu thuẫn có vẻ như của B2.2. Kubernetes **không có object
-`User`**, nhưng RBAC vẫn gắn quyền cho user và group được — vì binding chỉ lưu **tên**, còn tên
-đó đến từ đâu là việc của chặng 1. Đổi authenticator, đổi CA, đổi nhà cung cấp danh tính, các
-binding không phải viết lại. Với cluster kubeadm của bạn, group đến từ trường `O` trong client
-certificate mà B2.1 đã đọc.
-
-Hệ quả vận hành mà bài [120](../120-rbac-good-practices-vi.md) nêu ở mục *Rà soát định kỳ*: nếu
-ai đó tạo lại được một danh tính **trùng tên** với danh tính đã xóa, họ **thừa hưởng nguyên** các
-quyền cũ — vì binding vẫn còn nguyên và vẫn trỏ đúng cái tên đó.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B3.10. RBAC tự chặn leo thang đặc quyền
-
-Cấp cho một ServiceAccount quyền quản lý Role — nhưng **chỉ** quyền đó:
-
-```bash
-kubectl create serviceaccount sa-rbac -n lab-9a
-cat > ~/lab-work/9a/b3-role-quan-ly-role.yaml <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: quan-ly-role
-  namespace: lab-9a
-rules:
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources: ["roles"]
-  verbs: ["get", "list", "create"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: quan-ly-role
-  namespace: lab-9a
-subjects:
-- kind: ServiceAccount
-  name: sa-rbac
-  namespace: lab-9a
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: quan-ly-role
-EOF
-kubectl apply -f ~/lab-work/9a/b3-role-quan-ly-role.yaml
-
-SA_RBAC='system:serviceaccount:lab-9a:sa-rbac'
-```
-
-Thử tạo một Role **không rộng hơn** quyền đang có:
-
-```bash
-cat > ~/lab-work/9a/b3-role-hep.yaml <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: chi-doc-role
-  namespace: lab-9a
-rules:
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources: ["roles"]
-  verbs: ["get"]
-EOF
-
-kubectl create -f ~/lab-work/9a/b3-role-hep.yaml --as="$SA_RBAC" 2>&1 \
-  | tee ~/lab-evidence/9a/b3-escalate-hep.txt
-```
-
-Rồi thử tạo một Role **rộng hơn** — quyền đọc Secret, thứ `sa-rbac` không hề có:
-
-```bash
-cat > ~/lab-work/9a/b3-role-rong.yaml <<'EOF'
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: doc-secret
-  namespace: lab-9a
-rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["get", "list"]
-EOF
-
-kubectl create -f ~/lab-work/9a/b3-role-rong.yaml --as="$SA_RBAC" 2>&1 \
-  | tee ~/lab-evidence/9a/b3-escalate-rong.txt
-```
-
-```bash
-test -n "$(kubectl get role chi-doc-role -n lab-9a --ignore-not-found -o name)" \
-  && echo 'PASS: tao duoc Role nam trong pham vi quyen dang co'
-test -z "$(kubectl get role doc-secret -n lab-9a --ignore-not-found -o name)" \
-  && echo 'PASS: Role rong hon quyen dang co thi khong tao duoc'
-grep -qi 'forbidden' ~/lab-evidence/9a/b3-escalate-rong.txt \
-  && echo 'PASS: bi chan o chang 2 voi Forbidden'
-grep -qi 'escalate\|not currently held\|privilege' ~/lab-evidence/9a/b3-escalate-rong.txt \
-  && echo 'PASS: thong bao noi ro ly do la leo thang dac quyen'
-
-E1="$(kubectl auth can-i create roles       -n lab-9a --as="$SA_RBAC")"
-E2="$(kubectl auth can-i escalate  roles    -n lab-9a --as="$SA_RBAC")"
-E3="$(kubectl auth can-i bind      roles    -n lab-9a --as="$SA_RBAC")"
-E4="$(kubectl auth can-i impersonate users             --as="$SA_RBAC")"
-{
-  echo "create roles = $E1"
-  echo "escalate roles = $E2"
-  echo "bind roles = $E3"
-  echo "impersonate users = $E4"
-} | tee ~/lab-evidence/9a/b3-verb-nguy-hiem.txt
-
-test "$E1" = 'yes' && test "$E2" = 'no' && test "$E3" = 'no' && test "$E4" = 'no' \
-  && echo 'PASS: sa-rbac khong co bat ky verb nguy hiem nao trong danh sach cua bai 120'
-```
-
-**Ý nghĩa:** RBAC có một quy tắc nền: **không ai tạo được một role có nhiều quyền hơn chính
-mình**. Nhờ đó, cấp quyền quản lý Role cho một chủ thể không tự động biến nó thành quản trị viên.
-
-Bài [120](../120-rbac-good-practices-vi.md) liệt kê những thứ **phá vỡ** quy tắc đó: verb
-`escalate` cho phép tạo role vượt quyền mình; verb `bind` cho phép gắn chủ thể vào role mà mình
-chưa có; verb `impersonate` cho phép mượn danh tính khác. Bốn dòng cuối chứng minh `sa-rbac`
-không có cái nào — và lab không cấp cho ai cả.
-
-**PASS:** năm dòng `PASS:` của bước này xuất hiện.
-
-### B3.11. Rà soát binding mặc định — chỉ đọc
-
-```bash
-{
-  echo "=== $(date -Is) — ra soat binding pham vi cluster ==="
-  echo '--- ai duoc gan cluster-admin ---'
-  kubectl get clusterrolebinding \
-    -o jsonpath='{range .items[*]}{.metadata.name}{" -> "}{.roleRef.name}{"\n"}{end}' \
-    | awk -F' -> ' '$2=="cluster-admin"'
-  echo '--- binding co nhac toi system:unauthenticated ---'
-  kubectl get clusterrolebinding \
-    -o jsonpath='{range .items[*]}{.metadata.name}{" | "}{range .subjects[*]}{.kind}{":"}{.name}{" "}{end}{"\n"}{end}' \
-    | grep 'system:unauthenticated' || echo '(khong co)'
-  echo '--- binding co nhac toi system:masters ---'
-  kubectl get clusterrolebinding \
-    -o jsonpath='{range .items[*]}{.metadata.name}{" | "}{range .subjects[*]}{.kind}{":"}{.name}{" "}{end}{"\n"}{end}' \
-    | grep 'system:masters' || echo '(khong co)'
-} | tee ~/lab-evidence/9a/b3-ra-soat-binding.txt
-```
-
-```bash
-kubectl get clusterrolebinding \
-  -o jsonpath='{range .items[*]}{.metadata.name}{" | "}{range .subjects[*]}{.name}{" "}{end}{"\n"}{end}' \
-  > ~/lab-work/9a/b3-crb-subjects.txt
-
-LAB_TRONG_ADMIN="$(kubectl get clusterrolebinding \
-  -o jsonpath='{range .items[*]}{.metadata.name}{" -> "}{.roleRef.name}{"\n"}{end}' \
-  | awk -F' -> ' '$2=="cluster-admin"' | grep -c 'lab-9a' || true)"
-LAB_TRONG_MASTERS="$(grep 'system:masters' ~/lab-work/9a/b3-crb-subjects.txt \
-  | grep -c 'lab-9a' || true)"
-CRB_LAB="$(kubectl get clusterrolebinding -l lab=9a --no-headers | wc -l)"
-echo "binding cua lab tro toi cluster-admin = $LAB_TRONG_ADMIN"
-echo "binding cua lab dinh system:masters   = $LAB_TRONG_MASTERS"
-echo "tong binding pham vi cluster cua lab  = $CRB_LAB"
-
-test "$LAB_TRONG_ADMIN" -eq 0 \
-  && echo 'PASS: khong object nao cua lab duoc gan cluster-admin'
-test "$LAB_TRONG_MASTERS" -eq 0 \
-  && echo 'PASS: khong object nao cua lab dinh toi nhom system:masters'
-test "$CRB_LAB" -eq 1 \
-  && echo 'PASS: lab tao dung mot ClusterRoleBinding, dung nhu khai bao o muc 2'
-```
-
-**Ý nghĩa:** ba việc rà soát này là phần *Gia cố* và *Đặc quyền tối thiểu* của bài
-[120](../120-rbac-good-practices-vi.md), làm ở mức **đọc**. Bạn sẽ thấy `cluster-admin` được gắn
-cho một nhóm do kubeadm dựng sẵn — đó là danh tính trong kubeconfig quản trị của bạn, và đó là
-lý do mọi lệnh `--as` ở trên chạy được.
-
-Ba gate cuối là gate an toàn của chính lab, không phải bài học: chúng chứng minh lab giữ đúng
-lời hứa ở [mục 2](#2-quy-ước-và-an-toàn). `system:masters` đáng sợ hơn `cluster-admin` ở chỗ nó
-**bỏ qua toàn bộ kiểm tra RBAC** và **không thu hồi được bằng cách xóa binding** — nghĩa là một
-sai lầm ở đó cleanup không dọn nổi.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B4. Chặng 3 — Kiểm soát tiếp nhận, và bước 4 phía sau nó
-
-**Mục đích:** chứng minh ba tính chất mà bài [119](../119-controlling-access-vi.md) gán riêng cho
-chặng 3: nó chặn được thứ mà chặng 2 đã cho qua; nó **không** chạm tới request chỉ đọc; và nó là
-chặng duy nhất **sửa** được object. Lab **không bật thêm plugin nào** — mọi thứ dưới đây do các
-admission controller đã có sẵn trên baseline làm.
-
-### B4.1. Chặng 2 nói được, chặng 3 nói không
-
-```bash
-kubectl auth can-i create pods -n lab-9a | tee ~/lab-evidence/9a/b4-can-i-create-pod.txt
-
-cat > ~/lab-work/9a/b4-sa-khong-ton-tai.yaml <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: sa-ma
-  namespace: lab-9a
-spec:
-  serviceAccountName: khong-he-ton-tai
-  containers:
-  - name: app
-    image: busybox:1.37
-    command: ["sh", "-c", "sleep 3600"]
-EOF
-
-kubectl apply -f ~/lab-work/9a/b4-sa-khong-ton-tai.yaml 2>&1 \
-  | tee ~/lab-evidence/9a/b4-admission-tu-choi.txt
-```
-
-```bash
-test "$(kubectl auth can-i create pods -n lab-9a)" = 'yes' \
-  && echo 'PASS: chang 2 cho phep — ban duoc quyen tao Pod trong namespace nay'
-grep -q 'error looking up service account' ~/lab-evidence/9a/b4-admission-tu-choi.txt \
-  && echo 'PASS: bi tu choi vi noi dung object, khong phai vi ban la ai'
-test -z "$(kubectl get pod sa-ma -n lab-9a --ignore-not-found -o name)" \
-  && echo 'PASS: khong Pod nao duoc tao'
-```
-
-**Ý nghĩa:** đọc kỹ câu thông báo. Nó **không** nói bạn thiếu quyền gì; nó nói cái
-`serviceAccountName` bạn ghi trong `.spec` không tồn tại. Đó chính là điều bài
-[119](../119-controlling-access-vi.md) mô tả: ngoài những thuộc tính mà module phân quyền thấy
-được, admission controller còn truy cập được **nội dung của đối tượng đang được tạo**.
-
-Đây cũng là cái bẫy thực dụng nhất của giai đoạn 9: mã trả về vẫn là `Forbidden`. `403` **không**
-đồng nghĩa "thiếu quyền RBAC". Cách phân biệt là hỏi lại chặng 2 bằng `kubectl auth can-i` —
-nếu nó nói `yes` mà request vẫn chết, thứ giết request nằm ở chặng 3, và câu thông báo sẽ chỉ
-vào một trường cụ thể trong object.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B4.2. Cùng một namespace không tồn tại: đọc thì lọt, ghi thì không
-
-```bash
-NS_MA=lab-9a-khong-ton-tai
-kubectl get namespace "$NS_MA" --ignore-not-found -o name
-
-kubectl get configmaps -n "$NS_MA" > ~/lab-evidence/9a/b4-doc-ns-ma.txt 2>&1
-RC_DOC=$?
-kubectl create configmap thu -n "$NS_MA" --from-literal=a=b \
-  > ~/lab-evidence/9a/b4-ghi-ns-ma.txt 2>&1
-RC_GHI=$?
-cat ~/lab-evidence/9a/b4-doc-ns-ma.txt ~/lab-evidence/9a/b4-ghi-ns-ma.txt
-```
-
-```bash
-echo "exit code khi doc = $RC_DOC | exit code khi ghi = $RC_GHI"
-
-test "$RC_DOC" -eq 0 \
-  && echo 'PASS: request chi doc di qua tron tru du namespace khong ton tai'
-test "$RC_GHI" -ne 0 \
-  && echo 'PASS: request tao thi bi chan'
-grep -qi 'not found' ~/lab-evidence/9a/b4-ghi-ns-ma.txt \
-  && echo 'PASS: thong bao chi ra namespace khong ton tai'
-test "$(kubectl auth can-i create configmaps -n "$NS_MA")" = 'yes' \
-  && echo 'PASS: va chang 2 van tra loi yes cho chinh request bi chan do'
-```
-
-**Ý nghĩa:** hai request khác nhau đúng một verb, đi tới cùng một namespace không tồn tại, cho
-hai kết quả khác nhau. Bài [119](../119-controlling-access-vi.md) giải thích gọn: admission
-controller tác động lên request **tạo, sửa đổi, xóa hoặc proxy** một đối tượng, và **không tác
-động lên request chỉ đọc**. `kubectl get` dừng lại sau chặng 2, nên nó không gặp ai để bị chặn
-và trả về một danh sách rỗng.
-
-Đây là câu trả lời cho câu hỏi "`kubectl get pods` có đi qua admission controller không" — không.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
-### B4.3. Chặng 3 không chỉ từ chối, nó còn sửa object
-
-Ba thứ dưới đây **không có** trong manifest bạn viết, nhưng có trong object được lưu:
-
-```bash
-cat > ~/lab-work/9a/b4-pod-tran.yaml <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: tran
-  namespace: lab-9a
-spec:
-  nodeSelector:
-    kubernetes.io/hostname: lab-k8s-worker2
-  containers:
-  - name: app
-    image: busybox:1.37
-    command: ["sh", "-c", "sleep 3600"]
-EOF
-
-kubectl apply -f ~/lab-work/9a/b4-pod-tran.yaml
-kubectl wait --for=condition=Ready pod/tran -n lab-9a --timeout=180s
-```
-
-```bash
-P_SA="$(kubectl get pod tran -n lab-9a -o jsonpath='{.spec.serviceAccountName}')"
-P_VOL="$(kubectl get pod tran -n lab-9a -o jsonpath='{.spec.volumes[*].name}')"
-P_MNT="$(kubectl get pod tran -n lab-9a \
-  -o jsonpath='{.spec.containers[0].volumeMounts[*].mountPath}')"
-{
-  echo "serviceAccountName sau admission = $P_SA"
-  echo "volumes  = $P_VOL"
-  echo "mounts   = $P_MNT"
-} | tee ~/lab-evidence/9a/b4-mutating.txt
-
-grep -q 'serviceAccountName' ~/lab-work/9a/b4-pod-tran.yaml \
-  && echo 'FAIL: manifest goc da co serviceAccountName' \
-  || echo 'PASS: manifest goc khong he co serviceAccountName'
-grep -q 'volumes' ~/lab-work/9a/b4-pod-tran.yaml \
-  && echo 'FAIL: manifest goc da co volumes' \
-  || echo 'PASS: manifest goc khong he co volumes'
-test "$P_SA" = 'default' \
-  && echo 'PASS: admission dien ServiceAccount default cua namespace vao Pod'
-case "$P_VOL" in kube-api-access-*) \
-  echo 'PASS: admission them mot projected volume mang credential vao Pod' ;; esac
-case "$P_MNT" in */var/run/secrets/kubernetes.io/serviceaccount*) \
-  echo 'PASS: volume do duoc mount vao dung duong dan chuan' ;; esac
-```
-
-Thứ thứ ba: `imagePullSecrets` gắn ở ServiceAccount cũng được chèn vào Pod mới. Đây là nhánh
-*Thêm ImagePullSecrets vào một service account* của bài
-[279](../279-configure-service-account-vi.md), làm với một Secret giả để không phụ thuộc registry:
-
-```bash
-kubectl create secret docker-registry registry-gia -n lab-9a \
-  --docker-server=registry.vi-du.local \
-  --docker-username=DUMMY_USERNAME \
-  --docker-password=DUMMY_DOCKER_PASSWORD \
-  --docker-email=DUMMY@vi-du.local
-
-kubectl patch serviceaccount sa-doc-cm -n lab-9a \
-  -p '{"imagePullSecrets":[{"name":"registry-gia"}]}'
-
-cat > ~/lab-work/9a/b4-pod-pullsecret.yaml <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: co-pull-secret
-  namespace: lab-9a
-spec:
-  serviceAccountName: sa-doc-cm
-  nodeSelector:
-    kubernetes.io/hostname: lab-k8s-worker2
-  containers:
-  - name: app
-    image: busybox:1.37
-    imagePullPolicy: IfNotPresent
-    command: ["sh", "-c", "sleep 3600"]
-EOF
-kubectl apply -f ~/lab-work/9a/b4-pod-pullsecret.yaml
-kubectl wait --for=condition=Ready pod/co-pull-secret -n lab-9a --timeout=180s
-```
-
-```bash
-IPS="$(kubectl get pod co-pull-secret -n lab-9a \
-  -o jsonpath='{.spec.imagePullSecrets[0].name}')"
-echo "imagePullSecrets cua Pod = $IPS"
-
-grep -q 'imagePullSecrets' ~/lab-work/9a/b4-pod-pullsecret.yaml \
-  && echo 'FAIL: manifest goc da co imagePullSecrets' \
-  || echo 'PASS: manifest goc khong he co imagePullSecrets'
-test "$IPS" = 'registry-gia' \
-  && echo 'PASS: admission chep imagePullSecrets tu ServiceAccount sang Pod'
-```
-
-**Ý nghĩa:** file trên đĩa không đổi, object trong etcd thì có. Bài
-[119](../119-controlling-access-vi.md) nói ngoài việc từ chối, admission controller còn **thiết
-lập các giá trị mặc định phức tạp cho các trường** — và ba lần chèn vừa rồi đều do plugin
-`ServiceAccount` làm. Chính plugin đó là thứ giết request ở B4.1: cùng một plugin, một hướng
-sửa, một hướng từ chối, tùy vào nội dung object.
-
-Đây cũng là câu trả lời cho B1.3: gần như mọi Pod trên cluster mang `serviceAccountName` kể cả
-khi manifest không hề khai — chặng 3 điền. Ngoại lệ duy nhất là **mirror Pod** của static Pod:
-plugin này cố ý bỏ qua chúng, vì chúng thuộc quyền quản của kubelet chứ không của bạn.
-
-**PASS:** bảy dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
-
-### B4.4. Bước 4 — validate rồi ghi
-
-```bash
-kubectl patch pod tran -n lab-9a \
-  -p '{"spec":{"serviceAccountName":"sa-doc-cm"}}' 2>&1 \
-  | tee ~/lab-evidence/9a/b4-sua-sa-cua-pod.txt
-
-kubectl patch rolebinding doc-configmap -n lab-9a \
-  -p '{"roleRef":{"apiGroup":"rbac.authorization.k8s.io","kind":"Role","name":"chi-doc-role"}}' 2>&1 \
-  | tee ~/lab-evidence/9a/b4-sua-roleref.txt
-```
-
-```bash
-SA_SAU="$(kubectl get pod tran -n lab-9a -o jsonpath='{.spec.serviceAccountName}')"
-REF_SAU="$(kubectl get rolebinding doc-configmap -n lab-9a -o jsonpath='{.roleRef.name}')"
-echo "serviceAccountName cua Pod tran = $SA_SAU (truoc do: $P_SA)"
-echo "roleRef cua RoleBinding         = $REF_SAU"
-
-test "$SA_SAU" = "$P_SA" \
-  && echo 'PASS: serviceAccountName cua Pod dang chay khong sua duoc'
-test "$REF_SAU" = 'doc-configmap' \
-  && echo 'PASS: roleRef cua mot binding da ton tai khong sua duoc'
-grep -qi 'forbidden\|invalid\|may not\|immutable' ~/lab-evidence/9a/b4-sua-sa-cua-pod.txt \
-  && echo 'PASS: API server noi ro day la truong khong duoc thay doi'
-```
-
-**Ý nghĩa:** hai request này qua hết ba chặng — bạn có quyền, nội dung object không vi phạm chính
-sách nào — rồi chết ở **bước 4**, nơi object được kiểm tra hợp lệ theo thủ tục riêng của từng
-loại API trước khi ghi vào object store.
-
-Hai trường bất biến này có lý do bảo mật, không phải kỹ thuật. `serviceAccountName` bất biến vì
-danh tính của một Pod đang chạy không được đổi giữa chừng — bài
-[279](../279-configure-service-account-vi.md) nói rõ bạn chỉ đặt được field này **khi tạo Pod
-hoặc trong template của một Pod mới**. `roleRef` bất biến để không ai âm thầm trỏ một binding
-hiện có sang một role mạnh hơn.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B5. ServiceAccount là danh tính của Pod
-
-**Mục đích:** làm bước ba của bài [118](../118-service-accounts-vi.md) — **gán ServiceAccount cho
-Pod** — rồi chứng minh từ bên trong container mọi điều bài
-[338](../338-access-api-from-pod-vi.md) khẳng định.
-
-### B5.1. ServiceAccount `default` và trần quyền của nó
-
-Pod `tran` ở B4.3 đang chạy trên `lab-k8s-worker2` dưới ServiceAccount `default`. Cho nó tự gọi
-API server bằng đúng cách mà bài [338](../338-access-api-from-pod-vi.md) mô tả ở mục *Không sử
-dụng proxy*:
-
-```bash
-kubectl exec -n lab-9a tran -- sh -c '
-  SA=/var/run/secrets/kubernetes.io/serviceaccount
-  wget -O- --no-check-certificate \
-    --header "Authorization: Bearer $(cat $SA/token)" \
-    "https://kubernetes.default.svc/api" 2>&1
-' | tee ~/lab-evidence/9a/b5-default-discovery.txt
-
-kubectl exec -n lab-9a tran -- sh -c '
-  SA=/var/run/secrets/kubernetes.io/serviceaccount
-  NS=$(cat $SA/namespace)
-  wget -O- --no-check-certificate \
-    --header "Authorization: Bearer $(cat $SA/token)" \
-    "https://kubernetes.default.svc/api/v1/namespaces/$NS/configmaps" 2>&1
-' | tee ~/lab-evidence/9a/b5-default-configmaps.txt
-```
-
-```bash
-grep -q 'APIVersions' ~/lab-evidence/9a/b5-default-discovery.txt \
-  && echo 'PASS: Pod goi duoc API server bang token cua chinh no'
-grep -q '403' ~/lab-evidence/9a/b5-default-configmaps.txt \
-  && echo 'PASS: nhung khong doc noi ConfigMap ngay trong namespace cua no'
-
-D1="$(kubectl auth can-i get /api --as=system:serviceaccount:lab-9a:default)"
-D2="$(kubectl auth can-i list configmaps -n lab-9a --as=system:serviceaccount:lab-9a:default)"
-D3="$(kubectl auth can-i list secrets    -n lab-9a --as=system:serviceaccount:lab-9a:default)"
-{
-  echo "get /api          = $D1"
-  echo "list configmaps   = $D2"
-  echo "list secrets      = $D3"
-} | tee ~/lab-evidence/9a/b5-quyen-cua-default.txt
-
-test "$D1" = 'yes' && test "$D2" = 'no' && test "$D3" = 'no' \
-  && echo 'PASS: default chi co quyen API discovery, dung nhu bai 118 noi'
-```
-
-**Ý nghĩa:** đây là câu quan trọng nhất về ServiceAccount `default`: nó **không có quyền hạn nào**
-ngoài các quyền API discovery mặc định mà Kubernetes cấp cho mọi principal đã xác thực khi RBAC
-được bật. Một Pod không khai gì vẫn **xác thực được** với API server — và đúng ra thì chỉ thế.
-Mọi thứ nó làm thêm được đều là do ai đó đã bind quyền cho `default`, và đó là điều bài
-[120](../120-rbac-good-practices-vi.md) khuyên tránh: đừng cấp quyền cho `default`, hãy tạo
-ServiceAccount riêng cho từng workload.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B5.2. Token được chiếu vào Pod ở đâu, và bằng cơ chế nào
-
-```bash
-kubectl get pod tran -n lab-9a -o jsonpath='{.spec.volumes[0].projected.sources}' \
-  | tee ~/lab-evidence/9a/b5-projected-sources.json
-echo
-kubectl exec -n lab-9a tran -- ls -l /var/run/secrets/kubernetes.io/serviceaccount/ \
-  | tee ~/lab-evidence/9a/b5-ba-file.txt
-```
-
-```bash
-SRC="$(kubectl get pod tran -n lab-9a -o jsonpath='{.spec.volumes[0].projected.sources}')"
-echo "$SRC" | grep -q 'serviceAccountToken' \
-  && echo 'PASS: nguon thu nhat cua projected volume la serviceAccountToken'
-echo "$SRC" | grep -q 'kube-root-ca.crt' \
-  && echo 'PASS: nguon thu hai la ConfigMap chua certificate CA cua cluster'
-echo "$SRC" | grep -q 'downwardAPI' \
-  && echo 'PASS: nguon thu ba la downwardAPI, mang ten namespace vao'
-
-for f in token ca.crt namespace; do
-  kubectl exec -n lab-9a tran -- \
-    test -f "/var/run/secrets/kubernetes.io/serviceaccount/$f" \
-    && echo "PASS: co file $f trong Pod"
-done
-```
-
-Ba giá trị dưới đây phải khớp với cluster, không phải "trông giống":
-
-```bash
-NS_TRONG_POD="$(kubectl exec -n lab-9a tran -- \
-  cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
-SVC_IP="$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')"
-SVC_PORT="$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.ports[0].port}')"
-ENV_HOST="$(kubectl exec -n lab-9a tran -- printenv KUBERNETES_SERVICE_HOST)"
-ENV_PORT="$(kubectl exec -n lab-9a tran -- printenv KUBERNETES_SERVICE_PORT_HTTPS)"
-{
-  echo "namespace trong Pod = $NS_TRONG_POD"
-  echo "KUBERNETES_SERVICE_HOST = $ENV_HOST (ClusterIP that = $SVC_IP)"
-  echo "KUBERNETES_SERVICE_PORT_HTTPS = $ENV_PORT (port that = $SVC_PORT)"
-} | tee ~/lab-evidence/9a/b5-doi-chieu-gia-tri.txt
-
-test "$NS_TRONG_POD" = 'lab-9a' \
-  && echo 'PASS: file namespace mang dung namespace cua Pod'
-test "$ENV_HOST" = "$SVC_IP" && test "$ENV_PORT" = "$SVC_PORT" \
-  && echo 'PASS: hai bien moi truong tro dung Service kubernetes trong namespace default'
-```
-
-Và certificate CA trong Pod phải là **chính** CA của cluster:
-
-```bash
-kubectl get configmap kube-root-ca.crt -n lab-9a -o jsonpath='{.data.ca\.crt}' \
-  > ~/lab-work/9a/ca-tu-configmap.crt
-
-H_CM="$(sha256sum ~/lab-work/9a/ca-tu-configmap.crt | awk '{print $1}')"
-H_POD="$(kubectl exec -n lab-9a tran -- \
-  sha256sum /var/run/secrets/kubernetes.io/serviceaccount/ca.crt | awk '{print $1}')"
-F_CM="$(openssl x509 -noout -fingerprint -sha256 -in ~/lab-work/9a/ca-tu-configmap.crt \
-  | cut -d= -f2)"
-F_NODE="$(sudo openssl x509 -noout -fingerprint -sha256 -in /etc/kubernetes/pki/ca.crt \
-  | cut -d= -f2)"
-{
-  echo "sha256 ca.crt trong Pod        = $H_POD"
-  echo "sha256 ca.crt trong ConfigMap  = $H_CM"
-  echo "fingerprint tu ConfigMap       = $F_CM"
-  echo "fingerprint tu /etc/kubernetes = $F_NODE"
-} | tee ~/lab-evidence/9a/b5-ca-doi-chieu.txt
-
-test "$H_POD" = "$H_CM" \
-  && echo 'PASS: file ca.crt trong Pod dung la noi dung ConfigMap kube-root-ca.crt'
-test "$F_CM" = "$F_NODE" \
-  && echo 'PASS: va do chinh la CA dang ky certificate cua API server'
-```
-
-Cuối cùng, danh tính nằm trong chính token — giải mã **bên trong** Pod để token không rời khỏi
-container:
-
-```bash
-PAY_POD="$(kubectl exec -n lab-9a tran -- sh -c '
-  P="$(cut -d. -f2 < /var/run/secrets/kubernetes.io/serviceaccount/token)"
-  case $(( ${#P} % 4 )) in 2) P="${P}==" ;; 3) P="${P}=" ;; esac
-  printf "%s" "$P" | tr -- "-_" "+/" | base64 -d
-')"
-SUB_POD="$(printf '%s' "$PAY_POD" | sed -n 's/.*"sub":"\([^"]*\)".*/\1/p')"
-echo "sub cua token trong Pod = $SUB_POD" | tee ~/lab-evidence/9a/b5-sub-trong-pod.txt
-
-test "$SUB_POD" = 'system:serviceaccount:lab-9a:default' \
-  && echo 'PASS: sub cua token trong Pod chinh la ServiceAccount cua Pod'
-printf '%s' "$PAY_POD" | grep -q '"pod"' \
-  && echo 'PASS: payload con ghi ca tham chieu toi chinh Pod — day la mot bound token'
-```
-
-**Ý nghĩa:** toàn bộ B5.2 là bài [338](../338-access-api-from-pod-vi.md) được kiểm chứng từng
-câu. Ba file, hai biến môi trường, một tên DNS `kubernetes.default.svc` — không cái nào là quy
-ước lỏng lẻo, tất cả đều có nguồn cụ thể trong object Pod.
-
-Cơ chế đưa chúng vào là **projected volume** với ba nguồn, đúng như bài
-[118](../118-service-accounts-vi.md) mô tả cho hành vi từ v1.22: token lấy qua API
-`TokenRequest`, ngắn hạn, **tự động xoay vòng**. Khác hẳn cơ chế trước đó — token tĩnh, tồn tại
-lâu dài, lưu dưới dạng Secret — mà B6.5 sẽ dựng lại để so.
-
-Claim `pod` trong payload là thứ khiến token này là **bound token**: nó chết theo Pod, đúng như
-`sa-tam` ở B2.6 chết theo ServiceAccount.
-
-**PASS:** mười dòng `PASS:` của bước này xuất hiện.
-
-### B5.3. Pod với ServiceAccount riêng: hai namespace, hai kết quả
-
-Pod `co-pull-secret` ở B4.3 đang chạy dưới `sa-doc-cm` — ServiceAccount đã được cấp quyền đọc
-ConfigMap trong `lab-9a` ở B3.2, và không được cấp gì ở `lab-9a-khac`.
-
-```bash
-kubectl exec -n lab-9a co-pull-secret -- sh -c '
-  SA=/var/run/secrets/kubernetes.io/serviceaccount
-  wget -O- --no-check-certificate \
-    --header "Authorization: Bearer $(cat $SA/token)" \
-    "https://kubernetes.default.svc/api/v1/namespaces/lab-9a/configmaps" 2>&1
-' | tee ~/lab-evidence/9a/b5-sa-rieng-lab9a.txt
-
-kubectl exec -n lab-9a co-pull-secret -- sh -c '
-  SA=/var/run/secrets/kubernetes.io/serviceaccount
-  wget -O- --no-check-certificate \
-    --header "Authorization: Bearer $(cat $SA/token)" \
-    "https://kubernetes.default.svc/api/v1/namespaces/lab-9a-khac/configmaps" 2>&1
-' | tee ~/lab-evidence/9a/b5-sa-rieng-lab9a-khac.txt
-```
-
-```bash
-grep -q 'ConfigMapList' ~/lab-evidence/9a/b5-sa-rieng-lab9a.txt \
-  && echo 'PASS: Pod doc duoc ConfigMap trong namespace cua no'
-grep -q '403' ~/lab-evidence/9a/b5-sa-rieng-lab9a-khac.txt \
-  && echo 'PASS: cung Pod do bi 403 o namespace ben canh'
-SUB_SA="$(kubectl exec -n lab-9a co-pull-secret -- sh -c '
-  P="$(cut -d. -f2 < /var/run/secrets/kubernetes.io/serviceaccount/token)"
-  case $(( ${#P} % 4 )) in 2) P="${P}==" ;; 3) P="${P}=" ;; esac
-  printf "%s" "$P" | tr -- "-_" "+/" | base64 -d
-' | sed -n 's/.*"sub":"\([^"]*\)".*/\1/p')"
-test "$SUB_SA" = 'system:serviceaccount:lab-9a:sa-doc-cm' \
-  && echo 'PASS: Pod dang mang dung danh tinh ma spec.serviceAccountName khai'
-```
-
-**Ý nghĩa:** đây là toàn bộ nguyên tắc quyền tối thiểu, đo được: một danh tính, một namespace,
-hai verb. Không có gì trong container biết về Role hay RoleBinding; nó chỉ có một token. Ranh
-giới nằm ở phía API server, và nó là ranh giới **namespace** — đúng thứ bài
-[120](../120-rbac-good-practices-vi.md) gọi là đơn vị tách các mức tin cậy.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B5.4. Từ chối tự động mount, ở hai cấp, và cấp nào thắng
-
-```bash
-cat > ~/lab-work/9a/b5-sa-khong-token.yaml <<'EOF'
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: sa-khong-token
-  namespace: lab-9a
-automountServiceAccountToken: false
-EOF
-kubectl apply -f ~/lab-work/9a/b5-sa-khong-token.yaml
-
-cat > ~/lab-work/9a/b5-hai-pod.yaml <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: khong-token
-  namespace: lab-9a
-spec:
-  serviceAccountName: sa-khong-token
-  nodeSelector:
-    kubernetes.io/hostname: lab-k8s-worker2
-  containers:
-  - name: app
-    image: busybox:1.37
-    command: ["sh", "-c", "sleep 3600"]
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: pod-ep-token
-  namespace: lab-9a
-spec:
-  serviceAccountName: sa-khong-token
-  automountServiceAccountToken: true
-  nodeSelector:
-    kubernetes.io/hostname: lab-k8s-worker2
-  containers:
-  - name: app
-    image: busybox:1.37
-    command: ["sh", "-c", "sleep 3600"]
-EOF
-kubectl apply -f ~/lab-work/9a/b5-hai-pod.yaml
-kubectl wait --for=condition=Ready pod/khong-token pod/pod-ep-token \
-  -n lab-9a --timeout=180s
-```
-
-```bash
-V_KHONG="$(kubectl get pod khong-token  -n lab-9a -o jsonpath='{.spec.volumes[*].name}')"
-V_EP="$(   kubectl get pod pod-ep-token -n lab-9a -o jsonpath='{.spec.volumes[*].name}')"
-kubectl exec -n lab-9a khong-token -- \
-  test -d /var/run/secrets/kubernetes.io/serviceaccount >/dev/null 2>&1; RC_K=$?
-kubectl exec -n lab-9a pod-ep-token -- \
-  test -d /var/run/secrets/kubernetes.io/serviceaccount >/dev/null 2>&1; RC_E=$?
-{
-  echo "pod khong-token  : volumes='$V_KHONG' thu muc credential ton tai? exit=$RC_K"
-  echo "pod pod-ep-token : volumes='$V_EP' thu muc credential ton tai? exit=$RC_E"
-} | tee ~/lab-evidence/9a/b5-automount.txt
-
-test -z "$V_KHONG" && test "$RC_K" -ne 0 \
-  && echo 'PASS: SA dat automountServiceAccountToken=false thi Pod khong nhan credential nao'
-case "$V_EP" in kube-api-access-*) \
-  test "$RC_E" -eq 0 \
-    && echo 'PASS: Pod dat true de len tren thiet lap cua ServiceAccount' ;; esac
-```
-
-**Ý nghĩa:** hai Pod dùng **cùng một** ServiceAccount và cho hai kết quả trái ngược. Bài
-[279](../279-configure-service-account-vi.md) chốt luật: nếu cả ServiceAccount lẫn `.spec` của
-Pod cùng đặt `automountServiceAccountToken`, **spec của Pod được ưu tiên**.
-
-Vế thứ nhất là khuyến nghị gia cố của bài [120](../120-rbac-good-practices-vi.md): tắt tự động
-mount ở những chỗ workload không cần gọi API, để một container bị chiếm cũng không sẵn credential
-trong tay. Vế thứ hai là lối thoát cho workload thật sự cần.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B5.5. Chiếu token với audience riêng — và hệ quả ở chặng 1
-
-```bash
-cat > ~/lab-work/9a/b5-pod-audience.yaml <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: token-rieng
-  namespace: lab-9a
-spec:
-  serviceAccountName: sa-doc-cm
-  nodeSelector:
-    kubernetes.io/hostname: lab-k8s-worker2
-  containers:
-  - name: app
-    image: busybox:1.37
-    command: ["sh", "-c", "sleep 3600"]
-    volumeMounts:
-    - mountPath: /var/run/secrets/tokens
-      name: token-cho-dich-vu-khac
-  volumes:
-  - name: token-cho-dich-vu-khac
-    projected:
-      sources:
-      - serviceAccountToken:
-          path: token-dich-vu-khac
-          expirationSeconds: 3600
-          audience: lab-9a-dich-vu-khac
-EOF
-kubectl apply -f ~/lab-work/9a/b5-pod-audience.yaml
-kubectl wait --for=condition=Ready pod/token-rieng -n lab-9a --timeout=180s
-```
-
-```bash
-PAY_AUD="$(kubectl exec -n lab-9a token-rieng -- sh -c '
-  P="$(cut -d. -f2 < /var/run/secrets/tokens/token-dich-vu-khac)"
-  case $(( ${#P} % 4 )) in 2) P="${P}==" ;; 3) P="${P}=" ;; esac
-  printf "%s" "$P" | tr -- "-_" "+/" | base64 -d
-')"
-AUD_POD="$(printf '%s' "$PAY_AUD" | sed -n 's/.*"aud":\(\[[^]]*\]\).*/\1/p')"
-SUB_AUD="$(printf '%s' "$PAY_AUD" | sed -n 's/.*"sub":"\([^"]*\)".*/\1/p')"
-{
-  echo "aud = $AUD_POD"
-  echo "sub = $SUB_AUD"
-} | tee ~/lab-evidence/9a/b5-token-audience.txt
-
-echo "$AUD_POD" | grep -q 'lab-9a-dich-vu-khac' \
-  && echo 'PASS: token trong volume rieng mang dung audience da yeu cau'
-test "$SUB_AUD" = 'system:serviceaccount:lab-9a:sa-doc-cm' \
-  && echo 'PASS: van la danh tinh cua ServiceAccount gan cho Pod'
-```
-
-Dùng chính token đó gọi API server — nơi audience này vô nghĩa:
-
-```bash
-kubectl exec -n lab-9a token-rieng -- sh -c '
-  wget -O- --no-check-certificate \
-    --header "Authorization: Bearer $(cat /var/run/secrets/tokens/token-dich-vu-khac)" \
-    "https://kubernetes.default.svc/api" 2>&1
-' | tee ~/lab-evidence/9a/b5-audience-401.txt
-
-grep -q '401' ~/lab-evidence/9a/b5-audience-401.txt \
-  && echo 'PASS: API server tu choi o chang 1 vi token khong danh cho no'
-
-kubectl exec -n lab-9a token-rieng -- sh -c '
-  wget -O- --no-check-certificate \
-    --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-    "https://kubernetes.default.svc/api/v1/namespaces/lab-9a/configmaps" 2>&1
-' | grep -q 'ConfigMapList' \
-  && echo 'PASS: token mac dinh cua cung Pod do van dung binh thuong'
-```
-
-**Ý nghĩa:** một Pod có thể mang **nhiều** token cùng lúc, mỗi cái cho một bên tin cậy khác nhau,
-và mỗi cái chỉ dùng được ở đúng nơi audience của nó chỉ tới. Đó là ý của bài
-[118](../118-service-accounts-vi.md) khi nói ứng dụng nên **định nghĩa audience nó chấp nhận** —
-để token bị lộ ở một dịch vụ không mở được cửa ở dịch vụ khác.
-
-`expirationSeconds` là **yêu cầu**, không phải cam kết: thời hạn thực tế phụ thuộc cấu hình của
-API server, và kubelet chủ động làm mới token trước khi hết hạn. Vì thế lab không gate lên bất
-kỳ con số thời gian nào — chỉ gate lên audience và `sub`.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B6. Client bên ngoài cluster xác thực thế nào
-
-**Mục đích:** đi hết bài [359](../359-access-cluster-vi.md) trên cluster thật — kubeconfig,
-`kubectl proxy`, và nhánh "không dùng proxy" — rồi chốt lại hai loại token của bài
-[279](../279-configure-service-account-vi.md) bằng chính payload của chúng.
-
-### B6.1. Một kubeconfig cho ServiceAccount
-
-Bài [359](../359-access-cluster-vi.md) nói để truy cập một cluster bạn cần **vị trí** và **thông
-tin xác thực**. Dựng đủ hai thứ đó cho `sa-doc-cm`, không dùng lại gì của kubeconfig quản trị
-ngoài địa chỉ server và CA:
-
-```bash
-KCFG=~/lab-work/9a/sa-doc-cm.kubeconfig
-rm -f "$KCFG"; touch "$KCFG"; chmod 600 "$KCFG"
-
-kubectl --kubeconfig="$KCFG" config set-cluster lab \
-  --server="$SRV" --certificate-authority="$CACERT" --embed-certs=true
-kubectl --kubeconfig="$KCFG" config set-credentials sa-doc-cm --token="$TOK_RO"
-kubectl --kubeconfig="$KCFG" config set-context lab \
-  --cluster=lab --user=sa-doc-cm --namespace=lab-9a
-kubectl --kubeconfig="$KCFG" config use-context lab
-
-kubectl --kubeconfig="$KCFG" config view | tee ~/lab-evidence/9a/b6-kubeconfig-sa.txt
-```
-
-```bash
-SA_WHO="$(kubectl --kubeconfig="$KCFG" auth whoami \
-  -o jsonpath='{.status.userInfo.username}')"
-SA_GRP="$(kubectl --kubeconfig="$KCFG" auth whoami \
-  -o jsonpath='{.status.userInfo.groups}')"
-{
-  echo "username = $SA_WHO"
-  echo "groups   = $SA_GRP"
-} | tee ~/lab-evidence/9a/b6-whoami-sa.txt
-
-test "$SA_WHO" = "$SA_RO" \
-  && echo 'PASS: kubeconfig nay xac thuc dung danh tinh ServiceAccount'
-echo "$SA_GRP" | grep -q 'system:serviceaccounts:lab-9a' \
-  && echo 'PASS: authenticator con gan them nhom theo namespace cho ServiceAccount'
-
-kubectl --kubeconfig="$KCFG" get configmaps >/dev/null 2>&1 \
-  && echo 'PASS: kubeconfig nay doc duoc ConfigMap trong lab-9a'
-kubectl --kubeconfig="$KCFG" get secrets > ~/lab-evidence/9a/b6-sa-doc-secret.txt 2>&1
-grep -qi 'forbidden' ~/lab-evidence/9a/b6-sa-doc-secret.txt \
-  && echo 'PASS: va van khong dung toi Secret'
-test "$(stat -c '%a' "$KCFG")" = '600' \
-  && echo 'PASS: file kubeconfig chua token dang o quyen 600'
-```
-
-**Ý nghĩa:** kubeconfig **không** phải một cơ chế xác thực. Nó là một cái hộp đựng ba thứ: địa
-chỉ, cách tin server (CA), và credential. Đổi credential trong hộp là đổi danh tính; mọi chặng
-sau đó không hề biết bạn dùng file nào.
-
-Nhóm `system:serviceaccounts:lab-9a` xuất hiện tự động cho mọi ServiceAccount của namespace đó.
-Nó là công cụ mạnh — và cũng là rủi ro: bind một Role cho nhóm này là bind cho **mọi**
-ServiceAccount trong namespace, hiện tại lẫn tương lai.
-
-**PASS:** năm dòng `PASS:` của bước này xuất hiện.
-
-### B6.2. `kubectl proxy` — client nói HTTP, proxy lo phần còn lại
-
-```bash
-ss -ltn | grep -q ':8001 ' \
-  && echo 'FAIL: cong 8001 dang ban — doi sang cong khac truoc khi tiep tuc' \
-  || echo 'PASS: cong 8001 dang ranh'
-
-kubectl proxy --port=8001 > ~/lab-evidence/9a/b6-proxy-admin.log 2>&1 &
-PROXY_PID=$!
-
-i=0; C_PROXY=''
-while [ "$i" -lt 30 ]; do
-  C_PROXY="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8001/api/ || true)"
-  test "$C_PROXY" = '200' && break
-  i=$(( i + 1 )); sleep 1
-done
-echo "ma HTTP qua proxy = $C_PROXY (sau $i vong lap)"
-
-curl -s http://127.0.0.1:8001/api/ | tee ~/lab-evidence/9a/b6-proxy-api.json
-echo
-```
-
-```bash
-test "$C_PROXY" = '200' \
-  && echo 'PASS: doc duoc API qua HTTP thuan tren localhost, khong header xac thuc nao'
-grep -q 'APIVersions' ~/lab-evidence/9a/b6-proxy-api.json \
-  && echo 'PASS: noi dung tra ve dung la tai lieu discovery cua API'
-C_TRUC_TIEP="$(api_code /api '')"
-test "$C_TRUC_TIEP" != '200' \
-  && echo 'PASS: cung request do goi thang toi API server thi khong duoc — proxy da lam gi do'
-
-kill "$PROXY_PID" 2>/dev/null
-wait "$PROXY_PID" 2>/dev/null
-unset PROXY_PID
-```
-
-**Ý nghĩa:** bốn việc mà bài [359](../359-access-cluster-vi.md) liệt kê cho `kubectl proxy`, đọc
-lại theo đúng thứ tự vừa quan sát: nó **chạy trên máy người dùng**, **proxy từ một địa chỉ
-localhost tới apiserver**, **client tới proxy dùng HTTP** còn **proxy tới apiserver dùng HTTPS**,
-nó **định vị apiserver** và **thêm các header xác thực**. Ba dòng gate ở trên chứng minh đúng
-mệnh đề cuối: bỏ proxy ra, cùng một request không còn đi tới đâu.
-
-Vì proxy nghe trên `localhost`, ai chạm được vào máy đó là chạm được vào quyền của proxy. Đừng
-bao giờ để nó lắng nghe trên interface ra ngoài.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
-
-### B6.3. Proxy mang đúng quyền của kubeconfig nó dùng
-
-```bash
-kubectl --kubeconfig="$KCFG" proxy --port=8001 \
-  > ~/lab-evidence/9a/b6-proxy-sa.log 2>&1 &
-PROXY_PID=$!
-
-i=0; C_UP=''
-while [ "$i" -lt 30 ]; do
-  C_UP="$(curl -s -o /dev/null -w '%{http_code}' \
-    http://127.0.0.1:8001/api/v1/namespaces/lab-9a/configmaps || true)"
-  test -n "$C_UP" && test "$C_UP" != '000' && break
-  i=$(( i + 1 )); sleep 1
-done
-
-C_CM_PROXY="$(curl -s -o /dev/null -w '%{http_code}' \
-  http://127.0.0.1:8001/api/v1/namespaces/lab-9a/configmaps)"
-C_SEC_PROXY="$(curl -s -o /dev/null -w '%{http_code}' \
-  http://127.0.0.1:8001/api/v1/namespaces/lab-9a/secrets)"
-C_NODE_PROXY="$(curl -s -o /dev/null -w '%{http_code}' \
-  http://127.0.0.1:8001/api/v1/nodes)"
-{
-  echo "configmaps qua proxy cua SA = $C_CM_PROXY"
-  echo "secrets    qua proxy cua SA = $C_SEC_PROXY"
-  echo "nodes      qua proxy cua SA = $C_NODE_PROXY"
-} | tee ~/lab-evidence/9a/b6-proxy-quyen.txt
-```
-
-```bash
-test "$C_CM_PROXY" = '200' \
-  && echo 'PASS: proxy chay bang kubeconfig cua SA doc duoc dung thu SA duoc phep'
-test "$C_SEC_PROXY" = '403' && test "$C_NODE_PROXY" = '403' \
-  && echo 'PASS: va bi chan y het khi goi thang — proxy khong them quyen nao'
-
-kill "$PROXY_PID" 2>/dev/null
-wait "$PROXY_PID" 2>/dev/null
-unset PROXY_PID
-ss -ltn | grep -q ':8001 ' \
-  && echo 'FAIL: van con tien trinh nghe tren 8001' \
-  || echo 'PASS: da dong proxy, cong 8001 tra lai'
-```
-
-**Ý nghĩa:** proxy **xác thực hộ**, không **phân quyền hộ**. Nó gắn credential của kubeconfig nó
-đang cầm rồi chuyển tiếp; ba chặng phía sau vẫn chạy nguyên vẹn ở API server. Đây là chỗ nhiều
-người hiểu sai và mở `kubectl proxy` bằng kubeconfig quản trị cho cả một dashboard dùng chung —
-tức là trao quyền quản trị cho bất kỳ ai gọi được cái cổng đó.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
-
-### B6.4. Bốn loại proxy — cái nào thật sự có trên cluster này
-
-| Loại proxy trong bài 359 | Trên cluster lab |
-| --- | --- |
-| `kubectl proxy` | có — B6.2 và B6.3 |
-| apiserver proxy | có — chính đường `/api/v1/nodes/<node>/proxy/...` dưới đây |
-| kube-proxy | có — DaemonSet trong `kube-system` |
-| Proxy hoặc load balancer trước apiserver | **không** — cluster chỉ có một control plane |
-| Cloud Load Balancer | **không** — không có nhà cung cấp cloud |
-
-```bash
-HZ="$(kubectl get --raw '/api/v1/nodes/lab-k8s-worker2/proxy/healthz')"
-KP="$(kubectl -n kube-system get daemonset kube-proxy -o name 2>/dev/null)"
-Q1="$(kubectl auth can-i get nodes --subresource=proxy --as="$SA_RO")"
-Q2="$(kubectl auth can-i get nodes --subresource=proxy --as="$SA_NODE")"
-{
-  echo "apiserver proxy toi kubelet cua worker2 -> $HZ"
-  echo "kube-proxy -> ${KP:-khong co}"
-  echo "sa-doc-cm  co get nodes/proxy khong  -> $Q1"
-  echo "sa-doc-node co get nodes/proxy khong -> $Q2"
-} | tee ~/lab-evidence/9a/b6-cac-loai-proxy.txt
-
-test "$HZ" = 'ok' \
-  && echo 'PASS: apiserver proxy dua duoc request toi kubelet cua mot node'
-test -n "$KP" \
-  && echo 'PASS: kube-proxy dang chay dang DaemonSet'
-test "$Q1" = 'no' && test "$Q2" = 'no' \
-  && echo 'PASS: khong chu the nao cua lab cham duoc vao nodes/proxy'
-```
-
-**Ý nghĩa:** đường `/api/v1/nodes/<node>/proxy/...` mà bạn vừa dùng bằng quyền quản trị chính là
-thứ bài [120](../120-rbac-good-practices-vi.md) cảnh báo. Nó là **bastion tích hợp sẵn trong
-apiserver** theo mô tả của bài [359](../359-access-cluster-vi.md), và nó nối thẳng tới Kubelet
-API. Ai có verb **get** trên `nodes/proxy` thì lấy được log và **thực thi lệnh trong mọi Pod**
-của node đó, **bỏ qua cả audit logging lẫn admission control** — nên `get` ở đây **không phải
-quyền chỉ đọc**. Đó là lý do ClusterRole của lab dừng lại ở `nodes`.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B6.5. Hai loại token đặt cạnh nhau
-
-Bài [359](../359-access-cluster-vi.md) có nguyên một nhánh *Không dùng kubectl proxy* dựa trên
-token dài hạn dạng Secret, còn bài [279](../279-configure-service-account-vi.md) thì khuyến cáo
-tránh cách đó. Dựng lại để so bằng bằng chứng, rồi xóa ngay.
-
-> Đây là credential **không hết hạn**. Nó tồn tại đúng trong bước này và bị xóa ở cuối bước.
-> Không sao chép nó ra ngoài `~/lab-work/9a/`, không ghi vào bằng chứng.
-
-```bash
-kubectl create serviceaccount sa-cu -n lab-9a
-kubectl apply -f - <<'EOF'
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sa-cu-token
-  namespace: lab-9a
-  annotations:
-    kubernetes.io/service-account.name: sa-cu
-type: kubernetes.io/service-account-token
-EOF
-
-i=0; TOK_CU=''
-while [ "$i" -lt 60 ]; do
-  TOK_CU="$(kubectl get secret sa-cu-token -n lab-9a -o jsonpath='{.data.token}' \
-    | base64 -d 2>/dev/null)"
-  test -n "$TOK_CU" && break
-  i=$(( i + 1 )); sleep 1
-done
-echo "control plane dien token vao Secret sau $i vong lap"
-```
-
-```bash
-test -n "$TOK_CU" \
-  && echo 'PASS: control plane tu sinh token cho ServiceAccount va luu vao Secret'
-
-{
-  echo "sub cua token dai han = $(jwt_claim "$TOK_CU" sub)"
-  echo "token dai han co claim exp khong:"
-  jwt_pay "$TOK_CU" | grep -c '"exp"'
-  echo "token ngan han co claim exp khong:"
-  jwt_pay "$TOK_RO" | grep -c '"exp"'
-} | tee ~/lab-evidence/9a/b6-hai-loai-token.txt
-
-if jwt_pay "$TOK_CU" | grep -q '"exp"'; then
-  echo 'FAIL: token dai han lai co claim exp — doc lai buoc nay'
-else
-  echo 'PASS: token dai han khong co claim exp, tuc khong bao gio het han'
-fi
-jwt_pay "$TOK_RO" | grep -q '"exp"' \
-  && echo 'PASS: doi chung — token do TokenRequest phat hanh thi co exp'
-test "$(api_code /api "$TOK_CU")" = '200' \
-  && echo 'PASS: token dai han van xac thuc duoc binh thuong'
-test -z "$(kubectl get serviceaccount sa-cu -n lab-9a -o jsonpath='{.secrets}')" \
-  && echo 'PASS: Secret nay khong xuat hien trong truong .secrets cua ServiceAccount'
-```
-
-Xóa ServiceAccount và xem control plane dọn:
-
-```bash
-kubectl delete serviceaccount sa-cu -n lab-9a
-
-i=0; C_CU=''
-while [ "$i" -lt 60 ]; do
-  C_CU="$(api_code /api "$TOK_CU")"
-  test "$C_CU" = '401' && break
-  i=$(( i + 1 )); sleep 1
-done
-echo "token dai han sau khi xoa SA -> $C_CU (sau $i vong lap)"
-
-test "$C_CU" = '401' \
-  && echo 'PASS: xoa ServiceAccount thi token dai han cung mat hieu luc'
-kubectl delete secret sa-cu-token -n lab-9a --ignore-not-found
-unset TOK_CU
-```
-
-**Ý nghĩa:** khác biệt nằm ở đúng một claim. Token do `TokenRequest` phát hành có `exp`, gắn với
-object, tự xoay vòng, và chết ngay khi object biến mất. Token dạng Secret **không có `exp`** —
-nó không bao giờ tự hết hạn, và nếu bị lộ thì nó dùng được cho tới khi có người nhớ ra phải xóa.
-Đó là toàn bộ lý do bài [279](../279-configure-service-account-vi.md) xếp nó vào nhóm **không
-khuyến nghị**, đặc biệt ở quy mô lớn.
-
-Câu cuối là điểm dễ hiểu nhầm: trường `.secrets` của ServiceAccount **chỉ** được điền với các
-Secret sinh **tự động**, nên một Secret bạn tạo tay không xuất hiện ở đó. Nghĩa là bạn không thể
-rà token dài hạn bằng cách đọc object ServiceAccount — phải rà bằng loại Secret.
-
-**PASS:** sáu dòng `PASS:` của bước này xuất hiện.
-
-### B6.6. Ai xác minh được token này, và bằng gì
-
-```bash
-kubectl get --raw '/.well-known/openid-configuration' \
-  > ~/lab-evidence/9a/b6-openid-configuration.json
-kubectl get --raw '/openid/v1/jwks' > ~/lab-evidence/9a/b6-jwks.json
-
-ISS_DOC="$(sed -n 's/.*"issuer":"\([^"]*\)".*/\1/p' \
-  ~/lab-evidence/9a/b6-openid-configuration.json)"
-ISS_TOK="$(jwt_claim "$TOK_RO" iss)"
-DISC_ROLE="$(kubectl get clusterrole system:service-account-issuer-discovery \
-  -o name 2>/dev/null)"
-DISC_SUBJ="$(kubectl get clusterrolebinding system:service-account-issuer-discovery \
-  -o jsonpath='{.subjects[*].name}' 2>/dev/null)"
-{
-  echo "issuer trong tai lieu discovery = $ISS_DOC"
-  echo "claim iss trong token           = $ISS_TOK"
-  echo "clusterrole discovery           = ${DISC_ROLE:-khong co}"
-  echo "duoc gan cho                    = ${DISC_SUBJ:-khong co}"
-} | tee ~/lab-evidence/9a/b6-issuer.txt
-```
-
-```bash
-test -n "$ISS_DOC" && test "$ISS_DOC" = "$ISS_TOK" \
-  && echo 'PASS: issuer cong bo trong tai lieu discovery khop voi claim iss cua token'
-grep -q '"keys"' ~/lab-evidence/9a/b6-jwks.json \
-  && echo 'PASS: cluster cong bo bo khoa cong khai de ben khac xac minh chu ky'
-test -n "$DISC_ROLE" \
-  && echo 'PASS: cluster co san ClusterRole cho viec kham pha issuer'
-echo "$DISC_SUBJ" | grep -q 'system:serviceaccounts' \
-  && echo 'PASS: role do duoc gan cho nhom chua moi ServiceAccount'
-```
-
-**Ý nghĩa:** hai tài liệu này là cách một **bên tin cậy** bên ngoài xác minh token của cluster mà
-không cần hỏi API server từng lần: đọc `issuer`, lấy `jwks_uri`, rồi kiểm chữ ký bằng khóa công
-khai. Bài [118](../118-service-accounts-vi.md) đặt cạnh đó một cảnh báo quan trọng — cách này
-**không** phát hiện được token đã bị thu hồi, vì bên tin cậy vẫn coi token hợp lệ cho tới mốc hết
-hạn. B2.6 đã cho thấy API server thì vô hiệu ngay. Đó là lý do dự án Kubernetes khuyến nghị
-TokenReview API thay vì OIDC discovery khi bạn tự viết dịch vụ xác minh.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B7. Cleanup và gate cuối
-
-**Mục đích:** xóa mọi thứ lab tạo ra — **kể cả object phạm vi cluster** — chứng minh cấu hình
-control plane không hề bị sửa, chứng minh không token nào lọt vào thư mục bằng chứng, và chứng
-minh cluster đã về đúng `03-storage-ready`.
-
-### B7.1. Xóa object của bài học
-
-```bash
-kubectl delete namespace lab-9a lab-9a-khac --wait=true --timeout=300s
-kubectl delete clusterrole,clusterrolebinding -l lab=9a --ignore-not-found
-kubectl delete clusterrolebinding lab-9a-to-hop-sai --ignore-not-found
-```
-
-```bash
-rm -f ~/lab-work/9a/admin-client.crt ~/lab-work/9a/ca-tu-configmap.crt \
-      ~/lab-work/9a/sa-doc-cm.kubeconfig \
-      ~/lab-work/9a/b3-role.yaml ~/lab-work/9a/b3-view-binding.yaml \
-      ~/lab-work/9a/b3-clusterrole-node.yaml ~/lab-work/9a/b3-node-rolebinding.yaml \
-      ~/lab-work/9a/b3-to-hop-sai.yaml ~/lab-work/9a/b3-binding-nhom.yaml \
-      ~/lab-work/9a/b3-role-quan-ly-role.yaml ~/lab-work/9a/b3-role-hep.yaml \
-      ~/lab-work/9a/b3-role-rong.yaml ~/lab-work/9a/b3-crb-subjects.txt \
-      ~/lab-work/9a/b4-sa-khong-ton-tai.yaml ~/lab-work/9a/b4-pod-tran.yaml \
-      ~/lab-work/9a/b4-pod-pullsecret.yaml \
-      ~/lab-work/9a/b5-sa-khong-token.yaml ~/lab-work/9a/b5-hai-pod.yaml \
-      ~/lab-work/9a/b5-pod-audience.yaml
-rmdir ~/lab-work/9a
-
-unset TOK_RO TOK_AUD TOK_NODE PAY_POD PAY_AUD KCFG
-```
-
-`rmdir` cố ý không dùng `-rf`: nó fail nếu thư mục còn file lạ, và `test ! -e` bên dưới biến điều
-đó thành gate thay vì im lặng bỏ qua. Nếu nó fail, **liệt kê thư mục trước khi xóa tay** — một
-file còn sót ở đây rất có thể là file chứa token. Thư mục `~/lab-evidence/9a/` **giữ lại** — đó
-là bằng chứng.
-
-```bash
-NS_LEFT="$(kubectl get namespace lab-9a lab-9a-khac --ignore-not-found -o name 2>/dev/null \
-  | wc -l)"
-LAB_OBJ="$(kubectl get clusterrole,clusterrolebinding -l lab=9a --no-headers 2>/dev/null \
-  | wc -l)"
-echo "namespace cua lab con = $NS_LEFT | object pham vi cluster mang label lab=9a = $LAB_OBJ"
-
-test "$NS_LEFT" -eq 0 && echo 'PASS: hai namespace cua lab da bien mat'
-test "$LAB_OBJ" -eq 0 && echo 'PASS: khong con ClusterRole hay ClusterRoleBinding nao cua lab'
-test ! -e ~/lab-work/9a && echo 'PASS: thu muc chua manifest va token da xoa'
-```
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B7.2. Gate quan trọng nhất về quyền: tồn kho RBAC trở về đúng con số cũ
-
-```bash
-CR_N9="$(kubectl get clusterrole --no-headers | wc -l)"
-CRB_N9="$(kubectl get clusterrolebinding --no-headers | wc -l)"
-SA_N9="$(kubectl get serviceaccount -A --no-headers | wc -l)"
-NS_N9="$(kubectl get namespace --no-headers | wc -l)"
-{
-  echo "clusterrole:        truoc=$CR_N0  sau=$CR_N9"
-  echo "clusterrolebinding: truoc=$CRB_N0 sau=$CRB_N9"
-  echo "serviceaccount:     truoc=$SA_N0  sau=$SA_N9"
-  echo "namespace:          truoc=$NS_N0  sau=$NS_N9"
-} | tee ~/lab-evidence/9a/b7-ton-kho.txt
-
-test "$CR_N9" -eq "$CR_N0" && test "$CRB_N9" -eq "$CRB_N0" \
-  && echo 'PASS: so ClusterRole va ClusterRoleBinding tro ve dung con so truoc lab'
-test "$SA_N9" -eq "$SA_N0" && test "$NS_N9" -eq "$NS_N0" \
-  && echo 'PASS: so ServiceAccount va Namespace cung tro ve dung con so truoc lab'
-
-kubectl get clusterrolebinding \
-  -o jsonpath='{range .items[*]}{.metadata.name}{" -> "}{.roleRef.name}{"\n"}{end}' \
-  | grep -c '^lab-9a' > /dev/null; RC_LAB=$?
-test "$RC_LAB" -ne 0 \
-  && echo 'PASS: khong binding nao con mang tien to lab-9a'
-```
-
-**Ý nghĩa:** đây là gate mà một lab về quyền **bắt buộc** phải có. Xóa namespace là đủ để dọn
-Role, RoleBinding và ServiceAccount — chúng thuộc namespace. Nhưng ClusterRole và
-ClusterRoleBinding **không thuộc namespace nào**, nên chúng sống sót qua mọi lần `delete
-namespace` và không ai nhận ra cho tới khi có sự cố. So **giá trị** với con số đọc ở B0.3 là cách
-duy nhất chứng minh không còn gì.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B7.3. Cấu hình control plane và kubelet không đổi
-
-```bash
-{
-  echo "apiserver-manifest $(sudo sha256sum /etc/kubernetes/manifests/kube-apiserver.yaml \
-    | awk '{print $1}')"
-  echo "kubelet-master $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
-  for n in lab-k8s-worker1 lab-k8s-worker2; do
-    echo "kubelet-$n $(ssh "$n" 'sudo sha256sum /var/lib/kubelet/config.yaml' | awk '{print $1}')"
-  done
-} | tee ~/lab-evidence/9a/b7-cauhinh-sha.txt
-
-diff -u ~/lab-evidence/9a/b0-cauhinh-sha.txt ~/lab-evidence/9a/b7-cauhinh-sha.txt \
-  && echo 'PASS: manifest apiserver va cau hinh kubelet ba node khong he doi trong suot lab' \
-  || echo 'FAIL: cau hinh control plane da bi sua — xem muc 4'
-
-RS_OK=0
-for n in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
-  A="$(kubectl get node "$n" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
-  test "$A" = 'True' && RS_OK=$(( RS_OK + 1 ))
-done
-test "$RS_OK" -eq 3 && echo 'PASS: ca ba node van Ready sau khi lab ket thuc'
-```
-
-**Ý nghĩa:** cả lab này xoay quanh những thứ do cờ của `kube-apiserver` quyết định — module xác
-thực, module phân quyền, danh sách admission controller, `anonymous-auth`, issuer của token. Cám
-dỗ "sửa một cờ để xem module kia chạy thế nào" là có thật, và hậu quả của nó không dừng ở lab
-này: mọi lab sau đều bắt đầu từ `03-storage-ready`. Gate này biến lời hứa ở
-[mục 2](#2-quy-ước-và-an-toàn) thành thứ kiểm chứng được. Nếu `diff` báo khác, restore cả ba VM
-trước khi sang lab sau.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
-
-### B7.4. Gate về bí mật: không token nào lọt vào bằng chứng
-
-```bash
-grep -rl 'eyJhbGciOi' ~/lab-evidence/9a/ 2>/dev/null | tee ~/lab-evidence/9a/b7-quet-token.txt
-LO="$(grep -rl 'eyJhbGciOi' ~/lab-evidence/9a/ 2>/dev/null | grep -vc 'b7-quet-token.txt' \
-  || true)"
-BEARER="$(grep -rl 'Authorization: Bearer ey' ~/lab-evidence/9a/ 2>/dev/null | wc -l)"
-echo "file bang chung chua chuoi JWT = $LO | file chua header Bearer thuc = $BEARER"
-
-test "$LO" -eq 0 && test "$BEARER" -eq 0 \
-  && echo 'PASS: khong file bang chung nao chua token'
-ls -l ~/lab-evidence/9a/ | tee -a ~/lab-evidence/9a/b7-quet-token.txt
-```
-
-**Ý nghĩa:** quy ước ở [mục 2](#2-quy-ước-và-an-toàn) nói bằng chứng chỉ chứa mã HTTP, thông báo
-và **claim đã giải mã** — không bao giờ chứa chuỗi token. Đây là gate kiểm điều đó. Nếu nó fail,
-xóa file vi phạm rồi chạy lại; và nhớ rằng thư mục bằng chứng là thứ người ta hay chép ra ngoài
-để nộp báo cáo, nên một token nằm trong đó là một credential đã rời khỏi cluster.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
-### B7.5. Gate ngắn A5.5 và kết thúc
+Gate ngắn A5.5, chạy nguyên văn:
 
 ```bash
 kubectl wait --for=condition=Ready node --all --timeout=180s
@@ -2500,134 +149,2561 @@ test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
 kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
 kubectl -n kube-system get deployment coredns
 kubectl get pods -n default
-kubectl get storageclass | grep -q '(default)' \
-  && echo 'PASS: van con StorageClass mac dinh cua moc 03-storage-ready'
-
-{
-  echo "=== $(date -Is) — trang thai sau Lab 9a ==="
-  kubectl get namespaces
-  kubectl get clusterrole,clusterrolebinding -l lab=9a 2>&1
-  kubectl get storageclass -o wide
-  kubectl get pv
-} | tee ~/lab-evidence/9a/b7-sau.txt
-
-diff -u ~/lab-evidence/9a/b0-truoc.txt ~/lab-evidence/9a/b7-sau.txt \
-  > ~/lab-evidence/9a/b7-diff.txt 2>&1 || true
 ```
 
-**PASS:** ba node `Ready`; dòng `PASS: readyz ok` xuất hiện; lệnh field selector trả
-`No resources found`; CoreDNS đủ replica `READY`; `default` không có Pod; dòng
-`PASS: van con StorageClass mac dinh …` xuất hiện; danh sách namespace không còn `lab-9a` và
-`lab-9a-khac`.
+Đúng bộ VM, đúng snapshot, cluster sạch:
 
-Cluster đã trở về `03-storage-ready`. **Lab 9a không tạo snapshot mới** — để ba VM nguyên trạng
-đang chạy hoặc tắt tùy bạn; lab sau tự bật máy theo
-[A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab).
+```bash
+mkdir -p ~/lab-work/9a ~/lab-evidence/9a && chmod 700 ~/lab-work/9a
+{ test "$(kubectl get nodes --no-headers | wc -l)" -eq 3 && \
+  kubectl get node lab-k8s-master lab-k8s-worker1 lab-k8s-worker2 >/dev/null; } \
+  && echo 'PASS: dang o bo VM chinh, ba node lab-k8s-*'
+kubectl get storageclass | grep -q '(default)' && echo 'PASS: co StorageClass mac dinh — dung 03-storage-ready'
+kubectl get pods -A --no-headers | grep -q 'calico-node-' && echo 'PASS: Calico dang chay'
+kubectl -n traefik get deployment traefik >/dev/null 2>&1 && echo 'PASS: Traefik dang chay'
+kubectl get namespace bookstore >/dev/null 2>&1 \
+  && echo 'FAIL: namespace bookstore con sot' || echo 'PASS: cluster chua co du an'
+test -z "$(kubectl get nodes -l bookstore.example.com/data -o name)" \
+  && echo 'PASS: chua node nao mang label du lieu cua du an'
+```
+
+Mang repo về. Bundle `bookstore-lab-8c.bundle` được chép ra máy host ở cuối Lab 8c. Trên máy host
+Windows, PowerShell, sửa user cho đúng máy của bạn:
+
+```powershell
+scp "$HOME\lab-backup\bookstore-lab-8c.bundle" <user>@192.168.100.221:~/
+```
+
+Trên `lab-k8s-master`:
+
+```bash
+git bundle verify ~/bookstore-lab-8c.bundle >/dev/null && echo 'PASS: bundle lab-8c hop le'
+git bundle list-heads ~/bookstore-lab-8c.bundle | grep -q 'refs/tags/lab-8c$' && echo 'PASS: bundle co tag lab-8c'
+if [ -d ~/bookstore/.git ] && ! git -C ~/bookstore describe --tags --exact-match HEAD 2>/dev/null | grep -qx 'lab-8c'; then
+  mv ~/bookstore ~/bookstore-truoc-9a && echo 'repo cu da doi ten thanh ~/bookstore-truoc-9a'
+fi
+test -d ~/bookstore/.git || git clone -q ~/bookstore-lab-8c.bundle ~/bookstore
+cd ~/bookstore
+git describe --tags --exact-match HEAD 2>/dev/null | grep -qx 'lab-8c' && echo 'PASS: HEAD dung tag lab-8c'
+test "$(git rev-parse --abbrev-ref HEAD)" != 'HEAD' && echo 'PASS: HEAD dang o mot nhanh, commit duoc'
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong co thay doi chua commit'
+git diff --quiet lab-7b lab-8c -- k8s/app && echo 'PASS: k8s/app o lab-8c trung lab-7b — he thong cua sprint 11'
+```
+
+Repo mới clone không có `secrets/` vì thư mục đó không vào git. Không cần chép từ repo cũ:
+`deploy.sh` tự sinh bí mật mới và certificate tự ký, DB được khởi tạo lại trên PVC mới
+([mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm)).
+
+Dựng lại hệ thống của sprint 11 bằng script của chính tag đó:
+
+```bash
+cd ~/bookstore
+./scripts/deploy.sh > ~/lab-evidence/9a/b0-deploy.txt 2>&1; echo "deploy exit=$?"
+./tests/smoke.sh > ~/lab-evidence/9a/b0-smoke-lab-8c.txt 2>&1; echo "smoke exit=$?"
+cat ~/lab-evidence/9a/b0-smoke-lab-8c.txt
+```
+
+Image cho sprint này: container gọi API ở B3 chạy trên một worker bất kỳ. Tag lấy từ
+[A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) và
+[A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00):
+
+```bash
+for N in lab-k8s-worker1 lab-k8s-worker2; do
+  for I in docker.io/library/busybox:1.37 docker.io/library/postgres:17.11 \
+           docker.io/nginxinc/nginx-unprivileged:1.30.5-alpine; do
+    ssh "$N" "sudo crictl pull $I" >/dev/null && echo "PASS: $N co $I" || echo "FAIL: $N khong keo duoc $I"
+  done
+done
+```
+
+Ảnh chụp "trước" cho gate cuối — cấu hình control plane và tồn kho RBAC cấp cluster:
+
+```bash
+EV=~/lab-evidence/9a
+{ echo "apiserver-manifest $(sudo sha256sum /etc/kubernetes/manifests/kube-apiserver.yaml | awk '{print $1}')"
+  echo "kubelet-master $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
+  for n in lab-k8s-worker1 lab-k8s-worker2; do
+    echo "kubelet-$n $(ssh "$n" 'sudo sha256sum /var/lib/kubelet/config.yaml' | awk '{print $1}')"
+  done; } > "$EV/b0-cauhinh-sha.txt"
+{ echo "clusterrole=$(kubectl get clusterrole --no-headers | wc -l)"
+  echo "clusterrolebinding=$(kubectl get clusterrolebinding --no-headers | wc -l)"; } > "$EV/b0-rbac-cluster.txt"
+cat "$EV/b0-cauhinh-sha.txt" "$EV/b0-rbac-cluster.txt"
+test "$(grep -c '[0-9a-f]\{64\}' "$EV/b0-cauhinh-sha.txt")" -eq 4 && echo 'PASS: ghi duoc bon checksum cau hinh'
+```
+
+**PASS:** gate A5.5 đạt; sáu dòng `PASS:` về bộ VM và cluster; sáu dòng `PASS:` về bundle và repo;
+`deploy exit=0`, `smoke exit=0` và file smoke không có dòng `FAIL:`; đủ sáu dòng `PASS: ... co ...`;
+dòng `PASS: ghi duoc bon checksum cau hinh`.
+
+`deploy.sh` hoặc `smoke.sh` fail nghĩa là repo của sprint trước **chưa đủ**. Sửa repo ở tag `lab-8c`
+trước, không sửa tay trên cluster ([mục 6.1 của file dự án](DU-AN-BOOKSTORE.md#61-mở-đầu)).
+
+## B1. [BS-9A-01] Điều tra: hệ thống đang mang những danh tính nào
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** sau sprint 11, hệ thống chạy đủ, mạng đã zero-trust, nhưng chưa ai hỏi câu "**ai**
+được gọi Kubernetes API, và gọi được gì". Trước khi cấp hay thu quyền, đội cần bản đồ: request đi
+qua những chặng nào, mỗi Pod đang mang danh tính gì, danh tính đó làm được gì. Kết quả là ma trận
+danh tính đích — bảng ở [mục 3.5 của file dự án](DU-AN-BOOKSTORE.md#35-thiết-kế-bảo-mật) áp lên hệ
+thống thật — làm đầu vào cho B2–B5.
+
+**Yêu cầu:**
+
+1. Chỉ ra danh tính mà kubeconfig quản trị trình cho API server — username, các group — và chúng
+   nằm ở trường nào của client certificate.
+2. ⭐ Chứng minh tầng TLS đứng trước chặng 1: cổng API chỉ nói HTTPS; client không có CA của cluster
+   thì không tin server, có CA thì bắt tay xong.
+3. Lập bảng mọi Pod của dự án: chạy dưới ServiceAccount nào, có token API trong filesystem không.
+   Đối chiếu toàn cluster: Pod thường nào cũng có danh tính; ngoại lệ là gì.
+4. Chứng minh ServiceAccount `default` của `bookstore` chỉ có quyền discovery — bằng câu hỏi gửi chặng
+   phân quyền, không bằng phỏng đoán.
+5. Trong namespace thử nghiệm `lab-9a-thu` (không có NetworkPolicy), một Pod `busybox` dùng token tự
+   mount gọi API: discovery thành công, đọc ConfigMap của namespace bị từ chối. Chỉ ra **ba** thứ
+   chặng tiếp nhận đã thêm vào Pod mà manifest của bạn không khai — trong đó có `imagePullSecrets`
+   khi ServiceAccount của namespace có khai.
+6. Trong `bookstore`: Pod `web` đang mang token nhưng không tới được API server. Chứng minh token đó,
+   một khi bị đọc ra, **vẫn** dùng được từ máy khác.
+7. Đối chiếu với cluster: audit log có bật không; admission plugin nào được khai tường minh; có
+   cloud-controller-manager không; kube-controller-manager gọi API dưới danh tính nào.
+8. Ghi ADR: ma trận danh tính đích — mỗi thành phần, CI, con người: có cần gọi API không, verb gì
+   trên object gì, phạm vi nào.
+
+**Ràng buộc:** không sửa cấu hình control plane. Namespace `lab-9a-thu` không mang label dự án và bị
+xóa cuối ticket. Pod thử nghiệm ghim `lab-k8s-worker2`. Không ghi token vào bằng chứng.
+
+**Đọc lại:**
+
+- Bài [119](../119-controlling-access-vi.md):
+  [*Bảo mật tầng truyền tải*](../119-controlling-access-vi.md#bảo-mật-tầng-truyền-tải-transport-security),
+  [*Xác thực*](../119-controlling-access-vi.md#authentication),
+  [*Phân quyền*](../119-controlling-access-vi.md#authorization),
+  [*Kiểm soát tiếp nhận*](../119-controlling-access-vi.md#kiểm-soát-tiếp-nhận-admission-control).
+- Bài [118](../118-service-accounts-vi.md):
+  [*Service account mặc định*](../118-service-accounts-vi.md#default-service-accounts),
+  [*Gán ServiceAccount cho một Pod*](../118-service-accounts-vi.md#assign-to-pod).
+- Bài [338](../338-access-api-from-pod-vi.md):
+  [*Truy cập trực tiếp REST API*](../338-access-api-from-pod-vi.md#truy-cập-trực-tiếp-rest-api-directly-accessing-the-rest-api),
+  [*Không sử dụng proxy*](../338-access-api-from-pod-vi.md#không-sử-dụng-proxy-without-using-a-proxy).
+- Bài [359](../359-access-cluster-vi.md#truy-cập-lần-đầu-với-kubectl-accessing-for-the-first-time-with-kubectl)
+  — vị trí và thông tin xác thực trong kubeconfig.
+- Bài [279](../279-configure-service-account-vi.md#add-imagepullsecrets-to-a-service-account) —
+  `imagePullSecrets` gắn ở ServiceAccount.
+- Bài [113](../113-security-vi.md#security-mechanisms); bài
+  [114](../114-cloud-native-security-vi.md#protection-runtime-access); bài
+  [254](../254-running-cloud-controller-vi.md#chạy-cloud-controller-manager-running-cloud-controller-manager).
+
+**Bàn giao:** `docs/adr/NNNN-ban-do-danh-tinh.md` (`NNNN` là số tiếp theo trong `docs/adr/`);
+`~/lab-work/9a/goi-api.yaml`; `~/lab-evidence/9a/b1-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` username của chặng 1 trùng CN của client certificate; group lấy từ trường O.
+- `PASS:` (⭐) HTTP thuần tới cổng API bị từ chối; không CA thì `curl` thất bại, có CA thì thành công.
+- `PASS:` trước sprint, mọi Pod dự án chạy dưới `default` và mang volume token; mọi Pod thường của
+  cluster có ServiceAccount, Pod không có đều là mirror Pod.
+- `PASS:` `default` của `bookstore` được `get /api`, không được `list` ConfigMap hay Secret.
+- `PASS:` Pod thử nghiệm gọi được discovery, bị `403` khi đọc ConfigMap; object có ServiceAccount,
+  volume token và `imagePullSecrets` dù manifest không khai.
+- `PASS:` Pod `web` có file token nhưng không tới được API server; token đó dùng từ master vẫn `200`.
+- `PASS:` audit chưa bật; không có cloud-controller-manager; kube-controller-manager dùng
+  ServiceAccount riêng cho từng controller.
+- `PASS:` namespace `lab-9a-thu` đã bị xóa.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-ban-do-danh-tinh.md`:
+
+1. NetworkPolicy đã chặn `web` gọi API server. Vậy vì sao vẫn phải gỡ token khỏi `web`? Hai lớp
+   phòng thủ này bảo vệ khỏi hai rủi ro khác nhau nào?
+2. Ba thứ chặng tiếp nhận thêm vào Pod thử nghiệm do ai thêm, và vì sao việc đó nằm ở chặng 3 chứ
+   không ở chặng 2?
+3. Bài 254 nói cloud-controller-manager cần xác thực và phân quyền với Kubernetes. Nếu cluster này
+   chạy trên cloud, ma trận danh tính của bạn thêm dòng nào — và nó giống `ci-deployer` ở điểm nào?
+4. Ma trận đích: thành phần nào cần gọi API? Viết bảng `chủ thể | loại | verb | resource | phạm vi`.
+
+<details>
+<summary>Gợi ý</summary>
+
+- `kubectl auth whoami` cho kết quả của chặng 1. Client certificate nằm trong kubeconfig dạng base64
+  ở `users[0].user.client-certificate-data`; đọc subject bằng
+  `openssl x509 -noout -subject -nameopt multiline`.
+- Danh sách volume của Pod: `-o jsonpath='{.spec.volumes[*].name}'`. Volume token tự động có tên
+  bắt đầu bằng `kube-api-access-`.
+- Hỏi chặng 2 thay cho một chủ thể: `kubectl auth can-i list configmaps -n bookstore
+  --as=system:serviceaccount:bookstore:default`; xem toàn bộ bằng `--list`.
+- Pod thử nghiệm chỉ cần `image`, `command: ["sh", "-c", "sleep 3600"]` và `nodeSelector`. Gọi API từ
+  trong Pod đúng như đoạn shell của bài 338, thay `curl` bằng `wget --header ... --no-check-certificate`
+  của busybox.
+- `kubectl exec ... -- timeout 10 wget ...`: busybox có `timeout`; không có nó, một kết nối bị
+  NetworkPolicy chặn có thể treo rất lâu.
+- Cờ của kube-controller-manager nằm ở `/etc/kubernetes/manifests/kube-controller-manager.yaml`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi đã viết <code>~/lab-work/9a/goi-api.yaml</code></summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/9a; W=~/lab-work/9a
+SRV="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
+kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' \
+  | base64 -d > "$W/ca.crt"
+
+# 1. Danh tính của kubeconfig quản trị
+kubectl auth whoami > "$EV/b1-whoami-admin.txt"
+U="$(kubectl auth whoami -o jsonpath='{.status.userInfo.username}')"
+G="$(kubectl auth whoami -o jsonpath='{.status.userInfo.groups}')"
+kubectl config view --raw --minify -o jsonpath='{.users[0].user.client-certificate-data}' \
+  | base64 -d > "$W/admin-client.crt"
+SUBJ="$(openssl x509 -noout -subject -nameopt multiline -in "$W/admin-client.crt")"
+CN="$(echo "$SUBJ" | sed -n 's/^ *commonName *= *//p')"
+O="$(echo "$SUBJ" | sed -n 's/^ *organizationName *= *//p')"
+echo "username=$U | CN=$CN | groups=$G | O=$O" | tee -a "$EV/b1-whoami-admin.txt"
+[ -n "$CN" ] && [ "$CN" = "$U" ] && echo 'PASS: username o chang 1 lay tu CN cua client certificate'
+[ -n "$O" ] && echo "$G" | grep -qF "$O" && echo 'PASS: group lay tu truong O cua certificate'
+
+# 2. ⭐ Tầng TLS
+curl -s -m 5 "http://${SRV#https://}/version" > "$EV/b1-http-tho.txt"
+grep -qi 'HTTP request to an HTTPS server' "$EV/b1-http-tho.txt" && echo 'PASS: cong API chi noi HTTPS'
+curl -s -m 5 -o /dev/null "$SRV/version"; RC0=$?
+curl -s -m 5 -o /dev/null --cacert "$W/ca.crt" "$SRV/version"; RC1=$?
+echo "khong CA: exit=$RC0 | co CA: exit=$RC1" | tee "$EV/b1-tls.txt"
+[ "$RC0" -ne 0 ] && [ "$RC1" -eq 0 ] && echo 'PASS: khong co CA thi khong tin server, co CA thi bat tay xong'
+
+# 3. Danh tính của từng Pod
+kubectl -n "$NS" get pods -l app.kubernetes.io/part-of=bookstore \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{.spec.serviceAccountName}{"|"}{range .spec.volumes[*]}{.name}{","}{end}{"\n"}{end}' \
+  > "$EV/b1-pod-sa-truoc.txt"
+TONG="$(grep -c . "$EV/b1-pod-sa-truoc.txt")"
+DEF="$(awk -F'|' '$2=="default"' "$EV/b1-pod-sa-truoc.txt" | wc -l)"
+TOK="$(grep -c 'kube-api-access-' "$EV/b1-pod-sa-truoc.txt")"
+echo "pod du an=$TONG | duoi default=$DEF | co volume token=$TOK"
+[ "$TONG" -gt 0 ] && [ "$DEF" -eq "$TONG" ] && [ "$TOK" -eq "$TONG" ] \
+  && echo 'PASS: truoc sprint, moi Pod du an chay duoi default va mang token API'
+kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"|"}{.metadata.name}{"|"}{.spec.serviceAccountName}{"|"}{.metadata.annotations.kubernetes\.io/config\.mirror}{"\n"}{end}' \
+  > "$EV/b1-pod-sa-cluster.txt"
+KHONG="$(awk -F'|' '$3==""' "$EV/b1-pod-sa-cluster.txt" | wc -l)"
+MIRROR="$(awk -F'|' '$3=="" && $4!=""' "$EV/b1-pod-sa-cluster.txt" | wc -l)"
+[ "$KHONG" -eq "$MIRROR" ] && echo "PASS: moi Pod thuong co ServiceAccount; $MIRROR Pod khong co deu la mirror Pod"
+
+# 4. Trần quyền của default
+D='system:serviceaccount:bookstore:default'
+kubectl auth can-i --list -n "$NS" --as="$D" > "$EV/b1-quyen-default.txt"
+{ [ "$(kubectl auth can-i get /api --as="$D")" = yes ] && \
+  [ "$(kubectl auth can-i list configmaps -n "$NS" --as="$D")" = no ] && \
+  [ "$(kubectl auth can-i list secrets -n "$NS" --as="$D")" = no ]; } \
+  && echo 'PASS: default cua bookstore chi co quyen discovery'
+
+# 5. Pod gọi API trong namespace không có NetworkPolicy
+kubectl create namespace lab-9a-thu
+until kubectl -n lab-9a-thu get serviceaccount default >/dev/null 2>&1; do sleep 1; done
+kubectl -n lab-9a-thu create secret docker-registry registry-gia --docker-server=registry.vi-du.local \
+  --docker-username=DUMMY_USERNAME --docker-password=DUMMY_DOCKER_PASSWORD
+kubectl -n lab-9a-thu patch serviceaccount default -p '{"imagePullSecrets":[{"name":"registry-gia"}]}'
+kubectl apply -f "$W/goi-api.yaml"
+kubectl -n lab-9a-thu wait --for=condition=Ready pod/goi-api --timeout=180s
+BAD=0
+for F in serviceAccountName volumes imagePullSecrets; do grep -q "$F" "$W/goi-api.yaml" && BAD=1; done
+P_SA="$(kubectl -n lab-9a-thu get pod goi-api -o jsonpath='{.spec.serviceAccountName}')"
+P_VOL="$(kubectl -n lab-9a-thu get pod goi-api -o jsonpath='{.spec.volumes[*].name}')"
+P_IPS="$(kubectl -n lab-9a-thu get pod goi-api -o jsonpath='{.spec.imagePullSecrets[*].name}')"
+echo "sa=$P_SA | volumes=$P_VOL | imagePullSecrets=$P_IPS" | tee "$EV/b1-admission-them.txt"
+{ [ "$BAD" -eq 0 ] && [ "$P_SA" = default ] && echo "$P_VOL" | grep -q 'kube-api-access-' && \
+  [ "$P_IPS" = registry-gia ]; } \
+  && echo 'PASS: chang tiep nhan da them ServiceAccount, volume token, imagePullSecrets ma manifest khong khai'
+kubectl -n lab-9a-thu exec goi-api -- sh -c '
+  SA=/var/run/secrets/kubernetes.io/serviceaccount
+  wget -O- --no-check-certificate --header "Authorization: Bearer $(cat $SA/token)" \
+    https://kubernetes.default.svc/api 2>&1' > "$EV/b1-pod-discovery.txt"
+kubectl -n lab-9a-thu exec goi-api -- sh -c '
+  SA=/var/run/secrets/kubernetes.io/serviceaccount
+  wget -O- --no-check-certificate --header "Authorization: Bearer $(cat $SA/token)" \
+    "https://kubernetes.default.svc/api/v1/namespaces/$(cat $SA/namespace)/configmaps" 2>&1' \
+  > "$EV/b1-pod-configmaps.txt"
+grep -q 'APIVersions' "$EV/b1-pod-discovery.txt" && echo 'PASS: Pod goi duoc discovery bang token cua chinh no'
+grep -q '403' "$EV/b1-pod-configmaps.txt" && echo 'PASS: cung token do bi 403 khi doc ConfigMap'
+
+# 6. web: có token, không có đường — nhưng token rời Pod vẫn dùng được
+kubectl -n "$NS" exec deploy/web -c status-writer -- test -s /var/run/secrets/kubernetes.io/serviceaccount/token \
+  && echo 'PASS: Pod web dang mang token API'
+kubectl -n "$NS" exec deploy/web -c status-writer -- timeout 10 wget -qO- --no-check-certificate \
+  https://kubernetes.default.svc/version > "$EV/b1-web-goi-api.txt" 2>&1 \
+  && echo 'FAIL: web goi duoc API server' || echo 'PASS: NetworkPolicy chan web toi API server'
+TOK_WEB="$(kubectl -n "$NS" exec deploy/web -c status-writer -- cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+C="$(curl -s -o /dev/null -w '%{http_code}' --cacert "$W/ca.crt" -H "Authorization: Bearer $TOK_WEB" "$SRV/api")"
+unset TOK_WEB
+echo "token cua web dung tu lab-k8s-master: GET /api = $C" | tee -a "$EV/b1-web-goi-api.txt"
+[ "$C" = 200 ] && echo 'PASS: token lay ra khoi Pod van xac thuc duoc — NetworkPolicy khong bao ve token'
+
+# 7. Bài 113, 254 và danh tính của control plane
+AUDIT="$(sudo grep -cE 'audit-policy-file|audit-log-path' /etc/kubernetes/manifests/kube-apiserver.yaml || true)"
+sudo grep -E 'enable-admission-plugins' /etc/kubernetes/manifests/kube-apiserver.yaml > "$EV/b1-admission-plugins.txt"
+[ "$AUDIT" -eq 0 ] && echo 'PASS: audit log chua bat tren cluster nay'
+CCM="$(kubectl get pods -A --no-headers | grep -c 'cloud-controller-manager' || true)"
+TAINT="$(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.taints[*].key}{"\n"}{end}' | grep -c 'node.cloudprovider.kubernetes.io/uninitialized' || true)"
+EXT="$(sudo grep -c 'cloud-provider=external' /etc/kubernetes/manifests/kube-controller-manager.yaml || true)"
+echo "pod ccm=$CCM | taint uninitialized=$TAINT | cloud-provider=external=$EXT" | tee "$EV/b1-ccm.txt"
+[ "$CCM" -eq 0 ] && [ "$TAINT" -eq 0 ] && [ "$EXT" -eq 0 ] && echo 'PASS: cluster khong co cloud-controller-manager'
+sudo grep -q -- '--use-service-account-credentials=true' /etc/kubernetes/manifests/kube-controller-manager.yaml \
+  && echo 'PASS: kube-controller-manager goi API bang ServiceAccount rieng cho tung controller'
+
+# 8. Dọn
+kubectl delete namespace lab-9a-thu --wait=true --timeout=180s
+kubectl get namespace lab-9a-thu >/dev/null 2>&1 || echo 'PASS: da xoa namespace lab-9a-thu'
+rm -f "$W/admin-client.crt"
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# ~/lab-work/9a/goi-api.yaml — cố ý không khai serviceAccountName, volumes, imagePullSecrets
+apiVersion: v1
+kind: Pod
+metadata:
+  name: goi-api
+  namespace: lab-9a-thu
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: lab-k8s-worker2
+  containers:
+  - name: app
+    image: busybox:1.37
+    command: ["sh", "-c", "sleep 3600"]
+```
+
+Ma trận đích cho ADR — khớp [mục 3.5 của file dự án](DU-AN-BOOKSTORE.md#35-thiết-kế-bảo-mật), thêm
+nhóm trực sự cố cho `TD-07`:
+
+| Chủ thể | Loại | Verb | Resource | Phạm vi |
+| --- | --- | --- | --- | --- |
+| `web`, `api`, `db`, `db-migrate`, `node-agent` | ServiceAccount, không token | — | — | — |
+| `db-backup` | ServiceAccount, token chiếu tay | `get`, `patch` | ConfigMap `backup-status` | `bookstore` |
+| `ci-deployer` | ServiceAccount, token có hạn | đọc, `patch`, `update` / `create` | Deployment, ReplicaSet (đọc) / ConfigMap | `bookstore` |
+| nhóm `bookstore-devs` | Group | `get`, `list`, `watch` (ClusterRole `view`) | hầu hết object, **không** Secret | `bookstore` |
+| nhóm `bookstore-oncall` | Group | `patch` / `get`, `create` | `pods/ephemeralcontainers` / `pods/exec`, `pods/attach` | `bookstore` |
+
+Ý chính cho ADR:
+
+1. NetworkPolicy chặn **đường mạng** từ Pod; token là **credential**. Ai đọc được filesystem của Pod
+   (`exec`, debug container, lỗ hổng trong ứng dụng) mang token ra chỗ khác và dùng được — dòng `200`
+   từ master là bằng chứng. Gỡ token là xóa luôn credential; hai lớp bổ sung nhau.
+2. Plugin admission `ServiceAccount`: điền `default`, thêm projected volume `kube-api-access-*` và mount
+   của nó, chép `imagePullSecrets` từ ServiceAccount. Chặng 2 chỉ thấy username, verb, resource;
+   chỉ chặng 3 thấy và **sửa được** nội dung object (bài 119).
+3. CCM là một tiến trình gọi API như mọi chủ thể khác: bài 254 mục *Yêu cầu* nói nó có thể cần quy
+   tắc RBAC. Giống `ci-deployer`: một danh tính phi con người, cần quyền tối thiểu và quy trình thu hồi.
+   Trên cluster này, chính các controller trong kube-controller-manager cũng là những
+   ServiceAccount riêng trong `kube-system` — B6 sẽ dùng một cái.
+4. Bảng ở trên.
+
+</details>
+
+## B2. [BS-9A-02] Mỗi thành phần một ServiceAccount
+
+**Loại:** Tính năng.
+
+**Bối cảnh:** B1 cho thấy mọi Pod của dự án chạy dưới `default` và mang token mà không thành phần nào
+dùng. Sprint này đặt danh tính riêng cho từng thành phần — để sau này cấp quyền cho một thành phần
+không vô tình cấp cho cả namespace — và thu hồi token ở mọi nơi không cần.
+
+**Yêu cầu:**
+
+1. Sáu ServiceAccount `web`, `api`, `db`, `db-migrate`, `db-backup`, `node-agent` trong `bookstore`, label
+   theo hợp đồng: `part-of` và `component` của thành phần tương ứng (`db-migrate` là `migrate`,
+   `db-backup` là `backup`, `node-agent` là `agent`). Manifest ở `k8s/app/rbac/serviceaccounts.yaml`.
+2. Mỗi workload chạy dưới ServiceAccount của nó: Deployment `web`, `api`; StatefulSet `db`; Job
+   `db-migrate`; CronJob `db-backup`; DaemonSet `node-agent`.
+3. Không Pod nào của dự án có token API trong filesystem. Thiết lập đặt ở **ServiceAccount**, kể cả
+   ServiceAccount `default` của `bookstore`.
+4. Hệ thống vẫn đạt toàn bộ smoke của tag `lab-8c`.
+5. Chứng minh hai điều của bài 279: đổi ServiceAccount của một Pod đang chạy bị API server từ chối;
+   Pod tự khai tự mount ở cấp Pod **thắng** thiết lập của ServiceAccount.
+
+**Ràng buộc:** chưa cấp Role nào trong ticket này. Pod thử nghiệm ở `~/lab-work/9a/`, không mang label
+dự án, xóa khi xong. Không sửa ServiceAccount bằng `kubectl edit` — mọi thay đổi đi qua repo.
+
+**Đọc lại:**
+
+- Bài [118](../118-service-accounts-vi.md): [*Cách sử dụng service account*](../118-service-accounts-vi.md#how-to-use),
+  [*Gán ServiceAccount cho một Pod*](../118-service-accounts-vi.md#assign-to-pod),
+  [*Các trường hợp sử dụng*](../118-service-accounts-vi.md#use-cases).
+- Bài [279](../279-configure-service-account-vi.md):
+  [*Từ chối tự động mount thông tin xác thực API*](../279-configure-service-account-vi.md#từ-chối-tự-động-mount-thông-tin-xác-thực-api-opt-out-of-api-credential-automounting),
+  [*Sử dụng nhiều hơn một ServiceAccount*](../279-configure-service-account-vi.md#use-multiple-service-accounts).
+- Bài [120](../120-rbac-good-practices-vi.md): [*Gia cố*](../120-rbac-good-practices-vi.md#gia-cố-hardening),
+  [*Giảm thiểu việc phân phối các token đặc quyền*](../120-rbac-good-practices-vi.md#giảm-thiểu-việc-phân-phối-các-token-đặc-quyền-minimize-distribution-of-privileged-tokens).
+
+**Bàn giao:** `k8s/app/rbac/serviceaccounts.yaml`; `k8s/app/kustomization.yaml`; sáu manifest workload;
+`~/lab-work/9a/sa-ep-token.yaml`; `docs/adr/NNNN-serviceaccount-tung-thanh-phan.md`;
+`~/lab-evidence/9a/b2-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `teardown.sh` rồi `deploy.sh` từ repo thành công.
+- `PASS:` sáu ServiceAccount đúng tên, đúng label, tắt tự mount; `default` của `bookstore` cũng tắt.
+- `PASS:` sáu workload chạy dưới đúng ServiceAccount của mình.
+- `PASS:` không Pod nào của dự án có volume token tự động; trong Pod `web` không còn file token.
+- `PASS:` smoke của tag `lab-8c` vẫn PASS.
+- `PASS:` đổi ServiceAccount của Pod `api` đang chạy bị từ chối.
+- `PASS:` Pod thử nghiệm dùng ServiceAccount `web` nhưng khai tự mount ở cấp Pod thì có token.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-serviceaccount-tung-thanh-phan.md`:
+
+1. Tắt tự mount ở ServiceAccount, nhưng yêu cầu 5 cho thấy người viết Pod ghi đè được. Vậy thứ gì
+   thật sự ngăn một người đưa token trở lại Pod? (Đọc mục *Tạo workload* của bài 120.)
+2. Năm trong sáu thành phần không gọi API. Vì sao vẫn tách ServiceAccount riêng thay vì để chung
+   `default` đã tắt token?
+3. Đổi `serviceAccountName` làm mọi Pod của dự án bị thay. Vì sao — nói bằng tính bất biến của field
+   này trên Pod và bằng template của controller.
+4. `node-agent` chạy trên cả ba node, kể cả control plane. Nếu ServiceAccount của nó có quyền mạnh,
+   bài 120 cảnh báo gì về DaemonSet?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Field trên ServiceAccount: `automountServiceAccountToken` (cấp object, không nằm trong `spec`).
+- Field trên Pod template: `serviceAccountName`. CronJob đặt nó ở
+  `spec.jobTemplate.spec.template.spec`.
+- ServiceAccount `default` đã tồn tại sẵn; `kubectl apply` một manifest cùng tên chỉ sửa nó.
+- Thử đổi field bất biến mà không làm hỏng gì: `kubectl patch ... --dry-run=server`.
+- Pod thử nghiệm cho yêu cầu 5: `serviceAccountName: web`, `automountServiceAccountToken: true` ở
+  `spec`, ghim worker2, có `requests`/`limits`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; script teardown rồi deploy lại</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/9a; W=~/lab-work/9a
+cd ~/bookstore
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+
+./scripts/teardown.sh > "$EV/b2-teardown.txt" 2>&1 && ./scripts/deploy.sh > "$EV/b2-deploy.txt" 2>&1 \
+  && echo 'PASS: teardown + deploy tu repo thanh cong'
+
+BAD=0
+for X in web:web api:api db:db db-migrate:migrate db-backup:backup node-agent:agent; do
+  N="${X%%:*}"; C="${X##*:}"
+  { [ "$(jp "serviceaccount/$N" '{.metadata.labels.app\.kubernetes\.io/part-of}')" = bookstore ] && \
+    [ "$(jp "serviceaccount/$N" '{.metadata.labels.app\.kubernetes\.io/component}')" = "$C" ] && \
+    [ "$(jp "serviceaccount/$N" '{.automountServiceAccountToken}')" = false ]; } \
+    || { echo "FAIL: ServiceAccount $N"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: sau ServiceAccount dung ten, label, tat tu mount'
+[ "$(jp serviceaccount/default '{.automountServiceAccountToken}')" = false ] \
+  && echo 'PASS: default cua bookstore khong tu mount token'
+
+T='{.spec.template.spec.serviceAccountName}'
+{ [ "$(jp deployment/web "$T")" = web ] && [ "$(jp deployment/api "$T")" = api ] && \
+  [ "$(jp statefulset/db "$T")" = db ] && [ "$(jp daemonset/node-agent "$T")" = node-agent ] && \
+  [ "$(jp job/db-migrate "$T")" = db-migrate ] && \
+  [ "$(jp cronjob/db-backup '{.spec.jobTemplate.spec.template.spec.serviceAccountName}')" = db-backup ]; } \
+  && echo 'PASS: moi workload chay duoi ServiceAccount cua no'
+
+kubectl -n "$NS" get pods -l app.kubernetes.io/part-of=bookstore \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{.spec.serviceAccountName}{"|"}{range .spec.volumes[*]}{.name}{","}{end}{"|"}{range .spec.containers[*]}{range .volumeMounts[*]}{.mountPath}{","}{end}{end}{range .spec.initContainers[*]}{range .volumeMounts[*]}{.mountPath}{","}{end}{end}{"\n"}{end}' \
+  > "$EV/b2-pod-sa-sau.txt"
+grep -qE 'kube-api-access-|/var/run/secrets/kubernetes.io/serviceaccount' "$EV/b2-pod-sa-sau.txt" \
+  && echo 'FAIL: con Pod mang token tu dong' || echo 'PASS: khong Pod nao cua du an mang token tu dong'
+kubectl -n "$NS" exec deploy/web -c status-writer -- test -e /var/run/secrets/kubernetes.io/serviceaccount/token \
+  && echo 'FAIL: web van co file token' || echo 'PASS: trong Pod web khong con file token'
+./tests/smoke.sh > "$EV/b2-smoke.txt" 2>&1 && echo 'PASS: smoke cua lab-8c van PASS'
+
+P="$(kubectl -n "$NS" get pod -l app.kubernetes.io/component=api -o jsonpath='{.items[0].metadata.name}')"
+kubectl -n "$NS" patch pod "$P" --dry-run=server -p '{"spec":{"serviceAccountName":"db-backup"}}' \
+  > "$EV/b2-doi-sa.txt" 2>&1 && echo 'FAIL: doi duoc ServiceAccount cua Pod dang chay' \
+  || echo 'PASS: API server tu choi doi ServiceAccount cua Pod dang chay'
+
+kubectl apply -f "$W/sa-ep-token.yaml"
+kubectl -n "$NS" wait --for=condition=Ready pod/sa-ep-token --timeout=120s
+kubectl -n "$NS" exec sa-ep-token -- test -s /var/run/secrets/kubernetes.io/serviceaccount/token \
+  && echo 'PASS: tu mount o cap Pod thang thiet lap cua ServiceAccount'
+kubectl -n "$NS" delete pod sa-ep-token --wait=true
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# k8s/app/rbac/serviceaccounts.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default                      # có sẵn trong mọi namespace; apply chỉ sửa nó
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: web
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: web
+    app.kubernetes.io/name: nginx
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: api
+    app.kubernetes.io/name: postgrest
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: db
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: db
+    app.kubernetes.io/name: postgresql
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: db-migrate
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: migrate
+    app.kubernetes.io/name: postgresql
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: db-backup
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/name: postgresql
+automountServiceAccountToken: false     # token chỉ chiếu tay vào đúng một container ở B3
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-agent
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/name: busybox
+automountServiceAccountToken: false
+```
+
+Thêm `rbac/serviceaccounts.yaml` vào mục `resources` của `k8s/app/kustomization.yaml`. Trong spec Pod
+của từng workload, cùng cấp với `containers`, thêm đúng một dòng:
+
+```yaml
+      serviceAccountName: web          # api, db, db-migrate, db-backup, node-agent tương ứng
+```
+
+```yaml
+# ~/lab-work/9a/sa-ep-token.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sa-ep-token
+  namespace: bookstore
+spec:
+  serviceAccountName: web
+  automountServiceAccountToken: true    # cấp Pod thắng cấp ServiceAccount
+  nodeSelector:
+    kubernetes.io/hostname: lab-k8s-worker2
+  containers:
+  - name: app
+    image: busybox:1.37
+    command: ["sh", "-c", "sleep 3600"]
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+```
+
+```bash
+cd ~/bookstore && ./scripts/deploy.sh
+```
+
+Ý chính cho ADR:
+
+1. Bài 279: spec của Pod thắng. Thứ ngăn thật sự là **RBAC trên quyền tạo workload**: ai tạo hay sửa
+   được workload trong `bookstore` thì chọn được ServiceAccount và cách mount — bài 120, *Tạo
+   workload*. B4 đo đúng rủi ro này với `ci-deployer`.
+2. Danh tính riêng là chỗ để cấp quyền **sau này** mà không lan sang thành phần khác (B3 chỉ chạm
+   `db-backup`); request và log của API server gọi đúng tên thành phần; bài 118 liệt kê việc nhóm Pod
+   theo danh tính cho phần mềm bảo mật. Xóa hay đổi một ServiceAccount không ảnh hưởng thành phần khác.
+3. Bài 279: `serviceAccountName` chỉ đặt được lúc tạo Pod hoặc trong template. Đổi template là
+   revision mới, controller thay từng Pod — không có cách "cập nhật tại chỗ".
+4. Bài 120, *Giảm thiểu việc phân phối các token đặc quyền*: DaemonSet có mặt ở **mọi** node, nên một
+   container escape ở bất kỳ node nào cũng chạm tới token đó. `node-agent` không gọi API — không có
+   token là lời giải gọn nhất.
+
+</details>
+
+## B3. [BS-9A-03] `db-backup` ghi `backup-status` qua Kubernetes API
+
+**Loại:** Tính năng, kèm điều tra.
+
+**Bối cảnh:** người vận hành cần biết lần backup thành công gần nhất mà không phải lục log Job — Job
+bị dọn theo giới hạn lịch sử. Dự án lưu kết quả vào ConfigMap `backup-status`
+([mục 4.1](DU-AN-BOOKSTORE.md#41-tên-và-label)). `db-backup` thành thành phần **duy nhất** gọi API,
+và là chỗ đầu tiên đặt nguyên tắc quyền tối thiểu lên một workload thật.
+
+**Yêu cầu:**
+
+1. ConfigMap `backup-status` nằm trong repo, label `part-of` và `component: backup`. Repo **không** khai
+   giá trị trạng thái; triển khai lại không xóa trạng thái mà Job đã ghi.
+2. Mỗi lần backup thành công, ConfigMap có bốn key: `last-run` (thời điểm UTC dạng
+   `2026-10-13T08:00:00Z`), `file` (đường dẫn bản dump), `bytes` (kích thước), `pod` (tên Pod đã chạy).
+   Dòng log `db-backup: OK <file> <bytes> byte` chỉ in khi **cả** dump lẫn cập nhật trạng thái thành
+   công. Dump hỏng thì trạng thái giữ nguyên.
+3. ServiceAccount `db-backup` chỉ được `get` và `patch` đúng ConfigMap tên `backup-status`: không sửa
+   ConfigMap khác, không `list`, không `update`, không Secret.
+4. Token API chỉ có mặt trong **đúng một** container — container gọi API — sống tối đa 10 phút, và
+   container đó xác minh server bằng CA của cluster (không tắt kiểm certificate).
+5. Công cụ gọi API lấy từ một image đã khóa ở A1.3/A1.4. Ghi vào ADR vì sao chọn image đó.
+6. Điều tra trước khi viết NetworkPolicy: trên CNI của cluster, rule egress theo ClusterIP của Service
+   `kubernetes` (cổng 443) so với rule theo endpoint thật của API server — cái nào mở được đường. Rồi
+   mở egress cho Pod backup tới API server, hẹp nhất có thể.
+7. Các Pod khác của dự án vẫn không tới được API server.
+
+**Ràng buộc:** không ClusterRole, ClusterRoleBinding; không `hostNetwork`; không bật tự mount; không
+thêm image ngoài A1.3/A1.4; không token dài hạn dạng Secret. Pod và NetworkPolicy thử nghiệm ở
+`~/lab-work/9a/`, không mang label dự án, xóa khi xong. Không ghi token vào bằng chứng.
+
+**Đọc lại:**
+
+- Bài [338](../338-access-api-from-pod-vi.md):
+  [*Truy cập trực tiếp REST API*](../338-access-api-from-pod-vi.md#truy-cập-trực-tiếp-rest-api-directly-accessing-the-rest-api),
+  [*Không sử dụng proxy*](../338-access-api-from-pod-vi.md#không-sử-dụng-proxy-without-using-a-proxy).
+- Bài [279](../279-configure-service-account-vi.md):
+  [*Chiếu token của ServiceAccount vào volume*](../279-configure-service-account-vi.md#serviceaccount-token-volume-projection),
+  [*Khởi chạy Pod dùng chiếu service account token*](../279-configure-service-account-vi.md#launch-a-pod-using-service-account-token-projection).
+- Bài [118](../118-service-accounts-vi.md): [*Cấp quyền cho một ServiceAccount*](../118-service-accounts-vi.md#grant-permissions),
+  [*Xác thực credentials của service account*](../118-service-accounts-vi.md#authenticating-credentials).
+- Bài [120](../120-rbac-good-practices-vi.md#least-privilege) — đặc quyền tối thiểu; tài liệu RBAC
+  chính thức mà bài 120 bảo đọc kèm, mục
+  [Referring to resources](https://v1-35.docs.kubernetes.io/docs/reference/access-authn-authz/rbac/#referring-to-resources)
+  — `resourceNames` và giới hạn của nó.
+- Bài [84](../84-network-policies-vi.md#behavior-of-ipblock-selectors) — `ipBlock` và việc ghi đè IP
+  đích; [*NetworkPolicy và các pod `hostNetwork`*](../84-network-policies-vi.md#networkpolicy-và-các-pod-hostnetwork-networkpolicy-and-hostnetwork-pods).
+- Bài [50](../50-init-containers-vi.md) — init container chạy xong mới tới container chính (Lab 3a).
+
+**Bàn giao:** `k8s/app/backup/status-configmap.yaml`; `k8s/app/rbac/backup-status-writer.yaml`; manifest
+CronJob `db-backup`; `k8s/app/network/backup-to-apiserver.yaml`; `k8s/app/kustomization.yaml`;
+`~/lab-work/9a/np-thu.yaml`; `docs/adr/NNNN-backup-status-qua-api.md`; `~/lab-evidence/9a/b3-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` rule theo endpoint thật của API server mở được đường cho Pod thử nghiệm; kết quả của rule
+  theo ClusterIP được ghi lại.
+- `PASS:` `backup-status` mang label dự án; `deploy.sh` lần hai không xóa trạng thái đã ghi.
+- `PASS:` `db-backup` `get`/`patch` được `backup-status`; không làm được tám việc khác trong danh sách.
+- `PASS:` Job chạy tay từ CronJob `Complete`; `file`, `bytes`, `pod` trong ConfigMap khớp đúng lần chạy;
+  `last-run` mới hơn thời điểm bắt đầu.
+- `PASS:` trong Pod backup, đúng một container mount token; token xin thời hạn 600 giây; nguồn có CA
+  của cluster; CronJob không chứa cờ tắt kiểm certificate.
+- `PASS:` Pod `web` vẫn không tới được API server; dự án không có object RBAC cấp cluster.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-backup-status-qua-api.md`:
+
+1. Vì sao `resourceNames` dùng được với `get`/`patch` nhưng không giới hạn được `create`? Hệ quả: ai
+   phải tạo `backup-status`, và vì sao nó **không** được đi qua `configMapGenerator`?
+2. Vì sao token nằm trong một volume chiếu tay, mount vào đúng một container, thay vì bật tự mount cho
+   cả Pod? Container nào trong Pod của bạn không cần token, và nó đang cầm credential gì khác?
+3. Ba image đã khóa đều có shell trừ `postgrest`. Vì sao `busybox` và `postgres` không làm được việc
+   gọi API này, và cái giá của việc dùng image `web` làm công cụ là gì?
+4. Rule theo ClusterIP có hiệu lực trên cluster của bạn không? Dẫn câu của bài 84 về `ipBlock`. Rule
+   bạn chọn gãy khi nào (đổi IP control plane, chuyển sang topology HA của Lab 8b)?
+5. Token của Pod backup bị lộ: kẻ cầm nó làm được gì, trong bao lâu? So với token tự mount của mọi Pod
+   trước sprint.
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Kiểm công cụ có trong image bằng Pod tạm, ví dụ:
+
+   ```bash
+   kubectl -n default run kiem-anh --rm -i --restart=Never --image=<image> \
+     --command -- sh -c 'command -v curl wget'
+   ```
+
+   Với `busybox`, đọc `wget --help`: chỉ có `GET` và `POST` (`--post-data`); không có `PATCH`.
+2. Gọi API từ trong Pod cần ba thứ của bài 338: địa chỉ (`kubernetes.default.svc`), CA, token. Một
+   projected volume ghép được cả ba: `serviceAccountToken` (`expirationSeconds`), `configMap`
+   `kube-root-ca.crt` (key `ca.crt`) và `downwardAPI` (`metadata.namespace`). Xem mẫu thật trên một
+   Pod có tự mount:
+   `kubectl -n kube-system get pod -l k8s-app=kube-dns -o yaml | grep -A25 'kube-api-access'`.
+3. "Dump xong mới báo": dump trong init container, báo trạng thái trong container chính; hai container
+   trao kết quả qua một `emptyDir`.
+4. Sửa ConfigMap bằng HTTP `PATCH` với header `Content-Type: application/merge-patch+json`, thân
+   `{"data":{"key":"value"}}`. Thử mà không đổi gì: thêm `?dryRun=All` vào URL.
+5. Role: `rules[].resourceNames: ["backup-status"]`. ConfigMap không khai `data` thì `kubectl apply` lần
+   sau không đụng vào các key do Job ghi.
+6. Endpoint thật của API server:
+   `kubectl -n default get endpointslice -l kubernetes.io/service-name=kubernetes -o wide`.
+7. `kubectl logs job/<tên>` đọc container chính đầu tiên; log init container cần `-c <tên>`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — phần điều tra NetworkPolicy, chạy trước khi viết policy thật</summary>
+
+Tự viết `~/lab-work/9a/np-thu.yaml`: Pod `busybox` tên `np-thu` trong `bookstore`, label
+`lab-9a: np-thu` (không mang label dự án), `sleep 3600`, ghim worker2, có `requests`/`limits`. Script
+tự sinh hai NetworkPolicy thử nghiệm chỉ chọn Pod đó.
+
+```bash
+NS=bookstore; EV=~/lab-evidence/9a; W=~/lab-work/9a
+SVC_IP="$(kubectl -n default get service kubernetes -o jsonpath='{.spec.clusterIP}')"
+SVC_PORT="$(kubectl -n default get service kubernetes -o jsonpath='{.spec.ports[?(@.name=="https")].port}')"
+EP_IP="$(kubectl -n default get endpointslice -l kubernetes.io/service-name=kubernetes -o jsonpath='{.items[0].endpoints[0].addresses[0]}')"
+EP_PORT="$(kubectl -n default get endpointslice -l kubernetes.io/service-name=kubernetes -o jsonpath='{.items[0].ports[0].port}')"
+echo "Service kubernetes $SVC_IP:$SVC_PORT -> endpoint $EP_IP:$EP_PORT" | tee "$EV/b3-dieu-tra-np.txt"
+
+np() {   # $1 = tên, $2 = CIDR, $3 = cổng
+cat > "$W/$1.yaml" <<EOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: $1
+  namespace: bookstore
+spec:
+  podSelector:
+    matchLabels:
+      lab-9a: np-thu
+  policyTypes: ["Egress"]
+  egress:
+  - to:
+    - ipBlock:
+        cidr: $2
+    ports:
+    - protocol: TCP
+      port: $3
+EOF
+kubectl apply -f "$W/$1.yaml"
+}
+thu() { kubectl -n "$NS" exec np-thu -- timeout 8 wget -qO- --no-check-certificate \
+          "https://${SVC_IP}:${SVC_PORT}/version" >/dev/null 2>&1; }
+
+kubectl apply -f "$W/np-thu.yaml"
+kubectl -n "$NS" wait --for=condition=Ready pod/np-thu --timeout=120s
+thu && echo 'FAIL: chua co rule nao ma da toi duoc API server' || echo 'PASS: default deny chan Pod thu nghiem'
+
+np thu-clusterip "${SVC_IP}/32" "$SVC_PORT"
+R1=khong; for i in 1 2 3; do sleep 3; thu && { R1=co; break; }; done
+echo "rule ClusterIP ${SVC_IP}:${SVC_PORT} -> toi duoc API server: $R1" | tee -a "$EV/b3-dieu-tra-np.txt"
+kubectl -n "$NS" delete networkpolicy thu-clusterip
+
+np thu-endpoint "${EP_IP}/32" "$EP_PORT"
+R2=khong; for i in $(seq 1 10); do sleep 3; thu && { R2=co; break; }; done
+echo "rule endpoint ${EP_IP}:${EP_PORT} -> toi duoc API server: $R2" | tee -a "$EV/b3-dieu-tra-np.txt"
+[ "$R2" = co ] && echo 'PASS: rule theo endpoint that cua API server mo duoc duong'
+echo "KET QUA can giai thich trong ADR: rule ClusterIP = $R1, rule endpoint = $R2"
+
+kubectl -n "$NS" delete networkpolicy thu-endpoint
+kubectl -n "$NS" delete pod np-thu --wait=true
+```
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/9a
+cd ~/bookstore
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+./scripts/deploy.sh > "$EV/b3-deploy.txt" 2>&1 && echo 'PASS: deploy.sh thanh cong'
+
+L='{.metadata.labels.app\.kubernetes\.io/part-of}/{.metadata.labels.app\.kubernetes\.io/component}'
+[ "$(jp configmap/backup-status "$L")" = bookstore/backup ] && echo 'PASS: backup-status mang label du an'
+
+B=system:serviceaccount:bookstore:db-backup
+can() { kubectl auth can-i "$@" -n "$NS" --as="$B"; }
+{ [ "$(can get configmaps/backup-status)" = yes ] && [ "$(can patch configmaps/backup-status)" = yes ]; } \
+  && echo 'PASS: db-backup get va patch duoc backup-status'
+BAD=0
+for Q in "update configmaps/backup-status" "get configmaps/khac" "patch configmaps/khac" "list configmaps" \
+         "create configmaps" "get secrets" "list secrets" "create pods"; do
+  [ "$(can $Q)" = no ] || { echo "FAIL: db-backup lai duoc phep: $Q"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: db-backup khong lam duoc tam viec khac'
+
+T0="$(date +%s)"; J="b3-backup-$T0"
+kubectl -n "$NS" create job "$J" --from=cronjob/db-backup
+kubectl -n "$NS" wait --for=condition=Complete "job/$J" --timeout=300s && echo 'PASS: Job backup Complete'
+kubectl -n "$NS" logs "job/$J" > "$EV/b3-backup-log.txt" 2>&1
+LINE="$(grep '^db-backup: OK' "$EV/b3-backup-log.txt" | tail -1)"
+F="$(echo "$LINE" | awk '{print $3}')"; BY="$(echo "$LINE" | awk '{print $4}')"
+POD="$(kubectl -n "$NS" get pods -l batch.kubernetes.io/job-name="$J" -o jsonpath='{.items[0].metadata.name}')"
+kubectl -n "$NS" get configmap backup-status -o jsonpath='{.data}' > "$EV/b3-backup-status.json"; cat "$EV/b3-backup-status.json"; echo
+{ [ -n "$F" ] && [ "$(jp configmap/backup-status '{.data.file}')" = "$F" ] && \
+  [ "$(jp configmap/backup-status '{.data.bytes}')" = "$BY" ] && \
+  [ "$(jp configmap/backup-status '{.data.pod}')" = "$POD" ]; } && echo 'PASS: backup-status khop dung lan chay vua roi'
+LR="$(jp configmap/backup-status '{.data.last-run}')"
+[ "$(date -d "$LR" +%s 2>/dev/null || echo 0)" -ge "$((T0 - 5))" ] && echo "PASS: last-run=$LR moi hon thoi diem bat dau"
+
+VT="$(kubectl -n "$NS" get pod "$POD" -o jsonpath='{range .spec.volumes[*]}{.name}{"="}{.projected.sources[*].serviceAccountToken.expirationSeconds}{"\n"}{end}' | grep -v '=$')"
+VOLT="${VT%%=*}"; EXP="${VT##*=}"
+N_MOUNT="$( { kubectl -n "$NS" get pod "$POD" -o jsonpath='{range .spec.initContainers[*]}{range .volumeMounts[*]}{.name}{"\n"}{end}{end}'
+             kubectl -n "$NS" get pod "$POD" -o jsonpath='{range .spec.containers[*]}{range .volumeMounts[*]}{.name}{"\n"}{end}{end}'; } \
+           | grep -cx "$VOLT")"
+echo "volume token=$VOLT expirationSeconds=$EXP so container mount=$N_MOUNT" | tee "$EV/b3-token-volume.txt"
+{ [ -n "$VOLT" ] && [ "$N_MOUNT" -eq 1 ] && [ "${EXP:-99999}" -le 600 ]; } \
+  && echo 'PASS: dung mot container mount token, token xin toi da 600 giay'
+kubectl -n "$NS" get pod "$POD" -o jsonpath='{.spec.volumes[*].projected.sources[*].configMap.name}' \
+  | grep -qw kube-root-ca.crt && echo 'PASS: container goi API co CA cua cluster'
+kubectl -n "$NS" get cronjob db-backup -o yaml | grep -Eq -- '--insecure|--no-check-certificate|curl -k|curl -sk' \
+  && echo 'FAIL: CronJob tat kiem certificate' || echo 'PASS: khong co co tat kiem certificate'
+kubectl -n "$NS" delete job "$J" --wait=true
+
+./scripts/deploy.sh > "$EV/b3-deploy-2.txt" 2>&1
+[ "$(jp configmap/backup-status '{.data.file}')" = "$F" ] && echo 'PASS: trien khai lai khong xoa trang thai da ghi'
+
+kubectl -n "$NS" exec deploy/web -c status-writer -- timeout 10 wget -qO- --no-check-certificate \
+  https://kubernetes.default.svc/version >/dev/null 2>&1 \
+  && echo 'FAIL: web toi duoc API server' || echo 'PASS: web van khong toi duoc API server'
+[ "$(kubectl get clusterrole,clusterrolebinding -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && echo 'PASS: du an khong co object RBAC cap cluster'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# k8s/app/backup/status-configmap.yaml — cố ý không có "data": Job db-backup ghi, repo không ghi
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-status
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/name: postgresql
+```
+
+```yaml
+# k8s/app/rbac/backup-status-writer.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backup-status-writer
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: backup
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["backup-status"]   # không giới hạn được create — nên ConfigMap phải có sẵn
+  verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backup-status-writer
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: backup
+subjects:
+- kind: ServiceAccount
+  name: db-backup
+  namespace: bookstore
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: backup-status-writer
+```
+
+```yaml
+# k8s/app/network/backup-to-apiserver.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backup-to-apiserver
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: backup
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: bookstore
+      app.kubernetes.io/component: backup
+  policyTypes: ["Egress"]
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 192.168.100.221/32     # endpoint của Service kubernetes — ĐỌC từ EndpointSlice, đừng chép số này
+    ports:
+    - protocol: TCP
+      port: 6443
+```
+
+Spec Pod trong `jobTemplate` của CronJob `db-backup`. Phần `env` của `pg-dump`, `volumes` PVC
+`backup-store` và `priorityClassName` là của bạn từ các sprint trước — giữ nguyên; phần mang chú thích
+`9a` là mới. Khối `securityContext` thuộc B7, để sẵn ở đây cho trọn manifest:
+
+```yaml
+        spec:
+          serviceAccountName: db-backup                 # 9a — B2
+          priorityClassName: bookstore-batch            # 7a, giữ nguyên
+          restartPolicy: Never
+          securityContext:                              # 9a — B7
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+          volumes:
+          - name: backup
+            persistentVolumeClaim:
+              claimName: backup-store                   # 6a, giữ nguyên
+          - name: run                                   # 9a — kết quả dump chuyển cho container báo
+            emptyDir: {}
+          - name: api-credentials                       # 9a — token chỉ cho container gọi API
+            projected:
+              sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                  - {key: ca.crt, path: ca.crt}
+              - downwardAPI:
+                  items:
+                  - path: namespace
+                    fieldRef: {fieldPath: metadata.namespace}
+          initContainers:
+          - name: pg-dump                               # 9a — container backup cũ chuyển thành init
+            image: postgres:17.11
+            env:
+            # --- PGHOST, PGUSER, PGDATABASE, PGCONNECT_TIMEOUT, PGPASSWORD: giữ nguyên của bạn ---
+            command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "pg-dump: $(id)"
+              grep NoNewPrivs /proc/self/status | sed 's/^/pg-dump: /'
+              F="/backup/bookstore-$(date +%Y%m%dT%H%M%S).sql"
+              pg_dump --no-owner --file="$F"
+              grep -q 'CREATE TABLE api.books' "$F"
+              B="$(wc -c < "$F")"
+              printf 'FILE=%s\nBYTES=%s\n' "$F" "$B" > /run/backup/result
+              echo "pg-dump: xong $F $B byte, chu so huu $(stat -c '%u:%g' "$F")"
+            securityContext:
+              allowPrivilegeEscalation: false           # 9a — B7
+            resources:
+              requests: {cpu: 50m, memory: 64Mi}
+              limits: {cpu: 200m, memory: 128Mi}
+            volumeMounts:
+            - {name: backup, mountPath: /backup}
+            - {name: run, mountPath: /run/backup}
+          containers:
+          - name: report-status                         # 9a — container duy nhất cầm token
+            image: nginxinc/nginx-unprivileged:1.30.5-alpine   # chỉ để dùng curl có sẵn trong image
+            env:
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+            command:
+            - sh
+            - -c
+            - |
+              set -eu
+              echo "report-status: $(id)"
+              grep NoNewPrivs /proc/self/status | sed 's/^/report-status: /'
+              SA=/var/run/secrets/bookstore-api
+              F="$(sed -n 's/^FILE=//p' /run/backup/result)"
+              B="$(sed -n 's/^BYTES=//p' /run/backup/result)"
+              NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              BODY="$(printf '{"data":{"last-run":"%s","file":"%s","bytes":"%s","pod":"%s"}}' \
+                "$NOW" "$F" "$B" "$POD_NAME")"
+              CODE="$(curl -sS --max-time 20 -o /run/backup/api-response.json -w '%{http_code}' \
+                --cacert "$SA/ca.crt" \
+                -H "Authorization: Bearer $(cat "$SA/token")" \
+                -H 'Content-Type: application/merge-patch+json' \
+                -X PATCH --data-binary "$BODY" \
+                "https://kubernetes.default.svc/api/v1/namespaces/$(cat "$SA/namespace")/configmaps/backup-status")" \
+                || CODE=000
+              if [ "$CODE" != 200 ]; then
+                echo "db-backup: LOI cap nhat backup-status, HTTP $CODE"
+                cat /run/backup/api-response.json 2>/dev/null; echo
+                exit 1
+              fi
+              echo "db-backup: OK $F $B byte"
+            securityContext:
+              runAsUser: 101                            # 9a — B7: ghi đè cấp Pod, user của image này
+              allowPrivilegeEscalation: false
+            resources:
+              requests: {cpu: 10m, memory: 16Mi}
+              limits: {cpu: 100m, memory: 32Mi}
+            volumeMounts:
+            - {name: run, mountPath: /run/backup}
+            - {name: api-credentials, mountPath: /var/run/secrets/bookstore-api, readOnly: true}
+```
+
+```yaml
+# ~/lab-work/9a/np-thu.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: np-thu
+  namespace: bookstore
+  labels:
+    lab-9a: np-thu
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: lab-k8s-worker2
+  containers:
+  - name: app
+    image: busybox:1.37
+    command: ["sh", "-c", "sleep 3600"]
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+```
+
+Thêm vào `resources` của `k8s/app/kustomization.yaml`: `backup/status-configmap.yaml`,
+`rbac/backup-status-writer.yaml`, `network/backup-to-apiserver.yaml`. Rồi `./scripts/deploy.sh`.
+
+Ý chính cho ADR:
+
+1. Tài liệu RBAC: không giới hạn được `create` (và `deletecollection`) theo tên, vì lúc phân quyền
+   tên object mới có thể chưa biết. Vậy repo phải tạo `backup-status` trước; Job chỉ sửa. Đi qua
+   `configMapGenerator` thì tên mang hậu tố hash và đổi theo nội dung — `resourceNames` không còn khớp.
+2. `pg-dump` chỉ cần mật khẩu DB (đã có qua Secret), không cần API. Tự mount gắn token vào **mọi**
+   container; chiếu tay chỉ gắn vào `report-status`. Container nào bị chiếm cũng chỉ mất đúng
+   credential nó vốn cần.
+3. `wget` của busybox chỉ có `GET`/`POST`, và đường TLS dựng sẵn của nó không xác minh certificate
+   (nó tự in cảnh báo này khi gặp `https`). Image `postgres` không có HTTP client. Image `web` có
+   `curl` và CA — dùng được, nhưng bạn đang phụ thuộc vào một công cụ phụ của image ứng dụng: đổi tag
+   `web` là phải kiểm lại `curl` của Job backup.
+4. Trên cluster lab, kết quả thường là: rule ClusterIP **không** mở được đường, rule endpoint thì mở.
+   Bài 84: việc ghi đè IP đích xảy ra trước hay sau khi xử lý NetworkPolicy là **không được định
+   nghĩa**, tùy CNI và cách hiện thực Service — vì vậy phải đo, và ghi đúng số đo của bạn. Rule theo
+   IP control plane gãy khi IP đổi hoặc khi API server đứng sau load balancer (Lab 8b): khi đó endpoint
+   là nhiều IP, policy phải liệt kê đủ.
+5. Kẻ cầm token: `get`/`patch` đúng một ConfigMap, tối đa vài phút (TTL xin 600 giây, và token chết
+   khi Pod bị xóa — bài 118). Trước sprint: token của `default` tồn tại ở mọi Pod, sống theo Pod, quyền
+   discovery — ít quyền nhưng **có mặt khắp nơi**.
+
+</details>
+
+## B4. [BS-9A-04] Danh tính cho CI: `ci-deployer`
+
+**Loại:** Tính năng.
+
+**Bối cảnh:** đội sắp có pipeline CI tự cập nhật image của `web`, `api` và ConfigMap cấu hình. CI chạy
+**ngoài** cluster, nên cần một danh tính phi con người, một kubeconfig riêng, token có hạn, và một quy
+trình thu hồi khi token lộ. Không ai được copy kubeconfig quản trị cho CI.
+
+**Yêu cầu:**
+
+1. ServiceAccount `ci-deployer` trong `bookstore`, không tự mount. Quyền: cập nhật Deployment và theo
+   dõi rollout; đọc, tạo, sửa ConfigMap — trong `bookstore`. **Không**: đọc Secret, `exec`, gắn debug
+   container, sửa Namespace `bookstore`, tạo Pod, xóa Deployment, đụng object RBAC, xin token cho
+   ServiceAccount khác, đọc Node. Manifest ở `k8s/app/rbac/ci-deployer.yaml`.
+2. `scripts/ci-kubeconfig.sh` — chép nguyên văn từ khối bên dưới — sinh
+   `secrets/ci-deployer.kubeconfig`: token có thời hạn, CA của cluster, namespace mặc định `bookstore`;
+   file quyền `600`, không vào git.
+3. Chỉ dùng kubeconfig đó: chứng minh nó là `ci-deployer`, cập nhật được Deployment (server dry-run),
+   theo dõi được rollout, bị `Forbidden` khi đọc Secret.
+4. Chứng minh `kubectl proxy` chạy bằng kubeconfig CI mang **đúng** quyền CI; và gọi REST trực tiếp
+   bằng token cần CA của cluster — không dùng `--insecure`.
+5. Diễn tập thu hồi: token CI coi như đã lộ — vô hiệu nó **ngay**, không chờ hết hạn; phát hành lại.
+   Ghi runbook.
+6. Điều tra bằng server dry-run: quyền sửa Deployment có đủ để làm một Pod đọc Secret, hoặc chạy dưới
+   ServiceAccount khác không? Ghi thành nợ `TD-15` nếu có.
+7. ⭐ Một hệ thống ngoài muốn tự xác minh token CI: chỉ ra issuer cluster công bố và đối chiếu với
+   claim `iss` của token; liệt kê các loại proxy của bài 359 có thật trên cluster.
+
+**Ràng buộc:** không token dài hạn dạng Secret; không ClusterRole; kubeconfig chỉ nằm trong
+`secrets/`. Mọi thử "sửa" dùng `--dry-run=server` trừ phần thu hồi. Không in token ra màn hình hay
+bằng chứng.
+
+**Đọc lại:**
+
+- Bài [279](../279-configure-service-account-vi.md#manually-create-an-api-token-for-a-serviceaccount) —
+  `kubectl create token`, `--duration`; mục
+  [*Tạo thủ công một API token dài hạn*](../279-configure-service-account-vi.md#tạo-thủ-công-một-api-token-dài-hạn-cho-serviceaccount-manually-create-a-long-lived-api-token-for-a-serviceaccount)
+  — lý do **không** dùng; ⭐ [*Khám phá issuer*](../279-configure-service-account-vi.md#khám-phá-issuer-của-service-account-service-account-issuer-discovery).
+- Bài [118](../118-service-accounts-vi.md#get-a-token) — ghi chú về token dài hạn cho ứng dụng ngoài
+  cluster; [*Xác thực credentials*](../118-service-accounts-vi.md#authenticating-credentials).
+- Bài [359](../359-access-cluster-vi.md#directly-accessing-the-rest-api);
+  [*Rất nhiều loại proxy*](../359-access-cluster-vi.md#rất-nhiều-loại-proxy-so-many-proxies).
+- Bài [190](../190-access-cluster-api-vi.md):
+  [*Sử dụng kubectl proxy*](../190-access-cluster-api-vi.md#sử-dụng-kubectl-proxy-using-kubectl-proxy),
+  [*Không dùng kubectl proxy*](../190-access-cluster-api-vi.md#không-dùng-kubectl-proxy-without-kubectl-proxy).
+- Bài [120](../120-rbac-good-practices-vi.md): [*Tạo workload*](../120-rbac-good-practices-vi.md#workload-creation),
+  [*Sửa đổi Namespace*](../120-rbac-good-practices-vi.md#namespace-modification),
+  [*Yêu cầu token*](../120-rbac-good-practices-vi.md#yêu-cầu-token-token-request),
+  [*Rà soát định kỳ*](../120-rbac-good-practices-vi.md#rà-soát-định-kỳ-periodic-review).
+- Bài [286](../286-migrate-from-psp-vi.md#review-namespace-permissions) — mục 1, ai sửa được namespace.
+- Bài [111](../111-kubeconfig-vi.md#context) — cluster, user, context trong kubeconfig (Lab 1b).
+
+**Bàn giao:** `k8s/app/rbac/ci-deployer.yaml`; `scripts/ci-kubeconfig.sh`; `docs/runbook-ci-deployer.md`;
+`docs/adr/NNNN-danh-tinh-ci.md`; dòng `TD-15` trong `docs/tech-debt.md`; `~/lab-evidence/9a/b4-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `ci-deployer` tồn tại, không tự mount.
+- `PASS:` kubeconfig CI quyền `600`, nằm ngoài git; xác thực đúng `ci-deployer`; token có `exp` chưa tới.
+- `PASS:` CI cập nhật được Deployment (dry-run), theo dõi được rollout, đọc được ConfigMap; đọc Secret
+  bị `Forbidden`.
+- `PASS:` CI không có bất kỳ quyền nào trong danh sách cấm.
+- `PASS:` qua `kubectl proxy` của CI: Deployment `200`, Secret `403`.
+- `PASS:` REST trực tiếp: có CA thì `200`, không CA thì `curl` từ chối.
+- `PASS:` xóa ServiceAccount là token cũ `401`; tạo lại cùng tên không làm token cũ sống lại; kubeconfig
+  phát hành lại dùng được ngay.
+- `PASS:` (`TD-15`) dry-run đổi ServiceAccount của `web` và gắn Secret vào Pod `web` đều được chấp nhận;
+  cluster không đổi; `docs/tech-debt.md` có `TD-15`.
+- `PASS:` (⭐) `iss` của token khớp issuer công bố; apiserver proxy tới kubelet có thật.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-danh-tinh-ci.md`:
+
+1. Vì sao token qua TokenRequest (`kubectl create token`) thay vì Secret
+   `kubernetes.io/service-account-token`? So về claim, vòng đời, cách thu hồi.
+2. Sau khi bạn xóa rồi tạo lại `ci-deployer`, kubeconfig mới dùng được **ngay** với đúng quyền cũ.
+   Vì sao? Mục *Rà soát định kỳ* của bài 120 cảnh báo gì về chính tính chất này?
+3. `kubectl proxy` xác thực hộ hay phân quyền hộ? Một dashboard dùng chung chạy `kubectl proxy` bằng
+   kubeconfig quản trị thì ai có quyền gì?
+4. `TD-15`: vì sao quyền sửa Deployment gần như bằng quyền đọc Secret và mượn ServiceAccount? Trong
+   phạm vi kiến thức hiện tại, bạn giảm rủi ro bằng gì, và cái gì phải chờ công cụ ở giai đoạn sau?
+5. Vì sao CI tuyệt đối không được `patch` Namespace `bookstore`? Hai thứ gì đọc label namespace trên
+   cluster này hoặc sắp đọc (bài 120 *Sửa đổi Namespace*, bài 286 mục 1)?
+
+`scripts/ci-kubeconfig.sh`, chép nguyên văn:
+
+```bash
+cat > ~/bookstore/scripts/ci-kubeconfig.sh <<'EOF'
+#!/usr/bin/env bash
+# Phát hành kubeconfig cho danh tính CI ci-deployer — Lab 9a.
+# Token có thời hạn (TokenRequest qua kubectl create token); file nằm trong secrets/, không vào git.
+# Dùng: ./scripts/ci-kubeconfig.sh [thời hạn, mặc định 1h]
+set -euo pipefail
+cd "$(dirname "$0")/.."
+NS=bookstore
+SA=ci-deployer
+DURATION="${1:-1h}"
+OUT=secrets/ci-deployer.kubeconfig
+
+kubectl -n "$NS" get serviceaccount "$SA" >/dev/null
+SERVER="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' \
+  | base64 -d > "$TMP/ca.crt"
+TOKEN="$(kubectl -n "$NS" create token "$SA" --duration="$DURATION")"
+
+mkdir -p secrets
+rm -f "$OUT"; ( umask 077; touch "$OUT" )
+kubectl --kubeconfig="$OUT" config set-cluster bookstore-lab --server="$SERVER" \
+  --certificate-authority="$TMP/ca.crt" --embed-certs=true >/dev/null
+kubectl --kubeconfig="$OUT" config set-credentials "$SA" --token="$TOKEN" >/dev/null
+kubectl --kubeconfig="$OUT" config set-context ci --cluster=bookstore-lab --user="$SA" --namespace="$NS" >/dev/null
+kubectl --kubeconfig="$OUT" config use-context ci >/dev/null
+unset TOKEN
+echo "ci-kubeconfig: da ghi $OUT (thoi han yeu cau $DURATION)"
+kubectl --kubeconfig="$OUT" auth whoami -o jsonpath='{.status.userInfo.username}{"\n"}'
+EOF
+chmod +x ~/bookstore/scripts/ci-kubeconfig.sh
+```
+
+Lệnh `config set-credentials --token` đặt token vào tham số dòng lệnh trong chốc lát; chấp nhận được
+trên master một người dùng — trên máy nhiều người dùng thì phải ghi file theo cách khác.
+
+<details>
+<summary>Gợi ý</summary>
+
+- Role cần hai nhóm API: `apps` (deployments, replicasets) và nhóm lõi `""` (configmaps).
+  `kubectl set image` đọc rồi `patch`; `kubectl rollout status` đọc và `watch`; `rollout undo` cần đọc
+  ReplicaSet.
+- Kiểm quyền thay CI mà không cần token: `kubectl auth can-i <verb> <resource> -n bookstore
+  --as=system:serviceaccount:bookstore:ci-deployer`. Subresource dùng `--subresource=exec`,
+  `--subresource=ephemeralcontainers`, `--subresource=token`.
+- Đọc token từ kubeconfig vào biến để giải mã claim — `kubectl config view --raw` với
+  `-o jsonpath='{.users[0].user.token}'` và `--kubeconfig` trỏ tới file của CI. Phần giữa hai dấu
+  chấm là payload base64url của JWT.
+- Thu hồi: token do TokenRequest phát hành gắn với **UID** của ServiceAccount (bài 118, bước kiểm
+  thứ ba). Repo vẫn khai ServiceAccount, nên `./scripts/deploy.sh` tạo lại nó với UID mới.
+- Dry-run đổi ServiceAccount của `web`: `kubectl patch deployment web --dry-run=server --type=json -p
+  '[{"op":"replace","path":"/spec/template/spec/serviceAccountName","value":"db-backup"}]'`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; script xóa và tạo lại ServiceAccount CI</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/9a; W=~/lab-work/9a
+cd ~/bookstore
+K=secrets/ci-deployer.kubeconfig
+CI=system:serviceaccount:bookstore:ci-deployer
+jwt_pay() {
+  P="$(printf '%s' "$1" | cut -d. -f2)"
+  case $(( ${#P} % 4 )) in 2) P="${P}==" ;; 3) P="${P}=" ;; esac
+  printf '%s' "$P" | tr -- '-_' '+/' | base64 -d 2>/dev/null
+}
+jwt_str() { jwt_pay "$1" | sed -n "s/.*\"$2\":\"\([^\"]*\)\".*/\1/p"; }
+jwt_num() { jwt_pay "$1" | sed -n "s/.*\"$2\":\([0-9]*\).*/\1/p"; }
+
+./scripts/deploy.sh > "$EV/b4-deploy.txt" 2>&1 && echo 'PASS: deploy.sh thanh cong'
+[ "$(kubectl -n "$NS" get serviceaccount ci-deployer -o jsonpath='{.automountServiceAccountToken}')" = false ] \
+  && echo 'PASS: ci-deployer ton tai, khong tu mount token'
+
+./scripts/ci-kubeconfig.sh 30m > "$EV/b4-ci-kubeconfig.txt"
+{ [ "$(stat -c '%a' "$K")" = 600 ] && git check-ignore -q "$K" && \
+  [ -z "$(git ls-files secrets/ | grep -v '\.gitkeep$')" ]; } && echo 'PASS: kubeconfig CI quyen 600, nam ngoai git'
+[ "$(kubectl --kubeconfig="$K" auth whoami -o jsonpath='{.status.userInfo.username}')" = "$CI" ] \
+  && echo 'PASS: kubeconfig nay xac thuc dung ci-deployer'
+TOK="$(kubectl --kubeconfig="$K" config view --raw -o jsonpath='{.users[0].user.token}')"
+EXP="$(jwt_num "$TOK" exp)"; IAT="$(jwt_num "$TOK" iat)"
+echo "sub=$(jwt_str "$TOK" sub) | iss=$(jwt_str "$TOK" iss) | exp-iat=$(( ${EXP:-0} - ${IAT:-0} )) giay" \
+  | tee "$EV/b4-token-claim.txt"
+{ [ -n "$EXP" ] && [ "$EXP" -gt "$(date +%s)" ]; } && echo 'PASS: token co claim exp va chua het han'
+
+kubectl --kubeconfig="$K" -n "$NS" set image deployment/web nginx=nginxinc/nginx-unprivileged:1.30.5-alpine \
+  --dry-run=server > "$EV/b4-ci-set-image.txt" 2>&1 && echo 'PASS: CI cap nhat duoc Deployment (server dry-run)'
+kubectl --kubeconfig="$K" -n "$NS" rollout status deployment/web --timeout=60s >/dev/null \
+  && echo 'PASS: CI theo doi duoc rollout'
+kubectl --kubeconfig="$K" -n "$NS" get configmaps >/dev/null && echo 'PASS: CI doc duoc ConfigMap'
+kubectl --kubeconfig="$K" -n "$NS" get secret db-credentials > "$EV/b4-ci-secret.txt" 2>&1
+grep -qi 'forbidden' "$EV/b4-ci-secret.txt" && echo 'PASS: CI bi Forbidden khi doc Secret'
+
+BAD=0
+for Q in "get secrets" "list secrets" "create pods --subresource=exec" \
+         "patch pods --subresource=ephemeralcontainers" "patch namespaces/bookstore" "create pods" \
+         "delete deployments" "create rolebindings" "create serviceaccounts --subresource=token" \
+         "list nodes" "get nodes --subresource=proxy"; do
+  [ "$(kubectl auth can-i $Q -n "$NS" --as="$CI")" = no ] || { echo "FAIL: ci-deployer lai duoc: $Q"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: ci-deployer khong co quyen nao trong danh sach cam'
+
+ss -ltn | grep -q ':8001 ' && echo 'FAIL: cong 8001 dang ban — dong tien trinh cu truoc'
+kubectl --kubeconfig="$K" proxy --port=8001 > "$EV/b4-proxy.log" 2>&1 & PX=$!
+for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:8001/api/ && break; sleep 1; done
+C1="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8001/apis/apps/v1/namespaces/bookstore/deployments)"
+C2="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8001/api/v1/namespaces/bookstore/secrets)"
+kill "$PX"; wait "$PX" 2>/dev/null
+echo "qua kubectl proxy cua CI: deployments=$C1 secrets=$C2" | tee "$EV/b4-proxy.txt"
+[ "$C1" = 200 ] && [ "$C2" = 403 ] && echo 'PASS: kubectl proxy mang dung quyen cua kubeconfig no dung'
+
+SRV="$(kubectl --kubeconfig="$K" config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
+kubectl --kubeconfig="$K" config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' \
+  | base64 -d > "$W/ca.crt"
+code() { curl -s -o /dev/null -w '%{http_code}' --cacert "$W/ca.crt" -H "Authorization: Bearer $1" "$SRV$2"; }
+C3="$(code "$TOK" /apis/apps/v1/namespaces/bookstore/deployments/web)"
+curl -s -o /dev/null -H "Authorization: Bearer $TOK" "$SRV/api"; RC=$?
+echo "REST co CA: $C3 | khong CA: curl exit=$RC" | tee "$EV/b4-rest.txt"
+[ "$C3" = 200 ] && [ "$RC" -ne 0 ] && echo 'PASS: goi REST truc tiep can CA cua cluster de tin server'
+
+# Thu hồi khẩn cấp
+OLD="$TOK"
+kubectl -n "$NS" delete serviceaccount ci-deployer
+C4=''; for i in $(seq 1 60); do C4="$(code "$OLD" /api)"; [ "$C4" = 401 ] && break; sleep 1; done
+echo "token cu sau khi xoa ServiceAccount: $C4" | tee "$EV/b4-thu-hoi.txt"
+[ "$C4" = 401 ] && echo 'PASS: xoa ServiceAccount la token CI het hieu luc ngay'
+./scripts/deploy.sh > "$EV/b4-deploy-2.txt" 2>&1
+C5="$(code "$OLD" /api)"; unset OLD
+echo "token cu sau khi tao lai ServiceAccount cung ten: $C5" | tee -a "$EV/b4-thu-hoi.txt"
+[ "$C5" = 401 ] && echo 'PASS: tao lai ServiceAccount cung ten khong lam token cu song lai'
+./scripts/ci-kubeconfig.sh 30m >/dev/null
+TOK="$(kubectl --kubeconfig="$K" config view --raw -o jsonpath='{.users[0].user.token}')"
+kubectl --kubeconfig="$K" -n "$NS" get deployments >/dev/null \
+  && echo 'PASS: kubeconfig phat hanh lai dung duoc ngay, voi dung quyen cu'
+
+# TD-15
+kubectl --kubeconfig="$K" -n "$NS" patch deployment web --dry-run=server --type=json \
+  -p '[{"op":"replace","path":"/spec/template/spec/serviceAccountName","value":"db-backup"}]' \
+  > "$EV/b4-td11-muon-sa.txt" 2>&1 && echo 'PASS (TD-15): CI dat duoc web chay duoi ServiceAccount db-backup'
+kubectl --kubeconfig="$K" -n "$NS" patch deployment web --dry-run=server -p \
+  '{"spec":{"template":{"spec":{"initContainers":[{"name":"status-writer","env":[{"name":"LO_MAT_KHAU","valueFrom":{"secretKeyRef":{"name":"db-credentials","key":"postgres-password"}}}]}]}}}}' \
+  > "$EV/b4-td11-doc-secret.txt" 2>&1 && echo 'PASS (TD-15): CI gan duoc Secret vao Pod du khong doc duoc Secret qua API'
+[ "$(kubectl -n "$NS" get deployment web -o jsonpath='{.spec.template.spec.serviceAccountName}')" = web ] \
+  && echo 'PASS: dry-run khong doi gi tren cluster'
+grep -q 'TD-15' docs/tech-debt.md && echo 'PASS: tech-debt.md co TD-15'
+
+# ⭐ Issuer và các loại proxy
+ISS="$(kubectl get --raw /.well-known/openid-configuration | sed -n 's/.*"issuer":"\([^"]*\)".*/\1/p')"
+[ -n "$ISS" ] && [ "$ISS" = "$(jwt_str "$TOK" iss)" ] && echo "PASS: iss cua token CI khop issuer cong bo ($ISS)"
+[ "$(kubectl get --raw /api/v1/nodes/lab-k8s-worker2/proxy/healthz)" = ok ] \
+  && echo 'PASS: apiserver proxy toi kubelet co that — va CI khong co nodes/proxy'
+unset TOK
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# k8s/app/rbac/ci-deployer.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ci-deployer
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+automountServiceAccountToken: false     # không Pod nào chạy dưới danh tính này
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ci-deployer
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "patch", "update"]
+- apiGroups: ["apps"]
+  resources: ["replicasets"]
+  verbs: ["get", "list", "watch"]          # rollout history/undo
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch", "create", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-deployer
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+subjects:
+- kind: ServiceAccount
+  name: ci-deployer
+  namespace: bookstore
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ci-deployer
+```
+
+Thêm `rbac/ci-deployer.yaml` vào `resources` của `k8s/app/kustomization.yaml`.
+
+```markdown
+<!-- docs/runbook-ci-deployer.md -->
+# Runbook — credential của CI (ci-deployer)
+
+- Phát hành: `./scripts/ci-kubeconfig.sh 1h` → `secrets/ci-deployer.kubeconfig` (600, ngoài git).
+  Chuyển file cho CI qua kênh bí mật của CI; không commit, không gửi qua chat.
+- Thời hạn: xin đúng bằng thời gian một lần chạy pipeline; hết hạn thì phát hành lại.
+- Nghi lộ token: `kubectl -n bookstore delete serviceaccount ci-deployer` (token cũ 401 ngay),
+  `./scripts/deploy.sh` (tạo lại từ repo), `./scripts/ci-kubeconfig.sh` (phát hành mới).
+- Dấu hiệu sai: `401` = token hết hạn hoặc đã thu hồi; `403 ... ci-deployer cannot ...` = pipeline
+  làm việc ngoài phạm vi Role — sửa pipeline, không nới Role khi chưa có ADR.
+```
+
+Dòng thêm vào `docs/tech-debt.md`:
+
+```markdown
+| TD-15 | ci-deployer sửa được pod template của Deployment nên gián tiếp đọc được Secret và mượn được mọi ServiceAccount trong bookstore | 9a | chấp nhận có điều kiện: token CI ngắn hạn, thu hồi bằng xóa ServiceAccount; xem lại khi học admission policy (giai đoạn 14) | mở | ~/lab-evidence/9a/b4-td11-*.txt |
+```
+
+Ý chính cho ADR:
+
+1. Token TokenRequest có `exp`, gắn với UID của ServiceAccount, chết ngay khi ServiceAccount bị xóa.
+   Token dạng Secret **không có** `exp`, lộ là dùng được tới khi có người nhớ xóa; bài 118 và 279
+   khuyên tránh, đặc biệt cho ứng dụng ngoài cluster.
+2. RoleBinding lưu **tên** chủ thể. ServiceAccount mới cùng tên có ngay quyền cũ — tiện cho thu hồi,
+   nhưng bài 120 cảnh báo: ai tạo lại được một danh tính trùng tên với danh tính đã xóa thì thừa hưởng
+   quyền của nó. Rà binding mồ côi định kỳ.
+3. Proxy **xác thực hộ** (gắn credential của kubeconfig nó cầm), không phân quyền hộ — ba chặng vẫn chạy
+   ở API server. Dashboard dùng chung với kubeconfig quản trị = trao quyền quản trị cho mọi ai chạm tới
+   cổng proxy.
+4. Bài 120, *Tạo workload*: ai sửa được pod template thì gắn được Secret vào Pod, chạy Pod dưới bất kỳ
+   ServiceAccount nào trong namespace. Hiện giảm bằng: token ngắn, thu hồi nhanh, kubeconfig không ra
+   khỏi `secrets/`, CI chỉ ở một namespace. Chặn hẳn cần chính sách kiểm nội dung object ở chặng
+   tiếp nhận (ValidatingAdmissionPolicy, webhook — giai đoạn 14, bài 173) — ghi `TD-15`.
+5. Label namespace là đầu vào của chính sách: NetworkPolicy của sprint 7 chọn namespace `traefik`
+   theo label, và Pod Security ở Lab 9b cũng đọc label namespace. Ai `patch` được Namespace là nới
+   được chính sách (bài 120, bài 286 mục 1).
+
+</details>
+
+## B5. [BS-9A-05] Đội phát triển chỉ đọc, người trực được gỡ lỗi
+
+**Loại:** Tính năng.
+
+**Bối cảnh:** đội phát triển cần xem trạng thái hệ thống mà không đụng được gì. Người trực sự cố cần
+gắn debug container vào `api` — image không có shell (Lab 3a B8) — nhưng Lab 3a đã ghi `TD-07`: ai gắn
+được debug container là đọc được biến môi trường của `api`, kể cả mật khẩu DB. Sprint này biến quyền
+gỡ lỗi thành quyền **riêng của một nhóm** thay vì đi kèm quyền đọc.
+
+**Yêu cầu:**
+
+1. Nhóm `bookstore-devs`: đọc Pod, log, Deployment, Service, ConfigMap, sự kiện trong `bookstore` — dùng
+   ClusterRole có sẵn của cluster, không viết lại. Không đọc Secret, không `exec`, không gắn debug
+   container, không ghi gì, không thấy namespace khác hay Node.
+2. Nhóm `bookstore-oncall`: gắn được ephemeral container và `exec` vào Pod của `bookstore`, đọc Pod và
+   log. Không đọc Secret qua API, không sửa workload, không tạo hay xóa Pod.
+3. Chứng minh bằng mạo danh và một SubjectAccessReview; chứng minh quyết định dựa vào **group** chứ
+   không vào tên user; cluster không có object `User` nào.
+4. Thử thật: thành viên `bookstore-oncall` gắn debugger vào một Pod `api` và thấy tiến trình
+   `postgrest`; thành viên `bookstore-devs` bị từ chối. Thay Pod đã gắn debugger bằng Pod mới.
+5. Rà soát: không binding nào của dự án trỏ tới `cluster-admin`, `admin`, `edit`; không Role nào có
+   wildcard, Secret, `escalate`, `bind`, `impersonate`, `nodes/proxy`, `serviceaccounts/token`; không
+   ClusterRoleBinding nào nhắc tới chủ thể của dự án.
+6. Cập nhật `TD-07` trong `docs/tech-debt.md`.
+
+**Ràng buộc:** không tạo user, không sửa certificate; nhóm chỉ là tên trong binding. Không
+ClusterRoleBinding. Debugger chỉ gắn vào Pod `api`, và Pod đó bị thay khi xong.
+
+**Đọc lại:**
+
+- Bài [120](../120-rbac-good-practices-vi.md): [*Đặc quyền tối thiểu*](../120-rbac-good-practices-vi.md#least-privilege),
+  [*Liệt kê secret*](../120-rbac-good-practices-vi.md#liệt-kê-secret-listing-secrets),
+  [*Truy cập subresource `proxy` của Node*](../120-rbac-good-practices-vi.md#truy-cập-subresource-proxy-của-node-access-to-proxy-subresource-of-nodes),
+  [*Verb escalate*](../120-rbac-good-practices-vi.md#verb-escalate-escalate-verb),
+  [*Verb bind*](../120-rbac-good-practices-vi.md#verb-bind-bind-verb),
+  [*Verb impersonate*](../120-rbac-good-practices-vi.md#verb-impersonate-impersonate-verb),
+  [*Rà soát định kỳ*](../120-rbac-good-practices-vi.md#rà-soát-định-kỳ-periodic-review).
+- Bài [119](../119-controlling-access-vi.md#authorization) — SubjectAccessReview; bài
+  [118](../118-service-accounts-vi.md#what-are-service-accounts) — bảng ServiceAccount so với user.
+- Bài [52](../52-ephemeral-containers-vi.md#ephemeral-container-là-gì-what-is-an-ephemeral-container) —
+  handler `ephemeralcontainers`; [Lab 3a](LAB-3A-POD-VA-VONG-DOI.md) ticket B8.
+- Tài liệu RBAC chính thức, bảng
+  [User-facing roles](https://v1-35.docs.kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles)
+  — `view` không gồm Secret và vì sao.
+
+**Bàn giao:** `k8s/app/rbac/nguoi-dung.yaml`; `k8s/app/kustomization.yaml`;
+`docs/adr/NNNN-quyen-nguoi-dung.md`; `docs/tech-debt.md`; `~/lab-evidence/9a/b5-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `bookstore-devs` đọc được sáu loại object, không làm được bảy việc cấm, không thấy
+  `kube-system` hay Node.
+- `PASS:` `bookstore-oncall` gắn debug container, `exec`, đọc Pod và log được; không đọc Secret, không sửa
+  workload.
+- `PASS:` cùng tên user thiếu group thì không được; user lạ có group thì được; không có resource `users`.
+- `PASS:` SubjectAccessReview và `can-i` cho cùng câu trả lời.
+- `PASS:` devs gắn debugger bị `Forbidden`; oncall gắn được và thấy `postgrest`; Pod đó đã được thay.
+- `PASS:` ba kiểm tra rà soát; `TD-07` ghi giới hạn ở 9a.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-quyen-nguoi-dung.md`:
+
+1. Vì sao dùng ClusterRole `view` qua RoleBinding thay vì viết Role riêng? Phạm vi hiệu lực của nó
+   do object nào quyết định?
+2. Vì sao `view` không có Secret, còn đội phát triển lại thường xin `list secrets` "cho tiện"?
+3. `TD-07` được **giới hạn** chứ chưa **đóng**: người trực vẫn đọc được gì của `api`? Muốn đóng hẳn
+   cần đổi gì ở cách `api` nhận mật khẩu?
+4. Kubernetes không có object `User`. Tên `bookstore-devs` đến từ đâu khi một người thật đăng nhập
+   bằng client certificate (B1)? Một tên nhóm gõ sai trong binding gây ra chuyện gì — lỗi, hay im lặng?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Chủ thể nhóm trong binding: `kind: Group`, `apiGroup: rbac.authorization.k8s.io`.
+- Ephemeral container là subresource `pods/ephemeralcontainers`; `kubectl debug` gửi `patch` lên đó.
+  `exec` và `attach` là subresource `pods/exec`, `pods/attach`. Phiên bản baseline kiểm thêm quyền
+  `create` cho kết nối websocket của chúng — cấp cả `get` lẫn `create`.
+- `--as-group` bắt buộc đi cùng `--as`. `kubectl auth can-i --list -n bookstore --as=x --as-group=y`.
+- SubjectAccessReview là object chỉ tạo, không lưu: `kubectl create -o jsonpath='{.status.allowed}' -f -`
+  với `spec.user`, `spec.groups`, `spec.resourceAttributes`.
+- Gắn debugger mạo danh người trực: `kubectl debug ... --as=<user> --as-group=bookstore-oncall`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/9a
+cd ~/bookstore && ./scripts/deploy.sh > "$EV/b5-deploy.txt" 2>&1
+DEV='--as=dev-an --as-group=bookstore-devs'
+ONC='--as=truc-binh --as-group=bookstore-oncall'
+ci() { kubectl auth can-i "$@" -n "$NS"; }
+{ echo "== dev-an (bookstore-devs)"; kubectl auth can-i --list -n "$NS" $DEV
+  echo "== truc-binh (bookstore-oncall)"; kubectl auth can-i --list -n "$NS" $ONC; } > "$EV/b5-can-i-list.txt"
+
+BAD=0
+for Q in "list pods" "get pods --subresource=log" "list deployments" "list services" "list configmaps" "list events"; do
+  [ "$(ci $Q $DEV)" = yes ] || { echo "FAIL: devs khong duoc: $Q"; BAD=1; }
+done
+for Q in "get secrets" "list secrets" "create pods --subresource=exec" "patch pods --subresource=ephemeralcontainers" \
+         "delete pods" "patch deployments" "list roles"; do
+  [ "$(ci $Q $DEV)" = no ] || { echo "FAIL: devs lai duoc: $Q"; BAD=1; }
+done
+[ "$(kubectl auth can-i list pods -n kube-system $DEV)" = no ] || { echo 'FAIL: devs thay kube-system'; BAD=1; }
+[ "$(kubectl auth can-i list nodes $DEV)" = no ] || { echo 'FAIL: devs thay Node'; BAD=1; }
+[ "$BAD" -eq 0 ] && echo 'PASS: bookstore-devs chi doc trong bookstore, khong Secret, exec hay debug'
+
+BAD=0
+for Q in "patch pods --subresource=ephemeralcontainers" "create pods --subresource=exec" "get pods" \
+         "get pods --subresource=log"; do
+  [ "$(ci $Q $ONC)" = yes ] || { echo "FAIL: oncall khong duoc: $Q"; BAD=1; }
+done
+for Q in "get secrets" "list secrets" "patch deployments" "delete pods" "create pods"; do
+  [ "$(ci $Q $ONC)" = no ] || { echo "FAIL: oncall lai duoc: $Q"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: bookstore-oncall chi them quyen go loi'
+
+{ [ "$(ci list pods --as=dev-an)" = no ] && [ "$(ci list pods --as=nguoi-la --as-group=bookstore-devs)" = yes ]; } \
+  && echo 'PASS: quyet dinh dua vao group, khong dua vao ten nguoi dung'
+kubectl get users >/dev/null 2>&1 && echo 'FAIL: co resource users' || echo 'PASS: cluster khong co object User'
+
+SAR="$(kubectl create -o jsonpath='{.status.allowed}' -f - <<'YAML'
+apiVersion: authorization.k8s.io/v1
+kind: SubjectAccessReview
+spec:
+  user: dev-an
+  groups: ["bookstore-devs"]
+  resourceAttributes:
+    namespace: bookstore
+    verb: get
+    resource: secrets
+YAML
+)"
+[ "$SAR" = false ] && [ "$(ci get secrets $DEV)" = no ] && echo 'PASS: SubjectAccessReview va can-i cung tra loi khong'
+
+API="$(kubectl -n "$NS" get pod -l app.kubernetes.io/component=api -o jsonpath='{.items[0].metadata.name}')"
+kubectl -n "$NS" debug "pod/$API" --image=busybox:1.37 --target=postgrest -c dev-dbg $DEV -- sleep 300 \
+  > "$EV/b5-debug-dev.txt" 2>&1 && echo 'FAIL: devs gan duoc debugger' || echo 'PASS: devs bi tu choi gan debugger'
+grep -qi 'forbidden' "$EV/b5-debug-dev.txt" && echo 'PASS: devs chet o chang phan quyen (Forbidden)'
+kubectl -n "$NS" debug "pod/$API" --image=busybox:1.37 --target=postgrest -c truc-dbg $ONC -- sleep 300 \
+  > "$EV/b5-debug-oncall.txt" 2>&1 && echo 'PASS: oncall gan duoc debugger vao Pod api'
+for i in $(seq 1 30); do
+  [ -n "$(kubectl -n "$NS" get pod "$API" -o jsonpath='{.status.ephemeralContainerStatuses[?(@.name=="truc-dbg")].state.running.startedAt}')" ] && break
+  sleep 2
+done
+kubectl -n "$NS" exec "$API" -c truc-dbg $ONC -- ps > "$EV/b5-debug-ps.txt" 2>&1
+grep -q postgrest "$EV/b5-debug-ps.txt" && echo 'PASS: oncall thay tien trinh postgrest qua debugger'
+kubectl -n "$NS" delete pod "$API" --wait=true && kubectl -n "$NS" rollout status deployment/api --timeout=180s >/dev/null \
+  && echo 'PASS: Pod api mang debugger da duoc thay bang Pod moi'
+
+CRB="$(kubectl get clusterrolebinding -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{range .subjects[*]}{.kind}{":"}{.namespace}{":"}{.name}{" "}{end}{"\n"}{end}' \
+  | grep -E 'ServiceAccount:bookstore:|Group::bookstore-' || true)"
+[ -z "$CRB" ] && echo 'PASS: khong ClusterRoleBinding nao nhac toi chu the cua du an'
+kubectl -n "$NS" get rolebinding -o jsonpath='{range .items[*]}{.metadata.name}{" -> "}{.roleRef.kind}/{.roleRef.name}{"\n"}{end}' \
+  > "$EV/b5-rolebinding.txt"
+grep -Eq 'ClusterRole/(cluster-admin|admin|edit)$' "$EV/b5-rolebinding.txt" \
+  && echo 'FAIL: co binding tro toi role qua rong' || echo 'PASS: khong binding nao tro toi cluster-admin, admin, edit'
+kubectl -n "$NS" get role -o jsonpath='{range .items[*]}{.metadata.name}{": "}{range .rules[*]}{.resources}{" "}{.verbs}{" "}{end}{"\n"}{end}' \
+  > "$EV/b5-role-rules.txt"
+grep -Eq '"\*"|secrets|escalate|"bind"|impersonate|nodes/proxy|serviceaccounts/token' "$EV/b5-role-rules.txt" \
+  && echo 'FAIL: co Role chua quyen nguy hiem' || echo 'PASS: khong Role nao co wildcard, Secret hay verb leo thang'
+grep 'TD-07' docs/tech-debt.md | grep -q '9a' && echo 'PASS: TD-07 ghi gioi han o 9a'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# k8s/app/rbac/nguoi-dung.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bookstore-devs-view
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+subjects:
+- kind: Group
+  name: bookstore-devs
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view                     # có sẵn; RoleBinding thu phạm vi về đúng bookstore
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: debug-pods
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/ephemeralcontainers"]
+  verbs: ["patch"]
+- apiGroups: [""]
+  resources: ["pods/exec", "pods/attach"]
+  verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bookstore-oncall-debug
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+subjects:
+- kind: Group
+  name: bookstore-oncall
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: debug-pods
+```
+
+Thêm `rbac/nguoi-dung.yaml` vào `resources` của `k8s/app/kustomization.yaml`. Dòng `TD-07` trong
+`docs/tech-debt.md`:
+
+```markdown
+| TD-07 | Ai exec hay gắn debug container được vào Pod api là đọc được mật khẩu trong biến môi trường | 3a | 3b (giảm), 9a (giới hạn) | đã giới hạn ở 9a: chỉ nhóm bookstore-oncall có quyền exec và ephemeral container; người trực vẫn đọc được biến môi trường của api | docs/adr/NNNN-quyen-nguoi-dung.md |
+```
+
+Ý chính cho ADR:
+
+1. `view` được dự án Kubernetes duy trì, tự theo các loại object mới; viết lại là tự gánh việc đó.
+   ClusterRole chỉ nói **quyền gì**; **RoleBinding** trong `bookstore` quyết định **ở đâu** — nên
+   devs không thấy `kube-system` hay Node.
+2. Bài 120: `list`/`watch` trả về cả nội dung Secret, không chỉ tên. Tài liệu RBAC nói rõ `view`
+   không có Secret vì đọc Secret là đọc được credential của ServiceAccount — một dạng leo thang.
+3. Người trực vẫn: thấy tiến trình, đọc `/proc/<pid>/environ` qua debugger nhắm vào `postgrest` (tùy
+   profile của `kubectl debug`), gọi endpoint nội bộ. Đóng hẳn khi mật khẩu không còn nằm trong biến
+   môi trường của `api` — khi đó debug không còn đồng nghĩa với đọc bí mật.
+4. Tên nhóm đến từ chặng 1: với client certificate là trường O (B1). Binding chỉ lưu tên, nên gõ sai
+   tên nhóm **không báo lỗi** — binding tồn tại hợp lệ và không ai được quyền. Chỉ `can-i` và rà soát
+   mới phát hiện.
+
+</details>
+
+## B6. [BS-9A-06] Diễn tập: request chết ở chặng nào
+
+**Loại:** Diễn tập sự cố — mọi object diễn tập không mang label dự án và bị xóa khi xong.
+
+**Bối cảnh:** khi một thành phần báo "không gọi được API", người trực phải biết request chết ở
+**chặng nào** trước khi sửa — sửa RBAC cho một lỗi `401` là sửa sai chỗ. Ticket này dựng lại từng kiểu
+chết bằng chính các danh tính vừa tạo.
+
+**Yêu cầu:** với mỗi chặng, dựng lại ít nhất một request chết ở đó và ghi dấu hiệu nhận biết từ phía
+client vào postmortem:
+
+| Chặng | Request phải dựng lại |
+| --- | --- |
+| 1 — Xác thực | token rác; token của `db-backup` đúng chữ ký nhưng xin cho audience khác; ⭐ không gửi credential tới `/api` và `/version` |
+| 2 — Phân quyền | `ci-deployer` đọc Secret `db-credentials`; token `db-backup` sửa một ConfigMap **khác** (dry-run) và `list` ConfigMap |
+| 3 — Tiếp nhận | một Job gõ sai tên ServiceAccount: Job có, Pod không; chứng minh chặng 2 cho phép chủ thể tạo Pod; đọc và ghi vào một namespace không tồn tại |
+| 4 — Validate | ⭐ đổi `roleRef` của RoleBinding cấp quyền cho `db-backup` |
+| Sau API server | tham chiếu B7 (`runAsNonRoot`) và B8 (sysctl): object được ghi, kubelet từ chối |
+
+Postmortem `docs/postmortem/9a-request-bi-chan.md`: một bảng bốn cột — triệu chứng, chặng, xác
+nhận bằng gì, sửa ở đâu.
+
+**Ràng buộc:** không sửa cấu hình API server dù kết quả khác kỳ vọng — ghi lại. Mọi thao tác ghi lên
+object thật dùng dry-run. Không ghi token vào bằng chứng; phản hồi JSON của API server thì được.
+
+**Đọc lại:**
+
+- Bài [119](../119-controlling-access-vi.md) — cả bài, đúng thứ tự bốn bước.
+- Bài [118](../118-service-accounts-vi.md#authenticating-credentials) — năm việc API server kiểm trên
+  bearer token.
+- Bài [120](../120-rbac-good-practices-vi.md#gia-cố-hardening) — binding của `system:unauthenticated`.
+- Bài [279](../279-configure-service-account-vi.md#use-multiple-service-accounts) — ServiceAccount phải
+  tồn tại khi Pod được tạo.
+- Tài liệu RBAC chính thức, mục
+  [RoleBinding and ClusterRoleBinding](https://v1-35.docs.kubernetes.io/docs/reference/access-authn-authz/rbac/#rolebinding-and-clusterrolebinding)
+  — sau khi tạo binding thì không đổi được `roleRef`.
+
+**Bàn giao:** `~/lab-work/9a/drill-sa-sai.yaml`; `docs/postmortem/9a-request-bi-chan.md`;
+`~/lab-evidence/9a/b6-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` token rác `401`; token sai audience `401` trong khi token đúng audience của cùng
+  ServiceAccount `200`.
+- `PASS:` `ci-deployer` đọc Secret: `Forbidden` kèm tên danh tính; token `db-backup`: sửa ConfigMap
+  khác `403`, `list` `403`, `get` `backup-status` `200`.
+- `PASS:` Job gõ sai ServiceAccount có sự kiện `FailedCreate` nói về ServiceAccount, không có Pod nào;
+  `job-controller` được phép tạo Pod ở chặng 2.
+- `PASS:` đọc namespace không tồn tại thành công, ghi thì bị từ chối dù `can-i` trả `yes`.
+- `PASS:` (⭐) không gửi credential: `/api` và `/version` cho kết quả đúng với cấu hình `anonymous-auth`;
+  đổi `roleRef` bị từ chối.
+- `PASS:` object diễn tập đã xóa; postmortem tồn tại.
+
+**Câu hỏi thiết kế** — trả lời trong postmortem:
+
+1. Ứng dụng báo `401` dù token vừa cấp và RoleBinding đầy đủ. Kể ba nguyên nhân bạn đã dựng lại được
+   trong sprint này (B4, B6) và cách phân biệt.
+2. `403` không đồng nghĩa "thiếu RBAC". Khi nào `403` đến từ chặng 3? Lệnh nào phân biệt hai trường hợp?
+3. Với Job gõ sai ServiceAccount, `kubectl apply` thành công — vì sao? Ai nhận lỗi, và người trực thấy
+   nó ở đâu?
+4. ⭐ Request không credential nhận `403` chứ không `401` — điều đó nói gì về cấu hình cluster, và bài
+   120 khuyên rà gì?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Token xin cho audience khác:
+  `kubectl -n bookstore create token db-backup --audience=<tên> --duration=10m`.
+- Sửa thử mà không đổi gì qua REST: thêm `?dryRun=All` vào URL `PATCH`.
+- Job diễn tập: `busybox`, `command: ["true"]`, `restartPolicy: Never`, `backoffLimit: 0`, có
+  `requests`/`limits`, `serviceAccountName` gõ sai một chữ. Sự kiện của Job:
+  `kubectl get events --field-selector involvedObject.name=<tên Job>`.
+- Controller tạo Pod của Job dưới danh tính `system:serviceaccount:kube-system:job-controller` (B1 đã
+  thấy kube-controller-manager dùng ServiceAccount riêng cho từng controller).
+- Cấu hình `anonymous-auth`: `sudo grep anonymous-auth /etc/kubernetes/manifests/kube-apiserver.yaml` —
+  chỉ đọc.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — script này chính là cuộc diễn tập; viết Job diễn tập trước</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/9a; W=~/lab-work/9a
+cd ~/bookstore
+SRV="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
+kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' \
+  | base64 -d > "$W/ca.crt"
+code() { curl -s -o "$W/resp.json" -w '%{http_code}' --cacert "$W/ca.crt" "$@"; }
+
+# Chặng 1
+C_RAC="$(code -H 'Authorization: Bearer day-khong-phai-token' "$SRV/api")"
+T="$(kubectl -n "$NS" create token db-backup --audience=bookstore-khong-phai-api --duration=10m)"
+C_AUD="$(code -H "Authorization: Bearer $T" "$SRV/api")"
+TB="$(kubectl -n "$NS" create token db-backup --duration=10m)"
+C_DUNG="$(code -H "Authorization: Bearer $TB" "$SRV/api")"
+unset T
+echo "token rac=$C_RAC | sai audience=$C_AUD | dung audience=$C_DUNG" | tee "$EV/b6-chang1.txt"
+[ "$C_RAC" = 401 ] && echo 'PASS: chang 1 — token rac bi 401'
+[ "$C_AUD" = 401 ] && [ "$C_DUNG" = 200 ] && echo 'PASS: chang 1 — cung ServiceAccount, sai audience la 401'
+
+# ⭐ Không gửi credential
+if sudo grep -q 'anonymous-auth=false' /etc/kubernetes/manifests/kube-apiserver.yaml; then EA=401; EV2=401; else EA=403; EV2=200; fi
+C_AN_API="$(code "$SRV/api")"; C_AN_VER="$(code "$SRV/version")"
+echo "khong credential: /api=$C_AN_API (ky vong $EA) | /version=$C_AN_VER (ky vong $EV2)" | tee -a "$EV/b6-chang1.txt"
+[ "$C_AN_API" = "$EA" ] && [ "$C_AN_VER" = "$EV2" ] && echo 'PASS: (⭐) request khong credential dung voi cau hinh anonymous-auth'
+
+# Chặng 2
+K=secrets/ci-deployer.kubeconfig; [ -s "$K" ] || ./scripts/ci-kubeconfig.sh 30m >/dev/null
+kubectl --kubeconfig="$K" -n "$NS" get secret db-credentials > "$EV/b6-chang2-ci.txt" 2>&1
+grep -qi 'forbidden' "$EV/b6-chang2-ci.txt" && grep -q 'system:serviceaccount:bookstore:ci-deployer' "$EV/b6-chang2-ci.txt" \
+  && echo 'PASS: chang 2 — ci-deployer doc Secret bi Forbidden, thong bao goi dung ten'
+CM_KHAC="$(kubectl -n "$NS" get configmap -o name | grep -v -e backup-status -e kube-root-ca.crt | head -1 | cut -d/ -f2)"
+C_P="$(code -X PATCH -H "Authorization: Bearer $TB" -H 'Content-Type: application/merge-patch+json' \
+  --data-binary '{"data":{"thu":"1"}}' "$SRV/api/v1/namespaces/bookstore/configmaps/$CM_KHAC?dryRun=All")"
+cp "$W/resp.json" "$EV/b6-chang2-backup-patch.json"
+C_L="$(code -H "Authorization: Bearer $TB" "$SRV/api/v1/namespaces/bookstore/configmaps")"
+C_G="$(code -H "Authorization: Bearer $TB" "$SRV/api/v1/namespaces/bookstore/configmaps/backup-status")"
+unset TB
+echo "token db-backup: patch $CM_KHAC=$C_P | list=$C_L | get backup-status=$C_G" | tee "$EV/b6-chang2-backup.txt"
+[ "$C_P" = 403 ] && [ "$C_L" = 403 ] && [ "$C_G" = 200 ] \
+  && echo 'PASS: chang 2 — dung ten thi 200, ten khac hoac list thi 403'
+
+# Chặng 3
+kubectl apply -f "$W/drill-sa-sai.yaml"
+JN="$(kubectl create --dry-run=client -o jsonpath='{.metadata.name}' -f "$W/drill-sa-sai.yaml")"
+for i in $(seq 1 30); do
+  kubectl -n "$NS" get events --field-selector involvedObject.name="$JN" -o jsonpath='{.items[*].message}' \
+    | grep -q 'error looking up service account' && break
+  sleep 2
+done
+kubectl -n "$NS" get events --field-selector involvedObject.name="$JN" \
+  -o jsonpath='{range .items[*]}{.reason}{": "}{.message}{"\n"}{end}' > "$EV/b6-chang3-events.txt"
+cat "$EV/b6-chang3-events.txt"
+{ grep -q 'FailedCreate' "$EV/b6-chang3-events.txt" && grep -q 'error looking up service account' "$EV/b6-chang3-events.txt"; } \
+  && echo 'PASS: chang 3 — Pod bi tu choi vi ServiceAccount khong ton tai'
+[ "$(kubectl -n "$NS" get pods -l batch.kubernetes.io/job-name="$JN" --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && echo 'PASS: Job ton tai nhung khong co Pod nao'
+[ "$(kubectl auth can-i create pods -n "$NS" --as=system:serviceaccount:kube-system:job-controller)" = yes ] \
+  && echo 'PASS: chang 2 cho phep job-controller tao Pod — thu giet request nam o chang 3'
+kubectl -n "$NS" delete job "$JN" --wait=true
+
+NS_MA=bookstore-khong-ton-tai
+kubectl get configmaps -n "$NS_MA" > "$EV/b6-doc-ns-ma.txt" 2>&1; RC_DOC=$?
+kubectl create configmap thu -n "$NS_MA" --from-literal=a=b > "$EV/b6-ghi-ns-ma.txt" 2>&1; RC_GHI=$?
+{ [ "$RC_DOC" -eq 0 ] && [ "$RC_GHI" -ne 0 ] && grep -qi 'not found' "$EV/b6-ghi-ns-ma.txt" && \
+  [ "$(kubectl auth can-i create configmaps -n "$NS_MA")" = yes ]; } \
+  && echo 'PASS: doc lot qua, ghi bi chan o chang 3 du chang 2 tra loi yes'
+
+# ⭐ Bước 4
+RB="$(kubectl -n "$NS" get rolebinding -o jsonpath='{range .items[*]}{.metadata.name}{" "}{range .subjects[*]}{.name}{" "}{end}{"\n"}{end}' \
+  | awk '/ db-backup /{print $1; exit}')"
+kubectl -n "$NS" patch rolebinding "$RB" --dry-run=server --type=merge \
+  -p '{"roleRef":{"apiGroup":"rbac.authorization.k8s.io","kind":"ClusterRole","name":"view"}}' > "$EV/b6-buoc4.txt" 2>&1 \
+  && echo 'FAIL: doi duoc roleRef' || { grep -qi 'roleRef' "$EV/b6-buoc4.txt" && echo "PASS: (⭐) buoc 4 — roleRef cua $RB khong doi duoc"; }
+
+test -f docs/postmortem/9a-request-bi-chan.md && echo 'PASS: co postmortem'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# ~/lab-work/9a/drill-sa-sai.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: drill-sa-sai
+  namespace: bookstore
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: db-bakup          # gõ sai: thiếu chữ c
+      restartPolicy: Never
+      containers:
+      - name: c
+        image: busybox:1.37
+        command: ["true"]
+        resources:
+          requests: {cpu: 10m, memory: 16Mi}
+          limits: {cpu: 50m, memory: 32Mi}
+```
+
+Bảng cho postmortem:
+
+| Triệu chứng | Chặng | Xác nhận bằng | Sửa ở đâu |
+| --- | --- | --- | --- |
+| `401 Unauthorized`, không nhắc tên ai | 1 | Giải mã `aud`, `exp` của token; ServiceAccount còn tồn tại với UID cũ không | Phát hành token mới, đúng audience |
+| `403`, thông báo `User "..." cannot <verb> resource ...` | 2 | `kubectl auth can-i ... --as=<danh tính>` trả `no` | Role/RoleBinding trong repo |
+| `Forbidden`/`not found` nói về **nội dung** object (ServiceAccount, namespace, hạn mức), `can-i` trả `yes` | 3 | `kubectl describe` object, sự kiện `FailedCreate` của controller | Manifest của object |
+| `Invalid` / `cannot change ...` khi sửa object đã có | 4 | Đọc field bị nêu tên | Xóa rồi tạo lại object, hoặc giữ nguyên |
+| Object được tạo, Pod `CreateContainerConfigError` hoặc `SysctlForbidden` | sau API server, ở kubelet | `kubectl get pod -o wide`, `describe` | `securityContext` của Pod (B7, B8) |
+
+Ý chính:
+
+1. (a) Token xin cho audience khác — `401` dù chữ ký đúng; (b) ServiceAccount đã bị xóa hoặc tạo lại
+   (B4) — token gắn UID cũ; (c) token hết hạn hoặc không phải token. Phân biệt bằng claim `aud`, `exp`
+   và UID của ServiceAccount hiện tại.
+2. Chặng 3 trả `Forbidden` khi chính sách tiếp nhận từ chối — ví dụ ServiceAccount không tồn tại.
+   `kubectl auth can-i` hỏi đúng chặng 2: `yes` mà request vẫn chết thì thủ phạm ở chặng 3.
+3. Bạn **tạo Job** — hợp lệ ở cả ba chặng. Pod do `job-controller` tạo sau đó mới bị chặng 3 từ chối;
+   lỗi đi vào sự kiện `FailedCreate` của Job, không về terminal của bạn.
+4. `anonymous-auth` đang bật: request trắng qua chặng 1 dưới danh tính `system:anonymous` rồi chết ở
+   chặng 2. Rà binding của nhóm `system:unauthenticated` (bài 120, *Gia cố*) — `/version` trả `200` vì
+   có binding cho thông tin công khai.
+
+</details>
+
+## B7. [BS-9A-07] Danh tính tiến trình của tác vụ nền
+
+**Loại:** Tính năng, kèm diễn tập trên `lab-k8s-worker2`.
+
+**Bối cảnh:** ServiceAccount là danh tính **với API server**; trên node, mỗi tiến trình còn một danh
+tính khác — uid và gid. `db-migrate` và `db-backup` chạy image `postgres`, image này không khai `USER`
+nên tiến trình chạy bằng root dù chỉ là client `psql`/`pg_dump`. Container `report-status` của B3 cầm
+token API. Cả hai không cần root.
+
+**Yêu cầu:**
+
+1. Mọi tiến trình trong Pod của `db-migrate` và `db-backup` chạy uid `999`, gid `999` — user `postgres`
+   của image — và kubelet phải **kiểm** chúng không phải root. Riêng container gọi API của `db-backup`
+   chạy bằng user mà image của nó khai (`101`), gid vẫn `999`: một thiết lập cấp Pod, một ghi đè cấp
+   container.
+2. Không tiến trình nào trong hai Pod đó leo thang đặc quyền được — chứng minh bằng cờ của kernel.
+3. File dump mới trên PVC thuộc uid `999`.
+4. Log của **mỗi** container in kết quả `id` và dòng `NoNewPrivs` của chính nó.
+5. Diễn tập: Pod thử nghiệm dùng image `busybox` chỉ khai "phải non-root" mà không khai uid — chứng
+   minh nó được lập lịch nhưng không khởi động, đọc lý do.
+6. `db` **không** đổi ở sprint này (`TD-06`, Lab 9b).
+
+**Ràng buộc:** không capability, seccomp, `readOnlyRootFilesystem` (Lab 9b). Pod diễn tập ghim
+worker2, không label dự án, xóa khi xong.
+
+**Đọc lại:**
+
+- Bài [291](../291-security-context-vi.md):
+  [*Đặt security context cho một Pod*](../291-security-context-vi.md#set-the-security-context-for-a-pod),
+  [*Đặt security context cho một Container*](../291-security-context-vi.md#đặt-security-context-cho-một-container-set-the-security-context-for-a-container),
+  [*Tư cách thành viên group ngầm định*](../291-security-context-vi.md#tư-cách-thành-viên-group-ngầm-định-được-định-nghĩa-trong-etcgroup-của-container-image-implicit-group-memberships-defined-in-etcgroup-in-the-container-image),
+  [*Thảo luận*](../291-security-context-vi.md#thảo-luận-discussion).
+- Bài [60](../60-advanced-pod-config-vi.md#security-context) — security context (Lab 3a B9).
+- [Mục 4.4 của file dự án](DU-AN-BOOKSTORE.md#44-image) — user của từng image.
+
+**Bàn giao:** manifest Job `db-migrate` và CronJob `db-backup`; `~/lab-work/9a/nonroot-thieu-uid.yaml`;
+`docs/adr/NNNN-danh-tinh-tien-trinh.md`; `~/lab-evidence/9a/b7-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` CronJob và Job khai non-root ở cấp Pod.
+- `PASS:` một lần backup: có container chạy uid `999`, có container chạy uid `101`, không container nào
+  uid `0`; mọi container gid `999`; mọi container `NoNewPrivs` bằng `1`.
+- `PASS:` file dump mới thuộc `999:999`.
+- `PASS:` log `db-migrate` cho thấy uid `999`.
+- `PASS:` Pod diễn tập được lập lịch, kẹt `CreateContainerConfigError` với lý do nhắc `runAsNonRoot`;
+  đã xóa.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-danh-tinh-tien-trinh.md`:
+
+1. Vì sao không cần `fsGroup` cho hai Pod này? Kiểm quyền của thư mục `emptyDir` và thư mục PVC bằng
+   `ls -ld`. Khi nào thì cần, và bài 291 nói `fsGroup` tác động lên loại volume nào?
+2. `id` trong `pg-dump` có group nào bạn không khai ở đâu cả không? Nó đến từ đâu, và vì sao bài 291
+   coi đó là rủi ro khi truy cập volume?
+3. Vì sao `db` chưa chạy non-root được bằng đúng cách này? (Entrypoint của image — mục 4.4.)
+4. `runAsNonRoot` bị kiểm ở đâu? So với cách chặng tiếp nhận từ chối Job gõ sai ServiceAccount ở B6.
+
+<details>
+<summary>Gợi ý</summary>
+
+- `securityContext` cấp Pod: `runAsNonRoot`, `runAsUser`, `runAsGroup`. Cấp container ghi đè khi trùng
+  field; `allowPrivilegeEscalation` chỉ có ở cấp container.
+- Dòng `NoNewPrivs` trong `/proc/self/status` là cờ kernel mà `allowPrivilegeEscalation: false` bật.
+- In chủ sở hữu file: `stat -c '%u:%g' <file>` (image `postgres` có `stat` của coreutils).
+- Đọc log init container: `kubectl logs <pod> -c <tên init>`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/9a; W=~/lab-work/9a
+cd ~/bookstore
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+./scripts/deploy.sh > "$EV/b7-deploy.txt" 2>&1 && echo 'PASS: deploy.sh thanh cong'
+
+S='{.spec.jobTemplate.spec.template.spec.securityContext.runAsNonRoot}'
+{ [ "$(jp cronjob/db-backup "$S")" = true ] && \
+  [ "$(jp job/db-migrate '{.spec.template.spec.securityContext.runAsNonRoot}')" = true ]; } \
+  && echo 'PASS: CronJob va Job khai non-root o cap Pod'
+
+J="b7-backup-$(date +%s)"
+kubectl -n "$NS" create job "$J" --from=cronjob/db-backup
+kubectl -n "$NS" wait --for=condition=Complete "job/$J" --timeout=300s >/dev/null && echo 'PASS: Job backup Complete'
+POD="$(kubectl -n "$NS" get pods -l batch.kubernetes.io/job-name="$J" -o jsonpath='{.items[0].metadata.name}')"
+CS="$(kubectl -n "$NS" get pod "$POD" -o jsonpath='{.spec.initContainers[*].name} {.spec.containers[*].name}')"
+: > "$EV/b7-backup-log.txt"
+for C in $CS; do kubectl -n "$NS" logs "$POD" -c "$C" | sed "s/^/[$C] /" >> "$EV/b7-backup-log.txt"; done
+cat "$EV/b7-backup-log.txt"
+NC="$(echo $CS | wc -w)"
+{ grep -q 'uid=999' "$EV/b7-backup-log.txt" && grep -q 'uid=101' "$EV/b7-backup-log.txt" && \
+  ! grep -q 'uid=0(' "$EV/b7-backup-log.txt"; } && echo 'PASS: co container uid 999, co container uid 101, khong ai la root'
+[ "$(grep -c 'gid=999' "$EV/b7-backup-log.txt")" -eq "$NC" ] && echo "PASS: ca $NC container gid 999"
+[ "$(grep -cE 'NoNewPrivs:[[:space:]]*1' "$EV/b7-backup-log.txt")" -eq "$NC" ] \
+  && echo "PASS: ca $NC container NoNewPrivs = 1"
+grep -q 'chu so huu 999:999' "$EV/b7-backup-log.txt" && echo 'PASS: file dump moi thuoc 999:999'
+kubectl -n "$NS" delete job "$J" --wait=true
+
+kubectl -n "$NS" logs job/db-migrate > "$EV/b7-migrate-log.txt" 2>&1
+grep -q 'uid=999' "$EV/b7-migrate-log.txt" && echo 'PASS: db-migrate chay uid 999'
+
+# Diễn tập trên worker2
+kubectl apply -f "$W/nonroot-thieu-uid.yaml"
+for i in $(seq 1 30); do
+  [ "$(jp pod/nonroot-thieu-uid '{.status.containerStatuses[0].state.waiting.reason}')" = CreateContainerConfigError ] && break
+  sleep 2
+done
+R="$(jp pod/nonroot-thieu-uid '{.status.containerStatuses[0].state.waiting.reason}')"
+M="$(jp pod/nonroot-thieu-uid '{.status.containerStatuses[0].state.waiting.message}')"
+echo "node=$(jp pod/nonroot-thieu-uid '{.spec.nodeName}') reason=$R message=$M" | tee "$EV/b7-nonroot.txt"
+{ [ "$(jp pod/nonroot-thieu-uid '{.spec.nodeName}')" = lab-k8s-worker2 ] && [ "$R" = CreateContainerConfigError ] && \
+  echo "$M" | grep -q runAsNonRoot; } && echo 'PASS: duoc lap lich nhung kubelet tu choi — runAsNonRoot kiem o node'
+kubectl -n "$NS" delete pod nonroot-thieu-uid --wait=true && echo 'PASS: da xoa Pod dien tap'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+CronJob `db-backup`: khối `securityContext` cấp Pod và hai khối cấp container đã có trong lời giải
+B3. Job `db-migrate` — thêm vào spec Pod và container `migrate`; phần SQL giữ nguyên:
+
+```yaml
+    spec:
+      serviceAccountName: db-migrate
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+      containers:
+      - name: migrate
+        # image, env, resources: giữ nguyên
+        securityContext:
+          allowPrivilegeEscalation: false
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          echo "db-migrate: $(id)"
+          grep NoNewPrivs /proc/self/status | sed 's/^/db-migrate: /'
+          # --- phần migration của bạn giữ nguyên từ đây ---
+```
+
+```yaml
+# ~/lab-work/9a/nonroot-thieu-uid.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonroot-thieu-uid
+  namespace: bookstore
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: lab-k8s-worker2
+  securityContext:
+    runAsNonRoot: true               # không khai runAsUser; image busybox chạy root
+  containers:
+  - name: app
+    image: busybox:1.37
+    command: ["sh", "-c", "sleep 3600"]
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+```
+
+Ý chính cho ADR:
+
+1. `emptyDir` và thư mục do local-path-provisioner tạo cho phép mọi user ghi (đọc `ls -ld` của bạn),
+   nên uid `999` ghi được mà không cần đổi group sở hữu. `fsGroup` cần khi volume chỉ cho một group
+   ghi; bài 291 *Thảo luận*: nó chỉ tác động lên volume **hỗ trợ quản lý quyền sở hữu**.
+2. Thường có thêm một gid (nhóm mà gói PostgreSQL thêm user `postgres` vào trong `/etc/group` của
+   image). Kubernetes gộp group của image với group khai trong Pod — tập group thật rộng hơn manifest,
+   và group quyết định quyền đọc ghi file trên volume.
+3. Entrypoint của `postgres` khởi động bằng root để chỉnh quyền thư mục dữ liệu rồi mới hạ xuống
+   `999`. Ép uid `999` cho `db` cần chuẩn bị `PGDATA` khác đi — việc của Lab 9b (`TD-06`). Job chỉ chạy
+   client, không qua entrypoint đó.
+4. Ở **kubelet**, sau khi Pod đã được ghi và lập lịch — Pod tồn tại, có node, kẹt
+   `CreateContainerConfigError`. B6: chặng tiếp nhận từ chối **trước** khi Pod tồn tại, lỗi nằm ở sự
+   kiện của controller.
+
+</details>
+
+## B8. [BS-9A-08] Tham số kernel an toàn cho `api`
+
+**Loại:** Tính năng, kèm diễn tập trên `lab-k8s-worker2`.
+
+**Bối cảnh:** `api` giữ một pool kết nối TCP tới `db-0`. Khi node của DB mất mạng đột ngột, kết nối
+nhàn rỗi có thể treo rất lâu trước khi bị coi là chết — mặc định của kernel tính bằng giờ. Thư viện
+client PostgreSQL bật TCP keepalive nhưng dùng thông số của kernel. Ta chỉnh thông số đó **cho riêng
+Pod `api`**, không chạm node.
+
+**Yêu cầu:**
+
+1. Trong Pod `api`: TCP keepalive thăm dò sau 60 giây nhàn rỗi, mỗi 10 giây một lần, bỏ sau 6 lần.
+   Chỉ áp cho Pod `api`; giá trị trên node không đổi.
+2. Chỉ dùng sysctl trong nhóm an toàn; không đổi cấu hình kubelet.
+3. Chứng minh giá trị có hiệu lực **bên trong** Pod `api` — image không có shell, dùng cách gỡ lỗi đã
+   học — và giá trị trên node vẫn là mặc định. Thay Pod đã gắn debugger bằng Pod mới khi xong.
+4. Diễn tập: Pod thử nghiệm dùng một sysctl **không** an toàn, ghim worker2. Chứng minh nó được lập
+   lịch nhưng không chạy; đọc lý do; xóa.
+
+**Ràng buộc:** không `--allowed-unsafe-sysctls`, không `hostNetwork`, không ghi vào `/proc/sys`.
+
+**Đọc lại:**
+
+- Bài [258](../258-sysctl-cluster-vi.md):
+  [*Sysctl an toàn và không an toàn*](../258-sysctl-cluster-vi.md#sysctl-an-toàn-và-không-an-toàn-safe-and-unsafe-sysctls),
+  [*Bật các sysctl không an toàn*](../258-sysctl-cluster-vi.md#bật-các-sysctl-không-an-toàn-enabling-unsafe-sysctls),
+  [*Thiết lập sysctl cho một Pod*](../258-sysctl-cluster-vi.md#thiết-lập-sysctl-cho-một-pod-setting-sysctls-for-a-pod).
+- Bài [291](../291-security-context-vi.md#set-the-security-context-for-a-pod) — `securityContext` cấp Pod
+  áp cho mọi container.
+- Bài [52](../52-ephemeral-containers-vi.md) và [Lab 3a](LAB-3A-POD-VA-VONG-DOI.md) ticket B8 — debug
+  container dùng chung network namespace của Pod.
+- PostgreSQL 17, tham số
+  [`keepalives`](https://www.postgresql.org/docs/17/libpq-connect.html#LIBPQ-KEEPALIVES) của libpq.
+
+**Bàn giao:** manifest Deployment `api`; `~/lab-work/9a/sysctl-khong-an-toan.yaml`;
+`docs/adr/NNNN-sysctl-api.md`; `~/lab-evidence/9a/b8-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` template của `api` khai ba sysctl đúng giá trị; `api` 2/2 Ready.
+- `PASS:` trong Pod `api` đọc được đúng ba giá trị; trên node chạy Pod đó, `tcp_keepalive_time` khác 60.
+- `PASS:` Pod `api` đã gắn debugger được thay; `api` Ready lại.
+- `PASS:` Pod diễn tập có node, `reason` là `SysctlForbidden`, phase `Failed`, nằm trên worker2; đã xóa.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-sysctl-api.md`:
+
+1. Ba điều kiện của bài 258 để một sysctl là "an toàn". Vì sao đặt keepalive cho Pod `api` không ảnh
+   hưởng Pod khác trên cùng node — giá trị bạn đo được ở bước 3 chứng minh điều gì?
+2. Vì sao sysctl khai ở cấp Pod chứ không ở từng container?
+3. Nếu `node-agent` chuyển sang `hostNetwork`, nó còn đặt được sysctl `net.*` không?
+4. Pod dùng sysctl không an toàn: được lập lịch không, chạy không, bạn tìm dấu vết ở đâu? So với hai
+   kiểu chết ở B6 và B7.
+
+<details>
+<summary>Gợi ý</summary>
+
+- Field: `spec.securityContext.sysctls` — danh sách `name`/`value`, `value` là chuỗi.
+- Đọc giá trị trong network namespace của Pod: gắn debug container `busybox` (không cần `--target`), rồi
+  `kubectl exec <pod> -c <debugger> -- cat /proc/sys/net/ipv4/tcp_keepalive_time`.
+- Trên node: `ssh <node> 'sysctl -n net.ipv4.tcp_keepalive_time'`.
+- Sysctl không an toàn mà bài 258 dùng làm ví dụ: `net.core.somaxconn`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/9a; W=~/lab-work/9a
+cd ~/bookstore && ./scripts/deploy.sh > "$EV/b8-deploy.txt" 2>&1
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+
+jp deployment/api '{range .spec.template.spec.securityContext.sysctls[*]}{.name}={.value}{"\n"}{end}' > "$EV/b8-sysctl-spec.txt"
+BAD=0
+for X in net.ipv4.tcp_keepalive_time=60 net.ipv4.tcp_keepalive_intvl=10 net.ipv4.tcp_keepalive_probes=6; do
+  grep -qx "$X" "$EV/b8-sysctl-spec.txt" || BAD=1
+done
+{ [ "$BAD" -eq 0 ] && [ "$(jp deployment/api '{.status.readyReplicas}')" = 2 ]; } \
+  && echo 'PASS: api khai ba sysctl keepalive va 2/2 Ready'
+
+API="$(kubectl -n "$NS" get pod -l app.kubernetes.io/component=api -o jsonpath='{.items[0].metadata.name}')"
+NODE="$(jp "pod/$API" '{.spec.nodeName}')"
+kubectl -n "$NS" debug "pod/$API" --image=busybox:1.37 -c sysctl-dbg -- sleep 300 >/dev/null
+for i in $(seq 1 30); do
+  [ -n "$(jp "pod/$API" '{.status.ephemeralContainerStatuses[?(@.name=="sysctl-dbg")].state.running.startedAt}')" ] && break
+  sleep 2
+done
+kubectl -n "$NS" exec "$API" -c sysctl-dbg -- sh -c \
+  'for f in tcp_keepalive_time tcp_keepalive_intvl tcp_keepalive_probes; do echo "$f=$(cat /proc/sys/net/ipv4/$f)"; done' \
+  > "$EV/b8-trong-pod.txt"
+TREN_NODE="$(ssh "$NODE" 'sysctl -n net.ipv4.tcp_keepalive_time')"
+cat "$EV/b8-trong-pod.txt"; echo "tren node $NODE: tcp_keepalive_time=$TREN_NODE" | tee "$EV/b8-tren-node.txt"
+{ grep -qx 'tcp_keepalive_time=60' "$EV/b8-trong-pod.txt" && grep -qx 'tcp_keepalive_intvl=10' "$EV/b8-trong-pod.txt" && \
+  grep -qx 'tcp_keepalive_probes=6' "$EV/b8-trong-pod.txt"; } && echo 'PASS: ba gia tri co hieu luc ben trong Pod api'
+[ -n "$TREN_NODE" ] && [ "$TREN_NODE" != 60 ] && echo 'PASS: gia tri tren node khong doi'
+kubectl -n "$NS" delete pod "$API" --wait=true && kubectl -n "$NS" rollout status deployment/api --timeout=180s >/dev/null \
+  && echo 'PASS: Pod api mang debugger da duoc thay, api Ready lai'
+
+kubectl apply -f "$W/sysctl-khong-an-toan.yaml"
+for i in $(seq 1 30); do [ "$(jp pod/sysctl-khong-an-toan '{.status.reason}')" = SysctlForbidden ] && break; sleep 2; done
+echo "node=$(jp pod/sysctl-khong-an-toan '{.spec.nodeName}') reason=$(jp pod/sysctl-khong-an-toan '{.status.reason}') phase=$(jp pod/sysctl-khong-an-toan '{.status.phase}')" \
+  | tee "$EV/b8-khong-an-toan.txt"
+{ [ "$(jp pod/sysctl-khong-an-toan '{.spec.nodeName}')" = lab-k8s-worker2 ] && \
+  [ "$(jp pod/sysctl-khong-an-toan '{.status.reason}')" = SysctlForbidden ] && \
+  [ "$(jp pod/sysctl-khong-an-toan '{.status.phase}')" = Failed ]; } \
+  && echo 'PASS: sysctl khong an toan — duoc lap lich, kubelet tu choi, Pod Failed'
+kubectl -n "$NS" delete pod sysctl-khong-an-toan --wait=true && echo 'PASS: da xoa Pod dien tap'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+Thêm vào spec Pod của Deployment `api` (cấp Pod, cùng cấp với `serviceAccountName`):
+
+```yaml
+      securityContext:
+        sysctls:
+        - name: net.ipv4.tcp_keepalive_time
+          value: "60"
+        - name: net.ipv4.tcp_keepalive_intvl
+          value: "10"
+        - name: net.ipv4.tcp_keepalive_probes
+          value: "6"
+```
+
+```yaml
+# ~/lab-work/9a/sysctl-khong-an-toan.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sysctl-khong-an-toan
+  namespace: bookstore
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: lab-k8s-worker2
+  securityContext:
+    sysctls:
+    - name: net.core.somaxconn
+      value: "1024"
+  containers:
+  - name: app
+    image: busybox:1.37
+    command: ["sh", "-c", "sleep 3600"]
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+```
+
+Ý chính cho ADR:
+
+1. Không ảnh hưởng Pod khác trên node, không hại sức khỏe node, không giành thêm CPU/bộ nhớ ngoài
+   limits. Ba sysctl keepalive nằm trong danh sách an toàn và được namespace hóa theo network namespace:
+   trong Pod là `60`, trên node vẫn là mặc định — đó là bằng chứng cách ly.
+2. Sysctl gắn với namespace của kernel, mà các container của Pod dùng chung network namespace — không có
+   khái niệm "sysctl mạng của riêng một container". Bài 258: `securityContext` cấp Pod áp cho mọi
+   container.
+3. Không. Ghi chú của bài 258: sysctl `net.*` không được phép khi bật host networking — Pod dùng network
+   namespace của node, đặt sysctl là đổi node.
+4. Được lập lịch, **không** chạy: kubelet trên worker2 từ chối, Pod `Failed` với `SysctlForbidden`.
+   Dấu vết ở trạng thái Pod và sự kiện của kubelet — giống B7 (đã qua API server, chết ở node), khác B6
+   (chết trong API server, chỉ để lại sự kiện của controller hoặc câu lỗi ở client).
+
+</details>
+
+## B9. Đóng sprint: cleanup và gate cuối
+
+**Mục đích:** bàn giao một repo dựng lại được toàn bộ hệ thống của sprint 15, rồi trả cluster về đúng
+`03-storage-ready` — không object RBAC nào sót, cấu hình control plane không đổi, không token nào
+trong bằng chứng.
+
+1. Thay `tests/smoke.sh` bằng phiên bản của Lab 9a — kiểm thử khói **tích lũy**, chép nguyên văn:
+
+```bash
+cat > ~/bookstore/tests/smoke.sh <<'EOF'
+#!/usr/bin/env bash
+# Kiểm thử khói — trạng thái sau Lab 9a: hệ thống của sprint 11 (dữ liệu bền, mạng zero-trust, HTTPS,
+# lập lịch, hạn mức) cộng danh tính và quyền của sprint 15. Chạy trên bộ VM chính, không cho overlay ha-lab.
+set -u
+NS=bookstore
+SEL='app.kubernetes.io/part-of=bookstore'
+FAIL=0
+pass() { echo "PASS: $*"; }
+fail() { echo "FAIL: $*"; FAIL=1; }
+k() { kubectl -n "$NS" "$@"; }
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+can() { kubectl auth can-i "$@" -n "$NS" 2>/dev/null; }
+
+# 1. Namespace và object cấp cluster
+[ "$(kubectl get namespace "$NS" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}' 2>/dev/null)" = bookstore ] \
+  && pass 'namespace bookstore mang label du an' || fail 'namespace bookstore thieu hoac thieu label'
+for PC in bookstore-critical bookstore-batch; do
+  [ "$(kubectl get priorityclass "$PC" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}' 2>/dev/null)" = bookstore ] \
+    && pass "co PriorityClass $PC" || fail "thieu PriorityClass $PC"
+done
+[ "$(kubectl get storageclass bookstore-retain -o jsonpath='{.reclaimPolicy}' 2>/dev/null)" = Retain ] \
+  && pass 'StorageClass bookstore-retain Retain' || fail 'thieu StorageClass bookstore-retain Retain'
+[ "$(kubectl get nodes -l bookstore.example.com/data=true -o jsonpath='{.items[*].metadata.name}')" = lab-k8s-worker2 ] \
+  && pass 'chi lab-k8s-worker2 mang label du lieu' || fail 'label node bookstore.example.com/data sai'
+N_CL="$(kubectl get clusterrole,clusterrolebinding -l "$SEL" --no-headers 2>/dev/null | wc -l)"
+[ "$N_CL" -eq 0 ] && pass 'du an khong co ClusterRole, ClusterRoleBinding' || fail "co $N_CL object RBAC cap cluster"
+
+# 2. Cấu hình, bí mật, PDB, hạn mức
+for P in web-config api-config db-init; do
+  k get configmap -o name 2>/dev/null | grep -q "^configmap/$P" && pass "co ConfigMap $P" || fail "thieu ConfigMap $P"
+done
+k get configmap backup-status >/dev/null 2>&1 && pass 'co ConfigMap backup-status' || fail 'thieu ConfigMap backup-status'
+D="$(jp secret/db-credentials '{.data}')"
+{ echo "$D" | grep -q '"postgres-password"' && echo "$D" | grep -q '"authenticator-password"'; } \
+  && pass 'Secret db-credentials du hai key' || fail 'Secret db-credentials thieu key'
+[ "$(jp secret/bookstore-tls '{.type}')" = kubernetes.io/tls ] && pass 'co Secret TLS bookstore-tls' || fail 'thieu Secret bookstore-tls'
+for P in web api; do k get pdb "$P" >/dev/null 2>&1 && pass "co PDB $P" || fail "thieu PDB $P"; done
+k get resourcequota bookstore-quota >/dev/null 2>&1 && pass 'co ResourceQuota bookstore-quota' || fail 'thieu bookstore-quota'
+k get limitrange bookstore-limits >/dev/null 2>&1 && pass 'co LimitRange bookstore-limits' || fail 'thieu bookstore-limits'
+
+# 3. Controller, vị trí, dữ liệu bền
+[ "$(jp statefulset/db '{.status.readyReplicas}')" = 1 ] && pass 'StatefulSet db 1/1 Ready' || fail 'StatefulSet db chua Ready'
+[ "$(jp pod/db-0 '{.spec.nodeName}')" = lab-k8s-worker2 ] && pass 'db-0 tren lab-k8s-worker2' || fail 'db-0 khong o lab-k8s-worker2'
+[ "$(jp pod/db-0 '{.status.qosClass}')" = Guaranteed ] && pass 'db-0 QoS Guaranteed' || fail 'db-0 khong Guaranteed'
+PRIO="$(kubectl get priorityclass bookstore-critical -o jsonpath='{.value}' 2>/dev/null)"
+[ -n "$PRIO" ] && [ "$(jp pod/db-0 '{.spec.priority}')" = "$PRIO" ] && pass 'db-0 dung bookstore-critical' || fail 'db-0 sai priority'
+# backup-store (WaitForFirstConsumer) chỉ Bound sau lần chạy thử db-backup bên dưới (6a).
+[ "$(jp pvc/data-db-0 '{.status.phase}')" = Bound ] && pass 'PVC data-db-0 Bound' || fail 'PVC data-db-0 chua Bound'
+[ "$(jp pvc/data-db-0 '{.spec.storageClassName}')" = bookstore-retain ] && pass 'data-db-0 dung bookstore-retain' || fail 'data-db-0 sai StorageClass'
+R="$(jp deployment/web '{.status.readyReplicas}')"; S="$(jp deployment/web '{.spec.replicas}')"
+[ "${R:-0}" -ge 2 ] && [ "$R" = "$S" ] && pass "Deployment web $R/$S Ready" || fail "Deployment web ${R:-0}/${S:-?} Ready"
+[ "$(jp deployment/api '{.status.readyReplicas}')" = 2 ] && pass 'Deployment api 2/2 Ready' || fail 'Deployment api chua du 2 ban sao'
+NODES="$(kubectl get nodes --no-headers | wc -l)"
+[ "$(jp daemonset/node-agent '{.status.numberReady}')" = "$NODES" ] && pass "node-agent Ready tren $NODES node" || fail 'node-agent thieu node'
+ORPHAN="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.name}:{.metadata.ownerReferences[0].kind}{"\n"}{end}' 2>/dev/null | grep -c ':$')"
+[ "$ORPHAN" -eq 0 ] && pass 'moi Pod cua du an deu co controller' || fail "$ORPHAN Pod tran"
+MISS="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.name}={.resources.requests.cpu},{.resources.limits.memory}{"\n"}{end}{end}' 2>/dev/null | grep -E '=,|,$' | sort -u)"
+[ -z "$MISS" ] && pass 'moi container co requests va limits' || fail "container thieu tai nguyen: $(echo $MISS)"
+
+# 4. Service và đường đi của request trong cluster
+[ "$(jp service/web '{.spec.type}/{.spec.ports[0].port}')" = ClusterIP/80 ] && pass 'Service web ClusterIP:80' || fail 'Service web sai'
+[ "$(jp service/api '{.spec.ports[0].port}')" = 3000 ] && pass 'Service api :3000' || fail 'Service api sai'
+[ "$(jp service/db '{.spec.clusterIP}')" = None ] && pass 'Service db headless' || fail 'Service db khong headless'
+[ "$(jp service/node-agent '{.spec.internalTrafficPolicy}')" = Local ] && pass 'Service node-agent Local' || fail 'Service node-agent sai'
+N="$(k exec db-0 -c postgres -- psql -U postgres -d bookstore -tAc 'SELECT count(*) FROM api.books' 2>/dev/null)"
+[ "${N:-0}" -ge 8 ] && pass "db co $N cuon sach" || fail "db co ${N:-0} cuon sach"
+WEB="$(k get pod -l "$SEL,app.kubernetes.io/component=web" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+get() { k exec "$WEB" -c status-writer -- wget -qO- -T 5 "$1" 2>/dev/null; }
+T="$(get http://127.0.0.1:8080/api/books | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && pass "web /api/books tra $T cuon sach" || fail "web /api/books tra $T cuon sach"
+get http://127.0.0.1:8080/ | grep -q Bookstore && pass 'web phuc vu trang chu' || fail 'web khong phuc vu trang chu'
+get http://127.0.0.1:8080/status.json | grep -Eq "\"pod\" *: *\"$WEB\"" && pass 'status.json dung ten Pod' || fail 'status.json sai'
+WN="$(jp "pod/$WEB" '{.spec.nodeName}')"
+get http://node-agent:9100/node.json | grep -Eq "\"node\" *: *\"$WN\"" && pass 'node-agent cung node tra /node.json' || fail 'node-agent qua Service sai'
+
+# 5. HTTPS từ ngoài qua Ingress
+[ "$(jp ingress/bookstore '{.spec.rules[0].host}')" = bookstore.lab.local ] && pass 'Ingress bookstore dung host' || fail 'Ingress bookstore sai host'
+[ "$(jp ingress/bookstore '{.spec.tls[0].secretName}')" = bookstore-tls ] && pass 'Ingress dung TLS bookstore-tls' || fail 'Ingress thieu TLS'
+HP="$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}' 2>/dev/null)"
+IP="$(kubectl get node lab-k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+curl -sk --max-time 10 --resolve "bookstore.lab.local:${HP}:${IP}" "https://bookstore.lab.local:${HP}/" | grep -q Bookstore \
+  && pass "HTTPS qua Traefik ($IP:$HP)" || fail 'HTTPS qua Traefik khong tra trang chu'
+
+# 6. NetworkPolicy
+NPS="$(k get networkpolicy -o jsonpath='{range .items[*]}{.spec.podSelector}{"|"}{.spec.policyTypes}{"\n"}{end}' 2>/dev/null)"
+{ echo "$NPS" | awk -F'|' '$1=="{}" && $2 ~ /Ingress/' | grep -q . && \
+  echo "$NPS" | awk -F'|' '$1=="{}" && $2 ~ /Egress/' | grep -q .; } \
+  && pass 'NetworkPolicy co lap ca hai chieu cho moi Pod' || fail 'thieu NetworkPolicy mac dinh chan hai chieu'
+# web không tới được API server. Đối chứng dương cùng đường đi: Pod busybox ở namespace thử
+# bookstore-thu (không NetworkPolicy; chỉ xóa nếu smoke tự tạo) gọi được đúng URL đó bằng đúng lệnh đó.
+# Phủ định chỉ tính khi wget hết giờ hoặc bị từ chối kết nối; lỗi khác là "không kết luận được".
+WGET_API='timeout 10 wget -q -T 5 -O /dev/null --no-check-certificate https://kubernetes.default.svc/version'
+PNS=bookstore-thu; MADE=0
+if ! kubectl get namespace "$PNS" >/dev/null 2>&1; then
+  kubectl create namespace "$PNS" >/dev/null 2>&1 \
+    && kubectl label namespace "$PNS" app.kubernetes.io/part-of=bookstore >/dev/null 2>&1 && MADE=1
+fi
+CTRL="$(kubectl -n "$PNS" run "smoke-api-$(date +%s)" --rm -i --restart=Never --image=busybox:1.37 --command -- \
+        sh -c "$WGET_API && echo TOI-DUOC || echo KHONG-TOI" 2>/dev/null)"
+[ "$MADE" -eq 1 ] && kubectl delete namespace "$PNS" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1
+OUT="$(k exec "$WEB" -c status-writer -- sh -c "$WGET_API" 2>&1)"; RC=$?
+if ! echo "$CTRL" | grep -q 'TOI-DUOC'; then fail 'doi chung: Pod ngoai NetworkPolicy khong goi duoc API server — khong ket luan duoc'
+elif [ "$RC" -eq 0 ]; then fail 'web toi duoc API server'
+elif echo "$OUT" | grep -Eq 'timed out|Connection refused|exit code 143'; then pass 'web bi NetworkPolicy chan toi API server'
+else fail "web toi API server loi khac chan mang — khong ket luan duoc: $(echo $OUT)"; fi
+
+# 7. CronJob db-backup và backup-status
+[ "$(jp cronjob/db-backup '{.spec.concurrencyPolicy}')" = Forbid ] && pass 'db-backup Forbid' || fail 'db-backup khong Forbid'
+SDS="$(jp cronjob/db-backup '{.spec.startingDeadlineSeconds}')"
+[ "${SDS:-0}" -ge 10 ] && pass "db-backup startingDeadlineSeconds=$SDS" || fail 'db-backup thieu startingDeadlineSeconds'
+[ "$(jp cronjob/db-backup '{.spec.suspend}')" != true ] && pass 'db-backup khong bi tam ngung' || fail 'db-backup dang suspend'
+[ "$(jp cronjob/db-backup '{.spec.jobTemplate.spec.template.spec.priorityClassName}')" = bookstore-batch ] \
+  && pass 'db-backup dung bookstore-batch' || fail 'db-backup khong dung bookstore-batch'
+J="smoke-backup-$(date +%s)"
+if k create job "$J" --from=cronjob/db-backup >/dev/null 2>&1 \
+   && k wait --for=condition=Complete "job/$J" --timeout=300s >/dev/null 2>&1; then
+  LINE="$(k logs "job/$J" 2>/dev/null | grep '^db-backup: OK' | tail -1)"
+  F="$(echo "$LINE" | awk '{print $3}')"; B="$(echo "$LINE" | awk '{print $4}')"
+  [ -n "$LINE" ] && pass "chay thu db-backup: $F ($B byte)" || fail 'chay thu db-backup khong in db-backup: OK'
+  { [ -n "$F" ] && [ "$(jp configmap/backup-status '{.data.file}')" = "$F" ] && \
+    [ "$(jp configmap/backup-status '{.data.bytes}')" = "$B" ]; } \
+    && pass 'backup-status ghi dung lan chay vua roi' || fail 'backup-status khong khop lan chay'
+else
+  fail 'chay thu db-backup that bai'
+fi
+k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+[ "$(jp pvc/backup-store '{.status.phase}')" = Bound ] && pass 'PVC backup-store Bound (sau lan chay thu)' || fail 'PVC backup-store chua Bound'
+
+# 8. Danh tính và quyền
+BAD=0
+for X in deployment/web:web deployment/api:api statefulset/db:db daemonset/node-agent:node-agent; do
+  [ "$(jp "${X%%:*}" '{.spec.template.spec.serviceAccountName}')" = "${X##*:}" ] || { echo "FAIL: ${X%%:*} sai ServiceAccount"; BAD=1; }
+done
+[ "$(jp cronjob/db-backup '{.spec.jobTemplate.spec.template.spec.serviceAccountName}')" = db-backup ] \
+  || { echo 'FAIL: db-backup sai ServiceAccount'; BAD=1; }
+for SA in default web api db db-migrate db-backup node-agent ci-deployer; do
+  [ "$(jp "serviceaccount/$SA" '{.automountServiceAccountToken}')" = false ] \
+    || { echo "FAIL: ServiceAccount $SA thieu hoac tu mount token"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && pass 'moi thanh phan mot ServiceAccount, khong ai tu mount token' || FAIL=1
+TOKP="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{range .spec.volumes[*]}{.name}{"\n"}{end}{end}' 2>/dev/null | grep -c '^kube-api-access-')"
+[ "$TOKP" -eq 0 ] && pass 'khong Pod nao cua du an mang token tu dong' || fail "$TOKP volume token tu dong"
+B=system:serviceaccount:bookstore:db-backup
+{ [ "$(can patch configmaps/backup-status --as="$B")" = yes ] && [ "$(can list configmaps --as="$B")" = no ] && \
+  [ "$(can get secrets --as="$B")" = no ]; } && pass 'db-backup chi sua duoc backup-status' || fail 'quyen db-backup sai'
+CI=system:serviceaccount:bookstore:ci-deployer
+{ [ "$(can patch deployments --as="$CI")" = yes ] && [ "$(can get secrets --as="$CI")" = no ] && \
+  [ "$(can create pods --subresource=exec --as="$CI")" = no ] && [ "$(can patch namespaces/bookstore --as="$CI")" = no ]; } \
+  && pass 'ci-deployer sua Deployment, khong Secret, exec hay Namespace' || fail 'quyen ci-deployer sai'
+{ [ "$(can list pods --as=dev --as-group=bookstore-devs)" = yes ] && [ "$(can get secrets --as=dev --as-group=bookstore-devs)" = no ] && \
+  [ "$(can patch pods --subresource=ephemeralcontainers --as=dev --as-group=bookstore-devs)" = no ]; } \
+  && pass 'bookstore-devs chi doc' || fail 'quyen bookstore-devs sai'
+{ [ "$(can patch pods --subresource=ephemeralcontainers --as=truc --as-group=bookstore-oncall)" = yes ] && \
+  [ "$(can get secrets --as=truc --as-group=bookstore-oncall)" = no ]; } \
+  && pass 'bookstore-oncall go loi duoc, khong doc Secret' || fail 'quyen bookstore-oncall sai'
+
+# 9. Danh tính tiến trình và tham số kernel
+SC='{.spec.jobTemplate.spec.template.spec.securityContext'
+{ [ "$(jp cronjob/db-backup "$SC.runAsUser}")" = 999 ] && [ "$(jp cronjob/db-backup "$SC.runAsNonRoot}")" = true ]; } \
+  && pass 'db-backup chay uid 999, kubelet kiem non-root' || fail 'db-backup chua non-root'
+jp deployment/api '{range .spec.template.spec.securityContext.sysctls[*]}{.name}={.value}{" "}{end}' \
+  | grep -q 'net.ipv4.tcp_keepalive_time=60' && pass 'api dat sysctl keepalive' || fail 'api thieu sysctl keepalive'
+
+# 10. Repo
+git -C "$(dirname "$0")/.." check-ignore -q secrets/ci-deployer.kubeconfig \
+  && pass 'kubeconfig CI nam ngoai git' || fail 'secrets/ khong bi .gitignore chan'
+
+exit "$FAIL"
+EOF
+chmod +x ~/bookstore/tests/smoke.sh
+```
+
+2. Cập nhật `docs/tech-debt.md`: `TD-07` ghi giới hạn ở 9a (B5), `TD-15` mới (B4). `TD-06` vẫn mở.
+
+3. Dựng lại sạch từ repo và chạy kiểm thử khói:
+
+```bash
+cd ~/bookstore
+./scripts/teardown.sh && ./scripts/deploy.sh > ~/lab-evidence/9a/b9-deploy.txt 2>&1
+./tests/smoke.sh > ~/lab-evidence/9a/b9-smoke.txt 2>&1; echo "smoke exit=$?"
+cat ~/lab-evidence/9a/b9-smoke.txt
+```
+
+4. Commit, tag, đóng gói, chép ra ngoài VM theo
+   [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm):
+
+```bash
+cd ~/bookstore
+rm -f secrets/ci-deployer.kubeconfig
+git status --short
+git add -A && git commit -m 'lab-9a: sprint 15 — danh tinh va quyen'
+git tag lab-9a
+git bundle create ~/bookstore-lab-9a.bundle --all && git bundle verify ~/bookstore-lab-9a.bundle
+```
+
+Chép `~/bookstore-lab-9a.bundle` về máy host bằng `scp` trước khi đi tiếp.
+
+5. Dọn object thử nghiệm và trả cluster:
+
+```bash
+kubectl -n bookstore delete pod,job,networkpolicy -l '!app.kubernetes.io/part-of' --ignore-not-found --wait=true
+kubectl delete namespace lab-9a-thu --ignore-not-found --wait=true
+rm -rf ~/lab-work/9a ~/bookstore-truoc-9a
+cd ~/bookstore && ./scripts/teardown.sh
+```
+
+6. Gate cuối:
+
+```bash
+cd ~/bookstore; EV=~/lab-evidence/9a; SEL=app.kubernetes.io/part-of=bookstore
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
+git describe --tags --exact-match HEAD | grep -qx 'lab-9a' && echo 'PASS: HEAD mang tag lab-9a'
+test -s ~/bookstore-lab-9a.bundle && echo 'PASS: co bundle'
+{ test -f k8s/app/rbac/serviceaccounts.yaml && test -f k8s/app/rbac/backup-status-writer.yaml && \
+  test -f k8s/app/rbac/ci-deployer.yaml && test -f k8s/app/rbac/nguoi-dung.yaml && \
+  test -f k8s/app/backup/status-configmap.yaml && test -f k8s/app/network/backup-to-apiserver.yaml && \
+  test -x scripts/ci-kubeconfig.sh; } && echo 'PASS: bo cuc repo dung muc 5.5'
+BAD=0
+for F in 'adr/*-ban-do-danh-tinh.md' 'adr/*-serviceaccount-tung-thanh-phan.md' 'adr/*-backup-status-qua-api.md' \
+         'adr/*-danh-tinh-ci.md' 'adr/*-quyen-nguoi-dung.md' 'adr/*-danh-tinh-tien-trinh.md' 'adr/*-sysctl-api.md' \
+         'postmortem/9a-request-bi-chan.md' 'runbook-ci-deployer.md'; do
+  ls docs/$F >/dev/null 2>&1 || { echo "FAIL: thieu docs/$F"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: du ADR, postmortem, runbook cua sprint 15'
+grep -q 'TD-15' docs/tech-debt.md && grep 'TD-07' docs/tech-debt.md | grep -q '9a' && echo 'PASS: tech-debt.md cap nhat TD-07, TD-15'
+
+{ [ "$(kubectl get namespace,priorityclass,storageclass,clusterrole,clusterrolebinding -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
+  [ "$(kubectl get all,configmaps,secrets,serviceaccounts,roles,rolebindings,networkpolicies -A -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+  && echo 'PASS: khong con object nao cua du an, ke ca RBAC'
+test -z "$(kubectl get nodes -l bookstore.example.com/data -o name)" && echo 'PASS: label node cua du an da go'
+{ echo "clusterrole=$(kubectl get clusterrole --no-headers | wc -l)"
+  echo "clusterrolebinding=$(kubectl get clusterrolebinding --no-headers | wc -l)"; } > "$EV/b9-rbac-cluster.txt"
+diff -q "$EV/b0-rbac-cluster.txt" "$EV/b9-rbac-cluster.txt" >/dev/null && echo 'PASS: so ClusterRole, ClusterRoleBinding tro ve dung B0'
+{ echo "apiserver-manifest $(sudo sha256sum /etc/kubernetes/manifests/kube-apiserver.yaml | awk '{print $1}')"
+  echo "kubelet-master $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
+  for n in lab-k8s-worker1 lab-k8s-worker2; do
+    echo "kubelet-$n $(ssh "$n" 'sudo sha256sum /var/lib/kubelet/config.yaml' | awk '{print $1}')"
+  done; } > "$EV/b9-cauhinh-sha.txt"
+diff -q "$EV/b0-cauhinh-sha.txt" "$EV/b9-cauhinh-sha.txt" >/dev/null && echo 'PASS: cau hinh control plane va kubelet khong doi'
+[ "$(grep -rl 'eyJhbGciOi' "$EV" 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: khong file bang chung nao chua token'
+test ! -e ~/lab-work/9a && echo 'PASS: da don lab-work'
+
+kubectl wait --for=condition=Ready node --all --timeout=180s
+test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
+kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
+kubectl -n kube-system get deployment coredns
+kubectl get pods -n default
+kubectl get storageclass | grep -q '(default)' && echo 'PASS: van con StorageClass mac dinh cua 03-storage-ready'
+```
+
+**PASS:** `smoke exit=0` và file smoke ở bước 3 in toàn `PASS:`; mười hai dòng `PASS:` đầu của gate
+cuối xuất hiện; dòng `PASS: readyz ok`; ba node `Ready`; lệnh field selector trả `No resources found`;
+CoreDNS đủ replica; namespace `default` không có Pod; dòng `PASS: van con StorageClass mac dinh ...`.
+Thư mục `~/lab-evidence/9a/` **giữ lại**. Cluster trở về `03-storage-ready`; **không tạo snapshot mới**.
 
 ---
 
 ## 3. Checkpoint 9a
 
-Không đánh dấu lab hoàn tất chỉ vì command chạy hết. Tự trả lời, không nhìn tài liệu:
+Không đánh dấu lab hoàn tất chỉ vì script nghiệm thu PASS. Tự trả lời, không nhìn tài liệu:
 
-- [ ] Sau khi TLS xong, một request đi qua **ba chặng** nào, theo đúng thứ tự? Với mỗi chặng, nói
-      rõ nó từ chối **vì lý do gì**, trả **mã HTTP nào**, và bạn dựng lại tình huống đó bằng bước
-      nào trong lab.
-- [ ] Một client gửi request **không kèm credential nào** tới `/api` và nhận `403` chứ không phải
-      `401`. Giải thích vì sao, và nói xem điều đó cho bạn biết gì về cấu hình của cluster. Với
-      cùng client đó, `/version` trả `200` — vì sao hai đường dẫn lại khác nhau?
-- [ ] Ứng dụng của bạn báo `401` khi gọi API server, nhưng token của nó vừa được cấp và
-      ServiceAccount thì có đủ RoleBinding. Kể ra **ba** nguyên nhân khác nhau mà lab đã dựng lại
-      được, và cách phân biệt chúng.
-- [ ] Bạn có một ClusterRole `doc-cm` cho phép `get`/`list` trên ConfigMap. Mô tả kết quả khi gắn
-      nó bằng **RoleBinding trong namespace `team-a`** so với khi gắn bằng **ClusterRoleBinding**.
-      Rồi trả lời: có tổ hợp nào trong bốn tổ hợp là **không tồn tại** không, và request tạo nó
-      chết ở bước nào?
-- [ ] Bạn cấp cho một ServiceAccount `get` và `list` trên ConfigMap trong `team-a`. Liệt kê ít
-      nhất bốn thứ nó **vẫn không làm được**, và với mỗi thứ nói rõ lý do là "Role không chứa" hay
-      "binding không với tới".
-- [ ] Đồng nghiệp muốn cấp `list` trên Secret cho một tài khoản giám sát vì "list chỉ ra tên, an
-      toàn hơn get". Sai ở đâu? Bạn đã chứng minh bằng bước nào?
-- [ ] Kubernetes **không có** object `User`. Vậy tại sao một RoleBinding gắn cho group
-      `lab-9a-doc` lại có tác dụng, và cái tên `lab-9a-doc` đó đến từ đâu trên cluster kubeadm của
-      bạn? Nêu một hệ quả vận hành nguy hiểm của việc binding chỉ lưu tên.
-- [ ] Bạn `kubectl apply` một Pod và bị `Forbidden`, nhưng `kubectl auth can-i create pods` trả
-      `yes`. Chuyện gì đang xảy ra? Cùng lúc đó, `kubectl get pods` trong một namespace **không
-      tồn tại** lại chạy trơn tru — vì sao hai request này khác nhau?
-- [ ] Kể ba thứ mà chặng 3 **thêm vào** một Pod bạn viết chỉ với `image` và `command`. Ai làm
-      việc đó, và file manifest trên đĩa của bạn có đổi không?
-- [ ] Một Pod không khai `spec.serviceAccountName` chạy trong `team-a`. Nó gọi API server dưới
-      danh tính nào? Nó làm được gì và không làm được gì? Trên `lab-k8s-worker2`, ba file nào được
-      chiếu vào container đó, ở đường dẫn nào, và bằng cơ chế gì?
-- [ ] `kubectl proxy` làm hộ bạn việc gì và **không** làm hộ việc gì? Nếu bạn chạy nó bằng
-      kubeconfig của một ServiceAccount chỉ đọc ConfigMap, người gọi vào cổng proxy đó làm được
-      những gì?
-- [ ] Đặt cạnh nhau hai token của cùng một ServiceAccount: một do `TokenRequest` phát hành, một
-      lưu trong Secret dạng `kubernetes.io/service-account-token`. Khác nhau ở claim nào, ở vòng
-      đời nào, và vì sao dự án Kubernetes khuyến cáo tránh loại thứ hai?
+- [ ] Kể bốn bước của một request sau TLS. Với mỗi bước, một request **của Bookstore** chết ở đó trong
+      sprint này, và dấu hiệu nhận ra từ phía client. Một request chết **sau** API server trông thế nào?
+- [ ] Ứng dụng báo `401` dù token vừa cấp và RoleBinding đủ. Ba nguyên nhân đã dựng lại được, và cách
+      phân biệt bằng claim của token.
+- [ ] Trước sprint, Pod `web` mang token nhưng NetworkPolicy chặn đường tới API server. Vì sao vẫn gỡ
+      token? Tắt tự mount ở ServiceAccount và ở Pod — cấp nào thắng, và điều đó có phải hàng rào không?
+- [ ] Role của `db-backup` chỉ có `get`, `patch` trên đúng `backup-status`. Vì sao không thêm được
+      `create` theo tên, vì sao ConfigMap phải có sẵn từ repo, và vì sao nó không đi qua generator?
+- [ ] Token trong Pod backup: ở đâu, trong container nào, sống bao lâu, container xác minh server bằng
+      gì? Vì sao không dùng `wget` của busybox hay image `postgres` để gọi API?
+- [ ] NetworkPolicy cho Pod backup tới API server: rule theo đích nào có hiệu lực trên cluster của bạn,
+      bài 84 nói gì về việc đó, và rule gãy khi nào?
+- [ ] Danh tính CI: phát hành, thời hạn, thu hồi ngay bằng cách nào. Tạo lại ServiceAccount cùng tên
+      thì kubeconfig mới có quyền gì — vì sao, và rủi ro rà soát nào đi kèm?
+- [ ] `TD-15`: vì sao quyền sửa Deployment gần như bằng quyền đọc Secret và mượn ServiceAccount? Bạn đã
+      chứng minh bằng gì mà không làm lộ gì?
+- [ ] `bookstore-devs` và `bookstore-oncall`: mỗi nhóm làm được gì, không làm được gì. Vì sao `view`
+      không có Secret? `TD-07` còn mở phần nào?
+- [ ] Kubernetes không có object `User`. Vậy RoleBinding cho `bookstore-devs` có tác dụng nhờ đâu?
+      `kubectl auth can-i --as --as-group` liên quan gì tới SubjectAccessReview?
+- [ ] Trong Pod backup: ai chạy uid nào, gid nào, nhờ thiết lập ở cấp nào; cờ `NoNewPrivs` đến từ field
+      nào; `runAsNonRoot` bị kiểm ở đâu?
+- [ ] Sysctl keepalive của `api`: vì sao là "an toàn", đặt ở cấp nào, giá trị trên node có đổi không.
+      Pod dùng sysctl không an toàn: lập lịch? chạy? dấu vết ở đâu?
+
+Nợ còn mở sau lab này — nói được **vì sao chưa trả**:
+
+- Nợ lab #6 (mã hóa Secret at rest — giai đoạn 22). Lab không phát sinh nợ lab mới.
+- Nợ kỹ thuật: `TD-06` (`db` khởi động bằng root — Lab 9b); `TD-07` **đã giới hạn** nhưng người trực
+  vẫn đọc được biến môi trường của `api`; `TD-15` mới (quyền sửa Deployment của CI — chấp nhận có điều
+  kiện, xem lại khi học admission policy ở giai đoạn 14); `TD-10` giữ trạng thái từ Lab 6b.
 
 ### Bài giải thích cuối cùng
 
-Trong vài phút, kể lại bằng lời hai luồng sau, không nhìn tài liệu:
-
-1. **Luồng một request `kubectl create -f pod.yaml` đi từ máy bạn tới etcd.** Bắt đầu từ lúc
-   TCP mở tới cổng 6443. Kể đủ: cái gì được xuất trình ở tầng TLS và ai kiểm nó; chặng 1 rút ra
-   những gì từ thứ đó và ghi vào đâu; chặng 2 nhận vào đúng ba thứ nào và trả lời thế nào khi có
-   nhiều module; chặng 3 nhìn thấy thứ gì mà hai chặng trước không thấy, và quy tắc kết hợp nhiều
-   module của nó **ngược** với chặng 2 ra sao; cuối cùng bước 4 làm gì trước khi ghi. Với mỗi
-   chặng, nêu **một** cách bạn đã làm request đó chết ở đúng chặng đó, và **dấu hiệu** để nhận ra
-   từ phía client.
-2. **Luồng một Pod trở thành một chủ thể có quyền.** Bắt đầu từ một manifest chỉ có `image`. Kể
-   đủ: ai gán danh tính cho nó và ở chặng nào; credential vào trong container bằng cơ chế gì và
-   gồm mấy phần; container gọi API server bằng đường nào và tự xác minh server bằng gì; API
-   server rút danh tính ra từ đâu trong token đó. Rồi kể tiếp phía quản trị: bạn thêm những object
-   nào để nó đọc được ConfigMap trong đúng một namespace, vì sao **không** nên gán quyền đó cho
-   `default`, và ba cách bạn kiểm chứng lại kết quả mà không cần chạy Pod. Kết thúc bằng câu hỏi
-   ngược: nếu ngày mai bạn xóa ServiceAccount đó, chuyện gì xảy ra với token đang nằm trong Pod,
-   và vì sao đó là một tính chất chứ không phải một sự cố.
-
-Khi mọi checkbox được đánh dấu và bạn không còn nhầm **401** với **403**, **xác thực** với **phân
-quyền**, **Role** với **ClusterRole**, **RoleBinding** với **ClusterRoleBinding**, hay
-**`Forbidden` của chặng 2** với **`Forbidden` của chặng 3** — phần truy cập của
-[giai đoạn 9](../00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) hoàn tất, và bạn
-sang được phần policy ở Lab 9b.
-
-Lab này **không phát sinh nợ mới** và **không trả nợ nào**; xem
-[sổ nợ lab](README.md#5-sổ-nợ-lab). Riêng **nợ #6 — mã hóa Secret at rest** có liên quan trực
-tiếp tới điều B3.4 vừa chứng minh: Secret API chỉ là **sự bảo vệ cơ bản**, và nợ đó vẫn **chưa
-trả** — nó được trả ở [giai đoạn 22](../00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu),
-không phải ở đây. Những phần cố ý không làm khác đều nằm trong bảng lý do ở
-[mục 1.1](#11-ánh-xạ-tài-liệu-sang-bài-thực-hành).
+Trong vài phút, kể lại một lần chạy của `db-backup` từ góc nhìn danh tính: CronJob tạo Job;
+`job-controller` — một ServiceAccount của `kube-system` — tạo Pod; chặng tiếp nhận kiểm ServiceAccount
+`db-backup` có tồn tại; kubelet chiếu token 10 phút, CA và namespace vào **đúng** container
+`report-status`, chạy hai container bằng uid nào, gid nào; `pg-dump` xong mới tới `report-status`;
+request `PATCH` đi qua NetworkPolicy nào, tới API server, qua chặng 1 bằng claim nào, qua chặng 2 nhờ
+Role nào, rồi ghi `backup-status`. Rồi kể ngược: nếu tên ServiceAccount gõ sai, nếu token xin sai
+audience, nếu Role thiếu `patch`, nếu NetworkPolicy theo ClusterIP — mỗi trường hợp chết ở đâu và bạn
+thấy gì. Kết thúc bằng việc chỉ ra Lab 9b sẽ siết thêm điều gì lên chính Pod này.
 
 ---
 
 ## 4. Troubleshooting của lab này
 
-Sự cố dựng môi trường nằm ở
-[mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường). Bảng dưới chỉ liệt
-kê sự cố phát sinh từ nội dung bài học 9a.
+Sự cố dựng môi trường xem [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường).
+Dưới đây chỉ là sự cố phát sinh trong nội dung bài học.
 
-| Triệu chứng | Kiểm tra | Xử lý đúng phạm vi |
+| Triệu chứng | Nguyên nhân thường gặp | Xử lý |
 | --- | --- | --- |
-| B0.2: `curl` báo lỗi certificate dù đã truyền `--cacert` | `sudo openssl x509 -noout -subject -issuer -in /etc/kubernetes/pki/ca.crt`; `echo "$SRV"` | `SRV` có thể là hostname không nằm trong SAN của certificate API server. Dùng đúng giá trị `kubectl config view` in ra, đừng thay bằng IP tay |
-| B2.1: `client-certificate-data` rỗng | `kubectl config view --raw --minify -o jsonpath='{.users[0].user}'` | Kubeconfig của bạn dùng đường dẫn file (`client-certificate`) thay vì dữ liệu nhúng. Đọc thẳng file đó bằng `openssl x509 -in <duong-dan>`; các gate còn lại giữ nguyên |
-| B2.1: `CN_CERT` rỗng hoặc khác `ADMIN_USER` | `openssl x509 -noout -subject -in ~/lab-work/9a/admin-client.crt` | Định dạng subject của `openssl` khác nhau theo phiên bản. Đọc bằng mắt rồi so tay; **không** sửa cluster để làm gate xanh |
-| B2.3: `C_AN_API` không khớp giá trị kỳ vọng | `sudo grep -n 'anonymous-auth' /etc/kubernetes/manifests/kube-apiserver.yaml` | Cluster của bạn cấu hình `anonymous-auth` khác baseline. Ghi giá trị thật vào evidence và đọc lại phần *Ý nghĩa* theo cấu hình đó. **Không sửa manifest** — đó là nội dung giai đoạn 20 |
-| B2.6 hoặc B6.5: vòng lặp chạy hết 60 vòng mà mã vẫn `200` | `kubectl get serviceaccount -n lab-9a`; `kubectl -n kube-system logs -l component=kube-apiserver --tail=50` | ServiceAccount chưa thực sự bị xóa, hoặc thông tin chưa lan tới authenticator. Kiểm object đã biến mất chưa rồi tăng số vòng lặp. Thời gian lan truyền **phụ thuộc cấu hình**; không kết luận cơ chế hỏng chỉ vì một ngưỡng cố định |
-| B3.2: vòng lặp không bao giờ đạt `200` | `kubectl describe rolebinding doc-configmap -n lab-9a`; `kubectl auth can-i list configmaps -n lab-9a --as="$SA_RO"` | Sai `subjects[0].namespace` trong RoleBinding (phải là `lab-9a`), hoặc `TOK_RO` thuộc phiên shell cũ. Tạo lại token bằng `kubectl create token sa-doc-cm -n lab-9a` rồi chạy lại gate |
-| B3.6: `kubectl auth can-i ... --subresource=proxy` báo cờ không tồn tại | `kubectl auth can-i --help` | Bản `kubectl` đang dùng cũ hơn baseline. Kiểm lại version theo [bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); **không** cài `kubectl` khác để đi vòng |
-| B3.10: Role rộng lại tạo được | `kubectl auth can-i --list -n lab-9a --as="$SA_RBAC"` | `sa-rbac` đang có nhiều quyền hơn dự kiến — thường vì có binding sót từ lần chạy trước. Xóa namespace `lab-9a`, chạy lại từ B0.1 |
-| B4.1: thông báo không chứa `error looking up service account` | `cat ~/lab-evidence/9a/b4-admission-tu-choi.txt` | Nếu thông báo là `namespaces "lab-9a" not found` thì namespace đã bị xóa; tạo lại rồi chạy lại từ B3.2. Nếu là lỗi RBAC, bạn đang chạy bằng kubeconfig không phải quản trị |
-| B4.3: Pod kẹt `Pending` | `kubectl describe pod tran -n lab-9a`; `kubectl get nodes -o custom-columns='NODE:.metadata.name,TAINTS:.spec.taints'` | `lab-k8s-worker2` mang taint hoặc `NotReady`. Chạy lại gate mở đầu; nếu worker2 hỏng thật thì restore cả ba VM — **không** đổi `nodeSelector` sang worker1, vì quy ước lab ghim mọi thao tác đọc trong container vào worker2 |
-| B5: `kubectl exec` chạy `wget` báo lỗi bắt tay TLS | `kubectl exec -n lab-9a tran -- wget --help 2>&1 \| head -5` | Bản `busybox` của bạn không hoàn tất được TLS với API server. Chạy đúng request đó từ `lab-k8s-master`: đọc token bằng `TOK_POD="$(kubectl exec -n lab-9a tran -- cat /var/run/secrets/kubernetes.io/serviceaccount/token)"` rồi `api_code`/`api_body` với `$TOK_POD`, và `unset TOK_POD` ngay sau đó. Gate giữ nguyên: mã `200` cho discovery, `403` cho ConfigMap. **Không cài thêm image nào** |
-| B5.2: `H_POD` khác `H_CM` | `kubectl exec -n lab-9a tran -- md5sum /var/run/secrets/kubernetes.io/serviceaccount/ca.crt` | Thường do khác một ký tự xuống dòng ở cuối. Dùng gate còn lại — so **fingerprint** của certificate bằng `openssl` — làm bằng chứng chính, và ghi cả hai giá trị vào evidence |
-| B5.4: Pod `khong-token` vẫn có thư mục credential | `kubectl get pod khong-token -n lab-9a -o jsonpath='{.spec.volumes}'` | Pod được tạo **trước** khi ServiceAccount có `automountServiceAccountToken: false`. Xóa Pod, apply lại — quyết định này xảy ra ở chặng admission, tức lúc tạo Pod |
-| B6.2: `kubectl proxy` không lên, vòng lặp trả `000` | `cat ~/lab-evidence/9a/b6-proxy-admin.log`; `ss -ltn \| grep 8001` | Cổng đã bận hoặc tiến trình proxy cũ còn sống. `kill` tiến trình cũ rồi chạy lại; nếu cần, đổi `--port` ở **tất cả** lệnh của B6.2 và B6.3 |
-| B6.5: `.data.token` mãi rỗng | `kubectl describe secret sa-cu-token -n lab-9a`; `kubectl get sa sa-cu -n lab-9a` | Annotation `kubernetes.io/service-account.name` sai tên, hoặc ServiceAccount chưa tồn tại lúc tạo Secret. Xóa Secret, tạo lại ServiceAccount trước rồi mới tạo Secret |
-| B7.1: namespace kẹt `Terminating` | `kubectl get pods -n lab-9a`; `kubectl describe namespace lab-9a` | Pod còn trong grace period. Chờ; **không** cưỡng chế finalizer của Namespace |
-| B7.2: số ClusterRole hoặc ClusterRoleBinding không khớp | `kubectl get clusterrole,clusterrolebinding --sort-by=.metadata.creationTimestamp \| tail -20` | Còn object của lab không mang label `lab=9a`, hoặc bạn đã tạo thêm ngoài kịch bản. Tìm theo thời điểm tạo, xóa đúng cái đó. **Không** xóa ClusterRole nào có tiền tố `system:` |
-| B7.3: `diff` báo checksum khác | `diff -u ~/lab-evidence/9a/b0-cauhinh-sha.txt ~/lab-evidence/9a/b7-cauhinh-sha.txt` | Cấu hình control plane đã bị sửa trong lúc chạy lab. Cluster lệch baseline: tắt cả ba VM, restore cả ba về `03-storage-ready`, và **không** sang lab sau trước khi gate này PASS |
-| B7.4: có file bằng chứng chứa token | `grep -rl 'eyJhbGciOi' ~/lab-evidence/9a/` | Một lệnh đã `tee` cả token vào evidence. Xóa file đó, chạy lại đúng bước đã sinh ra nó theo phiên bản trong bài (chỉ ghi claim, không ghi token) |
+| B0: `git describe` không ra `lab-8c`, hoặc HEAD ở trạng thái detached | Clone từ bundle cũ, hoặc bundle tạo khi HEAD không ở nhánh | Clone lại từ `bookstore-lab-8c.bundle` mới nhất; `git checkout <nhánh chính>` rồi kiểm `HEAD` trùng commit của tag |
+| B0: smoke của `lab-8c` fail ở phần Ingress hoặc NetworkPolicy | Bản smoke của tag đó viết cho overlay `ha-lab` trên bộ VM HA | Chạy bản tích lũy cuối cùng của chuỗi chính: `git show lab-7b:tests/smoke.sh \| bash`; ghi lại vào ADR của B1 |
+| B0: `deploy.sh` treo, PVC `Pending` | Không ở `03-storage-ready`, thiếu StorageClass mặc định | Restore cả ba VM về `03-storage-ready` rồi làm lại B0 |
+| B1: `CN` hoặc `O` rỗng | Kubeconfig trỏ file certificate thay vì nhúng dữ liệu | Đọc trường `client-certificate` rồi `openssl x509 -in <đường dẫn>`; không sửa kubeconfig |
+| B1: `patch serviceaccount default` báo `not found` | Controller chưa kịp tạo `default` trong namespace mới | Vòng `until` trong script chờ đúng việc đó; chạy lại khối |
+| B1: `wget` trong Pod thử nghiệm lỗi bắt tay TLS | `busybox` không hoàn tất TLS với API server | Lấy token ra biến trên master bằng `kubectl exec ... cat`, gọi bằng `curl --cacert`, rồi `unset`; không thêm image |
+| B2: rollout kẹt, sự kiện `FailedCreate ... error looking up service account` | File ServiceAccount chưa nằm trong `resources` của kustomization | Thêm `rbac/serviceaccounts.yaml`, `./scripts/deploy.sh` |
+| B2: `deploy.sh` báo `field is immutable` cho Job `db-migrate` | Template Job đổi mà Job cũ còn (TTL chưa dọn) | `kubectl -n bookstore delete job db-migrate` rồi deploy lại; nếu `deploy.sh` của bạn không tự xóa Job trước khi apply, sửa nó và ghi vào ADR |
+| B2: Pod vẫn có `kube-api-access-*` | Pod tạo trước khi ServiceAccount đổi, hoặc template khai `automountServiceAccountToken: true` | Quyết định này xảy ra lúc tạo Pod: xóa Pod hoặc rollout lại; bỏ dòng `true` khỏi template |
+| B3: Job backup `Init` xong nhưng `report-status` báo `HTTP 000` | NetworkPolicy chưa mở, hoặc mở theo ClusterIP | Rule theo endpoint thật của Service `kubernetes`, cổng của endpoint; xem lại điều tra NetworkPolicy |
+| B3: `HTTP 403` từ `PATCH` | Sai `resourceNames`, subject của RoleBinding sai namespace, hoặc ConfigMap mang hậu tố hash | `kubectl auth can-i patch configmaps/backup-status --as=system:serviceaccount:bookstore:db-backup -n bookstore`; `backup-status` phải là resource thường, không qua generator |
+| B3: `HTTP 404` từ `PATCH` | `backup-status` chưa tồn tại — `patch` không tạo object | Kiểm `backup/status-configmap.yaml` có trong kustomization |
+| B3: `HTTP 401` | Token khai `audience` khác API server, hoặc đọc nhầm file | Bỏ `audience` khỏi nguồn `serviceAccountToken`; kiểm đường mount |
+| B3: `curl: (60) SSL certificate problem` | Trỏ `--cacert` sai file | Dùng `ca.crt` chiếu từ ConfigMap `kube-root-ca.crt` |
+| B3: `curl: not found` | Dùng biến thể image không có `curl` (`-alpine-slim`) | Dùng đúng tag ở A1.4; kiểm bằng `command -v curl` trong Pod tạm |
+| B3: trạng thái mất sau mỗi `deploy.sh` | Manifest `backup-status` khai `data` | Bỏ hẳn `data` khỏi manifest trong repo |
+| B3: tạo Job backup báo `exceeded quota` | Container mới làm tổng `requests` của Pod backup vượt hạn mức Lab 7b | Giảm `requests` của container mới, hoặc nâng quota trong repo kèm ADR |
+| B4: `kubeconfig` quyền khác `600` hoặc `git status` thấy file | Tạo file ngoài script; `.gitignore` không phải `secrets/*` | Chạy lại `ci-kubeconfig.sh`; `.gitignore` theo Lab 3b |
+| B4: `set image --dry-run=server` bị `Forbidden` | Role thiếu `patch` trên `deployments` | `kubectl set image` đọc rồi `patch`; thêm verb vào Role |
+| B4: vòng lặp thu hồi chạy hết mà vẫn `200` | ServiceAccount chưa thật sự bị xóa | `kubectl -n bookstore get sa ci-deployer`; thời gian lan truyền **phụ thuộc cấu hình**, tăng số vòng lặp |
+| B4: `kubectl proxy` không lên | Cổng `8001` bận | `ss -ltnp \| grep 8001`, dừng tiến trình cũ |
+| B5: `kubectl debug` của oncall bị `Forbidden` | Thiếu `get pods`, hoặc verb trên `pods/ephemeralcontainers` không phải `patch` | Đọc thông báo — nó nêu đúng verb và resource bị từ chối |
+| B5: `kubectl exec` của oncall vào debugger bị `Forbidden` | Chỉ cấp `create` hoặc chỉ `get` trên `pods/exec` | Cấp cả hai |
+| B5: `--as-group` báo lỗi | Thiếu `--as` | Luôn đi cùng `--as=<tên bất kỳ>` |
+| B6: không có sự kiện `FailedCreate` | ServiceAccount gõ sai tình cờ tồn tại, hoặc lọc sự kiện sai tên | Đổi tên sai khác đi; lọc theo `involvedObject.name` đúng tên Job |
+| B6: request không credential ra mã khác kỳ vọng | Cấu hình `anonymous-auth` của cluster khác baseline | Ghi giá trị thật vào postmortem; **không** sửa manifest API server |
+| B7: `pg-dump` báo `Permission denied` khi ghi dump | Thư mục PVC không cho uid `999` ghi | `ls -ld` thư mục của PV trên node; ghi vào ADR; `fsGroup` chỉ giúp với volume hỗ trợ quản lý quyền sở hữu |
+| B7: `CreateContainerConfigError` ở Job backup | Khai `runAsNonRoot` mà thiếu `runAsUser` ở cấp áp cho container đó | Đặt `runAsUser` cấp Pod, ghi đè cấp container nếu cần |
+| B8: Pod `api` không lên sau khi thêm sysctl | Tên sysctl gõ sai, hoặc dùng sysctl không nằm trong danh sách an toàn | `kubectl describe pod`; đối chiếu danh sách ở bài 258 |
+| B9: namespace kẹt `Terminating` | `db-0` đang trong thời gian ân hạn | Chờ; `teardown.sh` chờ có giới hạn |
+| B9: gate token trong bằng chứng fail | Một lệnh đã ghi cả token vào file | Xóa file đó, chạy lại đúng bước sinh ra nó theo bản trong lab |
+| B9: số ClusterRole/ClusterRoleBinding khác B0 | Có object cấp cluster tạo ngoài kịch bản | `kubectl get clusterrole,clusterrolebinding --sort-by=.metadata.creationTimestamp \| tail`; xóa đúng cái đó, **không** đụng object `system:` |
 
 ---
 
@@ -2638,13 +2714,26 @@ kê sự cố phát sinh từ nội dung bài học 9a.
 - [Kubernetes v1.35 — Service Accounts](https://v1-35.docs.kubernetes.io/docs/concepts/security/service-accounts/)
 - [Kubernetes v1.35 — Controlling Access to the Kubernetes API](https://v1-35.docs.kubernetes.io/docs/concepts/security/controlling-access/)
 - [Kubernetes v1.35 — Role Based Access Control Good Practices](https://v1-35.docs.kubernetes.io/docs/concepts/security/rbac-good-practices/)
+- [Kubernetes v1.35 — Cloud Controller Manager Administration](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/)
+- [Kubernetes v1.35 — Using sysctls in a Kubernetes Cluster](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/)
 - [Kubernetes v1.35 — Configure Service Accounts for Pods](https://v1-35.docs.kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/)
+- [Kubernetes v1.35 — Enforce Pod Security Standards by Configuring the Built-in Admission Controller](https://v1-35.docs.kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-admission-controller/)
+- [Kubernetes v1.35 — Enforce Pod Security Standards with Namespace Labels](https://v1-35.docs.kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-namespace-labels/)
+- [Kubernetes v1.35 — Migrate from PodSecurityPolicy to the Built-In PodSecurity Admission Controller](https://v1-35.docs.kubernetes.io/docs/tasks/configure-pod-container/migrate-from-psp/)
+- [Kubernetes v1.35 — Configure a Security Context for a Pod or Container](https://v1-35.docs.kubernetes.io/docs/tasks/configure-pod-container/security-context/)
 - [Kubernetes v1.35 — Accessing the Kubernetes API from a Pod](https://v1-35.docs.kubernetes.io/docs/tasks/run-application/access-api-from-pod/)
 - [Kubernetes v1.35 — Accessing Clusters](https://v1-35.docs.kubernetes.io/docs/tasks/access-application-cluster/access-cluster/)
+- [Kubernetes v1.35 — Access Clusters Using the Kubernetes API](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/access-cluster-api/)
 - [Kubernetes v1.35 — Authenticating](https://v1-35.docs.kubernetes.io/docs/reference/access-authn-authz/authentication/)
 - [Kubernetes v1.35 — Authorization](https://v1-35.docs.kubernetes.io/docs/reference/access-authn-authz/authorization/)
 - [Kubernetes v1.35 — Using RBAC Authorization](https://v1-35.docs.kubernetes.io/docs/reference/access-authn-authz/rbac/)
 - [Kubernetes v1.35 — Admission Controllers Reference](https://v1-35.docs.kubernetes.io/docs/reference/access-authn-authz/admission-controllers/)
-- [Kubernetes v1.35 — Managing Service Accounts (administration)](https://v1-35.docs.kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/)
-- [Kubernetes v1.35 — TokenRequest API reference](https://v1-35.docs.kubernetes.io/docs/reference/kubernetes-api/authentication-resources/token-request-v1/)
-- [Kubernetes v1.35 — SubjectAccessReview API reference](https://v1-35.docs.kubernetes.io/docs/reference/kubernetes-api/authorization-resources/subject-access-review-v1/)
+- [Kubernetes v1.35 — Managing Service Accounts](https://v1-35.docs.kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/)
+- [Kubernetes v1.35 — TokenRequest](https://v1-35.docs.kubernetes.io/docs/reference/kubernetes-api/authentication-resources/token-request-v1/)
+- [Kubernetes v1.35 — SubjectAccessReview](https://v1-35.docs.kubernetes.io/docs/reference/kubernetes-api/authorization-resources/subject-access-review-v1/)
+- [Kubernetes v1.35 — Network Policies](https://v1-35.docs.kubernetes.io/docs/concepts/services-networking/network-policies/)
+- [Kubernetes v1.35 — Debug Running Pods](https://v1-35.docs.kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/)
+- [PostgreSQL 17 — libpq, tham số `keepalives`](https://www.postgresql.org/docs/17/libpq-connect.html#LIBPQ-KEEPALIVES)
+- [BusyBox — `networking/wget.c`](https://github.com/mirror/busybox/blob/master/networking/wget.c) — chỉ `GET`/`POST`, ghi chú về kiểm certificate
+- [GitHub — nginxinc/docker-nginx-unprivileged, `stable/alpine/Dockerfile`](https://github.com/nginxinc/docker-nginx-unprivileged/blob/main/stable/alpine/Dockerfile) — `curl` và `ca-certificates` có trong biến thể `-alpine`
+- [GitHub — docker-library/postgres, `17/bookworm/Dockerfile`](https://github.com/docker-library/postgres/blob/master/17/bookworm/Dockerfile) — không có HTTP client trong image

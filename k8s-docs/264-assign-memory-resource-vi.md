@@ -10,7 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 2/9 ·
-Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B1.2, B2.2 và B4.1.
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B2 (`memory.max`) và B4
+(`OOMKilled`, request memory vượt sức node).
 
 Bài này là **bản song sinh** của bài [263](263-assign-cpu-resource-vi.md): cùng bố cục, cùng thứ
 tự mục, nhưng cho memory. Đọc để tìm chỗ hai bài **không** giống nhau — vượt limit CPU thì bị điều

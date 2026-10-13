@@ -11,8 +11,8 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3b. Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
-bài 1/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B1 (bốn nguồn dữ liệu),
-B2 (bốn cách Pod tiêu thụ ConfigMap) và B3 (ranh giới cập nhật).
+bài 1/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) ticket B6 (bốn nguồn dữ liệu),
+B2, B3, B4 (Pod tiêu thụ ConfigMap qua volume và `envFrom`) và B7 (ranh giới cập nhật).
 
 Đây là bài dài nhất nhóm 3b, nhưng phần lớn độ dài là **cùng một lệnh `kubectl create configmap`
 lặp lại với nguồn dữ liệu khác nhau**, kèm output mẫu. Đọc lấy quy tắc, đừng học thuộc từng ví dụ.
@@ -50,7 +50,7 @@ chỗ mới ở đây là cú pháp lệnh và cách viết `spec` của Pod.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Mục *Tạo ConfigMap từ generator* — `configMapGenerator` và hậu tố hash trong tên | Kustomize là công cụ quản lý manifest, chưa học ở giai đoạn 3; ở đây chỉ cần biết generator băm nội dung nên dữ liệu đổi là sinh object mới | cơ chế hash được kiểm chứng ngay trong nhóm này ở bài [328](328-secret-kustomize-vi.md); Kustomize đầy đủ ở bài [322](322-kustomization-vi.md), [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
-| Mục *Chiếu các key tới path và quyền file cụ thể* | bài không nêu cú pháp, chỉ trỏ sang hướng dẫn Secret | bài [334](334-distribute-credentials-secure-vi.md) cùng nhóm 3b, thực hành ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B8 |
+| Mục *Chiếu các key tới path và quyền file cụ thể* | bài không nêu cú pháp, chỉ trỏ sang hướng dẫn Secret | bài [334](334-distribute-credentials-secure-vi.md) cùng nhóm 3b, thực hành ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) ticket B5 |
 | Ghi chú container mount ConfigMap kiểu `subPath` không nhận cập nhật | chưa học volume nên chưa biết `subPath` là gì | bài [91](91-volumes-vi.md), [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) |
 
 ---

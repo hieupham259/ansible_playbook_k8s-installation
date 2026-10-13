@@ -13,8 +13,8 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 7 — Lập lịch và chính sách tài nguyên](00-ALO-TRINH-ADMIN.md#giai-đoạn-7--lập-lịch-và-chính-sách-tài-nguyên)
 → [7a. Scheduling và eviction](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), dòng **Thực hành**,
-bài 2/3 · Kiểm chứng ở [Lab 7a — Lập lịch và eviction](labs/LAB-7A-LAP-LICH-VA-EVICTION.md), phần
-B2.3–B2.4.
+bài 2/3 · Kiểm chứng ở [Lab 7a — Lập lịch và eviction](labs/LAB-7A-LAP-LICH-VA-EVICTION.md), ticket
+B2 (`required` cho `db`) và B4 (`preferred` cho tác vụ nền).
 
 Bài này là bản chạy tay của mục *Node Affinity* trong bài [138](138-assign-pod-node-vi.md). Nó
 đưa **hai** manifest cho **cùng một mục tiêu**, khác nhau đúng một chữ `required` và `preferred` —
@@ -41,8 +41,8 @@ Bài này là bản chạy tay của mục *Node Affinity* trong bài [138](138-
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Hậu tố `IgnoredDuringExecution` trong tên cả hai trường | bài dùng nguyên tên mà không giải thích nửa sau nghĩa là gì | bài [138](138-assign-pod-node-vi.md#node-affinity) đã đọc ở đầu [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction); [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) B2.7 chứng minh đổi label không đuổi Pod đang chạy |
-| `weight: 1` và ý nghĩa của trọng số khi có nhiều `preference` | ví dụ chỉ có một mục nên trọng số chưa tạo ra khác biệt nào quan sát được | bài [138](138-assign-pod-node-vi.md#node-affinity); [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) B2.4 |
+| Hậu tố `IgnoredDuringExecution` trong tên cả hai trường | bài dùng nguyên tên mà không giải thích nửa sau nghĩa là gì | bài [138](138-assign-pod-node-vi.md#node-affinity) đã đọc ở đầu [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction); [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md#b2-bs-7a-02-db-đi-theo-label-dữ-liệu-của-dự-án) ticket B2 chứng minh gỡ label không đuổi `db-0` đang chạy |
+| `weight: 1` và ý nghĩa của trọng số khi có nhiều `preference` | ví dụ chỉ có một mục nên trọng số chưa tạo ra khác biệt nào quan sát được | bài [138](138-assign-pod-node-vi.md#node-affinity); [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md#b4-bs-7a-04-tác-vụ-nền-nhường-chỗ-cho-dịch-vụ-chính) ticket B4 |
 | Câu "Kubernetes server của bạn phải ở phiên bản v1.10 hoặc mới hơn" | là mốc lịch sử của trang gốc, không phải yêu cầu của lộ trình | [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) là nơi duy nhất giữ phiên bản của cluster lab |
 
 ---
@@ -240,7 +240,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    `lab-k8s-worker2`, nên việc nó rơi vào đúng node có label có thể chỉ là trùng hợp. Bài dừng ở
    mức đưa ra `kubectl get pods --output=wide` làm bằng chứng; muốn phân biệt thật thì phải tạo
    tình huống node được ưu tiên không nhận được Pod — [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md)
-   B2.4 làm việc đó.
+   ticket B4 làm việc đó.
 4. Ba trường là **`key`, `operator` và `values`**. Không viết gọn được vì `values` là một **danh
    sách** và `operator` quyết định cách so khớp — ở đây `In` nghĩa là giá trị của label phải nằm
    trong danh sách đó. Cú pháp này diễn đạt được nhiều hơn một cặp bằng nhau, nên nó cũng dài hơn.

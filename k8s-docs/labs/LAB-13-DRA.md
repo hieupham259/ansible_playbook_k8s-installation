@@ -1,64 +1,194 @@
 # Lab 13 — DRA
 
 > **Điểm bắt đầu:** snapshot `04-metrics-ready` — mốc do Lab 11a tạo, xem
-> [chuỗi snapshot](README.md#3-chuỗi-snapshot).
-> **Điểm kết thúc:** cleanup trả cluster về đúng `04-metrics-ready`, **không tạo snapshot mới**.
-> Lab này không cài driver, không bật feature gate, không sửa cấu hình apiserver/kubelet/scheduler.
-> **Lab tùy chọn.** [Bản đồ lab](README.md#4-bản-đồ-lab) ghi rõ: lab 13 *chỉ làm được nếu lab có GPU
-> hoặc thiết bị chuyên dụng*. Ba VM của [Lab 00](LAB-00-MOI-TRUONG-1.35.7.md) **không có** GPU và
-> **không có** thiết bị chuyên dụng, nên phần cấp phát thiết bị thật sẽ không chạy được. Đó không
-> phải lý do bỏ lab: [B1](#b1-kiểm-tra-năng-lực-dra--chọn-nhánh) đo năng lực thật của cluster rồi rẽ
-> nhánh, và nhánh dành cho cluster không có thiết bị vẫn kiểm chứng được phần lớn nhóm bài.
-> **Lab trước:** [Lab 12 — Vận hành vòng đời node](LAB-12-VAN-HANH-VONG-DOI-NODE.md), cũng trả
-> cluster về `04-metrics-ready`.
+> [chuỗi snapshot](README.md#3-chuỗi-snapshot). Repo `~/bookstore` ở tag `lab-12` (hoặc bundle
+> `~/bookstore-lab-12.bundle` nếu bạn vừa restore snapshot).
+> **Điểm kết thúc:** teardown trả cluster về đúng `04-metrics-ready`, không tạo snapshot mới. Repo
+> `~/bookstore` có tag `lab-13` và một bản bundle nằm ngoài VM. Sprint này **chỉ đổi `docs/`**:
+> `k8s/`, `scripts/`, `tests/` và `platform/` giữ nguyên như ở tag `lab-12`.
+> **Sprint dự án:** Sprint 20 (tùy chọn) — Đánh giá DRA của [dự án Bookstore](DU-AN-BOOKSTORE.md).
+> **Sprint tùy chọn.** Bỏ qua lab này thì [Lab 14](LAB-14-CRD-VA-OPERATOR.md) bắt đầu thẳng từ tag
+> `lab-12`. Hệ thống không thiếu gì vì tag `lab-13` chỉ thêm tài liệu.
+> **Lab trước:** [Lab 12 — Vận hành vòng đời node](LAB-12-VAN-HANH-VONG-DOI-NODE.md).
+> **Lab sau:** [Lab 14 — CRD và Operator](LAB-14-CRD-VA-OPERATOR.md).
 >
-> **Cập nhật và đối chiếu phiên bản:** 25/08/2026.
+> **Cập nhật và đối chiếu phiên bản:** 13/10/2026.
 
-Lab này đi cùng mục
-[Giai đoạn 13 — Lập lịch và workload nâng cao](../00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao)
-— mười lăm bài [149](../149-dynamic-resource-allocation-vi.md),
-[172](../172-cluster-admin-dra-vi.md), [125](../125-hardening-dra-vi.md),
-[59](../59-scheduling-group-vi.md), [75](../75-podgroup-api-vi.md),
-[76](../76-podgroup-lifecycle-vi.md), [77](../77-workload-api-vi.md),
-[78](../78-workload-disruption-priority-vi.md), [79](../79-workload-policies-vi.md),
-[80](../80-workload-topology-scheduling-vi.md), [150](../150-gang-scheduling-vi.md),
-[151](../151-podgroup-scheduling-vi.md), [152](../152-workload-aware-preemption-vi.md),
-[153](../153-topology-aware-scheduling-vi.md), [124](../124-hardening-scheduler-vi.md), cộng năm
-bài thực hành [271](../271-set-up-dra-cluster-vi.md), [270](../270-allocate-devices-dra-vi.md),
-[269](../269-access-dra-device-metadata-vi.md), [268](../268-assign-resources-vi.md),
-[211](../211-hardening-dra-tasks-vi.md).
+Lab này đi cùng
+[Giai đoạn 13 — Lập lịch và workload nâng cao](../00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao):
+mười lăm bài khái niệm và năm bài thực hành liệt kê ở mục 1.1. Mọi ticket dựa vào hợp đồng kỹ thuật
+ở [mục 4 của file dự án](DU-AN-BOOKSTORE.md#4-hợp-đồng-kỹ-thuật). Kế hoạch gốc của sprint nằm ở
+[mục 7.2](DU-AN-BOOKSTORE.md#sprint-20--lab-13-đánh-giá-dra-tùy-chọn), yêu cầu tương ứng là `R18`
+ở [mục 2.2](DU-AN-BOOKSTORE.md#22-yêu-cầu-của-hệ-thống-mới).
 
-**Xương sống của lab là một câu hỏi và một phép đo.** Câu hỏi: cấp phát thiết bị bằng DRA đi được
-tới đâu trên cluster của bạn? Phép đo là [B1](#b1-kiểm-tra-năng-lực-dra--chọn-nhánh) — năm phép
-kiểm bằng lệnh, không suy đoán, rồi chốt nhánh. Mười mục còn lại chia làm hai loại: phần **chạy
-được ở cả hai nhánh** (bề mặt API, phạm vi từng kind, ranh giới phân quyền, so sánh ba con đường
-cấp phát thiết bị, cấu hình thật của scheduler) và phần **chỉ chạy ở một nhánh**.
+**Bối cảnh của sprint.** Đội sản phẩm đề xuất hai thứ cho quý sau:
 
-Cluster giữ nguyên baseline của
-[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); lab này **không chép
-lại con số phiên bản nào**. Thành phần ngoài baseline đang chạy — CNI thay Flannel, ingress
-controller, dynamic provisioner, metrics-server — đã khóa ở
-[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00); lab 13 chỉ đọc, không
-đụng vào, và **không thêm bất kỳ dòng nào vào hai bảng đó**.
+1. Tính năng **gợi ý sách bằng GPU** — một dịch vụ suy luận đứng cạnh `api`, mỗi bản sao cần một
+   GPU riêng.
+2. Một batch đêm **huấn luyện mô hình gợi ý** gồm ba worker. Ba worker phải chạy **cùng lúc** mới
+   tiến triển được; hai worker chạy mà thiếu worker thứ ba thì chỉ ngồi giữ tài nguyên.
 
-Quan hệ với ba lab đã học, để không lặp lại:
-[Lab 3c](LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md#b5-extended-resource-tài-nguyên-do-bạn-tự-đặt-tên)
-đã quảng bá một extended resource lên `lab-k8s-worker2` và tiêu thụ nó thật — đó là **con đường
-thứ nhất** mà B5 đem ra so sánh, và lab này chỉ đọc lại dấu vết chứ không làm lại.
-[Lab 7a](LAB-7A-LAP-LICH-VA-EVICTION.md#b6-priorityclass-và-preemption) đã làm trọn chu trình
-filter/score, taint, topology spread, PriorityClass và preemption mặc định; lab 13 **không lặp lại
-phần lập lịch cơ bản**, chỉ đọc những gì nhóm PodGroup *thêm vào* trên nền đó.
-[Lab 11a](LAB-11A-OBSERVABILITY.md#b3-đọc-metric-là-một-hành-động-được-ủy-quyền) đã dựng đường đọc
-`/metrics` có ủy quyền; ở đây bạn chỉ dùng lại đường đã có, không dựng ClusterRole mới.
+Trước khi ai mua GPU, đội vận hành phải trả lời bằng bằng chứng: cluster làm được gì hôm nay, thiếu
+chính xác cái gì, nếu làm thì làm bằng cơ chế nào, và làm sao giữ nó an toàn. Đây là sprint **điều
+tra**: không ticket nào thêm workload vào hệ thống. Sản phẩm là ADR và các bản thiết kế dạng nháp
+trong `docs/`, mọi kết luận dẫn về file bằng chứng trong `~/lab-evidence/13/`.
 
-Lab dùng Namespace, Pod, ServiceAccount, `kubectl auth can-i`, `kubectl explain`, `kubectl
-api-resources` và node proxy của các giai đoạn đã học làm công cụ. **Không** tạo CRD tự viết — đó
-là nội dung [giai đoạn 14](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) và của Lab 14
-(chưa viết, xem [bản đồ lab](README.md#4-bản-đồ-lab)); đọc CRD có sẵn thì được, và B0 đếm chúng để
-gate cuối chứng minh lab không cài thêm cái nào.
+**Phiên bản tài liệu khác phiên bản cluster.** Phần lớn bài dịch của nhóm này là bản tài liệu
+mới nhất của kubernetes.io — nhiều mục ghi `Kubernetes v1.36 [alpha]` hoặc `[beta]`. Cluster chạy
+đúng baseline ở [bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa), và
+lab này không chép lại con số đó. Đừng suy tính năng từ tài liệu: **đo trên cluster**. Đó là kỹ năng
+chính của sprint, và là lý do mọi ticket đều có phép đo trước khi có kết luận.
+
+Ba VM của [Lab 00](LAB-00-MOI-TRUONG-1.35.7.md) không có GPU hay thiết bị chuyên dụng nào. Lab
+không cài driver, không bật feature gate, không sửa cấu hình control plane. B1 đo năng lực thật
+rồi rẽ nhánh; nhánh dành cho cluster không có thiết bị vẫn kiểm chứng được phần lớn nhóm bài.
+
+Quan hệ với các sprint trước, để không làm lại:
+[Lab 3c](LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) đã quảng bá và tiêu thụ một extended resource thật —
+đó là con đường thứ nhất mà B4 đem ra so sánh. [Lab 7a](LAB-7A-LAP-LICH-VA-EVICTION.md) đã làm
+PriorityClass, preemption, chu trình filter/score; B5 chỉ đo phần nhóm PodGroup *thêm vào*.
+[Lab 7b](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) hoãn mục *Hạn ngạch cho DRA resource claim* của bài
+134 tới giai đoạn này; B7 trả phần đó. [Lab 9a](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) dựng
+danh tính `ci-deployer` và nhóm `bookstore-devs` mà B6, B7 dùng để kiểm quyền.
+[Lab 12](LAB-12-VAN-HANH-VONG-DOI-NODE.md) dựng quy trình bảo trì node mà ADR ở B8 phải bổ sung.
 
 Trước khi bắt đầu, chạy [quy trình mở đầu A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab)
-trên `lab-k8s-master`, rồi thêm ba lệnh riêng của lab này:
+trên `lab-k8s-master`. B0 bên dưới chạy lại đúng gate đó.
+
+---
+
+## 1. Kết quả phải đạt
+
+Hoàn thành lab khi `docs/` của repo có ADR chốt quyết định về DRA cho Bookstore, mọi kết luận dẫn
+về bằng chứng, **và** bạn chứng minh, giải thích được:
+
+- Năng lực DRA thật của cluster: nhóm API `resource.k8s.io`, DeviceClass, ResourceSlice, driver,
+  feature gate — kết luận bằng số đo, kể cả khi kết luận là "chưa dùng được", và chỉ ra chính xác
+  điều kiện nào thiếu.
+- Bốn kind API của DRA: ai tạo cái nào, phạm vi của từng cái đọc từ chính cluster, và vì sao phạm
+  vi đó cũng là ranh giới phân quyền.
+- Vì sao một DeviceClass mới tạo không sinh ra thiết bị nào, và ai mới là bên công bố phần cứng.
+- Pod của tính năng gợi ý dừng ở **hai bước khác nhau** của luồng cấp phát khi claim chưa tồn tại
+  và khi claim tồn tại nhưng không có thiết bị — phân biệt bằng trạng thái object.
+- ResourceClaim so với ResourceClaimTemplate: ai sinh claim, ở đâu trong control plane, vòng đời
+  của mỗi loại; vì sao **sinh claim** khác **cấp phát thiết bị**.
+- Ba con đường đưa thiết bị vào Pod — extended resource, device plugin, DRA — nằm ở đâu trong Pod
+  spec, hạch toán ở đâu, và vì sao scheduler báo Pending bằng hai thông điệp khác nhau.
+- "API có trường" khác "tính năng đang bật": API server âm thầm gỡ trường của tính năng chưa bật.
+- Batch huấn luyện cần gang scheduling vì sao; khởi động một phần trông ra sao trên
+  `lab-k8s-worker2`; cluster thiếu chính xác những gì để dùng PodGroup.
+- Cấu hình kube-scheduler đang chạy so với khuyến nghị của bài 124, và vì sao quyền gán nhãn node
+  là vấn đề bảo mật của chính Bookstore — nơi `db` chạy phụ thuộc vào một nhãn node.
+- Mô hình quyền của DRA ở bài 125 và 211: điều kiện phiên bản của nó so với cluster; vì sao
+  `kubectl auth can-i` trả `yes` không chứng minh một subresource tồn tại; hạn mức thiết bị theo
+  DeviceClass chặn ngay lúc tạo claim, trước mọi lần cấp phát.
+- Quyết định "Bookstore có nên dùng DRA, và khi nào" với điều kiện xem lại đo được.
+
+### 1.1. Ánh xạ tài liệu sang bài thực hành
+
+| Bài trong nhóm 13 | Ticket kiểm chứng |
+| --- | --- |
+| [149 — Cấp phát tài nguyên động](../149-dynamic-resource-allocation-vi.md) | B1 — bốn kind, phạm vi, bước 1 của luồng; B2 — DeviceClass là danh mục, ResourceSlice là nguồn cung, luồng năm bước tới điểm dừng; B3 — ResourceClaim so với ResourceClaimTemplate; B4 — lợi ích của DRA, ba thiếu sót của device plugin, trường `extendedResourceName` bị gỡ khi gate tắt |
+| [172 — Thực hành tốt về DRA cho quản trị viên](../172-cluster-admin-dra-vi.md) | B3 — controller ResourceClaim nằm trong kube-controller-manager; B4 ⭐ — metric `dra_operations_duration_seconds` của kubelet; B7 — tách quyền bốn API cho danh tính của dự án; B8 — driver dạng DaemonSet, nâng cấp liền mạch, drain driver muộn nhất vào quy trình bảo trì |
+| [125 — Hardening DRA](../125-hardening-dra-vi.md) | B7 — `resourceclaims/binding` và `resourceclaims/driver`, hai tiền tố verb, bản nháp ClusterRole cho driver giả định |
+| [59 — Nhóm lập lịch](../59-scheduling-group-vi.md) | B5 — trường liên kết Pod với nhóm không có trong schema Pod của cluster |
+| [75 — PodGroup API](../75-podgroup-api-vi.md) | B5 — kind PodGroup không được phục vụ; API server không nhận bản nháp PodGroup |
+| [76 — Vòng đời của PodGroup](../76-podgroup-lifecycle-vi.md) | B5 — thứ tự Workload → PodGroup → Pod trong bản nháp; câu hỏi thiết kế về `minCount` bất biến và `schedulerName` chung |
+| [77 — Workload API](../77-workload-api-vi.md) | B5 — kind Workload không được phục vụ; gate `WorkloadWithJob`; Job Indexed có `parallelism` bằng `completions` là thiết kế của batch |
+| [78 — Gián đoạn và độ ưu tiên của PodGroup](../78-workload-disruption-priority-vi.md) | B5 — không có PriorityClass `globalDefault`; `bookstore-batch` ở cấp nhóm chỉ có tác dụng trong workload-aware preemption |
+| [79 — Các chính sách lập lịch PodGroup](../79-workload-policies-vi.md) | B5 — `gang` với `minCount: 3` cho batch, so với `basic` |
+| [80 — Lập lịch nhận biết topology (Workload API)](../80-workload-topology-scheduling-vi.md) | B5 — cluster chỉ có trục topology `kubernetes.io/hostname`; không gán nhãn zone |
+| [150 — Lập lịch theo nhóm](../150-gang-scheduling-vi.md) | B5 — thí nghiệm khởi động một phần trên `lab-k8s-worker2`: đúng tình huống mà gang ngăn |
+| [151 — Lập lịch PodGroup](../151-podgroup-scheduling-vi.md) | B5 — kube-scheduler không nạp file cấu hình; hạn chế với nhóm không đồng nhất là câu hỏi thiết kế |
+| [152 — Preemption nhận biết workload](../152-workload-aware-preemption-vi.md) | B5 — gate `WorkloadAwarePreemption`; đường preemption mặc định là đường duy nhất của cluster |
+| [153 — Lập lịch nhận biết topology (scheduling)](../153-topology-aware-scheduling-vi.md) | B5 — plugin TAS chỉ cấu hình được qua `KubeSchedulerConfiguration`; B6 — cờ `--config` |
+| [124 — Hardening scheduler](../124-hardening-scheduler-vi.md) | B6 — mười hai cờ đọc từ manifest thật, quyền file kubeconfig, không danh tính nào của dự án gán được nhãn node |
+| [211 — Tăng cường bảo mật DRA trong cluster](../211-hardening-dra-tasks-vi.md) | B7 — bước *Xác định các thành phần DRA ghi vào status* trên cluster thật, điều kiện phiên bản ở *Trước khi bạn bắt đầu*, *Gắn role với các danh tính tường minh* trong bản nháp |
+| [268 — Gán thiết bị cho Pod và Container](../268-assign-resources-vi.md) | Trang mục lục, không có thao tác riêng. Thứ tự vai trò của nó — 271 rồi 270 rồi 269 — là thứ tự B1 → B2, B3 |
+| [269 — Truy cập metadata thiết bị DRA](../269-access-dra-device-metadata-vi.md) | B3 ⭐ — vế phủ định: container không yêu cầu thiết bị thì không có thư mục metadata. Vế khẳng định cần thiết bị thật và phiên bản server mà bài đòi |
+| [270 — Cấp phát thiết bị cho workload bằng DRA](../270-allocate-devices-dra-vi.md) | B2 — claim tham chiếu trực tiếp, hai chỗ khai báo trong Pod spec, claim chưa tồn tại; B3 — ResourceClaimTemplate |
+| [271 — Thiết lập DRA trong một cluster](../271-set-up-dra-cluster-vi.md) | B1 — mục *Xác minh rằng DRA đã được bật*, `kubectl get resourceslices` là phép xác minh driver; B2 — tạo DeviceClass bằng selector CEL; đóng sprint — mục *Dọn dẹp* |
+
+Ngoài nhóm 13, B7 đọc và thực hành mục
+[*Hạn ngạch cho DRA resource claim*](../134-resource-quotas-vi.md#hạn-ngạch-cho-dra-resource-claim-quota-for-dra-resource-claims)
+của bài 134 — mục mà Lab 7b đã cố ý để lại cho giai đoạn này.
+
+Các phần dưới đây **không kiểm chứng được** trên cluster này, ghi rõ lý do thay vì bỏ trống:
+
+| Phần | Vì sao không thực hành ở đây |
+| --- | --- |
+| Bài 149, mục *Hạn chế* — scheduler không preempt cho tài nguyên DRA | Cần hai Pod tranh nhau một thiết bị đã cấp phát. Không thiết bị thì không có tranh chấp, và không có cách tạo tranh chấp mà không dựng thiết bị giả. B2 đưa nó vào câu hỏi thiết kế |
+| Bài 149, toàn bộ *Các tính năng beta của DRA* và *Các tính năng alpha của DRA* | Mỗi mục cần một feature gate riêng, có khi thêm một nhóm API riêng, cộng một driver công bố ResourceSlice đúng cấu trúc. Bật gate là sửa control plane — việc của [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy). B1 đo trạng thái gate; B4 chứng minh một trường alpha bị gỡ |
+| Bài 149, *Khả năng quan sát tài nguyên động* và *Pod được lập lịch sẵn* | Ba nguồn quan sát đều do driver ghi. Pod đặt sẵn `nodeName` mà kẹt claim thì giữ CPU, RAM trên node trong lúc chờ — đúng điều bài cảnh báo; Bookstore không bao giờ đặt `nodeName` (dùng `nodeSelector` từ 3a, affinity từ 7a) |
+| Bài 172, truy vấn PromQL và tinh chỉnh QPS/burst | Cần stack giám sát và tải thật; histogram rỗng không phải kiểm chứng. Đường đọc `/metrics` có ủy quyền đã làm ở [Lab 11a](LAB-11A-OBSERVABILITY.md) |
+| Bài 172, nâng cấp liền mạch, liveness probe của driver, thứ tự drain driver | Ba việc đều thao tác trên một DaemonSet driver đang chạy. B8 đưa chúng vào quy trình bảo trì trong ADR |
+| Bài 125 và 211, áp ClusterRole thật rồi roll out thành phần DRA | Role chỉ có nghĩa khi gắn vào ServiceAccount của một driver thật, và bài 211 đòi phiên bản server cao hơn baseline. B7 đọc quyền thật đang có, viết bản nháp và kiểm bằng server dry-run |
+| Bài 211, theo dõi audit event | Cluster chưa bật audit policy — [giai đoạn 22](../00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu) |
+| Bài 59, 75–80, 150–153, phần **chạy thật** PodGroup và Workload | Cần nhóm API alpha và feature gate; cluster còn ở phiên bản thấp hơn phiên bản mà tài liệu mô tả. B5 đo bề mặt API, bảng gate, và dựng lại đúng tình huống mà gang scheduling giải |
+| Bài 124, `KubeSchedulerConfiguration` tắt plugin cho scheduler tùy chỉnh | Phải chạy một profile scheduler khác, tức sửa manifest control plane |
+| Bài 269 vế khẳng định, bài 270 phần cấp phát thật | Chỉ chạy ở nhánh A, trên cluster có thiết bị và driver |
+
+Sprint này **không phát sinh nợ lab**. [Sổ nợ lab](README.md#5-sổ-nợ-lab) ghi phần bị chặn bởi
+*kiến thức của giai đoạn sau*; ở đây không thiếu kiến thức, chỉ thiếu phần cứng — và đó là lý do
+lab được đánh dấu tùy chọn. Riêng [bài 184 — Device Plugin](../184-device-plugins-vi.md) thuộc
+giai đoạn 14 và bạn chưa đọc: B4 so sánh device plugin chỉ bằng những gì bài 149 và bài 110 nói.
+Khi đọc bài 184, quay lại bảng so sánh trong ADR.
+
+Sprint này cũng không trả và không phát sinh nợ kỹ thuật của ứng dụng (`TD-nn`). Phát hiện về cấu
+hình kube-scheduler ở B6 thuộc hạ tầng cluster; nó được ghi vào ADR và trỏ từ `docs/tech-debt.md`.
+
+### 1.2. Thời lượng
+
+4–5 giờ. Phần cốt lõi (B0–B8, bỏ các mục ⭐) khoảng 4 giờ; nhánh A dài hơn nhánh B khoảng nửa giờ.
+Có thể chia hai phiên: phiên 1 làm B0–B4, phiên 2 làm B5–B9. Giữa hai phiên cứ để nguyên cluster
+và namespace `lab-13`; đầu phiên 2 chạy lại gate ngắn A5.5 và `./tests/smoke.sh`.
+
+Mọi bước chờ controller hay scheduler viết dưới dạng vòng lặp có điều kiện dừng. Thời gian chờ
+thực tế **phụ thuộc cấu hình** cluster.
+
+---
+
+## 2. Quy ước và an toàn
+
+- Mọi lệnh chạy trên `lab-k8s-master` trừ khi ghi rõ node khác. Lệnh `sudo` chỉ dùng để **đọc**
+  file trong `/etc/kubernetes` của chính `lab-k8s-master`.
+- Repo dự án: `~/bookstore`. Manifest thử nghiệm: `~/lab-work/13/`. Bằng chứng: `~/lab-evidence/13/`.
+- **Repo chỉ đổi `docs/`.** Bản thiết kế dạng nháp đặt ở `docs/dra/*.draft.yaml` — đuôi `.draft` và
+  vị trí ngoài `k8s/` bảo đảm `scripts/deploy.sh` không bao giờ áp chúng, giống
+  `docs/hpa-web.draft.yaml` của Lab 4b. Bản nháp được kiểm bằng `--dry-run=server`, không apply.
+- Object thử nghiệm nằm trong namespace **`lab-13`** và mang label `lab=lab-13`, **không** mang label
+  `app.kubernetes.io/part-of`. Namespace riêng để thí nghiệm không đụng quota, LimitRange và
+  NetworkPolicy của `bookstore`. Object cấp cluster duy nhất mà lab tạo là DeviceClass `lab-13-gpu`
+  (label `lab=lab-13`); đóng sprint xóa nó.
+- **Lab tuyệt đối không cài và không sửa:** không DRA driver, không device plugin, không CRD, không
+  bật feature gate hay nhóm API, không sửa file trong `/etc/kubernetes/manifests`, không sửa cấu
+  hình kubelet, không gán nhãn node, không tạo ResourceSlice bằng tay, không tạo Role hay
+  ClusterRole thật. Thiếu điều kiện thì ghi nhận thiếu, không đi vá.
+- **Thí nghiệm có tải chỉ chạy trên `lab-k8s-worker2`** (B5). Pod thí nghiệm không đặt
+  `priorityClassName`, nên mang độ ưu tiên 0 và không chiếm chỗ của Pod nào.
+- B0 chụp **ảnh nền** của cluster vào `~/lab-evidence/13/b0-anh-nen.env` trước khi triển khai dự án.
+  Gate cuối so từng giá trị với ảnh nền đó; các script sau đọc lại file bằng lệnh `.`, nên mở shell
+  mới giữa chừng không làm mất gate.
+- Image dùng cho Pod thử nghiệm là `busybox:1.37`, tag lấy từ
+  [A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa).
+- Dòng `PASS:` là gate; không đi tiếp khi gate fail. Dòng `FAIL:` nghĩa là ticket chưa xong. Dòng
+  `GHI NHAN:` là kết quả **hợp lệ nhưng khác mặc định** — giữ nguyên văn trong evidence, đọc lại
+  phần Lời giải trước khi kết luận. Dòng `STOP:` nghĩa là dừng đúng bước đó và ghi lại.
+- **Nhánh A** (cluster có thiết bị): các dòng `PASS:` về `status.allocation` rỗng đảo ngược. Script
+  của B2 có khối riêng cho nhánh A; các ticket khác ghi rõ chỗ khác biệt.
+- **Quay lui khi hỏng:** tắt **cả ba VM**, restore **cả ba** về `04-metrics-ready`, bật lại theo thứ
+  tự master → worker 1 → worker 2, clone lại repo từ `~/bookstore-lab-12.bundle`, chạy lại từ B0.
+
+---
+
+# Phần B — Sprint 20: Đánh giá DRA (tùy chọn)
+
+## B0. Nhận bàn giao sprint
+
+**Mục đích:** xác nhận cluster ở đúng `04-metrics-ready`, repo ở đúng tag `lab-12`, chụp ảnh nền
+của cluster **trước** khi có dự án, rồi dựng lại hệ thống của sprint 19 chỉ từ repo.
+
+Gate ngắn A5.5, chạy nguyên văn:
 
 ```bash
 kubectl wait --for=condition=Ready node --all --timeout=180s
@@ -66,1880 +196,2124 @@ test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
 kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
 kubectl -n kube-system get deployment coredns
 kubectl get pods -n default
-
-# Ba lenh rieng cua lab 13: dung moc 04-metrics-ready, chua co gi cua lab 13 trong cluster.
-kubectl top node
-kubectl get namespace lab-13 --ignore-not-found
-kubectl get resourceclaims -A 2>/dev/null || echo '(cluster khong co kieu resourceclaims)'
 ```
 
-**PASS:** ba node `Ready`; có dòng `PASS: readyz ok`; lệnh field selector trả `No resources found`;
-CoreDNS đủ replica `READY`; namespace `default` không có Pod; **`kubectl top node` in đủ ba dòng số
-liệu** (đó là định nghĩa của mốc `04-metrics-ready`); lệnh thứ hai không in gì — chưa có namespace
-`lab-13`; lệnh thứ ba in `No resources found` **hoặc** dòng `(cluster khong co kieu
-resourceclaims)` — **cả hai đều hợp lệ ở bước này**, B1 mới là chỗ kết luận.
+Mốc `04-metrics-ready` nghĩa là metrics-server trả số liệu cho cả ba node:
 
-Nếu `kubectl top node` báo lỗi thì cluster chưa ở mốc đầu vào — restore cả ba VM về
-`04-metrics-ready` trước khi tiếp tục. Nếu `kubectl get resourceclaims -A` trả về một ResourceClaim
-nào đó thì cluster đã lệch mốc: mốc `04-metrics-ready` không có object DRA nào.
+```bash
+test "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 \
+  && echo 'PASS: metrics-server tra so lieu ca ba node'
+```
 
----
-
-## 1. Kết quả phải đạt
-
-Hoàn thành lab khi có thể tự chứng minh và giải thích được:
-
-- Đọc **năng lực DRA thật** của cluster mình — nhóm API `resource.k8s.io` có được phục vụ không, có
-  DeviceClass nào, có ResourceSlice nào, driver nào đang công bố thiết bị, feature gate liên quan
-  đang ở trạng thái gì — và kết luận DRA dùng được hay không **bằng bằng chứng chứ không bằng phỏng
-  đoán**, kể cả khi kết luận là "không".
-- Bốn kind API của DRA, ai tạo cái nào, và phạm vi của từng cái đọc từ chính API của cluster:
-  DeviceClass và ResourceSlice cluster-scoped, ResourceClaim và ResourceClaimTemplate
-  namespace-scoped — và vì sao đúng ranh giới đó là ranh giới phân quyền mà bài 172 khuyến nghị.
-- Vì sao một DeviceClass mới tạo **không sinh ra thiết bị nào**, và ai mới là bên công bố phần
-  cứng.
-- Chuyện gì xảy ra với một Pod tham chiếu ResourceClaim khi (a) claim chưa tồn tại và (b) claim tồn
-  tại nhưng cluster không có ResourceSlice nào khớp — phân biệt hai tình huống bằng trạng thái
-  object chứ không bằng cảm giác.
-- **DRA khác device plugin và khác extended resource ở đâu** — ba con đường đưa một thiết bị vào
-  Pod, ba chỗ khác nhau trong Pod spec, ba nguồn số liệu khác nhau trong cluster, và bạn đọc được
-  cả ba con đường đó đang trống hay đầy trên cluster của mình.
-- Nhóm PodGroup/Workload cần chính xác những gì mới dùng được, và cách đo xem apiserver của bạn có
-  *biết tên* các feature gate đó hay không — thứ trả lời được câu "API có thể đổi giữa các phiên
-  bản" bằng dữ liệu.
-- Đối chiếu cấu hình kube-scheduler **đang chạy** với từng khuyến nghị của bài 124, biết cái nào
-  baseline đã đạt, cái nào không, và vì sao "không đạt" ở đây không phải lỗi mà là một quyết định
-  thuộc giai đoạn khác.
-- Mô hình phân quyền DRA của bài 125 và 211 ở mức đọc được: hai subresource tổng hợp không xuất
-  hiện trong `api-resources` nhưng có thật ở tầng ủy quyền, và quyền thật mà scheduler đang có trên
-  `resourceclaims`.
-- Cleanup đúng phạm vi: xóa cả object phạm vi cluster, và chứng minh cluster trở về đúng
-  `04-metrics-ready` bằng những phép **so sánh giá trị trước/sau** — trong đó có phép so chứng minh
-  lab **không cài thêm API resource, CRD hay feature gate nào**.
-
-### Nhánh A hay nhánh B — quyết định bằng B1
-
-[B1](#b1-kiểm-tra-năng-lực-dra--chọn-nhánh) chạy năm phép kiểm và đặt biến `NHANH`:
-
-| Nhánh | Khi nào | B3 và B4 làm gì | Kết luận |
-| --- | --- | --- | --- |
-| **A** | API `resource.k8s.io` có, **và** có ít nhất một ResourceSlice, **và** có ít nhất một driver công bố thiết bị, **và** có ít nhất một DeviceClass sẵn có | đọc ResourceSlice thật, cấp phát thiết bị cho Pod qua ResourceClaim rồi qua ResourceClaimTemplate, quan sát scheduler ghi kết quả cấp phát | DRA **dùng được**, checkpoint trả lời từ dữ liệu thật |
-| **B** | thiếu ít nhất một điều kiện | ghi hồ sơ "DRA chưa dùng được" kèm bằng chứng, và kiểm chứng phần khái niệm/ranh giới vẫn chạy được | DRA **chưa dùng được**, và bạn nói được thiếu chính xác cái gì |
-
-Nhánh B **không phải thất bại của lab**. Nó là kết quả trung thực của ba VM không có phần cứng
-chuyên dụng — đúng điều kiện mà bản đồ lab đã ghi từ đầu. Điều bị cấm là làm ngược lại: cài một DRA
-driver, bật feature gate, hay tự tạo ResourceSlice để "có dữ liệu". Cả ba việc đó đổi hạ tầng hoặc
-dựng thiết bị giả, mà lab này khai báo trả cluster về `04-metrics-ready` và **không chụp mốc mới**.
-
-**Trước khi làm B3 và B4, đọc lại [bài 149](../149-dynamic-resource-allocation-vi.md)** — cụ thể là
-hai mục *Thuật ngữ DRA* và *Luồng công việc của Kubernetes*, vì mọi thứ B3 và B4 kiểm nằm ở đó — và
-[bài 271](../271-set-up-dra-cluster-vi.md) mục *Xác minh rằng DRA đã được bật*, vì đó chính là phép
-kiểm đầu tiên của B1.
-
-### 1.1. Ánh xạ tài liệu sang bài thực hành
-
-| Bài trong nhóm giai đoạn 13 | Kiểm chứng ở |
-| --- | --- |
-| [149 — Cấp phát tài nguyên động](../149-dynamic-resource-allocation-vi.md) | B1 (năm phép kiểm năng lực), B2 (bốn kind API, ai tạo cái nào, phạm vi), B3 (DeviceClass là danh mục, ResourceSlice là nguồn cung, driver ghi đè sửa tay), B4 (luồng ResourceClaim → Pod; nhánh A cấp phát thật, nhánh B dừng đúng ở bước *Lọc ResourceSlice*), B5 (ba điểm bài nêu device plugin không làm được) |
-| [172 — Thực hành tốt về DRA cho quản trị viên](../172-cluster-admin-dra-vi.md) | B2.3 (ranh giới phân quyền: hai API cluster-scoped cho admin/driver, hai API namespace-scoped cho người triển khai Pod), B5.3 (metric `dra_operations_duration_seconds` của kubelet — nơi `NodePrepareResources`/`NodeUnprepareResources` hiện ra), B8.2 (controller ResourceClaim nằm trong kube-controller-manager) |
-| [125 — Hardening DRA](../125-hardening-dra-vi.md) | B10 — hai subresource tổng hợp `resourceclaims/binding` và `resourceclaims/driver` không có trong `api-resources` nhưng trả lời được ở tầng ủy quyền; verb có tiền tố nhận biết node; rule thật trong ClusterRole `system:kube-scheduler` |
-| [59 — Nhóm lập lịch](../59-scheduling-group-vi.md) | B6.2 — trường `spec.schedulingGroup` có trong schema Pod của cluster này không, và phép kiểm chéo với sự tồn tại của kind PodGroup |
-| [75 — PodGroup API](../75-podgroup-api-vi.md) | B6.1 — `podgroups` trong `api-resources`, và nhóm `scheduling.k8s.io` đang phục vụ những version nào |
-| [76 — Vòng đời của PodGroup](../76-podgroup-lifecycle-vi.md) | B6.1 — cùng phép kiểm; phần finalizer, `ownerReferences` và thứ tự tạo ở bảng lý do bên dưới |
-| [77 — Workload API](../77-workload-api-vi.md) | B6.1 (`workloads` trong `api-resources`), B6.3 (apiserver có biết tên gate `GenericWorkload` và `WorkloadWithJob` không) |
-| [78 — Gián đoạn và độ ưu tiên của PodGroup](../78-workload-disruption-priority-vi.md) | B7.1 (PriorityClass thật của cluster và câu hỏi `globalDefault`), B7.2 (`priorityClassName`/`disruptionMode` ở cấp nhóm có trong schema không) |
-| [79 — Các chính sách lập lịch PodGroup](../79-workload-policies-vi.md) | B6.2 — `basic` và `gang` chỉ tồn tại bên trong schema PodGroup; không có schema thì không có chỗ nào trong cluster nhận hai giá trị đó |
-| [80 — Lập lịch nhận biết topology (Workload API)](../80-workload-topology-scheduling-vi.md) | B8.1 — ba node đang mang nhãn topology nào, và `schedulingConstraints` đọc được ở đâu |
-| [150 — Lập lịch theo nhóm](../150-gang-scheduling-vi.md) | B6.3 — gate `GangScheduling` và `GenericWorkload`, cộng nhóm API `scheduling.k8s.io/v1alpha2` |
-| [151 — Lập lịch PodGroup](../151-podgroup-scheduling-vi.md) | B8.2 — thuật toán theo placement chạy bằng hai điểm mở rộng plugin; scheduler của cluster đang nạp cấu hình nào |
-| [152 — Preemption nhận biết workload](../152-workload-aware-preemption-vi.md) | B7 — đường preemption mặc định vẫn là đường duy nhất của cluster này; gate `WorkloadAwarePreemption` |
-| [153 — Lập lịch nhận biết topology (scheduling)](../153-topology-aware-scheduling-vi.md) | B8.2 — không nạp `KubeSchedulerConfiguration` thì không cấu hình được plugin `TopologyPlacement`, `NodeResourcesFit` ở điểm `placementScore`, `PodGroupPodsCount` |
-| [124 — Hardening scheduler](../124-hardening-scheduler-vi.md) | B9 — mười hai cờ đọc từ manifest thật của kube-scheduler, quyền file của `authentication-kubeconfig`, và quyền gán nhãn node |
-| [271 — Thiết lập DRA trong một cluster](../271-set-up-dra-cluster-vi.md) | B1.1 (`kubectl get deviceclasses` đúng là phép xác minh mà bài này quy định), B3.2 (tạo DeviceClass bằng selector CEL), B11 (mục *Dọn dẹp* của chính bài) |
-| [270 — Cấp phát thiết bị cho workload bằng DRA](../270-allocate-devices-dra-vi.md) | B4 — ResourceClaim so với ResourceClaimTemplate, `pod.spec.resourceClaims` và `resources.claims` của container, và chuyện gì xảy ra khi claim được tham chiếu không tồn tại |
-| [269 — Truy cập metadata thiết bị DRA](../269-access-dra-device-metadata-vi.md) | B5.4 — thư mục `/var/run/kubernetes.io/dra-device-attributes` chỉ có mặt khi container thật sự yêu cầu thiết bị; nhánh A đọc file JSON tại đó |
-| [268 — Gán thiết bị cho Pod và Container](../268-assign-resources-vi.md) | Trang mục lục, không có thao tác riêng: ba trang con 271, 270 và 269 phủ toàn bộ nội dung và được kiểm ở B1, B3, B4, B5 |
-| [211 — Tăng cường bảo mật DRA trong cluster của bạn](../211-hardening-dra-tasks-vi.md) | B10 — bước *Xác định các thành phần DRA ghi vào status* làm được ngay, bước *Kiểm chứng* làm bằng `kubectl auth can-i` cho từng danh tính |
-
-Các phần dưới đây **không kiểm chứng được trong lab này**, ghi rõ lý do thay vì bỏ trống:
-
-| Phần | Vì sao không thực hành ở đây |
-| --- | --- |
-| Bài [149](../149-dynamic-resource-allocation-vi.md), mục *Hạn chế* — scheduler không preempt cho tài nguyên DRA | Cần **hai** Pod tranh nhau một thiết bị thật, tức là cần ít nhất một thiết bị đã cấp phát. Không thiết bị thì không có tranh chấp để quan sát, và không có cách nào tạo tranh chấp mà không dựng thiết bị giả |
-| Bài [149](../149-dynamic-resource-allocation-vi.md), toàn bộ *Các tính năng beta của DRA* và *Các tính năng alpha của DRA* — admin access, thiết bị phân vùng, dung lượng tiêu thụ được, taint/toleration thiết bị và DeviceTaintRule, điều kiện gắn kết, tài nguyên node allocatable, thuộc tính kiểu danh sách, trạng thái resource pool | Mỗi mục phụ thuộc một feature gate riêng và/hoặc một nhóm API beta/alpha riêng, cộng một driver công bố ResourceSlice có đúng cấu trúc. Bật gate là sửa cấu hình control plane — việc đó thuộc [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy), không phải lab này |
-| Bài [149](../149-dynamic-resource-allocation-vi.md), mục *Khả năng quan sát tài nguyên động* — `PodResourcesLister`, `status.devices`, giám sát sức khỏe thiết bị | Cả ba đều là dữ liệu **do driver ghi**. Không driver thì ba nguồn này rỗng theo định nghĩa; B4 chứng minh `status` của một ResourceClaim rỗng và dừng đúng ở đó |
-| Bài [172](../172-cluster-admin-dra-vi.md), các truy vấn PromQL và phần tinh chỉnh QPS/burst | Cần stack giám sát cộng tải thật để có dữ liệu; endpoint `/metrics` của kube-controller-manager bind `127.0.0.1` và cách đọc có ủy quyền đã làm trọn ở [Lab 11a B3](LAB-11A-OBSERVABILITY.md#b3-đọc-metric-là-một-hành-động-được-ủy-quyền). Lặp lại ở đây chỉ để in ra các histogram rỗng thì không phải kiểm chứng |
-| Bài [172](../172-cluster-admin-dra-vi.md), nâng cấp liền mạch, liveness probe của driver, thứ tự drain driver | Ba việc đều thao tác trên **một DaemonSet driver đang chạy**. Cluster không có driver nào để nâng cấp, thăm dò hay drain |
-| Bài [125](../125-hardening-dra-vi.md) và [211](../211-hardening-dra-tasks-vi.md), áp ba ClusterRole ví dụ và roll out các thành phần DRA | Ba role đó chỉ có nghĩa khi gắn vào ServiceAccount của một driver thật; tạo role trống rồi gắn vào một danh tính không tồn tại là diễn, không phải kiểm chứng. B10 đọc quyền **thật sự đang có** thay vì tạo quyền mới |
-| Bài [211](../211-hardening-dra-tasks-vi.md), theo dõi sự kiện audit của API server | Cluster baseline chưa bật audit policy; bật nó thuộc [giai đoạn 22](../00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu) |
-| Bài [59](../59-scheduling-group-vi.md), [75](../75-podgroup-api-vi.md), [76](../76-podgroup-lifecycle-vi.md), [77](../77-workload-api-vi.md), [78](../78-workload-disruption-priority-vi.md), [79](../79-workload-policies-vi.md), [80](../80-workload-topology-scheduling-vi.md), [150](../150-gang-scheduling-vi.md), [151](../151-podgroup-scheduling-vi.md), [152](../152-workload-aware-preemption-vi.md), [153](../153-topology-aware-scheduling-vi.md) — toàn bộ phần **chạy thật** | Cả nhóm phụ thuộc feature gate `GenericWorkload` (và các gate kèm theo) cộng nhóm API alpha `scheduling.k8s.io/v1alpha2`. Bật hai thứ này là sửa cấu hình control plane, lệch baseline, và lab này khai báo trả cluster về `04-metrics-ready`. B6, B7 và B8 kiểm đúng **phần đọc được**: bề mặt API, schema và tên gate mà apiserver biết |
-| Bài [124](../124-hardening-scheduler-vi.md), đoạn `KubeSchedulerConfiguration` tắt plugin theo điểm mở rộng | Cần chạy một scheduler tùy chỉnh. Cluster chạy đúng một kube-scheduler mặc định, và thay cấu hình của nó là sửa manifest control plane |
-| Bài [270](../270-allocate-devices-dra-vi.md) và [269](../269-access-dra-device-metadata-vi.md), phần cấp phát thiết bị thật và đọc file metadata JSON | Chỉ chạy ở nhánh A. Ở nhánh B, B4 dừng đúng tại điểm mà tài liệu nói nó phải dừng, và B5.4 kiểm chứng vế phủ định: không yêu cầu thiết bị thì không có thư mục metadata |
-
-### 1.2. Thời lượng
-
-2–3 giờ, tính từ lúc gate mở đầu đã PASS. Nhánh A dài hơn nhánh B khoảng nửa giờ. B4 có bước phải
-chờ controller và scheduler phản ứng; thời gian chờ **phụ thuộc cấu hình cluster** nên mọi bước chờ
-đều viết dưới dạng vòng lặp có điều kiện dừng, không phải con số cố định.
-
----
-
-## 2. Quy ước và an toàn
-
-- Mọi lệnh chạy trên `lab-k8s-master` bằng user quản trị có kubeconfig, **trừ khi ghi rõ node
-  khác**. Lab này không cần SSH sang node nào; các lệnh `sudo` đều chạy trên chính `lab-k8s-master`
-  và đều là lệnh **đọc**.
-- **Chạy toàn bộ phần B trong cùng một phiên shell.** Rất nhiều gate so sánh biến đặt ở bước trước
-  (`EV`, `WK`, `MASTER`, `W2`, `DRA_API`, `NHANH`, `DC_BEFORE`, `SLICE_BEFORE`, `CRD_BEFORE`,
-  `API_BEFORE`, `FG_ON_BEFORE`, `NS_BEFORE`, `LBL_BEFORE`…); mở shell mới giữa chừng là mất biến và
-  mất luôn gate cuối.
-- **Lab tuyệt đối không cài và không sửa gì:** không DRA driver, không device plugin, không CRD,
-  không Helm chart, không bật feature gate, không sửa file trong `/etc/kubernetes/manifests`, không
-  sửa cấu hình kubelet, không gán nhãn node, không tạo ResourceSlice bằng tay. Thiếu điều kiện thì
-  ghi nhận thiếu, không đi vá.
-- Lab tạo Namespace `lab-13` và các object bên trong nó, cộng **một object phạm vi cluster**:
-  DeviceClass `lab-13-example` (chỉ khi nhóm API `resource.k8s.io` được phục vụ). Cả hai bị xóa ở
-  B11, và gate cuối so số lượng trước/sau để chứng minh điều đó.
-- **Không hardcode tên nhóm API hay tên kind vào kết luận.** B0 và B1 đọc chúng từ cluster thật;
-  mọi mục sau dùng biến `DRA_API` và `NHANH`. Nếu một manifest bị API server từ chối vì
-  `apiVersion`, đọc cột `APIVERSION` trong `~/lab-evidence/13/b1-api-resource.txt` và sửa cho khớp
-  — **không đoán**.
-- Image dùng cho toàn bộ lab là `busybox:1.37` đã khóa ở
-  [bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) và đã có sẵn trên cả ba node từ
-  Lab 00, nên phần B không phụ thuộc mạng ra ngoài.
-- Lab này **không có fault injection**: không ép node vào áp lực, không giết Pod hệ thống, không
-  phá mạng. Nếu bạn tự thêm bước phá hoại nào, quy ước chung vẫn áp dụng — chỉ chạy trên
-  `lab-k8s-worker2`.
-- Manifest tạm ghi vào `~/lab-work/13/`; bằng chứng ghi vào `~/lab-evidence/13/`. Không lưu token,
-  key hay certificate.
-- Dòng bắt đầu bằng `PASS:` là gate; không đi tiếp khi gate fail. Dòng bắt đầu bằng `STOP:` nghĩa là
-  dừng đúng bước đó và ghi lại, không đi vòng. Dòng bắt đầu bằng `GHI NHAN:` là kết quả **hợp lệ
-  nhưng khác mặc định** — chép nguyên văn vào evidence rồi đọc lại phần *Ý nghĩa* trước khi kết
-  luận.
-- **Cách quay lui khi hỏng:** tắt **cả ba VM**, restore **cả ba** về `04-metrics-ready` — không bao
-  giờ restore riêng một VM, xem ghi chú cuối
-  [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường) — rồi bật lại theo
-  thứ tự master → worker 1 → worker 2, chạy lại gate mở đầu và bắt đầu lại từ B0.
-
----
-
-# Phần B — Thực hành kiến thức giai đoạn 13
-
-## B0. Chuẩn bị workspace và ảnh nền của cluster
-
-**Mục đích:** chốt các con số nền để B11 có cái đối chiếu. Lab này khẳng định "không cài gì", và
-khẳng định đó chỉ có giá trị khi có số đo trước và số đo sau.
+Repo và thư mục làm việc. Nếu vừa restore snapshot, repo đã mất — khôi phục từ bundle theo
+[mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm) trước:
 
 ```bash
 mkdir -p ~/lab-work/13 ~/lab-evidence/13
-EV="$HOME/lab-evidence/13"
-WK="$HOME/lab-work/13"
-
-kubectl config current-context
-MASTER="$(kubectl get node -l node-role.kubernetes.io/control-plane \
-  -o jsonpath='{.items[0].metadata.name}')"
-W2='lab-k8s-worker2'
-echo "MASTER=$MASTER | W2=$W2"
-
-kubectl create namespace lab-13
-kubectl get namespace lab-13 -o jsonpath='{.status.phase}'; echo
+test -d ~/bookstore/.git || git clone ~/bookstore-lab-12.bundle ~/bookstore
+cd ~/bookstore
+git describe --tags --exact-match HEAD 2>/dev/null | grep -qx 'lab-12' && echo 'PASS: HEAD dung tag lab-12'
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong co thay doi chua commit'
+test "$(kubectl get namespace -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 \
+  && echo 'PASS: cluster chua co du an' || echo 'FAIL: con namespace du an tu lan truoc'
 ```
 
-Chốt các con số nền:
+Ảnh nền của cluster — chụp **trước** `deploy.sh`, vì gate cuối so với trạng thái sau teardown:
 
 ```bash
-NODE_N="$(kubectl get nodes --no-headers | wc -l)"
-API_BEFORE="$(kubectl api-resources -o name 2>/dev/null | sort -u | wc -l)"
-CRD_BEFORE="$(kubectl get crd -o name 2>/dev/null | wc -l)"
-NS_BEFORE="$(kubectl get namespace -o name | sort | tr '\n' ' ')"
-PC_BEFORE="$(kubectl get priorityclass -o name | sort | tr '\n' ' ')"
-LBL_BEFORE="$(kubectl get nodes --no-headers --show-labels | awk '{print $1, $NF}' | sort | md5sum)"
-
+EV=~/lab-evidence/13
+kubectl get --raw /metrics > "$EV/b0-apiserver-metrics.txt"
 {
-  echo "=== $(date -Is) — anh nen truoc Lab 13 ==="
-  echo "MASTER=$MASTER NODE_N=$NODE_N"
-  echo "API_BEFORE=$API_BEFORE CRD_BEFORE=$CRD_BEFORE"
-  echo "NS_BEFORE=$NS_BEFORE"
-  echo "PC_BEFORE=$PC_BEFORE"
-  echo "LBL_BEFORE=$LBL_BEFORE"
-} | tee "$EV/b0-anh-nen.txt"
+  echo "API_BEFORE=$(kubectl api-resources -o name 2>/dev/null | sort -u | wc -l)"
+  echo "CRD_BEFORE=$(kubectl get crd -o name 2>/dev/null | wc -l)"
+  echo "FG_ALL_BEFORE=$(grep -c '^kubernetes_feature_enabled{' "$EV/b0-apiserver-metrics.txt")"
+  echo "FG_ON_BEFORE=$(grep '^kubernetes_feature_enabled{' "$EV/b0-apiserver-metrics.txt" | grep -c ' 1$')"
+  echo "NS_BEFORE='$(kubectl get namespace -o name | sort | tr '\n' ' ')'"
+  echo "PC_BEFORE='$(kubectl get priorityclass -o name | sort | tr '\n' ' ')'"
+  echo "LBL_BEFORE=$(kubectl get nodes --no-headers --show-labels | awk '{print $1, $NF}' | sort | md5sum | cut -d' ' -f1)"
+  echo "DC_BEFORE=$(kubectl get deviceclasses --no-headers 2>/dev/null | wc -l)"
+  echo "SLICE_BEFORE=$(kubectl get resourceslices --no-headers 2>/dev/null | wc -l)"
+} > "$EV/b0-anh-nen.env"
+cat "$EV/b0-anh-nen.env"
+. "$EV/b0-anh-nen.env"
+test "$FG_ALL_BEFORE" -gt 0 && echo "PASS: apiserver cong bo $FG_ALL_BEFORE feature gate, dang bat $FG_ON_BEFORE"
+test "$(grep -c '=' "$EV/b0-anh-nen.env")" -eq 9 && echo 'PASS: anh nen du chin gia tri'
 ```
 
-Chụp bảng feature gate của apiserver — đây là ảnh nền quan trọng nhất của lab, vì nó là thứ chứng
-minh cuối lab rằng bạn **không bật gate nào**:
+Dựng lại hệ thống của sprint 19 bằng script của chính sprint đó:
 
 ```bash
-kubectl get --raw '/metrics' > "$EV/b0-apiserver-metrics.txt"
-FG_ALL_BEFORE="$(grep -c 'kubernetes_feature_enabled{' "$EV/b0-apiserver-metrics.txt")"
-FG_ON_BEFORE="$(grep 'kubernetes_feature_enabled{' "$EV/b0-apiserver-metrics.txt" | grep -c ' 1$')"
-echo "FG_ALL_BEFORE=$FG_ALL_BEFORE | FG_ON_BEFORE=$FG_ON_BEFORE" | tee -a "$EV/b0-anh-nen.txt"
-
-test "$NODE_N" -eq 3 && echo 'PASS: cluster du ba node'
-test -s "$EV/b0-apiserver-metrics.txt" && echo 'PASS: doc duoc /metrics cua apiserver'
-test "$FG_ALL_BEFORE" -gt 0 \
-  && echo "PASS: apiserver cong bo bang feature gate — $FG_ALL_BEFORE gate, dang bat $FG_ON_BEFORE"
+cd ~/bookstore
+./scripts/deploy.sh > ~/lab-evidence/13/b0-deploy.txt 2>&1; echo "deploy exit=$?"
+./tests/smoke.sh > ~/lab-evidence/13/b0-smoke-lab-12.txt 2>&1; echo "smoke exit=$?"
+cat ~/lab-evidence/13/b0-smoke-lab-12.txt
 ```
 
-**Ý nghĩa:** `kubernetes_feature_enabled` là bảng feature gate **do chính apiserver công bố**: mỗi
-dòng là một gate mà binary đó biết tên, kèm giá trị `1` (đang bật) hoặc `0` (đang tắt). Ba con số
-`API_BEFORE`, `CRD_BEFORE`, `FG_ON_BEFORE` là ba trục mà B11 dùng để chứng minh lab không mở rộng
-bề mặt API của cluster theo bất kỳ cách nào.
-
-**PASS:** namespace `lab-13` ở phase `Active`; ba dòng `PASS:` của bước này xuất hiện; file
-`b0-anh-nen.txt` có đủ sáu dòng biến. Nếu `FG_ALL_BEFORE` bằng 0, xem mục 4 — B1 vẫn chạy được
-bằng đường đọc manifest và `configz`, nhưng bạn phải ghi lại điều đó.
-
----
-
-## B1. Kiểm tra năng lực DRA — chọn nhánh
-
-**Mục đích:** trả lời một câu hỏi duy nhất bằng bằng chứng: **DRA có dùng được trên cluster này
-không?** Bài [271](../271-set-up-dra-cluster-vi.md) mục *Xác minh rằng DRA đã được bật* và mục *Cài
-đặt driver thiết bị* đưa ra đúng hai lệnh xác minh; mục này biến chúng cộng ba phép kiểm nữa thành
-một quyết định.
-
-### B1.1. Năm phép kiểm
+Namespace thử nghiệm của sprint, và image mà mọi Pod thử nghiệm dùng:
 
 ```bash
-echo '--- 1. Nhom API resource.k8s.io co duoc phuc vu khong ---'
-kubectl api-resources --api-group=resource.k8s.io 2>&1 | tee "$EV/b1-api-resource.txt"
-
-echo '--- 2. DeviceClass: danh muc thiet bi ---'
-kubectl get deviceclasses 2>&1 | tee "$EV/b1-deviceclass.txt"
-
-echo '--- 3. ResourceSlice: phan cung da duoc cong bo ---'
-kubectl get resourceslices 2>&1 | tee "$EV/b1-resourceslice.txt"
-
-echo '--- 4. Driver nao dang cong bo thiet bi ---'
-kubectl get resourceslices \
-  -o jsonpath='{range .items[*]}{.spec.driver}{"\n"}{end}' 2>/dev/null \
-  | sed '/^$/d' | sort -u | tee "$EV/b1-drivers.txt"
+kubectl create namespace lab-13 --dry-run=client -o yaml | kubectl apply -f -
+kubectl label namespace lab-13 lab=lab-13 --overwrite
+test "$(kubectl get namespace lab-13 -o jsonpath='{.status.phase}')" = 'Active' \
+  && test -z "$(kubectl get namespace lab-13 -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}')" \
+  && echo 'PASS: namespace lab-13 Active, khong mang label du an'
+for N in lab-k8s-worker1 lab-k8s-worker2; do
+  ssh "$N" "sudo crictl pull docker.io/library/busybox:1.37" >/dev/null \
+    && echo "PASS: $N co busybox:1.37" || echo "FAIL: $N khong keo duoc busybox:1.37"
+done
 ```
 
-**Ý nghĩa của bốn phép kiểm đầu, theo đúng thứ tự tài liệu nêu:**
+**PASS:** gate A5.5 đạt như mô tả ở Lab 00; dòng `PASS: metrics-server...`; ba dòng `PASS:` về repo
+và cluster; hai dòng `PASS:` của ảnh nền; `deploy exit=0`, `smoke exit=0`, file smoke không có dòng
+`FAIL:`; namespace `lab-13` sẵn sàng; hai dòng `PASS: ... co busybox:1.37`.
 
-1. Bài 271 nói thẳng: `kubectl get deviceclasses` trả `No resources found` nghĩa là **cấu hình
-   đúng**, còn `error: the server doesn't have a resource type "deviceclasses"` nghĩa là nhóm API
-   `resource.k8s.io` đang bị tắt. Phép kiểm 1 nhìn thẳng vào bề mặt API để phân biệt hai tình huống
-   đó trước, phép kiểm 2 xác nhận lại bằng đúng lệnh mà bài quy định.
-2. **DeviceClass không tự có.** Bài 149 nói rõ nó do quản trị viên **hoặc** driver tạo; cluster
-   sạch thì con số là 0, và đó không phải lỗi.
-3. **ResourceSlice là thứ duy nhất chứng minh có phần cứng.** Bài 149 mục *Luồng công việc của
-   Kubernetes* đặt "tạo ResourceSlice" ở bước 1: không có ResourceSlice thì bước *Lọc ResourceSlice*
-   không có gì để lọc, và không Pod nào dùng DRA được lập lịch.
-4. Trường `.spec.driver` của ResourceSlice là **chữ ký của driver**. Không dòng nào ở đây nghĩa là
-   không driver DRA nào đang đăng ký và công bố thiết bị trong cluster.
+`deploy.sh` hoặc `smoke.sh` fail nghĩa là repo của sprint 19 **chưa đủ**. Sửa repo ở tag `lab-12`
+trước, không sửa tay trên cluster ([mục 6.1 của file dự án](DU-AN-BOOKSTORE.md#61-mở-đầu)).
 
-### B1.2. Feature gate: đọc, không sửa
+## B1. [BS-13-01] Điều tra: năng lực DRA của cluster
 
-**STOP:** mục này **chỉ đọc**. Không thêm `--feature-gates` vào bất kỳ file nào, không sửa file
-trong `/etc/kubernetes/manifests`, không sửa cấu hình kubelet.
+**Loại:** Điều tra.
+
+**Bối cảnh:** câu hỏi đầu tiên của tính năng gợi ý không phải "viết YAML thế nào" mà là "cluster
+này có cấp phát được thiết bị không". Trả lời bằng lệnh, không bằng trí nhớ, và không bằng tài
+liệu — tài liệu của nhóm bài này mô tả một phiên bản Kubernetes mới hơn cluster của bạn.
+
+**Yêu cầu:**
+
+1. Ghi phiên bản server và đối chiếu với phiên bản mà các mục *Trạng thái tính năng* trong bài dịch
+   nhắc tới.
+2. Xác định nhóm API của DRA có được phục vụ không, ở những version nào; bốn kind của nó và phạm vi
+   (cấp cluster hay cấp namespace) của từng kind — đọc từ cluster, không chép từ bài.
+3. Năm phép kiểm năng lực: nhóm API được phục vụ; có DeviceClass nào; có ResourceSlice nào; driver
+   nào đang công bố thiết bị; feature gate liên quan đang ở trạng thái nào.
+4. Lập bảng mười ba feature gate mà bài 149 và bài 271 nhắc tên: API server **biết tên** gate nào,
+   đang **bật** gate nào. Đối chiếu thêm: control plane có khai cờ feature gate riêng không, kubelet
+   trên `lab-k8s-worker2` có khai gate riêng không.
+5. Chốt nhánh. **Nhánh A** khi nhóm API được phục vụ **và** có ít nhất một ResourceSlice **và** có
+   ít nhất một driver công bố thiết bị; thiếu một điều kiện là **nhánh B**. Ghi kết quả vào
+   `~/lab-evidence/13/b1-nang-luc.env` để các ticket sau đọc lại.
+6. Mở ADR `docs/adr/NNNN-dra-bookstore.md` (số tiếp theo trong `docs/adr/`) với mục *Năng lực
+   cluster*.
+
+**Ràng buộc:** chỉ đọc. Không bật nhóm API hay feature gate, không cài driver, không tạo
+ResourceSlice để "có dữ liệu". Nhánh B là kết quả hợp lệ, không phải thất bại của sprint.
+
+**Đọc lại:**
+
+- Bài [271](../271-set-up-dra-cluster-vi.md):
+  [*Xác minh rằng DRA đã được bật*](../271-set-up-dra-cluster-vi.md#verify),
+  [*Cài đặt driver thiết bị*](../271-set-up-dra-cluster-vi.md#install-drivers) — phép xác minh driver,
+  [*Tùy chọn: bật thêm các API group của DRA*](../271-set-up-dra-cluster-vi.md#enable-dra).
+- Bài [149](../149-dynamic-resource-allocation-vi.md):
+  [*Thuật ngữ DRA*](../149-dynamic-resource-allocation-vi.md#terminology),
+  [*Các nhóm người dùng DRA*](../149-dynamic-resource-allocation-vi.md#dra-user-types),
+  [*Luồng công việc của Kubernetes*](../149-dynamic-resource-allocation-vi.md#kubernetes-workflow) —
+  bước 1.
+- Bài [268](../268-assign-resources-vi.md) — ba vai trò và thứ tự phụ thuộc giữa chúng.
+- [Lab 11a](LAB-11A-OBSERVABILITY.md) — `/metrics` của API server; metric `kubernetes_feature_enabled`
+  là bảng feature gate do chính binary công bố.
+
+**Bàn giao:** mục *Năng lực cluster* trong `docs/adr/NNNN-dra-bookstore.md`;
+`~/lab-evidence/13/b1-*`.
+
+**Nghiệm thu:**
+
+- `PASS:` đọc được phiên bản server.
+- `PASS:` DeviceClass và ResourceSlice ở cấp cluster; ResourceClaim và ResourceClaimTemplate ở cấp
+  namespace — đọc từ cluster.
+- `PASS:` đủ mười ba dòng gate, mỗi dòng kết luận `0`, `1` hoặc "không biết tên".
+- `PASS:` hai phép đối chiếu cấu hình in `PASS:` hoặc `GHI NHAN:` và đã vào evidence.
+- `PASS:` file `b1-nang-luc.env` chốt `NHANH=A` hoặc `NHANH=B` khớp với số đo.
+- `PASS:` ADR có mục *Năng lực cluster*.
+
+**Câu hỏi thiết kế** — trả lời trong mục *Năng lực cluster* của ADR:
+
+1. `kubectl get deviceclasses` in `No resources found`. DRA của cluster hỏng hay chạy? Output nào
+   mới là output của cluster chưa bật DRA, và nó chỉ ra chuyện gì?
+2. Cluster của bạn thiếu điều kiện nào trong bốn điều kiện của nhánh A, và thiếu vì lý do gì —
+   phần cứng, feature gate, hay phiên bản? Vì sao câu trả lời đó **không** tạo ra nợ lab?
+3. Kể ít nhất ba gate mà bài 149 ghi là beta hoặc bật mặc định, nhưng cluster của bạn đang tắt hoặc
+   không biết tên. Điều đó nói gì về việc viết manifest theo tài liệu "bản mới nhất"?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. `kubectl version` in một dòng `Server Version:`. `kubectl api-versions` liệt kê mọi group/version
+   đang được phục vụ.
+2. `kubectl api-resources --api-group=resource.k8s.io -o wide` có cột `NAMESPACED`. Dạng kiểm được
+   bằng script: `kubectl api-resources --namespaced=false -o name`.
+3. Tên driver nằm ở `.spec.driver` của mỗi ResourceSlice.
+4. B0 đã lưu `/metrics` của API server. Mỗi gate là một dòng
+   `kubernetes_feature_enabled{name="<gate>",stage="<giai đoạn>"} 0|1`. Không có dòng nghĩa là
+   binary không biết tên gate đó.
+5. Cấu hình hiệu lực của kubelet đọc qua node proxy: `kubectl get --raw
+   /api/v1/nodes/lab-k8s-worker2/proxy/configz`. Cờ của control plane nằm trong manifest static Pod
+   ở `/etc/kubernetes/manifests/`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 ```bash
-for g in DynamicResourceAllocation DRAAdminAccess DRAResourceClaimDeviceStatus \
+EV=~/lab-evidence/13; W2=lab-k8s-worker2
+. "$EV/b0-anh-nen.env"
+
+# 1. Phiên bản server
+SV="$(kubectl version 2>/dev/null | sed -n 's/^Server Version: //p')"
+echo "server=$SV" > "$EV/b1-phien-ban.txt"
+test -n "$SV" && echo "PASS: doc duoc phien ban server ($SV)"
+
+# 2. Nhóm API, bốn kind, phạm vi
+kubectl api-versions | grep '^resource\.k8s\.io/' > "$EV/b1-api-versions.txt"
+kubectl api-resources --api-group=resource.k8s.io -o wide > "$EV/b1-api-resource.txt" 2>&1
+cat "$EV/b1-api-versions.txt" "$EV/b1-api-resource.txt"
+DRA_API=0; grep -qx 'resource.k8s.io/v1' "$EV/b1-api-versions.txt" && DRA_API=1
+sc() { kubectl api-resources --namespaced="$1" -o name 2>/dev/null | grep -qx "$2.resource.k8s.io"; }
+{ sc false deviceclasses && sc false resourceslices && sc true resourceclaims && sc true resourceclaimtemplates; } \
+  && echo 'PASS: DeviceClass, ResourceSlice cap cluster; ResourceClaim, ResourceClaimTemplate cap namespace'
+
+# 3. Danh mục, nguồn cung, driver
+kubectl get deviceclasses > "$EV/b1-deviceclass.txt" 2>&1
+kubectl get resourceslices -o wide > "$EV/b1-resourceslice.txt" 2>&1
+kubectl get resourceslices -o jsonpath='{range .items[*]}{.spec.driver}{"\n"}{end}' 2>/dev/null \
+  | sed '/^$/d' | sort -u > "$EV/b1-drivers.txt"
+cat "$EV/b1-deviceclass.txt" "$EV/b1-resourceslice.txt" "$EV/b1-drivers.txt"
+DC_N="$(kubectl get deviceclasses --no-headers 2>/dev/null | wc -l)"
+SLICE_N="$(kubectl get resourceslices --no-headers 2>/dev/null | wc -l)"
+DRV_N="$(wc -l < "$EV/b1-drivers.txt")"
+
+# 4. Bảng feature gate — đọc từ /metrics của API server đã lưu ở B0
+for g in DynamicResourceAllocation DRAAdminAccess DRAResourceClaimDeviceStatus ResourceHealthStatus \
          DRAExtendedResource DRAPartitionableDevices DRADeviceTaints DRADeviceTaintRules \
-         DRAWorkloadResourceClaims DRAListTypeAttributes ResourceHealthStatus; do
-  line="$(grep 'kubernetes_feature_enabled{' "$EV/b0-apiserver-metrics.txt" \
-          | grep "name=\"$g\"" | head -1)"
-  if [ -z "$line" ]; then
-    echo "$g : apiserver khong biet ten gate nay"
-  else
-    echo "$g : $line"
-  fi
-done | tee "$EV/b1-feature-gates-dra.txt"
+         DRADeviceBindingConditions DRAResourcePoolStatus DRANodeAllocatableResources \
+         DRAListTypeAttributes DRAWorkloadResourceClaims; do
+  v="$(grep "^kubernetes_feature_enabled{name=\"$g\"," "$EV/b0-apiserver-metrics.txt" | awk '{print $NF}' | head -1)"
+  echo "$g ${v:-khong-biet-ten}"
+done > "$EV/b1-feature-gates.txt"
+cat "$EV/b1-feature-gates.txt"
+{ test "$(wc -l < "$EV/b1-feature-gates.txt")" -eq 13 && \
+  test "$(grep -cE ' (0|1|khong-biet-ten)$' "$EV/b1-feature-gates.txt")" -eq 13; } \
+  && echo 'PASS: du 13 gate, moi gate co ket luan'
+DRA_GATE="$(awk '$1=="DynamicResourceAllocation"{print $2}' "$EV/b1-feature-gates.txt")"
 
-test "$(wc -l < "$EV/b1-feature-gates-dra.txt")" -eq 10 \
-  && echo 'PASS: doi chieu du muoi feature gate ma nhom bai 13 nhac ten'
-```
-
-Đối chiếu với cấu hình đang chạy của control plane và của kubelet — vẫn chỉ đọc:
-
-```bash
-sudo grep -n -- '--feature-gates' /etc/kubernetes/manifests/*.yaml 2>/dev/null \
-  > "$EV/b1-manifest-gates.txt"
+sudo grep -n -- '--feature-gates' /etc/kubernetes/manifests/*.yaml > "$EV/b1-manifest-gates.txt" 2>/dev/null
 if [ -s "$EV/b1-manifest-gates.txt" ]; then
-  echo 'GHI NHAN: co thanh phan control plane khai --feature-gates — doc file truoc khi ket luan'
-  cat "$EV/b1-manifest-gates.txt"
+  echo 'GHI NHAN: co thanh phan control plane khai --feature-gates'; cat "$EV/b1-manifest-gates.txt"
 else
-  echo 'PASS: khong thanh phan control plane nao khai --feature-gates — dang dung mac dinh baseline'
+  echo 'PASS: control plane khong khai --feature-gates — dung mac dinh cua binary'
 fi
-
-kubectl get --raw "/api/v1/nodes/$W2/proxy/configz" > "$EV/b1-configz-$W2.json" 2>/dev/null || true
-if grep -q '"featureGates"' "$EV/b1-configz-$W2.json" 2>/dev/null; then
-  echo "GHI NHAN: kubelet tren $W2 co khai featureGates"
-  grep -o '"featureGates":{[^}]*}' "$EV/b1-configz-$W2.json"
+kubectl get --raw "/api/v1/nodes/$W2/proxy/configz" > "$EV/b1-configz-$W2.json" 2>/dev/null
+if grep -q '"featureGates"' "$EV/b1-configz-$W2.json"; then
+  echo "GHI NHAN: kubelet tren $W2 khai featureGates rieng"
 else
   echo "PASS: kubelet tren $W2 khong khai featureGates rieng"
 fi
+
+# 5. Chốt nhánh
+NHANH=B
+[ "$DRA_API" -eq 1 ] && [ "$SLICE_N" -ge 1 ] && [ "$DRV_N" -ge 1 ] && NHANH=A
+printf 'SV=%s\nDRA_API=%s\nDC_N=%s\nSLICE_N=%s\nDRV_N=%s\nDRA_GATE=%s\nNHANH=%s\n' \
+  "$SV" "$DRA_API" "$DC_N" "$SLICE_N" "$DRV_N" "$DRA_GATE" "$NHANH" > "$EV/b1-nang-luc.env"
+cat "$EV/b1-nang-luc.env"
+grep -qE '^NHANH=(A|B)$' "$EV/b1-nang-luc.env" && echo "PASS: chot nhanh $NHANH bang so do"
+
+# 6. ADR
+cd ~/bookstore
+ADR="$(ls docs/adr/*-dra-bookstore.md 2>/dev/null | head -1)"
+{ test -n "$ADR" && grep -q 'Năng lực cluster' "$ADR"; } && echo "PASS: $ADR co muc Nang luc cluster"
 ```
 
-**Ý nghĩa:** ba nguồn này trả lời ba câu hỏi khác nhau. Bảng metric cho biết **apiserver biết tên
-gate nào và đang bật cái nào**; manifest cho biết **quản trị viên có ép gate nào không**; `configz`
-cho biết **kubelet có gate riêng không**. Ba nguồn phải nhất quán, và nếu lệch thì bạn có đúng file
-để đọc.
+Nếu `DRA_API=0`: đó đúng là tình huống mà bài 271 mô tả — nhóm API không được phục vụ. Ghi lại,
+bỏ qua phần DRA của B2, B3, B4, B7 và đi tiếp từ B5. Không bật nhóm API.
 
-Bài 149 ghi DRA là `stable`, còn gần như mọi mục con của nó vẫn alpha/beta và phụ thuộc gate riêng.
-Bảng bạn vừa in ra là cách duy nhất để biết **binary trong cluster của bạn** đứng ở đâu trong bức
-tranh đó — thay vì đọc trạng thái tính năng trong tài liệu rồi suy ra.
+</details>
 
-**PASS:** dòng `PASS: doi chieu du muoi feature gate…` xuất hiện; hai phép kiểm còn lại in ra một
-dòng `PASS:` hoặc một dòng `GHI NHAN:` và nội dung được ghi vào evidence.
+<details>
+<summary>Lời giải tham khảo</summary>
 
-### B1.3. Tính toán và chốt nhánh
+Không có manifest nào: ticket chỉ đọc. Kết quả kỳ vọng trên ba VM của Lab 00, nếu baseline giữ
+nguyên:
+
+| Đo | Kỳ vọng | Ý nghĩa |
+| --- | --- | --- |
+| `resource.k8s.io` | chỉ `resource.k8s.io/v1` | DRA đã stable; bài 271 nói v1beta1, v1beta2, v1alpha3 chỉ bật khi thật sự cần |
+| DeviceClass | `No resources found` | Chưa ai tạo danh mục — không phải lỗi |
+| ResourceSlice, driver | 0 và 0 | Không driver nào công bố phần cứng; bước 1 của luồng chưa từng xảy ra |
+| Gate | 9 gate biết tên, 4 gate không biết tên; bật `DynamicResourceAllocation`, `DRAAdminAccess`, `DRAResourceClaimDeviceStatus` | Đối chiếu [bảng feature gate của tài liệu đúng phiên bản baseline](https://v1-35.docs.kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/) |
+| `NHANH` | `B` | Thiếu thiết bị và driver |
+
+Bốn gate không biết tên là `DRAResourcePoolStatus`, `DRANodeAllocatableResources`,
+`DRAListTypeAttributes`, `DRAWorkloadResourceClaims`: binary của bạn ra đời trước các tính năng
+đó. Con số của bạn là con số đo được; khác bảng trên thì ghi nguyên văn vào ADR.
+
+Ý chính cho mục *Năng lực cluster*:
+
+1. **Đang chạy đúng.** `No resources found` chỉ nghĩa là chưa có DeviceClass nào. Cluster chưa bật
+   DRA in `error: the server doesn't have a resource type "deviceclasses"` — API server không phục vụ
+   kiểu đó. Bài 271 phân biệt đúng hai trường hợp này.
+2. Thiếu **thiết bị** và **driver** — hai điều kiện phần cứng. Nhóm API có, gate chính đã bật. Sổ nợ
+   lab ghi phần bị chặn bởi kiến thức của giai đoạn sau; ở đây kiến thức đủ, chỉ thiếu phần cứng.
+3. Ví dụ: `DRAExtendedResource`, `DRAPartitionableDevices`, `DRADeviceTaints`,
+   `DRADeviceBindingConditions` — bài 149 ghi beta, có cái bật mặc định; trên cluster của bạn chúng
+   còn alpha và tắt. Còn `DRAWorkloadResourceClaims` thì binary không biết tên. Viết manifest theo
+   tài liệu mới nhất sẽ dùng trường mà API server của bạn gỡ âm thầm hoặc không hiểu — B4 chứng minh.
+
+</details>
+
+## B2. [BS-13-02] Điều tra: lớp thiết bị và claim của tính năng gợi ý
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** nếu tính năng gợi ý được duyệt, đội vận hành tạo một lớp thiết bị cho GPU và dịch vụ
+gợi ý xin GPU qua claim. Trước khi có phần cứng, đội cần biết luồng đó đi được tới đâu và dừng ở
+đâu — vì `deploy.sh` sẽ báo thành công ngay cả khi tính năng không bao giờ chạy được.
+
+**Yêu cầu:**
+
+1. DeviceClass thử nghiệm `lab-13-gpu`, label `lab=lab-13`, chọn mọi thiết bị của driver giả định
+   `gpu.bookstore.example.com`. Chứng minh: API server nhận nó, số DeviceClass tăng một, số
+   ResourceSlice **không đổi**.
+2. Pod `goi-y-gpu` trong `lab-13` (label `lab=lab-13`, `busybox`, ngủ dài) xin một thiết bị qua
+   ResourceClaim tên `goi-y-gpu`. Tạo Pod **trước khi** claim tồn tại. Chứng minh Pod không được gán
+   node; ghi lại condition và sự kiện của nó ở thời điểm này.
+3. Tạo ResourceClaim `goi-y-gpu` xin một thiết bị từ lớp `lab-13-gpu`. Chứng minh: API server nhận
+   claim; scheduler bắt đầu xét Pod và ghi sự kiện không lập lịch được; claim không có kết quả cấp
+   phát, không ai giữ chỗ; Pod vẫn chưa có node.
+4. Nhánh A: thêm một cặp claim và Pod `goi-y-gpu-that` trỏ tới một DeviceClass có thật. Chứng minh
+   scheduler ghi kết quả cấp phát vào claim và ghi Pod vào danh sách giữ chỗ.
+5. Viết `docs/dra/deviceclass-gpu.draft.yaml`: DeviceClass `bookstore-gpu` dự kiến cho tính năng,
+   mang label dự án. Kiểm bằng server dry-run, **không apply**.
+6. **Giữ Pod và claim `goi-y-gpu` lại** cho B4 và B7.
+
+**Ràng buộc:** không tạo ResourceSlice. Không chạm namespace `bookstore` ngoài server dry-run.
+
+**Đọc lại:**
+
+- Bài [271](../271-set-up-dra-cluster-vi.md#create-deviceclasses), mục *Tạo DeviceClass* — selector
+  CEL theo driver.
+- Bài [270](../270-allocate-devices-dra-vi.md): [*Claim tài nguyên*](../270-allocate-devices-dra-vi.md#claim-resources)
+  — đoạn về ResourceClaim chưa tồn tại;
+  [*Yêu cầu thiết bị trong workload bằng DRA*](../270-allocate-devices-dra-vi.md#request-devices-workloads)
+  — hai chỗ khai báo trong Pod spec.
+- Bài [149](../149-dynamic-resource-allocation-vi.md):
+  [*ResourceSlice*](../149-dynamic-resource-allocation-vi.md#resourceslice) — đoạn controller của
+  driver ghi đè thay đổi thủ công;
+  [*Luồng công việc của Kubernetes*](../149-dynamic-resource-allocation-vi.md#kubernetes-workflow) —
+  năm bước; [*Hạn chế*](../149-dynamic-resource-allocation-vi.md#hạn-chế-limitations).
+
+**Bàn giao:** `~/lab-work/13/b2-*.yaml`; `docs/dra/deviceclass-gpu.draft.yaml`; mục *Luồng claim*
+trong ADR; `~/lab-evidence/13/b2-*`.
+
+**Nghiệm thu:**
+
+- `PASS:` DeviceClass tăng đúng một, ResourceSlice không đổi.
+- `PASS:` chưa có claim — Pod `Pending`, chưa có node.
+- `PASS:` có claim — API server nhận claim; có sự kiện `FailedScheduling` cho Pod.
+- `PASS:` (nhánh B) claim không có `status.allocation`, không có `status.reservedFor`; Pod chưa có
+  node.
+- `PASS:` (nhánh A) claim `goi-y-gpu-that` có kết quả cấp phát và `reservedFor` ghi đúng Pod.
+- `PASS:` bản nháp DeviceClass qua server dry-run, mang label dự án, chưa tồn tại trên cluster.
+
+**Câu hỏi thiết kế** — trả lời trong mục *Luồng claim* của ADR:
+
+1. Trong năm bước của *Luồng công việc của Kubernetes*, Pod `goi-y-gpu` dừng ở bước nào trước khi
+   có claim, và ở bước nào sau khi có claim? Tín hiệu nào trên object phân biệt hai điểm dừng?
+2. API server nhận DeviceClass và claim mà không hỏi có thiết bị khớp không. Hệ quả với quy trình
+   phát hành của Bookstore là gì, và `tests/smoke.sh` phải kiểm thêm gì nếu tính năng ra mắt?
+3. Nếu ai đó tự tạo một ResourceSlice để "có dữ liệu", chuyện gì xảy ra khi cluster có driver, và
+   khi không có?
+4. Sau này có GPU: một Pod gợi ý mang `bookstore-critical` có giành được GPU từ batch huấn luyện
+   đang giữ nó không?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. DeviceClass chỉ cần một selector CEL trên `device.driver`. Bài 271 có mẫu.
+2. Pod khai claim ở `spec.resourceClaims` (mỗi mục đúng một trong `resourceClaimName` hoặc
+   `resourceClaimTemplateName`), container gọi tên claim ở `resources.claims`.
+3. Ba file riêng — DeviceClass, Pod, claim — để apply theo đúng thứ tự yêu cầu.
+4. Sự kiện của scheduler cho đúng Pod này, lọc theo UID để không lẫn với lần chạy trước:
+   `kubectl -n lab-13 get events --field-selector involvedObject.uid=<uid>,reason=FailedScheduling`.
+5. Server dry-run trả lại object như API server sẽ lưu: `kubectl create --dry-run=server -f <file>
+   -o yaml`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; script apply theo đúng thứ tự</summary>
 
 ```bash
-DRA_API=0
-kubectl api-resources --api-group=resource.k8s.io -o name 2>/dev/null \
-  | grep -qx 'deviceclasses.resource.k8s.io' && DRA_API=1
+NS=lab-13; EV=~/lab-evidence/13; W=~/lab-work/13
+. "$EV/b0-anh-nen.env"; . "$EV/b1-nang-luc.env"
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+fs() { U="$(jp "pod/$1" '{.metadata.uid}')"
+       kubectl -n "$NS" get events --no-headers \
+         --field-selector "involvedObject.uid=$U,reason=FailedScheduling" 2>/dev/null | wc -l; }
 
-DC_BEFORE=0
-SLICE_BEFORE=0
-if [ "$DRA_API" -eq 1 ]; then
-  DC_BEFORE="$(kubectl get deviceclasses --no-headers 2>/dev/null | wc -l)"
-  SLICE_BEFORE="$(kubectl get resourceslices --no-headers 2>/dev/null | wc -l)"
+# 1. Danh mục không sinh ra hàng
+kubectl apply -f "$W/b2-deviceclass.yaml"
+DC_NOW="$(kubectl get deviceclasses --no-headers 2>/dev/null | wc -l)"
+SLICE_NOW="$(kubectl get resourceslices --no-headers 2>/dev/null | wc -l)"
+echo "DeviceClass $DC_BEFORE -> $DC_NOW ; ResourceSlice $SLICE_BEFORE -> $SLICE_NOW" | tee "$EV/b2-dem.txt"
+{ [ "$DC_NOW" -eq $((DC_BEFORE + 1)) ] && [ "$SLICE_NOW" -eq "$SLICE_BEFORE" ]; } \
+  && echo 'PASS: them mot DeviceClass, khong them ResourceSlice nao'
+
+# 2. Pod đến trước claim
+kubectl -n "$NS" delete pod goi-y-gpu --ignore-not-found --wait=true
+kubectl -n "$NS" delete resourceclaim goi-y-gpu --ignore-not-found --wait=true
+kubectl apply -f "$W/b2-pod.yaml"
+sleep 30
+P1="$(jp pod/goi-y-gpu '{.status.phase}')"; N1="$(jp pod/goi-y-gpu '{.spec.nodeName}')"
+C1="$(jp pod/goi-y-gpu '{.status.conditions[?(@.type=="PodScheduled")].status}')"; E1="$(fs goi-y-gpu)"
+kubectl -n "$NS" describe pod goi-y-gpu > "$EV/b2-truoc-claim.txt"
+echo "truoc claim: phase=$P1 node=${N1:-<chua gan>} PodScheduled=${C1:-<chua co>} FailedScheduling=$E1" \
+  | tee -a "$EV/b2-truoc-claim.txt"
+{ [ "$P1" = 'Pending' ] && [ -z "$N1" ]; } && echo 'PASS: chua co claim — Pod Pending, chua gan node'
+echo "GHI NHAN: truoc khi co claim PodScheduled=${C1:-<chua co>}, su kien FailedScheduling=$E1"
+
+# 3. Có claim: scheduler xét và từ chối; claim không được cấp phát
+kubectl apply -f "$W/b2-claim.yaml"
+for i in $(seq 1 24); do [ "$(fs goi-y-gpu)" -ge 1 ] && break; sleep 5; done
+E2="$(fs goi-y-gpu)"; N2="$(jp pod/goi-y-gpu '{.spec.nodeName}')"
+ALLOC="$(jp resourceclaim/goi-y-gpu '{.status.allocation}')"; RESV="$(jp resourceclaim/goi-y-gpu '{.status.reservedFor}')"
+kubectl -n "$NS" get resourceclaim goi-y-gpu -o yaml > "$EV/b2-claim.yaml"
+kubectl -n "$NS" describe pod goi-y-gpu > "$EV/b2-sau-claim.txt"
+echo "sau claim: FailedScheduling=$E2 allocation=${ALLOC:-<rong>} reservedFor=${RESV:-<rong>} node=${N2:-<chua gan>}"
+{ kubectl -n "$NS" get resourceclaim goi-y-gpu >/dev/null 2>&1 && [ "$E2" -ge 1 ]; } \
+  && echo 'PASS: API server nhan claim; scheduler xet Pod va ghi FailedScheduling'
+if [ "$NHANH" = B ]; then
+  { [ -z "$ALLOC" ] && [ -z "$RESV" ] && [ -z "$N2" ]; } \
+    && echo 'PASS: claim khong duoc cap phat, khong ai giu cho, Pod chua co node'
 fi
-DRV_N="$(sed '/^$/d' "$EV/b1-drivers.txt" 2>/dev/null | wc -l)"
-DRA_GATE="$(grep '^DynamicResourceAllocation :' "$EV/b1-feature-gates-dra.txt")"
 
-if [ "$DRA_API" -eq 1 ] && [ "$SLICE_BEFORE" -ge 1 ] \
-   && [ "$DRV_N" -ge 1 ] && [ "$DC_BEFORE" -ge 1 ]; then
-  NHANH=A
-else
-  NHANH=B
-fi
-
-{
-  echo "=== $(date -Is) — kiem tra nang luc DRA ==="
-  echo "1. nhom API resource.k8s.io duoc phuc vu : DRA_API=$DRA_API"
-  echo "2. so DeviceClass co san                 : $DC_BEFORE"
-  echo "3. so ResourceSlice                      : $SLICE_BEFORE"
-  echo "4. so driver dang cong bo thiet bi       : $DRV_N"
-  echo "5. gate DynamicResourceAllocation        : $DRA_GATE"
-  echo "NHANH                                    : $NHANH"
-} | tee "$EV/b1-nang-luc.txt"
-
-echo "$NHANH" > "$EV/b1-nhanh.txt"
-
+# 4. Chỉ nhánh A: lớp thiết bị có thật
 if [ "$NHANH" = A ]; then
-  echo 'NHANH A: du bon dieu kien — B3 va B4 cap phat thiet bi that'
-else
-  echo 'NHANH B: thieu it nhat mot dieu kien — khong cap phat gi, ghi ho so kem bang chung'
+  kubectl apply -f "$W/b2-that.yaml"
+  for i in $(seq 1 60); do [ -n "$(jp resourceclaim/goi-y-gpu-that '{.status.allocation}')" ] && break; sleep 5; done
+  kubectl -n "$NS" get resourceclaim goi-y-gpu-that -o yaml > "$EV/b2-claim-that.yaml"
+  { [ -n "$(jp resourceclaim/goi-y-gpu-that '{.status.allocation.devices.results[0].device}')" ] && \
+    [ "$(jp resourceclaim/goi-y-gpu-that '{.status.reservedFor[0].name}')" = 'goi-y-gpu-that' ]; } \
+    && echo 'PASS: (nhanh A) scheduler ghi ket qua cap phat va reservedFor dung Pod'
 fi
+
+# 5. Bản nháp cho dự án
+cd ~/bookstore
+L="$(kubectl create --dry-run=server -f docs/dra/deviceclass-gpu.draft.yaml \
+      -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}' 2>"$EV/b2-draft-loi.txt")"
+D="$(kubectl create --dry-run=client -f docs/dra/deviceclass-gpu.draft.yaml -o jsonpath='{.metadata.name}')"
+{ [ "$L" = 'bookstore' ] && ! kubectl get deviceclass "$D" >/dev/null 2>&1; } \
+  && echo "PASS: ban nhap DeviceClass $D qua server dry-run, mang label du an, chua apply"
 ```
 
-**PASS:** in ra **đúng một** dòng bắt đầu bằng `NHANH A:` hoặc `NHANH B:`; file `b1-nang-luc.txt`
-có đủ năm dòng đánh số cộng dòng `NHANH`; file `b1-nhanh.txt` chứa đúng một ký tự `A` hoặc `B`. Năm
-con số trong file phải khớp với những gì B1.1 và B1.2 in ra.
+</details>
 
-**STOP:** không cài DRA driver, không bật feature gate, không tạo ResourceSlice bằng tay để ép sang
-nhánh A. Nhánh B là kết quả hợp lệ và là lý do lab 13 được đánh dấu **tùy chọn** ngay từ bản đồ
-lab. Muốn có thiết bị thật thì đó phải là một lab khác, chạy trên phần cứng khác, và tạo mốc
-snapshot của riêng nó.
+<details>
+<summary>Lời giải tham khảo</summary>
 
----
-
-## B2. Bốn kind API của DRA: phạm vi, schema và ranh giới phân quyền
-
-**Mục đích:** kiểm chứng mục *Thuật ngữ DRA* của bài [149](../149-dynamic-resource-allocation-vi.md)
-và mục *Tách quyền truy cập các API liên quan đến DRA* của bài
-[172](../172-cluster-admin-dra-vi.md). Cả hai nói về **API**, không về dữ liệu, nên mục này chạy ở
-**cả hai nhánh** — miễn là `DRA_API` bằng 1.
-
-Nếu `DRA_API=0`, **STOP:** ghi lại kết quả B1 và bỏ qua B2 tới B5 phần DRA; đi thẳng tới
-[B5.2](#b52-node-status-không-biết-gì-về-dra) và các mục sau, rồi nói rõ ở checkpoint rằng bề mặt
-API DRA không tồn tại trên cluster của bạn.
-
-### B2.1. Phạm vi từng kind, đọc từ chính API
-
-```bash
-if [ "$DRA_API" -eq 1 ]; then
-  kubectl api-resources --api-group=resource.k8s.io -o wide 2>&1 | tee "$EV/b2-api-wide.txt"
-
-  kubectl api-resources --namespaced=false -o name 2>/dev/null \
-    | grep -qx 'deviceclasses.resource.k8s.io' \
-    && echo 'PASS: deviceclasses — cluster-scoped'
-  kubectl api-resources --namespaced=false -o name 2>/dev/null \
-    | grep -qx 'resourceslices.resource.k8s.io' \
-    && echo 'PASS: resourceslices — cluster-scoped'
-  kubectl api-resources --namespaced=true -o name 2>/dev/null \
-    | grep -qx 'resourceclaims.resource.k8s.io' \
-    && echo 'PASS: resourceclaims — namespace-scoped'
-  kubectl api-resources --namespaced=true -o name 2>/dev/null \
-    | grep -qx 'resourceclaimtemplates.resource.k8s.io' \
-    && echo 'PASS: resourceclaimtemplates — namespace-scoped'
-fi
-```
-
-**Ý nghĩa:** bốn dòng này là **nửa bên trái** của phép ánh xạ mà bài 149 dựng: DeviceClass đứng ở
-vị trí StorageClass, ResourceClaim đứng ở vị trí PersistentVolumeClaim. Phạm vi khớp y hệt —
-StorageClass cluster-scoped, PVC namespace-scoped — và đó không phải trùng hợp: **object mô tả
-nguồn cung của cluster thì thuộc về cluster, object là yêu cầu của người dùng thì thuộc về
-namespace**.
-
-Nửa bên phải là câu hỏi ai tạo cái nào, và nó quyết định luôn ranh giới phân quyền ở B2.3.
-
-**PASS:** đúng bốn dòng `PASS:` của bước này xuất hiện.
-
-### B2.2. Schema: bốn kind, bốn hình dạng
-
-```bash
-if [ "$DRA_API" -eq 1 ]; then
-  OK=0
-  for p in deviceclass.spec \
-           resourceslice.spec \
-           resourceclaim.spec.devices.requests \
-           resourceclaim.status \
-           resourceclaimtemplate.spec.spec \
-           pod.spec.resourceClaims \
-           pod.spec.containers.resources.claims; do
-    f="$EV/b2-explain-$(echo "$p" | tr '.' '-').txt"
-    if kubectl explain "$p" > "$f" 2>&1 && [ -s "$f" ]; then
-      OK=$(( OK + 1 ))
-    else
-      echo "GHI NHAN: khong doc duoc schema $p"
-    fi
-  done
-  echo "doc duoc $OK/7 schema"
-  test "$OK" -eq 7 && echo 'PASS: doc duoc du bay duong dan schema cua DRA'
-fi
-```
-
-**Ý nghĩa:** bảy đường dẫn này là toàn bộ bề mặt mà một quản trị viên chạm vào. Hai đường cuối là
-chỗ dễ nhầm nhất và sẽ quay lại ở B5: `pod.spec.resourceClaims` là nơi Pod **khai** nó dùng những
-claim nào, còn `pod.spec.containers.resources.claims` là nơi **từng container** nói nó dùng claim
-nào trong số đó. Hai trường khác cấp, và bài 270 dùng đúng cặp này để cho một container dùng riêng
-một claim còn hai container khác chia sẻ một claim thứ hai.
-
-`resourceclaim.status` là chỗ B4 sẽ đọc: `status.allocation` và `status.reservedFor` — đúng hai
-trường mà bài [125](../125-hardening-dra-vi.md) gắn vào subresource tổng hợp
-`resourceclaims/binding`.
-
-**PASS:** dòng `PASS: doc duoc du bay duong dan schema…` xuất hiện.
-
-### B2.3. Ranh giới phân quyền của bài 172
-
-Bài [172](../172-cluster-admin-dra-vi.md) khuyến nghị: DeviceClass và ResourceSlice giới hạn cho
-quản trị viên và driver; ResourceClaim và ResourceClaimTemplate mở cho người triển khai Pod. Kiểm
-xem một danh tính thường có đi qua ranh giới đó không:
-
-```bash
-if [ "$DRA_API" -eq 1 ]; then
-  SA='system:serviceaccount:lab-13:default'
-  {
-    echo "danh tinh thu nghiem: $SA"
-    echo "create deviceclasses          -> $(kubectl auth can-i create deviceclasses --as="$SA")"
-    echo "create resourceslices         -> $(kubectl auth can-i create resourceslices --as="$SA")"
-    echo "create resourceclaims (ns)    -> $(kubectl auth can-i create resourceclaims -n lab-13 --as="$SA")"
-    echo "list resourceclaimtemplates   -> $(kubectl auth can-i list resourceclaimtemplates -n lab-13 --as="$SA")"
-  } | tee "$EV/b2-can-i.txt"
-
-  NO_N="$(grep -c '\-> no$' "$EV/b2-can-i.txt")"
-  test "$NO_N" -eq 4 \
-    && echo 'PASS: ServiceAccount tran khong dung duoc API DRA nao — ca hai phia ranh gioi'
-fi
-```
-
-**Ý nghĩa:** cả bốn đều `no`, và đó đúng là điểm xuất phát mà bài 172 giả định: mặc định **không ai
-có gì**, việc của quản trị viên là mở đúng hai API namespace-scoped cho đúng namespace của từng
-nhóm. Đặc điểm khiến ranh giới đó gọn nằm ngay ở B2.1: hai API dành cho người triển khai Pod đều
-namespace-scoped nên cấp quyền theo namespace là đủ, trong khi hai API kia cluster-scoped nên mở ra
-là mở cho toàn cluster.
-
-**Lab không tạo Role hay ClusterRole nào để "chữa" bốn dòng `no` này.** Cấp quyền cho một driver
-không tồn tại là diễn, không phải kiểm chứng — xem bảng lý do ở mục 1.1.
-
-**PASS:** dòng `PASS: ServiceAccount tran khong dung duoc API DRA nao…` xuất hiện.
-
----
-
-## B3. DeviceClass là danh mục, ResourceSlice là nguồn cung
-
-**Mục đích:** tách rành mạch hai thứ hay bị gộp làm một. DeviceClass là **danh mục** do người đặt
-ra; ResourceSlice là **hàng có thật** do driver công bố. Bài [271](../271-set-up-dra-cluster-vi.md)
-đi đúng thứ tự đó: bật DRA → cài driver → kiểm `resourceslices` → mới tạo DeviceClass.
-
-### B3.1. ResourceSlice: ai tạo, cluster này có bao nhiêu
-
-```bash
-if [ "$DRA_API" -eq 1 ]; then
-  kubectl get resourceslices -o wide 2>&1 | tee "$EV/b3-slices.txt"
-  echo "SLICE_BEFORE=$SLICE_BEFORE | DRV_N=$DRV_N"
-  test -s "$EV/b3-slices.txt" && echo 'PASS: da ghi lai trang thai ResourceSlice cua cluster'
-fi
-```
-
-**Ý nghĩa:** bài 149 mô tả ResourceSlice bằng ba mảng thông tin — resource pool, danh sách device,
-danh sách node truy cập được — và nói một câu quyết định: driver chạy một controller **đối chiếu
-ResourceSlice và ghi đè mọi thay đổi thủ công**. Nghĩa là kể cả khi bạn tạo tay một ResourceSlice
-trông y như thật, không có driver đứng sau thì nó là dữ liệu chết, và có driver thì nó bị xóa ngay
-lần đối chiếu kế tiếp.
-
-**STOP:** không tạo ResourceSlice bằng tay để "có dữ liệu cho lab". Đó là dựng thiết bị giả, và mọi
-kết luận rút ra từ nó đều sai.
-
-**PASS:** dòng `PASS: da ghi lai trang thai ResourceSlice…` xuất hiện.
-
-### B3.2. Tạo một DeviceClass và xem nó khớp gì
-
-Manifest dưới đây là manifest ví dụ của bài [271](../271-set-up-dra-cluster-vi.md), đổi tên driver
-và tên class cho khớp quy ước của lab:
-
-```bash
-if [ "$DRA_API" -eq 1 ]; then
-cat > "$WK/deviceclass.yaml" <<'YAML'
+```yaml
+# ~/lab-work/13/b2-deviceclass.yaml
 apiVersion: resource.k8s.io/v1
 kind: DeviceClass
 metadata:
-  name: lab-13-example
+  name: lab-13-gpu
+  labels:
+    lab: lab-13
 spec:
   selectors:
   - cel:
-      expression: |-
-        device.driver == "lab-13.example.com"
-YAML
-
-kubectl apply -f "$WK/deviceclass.yaml"
-kubectl get deviceclass lab-13-example -o yaml | tee "$EV/b3-deviceclass.yaml"
-fi
+      expression: device.driver == "gpu.bookstore.example.com"
 ```
 
-> Nếu `apply` báo không nhận ra `apiVersion`, mở `~/lab-evidence/13/b1-api-resource.txt`, đọc cột
-> `APIVERSION` của dòng `deviceclasses` và sửa dòng `apiVersion:` cho khớp rồi apply lại. Đừng
-> đoán.
-
-```bash
-if [ "$DRA_API" -eq 1 ]; then
-  DC_NOW="$(kubectl get deviceclasses --no-headers 2>/dev/null | wc -l)"
-  SLICE_NOW="$(kubectl get resourceslices --no-headers 2>/dev/null | wc -l)"
-  echo "DC_NOW=$DC_NOW (truoc: $DC_BEFORE) | SLICE_NOW=$SLICE_NOW (truoc: $SLICE_BEFORE)"
-
-  test "$DC_NOW" -eq $(( DC_BEFORE + 1 )) \
-    && echo 'PASS: DeviceClass da duoc tao — so luong tang dung 1'
-  test "$SLICE_NOW" -eq "$SLICE_BEFORE" \
-    && echo 'PASS: tao DeviceClass khong sinh them ResourceSlice nao — danh muc khong tao ra hang'
-fi
+```yaml
+# ~/lab-work/13/b2-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: goi-y-gpu
+  namespace: lab-13
+  labels:
+    lab: lab-13
+spec:
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 1
+  containers:
+  - name: goi-y
+    image: busybox:1.37
+    command: ["sleep", "3600"]
+    resources:
+      claims:
+      - name: gpu
+  resourceClaims:
+  - name: gpu
+    resourceClaimName: goi-y-gpu
 ```
 
-**Ý nghĩa:** gate thứ hai là bài học của cả mục. Một DeviceClass là **một bộ selector CEL và một
-cái tên**; API server nhận nó mà không hỏi thiết bị nào khớp, y hệt cách nó nhận một StorageClass
-trỏ tới provisioner không tồn tại. Bài 149 nói rõ: tham số của DeviceClass "có thể khớp với **không
-hoặc nhiều** thiết bị trong các ResourceSlice" — và trên cluster này, con số đó là không.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B3.A1. Đọc ResourceSlice thật *(chỉ nhánh A)*
-
-Chỉ chạy khi `NHANH=A`. Bài [271](../271-set-up-dra-cluster-vi.md) mục *Tạo DeviceClass* dùng đúng
-đường này để tìm thuộc tính mà biểu thức CEL có thể chọn:
-
-```bash
-if [ "$NHANH" = A ]; then
-  SLICE1="$(kubectl get resourceslices -o jsonpath='{.items[0].metadata.name}')"
-  kubectl get resourceslice "$SLICE1" -o yaml | tee "$EV/b3-slice-mau.yaml"
-
-  kubectl get resourceslices -o custom-columns=\
-'NAME:.metadata.name,NODE:.spec.nodeName,DRIVER:.spec.driver,POOL:.spec.pool.name,DEVICES:.spec.devices[*].name' \
-    | tee "$EV/b3-slice-bang.txt"
-
-  DEV_N="$(kubectl get resourceslices \
-    -o jsonpath='{range .items[*]}{range .spec.devices[*]}{.name}{"\n"}{end}{end}' \
-    | sed '/^$/d' | wc -l)"
-  echo "tong so device duoc cong bo = $DEV_N"
-  test "$DEV_N" -ge 1 && echo 'PASS: cluster co it nhat mot thiet bi duoc cong bo qua ResourceSlice'
-fi
-```
-
-**Ý nghĩa:** ba thứ phải đọc ra được từ file YAML vừa lưu, vì bài 149 nói mỗi ResourceSlice **phải**
-có đủ chúng: pool nào, những device nào kèm thuộc tính và dung lượng, và node nào truy cập được
-(`nodeName` cho một node cụ thể, hoặc `allNodes: true` cho cả cluster). Đây cũng là nguyên liệu cho
-biểu thức CEL ở B3.2 — trên nhánh A bạn nên sửa selector của DeviceClass cho khớp driver thật thay
-vì giữ `lab-13.example.com`.
-
-**PASS:** dòng `PASS: cluster co it nhat mot thiet bi…` xuất hiện.
-
----
-
-## B4. ResourceClaim, ResourceClaimTemplate và Pod
-
-**Mục đích:** đi hết luồng của bài [270](../270-allocate-devices-dra-vi.md) tới điểm dừng thật của
-cluster này, và ở mỗi điểm dừng nói được **vì sao dừng ở đó** bằng đúng bước nào trong *Luồng công
-việc của Kubernetes* của bài 149.
-
-### B4.A1. Cấp phát một thiết bị cho Pod *(chỉ nhánh A)*
-
-```bash
-if [ "$NHANH" = A ]; then
-  DC_USE="$(kubectl get deviceclasses -o jsonpath='{.items[0].metadata.name}')"
-  echo "dung DeviceClass co san: $DC_USE"
-
-cat > "$WK/claim-va-pod.yaml" <<YAML
+```yaml
+# ~/lab-work/13/b2-claim.yaml
 apiVersion: resource.k8s.io/v1
 kind: ResourceClaim
 metadata:
-  name: lab-13-claim
+  name: goi-y-gpu
   namespace: lab-13
+  labels:
+    lab: lab-13
 spec:
   devices:
     requests:
-    - name: device-0
+    - name: gpu
       exactly:
-        deviceClassName: $DC_USE
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: dra-consumer
-  namespace: lab-13
-spec:
-  restartPolicy: Never
-  containers:
-  - name: probe
-    image: busybox:1.37
-    command: ["sleep", "3600"]
-    resources:
-      claims:
-      - name: dev
-  resourceClaims:
-  - name: dev
-    resourceClaimName: lab-13-claim
-YAML
-
-  kubectl apply -f "$WK/claim-va-pod.yaml"
-
-  for i in $(seq 1 60); do
-    ALLOC="$(kubectl -n lab-13 get resourceclaim lab-13-claim \
-      -o jsonpath='{.status.allocation.devices.results[0].device}' 2>/dev/null)"
-    test -n "$ALLOC" && break
-    sleep 5
-  done
-  kubectl -n lab-13 get resourceclaim lab-13-claim -o yaml | tee "$EV/b4-claim-da-cap-phat.yaml"
-  kubectl -n lab-13 get pod dra-consumer -o wide | tee "$EV/b4-pod-consumer.txt"
-
-  test -n "$ALLOC" && echo "PASS: scheduler da cap phat thiet bi '$ALLOC' vao ResourceClaim"
-
-  RES="$(kubectl -n lab-13 get resourceclaim lab-13-claim \
-    -o jsonpath='{.status.reservedFor[0].name}')"
-  test "$RES" = 'dra-consumer' \
-    && echo 'PASS: status.reservedFor ghi dung Pod dang giu claim'
-
-  PHASE="$(kubectl -n lab-13 get pod dra-consumer -o jsonpath='{.status.phase}')"
-  echo "phase cua dra-consumer = $PHASE"
-fi
+        deviceClassName: lab-13-gpu
 ```
 
-**Ý nghĩa:** hai gate trên là hai bước cuối của *Luồng công việc của Kubernetes*: scheduler cập
-nhật ResourceClaim với chi tiết cấp phát (`status.allocation`), rồi ghi Pod vào `status.reservedFor`
-và đặt Pod lên node truy cập được thiết bị. Từ đây trở đi, kubelet và driver trên node mới là bên
-cấu hình thiết bị cho container.
+Nhánh A: `~/lab-work/13/b2-that.yaml` là bản sao của hai file trên, đổi tên thành `goi-y-gpu-that`
+và `deviceClassName` thành một DeviceClass có sẵn của driver thật (`kubectl get deviceclasses`).
 
-**PASS:** hai dòng `PASS:` của bước này xuất hiện và `$ALLOC` không rỗng.
-
-### B4.A2. ResourceClaimTemplate: mỗi Pod một claim riêng *(chỉ nhánh A)*
-
-```bash
-if [ "$NHANH" = A ]; then
-cat > "$WK/template-va-pod.yaml" <<YAML
+```yaml
+# docs/dra/deviceclass-gpu.draft.yaml — BẢN NHÁP, không apply. Chỉ có hiệu lực khi có driver thật.
+# Thuộc tính cho selector phải đọc từ ResourceSlice thật (bài 271, mục Tạo DeviceClass);
+# hiện chỉ chọn theo tên driver giả định.
 apiVersion: resource.k8s.io/v1
-kind: ResourceClaimTemplate
+kind: DeviceClass
 metadata:
-  name: lab-13-template
-  namespace: lab-13
+  name: bookstore-gpu
+  labels:
+    app.kubernetes.io/part-of: bookstore
 spec:
-  spec:
-    devices:
-      requests:
-      - name: device-0
-        exactly:
-          deviceClassName: $DC_USE
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: dra-template-consumer
-  namespace: lab-13
-spec:
-  restartPolicy: Never
-  containers:
-  - name: probe
-    image: busybox:1.37
-    command: ["sleep", "3600"]
-    resources:
-      claims:
-      - name: dev
-  resourceClaims:
-  - name: dev
-    resourceClaimTemplateName: lab-13-template
-YAML
-
-  kubectl apply -f "$WK/template-va-pod.yaml"
-
-  for i in $(seq 1 60); do
-    GEN="$(kubectl -n lab-13 get pod dra-template-consumer \
-      -o jsonpath='{.status.resourceClaimStatuses[0].resourceClaimName}' 2>/dev/null)"
-    test -n "$GEN" && break
-    sleep 5
-  done
-  echo "ResourceClaim duoc sinh ra: ${GEN:-<chua co>}"
-
-  test -n "$GEN" \
-    && echo 'PASS: controller da sinh ResourceClaim rieng cho Pod tu template'
-  kubectl -n lab-13 get resourceclaim "$GEN" \
-    -o jsonpath='{.metadata.ownerReferences[0].kind}{" "}{.metadata.ownerReferences[0].name}{"\n"}' \
-    | tee "$EV/b4-owner.txt"
-  grep -q '^Pod dra-template-consumer$' "$EV/b4-owner.txt" \
-    && echo 'PASS: claim sinh ra thuoc so huu cua chinh Pod — song chet theo Pod do'
-fi
+  selectors:
+  - cel:
+      expression: device.driver == "gpu.bookstore.example.com"
 ```
 
-**Ý nghĩa:** đây là khác biệt thực dụng giữa hai cách trong bài 270. ResourceClaim tự tạo thì **bạn
-quản vòng đời** và nhiều Pod chia sẻ được; ResourceClaimTemplate thì **Kubernetes sinh một claim cho
-mỗi Pod**, gắn `ownerReferences` vào Pod, và xóa claim khi Pod kết thúc. Trường
-`status.resourceClaimStatuses` của Pod là chỗ duy nhất tra được tên claim sinh tự động, vì tên đó
-không đoán trước được.
+Ý chính cho mục *Luồng claim*:
 
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
+1. Trước khi có claim, Pod dừng ở **bước 2** (*Tạo workload*): Kubernetes kiểm claim được tham
+   chiếu có tồn tại không, và không tìm thấy. Pod chưa vào được lượt xét của scheduler — trên
+   cluster của bạn có thể không có condition `PodScheduled` lẫn sự kiện nào, `describe` trống trơn.
+   Sau khi có claim, Pod tiến tới **bước 3** (*Lọc ResourceSlice*): scheduler xét và không tìm được
+   thiết bị khớp, nên ghi `FailedScheduling`, còn `status.allocation` của claim rỗng — bước 4 chưa
+   xảy ra. Tín hiệu phân biệt: có hay không sự kiện của scheduler, và claim có tồn tại hay không.
+2. Mọi manifest đều được nhận, không lỗi, không cảnh báo; tính năng chỉ không bao giờ chạy. Một
+   `deploy.sh` chờ rollout sẽ treo tới timeout, còn một `deploy.sh` không chờ sẽ báo thành công
+   giả. Smoke phải kiểm Pod gợi ý Ready **và** claim có `status.allocation`. Đó cũng là lý do năng
+   lực phải đo trước (B1), không phải sau.
+3. Có driver: controller của driver đối chiếu ResourceSlice và **ghi đè** mọi thay đổi thủ công —
+   slice tự tạo bị xóa hoặc sửa ở lần đối chiếu kế tiếp. Không driver: slice là dữ liệu chết, có
+   thể khiến scheduler "cấp phát" một thiết bị không tồn tại; Pod lên node rồi kẹt vì không ai
+   chuẩn bị thiết bị. Cả hai trường hợp đều là dựng dữ liệu giả.
+4. **Không.** Mục *Hạn chế* của bài 149: scheduler không preempt cho tài nguyên DRA. Pod gợi ý
+   nằm Pending tới khi batch kết thúc hoặc bị xóa tay. ADR phải ghi điều này vào cách lên lịch batch.
 
-### B4.B1. Pod tham chiếu một ResourceClaim chưa tồn tại *(chỉ nhánh B)*
+</details>
 
-Bài 270 nói: *"Nếu ResourceClaim được tham chiếu không tồn tại, Pod sẽ ở trạng thái pending cho đến
-khi ResourceClaim được tạo."* Kiểm chứng trực tiếp:
+## B3. [BS-13-03] Điều tra: mỗi bản sao một GPU — ResourceClaimTemplate
 
-```bash
-if [ "$NHANH" = B ] && [ "$DRA_API" -eq 1 ]; then
-cat > "$WK/pod-thieu-claim.yaml" <<'YAML'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: dra-thieu-claim
-  namespace: lab-13
-spec:
-  restartPolicy: Never
-  containers:
-  - name: probe
-    image: busybox:1.37
-    command: ["sleep", "3600"]
-    resources:
-      claims:
-      - name: dev
-  resourceClaims:
-  - name: dev
-    resourceClaimName: lab-13-khong-ton-tai
-YAML
+**Loại:** Điều tra.
 
-  kubectl apply -f "$WK/pod-thieu-claim.yaml"
+**Bối cảnh:** dịch vụ gợi ý sẽ chạy nhiều bản sao, mỗi bản sao cần một GPU **riêng** nhưng cấu hình
+giống nhau. Claim tạo tay ở B2 chỉ có một tên, nên mọi Pod tham chiếu nó sẽ **chia sẻ** cùng một
+nhóm thiết bị. Đội cần biết cách xin thiết bị theo từng Pod và vòng đời của claim khi Pod mất.
 
-  for i in $(seq 1 24); do
-    kubectl -n lab-13 get events \
-      --field-selector involvedObject.name=dra-thieu-claim -o name 2>/dev/null \
-      | grep -q . && break
-    sleep 5
-  done
+**Yêu cầu:**
 
-  PHASE1="$(kubectl -n lab-13 get pod dra-thieu-claim -o jsonpath='{.status.phase}')"
-  COND1="$(kubectl -n lab-13 get pod dra-thieu-claim \
-    -o jsonpath='{.status.conditions[?(@.type=="PodScheduled")].status}')"
-  NODE1="$(kubectl -n lab-13 get pod dra-thieu-claim -o jsonpath='{.spec.nodeName}')"
-  kubectl -n lab-13 describe pod dra-thieu-claim | tee "$EV/b4-thieu-claim.txt"
-  echo "phase=$PHASE1 | PodScheduled=${COND1:-<chua co>} | nodeName=${NODE1:-<chua gan>}"
+1. ResourceClaimTemplate `goi-y-gpu-mau` (một thiết bị từ lớp `lab-13-gpu`) và Pod `goi-y-gpu-mau`
+   dùng nó, cả hai trong `lab-13` với label `lab=lab-13`. Chứng minh: một claim riêng được sinh cho
+   Pod; tên claim tra được từ status của Pod; claim thuộc sở hữu của Pod; claim chưa được cấp phát.
+2. Chứng minh thành phần sinh claim là một controller của kube-controller-manager và đang được bật —
+   đọc cấu hình, chỉ đọc.
+3. Xóa Pod `goi-y-gpu-mau`. Chứng minh claim sinh ra biến mất theo, trong khi claim tạo tay
+   `goi-y-gpu` của B2 vẫn còn.
+4. ⭐ Một Pod `khong-thiet-bi` không yêu cầu thiết bị: chứng minh trong container không có thư mục
+   metadata thiết bị theo quy ước của bài 269. Xóa Pod khi xong.
+5. Viết `docs/dra/claim-goi-y.draft.yaml`: ResourceClaimTemplate dự kiến cho dịch vụ gợi ý trong
+   namespace `bookstore`, xin một thiết bị lớp `bookstore-gpu`, mang label dự án. Kiểm bằng server
+   dry-run, không apply.
 
-  test "$PHASE1" = 'Pending' \
-    && echo 'PASS: Pod tham chieu ResourceClaim khong ton tai nam Pending'
-  test -z "$NODE1" \
-    && echo 'PASS: Pod chua duoc gan node nao — no dung o buoc lap lich, khong phai buoc chay'
-  if [ "$COND1" = 'False' ]; then
-    echo 'PASS: condition PodScheduled=False — scheduler da xet va tu choi'
-  else
-    echo "GHI NHAN: PodScheduled=${COND1:-<chua co>} — chep nguyen van describe vao evidence"
-  fi
-fi
-```
+**Ràng buộc:** không tham chiếu trực tiếp claim sinh tự động. Không xóa finalizer của claim nào.
 
-**Ý nghĩa:** ba tín hiệu phải đọc cùng nhau. `Pending` một mình không nói được gì — Pod đang kéo
-image cũng `Pending`. `spec.nodeName` rỗng mới là bằng chứng Pod chưa qua được bước lập lịch, và
-`PodScheduled=False` là chữ ký của scheduler nói rằng nó đã xét và không xếp được. Hành vi này
-giống hệt một Pod tham chiếu PersistentVolumeClaim không tồn tại — đúng phép so sánh mà bài 149
-dựng ngay ở mục đầu.
+**Đọc lại:**
 
-```bash
-if [ "$NHANH" = B ] && [ "$DRA_API" -eq 1 ]; then
-  kubectl -n lab-13 delete pod dra-thieu-claim --wait=true
-fi
-```
+- Bài [149](../149-dynamic-resource-allocation-vi.md):
+  [*Trường hợp sử dụng ResourceClaim và ResourceClaimTemplate*](../149-dynamic-resource-allocation-vi.md#when-to-use-rc-rct),
+  [*Thuật ngữ DRA*](../149-dynamic-resource-allocation-vi.md#terminology) — đoạn ResourceClaimTemplate,
+  [*Luồng công việc của Kubernetes*](../149-dynamic-resource-allocation-vi.md#kubernetes-workflow) —
+  bước 2, `resourceclaim-controller`.
+- Bài [270](../270-allocate-devices-dra-vi.md#claim-resources) — tiêu chí chọn giữa hai cách, và lời
+  khuyên không tham chiếu claim sinh tự động.
+- Bài [172](../172-cluster-admin-dra-vi.md), mục *Giám sát và tinh chỉnh các thành phần cho mức tải
+  cao hơn* — controller ResourceClaim nội bộ do kube-controller-manager điều phối.
+- Bài [269](../269-access-dra-device-metadata-vi.md#access-metadata-resourceclaim) — đường dẫn
+  `/var/run/kubernetes.io/dra-device-attributes`, và mục *Trước khi bạn bắt đầu*.
 
-**PASS:** hai dòng `PASS:` đầu xuất hiện; dòng thứ ba là `PASS:` hoặc `GHI NHAN:` và nội dung đã
-vào evidence.
+**Bàn giao:** `~/lab-work/13/b3-*.yaml`; `docs/dra/claim-goi-y.draft.yaml`; mục *Claim theo từng
+Pod* trong ADR; `~/lab-evidence/13/b3-*`.
 
-### B4.B2. Claim có thật, thiết bị thì không *(chỉ nhánh B)*
+**Nghiệm thu:**
 
-```bash
-if [ "$NHANH" = B ] && [ "$DRA_API" -eq 1 ]; then
-cat > "$WK/claim-va-pod.yaml" <<'YAML'
-apiVersion: resource.k8s.io/v1
-kind: ResourceClaim
-metadata:
-  name: lab-13-claim
-  namespace: lab-13
-spec:
-  devices:
-    requests:
-    - name: device-0
-      exactly:
-        deviceClassName: lab-13-example
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: dra-consumer
-  namespace: lab-13
-spec:
-  restartPolicy: Never
-  containers:
-  - name: probe
-    image: busybox:1.37
-    command: ["sleep", "3600"]
-    resources:
-      claims:
-      - name: dev
-  resourceClaims:
-  - name: dev
-    resourceClaimName: lab-13-claim
-YAML
+- `PASS:` status của Pod trỏ tới một claim mà `ownerReferences` là Pod `goi-y-gpu-mau`.
+- `PASS:` (nhánh B) claim sinh ra chưa có `status.allocation`.
+- `PASS:` kube-controller-manager chạy bộ controller mặc định, không loại controller ResourceClaim.
+- `PASS:` xóa Pod thì claim sinh ra bị xóa; claim `goi-y-gpu` vẫn còn.
+- `PASS:` (⭐) không có thư mục metadata trong container không yêu cầu thiết bị.
+- `PASS:` bản nháp ResourceClaimTemplate qua server dry-run trong `bookstore`.
 
-  kubectl apply -f "$WK/claim-va-pod.yaml"
-  kubectl -n lab-13 get resourceclaim lab-13-claim >/dev/null 2>&1 \
-    && echo 'PASS: API server chap nhan ResourceClaim tro toi mot DeviceClass khong khop thiet bi nao'
+**Câu hỏi thiết kế** — trả lời trong mục *Claim theo từng Pod* của ADR:
 
-  for i in $(seq 1 24); do
-    kubectl -n lab-13 get events \
-      --field-selector involvedObject.name=dra-consumer -o name 2>/dev/null | grep -q . && break
-    sleep 5
-  done
+1. Dịch vụ gợi ý chạy hai bản sao, mỗi bản sao một GPU: claim tạo tay hay template? Còn sidecar
+   và container chính trong **cùng một** Pod cần dùng chung GPU của Pod đó thì khai thế nào?
+2. Claim đã sinh ra nhưng thiết bị chưa được cấp phát. Hai việc đó do hai thành phần nào làm, và vì
+   sao trên cluster này việc thứ nhất chạy được còn việc thứ hai thì không?
+3. Vì sao bài 270 khuyên không tham chiếu trực tiếp một claim sinh tự động? Áp vào một Deployment
+   cuộn bản mới (Lab 4a).
 
-  ALLOC="$(kubectl -n lab-13 get resourceclaim lab-13-claim -o jsonpath='{.status.allocation}')"
-  RESV="$(kubectl -n lab-13 get resourceclaim lab-13-claim -o jsonpath='{.status.reservedFor}')"
-  PHASE2="$(kubectl -n lab-13 get pod dra-consumer -o jsonpath='{.status.phase}')"
-  NODE2="$(kubectl -n lab-13 get pod dra-consumer -o jsonpath='{.spec.nodeName}')"
+<details>
+<summary>Gợi ý</summary>
 
-  kubectl -n lab-13 get resourceclaim lab-13-claim -o yaml | tee "$EV/b4-claim-rong.yaml"
-  kubectl -n lab-13 describe pod dra-consumer | tee "$EV/b4-consumer-describe.txt"
-  echo "allocation=${ALLOC:-<rong>} | reservedFor=${RESV:-<rong>} | phase=$PHASE2 | node=${NODE2:-<chua gan>}"
+1. Template có `spec.spec` — tầng `spec` thứ hai là spec của claim sẽ được sinh ra. Pod tham chiếu
+   bằng `resourceClaimTemplateName`.
+2. Tên claim sinh ra không đoán trước được; nó nằm ở `status.resourceClaimStatuses` của Pod.
+3. Danh sách controller của kube-controller-manager nằm ở cờ `--controllers` trong manifest static
+   Pod. `*` là mọi controller bật mặc định; tiền tố `-` là loại trừ.
+4. `kubectl wait --for=delete resourceclaim/<tên>` chờ object biến mất.
 
-  test -z "$ALLOC" \
-    && echo 'PASS: status.allocation rong — khong ResourceSlice nao khop nen khong co gi de cap phat'
-  test -z "$RESV" \
-    && echo 'PASS: status.reservedFor rong — khong Pod nao duoc ghi nhan giu claim'
-  test "$PHASE2" = 'Pending' && test -z "$NODE2" \
-    && echo 'PASS: Pod Pending va chua gan node — dung o buoc Loc ResourceSlice'
-fi
-```
+</details>
 
-**Ý nghĩa:** đây là điểm dừng thật của cluster này, và nó dừng ở **đúng một bước xác định**. Bài 149
-liệt kê năm bước; bước 1 (driver tạo ResourceSlice) chưa từng xảy ra, nên bước 3 (*Lọc
-ResourceSlice*) không tìm được gì khớp, nên bước 4 (*Cấp phát tài nguyên*) không ghi được gì vào
-`status.allocation`, nên bước 5 (*Lập lịch Pod*) không có node nào để chọn. Bốn hệ quả nối nhau từ
-một nguyên nhân, và bạn có bốn số đo cho từng khâu.
-
-Chú ý thứ tự: **API server nhận manifest bình thường** — không lỗi, không cảnh báo. Sai lầm nếu có
-sẽ nằm ở chỗ workload không bao giờ chạy, chứ không nằm ở chỗ object bị từ chối. Đó là lý do B1
-phải chạy **trước**, không phải sau.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
-### B4.B3. ResourceClaimTemplate và controller sinh claim *(chỉ nhánh B)*
-
-Bước 2 của *Luồng công việc của Kubernetes* thuộc về `resourceclaim-controller` trong
-kube-controller-manager, **không** thuộc về scheduler và **không** phụ thuộc thiết bị. Kiểm xem nó
-có chạy độc lập với việc cluster có thiết bị hay không:
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 ```bash
-if [ "$NHANH" = B ] && [ "$DRA_API" -eq 1 ]; then
-cat > "$WK/template-va-pod.yaml" <<'YAML'
-apiVersion: resource.k8s.io/v1
-kind: ResourceClaimTemplate
-metadata:
-  name: lab-13-template
-  namespace: lab-13
-spec:
-  spec:
-    devices:
-      requests:
-      - name: device-0
-        exactly:
-          deviceClassName: lab-13-example
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: dra-template-consumer
-  namespace: lab-13
-spec:
-  restartPolicy: Never
-  containers:
-  - name: probe
-    image: busybox:1.37
-    command: ["sleep", "3600"]
-    resources:
-      claims:
-      - name: dev
-  resourceClaims:
-  - name: dev
-    resourceClaimTemplateName: lab-13-template
-YAML
+NS=lab-13; EV=~/lab-evidence/13; W=~/lab-work/13
+. "$EV/b1-nang-luc.env"
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
 
-  kubectl apply -f "$WK/template-va-pod.yaml"
-
-  for i in $(seq 1 24); do
-    GEN="$(kubectl -n lab-13 get pod dra-template-consumer \
-      -o jsonpath='{.status.resourceClaimStatuses[0].resourceClaimName}' 2>/dev/null)"
-    test -n "$GEN" && break
-    sleep 5
-  done
-
-  kubectl -n lab-13 get resourceclaims -o wide | tee "$EV/b4-claims-sau-template.txt"
-  echo "ten claim sinh tu template: ${GEN:-<khong co>}"
-
-  if [ -n "$GEN" ]; then
-    echo 'PASS: controller sinh ResourceClaim cho Pod du cluster khong co thiet bi nao'
-    kubectl -n lab-13 get resourceclaim "$GEN" -o yaml | tee "$EV/b4-claim-sinh-ra.yaml"
-    OWNER="$(kubectl -n lab-13 get resourceclaim "$GEN" \
-      -o jsonpath='{.metadata.ownerReferences[0].kind}{" "}{.metadata.ownerReferences[0].name}')"
-    echo "ownerReferences = $OWNER"
-    test "$OWNER" = 'Pod dra-template-consumer' \
-      && echo 'PASS: claim sinh ra thuoc so huu cua chinh Pod'
-    GALLOC="$(kubectl -n lab-13 get resourceclaim "$GEN" -o jsonpath='{.status.allocation}')"
-    test -z "$GALLOC" \
-      && echo 'PASS: claim sinh ra van rong status.allocation — sinh claim khac voi cap phat thiet bi'
-  else
-    echo 'GHI NHAN: khong co claim nao duoc sinh ra — xem muc 4 truoc khi ket luan'
-  fi
-fi
-```
-
-**Ý nghĩa:** nếu claim được sinh ra, bạn vừa tách được hai việc mà người mới hay gộp làm một:
-**sinh ResourceClaim** là việc của một controller ở control plane và xảy ra ngay khi Pod ra đời;
-**cấp phát thiết bị** là việc của scheduler và cần ResourceSlice. Trên cluster này việc thứ nhất
-chạy, việc thứ hai không — và `status.allocation` rỗng là bằng chứng.
-
-**PASS:** ba dòng `PASS:` khi claim được sinh ra, hoặc một dòng `GHI NHAN:` kèm bằng chứng.
-
-### B4.B4. Hồ sơ "DRA chưa dùng được" *(chỉ nhánh B)*
-
-Nhánh này **không giả vờ** đã cấp phát được gì. Nó chốt hồ sơ để lần sau có cái đối chiếu:
-
-```bash
+# 1. Template sinh claim riêng cho Pod
+kubectl apply -f "$W/b3-template-pod.yaml"
+GEN=''
+for i in $(seq 1 24); do
+  GEN="$(jp pod/goi-y-gpu-mau '{.status.resourceClaimStatuses[0].resourceClaimName}')"
+  [ -n "$GEN" ] && break; sleep 5
+done
+echo "claim sinh ra: ${GEN:-<khong co>}" | tee "$EV/b3-claim-sinh-ra.txt"
+kubectl -n "$NS" get resourceclaim "$GEN" -o yaml >> "$EV/b3-claim-sinh-ra.txt" 2>&1
+OWNER="$(jp "resourceclaim/$GEN" '{.metadata.ownerReferences[0].kind} {.metadata.ownerReferences[0].name}')"
+{ [ -n "$GEN" ] && [ "$OWNER" = 'Pod goi-y-gpu-mau' ]; } \
+  && echo 'PASS: claim rieng duoc sinh cho Pod va thuoc so huu cua Pod'
 if [ "$NHANH" = B ]; then
-{
-  echo "=== $(date -Is) — Lab 13: DRA chua dung duoc tren cluster nay ==="
-  echo "nhom API resource.k8s.io duoc phuc vu : $( [ "$DRA_API" -eq 1 ] && echo co || echo khong )"
-  echo "so DeviceClass co san truoc lab        : $DC_BEFORE"
-  echo "so ResourceSlice                       : $SLICE_BEFORE"
-  echo "so driver DRA cong bo thiet bi         : $DRV_N"
-  echo "gate DynamicResourceAllocation         : $DRA_GATE"
-  echo 'KET LUAN                               : DRA CHUA DUNG DUOC — dung o buoc Loc ResourceSlice'
-  echo 'DIEU KIEN DE DUNG DUOC                 : (1) nhom API resource.k8s.io duoc phuc vu;'
-  echo '                                         (2) thiet bi duoc gan vao node;'
-  echo '                                         (3) mot DRA driver chay tren node va cong bo ResourceSlice;'
-  echo '                                         (4) mot DeviceClass co selector khop thiet bi do.'
-  echo 'DIEU KIEN THIEU O DAY                  : (2) va (3) — ba VM khong co GPU hay thiet bi chuyen dung.'
-  echo 'CHO CHAY LAI                           : nhanh A cua chinh Lab 13, tren cluster co phan cung that.'
-} | tee "$EV/b4-ho-so-dra.txt"
-
-grep -q 'KET LUAN' "$EV/b4-ho-so-dra.txt" \
-  && echo 'PASS: da ghi ho so DRA chua dung duoc kem bang chung'
+  [ -z "$(jp "resourceclaim/$GEN" '{.status.allocation}')" ] \
+    && echo 'PASS: claim da sinh nhung chua cap phat — sinh claim khac cap phat thiet bi'
 fi
+
+# 2. Ai sinh claim
+CTRL="$(sudo grep -o -- '--controllers=[^ "]*' /etc/kubernetes/manifests/kube-controller-manager.yaml)"
+echo "${CTRL:-<khong khai --controllers>}" | tee "$EV/b3-kcm-controllers.txt"
+{ { [ -z "$CTRL" ] || echo "$CTRL" | grep -q '[=,]\*'; } && ! echo "$CTRL" | grep -q -- '-resourceclaim'; } \
+  && echo 'PASS: kube-controller-manager chay bo controller mac dinh, co controller ResourceClaim'
+
+# 3. Vòng đời
+kubectl -n "$NS" delete pod goi-y-gpu-mau --wait=true
+kubectl -n "$NS" wait --for=delete "resourceclaim/$GEN" --timeout=120s \
+  && echo 'PASS: Pod mat thi claim sinh ra cung mat'
+kubectl -n "$NS" get resourceclaim goi-y-gpu >/dev/null 2>&1 \
+  && echo 'PASS: claim tao tay goi-y-gpu van con — vong doi do nguoi tao quan'
+
+# 4. ⭐ Vế phủ định của metadata thiết bị
+kubectl apply -f "$W/b3-khong-thiet-bi.yaml"
+kubectl -n "$NS" wait --for=condition=Ready pod/khong-thiet-bi --timeout=120s
+kubectl -n "$NS" exec khong-thiet-bi -- test -d /var/run/kubernetes.io/dra-device-attributes \
+  && echo 'GHI NHAN: co thu muc metadata du container khong yeu cau thiet bi' \
+  || echo 'PASS: khong yeu cau thiet bi thi khong co thu muc metadata'
+kubectl -n "$NS" delete pod khong-thiet-bi --wait=true
+
+# 5. Bản nháp cho dự án
+cd ~/bookstore
+kubectl create --dry-run=server -f docs/dra/claim-goi-y.draft.yaml > "$EV/b3-draft.txt" 2>&1 \
+  && echo 'PASS: ban nhap ResourceClaimTemplate qua server dry-run trong bookstore'
 ```
 
-**Ý nghĩa:** hồ sơ này **không** phải một món nợ trong [sổ nợ lab](README.md#5-sổ-nợ-lab). Sổ nợ ghi
-những phần bị chặn bởi **kiến thức của giai đoạn sau**; ở đây không có kiến thức nào bị thiếu, chỉ
-có phần cứng bị thiếu — và đó chính là lý do bản đồ lab đánh dấu lab 13 là **tùy chọn** thay vì ghi
-nợ. Đừng thêm dòng nào vào sổ nợ vì mục này.
+</details>
 
-Phần khái niệm thì **không** thiếu gì: B2 đã kiểm chứng bốn kind API và ranh giới phân quyền, B3 đã
-tách danh mục khỏi nguồn cung, B4.B1 và B4.B2 đã chỉ ra hai điểm dừng khác nhau, và B5 ngay sau đây
-là phần trả lời trọn vẹn câu hỏi mà checkpoint của giai đoạn 13 đặt ra.
+<details>
+<summary>Lời giải tham khảo</summary>
 
-**PASS:** dòng `PASS: da ghi ho so DRA chua dung duoc…` xuất hiện.
-
+```yaml
+# ~/lab-work/13/b3-template-pod.yaml
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  name: goi-y-gpu-mau
+  namespace: lab-13
+  labels:
+    lab: lab-13
+spec:
+  spec:
+    devices:
+      requests:
+      - name: gpu
+        exactly:
+          deviceClassName: lab-13-gpu
 ---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: goi-y-gpu-mau
+  namespace: lab-13
+  labels:
+    lab: lab-13
+spec:
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 1
+  containers:
+  - name: goi-y
+    image: busybox:1.37
+    command: ["sleep", "3600"]
+    resources:
+      claims:
+      - name: gpu
+  resourceClaims:
+  - name: gpu
+    resourceClaimTemplateName: goi-y-gpu-mau
+```
 
-## B5. DRA, device plugin và extended resource — ba con đường, một cluster
+```yaml
+# ~/lab-work/13/b3-khong-thiet-bi.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: khong-thiet-bi
+  namespace: lab-13
+  labels:
+    lab: lab-13
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+  - name: shell
+    image: busybox:1.37
+    command: ["sleep", "3600"]
+```
 
-**Mục đích:** đây là **mục quan trọng nhất của lab ở nhánh B**, và cũng là thứ mà checkpoint của
-giai đoạn 13 yêu cầu khi cluster không có GPU: *giải thích được DRA khác device plugin truyền thống
-ở điểm nào*. Mục này chạy ở **cả hai nhánh**.
+```yaml
+# docs/dra/claim-goi-y.draft.yaml — BẢN NHÁP, không apply.
+# Component recommender chưa có trong hợp đồng (DU-AN-BOOKSTORE.md mục 4.1) — đề xuất ở ADR.
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  name: goi-y-gpu
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: recommender
+spec:
+  spec:
+    devices:
+      requests:
+      - name: gpu
+        exactly:
+          deviceClassName: bookstore-gpu
+```
 
-Ba con đường đưa một thiết bị vào Pod, và bạn đã gặp cả ba ở ba chỗ khác nhau của lộ trình:
+Trong Deployment gợi ý tương lai, Pod template khai `resourceClaims: [{name: gpu,
+resourceClaimTemplateName: goi-y-gpu}]` và container gọi `resources.claims: [{name: gpu}]`.
+
+Ý chính cho mục *Claim theo từng Pod*:
+
+1. Hai bản sao, mỗi bản một GPU → **template**: Kubernetes sinh một claim cho mỗi Pod. Hai
+   container trong cùng Pod muốn dùng chung GPU của Pod đó thì **cùng gọi một tên** trong
+   `resources.claims` — đúng cách `container1` và `container2` chia sẻ `shared-gpu-claim` ở bài 270.
+2. **Sinh claim** là việc của `resourceclaim-controller` trong kube-controller-manager, xảy ra ngay
+   khi Pod ra đời và không cần thiết bị. **Cấp phát** là việc của scheduler ở bước 3–4 và cần
+   ResourceSlice. Cluster có controller nhưng không có ResourceSlice, nên `status.allocation` rỗng.
+3. Claim sinh tự động gắn vào vòng đời của Pod đã sinh ra nó. Deployment cuộn bản mới thì Pod cũ
+   bị xóa, claim của nó bị xóa theo; Pod khác tham chiếu tên claim đó sẽ nằm Pending vì claim không
+   còn — đúng tình huống của B2 trước khi có claim.
+
+</details>
+
+## B4. [BS-13-04] Điều tra: ba con đường cấp phát thiết bị
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** đội phát triển hỏi: "Sao không viết `example.com/gpu: 1` vào `limits` như ở Lab 3c cho
+nhanh?" ADR phải trả lời câu đó bằng số đo trên cluster, không bằng khẩu hiệu.
+
+**Yêu cầu:**
+
+1. Pod `goi-y-er` trong `lab-13` xin `example.com/gpu: 1` theo kiểu extended resource. Chứng minh
+   Pod Pending và scheduler nói rõ node thiếu **con số** đó. Đặt thông điệp này cạnh thông điệp
+   của Pod `goi-y-gpu` (B2) — hai cách hạch toán khác nhau.
+2. Chứng minh `status.allocatable` của `lab-k8s-worker2` chỉ có tài nguyên chuẩn: không extended
+   resource nào, không dấu vết nào của DRA.
+3. Chứng minh trường của tính năng *Cấp phát extended resource bằng DRA* có trong schema của
+   DeviceClass nhưng API server **gỡ nó** khi lưu object, vì gate tương ứng đang tắt (đối chiếu B1).
+   Dùng server dry-run, không tạo object thật.
+4. ⭐ Đọc `/metrics` của kubelet trên `lab-k8s-worker2`: số dòng metric đăng ký device plugin và số
+   dòng metric thao tác DRA của kubelet.
+5. Mục *Ba con đường* trong ADR: bảng so sánh cho tính năng gợi ý — nơi khai báo trong Pod spec,
+   đơn vị, lọc theo thuộc tính, chia sẻ, nơi hạch toán, đã kiểm ở đâu.
+
+**Ràng buộc:** không vá `status.capacity` của node — Lab 3c đã làm, lần này chỉ đọc. Không đọc bài
+184 ở giai đoạn này; so sánh device plugin bằng bài 149 và bài 110.
+
+**Đọc lại:**
+
+- Bài [149](../149-dynamic-resource-allocation-vi.md):
+  [*Lợi ích của DRA*](../149-dynamic-resource-allocation-vi.md#dra-benefits) — đoạn cuối về device
+  plugin; [*Cấp phát extended resource bằng DRA*](../149-dynamic-resource-allocation-vi.md#extended-resource).
+- Bài [110](../110-manage-resources-containers-vi.md):
+  [*Tài nguyên mở rộng*](../110-manage-resources-containers-vi.md#extended-resources),
+  [*Tài nguyên do device plugin quản lý*](../110-manage-resources-containers-vi.md#device-plugin-managed-resources),
+  [*Tiêu thụ tài nguyên mở rộng*](../110-manage-resources-containers-vi.md#consuming-extended-resources).
+- Bài [284](../284-extended-resource-vi.md), mục
+  [*Thử tạo một Pod thứ hai*](../284-extended-resource-vi.md#thử-tạo-một-pod-thứ-hai-attempt-to-create-a-second-pod).
+- Bài [172](../172-cluster-admin-dra-vi.md), mục
+  [*Các metric của `kubelet`*](../172-cluster-admin-dra-vi.md#các-metric-của-kubelet-kubelet-metrics) và
+  [*Các thao tác DRA kubeletplugin*](../172-cluster-admin-dra-vi.md#các-thao-tác-dra-kubeletplugin-dra-kubeletplugin-operations).
+
+**Bàn giao:** `~/lab-work/13/b4-*.yaml`; mục *Ba con đường* trong ADR; `~/lab-evidence/13/b4-*`.
+
+**Nghiệm thu:**
+
+- `PASS:` `goi-y-er` Pending, sự kiện scheduler có `Insufficient example.com/gpu`.
+- `PASS:` sự kiện của `goi-y-gpu` không nói `Insufficient` — DRA không hạch toán bằng con số
+  trên node.
+- `PASS:` `allocatable` của `lab-k8s-worker2` chỉ có `cpu`, `memory`, `pods`, `ephemeral-storage`,
+  `hugepages-*`.
+- `PASS:` schema DeviceClass có `extendedResourceName`, nhưng object qua server dry-run không còn
+  trường đó.
+- `PASS:` (⭐) đã chốt số liệu metric kubelet vào evidence.
+
+**Câu hỏi thiết kế** — trả lời trong mục *Ba con đường* của ADR:
+
+1. Vì sao viết `example.com/gpu: 1` vào `limits` không phải cách làm việc của DRA, dù bạn đã làm
+   đúng động tác đó ở Lab 3c? Áp ba thiếu sót mà bài 149 gán cho device plugin vào tính năng gợi ý:
+   chọn GPU theo bộ nhớ, dùng chung GPU giữa hai container, khai ở đâu.
+2. Hai thông điệp Pending nói lên hai cách hạch toán nào? Pod dùng DRA "ăn" gì trong `allocatable`
+   của node?
+3. "API có trường" khác "tính năng đang bật" ở đâu? Hậu quả nếu đội chép một DeviceClass có
+   `extendedResourceName` từ tài liệu mới nhất vào repo?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Extended resource không overcommit được: khai `limits` là đủ, `requests` mặc định bằng `limits`,
+   giá trị phải là số nguyên.
+2. In `allocatable` của node: `kubectl get node lab-k8s-worker2 -o jsonpath='{.status.allocatable}'`.
+3. `kubectl explain deviceclass.spec.extendedResourceName` đọc schema. Server dry-run trả về object
+   như API server sẽ lưu: so trường bạn gửi với trường nhận lại.
+4. Metric kubelet đọc qua node proxy: `kubectl get --raw /api/v1/nodes/lab-k8s-worker2/proxy/metrics`.
+   Metric `dra_grpc_operations_duration_seconds` do thư viện `kubeletplugin` **trong driver** phát ra,
+   không nằm ở kubelet.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+```bash
+NS=lab-13; EV=~/lab-evidence/13; W=~/lab-work/13; W2=lab-k8s-worker2
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+msg() { U="$(jp "pod/$1" '{.metadata.uid}')"
+        kubectl -n "$NS" get events --field-selector "involvedObject.uid=$U,reason=FailedScheduling" \
+          -o jsonpath='{.items[*].message}' 2>/dev/null; }
+
+# 1. Hai thông điệp Pending
+kubectl apply -f "$W/b4-goi-y-er.yaml"
+for i in $(seq 1 24); do [ -n "$(msg goi-y-er)" ] && break; sleep 5; done
+M_ER="$(msg goi-y-er)"; M_DRA="$(msg goi-y-gpu)"
+{ echo "extended resource: $M_ER"; echo "DRA              : $M_DRA"; } | tee "$EV/b4-hai-thong-diep.txt"
+{ [ "$(jp pod/goi-y-er '{.status.phase}')" = 'Pending' ] && echo "$M_ER" | grep -q 'Insufficient example.com/gpu'; } \
+  && echo 'PASS: extended resource — Pending vi node khong co du con so'
+{ [ -n "$M_DRA" ] && ! echo "$M_DRA" | grep -q 'Insufficient'; } \
+  && echo 'PASS: DRA — Pending vi ly do khac, khong phai thieu con so tren node'
+
+# 2. allocatable của worker2
+kubectl get node "$W2" -o jsonpath='{.status.allocatable}' | tr ',' '\n' | tr -d '{}"' | sed '/^$/d' \
+  > "$EV/b4-allocatable.txt"
+cat "$EV/b4-allocatable.txt"
+[ "$(grep -cvE '^(cpu|memory|pods|ephemeral-storage|hugepages-[^:]+):' "$EV/b4-allocatable.txt")" -eq 0 ] \
+  && echo 'PASS: allocatable cua worker2 chi co tai nguyen chuan'
+
+# 3. Trường có trong schema nhưng bị gỡ khi lưu
+kubectl explain deviceclass.spec.extendedResourceName > "$EV/b4-extended-resource-name.txt" 2>&1 \
+  && SCHEMA=co || SCHEMA=khong
+if KEPT="$(kubectl create --dry-run=server -f "$W/b4-deviceclass-er.yaml" \
+             -o jsonpath='{.spec.extendedResourceName}' 2>>"$EV/b4-extended-resource-name.txt")"; then
+  DRY=ok; else DRY=loi; fi
+echo "schema=$SCHEMA dry-run=$DRY gia-tri-sau-khi-luu='${KEPT}'" | tee -a "$EV/b4-extended-resource-name.txt"
+if [ "$SCHEMA" = co ] && [ "$DRY" = ok ] && [ -z "$KEPT" ]; then
+  echo 'PASS: schema co truong nhung API server go no khi luu — gate dang tat'
+else
+  echo 'GHI NHAN: khac ky vong — doi chieu dong DRAExtendedResource trong b1-feature-gates.txt'
+fi
+
+# 4. ⭐ Metric kubelet
+kubectl get --raw "/api/v1/nodes/$W2/proxy/metrics" > "$EV/b4-kubelet-metrics.txt"
+DP="$(grep -c '^kubelet_device_plugin_registration_total' "$EV/b4-kubelet-metrics.txt")"
+OPS="$(grep -c '^dra_operations_duration_seconds' "$EV/b4-kubelet-metrics.txt")"
+echo "device plugin dang ky: $DP dong ; DRA PrepareResources/UnprepareResources: $OPS dong" \
+  | tee "$EV/b4-metric-kubelet.txt"
+test -s "$EV/b4-kubelet-metrics.txt" && echo 'PASS: da chot so lieu metric kubelet'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# ~/lab-work/13/b4-goi-y-er.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: goi-y-er
+  namespace: lab-13
+  labels:
+    lab: lab-13
+spec:
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 1
+  containers:
+  - name: goi-y
+    image: busybox:1.37
+    command: ["sleep", "3600"]
+    resources:
+      limits:
+        example.com/gpu: 1
+```
+
+```yaml
+# ~/lab-work/13/b4-deviceclass-er.yaml — chỉ dùng với --dry-run=server
+apiVersion: resource.k8s.io/v1
+kind: DeviceClass
+metadata:
+  name: lab-13-gpu-er
+  labels:
+    lab: lab-13
+spec:
+  selectors:
+  - cel:
+      expression: device.driver == "gpu.bookstore.example.com"
+  extendedResourceName: example.com/gpu
+```
+
+Bảng cho mục *Ba con đường*:
 
 | | Extended resource | Device plugin | DRA |
 | --- | --- | --- | --- |
-| Ai công bố | quản trị viên vá `status.allocatable` của Node | một plugin chạy trên node, đăng ký với kubelet rồi báo số lượng | driver DRA tạo **ResourceSlice** |
-| Đơn vị | một **con số nguyên** dưới một tên tự đặt | một **con số nguyên** dưới tên do plugin đặt | một **danh sách thiết bị** kèm thuộc tính và dung lượng |
-| Pod xin thế nào | `resources.limits["ten"]: N` trong container | `resources.limits["ten"]: N` trong container | `spec.resourceClaims` của Pod + `resources.claims` của container |
-| Chọn lọc | không — chỉ đếm | không — chỉ đếm | **CEL** trên thuộc tính thiết bị |
-| Chia sẻ giữa container/Pod | không | không | có, qua cùng một ResourceClaim |
-| Khai báo ở đâu | từng container | từng container | claim ở cấp Pod, container chỉ tham chiếu |
-| Bạn đã làm ở đâu | [Lab 3c B5](LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md#b5-extended-resource-tài-nguyên-do-bạn-tự-đặt-tên) — thật | [bài 184](../184-device-plugins-vi.md), giai đoạn 14 — chưa đọc | lab này |
+| Ai công bố | quản trị viên vá `status.capacity` của Node | plugin trên node báo số lượng cho kubelet | driver tạo ResourceSlice |
+| Đơn vị | một số nguyên dưới một tên tự đặt | một số nguyên dưới tên do plugin đặt | danh sách thiết bị kèm thuộc tính, dung lượng |
+| Pod xin ở đâu | `resources.limits` của từng container | `resources.limits` của từng container | `spec.resourceClaims` của Pod, container gọi tên ở `resources.claims` |
+| Lọc theo thuộc tính | không | không | CEL trong DeviceClass và claim |
+| Chia sẻ | không | không | có, qua cùng một claim |
+| Hạch toán | `allocatable` của Node | `allocatable` của Node | ResourceSlice (cung), ResourceClaim (cầu) |
+| Kiểm ở đâu | Lab 3c, B4 bước 1 | bài 110, bài 149; bài 184 ở giai đoạn 14 | B2, B3 |
 
-Bài [149](../149-dynamic-resource-allocation-vi.md) tóm ba cột giữa bằng đúng **ba thiếu sót** của
-device plugin: nó **yêu cầu khai báo thiết bị theo từng container**, **không hỗ trợ chia sẻ thiết
-bị**, và **không hỗ trợ lọc thiết bị dựa trên biểu thức**. Bốn mục con dưới đây đo từng vế của bảng
-trên bằng dữ liệu của chính cluster bạn.
+Kỳ vọng ở bước 4 (⭐): cả hai con số bằng 0 trên cluster này — chưa plugin nào đăng ký, kubelet
+chưa từng gọi xuống driver DRA nào.
 
-> **Không nhảy cóc:** [bài 184 — Device Plugin](../184-device-plugins-vi.md) thuộc
-> [giai đoạn 14](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) và bạn **chưa đọc**. Mọi
-> điều nói về device plugin ở đây lấy từ chính bài 149 — nó mô tả đủ ba thiếu sót cần cho phép so
-> sánh. Đừng nhảy sang bài 184 lúc này; khi đọc tới nó ở giai đoạn 14, quay lại bảng này.
+Ý chính:
 
-### B5.1. Ba con đường nằm ở ba chỗ khác nhau trong cùng một Pod spec
+1. Bài 149 nêu ba thiếu sót của device plugin: **khai báo theo từng container**, **không chia sẻ**,
+   **không lọc theo biểu thức**. Áp vào tính năng gợi ý: không chọn được "GPU có ít nhất 16 GiB bộ
+   nhớ", sidecar và container chính không dùng chung được một GPU, mỗi container tự khai con số của
+   mình. Một con số trong `limits` chính là mô hình cũ mà DRA thay thế.
+2. `Insufficient example.com/gpu` là phép trừ trên `allocatable` của node. Thông điệp của Pod DRA
+   nói về việc không cấp phát được claim — DRA hạch toán bằng object riêng (ResourceSlice và
+   ResourceClaim), và Pod dùng DRA không "ăn" gì trong `allocatable` của node.
+3. Schema là tập trường mà binary **biết**; gate quyết định trường đó có được **lưu** không. Chép
+   DeviceClass có `extendedResourceName` vào repo thì `kubectl apply` thành công, trường biến mất
+   không báo lỗi, và mọi Pod xin `example.com/gpu` vẫn Pending. Đó là lý do mỗi bản nháp trong
+   `docs/dra/` phải qua server dry-run và đọc lại object trả về.
 
-```bash
-OK=0
-for p in pod.spec.containers.resources.limits \
-         pod.spec.containers.resources.claims \
-         pod.spec.resourceClaims; do
-  f="$EV/b5-explain-$(echo "$p" | tr '.' '-').txt"
-  if kubectl explain "$p" > "$f" 2>&1 && [ -s "$f" ]; then
-    OK=$(( OK + 1 ))
-    echo "doc duoc: $p"
-  else
-    echo "GHI NHAN: khong doc duoc $p"
-  fi
-done
-test "$OK" -ge 2 && echo 'PASS: doc duoc it nhat hai trong ba duong dan schema cua ba con duong'
-```
+</details>
 
-**Ý nghĩa:** hai con đường đầu — extended resource và device plugin — dùng **chung một trường**:
-`resources.limits` của container, với khác biệt duy nhất là ai điền con số vào `status.allocatable`
-của Node. Đó là lý do bài 149 gộp chúng khi nói về "cách cũ". Con đường thứ ba dùng **hai trường
-khác hẳn, ở hai cấp khác nhau**: claim khai ở cấp Pod, container chỉ trỏ tên. Chính hình dạng này
-làm cho việc chia sẻ một thiết bị giữa nhiều container trở nên khả thi — điều mà một con số trong
-`limits` không diễn đạt được.
+## B5. [BS-13-05] Điều tra: batch huấn luyện mô hình gợi ý chạy theo nhóm
 
-**PASS:** dòng `PASS: doc duoc it nhat hai trong ba duong dan schema…` xuất hiện.
+**Loại:** Điều tra.
 
-### B5.2. Node status không biết gì về DRA
+**Bối cảnh:** batch đêm có ba worker trao đổi dữ liệu với nhau sau mỗi bước, nên phải cùng chạy.
+Nếu cluster chỉ đủ chỗ cho hai, hai worker đó lên, giữ CPU, và chờ worker thứ ba mãi. Đội cần biết
+Kubernetes có cơ chế gì cho việc này, cluster có chưa, và nếu chưa thì thiết kế batch thế nào để
+khi cluster có, chỉ cần bật lên.
 
-```bash
-kubectl get node "$W2" -o jsonpath='{.status.allocatable}' \
-  | tr ',' '\n' | tr -d '{}"' | sed '/^$/d' | tee "$EV/b5-allocatable.txt"
+**Yêu cầu:**
 
-EXTRA="$(grep -vcE '^(cpu|memory|pods|ephemeral-storage|hugepages-)' "$EV/b5-allocatable.txt")"
-echo "so tai nguyen ngoai chuan trong allocatable cua $W2 = $EXTRA"
+1. Đo bề mặt API lập lịch theo nhóm: nhóm `scheduling.k8s.io` phục vụ những gì; có kind PodGroup
+   hay Workload không; schema Pod có trường liên kết Pod với nhóm như bài 59 mô tả không; API server
+   phản ứng thế nào với bản nháp PodGroup viết theo tài liệu.
+2. Lập bảng bốn gate `GenericWorkload`, `GangScheduling`, `WorkloadAwarePreemption`,
+   `WorkloadWithJob`: biết tên hay không, bật hay tắt.
+3. Đo ba điều kiện nền: có PriorityClass nào là `globalDefault` không; node mang nhãn topology nào;
+   kube-scheduler có nạp file cấu hình không.
+4. Thí nghiệm trên `lab-k8s-worker2`: Job Indexed `huan-luyen-thu` trong `lab-13`, ba worker chạy
+   cùng lúc, ghim `lab-k8s-worker2`, mỗi worker xin một lượng CPU sao cho **chỉ hai** worker vừa.
+   Chứng minh hai worker chạy và giữ CPU còn worker thứ ba Pending vì thiếu CPU. Xóa Job khi xong.
+5. Hai bản nháp:
+   - `docs/dra/huan-luyen-job.draft.yaml` — Job Indexed cho batch thật trong `bookstore`, ba worker
+     chạy cùng lúc, PriorityClass `bookstore-batch`, đạt Pod Security `restricted`. Server dry-run
+     phải nhận và không cảnh báo PodSecurity.
+   - `docs/dra/huan-luyen-podgroup.draft.yaml` — Workload và PodGroup `gang` với `minCount: 3` viết
+     đúng theo tài liệu. Server dry-run phải **bị từ chối**; ghi lý do.
+6. ADR `docs/adr/NNNN-batch-huan-luyen-theo-nhom.md`.
 
-if [ "$EXTRA" -eq 0 ]; then
-  echo 'PASS: allocatable chi co tai nguyen chuan — khong extended resource, khong device plugin'
-else
-  echo "GHI NHAN: $EXTRA tai nguyen ngoai chuan — doc lai b5-allocatable.txt truoc khi ket luan"
-fi
+**Ràng buộc:** không bật gate hay nhóm API; không gán nhãn zone cho node. Job thí nghiệm không đặt
+`priorityClassName` — độ ưu tiên 0, không chiếm chỗ Pod nào. Có `globalDefault` thì **STOP**, không
+chạy thí nghiệm.
 
-grep -c 'resource.k8s.io' "$EV/b5-allocatable.txt" \
-  | grep -qx '0' \
-  && echo 'PASS: khong dau vet nao cua resource.k8s.io trong allocatable cua Node'
-```
+**Đọc lại:**
 
-**Ý nghĩa:** hai kết luận, một phép đo. Thứ nhất: Lab 3c đã dọn sạch extended resource
-`example.com/dongle` mà nó quảng bá, đúng như gate cuối của lab đó cam kết — nếu `EXTRA` khác 0 thì
-một lab trước để sót. Thứ hai, và quan trọng hơn: **thiết bị DRA không xuất hiện trong
-`status.allocatable` của Node**. Đây là khác biệt kiến trúc, không phải chi tiết: hai con đường cũ
-hạch toán bằng một con số trên Node, còn DRA hạch toán bằng object riêng (ResourceSlice cho nguồn
-cung, ResourceClaim cho phần đã giữ chỗ). Một Pod dùng DRA không "ăn" gì trong `allocatable` cả.
+- Bài [150](../150-gang-scheduling-vi.md#cách-hoạt-động-how-it-works) — ba bước, hai điều kiện rời
+  `PreEnqueue`.
+- Bài [79](../79-workload-policies-vi.md):
+  [*Chính sách basic*](../79-workload-policies-vi.md#chính-sách-basic-basic-policy),
+  [*Chính sách gang*](../79-workload-policies-vi.md#chính-sách-gang-gang-policy).
+- Bài [77](../77-workload-api-vi.md):
+  [*Workload là gì?*](../77-workload-api-vi.md#workload-là-gì-what-is-a-workload),
+  [*Gang scheduling với Job*](../77-workload-api-vi.md#gang-scheduling-với-job-gang-scheduling-with-jobs).
+- Bài [75](../75-podgroup-api-vi.md):
+  [*PodGroup là gì?*](../75-podgroup-api-vi.md#podgroup-là-gì-what-is-a-podgroup),
+  [*Cách các thành phần khớp với nhau*](../75-podgroup-api-vi.md#cách-các-thành-phần-khớp-với-nhau-how-it-fits-together).
+- Bài [59](../59-scheduling-group-vi.md#chỉ-định-nhóm-lập-lịch-specifying-a-scheduling-group).
+- Bài [76](../76-podgroup-lifecycle-vi.md): [*Thứ tự tạo*](../76-podgroup-lifecycle-vi.md#thứ-tự-tạo-creation-ordering),
+  [*Giới hạn*](../76-podgroup-lifecycle-vi.md#limitations).
+- Bài [78](../78-workload-disruption-priority-vi.md#độ-ưu-tiên-của-pod-group-pod-group-priority) và
+  [152](../152-workload-aware-preemption-vi.md#cách-hoạt-động-how-it-works) — khối *Ghi chú* của
+  cả hai bài.
+- Bài [80](../80-workload-topology-scheduling-vi.md#ràng-buộc-topology-topology-constraint).
+- Bài [151](../151-podgroup-scheduling-vi.md):
+  [*Chu trình lập lịch PodGroup*](../151-podgroup-scheduling-vi.md#podgroup-scheduling-cycle),
+  [*Hạn chế*](../151-podgroup-scheduling-vi.md#hạn-chế-limitations).
+- Bài [153](../153-topology-aware-scheduling-vi.md#scheduling-framework-cấu-hình-các-plugin-tas-scheduling-framework-tas-plugins-configuration).
+- [Lab 4b](LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) — Indexed Job, kỹ thuật render `.tpl` bằng `sed`;
+  [Lab 9b](LAB-9B-POD-SECURITY-VA-HARDENING.md) — các trường mà `restricted` đòi.
 
-**PASS:** hai dòng `PASS:` của bước này xuất hiện — hoặc một dòng `PASS:` cộng một `GHI NHAN:` được
-ghi lại.
+**Bàn giao:** `~/lab-work/13/b5-*`; hai bản nháp `docs/dra/huan-luyen-*.draft.yaml`;
+`docs/adr/NNNN-batch-huan-luyen-theo-nhom.md`; `~/lab-evidence/13/b5-*`.
 
-### B5.3. Ba con đường đều trống, đọc từ kubelet
+**Nghiệm thu:**
 
-```bash
-kubectl get --raw "/api/v1/nodes/$W2/proxy/metrics" > "$EV/b5-kubelet-metrics.txt"
-test -s "$EV/b5-kubelet-metrics.txt" && echo "PASS: doc duoc /metrics cua kubelet tren $W2"
+- `PASS:` `scheduling.k8s.io` có PriorityClass, không có PodGroup hay Workload.
+- `PASS:` schema Pod của cluster không có `schedulingGroup`.
+- `PASS:` API server không biết kind trong bản nháp PodGroup.
+- `PASS:` đủ bốn dòng gate.
+- `PASS:` không có `globalDefault`; không node nào mang nhãn zone hay region; kube-scheduler không nạp
+  file cấu hình (hoặc `GHI NHAN:` kèm file đó).
+- `PASS:` thí nghiệm — đúng hai worker Running, một worker Pending với `Insufficient cpu`; xóa Job thì
+  không còn Pod nào.
+- `PASS:` bản nháp Job qua server dry-run trong `bookstore`, không cảnh báo PodSecurity.
+- `PASS:` có ADR batch.
 
-DRA_OPS="$(grep -c '^dra_operations_duration_seconds' "$EV/b5-kubelet-metrics.txt")"
-DRA_GRPC="$(grep -c '^dra_grpc_operations_duration_seconds' "$EV/b5-kubelet-metrics.txt")"
-DP_REG="$(grep -c '^kubelet_device_plugin_registration_total' "$EV/b5-kubelet-metrics.txt")"
-echo "dra_operations=$DRA_OPS | dra_grpc_operations=$DRA_GRPC | device_plugin_registration=$DP_REG"
+**Câu hỏi thiết kế** — trả lời trong ADR batch:
 
-{
-  echo "con duong 1 — extended resource : tai nguyen ngoai chuan trong allocatable cua $W2 = $EXTRA"
-  echo "con duong 2 — device plugin     : dong metric kubelet_device_plugin_registration_total = $DP_REG"
-  echo "con duong 3 — DRA               : ResourceSlice=$SLICE_BEFORE driver=$DRV_N \
-dong metric dra_operations=$DRA_OPS dra_grpc=$DRA_GRPC"
-} | tee "$EV/b5-ba-con-duong.txt"
+1. Nếu ba worker thuộc một PodGroup `gang` với `minCount: 3`, thí nghiệm ở bước 4 diễn ra thế nào?
+   Hai điều kiện nào phải đúng để Pod rời `PreEnqueue`, và hai worker đã có chỗ thì sao?
+2. Để dùng PodGroup, cluster thiếu chính xác những gì? API server biết tên bao nhiêu trong bốn gate,
+   và "không biết tên" khác "đang tắt" ở điểm nào?
+3. Gắn `bookstore-batch` ở cấp PodGroup có làm batch được xếp trước trong hàng đợi không? Một Pod
+   `api` mang `bookstore-critical` cần chỗ và chiếm chỗ một worker của nhóm `disruptionMode:
+   PodGroup` — scheduler có tôn trọng chế độ đó không?
+4. Ràng buộc topology trên ba VM này có ý nghĩa không? Vì sao không gán nhãn zone cho node để "có
+   nhiều miền"?
+5. Thuật toán lập lịch PodGroup chỉ được kỳ vọng tìm ra placement với nhóm đồng nhất. Batch của bạn
+   có đồng nhất không? Thêm một Pod "điều phối" có yêu cầu khác thì sao?
 
-test "$(wc -l < "$EV/b5-ba-con-duong.txt")" -ge 3 \
-  && echo 'PASS: da chot so lieu cua ca ba con duong vao mot cho'
-```
+<details>
+<summary>Gợi ý</summary>
 
-**Ý nghĩa:** bài [172](../172-cluster-admin-dra-vi.md) chỉ đúng hai metric của kubelet cần theo dõi
-cho DRA — `NodePrepareResources` và `NodeUnprepareResources`, hiện ra dưới họ
-`dra_operations_duration_seconds`, cộng họ `dra_grpc_operations_duration_seconds` do gói
-`kubeletplugin` phát ra. Chúng chỉ có dữ liệu khi kubelet **thật sự gọi xuống một driver DRA**. Con
-số bạn vừa đo trả lời câu hỏi "đã bao giờ có driver nào làm việc trên node này chưa" chính xác hơn
-mọi phỏng đoán.
+1. `kubectl api-versions` và `kubectl api-resources --api-group=scheduling.k8s.io -o name`.
+   `kubectl explain pod.spec.<trường>` thất bại nghĩa là schema không có trường đó.
+2. Bốn gate đọc từ `b0-apiserver-metrics.txt` giống B1.
+3. CPU còn trống của worker2 = `allocatable.cpu` trừ tổng `requests` mà `kubectl describe node`
+   in ở phần `Allocated resources`. Mỗi worker xin khoảng 45% phần còn trống thì hai worker vừa, ba
+   worker không vừa. Viết manifest dạng `.tpl` với chỗ giữ `__CPU__`, render bằng `sed`.
+4. Pod của Job mang label `batch.kubernetes.io/job-name=<tên Job>`.
+5. Job Indexed: `completionMode: Indexed`, `completions` bằng `parallelism`.
+6. `restricted` đòi `runAsNonRoot`, `allowPrivilegeEscalation: false`, bỏ mọi capability,
+   `seccompProfile` `RuntimeDefault`. Cảnh báo của Pod Security hiện ở output của server dry-run.
 
-Ba dòng trong `b5-ba-con-duong.txt` là **bằng chứng gọn nhất của cả lab**: ba con đường cấp phát
-thiết bị, ba nguồn số liệu độc lập, cùng một kết luận.
+</details>
 
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B5.4. Metadata thiết bị chỉ có khi container yêu cầu thiết bị
-
-Bài [269](../269-access-dra-device-metadata-vi.md) và mục *Metadata thiết bị DRA trong container*
-của bài 149 nói cùng một quy tắc: metadata **chỉ khả dụng bên trong một container khi container đó
-yêu cầu thiết bị trong đặc tả của nó, và không khả dụng trong trường hợp khác**. Vế phủ định kiểm
-được ngay:
-
-```bash
-cat > "$WK/pod-khong-claim.yaml" <<'YAML'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: dra-none
-  namespace: lab-13
-spec:
-  restartPolicy: Never
-  containers:
-  - name: probe
-    image: busybox:1.37
-    command: ["sleep", "3600"]
-YAML
-
-kubectl apply -f "$WK/pod-khong-claim.yaml"
-kubectl -n lab-13 wait --for=condition=Ready pod/dra-none --timeout=180s
-
-META='/var/run/kubernetes.io/dra-device-attributes'
-if kubectl -n lab-13 exec dra-none -- test -d "$META" 2>/dev/null; then
-  echo "GHI NHAN: thu muc $META ton tai du container khong yeu cau thiet bi nao"
-  kubectl -n lab-13 exec dra-none -- ls -la "$META" | tee "$EV/b5-metadata-dir.txt"
-else
-  echo "PASS: khong yeu cau thiet bi thi khong co thu muc $META trong container" \
-    | tee "$EV/b5-metadata-dir.txt"
-fi
-```
-
-Ở nhánh A, đọc luôn vế khẳng định trên chính Pod đã được cấp phát thiết bị:
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; bước 4 là thí nghiệm, chạy liền mạch</summary>
 
 ```bash
-if [ "$NHANH" = A ]; then
-  kubectl -n lab-13 exec dra-consumer -- \
-    find "$META" -name '*-metadata.json' -print 2>/dev/null \
-    | tee "$EV/b5-metadata-files.txt"
-  if [ -s "$EV/b5-metadata-files.txt" ]; then
-    echo 'PASS: container yeu cau thiet bi thay duoc file metadata tai duong dan quy uoc'
-  else
-    echo 'GHI NHAN: driver cua ban khong bat metadata thiet bi — doc tai lieu cua driver'
-  fi
-fi
-```
+NS=lab-13; EV=~/lab-evidence/13; W=~/lab-work/13; W2=lab-k8s-worker2
 
-**Ý nghĩa:** đường dẫn `/var/run/kubernetes.io/dra-device-attributes/...` là **quy ước cứng** của
-giao thức metadata: cùng một bố cục trên mọi driver và mọi cluster, tên file theo mẫu
-`<driverName>-metadata.json`, nội dung là JSON có `apiVersion` và `kind`. Bài 149 nói rõ đây là
-**tính năng phía driver**, không cần thay đổi API Kubernetes và không cần feature gate — nên nếu
-nhánh A của bạn không thấy file, lý do nằm ở driver chứ không ở cluster.
+# 1. Bề mặt API lập lịch theo nhóm
+kubectl api-versions | grep '^scheduling\.k8s\.io/' | tee "$EV/b5-scheduling-versions.txt"
+kubectl api-resources --api-group=scheduling.k8s.io -o name | tee "$EV/b5-scheduling-resources.txt"
+{ grep -qx 'priorityclasses.scheduling.k8s.io' "$EV/b5-scheduling-resources.txt" && \
+  ! grep -qE '^(podgroups|workloads)\.' "$EV/b5-scheduling-resources.txt"; } \
+  && echo 'PASS: scheduling.k8s.io chi co PriorityClass — khong co PodGroup, Workload'
+kubectl explain pod.spec.schedulingGroup > "$EV/b5-explain-schedulinggroup.txt" 2>&1 \
+  && echo 'GHI NHAN: schema Pod co schedulingGroup' \
+  || echo 'PASS: schema Pod cua cluster khong co truong schedulingGroup'
+cd ~/bookstore
+kubectl create --dry-run=server -f docs/dra/huan-luyen-podgroup.draft.yaml > "$EV/b5-podgroup-dryrun.txt" 2>&1
+grep -q 'no matches for kind' "$EV/b5-podgroup-dryrun.txt" \
+  && echo 'PASS: API server khong biet kind cua ban nhap PodGroup'
 
-**PASS:** một dòng `PASS:` hoặc `GHI NHAN:` của bước này, có ghi vào evidence.
-
----
-
-## B6. PodGroup và Workload — phần đọc được
-
-**Mục đích:** nhóm mười một bài từ [59](../59-scheduling-group-vi.md) tới
-[153](../153-topology-aware-scheduling-vi.md) đều alpha và phụ thuộc feature gate cộng nhóm API
-alpha. Lab **không bật gì**. Nhưng có ba thứ đọc được ngay và trả lời được câu quan trọng nhất của
-cả nhóm: **cluster của bạn đang đứng ở đâu so với những gì tài liệu mô tả**.
-
-### B6.1. Nhóm `scheduling.k8s.io` đang phục vụ những gì
-
-```bash
-kubectl api-versions | grep '^scheduling\.k8s\.io/' | sort | tee "$EV/b6-scheduling-versions.txt"
-SCHED_V_N="$(wc -l < "$EV/b6-scheduling-versions.txt")"
-
-kubectl api-resources --api-group=scheduling.k8s.io 2>&1 | tee "$EV/b6-scheduling-resources.txt"
-
-PG_API=0
-kubectl api-resources --api-group=scheduling.k8s.io -o name 2>/dev/null \
-  | grep -q '^podgroups\.' && PG_API=1
-WL_API=0
-kubectl api-resources --api-group=scheduling.k8s.io -o name 2>/dev/null \
-  | grep -q '^workloads\.' && WL_API=1
-echo "SCHED_V_N=$SCHED_V_N | PG_API=$PG_API | WL_API=$WL_API"
-
-test "$SCHED_V_N" -ge 1 \
-  && echo 'PASS: nhom scheduling.k8s.io co ton tai — no la nha cua PriorityClass'
-test "$PG_API" -eq "$WL_API" \
-  && echo 'PASS: PodGroup va Workload cung co hoac cung khong — dung vi ca hai di cung mot gate'
-```
-
-**Ý nghĩa:** đây là chỗ dễ hiểu nhầm nhất của cả giai đoạn. Nhóm API `scheduling.k8s.io` **có tồn
-tại** trên mọi cluster — PriorityClass sống ở đó và bạn đã dùng nó từ Lab 7a. Nhưng PodGroup và
-Workload nằm ở một **version khác** của cùng nhóm đó, và version ấy phải được bật riêng. Danh sách
-version bạn vừa in ra là câu trả lời chính xác cho câu "cluster của tôi có PodGroup không", chứ
-không phải suy từ việc nhóm API có tên quen thuộc.
-
-Hai bài [75](../75-podgroup-api-vi.md) và [77](../77-workload-api-vi.md) đều nhắc điều kiện này hai
-lần trong cùng một bài, vì thiếu một trong hai thứ — nhóm API alpha và feature gate — thì đối tượng
-không tồn tại trong cluster.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B6.2. Trường `schedulingGroup` trong Pod spec
-
-```bash
-SG_FIELD=0
-kubectl explain pod.spec.schedulingGroup > "$EV/b6-explain-schedulinggroup.txt" 2>&1 && SG_FIELD=1
-cat "$EV/b6-explain-schedulinggroup.txt"
-echo "SG_FIELD=$SG_FIELD | PG_API=$PG_API"
-
-test "$SG_FIELD" -eq "$PG_API" \
-  && echo 'PASS: hai phep kiem nhat quan — truong trong Pod spec va kind PodGroup cung co hoac cung khong'
-```
-
-**Ý nghĩa:** bài [59](../59-scheduling-group-vi.md) là cửa vào của cả nhóm và nó chỉ thêm **đúng
-một trường** vào Pod: `spec.schedulingGroup.podGroupName`, một liên kết theo tên tới một PodGroup
-**trong cùng namespace**, và **bất biến** sau khi đặt. Phép kiểm chéo ở trên có giá trị vì hai vế
-đi cùng một feature gate: có kind PodGroup mà không có trường trong Pod spec, hoặc ngược lại, là
-dấu hiệu cluster đang ở trạng thái nửa vời và bạn phải đọc lại `b1-feature-gates-podgroup.txt` ở
-bước sau.
-
-Nếu `SG_FIELD=0`: hai chính sách `basic` và `gang` của bài [79](../79-workload-policies-vi.md) không
-có chỗ nào trong cluster để nhận giá trị, và cơ chế "tất cả hoặc không có gì" của bài
-[150](../150-gang-scheduling-vi.md) không có đối tượng nào để áp lên. Đó là kết luận trung thực,
-không phải thiếu sót của lab.
-
-**PASS:** dòng `PASS: hai phep kiem nhat quan…` xuất hiện.
-
-### B6.3. Apiserver của bạn biết tên feature gate nào
-
-```bash
+# 2. Bốn gate
 for g in GenericWorkload GangScheduling WorkloadAwarePreemption WorkloadWithJob; do
-  line="$(grep 'kubernetes_feature_enabled{' "$EV/b0-apiserver-metrics.txt" \
-          | grep "name=\"$g\"" | head -1)"
-  if [ -z "$line" ]; then
-    echo "$g : apiserver khong biet ten gate nay"
-  else
-    echo "$g : $line"
-  fi
-done | tee "$EV/b1-feature-gates-podgroup.txt"
+  v="$(grep "^kubernetes_feature_enabled{name=\"$g\"," "$EV/b0-apiserver-metrics.txt" | awk '{print $NF}' | head -1)"
+  echo "$g ${v:-khong-biet-ten}"
+done > "$EV/b5-feature-gates.txt"
+cat "$EV/b5-feature-gates.txt"
+[ "$(grep -cE ' (0|1|khong-biet-ten)$' "$EV/b5-feature-gates.txt")" -eq 4 ] && echo 'PASS: du bon gate cua nhom PodGroup'
 
-test "$(wc -l < "$EV/b1-feature-gates-podgroup.txt")" -eq 4 \
-  && echo 'PASS: doi chieu du bon feature gate cua nhom PodGroup/Workload'
-KNOWN="$(grep -vc 'khong biet ten gate nay' "$EV/b1-feature-gates-podgroup.txt")"
-echo "apiserver biet ten $KNOWN/4 gate"
-```
+# 3. Điều kiện nền
+GD="$(kubectl get priorityclass -o jsonpath='{range .items[?(@.globalDefault==true)]}{.metadata.name}{"\n"}{end}' | sed '/^$/d' | wc -l)"
+kubectl get priorityclass > "$EV/b5-priorityclass.txt"
+[ "$GD" -eq 0 ] && echo 'PASS: khong PriorityClass nao la globalDefault'
+Z="$(kubectl get nodes -l topology.kubernetes.io/zone --no-headers 2>/dev/null | wc -l)"
+R="$(kubectl get nodes -l topology.kubernetes.io/region --no-headers 2>/dev/null | wc -l)"
+kubectl get nodes --show-labels > "$EV/b5-node-labels.txt"
+{ [ "$Z" -eq 0 ] && [ "$R" -eq 0 ]; } && echo 'PASS: khong node nao co nhan zone, region — chi co truc hostname'
+sudo grep -q -- '--config=' /etc/kubernetes/manifests/kube-scheduler.yaml \
+  && echo 'GHI NHAN: kube-scheduler nap KubeSchedulerConfiguration — doc file do truoc khi ket luan' \
+  || echo 'PASS: kube-scheduler khong nap file cau hinh — khong co cho cau hinh plugin placement'
 
-**Ý nghĩa:** khác biệt giữa "gate tồn tại nhưng đang tắt" và "binary này chưa từng nghe tên gate
-đó" là khác biệt giữa *bật lên là dùng được* và *phải đổi phiên bản Kubernetes mới có*. Đây là cách
-đo cụ thể cho câu cảnh báo lặp lại trong cả nhóm bài: **API có thể đổi giữa các phiên bản**. Ghi con
-số `KNOWN` vào checkpoint; nó là câu trả lời của riêng cluster bạn, không phải của tài liệu.
-
-**PASS:** dòng `PASS: doi chieu du bon feature gate…` xuất hiện.
-
----
-
-## B7. Preemption: đường mặc định và đường nhận biết workload
-
-**Mục đích:** bài [78](../78-workload-disruption-priority-vi.md) và
-[152](../152-workload-aware-preemption-vi.md) xây trên nền PriorityClass mà Lab 7a đã làm thật. Ở
-đây chỉ đọc **cái mà chúng thêm vào** và xác nhận cái nền vẫn là đường duy nhất của cluster này.
-
-### B7.1. PriorityClass thật của cluster
-
-```bash
-kubectl get priorityclass -o custom-columns=\
-'NAME:.metadata.name,VALUE:.value,GLOBALDEFAULT:.globalDefault,PREEMPTION:.preemptionPolicy' \
-  | tee "$EV/b7-priorityclass.txt"
-
-GD_N="$(kubectl get priorityclass \
-  -o jsonpath='{range .items[?(@.globalDefault==true)]}{.metadata.name}{"\n"}{end}' \
-  | sed '/^$/d' | wc -l)"
-echo "so PriorityClass co globalDefault=true : $GD_N"
-
-test "$GD_N" -eq 0 \
-  && echo 'PASS: khong PriorityClass nao la globalDefault — object khong khai priorityClassName co priority 0'
-test "$(wc -l < "$EV/b7-priorityclass.txt")" -ge 3 \
-  && echo 'PASS: cluster co san it nhat hai PriorityClass tich hop'
-```
-
-**Ý nghĩa:** bài 78 nói PodGroup dùng **cùng khái niệm PriorityClass** như Pod đơn lẻ, và quy tắc
-mặc định giống hệt: không khai `priorityClassName` thì Kubernetes tìm một class có
-`globalDefault: true`; không có class nào như vậy thì độ ưu tiên bằng không. Con số `GD_N` bạn vừa
-đo là vế thứ hai của quy tắc đó, đúng trên cluster của bạn, và nó áp cho cả Pod lẫn PodGroup.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B7.2. Những gì bài 78 và 152 thêm vào
-
-```bash
-PG_PRIO=0
-kubectl explain podgroup.spec.priorityClassName > "$EV/b7-explain-pg-prio.txt" 2>&1 && PG_PRIO=1
-PG_DM=0
-kubectl explain podgroup.spec.disruptionMode > "$EV/b7-explain-pg-dm.txt" 2>&1 && PG_DM=1
-echo "PG_PRIO=$PG_PRIO | PG_DM=$PG_DM | PG_API=$PG_API"
-
-test "$PG_PRIO" -eq "$PG_API" && test "$PG_DM" -eq "$PG_API" \
-  && echo 'PASS: hai truong cap nhom co hay khong dung theo su ton tai cua kind PodGroup'
-
-kubectl explain pod.spec.priorityClassName > "$EV/b7-explain-pod-prio.txt" 2>&1 \
-  && test -s "$EV/b7-explain-pod-prio.txt" \
-  && echo 'PASS: duong preemption mac dinh van nguyen ven — Pod van co priorityClassName'
-kubectl explain pod.spec.preemptionPolicy > "$EV/b7-explain-pod-pp.txt" 2>&1 \
-  && test -s "$EV/b7-explain-pod-pp.txt" \
-  && echo 'PASS: truong preemptionPolicy cua Pod van doc duoc'
-```
-
-**Ý nghĩa:** hai bài này thêm đúng hai thứ lên nền cũ, và cả hai đều **ở cấp nhóm chứ không ở cấp
-Pod**: một độ ưu tiên có tính quyết định ghi đè độ ưu tiên riêng của từng Pod trong nhóm, và một
-chế độ gián đoạn quyết định nhóm bị làm gián đoạn theo kiểu từng Pod hay cả nhóm. Không có kind
-PodGroup thì không có chỗ nào đặt hai giá trị đó, và cluster của bạn còn đúng một đường preemption:
-đường mặc định mà [Lab 7a B6](LAB-7A-LAP-LICH-VA-EVICTION.md#b6-priorityclass-và-preemption) đã làm
-thật.
-
-Ghi nhớ hai ranh giới mà hai bài nhấn mạnh và lab không kiểm được: `priority` và `disruptionMode`
-của PodGroup **chỉ có hiệu lực trong workload-aware preemption**, không tham gia vào việc xếp hàng
-lúc lập lịch; và khi bên chiếm chỗ là một Pod đơn lẻ đi đường mặc định, nó **không tôn trọng** hai
-trường đó của nhóm nạn nhân.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B8. Topology và thuật toán placement
-
-**Mục đích:** bài [80](../80-workload-topology-scheduling-vi.md) và
-[153](../153-topology-aware-scheduling-vi.md) cần hai thứ: **nhiều miền topology** để có gì mà chọn,
-và **một KubeSchedulerConfiguration** để cấu hình plugin. Đo cả hai.
-
-### B8.1. Ba node đang mang nhãn topology nào
-
-```bash
-kubectl get nodes --show-labels | tee "$EV/b8-node-labels.txt"
-
-HOST_N="$(kubectl get nodes --no-headers --show-labels | grep -c 'kubernetes\.io/hostname=')"
-ZONE_N="$(kubectl get nodes --no-headers --show-labels | grep -c 'topology\.kubernetes\.io/zone=')"
-REGION_N="$(kubectl get nodes --no-headers --show-labels | grep -c 'topology\.kubernetes\.io/region=')"
-echo "hostname=$HOST_N/$NODE_N | zone=$ZONE_N/$NODE_N | region=$REGION_N/$NODE_N" \
-  | tee "$EV/b8-topology-dem.txt"
-
-test "$HOST_N" -eq "$NODE_N" \
-  && echo 'PASS: ca ba node deu co nhan kubernetes.io/hostname'
-if [ "$ZONE_N" -eq 0 ] && [ "$REGION_N" -eq 0 ]; then
-  echo 'PASS: khong node nao mang nhan zone hay region — cluster chi co mot truc topology la hostname'
+# 4. Thí nghiệm khởi động một phần trên worker2
+to_m() { case "$1" in *m) echo "${1%m}" ;; *) echo $(( $1 * 1000 )) ;; esac; }
+ALLOC_M="$(to_m "$(kubectl get node "$W2" -o jsonpath='{.status.allocatable.cpu}')")"
+USED_M="$(to_m "$(kubectl describe node "$W2" | awk '/^Allocated resources:/{f=1} f && $1=="cpu"{print $2; exit}')")"
+FREE_M=$(( ALLOC_M - USED_M )); REQ_M=$(( FREE_M * 45 / 100 ))
+echo "allocatable=${ALLOC_M}m da-xin=${USED_M}m con-trong=${FREE_M}m moi-worker=${REQ_M}m" | tee "$EV/b5-cpu.txt"
+SEL='batch.kubernetes.io/job-name=huan-luyen-thu'
+dem() { kubectl -n "$NS" get pods -l "$SEL" --field-selector="status.phase=$1" --no-headers 2>/dev/null | wc -l; }
+if [ "$GD" -ne 0 ] || [ "$REQ_M" -lt 100 ]; then
+  echo 'STOP: co globalDefault hoac worker2 qua chat — khong chay thi nghiem, ghi lai b5-cpu.txt'
 else
-  echo "GHI NHAN: zone=$ZONE_N region=$REGION_N — doc lai b8-node-labels.txt truoc khi ket luan"
-fi
-```
-
-**Ý nghĩa:** ràng buộc topology của bài 80 là **một `key` trỏ tới một nhãn node**, và scheduler thực
-thi nghiêm ngặt rằng mọi Pod của nhóm nằm trên những node có **cùng chính xác giá trị** cho nhãn
-đó. Với `kubernetes.io/hostname`, mỗi node là một miền riêng — nghĩa là một PodGroup nhiều Pod
-không bao giờ vừa một miền, và ràng buộc trở nên vô nghĩa. Cluster ba VM trên một host vật lý không
-có trục topology nào đáng để tối ưu, và đó là lý do thật khiến nhóm bài này không kiểm chứng được ở
-đây — không phải vì thiếu feature gate.
-
-**STOP:** không tự gán nhãn zone cho node để "có nhiều miền". Ngoài việc đó là dựng dữ liệu giả,
-[B9.3](#b93-không-cho-người-dùng-gán-nhãn-node) ngay sau đây sẽ chứng minh vì sao quyền gán nhãn
-node là một vấn đề **bảo mật**. Lab này không gán nhãn nào, và gate cuối so md5 của toàn bộ nhãn
-node để chứng minh điều đó.
-
-**PASS:** hai dòng của bước này, trong đó dòng đầu là `PASS:`.
-
-### B8.2. Scheduler đang chạy bằng cấu hình nào
-
-Chạy trên `lab-k8s-master`. **Chỉ đọc** — không sửa file trong `/etc/kubernetes/manifests`.
-
-```bash
-sudo cat /etc/kubernetes/manifests/kube-scheduler.yaml > "$EV/b8-scheduler-manifest.txt"
-test -s "$EV/b8-scheduler-manifest.txt" && echo 'PASS: doc duoc manifest cua kube-scheduler'
-
-if grep -q -- '--config=' "$EV/b8-scheduler-manifest.txt"; then
-  echo 'GHI NHAN: kube-scheduler dang nap mot KubeSchedulerConfiguration — doc file do truoc khi ket luan'
-else
-  echo 'PASS: kube-scheduler khong nap file cau hinh nao — khong plugin placement nao duoc cau hinh'
+  sed "s/__CPU__/${REQ_M}m/" "$W/b5-huan-luyen-thu.yaml.tpl" | kubectl apply -f -
+  for i in $(seq 1 40); do [ "$(dem Running)" -ge 2 ] && break; sleep 3; done
+  sleep 15
+  kubectl -n "$NS" get pods -l "$SEL" -o wide | tee "$EV/b5-mot-phan.txt"
+  RUN="$(dem Running)"; PEN="$(dem Pending)"
+  U="$(kubectl -n "$NS" get pods -l "$SEL" --field-selector=status.phase=Pending -o jsonpath='{.items[0].metadata.uid}')"
+  M="$(kubectl -n "$NS" get events --field-selector "involvedObject.uid=$U,reason=FailedScheduling" -o jsonpath='{.items[*].message}')"
+  echo "$M" | tee -a "$EV/b5-mot-phan.txt"
+  { [ "$RUN" -eq 2 ] && [ "$PEN" -eq 1 ] && echo "$M" | grep -q 'Insufficient cpu'; } \
+    && echo 'PASS: hai worker chay va giu CPU, worker thu ba Pending vi thieu CPU — khoi dong mot phan'
+  kubectl -n "$NS" delete job huan-luyen-thu --wait=true
+  for i in $(seq 1 40); do [ "$(kubectl -n "$NS" get pods -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && break; sleep 3; done
+  [ "$(kubectl -n "$NS" get pods -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: da xoa Job thi nghiem'
 fi
 
-kubectl -n kube-system get pods -l component=kube-controller-manager -o name \
-  | tee "$EV/b8-kcm-pod.txt"
-sudo grep -o -- '--controllers=[^ "]*' /etc/kubernetes/manifests/kube-controller-manager.yaml \
-  | tee "$EV/b8-kcm-controllers.txt" || echo '(khong khai --controllers, dang dung mac dinh)'
+# 5. Bản nháp Job cho batch thật
+cd ~/bookstore
+kubectl get namespace bookstore -o jsonpath='{.metadata.labels}' > "$EV/b5-pss-bookstore.txt"
+if kubectl create --dry-run=server -f docs/dra/huan-luyen-job.draft.yaml > "$EV/b5-job-dryrun.txt" 2>&1; then
+  grep -qi 'would violate PodSecurity' "$EV/b5-job-dryrun.txt" \
+    && echo 'FAIL: ban nhap Job vi pham PodSecurity restricted' \
+    || echo 'PASS: ban nhap Job qua server dry-run trong bookstore, khong canh bao PodSecurity'
+else
+  echo 'FAIL: ban nhap Job bi tu choi — doc b5-job-dryrun.txt'
+fi
+
+# 6. ADR
+ls docs/adr/*-batch-huan-luyen-theo-nhom.md >/dev/null 2>&1 && echo 'PASS: co ADR batch huan luyen'
 ```
 
-**Ý nghĩa:** [Lab 7a B10](LAB-7A-LAP-LICH-VA-EVICTION.md) đã đọc chính file này ở **góc hiệu năng**
-— `percentageOfNodesToScore` và bin packing. Ở đây đọc lại ở **góc khác**: thuật toán lập lịch theo
-placement của bài 151 chạy bằng hai điểm mở rộng plugin, `PlacementGeneratePlugin` và
-`PlacementScorePlugin`, còn bài 153 cấu hình ba plugin cụ thể vào đó cùng trọng số của chúng. Cả
-hai việc **chỉ làm được qua một KubeSchedulerConfiguration**. Không có file cấu hình thì không có
-chỗ để khai, và cluster chạy đúng thuật toán lập lịch từng Pod mà Lab 7a đã mổ xẻ.
+</details>
 
-Hai lệnh cuối chỉ ra nơi ở của controller ResourceClaim mà bài 172 nói tới: nó là một controller
-**nội bộ** do kube-controller-manager điều phối, không phải một Deployment riêng — nên tìm nó bằng
-`kubectl get pods` là tìm nhầm chỗ.
+<details>
+<summary>Lời giải tham khảo</summary>
 
-**PASS:** dòng `PASS: doc duoc manifest…` xuất hiện, cộng một dòng `PASS:` hoặc `GHI NHAN:` cho cấu
-hình.
+```yaml
+# ~/lab-work/13/b5-huan-luyen-thu.yaml.tpl — __CPU__ được script thay bằng 45% CPU còn trống
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: huan-luyen-thu
+  namespace: lab-13
+  labels:
+    lab: lab-13
+spec:
+  completionMode: Indexed
+  completions: 3
+  parallelism: 3
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        lab: lab-13
+    spec:
+      restartPolicy: Never
+      terminationGracePeriodSeconds: 1
+      nodeSelector:
+        kubernetes.io/hostname: lab-k8s-worker2
+      containers:
+      - name: worker
+        image: busybox:1.37
+        command: ["sh", "-c", "echo worker $JOB_COMPLETION_INDEX; sleep 3600"]
+        resources:
+          requests:
+            cpu: __CPU__
+            memory: 16Mi
+          limits:
+            cpu: __CPU__
+            memory: 32Mi
+```
 
+```yaml
+# docs/dra/huan-luyen-job.draft.yaml — BẢN NHÁP, không apply.
+# parallelism = completions là điều kiện để Job controller tự tạo Workload và PodGroup gang
+# khi cluster có gate WorkloadWithJob (bài 77). Component training chưa có trong hợp đồng.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: huan-luyen-goi-y
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: training
+spec:
+  completionMode: Indexed
+  completions: 3
+  parallelism: 3
+  backoffLimit: 0
+  activeDeadlineSeconds: 7200
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: bookstore
+        app.kubernetes.io/component: training
+    spec:
+      priorityClassName: bookstore-batch
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: worker
+        image: busybox:1.37          # chỗ giữ cho image huấn luyện thật
+        command: ["sh", "-c", "echo worker $JOB_COMPLETION_INDEX; sleep 30"]
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+```
+
+```yaml
+# docs/dra/huan-luyen-podgroup.draft.yaml — BẢN NHÁP theo tài liệu bài 75, 77, 78, 79.
+# Server dry-run trên cluster hiện tại bị từ chối: nhóm API và gate chưa có. Thứ tự tạo bắt buộc:
+# Workload -> PodGroup -> Pod (bài 76).
+apiVersion: scheduling.k8s.io/v1alpha2
+kind: Workload
+metadata:
+  name: huan-luyen-goi-y
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+spec:
+  podGroupTemplates:
+  - name: worker
+    schedulingPolicy:
+      gang:
+        minCount: 3
 ---
-
-## B9. Hardening scheduler — đối chiếu cấu hình thật với bài 124
-
-**Mục đích:** [bài 124](../124-hardening-scheduler-vi.md) là bài dễ chịu nhất của giai đoạn: nó
-không alpha, và phần lớn nội dung áp dụng được cho **mọi** cluster, kể cả cluster lab. Mục này biến
-bài đó thành một bảng đối chiếu với cấu hình đang chạy.
-
-**STOP:** toàn bộ mục này **chỉ đọc**. Không sửa manifest, không đổi quyền file, không thêm cờ. Sửa
-cấu hình control plane thuộc
-[giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy).
-
-### B9.1. Mười hai cờ, đọc từ manifest thật
-
-```bash
-M="$EV/b8-scheduler-manifest.txt"
-for f in --authentication-kubeconfig --authorization-kubeconfig \
-         --authentication-tolerate-lookup-failure --authentication-skip-lookup \
-         --authorization-always-allow-paths --profiling --requestheader-client-ca-file \
-         --bind-address --permit-address-sharing --permit-port-sharing \
-         --tls-cipher-suites --config; do
-  v="$(grep -o -- "$f=[^ \"]*" "$M" | head -1)"
-  if [ -n "$v" ]; then
-    echo "khai      : $v"
-  else
-    echo "khong khai: $f"
-  fi
-done | tee "$EV/b9-scheduler-hardening.txt"
-
-test "$(wc -l < "$EV/b9-scheduler-hardening.txt")" -eq 12 \
-  && echo 'PASS: doi chieu du muoi hai co ma bai 124 nhac ten'
+apiVersion: scheduling.k8s.io/v1alpha2
+kind: PodGroup
+metadata:
+  name: huan-luyen-goi-y-0
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+spec:
+  podGroupTemplateRef:
+    workload:
+      workloadName: huan-luyen-goi-y
+      podGroupTemplateName: worker
+  schedulingPolicy:
+    gang:
+      minCount: 3
+  priorityClassName: bookstore-batch
 ```
 
-Hai cờ đáng kết luận ngay:
+Kỳ vọng ở bước 2, theo [bảng feature gate của tài liệu đúng phiên bản baseline](https://v1-35.docs.kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/):
+`GenericWorkload` và `GangScheduling` biết tên, đang tắt; `WorkloadAwarePreemption` và
+`WorkloadWithJob` không biết tên. Tài liệu của đúng phiên bản baseline mô tả một tiền thân khác của
+cùng ý tưởng — Workload ở `scheduling.k8s.io/v1alpha1` và trường Pod `spec.workloadRef`, xem
+[Workload Reference](https://v1-35.docs.kubernetes.io/docs/concepts/workloads/pods/workload-reference/).
+Tài liệu mới nhất đã đổi sang PodGroup và `spec.schedulingGroup`: đây là ví dụ cụ thể của câu "API
+có thể đổi giữa các phiên bản" lặp lại trong cả nhóm bài.
+
+Ý chính cho ADR batch:
+
+1. Với `gang` và `minCount: 3`: Pod chỉ rời `PreEnqueue` khi PodGroup tồn tại **và** đã có ít nhất
+   ba Pod được tạo. Chu trình lập lịch PodGroup tìm được chỗ cho hai, không đạt `minCount`, nên
+   **không Pod nào được bind**; cả ba về hàng đợi không thể lập lịch, CPU trên worker2 để trống cho
+   workload khác. Thí nghiệm của bạn là đúng phương án ngược lại: hai worker giữ gần hết CPU còn
+   trống mà không làm được gì.
+2. Thiếu nhóm API alpha của PodGroup/Workload và gate `GenericWorkload` đang tắt; hai gate còn lại
+   binary chưa biết tên. "Đang tắt" nghĩa là bật lên là có; "không biết tên" nghĩa là phải nâng
+   phiên bản Kubernetes — và trần ở
+   [A1.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) chặn điều đó.
+3. **Không.** Bài 78: `priority` của PodGroup chỉ được workload-aware preemption tôn trọng, không
+   xét trong pha lập lịch. Bài 152: Pod đơn lẻ đi đường preemption mặc định và **không** tôn trọng
+   `priority` hay `disruptionMode` của nhóm nạn nhân — `api` có thể đá một worker, làm cả batch
+   hỏng.
+4. Không. Mọi node có giá trị `kubernetes.io/hostname` riêng, nên mỗi miền chỉ có một node; một
+   nhóm ba worker ghim một miền thì chỉ vừa khi một node chứa đủ ba. Gán nhãn zone giả là dựng dữ
+   liệu giả, và B6 cho thấy quyền gán nhãn node là quyền nhạy cảm.
+5. Ba worker cùng image, cùng `requests`, không affinity — nhóm **đồng nhất**, thuật toán được kỳ
+   vọng tìm ra placement nếu có. Thêm một Pod điều phối có yêu cầu khác thì nhóm thành không đồng
+   nhất và không còn bảo đảm đó (bài 151, *Hạn chế*). Phương án tạm thời hôm nay: chạy batch ở cửa
+   sổ thấp điểm, đặt `requests` đủ để scheduler không xếp được nửa vời, và đặt
+   `activeDeadlineSeconds` để Job tự hủy thay vì giữ chỗ cả đêm.
+
+</details>
+
+## B6. [BS-13-06] Điều tra: hardening kube-scheduler
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** Bookstore phụ thuộc vào scheduler theo một cách rất cụ thể: từ Lab 7a, `db` chỉ được
+đặt lên node mang nhãn riêng của dự án, do `deploy.sh` gắn cho `lab-k8s-worker2`. Ai sửa được nhãn
+node hay cấu hình scheduler là đổi được nơi DB chạy. Bài 124 đưa ra checklist; ticket này đối chiếu
+nó với cluster đang chạy.
+
+**Yêu cầu:**
+
+1. Bảng mười hai cờ mà bài 124 nhắc tên: cluster khai cờ nào, giá trị gì. Với cờ không khai, tra
+   giá trị mặc định của binary trong
+   [trang tham chiếu kube-scheduler đúng phiên bản baseline](https://v1-35.docs.kubernetes.io/docs/reference/command-line-tools-reference/kube-scheduler/)
+   và ghi nó có trùng khuyến nghị không.
+2. Quyền file của kubeconfig mà scheduler dùng cho `authentication-kubeconfig`.
+3. Chứng minh không danh tính thường nào của dự án gán được nhãn node: ServiceAccount `ci-deployer`
+   trong `bookstore`, một thành viên nhóm `bookstore-devs`, ServiceAccount `default` của `lab-13`,
+   một user đã xác thực bất kỳ.
+4. Chứng minh nhãn node đúng là đầu vào lập lịch của Bookstore: spec của `db` phụ thuộc khóa nhãn
+   nào, và node nào đang mang nhãn đó.
+5. ADR `docs/adr/NNNN-hardening-scheduler-va-dra.md`, mục *Scheduler*: cờ nào đạt, cờ nào lệch, lệch
+   thì sửa ở đâu và thuộc giai đoạn nào.
+
+**Ràng buộc:** chỉ đọc. Không sửa manifest control plane, không đổi quyền file, không gán nhãn.
+
+**Đọc lại:**
+
+- Bài [124](../124-hardening-scheduler-vi.md):
+  [*Các tùy chọn dòng lệnh về xác thực và phân quyền*](../124-hardening-scheduler-vi.md#các-tùy-chọn-dòng-lệnh-về-xác-thực-và-phân-quyền-của-scheduler-scheduler-authentication--authorization-command-line-options),
+  [*… về mạng*](../124-hardening-scheduler-vi.md#các-tùy-chọn-dòng-lệnh-về-mạng-của-scheduler-scheduler-networking-command-line-options),
+  [*… về TLS*](../124-hardening-scheduler-vi.md#các-tùy-chọn-dòng-lệnh-về-tls-của-scheduler-scheduler-tls-command-line-options),
+  [*Không cho phép gán nhãn node*](../124-hardening-scheduler-vi.md#không-cho-phép-gán-nhãn-node-disallow-labeling-nodes).
+- [Lab 7a](LAB-7A-LAP-LICH-VA-EVICTION.md) — node affinity của `db`; [Lab 9a](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md)
+  — `ci-deployer`, `bookstore-devs`, `kubectl auth can-i --as`.
+
+**Bàn giao:** mục *Scheduler* trong `docs/adr/NNNN-hardening-scheduler-va-dra.md`;
+`~/lab-evidence/13/b6-*`.
+
+**Nghiệm thu:**
+
+- `PASS:` đủ mười hai dòng cờ.
+- `PASS:` `bind-address` là loopback.
+- `PASS:` không truyền `--requestheader-client-ca-file`.
+- `PASS:` kubeconfig xác thực của scheduler chỉ chủ sở hữu đọc được (hoặc `GHI NHAN:` kèm quyền thật).
+- `PASS:` bốn danh tính × hai verb `patch`, `update` trên `nodes` đều `no`.
+- `PASS:` `db` phụ thuộc nhãn `bookstore.example.com/data`; chỉ `lab-k8s-worker2` mang nhãn đó.
+- `PASS:` ADR có mục *Scheduler*.
+
+**Câu hỏi thiết kế** — trả lời trong mục *Scheduler* của ADR:
+
+1. Hai cờ `authentication-tolerate-lookup-failure` và `profiling` cluster không khai. Mặc định của
+   chúng là gì, có trùng khuyến nghị không, và sửa thuộc giai đoạn nào của lộ trình?
+2. Vì sao "không khai" không đồng nghĩa với "cấu hình sai"? Cho một ví dụ từ bảng của bạn.
+3. Một danh tính có quyền `patch nodes`. Kể hai cách nó làm hỏng Bookstore mà không cần chạm vào
+   scheduler hay namespace `bookstore`.
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Manifest của scheduler: `/etc/kubernetes/manifests/kube-scheduler.yaml`, đọc bằng `sudo`. Một
+   cờ là một dòng `- --<tên>=<giá trị>`; `grep -o -- '--<tên>=[^ "]*'` lấy đúng cờ đó.
+2. `sudo stat -c '%a %U:%G %n' <file>`.
+3. Gán nhãn node là `patch` hoặc `update` trên tài nguyên `nodes` — không có verb riêng tên "label".
+   `kubectl auth can-i patch nodes --as=<user> --as-group=<nhóm>`.
+4. Ràng buộc của `db` nằm trong `spec.template.spec` của StatefulSet: `affinity` hoặc `nodeSelector`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 ```bash
-BIND="$(grep -o -- '--bind-address=[^ "]*' "$M" | head -1 | cut -d= -f2)"
-case "$BIND" in
-  127.0.0.1|localhost|::1)
-    echo "PASS: bind-address=$BIND — kube-scheduler khong lo ra ngoai node control plane" ;;
-  '')
-    echo 'GHI NHAN: khong khai bind-address — doc mac dinh cua binary truoc khi ket luan' ;;
-  *)
-    echo "GHI NHAN: bind-address=$BIND — bai 124 khuyen dat localhost" ;;
+EV=~/lab-evidence/13
+sudo cat /etc/kubernetes/manifests/kube-scheduler.yaml > "$EV/b6-scheduler-manifest.yaml"
+M="$EV/b6-scheduler-manifest.yaml"
+
+# 1. Mười hai cờ
+for f in authentication-kubeconfig authorization-kubeconfig authentication-tolerate-lookup-failure \
+         authentication-skip-lookup authorization-always-allow-paths profiling \
+         requestheader-client-ca-file bind-address permit-address-sharing permit-port-sharing \
+         tls-cipher-suites config; do
+  v="$(grep -o -- "--$f=[^ \"]*" "$M" | head -1)"
+  echo "${v:-khong khai: --$f}"
+done > "$EV/b6-co-scheduler.txt"
+cat "$EV/b6-co-scheduler.txt"
+[ "$(wc -l < "$EV/b6-co-scheduler.txt")" -eq 12 ] && echo 'PASS: doi chieu du 12 co cua bai 124'
+B="$(grep -o -- '--bind-address=[^ "]*' "$M" | cut -d= -f2)"
+case "$B" in
+  127.0.0.1|localhost|::1) echo "PASS: bind-address=$B — scheduler khong lo ra ngoai node" ;;
+  *) echo "GHI NHAN: bind-address=${B:-<mac dinh cua binary>}" ;;
+esac
+grep -q -- '--requestheader-client-ca-file' "$M" \
+  && echo 'GHI NHAN: scheduler nhan --requestheader-client-ca-file' \
+  || echo 'PASS: khong truyen --requestheader-client-ca-file'
+
+# 2. Quyền file kubeconfig
+KC="$(grep -o -- '--authentication-kubeconfig=[^ "]*' "$M" | cut -d= -f2)"
+P="$(sudo stat -c '%a %U:%G %n' "$KC" 2>/dev/null)"; echo "${P:-<khong doc duoc>}" | tee "$EV/b6-kubeconfig-perm.txt"
+case "${P%% *}" in
+  600|400) echo 'PASS: kubeconfig xac thuc cua scheduler chi chu so huu doc duoc' ;;
+  *) echo "GHI NHAN: quyen file ${P:-<khong doc duoc>}" ;;
 esac
 
-if grep -q -- '--requestheader-client-ca-file' "$M"; then
-  echo 'GHI NHAN: kube-scheduler nhan --requestheader-client-ca-file — bai 124 khuyen tranh truyen'
-else
-  echo 'PASS: khong truyen --requestheader-client-ca-file, dung khuyen nghi cua bai 124'
-fi
+# 3. Ai gán được nhãn node
+for who in '--as=system:serviceaccount:bookstore:ci-deployer' \
+           '--as=dev-thu --as-group=bookstore-devs' \
+           '--as=system:serviceaccount:lab-13:default' \
+           '--as=nguoi-dung-thu --as-group=system:authenticated'; do
+  for v in patch update; do
+    echo "$who $v nodes -> $(kubectl auth can-i $v nodes $who)"
+  done
+done > "$EV/b6-gan-nhan-node.txt"
+cat "$EV/b6-gan-nhan-node.txt"
+[ "$(grep -c -- '-> no$' "$EV/b6-gan-nhan-node.txt")" -eq 8 ] \
+  && echo 'PASS: khong danh tinh thuong nao cua du an gan duoc nhan node'
+
+# 4. Nhãn node là đầu vào lập lịch của db
+kubectl -n bookstore get statefulset db \
+  -o jsonpath='{.spec.template.spec.affinity}{"\n"}{.spec.template.spec.nodeSelector}' > "$EV/b6-db-lap-lich.txt"
+grep -q 'bookstore.example.com/data' "$EV/b6-db-lap-lich.txt" && echo 'PASS: db phu thuoc nhan node bookstore.example.com/data'
+[ "$(kubectl get nodes -l bookstore.example.com/data=true -o name)" = 'node/lab-k8s-worker2' ] \
+  && echo 'PASS: chi lab-k8s-worker2 mang nhan du lieu cua du an'
+
+# 5. ADR
+cd ~/bookstore
+ADR="$(ls docs/adr/*-hardening-scheduler-va-dra.md 2>/dev/null | head -1)"
+{ test -n "$ADR" && grep -q 'Scheduler' "$ADR"; } && echo "PASS: $ADR co muc Scheduler"
 ```
 
-**Ý nghĩa:** đọc `b9-scheduler-hardening.txt` rồi tự trả lời ba câu, và ghi câu trả lời vào
-evidence:
+</details>
 
-1. Cờ nào bài 124 khuyên đặt mà cluster **không khai**? Với mỗi cờ như vậy, giá trị thực tế là mặc
-   định của binary — và mặc định đó có trùng khuyến nghị không?
-2. Cờ nào cluster khai **đúng như** bài khuyên, và ai đặt nó — bạn hay kubeadm?
-3. Cờ duy nhất bài khuyên **tránh truyền** có xuất hiện không?
+<details>
+<summary>Lời giải tham khảo</summary>
 
-Điểm quan trọng: một cờ "không khai" **không đồng nghĩa với "cấu hình sai"**. Bài 124 nêu ba nhóm
-lý do khác nhau — xác thực/phân quyền phải nhất quán với apiserver, mạng không nên lộ ra ngoài, TLS
-phải khai tường minh bộ mã hóa — và mỗi nhóm có một mặc định riêng. Việc của bạn ở lab này là
-**biết cluster đang ở đâu**, không phải sửa nó.
+Không có manifest: ticket chỉ đọc. Bảng kỳ vọng trên cluster dựng bằng kubeadm ở Lab 00:
 
-Lý do bài 124 xếp đây là vấn đề **bảo mật** chứ không phải hiệu năng nằm ngay câu mở đầu của nó:
-một scheduler bị cấu hình sai có thể **nhắm vào node cụ thể và trục xuất workload đang chia sẻ node
-đó**.
+| Cờ | Cluster | Mặc định của binary | So với bài 124 |
+| --- | --- | --- | --- |
+| `authentication-kubeconfig`, `authorization-kubeconfig` | khai, trỏ `/etc/kubernetes/scheduler.conf` | không có | đạt; file quyền `600` |
+| `authentication-tolerate-lookup-failure` | không khai | `true` | **lệch** — bài khuyên `false` |
+| `authentication-skip-lookup` | không khai | `false` | đạt |
+| `authorization-always-allow-paths` | không khai | `/healthz,/readyz,/livez` | đạt — đúng mặc định bài nêu |
+| `profiling` | không khai | `true` | **lệch** — bài khuyên tắt |
+| `requestheader-client-ca-file` | không khai | không có | đạt |
+| `bind-address` | `127.0.0.1` (kubeadm đặt) | `0.0.0.0` | đạt nhờ kubeadm |
+| `permit-address-sharing`, `permit-port-sharing` | không khai | `false` | đạt |
+| `tls-cipher-suites` | không khai | bộ mã mặc định của Go | **lệch** — bài đòi khai tường minh |
+| `config` | không khai | không có | không có chỗ cấu hình plugin |
 
-**PASS:** dòng `PASS: doi chieu du muoi hai co…` xuất hiện, cộng hai dòng kết luận cho hai cờ trên.
+Ý chính cho mục *Scheduler*:
 
-### B9.2. Quyền file của `authentication-kubeconfig`
+1. `authentication-tolerate-lookup-failure` mặc định `true`, `profiling` mặc định `true` — cả hai
+   trái khuyến nghị. Sửa là sửa manifest static Pod của control plane:
+   [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy), làm qua
+   cấu hình kubeadm ở `platform/kubeadm/` của repo để lần dựng lại sau (Lab 8a) giữ được.
+2. Mỗi cờ có mặc định riêng. `bind-address` mặc định `0.0.0.0` là lệch, nhưng kubeadm khai
+   `127.0.0.1` nên đạt; `permit-port-sharing` không khai nhưng mặc định đã là `false`, đúng khuyến
+   nghị. Kết luận chỉ đúng sau khi tra mặc định của đúng binary.
+3. Gỡ nhãn `bookstore.example.com/data` khỏi `lab-k8s-worker2`: lần `db-0` bị thay kế tiếp nằm
+   Pending, dịch vụ mất DB. Hoặc gán nhãn cho node khác: Pod mới của `db` có thể chọn sai node — với
+   PV cục bộ thì kẹt, không có PV thì chạy với dữ liệu trống. Kẻ tấn công không cần phá scheduler,
+   chỉ cần nói dối scheduler về node — đúng câu cuối của bài 124.
+
+</details>
+
+## B7. [BS-13-07] Điều tra: hardening DRA — quyền và hạn mức thiết bị
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** nếu tính năng gợi ý ra mắt: ai được tạo lớp thiết bị, ai được xin thiết bị, xin tối
+đa bao nhiêu, và driver được ghi gì vào status của claim. `bookstore-staging` (Lab 9b) là tenant thứ
+hai — không được để nó xin hết GPU. Ticket này đo hiện trạng và viết bản nháp chính sách.
+
+**Yêu cầu:**
+
+1. Theo bài 172: chứng minh hiện trạng — ServiceAccount `ci-deployer`, một thành viên
+   `bookstore-devs`, ServiceAccount `default` của `lab-13` đều **không** tạo được DeviceClass hay
+   ResourceSlice. Ghi lại họ có tạo được ResourceClaim, ResourceClaimTemplate trong `bookstore` không.
+2. Theo bài 211, bước đầu tiên: lập danh sách danh tính đang có quyền ghi status của ResourceClaim
+   — đọc rule DRA **thật** của ClusterRole `system:kube-scheduler`. Ghi rule đó có hay không có
+   `resourceclaims/binding`. Đối chiếu điều kiện phiên bản ở mục *Trước khi bạn bắt đầu* của bài
+   211 với phiên bản server ở B1.
+3. Chứng minh `kubectl auth can-i` của quản trị viên trả `yes` cho `resourceclaims/binding` **và**
+   cho một subresource bịa ra — rồi giải thích vì sao `yes` không chứng minh subresource tồn tại.
+4. Hạn mức: ResourceQuota `gpu-thu` trong `lab-13` cho phép tối đa **hai** thiết bị lớp
+   `lab-13-gpu` trong cả namespace. Claim `goi-y-gpu` của B2 đã chiếm một. Chứng minh: quota đếm
+   claim sẵn có; claim xin hai thiết bị bị từ chối ngay lúc tạo; claim xin một được nhận; claim
+   thứ hai xin một bị từ chối; `status.used` của quota bằng hai — tất cả **không cần thiết bị nào**.
+5. Viết `docs/dra/rbac-quota-gpu.draft.yaml`: ClusterRole cho driver giả định theo mẫu node-local
+   của bài 125 (giới hạn bằng `resourceNames`); Role và RoleBinding cho `ci-deployer` quản lý
+   ResourceClaimTemplate trong `bookstore`; ResourceQuota giới hạn thiết bị lớp `bookstore-gpu`
+   trong `bookstore`. Mọi object mang label dự án. Kiểm bằng server dry-run, không apply.
+6. Mục *DRA* trong ADR hardening.
+
+**Ràng buộc:** không tạo Role, ClusterRole hay binding thật. Quota thật chỉ trong `lab-13`.
+
+**Đọc lại:**
+
+- Bài [172](../172-cluster-admin-dra-vi.md#tách-quyền-truy-cập-các-api-liên-quan-đến-dra-separate-permissions-to-dra-related-apis).
+- Bài [125](../125-hardening-dra-vi.md):
+  [*Tăng cường bảo mật cho quyền cập nhật trạng thái DRA*](../125-hardening-dra-vi.md#tăng-cường-bảo-mật-cho-quyền-cập-nhật-trạng-thái-dra-harden-dra-status-update-permissions),
+  [*Các verb DRA có nhận biết node*](../125-hardening-dra-vi.md#các-verb-dra-có-nhận-biết-node-node-aware-dra-verbs),
+  [*Các mẫu RBAC ví dụ*](../125-hardening-dra-vi.md#các-mẫu-rbac-ví-dụ-example-rbac-patterns).
+- Bài [211](../211-hardening-dra-tasks-vi.md):
+  [*Trước khi bạn bắt đầu*](../211-hardening-dra-tasks-vi.md#trước-khi-bạn-bắt-đầu-before-you-begin),
+  [*Xác định các thành phần DRA ghi vào status*](../211-hardening-dra-tasks-vi.md#xác-định-các-thành-phần-dra-ghi-vào-status-identify-dra-components-that-write-status),
+  [*Gắn role với các danh tính tường minh*](../211-hardening-dra-tasks-vi.md#gắn-role-với-các-danh-tính-tường-minh-bind-roles-to-explicit-identities),
+  [*Kiểm chứng và giám sát*](../211-hardening-dra-tasks-vi.md#kiểm-chứng-và-giám-sát-validate-and-monitor).
+- Bài [134](../134-resource-quotas-vi.md#hạn-ngạch-cho-dra-resource-claim-quota-for-dra-resource-claims)
+  — mục mà Lab 7b để lại cho giai đoạn này.
+- [Lab 9a](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) — Role, ClusterRole, binding, `can-i`.
+
+**Bàn giao:** `~/lab-work/13/b7-*.yaml`; `docs/dra/rbac-quota-gpu.draft.yaml`; mục *DRA* trong ADR
+hardening; `~/lab-evidence/13/b7-*`.
+
+**Nghiệm thu:**
+
+- `PASS:` ba danh tính × hai API cấp cluster đều `no`.
+- `PASS:` đã ghi kết quả của ba danh tính với hai API cấp namespace (`PASS:` nếu đều `no`,
+  `GHI NHAN:` nếu không).
+- `PASS:` đọc được rule DRA thật của `system:kube-scheduler`; một dòng `GHI NHAN:` cho
+  `resourceclaims/binding`.
+- `PASS:` server thấp hơn phiên bản mà bài 211 đòi (hoặc `GHI NHAN:` nếu không).
+- `PASS:` quản trị viên được `yes` cho cả `binding` lẫn subresource bịa.
+- `PASS:` quota đếm claim sẵn có; claim xin hai bị từ chối; claim xin một được nhận; claim thứ hai
+  bị từ chối; `status.used` bằng 2.
+- `PASS:` bản nháp qua server dry-run; mọi object trong bản nháp mang label dự án.
+
+**Câu hỏi thiết kế** — trả lời trong mục *DRA* của ADR hardening:
+
+1. Đặc điểm nào khiến ranh giới của bài 172 gọn với cách dự án chia namespace? Nếu tính năng ra
+   mắt, `ci-deployer` cần thêm quyền gì, và vì sao **không** được cấp quyền trên DeviceClass?
+2. Cluster của bạn có thực thi kiểm tra trên `resourceclaims/binding` và `resourceclaims/driver`
+   không? Bằng chứng nào? Muốn có thì cần gì, và trần ở A1.4 chặn điều đó ra sao?
+3. Driver chạy dạng DaemonSet dùng tiền tố verb nào? Cấp nhầm `arbitrary-node:` mất gì, và
+   `resourceNames` siết thêm theo chiều nào?
+4. Hạn mức thiết bị chặn ở thời điểm nào so với lúc cấp phát? Vì sao điều đó hữu ích cho hai tenant
+   `bookstore` và `bookstore-staging` dùng chung GPU?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. `kubectl auth can-i create deviceclasses.resource.k8s.io --as=...`; với API cấp namespace thêm
+   `-n bookstore`. Thêm `--subresource=<tên>` để hỏi về subresource.
+2. In rule của một ClusterRole, mỗi rule một dòng:
+
+   ```bash
+   kubectl get clusterrole <tên> \
+     -o jsonpath='{range .rules[*]}{.apiGroups}{" "}{.resources}{" "}{.verbs}{"\n"}{end}'
+   ```
+
+3. Khóa hạn mức thiết bị: `<tên DeviceClass>.deviceclass.resource.k8s.io/devices`. Claim xin nhiều
+   thiết bị bằng `exactly.count`.
+4. ResourceQuota mới tạo chỉ có hiệu lực khi controller đã điền `status.hard`. Chờ trường đó trước
+   khi tạo claim.
+5. Đọc một khóa có dấu chấm và gạch chéo bằng jsonpath:
+   `'{.status.used.lab-13-gpu\.deviceclass\.resource\.k8s\.io/devices}'`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; bước 4 apply theo đúng thứ tự</summary>
 
 ```bash
-AUTHKC="$(grep -o -- '--authentication-kubeconfig=[^ "]*' "$M" | head -1 | cut -d= -f2)"
-echo "authentication-kubeconfig = ${AUTHKC:-<khong khai>}"
+NS=lab-13; EV=~/lab-evidence/13; W=~/lab-work/13
+. "$EV/b1-nang-luc.env"
+WHO=('--as=system:serviceaccount:bookstore:ci-deployer' '--as=dev-thu --as-group=bookstore-devs' \
+     '--as=system:serviceaccount:lab-13:default')
 
-if [ -n "$AUTHKC" ] && [ -e "$AUTHKC" ]; then
-  stat -c '%a %U:%G %n' "$AUTHKC" | tee "$EV/b9-authkubeconfig-perm.txt"
-  MODE="$(stat -c '%a' "$AUTHKC")"
-  case "$MODE" in
-    600|400) echo "PASS: quyen file $MODE — chi chu so huu doc duoc, dung khuyen nghi cua bai 124" ;;
-    *)       echo "GHI NHAN: quyen file $MODE — bai 124 yeu cau quyen truy cap file nghiem ngat" ;;
-  esac
+# 1. Ranh giới bài 172 với danh tính của dự án
+for who in "${WHO[@]}"; do
+  for r in deviceclasses resourceslices; do echo "$who create $r -> $(kubectl auth can-i create $r.resource.k8s.io $who)"; done
+done > "$EV/b7-ranh-gioi-cluster.txt"
+for who in "${WHO[@]}"; do
+  for r in resourceclaims resourceclaimtemplates; do
+    echo "$who create $r -n bookstore -> $(kubectl auth can-i create $r.resource.k8s.io -n bookstore $who)"
+  done
+done > "$EV/b7-ranh-gioi-namespace.txt"
+cat "$EV/b7-ranh-gioi-cluster.txt" "$EV/b7-ranh-gioi-namespace.txt"
+[ "$(grep -c -- '-> no$' "$EV/b7-ranh-gioi-cluster.txt")" -eq 6 ] \
+  && echo 'PASS: khong danh tinh nao cua du an tao duoc DeviceClass hay ResourceSlice'
+[ "$(grep -c -- '-> no$' "$EV/b7-ranh-gioi-namespace.txt")" -eq 6 ] \
+  && echo 'PASS: chua danh tinh nao cua du an tao duoc claim trong bookstore' \
+  || echo 'GHI NHAN: co danh tinh tao duoc claim trong bookstore — ghi vao ADR kem role cap quyen do'
+
+# 2. Ai đang ghi status của ResourceClaim
+kubectl get clusterrole system:kube-scheduler \
+  -o jsonpath='{range .rules[*]}{.apiGroups}{" "}{.resources}{" "}{.verbs}{"\n"}{end}' \
+  | grep 'resource.k8s.io' > "$EV/b7-scheduler-dra-rules.txt"
+cat "$EV/b7-scheduler-dra-rules.txt"
+test -s "$EV/b7-scheduler-dra-rules.txt" && echo 'PASS: doc duoc rule DRA that cua system:kube-scheduler'
+grep -q 'resourceclaims/binding' "$EV/b7-scheduler-dra-rules.txt" \
+  && echo 'GHI NHAN: scheduler co quyen tren resourceclaims/binding' \
+  || echo 'GHI NHAN: scheduler chi co quyen tren resourceclaims/status — chua co subresource tong hop'
+MINOR="$(echo "$SV" | sed -n 's/^v1\.\([0-9]*\)\..*/\1/p')"
+if [ -n "$MINOR" ] && [ "$MINOR" -lt 36 ]; then
+  echo "PASS: server $SV thap hon v1.36 — dieu kien tien quyet cua bai 211 chua dat"
 else
-  echo 'GHI NHAN: khong xac dinh duoc duong dan authentication-kubeconfig — ghi lai va bo qua buoc nay'
+  echo "GHI NHAN: server $SV — doc lai muc Truoc khi ban bat dau cua bai 211"
 fi
+
+# 3. can-i đánh giá rule trên chuỗi tên
+A1="$(kubectl auth can-i update resourceclaims.resource.k8s.io --subresource=binding -n "$NS")"
+A2="$(kubectl auth can-i update resourceclaims.resource.k8s.io --subresource=khong-ton-tai -n "$NS")"
+echo "admin binding=$A1 ; admin khong-ton-tai=$A2" | tee "$EV/b7-can-i-chuoi.txt"
+{ [ "$A1" = yes ] && [ "$A2" = yes ]; } \
+  && echo 'PASS: can-i tra yes ca cho subresource bia — no danh gia rule, khong kiem su ton tai'
+
+# 4. Hạn mức thiết bị theo DeviceClass
+K='{.status.used.lab-13-gpu\.deviceclass\.resource\.k8s\.io/devices}'
+kubectl -n "$NS" delete resourceclaim quota-2 quota-1a quota-1b --ignore-not-found --wait=true
+kubectl -n "$NS" delete resourcequota gpu-thu --ignore-not-found
+kubectl apply -f "$W/b7-quota.yaml"
+for i in $(seq 1 30); do [ -n "$(kubectl -n "$NS" get resourcequota gpu-thu -o jsonpath='{.status.hard}')" ] && break; sleep 2; done
+U0="$(kubectl -n "$NS" get resourcequota gpu-thu -o jsonpath="$K")"
+echo "used truoc khi tao claim moi=$U0" | tee "$EV/b7-quota.txt"
+[ "$U0" = 1 ] && echo 'PASS: quota dem ca claim goi-y-gpu da co tu B2'
+kubectl apply -f "$W/b7-claim-2.yaml" >> "$EV/b7-quota.txt" 2>&1
+kubectl apply -f "$W/b7-claim-1a.yaml" >> "$EV/b7-quota.txt" 2>&1 && OK1A=1 || OK1A=0
+kubectl apply -f "$W/b7-claim-1b.yaml" >> "$EV/b7-quota.txt" 2>&1
+U1="$(kubectl -n "$NS" get resourcequota gpu-thu -o jsonpath="$K")"
+echo "used sau=$U1" | tee -a "$EV/b7-quota.txt"
+cat "$EV/b7-quota.txt"
+{ ! kubectl -n "$NS" get resourceclaim quota-2 >/dev/null 2>&1 && \
+  [ "$OK1A" -eq 1 ] && kubectl -n "$NS" get resourceclaim quota-1a >/dev/null 2>&1 && \
+  ! kubectl -n "$NS" get resourceclaim quota-1b >/dev/null 2>&1 && \
+  [ "$(grep -c 'exceeded quota' "$EV/b7-quota.txt")" -eq 2 ] && [ "$U1" = 2 ]; } \
+  && echo 'PASS: han muc chan claim ngay luc tao — xin 2 bi tu choi, 1 duoc nhan, them 1 bi tu choi, used=2'
+
+# 5. Bản nháp cho dự án
+cd ~/bookstore
+F=docs/dra/rbac-quota-gpu.draft.yaml
+kubectl create --dry-run=server -f "$F" > "$EV/b7-draft.txt" 2>&1 && echo 'PASS: ban nhap RBAC va quota qua server dry-run'
+N="$(kubectl create --dry-run=client -f "$F" -o name | wc -l)"
+L="$(kubectl create --dry-run=client -f "$F" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}{"\n"}' | grep -cx bookstore)"
+{ [ "$N" -ge 4 ] && [ "$L" -eq "$N" ]; } && echo "PASS: ca $N object trong ban nhap mang label du an"
+
+# 6. ADR
+ADR="$(ls docs/adr/*-hardening-scheduler-va-dra.md 2>/dev/null | head -1)"
+{ test -n "$ADR" && grep -q 'DRA' "$ADR"; } && echo "PASS: $ADR co muc DRA"
 ```
 
-**Ý nghĩa:** đây là khuyến nghị duy nhất của bài 124 **không nằm trong dòng lệnh**. File kubeconfig
-này là thứ scheduler dùng để hỏi apiserver về cấu hình xác thực; ai đọc được nó thì mượn được danh
-tính của scheduler. Bài yêu cầu bảo vệ nó bằng quyền truy cập file nghiêm ngặt, và `stat` là cách
-kiểm rẻ nhất.
+</details>
 
-**PASS:** một dòng `PASS:` hoặc `GHI NHAN:` của bước này, có ghi vào evidence.
+<details>
+<summary>Lời giải tham khảo</summary>
 
-### B9.3. Không cho người dùng gán nhãn node
-
-```bash
-{
-  echo "SA lab-13/default  patch nodes  -> $(kubectl auth can-i patch nodes \
-    --as=system:serviceaccount:lab-13:default)"
-  echo "SA lab-13/default  update nodes -> $(kubectl auth can-i update nodes \
-    --as=system:serviceaccount:lab-13:default)"
-  echo "user thuong        patch nodes  -> $(kubectl auth can-i patch nodes \
-    --as=nguoi-dung-thu --as-group=system:authenticated)"
-  echo "user thuong        update nodes -> $(kubectl auth can-i update nodes \
-    --as=nguoi-dung-thu --as-group=system:authenticated)"
-} | tee "$EV/b9-quyen-gan-nhan-node.txt"
-
-NO_N="$(grep -c '\-> no$' "$EV/b9-quyen-gan-nhan-node.txt")"
-test "$NO_N" -eq 4 \
-  && echo 'PASS: khong danh tinh thuong nao gan duoc nhan cho node'
+```yaml
+# ~/lab-work/13/b7-quota.yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: gpu-thu
+  namespace: lab-13
+  labels:
+    lab: lab-13
+spec:
+  hard:
+    lab-13-gpu.deviceclass.resource.k8s.io/devices: "2"
 ```
 
-**Ý nghĩa:** mục ngắn nhất của bài 124 cũng là mục thực dụng nhất. Gán nhãn node là `patch` hoặc
-`update` trên tài nguyên `nodes` — không có verb riêng tên "label". Ai làm được việc đó thì dùng
-`nodeSelector` để **đẩy workload lên những node lẽ ra không được chạm tới**, ví dụ node control
-plane hoặc node dành cho workload nhạy cảm. Kẻ tấn công không cần phá scheduler; chỉ cần nói dối
-scheduler về node.
+```yaml
+# ~/lab-work/13/b7-claim-2.yaml — b7-claim-1a.yaml và b7-claim-1b.yaml chỉ đổi tên, bỏ dòng count
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaim
+metadata:
+  name: quota-2
+  namespace: lab-13
+  labels:
+    lab: lab-13
+spec:
+  devices:
+    requests:
+    - name: gpu
+      exactly:
+        deviceClassName: lab-13-gpu
+        count: 2
+```
 
-Nối với B8.1: đó cũng chính là lý do lab này **không gán nhãn zone** cho node để làm cho phần
-topology chạy được. Nhãn node là đầu vào của quyết định lập lịch, không phải dữ liệu trang trí.
-
-**PASS:** dòng `PASS: khong danh tinh thuong nao gan duoc nhan cho node` xuất hiện.
-
+```yaml
+# docs/dra/rbac-quota-gpu.draft.yaml — BẢN NHÁP, không apply.
+# ClusterRole cho driver chỉ có tác dụng trên server từ v1.36 (bài 211) — xem ADR hardening.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: bookstore-gpu-driver-status
+  labels:
+    app.kubernetes.io/part-of: bookstore
+rules:
+- apiGroups: ["resource.k8s.io"]
+  resources: ["resourceclaims/status"]
+  verbs: ["get", "patch", "update"]
+- apiGroups: ["resource.k8s.io"]
+  resources: ["resourceclaims/driver"]
+  verbs: ["associated-node:patch", "associated-node:update"]
+  resourceNames: ["gpu.bookstore.example.com"]
 ---
-
-## B10. Hardening DRA — đối chiếu quyền thật với bài 125 và 211
-
-**Mục đích:** bài [125](../125-hardening-dra-vi.md) mô tả một cơ chế phân quyền, bài
-[211](../211-hardening-dra-tasks-vi.md) biến nó thành quy trình. Bước đầu tiên của bài 211 — *xác
-định các thành phần DRA ghi vào status* — và bước cuối — *kiểm chứng* — làm được ngay, không cần
-driver.
-
-### B10.1. Hai subresource tổng hợp không có trong `api-resources`
-
-```bash
-if [ "$DRA_API" -eq 1 ]; then
-  SUB_N="$(grep -cE 'resourceclaims/(binding|driver)' "$EV/b2-api-wide.txt")"
-  echo "so dong nhac resourceclaims/binding hoac resourceclaims/driver trong api-resources = $SUB_N"
-  test "$SUB_N" -eq 0 \
-    && echo 'PASS: hai subresource tong hop khong xuat hien trong api-resources'
-
-  {
-    echo "quan tri vien  update resourceclaims/status  -> $(kubectl auth can-i update resourceclaims \
-      --subresource=status -n lab-13)"
-    echo "quan tri vien  update resourceclaims/binding -> $(kubectl auth can-i update resourceclaims \
-      --subresource=binding -n lab-13)"
-    echo "quan tri vien  update resourceclaims/driver  -> $(kubectl auth can-i update resourceclaims \
-      --subresource=driver -n lab-13)"
-  } | tee "$EV/b10-can-i-admin.txt"
-
-  YES_N="$(grep -c '\-> yes$' "$EV/b10-can-i-admin.txt")"
-  test "$YES_N" -eq 3 \
-    && echo 'PASS: tang uy quyen tra loi duoc ca ba subresource — chung ton tai o day, khong o api-resources'
-fi
-```
-
-**Ý nghĩa:** hai chỗ này là hai tầng khác nhau và đó là toàn bộ ý của chữ **"tổng hợp"
-(synthetic)**. `api-resources` liệt kê những gì API server **phục vụ như một tài nguyên**;
-`resourceclaims/binding` và `resourceclaims/driver` không phải endpoint để đọc ghi, mà là **tên
-dùng trong phép kiểm phân quyền**. Chúng chỉ hiện ra khi bạn hỏi đúng câu hỏi ủy quyền — và
-`kubectl auth can-i --subresource` là cách hỏi câu đó.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B10.2. Quyền thật của scheduler trên `resourceclaims`
-
-```bash
-kubectl get clusterrole system:kube-scheduler -o yaml > "$EV/b10-clusterrole-scheduler.yaml" 2>&1
-test -s "$EV/b10-clusterrole-scheduler.yaml" \
-  && echo 'PASS: doc duoc ClusterRole system:kube-scheduler'
-
-RC_N="$(grep -c 'resourceclaims' "$EV/b10-clusterrole-scheduler.yaml")"
-echo "so dong nhac resourceclaims trong ClusterRole system:kube-scheduler = $RC_N"
-if [ "$RC_N" -ge 1 ]; then
-  grep -n -B2 -A6 'resourceclaims' "$EV/b10-clusterrole-scheduler.yaml" \
-    | tee "$EV/b10-scheduler-resourceclaims.txt"
-  echo 'PASS: da trich duoc rule that cua scheduler tren resourceclaims'
-else
-  echo 'GHI NHAN: ClusterRole cua scheduler khong nhac resourceclaims — ghi lai va doc lai muc y nghia'
-fi
-
-kubectl get clusterrolebinding system:kube-scheduler -o yaml \
-  > "$EV/b10-clusterrolebinding-scheduler.yaml" 2>&1
-test -s "$EV/b10-clusterrolebinding-scheduler.yaml" \
-  && echo 'PASS: doc duoc ClusterRoleBinding gan role do cho danh tinh nao'
-```
-
-**Ý nghĩa:** bài 125 nói scheduler là bên cần `resourceclaims/binding` — nó ghi `status.allocation`
-và `status.reservedFor`, đúng hai trường mà B4 đã đọc. File bạn vừa trích là **quyền thật đang có
-trong cluster**, không phải manifest ví dụ. So nó với mẫu `dra-binding-updater` của bài 125 và trả
-lời: cluster của bạn cấp cho scheduler đúng những verb nào, trên đúng những resource nào?
-
-Đây cũng là bước 1 của bài 211: liệt kê những danh tính đang cập nhật status của ResourceClaim.
-Trên cluster này danh sách chỉ có một cái tên — kube-scheduler — vì hai nhóm còn lại (driver cục bộ
-trên node và controller đa node) không tồn tại.
-
-**PASS:** hai dòng `PASS:` đầu và dòng `PASS:` cuối xuất hiện; dòng giữa là `PASS:` hoặc `GHI NHAN:`.
-
-### B10.3. Danh tính không liên quan không được ghi status
-
-```bash
-if [ "$DRA_API" -eq 1 ]; then
-  SA='system:serviceaccount:lab-13:default'
-  for v in update patch 'associated-node:update' 'arbitrary-node:update'; do
-    r="$(kubectl auth can-i "$v" resourceclaims --subresource=driver -n lab-13 --as="$SA" 2>&1 \
-         | tail -1)"
-    echo "$v -> $r"
-  done | tee "$EV/b10-verbs.txt"
-
-  STD_NO="$(grep -cE '^(update|patch) -> no$' "$EV/b10-verbs.txt")"
-  test "$STD_NO" -eq 2 \
-    && echo 'PASS: danh tinh khong lien quan bi tu choi ca hai verb tieu chuan tren resourceclaims/driver'
-
-  PREF_NO="$(grep -cE '^(associated-node|arbitrary-node):update -> no$' "$EV/b10-verbs.txt")"
-  if [ "$PREF_NO" -eq 2 ]; then
-    echo 'PASS: ca hai verb co tien to nhan biet node cung bi tu choi'
-  else
-    echo 'GHI NHAN: hai verb co tien to tra ve ket qua khac — chep nguyen van b10-verbs.txt'
-  fi
-fi
-```
-
-**Ý nghĩa:** hai tiền tố verb là phần đặc thù nhất của bài 125.
-`associated-node:<verb>` dành cho driver **cục bộ trên node** — API server xác minh liên kết node
-của bên gửi yêu cầu; `arbitrary-node:<verb>` dành cho controller ở control plane hoặc controller đa
-node. Cấp nhầm tiền tố thứ hai cho một driver chạy dạng DaemonSet là **mất đúng phép kiểm đó**:
-driver trên một node cập nhật được claim từ bất kỳ node nào. Lớp thứ hai là `resourceNames` giới
-hạn theo tên driver, để một driver không đụng vào thiết bị của driver khác.
-
-Bài 125 còn có một bẫy đáng nhớ mà B10.1 đã chứng minh gián tiếp: quyền `update` trên
-`resourceclaims/status` **chưa đủ** để ghi `status.devices` — phải có thêm quyền trên đúng
-subresource tổng hợp tương ứng.
-
-**PASS:** hai dòng của bước này, trong đó dòng đầu là `PASS:`.
-
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ci-deployer-gpu-claims
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+rules:
+- apiGroups: ["resource.k8s.io"]
+  resources: ["resourceclaimtemplates"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-deployer-gpu-claims
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+subjects:
+- kind: ServiceAccount
+  name: ci-deployer
+  namespace: bookstore
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ci-deployer-gpu-claims
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: bookstore-gpu-quota
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+spec:
+  hard:
+    bookstore-gpu.deviceclass.resource.k8s.io/devices: "2"
+```
 
-## B11. Cleanup và gate cuối
+Kỳ vọng — verb cụ thể đọc từ file của bạn: các rule DRA của `system:kube-scheduler` cho đọc
+DeviceClass, ResourceSlice, ResourceClaim và ghi `resourceclaims/status`, **không** có
+`resourceclaims/binding`. Cơ chế subresource tổng hợp có từ v1.36 (bài 125, bài 211), trong khi tài
+liệu đúng phiên bản baseline không có trang hardening DRA nào. Danh sách của bước 211 trên cluster
+này chỉ có một tên: kube-scheduler.
 
-**Mục đích:** xóa mọi thứ lab tạo ra — trong namespace và ở phạm vi cluster — rồi **chứng minh bằng
-so sánh giá trị** rằng cluster trở về đúng `04-metrics-ready`, và rằng lab **không cài thêm gì**.
+Ý chính cho mục *DRA*:
 
-### B11.1. Xóa object của lab
+1. Hai API của người triển khai Pod — ResourceClaim, ResourceClaimTemplate — **cấp namespace**,
+   nên cấp đúng cho `bookstore` là đủ, `bookstore-staging` không bị ảnh hưởng. DeviceClass và
+   ResourceSlice cấp cluster: mở cho CI là mở cho toàn cluster, và CI có thể tạo một lớp chọn thiết
+   bị của tenant khác. `ci-deployer` chỉ cần quản lý ResourceClaimTemplate trong `bookstore`.
+2. **Không thực thi.** Bằng chứng: phiên bản server thấp hơn v1.36 và ClusterRole của scheduler
+   không có `resourceclaims/binding`. `can-i` trả `yes` cho cả subresource bịa: nó chỉ so chuỗi với
+   rule RBAC — quản trị viên có `*` nên khớp mọi chuỗi. Muốn có kiểm tra này phải lên v1.36, nhưng
+   trần ở [A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) (chart Rancher) chặn
+   việc nâng phiên bản. Hardening DRA của bài 125 vì thế là **điều kiện tiên quyết** của tính năng.
+3. `associated-node:<verb>` — API server xác minh driver chỉ ghi claim của node mà nó chạy. Cấp nhầm
+   `arbitrary-node:` thì mất đúng phép kiểm đó: driver trên một node bị chiếm ghi được claim của mọi
+   node. `resourceNames` siết theo chiều **driver**: danh tính chỉ ghi được status cho đúng driver
+   `gpu.bookstore.example.com`.
+4. Quota chặn ở **admission**, lúc tạo claim — trước mọi lần cấp phát, không cần thiết bị. Claim
+   chưa cấp phát vẫn bị đếm. Hai tenant mỗi bên một quota theo DeviceClass thì không bên nào xin
+   vượt phần của mình, kể cả khi GPU đang rảnh.
 
-Xóa Pod trước rồi mới xóa namespace: ResourceClaim sinh tự động mang finalizer, và finalizer đó chỉ
-được gỡ khi Pod giữ claim đã kết thúc.
+</details>
+
+## B8. [BS-13-08] ADR: Bookstore có nên dùng DRA, và khi nào
+
+**Loại:** Điều tra — tổng hợp.
+
+**Bối cảnh:** đội sản phẩm cần một câu trả lời đọc trong năm phút. Bảy ticket trước cho số đo; ticket
+này chốt quyết định, điều kiện để xem lại, và những gì vận hành phải đổi nếu quyết định thay đổi.
+
+**Yêu cầu:** ADR `docs/adr/NNNN-dra-bookstore.md` có đủ năm mục `## Bối cảnh`, `## Quyết định`,
+`## Lý do`, `## Hệ quả`, `## Điều kiện xem lại`, cộng các mục điều tra đã viết ở B1–B4. Nội dung
+phải trả lời:
+
+1. Tính năng gợi ý: làm hay không làm hôm nay; nếu làm sau thì bằng con đường nào trong ba con
+   đường, vì sao theo bài 149.
+2. Batch huấn luyện: chờ gang scheduling hay chạy tạm bằng cách nào, rủi ro của cách tạm.
+3. Điều kiện xem lại **đo được**: những con số nào trong `b1-nang-luc.env`, `b1-feature-gates.txt`,
+   `b5-feature-gates.txt` phải đổi, và đổi thành gì.
+4. Tác động lên vận hành nếu duyệt: quy trình bảo trì node của Lab 12 (drain driver muộn nhất, nâng
+   cấp liền mạch, liveness probe của driver — bài 172); quota và RBAC từ B7; metric phải theo dõi.
+5. Ràng buộc nền tảng: phiên bản tối thiểu cho hardening DRA so với trần ở A1.4.
+6. Hợp đồng dự án sẽ đổi gì nếu duyệt — component mới, DeviceClass, quota. Ghi ở dạng đề xuất;
+   **không** sửa `DU-AN-BOOKSTORE.md`.
+7. Dẫn ít nhất bốn file bằng chứng trong `~/lab-evidence/13/`.
+
+**Ràng buộc:** không sửa `k8s/`, `scripts/`, `tests/`, `platform/`. Viết bằng lời của bạn.
+
+**Đọc lại:**
+
+- Bài [172](../172-cluster-admin-dra-vi.md):
+  [*Triển khai và bảo trì DRA driver*](../172-cluster-admin-dra-vi.md#triển-khai-và-bảo-trì-dra-driver-dra-driver-deployment-and-maintenance)
+  và ba mục con.
+- Bài [149](../149-dynamic-resource-allocation-vi.md#hạn-chế-limitations), mục *Hạn chế*.
+- Bài [211](../211-hardening-dra-tasks-vi.md#trước-khi-bạn-bắt-đầu-before-you-begin).
+- [A1.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) — đoạn về trần
+  phiên bản.
+- [Mục 2.2 của file dự án](DU-AN-BOOKSTORE.md#22-yêu-cầu-của-hệ-thống-mới) — yêu cầu `R18`.
+
+**Bàn giao:** `docs/adr/NNNN-dra-bookstore.md` hoàn chỉnh; năm bản nháp trong `docs/dra/`.
+
+**Nghiệm thu:**
+
+- `PASS:` ADR có đủ năm mục bắt buộc.
+- `PASS:` ADR dẫn ít nhất bốn file bằng chứng khác nhau trong `~/lab-evidence/13/`.
+- `PASS:` đủ năm bản nháp trong `docs/dra/` và hai ADR còn lại.
+- `PASS:` ngoài `docs/`, working tree không khác tag `lab-12`.
+
+**Câu hỏi thiết kế** — trả lời trong mục *Hệ quả* của ADR:
+
+1. Ngày mai cluster có GPU. Liệt kê theo đúng thứ tự các việc phải làm trước khi dịch vụ gợi ý chạy
+   được, và với mỗi việc, phép kiểm nào của sprint này cho biết việc đó đã xong.
+2. Vì sao một ADR kết luận "chưa dùng" vẫn có giá trị? Nó khác một nợ kỹ thuật `TD-nn` ở điểm nào?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Bắt đầu từ mẫu `docs/adr/0000-mau.md` của Lab 3a, thêm mục `## Điều kiện xem lại`.
+- Điều kiện xem lại tốt có dạng "`SLICE_N` ≥ 1 và `DRV_N` ≥ 1 trong `b1-nang-luc.env`", không có
+  dạng "khi có GPU".
+- Thứ tự việc của câu hỏi 1 lấy từ bài 271 (vai trò quản trị viên) rồi bài 270 (vai trò người vận
+  hành workload).
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+```bash
+cd ~/bookstore
+ADR="$(ls docs/adr/*-dra-bookstore.md 2>/dev/null | head -1)"
+BAD=0
+for H in '## Bối cảnh' '## Quyết định' '## Lý do' '## Hệ quả' '## Điều kiện xem lại'; do
+  grep -q "^$H" "$ADR" || { echo "FAIL: ADR thieu muc $H"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo "PASS: $ADR du nam muc bat buoc"
+[ "$(grep -o 'lab-evidence/13/[A-Za-z0-9._-]*' "$ADR" | sort -u | wc -l)" -ge 4 ] \
+  && echo 'PASS: ADR dan it nhat bon file bang chung'
+BAD=0
+for F in docs/dra/deviceclass-gpu.draft.yaml docs/dra/claim-goi-y.draft.yaml docs/dra/huan-luyen-job.draft.yaml \
+         docs/dra/huan-luyen-podgroup.draft.yaml docs/dra/rbac-quota-gpu.draft.yaml; do
+  test -f "$F" || { echo "FAIL: thieu $F"; BAD=1; }
+done
+for F in 'docs/adr/*-batch-huan-luyen-theo-nhom.md' 'docs/adr/*-hardening-scheduler-va-dra.md'; do
+  ls $F >/dev/null 2>&1 || { echo "FAIL: thieu $F"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: du nam ban nhap va hai ADR con lai'
+{ git diff --quiet lab-12 -- . ':(exclude)docs' && \
+  test -z "$(git status --porcelain -- . ':(exclude)docs')"; } \
+  && echo 'PASS: ngoai docs/, working tree khong khac lab-12'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo — khung ADR</summary>
+
+```markdown
+# NNNN — Bookstore và cấp phát thiết bị bằng DRA
+
+- Trạng thái: chấp nhận
+- Sprint: Lab 13, ticket BS-13-01 → BS-13-08
+
+## Bối cảnh
+
+Đề xuất tính năng gợi ý sách bằng GPU và batch huấn luyện ba worker (R18). Năng lực cluster
+(~/lab-evidence/13/b1-nang-luc.env): nhóm API DRA có, không ResourceSlice, không driver — nhánh B.
+Luồng claim dừng ở bước Lọc ResourceSlice (~/lab-evidence/13/b2-sau-claim.txt). PodGroup không có
+trên cluster (~/lab-evidence/13/b5-feature-gates.txt). Server chưa tới phiên bản mà hardening DRA
+đòi (~/lab-evidence/13/b7-scheduler-dra-rules.txt).
+
+## Quyết định
+
+Chưa triển khai tính năng gợi ý bằng GPU. Khi triển khai, dùng DRA với ResourceClaimTemplate theo
+bản nháp docs/dra/, không dùng extended resource hay device plugin. Batch huấn luyện chạy tạm bằng
+Job Indexed (docs/dra/huan-luyen-job.draft.yaml) ở cửa sổ thấp điểm.
+
+## Lý do
+
+Bài 149: DRA lọc thiết bị bằng CEL, chia sẻ qua claim, Pod không tự khai số lượng — ba điều device
+plugin không làm được. Extended resource chỉ là một con số (~/lab-evidence/13/b4-hai-thong-diep.txt).
+Không có phần cứng thì không có gì để cấp phát; mọi manifest vẫn được nhận nên triển khai bây giờ
+là phát hành một tính năng không bao giờ chạy.
+
+## Hệ quả
+
+- Quy trình bảo trì node (Lab 12) thêm bước: drain Pod có claim trước, driver DRA sau cùng; chọn
+  driver có nâng cấp liền mạch; DaemonSet driver phải có liveness probe qua socket gRPC.
+- Trước khi ra mắt: áp quota và RBAC theo docs/dra/rbac-quota-gpu.draft.yaml; theo dõi metric
+  workqueue resource_claim của kube-controller-manager và dra_operations_duration_seconds của kubelet.
+- Đề xuất đổi hợp đồng: component recommender và training, DeviceClass bookstore-gpu,
+  ResourceQuota bookstore-gpu-quota. Chưa sửa DU-AN-BOOKSTORE.md.
+- Scheduler không preempt cho tài nguyên DRA: batch giữ GPU thì Pod gợi ý chờ.
+
+## Điều kiện xem lại
+
+- SLICE_N ≥ 1 và DRV_N ≥ 1 trong b1-nang-luc.env (có thiết bị và driver).
+- Phiên bản server ≥ v1.36 và ClusterRole của scheduler có resourceclaims/binding — đòi gỡ trần
+  phiên bản ở A1.4.
+- Với batch: GenericWorkload, GangScheduling, WorkloadWithJob biết tên và bật trong
+  b5-feature-gates.txt.
+```
+
+Ý chính cho câu hỏi thiết kế:
+
+1. Gắn thiết bị vào node → (nếu cần) bật nhóm API → xác minh `kubectl get deviceclasses` (B1) → cài
+   driver, xác minh bằng `kubectl get resourceslices` có `DRIVER` (B1) → đọc thuộc tính trong
+   ResourceSlice, sửa selector của `bookstore-gpu`, apply (B2) → áp quota và RBAC (B7) → tạo
+   ResourceClaimTemplate, Deployment gợi ý (B3), kiểm claim có `status.allocation` (B2 nhánh A).
+2. Nó biến một ý kiến thành một tập điều kiện đo được, nên lần sau chỉ cần chạy lại các phép đo
+   thay vì tranh luận lại. Nợ kỹ thuật là chỗ hệ thống **đang dùng** còn yếu; ở đây hệ thống không
+   dùng thiết bị nào nên không có gì yếu — chỉ có một tính năng chưa đủ điều kiện ra đời.
+
+</details>
+
+## B9. Đóng sprint: cleanup và gate cuối
+
+**Mục đích:** bàn giao repo có tag `lab-13` chỉ khác `lab-12` ở `docs/`, dọn mọi object thử nghiệm
+cả trong namespace lẫn cấp cluster, rồi chứng minh bằng so sánh giá trị rằng cluster trở về đúng
+`04-metrics-ready` và lab không cài thêm gì.
+
+1. **`tests/smoke.sh` giữ nguyên bản Lab 12.** Sprint này không thêm, không đổi hợp đồng nào của hệ
+   thống, nên bộ kiểm thử khói tích lũy của sprint 19 vẫn là bộ đầy đủ. Không thêm kiểm tra DRA vào
+   smoke: tính năng chưa tồn tại. Kiểm rằng file không đổi:
+
+```bash
+cd ~/bookstore
+git diff --quiet lab-12 -- tests/smoke.sh && echo 'PASS: tests/smoke.sh giu nguyen ban Lab 12'
+```
+
+2. Cập nhật `docs/tech-debt.md`: thêm một dòng ghi chú *Lab 13 — không trả, không phát sinh nợ của
+   ứng dụng*, trỏ tới ADR hardening cho phát hiện về cờ kube-scheduler (sửa thuộc giai đoạn 20).
+
+3. Dựng lại sạch từ repo và chạy kiểm thử khói:
+
+```bash
+cd ~/bookstore
+./scripts/teardown.sh && ./scripts/deploy.sh > ~/lab-evidence/13/b9-deploy.txt 2>&1
+./tests/smoke.sh > ~/lab-evidence/13/b9-smoke.txt 2>&1; echo "smoke exit=$?"
+cat ~/lab-evidence/13/b9-smoke.txt
+```
+
+4. Commit, tag, đóng gói, chép ra ngoài VM theo
+   [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm):
+
+```bash
+cd ~/bookstore
+git status --short
+git add -A && git commit -m 'lab-13: sprint 20 — danh gia DRA, ADR va ban nhap trong docs/'
+git tag lab-13
+git bundle create ~/bookstore-lab-13.bundle --all && git bundle verify ~/bookstore-lab-13.bundle
+```
+
+Chép `~/bookstore-lab-13.bundle` về máy host bằng `scp` trước khi đi tiếp.
+
+5. Dọn object thử nghiệm — xóa Pod trước để claim được gỡ finalizer, rồi namespace, rồi object cấp
+   cluster — và trả cluster:
 
 ```bash
 kubectl -n lab-13 delete pod --all --wait=true --timeout=180s
-kubectl -n lab-13 get resourceclaims 2>/dev/null | tee "$EV/b11-claims-truoc-khi-xoa.txt"
 kubectl delete namespace lab-13 --wait=true --timeout=300s
-
-if [ "$DRA_API" -eq 1 ]; then
-  kubectl delete deviceclass lab-13-example --ignore-not-found
-fi
-
-rm -f "$WK"/*.yaml
-rmdir "$WK"
+kubectl delete deviceclass -l lab=lab-13 --ignore-not-found
+rm -rf ~/lab-work/13
+cd ~/bookstore && ./scripts/teardown.sh
 ```
 
-`rmdir` cố ý không dùng `-rf`: nó fail nếu thư mục còn file lạ, và `test ! -e` bên dưới biến điều đó
-thành gate thay vì im lặng bỏ qua. Thư mục `~/lab-evidence/13/` **giữ lại** — đó là bằng chứng, và
-ở nhánh B thì `b4-ho-so-dra.txt` là hồ sơ để lần sau đối chiếu.
-
-### B11.2. Gate cuối
+6. Gate cuối:
 
 ```bash
-kubectl get namespace lab-13 >/dev/null 2>&1 \
-  && echo 'FAIL: namespace lab-13 van con' \
-  || echo 'PASS: namespace lab-13 da xoa'
-
-if [ "$DRA_API" -eq 1 ]; then
-  kubectl get deviceclass lab-13-example >/dev/null 2>&1 \
-    && echo 'FAIL: DeviceClass cua lab van con' \
-    || echo 'PASS: DeviceClass cua lab da xoa'
-
-  DC_AFTER="$(kubectl get deviceclasses --no-headers 2>/dev/null | wc -l)"
-  SLICE_AFTER="$(kubectl get resourceslices --no-headers 2>/dev/null | wc -l)"
-  test "$DC_AFTER" -eq "$DC_BEFORE" \
-    && echo "PASS: so DeviceClass tro ve dung muc dau lab ($DC_BEFORE)"
-  test "$SLICE_AFTER" -eq "$SLICE_BEFORE" \
-    && echo "PASS: so ResourceSlice khong doi ($SLICE_BEFORE) — lab khong cai driver nao"
-fi
-
-API_AFTER="$(kubectl api-resources -o name 2>/dev/null | sort -u | wc -l)"
-test "$API_AFTER" -eq "$API_BEFORE" \
-  && echo "PASS: so API resource khong doi ($API_BEFORE) — lab khong bat nhom API nao"
-
-CRD_AFTER="$(kubectl get crd -o name 2>/dev/null | wc -l)"
-test "$CRD_AFTER" -eq "$CRD_BEFORE" \
-  && echo "PASS: so CRD khong doi ($CRD_BEFORE) — lab khong cai CRD nao"
-
-kubectl get --raw '/metrics' > "$EV/b11-apiserver-metrics.txt"
-FG_ALL_AFTER="$(grep -c 'kubernetes_feature_enabled{' "$EV/b11-apiserver-metrics.txt")"
-FG_ON_AFTER="$(grep 'kubernetes_feature_enabled{' "$EV/b11-apiserver-metrics.txt" | grep -c ' 1$')"
-test "$FG_ALL_AFTER" -eq "$FG_ALL_BEFORE" && test "$FG_ON_AFTER" -eq "$FG_ON_BEFORE" \
-  && echo "PASS: bang feature gate khong doi ($FG_ON_BEFORE/$FG_ALL_BEFORE) — lab khong bat gate nao"
-
-NS_AFTER="$(kubectl get namespace -o name | sort | tr '\n' ' ')"
-test "$NS_AFTER" = "$NS_BEFORE" \
-  && echo 'PASS: danh sach namespace khong doi'
-
-PC_AFTER="$(kubectl get priorityclass -o name | sort | tr '\n' ' ')"
-test "$PC_AFTER" = "$PC_BEFORE" \
-  && echo 'PASS: danh sach PriorityClass khong doi'
-
-LBL_AFTER="$(kubectl get nodes --no-headers --show-labels | awk '{print $1, $NF}' | sort | md5sum)"
-test "$LBL_AFTER" = "$LBL_BEFORE" \
-  && echo 'PASS: nhan cua ca ba node khong doi — lab khong gan nhan nao'
-
-test ! -e "$WK" && echo 'PASS: manifest tam da xoa'
+EV=~/lab-evidence/13; . "$EV/b0-anh-nen.env"
+cd ~/bookstore
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
+git describe --tags --exact-match HEAD | grep -qx 'lab-13' && echo 'PASS: HEAD mang tag lab-13'
+test -s ~/bookstore-lab-13.bundle && echo 'PASS: co bundle'
+test -z "$(git diff --name-only lab-12 lab-13 -- . ':(exclude)docs')" && echo 'PASS: lab-13 chi doi docs/ so voi lab-12'
+{ [ "$(kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
+  [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+  && echo 'PASS: khong con object nao cua du an'
+[ "$(kubectl get namespace,deviceclass -l lab=lab-13 --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && echo 'PASS: khong con object thu nghiem cua lab 13'
+test ! -e ~/lab-work/13 && echo 'PASS: da don lab-work'
+{ [ "$(kubectl get deviceclasses --no-headers 2>/dev/null | wc -l)" -eq "$DC_BEFORE" ] && \
+  [ "$(kubectl get resourceslices --no-headers 2>/dev/null | wc -l)" -eq "$SLICE_BEFORE" ]; } \
+  && echo "PASS: DeviceClass, ResourceSlice ve dung muc dau ($DC_BEFORE, $SLICE_BEFORE)"
+[ "$(kubectl api-resources -o name 2>/dev/null | sort -u | wc -l)" -eq "$API_BEFORE" ] \
+  && echo "PASS: so API resource khong doi ($API_BEFORE) — khong bat nhom API nao"
+[ "$(kubectl get crd -o name 2>/dev/null | wc -l)" -eq "$CRD_BEFORE" ] && echo "PASS: so CRD khong doi ($CRD_BEFORE)"
+kubectl get --raw /metrics > "$EV/b9-apiserver-metrics.txt"
+{ [ "$(grep -c '^kubernetes_feature_enabled{' "$EV/b9-apiserver-metrics.txt")" -eq "$FG_ALL_BEFORE" ] && \
+  [ "$(grep '^kubernetes_feature_enabled{' "$EV/b9-apiserver-metrics.txt" | grep -c ' 1$')" -eq "$FG_ON_BEFORE" ]; } \
+  && echo "PASS: bang feature gate khong doi ($FG_ON_BEFORE/$FG_ALL_BEFORE)"
+[ "$(kubectl get namespace -o name | sort | tr '\n' ' ')" = "$NS_BEFORE" ] && echo 'PASS: danh sach namespace khong doi'
+[ "$(kubectl get priorityclass -o name | sort | tr '\n' ' ')" = "$PC_BEFORE" ] && echo 'PASS: danh sach PriorityClass khong doi'
+[ "$(kubectl get nodes --no-headers --show-labels | awk '{print $1, $NF}' | sort | md5sum | cut -d' ' -f1)" = "$LBL_BEFORE" ] \
+  && echo 'PASS: nhan cua ca ba node khong doi'
+test "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 && echo 'PASS: metrics-server van tra so lieu ca ba node'
 
 kubectl wait --for=condition=Ready node --all --timeout=180s
-kubectl get nodes
-kubectl top node
-kubectl get pods -n default
+test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
 kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
 kubectl -n kube-system get deployment coredns
+kubectl get pods -n default
 ```
 
-**Ý nghĩa:** năm phép so ở giữa — `API_AFTER`, `CRD_AFTER`, `FG_ALL_AFTER`/`FG_ON_AFTER`,
-`SLICE_AFTER`, `LBL_AFTER` — là thứ biến câu "lab không cài gì" từ một lời hứa thành một phép đo.
-Bề mặt API không rộng ra, không CRD nào được thêm, không feature gate nào bị bật, không driver nào
-công bố thiết bị mới, không nhãn node nào bị đổi.
+**PASS:** dòng `PASS:` ở bước 1; `smoke exit=0` và file smoke ở bước 3 in toàn `PASS:`; mười lăm
+dòng `PASS:` của gate cuối trước khối A5.5 xuất hiện; dòng `PASS: readyz ok`; ba node `Ready`; lệnh
+field selector trả `No resources found`; CoreDNS đủ replica; namespace `default` không có Pod. Thư
+mục `~/lab-evidence/13/` **giữ lại**. Cluster trở về `04-metrics-ready`; **không tạo snapshot mới**.
 
-**PASS:** không có dòng `FAIL:` nào; đủ các dòng `PASS:` của bước này (mười một dòng khi `DRA_API`
-bằng 1, tám dòng khi bằng 0); ba node `Ready`; `kubectl top node` in đủ ba dòng số liệu;
-`kubectl get pods -n default` trả `No resources found in default namespace.`; lệnh field selector
-trả `No resources found`; CoreDNS đủ replica `READY`. Cluster trở về `04-metrics-ready`; **không
-chụp snapshot mới** và **không cần restore** — lab sau bắt đầu ngay từ trạng thái này.
+Ba phép so `API resource`, `CRD`, `feature gate` biến câu "lab không cài gì" từ một lời hứa thành
+một phép đo. Phép so nhãn node đồng thời kiểm `teardown.sh` của Lab 12 đã gỡ nhãn mà `deploy.sh` gắn.
 
 ---
 
 ## 3. Checkpoint 13
 
-Không đánh dấu lab hoàn tất chỉ vì command chạy hết. Tự trả lời, không nhìn tài liệu:
+Không đánh dấu lab hoàn tất chỉ vì script nghiệm thu PASS. Tự trả lời, không nhìn tài liệu:
 
-- [ ] Bốn kind API của DRA là gì, **ai tạo cái nào**, và cái nào namespace-scoped, cái nào
-      cluster-scoped? Bạn đọc phạm vi đó ra bằng lệnh nào, và vì sao phạm vi ấy trùng khớp với ranh
-      giới phân quyền mà bài 172 khuyến nghị?
-- [ ] **DRA khác device plugin và khác extended resource ở điểm nào?** Kể đúng ba thiếu sót mà bài
-      149 gán cho device plugin. Trong Pod spec, ba con đường nằm ở những trường nào? Vì sao viết
-      `example.com/gpu: 2` vào `resources.limits` **không** phải cách làm việc của DRA, dù bạn đã
-      làm đúng động tác đó ở Lab 3c? Trên cluster của bạn, ba con đường đó đang trống hay đầy — bạn
-      đọc ba con số ấy ra từ ba nguồn nào, và chúng nằm ở file evidence nào?
-- [ ] Năm phép kiểm năng lực của B1 là gì, cluster của bạn thiếu điều kiện nào, và **thiếu vì lý do
-      gì** — phần cứng, feature gate, hay bản phân phối? Vì sao câu trả lời đó không tạo ra một
-      món nợ trong sổ nợ lab?
-- [ ] Bạn tạo một DeviceClass thành công nhưng số ResourceSlice không đổi. Điều đó nói lên gì về
-      quan hệ giữa danh mục và nguồn cung? Nếu bạn tự tạo một ResourceSlice bằng tay thì chuyện gì
-      xảy ra khi cluster có driver, và khi không có?
-- [ ] Một Pod tham chiếu ResourceClaim **chưa tồn tại** và một Pod tham chiếu ResourceClaim **đã tồn
-      tại nhưng không khớp thiết bị nào** — hai tình huống khác nhau ở chỗ nào? Bạn phân biệt bằng
-      ba tín hiệu nào trên object, và trong năm bước của *Luồng công việc của Kubernetes*, mỗi
-      trường hợp dừng ở bước nào?
-- [ ] ResourceClaim so với ResourceClaimTemplate: chọn cái nào khi nào? Ai sinh ra claim từ
-      template, thành phần đó nằm ở đâu trong control plane, và việc sinh claim có phụ thuộc việc
-      cluster có thiết bị hay không?
-- [ ] Nhóm PodGroup/Workload cần chính xác hai thứ gì để dùng được? Nhóm API `scheduling.k8s.io`
-      **có** trên cluster bạn — vì sao điều đó vẫn chưa đủ? Apiserver của bạn biết tên bao nhiêu
-      trong bốn feature gate của nhóm này, và con số đó nói lên điều gì khác với "gate đang tắt"?
-- [ ] Ràng buộc topology của bài 80 dựa trên nhãn node nào của cluster bạn? Vì sao ba VM này không
-      có trục topology đáng để tối ưu, và vì sao lab **không** gán nhãn zone để chữa điều đó?
-- [ ] Trong mười hai cờ của bài 124, cluster bạn khai bao nhiêu cờ, và cờ nào bài khuyên **tránh**
-      truyền? Vì sao "không khai" khác "cấu hình sai"? Vì sao bài coi scheduler bị cấu hình sai là
-      rủi ro **bảo mật**?
-- [ ] Vì sao không cho người dùng gán nhãn node là biện pháp bảo mật? Verb nào thực sự cho phép gán
-      nhãn, và bạn chứng minh cluster mình an toàn bằng lệnh nào?
-- [ ] Hai subresource tổng hợp của bài 125 tên gì, mỗi cái gác những trường nào của `status`, và vì
-      sao chúng **không** xuất hiện trong `kubectl api-resources` mà vẫn trả lời được ở
-      `kubectl auth can-i`? Hai tiền tố verb nhận biết node dùng cho ai, và mất gì khi cấp nhầm?
-- [ ] Lab này không tạo snapshot mới. Bạn đã dùng những phép so sánh nào để chứng minh cluster trở
-      về đúng `04-metrics-ready` **và** rằng lab không cài thêm gì?
+- [ ] Bốn điều kiện để cluster cấp phát được thiết bị bằng DRA là gì? Cluster Bookstore thiếu điều
+      kiện nào, đọc ra từ file nào, và vì sao thiếu đó không thành nợ lab? `No resources found`
+      khác `the server doesn't have a resource type` ở đâu?
+- [ ] Bốn kind API của DRA: ai tạo cái nào, cái nào cấp cluster, cái nào cấp namespace? Vì sao
+      phạm vi đó cũng chính là ranh giới quyền giữa đội vận hành và `ci-deployer`?
+- [ ] Pod `goi-y-gpu` trước và sau khi có claim dừng ở hai bước nào của luồng năm bước? Bạn phân
+      biệt hai điểm dừng bằng tín hiệu nào, và vì sao API server nhận mọi manifest mà không báo lỗi
+      lại là rủi ro cho quy trình phát hành?
+- [ ] Dịch vụ gợi ý hai bản sao: claim tạo tay hay template, vì sao? Ai sinh claim từ template, nằm
+      ở đâu trong control plane? Claim đã sinh mà chưa cấp phát nghĩa là gì? Xóa Pod thì claim nào
+      mất, claim nào còn?
+- [ ] Ba con đường đưa GPU vào Pod nằm ở những trường nào của Pod spec và hạch toán ở đâu? Hai thông
+      điệp Pending của `goi-y-er` và `goi-y-gpu` khác nhau thế nào? Kể ba thiếu sót của device
+      plugin theo bài 149.
+- [ ] "API có trường" khác "tính năng đang bật" ra sao? Bạn chứng minh bằng trường nào, lệnh nào?
+      Vì sao viết manifest theo tài liệu bản mới nhất là nguy hiểm trên cluster của bạn?
+- [ ] Thí nghiệm `huan-luyen-thu` cho thấy gì? Với PodGroup `gang` `minCount: 3`, cùng tình huống
+      diễn ra thế nào, và hai điều kiện nào phải đúng để Pod rời `PreEnqueue`?
+- [ ] Cluster thiếu chính xác những gì để dùng PodGroup? "Gate không biết tên" khác "gate đang tắt"
+      ở điểm nào? `bookstore-batch` gắn ở cấp nhóm có làm batch được xếp trước không?
+- [ ] Ràng buộc topology trên ba VM có ý nghĩa không? Vì sao không gán nhãn zone? Một danh tính có
+      `patch nodes` làm hỏng `db` của Bookstore bằng cách nào?
+- [ ] Trong mười hai cờ của bài 124, cờ nào cluster đạt nhờ kubeadm, cờ nào lệch vì mặc định của
+      binary? Sửa ở giai đoạn nào, qua file nào của repo?
+- [ ] `resourceclaims/binding` và `resourceclaims/driver` gác những trường nào? Cluster của bạn có
+      thực thi chúng không, bằng chứng nào, và trần ở A1.4 liên quan ra sao? Vì sao `can-i` trả
+      `yes` cho một subresource bịa?
+- [ ] Hạn mức thiết bị theo DeviceClass chặn ở thời điểm nào? Vì sao claim `goi-y-gpu` chưa cấp phát
+      vẫn bị đếm? Lab không tạo snapshot mới — bạn chứng minh cluster về đúng `04-metrics-ready`
+      bằng những phép so nào?
+
+Nợ còn mở sau lab này — nói được **vì sao chưa trả**:
+
+- Sprint này không phát sinh và không trả nợ lab nào. Nợ lab còn mở theo
+  [sổ nợ lab](README.md#5-sổ-nợ-lab): #1 phần VPA (add-on ngoài A1.4), #5 snapshot volume (cần CSI
+  driver), #6 mã hóa Secret at rest (giai đoạn 22), #7 vòng đời certificate (giai đoạn 18), #8 backup
+  etcd (giai đoạn 19).
+- Nợ kỹ thuật của ứng dụng không đổi — xem `docs/tech-debt.md` của repo. Phát hiện về cờ
+  kube-scheduler là việc của hạ tầng cluster, đã ghi trong ADR hardening.
+- Phần cấp phát thiết bị thật, PodGroup chạy thật và hardening DRA thực thi được không phải nợ: chúng
+  chờ phần cứng và phiên bản, với điều kiện xem lại đã ghi trong ADR.
 
 ### Bài giải thích cuối cùng
 
-Trong tối đa 10 phút, kể lại **một yêu cầu "cho tôi một GPU" đi được tới đâu thì dừng trên cluster
-này, và vì sao**:
-
-1. Người vận hành workload muốn một thiết bị. Câu hỏi đầu tiên không phải "viết YAML thế nào" mà là
-   "cluster này có ResourceSlice nào không" — và bạn trả lời bằng `kubectl get resourceslices` chứ
-   không bằng trí nhớ. Trước đó nữa là câu hỏi nhóm API `resource.k8s.io` có được phục vụ không,
-   với đúng lệnh mà bài 271 quy định.
-2. Nếu có: driver đã công bố thiết bị kèm thuộc tính; admin hoặc driver tạo DeviceClass làm danh
-   mục; người vận hành tạo ResourceClaim hoặc ResourceClaimTemplate trong namespace của mình; Pod
-   khai `spec.resourceClaims`, container trỏ tên qua `resources.claims`. Scheduler lọc
-   ResourceSlice, ghi `status.allocation`, ghi `status.reservedFor`, rồi mới đặt Pod lên node truy
-   cập được thiết bị. Năm bước, và mỗi bước có một chỗ để nhìn.
-3. Nếu **không** có driver: API server vẫn nhận mọi manifest, ResourceClaim vẫn được tạo, controller
-   vẫn sinh claim từ template. Không lỗi nào cả — chỉ có `status.allocation` rỗng và một Pod nằm
-   `Pending` mãi mãi. Đó là lý do phải kiểm năng lực **trước**, không phải sau.
-4. Cùng một thiết bị ấy, hai con đường cũ làm khác hẳn: một con số trong `status.allocatable` của
-   Node, một con số trong `resources.limits` của container, không lọc được theo thuộc tính, không
-   chia sẻ được, khai lại ở từng container. Ba thiếu sót ấy chính là ba lợi ích mà DRA đổi lấy bằng
-   bốn object và một driver.
-5. Phần lập lịch theo nhóm — PodGroup, Workload, gang, topology, preemption nhận biết workload —
-   đứng ở một tầng khác và cần một bộ điều kiện khác: nhóm API alpha cộng feature gate. Cluster của
-   bạn không có, và bạn nói được điều đó bằng số version của nhóm `scheduling.k8s.io` cộng số gate
-   mà apiserver biết tên.
-6. Cuối cùng là hai bài hardening, và cả hai đều trả lời được bằng cấu hình **đang chạy**: scheduler
-   của bạn khai những cờ nào so với khuyến nghị, ai được gán nhãn node, và scheduler đang có đúng
-   quyền gì trên `resourceclaims`.
-7. Và điều quan trọng nhất của lab: khi điều kiện phần cứng không có, việc đúng là **đo, ghi lại và
-   nói rõ dừng ở đâu**, không phải cài thêm thứ gì hay dựng dữ liệu giả để bảng kết quả trông đẹp
-   hơn.
-
-Khi mọi checkbox được đánh dấu và không còn nhầm DeviceClass với ResourceSlice, ResourceClaim với
-ResourceClaimTemplate, "API có trường" với "tính năng đang bật", hay "claim đã được sinh ra" với
-"thiết bị đã được cấp phát", Lab 13 và
-[giai đoạn 13](../00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao) hoàn tất — với
-ghi chú rõ ràng rằng phần cấp phát thiết bị thật cần một cluster có phần cứng chuyên dụng.
+Trong vài phút, kể lại **một yêu cầu "cho dịch vụ gợi ý một GPU" đi được tới đâu trên cluster
+Bookstore, dừng ở đâu, và vì sao**: từ phép đo năng lực ở B1; DeviceClass `lab-13-gpu` được nhận mà
+không có thiết bị nào; Pod đến trước claim, rồi claim đến và scheduler xét mà không cấp phát được;
+template sinh claim cho từng Pod nhưng sinh claim không phải cấp phát. Đặt cạnh đó cách làm cũ — một
+con số trong `limits` — và thông điệp Pending khác hẳn của nó. Rồi kể batch huấn luyện: hai worker
+giữ CPU chờ worker thứ ba, gang scheduling lẽ ra ngăn điều đó thế nào, và vì sao cluster chưa có
+nó. Kết thúc bằng hai lớp an toàn — scheduler và quyền DRA, quota thiết bị — và quyết định trong ADR
+kèm điều kiện xem lại đo được. Nói rõ ở mỗi chặng: object nào đang tồn tại, trường nào rỗng, thành
+phần nào đã làm việc và thành phần nào chưa từng được gọi.
 
 ---
 
 ## 4. Troubleshooting của lab này
 
-Sự cố dựng môi trường nằm ở
-[mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường). Bảng dưới chỉ liệt kê
-sự cố phát sinh từ nội dung bài học giai đoạn 13.
+Sự cố dựng môi trường xem [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường).
+Dưới đây chỉ là sự cố phát sinh trong nội dung bài học.
 
-| Triệu chứng | Kiểm tra | Xử lý đúng phạm vi |
+| Triệu chứng | Nguyên nhân thường gặp | Xử lý |
 | --- | --- | --- |
-| `kubectl get deviceclasses` báo `the server doesn't have a resource type` | `echo $DRA_API`; `cat ~/lab-evidence/13/b1-api-resource.txt` | **Không phải lỗi.** Đó đúng là tình huống mà bài 271 mô tả: nhóm API `resource.k8s.io` không được phục vụ. Ghi lại, đặt `DRA_API=0`, bỏ qua B2–B4 phần DRA và đi tiếp từ B5.2. **Không** bật nhóm API — đó là sửa cấu hình apiserver |
-| `kubectl apply` DeviceClass báo không nhận ra `apiVersion` | Cột `APIVERSION` của dòng `deviceclasses` trong `~/lab-evidence/13/b1-api-resource.txt` | Sửa dòng `apiVersion:` trong manifest cho khớp giá trị đọc được rồi apply lại. Không đoán version |
-| `kubectl get --raw '/metrics'` không có dòng `kubernetes_feature_enabled` | `grep -c 'kubernetes_feature_enabled' ~/lab-evidence/13/b0-apiserver-metrics.txt` | Ghi lại `FG_ALL_BEFORE=0` vào evidence và dùng hai đường còn lại của B1.2: `--feature-gates` trong manifest và `featureGates` trong `configz`. Gate cuối về feature gate khi đó so `0` với `0` — vẫn hợp lệ, nhưng nói rõ điều đó ở checkpoint |
-| Pod `dra-thieu-claim` không ở `Pending` mà `Failed` | `kubectl -n lab-13 describe pod dra-thieu-claim`; `~/lab-evidence/13/b4-thieu-claim.txt` | Ghi nguyên văn `describe` vào evidence. Kết luận của bài 270 về việc Pod nằm pending không áp dụng cho cluster của bạn — nói rõ điều đó ở checkpoint, đừng sửa lab cho khớp bài |
-| `status.allocation` của `lab-13-claim` **không** rỗng ở nhánh B | `kubectl get resourceslices`; `~/lab-evidence/13/b1-nang-luc.txt` | Cluster có thiết bị mà B1 đọc thiếu. Chạy lại B1, cập nhật `NHANH`, ghi cả hai kết quả vào evidence rồi đọc lại kết luận của B4 theo nhánh A |
-| Không có ResourceClaim nào sinh ra từ ResourceClaimTemplate | `kubectl -n lab-13 get pod dra-template-consumer -o yaml` phần `status`; `~/lab-evidence/13/b8-kcm-controllers.txt` | Controller ResourceClaim là controller nội bộ của kube-controller-manager. Nếu `--controllers` loại nó ra thì cluster lệch baseline — ghi lại và **không** sửa manifest; đây là kết quả cần báo, không phải cần vá |
-| Namespace `lab-13` kẹt `Terminating` | `kubectl -n lab-13 get pods,resourceclaims`; `kubectl -n lab-13 get resourceclaims -o yaml \| grep finalizers -A3` | Còn Pod giữ claim nên finalizer chưa được gỡ. Xóa Pod trước rồi chờ; **không** cưỡng chế finalizer |
-| `kubectl get --raw .../proxy/metrics` hoặc `.../proxy/configz` báo `403` | `kubectl config current-context`; user đang dùng | Chạy trên `lab-k8s-master` bằng kubeconfig quản trị. **Không** tạo ClusterRoleBinding để chữa — cách làm đúng và đủ đã có ở [Lab 11a B3](LAB-11A-OBSERVABILITY.md#b3-đọc-metric-là-một-hành-động-được-ủy-quyền) |
-| `sudo cat /etc/kubernetes/manifests/kube-scheduler.yaml` báo không có file | `hostname`; `kubectl get node -l node-role.kubernetes.io/control-plane` | Bạn đang ở worker. B8.2, B9.1 và B9.2 chỉ chạy trên `lab-k8s-master` |
-| `wc -l` của `b9-scheduler-hardening.txt` khác 12 | `cat ~/lab-evidence/13/b9-scheduler-hardening.txt` | Vòng lặp bị ngắt giữa chừng hoặc `$M` rỗng. Chạy lại B8.2 để nạp lại `$M` rồi chạy lại B9.1; đừng sửa danh sách cờ cho khớp con số |
-| `kubectl auth can-i` với verb `associated-node:update` báo lỗi thay vì in `yes`/`no` | `~/lab-evidence/13/b10-verbs.txt` | Ghi nguyên văn lỗi vào evidence. Gate của B10.3 chỉ tính hai verb tiêu chuẩn nên vẫn đi tiếp được; nói rõ ở checkpoint rằng client của bạn không gửi được verb có tiền tố |
-| `EXTRA` khác 0 ở B5.2 | `cat ~/lab-evidence/13/b5-allocatable.txt`; gate cuối của Lab 3c | Một lab trước để sót extended resource trên node. Ghi lại tên tài nguyên và **không** tự gỡ ở lab này: gỡ đúng cách nằm ở mục cleanup của [Lab 3c](LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md). Nếu muốn sạch tuyệt đối, restore cả ba VM về `04-metrics-ready` |
-| `LBL_AFTER` khác `LBL_BEFORE` ở gate cuối | `kubectl get nodes --show-labels`; `~/lab-evidence/13/b8-node-labels.txt` | Có nhãn node bị thêm hoặc sửa trong lúc chạy lab. So hai file, gỡ đúng nhãn đã thêm; nếu không xác định được, restore cả ba VM về `04-metrics-ready` |
-| `API_AFTER`, `CRD_AFTER` hoặc `FG_ON_AFTER` khác giá trị trước lab | `~/lab-evidence/13/b0-anh-nen.txt` | Có thứ gì đó được cài hoặc bật trong lúc chạy lab — đó là điều lab cấm. Restore cả ba VM về `04-metrics-ready` và chạy lại từ B0 |
+| B0: `kubectl top node` báo lỗi | Cluster không ở `04-metrics-ready` | Restore cả ba VM về `04-metrics-ready` |
+| B0: `git describe` không ra `lab-12` | Repo ở commit khác, hoặc clone từ bundle cũ | `git checkout lab-12` hoặc clone lại từ `~/bookstore-lab-12.bundle` mới nhất |
+| B0: `deploy.sh` hay `smoke.sh` fail | Repo của sprint 19 chưa đủ | Sửa repo ở tag `lab-12`, không sửa tay trên cluster |
+| B1: `kubectl get deviceclasses` báo `the server doesn't have a resource type` | Nhóm API `resource.k8s.io` không được phục vụ | **Không phải lỗi của bạn.** Ghi lại, bỏ qua phần DRA của B2, B3, B4, B7, đi tiếp từ B5. Không bật nhóm API |
+| B1: không có dòng `kubernetes_feature_enabled` nào | Không đọc được `/metrics` lúc B0, hoặc user không đủ quyền | Chạy lại phần ảnh nền của B0 bằng kubeconfig quản trị; nếu vẫn rỗng, dùng manifest và `configz`, ghi rõ vào ADR |
+| B1: `configz` hoặc `/metrics` qua node proxy báo `403` | Sai context hoặc user | Chạy bằng kubeconfig quản trị trên `lab-k8s-master`; không tạo binding để chữa |
+| B2: `apply` DeviceClass báo không nhận ra `apiVersion` | Cluster phục vụ version khác | Đọc cột `APIVERSION` trong `~/lab-evidence/13/b1-api-resource.txt`, sửa manifest cho khớp; không đoán |
+| B2: Pod `goi-y-gpu` Running dù claim không cấp phát | Scheduler hoặc kubelet bỏ qua claim — gate `DynamicResourceAllocation` bị tắt ở một thành phần | Đọc bước khắc phục 2 trong mục *Xác minh* của bài 271; ghi lại, không sửa control plane |
+| B2: không có `FailedScheduling` sau khi tạo claim | Pod đang trong backoff của scheduler | Chờ thêm; `kubectl -n lab-13 describe pod goi-y-gpu`. Vòng chờ của script là 2 phút |
+| B2: `status.allocation` của `goi-y-gpu` không rỗng ở nhánh B | Cluster có thiết bị mà B1 đọc thiếu | Chạy lại B1, cập nhật `NHANH`, đọc lại kết luận theo nhánh A |
+| B3: không có claim nào sinh từ template | `--controllers` của kube-controller-manager loại controller ResourceClaim | Cluster lệch baseline — ghi lại, không sửa manifest |
+| B3: claim sinh ra không biến mất sau khi xóa Pod | Finalizer của claim chờ controller gỡ | Chờ; `kubectl -n lab-13 get resourceclaim -o yaml` xem `finalizers`. Không xóa finalizer bằng tay |
+| B4: `goi-y-er` không có `Insufficient example.com/gpu` mà Running | Một node còn quảng bá `example.com/gpu` từ lab trước | Đọc `allocatable` của các node; gỡ đúng cách ở mục cleanup của Lab 3c, hoặc restore snapshot |
+| B4: dry-run DeviceClass giữ nguyên `extendedResourceName` | Gate `DRAExtendedResource` đang bật | Đối chiếu `b1-feature-gates.txt`; ghi `GHI NHAN` vào ADR |
+| B5: `STOP` vì worker2 quá chật | Pod của dự án trên worker2 đã xin gần hết CPU | Không thu nhỏ dự án để chữa; ghi lại `b5-cpu.txt` và trả lời câu hỏi thiết kế bằng lý thuyết |
+| B5: cả ba worker Running | Phép tính CPU còn trống sai — `describe node` in số dạng khác | Đọc `b5-cpu.txt` và phần `Allocated resources` của `kubectl describe node lab-k8s-worker2`; xóa Job, chạy lại |
+| B5: dry-run bản nháp Job cảnh báo `would violate PodSecurity` | Thiếu trường mà `restricted` đòi | Bổ sung `securityContext` theo Lab 9b |
+| B5: dry-run bản nháp Job bị quota hoặc LimitRange của `bookstore` từ chối | `requests`/`limits` của bản nháp vượt `bookstore-limits` hoặc quota | Đọc thông báo, chỉnh con số trong bản nháp cho khớp chính sách đã chốt ở Lab 7b |
+| B6: `sudo cat` báo không có file manifest | Đang ở worker | B6 chỉ chạy trên `lab-k8s-master` |
+| B6: một danh tính của dự án `patch nodes` được | RBAC của Lab 9a cấp quá rộng | Đây là phát hiện thật: ghi vào ADR hardening, sửa ở repo trong sprint kế tiếp — không sửa ở sprint chỉ đổi `docs/` |
+| B6: không tìm thấy nhãn `bookstore.example.com/data` | Lab 7a hiện thực ràng buộc `db` bằng khóa khác | Đọc `b6-db-lap-lich.txt`, dùng đúng khóa mà repo của bạn dùng |
+| B7: claim xin hai thiết bị vẫn được nhận | Quota tạo xong nhưng `status.hard` chưa được điền khi claim tới | Xóa các claim `quota-*`, chờ `status.hard` có giá trị, chạy lại bước 4 |
+| B7: `status.used` không đếm claim `goi-y-gpu` | Claim của B2 đã bị xóa | Tạo lại claim theo B2 rồi chạy lại bước 4 |
+| B7: dry-run RBAC báo `attempting to grant RBAC permissions not currently held` | Không chạy bằng kubeconfig quản trị | Chạy bằng kubeconfig quản trị trên `lab-k8s-master` |
+| B9: namespace `lab-13` kẹt `Terminating` | Còn claim mang finalizer | `kubectl -n lab-13 get pods,resourceclaims`; xóa Pod trước rồi chờ; không cưỡng chế finalizer |
+| B9: số API resource khác ảnh nền | API tổng hợp của metrics-server tạm thời không trả lời | `kubectl get apiservice v1beta1.metrics.k8s.io`; chờ `Available=True` rồi chạy lại gate. Vẫn khác thì restore snapshot |
+| B9: nhãn node khác ảnh nền | Teardown không gỡ nhãn `bookstore.example.com/data`, hoặc có nhãn bị thêm trong lab | So `kubectl get nodes --show-labels` với `b5-node-labels.txt`; gỡ đúng nhãn thừa, ghi lỗi của `teardown.sh` vào báo cáo sprint |
 
 ---
 
 ## 5. Nguồn chính thức
 
-- [Dynamic Resource Allocation](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/)
-- [Good practices for Dynamic Resource Allocation as a Cluster Admin](https://kubernetes.io/docs/concepts/cluster-administration/dra/)
-- [Hardening Guide — Dynamic Resource Allocation](https://kubernetes.io/docs/concepts/security/hardening-guide/dynamic-resource-allocation/)
-- [Hardening Guide — Scheduler Configuration](https://kubernetes.io/docs/concepts/security/hardening-guide/scheduler/)
-- [Scheduling Group](https://kubernetes.io/docs/concepts/workloads/pods/scheduling-group/)
-- [PodGroup API](https://kubernetes.io/docs/concepts/workloads/podgroup-api/)
-- [PodGroup Lifecycle](https://kubernetes.io/docs/concepts/workloads/podgroup-api/lifecycle/)
-- [Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/)
-- [Workload Disruption and Priority](https://kubernetes.io/docs/concepts/workloads/workload-api/disruption-and-priority/)
-- [PodGroup Scheduling Policies](https://kubernetes.io/docs/concepts/workloads/workload-api/policies/)
-- [Topology-Aware Scheduling (Workload API)](https://kubernetes.io/docs/concepts/workloads/workload-api/topology-aware-scheduling/)
-- [Gang Scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/)
-- [PodGroup Scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/)
-- [Workload-Aware Preemption](https://kubernetes.io/docs/concepts/scheduling-eviction/workload-aware-preemption/)
-- [Topology-Aware Scheduling (scheduling)](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-aware-scheduling/)
-- [Assign Devices to Pods and Containers](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/)
-- [Set Up DRA in a Cluster](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/set-up-dra-cluster/)
-- [Allocate Devices to Workloads with DRA](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/allocate-devices-dra/)
-- [Access DRA Device Metadata](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/access-dra-device-metadata/)
-- [Harden Dynamic Resource Allocation in Your Cluster](https://kubernetes.io/docs/tasks/administer-cluster/hardening-dra/)
-- [Device Plugins — đọc ở giai đoạn 14, dùng để so sánh với DRA](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/)
+- [Kubernetes — Dynamic Resource Allocation](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/)
+- [Kubernetes — Good practices for Dynamic Resource Allocation as a Cluster Admin](https://kubernetes.io/docs/concepts/cluster-administration/dra/)
+- [Kubernetes — Hardening Guide: Dynamic Resource Allocation](https://kubernetes.io/docs/concepts/security/hardening-guide/dynamic-resource-allocation/)
+- [Kubernetes — Hardening Guide: Scheduler Configuration](https://kubernetes.io/docs/concepts/security/hardening-guide/scheduler/)
+- [Kubernetes — Scheduling Group](https://kubernetes.io/docs/concepts/workloads/pods/scheduling-group/)
+- [Kubernetes — PodGroup API](https://kubernetes.io/docs/concepts/workloads/podgroup-api/)
+- [Kubernetes — PodGroup Lifecycle](https://kubernetes.io/docs/concepts/workloads/podgroup-api/lifecycle/)
+- [Kubernetes — Workload API](https://kubernetes.io/docs/concepts/workloads/workload-api/)
+- [Kubernetes — Pod Group Disruption and Priority](https://kubernetes.io/docs/concepts/workloads/workload-api/disruption-and-priority/)
+- [Kubernetes — PodGroup Scheduling Policies](https://kubernetes.io/docs/concepts/workloads/workload-api/policies/)
+- [Kubernetes — Topology-Aware Workload Scheduling (Workload API)](https://kubernetes.io/docs/concepts/workloads/workload-api/topology-aware-scheduling/)
+- [Kubernetes — Gang Scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/gang-scheduling/)
+- [Kubernetes — PodGroup Scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/podgroup-scheduling/)
+- [Kubernetes — Workload-Aware Preemption](https://kubernetes.io/docs/concepts/scheduling-eviction/workload-aware-preemption/)
+- [Kubernetes — Topology-Aware Scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-aware-scheduling/)
+- [Kubernetes — Assign Devices to Pods and Containers](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/)
+- [Kubernetes — Set Up DRA in a Cluster](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/set-up-dra-cluster/)
+- [Kubernetes — Allocate Devices to Workloads with DRA](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/allocate-devices-dra/)
+- [Kubernetes — Access DRA Device Metadata](https://kubernetes.io/docs/tasks/configure-pod-container/assign-resources/access-dra-device-metadata/)
+- [Kubernetes — Harden Dynamic Resource Allocation in Your Cluster](https://kubernetes.io/docs/tasks/administer-cluster/hardening-dra/)
+- [Kubernetes — Resource Quotas, mục Quota for DRA resource claims](https://kubernetes.io/docs/concepts/policy/resource-quotas/)
+- [Kubernetes v1.35 — Feature Gates](https://v1-35.docs.kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/)
+- [Kubernetes v1.35 — kube-scheduler](https://v1-35.docs.kubernetes.io/docs/reference/command-line-tools-reference/kube-scheduler/)
+- [Kubernetes v1.35 — Workload API](https://v1-35.docs.kubernetes.io/docs/concepts/workloads/workload-api/)
+- [Kubernetes v1.35 — Workload Reference](https://v1-35.docs.kubernetes.io/docs/concepts/workloads/pods/workload-reference/)
+- [Kubernetes — Device Plugins — đọc ở giai đoạn 14, dùng để so sánh với DRA](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/)

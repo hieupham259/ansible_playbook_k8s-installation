@@ -11,8 +11,10 @@
 
 **Vị trí:** [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
 dòng **Thực hành**, bài 7/10 · Kiểm chứng ở [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md):
-phần B4 (security context nhìn từ bên trong container), phần B2.4 (`runAsUser`, `runAsGroup`,
-`fsGroup`, `supplementalGroups` và quyền trên volume) và phần B5.1 (masked path cùng read-only
+ticket [B3](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b3-bs-9b-03-db-chạy-non-root--trả-td-06) (`runAsUser`, `runAsGroup`,
+`fsGroup` và quyền trên volume thật của `db`), [B4](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b4-bs-9b-04-web-và-api-đạt-restricted-root-filesystem-chỉ-đọc)
+(security context cấp Pod và cấp container, capability, `readOnlyRootFilesystem`, đọc từ bên trong
+container) và [B7 ⭐](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b7-bs-9b-07--điều-tra-kernel-thật-sự-áp-gì-và-sysctl) (masked path cùng read-only
 path của `/proc`).
 
 Đây là bài dài nhất của nhóm Thực hành giai đoạn 9. Phần bạn thật sự cần ở lần đọc này chỉ là
@@ -53,7 +55,7 @@ hiểu hết trong một lượt.
 | --- | --- | --- |
 | *Cấu hình kiểm soát SupplementalGroups chi tiết cho một Pod* — `supplementalGroupsPolicy`, `status.containerStatuses[].user.linux`, `status.features` của Node | còn là beta và phải bật feature gate cho cả kubelet lẫn kube-apiserver, tức sửa cấu hình control plane | [giai đoạn 20 — cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy); Lab 9b xếp mục này vào phần không thực hành được |
 | *Cấu hình chính sách thay đổi quyền và quyền sở hữu volume cho Pod* (`fsGroupChangePolicy`) và *Ủy quyền việc thay đổi quyền và quyền sở hữu volume cho CSI driver* | chỉ có tác dụng với volume hỗ trợ quản lý quyền sở hữu bằng `fsGroup`, và provisioner của cluster lab không phải CSI driver | lý thuyết volume đã đọc ở [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ); phần CSI còn treo là [nợ #5](labs/README.md#5-sổ-nợ-lab) |
-| *Gán nhãn SELinux cho một Container*, *Gán lại nhãn SELinux cho volume một cách hiệu quả*, `SELinuxWarningController`, các feature gate `SELinux*` | chính bài nói field này **không có tác dụng** nếu module bảo mật SELinux không được nạp trên hệ điều hành host, mà node lab chạy Ubuntu | ranh giới giữa các module MAC nằm ở bài [127](127-linux-kernel-security-vi.md) cùng giai đoạn 9; Lab 9b phần B9.4 đọc xem module nào thật sự đang bật trên node |
+| *Gán nhãn SELinux cho một Container*, *Gán lại nhãn SELinux cho volume một cách hiệu quả*, `SELinuxWarningController`, các feature gate `SELinux*` | chính bài nói field này **không có tác dụng** nếu module bảo mật SELinux không được nạp trên hệ điều hành host, mà node lab chạy Ubuntu | ranh giới giữa các module MAC nằm ở bài [127](127-linux-kernel-security-vi.md) cùng giai đoạn 9; Lab 9b ticket [B11](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b11-bs-9b-11-rà-soát-bảo-mật-theo-hai-checklist) đọc xem module nào thật sự đang bật trên node |
 | `procMount: Unmasked` | bài ghi rõ nó đòi `spec.hostUsers: false`, tức container phải nằm trong user namespace | cơ chế user namespace đã đọc ở bài [55](55-user-namespaces-vi.md), [giai đoạn 3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời); Lab 9b chỉ kiểm chứng danh sách masked path mặc định, không mở chúng ra |
 | `seccompProfile` và `appArmorProfile` với `type: Localhost` — viết rồi nạp profile tùy chỉnh | file profile phải nằm sẵn trên **từng node** Pod có thể rơi vào; đó là thay đổi cấu hình node, không phải object của cluster | Lab 9b chỉ đi hai nhánh `RuntimeDefault` và `Unconfined`; thao tác đổi cấu hình node thuộc [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
 

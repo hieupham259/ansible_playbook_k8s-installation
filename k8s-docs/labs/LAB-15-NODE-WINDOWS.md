@@ -2077,7 +2077,7 @@ done
 **Ý nghĩa:** bốn kiểu này là bốn kiểu bài 89 nói dùng được trên cluster có node Windows — nói cách
 khác, **thêm node Windows không cắt mất kiểu Service nào**. Service `web-lb` sẽ đứng mãi ở
 `EXTERNAL-IP: <pending>` vì cluster lab không có bộ cấp phát IP ngoài; đó là kết quả đúng và đã biết
-từ [Lab 5a](LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md#b6-nodeport-externalname-và-loadbalancer), không
+từ [Lab 5a](LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md#b9-bs-5a-09-điều-tra-service-ra-ngoài-cluster--loadbalancer-externaltrafficpolicy-externalname), không
 phải lỗi của lab này.
 
 **PASS:** bốn dòng `PASS: cluster nhan Service kieu …` xuất hiện.
@@ -2962,7 +2962,7 @@ sự cố phát sinh từ nội dung bài học giai đoạn 15.
 | B5.3 hoặc B6.2 hoặc B8.2: `ssh lab-k8s-worker2` không dùng được | `ssh lab-k8s-worker2 hostname` | Lab 7b và Lab 12 dùng cùng đường này. Nếu chưa cấu hình `ssh` không mật khẩu từ master, làm điều đó trước, hoặc bỏ phần đo trên node và ghi rõ ở checkpoint rằng bạn chỉ đo được từ trong container. **Không** thay bằng cách chạy Pod đặc quyền để đọc host |
 | B6.2: `find` không tìm thấy cgroup mang uid của Pod | `ssh lab-k8s-worker2 'stat -fc %T /sys/fs/cgroup'`; `ssh lab-k8s-worker2 'sudo ls /sys/fs/cgroup/kubepods.slice'` | Cgroup driver hoặc bố cục thư mục khác baseline. Ghi lại đường dẫn thật vào evidence và đọc `memory.max` ở đó. Nếu `stat -fc %T` không trả `cgroup2fs` thì node lệch [A4.1](LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) — đó là sự cố môi trường, xem mục 4 của Lab 00 |
 | B6.2: `POD_MAX` khác `67108864` | `kubectl -n lab-15 get pod qos-guaranteed -o jsonpath='{.spec.containers[0].resources}'` | Đọc lại limit thật của Pod rồi so với `memory.max`. Hai số phải bằng nhau; ghi cả hai vào evidence. Đừng sửa con số trong lab cho khớp — đó là dữ liệu |
-| B6.3: `configz` trả `403` | `kubectl config current-context` | Chạy trên `lab-k8s-master` bằng kubeconfig quản trị. **Không** tạo ClusterRoleBinding để chữa — cách đúng đã có ở [Lab 11a B3](LAB-11A-OBSERVABILITY.md#b3-đọc-metric-là-một-hành-động-được-ủy-quyền) |
+| B6.3: `configz` trả `403` | `kubectl config current-context` | Chạy trên `lab-k8s-master` bằng kubeconfig quản trị. **Không** tạo ClusterRoleBinding để chữa — cách đúng đã có ở [Lab 11a B2](LAB-11A-OBSERVABILITY.md#b2-bs-11a-02-điều-tra-đọc-metric-là-hành-động-được-ủy-quyền) |
 | B7.2: Pod `rc-consumer` **không** được tiêm `nodeSelector` | `kubectl -n lab-15 get pod rc-consumer -o yaml`; `kubectl get runtimeclass lab-15-windows -o yaml` | Kiểm `scheduling` trong RuntimeClass có đủ hai khối `nodeSelector` và `tolerations` không. Nếu có mà Pod vẫn không được tiêm thì admission plugin RuntimeClass đang tắt trên cluster bạn — ghi lại, **không** sửa cấu hình apiserver |
 | B7.2: `kubectl apply` Pod báo xung đột `nodeSelector` | `kubectl -n lab-15 get pod rc-consumer -o yaml` | Pod tự khai một khóa `nodeSelector` trùng khóa của RuntimeClass với giá trị khác. Manifest ở B7.2 cố ý **không** khai `nodeSelector`; đảm bảo bạn dùng đúng file đó |
 | B8.1: `kubectl logs -c ra-file` **có** nội dung | `kubectl -n lab-15 logs log-duong-di -c ra-file` | Container đang in ra STDOUT chứ không chỉ ghi file — kiểm lại `command` trong manifest có `>>` không. Sửa manifest rồi chạy lại; phép thử chỉ có nghĩa khi đúng một container ghi ra STDOUT |

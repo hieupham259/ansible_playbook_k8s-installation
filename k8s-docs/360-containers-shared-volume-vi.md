@@ -13,7 +13,7 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 11/11 —
-**bài cuối của nhóm** · Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B1.2.
+**bài cuối của nhóm** · Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B5.
 
 Bài đóng lại nhóm 3a bằng câu hỏi nền nhất: **vì sao một Pod lại có nhiều container**. Nó là cặp
 song sinh của bài [292](292-share-process-namespace-vi.md) — cùng một mục tiêu "hai container nói
@@ -39,9 +39,9 @@ chuyện với nhau", nhưng qua **filesystem dùng chung** thay vì qua process
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| `restartPolicy: Never` trong manifest | `restartPolicy` là một chủ đề riêng của chính nhóm này | bài [47](47-pod-lifecycle-vi.md), thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B3 |
+| `restartPolicy: Never` trong manifest | `restartPolicy` là một chủ đề riêng của chính nhóm này | bài [47](47-pod-lifecycle-vi.md), thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B7 |
 | `containerID: docker://...` trong đầu ra ví dụ | trang gốc còn dùng cluster chạy Docker; runtime của cluster lab khác | [giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime) đã học, đối chiếu ở [Lab 2](labs/LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md) |
-| `apt-get update && apt-get install curl procps` bên trong container nginx | là cách trang gốc xem kết quả, không phải cơ chế cần học | [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B1.2 kiểm bằng gate so sánh nội dung |
+| `apt-get update && apt-get install curl procps` bên trong container nginx | là cách trang gốc xem kết quả, không phải cơ chế cần học | [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B5 kiểm bằng script nghiệm thu đọc trang qua nginx |
 | Mục *Tiếp theo*: các bài blog/slide về composite container, bài *Cấu hình Pod dùng Volume để lưu trữ*, API reference `Volume` | Volume là chủ đề riêng, chưa học | bài [91](91-volumes-vi.md) ở [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) |
 
 ---

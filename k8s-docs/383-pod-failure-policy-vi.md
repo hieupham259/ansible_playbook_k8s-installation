@@ -21,7 +21,7 @@ thử lại tới `backoffLimit`.
 
 Bài dài nhất của giai đoạn 29 và là bài duy nhất bạn **bắt buộc phải chạy tay** để qua Checkpoint.
 Nó nối tiếp bài [67](67-job-vi.md) và phần `backoffLimit` bạn đã thực hành ở
-[Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B7 — đọc bài này với đúng một câu hỏi
+[Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) ticket B5 — đọc bài này với đúng một câu hỏi
 trong đầu: **`backoffLimit` chỉ đếm số lần thất bại, còn `podFailurePolicy` thì nhìn vào *lý do*
 thất bại.** Bốn kịch bản trong bài chỉ là bốn cách khai thác sự khác biệt đó.
 
@@ -58,7 +58,7 @@ Kịch bản 3 và 4 đọc để hiểu cơ chế là đủ.
 | --- | --- | --- |
 | Mục *Trước khi bạn bắt đầu* — minikube, ba môi trường thử nghiệm, yêu cầu "v1.25 hoặc mới hơn" | Lộ trình cấm minikube và kind; điều kiện phiên bản thì baseline lab vượt xa | Bỏ hẳn — ba VM và bảng phiên bản khóa ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
 | Ghi chú "bước 3 và bước 4 nên được tự động hóa bằng một controller do người dùng cung cấp" ở kịch bản 3 | Tự viết controller là một chủ đề riêng, không phải nội dung của Job | [Giai đoạn 28 — Mở rộng Kubernetes](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes) và [Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md) |
-| Cơ chế Indexed Job và biến `JOB_COMPLETION_INDEX` trong script Python của kịch bản 4 | Ở đây nó chỉ là phương tiện để mỗi index thoát một mã khác nhau | Đã học ở bài [353](353-indexed-parallel-processing-vi.md) và thực hành ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B6.3 |
+| Cơ chế Indexed Job và biến `JOB_COMPLETION_INDEX` trong script Python của kịch bản 4 | Ở đây nó chỉ là phương tiện để mỗi index thoát một mã khác nhau | Đã học ở bài [353](353-indexed-parallel-processing-vi.md) và thực hành ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) ticket B9 |
 
 ---
 

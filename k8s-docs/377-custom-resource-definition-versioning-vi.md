@@ -22,9 +22,9 @@ Phần II không có lab riêng: bạn thực hành thẳng trên cluster VM c�
 [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) rồi tự chấm bằng **Checkpoint** của
 [giai đoạn 28](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes).
 Riêng bài này bạn **đã chạy một phần rồi** ở
-[Lab 14 phần B9](labs/LAB-14-CRD-VA-OPERATOR.md#b9-storage-version-và-statusstoredversions):
-tự viết CRD, thêm version `v2`, chuyển `storage` sang `v2`, gặp đúng lỗi khi cố gỡ một version
-còn nằm trong `status.storedVersions`, rồi chạy trọn *Phương án 2* của mục
+[Lab 14 ticket B6](labs/LAB-14-CRD-VA-OPERATOR.md#b6-bs-14-06-thêm-version-v1-và-chuyển-storage-version):
+tự viết CRD, thêm version `v1` sau `v1alpha1`, chuyển `storage` sang `v1`, gặp đúng lỗi khi cố gỡ
+một version còn nằm trong `status.storedVersions`, rồi chạy trọn *Phương án 2* của mục
 [Nâng cấp các object hiện có lên storage version mới](#upgrade-existing-objects-to-a-new-stored-version).
 Lần đọc này là để **đặt tên và hệ thống hóa** những gì tay bạn đã làm, cộng phần Lab 14 không
 chạm tới được.
@@ -61,7 +61,7 @@ bài rút lại còn khoảng một nửa, và không mất ý nào.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Mọi khối `#### apiextensions.k8s.io/v1beta1` | đó là bản viết lại cùng một ví dụ cho phiên bản CRD API đã deprecated từ v1.16; trang gốc giữ để phục vụ cluster đời cũ | không cần trong lộ trình này — cả bài [378](378-custom-resource-definitions-vi.md) lẫn [Lab 14 phần B9](labs/LAB-14-CRD-VA-OPERATOR.md#b9-storage-version-và-statusstoredversions) đều chỉ dùng `apiextensions.k8s.io/v1` |
+| Mọi khối `#### apiextensions.k8s.io/v1beta1` | đó là bản viết lại cùng một ví dụ cho phiên bản CRD API đã deprecated từ v1.16; trang gốc giữ để phục vụ cluster đời cũ | không cần trong lộ trình này — cả bài [378](378-custom-resource-definitions-vi.md) lẫn [Lab 14 ticket B6](labs/LAB-14-CRD-VA-OPERATOR.md#b6-bs-14-06-thêm-version-v1-và-chuyển-storage-version) đều chỉ dùng `apiextensions.k8s.io/v1` |
 | Toàn bộ mục *Chuyển đổi bằng webhook* — viết conversion webhook server, `webhookClientConfig`, chọn `url` hay `service`, `caBundle`, *Những thay đổi được phép* | ở lần đọc này chỉ cần biết **khi nào buộc phải dùng** webhook; dựng nó đòi một dịch vụ HTTPS trong cluster kèm certificate, đúng lý do [Lab 14 ghi ở bảng phần không thực hành được](labs/LAB-14-CRD-VA-OPERATOR.md#11-ánh-xạ-tài-liệu-sang-bài-thực-hành) | cơ chế API server gọi ra một webhook và hậu quả khi webhook hỏng đã đọc ở bài [173](173-admission-webhooks-vi.md), [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
 | Mục *Request và response của webhook* — cấu trúc JSON của `ConversionReview`, `convertedObjects`, `result` | chỉ cần khi bạn tự lập trình server chuyển đổi; không có công cụ nào trong baseline Lab 00 phát ra request này | cùng chỗ với dòng trên — bài [173](173-admission-webhooks-vi.md); ở giai đoạn 28 bạn dừng ở mức đọc được `spec.conversion` của một CRD |
 
@@ -1155,7 +1155,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 2. **Câu bẫy.** Object của bạn đang được lưu ở `v1beta1`. Bạn `kubectl get` nó ở `v1`, thấy
    `apiVersion: example.com/v1`. Bản nằm trong bộ lưu trữ đã chuyển sang `v1` chưa? Cách duy
    nhất để nó thật sự chuyển sang storage version mới là gì?
-3. Trên `lab-k8s-master`, bạn dựng lại một CRD kiểu `clusterwidgets` như Lab 14 nhưng lần này
+3. Trên `lab-k8s-master`, bạn dựng lại một CRD kiểu `dbbackups` như Lab 14 nhưng lần này
    `v1` có một trường `hostPort: "localhost:1234"` còn `v2` tách thành `host` và `port`. Giữ
    nguyên `conversion.strategy: None` như Lab 14 thì có chạy đúng không? Vì sao?
 4. Bạn đặt `deprecated: true` và `deprecationWarning` cho `v1beta1`. Client gọi `v1beta1` sau
@@ -1187,7 +1187,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    giữa phiên bản lưu trữ và phiên bản được yêu cầu. Object lưu ở `v1` đọc ra qua `v2` sẽ
    không có `host` và `port`, còn `hostPort` thì không nằm trong schema `v2` nên bị cắt bỏ.
    Trường hợp này **buộc phải dùng conversion webhook**. Lab 14 dùng được `None` chính vì ở đó
-   `v1` và `v2` dùng chung một schema.
+   `v1alpha1` và `v1` dùng chung một schema.
 4. **Vẫn được phục vụ.** `deprecated: true` chỉ khiến server trả thêm **một header cảnh báo**
    trong phản hồi API; `deprecationWarning` chỉ ghi đè nội dung cảnh báo mặc định. Nó không
    chặn request nào. Nó nằm **giữa pha thêm và pha gỡ**: là cách báo trước cho client di trú,

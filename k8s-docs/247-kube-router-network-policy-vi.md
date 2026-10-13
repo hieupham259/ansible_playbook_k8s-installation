@@ -42,7 +42,7 @@ lab: đổi CNI sẽ phá [chuỗi snapshot](labs/README.md#3-chuỗi-snapshot) 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Hướng dẫn *thử Kube-router với các trình cài đặt cluster* mà mục *Cài đặt addon Kube-router* trỏ tới | đó là quy trình cài một CNI thật | **không chạy trên cluster lab** — cluster đã dùng Calico từ [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) và đổi CNI phá [chuỗi snapshot](labs/README.md#3-chuỗi-snapshot). Chỉ mở khi bạn tiếp quản một cluster đã chạy kube-router |
-| Đọc thẳng các quy tắc `iptables` và `ipset` mà provider sinh ra trên node | cluster lab thực thi policy bằng Calico nên không có quy tắc của kube-router để đối chiếu | ranh giới "Kubernetes định nghĩa object, plugin hiện thực nó" đã đọc ở bài [183](183-network-plugins-vi.md) và kiểm chứng bằng lưu lượng ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B3 và B5 |
+| Đọc thẳng các quy tắc `iptables` và `ipset` mà provider sinh ra trên node | cluster lab thực thi policy bằng Calico nên không có quy tắc của kube-router để đối chiếu | ranh giới "Kubernetes định nghĩa object, plugin hiện thực nó" đã đọc ở bài [183](183-network-plugins-vi.md) và kiểm chứng bằng lưu lượng ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket B1 và B5 |
 
 ---
 

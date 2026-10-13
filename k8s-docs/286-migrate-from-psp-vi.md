@@ -13,14 +13,16 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
 dòng **Thực hành**, bài 6/10 · Kiểm chứng ở
-[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), phần B6.1–B6.4 (API
-`policy/v1beta1` không còn, manifest PSP của bài không apply được, không Pod nào còn annotation
-`kubernetes.io/psp`, và năm bước di trú đối chiếu với cluster đã qua mốc gỡ bỏ) cùng B8.2 (bước 1
-— rà soát quyền trên namespace).
+[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), ticket
+[B10](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b10-bs-9b-10-điều-tra-tầng-api-server--admission-psp-webhook-apf) (API
+`policy/v1beta1` không còn, manifest PSP của bài không apply được, PSP không còn trong chuỗi
+admission, và năm bước di trú đối chiếu với cluster đã qua mốc gỡ bỏ), [B2](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b2-bs-9b-02-bật-warn-và-audit-cho-bookstore-kiểm-kê-vi-phạm) và
+[B6](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b6-bs-9b-06-bật-enforce-restricted) (bước 3.a–3.c trên namespace `bookstore`) cùng
+[B9](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b9-bs-9b-09-điều-tra-ai-chạm-được-secret-của-bookstore) (bước 1 — rà soát quyền trên namespace).
 
 Bài này viết cho một cluster **vẫn còn PodSecurityPolicy**. Cluster lab của bạn thì không:
 PodSecurityPolicy đã bị gỡ khỏi Kubernetes, nên các bước 2, 3.d và 5 không thực hiện được — Lab 9b
-B6 chứng minh đúng điều đó bằng chính API. Vậy đọc bài này để làm gì? Để hiểu **vì sao Pod Security
+ticket B10 chứng minh đúng điều đó bằng chính API. Vậy đọc bài này để làm gì? Để hiểu **vì sao Pod Security
 Admission có hình dạng như hôm nay**, và vì mục 1 cùng mục 3 vẫn áp dụng **nguyên vẹn** cho mọi
 cluster hiện nay. Lộ trình xếp bài [117](117-pod-security-policy-vi.md) là tài liệu lịch sử ở cuối
 giai đoạn 9 vì cùng lý do.
@@ -53,9 +55,9 @@ giai đoạn 9 vì cùng lý do.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Danh sách field PSP ở 2.a và 2.b — `.spec.defaultAllowPrivilegeEscalation`, `.spec.allowedHostPaths`, `.spec.runAsGroup`, `.spec.supplementalGroups`… | là bảng tra cứu cho cluster **còn** PSP; API này đã bị gỡ khỏi Kubernetes | bài [117](117-pod-security-policy-vi.md) — lộ trình xếp là **tài liệu lịch sử**, đọc ở cuối giai đoạn 9; [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) B6.2 chứng minh manifest PSP không apply được |
-| Mục 3.d — gắn PSP `privileged` cho mọi service account để vô hiệu hóa PSP theo namespace | manifest dùng nhóm API `policy/v1beta1`, thứ không còn tồn tại | [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) B6.1 chứng minh nhóm API đã biến mất; không có bước thực hành nào khác trong lộ trình |
-| Mục 5 — tắt admission controller PodSecurityPolicy và đọc dòng log liệt kê plugin lúc apiserver khởi động | phải sửa cấu hình admission của API server | [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) bài [03](03-control-plane-flags-vi.md) và [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy); [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) B7.1 đọc chuỗi admission thật bằng đường khác |
+| Danh sách field PSP ở 2.a và 2.b — `.spec.defaultAllowPrivilegeEscalation`, `.spec.allowedHostPaths`, `.spec.runAsGroup`, `.spec.supplementalGroups`… | là bảng tra cứu cho cluster **còn** PSP; API này đã bị gỡ khỏi Kubernetes | bài [117](117-pod-security-policy-vi.md) — lộ trình xếp là **tài liệu lịch sử**, đọc ở cuối giai đoạn 9; [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b10-bs-9b-10-điều-tra-tầng-api-server--admission-psp-webhook-apf) ticket B10 chứng minh manifest PSP không apply được |
+| Mục 3.d — gắn PSP `privileged` cho mọi service account để vô hiệu hóa PSP theo namespace | manifest dùng nhóm API `policy/v1beta1`, thứ không còn tồn tại | [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b10-bs-9b-10-điều-tra-tầng-api-server--admission-psp-webhook-apf) ticket B10 chứng minh nhóm API đã biến mất; không có bước thực hành nào khác trong lộ trình |
+| Mục 5 — tắt admission controller PodSecurityPolicy và đọc dòng log liệt kê plugin lúc apiserver khởi động | phải sửa cấu hình admission của API server | [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) bài [03](03-control-plane-flags-vi.md) và [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy); [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b10-bs-9b-10-điều-tra-tầng-api-server--admission-psp-webhook-apf) ticket B10 đọc chuỗi admission thật bằng đường khác |
 | Mutating / Validating Admission Webhook được đề xuất để bù các tính năng PSA thiếu | phải viết và triển khai một máy chủ webhook; một webhook sai cấu hình làm chết cả cluster | bài [173](173-admission-webhooks-vi.md), đọc sau trong giai đoạn 9; điểm mở rộng API nằm ở [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) |
 | Mục 3.b — phần vi phạm được **ghi vào audit log** ở chế độ `audit` | đọc được audit log cần một audit backend đang chạy | [giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu), bài [306](306-audit-vi.md) |
 

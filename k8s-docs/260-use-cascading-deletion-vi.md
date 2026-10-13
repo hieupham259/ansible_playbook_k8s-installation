@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 4 → nhóm [4a](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout), bài 1/7 ·
-Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B8.
+Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ticket B9.
 
 Đây là vế thực hành của hai bài đã đọc ở [giai đoạn 1c](00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object):
 [30](30-owners-dependents-vi.md) (owner và dependent) và [36](36-garbage-collection-vi.md) (thu gom

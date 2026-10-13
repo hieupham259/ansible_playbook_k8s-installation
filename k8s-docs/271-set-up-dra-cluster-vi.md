@@ -15,7 +15,7 @@
 
 **Vị trí:** [Giai đoạn 13 — Lập lịch và workload nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao)
 → dòng **Thực hành**, **bài 5/5 — bài cuối của nhóm** · Kiểm chứng ở
-[Lab 13 — DRA](labs/LAB-13-DRA.md) phần B1.1, B3.2 và B11.
+[Lab 13 — DRA](labs/LAB-13-DRA.md) ticket B1, B2 và mục đóng sprint.
 
 Bài này viết cho **quản trị viên cluster** và là bài duy nhất trong nhóm nói về phía cung: bật API
 group, xác minh, cài driver, tạo lớp thiết bị. Mục *Xác minh rằng DRA đã được bật* chính là **phép
@@ -48,7 +48,7 @@ driver, bật feature gate hay tự tạo ResourceSlice để "có dữ liệu".
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Mục *Cài đặt driver thiết bị* ở mức làm thật | driver do nhà cung cấp thiết bị phát hành; ba VM của lab không có thiết bị nào để cài driver | [Lab 13](labs/LAB-13-DRA.md) phần B1 đo năng lực rồi rẽ nhánh, và cấm cài driver |
+| Mục *Cài đặt driver thiết bị* ở mức làm thật | driver do nhà cung cấp thiết bị phát hành; ba VM của lab không có thiết bị nào để cài driver | [Lab 13](labs/LAB-13-DRA.md) ticket B1 đo năng lực rồi rẽ nhánh, và cấm cài driver |
 | Cách bật/tắt một API group cho kube-apiserver, và bước khắc phục "cấu hình lại và khởi động lại `kube-apiserver`" | là sửa cấu hình control plane của một cluster đang chạy | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) — bài [207](207-enable-disable-api-vi.md) và [196](196-configure-feature-gates-vi.md) |
 | Nội dung ví dụ của ResourceSlice — `attributes`, `capacity`, `nodeName` | cần một driver thật mới có ResourceSlice để đọc | bài [149](149-dynamic-resource-allocation-vi.md) mục *ResourceSlice*, đã đọc ở mạch chính giai đoạn 13 |
 
@@ -318,5 +318,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 Hết nhóm Thực hành của giai đoạn 13. Câu nào chưa trả lời được thì quay lại đúng mục tương ứng,
 rồi mới mở [Lab 13 — DRA](labs/LAB-13-DRA.md) — lab **tùy chọn**, và vì ba VM của lab không có GPU
-nên nó chạy **nhánh đọc-hiểu**: phần B1 đo năng lực DRA thật của cluster bằng năm phép kiểm rồi
+nên nó chạy **nhánh đọc-hiểu**: ticket B1 đo năng lực DRA thật của cluster bằng năm phép kiểm rồi
 chốt nhánh, thay vì cài driver để "có dữ liệu".

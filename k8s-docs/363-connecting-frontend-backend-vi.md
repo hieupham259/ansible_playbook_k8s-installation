@@ -13,7 +13,8 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), dòng
 **Thực hành**, bài 8/10 · Kiểm chứng ở
-[Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B12.
+[Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B3 —
+nginx của `web` gọi Service `api` bằng tên, `web` ra ngoài bằng NodePort.
 
 Ba bài cuối của dòng Thực hành là ba **đường vào ứng dụng khác nhau** và rất dễ nhầm. Bài này nối
 hai tầng **bên trong** cluster bằng Service ClusterIP và tên DNS. Bài
@@ -40,7 +41,7 @@ dùng cho production. Đọc bài này để nắm đường thứ nhất.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Mục *Tương tác với Service frontend* và *Gửi lưu lượng qua frontend* — chờ `EXTERNAL-IP` đổi từ `<pending>` sang IP thật rồi `curl` vào đó | cluster lab là kubeadm trên VM, không có cloud provider nào điền IP đó, nên hai bước này không chạy được nguyên xi | bài [364](364-create-external-load-balancer-vi.md) ngay sau đây giải thích ai điền IP; [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B6.3 chứng minh nó treo `<pending>`, còn B12 dựng lại bài này bằng NodePort |
+| Mục *Tương tác với Service frontend* và *Gửi lưu lượng qua frontend* — chờ `EXTERNAL-IP` đổi từ `<pending>` sang IP thật rồi `curl` vào đó | cluster lab là kubeadm trên VM, không có cloud provider nào điền IP đó, nên hai bước này không chạy được nguyên xi | bài [364](364-create-external-load-balancer-vi.md) ngay sau đây giải thích ai điền IP; [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B9 chứng minh nó treo `<pending>`, còn ticket B3 dựng lại bài này bằng NodePort |
 | Ghi chú "nên dùng ConfigMap thay vì đóng gói cấu hình nginx vào image" | ở đây chỉ là lời khuyên thực hành tốt, bài không có bước làm nào cho nó | bài [275](275-configure-pod-configmap-vi.md), đã đọc ở giai đoạn 3 |
 | Trường `lifecycle.preStop` trong `frontend-deployment.yaml` | không liên quan tới việc nối frontend với backend, bài không giải thích gì thêm | bài [42](42-container-lifecycle-hooks-vi.md), đã đọc ở giai đoạn 2 |
 

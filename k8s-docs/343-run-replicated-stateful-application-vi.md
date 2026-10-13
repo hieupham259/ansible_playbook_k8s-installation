@@ -12,7 +12,7 @@
 **Vị trí:**
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 6 — Lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), dòng **Thực hành**, bài 3/4 ·
-Kiểm chứng ở [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md), phần B6.
+Kiểm chứng ở [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md), ticket B3 và B5.
 
 Đây là bài dài nhất của nhóm, và phần lớn độ dài là **logic của MySQL**, không phải cơ chế
 Kubernetes: ba script bash trong `init-mysql`, `clone-mysql` và sidecar `xtrabackup` chiếm gần
@@ -21,11 +21,11 @@ hai Service, ở `volumeClaimTemplates`, và ở mục *Tìm hiểu quá trình 
 
 Bài này là chỗ **trả nợ #2** của lộ trình — `volumeClaimTemplates` của StatefulSet, phát sinh ở
 bài [65](65-statefulset-vi.md) thuộc [4b](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling)
-khi cluster chưa có StorageClass; trả ở [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B6.
+khi cluster chưa có StorageClass; trả ở [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) ticket B3.
 Headless Service `mysql` trong bài thuộc **nợ #3**, đã trả xong ở
-[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) B10–B11, nên đọc phần đó bạn không còn nợ gì.
+[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B1 và B6, nên đọc phần đó bạn không còn nợ gì.
 Điều kiện tiên quyết mà bài đòi — một trình cấp phát PersistentVolume động với StorageClass mặc
-định — chính là thứ [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B3 cài.
+định — chính là thứ [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) ticket B2 cài.
 
 **Phải hiểu ở lần đọc này:**
 
@@ -54,7 +54,7 @@ Headless Service `mysql` trong bài thuộc **nợ #3**, đã trả xong ở
 | --- | --- | --- |
 | Nội dung bash bên trong `init-mysql`, `clone-mysql` và sidecar `xtrabackup` — các mục *Sinh cấu hình*, *Sao chép dữ liệu có sẵn*, *Bắt đầu replication* | là logic của MySQL và XtraBackup, không phải cơ chế Kubernetes; [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) cũng không chạy phần replication này vì ba instance kèm sidecar vượt headroom ba VM lab | cơ chế Kubernetes đứng dưới chúng là init container, đã học ở bài [50](50-init-containers-vi.md), [giai đoạn 3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời) |
 | Mục *Drain một Node* | `drain`, `cordon` và `uncordon` chưa được dạy ở giai đoạn này, và lab cũng không chạy kịch bản đó | [giai đoạn 16 — Vòng đời node](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node), bài [255](255-safely-drain-node-vi.md) |
-| Vòng lặp `SELECT @@server_id` ở mục *Gửi lưu lượng từ client*, và mục *Phá vỡ Readiness probe* | cần cụm MySQL ba instance chạy thật, thứ lab không dựng | cơ chế đứng sau — Pod thôi Ready thì rời khỏi tập endpoint của Service — đã kiểm chứng ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) B3, [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
+| Vòng lặp `SELECT @@server_id` ở mục *Gửi lưu lượng từ client*, và mục *Phá vỡ Readiness probe* | cần cụm MySQL ba instance chạy thật, thứ lab không dựng | cơ chế đứng sau — Pod thôi Ready thì rời khỏi tập endpoint của Service — đã kiểm chứng ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B5, [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
 | Ghi chú "đây không phải là cấu hình dành cho môi trường production" và `MYSQL_ALLOW_EMPTY_PASSWORD` | bài cố ý để MySQL ở mặc định không an toàn cho gọn ví dụ | bài [109](109-secret-vi.md) đã đọc ở [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod); phần siết chặt thuộc [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
 
 ---
@@ -861,7 +861,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    lab; và **thứ tự lộ trình** — kịch bản hỏng của bài cần `kubectl drain`, thao tác thuộc giai
    đoạn sau. Phần vẫn được thực hành là **phần lưu trữ**: `volumeClaimTemplates`, mỗi replica một
    PVC theo ordinal, scale lên rồi xuống, và bằng chứng PVC không tự biến mất — tức đúng nội dung
-   trả nợ #2 ở [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B6.
+   trả nợ #2 ở [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) ticket B3 và B5.
 
 </details>
 

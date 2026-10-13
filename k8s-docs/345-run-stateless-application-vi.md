@@ -10,7 +10,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 4 → nhóm [4a](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout), bài 5/7 ·
-Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B2 và B9.
+Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ticket B2 và B5.
 
 Đây là bài thực hành nhẹ nhất trong nhóm và là bài **được các bài khác dẫn ngược lại**: mục
 *Trước khi bạn bắt đầu* của [260](260-use-cascading-deletion-vi.md) yêu cầu tạo Deployment mẫu theo
@@ -43,7 +43,7 @@ Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ph�
 | --- | --- | --- |
 | `containerPort: 80` trong manifest, và câu hỏi kéo theo là làm sao gọi được nginx đó từ bên ngoài | Pod có IP nhưng cách phơi ra một địa chỉ ổn định là việc của Service, chưa học | [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
 | Câu dẫn cuối mục scale về quy trình chi tiết, gồm thu hẹp quy mô và đưa về không | là nội dung của bài kế tiếp trong chính nhóm này | bài [346](346-scale-deployment-vi.md), bài 6/7 của nhóm [4a](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout) |
-| Ba lệnh `kubectl apply -f https://k8s.io/examples/application/...` kéo manifest thẳng từ internet | lab chép manifest thành file cục bộ rồi apply, để chạy được cả khi cluster không có egress | [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B2 |
+| Ba lệnh `kubectl apply -f https://k8s.io/examples/application/...` kéo manifest thẳng từ internet | lab chép manifest thành file cục bộ rồi apply, để chạy được cả khi cluster không có egress | [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ticket B2 |
 | Mục *Trước khi bạn bắt đầu* dẫn minikube và các playground công cộng | lộ trình chạy trên cluster ba VM dựng ở Lab 00, không dùng cluster tạm hay cluster dùng chung | [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
 
 ---

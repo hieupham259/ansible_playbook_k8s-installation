@@ -10,7 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 6/9 ·
-Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B6.
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B5 — resize CPU của `api`
+tại chỗ.
 
 Bài dài và trộn lẫn hai loại nội dung: phần cơ chế bạn phải nắm chắc, và phần chi tiết vận hành
 (thứ tự thử lại, `observedGeneration`) chỉ dùng khi gỡ rối. Đọc theo bảng dưới, đừng đọc tuần tự
@@ -50,7 +51,7 @@ QoS class **bất biến** lại trở thành một luật chặn cụ thể khi
 | --- | --- | --- |
 | Câu mở đầu nói Pod thay thế "thường được quản lý bởi một workload controller" | chưa học controller nào; ở nhóm 3c mọi thứ vẫn là Pod trần | [giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller) |
 | Mục *Cách kubelet thử lại các resize bị Deferred* — thứ tự ưu tiên theo PriorityClass rồi tới QoS | cần biết PriorityClass trước mới hiểu vế đầu của thứ tự | bài [141](141-pod-priority-preemption-vi.md) ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction) |
-| Mục *Tận dụng các trường `observedGeneration`* | công cụ đối chiếu chi tiết khi một lần resize treo; Lab 3c B6 chỉ dùng `restartCount` và `status...resources` | [giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố) |
+| Mục *Tận dụng các trường `observedGeneration`* | công cụ đối chiếu chi tiết khi một lần resize treo; Lab 3c ticket B5 chỉ dùng `restartCount` và `status...resources` | [giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố) |
 | Trong *Các hạn chế*: chính sách static của CPU/Memory manager, swap, Pod Windows | phụ thuộc cấu hình kubelet ở mức node mà baseline Lab 00 không bật | bài [74](74-resource-managers-vi.md) ở [giai đoạn 7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên) và bài [200](200-cpu-management-policies-vi.md) ở [giai đoạn 25](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace) |
 
 ---

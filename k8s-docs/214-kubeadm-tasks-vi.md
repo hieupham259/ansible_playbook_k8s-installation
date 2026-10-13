@@ -11,7 +11,7 @@
 
 **Vị trí:** [Giai đoạn 8 — Dựng cluster bằng kubeadm](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm)
 → dòng **Thực hành**, bài 1/1 · Kiểm chứng ở
-[Lab 8a — Dựng cluster bằng kubeadm](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md) phần **B10** (định vị
+[Lab 8a — Dựng cluster bằng kubeadm](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md) ticket **B10** (định vị
 các việc quản trị còn lại). Phần HA của giai đoạn thuộc
 [Lab 8b](labs/LAB-8B-HA-VOI-STACKED-ETCD.md) và [Lab 8c](labs/LAB-8C-HA-VOI-EXTERNAL-ETCD.md), không
 dùng trang này.
@@ -40,7 +40,7 @@ lộ trình đã chia chúng vào các giai đoạn sau.
 | --- | --- | --- |
 | [216 — Thêm worker node Windows](216-adding-windows-nodes-vi.md) | cần một VM Windows Server, cluster lab chỉ có ba VM Linux | [giai đoạn 15](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows), [Lab 15](labs/LAB-15-NODE-WINDOWS.md) |
 | [221 — Nâng cấp cluster kubeadm](221-kubeadm-upgrade-vi.md), [222 — Nâng cấp node Linux](222-upgrading-linux-nodes-vi.md), [223 — Nâng cấp node Windows](223-upgrading-windows-nodes-vi.md), [217 — Đổi package repository](217-change-package-repository-vi.md) | chạy `kubeadm upgrade` bây giờ sẽ phá bộ phiên bản đã khóa của cluster lab | [giai đoạn 17](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster) |
-| [219 — Quản lý certificate với kubeadm](219-kubeadm-certs-vi.md) | Lab 8a mới **đọc hạn** ở B2.2 và B10; gia hạn và xoay CA là việc khác hẳn | [giai đoạn 18](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) |
+| [219 — Quản lý certificate với kubeadm](219-kubeadm-certs-vi.md) | Lab 8a mới **đọc hạn** ở ticket B1 và B10; gia hạn và xoay CA là việc khác hẳn | [giai đoạn 18](00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) |
 | [220 — Cấu hình lại một cluster kubeadm](220-kubeadm-reconfigure-vi.md), và phần *đổi cgroup driver trên cluster đang chạy* của [218](218-configure-cgroup-driver-vi.md) | giai đoạn 8 đổi cấu hình bằng cách **dựng lại**; sửa cấu hình của cluster đang chạy là quy trình khác | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
 | [215 — Thêm worker node Linux](215-adding-linux-nodes-vi.md) ở góc **vòng đời node** | ở đây bạn mới join node vào một cluster vừa dựng, chưa đặt nó cạnh cordon/drain/remove | [giai đoạn 16](00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node) |
 
@@ -105,4 +105,4 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng, rồi mở
 [Lab 8a — Dựng cluster bằng kubeadm](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md) — trang này được
-dùng lại ở phần B10 của lab.
+dùng lại ở ticket B10 của lab.

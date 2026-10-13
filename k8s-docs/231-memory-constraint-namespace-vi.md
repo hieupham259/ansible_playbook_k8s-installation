@@ -24,8 +24,8 @@ Trang này là bản memory của [229](229-cpu-constraint-namespace-vi.md): cù
 sáu trang con — **LimitRange đặt `min`/`max`**, **từ chối** Pod khai ngoài khoảng. Đọc nhanh phần
 trùng khuôn, và dừng lại ở ba thứ mà trang CPU không có: **đơn vị bộ nhớ bị chuẩn hóa** trong
 thông báo từ chối, cách đọc bằng `kubectl describe`, và điều kiện tiên quyết tính theo GiB.
-[Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) phần B2.4 và B2.5 đã thực hành cơ chế từ
-chối này; phần B2.7 đã thực hành việc sửa LimitRange không đụng Pod đang chạy.
+[Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) ticket B2 đã thực hành cơ chế từ
+chối này; ticket B6 đã thực hành việc sửa LimitRange không đụng Pod đang chạy.
 
 **Phải hiểu ở lần đọc này:**
 

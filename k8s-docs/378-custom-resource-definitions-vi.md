@@ -18,10 +18,11 @@ Giai đoạn 28 **không có lab riêng**: kiểm chứng bằng *Checkpoint c�
 apply một custom resource rồi đọc lại bằng `kubectl get`, thêm validation và chứng minh object sai
 bị từ chối — chạy trên cluster ba VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md). Phần lớn nội
 dung bài này bạn **đã làm bằng tay rồi** ở [Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md):
-B3 tạo CRD và đọc lại custom resource, B4 siết schema và xem trường lạ bị cắt tỉa, B5
-`shortNames`/`categories`/`additionalPrinterColumns`, B6 `scope` cùng RBAC cho kind mới, B6.5 bẫy
-"xóa namespace không dọn object phạm vi cluster", B7 subresource `status`, B8 vòng lặp điều khiển
-thủ công, B9 storage version. Lần đọc này là lần bạn đối chiếu những gì đã làm với tài liệu gốc.
+ticket B2 tạo CRD `DbBackup` và đọc lại custom resource, siết schema và xem trường lạ bị cắt tỉa,
+`shortNames`/`categories`/`additionalPrinterColumns`, subresource `status`, chọn `scope`, bẫy "xóa
+namespace không dọn object phạm vi cluster"; B3 RBAC và quota cho kind mới; B4 vòng lặp điều khiển
+`backup-operator`; B5 CRD không có controller; B6 storage version. Lần đọc này là lần bạn đối chiếu
+những gì đã làm với tài liệu gốc.
 
 **Đây là tài liệu tham chiếu đầy đủ về CRD, không phải bài đọc một lượt.** Bài dài hơn 2000 dòng và
 quá nửa độ dài nằm ở một mục duy nhất — *Quy tắc kiểm tra hợp lệ* — vốn là một ngôn ngữ biểu thức
@@ -63,15 +64,15 @@ phần tra khi cần — bảng bên dưới nói rõ tra ở đâu và khi nào
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | *Trước khi bạn bắt đầu* — minikube, các playground online, yêu cầu server ≥ 1.16 | cluster `lab-k8s-master` + `lab-k8s-worker1` + `lab-k8s-worker2` đã vượt yêu cầu này từ lâu và đúng dạng "ít nhất hai node không phải control plane host" mà bài đòi | không cần: dùng cluster của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md), phiên bản khóa ở bảng A1.3 của lab đó |
-| Ba ví dụ *không phải structural schema* số 1–3 và cách sửa từng ví dụ | chúng minh họa quy tắc 2 và 3 cho schema có `allOf`/`anyOf`; CRD bạn viết ở [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md) phần B3–B4 không dùng toán tử logic nào | tra lại chính mục [*Khai báo structural schema*](#specifying-a-structural-schema) của bài này khi CRD báo condition `NonStructural` |
-| *Kiểm soát việc cắt tỉa* (`x-kubernetes-preserve-unknown-fields`), *IntOrString*, *RawExtension* | ba lối thoát khỏi cắt tỉa mặc định; chỉ cần khi CRD phải chứa JSON tự do hoặc nhúng nguyên một object Kubernetes | không có bài nào khác trong lộ trình dạy ba phần này; nhánh cắt tỉa mặc định ở [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md) phần B4 là đủ cho giai đoạn 28, tra lại tại chỗ khi tự viết CRD như vậy |
+| Ba ví dụ *không phải structural schema* số 1–3 và cách sửa từng ví dụ | chúng minh họa quy tắc 2 và 3 cho schema có `allOf`/`anyOf`; CRD bạn viết ở [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md) ticket B2 không dùng toán tử logic nào | tra lại chính mục [*Khai báo structural schema*](#specifying-a-structural-schema) của bài này khi CRD báo condition `NonStructural` |
+| *Kiểm soát việc cắt tỉa* (`x-kubernetes-preserve-unknown-fields`), *IntOrString*, *RawExtension* | ba lối thoát khỏi cắt tỉa mặc định; chỉ cần khi CRD phải chứa JSON tự do hoặc nhúng nguyên một object Kubernetes | không có bài nào khác trong lộ trình dạy ba phần này; nhánh cắt tỉa mặc định ở [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md) ticket B2 là đủ cho giai đoạn 28, tra lại tại chỗ khi tự viết CRD như vậy |
 | *Phục vụ nhiều phiên bản của một CRD* | mục này chỉ có một câu và một link, không trình bày gì | bài [377 — Các phiên bản trong CustomResourceDefinition](377-custom-resource-definition-versioning-vi.md), **bài 5/11 ngay sau bài này** của giai đoạn 28; nền khái niệm ở bài [32 — Các phiên bản lưu trữ](32-storage-version-vi.md) đã đọc ở giai đoạn 1c |
 | *Finalizer* | pre-delete hook không phải thứ riêng của CRD — custom object dùng finalizer y hệt object dựng sẵn | bài [29 — Finalizers](29-finalizers-vi.md) đã đọc ở giai đoạn 1c và thực hành ở [Lab 1c](labs/LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md) phần B1 |
 | *Validation ratcheting* và danh sách những kiểm tra hợp lệ **không** được ratcheting | cơ chế dành cho tác giả CRD muốn siết schema mà không phá dữ liệu cũ; bạn chưa có CRD nào đang chạy phải nâng cấp | đối chiếu với con đường còn lại — thêm hẳn một version mới — ở bài [377](377-custom-resource-definition-versioning-vi.md) ngay sau bài này |
 | *Quy tắc kiểm tra hợp lệ* (CEL) cùng tám mục con `messageExpression`, `message`, `reason`, `fieldPath`, `optionalOldSelf`, *Các hàm kiểm tra hợp lệ*, *Transition rule*, *Tài nguyên tiêu tốn bởi các hàm kiểm tra hợp lệ* | một ngôn ngữ biểu thức riêng, chiếm quá nửa độ dài bài; Checkpoint giai đoạn 28 chỉ đòi "object sai bị từ chối", việc mà `pattern`, `minimum`, `maximum` của mục *Kiểm tra hợp lệ* đã làm được | không có bài nào khác trong lộ trình dạy CEL; quay lại nhóm mục này khi cần ràng buộc liên trường (`self.minReplicas <= self.replicas`) hoặc ràng buộc bất biến giữa hai lần ghi |
 | *Giá trị mặc định* và *Defaulting và Nullable* | `default` chỉ có nghĩa khi đã làm chủ structural schema; ba thời điểm áp giá trị mặc định dính tới storage version | phần "khi đọc từ etcd, dùng giá trị mặc định của storage version" thuộc bài [32](32-storage-version-vi.md) đã đọc ở giai đoạn 1c; phần còn lại tra lại khi thêm trường mới vào một CRD đang chạy |
 | *Tương thích với OpenAPI V2* | phép chuyển đổi có mất mát, tồn tại để không phá `kubectl` từ 1.13 trở về trước | không có bài nào khác trong lộ trình dùng tới; `kubectl` của cluster lab tiêu thụ tài liệu OpenAPI v3 mà chính mục *Công bố schema kiểm tra hợp lệ trong OpenAPI* khuyến nghị |
-| *Priority*, *Type*, *Format* của cột hiển thị bổ sung | chi tiết trình bày: cột nào hiện ở `-o wide`, kiểu và định dạng lúc in | quay lại ba mục con này khi cần cột `-o wide`; [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md) phần B5 chỉ tạo cột với priority mặc định `0` |
+| *Priority*, *Type*, *Format* của cột hiển thị bổ sung | chi tiết trình bày: cột nào hiện ở `-o wide`, kiểu và định dạng lúc in | quay lại ba mục con này khi cần cột `-o wide`; [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md) ticket B2 chỉ tạo cột với priority mặc định `0` |
 | *Field selector* và *Các trường có thể chọn cho custom resource* (`selectableFields`) | khái niệm field selector không mới; đây chỉ là cách mở thêm trường của kind bạn cho selector | bài [28 — Field selector](28-field-selectors-vi.md) đã đọc ở giai đoạn 1b; `selectableFields` tra lại khi CRD của bạn cần lọc theo trường nằm trong `spec` |
 | *Subresource scale* (`specReplicasPath`, `statusReplicasPath`, `labelSelectorPath`) và `kubectl scale` trên custom resource | subresource này chỉ có ích khi đã có thứ đứng sau nó để co giãn hoặc bảo vệ | HPA thực hành ở giai đoạn 11 với bài [342 — Hướng dẫn từng bước về HorizontalPodAutoscaler](342-hpa-walkthrough-vi.md); PodDisruptionBudget ở bài [339](339-configure-pdb-vi.md) |
 
@@ -2231,7 +2232,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    RESTful và xóa toàn bộ custom object đang được lưu trong đó** — tức mọi `CronTab` ở mọi
    namespace, không riêng namespace bạn đang làm; tạo lại đúng CRD ấy sau này thì nó **bắt đầu ở
    trạng thái rỗng**. Đây chính là thí nghiệm bạn đã chạy ở [Lab 14](labs/LAB-14-CRD-VA-OPERATOR.md)
-   phần B6.5.
+   ticket B2 (namespace thử), và mỗi lần `teardown.sh` của dự án gỡ CRD `dbbackups`.
 3. **Khác nhau hoàn toàn** — đây là chỗ trực giác "sai thì bị từ chối hết" đánh lừa. `replicas: 15`
    vi phạm `maximum: 10`, thuộc mục *Kiểm tra hợp lệ*: **cả yêu cầu tạo bị từ chối**, kèm dòng
    `spec.replicas in body should be less than or equal to 10`, và **không có gì được lưu**.

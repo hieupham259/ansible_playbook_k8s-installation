@@ -13,8 +13,8 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3b. Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
-bài 5/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B6.1 (`--from-literal` và
-`--from-file`) và phần B7.1 (`describe` giấu giá trị, `jsonpath` thì không).
+bài 5/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) ticket B8 (`--from-literal` và
+`--from-file`; `describe` giấu giá trị, `jsonpath` thì không).
 
 Đây là bài **thứ hai trong ba bài** làm cùng một việc: 326 (file cấu hình),
 [327](327-secret-kubectl-vi.md) (`kubectl`), [328](328-secret-kustomize-vi.md) (Kustomize). Đường

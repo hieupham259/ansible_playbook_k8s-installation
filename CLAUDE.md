@@ -30,7 +30,11 @@ Phần này là bắt buộc với mọi phiên làm việc tạo hoặc sửa f
 4. **Toàn bộ** file `.md` của các bài trong nhóm đó. Không viết lab từ kiến thức chung về
    Kubernetes; nội dung lab phải bám đúng những gì bài dịch trình bày.
 5. [`k8s-docs/labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md`](k8s-docs/labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md)
-   — lab mẫu, dùng làm chuẩn về cấu trúc và giọng văn.
+   — lab mẫu, dùng làm chuẩn về cấu trúc và giọng văn cho Lab 00 → Lab 2 và Lab 15.
+6. Với Lab 3a → Lab 14: [`k8s-docs/labs/DU-AN-BOOKSTORE.md`](k8s-docs/labs/DU-AN-BOOKSTORE.md) —
+   dự án xuyên suốt, hợp đồng kỹ thuật, kế hoạch sprint; và
+   [`k8s-docs/labs/LAB-3A-POD-VA-VONG-DOI.md`](k8s-docs/labs/LAB-3A-POD-VA-VONG-DOI.md) — lab mẫu
+   **dạng dự án**, thay vai trò của Lab 1a cho nhóm lab này. Xem mục *Lab dạng dự án* bên dưới.
 
 ### Nguyên tắc chia lab
 
@@ -93,12 +97,40 @@ Thứ tự các mục:
     cố dựng môi trường link về mục 4 của Lab 00.
 12. `## 5. Nguồn chính thức` — link kubernetes.io tương ứng.
 
+### Lab dạng dự án (Lab 3a → Lab 14)
+
+Từ 13/10/2026, mọi lab từ 3a tới 14 là **một sprint** của dự án Bookstore trong
+[`DU-AN-BOOKSTORE.md`](k8s-docs/labs/DU-AN-BOOKSTORE.md). Lab giao **ticket**, không đưa lệnh để
+gõ theo. Khung 12 mục ở trên giữ nguyên, với các điều chỉnh sau:
+
+- Blockquote đầu file thêm **tag repo** đầu vào/đầu ra (`lab-<mã>`) và tên sprint.
+- `# Phần B — Sprint <n>: <tên sprint>`. `B0` là nhận bàn giao: gate A5.5 → kiểm tag repo →
+  `./scripts/deploy.sh` → `./tests/smoke.sh`. Mục cuối là *Đóng sprint: cleanup và gate cuối*.
+- Mỗi ticket là một mục `## B<n>. [BS-<mã lab>-<nn>] <tên>` gồm, theo thứ tự: **Loại** (*Tính năng*,
+  *Điều tra*, *Diễn tập sự cố*, *Vận hành*), **Bối cảnh**, **Yêu cầu**, **Ràng buộc**, **Đọc lại**
+  (link tới đúng mục của bài dịch), **Bàn giao**, **Nghiệm thu** (các dòng `PASS:`), **Câu hỏi
+  thiết kế**, rồi ba khối `<details>`: *Gợi ý*, *Script nghiệm thu*, *Lời giải tham khảo*.
+- **Yêu cầu** viết theo hành vi phải đạt, không nêu tên field hay lệnh cần dùng. Field và lệnh chỉ
+  xuất hiện trong khối gập.
+- **Script nghiệm thu** kiểm **hành vi và hợp đồng**, không kiểm cách viết manifest. Tên, label,
+  cổng, đường dẫn cố định lấy từ mục 4 của `DU-AN-BOOKSTORE.md`; không đổi hợp đồng trong lab.
+- Ticket loại *Tính năng* thay đổi repo `~/bookstore`; ticket *Điều tra* và *Diễn tập* dùng Pod thử
+  nghiệm ở `~/lab-work/<mã>/` và xóa khi xong. Diễn tập chỉ trên `lab-k8s-worker2`.
+- Script dùng chung (`deploy.sh`, `teardown.sh`, `smoke.sh`) là công cụ: lab nào đổi chúng thì
+  đưa nguyên văn. Mỗi lab kết thúc bằng phiên bản `tests/smoke.sh` của chính nó.
+- Đóng sprint: smoke PASS → commit → tag `lab-<mã>` → bundle ra ngoài VM → teardown → gate không
+  còn object mang label `app.kubernetes.io/part-of=bookstore`. Snapshot chỉ chụp **sau** teardown.
+- Nợ kỹ thuật của hệ thống (`TD-nn`) khác nợ lab (`#N`); cả hai phải ghi rõ ở checkpoint.
+- Lab 00 → Lab 2 và Lab 15 giữ dạng lab cũ.
+
 ### Quy tắc nội dung
 
 - **Không lặp lại phần môi trường.** Không chép hướng dẫn cài OS, containerd, kubeadm hay CNI
   vào lab; link về Lab 00.
-- **Số phiên bản chỉ tồn tại ở** [bảng A1.3 của Lab 00](k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa).
-  Lab khác cần nói tới phiên bản thì link về đó, tuyệt đối không chép lại con số.
+- **Số phiên bản chỉ tồn tại ở** [bảng A1.3 của Lab 00](k8s-docs/labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa)
+  (và bảng A1.4 cho stack ngoài Lab 00, gồm image của dự án Bookstore). Lab khác cần nói tới phiên
+  bản thì link về đó, tuyệt đối không chép lại con số trong văn bản; tag image trong manifest và
+  lệnh thì được phép.
 - **Gate `PASS:`** sau mỗi bước có thể sai: một dòng bắt đầu bằng `PASS:` mô tả điều kiện phải
   đạt. Bước nào không kiểm chứng được thì không đưa vào lab.
 - **Bằng chứng** ghi vào `~/lab-evidence/<mã lab>/`, ví dụ `~/lab-evidence/1b/`.
@@ -212,7 +244,9 @@ Nội dung bản dịch nằm liền mạch giữa hai khối, không bị cắt
 
 **Cả 398 bài dịch đều đã có đủ hai khối** — 186 bài khái niệm (số `00`–`185`) hoàn tất
 07/08/2026, 212 bài thực hành (số `186`+, nhánh `/docs/tasks/`) hoàn tất 25/08/2026.
-**27/27 lab trong [thư mục labs](k8s-docs/labs/README.md) đã viết.**
+**27/27 lab trong [thư mục labs](k8s-docs/labs/README.md) đã viết.** Ngày 13/10/2026, 21 lab từ 3a
+tới 14 được viết lại thành các sprint của [dự án Bookstore](k8s-docs/labs/DU-AN-BOOKSTORE.md); chưa
+lab nào trong số đó được chạy thử trên cluster thật.
 
 Lệnh soát lại nếu nghi có bài thiếu:
 

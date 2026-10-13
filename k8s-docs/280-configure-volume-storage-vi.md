@@ -12,7 +12,7 @@
 **Vị trí:**
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 6 — Lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), dòng **Thực hành**, bài 2/4 ·
-Kiểm chứng ở [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md), phần B1.
+Kiểm chứng ở [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md), ticket B1.
 
 Bài này chỉ dùng một kiểu volume duy nhất — `emptyDir` — và toàn bộ giá trị của nó nằm ở **một
 phép thử**: giết tiến trình trong container rồi xem file còn hay mất. Đọc để nắm đúng ranh giới
@@ -39,9 +39,9 @@ mà phép thử đó chứng minh được, vì phần còn lại của giai đo
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Bước `apt-get update` và `apt-get install procps` để chạy `ps aux` | chỉ là cách tìm PID bên trong image `redis`, không phải cơ chế Kubernetes | [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B1.2 làm container chết mà không phải cài thêm gói nào |
+| Bước `apt-get update` và `apt-get install procps` để chạy `ps aux` | chỉ là cách tìm PID bên trong image `redis`, không phải cơ chế Kubernetes | [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) ticket B1 làm container chết mà không phải cài thêm gói nào |
 | Chi tiết các giá trị của `restartPolicy` và link API reference của nó | ở đây chỉ cần biết `Always` khiến container quay lại | bài [47](47-pod-lifecycle-vi.md) đã đọc ở [3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời) |
-| Gợi ý lưu trữ gắn qua mạng (PD trên GCE, EBS trên EC2) ở mục *Tiếp theo* | cluster lab là ba VM bare-metal, không có provisioner của cloud nào | phần còn lại của [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) — PV, PVC và StorageClass; [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B2–B5 |
+| Gợi ý lưu trữ gắn qua mạng (PD trên GCE, EBS trên EC2) ở mục *Tiếp theo* | cluster lab là ba VM bare-metal, không có provisioner của cloud nào | phần còn lại của [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) — PV, PVC và StorageClass; [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) ticket B2–B5 |
 
 ---
 

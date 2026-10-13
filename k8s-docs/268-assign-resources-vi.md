@@ -13,8 +13,8 @@
 
 **Vị trí:** [Giai đoạn 13 — Lập lịch và workload nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao)
 → dòng **Thực hành**, bài 2/5 · Bảng ánh xạ của [Lab 13 — DRA](labs/LAB-13-DRA.md) ghi rõ trang này
-**không có thao tác riêng**: ba trang con phủ toàn bộ nội dung và được kiểm ở các phần B1, B3, B4
-và B5 của lab.
+**không có thao tác riêng**: ba trang con phủ toàn bộ nội dung và được kiểm ở ticket B1, B2, B3
+và B4 của lab.
 
 Đây là **trang mục lục**, đọc trong vài phút. Giá trị duy nhất của nó là cho biết ba bài kế tiếp
 chia việc theo vai trò nào.

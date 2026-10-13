@@ -14,7 +14,7 @@
 **Vị trí:**
 [Giai đoạn 12 — Quản trị cluster nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao)
 → dòng **Thực hành**, bài 1/2 · Kiểm chứng ở
-[Lab 12 — Vận hành vòng đời node](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md) phần B9.1, nơi lab dùng
+[Lab 12 — Vận hành vòng đời node](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md#b1-bs-12-01-kiểm-kê-nền-tảng-và-rủi-ro-trước-bảo-trì) ticket B1, nơi lab dùng
 trang này đúng công dụng của một mục lục: chọn ba mục rồi tìm trong cluster một hiện vật cho
 từng mục.
 
@@ -32,7 +32,7 @@ từng mục.
   ([208](208-encrypt-data-vi.md)), chia cluster bằng namespace ([242](242-namespaces-tasks-vi.md))
   đều nằm trong danh sách này. Công dụng của trang là **định vị** một tác vụ, rồi đọc bài đó ở
   đúng giai đoạn của nó.
-- Ba mục dùng được ngay ở giai đoạn 12 — đúng ba mục Lab 12 chọn ở B9.1:
+- Ba mục dùng được ngay ở giai đoạn 12 — đúng ba mục Lab 12 chọn ở ticket B1:
   [190 — Truy cập cluster bằng Kubernetes API](190-access-cluster-api-vi.md),
   [255 — Drain một node an toàn](255-safely-drain-node-vi.md) (cơ chế nằm dưới `kubectl drain`
   của vòng bảo trì node), và [192 — Đổi StorageClass mặc định](192-change-default-storage-class-vi.md)
@@ -50,7 +50,7 @@ từng mục.
 | --- | --- | --- |
 | Phần lớn các mục còn lại trong danh sách | mỗi mục là một tác vụ vận hành độc lập và đã có chỗ đứng riêng trong lộ trình; đọc trước là nhảy cóc | đúng giai đoạn của từng bài — ví dụ [195](195-cluster-upgrade-vi.md) ở [giai đoạn 17](00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster), [197](197-configure-upgrade-etcd-vi.md) ở [giai đoạn 19](00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa), [208](208-encrypt-data-vi.md) ở [giai đoạn 22](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu), [192](192-change-default-storage-class-vi.md) ở [giai đoạn 26](00-ALO-TRINH-ADMIN.md#giai-đoạn-26--vận-hành-lưu-trữ) |
 | Mục *Di trú khỏi dockershim* — [236](236-migrating-from-dockershim-vi.md) | chỉ áp dụng cho cluster cũ còn dùng dockershim; cluster lab dùng containerd ngay từ đầu | [giai đoạn 27](00-ALO-TRINH-ADMIN.md#giai-đoạn-27--di-chuyển-khỏi-dockershim-cluster-cũ) |
-| Ba mục về cloud provider — [254](254-running-cloud-controller-vi.md), [203](203-developing-cloud-controller-manager-vi.md), [198](198-controller-manager-leader-migration-vi.md) | cluster lab không đặt `--cloud-provider` nên không mục nào áp dụng được | bài [198](198-controller-manager-leader-migration-vi.md) là bài 2/2 của chính nhóm này — đọc ngay sau đây để biết vì sao; kiểm chứng ở [Lab 12](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md) phần B10 |
+| Ba mục về cloud provider — [254](254-running-cloud-controller-vi.md), [203](203-developing-cloud-controller-manager-vi.md), [198](198-controller-manager-leader-migration-vi.md) | cluster lab không đặt `--cloud-provider` nên không mục nào áp dụng được | bài [198](198-controller-manager-leader-migration-vi.md) là bài 2/2 của chính nhóm này — đọc ngay sau đây để biết vì sao; kiểm chứng ở [Lab 12](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md#b2-bs-12-02-control-plane-trước-mùa-nâng-cấp) ticket B2 |
 | Ghi chú "đã có bản dịch trong repo này" gắn ở hai mục | là chú thích của bản dịch về tình trạng kho tài liệu, không phải nội dung của trang gốc | không thuộc giai đoạn nào |
 
 ---

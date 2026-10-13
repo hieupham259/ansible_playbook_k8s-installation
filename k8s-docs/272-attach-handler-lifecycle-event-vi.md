@@ -11,7 +11,7 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 3/11 ·
-Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B7.1 và B7.3.
+Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B6 — `preStop` của `web` và `preStop` không chạy khi container tự hoàn thành.
 
 Bài ngắn, nhưng mục *Thảo luận* ở cuối mới là phần đáng đọc kỹ: nó nói về **thời điểm** và **thứ
 tự** — thứ mà manifest ví dụ không cho thấy.
@@ -39,7 +39,7 @@ tự** — thứ mà manifest ví dụ không cho thấy.
 | --- | --- | --- |
 | Mục *Trước khi bạn bắt đầu* gợi ý minikube và các playground | lộ trình không dùng minikube; cluster lab đã dựng sẵn | [Lab 00 — Môi trường](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
 | Chi tiết đầy đủ của hạn chế "hook không chạy khi container hoàn thành" | ở đây chỉ cần biết ranh giới, chưa cần biết vì sao | bài [42](42-container-lifecycle-hooks-vi.md#container-hooks) đã đọc ở [giai đoạn 2](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime) |
-| Mục *Tham khảo* trỏ tới API reference `Lifecycle`, `Container`, `PodSpec` | là chỗ tra field, không phải bài đọc | tra khi viết manifest ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B7 |
+| Mục *Tham khảo* trỏ tới API reference `Lifecycle`, `Container`, `PodSpec` | là chỗ tra field, không phải bài đọc | tra khi viết manifest ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B6 |
 
 ---
 

@@ -1,142 +1,122 @@
 # Lab 6a — PV, PVC và StorageClass
 
-> **Điểm bắt đầu:** snapshot `02-net-ready` — mốc do Lab 5b tạo, xem
-> [chuỗi snapshot](README.md#3-chuỗi-snapshot).
-> **Điểm kết thúc:** lab **tạo mốc mới `03-storage-ready`**. Đây là một trong bốn lab đổi hạ tầng
-> vĩnh viễn trên chuỗi chính: nó cài một dynamic provisioner và để lại một StorageClass mặc định.
-> **Lab trước:** Lab 5b — NetworkPolicy, Ingress và CNI (chưa viết, xem
-> [bản đồ lab](README.md#4-bản-đồ-lab)) đã đổi CNI, cài ingress controller và chụp `02-net-ready`.
+> **Điểm bắt đầu:** snapshot `02-net-ready` — mốc do
+> [Lab 5b](LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) tạo, xem [chuỗi snapshot](README.md#3-chuỗi-snapshot).
+> Repo `~/bookstore` ở tag `lab-5b` (hoặc bundle `~/bookstore-lab-5b.bundle` nếu bạn vừa restore
+> snapshot).
+> **Điểm kết thúc:** lab **tạo mốc mới `03-storage-ready`** — cluster có thêm một dynamic
+> provisioner và StorageClass mặc định, **không** có object hay dữ liệu nào của dự án. Repo
+> `~/bookstore` có tag `lab-6a` và một bản bundle nằm ngoài VM.
+> **Sprint dự án:** Sprint 8 — Dữ liệu bền của [dự án Bookstore](DU-AN-BOOKSTORE.md).
+> **Lab trước:** [Lab 5b — NetworkPolicy, Ingress và CNI](LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md).
+> **Lab sau:** [Lab 6b — Snapshot và volume nâng cao](LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md).
 >
-> **Cập nhật và đối chiếu phiên bản:** 25/08/2026.
+> **Cập nhật và đối chiếu phiên bản:** 13/10/2026.
 
 Lab này đi cùng phần cốt lõi của
 [Giai đoạn 6 — Lưu trữ](../00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ): tám bài khái niệm 90, 91,
-92, 96, 98, 93, 94, 95 cộng bốn bài thực hành 277, 280, 343, 344. Phần snapshot, nhân bản và
-VolumeAttributesClass **không** thuộc lab này — chúng là nội dung của Lab 6b.
+92, 96, 98, 93, 94, 95 và bốn bài thực hành 277, 280, 343, 344. Phần snapshot, nhân bản và
+VolumeAttributesClass thuộc Lab 6b. Mọi ticket dựa vào hợp đồng kỹ thuật ở
+[mục 4 của file dự án](DU-AN-BOOKSTORE.md#4-hợp-đồng-kỹ-thuật) và bố cục repo ở
+[mục 5.5](DU-AN-BOOKSTORE.md#55-bố-cục-repo-theo-sprint). Kế hoạch gốc của sprint nằm ở
+[mục 7.2](DU-AN-BOOKSTORE.md#sprint-8--lab-6a-dữ-liệu-bền).
 
 Cluster giữ nguyên baseline của
-[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); lab này **không chép
-lại con số phiên bản Kubernetes nào**. Thành phần duy nhất lab cài thêm là dynamic provisioner, và
-version của nó đã được khóa sẵn ở
-[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) — xem
-[B3](#b3-cài-dynamic-provisioner-và-storageclass-mặc-định).
-
-Lab dùng Pod, ConfigMap, Secret, downwardAPI của giai đoạn 3, Deployment/StatefulSet của giai đoạn
-4 và Service headless của giai đoạn 5 làm công cụ. **Không** dùng ResourceQuota, LimitRange, node
-affinity, taint/toleration, PriorityClass (giai đoạn 7), RBAC (giai đoạn 9) hay metrics-server
-(giai đoạn 11).
+[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa). Thành phần duy nhất lab
+cài thêm là dynamic provisioner, version của nó đã khóa ở dòng `local-path-provisioner` của
+[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00). Lab không chép lại con số
+phiên bản nào trong phần văn bản.
 
 Trước khi bắt đầu, chạy [quy trình mở đầu A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab)
-trên `lab-k8s-master`, rồi thêm hai lệnh riêng của lab này:
-
-```bash
-kubectl wait --for=condition=Ready node --all --timeout=180s
-test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
-kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
-kubectl -n kube-system get deployment coredns
-kubectl get pods -n default
-
-# Hai lệnh riêng của lab 6a: tầng lưu trữ phải còn trống hoàn toàn.
-kubectl get storageclass
-kubectl get persistentvolume
-```
-
-**PASS:** ba node `Ready`; có dòng `PASS: readyz ok`; lệnh field selector trả `No resources found`;
-CoreDNS đủ replica `READY`; namespace `default` không có Pod; **hai lệnh cuối đều trả
-`No resources found`** — cluster chưa có StorageClass và chưa có PersistentVolume nào.
+trên `lab-k8s-master`. B0 bên dưới chạy lại đúng gate đó, cộng hai lệnh riêng của lab này.
 
 ---
 
 ## 1. Kết quả phải đạt
 
-Hoàn thành lab khi có thể tự chứng minh và giải thích được:
+Hoàn thành lab khi hệ thống Bookstore đạt trạng thái sau sprint 8 — **dữ liệu của `db` và bản
+backup sống sót qua việc xóa Pod, xóa workload** (yêu cầu `R8` của dự án) — **và** bạn chứng minh,
+giải thích được:
 
-- Khác biệt giữa **Volume** và **PersistentVolume**: `emptyDir` sống theo Pod và bị xóa vĩnh viễn
-  khi Pod bị gỡ khỏi node, còn dữ liệu sau một PVC sống lâu hơn Pod dùng nó.
-- Vòng đời PV/PVC đầy đủ: cấp phát tĩnh và động, `Available` → `Bound` → `Released`, ràng buộc
-  **một-một và độc quyền** qua `claimRef`, và claim không có volume khớp thì `Pending` vô thời hạn.
-- Ý nghĩa thật của `accessModes`: `ReadWriteOnce` là ràng buộc **theo node**, không phải theo Pod;
-  access mode dùng để **khớp** PVC với PV chứ không cưỡng chế chống ghi.
-- Ba trạng thái của `storageClassName` trên PVC — đặt tên class, đặt `""`, và bỏ trống — cho ba
-  hành vi khác nhau, kể cả khi StorageClass mặc định xuất hiện **sau** khi PVC được tạo.
-- Một **StorageClass** gồm những gì: `provisioner`, `reclaimPolicy`, `volumeBindingMode`,
-  `allowVolumeExpansion`, và cách đánh dấu class mặc định cho cluster.
-- **Cấp phát động** làm gì: tạo PVC là đủ để một PV xuất hiện, ai tạo ra nó, và nó tạo cái gì trên
-  đĩa của node.
-- `volumeBindingMode: WaitForFirstConsumer` giữ PVC ở `Pending` cho tới khi có Pod tiêu thụ, và vì
-  sao `Immediate` không dùng được với backend bị ràng buộc theo topology.
-- `reclaimPolicy: Delete` và `Retain` khác nhau ra sao **khi bạn xóa PVC**, và ba bước thu hồi thủ
-  công của `Retain`.
-- `volumeClaimTemplates` của StatefulSet sinh **một PVC riêng cho mỗi replica** theo quy tắc tên
-  `<claim>-<statefulset>-<ordinal>`, và các PVC đó **không** bị xóa khi thu nhỏ hay khi xóa
-  StatefulSet — **đây là phần trả nợ #2**.
-- **Projected volume** gộp ConfigMap, Secret và downwardAPI vào một thư mục duy nhất, kèm hai khác
-  biệt cú pháp so với volume rời.
-- **Volume tạm thời tổng quát** trông như `emptyDir` nhưng sinh ra một PVC thật, tên xác định
-  `<tên Pod>-<tên volume>`, và bị xóa theo Pod nhờ owner reference.
-- **Lưu trữ tạm thời cục bộ** là tài nguyên đĩa của node: đọc được ở `Allocatable`, khai được
-  `requests`/`limits.ephemeral-storage`, và vượt limit thì kubelet **trục xuất Pod**.
-- Cleanup đúng phạm vi: xóa mọi object của lab nhưng **giữ lại provisioner và StorageClass mặc
-  định**, rồi chụp mốc `03-storage-ready`.
-
-### Nợ #2 được trả ở lab này
-
-[Sổ nợ lab](README.md#5-sổ-nợ-lab) ghi nợ #2 — `volumeClaimTemplates` của StatefulSet — phát sinh ở
-[giai đoạn 4](../00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), bài
-[65](../65-statefulset-vi.md), và bị hoãn ở
-[Lab 4b](LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) vì cluster khi đó chưa có StorageClass lẫn
-provisioner. [B6](#b6-volumeclaimtemplates--trả-nợ-2) trả món nợ đó.
-
-**Trước khi làm B6, đọc lại bài [65](../65-statefulset-vi.md)** — cụ thể hai mục *Template cho
-volume claim*, *Lưu trữ ổn định*, và mục *Lưu giữ PersistentVolumeClaim*.
-
-Nợ #3 (Service headless quản trị cho StatefulSet) đã được trả ở Lab 5a, nên B6 dùng Service
-headless như một thứ đã học. Nợ #5 (snapshot và nhân bản volume) **không** thuộc lab này.
+- Vì sao trước sprint này dữ liệu của `db` sống qua lần khởi động lại container nhưng mất khi Pod
+  bị thay, dù Pod mới vẫn tên `db-0` — và thư mục đó thật sự nằm ở đâu trên node.
+- Cấp phát động trên cluster này: ai là quản trị viên, ai là người dùng; hai điều kiện để có class
+  mặc định; PVC bỏ trống `storageClassName` khác PVC khai `""` ở đâu.
+- StorageClass của dự án quyết định những gì cho mọi PV nó sinh ra — `reclaimPolicy`,
+  `volumeBindingMode`, mở rộng dung lượng — và vì sao lưu trữ gắn với node bắt buộc
+  `WaitForFirstConsumer`.
+- `volumeClaimTemplates` sinh PVC `data-db-0` thế nào; PV của nó mang những trường nào bạn chưa
+  từng viết; dữ liệu nằm ở thư mục nào trên `lab-k8s-worker2` — **đây là phần trả nợ lab #2**.
+- Vì sao dữ liệu bền buộc mật khẩu DB vào chính dữ liệu, và chính sách `secrets/db.env` của dự án.
+- `ReadWriteOnce` là ràng buộc **theo node**: Pod backup phải chạy ở node có PV, và chọn node đó là
+  một quyết định thiết kế.
+- Ba lần "xóa nhầm" — Pod, StatefulSet, PVC: cái nào hệ thống tự chịu được, cái nào cần người; khôi
+  phục dữ liệu từ PV `Released` bằng một PV tĩnh trỏ lại thư mục cũ.
+- Projected volume gom nhiều nguồn vào một thư mục, hai khác biệt cú pháp, và volume
+  `kube-api-access-*` mà mọi Pod của bạn vẫn mang.
+- Lưu trữ tạm thời cục bộ là tài nguyên của node: `sizeLimit`, `limits.ephemeral-storage`, ai trục
+  xuất Pod, và vì sao `emptyDir` dạng `tmpfs` tính vào bộ nhớ.
+- Vì sao `hostPath` là lối thoát nguy hiểm — chứng minh bằng chính file dữ liệu của `db`.
+- Teardown phải dọn những gì để mốc `03-storage-ready` chỉ chứa hạ tầng.
 
 ### 1.1. Ánh xạ tài liệu sang bài thực hành
 
-| Bài trong nhóm 6a | Kiểm chứng ở |
+| Bài trong nhóm 6a | Ticket kiểm chứng |
 | --- | --- |
-| [90 — Lưu trữ](../90-storage-vi.md) | B0 — trang mục lục; lab đi đúng hai nhánh nó chia: bền vững (B2–B6) và tạm thời (B1, B7–B9) |
-| [91 — Các Volume](../91-volumes-vi.md) | B1 (`emptyDir` và ranh giới vòng đời của nó, chia sẻ filesystem giữa hai container), B2.1 và B2.6 (`hostPath` và vì sao nó nguy hiểm trong cluster nhiều node), B7 (`configMap`, `secret`), B9.4 (`emptyDir.medium: Memory` là tmpfs) |
-| [92 — Volume bền vững](../92-persistent-volumes-vi.md) | B2 (cấp phát tĩnh, `Available`→`Bound`, ràng buộc độc quyền, `accessModes`, `storageClassName: ""`), B3.4 (gán class mặc định hồi tố), B4 (cấp phát động, `allowVolumeExpansion`), B5 (bảo vệ object đang dùng, `Delete` so với `Retain`, pha `Released`, thu hồi thủ công) |
-| [96 — Lớp lưu trữ](../96-storage-classes-vi.md) | B3 (`provisioner`, class mặc định), B4.1 và B4.4 (`volumeBindingMode`), B4.5 (`allowVolumeExpansion`), B5.3 (`reclaimPolicy` của class quyết định policy của PV nó sinh ra) |
-| [98 — Cấp phát Volume động](../98-dynamic-provisioning-vi.md) | B3 (ranh giới admin/người dùng, hai điều kiện của hành vi mặc định), B4.2 (tạo PVC là đủ để PV xuất hiện), B5.2 (xóa claim thì volume bị hủy) |
-| [93 — Volume dạng projected](../93-projected-volumes-vi.md) | B7 — gộp ba nguồn vào một thư mục, `name` thay cho `secretName`, `defaultMode` so với `mode`, và projection `serviceAccountToken` mà mọi Pod đang dùng sẵn |
-| [94 — Volume tạm thời](../94-ephemeral-volumes-vi.md) | B8 — volume tạm thời tổng quát sinh PVC thật, quy tắc tên `<Pod>-<volume>`, owner reference, và xung đột tên làm Pod không khởi động được |
-| [95 — Lưu trữ tạm thời cục bộ](../95-ephemeral-storage-vi.md) | B9 — `ephemeral-storage` trong `Capacity`/`Allocatable`, khai `requests`/`limits`, bẫy hậu tố, và trục xuất khi vượt limit |
-| [277 — Pod dùng projected Volume](../277-configure-projected-volume-vi.md) | B7.1–B7.2 — đóng gói secret từ file rồi mount nhiều nguồn vào cùng một thư mục |
-| [280 — Pod dùng Volume để lưu trữ](../280-configure-volume-storage-vi.md) | B1 — dữ liệu trong `emptyDir` sống qua lần khởi động lại container, nhưng chết theo Pod |
-| [343 — Ứng dụng có trạng thái được nhân bản](../343-run-replicated-stateful-application-vi.md) | B6 — `volumeClaimTemplates`, mỗi replica một PVC, scale lên/xuống và PVC **không** tự biến mất. Phần replication MySQL không chạy, xem bảng dưới |
-| [344 — Ứng dụng có trạng thái đơn thực thể](../344-run-single-instance-stateful-vi.md) | B2 — PV `hostPath` tạo tay + PVC + workload đơn thực thể ghi dữ liệu; B2.4 chứng minh dữ liệu sống lâu hơn Pod |
+| [90 — Lưu trữ](../90-storage-vi.md) | B1 — nhánh tạm thời: `emptyDir` đang giữ dữ liệu `db`; B2 — nhánh bền vững chưa có gì trên cluster (không StorageClass, không PV, không CSI driver) trước khi cài provisioner |
+| [91 — Các Volume](../91-volumes-vi.md) | B1 — ranh giới vòng đời `emptyDir`; B3 — `persistentVolumeClaim`, câu hỏi `subPath` hay biến `PGDATA`; B6 — `configMap` và `downwardAPI` đi qua projected; B7 — `emptyDir.sizeLimit`, `medium: Memory`; B8 — rủi ro `hostPath`, mount chỉ đọc |
+| [92 — Volume bền vững](../92-persistent-volumes-vi.md) | B2 — gán class mặc định hồi tố, `""` so với bỏ trống; B3 — ràng buộc PVC↔PV, `nodeAffinity` do provisioner ghi, mở rộng bị từ chối; B4 — `ReadWriteOnce` theo node; B5 — bảo vệ PVC đang dùng, `Retain`, pha `Released`, thu hồi thủ công, dành riêng PV bằng `claimRef` |
+| [96 — Lớp lưu trữ](../96-storage-classes-vi.md) | B2 — `provisioner`, class mặc định; B3 — `reclaimPolicy`, `volumeBindingMode` (kèm thử `Immediate`), `allowVolumeExpansion` |
+| [98 — Cấp phát Volume động](../98-dynamic-provisioning-vi.md) | B2 — ranh giới admin/người dùng, hai điều kiện của hành vi mặc định; B3 — tạo PVC là đủ để PV xuất hiện |
+| [93 — Volume dạng projected](../93-projected-volumes-vi.md) | B6 — `status-writer` đọc label và cấu hình từ một mount; `name` thay `secretName`, `defaultMode` chỉ ở cấp projected; `serviceAccountToken` trong `kube-api-access-*` |
+| [94 — Volume tạm thời](../94-ephemeral-volumes-vi.md) | B9 ⭐ — volume tạm thời tổng quát sinh PVC `<Pod>-<volume>`, owner reference, xung đột tên; B4 — câu hỏi vì sao nó không phải chỗ cho bản backup |
+| [95 — Lưu trữ tạm thời cục bộ](../95-ephemeral-storage-vi.md) | B7 — `ephemeral-storage` trong Node, `requests` khi lập lịch, `sizeLimit` và `limits` dẫn tới trục xuất, `tmpfs` tính vào bộ nhớ, đơn vị byte |
+| [277 — Pod dùng projected Volume](../277-configure-projected-volume-vi.md) | B6 — một mục `volumes`, một `volumeMounts`, nhiều nguồn |
+| [280 — Pod dùng Volume để lưu trữ](../280-configure-volume-storage-vi.md) | B1 — phép thử "giết tiến trình rồi đọc lại" trên chính `db`: dữ liệu sống qua container restart, chết theo Pod |
+| [343 — Ứng dụng có trạng thái được nhân bản](../343-run-replicated-stateful-application-vi.md) | B3 — `volumeClaimTemplates`, PVC theo ordinal; B5 — xóa Pod thì gặp lại đúng PVC cũ, thu về 0 bản sao PVC vẫn còn, thiếu PVC thì controller tự sinh PVC mới. Phần replication MySQL xem bảng dưới |
+| [344 — Ứng dụng có trạng thái đơn thực thể](../344-run-single-instance-stateful-vi.md) | B3 — câu hỏi thiết kế: Deployment + PVC + `Recreate` so với StatefulSet cho `db`; B5 — PV tạo tay thì phải dọn tay |
 
-Các phần dưới đây **không kiểm chứng được trong lab này**, ghi rõ lý do thay vì bỏ trống:
+Bài [65 — StatefulSets](../65-statefulset-vi.md) không thuộc nhóm này nhưng là nơi phát sinh
+[nợ lab #2](README.md#5-sổ-nợ-lab). B3 trả nợ đó; B5 dùng tiếp ba mục *Hạn chế*, *Lưu trữ ổn định*,
+*Lưu giữ PersistentVolumeClaim*. **Trước khi làm B3, đọc lại bài 65** ở đúng ba mục đó cộng mục
+*Template cho volume claim*.
+
+Các phần dưới đây **không kiểm chứng được trong lab này**, ghi rõ lý do:
 
 | Phần | Vì sao không thực hành ở đây |
 | --- | --- |
-| Bài [343](../343-run-replicated-stateful-application-vi.md), phần replication MySQL | Ba instance MySQL kèm sidecar xtrabackup vượt headroom của ba VM lab, và kịch bản hỏng của bài cần `kubectl drain` — nội dung [giai đoạn 12](../00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao). B6 giữ đúng phần lưu trữ của bài |
-| Bài [92](../92-persistent-volumes-vi.md), mục *Hỗ trợ raw block volume* | Ứng dụng phải tự xử lý thiết bị khối thô; provisioner của lab chỉ cấp `volumeMode: Filesystem` |
-| Bài [92](../92-persistent-volumes-vi.md), các mục snapshot / nhân bản / volume populator | Cần CSI driver có hỗ trợ. Đây là **nợ #5**, trả ở Lab 6b |
-| Bài [92](../92-persistent-volumes-vi.md) mục *Recycle*; bài [96](../96-storage-classes-vi.md) các mục AWS/Azure/vSphere/Ceph/Portworx | `Recycle` đã lỗi thời; các provisioner cloud không tồn tại trên cluster bare-metal |
-| Bài [94](../94-ephemeral-volumes-vi.md), mục *Volume tạm thời CSI* | Cần một CSI driver viết riêng cho chế độ inline; provisioner của lab không phải CSI driver |
-| Bài [95](../95-ephemeral-storage-vi.md), mục *Hạn ngạch project của filesystem* | Beta và tắt mặc định; cần user namespace và filesystem bật `prjquota` |
+| Bài 343, phần replication MySQL (`init-mysql`, `clone-mysql`, `xtrabackup`, drain node) | Dự án chỉ có một PostgreSQL không nhân bản (ADR `db-statefulset` ở Lab 4b); ba MySQL kèm sidecar vượt headroom ba VM; `kubectl drain` thuộc [giai đoạn 16](../00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node). B3, B5 giữ đúng phần lưu trữ của bài |
+| Bài 343, scale lên sinh PVC cho ordinal mới | `db` không được có hơn một bản sao (Lab 4b). B5 chứng minh cùng cơ chế theo chiều ngược: thiếu `data-db-0` thì controller tự sinh PVC mới |
+| Bài 92, `ReadWriteOncePod`; ghi chú khuyến nghị `ReadWriteOncePod` của bài 65 | Chỉ hỗ trợ cho volume CSI; provisioner của lab không phải CSI driver. B3 hỏi điều đó có nghĩa gì với `db` |
+| Bài 92, mục *Hỗ trợ raw block volume* | Provisioner chỉ cấp `volumeMode: Filesystem` |
+| Bài 92, các mục snapshot, nhân bản, volume populator | Cần CSI driver hỗ trợ — **nợ lab #5**, Lab 6b |
+| Bài 92 mục *Recycle*; bài 96 các mục AWS, Azure, vSphere, Ceph, Portworx | `Recycle` đã lỗi thời; cluster bare-metal không có provisioner của cloud |
+| Bài 92, mục *Cập nhật node affinity* | Alpha, feature gate tắt trên baseline |
+| Bài 94, mục *Volume tạm thời CSI* | Cần CSI driver viết riêng cho chế độ inline |
+| Bài 95, mục *Hạn ngạch project của filesystem* | Beta, tắt mặc định; cần user namespace và filesystem bật `prjquota` |
+
+Nợ sau sprint: **trả nợ lab #2** (B3); **trả `TD-04`** (B3) và **`TD-08`** (B4); **phát sinh
+`TD-10`** — bản backup vẫn nằm trong cùng cluster với DB (B4). Nợ lab #5 không thuộc lab này. Xem
+[sổ nợ lab](README.md#5-sổ-nợ-lab) và [sổ nợ kỹ thuật dự án](DU-AN-BOOKSTORE.md#8-sổ-nợ-kỹ-thuật-dự-án).
 
 ### 1.2. Thời lượng
 
-3–4 giờ, tính từ lúc gate mở đầu đã PASS, **chưa kể** thời gian tắt máy và chụp snapshot ở B10.
-B4, B5 và B9 có bước phải chờ controller hội tụ; thời gian chờ phụ thuộc cấu hình cluster nên mọi
-bước chờ đều viết dưới dạng vòng lặp có điều kiện dừng, không phải con số cố định.
+4–5 giờ, **chưa kể** thời gian tắt máy và chụp snapshot. Phần cốt lõi (B0–B8, B10) khoảng 4 giờ;
+B9 là tùy chọn. B5 và B7 có các đoạn chờ controller và kubelet; thời gian chờ phụ thuộc cấu hình nên
+mọi script đều chờ theo điều kiện, không theo con số cố định. Có thể chia hai phiên: phiên 1 làm
+B0–B4, phiên 2 làm B5–B10. Giữa hai phiên cứ để nguyên cluster; đầu phiên 2 chạy lại gate ngắn
+A5.5 và `./scripts/deploy.sh`.
 
 ---
 
 ## 2. Quy ước và an toàn
 
-> **Cảnh báo — lab này đổi hạ tầng vĩnh viễn.** B3 cài một dynamic provisioner vào namespace mới
+> **Cảnh báo — lab này đổi hạ tầng vĩnh viễn.** B2 cài dynamic provisioner vào namespace mới
 > `local-path-storage` và để lại một StorageClass mặc định cho toàn cluster. B10 chụp mốc
 > `03-storage-ready`. Trước khi chạy bất kỳ lệnh nào của phần B, **bảo đảm cả ba VM đều còn
 > snapshot `02-net-ready`** — đó là điểm quay lui duy nhất.
 
-Kiểm tra trên PowerShell của máy host trước khi bắt đầu; sửa đường dẫn `.vmx` nếu VM nằm chỗ khác:
+Kiểm tra trên PowerShell của máy host; sửa đường dẫn `.vmx` nếu VM nằm chỗ khác:
 
 ```powershell
 $vmrun = 'C:\Program Files\VMware\VMware Workstation\vmrun.exe'
@@ -152,2083 +132,2729 @@ foreach ($f in $vmx) {
 }
 ```
 
-**PASS:** đúng ba dòng `PASS:`, không dòng `FAIL:` nào. Nếu một VM thiếu mốc `02-net-ready`, dừng
-lại: quay về Lab 5b và chụp mốc đó trước, đừng chạy tiếp lab này.
+**PASS:** đúng ba dòng `PASS:`, không dòng `FAIL:` nào. Thiếu mốc trên VM nào thì dừng: quay về
+Lab 5b và chụp mốc đó trước.
 
-**Cách quay lui khi hỏng:** tắt **cả ba VM**, restore **cả ba** về `02-net-ready` — không bao giờ
-restore riêng một VM, xem ghi chú cuối [mục 4 của Lab
-00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường) — rồi bật lại theo thứ tự master →
-worker 1 → worker 2, chạy lại gate mở đầu, và bắt đầu lại từ B0.
+**Quay lui khi hỏng:** chép bundle repo mới nhất ra máy host (nếu đã có commit trong lab này), tắt
+**cả ba VM**, restore **cả ba** về `02-net-ready` — không bao giờ restore riêng một VM, xem ghi chú
+cuối [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường) — rồi bật lại theo
+thứ tự master → worker 1 → worker 2 và bắt đầu lại từ B0.
 
 Các quy ước còn lại:
 
-- Mọi lệnh chạy trên `lab-k8s-master` bằng user quản trị có kubeconfig, **trừ khi ghi rõ node
-  khác**. Các bước phải chạy trên node khác đều mở đầu bằng dòng "Chạy trên `<node>`".
-- **Chạy toàn bộ phần B trong cùng một phiên shell.** Nhiều gate so sánh biến đặt ở bước trước
-  (`PV_DYN`, `PV_PATH`, `PV_RETAIN`…); mở shell mới giữa chừng là mất biến.
-- Lab tạo Namespace `lab-6a` và các object bên trong nó, cộng ba object phạm vi cluster: PV tĩnh
-  `lab-6a-static`, StorageClass `lab-6a-retain` và StorageClass `lab-6a-immediate`. Ba thứ này bị
-  xóa ở B10. Namespace `local-path-storage` và StorageClass `local-path` thì **ở lại**.
-- **Fault injection chỉ trên `lab-k8s-worker2`** — B9.3 cố tình làm một Pod vượt limit lưu trữ tạm
-  thời và bị trục xuất; bước đó ghim Pod vào đúng node này.
-- B2.6 cũng ghim một Pod vào `lab-k8s-worker2`, nhưng đó là bước **đọc**, không phá gì; nó chỉ
-  chứng minh cái bẫy của `hostPath` trong cluster nhiều node.
-- Không sửa manifest control plane, không sửa cấu hình kubelet/containerd, không đụng vào
-  `kube-system`, vào namespace của CNI hay của ingress controller do Lab 5b cài.
-- Lab cần kéo được image từ internet: `busybox` theo bảng A1.3, image của provisioner, và image
-  `docker.io/library/busybox` **không pin tag** mà manifest upstream dùng cho helper Pod. Nếu môi
-  trường cô lập, xem mục 4.
-- Manifest tạm ghi vào `~/lab-work/6a/`; bằng chứng ghi vào `~/lab-evidence/6a/`. Không lưu token,
-  key hay certificate.
-- Dòng bắt đầu bằng `PASS:` là gate; không đi tiếp khi gate fail.
+- Mọi lệnh `kubectl` chạy trên `lab-k8s-master` trừ khi ghi rõ node khác. Lệnh trên worker chạy qua
+  `ssh <node> 'sudo ...'` như các lab trước; B0 kiểm `sudo` không hỏi mật khẩu.
+- **Fault injection chỉ trên `lab-k8s-worker2`.** `db-0` ghim ở node này; mọi diễn tập xóa dữ liệu
+  (B1, B5) và mọi Pod cố ý vượt giới hạn (B7) đều nằm trên `lab-k8s-worker2`. B4 và B8 có đặt Pod
+  thử nghiệm lên `lab-k8s-worker1`, nhưng chỉ để **đọc**.
+- Repo dự án: `~/bookstore`. Manifest thử nghiệm: `~/lab-work/6a/`. Bằng chứng: `~/lab-evidence/6a/`.
+- Object thử nghiệm đặt tên bắt đầu bằng `thu-`, nằm trong namespace `bookstore` và **không** mang
+  label `app.kubernetes.io/part-of`. Ngoại lệ duy nhất là StorageClass thử nghiệm `thu-immediate`
+  (cấp cluster, B3): nó **mang** label dự án để `teardown.sh` dọn được nếu bạn quên.
+- Lab chỉ dùng kiến thức nhóm 6 và các nhóm trước: Pod, probe, downward API (3a), ConfigMap, Secret,
+  Kustomize (3b), `requests`/`limits` (3c), Deployment (4a), StatefulSet, Job, CronJob (4b), Service
+  (5a), NetworkPolicy, Ingress (5b). **Không** dùng ResourceQuota, LimitRange, PriorityClass mới,
+  taint/toleration mới (7a, 7b), RBAC (9a). Khối `nodeAffinity` của PV chỉ được **đọc** hoặc **chép
+  nguyên** từ PV có sẵn; cú pháp affinity học ở 7a.
+- NetworkPolicy của dự án **không đổi** trong sprint này: không thành phần mới nào cần đường mạng mới.
+  Pod thử nghiệm trong `bookstore` rơi vào default deny của Lab 5b — chúng không cần mạng.
+- `kubectl scale`, `kubectl delete statefulset`, `kubectl delete pvc` trên object của dự án **chỉ**
+  dùng trong diễn tập B5. Repo là nguồn sự thật duy nhất.
+- **Không** tự `rm` gì trong `/opt/local-path-provisioner` trên node. Thư mục dữ liệu chỉ được xóa
+  bởi provisioner hoặc bởi `scripts/teardown.sh`, sau khi PV tương ứng đã bị xóa.
+- **Vệ sinh bí mật** như Lab 3b: không in mật khẩu ra màn hình, không ghi vào `~/lab-evidence/`, không
+  xóa `secrets/db.env` khi dữ liệu DB còn trên cluster (B3 giải thích vì sao).
+- Dòng bắt đầu bằng `PASS:` là gate; không đi tiếp khi gate fail. Dòng `FAIL:` trong script nghiệm
+  thu nghĩa là ticket chưa xong.
 
 ---
 
-# Phần B — Thực hành kiến thức 6a
+# Phần B — Sprint 8: Dữ liệu bền
 
-## B0. Chuẩn bị workspace và ảnh chụp "trước" của tầng lưu trữ
+## B0. Nhận bàn giao sprint
 
-**Mục đích:** ghi lại trạng thái tầng lưu trữ **trước** khi lab đụng vào, để B10 có cái đối chiếu.
+**Mục đích:** xác nhận cluster ở đúng `02-net-ready` với tầng lưu trữ còn trống, repo ở đúng tag
+`lab-5b`, và hệ thống của sprint 7 dựng lại được **chỉ từ repo**.
+
+Gate ngắn A5.5, chạy nguyên văn:
+
+```bash
+kubectl wait --for=condition=Ready node --all --timeout=180s
+test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
+kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
+kubectl -n kube-system get deployment coredns
+kubectl get pods -n default
+```
+
+Hai lệnh riêng của lab này — tầng lưu trữ phải còn trống, và ghi lại ảnh chụp "trước":
 
 ```bash
 mkdir -p ~/lab-work/6a ~/lab-evidence/6a
-kubectl config current-context
-kubectl get nodes -o wide
-kubectl create namespace lab-6a
-
-{
-  echo "=== $(date -Is) — tầng lưu trữ trước Lab 6a ==="
-  echo '--- storageclass ---';      kubectl get storageclass 2>&1
-  echo '--- persistentvolume ---';  kubectl get persistentvolume 2>&1
-  echo '--- csidrivers ---';        kubectl get csidrivers 2>&1
-  echo '--- csinodes ---';          kubectl get csinodes 2>&1
-  echo '--- namespaces ---';        kubectl get namespaces
-} | tee ~/lab-evidence/6a/b0-truoc.txt
-```
-
-**Ý nghĩa:** bài [90](../90-storage-vi.md) chia phần Storage làm hai nhánh — lưu trữ dài hạn và lưu
-trữ tạm thời. Cluster lab đang ở trạng thái mà nhánh dài hạn **chưa có gì**: không StorageClass,
-không PV, và `csinodes` không quảng bá driver nào. Đó chính là lý do giai đoạn 6 cần một lab riêng
-để cài provisioner trước khi thực hành được nhánh dài hạn.
-
-```bash
 SC_N="$(kubectl get storageclass --no-headers 2>/dev/null | wc -l)"
 PV_N="$(kubectl get persistentvolume --no-headers 2>/dev/null | wc -l)"
-NS_LPP="$(kubectl get namespace local-path-storage --ignore-not-found -o name | wc -l)"
-echo "storageclass=$SC_N | persistentvolume=$PV_N | namespace local-path-storage=$NS_LPP"
-
-test "$SC_N" -eq 0 && test "$PV_N" -eq 0 && test "$NS_LPP" -eq 0 \
-  && echo 'PASS: tầng lưu trữ trống, lab bắt đầu từ đúng điểm xuất phát'
-
-kubectl get namespace lab-6a -o jsonpath='{.status.phase}'; echo
+echo "storageclass=$SC_N persistentvolume=$PV_N"
+{ [ "$SC_N" -eq 0 ] && [ "$PV_N" -eq 0 ]; } && echo 'PASS: tang luu tru trong, dung diem xuat phat'
+{
+  echo "=== $(date -Is) — tang luu tru truoc Lab 6a ==="
+  kubectl get storageclass,persistentvolume 2>&1
+  kubectl get csidrivers 2>&1
+  kubectl get namespaces
+} > ~/lab-evidence/6a/b0-truoc.txt
 ```
 
-**PASS:** dòng `PASS: tầng lưu trữ trống…` xuất hiện; namespace `lab-6a` ở phase `Active`. Nếu
-`SC_N` khác 0, bạn đang đứng trên một cluster đã chạy lab 6a dở dang — restore `02-net-ready` cho
-cả ba VM rồi bắt đầu lại.
-
----
-
-## B1. `emptyDir` — volume chết theo Pod
-
-**Mục đích:** dựng mốc đối chiếu cho toàn bộ phần còn lại của lab. Bài
-[91](../91-volumes-vi.md#emptydir) nói `emptyDir` sống qua lần khởi động lại container nhưng bị
-**xóa vĩnh viễn** khi Pod bị gỡ khỏi node; bài [280](../280-configure-volume-storage-vi.md) là bản
-thực hành của đúng câu đó. B2 và B4 lặp lại y hệt kịch bản này với PVC và cho kết quả ngược lại.
-
-### B1.1. Một Pod, hai container, một `emptyDir` dùng chung
+`ssh` và `sudo` không hỏi mật khẩu tới hai worker — từ lab này `scripts/teardown.sh` cần chúng:
 
 ```bash
-cat > ~/lab-work/6a/emptydir.yaml <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: scratch
-  namespace: lab-6a
-spec:
-  containers:
-  - name: writer
-    image: busybox:1.37
-    command: ["sh", "-c", "date -Is >> /cache/boots.txt; sleep 30; exit 1"]
-    volumeMounts:
-    - name: cache
-      mountPath: /cache
-  - name: reader
-    image: busybox:1.37
-    command: ["sh", "-c", "sleep 3600"]
-    volumeMounts:
-    - name: cache
-      mountPath: /cache
-  volumes:
-  - name: cache
-    emptyDir:
-      sizeLimit: 64Mi
-EOF
-
-kubectl apply --dry-run=server --validate=strict -f ~/lab-work/6a/emptydir.yaml
-kubectl apply -f ~/lab-work/6a/emptydir.yaml
-kubectl wait --for=condition=Ready pod/scratch -n lab-6a --timeout=180s
-```
-
-**Ý nghĩa của từng lựa chọn:**
-
-- **Hai container cùng mount một volume** là công dụng thứ hai mà bài 91 nêu ở mục *Tại sao volume
-  quan trọng*: chia sẻ filesystem giữa các container trong cùng Pod. `reader` sống suốt mục này để
-  bạn `exec` vào đọc bất cứ lúc nào.
-- **`writer` cố tình `exit 1`** sau 30 giây. Không cần gửi tín hiệu vào PID 1 — container tự thoát,
-  `restartPolicy` mặc định `Always` khởi động lại nó, và `restartCount` tăng một cách xác định.
-- **`sizeLimit: 64Mi`** là trần dung lượng của volume, lấy từ lưu trữ tạm thời của node. B9 quay
-  lại đúng con số này ở góc nhìn tài nguyên node.
-
-**PASS:** `--dry-run=server` in `pod/scratch created (server dry run)` không lỗi validation; Pod
-`scratch` đạt condition `Ready`.
-
-### B1.2. Dữ liệu sống qua lần khởi động lại container
-
-```bash
-kubectl exec -n lab-6a scratch -c reader -- sh -c 'echo lab-6a-emptydir > /cache/marker'
-kubectl exec -n lab-6a scratch -c reader -- cat /cache/marker
-
-for i in $(seq 1 60); do
-  RC="$(kubectl get pod scratch -n lab-6a \
-    -o jsonpath='{.status.containerStatuses[?(@.name=="writer")].restartCount}')"
-  test "${RC:-0}" -ge 1 && break
-  sleep 2
+for N in lab-k8s-worker1 lab-k8s-worker2; do
+  ssh "$N" 'sudo -n true' && echo "PASS: ssh + sudo khong hoi mat khau toi $N" \
+    || echo "FAIL: $N can mat khau sudo hoac khong ssh duoc"
 done
-echo "restartCount của writer = ${RC:-0}"
-
-BOOTS="$(kubectl exec -n lab-6a scratch -c reader -- sh -c 'wc -l < /cache/boots.txt' | tr -d ' ')"
-MARK="$(kubectl exec -n lab-6a scratch -c reader -- cat /cache/marker)"
-echo "số dòng boots.txt = $BOOTS | marker = $MARK"
-
-test "${RC:-0}" -ge 1 && test "$BOOTS" -ge 2 && test "$MARK" = 'lab-6a-emptydir' \
-  && echo 'PASS: container khởi động lại, dữ liệu emptyDir vẫn còn'
 ```
 
-**Ý nghĩa:** `boots.txt` có từ hai dòng trở lên chứng minh `writer` đã chạy lại ít nhất một lần, và
-file cũ vẫn nằm nguyên trong volume. Đúng ghi chú của bài 91: *"Container bị crash không làm Pod bị
-gỡ khỏi node. Dữ liệu trong volume `emptyDir` vẫn an toàn khi container bị crash."*
-
-**PASS:** dòng `PASS: container khởi động lại, dữ liệu emptyDir vẫn còn` xuất hiện.
-
-### B1.3. Xóa Pod là mất sạch
+Repo và hệ thống của sprint 7. Nếu vừa restore snapshot, repo đã mất — khôi phục từ bundle theo
+[mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm) trước:
 
 ```bash
-kubectl delete pod scratch -n lab-6a --wait=true
-kubectl apply -f ~/lab-work/6a/emptydir.yaml
-kubectl wait --for=condition=Ready pod/scratch -n lab-6a --timeout=180s
+test -d ~/bookstore/.git || git clone ~/bookstore-lab-5b.bundle ~/bookstore
+cd ~/bookstore
+git describe --tags --exact-match HEAD 2>/dev/null | grep -qx 'lab-5b' && echo 'PASS: HEAD dung tag lab-5b'
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong co thay doi chua commit'
+kubectl get namespace bookstore >/dev/null 2>&1 \
+  && echo 'FAIL: namespace bookstore con sot tu lan truoc' || echo 'PASS: cluster chua co du an'
 
-if kubectl exec -n lab-6a scratch -c reader -- test -f /cache/marker; then
-  echo 'FAIL: marker vẫn còn sau khi Pod bị xóa và tạo lại'
-else
-  echo 'PASS: emptyDir trống trơn — dữ liệu bị xóa vĩnh viễn cùng Pod'
-fi
-
-kubectl exec -n lab-6a scratch -c reader -- sh -c 'wc -l < /cache/boots.txt' | tr -d ' '
-kubectl delete pod scratch -n lab-6a --wait=true
+./scripts/deploy.sh > ~/lab-evidence/6a/b0-deploy.txt 2>&1; echo "deploy exit=$?"
+./tests/smoke.sh > ~/lab-evidence/6a/b0-smoke-lab-5b.txt 2>&1; echo "smoke exit=$?"
+cat ~/lab-evidence/6a/b0-smoke-lab-5b.txt
 ```
 
-**Ý nghĩa:** Pod mới trùng tên, trùng manifest, có thể trùng cả node — nhưng volume là một thư mục
-mới tinh, `boots.txt` quay về 1 dòng. Đây là ranh giới mà cả giai đoạn 6 sinh ra để vượt qua: muốn
-dữ liệu sống lâu hơn Pod thì phải tách vòng đời lưu trữ khỏi vòng đời Pod, tức là PersistentVolume.
+**PASS:** gate A5.5 đạt như mô tả ở Lab 00; dòng `PASS: tang luu tru trong…`; hai dòng `PASS: ssh +
+sudo…`; ba dòng `PASS:` về repo và cluster; `deploy exit=0`, `smoke exit=0` và file smoke không có
+dòng `FAIL:`.
 
-**PASS:** dòng `PASS: emptyDir trống trơn…` xuất hiện; `boots.txt` chỉ còn 1 dòng.
+`SC_N` khác 0 nghĩa là bạn đang đứng trên cluster đã chạy Lab 6a dở dang — restore `02-net-ready`
+cho cả ba VM. `deploy.sh` hoặc `smoke.sh` fail nghĩa là repo của sprint 7 **chưa đủ**; sửa repo ở tag
+`lab-5b` trước, không sửa tay trên cluster ([mục 6.1](DU-AN-BOOKSTORE.md#61-mở-đầu)).
 
----
+## B1. [BS-6A-01] Điều tra: dữ liệu của `db` sống tới đâu
 
-## B2. Cấp phát tĩnh — PV do bạn tự tạo
+**Loại:** Điều tra — trên `lab-k8s-worker2`, nơi `db-0` chạy.
 
-**Mục đích:** đi hết vòng đời PV/PVC của bài [92](../92-persistent-volumes-vi.md) khi cluster
-**chưa có provisioner nào**. Đây đúng là con đường mà bài
-[98](../98-dynamic-provisioning-vi.md) mô tả là "công việc mà cấp phát động sinh ra để loại bỏ", và
-là cách bài [344](../344-run-single-instance-stateful-vi.md) dựng lưu trữ cho MySQL đơn thực thể.
+**Bối cảnh:** `TD-04` nằm trong sổ nợ từ Lab 3a: dữ liệu DB ở trên `emptyDir`. Trước khi sửa, đội
+cần bằng chứng đo được về **ranh giới** của nó trên chính hệ thống đang chạy — sống qua sự cố nào,
+chết theo sự cố nào, và nằm ở đâu trên đĩa node — để sau B3 chạy lại đúng phép thử đó và so sánh.
 
-### B2.1. PV tĩnh và pha `Available`
+**Yêu cầu:**
+
+1. Ghi một đơn hàng đánh dấu vào `api.orders` của DB đang chạy; ghi lại `id` của nó.
+2. Làm tiến trình PostgreSQL kết thúc để kubelet khởi động lại container `postgres` (như kịch bản A
+   ở Lab 3a B4). Chứng minh: `db-0` giữ nguyên UID, `restartCount` tăng, đơn hàng còn.
+3. Từ UID của `db-0`, tìm thư mục của volume dữ liệu trên `lab-k8s-worker2`; chứng minh nó chứa
+   file `PG_VERSION` của PostgreSQL.
+4. Xóa Pod `db-0`. Chứng minh: StatefulSet tạo lại Pod cùng tên nhưng khác UID; thư mục ở bước 3 đã
+   biến mất khỏi node; đơn hàng mất; số sách tụt về số của lần khởi tạo.
+5. Khôi phục hệ thống bằng `./scripts/deploy.sh`.
+
+**Ràng buộc:** không sửa repo; không xóa cưỡng bức. Trên node chỉ **đọc**.
+
+**Đọc lại:**
+
+- Bài [280](../280-configure-volume-storage-vi.md#cấu-hình-một-volume-cho-pod-configure-a-volume-for-a-pod)
+  — phép thử "giết tiến trình rồi đọc lại".
+- Bài [91](../91-volumes-vi.md#emptydir) — mục `emptyDir` và ghi chú về container crash; mục
+  [*Cách volume hoạt động*](../91-volumes-vi.md#cách-volume-hoạt-động-how-volumes-work).
+- Bài [90](../90-storage-vi.md) — hai nhánh dài hạn và tạm thời.
+
+**Bàn giao:** `docs/postmortem/6a-du-lieu-emptydir.md`; `~/lab-evidence/6a/b1-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` container `postgres` khởi động lại, `db-0` cùng UID, đơn hàng còn.
+- `PASS:` volume dữ liệu của `db-0` là một thư mục dưới `/var/lib/kubelet/pods/<UID>` trên
+  `lab-k8s-worker2`, có `PG_VERSION`.
+- `PASS:` sau khi xóa `db-0`: UID mới, thư mục cũ không còn trên node, đơn hàng mất, số sách giảm.
+- `PASS:` `deploy.sh` đưa số sách trở lại ít nhất 8.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/postmortem/6a-du-lieu-emptydir.md`:
+
+1. Bài 280 nói `emptyDir` tồn tại "trong suốt vòng đời của Pod". `db-0` mới cùng tên, cùng node,
+   cùng manifest — vì sao vẫn là Pod khác với volume khác? Bằng chứng nào ở bước 3–4 cho thấy điều đó?
+2. Ai tạo thư mục đó trên node, ai xóa, khi nào? Nó nằm dưới thư mục gốc nào của kubelet, và vì sao
+   điều đó khiến nó thuộc về "lưu trữ tạm thời cục bộ" của bài 95?
+3. Bài 65 hứa StatefulSet cấp "lưu trữ ổn định". Vì sao lời hứa đó chưa áp dụng cho `db` của bạn?
+   Thiếu đúng thứ gì trong spec?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Ghi và lấy `id` trong một lệnh: `INSERT ... RETURNING id`. Chạy `psql` với `-q -tA` để chỉ nhận về
+  con số.
+- Kubelet đặt volume `emptyDir` của Pod ở
+  `/var/lib/kubelet/pods/<UID của Pod>/volumes/kubernetes.io~empty-dir/<tên volume>`. Tên volume đọc
+  từ spec của StatefulSet, ở `volumeMounts` có `mountPath` là thư mục dữ liệu PostgreSQL.
+- Trên node: `ssh lab-k8s-worker2 "sudo find '<thư mục>' -maxdepth 2 -name PG_VERSION"`.
+- Việc dọn thư mục của Pod cũ do kubelet làm sau khi Pod kết thúc; chờ theo điều kiện, đừng kết luận
+  ngay sau `kubectl delete`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi đọc xong ticket; script này chính là cuộc điều tra</summary>
 
 ```bash
-cat > ~/lab-work/6a/pv-static.yaml <<'EOF'
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: lab-6a-static
-spec:
-  capacity:
-    storage: 128Mi
-  volumeMode: Filesystem
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: ""
-  hostPath:
-    path: /srv/lab-6a/static
-    type: DirectoryOrCreate
-EOF
+NS=bookstore; EV=~/lab-evidence/6a
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+SQL() { kubectl -n "$NS" exec db-0 -c postgres -- psql -X -q -U postgres -d bookstore -tAc "$1"; }
+rc() { jp pod/db-0 '{.status.containerStatuses[?(@.name=="postgres")].restartCount}'; }
 
-kubectl apply -f ~/lab-work/6a/pv-static.yaml
-kubectl get pv lab-6a-static \
-  -o custom-columns=NAME:.metadata.name,CAP:.spec.capacity.storage,\
-MODE:.spec.accessModes,RECLAIM:.spec.persistentVolumeReclaimPolicy,\
-STATUS:.status.phase,CLAIM:.spec.claimRef.name
+kubectl -n "$NS" wait --for=condition=Ready pod/db-0 --timeout=300s
+NB="$(SQL 'SELECT count(*) FROM api.books')"
+ID="$(SQL "INSERT INTO api.orders (book_id, quantity) SELECT min(id), 3 FROM api.books RETURNING id" | head -n1)"
+echo "don hang danh dau id=$ID ; so sach truoc=$NB" > "$EV/b1-don-hang.txt"
+con_don() { [ "$(SQL "SELECT count(*) FROM api.orders WHERE id = ${ID}")" = '1' ]; }
 
-PHASE="$(kubectl get pv lab-6a-static -o jsonpath='{.status.phase}')"
-CLAIMREF="$(kubectl get pv lab-6a-static -o jsonpath='{.spec.claimRef.name}')"
-echo "phase=$PHASE | claimRef=${CLAIMREF:-<rỗng>}"
+# 1. Container khởi động lại, Pod giữ nguyên
+U0="$(jp pod/db-0 '{.metadata.uid}')"; R0="$(rc)"
+kubectl -n "$NS" exec db-0 -c postgres -- kill -INT 1
+for i in $(seq 1 36); do [ "$(rc)" -gt "$R0" ] && break; sleep 5; done
+kubectl -n "$NS" wait --for=condition=Ready pod/db-0 --timeout=180s
+{ [ "$(jp pod/db-0 '{.metadata.uid}')" = "$U0" ] && [ "$(rc)" -gt "$R0" ] && con_don; } \
+  && echo 'PASS: container postgres khoi dong lai, db-0 cung UID, don hang con'
 
-test "$PHASE" = 'Available' && test -z "$CLAIMREF" \
-  && echo 'PASS: PV ở pha Available và chưa có claimRef'
+# 2. Volume dữ liệu là một thư mục của kubelet trên node
+VOL="$(jp statefulset/db '{.spec.template.spec.containers[?(@.name=="postgres")].volumeMounts[?(@.mountPath=="/var/lib/postgresql/data")].name}')"
+DIR="/var/lib/kubelet/pods/${U0}/volumes/kubernetes.io~empty-dir/${VOL}"
+echo "$DIR" > "$EV/b1-emptydir.txt"
+ssh lab-k8s-worker2 "sudo find '$DIR' -maxdepth 2 -name PG_VERSION" >> "$EV/b1-emptydir.txt" 2>&1
+grep -q 'PG_VERSION' "$EV/b1-emptydir.txt" \
+  && echo 'PASS: du lieu db-0 nam duoi /var/lib/kubelet/pods/<UID> tren lab-k8s-worker2'
+
+# 3. Pod bị thay
+kubectl -n "$NS" delete pod db-0 --wait=true
+for i in $(seq 1 60); do U1="$(jp pod/db-0 '{.metadata.uid}')"; [ -n "$U1" ] && [ "$U1" != "$U0" ] && break; sleep 2; done
+kubectl -n "$NS" wait --for=condition=Ready pod/db-0 --timeout=300s
+echo "uid cu=$U0 ; uid moi=$U1" >> "$EV/b1-don-hang.txt"
+[ "$U1" != "$U0" ] && echo 'PASS: StatefulSet tao lai db-0 cung ten, khac UID'
+for i in $(seq 1 30); do ssh lab-k8s-worker2 "sudo test -d '$DIR'" || break; sleep 2; done
+ssh lab-k8s-worker2 "sudo test -d '$DIR'" \
+  && echo 'FAIL: thu muc emptyDir cua Pod cu van con' || echo 'PASS: thu muc emptyDir cua Pod cu da bi xoa khoi node'
+NA="$(SQL 'SELECT count(*) FROM api.books')"
+echo "so sach sau khi thay Pod=$NA" >> "$EV/b1-don-hang.txt"
+{ ! con_don && [ "${NA:-0}" -lt "$NB" ]; } && echo "PASS: don hang $ID mat, so sach tu $NB tut ve $NA"
+
+# 4. Khôi phục bằng repo
+cd ~/bookstore && ./scripts/deploy.sh > "$EV/b1-deploy.txt" 2>&1
+N="$(SQL 'SELECT count(*) FROM api.books')"
+[ "${N:-0}" -ge 8 ] && echo "PASS: deploy.sh chay lai migration, api.books = $N"
 ```
 
-**Ý nghĩa của từng trường:**
+</details>
 
-- **`hostPath` + `type: DirectoryOrCreate`** — kubelet tạo thư mục nếu chưa có, quyền `0755`. Bài
-  92 cảnh báo thẳng: PV `hostPath` chỉ dùng để **kiểm thử trên một node**, "SẼ KHÔNG HOẠT ĐỘNG
-  trong cluster nhiều node". B2.6 sẽ chứng minh đúng câu cảnh báo đó thay vì né nó.
-- **`storageClassName: ""`** — PV này **không thuộc class nào**, nên chỉ bind được với PVC cũng
-  khai `""`. Đó là điều kiện để B3 chứng minh việc gán class mặc định hồi tố không đụng tới nó.
-- **`persistentVolumeReclaimPolicy: Retain`** — PV tạo tay giữ nguyên policy bạn gán lúc tạo (bài
-  96, mục *Chính sách thu hồi*). B5.5 dùng đúng PV này để thực hành ba bước thu hồi thủ công.
-- **`capacity: 128Mi`** — với `hostPath` đây chỉ là con số để **khớp** PVC, không phải hạn ngạch.
-  Không có gì chặn container ghi quá 128Mi vào thư mục đó.
+<details>
+<summary>Lời giải tham khảo — ý chính của postmortem</summary>
 
-**PASS:** dòng `PASS: PV ở pha Available và chưa có claimRef` xuất hiện.
+1. Bài 47 (Lab 3a): Pod thay thế là một Pod **mới** — UID mới — dù cùng tên. `emptyDir` được tạo khi
+   Pod được gán vào node và bị xóa khi Pod rời node (bài 91), nên nó gắn với **UID**, không gắn với
+   tên. Đường dẫn trên node chứa chính UID đó; thư mục cũ biến mất, Pod mới nhận thư mục rỗng và
+   entrypoint chạy lại script khởi tạo. Kill tiến trình chỉ khởi động lại **container** trong cùng
+   Pod — đúng phép thử của bài 280.
+2. Kubelet tạo khi dựng volume cho Pod và xóa khi dọn Pod đã kết thúc. Nó nằm dưới `/var/lib/kubelet`
+   — thư mục gốc của kubelet mà bài 95 gọi là nơi chứa dữ liệu tạm thời cục bộ, cùng filesystem với
+   log và lớp ghi được của container. Dữ liệu DB đang ăn chung chỗ với chúng.
+3. Bài 65, *Template cho volume claim* và *Lưu trữ ổn định*: lưu trữ ổn định đến từ
+   `volumeClaimTemplates`, mỗi Pod một PVC. StatefulSet `db` của Lab 4b cố ý không có trường đó vì
+   cluster chưa có StorageClass — nợ lab #2, trả ở B3.
 
-### B2.2. PVC bind vào PV: ánh xạ một-một qua `claimRef`
+</details>
 
-```bash
-cat > ~/lab-work/6a/pvc-static.yaml <<'EOF'
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-static
-  namespace: lab-6a
-spec:
-  storageClassName: ""
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 128Mi
-EOF
+## B2. [BS-6A-02] Vận hành: dynamic provisioner và StorageClass mặc định
 
-kubectl apply -f ~/lab-work/6a/pvc-static.yaml
+**Loại:** Vận hành.
 
-for i in $(seq 1 60); do
-  PVC_PHASE="$(kubectl get pvc pvc-static -n lab-6a -o jsonpath='{.status.phase}')"
-  test "$PVC_PHASE" = 'Bound' && break
-  sleep 2
-done
+**Bối cảnh:** muốn trả `TD-04` thì cluster phải cấp được PersistentVolume. Cluster lab là ba VM
+bare-metal: bảng *Provisioner* của bài 96 chỉ có provisioner nội bộ cho AzureFile, Portworx và
+vSphere, nên phải dùng một **external provisioner**. Dự án chọn local-path-provisioner: cấp phát bằng
+thư mục trên đĩa sẵn có của node, cài bằng một manifest, StorageClass của nó dùng
+`WaitForFirstConsumer`. Đây là **hạ tầng nền** của cluster
+([mục 3.3 của file dự án](DU-AN-BOOKSTORE.md#33-hạ-tầng-nền-của-cluster)): nó nằm trong snapshot, không
+nằm trong `deploy.sh`; repo chỉ giữ ghi chép ở `platform/` để Lab 8a dựng lại được.
 
-PV_PHASE="$(kubectl get pv lab-6a-static -o jsonpath='{.status.phase}')"
-CR_NS="$(kubectl get pv lab-6a-static -o jsonpath='{.spec.claimRef.namespace}')"
-CR_NAME="$(kubectl get pv lab-6a-static -o jsonpath='{.spec.claimRef.name}')"
-PVC_VOL="$(kubectl get pvc pvc-static -n lab-6a -o jsonpath='{.spec.volumeName}')"
-echo "PVC=$PVC_PHASE | PV=$PV_PHASE | claimRef=$CR_NS/$CR_NAME | volumeName=$PVC_VOL"
+**Yêu cầu:**
 
-test "$PVC_PHASE" = 'Bound' && test "$PV_PHASE" = 'Bound' \
-  && test "$CR_NS/$CR_NAME" = 'lab-6a/pvc-static' && test "$PVC_VOL" = 'lab-6a-static' \
-  && echo 'PASS: ràng buộc hai chiều PV <-> PVC đã hình thành'
-```
+1. **Trước khi cài**, tạo trong `bookstore` hai PVC thử nghiệm 64Mi, `ReadWriteOnce`:
+   `thu-khong-class` (không khai class) và `thu-chuoi-rong` (class là chuỗi rỗng). Ghi trạng thái.
+2. Tải manifest chính thức của local-path-provisioner **đúng version ở A1.4**, lưu nguyên văn vào
+   `platform/local-path-provisioner/local-path-storage.yaml`. Trước khi apply, đối chiếu ba điều: image
+   đúng version, tên provisioner, thư mục gốc trên node.
+3. Kéo sẵn image của provisioner và image helper mà manifest dùng lên hai worker.
+4. Provisioner chạy; StorageClass `local-path` của manifest là class mặc định **duy nhất** của
+   cluster.
+5. Chứng minh bằng hành vi cả hai điều kiện của hành vi mặc định (bài 98): `thu-khong-class` được gán
+   class hồi tố; `thu-chuoi-rong` không bị đụng và vẫn `Pending`; một PVC mới `thu-moi` không khai class
+   được điền class **ngay lúc tạo**.
+6. `platform/local-path-provisioner/README.md` ghi: version (trỏ về A1.4), nguồn tải, các bước cài,
+   cách kiểm, và vì sao không nằm trong `deploy.sh`. Commit hai file.
+7. Xóa ba PVC thử nghiệm.
 
-**Ý nghĩa:** không ai tạo PV mới cả — vòng lặp điều khiển trong control plane tìm thấy một PV khớp
-về class, access mode và dung lượng, rồi ghi hai chiều: `claimRef` trên PV và `volumeName` trên
-PVC. Bài 92 gọi đây là ánh xạ **một-một, độc quyền**. B2.3 chứng minh vế "độc quyền".
+**Ràng buộc:** không cài bằng Helm. Không sửa manifest upstream — kể cả image helper không pin tag.
+Không đưa provisioner vào `k8s/` hay `scripts/`.
 
-**PASS:** dòng `PASS: ràng buộc hai chiều PV <-> PVC đã hình thành` xuất hiện.
+**Đọc lại:**
 
-### B2.3. Claim không có volume khớp thì `Pending` vô thời hạn
+- Bài [98](../98-dynamic-provisioning-vi.md): toàn bài, đặc biệt
+  [*Hành vi mặc định*](../98-dynamic-provisioning-vi.md#hành-vi-mặc-định-defaulting-behavior).
+- Bài [96](../96-storage-classes-vi.md#provisioner): *Provisioner*,
+  [*StorageClass mặc định*](../96-storage-classes-vi.md#storageclass-mặc-định-default-storageclass).
+- Bài [92](../92-persistent-volumes-vi.md#retroactive-default-storageclass-assignment): *Gán
+  StorageClass mặc định hồi tố*, và mục [*Lớp*](../92-persistent-volumes-vi.md#lớp-class-1) của PVC.
+- Bài [91](../91-volumes-vi.md#local) — mục `local`: lưu trữ gắn với node chịu được gì, không chịu
+  được gì.
 
-```bash
-cat > ~/lab-work/6a/pvc-static-2.yaml <<'EOF'
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-static-2
-  namespace: lab-6a
-spec:
-  storageClassName: ""
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 128Mi
-EOF
+**Bàn giao:** `platform/local-path-provisioner/{README.md,local-path-storage.yaml}`;
+`docs/adr/NNNN-local-path-provisioner.md` (`NNNN` là số tiếp theo trong `docs/adr/`);
+`~/lab-work/6a/thu-pvc-truoc.yaml`; `~/lab-evidence/6a/b2-*.txt`.
 
-kubectl apply -f ~/lab-work/6a/pvc-static-2.yaml
-sleep 20
+**Nghiệm thu:**
 
-P2="$(kubectl get pvc pvc-static-2 -n lab-6a -o jsonpath='{.status.phase}')"
-PV_TOTAL="$(kubectl get pv --no-headers | wc -l)"
-echo "pvc-static-2 = $P2 | tổng số PV trong cluster = $PV_TOTAL"
+- `PASS:` trước khi cài, `thu-khong-class` `Pending` và chưa có class.
+- `PASS:` file manifest trong `platform/` đúng version A1.4, provisioner `rancher.io/local-path`, thư
+  mục gốc `/opt/local-path-provisioner`.
+- `PASS:` Deployment `local-path-provisioner` Ready với đúng image đó.
+- `PASS:` đúng một StorageClass mặc định: `local-path`, `Delete`, `WaitForFirstConsumer`.
+- `PASS:` `thu-khong-class` nhận `local-path` hồi tố; `thu-chuoi-rong` vẫn `""` và `Pending`;
+  `thu-moi` có class ngay khi được tạo.
+- `PASS:` không có CSIDriver nào tên `rancher.io/local-path`.
+- `PASS:` README nằm trong repo và đã commit; không còn PVC `thu-*`.
 
-test "$P2" = 'Pending' && test "$PV_TOTAL" -eq 1 \
-  && echo 'PASS: claim thứ hai đứng Pending, không có PV nào được sinh thêm'
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-local-path-provisioner.md`:
 
-kubectl describe pvc pvc-static-2 -n lab-6a | tail -n 12 \
-  | tee ~/lab-evidence/6a/b2-pvc-pending.txt
-```
+1. Vì sao provisioner nằm ở `platform/` và trong snapshot chứ không nằm trong `deploy.sh`? Trong dự
+   án này ai đóng vai "quản trị viên", ai là "người dùng" theo bài 98?
+2. Annotation mặc định kiểm được bằng `kubectl get`. Điều kiện thứ hai của bài 98 bạn chứng minh bằng
+   hành vi nào?
+3. `thu-khong-class` và `thu-chuoi-rong` giống hệt nhau trước khi có class mặc định, khác nhau sau đó.
+   Vì sao? Khi nào bạn **muốn** khai `""`?
+4. Ba giới hạn của local-path mà dự án phải sống cùng: volume gắn với node (bài 91, mục `local`),
+   dung lượng xin trong PVC không được cưỡng chế, và nó không phải CSI driver. Mỗi giới hạn ảnh hưởng
+   tới sprint nào sau này?
 
-**Ý nghĩa:** hai PVC giống hệt nhau, nhưng chỉ một cái được phục vụ. Bài 92 nói rõ: *"Claim sẽ ở
-trạng thái chưa ràng buộc vô thời hạn nếu không tồn tại volume khớp"*, và không có gì trong
-Kubernetes tự tạo volume cho nó — vì cluster chưa có provisioner, và vì `storageClassName: ""`
-**tự vô hiệu hóa cấp phát động** cho chính claim đó. B3.4 kiểm tra lại PVC này sau khi đã có
-StorageClass mặc định: nó vẫn `Pending`.
+<details>
+<summary>Gợi ý</summary>
 
-**PASS:** dòng `PASS: claim thứ hai đứng Pending…` xuất hiện; số PV trong cluster vẫn là 1.
+1. Manifest nằm ở
+   `https://raw.githubusercontent.com/rancher/local-path-provisioner/<version>/deploy/local-path-storage.yaml`.
+   Đọc version ở dòng `local-path-provisioner` của A1.4 rồi đặt vào biến `LPP_VERSION`.
+2. Ba gate bằng `grep` trên file đã tải: dòng `image: docker.io/rancher/local-path-provisioner:...`,
+   dòng `provisioner: rancher.io/local-path`, chuỗi `"/opt/local-path-provisioner"` trong ConfigMap.
+3. Image helper nằm trong ConfigMap của manifest (`helperPod.yaml`). Kéo bằng
+   `ssh <worker> 'sudo crictl pull <image>'`.
+4. Đánh dấu class mặc định bằng annotation `storageclass.kubernetes.io/is-default-class: "true"` —
+   `kubectl patch storageclass ...`. Manifest upstream không tự đặt annotation này.
+5. Gán hồi tố do một vòng lặp trong control plane làm, không tức thì; chờ theo điều kiện.
 
-### B2.4. Dữ liệu sống lâu hơn Pod
+</details>
 
-```bash
-cat > ~/lab-work/6a/pod-static-a.yaml <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: static-a
-  namespace: lab-6a
-spec:
-  nodeSelector:
-    kubernetes.io/hostname: lab-k8s-worker1
-  containers:
-  - name: app
-    image: busybox:1.37
-    command: ["sh", "-c", "sleep 3600"]
-    volumeMounts:
-    - name: data
-      mountPath: /data
-  volumes:
-  - name: data
-    persistentVolumeClaim:
-      claimName: pvc-static
-EOF
+<details>
+<summary>Script nghiệm thu — phần A chạy trước khi cài, phần B chạy sau</summary>
 
-kubectl apply -f ~/lab-work/6a/pod-static-a.yaml
-kubectl wait --for=condition=Ready pod/static-a -n lab-6a --timeout=180s
-
-kubectl exec -n lab-6a static-a -- sh -c 'echo lab-6a-static-payload > /data/marker'
-kubectl exec -n lab-6a static-a -- cat /data/marker
-
-kubectl delete pod static-a -n lab-6a --wait=true
-kubectl apply -f ~/lab-work/6a/pod-static-a.yaml
-kubectl wait --for=condition=Ready pod/static-a -n lab-6a --timeout=180s
-
-AFTER="$(kubectl exec -n lab-6a static-a -- cat /data/marker)"
-echo "sau khi xóa và tạo lại Pod: $AFTER"
-
-test "$AFTER" = 'lab-6a-static-payload' \
-  && echo 'PASS: dữ liệu trong PVC sống lâu hơn Pod dùng nó'
-```
-
-**Ý nghĩa:** đây là B1.3 chạy lại với một PVC thay cho `emptyDir`, và kết quả ngược hẳn. Vòng đời
-của PV **độc lập với bất kỳ Pod riêng lẻ nào** — đúng câu mở đầu của bài 92.
-
-`nodeSelector: kubernetes.io/hostname` là cách bài [96](../96-storage-classes-vi.md#volume-binding-mode)
-tự khuyến nghị để ghim Pod vào một node cụ thể. Ở đây nó cần thiết vì PV `hostPath` **không mang
-node affinity**: không ghim thì Pod có thể lên node khác và thấy một thư mục khác. B4 sẽ cho thấy
-PV do provisioner sinh ra không có vấn đề này.
-
-**PASS:** dòng `PASS: dữ liệu trong PVC sống lâu hơn Pod dùng nó` xuất hiện.
-
-### B2.5. `ReadWriteOnce` là ràng buộc theo node, không phải theo Pod
+Phần A — sau khi đã viết `~/lab-work/6a/thu-pvc-truoc.yaml`, **trước** khi cài:
 
 ```bash
-sed -e 's/name: static-a/name: static-b/' ~/lab-work/6a/pod-static-a.yaml \
-  > ~/lab-work/6a/pod-static-b.yaml
-kubectl apply -f ~/lab-work/6a/pod-static-b.yaml
-kubectl wait --for=condition=Ready pod/static-b -n lab-6a --timeout=180s
-
-kubectl get pods -n lab-6a -o wide | tee ~/lab-evidence/6a/b2-rwo.txt
-
-NODE_A="$(kubectl get pod static-a -n lab-6a -o jsonpath='{.spec.nodeName}')"
-NODE_B="$(kubectl get pod static-b -n lab-6a -o jsonpath='{.spec.nodeName}')"
-SEEN_B="$(kubectl exec -n lab-6a static-b -- cat /data/marker)"
-echo "static-a trên $NODE_A | static-b trên $NODE_B | static-b đọc được: $SEEN_B"
-
-test "$NODE_A" = "$NODE_B" && test "$SEEN_B" = 'lab-6a-static-payload' \
-  && echo 'PASS: hai Pod trên cùng một node dùng chung được một PVC ReadWriteOnce'
-```
-
-**Ý nghĩa:** trực giác thông thường đọc `ReadWriteOnce` thành "chỉ một Pod". Bài 92 nói khác:
-*"Chế độ truy cập ReadWriteOnce vẫn có thể cho phép nhiều pod truy cập volume đó khi các pod chạy
-trên cùng một node."* Muốn giới hạn còn đúng một Pod trong toàn cluster thì phải dùng
-`ReadWriteOncePod` — và chế độ đó chỉ được hỗ trợ cho volume CSI, nên provisioner của lab này không
-cấp được.
-
-**PASS:** dòng `PASS: hai Pod trên cùng một node dùng chung được một PVC ReadWriteOnce` xuất hiện.
-
-### B2.6. Cái bẫy `hostPath`: cùng manifest, khác node, khác dữ liệu
-
-```bash
-sed -e 's/name: static-a/name: static-c/' \
-    -e 's/lab-k8s-worker1/lab-k8s-worker2/' ~/lab-work/6a/pod-static-a.yaml \
-  > ~/lab-work/6a/pod-static-c.yaml
-kubectl apply -f ~/lab-work/6a/pod-static-c.yaml
-kubectl wait --for=condition=Ready pod/static-c -n lab-6a --timeout=180s
-
-NODE_C="$(kubectl get pod static-c -n lab-6a -o jsonpath='{.spec.nodeName}')"
-echo "static-c trên $NODE_C"
-
-if kubectl exec -n lab-6a static-c -- test -f /data/marker; then
-  echo 'FAIL: static-c thấy marker — kiểm tra lại nodeSelector, Pod có thể đang ở worker1'
-else
-  echo 'PASS: cùng một PVC, Pod ở node khác thấy thư mục rỗng — đúng cảnh báo của bài 92'
-fi
-
-kubectl delete pod static-b static-c -n lab-6a --wait=true
-```
-
-**Ý nghĩa:** PVC vẫn `Bound`, PV vẫn `Bound`, Pod vẫn `Running` — không có lỗi nào ở tầng
-Kubernetes. Nhưng dữ liệu thì không có, vì `hostPath` trỏ tới filesystem của **node đang chạy Pod**.
-Đây chính là gạch đầu dòng thứ hai trong cảnh báo của bài 91: *"Các Pod có cấu hình giống hệt nhau
-có thể hành xử khác nhau trên các node khác nhau do các file trên các node khác nhau."*
-
-Bài 91 nêu lối thoát đúng là volume `local` kèm `nodeAffinity` trên PV, để scheduler biết Pod chỉ
-được lên node có dữ liệu. Lab không viết tay `nodeAffinity` — B4.2 **đọc** trường đó trên PV do
-provisioner sinh ra, nơi nó được đặt tự động.
-
-**PASS:** dòng `PASS: cùng một PVC, Pod ở node khác thấy thư mục rỗng…` xuất hiện.
-
-### B2.7. Một PVC không khai `storageClassName`, để dành cho B3
-
-```bash
-cat > ~/lab-work/6a/pvc-no-class.yaml <<'EOF'
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-no-class
-  namespace: lab-6a
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 256Mi
-EOF
-
-kubectl apply -f ~/lab-work/6a/pvc-no-class.yaml
+NS=bookstore; EV=~/lab-evidence/6a
+kubectl apply -f ~/lab-work/6a/thu-pvc-truoc.yaml
 sleep 10
-
-kubectl get pvc pvc-no-class -n lab-6a -o json | grep -n 'storageClassName' || \
-  echo '(không có khóa storageClassName trong spec — đúng như mong đợi)'
-NC_PHASE="$(kubectl get pvc pvc-no-class -n lab-6a -o jsonpath='{.status.phase}')"
-NC_CLASS="$(kubectl get pvc pvc-no-class -n lab-6a -o jsonpath='{.spec.storageClassName}')"
-echo "pvc-no-class: phase=$NC_PHASE | storageClassName=${NC_CLASS:-<không đặt>}"
-
-test "$NC_PHASE" = 'Pending' && test -z "$NC_CLASS" \
-  && echo 'PASS: PVC không khai class, chưa có class mặc định, nên đứng Pending và spec vẫn trống'
+kubectl -n "$NS" get pvc thu-khong-class thu-chuoi-rong > "$EV/b2-pvc-truoc.txt" 2>&1
+{ [ "$(kubectl -n "$NS" get pvc thu-khong-class -o jsonpath='{.status.phase}')" = 'Pending' ] && \
+  [ -z "$(kubectl -n "$NS" get pvc thu-khong-class -o jsonpath='{.spec.storageClassName}')" ]; } \
+  && echo 'PASS: truoc khi cai, thu-khong-class Pending va chua co class'
 ```
 
-**Ý nghĩa:** ba trạng thái `storageClassName` của bài 92 giờ đã đủ mặt trong namespace `lab-6a`:
-`pvc-static` và `pvc-static-2` khai `""`, `pvc-no-class` **bỏ trống**. Bài 92 nói cluster xử lý hai
-thứ đó **khác nhau**, và khác biệt chỉ lộ ra khi một StorageClass mặc định xuất hiện — B3.4 kiểm
-đúng điểm đó.
-
-PVC này xin `256Mi`, lớn hơn `capacity` của PV tĩnh, nên nó không thể vô tình cướp mất
-`lab-6a-static`; ngoài ra PV đó đã `Bound` và ràng buộc là độc quyền.
-
-**PASS:** dòng `PASS: PVC không khai class…` xuất hiện.
-
----
-
-## B3. Cài dynamic provisioner và StorageClass mặc định
-
-**Mục đích:** đây là bước đổi hạ tầng của lab. Bài [98](../98-dynamic-provisioning-vi.md) đặt ranh
-giới rõ: **quản trị viên** tạo sẵn StorageClass, **người dùng** chỉ chọn class qua
-`storageClassName`. Từ B4 trở đi bạn đóng vai người dùng; ở B3 bạn đóng vai quản trị viên.
-
-Cluster lab là ba VM bare-metal, không có cloud provider, nên không có provisioner nội bộ nào dùng
-được: bảng *Provisioner* của bài [96](../96-storage-classes-vi.md#provisioner) chỉ liệt kê
-provisioner nội bộ cho AzureFile, Portworx và vSphere. Lựa chọn còn lại là một **external
-provisioner** — chương trình độc lập tuân theo đặc tả cấp phát volume của Kubernetes.
-
-Lab dùng **local-path-provisioner của Rancher**, vì ba lý do:
-
-1. Nó cấp phát bằng thư mục trên đĩa sẵn có của node, không cần thêm disk, không cần NFS server,
-   không cần thay đổi gì trên hạ tầng ngoài cluster.
-2. Nó cài bằng **đúng một manifest**, không cần Helm — nên lab này không dùng tới dòng `Helm` của
-   bảng A1.4; ngoài việc kéo image, nó không cần internet lúc chạy.
-3. StorageClass nó tạo dùng `volumeBindingMode: WaitForFirstConsumer` — đúng chế độ mà bài 96
-   khuyến nghị cho lưu trữ gắn với node, nên B4 kiểm chứng được cả hai chế độ gắn kết.
-
-Đánh đổi phải biết: volume nằm trên **một node cụ thể**, nên nó không hỗ trợ `ReadWriteMany`, không
-hỗ trợ mở rộng dung lượng, và Pod dùng volume đó chỉ chạy được trên đúng node đó. Bài
-[91](../91-volumes-vi.md#local) nói thẳng về giới hạn này: node hỏng thì volume không truy cập được
-và ứng dụng phải chịu được mức khả dụng suy giảm đó.
-
-### B3.1. Tải manifest và đọc trước khi apply
-
-Version của provisioner **không nằm trong file này và cũng không được chép vào đây**. Nó đã được
-khóa ở dòng `local-path-provisioner` của
-[bảng A1.4 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) — bảng đó
-tồn tại đúng để giữ con số ở một chỗ cho lab nào thật sự cần thì link về. Lab 6a là lab đưa thành
-phần đó vào chuỗi snapshot, nên nó **bổ sung cho bảng A1.3**; muốn đổi version thì sửa A1.4 trước,
-đừng sửa ở đây.
-
-Mở A1.4, đọc dòng `local-path-provisioner`, rồi điền vào biến dưới đây:
+Phần B — sau khi cài xong, trong cùng shell có biến `LPP_VERSION`:
 
 ```bash
-# Điền giá trị đọc được từ bảng A1.4 của Lab 00, dòng local-path-provisioner.
-LPP_VERSION='<điền version từ A1.4>'
-
-case "$LPP_VERSION" in
-  ''|*'<'*|*'>'*|*'điền'*)
-    echo 'FAIL: chưa điền LPP_VERSION — lấy version ở bảng A1.4 của Lab 00 rồi chạy lại' ;;
-  v[0-9]*)
-    echo "PASS: LPP_VERSION = $LPP_VERSION" ;;
-  *)
-    echo "FAIL: LPP_VERSION = $LPP_VERSION không có dạng vX.Y.Z như A1.4 ghi" ;;
+NS=bookstore; EV=~/lab-evidence/6a; P=~/bookstore/platform/local-path-provisioner
+case "${LPP_VERSION:-}" in
+  v[0-9]*) echo "PASS: LPP_VERSION = $LPP_VERSION" ;;
+  *) echo 'FAIL: chua dat LPP_VERSION theo bang A1.4' ;;
 esac
+{ grep -q "image: docker.io/rancher/local-path-provisioner:${LPP_VERSION}" "$P/local-path-storage.yaml" && \
+  grep -q 'provisioner: rancher.io/local-path' "$P/local-path-storage.yaml" && \
+  grep -q '"/opt/local-path-provisioner"' "$P/local-path-storage.yaml"; } \
+  && echo 'PASS: manifest trong platform/ dung version, dung provisioner, dung thu muc goc'
+
+IMG="$(kubectl -n local-path-storage get deploy local-path-provisioner -o jsonpath='{.spec.template.spec.containers[0].image}')"
+{ [ "$IMG" = "docker.io/rancher/local-path-provisioner:${LPP_VERSION}" ] && \
+  [ "$(kubectl -n local-path-storage get deploy local-path-provisioner -o jsonpath='{.status.readyReplicas}')" -ge 1 ]; } \
+  && echo 'PASS: provisioner Ready dung image da khoa'
+
+kubectl get storageclass -o custom-columns=NAME:.metadata.name,PROVISIONER:.provisioner,RECLAIM:.reclaimPolicy,BINDING:.volumeBindingMode,EXPAND:.allowVolumeExpansion \
+  > "$EV/b2-storageclass.txt"
+DEF="$(kubectl get storageclass -o jsonpath='{range .items[*]}{.metadata.name}={.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' | grep '=true$')"
+LP="$(kubectl get storageclass local-path -o jsonpath='{.reclaimPolicy}|{.volumeBindingMode}')"
+{ [ "$DEF" = 'local-path=true' ] && [ "$LP" = 'Delete|WaitForFirstConsumer' ]; } \
+  && echo 'PASS: dung mot class mac dinh: local-path, Delete, WaitForFirstConsumer'
+
+for i in $(seq 1 30); do
+  [ -n "$(kubectl -n "$NS" get pvc thu-khong-class -o jsonpath='{.spec.storageClassName}')" ] && break; sleep 2
+done
+kubectl -n "$NS" create -f - <<'EOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: thu-moi
+  namespace: bookstore
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 64Mi
+EOF
+kubectl -n "$NS" get pvc -o custom-columns=NAME:.metadata.name,CLASS:.spec.storageClassName,PHASE:.status.phase \
+  > "$EV/b2-pvc-sau.txt"
+{ [ "$(kubectl -n "$NS" get pvc thu-khong-class -o jsonpath='{.spec.storageClassName}')" = 'local-path' ] && \
+  kubectl -n "$NS" get pvc thu-chuoi-rong -o json | grep -q '"storageClassName": ""' && \
+  [ "$(kubectl -n "$NS" get pvc thu-chuoi-rong -o jsonpath='{.status.phase}')" = 'Pending' ] && \
+  [ "$(kubectl -n "$NS" get pvc thu-moi -o jsonpath='{.spec.storageClassName}')" = 'local-path' ]; } \
+  && echo 'PASS: gan hoi to cho PVC bo trong, khong dung PVC khai "", admission dien class cho PVC moi'
+
+kubectl get csidrivers -o name > "$EV/b2-csidrivers.txt" 2>&1
+grep -q 'rancher.io/local-path' "$EV/b2-csidrivers.txt" \
+  && echo 'FAIL: co CSIDriver rancher.io/local-path' || echo 'PASS: local-path khong phai CSI driver'
+
+kubectl -n "$NS" delete pvc thu-khong-class thu-chuoi-rong thu-moi --ignore-not-found --wait=true
+cd ~/bookstore
+{ git ls-files --error-unmatch platform/local-path-provisioner/README.md platform/local-path-provisioner/local-path-storage.yaml >/dev/null 2>&1 && \
+  [ -z "$(git status --porcelain platform/)" ]; } && echo 'PASS: README va manifest da commit trong platform/'
+[ -z "$(kubectl -n "$NS" get pvc -o name | grep '/thu-')" ] && echo 'PASS: da xoa PVC thu nghiem'
 ```
 
-**PASS:** dòng `PASS: LPP_VERSION = …` xuất hiện. Không đi tiếp khi còn thấy `FAIL:` — mọi lệnh
-phía dưới đều dùng lại biến này, và một placeholder chưa điền sẽ kéo theo cả chuỗi lỗi khó đọc.
+</details>
 
-```bash
-LPP_URL="https://raw.githubusercontent.com/rancher/local-path-provisioner/${LPP_VERSION}/deploy/local-path-storage.yaml"
+<details>
+<summary>Lời giải tham khảo</summary>
 
-curl -fsSL -o ~/lab-work/6a/local-path-storage.yaml "$LPP_URL"
-grep -nE '^kind:|^  name:|^  namespace:|image:|provisioner:|volumeBindingMode:|reclaimPolicy:|local-path-provisioner"' \
-  ~/lab-work/6a/local-path-storage.yaml | tee ~/lab-evidence/6a/b3-manifest.txt
+```yaml
+# ~/lab-work/6a/thu-pvc-truoc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: thu-khong-class
+  namespace: bookstore
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 64Mi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: thu-chuoi-rong
+  namespace: bookstore
+spec:
+  storageClassName: ""
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 64Mi
 ```
 
-Gate ba thứ **trước khi** apply — không apply một manifest chưa đối chiếu:
+Cài, sau khi đã chạy phần A của script nghiệm thu:
 
 ```bash
-LPP_FILE=~/lab-work/6a/local-path-storage.yaml
-grep -q "image: docker.io/rancher/local-path-provisioner:${LPP_VERSION}" "$LPP_FILE" \
-  && echo "PASS: image đúng version ${LPP_VERSION}"
-grep -q 'provisioner: rancher.io/local-path' "$LPP_FILE" \
-  && echo 'PASS: tên provisioner đúng như mong đợi'
-grep -q '"/opt/local-path-provisioner"' "$LPP_FILE" \
-  && echo 'PASS: đường dẫn gốc trên node là /opt/local-path-provisioner'
-```
+LPP_VERSION='<điền version từ dòng local-path-provisioner của A1.4>'
+P=~/bookstore/platform/local-path-provisioner
+mkdir -p "$P"
+curl -fsSL -o "$P/local-path-storage.yaml" \
+  "https://raw.githubusercontent.com/rancher/local-path-provisioner/${LPP_VERSION}/deploy/local-path-storage.yaml"
+grep -nE '^kind:|image:|provisioner:|volumeBindingMode:|reclaimPolicy:|local-path-provisioner"' \
+  "$P/local-path-storage.yaml" > ~/lab-evidence/6a/b2-manifest.txt
 
-**Ý nghĩa:** ba dòng gate trên khóa ba thứ mà phần còn lại của lab dựa vào: **version** đúng bảng
-A1.4, **tên provisioner** mà StorageClass sẽ trỏ tới, và **thư mục gốc trên node** mà B4.3 đi kiểm
-tra bằng tay. Manifest còn tạo namespace `local-path-storage`, một ServiceAccount kèm ClusterRole,
-một Deployment, một ConfigMap cấu hình và một StorageClass.
+for N in lab-k8s-worker1 lab-k8s-worker2; do
+  for I in "docker.io/rancher/local-path-provisioner:${LPP_VERSION}" docker.io/library/busybox:latest; do
+    ssh "$N" "sudo crictl pull $I" >/dev/null && echo "PASS: $N co $I" || echo "FAIL: $N khong keo duoc $I"
+  done
+done
 
-Trong ConfigMap có một helper Pod dùng image `docker.io/library/busybox` **không pin tag** — đó là
-lựa chọn của upstream, lab giữ nguyên manifest chứ không sửa. Helper Pod này là thứ thật sự
-`mkdir` và `rm -rf` thư mục volume trên node. Node phải kéo được image đó, xem mục 4 nếu môi
-trường cô lập.
-
-**PASS:** đủ ba dòng `PASS:`.
-
-### B3.2. Apply và chờ provisioner chạy
-
-```bash
-kubectl apply -f ~/lab-work/6a/local-path-storage.yaml
-kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=300s
-kubectl -n local-path-storage get pods -o wide
-
-IMG="$(kubectl -n local-path-storage get deploy local-path-provisioner \
-  -o jsonpath='{.spec.template.spec.containers[0].image}')"
-READY="$(kubectl -n local-path-storage get deploy local-path-provisioner \
-  -o jsonpath='{.status.readyReplicas}')"
-echo "image đang chạy = $IMG | readyReplicas = ${READY:-0}"
-
-test "$IMG" = "docker.io/rancher/local-path-provisioner:${LPP_VERSION}" \
-  && test "${READY:-0}" -ge 1 \
-  && echo 'PASS: provisioner đang chạy đúng version đã khóa'
-
-kubectl get storageclass \
-  -o custom-columns=NAME:.metadata.name,PROVISIONER:.provisioner,RECLAIM:.reclaimPolicy,BINDING:.volumeBindingMode,EXPAND:.allowVolumeExpansion \
-  | tee ~/lab-evidence/6a/b3-storageclass.txt
-```
-
-**Ý nghĩa:** bảng cuối là toàn bộ "hợp đồng" mà StorageClass công bố cho người dùng, đúng bốn
-trường mà bài 96 bảo phải nắm. `EXPAND` in `<none>` nghĩa là `allowVolumeExpansion` không được đặt —
-B4.5 khai thác đúng chỗ này.
-
-**PASS:** dòng `PASS: provisioner đang chạy đúng version đã khóa` xuất hiện; bảng StorageClass có
-đúng một dòng `local-path` với `rancher.io/local-path`, `Delete`, `WaitForFirstConsumer`.
-
-### B3.3. Đánh dấu class mặc định
-
-```bash
+kubectl apply -f "$P/local-path-storage.yaml"
+kubectl -n local-path-storage rollout status deployment/local-path-provisioner --timeout=300s
 kubectl patch storageclass local-path \
   -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 kubectl get storageclass
-
-DEF="$(kubectl get sc local-path \
-  -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}')"
-DEF_N="$(kubectl get sc -o json | grep -c '"storageclass.kubernetes.io/is-default-class": "true"')"
-echo "annotation trên local-path = ${DEF:-<không có>} | số class mang cờ mặc định = $DEF_N"
-
-test "$DEF" = 'true' && test "$DEF_N" -eq 1 \
-  && echo 'PASS: đúng một StorageClass được đánh dấu mặc định'
 ```
 
-**Ý nghĩa:** bài 96 khuyến nghị cluster chỉ nên có **một** class mặc định; nhiều class mặc định thì
-Kubernetes lấy cái **được tạo gần đây nhất**, và đó là hành vi dành cho lúc chuyển đổi chứ không
-phải trạng thái bình thường. Gate đếm số class mang cờ để bắt lỗi này ngay từ đầu.
+`docker.io/library/busybox:latest` là cách containerd gọi image `docker.io/library/busybox` không
+pin tag mà helper Pod của manifest dùng; helper Pod là thứ thật sự `mkdir` và `rm -rf` thư mục volume
+trên node.
 
-Bài 98 nêu **hai** điều kiện cho hành vi mặc định, không phải một: đánh dấu class, **và** admission
-controller `DefaultStorageClass` phải bật trên API server. Điều kiện thứ hai không kiểm bằng
-annotation được — B3.4 và B3.5 kiểm nó bằng hành vi thật.
-
-**PASS:** dòng `PASS: đúng một StorageClass được đánh dấu mặc định` xuất hiện; `kubectl get sc` in
-`local-path (default)`.
-
-### B3.4. Ba PVC cũ, ba số phận khác nhau
+README — heredoc **không** quote để shell chèn đúng version đã cài:
 
 ```bash
-for i in $(seq 1 30); do
-  NC_CLASS="$(kubectl get pvc pvc-no-class -n lab-6a -o jsonpath='{.spec.storageClassName}')"
-  test -n "$NC_CLASS" && break
-  sleep 2
+cat > ~/bookstore/platform/local-path-provisioner/README.md <<EOF
+# local-path-provisioner — hạ tầng nền của mốc 03-storage-ready
+
+- Cài ở Lab 6a, ticket BS-6A-02. Có sẵn trong snapshot 03-storage-ready trở đi.
+- Version: ${LPP_VERSION} — giá trị lấy từ bảng A1.4 của Lab 00; đổi version thì sửa A1.4 trước.
+- Nguồn: https://raw.githubusercontent.com/rancher/local-path-provisioner/${LPP_VERSION}/deploy/local-path-storage.yaml
+- File local-path-storage.yaml ở đây là bản tải về, không sửa gì.
+- Provisioner: rancher.io/local-path. Thư mục gốc trên node: /opt/local-path-provisioner.
+  Mỗi volume là một thư mục <tên PV>_<namespace>_<tên PVC>.
+- Image helper docker.io/library/busybox không pin tag (lựa chọn của upstream): kéo sẵn trên worker.
+
+Cài (quản trị viên cluster, một lần cho mỗi cluster):
+
+    kubectl apply -f platform/local-path-provisioner/local-path-storage.yaml
+    kubectl -n local-path-storage rollout status deployment/local-path-provisioner --timeout=300s
+    kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+
+Kiểm: đúng một StorageClass mặc định (local-path), provisioner Ready, kubectl get pv rỗng.
+
+Không nằm trong scripts/deploy.sh hay scripts/teardown.sh: đây là hạ tầng của cluster, teardown
+của dự án không được gỡ nó. Gỡ thì xóa hết PV trước, rồi mới delete -f manifest.
+EOF
+cd ~/bookstore && git add platform/ && git commit -qm 'lab-6a: platform — local-path-provisioner'
+```
+
+Ý chính cho ADR:
+
+1. Bài 98: **quản trị viên** dựng sẵn provisioner và StorageClass; **người dùng** chỉ chọn class qua
+   `storageClassName`. Ở đây quản trị viên là người dựng cluster (snapshot, `platform/`), người dùng là
+   repo ứng dụng. `teardown.sh` chạy cuối mỗi sprint — nếu provisioner nằm trong đó, mỗi lab sau sẽ
+   phải cài lại hạ tầng, và mốc `03-storage-ready` mất ý nghĩa.
+2. Admission controller `DefaultStorageClass` phải bật trên API server. Bằng chứng: `thu-moi` không
+   khai class mà spec có `local-path` ngay khi `create` trả về — chỉ admission làm được việc đó.
+3. Bỏ trống nghĩa là "chưa chọn, cho cluster chọn"; `""` nghĩa là "không class" và tự tắt cấp phát
+   động (bài 92). Gán hồi tố chỉ chạm PVC bỏ trống. Khai `""` khi bạn muốn PVC chỉ bind vào PV tĩnh
+   không class do admin tạo sẵn, kể cả khi cluster có class mặc định.
+4. Gắn node: Pod dùng PV chỉ chạy được trên node có thư mục — `db` đã ghim `lab-k8s-worker2`, bảo trì
+   node đó là gián đoạn DB (Lab 12). Không cưỡng chế dung lượng: PVC xin 1Gi vẫn ghi được tới khi đầy
+   đĩa node — B4 phải tự giới hạn số bản dump. Không phải CSI: không snapshot, không clone, không
+   `ReadWriteOncePod`, không mở rộng — nợ #5 ở Lab 6b.
+
+</details>
+
+## B3. [BS-6A-03] Dữ liệu bền cho `db`: StorageClass Retain và `volumeClaimTemplates`
+
+**Loại:** Tính năng — trả **nợ lab #2** và `TD-04`.
+
+> **Đọc lại trước khi làm:** bài [65 — StatefulSets](../65-statefulset-vi.md), bốn mục
+> [*Template cho volume claim*](../65-statefulset-vi.md#volume-claim-templates),
+> [*Lưu trữ ổn định*](../65-statefulset-vi.md#stable-storage),
+> [*Lưu giữ PersistentVolumeClaim*](../65-statefulset-vi.md#persistentvolumeclaim-retention) và
+> [*Hạn chế*](../65-statefulset-vi.md#limitations). Ở Lab 4b, `db` lên StatefulSet **không có**
+> `volumeClaimTemplates` vì cluster chưa có StorageClass; ticket này là phần còn thiếu của bài 65.
+
+**Bối cảnh:** B1 đã đo xong ranh giới của `emptyDir`; B2 cho cluster khả năng cấp PV. Class mặc định
+`local-path` dùng `reclaimPolicy: Delete`: xóa PVC — do gõ nhầm hay do một script — là thư mục dữ liệu
+trên node bị xóa theo ngay. Dữ liệu của một hiệu sách không được phép mất theo một lệnh `delete`, nên
+`db` cần một class mà **dự án** chọn chính sách giữ dữ liệu.
+
+**Yêu cầu:**
+
+1. StorageClass `bookstore-retain` ở `k8s/cluster/storageclass-retain.yaml`, label theo hợp đồng
+   ([mục 4.1](DU-AN-BOOKSTORE.md#41-tên-và-label)): cùng provisioner với B2; **giữ** volume khi PVC bị
+   xóa; chỉ cấp phát khi đã có Pod tiêu thụ; **không** phải class mặc định.
+2. StatefulSet `db` có claim template tên `data` dùng class đó, `ReadWriteOnce`, 1Gi, mang label dự
+   án (`component: db`, `name: postgresql`) — sinh ra PVC `data-db-0` theo hợp đồng. Volume
+   `emptyDir` dữ liệu bị bỏ hẳn.
+3. Thư mục dữ liệu của PostgreSQL là một **thư mục con** của volume, không phải gốc của volume.
+4. Spec khai tường minh rằng cả thu nhỏ lẫn xóa StatefulSet đều **giữ** PVC.
+5. **Chính sách mật khẩu.** Từ sprint này dữ liệu sống lâu hơn Pod, nên mật khẩu nằm trong dữ liệu
+   cũng sống lâu hơn `secrets/db.env` ([mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm)).
+   Dự án chốt: `secrets/db.env` **đi cùng** dữ liệu DB; `deploy.sh` chỉ sinh bí mật mới khi trên cluster
+   không còn dữ liệu DB nào của dự án, và **từ chối** chạy nếu thiếu `secrets/db.env` trong khi dữ
+   liệu cũ còn. Ghi ADR.
+6. `scripts/deploy.sh`, `scripts/teardown.sh` thay bằng phiên bản Lab 6a — chép nguyên văn từ khối
+   bên dưới. `teardown.sh` mới dọn cả PV `Retain` và thư mục dữ liệu trên node.
+7. Đọc trên PV của `data-db-0`: ai cấp phát nó, reclaim policy, node, thư mục trên node; chứng minh
+   thư mục đó trên `lab-k8s-worker2` chứa dữ liệu PostgreSQL trong thư mục con.
+8. Chạy lại `deploy.sh` không mất dữ liệu: đơn hàng ghi trước lần chạy thứ hai còn nguyên, số sách
+   không đổi (migration bất biến kết quả).
+9. Điều tra, xóa ngay khi xong: StorageClass `thu-immediate` (provisioner của B2, gắn kết tức thời,
+   label dự án) và PVC `thu-immediate` — chứng minh vì sao lưu trữ gắn node phải hoãn gắn kết; một yêu
+   cầu tăng dung lượng `data-db-0` bị API server từ chối.
+
+**Ràng buộc:** không đổi tên claim template hay PVC — `data` và `data-db-0` là hợp đồng. Không viết PV
+cho `db`; để provisioner cấp. Không scale `db`. Không đặt `bookstore-retain` làm mặc định. API server
+không cho sửa `volumeClaimTemplates` của StatefulSet đang tồn tại: chuyển đổi bằng
+`./scripts/teardown.sh && ./scripts/deploy.sh` — dữ liệu `emptyDir` đằng nào cũng mất (`TD-04`).
+
+**Đọc lại:**
+
+- Bài [96](../96-storage-classes-vi.md): [*Chính sách thu hồi*](../96-storage-classes-vi.md#reclaim-policy),
+  [*Chế độ gắn kết volume*](../96-storage-classes-vi.md#volume-binding-mode),
+  [*Mở rộng volume*](../96-storage-classes-vi.md#allow-volume-expansion).
+- Bài [98](../98-dynamic-provisioning-vi.md#sử-dụng-cấp-phát-động-using-dynamic-provisioning) — *Sử
+  dụng cấp phát động*.
+- Bài [92](../92-persistent-volumes-vi.md): [*Ràng buộc*](../92-persistent-volumes-vi.md#binding),
+  [*Thu hồi*](../92-persistent-volumes-vi.md#reclaiming),
+  [*Node Affinity*](../92-persistent-volumes-vi.md#node-affinity),
+  [*Mở rộng Persistent Volume Claim*](../92-persistent-volumes-vi.md#expanding-persistent-volumes-claims),
+  [*Các chế độ truy cập*](../92-persistent-volumes-vi.md#access-modes).
+- Bài [343](../343-run-replicated-stateful-application-vi.md#statefulset) — mục *Tạo StatefulSet*,
+  khối `volumeClaimTemplates` cuối manifest.
+- Bài [344](../344-run-single-instance-stateful-vi.md#cập-nhật-updating) — mục *Cập nhật*: hai ràng
+  buộc của Deployment cho ứng dụng có trạng thái.
+- Bài [91](../91-volumes-vi.md#using-subpath) — mục *Sử dụng subPath*.
+- [Mục 4.3 của file dự án](DU-AN-BOOKSTORE.md#43-dữ-liệu) — script khởi tạo chỉ chạy khi thư mục dữ
+  liệu rỗng.
+
+**Bàn giao:** `k8s/cluster/storageclass-retain.yaml`; `k8s/app/db/statefulset.yaml`; hai script mới;
+`docs/adr/NNNN-du-lieu-ben-db.md`; `docs/adr/NNNN-mat-khau-du-lieu-ben.md`;
+`~/lab-work/6a/thu-immediate.yaml`; `~/lab-evidence/6a/b3-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `teardown.sh` in `teardown: sach`; `deploy.sh` chạy hai lần liên tiếp đều thành công.
+- `PASS:` StorageClass `bookstore-retain` mang label dự án, provisioner `rancher.io/local-path`,
+  `Retain`, `WaitForFirstConsumer`, không phải mặc định.
+- `PASS:` PVC `data-db-0` `Bound`, class `bookstore-retain`, mang label dự án; thư mục dữ liệu
+  PostgreSQL của `db-0` là volume từ PVC đó.
+- `PASS:` PV của `data-db-0` do `rancher.io/local-path` cấp, `Retain`, `nodeAffinity` trỏ
+  `lab-k8s-worker2`, thư mục `/opt/local-path-provisioner/<PV>_bookstore_data-db-0`.
+- `PASS:` trên `lab-k8s-worker2`, `PG_VERSION` nằm trong một thư mục con của thư mục volume; `PGDATA`
+  trong spec là thư mục con của điểm mount.
+- `PASS:` `persistentVolumeClaimRetentionPolicy` khai tường minh `Retain` cho cả hai trường hợp.
+- `PASS:` đơn hàng ghi trước lần `deploy.sh` thứ hai còn; số sách không đổi.
+- `PASS:` thiếu `secrets/db.env` trong khi dữ liệu cũ còn thì `deploy.sh` thoát khác 0, không sinh
+  bí mật mới.
+- `PASS:` PVC `thu-immediate` đứng `Pending` kèm event `Warning`; cả hai object thử nghiệm đã xóa.
+- `PASS:` yêu cầu tăng dung lượng `data-db-0` bị API server từ chối.
+- `PASS:` `tests/smoke.sh` của Lab 5b vẫn PASS.
+
+Hai script, chép nguyên văn:
+
+```bash
+cat > ~/bookstore/scripts/deploy.sh <<'EOF'
+#!/usr/bin/env bash
+# Triển khai dự án Bookstore từ repo — phiên bản Lab 6a.
+# So với Lab 5b:
+#  - kiểm hạ tầng lưu trữ của mốc 03-storage-ready trước khi triển khai;
+#  - không sinh secrets/db.env mới khi dữ liệu DB cũ còn trên cluster: mật khẩu thật nằm trong
+#    chính dữ liệu đó (ADR mat-khau-du-lieu-ben, Lab 6a);
+#  - Job db-migrate chỉ được tạo sau khi db-0 Ready — lần đầu db-0 còn phải chờ cấp phát volume.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+NS=bookstore
+SEL='app.kubernetes.io/part-of=bookstore'
+HOST=bookstore.lab.local
+RENDER="$(mktemp)"
+trap 'rm -f "$RENDER"' EXIT
+
+# 0. Hạ tầng nền thuộc cluster, không thuộc repo: thiếu thì dừng, không tự cài.
+#    Calico, IngressClass traefik, Service traefik của mốc 02-net-ready (5b).
+for X in 'daemonset/calico-node -n kube-system' 'ingressclass/traefik' 'service/traefik -n traefik'; do
+  kubectl get $X >/dev/null 2>&1 || { echo "deploy: thieu $X - cluster chua o moc 02-net-ready"; exit 1; }
+done
+#    Provisioner rancher.io/local-path đang chạy (platform/local-path-provisioner, 6a).
+kubectl get storageclass -o jsonpath='{range .items[*]}{.provisioner}{"\n"}{end}' \
+  | grep -qx 'rancher.io/local-path' \
+  || { echo 'deploy: cluster chua co provisioner rancher.io/local-path (moc 03-storage-ready)'; exit 1; }
+kubectl -n local-path-storage rollout status deployment/local-path-provisioner --timeout=120s
+
+# 1. Bí mật sinh tại chỗ khi thiếu; secrets/ không vào git (Lab 3b, 5b).
+mkdir -p secrets
+if [ ! -s secrets/db.env ]; then
+  CU="$( { kubectl -n "$NS" get pvc data-db-0 -o name 2>/dev/null || true
+           kubectl get pv -o jsonpath='{range .items[*]}{.spec.claimRef.namespace}/{.spec.claimRef.name}{"\n"}{end}' \
+             | grep -x "$NS/data-db-0" || true; } | wc -l)"
+  if [ "$CU" -gt 0 ]; then
+    echo 'deploy: thieu secrets/db.env trong khi du lieu db cu con tren cluster.'
+    echo 'deploy: chep lai secrets/db.env cu, hoac chay scripts/teardown.sh de xoa du lieu cu.'
+    exit 1
+  fi
+  ( umask 077
+    printf 'postgres-password=%s\nauthenticator-password=%s\n' \
+      "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" > secrets/db.env )
+  echo 'deploy: da sinh secrets/db.env moi'
+fi
+if [ ! -s secrets/tls.crt ] || [ ! -s secrets/tls.key ]; then
+  ( umask 077
+    openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+      -subj '/CN=bookstore.lab.local' -addext 'subjectAltName=DNS:bookstore.lab.local' \
+      -keyout secrets/tls.key -out secrets/tls.crt 2>/dev/null )
+  echo 'deploy: da sinh certificate tu ky moi cho bookstore.lab.local'
+fi
+
+# 2. Object cấp cluster (PriorityClass, StorageClass của dự án), rồi render namespace bookstore.
+#    secrets/ nằm ngoài thư mục gốc k8s/app nên phải render với --load-restrictor (Lab 3b, ADR 0007).
+if compgen -G 'k8s/cluster/*.yaml' >/dev/null; then kubectl apply -f k8s/cluster/; fi
+kubectl kustomize --load-restrictor=LoadRestrictionsNone k8s/app > "$RENDER"
+
+# 3. Mọi thứ trừ migration. Pod template của Job không sửa được: xóa db-migrate cũ để migration
+#    chạy lại ở mỗi lần triển khai (bất biến kết quả, Lab 4b).
+kubectl -n "$NS" delete job db-migrate --ignore-not-found --wait=true
+kubectl apply -f "$RENDER" -l 'app.kubernetes.io/component!=migrate'
+
+# 4. db-0. Lần đầu, PVC data-db-0 chỉ được cấp PV sau khi db-0 được lập lịch (WaitForFirstConsumer).
+kubectl -n "$NS" rollout status statefulset/db --timeout=300s
+kubectl -n "$NS" wait --for=condition=Ready pod/db-0 --timeout=300s
+
+wait_job() {   # thành công khi Job Complete, thất bại ngay khi Job Failed
+  local c=''
+  for _ in $(seq 1 100); do
+    c="$(kubectl -n "$NS" get job "$1" \
+          -o jsonpath='{.status.conditions[?(@.status=="True")].type}' 2>/dev/null || true)"
+    case " $c " in
+      *' Complete '*) return 0 ;;
+      *' Failed '*) kubectl -n "$NS" logs "job/$1" --tail=20 || true; return 1 ;;
+    esac
+    sleep 3
+  done
+  return 1
+}
+
+# 5. Migration, sau khi db-0 đã nhận kết nối.
+if grep -q 'app.kubernetes.io/component: migrate' "$RENDER"; then
+  kubectl apply -f "$RENDER" -l 'app.kubernetes.io/component=migrate'
+  wait_job db-migrate || { echo 'deploy: db-migrate that bai'; exit 1; }
+fi
+
+# 6. Chờ các controller còn lại.
+for R in $(kubectl -n "$NS" get deployment,daemonset -l "$SEL" -o name); do
+  kubectl -n "$NS" rollout status "$R" --timeout=300s
 done
 
-STATIC_JSON="$(kubectl get pvc pvc-static -n lab-6a -o json)"
-S2_JSON="$(kubectl get pvc pvc-static-2 -n lab-6a -o json)"
-S2_PHASE="$(kubectl get pvc pvc-static-2 -n lab-6a -o jsonpath='{.status.phase}')"
+# 7. Đường vào (5b): Traefik phải phục vụ HTTPS bằng đúng certificate của dự án.
+NP="$(kubectl -n traefik get service traefik -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}')"
+IP="$(kubectl get node lab-k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+OK=0
+for _ in $(seq 1 30); do
+  if curl -fsS --max-time 5 --cacert secrets/tls.crt --resolve "${HOST}:${NP}:${IP}" \
+       "https://${HOST}:${NP}/healthz" >/dev/null 2>&1; then OK=1; break; fi
+  sleep 2
+done
+[ "$OK" -eq 1 ] || { echo "deploy: https://${HOST}:${NP}/ chua phuc vu qua Traefik"; exit 1; }
 
-echo "pvc-no-class.spec.storageClassName = ${NC_CLASS:-<vẫn trống>}"
-echo "$STATIC_JSON" | grep -c '"storageClassName": ""' | sed 's/^/pvc-static giữ chuỗi rỗng: /'
-echo "$S2_JSON"     | grep -c '"storageClassName": ""' | sed 's/^/pvc-static-2 giữ chuỗi rỗng: /'
-echo "pvc-static-2 phase = $S2_PHASE"
-
-test "$NC_CLASS" = 'local-path' \
-  && echo "$STATIC_JSON" | grep -q '"storageClassName": ""' \
-  && echo "$S2_JSON" | grep -q '"storageClassName": ""' \
-  && test "$S2_PHASE" = 'Pending' \
-  && echo 'PASS: hồi tố chỉ chạm PVC bỏ trống class, không chạm PVC khai chuỗi rỗng'
-```
-
-**Ý nghĩa:** ba PVC tạo ở B2 khi cluster chưa có class mặc định, giờ rẽ ba hướng:
-
-- `pvc-no-class` **bỏ trống** `storageClassName` → control plane **gán hồi tố** class mặc định vào
-  spec. Đây là mục *Gán StorageClass mặc định hồi tố* của bài 92 ở dạng quan sát được.
-- `pvc-static` khai `""` và đã `Bound` vào PV không class → **không bị sửa**.
-- `pvc-static-2` khai `""` và chưa bind → vẫn `Pending` **vĩnh viễn**, vì `""` tự vô hiệu hóa cấp
-  phát động. Có provisioner rồi cũng không cứu được nó.
-
-Chính vì có `pvc-no-class` bị sửa mà bạn biết admission controller `DefaultStorageClass` đang bật —
-điều kiện thứ hai của bài 98.
-
-**PASS:** dòng `PASS: hồi tố chỉ chạm PVC bỏ trống class…` xuất hiện.
-
-### B3.5. PVC mới không khai class cũng được điền
-
-```bash
-kubectl create -f - <<'EOF'
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-default-probe
-  namespace: lab-6a
-spec:
-  accessModes: ["ReadWriteOnce"]
-  resources:
-    requests:
-      storage: 128Mi
+kubectl -n "$NS" get statefulset,deployment,daemonset,cronjob,job,pvc -o wide
 EOF
 
-PROBE="$(kubectl get pvc pvc-default-probe -n lab-6a -o jsonpath='{.spec.storageClassName}')"
-echo "storageClassName được admission controller điền = ${PROBE:-<trống>}"
+cat > ~/bookstore/scripts/teardown.sh <<'EOF'
+#!/usr/bin/env bash
+# Gỡ toàn bộ dự án Bookstore khỏi cluster — phiên bản Lab 6a.
+# Từ 6a, dữ liệu của dự án sống ngoài vòng đời namespace: PV reclaimPolicy Retain nằm lại ở pha
+# Released sau khi PVC bị xóa, và thư mục do local-path-provisioner tạo trên node vẫn còn sau khi
+# PV bị xóa (bài 92, mục Retain). Snapshot chỉ chứa hạ tầng, nên teardown dọn cả hai rồi tự kiểm.
+# secrets/ trên master được giữ nguyên.
+set -euo pipefail
+NS=bookstore
+SEL='app.kubernetes.io/part-of=bookstore'
+SC=bookstore-retain
+BASE=/opt/local-path-provisioner   # thư mục gốc của local-path-provisioner (Lab 6a, BS-6A-02)
+# Kind namespaced được dọn theo label ở mọi namespace (3b, 4a, 5a, 5b); 6a thêm PVC.
+KINDS='statefulsets,deployments,daemonsets,cronjobs,jobs,replicasets,pods,poddisruptionbudgets,services,networkpolicies,ingresses,configmaps,secrets,persistentvolumeclaims'
 
-test "$PROBE" = 'local-path' \
-  && echo 'PASS: admission controller DefaultStorageClass điền class ngay lúc tạo'
+# PV của dự án, mỗi dòng "tên|reclaimPolicy": mang label dự án, thuộc StorageClass của dự án,
+# hoặc từng gắn với một PVC trong namespace bookstore.
+pv_du_an() {
+  kubectl get pv -o jsonpath='{range .items[*]}{.metadata.name}|{.spec.persistentVolumeReclaimPolicy}|{.spec.storageClassName}|{.spec.claimRef.namespace}|{.metadata.labels.app\.kubernetes\.io/part-of}{"\n"}{end}' \
+    | awk -F'|' -v ns="$NS" -v sc="$SC" '$3==sc || $4==ns || $5=="bookstore" {print $1 "|" $2}'
+}
+# Worker — nơi local-path-provisioner có thể đã tạo thư mục cho Pod của dự án.
+workers() {
+  kubectl get nodes -l '!node-role.kubernetes.io/control-plane' \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'
+}
 
-kubectl delete pvc pvc-default-probe pvc-no-class -n lab-6a --wait=true
-```
+# 1. db tắt êm trước khi xóa (bài 65, mục Hạn chế).
+if kubectl -n "$NS" get statefulset db >/dev/null 2>&1; then
+  kubectl -n "$NS" scale statefulset db --replicas=0
+  kubectl -n "$NS" wait --for=delete pod/db-0 --timeout=180s || true
+fi
 
-**Ý nghĩa:** khác với B3.4, ở đây trường được điền **ngay lúc object được tạo**, không phải do vòng
-lặp hồi tố. Đó là hai cơ chế khác nhau cùng phục vụ một mục tiêu, và cả hai chỉ hoạt động khi
-`DefaultStorageClass` bật.
+# 2. Namespace kéo theo mọi PVC bên trong; rồi object mang label ở namespace khác.
+kubectl delete namespace -l "$SEL" --ignore-not-found --wait=true --timeout=300s
+kubectl delete "$KINDS" --all-namespaces -l "$SEL" \
+  --ignore-not-found --wait=true --timeout=120s
 
-Hai PVC bị xóa ngay: chúng đã làm xong việc, và giữ lại thì B4 khó đếm PV.
+# 3. PV: loại Delete do provisioner tự thu hồi — chờ một lúc; loại Retain phải xóa tay (bước 1 của
+#    thu hồi thủ công, bài 92). Hết thời gian chờ thì xóa nốt mọi PV còn lại của dự án.
+for _ in $(seq 1 30); do
+  case "$(pv_du_an)" in *'|Delete'*) sleep 2 ;; *) break ;; esac
+done
+for P in $(pv_du_an | cut -d'|' -f1); do
+  kubectl delete pv "$P" --ignore-not-found --wait=true --timeout=120s
+done
 
-**PASS:** dòng `PASS: admission controller DefaultStorageClass điền class ngay lúc tạo` xuất hiện.
+# 4. Thư mục dữ liệu trên node, chỉ sau khi PV đã bị xóa. Thư mục volume tên <PV>_<namespace>_<PVC>,
+#    nên mẫu *_bookstore_* chỉ khớp dữ liệu của namespace bookstore.
+for N in $(workers); do
+  ssh -o BatchMode=yes "$N" "sudo sh -c 'rm -rf $BASE/*_${NS}_*'"
+done
 
----
+# 5. Object cấp cluster.
+kubectl delete storageclass "$SC" --ignore-not-found
+kubectl delete storageclass,priorityclass -l "$SEL" --ignore-not-found
 
-## B4. Cấp phát động và `volumeBindingMode`
-
-**Mục đích:** từ đây bạn đóng vai người dùng cluster: chỉ tạo PVC, không bao giờ tạo PV nữa.
-
-### B4.1. PVC không có Pod tiêu thụ thì đứng `Pending`
-
-```bash
-cat > ~/lab-work/6a/pvc-dyn.yaml <<'EOF'
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-dyn
-  namespace: lab-6a
-spec:
-  storageClassName: local-path
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 128Mi
+# 6. Tự kiểm.
+LEFT="$( { kubectl get namespace,priorityclass,storageclass -l "$SEL" --no-headers
+           kubectl get storageclass "$SC" --no-headers --ignore-not-found
+           kubectl get "all,$KINDS,endpointslices" -A -l "$SEL" --no-headers
+           pv_du_an; } 2>/dev/null | wc -l)"
+DIRS=0
+for N in $(workers); do
+  D="$(ssh -o BatchMode=yes "$N" "sudo sh -c 'ls -d $BASE/*_${NS}_* 2>/dev/null | wc -l'")"
+  DIRS=$((DIRS + D))
+done
+if [ "$LEFT" -eq 0 ] && [ "$DIRS" -eq 0 ]; then
+  echo 'teardown: sach'
+else
+  echo "teardown: con $LEFT object va $DIRS thu muc du lieu tren node"; exit 1
+fi
+# Hạ tầng nền không mang label dự án và phải còn nguyên (5b).
+{ kubectl get ingressclass traefik >/dev/null 2>&1 && kubectl -n kube-system get daemonset calico-node >/dev/null 2>&1; } \
+  || echo 'teardown: CANH BAO - ha tang 02-net-ready khong con nguyen (khong do script nay go)'
 EOF
 
-kubectl apply -f ~/lab-work/6a/pvc-dyn.yaml
-sleep 20
-
-DYN_PHASE="$(kubectl get pvc pvc-dyn -n lab-6a -o jsonpath='{.status.phase}')"
-PV_N1="$(kubectl get pv --no-headers | wc -l)"
-echo "pvc-dyn = $DYN_PHASE | tổng số PV = $PV_N1"
-
-kubectl get events -n lab-6a --field-selector \
-  involvedObject.kind=PersistentVolumeClaim,involvedObject.name=pvc-dyn \
-  -o custom-columns=REASON:.reason,MESSAGE:.message | tee ~/lab-evidence/6a/b4-wffc-events.txt
-
-test "$DYN_PHASE" = 'Pending' && test "$PV_N1" -eq 1 \
-  && grep -q 'WaitForFirstConsumer' ~/lab-evidence/6a/b4-wffc-events.txt \
-  && echo 'PASS: WaitForFirstConsumer giữ PVC ở Pending và chưa cấp phát gì'
+chmod +x ~/bookstore/scripts/*.sh
 ```
 
-**Ý nghĩa:** class đúng, provisioner chạy, dung lượng thừa — nhưng không có gì được tạo. Bài 96 mô
-tả `WaitForFirstConsumer` là chế độ **trì hoãn việc gắn kết và cấp phát cho tới khi một Pod dùng
-PVC được tạo**, để scheduler được cân nhắc mọi ràng buộc của Pod trước khi volume bị đóng đinh vào
-một node. Event `WaitForFirstConsumer` là lời giải thích mà controller tự ghi ra.
+`deploy.sh` giả định bố cục của tag `lab-5b` theo [mục 5.5](DU-AN-BOOKSTORE.md#55-bố-cục-repo-theo-sprint):
+mọi object trong namespace `bookstore` — kể cả Job `db-migrate`, NetworkPolicy, Ingress — được
+`k8s/app/kustomization.yaml` gom; Secret `db-credentials` sinh từ `secrets/db.env`, Secret TLS sinh từ
+`secrets/tls.crt` và `secrets/tls.key`. Nếu `deploy.sh` ở tag `lab-5b` sinh bí mật khác đi (tên file,
+tham số certificate), giữ nguyên phần sinh bí mật của bản cũ trong khối số 1 và chỉ thay phần còn lại.
 
-`PV_N1` vẫn bằng 1 vì PV duy nhất trong cluster lúc này là `lab-6a-static` của B2.
+Hai điểm cần hiểu ở hai script — chúng là công cụ, nhưng hành vi của chúng là nội dung của sprint:
 
-**PASS:** dòng `PASS: WaitForFirstConsumer giữ PVC ở Pending và chưa cấp phát gì` xuất hiện.
+- `deploy.sh` không còn tạo Job `db-migrate` cùng lúc với `db`: lần đầu, `db-0` phải chờ provisioner
+  tạo thư mục và PV, và một migration chạy sớm sẽ đốt hết số lần thử lại.
+- `teardown.sh` xóa thư mục trên node bằng mẫu `*_bookstore_*` **sau** khi PV đã bị xóa — đúng thứ tự
+  thu hồi thủ công của bài 92. Đó là lần duy nhất trong cả dự án một script xóa dữ liệu trên node.
 
-### B4.2. Một Pod xuất hiện, một PV được sinh ra
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-du-lieu-ben-db.md`:
 
-```bash
-cat > ~/lab-work/6a/pod-dyn.yaml <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: dyn-a
-  namespace: lab-6a
-spec:
-  nodeSelector:
-    kubernetes.io/hostname: lab-k8s-worker1
-  containers:
-  - name: app
-    image: busybox:1.37
-    command: ["sh", "-c", "sleep 3600"]
-    volumeMounts:
-    - name: data
-      mountPath: /data
-  volumes:
-  - name: data
-    persistentVolumeClaim:
-      claimName: pvc-dyn
-EOF
+1. Cluster đã có class mặc định `local-path`. Vì sao `db` cần một class riêng? Ai quyết định reclaim
+   policy của một PV cấp phát động, và sửa class sau khi PV đã tạo thì PV cũ có đổi theo không?
+2. Bằng chứng ở `thu-immediate`: vì sao gắn kết tức thời hỏng với provisioner này, và
+   `WaitForFirstConsumer` sửa đúng điều gì? Vì sao Pod dùng class đó không được chọn node bằng
+   `nodeName`?
+3. Bài 344 chạy DB đơn thực thể bằng Deployment + PVC + `Recreate`. Ở quy mô một bản sao, cách đó và
+   StatefulSet + `volumeClaimTemplates` mỗi cách cho gì, mất gì? Vì sao dự án giữ StatefulSet?
+4. Ba cách đặt thư mục dữ liệu: gốc volume, mount bằng `subPath`, thư mục con qua `PGDATA`. Vì sao
+   chọn cách cuối — nghĩ tới Lab 9b, khi `db` phải chạy uid 999 ngay từ đầu?
+5. Bài 65 khuyến nghị `ReadWriteOncePod` cho production. Cluster này cấp được không? `ReadWriteOnce`
+   bảo vệ dữ liệu tới đâu, và thứ gì thật sự giữ "nhiều nhất một Pod ghi vào `data-db-0`"?
 
-kubectl apply -f ~/lab-work/6a/pod-dyn.yaml
-kubectl wait --for=condition=Ready pod/dyn-a -n lab-6a --timeout=300s
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-mat-khau-du-lieu-ben.md`:
 
-PV_DYN="$(kubectl get pvc pvc-dyn -n lab-6a -o jsonpath='{.spec.volumeName}')"
-PROV_BY="$(kubectl get pv "$PV_DYN" \
-  -o jsonpath='{.metadata.annotations.pv\.kubernetes\.io/provisioned-by}')"
-PV_RECLAIM="$(kubectl get pv "$PV_DYN" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')"
-PV_NODE="$(kubectl get pv "$PV_DYN" \
-  -o jsonpath='{.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]}')"
-PV_PATH="$(kubectl get pv "$PV_DYN" -o jsonpath='{.spec.hostPath.path}{.spec.local.path}')"
-echo "PV=$PV_DYN"
-echo "provisioned-by=$PROV_BY | reclaimPolicy=$PV_RECLAIM"
-echo "nodeAffinity=$PV_NODE | path=$PV_PATH"
+1. Vì sao script khởi tạo (kể cả `02-authenticator.sh` đặt mật khẩu `authenticator`) không chạy lại
+   khi dữ liệu đã bền? Hệ quả gì nếu `secrets/db.env` bị sinh lại trong khi `data-db-0` còn — với
+   `api` (PostgREST coi lỗi xác thực là lỗi không thử lại), với `db-backup`?
+2. Vì sao `deploy.sh` **từ chối** thay vì tự đặt lại mật khẩu trong DB cho khớp Secret mới? Viết quy
+   trình khi mất `secrets/db.env` mà dữ liệu còn.
+3. Bundle không chứa `secrets/`; restore snapshot đưa cả `~/bookstore/secrets/` về quá khứ. Cặp
+   "dữ liệu — bí mật" nào có thể lệch nhau sau một lần restore, và vì sao `teardown.sh` trước khi chụp
+   snapshot loại bỏ được rủi ro đó?
 
-test -n "$PV_DYN" && test "$PROV_BY" = 'rancher.io/local-path' \
-  && test "$PV_RECLAIM" = 'Delete' && test "$PV_NODE" = 'lab-k8s-worker1' \
-  && echo 'PASS: PV được sinh tự động, kế thừa reclaimPolicy của class, và bị ghim vào đúng node'
-```
+<details>
+<summary>Gợi ý</summary>
 
-**Ý nghĩa:** bốn điều cùng lúc, và mỗi điều là một câu trong tài liệu:
+1. StorageClass: bốn trường `provisioner`, `reclaimPolicy`, `volumeBindingMode`, và label. Class
+   không mặc định là class không mang annotation `is-default-class: "true"`.
+2. `volumeClaimTemplates` là trường của `spec` StatefulSet, cùng cấp với `template`. Mỗi phần tử có
+   `metadata` (tên, label) và `spec` như một PVC. Container mount bằng **tên** của claim template, như
+   mount một volume thường.
+3. Image `postgres` đọc biến `PGDATA`. Thư mục con chưa tồn tại thì entrypoint tự tạo với quyền đúng.
+4. `kubectl explain statefulset.spec.persistentVolumeClaimRetentionPolicy`.
+5. Đọc PV: `kubectl get pv <tên> -o yaml`; các trường cần xem nằm ở `metadata.annotations`,
+   `spec.persistentVolumeReclaimPolicy`, `spec.nodeAffinity`, `spec.hostPath`.
+6. Tăng dung lượng mà không đổi gì thật: `kubectl patch pvc ... --dry-run=server`.
+7. Event của PVC: `kubectl get events --field-selector involvedObject.name=<tên>`.
+8. Trình tự an toàn: viết hai manifest, chép hai script, `./scripts/teardown.sh && ./scripts/deploy.sh`.
 
-- **PV xuất hiện mà không ai tạo tay** — bài 98: volume được tạo khi người dùng tạo PVC. Tên PV có
-  dạng `pvc-<uid của PVC>`, do provisioner đặt chứ không phải bạn.
-- **`provisioned-by`** ghi tên provisioner đã cấp phát; đây là cách đọc "PV này từ đâu ra".
-- **`reclaimPolicy: Delete`** — PV cấp phát động **kế thừa** policy của StorageClass, mặc định là
-  `Delete` (bài 92 và 96). Bạn không khai nó ở đâu cả.
-- **`nodeAffinity` trỏ đúng node mà scheduler đã chọn cho Pod** — đây là phần mà PV `hostPath` tự
-  viết ở B2 **không có**, và là lý do `WaitForFirstConsumer` tồn tại: thứ tự đúng phải là chọn node
-  trước, cấp phát sau.
+</details>
 
-**PASS:** dòng `PASS: PV được sinh tự động, kế thừa reclaimPolicy của class…` xuất hiện.
-
-### B4.3. Volume đó thật sự là gì trên đĩa của node
-
-Đọc đường dẫn từ cluster, đừng gõ tay:
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; script teardown rồi deploy lại</summary>
 
 ```bash
-echo "$PV_PATH" | tee ~/lab-evidence/6a/b4-pv-path.txt
-kubectl exec -n lab-6a dyn-a -- sh -c 'echo lab-6a-dyn-payload > /data/marker; ls -l /data'
-```
+NS=bookstore; EV=~/lab-evidence/6a
+cd ~/bookstore
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+SQL() { kubectl -n "$NS" exec db-0 -c postgres -- psql -X -q -U postgres -d bookstore -tAc "$1"; }
 
-Chạy trên **`lab-k8s-worker1`** — thay `<PV_PATH>` bằng đúng chuỗi in ra ở trên:
+./scripts/teardown.sh > "$EV/b3-teardown.txt" 2>&1
+grep -q 'teardown: sach' "$EV/b3-teardown.txt" && echo 'PASS: teardown.sh go sach du an'
+./scripts/deploy.sh > "$EV/b3-deploy-1.txt" 2>&1 && echo 'PASS: deploy.sh lan 1 thanh cong'
 
-```bash
-sudo ls -ld /opt/local-path-provisioner
-sudo ls -l <PV_PATH>
-sudo cat <PV_PATH>/marker
-```
+SCJ="$(kubectl get storageclass bookstore-retain -o jsonpath='{.provisioner}|{.reclaimPolicy}|{.volumeBindingMode}|{.metadata.labels.app\.kubernetes\.io/part-of}')"
+SCD="$(kubectl get storageclass bookstore-retain -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}')"
+echo "$SCJ default=$SCD" > "$EV/b3-storageclass.txt"
+{ [ "$SCJ" = 'rancher.io/local-path|Retain|WaitForFirstConsumer|bookstore' ] && [ "$SCD" != 'true' ]; } \
+  && echo 'PASS: bookstore-retain: local-path, Retain, WaitForFirstConsumer, label du an, khong mac dinh'
 
-**PASS:** thư mục `<PV_PATH>` tồn tại trên `lab-k8s-worker1`, nằm dưới `/opt/local-path-provisioner`,
-và `marker` chứa đúng `lab-6a-dyn-payload`. Tên thư mục có dạng `<tên PV>_<namespace>_<tên PVC>` —
-đó là quy ước của provisioner, không phải của Kubernetes.
+[ "$(jp pvc/data-db-0 '{.status.phase}|{.spec.storageClassName}|{.metadata.labels.app\.kubernetes\.io/part-of}')" = 'Bound|bookstore-retain|bookstore' ] \
+  && echo 'PASS: PVC data-db-0 Bound, class bookstore-retain, label du an'
+VOL="$(jp pod/db-0 '{.spec.containers[?(@.name=="postgres")].volumeMounts[?(@.mountPath=="/var/lib/postgresql/data")].name}')"
+[ "$(jp pod/db-0 "{.spec.volumes[?(@.name==\"$VOL\")].persistentVolumeClaim.claimName}")" = 'data-db-0' ] \
+  && echo 'PASS: thu muc du lieu PostgreSQL cua db-0 la volume tu PVC data-db-0'
 
-Quay lại **`lab-k8s-master`** và lặp lại phép thử của B1.3 lần thứ ba:
+PV="$(jp pvc/data-db-0 '{.spec.volumeName}')"
+pv() { kubectl get pv "$PV" -o jsonpath="$1"; }
+DIR="$(pv '{.spec.hostPath.path}{.spec.local.path}')"
+kubectl get pv "$PV" -o yaml > "$EV/b3-pv.yaml"
+{ [ "$(pv '{.metadata.annotations.pv\.kubernetes\.io/provisioned-by}')" = 'rancher.io/local-path' ] && \
+  [ "$(pv '{.spec.persistentVolumeReclaimPolicy}')" = 'Retain' ] && \
+  [ "$(pv '{.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]}')" = 'lab-k8s-worker2' ] && \
+  [ "$DIR" = "/opt/local-path-provisioner/${PV}_bookstore_data-db-0" ]; } \
+  && echo "PASS: PV $PV do provisioner cap, Retain, gan lab-k8s-worker2, thu muc $DIR"
+ssh lab-k8s-worker2 "sudo find '$DIR' -mindepth 2 -maxdepth 2 -name PG_VERSION" > "$EV/b3-tren-node.txt" 2>&1
+grep -q 'PG_VERSION' "$EV/b3-tren-node.txt" && echo 'PASS: PG_VERSION nam trong thu muc con cua volume tren lab-k8s-worker2'
+MP="$(jp pod/db-0 "{.spec.containers[?(@.name==\"postgres\")].volumeMounts[?(@.name==\"$VOL\")].mountPath}")"
+PGD="$(jp pod/db-0 '{.spec.containers[?(@.name=="postgres")].env[?(@.name=="PGDATA")].value}')"
+case "$PGD" in "$MP"/?*) echo "PASS: PGDATA=$PGD la thu muc con cua $MP" ;; *) echo "FAIL: PGDATA='$PGD' khong nam duoi $MP" ;; esac
+{ [ "$(jp statefulset/db '{.spec.persistentVolumeClaimRetentionPolicy.whenDeleted}|{.spec.persistentVolumeClaimRetentionPolicy.whenScaled}')" = 'Retain|Retain' ] && \
+  grep -q 'persistentVolumeClaimRetentionPolicy' k8s/app/db/statefulset.yaml; } \
+  && echo 'PASS: chinh sach giu PVC khai tuong minh Retain/Retain'
 
-```bash
-kubectl delete pod dyn-a -n lab-6a --wait=true
-kubectl apply -f ~/lab-work/6a/pod-dyn.yaml
-kubectl wait --for=condition=Ready pod/dyn-a -n lab-6a --timeout=300s
+NB="$(SQL 'SELECT count(*) FROM api.books')"
+ID="$(SQL "INSERT INTO api.orders (book_id, quantity) SELECT min(id), 2 FROM api.books RETURNING id" | head -n1)"
+./scripts/deploy.sh > "$EV/b3-deploy-2.txt" 2>&1 && echo 'PASS: deploy.sh lan 2 thanh cong'
+{ [ "$(SQL "SELECT count(*) FROM api.orders WHERE id = ${ID}")" = '1' ] && [ "$(SQL 'SELECT count(*) FROM api.books')" = "$NB" ]; } \
+  && echo "PASS: don hang $ID con, so sach giu $NB sau lan deploy thu hai"
 
-AFTER_DYN="$(kubectl exec -n lab-6a dyn-a -- cat /data/marker)"
-PV_STILL="$(kubectl get pvc pvc-dyn -n lab-6a -o jsonpath='{.spec.volumeName}')"
-echo "marker sau khi xóa Pod = $AFTER_DYN | PVC vẫn bind vào $PV_STILL"
+mv secrets/db.env secrets/db.env.giu
+./scripts/deploy.sh > "$EV/b3-deploy-thieu-bi-mat.txt" 2>&1; RC=$?
+mv secrets/db.env.giu secrets/db.env
+{ [ "$RC" -ne 0 ] && grep -q 'du lieu db cu' "$EV/b3-deploy-thieu-bi-mat.txt" && [ -s secrets/db.env ]; } \
+  && echo 'PASS: thieu secrets/db.env khi du lieu cu con thi deploy.sh tu choi, khong sinh bi mat moi'
 
-test "$AFTER_DYN" = 'lab-6a-dyn-payload' && test "$PV_STILL" = "$PV_DYN" \
-  && echo 'PASS: xóa Pod không đụng tới PVC, PV hay dữ liệu'
-```
-
-**Ý nghĩa:** ba lần cùng một phép thử, ba kết quả: `emptyDir` mất sạch (B1.3), PV tĩnh giữ nguyên
-(B2.4), PV động giữ nguyên (ở đây). Khác biệt không nằm ở Pod mà ở **vòng đời của volume**.
-
-**PASS:** dòng `PASS: xóa Pod không đụng tới PVC, PV hay dữ liệu` xuất hiện.
-
-### B4.4. `Immediate` với backend gắn với node: bind sớm là hỏng sớm
-
-```bash
-cat > ~/lab-work/6a/sc-immediate.yaml <<'EOF'
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: lab-6a-immediate
-provisioner: rancher.io/local-path
-reclaimPolicy: Delete
-volumeBindingMode: Immediate
-EOF
-
-kubectl apply -f ~/lab-work/6a/sc-immediate.yaml
-
-kubectl apply -f - <<'EOF'
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-immediate
-  namespace: lab-6a
-spec:
-  storageClassName: lab-6a-immediate
-  accessModes: ["ReadWriteOnce"]
-  resources:
-    requests:
-      storage: 128Mi
-EOF
-
+kubectl apply -f ~/lab-work/6a/thu-immediate.yaml
 sleep 30
-IMM_PHASE="$(kubectl get pvc pvc-immediate -n lab-6a -o jsonpath='{.status.phase}')"
-IMM_WARN="$(kubectl get events -n lab-6a --field-selector \
-  involvedObject.kind=PersistentVolumeClaim,involvedObject.name=pvc-immediate,type=Warning \
-  --no-headers 2>/dev/null | wc -l)"
-echo "pvc-immediate = $IMM_PHASE | số event Warning = $IMM_WARN"
+PH="$(jp pvc/thu-immediate '{.status.phase}')"
+W="$(kubectl -n "$NS" get events --field-selector involvedObject.kind=PersistentVolumeClaim,involvedObject.name=thu-immediate,type=Warning --no-headers 2>/dev/null | wc -l)"
+kubectl -n "$NS" describe pvc thu-immediate > "$EV/b3-immediate.txt" 2>&1
+{ [ "$PH" = 'Pending' ] && [ "$W" -ge 1 ]; } && echo 'PASS: Immediate cap phat ngay va that bai ngay vi chua biet node'
+kubectl -n "$NS" delete pvc thu-immediate --ignore-not-found --wait=true
+kubectl delete storageclass thu-immediate --ignore-not-found
+{ ! kubectl get storageclass thu-immediate >/dev/null 2>&1 && ! kubectl -n "$NS" get pvc thu-immediate >/dev/null 2>&1; } \
+  && echo 'PASS: da xoa hai object thu nghiem'
 
-kubectl describe pvc pvc-immediate -n lab-6a | tail -n 10 \
-  | tee ~/lab-evidence/6a/b4-immediate.txt
+OUT="$(kubectl -n "$NS" patch pvc data-db-0 --dry-run=server -p '{"spec":{"resources":{"requests":{"storage":"100Gi"}}}}' 2>&1)"; RC=$?
+echo "$OUT" > "$EV/b3-mo-rong.txt"
+{ [ "$RC" -ne 0 ] && grep -qi 'forbidden' "$EV/b3-mo-rong.txt"; } && echo 'PASS: class khong cho mo rong thi API server tu choi tang dung luong'
 
-test "$IMM_PHASE" = 'Pending' && test "$IMM_WARN" -ge 1 \
-  && echo 'PASS: Immediate cấp phát ngay và thất bại ngay vì chưa biết node nào'
-
-kubectl delete pvc pvc-immediate -n lab-6a --wait=true
-kubectl delete storageclass lab-6a-immediate
+./tests/smoke.sh > "$EV/b3-smoke-5b.txt" 2>&1 && echo 'PASS: smoke cua Lab 5b van PASS'
 ```
 
-**Ý nghĩa:** `Immediate` là **giá trị mặc định** khi `volumeBindingMode` không được đặt, và bài 96
-nói rõ hệ quả: *"Với các backend lưu trữ bị ràng buộc theo topology và không thể truy cập toàn cục
-từ mọi Node, các PersistentVolume sẽ được gắn kết hoặc cấp phát mà không biết gì về các yêu cầu
-lập lịch của Pod. Điều này có thể dẫn đến các Pod không thể lập lịch được."*
+</details>
 
-Ở đây provisioner được gọi ngay khi PVC ra đời, nhưng nó cần biết **cấp thư mục trên node nào** —
-mà chưa có Pod thì chưa có node. Nó ghi event lỗi và PVC nằm lại `Pending`. So sánh với B4.1:
-cùng một trạng thái `Pending`, hai nguyên nhân hoàn toàn khác nhau, và `kubectl describe` là chỗ
-phân biệt.
+<details>
+<summary>Lời giải tham khảo</summary>
 
-Chế độ `Immediate` không sai — nó đúng cho backend truy cập được từ mọi node, ví dụ NFS. Sai là
-dùng nó cho lưu trữ cục bộ.
-
-**PASS:** dòng `PASS: Immediate cấp phát ngay và thất bại ngay…` xuất hiện.
-
-### B4.5. Không có `allowVolumeExpansion` thì API server từ chối tăng dung lượng
-
-```bash
-EXP="$(kubectl get sc local-path -o jsonpath='{.allowVolumeExpansion}')"
-SIZE_BEFORE="$(kubectl get pvc pvc-dyn -n lab-6a -o jsonpath='{.spec.resources.requests.storage}')"
-echo "allowVolumeExpansion của local-path = ${EXP:-<không đặt>} | size hiện tại = $SIZE_BEFORE"
-
-PATCH_OUT="$(kubectl patch pvc pvc-dyn -n lab-6a \
-  -p '{"spec":{"resources":{"requests":{"storage":"256Mi"}}}}' 2>&1)"
-RC_PATCH=$?
-echo "$PATCH_OUT" | tail -n 2 | tee ~/lab-evidence/6a/b4-expand.txt
-
-SIZE_AFTER="$(kubectl get pvc pvc-dyn -n lab-6a -o jsonpath='{.spec.resources.requests.storage}')"
-echo "mã trả về của patch = $RC_PATCH | size sau khi patch = $SIZE_AFTER"
-
-test -z "$EXP" && test "$RC_PATCH" -ne 0 && test "$SIZE_AFTER" = "$SIZE_BEFORE" \
-  && echo 'PASS: class không cho mở rộng thì PVC không sửa được dung lượng'
-```
-
-**Ý nghĩa:** bài 92 nói *"Bạn chỉ có thể mở rộng một PVC nếu trường `allowVolumeExpansion` của
-storage class của nó được đặt là true"*, và thao tác mở rộng là **sửa PVC**, không phải sửa PV.
-Ở đây class không đặt trường đó, nên yêu cầu bị chặn ngay ở tầng API — không có PV mới nào được
-tạo, dung lượng không đổi.
-
-Đây cũng là ranh giới của provisioner mà lab chọn: nó cấp một thư mục, không phải một thiết bị khối
-có thể resize. Muốn thực hành mở rộng thật thì phải có CSI driver hỗ trợ, cùng lớp điều kiện với
-nợ #5 của Lab 6b.
-
-**PASS:** dòng `PASS: class không cho mở rộng thì PVC không sửa được dung lượng` xuất hiện.
-
----
-
-## B5. `reclaimPolicy` — `Delete` so với `Retain`
-
-**Mục đích:** trả lời đúng một câu hỏi: **xóa PVC thì chuyện gì xảy ra với dữ liệu?** Bài
-[92](../92-persistent-volumes-vi.md#reclaiming) cho hai câu trả lời khác nhau tùy `reclaimPolicy`,
-và mục này chạy cả hai trên cùng một cluster để so.
-
-### B5.1. PVC đang được Pod dùng thì không xóa được ngay
-
-```bash
-kubectl delete pvc pvc-dyn -n lab-6a --wait=false
-
-DEL_TS="$(kubectl get pvc pvc-dyn -n lab-6a -o jsonpath='{.metadata.deletionTimestamp}')"
-FINAL="$(kubectl get pvc pvc-dyn -n lab-6a -o jsonpath='{.metadata.finalizers[*]}')"
-POD_PHASE="$(kubectl get pod dyn-a -n lab-6a -o jsonpath='{.status.phase}')"
-echo "deletionTimestamp = ${DEL_TS:-<rỗng>}"
-echo "finalizers = ${FINAL:-<rỗng>}"
-echo "Pod dyn-a = $POD_PHASE"
-
-test -n "$DEL_TS" && test "$FINAL" = 'kubernetes.io/pvc-protection' \
-  && test "$POD_PHASE" = 'Running' \
-  && echo 'PASS: PVC bị hoãn xóa vì còn Pod dùng, Pod không bị ảnh hưởng'
-```
-
-**Ý nghĩa:** đây là *Bảo vệ đối tượng lưu trữ đang được sử dụng* của bài 92. Lệnh `delete` đã ghi
-`deletionTimestamp`, nhưng finalizer `kubernetes.io/pvc-protection` giữ object lại cho tới khi
-không còn Pod nào dùng nó. Mục đích duy nhất là chống mất dữ liệu do gõ nhầm. Bài 92 nhấn mạnh:
-PVC được coi là đang dùng khi **tồn tại một Pod** tham chiếu nó — Pod không cần đang chạy.
-
-**PASS:** dòng `PASS: PVC bị hoãn xóa vì còn Pod dùng…` xuất hiện.
-
-### B5.2. `Delete`: xóa claim là mất cả PV lẫn dữ liệu
-
-```bash
-kubectl delete pod dyn-a -n lab-6a --wait=true
-
-for i in $(seq 1 90); do
-  kubectl get pvc pvc-dyn -n lab-6a >/dev/null 2>&1 || break
-  sleep 2
-done
-for i in $(seq 1 90); do
-  kubectl get pv "$PV_DYN" >/dev/null 2>&1 || break
-  sleep 2
-done
-
-PVC_LEFT="$(kubectl get pvc pvc-dyn -n lab-6a --ignore-not-found -o name | wc -l)"
-PV_LEFT="$(kubectl get pv "$PV_DYN" --ignore-not-found -o name | wc -l)"
-echo "pvc-dyn còn lại = $PVC_LEFT | PV $PV_DYN còn lại = $PV_LEFT"
-
-test "$PVC_LEFT" -eq 0 && test "$PV_LEFT" -eq 0 \
-  && echo 'PASS: xóa Pod xong thì PVC đi, và PV đi theo vì reclaimPolicy là Delete'
-```
-
-Chạy trên **`lab-k8s-worker1`**, với `<PV_PATH>` là đường dẫn đã ghi ở
-`~/lab-evidence/6a/b4-pv-path.txt`:
-
-```bash
-sudo test -d <PV_PATH> && echo 'FAIL: thư mục volume vẫn còn' || echo 'PASS: thư mục volume đã bị xóa khỏi node'
-sudo ls -l /opt/local-path-provisioner
-```
-
-**Ý nghĩa:** bài 98 tóm gọn: *"Khi claim bị xóa, volume sẽ bị hủy."* Chuỗi thật dài hơn thế — xóa
-Pod → finalizer PVC được gỡ → PVC biến mất → PV mất claim → reclaim policy `Delete` chạy →
-provisioner tạo một helper Pod để `rm -rf` thư mục trên node → PV bị xóa khỏi API. Đây cũng là lý
-do bài 92 dành hẳn một mục cho finalizer bảo vệ việc xóa PV: đối tượng API chỉ được gỡ **sau khi**
-phần lưu trữ nền đã bị dọn.
-
-**PASS:** dòng `PASS: xóa Pod xong thì PVC đi…` trên master và dòng `PASS: thư mục volume đã bị xóa
-khỏi node` trên worker1.
-
-### B5.3. Một StorageClass `Retain`
-
-```bash
-cat > ~/lab-work/6a/sc-retain.yaml <<'EOF'
+```yaml
+# k8s/cluster/storageclass-retain.yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: lab-6a-retain
+  name: bookstore-retain
+  labels:
+    app.kubernetes.io/part-of: bookstore
 provisioner: rancher.io/local-path
 reclaimPolicy: Retain
 volumeBindingMode: WaitForFirstConsumer
-EOF
+```
 
-cat > ~/lab-work/6a/keep.yaml <<'EOF'
+Khung StatefulSet giữ nguyên như tag `lab-5b`; dưới đây chỉ các phần thay đổi. Phần `template.spec`
+không nhắc tới (probe, tài nguyên, PriorityClass, ân hạn, Secret, ConfigMap `db-init`) **giữ của
+bạn**.
+
+```yaml
+# k8s/app/db/statefulset.yaml — các phần thay đổi ở Lab 6a
+spec:
+  serviceName: db
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy:    # mặc định đã là Retain; khai tường minh để ghi ý đồ
+    whenDeleted: Retain
+    whenScaled: Retain
+  template:
+    spec:
+      volumes:
+      # - name: data            <- XÓA: emptyDir của Lab 4b (TD-04)
+      #   emptyDir: {}
+      - name: initdb
+        configMap:
+          name: db-init
+      - name: credentials
+        secret:
+          secretName: db-credentials
+          defaultMode: 0400
+          items:
+          - key: postgres-password
+            path: postgres-password
+      containers:
+      - name: postgres
+        env:
+        - name: PGDATA                     # thư mục con của volume (ADR du-lieu-ben-db)
+          value: /var/lib/postgresql/data/pgdata
+        # ... các biến khác giữ nguyên
+        volumeMounts:
+        - name: data                       # tên claim template, không phải tên PVC
+          mountPath: /var/lib/postgresql/data
+        # ... initdb, credentials giữ nguyên
+  volumeClaimTemplates:
+  - metadata:
+      name: data                           # PVC sinh ra: data-db-0
+      labels:
+        app.kubernetes.io/part-of: bookstore
+        app.kubernetes.io/component: db
+        app.kubernetes.io/name: postgresql
+    spec:
+      storageClassName: bookstore-retain
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+```
+
+Nếu `volumes` của bạn sinh từ Kustomize với tên ConfigMap có hậu tố hash, giữ nguyên cách đó; chỉ
+bỏ volume `emptyDir` dữ liệu.
+
+```yaml
+# ~/lab-work/6a/thu-immediate.yaml — mang label dự án để teardown dọn nếu quên
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: thu-immediate
+  labels:
+    app.kubernetes.io/part-of: bookstore
+provisioner: rancher.io/local-path
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: pvc-keep
-  namespace: lab-6a
+  name: thu-immediate
+  namespace: bookstore
 spec:
-  storageClassName: lab-6a-retain
+  storageClassName: thu-immediate
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: 128Mi
----
+      storage: 64Mi
+```
+
+```bash
+cd ~/bookstore
+# chép hai script ở trên, viết hai manifest, rồi:
+./scripts/teardown.sh && ./scripts/deploy.sh
+kubectl -n bookstore get pvc,pod -o wide
+```
+
+Ý chính cho ADR `du-lieu-ben-db`:
+
+1. Bài 96: PV cấp phát động **kế thừa** `reclaimPolicy` của class tại lúc cấp; PV tạo tay giữ policy
+   được gán lúc tạo. Quản trị viên cấu hình class theo kỳ vọng của người dùng thay vì sửa từng PV.
+   Class mặc định là của cả cluster — đổi nó sang `Retain` là áp chính sách của DB lên mọi PVC của mọi
+   người. Sửa class không đổi PV đã có; muốn đổi phải patch từng PV.
+2. Provisioner phải biết **node** để tạo thư mục; với `Immediate`, PVC được xử lý khi chưa có Pod nên
+   chưa có node — event `ProvisioningFailed`. `WaitForFirstConsumer` để scheduler chọn node cho Pod
+   trước (theo `nodeSelector`, tài nguyên...), rồi mới cấp volume ở đúng node đó (bài 96).
+   `nodeName` bỏ qua scheduler nên PVC đứng mãi ở `Pending`.
+3. Deployment + PVC + `Recreate` chạy được một bản: PVC tự tạo tay, tên tùy ý, Pod tên ngẫu nhiên;
+   `Recreate` bắt buộc vì không thể có hai Pod cùng lúc (bài 344). StatefulSet cho thêm: PVC sinh theo
+   ordinal và **gắn với danh tính** `db-0`, tên DNS `db-0.db`, ngữ nghĩa nhiều nhất một Pod khi thay
+   (bài 341), thu nhỏ hay xóa không đụng tới PVC. Dự án đã dựa vào cả bốn điều đó.
+4. Gốc volume: trên đĩa khối thật thường có `lost+found`, `initdb` từ chối thư mục không rỗng.
+   `subPath`: thư mục con do kubelet tạo trước khi container chạy, chủ sở hữu là root — PostgreSQL chạy
+   uid 999 không `chmod`/`chown` được nó. `PGDATA` trỏ thư mục con chưa tồn tại: entrypoint tự tạo,
+   quyền 700, đúng chủ — kể cả khi Lab 9b bỏ hẳn root.
+5. Không: `ReadWriteOncePod` chỉ cho volume CSI (bài 92), provisioner này không phải CSI. Access mode
+   chỉ dùng để khớp PVC với PV và ràng buộc nơi mount, không chống ghi; `ReadWriteOnce` còn cho nhiều
+   Pod cùng node dùng chung. Thứ thật sự giữ "một người ghi" là StatefulSet một bản sao và ngữ nghĩa
+   nhiều nhất một — và lý do không bao giờ buộc xóa `db-0` (Lab 4b).
+
+Ý chính cho ADR `mat-khau-du-lieu-ben`:
+
+1. Entrypoint chỉ khởi tạo khi `PGDATA` chưa có `PG_VERSION` ([mục 4.3](DU-AN-BOOKSTORE.md#43-dữ-liệu)).
+   Mật khẩu `postgres` và `authenticator` được đặt **một lần** rồi nằm trong dữ liệu. Sinh lại
+   `secrets/db.env` thì Secret mới, dữ liệu cũ: `api` không đăng nhập được và PostgREST thoát ngay
+   (lỗi xác thực không được thử lại) — `CrashLoopBackOff`; `db-backup` đăng nhập TCP bằng
+   `scram-sha-256` cũng thất bại.
+2. Tự đặt lại mật khẩu là âm thầm sửa dữ liệu thật mỗi lần triển khai — che mất sự cố "mất bí mật"
+   và biến `deploy.sh` thành công cụ xoay mật khẩu không ai duyệt. Từ chối thì người vận hành phải
+   chọn: chép lại `secrets/db.env` cũ (từ nơi lưu ngoài VM), hoặc xóa dữ liệu (`teardown.sh`), hoặc
+   chủ động đặt lại mật khẩu role qua Unix socket trong `db-0` (xác thực `trust`) rồi viết
+   `secrets/db.env` khớp với nó. Lab 6b và 8a nạp lại bản dump sẽ gặp đúng lựa chọn này.
+3. Restore snapshot đưa `secrets/db.env` về thời điểm chụp; dữ liệu trên node thì không theo bundle.
+   Vì mốc `03-storage-ready` được chụp **sau** teardown — không còn PV, không còn thư mục dữ liệu nào
+   của dự án — lần `deploy.sh` đầu tiên sau restore luôn khởi tạo DB mới khớp với `secrets/db.env` đang
+   có.
+
+</details>
+
+## B4. [BS-6A-04] PVC `backup-store` cho `db-backup`
+
+**Loại:** Tính năng — trả `TD-08`, phát sinh `TD-10`.
+
+**Bối cảnh:** từ Lab 4b, CronJob `db-backup` ghi bản dump vào `emptyDir` của Pod Job — Pod bị dọn là
+bản dump mất theo (`TD-08`). Yêu cầu `R8` đòi cả bản backup sống sót qua việc xóa Pod, xóa workload
+([luồng dữ liệu bền](DU-AN-BOOKSTORE.md#34-luồng-request-và-luồng-dữ-liệu)). PV của provisioner nằm
+trên **một** node, nên Pod nào ghi hay đọc bản backup cũng phải chạy ở đúng node đó — và chọn node nào
+là một quyết định thiết kế, không phải chi tiết.
+
+**Yêu cầu:**
+
+1. PVC `backup-store` ở `k8s/app/backup/pvc.yaml`, label theo hợp đồng (`component: backup`,
+   `name: postgresql`), class `bookstore-retain`, `ReadWriteOnce`, 1Gi; thêm vào
+   `k8s/app/kustomization.yaml`.
+2. CronJob `db-backup` ghi bản dump vào PVC đó, mount tại `/backup`, thay cho `emptyDir`. Mỗi lần
+   chạy: dump ra file tạm, kiểm file có bảng `api.books`, rồi mới đổi sang tên chính thức — một bản dở
+   dang không bao giờ mang tên của bản hoàn chỉnh; giữ tối đa **10** bản mới nhất; in đúng một dòng
+   `db-backup: OK <đường dẫn file> <số byte> byte`. Lịch, `concurrencyPolicy`,
+   `startingDeadlineSeconds`, giới hạn lịch sử, số lần thử lại của Lab 4b giữ nguyên.
+3. Pod của Job backup chạy trên một worker **chọn có chủ đích**, ghim bằng `nodeSelector`; PV của
+   `backup-store` nằm đúng trên node đó.
+4. Bản dump sống sót khi Job và Pod của nó bị xóa.
+5. Điều tra, xóa khi xong: Pod `thu-doc-backup` (không ghim node, mount `backup-store` **chỉ đọc**
+   tại `/backup`, ngủ một giờ) phải tự được đặt lên node của PV và đọc được bản dump — kể cả khi một
+   Job backup khác đang ghi cùng lúc; Pod `thu-sai-node` mount `backup-store` nhưng ghim sang worker
+   **kia** phải đứng `Pending`.
+6. `docs/tech-debt.md`: `TD-08` đổi thành đã trả, kèm bằng chứng; thêm `TD-10`.
+
+**Ràng buộc:** không dùng `hostPath`. Không sửa, không xóa tay file trong PVC — Pod thử nghiệm chỉ
+đọc. Chưa có PriorityClass `bookstore-batch` (7a). Tiền tố `db-backup: OK` là hợp đồng
+([mục 4.2](DU-AN-BOOKSTORE.md#42-cổng-đường-dẫn-và-điểm-kiểm-tra-sức-khỏe)).
+
+**Đọc lại:**
+
+- Bài [92](../92-persistent-volumes-vi.md): [*Các chế độ truy cập*](../92-persistent-volumes-vi.md#access-modes)
+  — câu về `ReadWriteOnce` và nhiều Pod cùng node;
+  [*Dùng claim làm volume*](../92-persistent-volumes-vi.md#claims-as-volumes);
+  [*Node Affinity*](../92-persistent-volumes-vi.md#node-affinity).
+- Bài [96](../96-storage-classes-vi.md#volume-binding-mode) — PV được chọn hoặc cấp phát theo ràng
+  buộc lập lịch của Pod **đầu tiên**.
+- Bài [91](../91-volumes-vi.md#persistentvolumeclaim) — volume `persistentVolumeClaim`.
+- Bài [94](../94-ephemeral-volumes-vi.md#vòng-đời-và-persistentvolumeclaim-lifecycle-and-persistentvolumeclaim)
+  — vì sao volume tạm thời tổng quát cũng chết theo Pod.
+- Bài [69](../69-cron-jobs-vi.md) và Lab 4b ticket `BS-4B-06` — chính sách của CronJob.
+
+**Bàn giao:** `k8s/app/backup/pvc.yaml`; manifest CronJob `db-backup`; `k8s/app/kustomization.yaml`;
+`~/lab-work/6a/thu-doc-backup.yaml`, `~/lab-work/6a/thu-sai-node.yaml`; `docs/adr/NNNN-backup-store.md`;
+`docs/tech-debt.md`; `~/lab-evidence/6a/b4-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` PVC `backup-store` mang label `component=backup`, class `bookstore-retain`, `ReadWriteOnce`;
+  CronJob ghi vào nó, không còn `emptyDir`.
+- `PASS:` ngay sau `deploy.sh` trên cluster sạch, `backup-store` ở `Pending`.
+- `PASS:` hai Job chạy tay từ CronJob đều in `db-backup: OK` với hai file khác nhau; Pod của chúng
+  và PV của `backup-store` cùng nằm trên node trong `nodeSelector`; PV là `Retain`.
+- `PASS:` xóa hai Job rồi, cả hai bản dump vẫn nằm trên PVC.
+- `PASS:` `thu-doc-backup` tự lên node của PV và đọc được dump; một Job backup chạy thành công trong
+  lúc nó đang mount PVC.
+- `PASS:` `thu-sai-node` `Pending`, lý do nhắc tới xung đột node affinity của volume; hai Pod thử
+  nghiệm đã xóa.
+- `PASS:` `docs/tech-debt.md` có `TD-08` đã trả và `TD-10`.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-backup-store.md`:
+
+1. Vì sao `backup-store` đứng `Pending` sau `deploy.sh` mà không phải lỗi? `deploy.sh` có nên chờ nó
+   `Bound` không?
+2. PV đã mang `nodeAffinity`, scheduler tự đặt Pod lên đúng node. Vậy vì sao vẫn ghim Job bằng
+   `nodeSelector`? Nghĩ tới lần chạy **đầu tiên** trên một cluster sạch.
+3. Đặt `backup-store` cùng node với `db` hay ở worker kia: mỗi cách được gì, mất gì khi một node chết
+   hẳn? Viết `TD-10` bằng lời của bạn cho đúng lựa chọn đó.
+4. `ReadWriteOnce` mà `thu-doc-backup` vẫn đọc được trong lúc Job đang ghi — vì sao? Thứ gì thật sự
+   ngăn hai lần backup ghi chồng nhau: access mode hay chính sách của CronJob?
+5. PVC xin 1Gi nhưng provisioner không cưỡng chế con số đó. Vì sao giữ tối đa 10 bản là bắt buộc?
+   Vì sao volume tạm thời tổng quát (bài 94) không phải lời giải cho `TD-08`?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Volume `persistentVolumeClaim` trong `jobTemplate.spec.template.spec.volumes`, mount như mọi
+   volume khác. Chỉ đọc ở phía Pod thử nghiệm: `readOnly: true` trên `volumeMounts` hoặc trên
+   `persistentVolumeClaim`.
+2. Đổi tên nguyên tử trong cùng thư mục: ghi `<file>.tmp` rồi `mv`. Giữ 10 bản mới nhất bằng
+   `ls -1t /backup/<mẫu tên> | tail -n +11 | xargs -r rm -f` — image `postgres` có GNU coreutils.
+3. Chạy thử ngay: `kubectl -n bookstore create job <tên> --from=cronjob/db-backup`.
+4. Node của PV: `{.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]}`.
+5. Lý do `Pending` của scheduler nằm trong `kubectl describe pod`, mục `Events`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; script teardown rồi deploy lại</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/6a; W=~/lab-work/6a
+cd ~/bookstore
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+chay() {   # tạo Job từ CronJob, chờ xong, in log của nó
+  kubectl -n "$NS" create job "$1" --from=cronjob/db-backup >/dev/null
+  kubectl -n "$NS" wait --for=condition=Complete "job/$1" --timeout=300s >/dev/null
+  kubectl -n "$NS" logs "job/$1"
+}
+
+{ ./scripts/teardown.sh > "$EV/b4-teardown.txt" 2>&1 && ./scripts/deploy.sh > "$EV/b4-deploy.txt" 2>&1; } \
+  && echo 'PASS: teardown roi deploy.sh thanh cong'
+[ "$(jp pvc/backup-store '{.metadata.labels.app\.kubernetes\.io/component}|{.spec.storageClassName}|{.spec.accessModes[0]}')" = 'backup|bookstore-retain|ReadWriteOnce' ] \
+  && echo 'PASS: PVC backup-store dung label, class, access mode'
+CJV='{.spec.jobTemplate.spec.template.spec.volumes[*]'
+{ jp cronjob/db-backup "$CJV.persistentVolumeClaim.claimName}" | grep -qw 'backup-store' && \
+  [ -z "$(jp cronjob/db-backup "$CJV.emptyDir}")" ]; } && echo 'PASS: CronJob ghi vao backup-store, khong con emptyDir'
+[ "$(jp pvc/backup-store '{.status.phase}')" = 'Pending' ] && echo 'PASS: sau deploy.sh, backup-store Pending vi chua co Pod tieu thu'
+
+NODE="$(jp cronjob/db-backup '{.spec.jobTemplate.spec.template.spec.nodeSelector.kubernetes\.io/hostname}')"
+echo "node chon cho backup: ${NODE:-<chua ghim>}" > "$EV/b4-node.txt"
+chay thu-backup-1 > "$EV/b4-backup-1.txt" 2>&1
+sleep 2
+chay thu-backup-2 > "$EV/b4-backup-2.txt" 2>&1
+F1="$(awk '/^db-backup: OK/{print $3; exit}' "$EV/b4-backup-1.txt")"
+F2="$(awk '/^db-backup: OK/{print $3; exit}' "$EV/b4-backup-2.txt")"
+{ [ -n "$F1" ] && [ -n "$F2" ] && [ "$F1" != "$F2" ]; } && echo "PASS: hai lan chay in db-backup: OK ($F1, $F2)"
+PN="$(kubectl -n "$NS" get pod -l batch.kubernetes.io/job-name=thu-backup-1 -o jsonpath='{.items[0].spec.nodeName}')"
+PVB="$(jp pvc/backup-store '{.spec.volumeName}')"
+PVN="$(kubectl get pv "$PVB" -o jsonpath='{.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]}')"
+{ [ -n "$NODE" ] && [ "$PN" = "$NODE" ] && [ "$PVN" = "$NODE" ] && \
+  [ "$(kubectl get pv "$PVB" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')" = 'Retain' ]; } \
+  && echo "PASS: Pod backup va PV backup-store (Retain) cung o $NODE"
+kubectl -n "$NS" delete job thu-backup-1 thu-backup-2 --wait=true
+
+kubectl apply -f "$W/thu-doc-backup.yaml"
+kubectl -n "$NS" wait --for=condition=Ready pod/thu-doc-backup --timeout=180s
+kubectl -n "$NS" exec thu-doc-backup -- ls -l /backup > "$EV/b4-ls.txt"
+{ grep -q "$(basename "$F1")" "$EV/b4-ls.txt" && grep -q "$(basename "$F2")" "$EV/b4-ls.txt"; } \
+  && echo 'PASS: xoa Job va Pod roi, hai ban dump van tren PVC'
+[ "$(jp pod/thu-doc-backup '{.spec.nodeName}')" = "$NODE" ] && echo 'PASS: scheduler tu dat thu-doc-backup len node cua PV'
+chay thu-backup-3 > "$EV/b4-backup-3.txt" 2>&1
+grep -q '^db-backup: OK' "$EV/b4-backup-3.txt" \
+  && echo 'PASS: Job ghi thanh cong trong luc Pod khac dang mount PVC tren cung node'
+kubectl -n "$NS" delete job thu-backup-3 --wait=true
+
+kubectl apply -f "$W/thu-sai-node.yaml"
+sleep 15
+kubectl -n "$NS" describe pod thu-sai-node > "$EV/b4-sai-node.txt" 2>&1
+{ [ "$(jp pod/thu-sai-node '{.spec.nodeSelector.kubernetes\.io/hostname}')" != "$NODE" ] && \
+  [ "$(jp pod/thu-sai-node '{.status.phase}')" = 'Pending' ] && \
+  grep -qi 'volume node affinity conflict' "$EV/b4-sai-node.txt"; } \
+  && echo 'PASS: Pod ghim sang node khac dung Pending vi xung dot node affinity cua volume'
+kubectl -n "$NS" delete pod thu-doc-backup thu-sai-node --ignore-not-found --wait=true
+[ -z "$(kubectl -n "$NS" get pod -o name | grep '/thu-')" ] && echo 'PASS: da xoa Pod thu nghiem'
+
+{ grep -E 'TD-08.*đã trả' docs/tech-debt.md >/dev/null && grep -q 'TD-10' docs/tech-debt.md; } \
+  && echo 'PASS: tech-debt.md: TD-08 da tra, co TD-10'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# k8s/app/backup/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-store
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/name: postgresql
+spec:
+  storageClassName: bookstore-retain
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+Thêm `- backup/pvc.yaml` vào mục `resources` của `k8s/app/kustomization.yaml`.
+
+CronJob — chỉ phần `jobTemplate.spec.template.spec` thay đổi; phần đầu (lịch, `Forbid`,
+`startingDeadlineSeconds`, giới hạn lịch sử, `backoffLimit`, `activeDeadlineSeconds`, label) giữ như
+tag `lab-5b`. `PGHOST` giữ đúng giá trị ở tag `lab-5b` của bạn (từ Lab 5a là tên DNS của `db-0`).
+
+```yaml
+# k8s/app/jobs/db-backup.yaml — tên file như ở tag lab-5b; phần thay đổi ở Lab 6a
+        spec:
+          restartPolicy: Never
+          nodeSelector:                       # cùng node với db và với PV backup-store (ADR backup-store)
+            kubernetes.io/hostname: lab-k8s-worker2
+          volumes:
+          - name: backup
+            persistentVolumeClaim:
+              claimName: backup-store         # trả TD-08; còn TD-10
+          containers:
+          - name: backup
+            image: postgres:17.11
+            env:
+            - {name: PGHOST, value: "db-0.db"}
+            - {name: PGUSER, value: postgres}
+            - {name: PGDATABASE, value: bookstore}
+            - {name: PGCONNECT_TIMEOUT, value: "5"}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef: {name: db-credentials, key: postgres-password}
+            command:
+            - sh
+            - -c
+            - |
+              set -e
+              F="/backup/bookstore-$(date +%Y%m%dT%H%M%S).sql"
+              pg_dump --no-owner --file="$F.tmp"
+              grep -q 'CREATE TABLE api.books' "$F.tmp"
+              mv "$F.tmp" "$F"
+              ls -1t /backup/bookstore-*.sql | tail -n +11 | xargs -r rm -f
+              echo "db-backup: OK $F $(wc -c < "$F") byte"
+            volumeMounts:
+            - {name: backup, mountPath: /backup}
+            resources:
+              requests: {cpu: 50m, memory: 64Mi}
+              limits: {cpu: 200m, memory: 128Mi}
+```
+
+```yaml
+# ~/lab-work/6a/thu-doc-backup.yaml — thu-sai-node.yaml giống hệt, đổi tên và thêm
+#   nodeSelector: {kubernetes.io/hostname: <worker KHÔNG chứa PV backup-store>}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: keep-a
-  namespace: lab-6a
+  name: thu-doc-backup
+  namespace: bookstore
 spec:
-  nodeSelector:
-    kubernetes.io/hostname: lab-k8s-worker1
+  terminationGracePeriodSeconds: 2
   containers:
-  - name: app
+  - name: doc
     image: busybox:1.37
     command: ["sh", "-c", "sleep 3600"]
     volumeMounts:
-    - name: data
-      mountPath: /data
+    - name: backup
+      mountPath: /backup
+      readOnly: true
   volumes:
-  - name: data
+  - name: backup
     persistentVolumeClaim:
-      claimName: pvc-keep
-EOF
-
-kubectl apply -f ~/lab-work/6a/sc-retain.yaml
-kubectl apply -f ~/lab-work/6a/keep.yaml
-kubectl wait --for=condition=Ready pod/keep-a -n lab-6a --timeout=300s
-
-kubectl exec -n lab-6a keep-a -- sh -c 'echo lab-6a-keep-payload > /data/marker'
-
-PV_RETAIN="$(kubectl get pvc pvc-keep -n lab-6a -o jsonpath='{.spec.volumeName}')"
-RET_POLICY="$(kubectl get pv "$PV_RETAIN" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')"
-RET_PATH="$(kubectl get pv "$PV_RETAIN" -o jsonpath='{.spec.hostPath.path}{.spec.local.path}')"
-echo "PV=$PV_RETAIN | reclaimPolicy=$RET_POLICY"
-echo "$RET_PATH" | tee ~/lab-evidence/6a/b5-retain-path.txt
-
-test "$RET_POLICY" = 'Retain' \
-  && echo 'PASS: PV kế thừa reclaimPolicy Retain từ class đã cấp phát nó'
+      claimName: backup-store
+      readOnly: true
 ```
 
-**Ý nghĩa:** bạn không khai `Retain` ở đâu trong PVC hay Pod — nó đến từ **StorageClass**. Bài 96:
-*"Các PersistentVolume được tạo động bởi một StorageClass sẽ có chính sách thu hồi được chỉ định
-trong trường `reclaimPolicy` của lớp đó."* Đó là công cụ để quản trị viên cấu hình class *theo kỳ
-vọng của người dùng*, thay vì bắt từng người sửa từng PV.
+Dòng trong `docs/tech-debt.md`:
 
-**PASS:** dòng `PASS: PV kế thừa reclaimPolicy Retain từ class đã cấp phát nó` xuất hiện.
-
-### B5.4. Xóa PVC: PV chuyển sang `Released`, dữ liệu ở lại
-
-```bash
-kubectl delete pod keep-a -n lab-6a --wait=true
-kubectl delete pvc pvc-keep -n lab-6a --wait=true
-
-for i in $(seq 1 60); do
-  RET_PHASE="$(kubectl get pv "$PV_RETAIN" -o jsonpath='{.status.phase}')"
-  test "$RET_PHASE" = 'Released' && break
-  sleep 2
-done
-
-STALE_NS="$(kubectl get pv "$PV_RETAIN" -o jsonpath='{.spec.claimRef.namespace}')"
-STALE_NAME="$(kubectl get pv "$PV_RETAIN" -o jsonpath='{.spec.claimRef.name}')"
-echo "PV $PV_RETAIN: phase=$RET_PHASE | claimRef còn trỏ tới $STALE_NS/$STALE_NAME"
-
-test "$RET_PHASE" = 'Released' && test "$STALE_NAME" = 'pvc-keep' \
-  && echo 'PASS: PV ở pha Released và vẫn giữ claimRef của claim đã bị xóa'
+```markdown
+| TD-08 | Bản dump của db-backup nằm trên emptyDir, mất cùng Pod | 4b | 6a | đã trả (6a) | ~/lab-evidence/6a/b4-ls.txt |
+| TD-10 | Bản backup nằm trong cùng cluster — và cùng node lab-k8s-worker2 — với DB | 6a | 6b (chép ra ngoài bằng tay) | mở | docs/adr/NNNN-backup-store.md |
 ```
 
-Chạy trên **`lab-k8s-worker1`**, với `<RET_PATH>` lấy từ `~/lab-evidence/6a/b5-retain-path.txt`:
+Ý chính cho ADR:
+
+1. Class dùng `WaitForFirstConsumer`: không có Pod nào dùng PVC thì không có node, không có PV. CronJob
+   chỉ tạo Pod theo lịch. `deploy.sh` chờ `Bound` sẽ treo tới lần backup đầu tiên — sai; đúng là để
+   lần chạy đầu cấp volume.
+2. Lần chạy **đầu tiên** quyết định PV nằm ở đâu: Pod đó lên worker nào thì thư mục được tạo ở đó, mãi
+   mãi. Không ghim thì vị trí bản backup phụ thuộc may rủi của scheduler, và Lab 6b, 8a, 12 không biết
+   tìm nó ở đâu. Ghim biến vị trí đó thành quyết định ghi trong repo.
+3. Cùng node `lab-k8s-worker2`: mọi dữ liệu của dự án ở một chỗ, bảo trì một node (Lab 12), diễn tập
+   chỉ trên node được phép phá — nhưng mất `lab-k8s-worker2` là mất cả DB lẫn backup. Ở worker kia: sống
+   sót qua mất một node, đổi lại dữ liệu nằm rải hai node. Cả hai cách đều để bản backup **trong cùng
+   cluster** — `TD-10`, chấp nhận có điều kiện ở Lab 6b bằng việc chép ra ngoài. Lời giải tham khảo chọn
+   cùng node; chọn khác đều được nếu ADR nói rõ đánh đổi.
+4. `ReadWriteOnce` là ràng buộc **theo node** (bài 92): mọi Pod trên node đó đều mount được. Thứ ngăn
+   hai bản backup ghi chồng nhau là `concurrencyPolicy: Forbid` (Lab 4b) — trong phạm vi một CronJob;
+   Job tạo tay bằng `--from` nằm ngoài chính sách đó, nên tên file theo thời điểm là lớp bảo vệ thứ hai.
+5. Provisioner bỏ qua dung lượng xin trong PVC: không giới hạn số bản thì `backup-store` ăn dần đĩa
+   `lab-k8s-worker2` — đĩa của chính `db`, của log và `emptyDir` (bài 95). Volume tạm thời tổng quát có
+   PVC thật nhưng PVC đó thuộc về Pod và bị garbage collector xóa cùng Pod (bài 94) — đúng vòng đời mà
+   `TD-08` cần thoát ra.
+
+</details>
+
+## B5. [BS-6A-05] Diễn tập: mất Pod, mất StatefulSet, mất PVC
+
+**Loại:** Diễn tập sự cố — chỉ trên `lab-k8s-worker2`, nơi có `db-0` và dữ liệu của nó.
+
+**Bối cảnh:** đội phải biết trước, bằng bằng chứng, hệ thống chịu được loại "xóa nhầm" nào và loại nào
+cần người can thiệp — và có sẵn runbook khôi phục cho loại tệ nhất. Mục tiêu trong
+[bảng chịu lỗi của dự án](DU-AN-BOOKSTORE.md#37-chịu-lỗi-và-vận-hành): xóa nhầm StatefulSet hoặc PVC
+thì dữ liệu còn trên PV `Retain` và khôi phục được.
+
+**Yêu cầu:** ghi một đơn hàng đánh dấu, rồi đi qua bốn kịch bản theo thứ tự. Sau mỗi kịch bản, đơn
+hàng phải còn.
+
+| Kịch bản | Thao tác | Phải chứng minh |
+| --- | --- | --- |
+| A — mất Pod | xóa `db-0` | Pod mới khác UID, gắn lại **đúng** PVC cũ (cùng UID PVC, cùng PV) |
+| B — thu nhỏ | đưa StatefulSet `db` về 0 bản sao, rồi `deploy.sh` | khi 0 bản sao PVC vẫn `Bound`; `deploy.sh` đưa về 1 bản sao |
+| C — mất StatefulSet | xóa StatefulSet `db`, rồi `deploy.sh` | không còn Pod, PVC vẫn nguyên; StatefulSet mới dùng lại PVC cũ |
+| D — mất PVC | xóa PVC `data-db-0` khi `db-0` còn chạy, rồi xóa StatefulSet | PVC bị giữ ở `Terminating` khi còn Pod dùng; sau đó PVC mất, PV chuyển `Released`, dữ liệu còn trên node; một PVC mới chỉ đích danh PV đó vẫn không bind được |
+
+Sau kịch bản D, **khôi phục** dữ liệu cũ mà không mất đơn hàng:
+
+1. **Không** chạy `deploy.sh` ngay — trước hết giải thích trong postmortem vì sao.
+2. Thu hồi thủ công theo bài 92: xóa object PV cũ, chứng minh dữ liệu vẫn nằm trên node.
+3. Viết `~/lab-work/6a/pv-khoi-phuc.yaml`: PV tĩnh `data-db-0-khoi-phuc`, label dự án
+   (`component: db`), trỏ lại đúng thư mục cũ trên `lab-k8s-worker2`, **dành riêng** cho PVC
+   `bookstore/data-db-0`, cùng class và dung lượng với PV cũ, `Retain`. Khai báo sao cho nếu thư mục
+   không tồn tại thì Pod **không** khởi động được, thay vì được một thư mục rỗng.
+4. `deploy.sh`: PVC `data-db-0` mới bind vào PV tĩnh; entrypoint bỏ qua khởi tạo; đơn hàng còn; `api`
+   đăng nhập được bằng mật khẩu trong `secrets/db.env`.
+5. Viết `docs/runbook-khoi-phuc-pv.md` — quy trình khôi phục tổng quát kèm mẫu PV — và postmortem.
+
+**Ràng buộc:** không buộc xóa Pod nào; không xóa namespace. Không sửa `claimRef` của PV cũ — quy trình
+của ticket là PV tĩnh mới (cách sửa `claimRef` là câu hỏi thiết kế). Khối `nodeAffinity` của PV tĩnh
+chép nguyên từ PV cũ, không tự viết. Không tự xóa thư mục trên node.
+
+**Đọc lại:**
+
+- Bài [92](../92-persistent-volumes-vi.md):
+  [*Bảo vệ đối tượng lưu trữ đang được sử dụng*](../92-persistent-volumes-vi.md#bảo-vệ-đối-tượng-lưu-trữ-đang-được-sử-dụng-storage-object-in-use-protection),
+  [*Thu hồi*](../92-persistent-volumes-vi.md#reclaiming) — mục *Retain*,
+  [*Dành riêng một PersistentVolume*](../92-persistent-volumes-vi.md#dành-riêng-một-persistentvolume-reserving-a-persistentvolume),
+  [*Pha*](../92-persistent-volumes-vi.md#pha-phase),
+  [*Tên volume*](../92-persistent-volumes-vi.md#tên-volume-volume-name), mục *Khôi phục khi mở rộng
+  volume thất bại* (bước 3).
+- Bài [65](../65-statefulset-vi.md): [*Hạn chế*](../65-statefulset-vi.md#limitations),
+  [*Lưu trữ ổn định*](../65-statefulset-vi.md#stable-storage),
+  [*Lưu giữ PersistentVolumeClaim*](../65-statefulset-vi.md#persistentvolumeclaim-retention),
+  [*Replicas*](../65-statefulset-vi.md#replicas).
+- Bài [343](../343-run-replicated-stateful-application-vi.md): mục *Xóa các Pod* và ghi chú trong mục
+  [*Scale số lượng replica*](../343-run-replicated-stateful-application-vi.md#scale-số-lượng-replica-scaling-the-number-of-replicas).
+- Bài [344](../344-run-single-instance-stateful-vi.md#xóa-deployment-deleting-a-deployment) — PV cấp
+  phát thủ công phải xóa thủ công.
+- Bài [91](../91-volumes-vi.md#hostpath) — bảng các giá trị `type` của `hostPath`.
+
+**Bàn giao:** `~/lab-work/6a/pv-khoi-phuc.yaml`; `docs/runbook-khoi-phuc-pv.md`;
+`docs/postmortem/6a-mat-pvc.md`; `~/lab-evidence/6a/b5-*`.
+
+**Nghiệm thu:**
+
+- `PASS:` A — `db-0` mới khác UID, cùng PVC (UID không đổi), đơn hàng còn.
+- `PASS:` B — 0 bản sao mà `data-db-0` vẫn `Bound`; `deploy.sh` đưa về 1, đơn hàng còn.
+- `PASS:` C — StatefulSet mất, PVC còn nguyên UID; `deploy.sh` dựng lại trên PVC cũ, đơn hàng còn.
+- `PASS:` D — PVC `Terminating` với finalizer `kubernetes.io/pvc-protection` trong khi `db-0` chạy;
+  sau đó PVC mất, PV cũ `Released` vẫn giữ `claimRef` cũ, `PG_VERSION` còn trên node.
+- `PASS:` D — PVC `thu-gianh-pv` chỉ đích danh PV cũ đứng `Pending`, PV vẫn `Released`; PVC đó đã xóa.
+- `PASS:` khôi phục — xóa PV cũ, dữ liệu vẫn trên node; PV tĩnh `Available`, đã dành cho
+  `bookstore/data-db-0`.
+- `PASS:` khôi phục — sau `deploy.sh`: `data-db-0` bind vào PV tĩnh; log có dòng bỏ qua khởi tạo;
+  đơn hàng còn; `/books` qua Service `api` trả dữ liệu.
+- `PASS:` runbook và postmortem tồn tại.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/postmortem/6a-mat-pvc.md`:
+
+1. Kịch bản nào hệ thống tự chịu được, kịch bản nào cần người? Với mỗi kịch bản, chỉ ra cơ chế giữ
+   dữ liệu (StatefulSet, retention policy, finalizer, reclaim policy).
+2. Ngay sau khi mất PVC, nếu bạn chạy `deploy.sh` thì chuyện gì xảy ra — với PVC, với PV cũ, với dữ
+   liệu mà `api` phục vụ? Vì sao một kiểm thử khói chỉ kiểm hợp đồng, như `tests/smoke.sh`, **không**
+   bắt được sự cố đó?
+3. Vì sao PVC mới, kể cả trùng tên `data-db-0`, không tự bind lại vào PV `Released`? Bài 92 nêu cách
+   nào khác để PV cũ thành `Available`, và so với PV tĩnh mới thì cách nào an toàn hơn cho dự án?
+4. Vì sao PV khôi phục dùng `type: Directory` chứ không `DirectoryOrCreate` như PV do provisioner tạo?
+5. Bước khôi phục dùng lại đúng `secrets/db.env` đang có. Nếu thư mục cũ đến từ một thời điểm mà bí
+   mật đã khác, runbook phải thêm bước gì?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Chờ Pod mới thay Pod cũ: so `metadata.uid` trong một vòng lặp.
+- Xóa PVC mà không chờ: `kubectl delete pvc ... --wait=false`; đọc `metadata.deletionTimestamp` và
+  `metadata.finalizers`.
+- Lưu PV cũ trước khi xóa: `kubectl get pv <tên> -o yaml > ~/lab-evidence/6a/b5-pv-cu.yaml`. Từ file
+  đó lấy `hostPath.path`, `capacity`, khối `nodeAffinity`.
+- PV dành riêng cho một PVC: `spec.claimRef` chỉ có `namespace` và `name` — không có `uid`.
+- Bỏ khỏi bản chép: `status`, `metadata.uid`, `resourceVersion`, `creationTimestamp`, `finalizers`,
+  annotation `pv.kubernetes.io/provisioned-by` — PV tĩnh không thuộc provisioner nào.
+- Dòng mà entrypoint `postgres` in khi thư mục dữ liệu đã có sẵn: `Skipping initialization`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — phần 1 là cuộc diễn tập A→D; phần 2 chạy sau khi viết PV khôi phục</summary>
+
+Phần 1:
 
 ```bash
-sudo cat <RET_PATH>/marker
-```
+NS=bookstore; EV=~/lab-evidence/6a
+cd ~/bookstore
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+SQL() { kubectl -n "$NS" exec db-0 -c postgres -- psql -X -q -U postgres -d bookstore -tAc "$1"; }
+cho_db() { kubectl -n "$NS" wait --for=condition=Ready pod/db-0 --timeout=300s >/dev/null; }
+cho_pod_moi() { for i in $(seq 1 90); do U="$(jp pod/db-0 '{.metadata.uid}')"; [ -n "$U" ] && [ "$U" != "$1" ] && return 0; sleep 2; done; return 1; }
 
-**Ý nghĩa:** so với B5.2 chỉ đổi đúng một trường của StorageClass, và kết quả ngược hẳn: PVC biến
-mất nhưng PV còn, dữ liệu còn nguyên trên đĩa node. Bài 92 gọi trạng thái này là *"đã giải phóng"*
-và nói rõ nó **chưa sẵn sàng cho một claim khác vì dữ liệu của người claim trước vẫn còn trên
-volume**. `claimRef` giữ nguyên chính là cơ chế khóa đó.
+cho_db
+ID="$(SQL "INSERT INTO api.orders (book_id, quantity) SELECT min(id), 4 FROM api.books RETURNING id" | head -n1)"
+echo "$ID" > "$EV/b5-don-hang.txt"
+con_don() { [ "$(SQL "SELECT count(*) FROM api.orders WHERE id = ${ID}")" = '1' ]; }
+PVC0="$(jp pvc/data-db-0 '{.metadata.uid}')"; PV0="$(jp pvc/data-db-0 '{.spec.volumeName}')"
+echo "$PV0" > "$EV/b5-pv-cu-ten.txt"
 
-**PASS:** dòng `PASS: PV ở pha Released và vẫn giữ claimRef…` trên master; trên worker1
-`marker` in ra `lab-6a-keep-payload`.
+# A. Mất Pod
+U0="$(jp pod/db-0 '{.metadata.uid}')"
+kubectl -n "$NS" delete pod db-0 --wait=true
+cho_pod_moi "$U0" && cho_db
+{ [ "$(jp pvc/data-db-0 '{.metadata.uid}')" = "$PVC0" ] && [ "$(jp pvc/data-db-0 '{.spec.volumeName}')" = "$PV0" ] && con_don; } \
+  && echo 'PASS: A — db-0 moi khac UID, gan lai dung PVC cu, don hang con'
 
-### B5.5. `Released` không tự tái dùng được
+# B. Thu nhỏ về 0
+kubectl -n "$NS" scale statefulset db --replicas=0
+kubectl -n "$NS" wait --for=delete pod/db-0 --timeout=180s
+[ "$(jp pvc/data-db-0 '{.status.phase}')" = 'Bound' ] && echo 'PASS: B — 0 ban sao, data-db-0 van Bound'
+./scripts/deploy.sh > "$EV/b5-deploy-b.txt" 2>&1; cho_db
+{ [ "$(jp statefulset/db '{.spec.replicas}')" = '1' ] && con_don; } && echo 'PASS: B — deploy.sh dua db ve 1 ban sao, don hang con'
 
-```bash
+# C. Mất StatefulSet
+kubectl -n "$NS" delete statefulset db --wait=true
+kubectl -n "$NS" wait --for=delete pod/db-0 --timeout=180s
+{ ! kubectl -n "$NS" get statefulset db >/dev/null 2>&1 && [ "$(jp pvc/data-db-0 '{.metadata.uid}')" = "$PVC0" ] && \
+  [ "$(jp pvc/data-db-0 '{.status.phase}')" = 'Bound' ]; } && echo 'PASS: C — StatefulSet mat, PVC data-db-0 con nguyen'
+./scripts/deploy.sh > "$EV/b5-deploy-c.txt" 2>&1; cho_db
+{ [ "$(jp pvc/data-db-0 '{.metadata.uid}')" = "$PVC0" ] && con_don; } && echo 'PASS: C — StatefulSet moi dung lai PVC cu, don hang con'
+
+# D. Mất PVC
+kubectl -n "$NS" delete pvc data-db-0 --wait=false
+sleep 3
+{ [ -n "$(jp pvc/data-db-0 '{.metadata.deletionTimestamp}')" ] && \
+  jp pvc/data-db-0 '{.metadata.finalizers}' | grep -q 'kubernetes.io/pvc-protection' && \
+  [ "$(jp pod/db-0 '{.status.phase}')" = 'Running' ]; } \
+  && echo 'PASS: D — PVC dang duoc dung bi giu o Terminating (pvc-protection), db-0 van chay'
+kubectl -n "$NS" delete statefulset db --wait=true
+kubectl -n "$NS" wait --for=delete pod/db-0 --timeout=180s
+for i in $(seq 1 60); do kubectl -n "$NS" get pvc data-db-0 >/dev/null 2>&1 || break; sleep 2; done
+for i in $(seq 1 60); do [ "$(kubectl get pv "$PV0" -o jsonpath='{.status.phase}')" = 'Released' ] && break; sleep 2; done
+kubectl get pv "$PV0" -o yaml > "$EV/b5-pv-cu.yaml"
+DIR0="$(kubectl get pv "$PV0" -o jsonpath='{.spec.hostPath.path}{.spec.local.path}')"
+echo "$DIR0" > "$EV/b5-thu-muc-cu.txt"
+{ ! kubectl -n "$NS" get pvc data-db-0 >/dev/null 2>&1 && \
+  [ "$(kubectl get pv "$PV0" -o jsonpath='{.status.phase}|{.spec.claimRef.name}')" = 'Released|data-db-0' ]; } \
+  && echo 'PASS: D — PVC mat, PV cu Released, claimRef cu van giu cho'
+ssh lab-k8s-worker2 "sudo find '$DIR0' -maxdepth 2 -name PG_VERSION" > "$EV/b5-tren-node.txt" 2>&1
+grep -q 'PG_VERSION' "$EV/b5-tren-node.txt" && echo 'PASS: D — du lieu con nguyen tren lab-k8s-worker2'
+
+CAP="$(kubectl get pv "$PV0" -o jsonpath='{.spec.capacity.storage}')"
 kubectl apply -f - <<EOF
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: pvc-reuse
-  namespace: lab-6a
+  name: thu-gianh-pv
+  namespace: bookstore
 spec:
-  storageClassName: lab-6a-retain
-  volumeName: $PV_RETAIN
+  storageClassName: bookstore-retain
+  volumeName: $PV0
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: 128Mi
+      storage: $CAP
 EOF
-
-sleep 30
-REUSE_PHASE="$(kubectl get pvc pvc-reuse -n lab-6a -o jsonpath='{.status.phase}')"
-PHASE_NOW="$(kubectl get pv "$PV_RETAIN" -o jsonpath='{.status.phase}')"
-echo "pvc-reuse = $REUSE_PHASE | PV $PV_RETAIN = $PHASE_NOW"
-
-test "$REUSE_PHASE" = 'Pending' && test "$PHASE_NOW" = 'Released' \
-  && echo 'PASS: claim mới không cướp được PV đã Released'
-
-kubectl delete pvc pvc-reuse -n lab-6a --wait=true
+sleep 20
+{ [ "$(jp pvc/thu-gianh-pv '{.status.phase}')" = 'Pending' ] && [ "$(kubectl get pv "$PV0" -o jsonpath='{.status.phase}')" = 'Released' ]; } \
+  && echo 'PASS: D — PVC chi dich danh PV Released van Pending'
+kubectl -n "$NS" delete pvc thu-gianh-pv --wait=true
 ```
 
-**Ý nghĩa:** PVC này chỉ đích danh PV bằng `volumeName`, đúng class, đúng dung lượng, đúng access
-mode — vẫn không bind được. Bài 92 mô tả chính xác tình huống: *"Nếu PV được chỉ định đã ràng buộc
-với một PVC khác, việc ràng buộc sẽ bị kẹt ở trạng thái pending."* `claimRef` cũ vẫn nằm đó, và
-không ai gỡ nó thay bạn.
-
-**PASS:** dòng `PASS: claim mới không cướp được PV đã Released` xuất hiện.
-
-### B5.6. Thu hồi thủ công đúng ba bước
-
-Bài 92 liệt kê ba bước cho `Retain`, và ba bước đó phải làm bằng tay theo đúng thứ tự:
+Phần 2 — sau khi viết `~/lab-work/6a/pv-khoi-phuc.yaml`, **chưa** chạy `deploy.sh`:
 
 ```bash
-# Bước 1: xóa đối tượng PersistentVolume. Tài sản lưu trữ bên ngoài KHÔNG bị xóa theo.
-kubectl delete pv "$PV_RETAIN" --wait=true
-kubectl get pv
+NS=bookstore; EV=~/lab-evidence/6a
+cd ~/bookstore
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+SQL() { kubectl -n "$NS" exec db-0 -c postgres -- psql -X -q -U postgres -d bookstore -tAc "$1"; }
+ID="$(cat "$EV/b5-don-hang.txt")"; PV0="$(cat "$EV/b5-pv-cu-ten.txt")"; DIR0="$(cat "$EV/b5-thu-muc-cu.txt")"
+
+kubectl delete pv "$PV0" --wait=true
+ssh lab-k8s-worker2 "sudo find '$DIR0' -maxdepth 2 -name PG_VERSION" | grep -q 'PG_VERSION' \
+  && echo 'PASS: xoa object PV cu, du lieu van tren node (Retain)'
+kubectl apply -f ~/lab-work/6a/pv-khoi-phuc.yaml
+sleep 5
+{ [ "$(kubectl get pv data-db-0-khoi-phuc -o jsonpath='{.status.phase}')" = 'Available' ] && \
+  [ "$(kubectl get pv data-db-0-khoi-phuc -o jsonpath='{.spec.claimRef.namespace}/{.spec.claimRef.name}')" = 'bookstore/data-db-0' ] && \
+  [ "$(kubectl get pv data-db-0-khoi-phuc -o jsonpath='{.spec.hostPath.path}|{.spec.hostPath.type}')" = "$DIR0|Directory" ]; } \
+  && echo 'PASS: PV tinh Available, tro dung thu muc cu, danh rieng cho bookstore/data-db-0'
+
+./scripts/deploy.sh > "$EV/b5-deploy-khoi-phuc.txt" 2>&1 && echo 'PASS: deploy.sh thanh cong'
+[ "$(jp pvc/data-db-0 '{.spec.volumeName}')" = 'data-db-0-khoi-phuc' ] && echo 'PASS: data-db-0 bind vao PV khoi phuc'
+kubectl -n "$NS" logs db-0 -c postgres > "$EV/b5-db-log.txt" 2>&1
+grep -q 'Skipping initialization' "$EV/b5-db-log.txt" && echo 'PASS: entrypoint bo qua khoi tao — dung du lieu cu'
+[ "$(SQL "SELECT count(*) FROM api.orders WHERE id = ${ID}")" = '1' ] && echo "PASS: don hang $ID con sau khi khoi phuc"
+WEB="$(kubectl -n "$NS" get pod -l app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=web --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')"
+T="$(kubectl -n "$NS" exec "$WEB" -c status-writer -- wget -qO- http://api:3000/books 2>/dev/null | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && echo "PASS: api dang nhap duoc bang secrets/db.env, /books tra $T cuon"
+{ test -s docs/runbook-khoi-phuc-pv.md && test -s docs/postmortem/6a-mat-pvc.md; } && echo 'PASS: co runbook va postmortem'
 ```
 
-Chạy trên **`lab-k8s-worker1`** — bước 2 và 3, với `<RET_PATH>` như trên:
+</details>
 
-```bash
-# Bước 2: dữ liệu vẫn còn sau khi đối tượng PV đã biến mất — kiểm tra rồi mới dọn.
-sudo cat <RET_PATH>/marker
+<details>
+<summary>Lời giải tham khảo</summary>
 
-# Bước 3: tự xóa tài sản lưu trữ liên kết.
-sudo rm -rf <RET_PATH>
-sudo test -d <RET_PATH> && echo 'FAIL: thư mục vẫn còn' || echo 'PASS: đã dọn tay tài sản lưu trữ'
-sudo ls -l /opt/local-path-provisioner
-```
+PV khôi phục — dựng từ `~/lab-evidence/6a/b5-pv-cu.yaml`. Tên thư mục, dung lượng và khối
+`nodeAffinity` dưới đây là ví dụ; lấy đúng giá trị trong file của bạn.
 
-Quay lại **`lab-k8s-master`**:
-
-```bash
-PV_TOTAL2="$(kubectl get pv --no-headers | wc -l)"
-echo "tổng số PV còn lại = $PV_TOTAL2"
-test "$PV_TOTAL2" -eq 1 && echo 'PASS: chỉ còn PV tĩnh lab-6a-static'
-```
-
-**Ý nghĩa:** bước 2 là thứ phân biệt `Retain` với `Delete`: có một khoảnh khắc mà đối tượng API đã
-biến mất nhưng dữ liệu vẫn nằm trên đĩa, và đó chính là cơ hội để bạn sao lưu trước khi dọn. Bài 92
-còn nói: muốn tái sử dụng đúng tài sản lưu trữ đó thì tạo một PersistentVolume **mới** với cùng
-định nghĩa — không có cách nào "hồi sinh" PV cũ.
-
-**PASS:** hai dòng `PASS:` trên worker1 và master.
-
----
-
-## B6. `volumeClaimTemplates` — trả nợ #2
-
-> **Đọc lại trước khi làm:** bài [65 — StatefulSet](../65-statefulset-vi.md), ba mục *Template cho
-> volume claim*, *Lưu trữ ổn định* và *Lưu giữ PersistentVolumeClaim*. Ở Lab 4b bạn đã chạy
-> StatefulSet **không có** `volumeClaimTemplates` vì cluster chưa có StorageClass; mục này là phần
-> còn thiếu của bài 65, và cũng là phần lưu trữ của bài
-> [343](../343-run-replicated-stateful-application-vi.md).
-
-### B6.1. StatefulSet ba replica, mỗi replica một claim
-
-```bash
-cat > ~/lab-work/6a/statefulset.yaml <<'EOF'
+```yaml
+# ~/lab-work/6a/pv-khoi-phuc.yaml
 apiVersion: v1
-kind: Service
+kind: PersistentVolume
 metadata:
-  name: web-headless
-  namespace: lab-6a
+  name: data-db-0-khoi-phuc
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: db
+    app.kubernetes.io/name: postgresql
 spec:
-  clusterIP: None
-  selector:
-    app: web
-  ports:
-  - name: web
-    port: 80
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: web
-  namespace: lab-6a
-spec:
-  serviceName: web-headless
-  replicas: 3
-  selector:
-    matchLabels:
-      app: web
-  template:
-    metadata:
-      labels:
-        app: web
-    spec:
-      terminationGracePeriodSeconds: 5
-      containers:
-      - name: app
-        image: busybox:1.37
-        command: ["sh", "-c", "sleep 3600"]
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes: ["ReadWriteOnce"]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: bookstore-retain
+  claimRef:                                   # dành riêng — chỉ namespace và name, không uid
+    namespace: bookstore
+    name: data-db-0
+  hostPath:
+    path: /opt/local-path-provisioner/pvc-0f3c...-..._bookstore_data-db-0   # đúng chuỗi của PV cũ
+    type: Directory                           # thư mục phải có sẵn; sai đường dẫn thì Pod không lên
+  nodeAffinity:                               # chép nguyên từ PV cũ
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - lab-k8s-worker2
+```
+
+Khung `docs/runbook-khoi-phuc-pv.md`:
+
+```markdown
+# Runbook — khôi phục dữ liệu db từ PV Released
+
+Dùng khi: PVC data-db-0 bị xóa, PV của nó ở pha Released (class bookstore-retain, Retain).
+
+1. Dừng mọi thứ có thể tạo lại data-db-0: không chạy deploy.sh; StatefulSet db phải không tồn tại
+   hoặc 0 bản sao.
+2. Lưu PV cũ: kubectl get pv <PV> -o yaml > pv-cu.yaml. Ghi lại hostPath.path, capacity, nodeAffinity.
+3. Kiểm dữ liệu trên node (chỉ đọc): ssh <node> "sudo find <path> -maxdepth 2 -name PG_VERSION".
+4. Đối chiếu bí mật: secrets/db.env phải là bản đi cùng dữ liệu này (ADR mat-khau-du-lieu-ben).
+5. Xóa object PV cũ (dữ liệu ở lại vì Retain).
+6. Tạo PV tĩnh từ mẫu pv-khoi-phuc: cùng path (type Directory), cùng class, dung lượng, nodeAffinity;
+   claimRef = bookstore/data-db-0 không uid; reclaim Retain; label dự án.
+7. kubectl get pv -> Available. Rồi ./scripts/deploy.sh.
+8. Kiểm: PVC bind vào PV tĩnh; log db-0 có "Skipping initialization"; ./tests/smoke.sh PASS.
+```
+
+Ý chính cho postmortem:
+
+1. A, B, C tự chịu được: StatefulSet gắn PVC theo ordinal (A, C), `whenScaled`/`whenDeleted: Retain`
+   giữ PVC khi thu nhỏ và khi xóa StatefulSet (B, C), và `apply` ghi đè `replicas` thủ công (B, bài 65
+   *Replicas*). D cần người: `pvc-protection` chỉ **hoãn** việc xóa PVC tới khi không còn Pod dùng;
+   `Retain` giữ dữ liệu, nhưng không ai tự nối nó lại.
+2. Khi tạo `db-0`, StatefulSet tạo PVC còn thiếu từ `volumeClaimTemplates` — cùng cơ chế bài 343 mô
+   tả khi scale lên → provisioner cấp PV mới, thư mục rỗng → entrypoint khởi tạo DB mới, `deploy.sh`
+   chạy migration → `api` Ready, `/books` trả đủ sách. Hệ thống "khỏe" trong khi mọi đơn hàng nằm lại
+   trên PV cũ. Kiểm thử khói kiểm hợp đồng (số sách tối thiểu, Pod Ready), không kiểm sự liên tục của
+   dữ liệu. Vì thế bước 1 của runbook là **dừng**.
+3. `claimRef` của PV cũ còn `uid` của PVC đã xóa; PVC mới trùng tên nhưng khác UID, nên PV không còn
+   là "của" ai mới — bài 92: `Released` chưa sẵn sàng cho claim khác, chỉ định `volumeName` thì kẹt
+   `Pending`. Cách khác: xóa `claimRef` khỏi PV cũ để nó thành `Available` (bài 92, khôi phục khi mở
+   rộng thất bại, bước 3) — nhanh, nhưng sửa trực tiếp object do provisioner quản lý, và PV `Available`
+   không `claimRef` có thể bị **bất kỳ** PVC khớp nào lấy mất. PV tĩnh có `claimRef` dành riêng thì chỉ
+   `data-db-0` lấy được.
+4. Bài 91: `DirectoryOrCreate` tạo thư mục rỗng nếu đường dẫn sai — PostgreSQL thấy thư mục rỗng sẽ
+   khởi tạo DB mới, lặp lại đúng sự cố câu 2. `Directory` bắt thư mục phải tồn tại: sai một ký tự thì
+   Pod đứng ở `ContainerCreating` với lỗi rõ ràng.
+5. Mật khẩu nằm trong dữ liệu. Bí mật lệch thì phải tìm lại `secrets/db.env` đi cùng thời điểm đó, hoặc
+   sau khi `db-0` lên, đặt lại mật khẩu hai role qua Unix socket rồi cập nhật `secrets/db.env` và chạy
+   `deploy.sh` để `api`, `db-backup` nhận bí mật mới.
+
+</details>
+
+## B6. [BS-6A-06] Projected volume cho `status-writer`
+
+**Loại:** Tính năng.
+
+**Bối cảnh:** từ Lab 3a, sidecar `status-writer` đọc label của Pod qua volume `downwardAPI` riêng, còn
+chu kỳ ghi là hằng số trong script. Đội muốn chu kỳ thành cấu hình (ConfigMap `web-config`), nhưng
+không muốn mỗi nguồn dữ liệu mới lại thêm một volume và một điểm mount cho sidecar. Volume `projected`
+gom nhiều nguồn vào **một** thư mục.
+
+**Yêu cầu:**
+
+1. `status-writer` đọc mọi đầu vào của nó từ **một** thư mục `/etc/status-writer`, do **một** volume
+   cung cấp, gồm: file `labels` chứa label của Pod (downward API), và file `status-writer.env` lấy từ
+   một key mới cùng tên của ConfigMap `web-config`, nội dung `STATUS_INTERVAL=5`. Script đọc chu kỳ ghi
+   từ file đó.
+2. Bỏ hẳn volume `downwardAPI` riêng của Lab 3a. Không tạo ConfigMap mới — tên ConfigMap là hợp đồng
+   ([mục 4.1](DU-AN-BOOKSTORE.md#41-tên-và-label)).
+3. Mọi file trong thư mục là chỉ đọc cho mọi người (`0444`), đặt **một lần** cho cả volume.
+4. Hành vi cũ giữ nguyên: `/status.json` đủ bốn trường; đổi label `app.kubernetes.io/version` trên một
+   Pod `web` đang chạy thì `/status.json` **của Pod đó** đổi theo mà không container nào khởi động lại;
+   `nginx` vẫn chỉ thấy `default.conf` trong `/etc/nginx/conf.d`.
+5. Điều tra, không vào repo: (a) chứng minh Pod `web` còn mang một volume projected khác mà bạn không
+   viết, liệt kê các nguồn của nó; (b) bằng server dry-run có kiểm tra trường chặt, chứng minh hai bẫy
+   cú pháp của bài 93 — khai Secret trong projected bằng `secretName`, và đặt `defaultMode` bên trong
+   một nguồn — đều bị API server từ chối.
+
+**Ràng buộc:** không đổi tên container, đường dẫn hay trường của `/status.json`
+([mục 4.2](DU-AN-BOOKSTORE.md#42-cổng-đường-dẫn-và-điểm-kiểm-tra-sức-khỏe)). Không mount nguồn
+projected bằng `subPath`. ConfigMap của dự án được sinh bằng `configMapGenerator` từ Lab 5a — thêm key
+bằng chính cơ chế đó.
+
+**Đọc lại:**
+
+- Bài [93](../93-projected-volumes-vi.md): [*Giới thiệu*](../93-projected-volumes-vi.md#giới-thiệu-introduction),
+  [ví dụ secret, downwardAPI, configMap](../93-projected-volumes-vi.md#example-configuration-secret-downwardapi-configmap),
+  [ví dụ quyền không mặc định](../93-projected-volumes-vi.md#example-configuration-secrets-nondefault-permission-mode)
+  và đoạn hai ngoại lệ ngay sau nó, [*serviceAccountToken*](../93-projected-volumes-vi.md#serviceaccounttoken)
+  cùng ghi chú `subPath` cuối mục.
+- Bài [277](../277-configure-projected-volume-vi.md#cấu-hình-một-projected-volume-cho-pod-configure-a-projected-volume-for-a-pod)
+  — một `volumes`, một `volumeMounts`.
+- Bài [91](../91-volumes-vi.md#configmap) — `configMap` và [`downwardAPI`](../91-volumes-vi.md#downwardapi).
+- Lab 3b, ticket `BS-3B-04` — vì sao `nginx` mount `web-config` qua `items`.
+
+**Bàn giao:** manifest Deployment `web`; `k8s/app/web/status-writer.env`; `k8s/app/kustomization.yaml`;
+`~/lab-work/6a/thu-projected-sai.yaml`, `~/lab-work/6a/thu-projected-mode.yaml`;
+`docs/adr/NNNN-projected-status-writer.md`; `~/lab-evidence/6a/b6-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` Pod `web` có một volume projected gom nguồn downward API và ConfigMap `web-config`,
+  `defaultMode` `0444`; `status-writer` mount nó tại `/etc/status-writer`; không còn volume
+  `downwardAPI` riêng.
+- `PASS:` trong `status-writer`, `/etc/status-writer` có `labels` và `status-writer.env` (quyền 444),
+  file sau có `STATUS_INTERVAL`.
+- `PASS:` `/status.json` đủ bốn trường và được cập nhật theo thời gian.
+- `PASS:` đổi label version trên một Pod `web` thì `/status.json` của nó đổi; `restartCount` không đổi.
+- `PASS:` `nginx` chỉ thấy `default.conf` trong `/etc/nginx/conf.d`.
+- `PASS:` volume `kube-api-access-*` là projected với ba nguồn `serviceAccountToken`, `configMap`,
+  `downwardAPI`.
+- `PASS:` hai dry-run sai cú pháp bị từ chối, lỗi nhắc đúng trường sai.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-projected-status-writer.md`:
+
+1. Trước và sau ticket, sidecar có bao nhiêu volume, bao nhiêu điểm mount cho đầu vào? Ràng buộc nào
+   của bài 93 **không** đổi khi gom nguồn — và nó có ý nghĩa gì nếu sau này sidecar cần dữ liệu của
+   namespace `bookstore-system`?
+2. Bạn viết `defaultMode: 0444` trong YAML, nhưng `kubectl get -o jsonpath` in ra một con số khác.
+   Con số nào, vì sao? Hai khác biệt cú pháp nào của projected so với volume rời?
+3. Đổi label trên Pod: file `labels` cập nhật tại chỗ. Đổi `status-writer.env` trong repo rồi
+   `deploy.sh`: chuyện gì xảy ra với Pod `web`, và vì sao khác với volume ConfigMap không hậu tố hash ở
+   điều tra của Lab 3b?
+4. Volume projected `kube-api-access-*` do ai thêm, gồm những gì, để làm gì? `status-writer` có cần nó
+   không — và sprint nào xử lý chuyện đó?
+5. Nếu mount riêng `status-writer.env` bằng `subPath` cho gọn, điều gì hỏng?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Volume `projected` có `defaultMode` và danh sách `sources`; mỗi phần tử của `sources` là đúng một
+   loại: `downwardAPI`, `configMap`, `secret`, `serviceAccountToken`...
+2. Trong `configMapGenerator` của `web-config`, thêm file `web/status-writer.env` vào `files` — tên
+   file thành tên key. Kustomize tự đổi `name: web-config` bên trong `projected.sources` sang tên có
+   hậu tố hash.
+3. Trong script: `. /etc/status-writer/status-writer.env` rồi `sleep "$STATUS_INTERVAL" & wait $!`.
+4. File trong volume projected là symlink vào `..data/`; đọc quyền của file thật bằng `stat -L -c %a`.
+5. JSON không có số bát phân: `0444` (bát phân) là `292` (thập phân).
+6. Dry-run kiểm trường chặt: `kubectl create --dry-run=server --validate=strict -f <file>`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong và đã viết hai file dry-run</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/6a; W=~/lab-work/6a
+cd ~/bookstore
+./scripts/deploy.sh > "$EV/b6-deploy.txt" 2>&1 && echo 'PASS: deploy.sh thanh cong'
+WEB="$(kubectl -n "$NS" get pod -l app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=web \
+       --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')"
+pj() { kubectl -n "$NS" get pod "$WEB" -o jsonpath="$1"; }
+sw() { kubectl -n "$NS" exec "$WEB" -c status-writer -- "$@"; }
+
+pj '{range .spec.volumes[*]}{.name}|{.projected.sources[*].downwardAPI.items[*].path}|{.projected.sources[*].configMap.name}|{.projected.defaultMode}|{.downwardAPI.items[*].path}{"\n"}{end}' \
+  | grep -v '^kube-api-access-' > "$EV/b6-volumes.txt"
+PROJ="$(awk -F'|' '$2!="" && $3 ~ /^web-config/ {print $1; exit}' "$EV/b6-volumes.txt")"
+{ [ -n "$PROJ" ] && [ "$(awk -F'|' -v v="$PROJ" '$1==v {print $4}' "$EV/b6-volumes.txt")" = '292' ]; } \
+  && echo "PASS: volume $PROJ gom downwardAPI va web-config, defaultMode 0444"
+[ -z "$(awk -F'|' '$5!=""' "$EV/b6-volumes.txt")" ] && echo 'PASS: khong con volume downwardAPI rieng'
+[ "$(pj "{.spec.initContainers[?(@.name==\"status-writer\")].volumeMounts[?(@.name==\"$PROJ\")].mountPath}")" = '/etc/status-writer' ] \
+  && echo 'PASS: status-writer mount volume projected tai /etc/status-writer'
+
+{ [ "$(sw stat -L -c %a /etc/status-writer/labels)" = '444' ] && \
+  [ "$(sw stat -L -c %a /etc/status-writer/status-writer.env)" = '444' ] && \
+  sw grep -q '^STATUS_INTERVAL=' /etc/status-writer/status-writer.env; } \
+  && echo 'PASS: hai file tu hai nguon trong mot thu muc, quyen 444, co STATUS_INTERVAL'
+
+get() { sw wget -qO- "http://127.0.0.1:8080$1"; }
+S1="$(get /status.json)"; sleep 12; S2="$(get /status.json)"
+echo "$S2" > "$EV/b6-status.txt"
+BAD=0
+for K in pod node version updated; do echo "$S2" | grep -q "\"$K\"" || BAD=1; done
+{ [ "$BAD" -eq 0 ] && [ "$S1" != "$S2" ]; } && echo 'PASS: status.json du bon truong va duoc cap nhat'
+
+V0="$(pj '{.metadata.labels.app\.kubernetes\.io/version}')"
+R0="$(pj '{.status.containerStatuses[*].restartCount} {.status.initContainerStatuses[*].restartCount}')"
+kubectl -n "$NS" label pod "$WEB" app.kubernetes.io/version=9.9.9-thu --overwrite
+for i in $(seq 1 36); do get /status.json | grep -q '"version" *: *"9.9.9-thu"' && break; sleep 5; done
+get /status.json | grep -q '"version" *: *"9.9.9-thu"' && echo 'PASS: status.json nhan version moi qua volume projected'
+[ "$(pj '{.status.containerStatuses[*].restartCount} {.status.initContainerStatuses[*].restartCount}')" = "$R0" ] \
+  && echo 'PASS: khong container nao khoi dong lai'
+kubectl -n "$NS" label pod "$WEB" "app.kubernetes.io/version=$V0" --overwrite
+
+[ "$(kubectl -n "$NS" exec "$WEB" -c nginx -- ls /etc/nginx/conf.d)" = 'default.conf' ] \
+  && echo 'PASS: nginx van chi thay default.conf'
+
+KA="$(pj '{range .spec.volumes[*]}{.name}|{.projected.sources[*].serviceAccountToken.path}|{.projected.sources[*].configMap.name}|{.projected.sources[*].downwardAPI.items[*].path}{"\n"}{end}' | grep '^kube-api-access-')"
+echo "$KA" > "$EV/b6-kube-api-access.txt"
+echo "$KA" | awk -F'|' '$2!="" && $3!="" && $4!="" {ok=1} END {exit !ok}' \
+  && echo 'PASS: kube-api-access-* la projected: serviceAccountToken, configMap, downwardAPI'
+
+kubectl create --dry-run=server --validate=strict -f "$W/thu-projected-sai.yaml" > "$EV/b6-sai-secretname.txt" 2>&1 \
+  && echo 'FAIL: API server chap nhan secretName' \
+  || { grep -q 'secretName' "$EV/b6-sai-secretname.txt" && echo 'PASS: secretName trong projected bi tu choi'; }
+kubectl create --dry-run=server --validate=strict -f "$W/thu-projected-mode.yaml" > "$EV/b6-sai-defaultmode.txt" 2>&1 \
+  && echo 'FAIL: API server chap nhan defaultMode trong mot nguon' \
+  || { grep -q 'defaultMode' "$EV/b6-sai-defaultmode.txt" && echo 'PASS: defaultMode trong mot nguon bi tu choi'; }
+```
+
+Thời gian file trong volume projected nhận label mới phụ thuộc chu kỳ đồng bộ của kubelet; vòng chờ ở
+trên cho tối đa ba phút.
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```bash
+printf 'STATUS_INTERVAL=5\n' > ~/bookstore/k8s/app/web/status-writer.env
+```
+
+Trong `k8s/app/kustomization.yaml`, mục `configMapGenerator` của `web-config` — thêm một dòng vào
+`files`, các dòng khác giữ như tag `lab-5b`:
+
+```yaml
+configMapGenerator:
+- name: web-config
+  files:
+  - web/default.conf
+  - index.html.tpl=web/index.template.html   # như Lab 5a: key giữ nguyên, file nguồn không đuôi .tpl
+  - web/status-writer.env      # Lab 6a — chu kỳ ghi của status-writer
+```
+
+Deployment `web` — chỉ phần thay đổi; `render-html`, `nginx`, `securityContext`, `hostUsers`,
+`preStop`, tài nguyên giữ như tag `lab-5b`:
+
+```yaml
+      volumes:
+      # - name: podinfo               <- XÓA: volume downwardAPI riêng của Lab 3a
+      - name: status-src
+        projected:
+          defaultMode: 0444            # chỉ đặt được ở cấp projected
+          sources:
+          - downwardAPI:
+              items:
+              - path: labels
+                fieldRef:
+                  fieldPath: metadata.labels
+          - configMap:
+              name: web-config         # Kustomize đổi sang tên có hậu tố hash
+              items:
+              - key: status-writer.env
+                path: status-writer.env
+      initContainers:
+      - name: status-writer
+        # image, restartPolicy: Always, env POD_NAME/NODE_NAME, tài nguyên: giữ nguyên
+        command:
+        - sh
+        - -c
+        - |
+          trap 'echo "status-writer: nhan TERM"; exit 0' TERM
+          while true; do
+            . /etc/status-writer/status-writer.env
+            V="$(sed -n 's/^app\.kubernetes\.io\/version="\(.*\)"$/\1/p' /etc/status-writer/labels)"
+            # ... phần ghi /html/status.json giữ như tag lab-5b (kể cả phần đọc node-agent từ Lab 5a)
+            sleep "${STATUS_INTERVAL:-5}" & wait $!
+          done
         volumeMounts:
-        - name: www
-          mountPath: /data
-  volumeClaimTemplates:
-  - metadata:
-      name: www
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: 128Mi
-EOF
-
-kubectl apply --dry-run=server --validate=strict -f ~/lab-work/6a/statefulset.yaml
-kubectl apply -f ~/lab-work/6a/statefulset.yaml
-kubectl rollout status statefulset/web -n lab-6a --timeout=600s
-kubectl get pods,pvc -n lab-6a -o wide | tee ~/lab-evidence/6a/b6-sts.txt
+        - name: html
+          mountPath: /html
+        - name: status-src
+          mountPath: /etc/status-writer
+          readOnly: true
 ```
 
-**Ý nghĩa của những thứ *không* có trong manifest:**
-
-- **`volumeClaimTemplates` không khai `storageClassName`.** Bài 65: *"Nếu không chỉ định
-  StorageClass, StorageClass mặc định sẽ được dùng."* Đây là chỗ B3.3 trả cổ tức.
-- **Không có PV nào được tạo tay.** Bài 65 nêu hai điều kiện để `volumeClaimTemplates` cấp được lưu
-  trữ ổn định; cluster lab thỏa điều kiện thứ nhất — class dùng cấp phát động.
-- **Service `web-headless` là thật**, không phải tên trỏ vào hư không như ở Lab 4b: nợ #3 đã được
-  trả ở Lab 5a.
-
-**PASS:** `--dry-run=server` không lỗi validation; `rollout status` báo `statefulset rolling update
-complete 3 pods...`.
-
-### B6.2. Quy tắc tên `<claim>-<statefulset>-<ordinal>`
-
-```bash
-kubectl get pvc -n lab-6a -o name | sort | tee ~/lab-evidence/6a/b6-pvc-names.txt
-
-PVC_LIST="$(kubectl get pvc -n lab-6a --no-headers -o custom-columns=N:.metadata.name \
-  | grep '^www-web-' | sort | paste -sd' ' -)"
-echo "PVC do volumeClaimTemplates sinh ra: $PVC_LIST"
-
-BOUND_N=0
-for p in www-web-0 www-web-1 www-web-2; do
-  PH="$(kubectl get pvc "$p" -n lab-6a -o jsonpath='{.status.phase}')"
-  VOL="$(kubectl get pvc "$p" -n lab-6a -o jsonpath='{.spec.volumeName}')"
-  SC="$(kubectl get pvc "$p" -n lab-6a -o jsonpath='{.spec.storageClassName}')"
-  NODE="$(kubectl get pod "${p#www-}" -n lab-6a -o jsonpath='{.spec.nodeName}')"
-  echo "$p | $PH | class=$SC | PV=$VOL | Pod ở node $NODE"
-  test "$PH" = 'Bound' && BOUND_N=$((BOUND_N + 1))
-done
-
-UNIQ_PV="$(kubectl get pvc -n lab-6a -o jsonpath='{range .items[*]}{.spec.volumeName}{"\n"}{end}' \
-  | grep '^pvc-' | sort -u | wc -l)"
-echo "số PVC Bound = $BOUND_N | số PV riêng biệt = $UNIQ_PV"
-
-test "$PVC_LIST" = 'www-web-0 www-web-1 www-web-2' && test "$BOUND_N" -eq 3 \
-  && test "$UNIQ_PV" -eq 3 \
-  && echo 'PASS: mỗi replica có PVC riêng, tên theo <claim>-<statefulset>-<ordinal>, PV riêng'
+```yaml
+# ~/lab-work/6a/thu-projected-sai.yaml — chỉ dùng cho dry-run
+apiVersion: v1
+kind: Pod
+metadata: {name: thu-projected-sai, namespace: bookstore}
+spec:
+  containers:
+  - {name: app, image: busybox:1.37, command: ["sleep", "60"], volumeMounts: [{name: gom, mountPath: /gom}]}
+  volumes:
+  - name: gom
+    projected:
+      sources:
+      - secret:
+          secretName: db-credentials   # sai: trong projected là "name"
 ```
 
-**Ý nghĩa:** đây là trọng tâm của nợ #2. Một `volumeClaimTemplates` duy nhất trong manifest sinh ra
-**ba** PVC thật, tên ghép từ tên claim template, tên StatefulSet và ordinal của Pod. Bài 65 mô tả
-đúng cơ chế: *"Với mỗi mục VolumeClaimTemplate được định nghĩa trong một StatefulSet, mỗi Pod nhận
-một PersistentVolumeClaim."* Không có Pod nào dùng chung volume với Pod khác — đó là phần "lưu trữ
-ổn định" trong định danh của Pod StatefulSet, bên cạnh tên và định danh mạng đã học ở Lab 4b.
+`thu-projected-mode.yaml` giống hệt, đổi tên Pod thành `thu-projected-mode` và nguồn thành
+`configMap: {name: web-config, defaultMode: 0400}` — `defaultMode` đặt nhầm vào trong một nguồn.
 
-**PASS:** dòng `PASS: mỗi replica có PVC riêng…` xuất hiện.
+Ý chính cho ADR:
 
-### B6.3. Dữ liệu riêng cho từng ordinal
+1. Trước: hai volume (`html`, `podinfo`) và thêm một nữa nếu đọc ConfigMap riêng; sau: `html` cộng
+   **một** volume đầu vào. Không đổi: mọi nguồn phải cùng namespace với Pod (bài 93) — sidecar không bao
+   giờ chiếu được ConfigMap của `bookstore-system`; dữ liệu đó phải đi qua mạng, như `/node.json`.
+2. `292` — API lưu số nguyên, JSON không có ký pháp bát phân; `0444` bát phân bằng `292` thập phân.
+   Hai khác biệt: Secret trong projected dùng `name` thay `secretName`; `defaultMode` chỉ ở cấp
+   projected, từng item dùng `mode`.
+3. `configMapGenerator` sinh tên mới khi nội dung đổi → template của Deployment đổi → rollout, Pod mới
+   đọc giá trị mới ngay từ đầu. Lab 3b đo ConfigMap tên cố định: file trong volume được kubelet cập
+   nhật tại chỗ nhưng tiến trình phải tự đọc lại. Với sidecar đọc lại file mỗi vòng lặp thì cả hai cách
+   đều chạy; hash cho thêm lịch sử và khả năng rollback.
+4. Admission ServiceAccount thêm vào mọi Pod: `serviceAccountToken` (token có hạn), `configMap`
+   `kube-root-ca.crt` (CA của cluster), `downwardAPI` (namespace) — đủ để gọi API server. `status-writer`
+   không gọi API; tắt automount là việc của Lab 9a (`automountServiceAccountToken: false`).
+5. Bài 93: container mount nguồn projected qua `subPath` không nhận cập nhật — `labels` đứng yên và yêu
+   cầu 4 hỏng.
+
+</details>
+
+## B7. [BS-6A-07] Lưu trữ tạm thời cục bộ: trần cho `emptyDir` và trục xuất
+
+**Loại:** Điều tra — Pod vượt giới hạn chỉ chạy trên `lab-k8s-worker2` — kèm một thay đổi nhỏ trong
+repo.
+
+**Bối cảnh:** `emptyDir` của `web` (`html`) và của `node-agent` (`www`) không có trần. Một vòng lặp
+ghi hỏng là đủ để ăn dần đĩa node — và từ B3, đĩa đó cũng chứa thư mục dữ liệu của `db`. Bài 95 nói
+kubelet đo được và trục xuất Pod vượt giới hạn; đội cần thấy điều đó trên chính worker của mình trước
+khi dựa vào nó.
+
+**Yêu cầu:**
+
+1. Đọc `ephemeral-storage` mà hai worker công bố (capacity, allocatable). Chứng minh trên
+   `lab-k8s-worker2`, `/var/lib/kubelet`, `/var/log` và `/opt/local-path-provisioner` nằm trên **cùng
+   một** filesystem.
+2. Pod `thu-qua-suc` xin `ephemeral-storage` lớn hơn allocatable của mọi node → không lập lịch được,
+   lý do nhắc tới `ephemeral-storage`.
+3. Pod `thu-sizelimit` trên `lab-k8s-worker2`: `emptyDir` trần 32Mi, container ghi 64Mi vào đó → bị
+   trục xuất, thông điệp nhắc tới `EmptyDir`.
+4. Pod `thu-gioi-han` trên `lab-k8s-worker2`: container khai `requests`/`limits` `ephemeral-storage`
+   16Mi/64Mi, `emptyDir` không trần, ghi 128Mi → bị trục xuất, thông điệp nhắc tới giới hạn lưu trữ tạm
+   thời cục bộ.
+5. Pod `thu-tmpfs`: `emptyDir` dạng bộ nhớ, trần 16Mi → được mount bằng `tmpfs`.
+6. Repo: mọi `emptyDir` của workload dự án có `sizeLimit` hợp lý; `deploy.sh` thành công.
+
+**Ràng buộc:** mỗi Pod ghi tối đa 128Mi; không chỉnh cấu hình kubelet; xóa Pod thử nghiệm khi xong.
+Không thêm `ephemeral-storage` vào `requests`/`limits` của container dự án ở sprint này — hạn mức tài
+nguyên theo namespace thuộc Lab 7b.
+
+**Đọc lại:**
+
+- Bài [95](../95-ephemeral-storage-vi.md): [*Các cấu hình*](../95-ephemeral-storage-vi.md#configurations),
+  [*Thiết lập request và limit*](../95-ephemeral-storage-vi.md#requests-limits),
+  [*Cách các Pod có request ephemeral-storage được lập lịch*](../95-ephemeral-storage-vi.md#cách-các-pod-có-request-ephemeral-storage-được-lập-lịch-how-pods-with-ephemeral-storage-requests-are-scheduled),
+  [*Quản lý mức tiêu thụ*](../95-ephemeral-storage-vi.md#resource-emphemeralstorage-consumption) kể cả
+  khối *Thận trọng*.
+- Bài [91](../91-volumes-vi.md#emptydir) — `sizeLimit`, `medium: Memory`; mục
+  [*Tài nguyên*](../91-volumes-vi.md#tài-nguyên-resources).
+- Bài [110](../110-manage-resources-containers-vi.md) (Lab 3c) — cú pháp `requests`/`limits`.
+
+**Bàn giao:** Deployment `web`, DaemonSet `node-agent`; `~/lab-work/6a/thu-{qua-suc,sizelimit,gioi-han,tmpfs}.yaml`;
+`docs/adr/NNNN-luu-tru-tam-thoi.md`; `~/lab-evidence/6a/b7-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `lab-k8s-worker2` công bố `ephemeral-storage`, allocatable nhỏ hơn capacity; ba thư mục nằm
+  trên cùng một filesystem.
+- `PASS:` `thu-qua-suc` `Pending`, `Unschedulable`, lý do nhắc `ephemeral-storage`.
+- `PASS:` `thu-sizelimit` `Failed`/`Evicted` trên `lab-k8s-worker2`, thông điệp nhắc `EmptyDir`.
+- `PASS:` `thu-gioi-han` `Failed`/`Evicted`, thông điệp nhắc `ephemeral local storage`.
+- `PASS:` `thu-tmpfs` mount `/ram` bằng `tmpfs`.
+- `PASS:` không còn `emptyDir` nào của Pod dự án thiếu `sizeLimit`; Pod thử nghiệm đã xóa.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-luu-tru-tam-thoi.md`:
+
+1. Worker của bạn theo bố cục nào của bài 95, và kubelet có đo được không? Một `emptyDir` chạy loạn ăn
+   vào đâu — kể cả vào thứ gì của `db` kể từ B3?
+2. `thu-sizelimit` và `thu-gioi-han` bị trục xuất với hai thông điệp khác nhau. Mỗi cái ứng với giới hạn
+   nào? `thu-gioi-han` ghi vào `emptyDir` chứ không ghi vào lớp ghi được của container — nó bị tính ở
+   cấp container hay cấp Pod, vì sao?
+3. `requests` và `limits` của `ephemeral-storage` mỗi cái tác động lúc nào? Một đồng nghiệp gõ
+   `requests.ephemeral-storage: 400m` — đó là bao nhiêu?
+4. `thu-tmpfs` ghi vào `/ram` bị tính vào đâu? Một `emptyDir` `medium: Memory` không trần trên Pod
+   `web` có thể gây hậu quả gì?
+5. Vì sao dự án chọn `sizeLimit` ngay bây giờ, còn `ephemeral-storage` trong `limits` thì để Lab 7b? Nếu
+   một ngày kubelet không đo được (bố cục khác), `sizeLimit` còn bảo vệ được gì — đọc khối *Thận trọng*
+   của bài 95.
+
+<details>
+<summary>Gợi ý</summary>
+
+1. `kubectl get node <tên> -o jsonpath='{.status.capacity.ephemeral-storage}'`, tương tự cho
+   `allocatable`.
+2. Mount point chứa một đường dẫn: `df -P <đường dẫn>`, cột cuối dòng thứ hai. Không cần `sudo`.
+3. Ghi dữ liệu: `dd if=/dev/zero of=/scratch/x bs=1M count=64`, rồi `sleep 3600` để container còn sống
+   chờ kubelet đo.
+4. Pod bị trục xuất: `.status.phase` là `Failed`, `.status.reason` là `Evicted`, thông điệp ở
+   `.status.message`. Kubelet đo theo chu kỳ — chờ theo điều kiện.
+5. Lý do không lập lịch được nằm ở condition `PodScheduled`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi đã viết bốn Pod thử nghiệm và sửa repo</summary>
 
 ```bash
-for i in 0 1 2; do
-  kubectl exec -n lab-6a "web-$i" -- sh -c "echo payload-cua-web-$i > /data/who"
-done
+NS=bookstore; EV=~/lab-evidence/6a; W=~/lab-work/6a
+cd ~/bookstore
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+cho_truc_xuat() { for i in $(seq 1 150); do [ "$(jp "pod/$1" '{.status.reason}')" = 'Evicted' ] && return 0; sleep 2; done; return 1; }
 
-for i in 0 1 2; do
-  echo "web-$i đọc được: $(kubectl exec -n lab-6a "web-$i" -- cat /data/who)"
-done
+kubectl get nodes -o custom-columns=NODE:.metadata.name,EPH_CAP:.status.capacity.ephemeral-storage,EPH_ALLOC:.status.allocatable.ephemeral-storage \
+  > "$EV/b7-allocatable.txt"
+CAP="$(kubectl get node lab-k8s-worker2 -o jsonpath='{.status.capacity.ephemeral-storage}')"
+ALLOC="$(kubectl get node lab-k8s-worker2 -o jsonpath='{.status.allocatable.ephemeral-storage}')"
+{ [ -n "$CAP" ] && [ -n "$ALLOC" ] && [ "$CAP" != "$ALLOC" ]; } && echo "PASS: worker2 cong bo ephemeral-storage $CAP, allocatable $ALLOC"
+ssh lab-k8s-worker2 'for D in /var/lib/kubelet /var/log /opt/local-path-provisioner; do df -P "$D" | awk "NR==2 {print \$6}"; done' \
+  > "$EV/b7-filesystem.txt"
+[ "$(sort -u "$EV/b7-filesystem.txt" | wc -l)" -eq 1 ] && echo "PASS: ba thu muc cung filesystem $(head -n1 "$EV/b7-filesystem.txt")"
 
-OK=0
-for i in 0 1 2; do
-  V="$(kubectl exec -n lab-6a "web-$i" -- cat /data/who)"
-  test "$V" = "payload-cua-web-$i" && OK=$((OK + 1))
-done
-test "$OK" -eq 3 && echo 'PASS: ba volume độc lập, không Pod nào thấy dữ liệu của Pod khác'
+kubectl apply -f "$W/thu-qua-suc.yaml"
+sleep 10
+{ [ "$(jp pod/thu-qua-suc '{.status.phase}')" = 'Pending' ] && \
+  [ "$(jp pod/thu-qua-suc '{.status.conditions[?(@.type=="PodScheduled")].reason}')" = 'Unschedulable' ] && \
+  jp pod/thu-qua-suc '{.status.conditions[?(@.type=="PodScheduled")].message}' | grep -q 'ephemeral-storage'; } \
+  && echo 'PASS: xin qua allocatable thi khong lap lich duoc'
+
+kubectl apply -f "$W/thu-sizelimit.yaml" -f "$W/thu-gioi-han.yaml" -f "$W/thu-tmpfs.yaml"
+cho_truc_xuat thu-sizelimit
+jp pod/thu-sizelimit '{.spec.nodeName}|{.status.phase}|{.status.reason}|{.status.message}' > "$EV/b7-sizelimit.txt"
+{ grep -q '^lab-k8s-worker2|Failed|Evicted|' "$EV/b7-sizelimit.txt" && grep -q 'EmptyDir' "$EV/b7-sizelimit.txt"; } \
+  && echo 'PASS: vuot sizeLimit cua emptyDir thi bi truc xuat'
+cho_truc_xuat thu-gioi-han
+jp pod/thu-gioi-han '{.spec.nodeName}|{.status.phase}|{.status.reason}|{.status.message}' > "$EV/b7-gioi-han.txt"
+{ grep -q '^lab-k8s-worker2|Failed|Evicted|' "$EV/b7-gioi-han.txt" && grep -qi 'ephemeral local storage' "$EV/b7-gioi-han.txt"; } \
+  && echo 'PASS: vuot limits.ephemeral-storage thi bi truc xuat'
+kubectl -n "$NS" wait --for=condition=Ready pod/thu-tmpfs --timeout=120s
+kubectl -n "$NS" exec thu-tmpfs -- sh -c 'mount | grep " /ram "' > "$EV/b7-tmpfs.txt" 2>&1
+grep -q 'tmpfs' "$EV/b7-tmpfs.txt" && echo 'PASS: emptyDir medium Memory la tmpfs'
+kubectl -n "$NS" delete pod thu-qua-suc thu-sizelimit thu-gioi-han thu-tmpfs --ignore-not-found --wait=true
+
+./scripts/deploy.sh > "$EV/b7-deploy.txt" 2>&1 && echo 'PASS: deploy.sh thanh cong'
+kubectl -n "$NS" get pods -l app.kubernetes.io/part-of=bookstore \
+  -o jsonpath='{range .items[*]}{range .spec.volumes[*]}{.name}={.emptyDir}{"\n"}{end}{end}' > "$EV/b7-emptydir.txt"
+[ -z "$(grep '={}$' "$EV/b7-emptydir.txt")" ] && echo 'PASS: moi emptyDir cua Pod du an co sizeLimit'
+[ -z "$(kubectl -n "$NS" get pod -o name | grep '/thu-')" ] && echo 'PASS: da xoa Pod thu nghiem'
 ```
 
-**PASS:** dòng `PASS: ba volume độc lập…` xuất hiện.
+</details>
 
-### B6.4. Thu nhỏ: Pod biến mất, PVC ở lại
+<details>
+<summary>Lời giải tham khảo</summary>
 
-```bash
-kubectl scale statefulset web -n lab-6a --replicas=1
-kubectl rollout status statefulset/web -n lab-6a --timeout=300s
-
-POD_N="$(kubectl get pods -n lab-6a -l app=web --no-headers | wc -l)"
-PVC_N="$(kubectl get pvc -n lab-6a --no-headers | grep -c '^www-web-')"
-W1="$(kubectl get pvc www-web-1 -n lab-6a -o jsonpath='{.status.phase}')"
-W2="$(kubectl get pvc www-web-2 -n lab-6a -o jsonpath='{.status.phase}')"
-echo "Pod còn lại = $POD_N | PVC còn lại = $PVC_N | www-web-1=$W1 | www-web-2=$W2"
-
-WS="$(kubectl get sts web -n lab-6a \
-  -o jsonpath='{.spec.persistentVolumeClaimRetentionPolicy.whenScaled}')"
-WD="$(kubectl get sts web -n lab-6a \
-  -o jsonpath='{.spec.persistentVolumeClaimRetentionPolicy.whenDeleted}')"
-echo "persistentVolumeClaimRetentionPolicy: whenScaled=${WS:-<không đặt>} whenDeleted=${WD:-<không đặt>}"
-
-test "$POD_N" -eq 1 && test "$PVC_N" -eq 3 && test "$W1" = 'Bound' && test "$W2" = 'Bound' \
-  && test "$WS" != 'Delete' \
-  && echo 'PASS: thu nhỏ xuống 1 replica nhưng ba PVC vẫn Bound'
-```
-
-**Ý nghĩa:** bài [343](../343-run-replicated-stateful-application-vi.md) ghi chú đúng điều này:
-*"Mặc dù việc scale lên sẽ tự động tạo các PersistentVolumeClaim mới, việc scale xuống không tự
-động xóa các PVC này."* Bài 65 giải thích vì sao: `persistentVolumeClaimRetentionPolicy` mặc định
-là `Retain` cho cả `whenScaled` lẫn `whenDeleted`. Bạn được quyền chọn: giữ PVC để scale lên lại
-cho nhanh, hay trích dữ liệu ra rồi mới xóa.
-
-**PASS:** dòng `PASS: thu nhỏ xuống 1 replica nhưng ba PVC vẫn Bound` xuất hiện.
-
-### B6.5. Mở rộng lại: Pod cũ gặp lại đúng dữ liệu cũ
-
-```bash
-kubectl scale statefulset web -n lab-6a --replicas=3
-kubectl rollout status statefulset/web -n lab-6a --timeout=600s
-
-BACK=0
-for i in 0 1 2; do
-  V="$(kubectl exec -n lab-6a "web-$i" -- cat /data/who)"
-  echo "web-$i sau khi scale lại: $V"
-  test "$V" = "payload-cua-web-$i" && BACK=$((BACK + 1))
-done
-
-PVC_N2="$(kubectl get pvc -n lab-6a --no-headers | grep -c '^www-web-')"
-echo "số PVC = $PVC_N2 (không sinh thêm cái nào)"
-
-test "$BACK" -eq 3 && test "$PVC_N2" -eq 3 \
-  && echo 'PASS: mỗi ordinal nhận lại đúng PVC cũ và đúng dữ liệu cũ'
-```
-
-**Ý nghĩa:** `web-1` là một Pod **mới toanh** — `uid` khác, có thể ở node khác — nhưng nó nhận lại
-`www-web-1`, tức đúng volume cũ. Bài 65: *"Khi một Pod được lập lịch (lại) lên một node, các
-`volumeMounts` của nó sẽ mount các PersistentVolume gắn với các PersistentVolume Claim của nó."*
-Đây là khác biệt cốt lõi giữa StatefulSet và Deployment: Deployment giữ **số lượng**, StatefulSet
-giữ **danh tính**, và từ giai đoạn 6 trở đi danh tính đó bao gồm cả dữ liệu.
-
-**PASS:** dòng `PASS: mỗi ordinal nhận lại đúng PVC cũ và đúng dữ liệu cũ` xuất hiện.
-
-### B6.6. Xóa StatefulSet không xóa PVC
-
-```bash
-kubectl delete statefulset web -n lab-6a --wait=true
-kubectl delete service web-headless -n lab-6a --wait=true
-
-for i in $(seq 1 60); do
-  POD_LEFT="$(kubectl get pods -n lab-6a -l app=web --no-headers 2>/dev/null | wc -l)"
-  test "$POD_LEFT" -eq 0 && break
-  sleep 2
-done
-
-PVC_N3="$(kubectl get pvc -n lab-6a --no-headers | grep -c '^www-web-')"
-PV_N3="$(kubectl get pv --no-headers | grep -c 'lab-6a/www-web-')"
-echo "Pod còn lại = $POD_LEFT | PVC còn lại = $PVC_N3 | PV còn lại của StatefulSet = $PV_N3"
-kubectl get pvc -n lab-6a | tee ~/lab-evidence/6a/b6-pvc-con-lai.txt
-
-test "$POD_LEFT" -eq 0 && test "$PVC_N3" -eq 3 && test "$PV_N3" -eq 3 \
-  && echo 'PASS: StatefulSet biến mất, ba PVC và ba PV vẫn còn nguyên'
-```
-
-**Ý nghĩa:** bài 65 nói thẳng: *"các PersistentVolume gắn với các PersistentVolume Claim của các
-Pod không bị xóa khi các Pod, hay StatefulSet bị xóa. Việc này phải được thực hiện thủ công."* Bài
-[340](../340-delete-stateful-set-vi.md) lặp lại cùng lý do: *"Điều này nhằm đảm bảo rằng bạn có cơ
-hội sao chép dữ liệu ra khỏi volume trước khi xóa nó."*
-
-Đây là cái bẫy vận hành thật: xóa một StatefulSet mà quên PVC thì cluster âm thầm giữ lại volume và
-tiếp tục tiêu đĩa của node.
-
-**PASS:** dòng `PASS: StatefulSet biến mất, ba PVC và ba PV vẫn còn nguyên` xuất hiện.
-
-### B6.7. Dọn tay đúng như bài 340 chỉ
-
-```bash
-kubectl delete pvc www-web-0 www-web-1 www-web-2 -n lab-6a --wait=true
-
-for i in $(seq 1 90); do
-  PV_LEFT3="$(kubectl get pv --no-headers | grep -c 'lab-6a/www-web-')"
-  test "$PV_LEFT3" -eq 0 && break
-  sleep 2
-done
-
-PVC_N4="$(kubectl get pvc -n lab-6a --no-headers 2>/dev/null | grep -c '^www-web-')"
-echo "PVC còn = $PVC_N4 | PV của StatefulSet còn = $PV_LEFT3"
-
-test "$PVC_N4" -eq 0 && test "$PV_LEFT3" -eq 0 \
-  && echo 'PASS: xóa PVC bằng tay thì PV đi theo — nợ #2 đã trả xong'
-```
-
-**Ý nghĩa:** PV đi theo vì class mặc định dùng `reclaimPolicy: Delete`. Bài 340 cảnh báo đúng chỗ
-này: *"Việc xóa PVC sau khi các Pod đã kết thúc có thể kích hoạt việc xóa các Persistent Volume
-phía sau, tùy thuộc vào storage class và reclaim policy. Bạn không bao giờ nên giả định rằng mình
-vẫn có khả năng truy cập một volume sau khi claim đã bị xóa."* Nếu StatefulSet này dùng
-`lab-6a-retain` của B5.3 thì kết quả đã khác.
-
-**PASS:** dòng `PASS: xóa PVC bằng tay thì PV đi theo — nợ #2 đã trả xong` xuất hiện.
-
----
-
-## B7. Projected volume — nhiều nguồn, một thư mục
-
-**Mục đích:** bài [93](../93-projected-volumes-vi.md) không nói về lưu trữ bền vững mà về cách gộp
-nhiều nguồn dữ liệu của Kubernetes vào **một thư mục duy nhất** trong container. Bài
-[277](../277-configure-projected-volume-vi.md) là bản thực hành của nó.
-
-### B7.1. Đóng gói nguồn rồi gộp làm một
-
-```bash
-cd ~/lab-work/6a
-echo -n "admin" > username.txt
-echo -n "1f2d1e2e67df" > password.txt
-kubectl create secret generic user -n lab-6a --from-file=./username.txt
-kubectl create secret generic pass -n lab-6a --from-file=./password.txt
-kubectl create configmap app-conf -n lab-6a --from-literal=mode=lab --from-literal=stage=6
-
-cat > ~/lab-work/6a/projected.yaml <<'EOF'
+```yaml
+# ~/lab-work/6a/thu-sizelimit.yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: projected
-  namespace: lab-6a
-  labels:
-    app: projected
-    stage: "6a"
+  name: thu-sizelimit
+  namespace: bookstore
 spec:
+  nodeSelector:
+    kubernetes.io/hostname: lab-k8s-worker2
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 2
   containers:
   - name: app
     image: busybox:1.37
+    command: ["sh", "-c", "dd if=/dev/zero of=/scratch/x bs=1M count=64; sleep 3600"]
+    volumeMounts:
+    - {name: scratch, mountPath: /scratch}
+  volumes:
+  - name: scratch
+    emptyDir:
+      sizeLimit: 32Mi
+```
+
+`thu-gioi-han.yaml` giống `thu-sizelimit.yaml`, chỉ khác: tên Pod; `count=128`; volume là
+`emptyDir: {}`; container thêm
+`resources: {requests: {ephemeral-storage: 16Mi}, limits: {ephemeral-storage: 64Mi}}`.
+`thu-qua-suc.yaml`: một container `busybox` `sleep 3600` với `requests.ephemeral-storage: 1Ti`, không
+ghim node. `thu-tmpfs.yaml`: một container `busybox` `sleep 600` mount `/ram` từ
+`emptyDir: {medium: Memory, sizeLimit: 16Mi}`.
+
+Thay đổi trong repo — cấp `spec.template.spec.volumes`:
+
+```yaml
+# Deployment web
+      - name: html
+        emptyDir:
+          sizeLimit: 16Mi      # index.html, healthz, status.json: vài KB
+# DaemonSet node-agent
+      - name: www
+        emptyDir:
+          sizeLimit: 1Mi       # node.json: vài trăm byte
+```
+
+Ý chính cho ADR:
+
+1. Bố cục *một filesystem duy nhất*: `/var/lib/kubelet` và `/var/log` trên filesystem gốc, đúng thiết kế
+   của kubelet — đo được. `/opt/local-path-provisioner` cũng nằm trên đó: `emptyDir` chạy loạn ăn chung
+   đĩa với log, image, lớp ghi được **và dữ liệu của `db`**.
+2. `thu-sizelimit`: `Usage of EmptyDir volume ... exceeds the limit` — trần riêng của volume. `thu-gioi-han`:
+   tổng mức dùng của Pod vượt tổng limit của các container — **cách ly cấp Pod**, vì `emptyDir` chỉ được
+   cộng ở cấp Pod; cách ly cấp container chỉ tính lớp ghi được và log của container đó (bài 95).
+3. `requests` dùng lúc lập lịch — tổng phải vừa allocatable (`thu-qua-suc`); `limits` dùng lúc chạy —
+   vượt là bị trục xuất. `400m` là 0.4 byte; người gõ muốn `400Mi`.
+4. `tmpfs` tính vào **bộ nhớ** của container (bài 91, 95). Không trần thì volume lớn tới allocatable
+   memory của node; trên `web` (limit 64Mi) ghi nhiều vào đó là `OOMKilled`, không phải trục xuất.
+5. `sizeLimit` là trần theo đúng nhu cầu của từng volume, không ảnh hưởng lập lịch, không đụng tới hạn
+   mức; `limits.ephemeral-storage` cho mọi container nên đi cùng LimitRange và ResourceQuota ở 7b (bài
+   95: quota `ephemeral-storage` chỉ áp dụng khi Pod khai limit). Kubelet không đo được thì không trục
+   xuất vì vượt giới hạn; khi đĩa xuống thấp, node tự taint và trục xuất mọi Pod không tolerate — cơ chế
+   của Lab 7a.
+
+</details>
+
+## B8. [BS-6A-08] Điều tra: vì sao dữ liệu không đi qua `hostPath`
+
+**Loại:** Điều tra — chỉ đọc, Pod thử nghiệm trên cả hai worker.
+
+**Bối cảnh:** một đề xuất trong đội: "local-path cũng chỉ là một thư mục trên node — sao `db` không
+mount thẳng `hostPath` cho gọn?". Trước khi bác đề xuất, đội cần bằng chứng về rủi ro, đo trên chính
+dữ liệu của dự án.
+
+**Yêu cầu:**
+
+1. Pod `thu-hostpath-w2` ghim `lab-k8s-worker2`, mount thư mục `/opt` của node **chỉ đọc**, không khai gì
+   liên quan tới DB. Chứng minh từ trong Pod đọc được `PG_VERSION` của dữ liệu `db` — tức đọc được file
+   dữ liệu mà không qua bất kỳ xác thực nào của PostgreSQL.
+2. Ghi thử vào mount đó thất bại.
+3. Pod `thu-hostpath-w1`: **cùng** manifest, chỉ khác tên và node → không thấy dữ liệu `db`.
+4. Xóa hai Pod; ghi ADR.
+
+**Ràng buộc:** chỉ đọc. Không mount `/`, `/var/lib/kubelet`, socket của container runtime; không
+`privileged`. Không đọc file dữ liệu nào ngoài `PG_VERSION`.
+
+**Đọc lại:**
+
+- Bài [91](../91-volumes-vi.md#hostpath) — khối *Cảnh báo* và bảng `type`; mục
+  [*Mount chỉ đọc*](../91-volumes-vi.md#mount-chỉ-đọc-read-only-mounts).
+- Bài [92](../92-persistent-volumes-vi.md#các-loại-persistent-volume-types-of-persistent-volumes) —
+  dòng `hostPath`: chỉ để thử trên một node.
+- Bài [91](../91-volumes-vi.md#local) — `local` cùng `nodeAffinity` là lối thay thế.
+- [Mục 3.5 của file dự án](DU-AN-BOOKSTORE.md#35-thiết-kế-bảo-mật) — Pod Security Standard của từng
+  namespace.
+
+**Bàn giao:** `~/lab-work/6a/thu-hostpath-w1.yaml`, `~/lab-work/6a/thu-hostpath-w2.yaml`;
+`docs/adr/NNNN-hostpath.md`; `~/lab-evidence/6a/b8-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `thu-hostpath-w2` mount chỉ đọc và đọc được `PG_VERSION` của `db`.
+- `PASS:` ghi vào mount thất bại.
+- `PASS:` `thu-hostpath-w1` không thấy thư mục dữ liệu `db`.
+- `PASS:` hai Pod đã xóa.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-hostpath.md`:
+
+1. Ai trong cluster làm được điều bạn vừa làm? Từ Lab 9b, cái gì chặn nó trong namespace `bookstore`, và
+   vì sao `db` dùng PVC thì vẫn chạy được?
+2. PV của local-path bên dưới cũng là `hostPath`. Khác biệt giữa "Pod tự khai `hostPath`" và "Pod dùng
+   PVC mà PV là `hostPath`" nằm ở đâu: ai viết đường dẫn, ai biết node, ai có quyền tạo object đó?
+3. Mount chỉ đọc chặn được việc ghi. Vì sao bài 91 vẫn coi `hostPath` chỉ đọc là nguy hiểm — bằng chứng
+   nào ở bước 1?
+4. Bước 3 minh họa đúng gạch đầu dòng nào trong cảnh báo của bài 91, và câu nào của bài 92?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Volume `hostPath` với `path: /opt`, `type: Directory`; `volumeMounts` có `readOnly: true`.
+- Thư mục dữ liệu `db` có tên `<PV>_bookstore_data-db-0` dưới `local-path-provisioner`, và `PG_VERSION`
+  nằm trong thư mục con `PGDATA` của nó. Dùng `sh -c` để shell trong container mở rộng mẫu `*`.
+- Container `busybox` mặc định chạy root, có `CAP_DAC_OVERRIDE` — quyền `0700` của thư mục dữ liệu không
+  cản nó.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi đã viết hai manifest</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/6a; W=~/lab-work/6a
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+kubectl apply -f "$W/thu-hostpath-w2.yaml" -f "$W/thu-hostpath-w1.yaml"
+kubectl -n "$NS" wait --for=condition=Ready pod/thu-hostpath-w2 pod/thu-hostpath-w1 --timeout=180s
+MP="$(jp pod/thu-hostpath-w2 '{.spec.containers[0].volumeMounts[0].mountPath}')"
+{ [ "$(jp pod/thu-hostpath-w2 '{.spec.volumes[0].hostPath.path}')" = '/opt' ] && \
+  [ "$(jp pod/thu-hostpath-w2 '{.spec.containers[0].volumeMounts[0].readOnly}')" = 'true' ] && \
+  [ "$(jp pod/thu-hostpath-w2 '{.spec.nodeName}')" = 'lab-k8s-worker2' ]; } \
+  && echo "PASS: thu-hostpath-w2 mount /opt chi doc tai $MP tren lab-k8s-worker2"
+
+kubectl -n "$NS" exec thu-hostpath-w2 -- sh -c "cat $MP/local-path-provisioner/*_bookstore_data-db-0/*/PG_VERSION" \
+  > "$EV/b8-w2.txt" 2>&1
+grep -Eqx '[0-9]+' "$EV/b8-w2.txt" && echo "PASS: doc duoc PG_VERSION cua db ($(cat "$EV/b8-w2.txt")) ma khong qua PostgreSQL"
+kubectl -n "$NS" exec thu-hostpath-w2 -- touch "$MP/thu-ghi" > /dev/null 2>&1 \
+  && echo 'FAIL: ghi duoc vao /opt cua node' || echo 'PASS: mount chi doc, ghi that bai'
+
+{ [ "$(jp pod/thu-hostpath-w1 '{.spec.nodeName}')" = 'lab-k8s-worker1' ] && \
+  [ "$(jp pod/thu-hostpath-w1 '{.spec.volumes[0].hostPath.path}')" = '/opt' ]; } \
+  && kubectl -n "$NS" exec thu-hostpath-w1 -- sh -c "ls -d $MP/local-path-provisioner/*_bookstore_data-db-0 2>/dev/null" \
+     > "$EV/b8-w1.txt"
+[ ! -s "$EV/b8-w1.txt" ] && echo 'PASS: cung manifest tren lab-k8s-worker1 khong thay du lieu db'
+
+kubectl -n "$NS" delete pod thu-hostpath-w1 thu-hostpath-w2 --wait=true
+[ -z "$(kubectl -n "$NS" get pod -o name | grep '/thu-hostpath')" ] && echo 'PASS: da xoa hai Pod'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# ~/lab-work/6a/thu-hostpath-w2.yaml — bản -w1 chỉ đổi tên và giá trị nodeSelector
+apiVersion: v1
+kind: Pod
+metadata:
+  name: thu-hostpath-w2
+  namespace: bookstore
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: lab-k8s-worker2
+  terminationGracePeriodSeconds: 2
+  containers:
+  - name: doc
+    image: busybox:1.37
     command: ["sh", "-c", "sleep 3600"]
     volumeMounts:
-    - name: all-in-one
-      mountPath: "/projected-volume"
+    - name: opt-cua-node
+      mountPath: /host-opt
       readOnly: true
   volumes:
-  - name: all-in-one
-    projected:
-      defaultMode: 0444
-      sources:
-      - secret:
-          name: user
-      - secret:
-          name: pass
-          items:
-          - key: password.txt
-            path: creds/password
-            mode: 0400
-      - configMap:
-          name: app-conf
-      - downwardAPI:
-          items:
-          - path: "meta/labels"
-            fieldRef:
-              fieldPath: metadata.labels
-          - path: "meta/namespace"
-            fieldRef:
-              fieldPath: metadata.namespace
-      - serviceAccountToken:
-          audience: api
-          expirationSeconds: 3600
-          path: token
-EOF
-
-kubectl apply -f ~/lab-work/6a/projected.yaml
-kubectl wait --for=condition=Ready pod/projected -n lab-6a --timeout=180s
-kubectl exec -n lab-6a projected -- find /projected-volume -type f -o -type l \
-  | sort | tee ~/lab-evidence/6a/b7-files.txt
+  - name: opt-cua-node
+    hostPath:
+      path: /opt
+      type: Directory
 ```
 
-**Ý nghĩa:** năm nguồn khác loại — hai Secret, một ConfigMap, downwardAPI và một token
-ServiceAccount — cùng đổ vào `/projected-volume`. Bài 93 nhấn mạnh **mọi nguồn phải nằm cùng
-namespace với Pod**; không có cách nào chiếu một Secret từ namespace khác.
+Ý chính cho ADR:
 
-Hai khác biệt cú pháp so với volume rời cũng nằm ngay trong manifest: secret dùng `name` chứ không
-phải `secretName`, và `defaultMode` chỉ đặt được **ở cấp projected**, còn `mode` thì đặt được cho
-từng projection.
+1. Bất kỳ ai tạo được Pod trong namespace — không cần quyền gì trên PV, PVC hay Secret. Từ Lab 9b,
+   namespace `bookstore` chạy Pod Security Standard `restricted`, vốn cấm volume `hostPath`; volume
+   `persistentVolumeClaim` thì được phép, nên `db` vẫn chạy.
+2. Với PVC, đường dẫn do **provisioner** sinh và ghi vào PV — object cấp cluster mà người dùng ứng dụng
+   không cần quyền tạo; PV mang `nodeAffinity` nên scheduler tự đưa Pod về đúng node; vòng đời thư mục
+   theo reclaim policy. Pod tự khai `hostPath` thì tự chọn bất kỳ đường dẫn nào trên node, không ai
+   kiểm.
+3. Đọc thôi cũng đủ lộ: credential của kubelet, khóa, và — như bước 1 — dữ liệu của workload khác, bỏ
+   qua mọi cơ chế xác thực của ứng dụng. Bài 91 còn nói mount chỉ đọc mặc định không đệ quy: một
+   filesystem khác mount bên dưới vẫn có thể ghi được.
+4. Gạch đầu dòng thứ hai: Pod cùng PodTemplate hành xử khác nhau trên các node khác nhau vì file trên mỗi
+   node khác nhau. Bài 92: PV `hostPath` chỉ dành cho kiểm thử trên một node, sẽ không hoạt động trong
+   cluster nhiều node — local-path sửa đúng chỗ đó bằng `nodeAffinity` trên PV.
 
-**PASS:** Pod `Ready`; danh sách file chứa `username.txt`, `creds/password`, `mode`, `stage`,
-`meta/labels`, `meta/namespace` và `token`.
+</details>
 
-### B7.2. Nội dung và quyền đúng như khai báo
+## B9. [BS-6A-09] ⭐ Điều tra: volume tạm thời tổng quát
 
-```bash
-U="$(kubectl exec -n lab-6a projected -- cat /projected-volume/username.txt)"
-P="$(kubectl exec -n lab-6a projected -- cat /projected-volume/creds/password)"
-M="$(kubectl exec -n lab-6a projected -- cat /projected-volume/mode)"
-NS="$(kubectl exec -n lab-6a projected -- cat /projected-volume/meta/namespace)"
-MODE_PASS="$(kubectl exec -n lab-6a projected -- stat -c '%a' /projected-volume/creds/password)"
-MODE_USER="$(kubectl exec -n lab-6a projected -- stat -c '%a' /projected-volume/username.txt)"
-DOTS="$(kubectl exec -n lab-6a projected -- sh -c "tr -cd '.' < /projected-volume/token | wc -c" \
-  | tr -d ' ')"
-kubectl exec -n lab-6a projected -- cat /projected-volume/meta/labels
+**Loại:** Điều tra — tùy chọn.
 
-echo "username=$U | password=$P | mode=$M | namespace=$NS"
-echo "quyền: creds/password=$MODE_PASS, username.txt=$MODE_USER | số dấu chấm trong token=$DOTS"
+**Bối cảnh:** báo cáo tồn kho song song của Lab 4b có thể cần chỗ đệm lớn hơn bộ nhớ, có kích thước cố
+định và tự biến mất khi Job xong. Bài 94 mô tả một loại volume khai inline như `emptyDir` nhưng sinh
+PVC thật. Trước khi đưa vào thiết kế, kiểm nó hành xử thế nào trên provisioner của cluster.
 
-test "$U" = 'admin' && test "$P" = '1f2d1e2e67df' && test "$M" = 'lab' \
-  && test "$NS" = 'lab-6a' && test "$MODE_PASS" = '400' && test "$MODE_USER" = '444' \
-  && test "$DOTS" -eq 2 \
-  && echo 'PASS: năm nguồn hiện đúng nội dung, đúng đường dẫn và đúng quyền'
-```
+**Yêu cầu:**
 
-**Ý nghĩa:** `mode: 0400` của riêng một projection thắng `defaultMode: 0444` của cả volume — đúng
-mô tả của bài 93. Token có đúng hai dấu chấm vì JWT gồm ba phần; đó là bằng chứng
-`serviceAccountToken` đã tiêm token thật chứ không phải file rỗng. Bài 93 nêu ba trường cần nắm
-của projection này: `audience`, `expirationSeconds` (mặc định 1 giờ, tối thiểu 600 giây) và `path`
-tính tương đối so với điểm mount.
+1. Pod `thu-eph` có volume tạm thời tổng quát tên `scratch`, class `local-path`, 64Mi. Chứng minh: PVC
+   `thu-eph-scratch` xuất hiện, `Bound`, chủ sở hữu là Pod; một thư mục `*_bookstore_thu-eph-scratch`
+   xuất hiện trên node của Pod.
+2. Xóa Pod: PVC, PV và thư mục trên node đều biến mất.
+3. Tạo tay PVC `thu-eph2-scratch` trước, rồi tạo Pod `thu-eph2` có volume `scratch`: PVC tạo tay không
+   bị chiếm, Pod không chạy được. Xóa cả hai.
 
-**PASS:** dòng `PASS: năm nguồn hiện đúng nội dung…` xuất hiện.
+**Đọc lại:** bài [94](../94-ephemeral-volumes-vi.md#generic-ephemeral-volumes) — *Volume tạm thời tổng
+quát*, [*Vòng đời và PersistentVolumeClaim*](../94-ephemeral-volumes-vi.md#vòng-đời-và-persistentvolumeclaim-lifecycle-and-persistentvolumeclaim),
+[*Đặt tên PersistentVolumeClaim*](../94-ephemeral-volumes-vi.md#đặt-tên-persistentvolumeclaim-persistentvolumeclaim-naming),
+[*Bảo mật*](../94-ephemeral-volumes-vi.md#bảo-mật-security).
 
-### B7.3. Mọi Pod đều đang dùng projected volume mà bạn không viết
+**Nghiệm thu:**
 
-```bash
-kubectl get pod projected -n lab-6a \
-  -o jsonpath='{range .spec.volumes[*]}{.name}{"\n"}{end}'
-kubectl get pod projected -n lab-6a -o yaml \
-  | grep -A6 'kube-api-access' | head -n 20 | tee ~/lab-evidence/6a/b7-sa-token.txt
+- `PASS:` PVC `thu-eph-scratch` `Bound`, `ownerReferences` là Pod `thu-eph`; thư mục có trên node.
+- `PASS:` xóa Pod thì PVC, PV, thư mục đều mất.
+- `PASS:` PVC tạo tay không có `ownerReferences`; `thu-eph2` không `Running`; cả hai đã xóa.
 
-AUTO="$(kubectl get pod projected -n lab-6a -o json \
-  | grep -c 'kube-api-access')"
-HAS_SAT="$(kubectl get pod projected -n lab-6a -o json | grep -c 'serviceAccountToken')"
-echo "số lần xuất hiện kube-api-access = $AUTO | serviceAccountToken = $HAS_SAT"
+<details>
+<summary>Script nghiệm thu và lời giải tham khảo</summary>
 
-test "$AUTO" -ge 1 && test "$HAS_SAT" -ge 2 \
-  && echo 'PASS: volume kube-api-access-* cũng là một projected volume do API server tự thêm'
-```
-
-**Ý nghĩa:** ngoài volume bạn viết, Pod còn một volume `kube-api-access-<hậu tố>` được thêm tự
-động, và nó cũng là `projected` với ba nguồn: `serviceAccountToken`, một `configMap` chứa CA của
-cluster, và `downwardAPI` chứa namespace. Nói cách khác, cơ chế của bài 93 đã chạy trong mọi Pod
-bạn tạo từ giai đoạn 3 tới giờ; hôm nay bạn chỉ mới gọi tên nó.
-
-**PASS:** dòng `PASS: volume kube-api-access-* cũng là một projected volume…` xuất hiện.
-
-### B7.4. `secretName` không tồn tại bên trong `projected`
-
-```bash
-cat > ~/lab-work/6a/projected-sai.yaml <<'EOF'
+```yaml
+# ~/lab-work/6a/thu-eph.yaml — thu-eph2.yaml chỉ đổi tên Pod
 apiVersion: v1
 kind: Pod
 metadata:
-  name: projected-sai
-  namespace: lab-6a
+  name: thu-eph
+  namespace: bookstore
 spec:
-  containers:
-  - name: app
-    image: busybox:1.37
-    command: ["sh", "-c", "sleep 60"]
-    volumeMounts:
-    - name: all-in-one
-      mountPath: "/projected-volume"
-  volumes:
-  - name: all-in-one
-    projected:
-      sources:
-      - secret:
-          secretName: user
-EOF
-
-DRY_OUT="$(kubectl apply --dry-run=server --validate=strict \
-  -f ~/lab-work/6a/projected-sai.yaml 2>&1)"
-RC_DRY=$?
-echo "$DRY_OUT" | tee ~/lab-evidence/6a/b7-secretname-sai.txt
-
-if test "$RC_DRY" -ne 0; then
-  echo 'PASS: API server từ chối secretName trong projected — trường đúng là name'
-else
-  echo 'FAIL: API server chấp nhận secretName trong projected'
-fi
-
-kubectl delete pod projected -n lab-6a --wait=true
-kubectl delete secret user pass -n lab-6a
-kubectl delete configmap app-conf -n lab-6a
-rm -f ~/lab-work/6a/username.txt ~/lab-work/6a/password.txt
-```
-
-**Ý nghĩa:** đây là bẫy cú pháp mà bài 93 gọi tên: `secretName` là trường của volume `secret` rời,
-còn bên trong `projected` thì trường đó là `name`. `--validate=strict` biến một lỗi im lặng thành
-một lỗi phát hiện được ngay lúc `apply`, trước khi Pod chạy sai.
-
-**PASS:** dòng `PASS: API server từ chối secretName trong projected…` xuất hiện.
-
----
-
-## B8. Volume tạm thời tổng quát — `emptyDir` mà lại là PVC
-
-**Mục đích:** bài [94](../94-ephemeral-volumes-vi.md) mô tả một loại volume khai **inline** trong
-spec Pod nhưng lại sinh ra một PersistentVolumeClaim thật. Nó chỉ chạy được khi cluster có
-provisioner — nên chỗ của nó là sau B3.
-
-### B8.1. Khai inline, PVC hiện ra với tên xác định
-
-```bash
-cat > ~/lab-work/6a/ephemeral.yaml <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: eph-a
-  namespace: lab-6a
-spec:
+  terminationGracePeriodSeconds: 2
   containers:
   - name: app
     image: busybox:1.37
     command: ["sh", "-c", "sleep 3600"]
     volumeMounts:
-    - name: scratch
-      mountPath: /scratch
+    - {name: scratch, mountPath: /scratch}
   volumes:
   - name: scratch
     ephemeral:
       volumeClaimTemplate:
-        metadata:
-          labels:
-            type: lab-6a-scratch
         spec:
-          accessModes: ["ReadWriteOnce"]
           storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
           resources:
             requests:
-              storage: 128Mi
-EOF
-
-kubectl apply -f ~/lab-work/6a/ephemeral.yaml
-kubectl wait --for=condition=Ready pod/eph-a -n lab-6a --timeout=300s
-kubectl get pvc -n lab-6a -l type=lab-6a-scratch | tee ~/lab-evidence/6a/b8-pvc.txt
-
-EPH_PHASE="$(kubectl get pvc eph-a-scratch -n lab-6a -o jsonpath='{.status.phase}')"
-OWNER_KIND="$(kubectl get pvc eph-a-scratch -n lab-6a \
-  -o jsonpath='{.metadata.ownerReferences[0].kind}')"
-OWNER_NAME="$(kubectl get pvc eph-a-scratch -n lab-6a \
-  -o jsonpath='{.metadata.ownerReferences[0].name}')"
-EPH_PV="$(kubectl get pvc eph-a-scratch -n lab-6a -o jsonpath='{.spec.volumeName}')"
-echo "eph-a-scratch: $EPH_PHASE | owner=$OWNER_KIND/$OWNER_NAME | PV=$EPH_PV"
-
-test "$EPH_PHASE" = 'Bound' && test "$OWNER_KIND" = 'Pod' && test "$OWNER_NAME" = 'eph-a' \
-  && echo 'PASS: PVC tên <Pod>-<volume>, do ephemeral volume controller tạo, Pod là chủ sở hữu'
+              storage: 64Mi
 ```
 
-**Ý nghĩa:** bạn không viết PVC nào, nhưng có một PVC thật trong namespace. Bài 94: *"ephemeral
-volume controller sau đó sẽ tạo một object PersistentVolumeClaim thực sự trong cùng namespace với
-Pod"*, tên là **ghép tên Pod và tên volume bằng một dấu gạch nối** — `eph-a` + `scratch` =
-`eph-a-scratch`. Owner reference trỏ về Pod chính là thứ sẽ dọn PVC ở B8.3.
-
-Class dùng ở đây là `WaitForFirstConsumer`, đúng chế độ mà bài 94 khuyến nghị cho volume tạm thời
-tổng quát, vì khi đó scheduler được tự do chọn node cho Pod trước.
-
-**PASS:** dòng `PASS: PVC tên <Pod>-<volume>…` xuất hiện.
-
-### B8.2. Xóa Pod là PVC và PV đi theo
-
 ```bash
-kubectl exec -n lab-6a eph-a -- sh -c 'echo lab-6a-ephemeral > /scratch/marker'
-kubectl delete pod eph-a -n lab-6a --wait=true
+NS=bookstore; EV=~/lab-evidence/6a; W=~/lab-work/6a
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+kubectl apply -f "$W/thu-eph.yaml"
+kubectl -n "$NS" wait --for=condition=Ready pod/thu-eph --timeout=240s
+N="$(jp pod/thu-eph '{.spec.nodeName}')"; PV="$(jp pvc/thu-eph-scratch '{.spec.volumeName}')"
+{ [ "$(jp pvc/thu-eph-scratch '{.status.phase}|{.metadata.ownerReferences[0].kind}/{.metadata.ownerReferences[0].name}')" = 'Bound|Pod/thu-eph' ] && \
+  ssh "$N" "sudo sh -c 'ls -d /opt/local-path-provisioner/*_bookstore_thu-eph-scratch'" > "$EV/b9-thu-muc.txt" 2>&1; } \
+  && echo "PASS: PVC <Pod>-<volume> do controller tao, Pod la chu, thu muc tren $N"
+kubectl -n "$NS" delete pod thu-eph --wait=true
+for i in $(seq 1 60); do { kubectl -n "$NS" get pvc thu-eph-scratch || kubectl get pv "$PV"; } >/dev/null 2>&1 || break; sleep 2; done
+{ ! kubectl -n "$NS" get pvc thu-eph-scratch >/dev/null 2>&1 && ! kubectl get pv "$PV" >/dev/null 2>&1 && \
+  ! ssh "$N" "sudo sh -c 'ls -d /opt/local-path-provisioner/*_bookstore_thu-eph-scratch'" >/dev/null 2>&1; } \
+  && echo 'PASS: xoa Pod thi PVC, PV va thu muc tren node deu mat'
 
-for i in $(seq 1 90); do
-  kubectl get pvc eph-a-scratch -n lab-6a >/dev/null 2>&1 || break
-  sleep 2
-done
-for i in $(seq 1 90); do
-  kubectl get pv "$EPH_PV" >/dev/null 2>&1 || break
-  sleep 2
-done
-
-PVC_GONE="$(kubectl get pvc eph-a-scratch -n lab-6a --ignore-not-found -o name | wc -l)"
-PV_GONE="$(kubectl get pv "$EPH_PV" --ignore-not-found -o name | wc -l)"
-echo "PVC còn lại = $PVC_GONE | PV còn lại = $PV_GONE"
-
-test "$PVC_GONE" -eq 0 && test "$PV_GONE" -eq 0 \
-  && echo 'PASS: garbage collector xóa PVC theo Pod, và reclaimPolicy Delete xóa PV theo PVC'
-```
-
-**Ý nghĩa:** đây là điểm khác biệt lớn nhất so với B6. StatefulSet **giữ** PVC lại khi Pod biến
-mất; volume tạm thời tổng quát thì **không** — vì owner của PVC là chính Pod, và bài 94 nói rõ dây
-chuyền: xóa Pod → GC xóa PVC → reclaim policy `Delete` của class xóa volume. Muốn dữ liệu sống lâu
-hơn Pod thì bài 94 chỉ cách: dùng một StorageClass có reclaim policy `Retain`, và tự chịu trách
-nhiệm dọn về sau — đúng như B5.6 đã làm bằng tay.
-
-**PASS:** dòng `PASS: garbage collector xóa PVC theo Pod…` xuất hiện.
-
-### B8.3. Tên xác định thì cũng xung đột được
-
-```bash
 kubectl apply -f - <<'EOF'
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: eph-b-scratch
-  namespace: lab-6a
+  name: thu-eph2-scratch
+  namespace: bookstore
 spec:
   storageClassName: local-path
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: 128Mi
+      storage: 64Mi
 EOF
-
-sed -e 's/name: eph-a/name: eph-b/' ~/lab-work/6a/ephemeral.yaml > ~/lab-work/6a/ephemeral-b.yaml
-kubectl apply -f ~/lab-work/6a/ephemeral-b.yaml
-sleep 45
-
-B_PHASE="$(kubectl get pod eph-b -n lab-6a -o jsonpath='{.status.phase}')"
-B_OWNER="$(kubectl get pvc eph-b-scratch -n lab-6a -o jsonpath='{.metadata.ownerReferences[0].kind}')"
-echo "Pod eph-b = $B_PHASE | ownerReferences của PVC = ${B_OWNER:-<không có>}"
-kubectl describe pod eph-b -n lab-6a | tail -n 12 | tee ~/lab-evidence/6a/b8-xung-dot.txt
-
-test "$B_PHASE" != 'Running' && test -z "$B_OWNER" \
-  && echo 'PASS: PVC có sẵn không bị chiếm dụng, và Pod không khởi động được'
-
-kubectl delete pod eph-b -n lab-6a --wait=true --force --grace-period=0 2>/dev/null || \
-  kubectl delete pod eph-b -n lab-6a --wait=true
-kubectl delete pvc eph-b-scratch -n lab-6a --wait=true
+sed 's/name: thu-eph$/name: thu-eph2/' "$W/thu-eph.yaml" > "$W/thu-eph2.yaml"
+kubectl apply -f "$W/thu-eph2.yaml"
+sleep 30
+kubectl -n "$NS" describe pod thu-eph2 > "$EV/b9-xung-dot.txt" 2>&1
+{ [ -z "$(jp pvc/thu-eph2-scratch '{.metadata.ownerReferences}')" ] && [ "$(jp pod/thu-eph2 '{.status.phase}')" != 'Running' ]; } \
+  && echo 'PASS: PVC co san khong bi chiem, Pod khong chay duoc'
+kubectl -n "$NS" delete pod thu-eph2 --wait=true
+kubectl -n "$NS" delete pvc thu-eph2-scratch --wait=true
 ```
 
-**Ý nghĩa:** bài 94 cảnh báo đúng tình huống này: quy tắc đặt tên xác định làm hai Pod khác nhau —
-hoặc một Pod và một PVC tạo tay — có thể đòi cùng một tên. Kubernetes phát hiện xung đột **dựa trên
-quan hệ sở hữu**: PVC đã tồn tại **không bị ghi đè hay sửa đổi**, nên nó vẫn không có
-`ownerReferences`; nhưng vì thiếu đúng PVC cần thiết, Pod không khởi động được. Bài kết luận: hãy
-cẩn thận khi đặt tên Pod và tên volume trong cùng một namespace.
+Ý chính: volume tạm thời tổng quát cho chỗ đệm có kích thước do provisioner quyết định — với
+local-path thì con số chỉ là nhãn, vì provisioner không cưỡng chế dung lượng; thư mục nằm dưới
+`/opt/local-path-provisioner` chứ không dưới `/var/lib/kubelet`, nên kubelet **không** tính nó vào
+lưu trữ tạm thời của Pod như `emptyDir`. Tên PVC xác định nên dễ xung đột. Ai tạo được Pod là gián tiếp
+tạo được PVC (bài 94, *Bảo mật*) — điều Lab 9a, 9b phải tính tới. Với cluster này, `emptyDir` có
+`sizeLimit` là chỗ đệm tốt hơn cho Job của dự án.
 
-Bài 94 còn nêu hệ quả bảo mật của cơ chế này: ai tạo được Pod thì **gián tiếp** tạo được PVC, dù
-không có quyền tạo PVC trực tiếp. Cách chặn là admission webhook — thuộc giai đoạn 9, không làm ở
-đây.
+</details>
 
-**PASS:** dòng `PASS: PVC có sẵn không bị chiếm dụng…` xuất hiện.
+## B10. Đóng sprint: cleanup và gate cuối
 
----
+**Mục đích:** bàn giao một repo dựng lại được toàn bộ hệ thống của sprint 8, gỡ **toàn bộ** dự án kể
+cả dữ liệu trên node, rồi chụp mốc `03-storage-ready` chỉ chứa hạ tầng: mọi thứ của `02-net-ready`,
+cộng namespace `local-path-storage` đang chạy provisioner, cộng StorageClass `local-path` được đánh
+dấu mặc định. Không workload, không PV, không PVC, không thư mục dữ liệu.
 
-## B9. Lưu trữ tạm thời cục bộ — tài nguyên đĩa của node
-
-**Mục đích:** bài [95](../95-ephemeral-storage-vi.md) không nói về volume mà về **đĩa của node**:
-`emptyDir`, log container và lớp ghi được của container ăn chung một chỗ, và vượt mức thì Pod bị
-trục xuất. Đây là cầu nối trực tiếp sang eviction của giai đoạn 7.
-
-### B9.1. `ephemeral-storage` nằm ngay trong Node object
+1. Thay `tests/smoke.sh` bằng phiên bản của Lab 6a — kiểm thử khói **tích lũy**, chép nguyên văn:
 
 ```bash
-kubectl get nodes -o custom-columns=\
-NODE:.metadata.name,\
-EPH_CAP:.status.capacity.ephemeral-storage,\
-EPH_ALLOC:.status.allocatable.ephemeral-storage,\
-MEM_ALLOC:.status.allocatable.memory | tee ~/lab-evidence/6a/b9-allocatable.txt
+cat > ~/bookstore/tests/smoke.sh <<'EOF'
+#!/usr/bin/env bash
+# Kiểm thử khói — trạng thái sau Lab 6a: dữ liệu bền cho db và bản backup, cộng mọi hợp đồng còn
+# hiệu lực từ sprint 1 tới sprint 7 (controller, tài nguyên, Service, NetworkPolicy, Ingress TLS).
+# Tích lũy: giữ mọi kiểm tra của smoke Lab 5b, thêm phần của sprint 8. Script không in bí mật.
+set -u
+cd "$(dirname "$0")/.."
+NS=bookstore
+SEL='app.kubernetes.io/part-of=bookstore'
+HOST=bookstore.lab.local
+FAIL=0
+pass() { echo "PASS: $*"; }
+fail() { echo "FAIL: $*"; FAIL=1; }
+k() { kubectl -n "$NS" "$@"; }
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+SQL() { k exec db-0 -c postgres -- psql -X -q -U postgres -d bookstore -tAc "$1" 2>/dev/null; }
+has_cm() {  # $1 = các tên ConfigMap workload tham chiếu; $2 = tên theo hợp đồng (từ 5a có thể kèm hậu tố hash)
+  for N in $1; do case "$N" in "$2"|"$2"-*) k get configmap "$N" >/dev/null 2>&1 && return 0 ;; esac; done
+  return 1
+}
 
-W2_CAP="$(kubectl get node lab-k8s-worker2 -o jsonpath='{.status.capacity.ephemeral-storage}')"
-W2_ALLOC="$(kubectl get node lab-k8s-worker2 -o jsonpath='{.status.allocatable.ephemeral-storage}')"
-echo "worker2: capacity=$W2_CAP | allocatable=$W2_ALLOC"
+# 1. Namespace, object cấp cluster, hạ tầng nền (02-net-ready, 03-storage-ready)
+[ "$(kubectl get namespace "$NS" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}' 2>/dev/null)" = 'bookstore' ] \
+  && pass 'namespace bookstore mang label du an' || fail 'namespace bookstore thieu hoac thieu label'
+PRIO="$(kubectl get priorityclass bookstore-critical -o jsonpath='{.value}' 2>/dev/null)"
+[ -n "$PRIO" ] && pass "co PriorityClass bookstore-critical ($PRIO)" || fail 'thieu PriorityClass bookstore-critical'
+NODES="$(kubectl get nodes --no-headers | wc -l)"
+R="$(kubectl -n kube-system get daemonset calico-node -o jsonpath='{.status.numberReady}' 2>/dev/null)"
+[ "${R:-0}" -eq "$NODES" ] && pass "Calico Ready tren $R/$NODES node" || fail "Calico ${R:-0}/$NODES node"
+[ "$(kubectl get ingressclass traefik -o jsonpath='{.metadata.annotations.ingressclass\.kubernetes\.io/is-default-class}' 2>/dev/null)" = 'true' ] \
+  && pass 'IngressClass traefik la mac dinh' || fail 'thieu IngressClass traefik mac dinh'
+SCJ="$(kubectl get storageclass bookstore-retain -o jsonpath='{.provisioner}|{.reclaimPolicy}|{.volumeBindingMode}|{.metadata.labels.app\.kubernetes\.io/part-of}' 2>/dev/null)"
+[ "$SCJ" = 'rancher.io/local-path|Retain|WaitForFirstConsumer|bookstore' ] \
+  && pass 'StorageClass bookstore-retain: local-path, Retain, WaitForFirstConsumer' || fail "StorageClass bookstore-retain sai ($SCJ)"
+DEF="$(kubectl get storageclass -o jsonpath='{range .items[*]}{.metadata.name}={.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' 2>/dev/null | grep '=true$')"
+[ "$DEF" = 'local-path=true' ] && pass 'class mac dinh duy nhat la local-path' || fail "class mac dinh sai: $(echo $DEF)"
 
-test -n "$W2_CAP" && test -n "$W2_ALLOC" && test "$W2_ALLOC" != "$W2_CAP" \
-  && echo 'PASS: node quảng bá ephemeral-storage, và allocatable nhỏ hơn capacity'
-```
+# 2. Cấu hình, bí mật, PDB (3b, 3c, 5b) — tên ConfigMap đọc từ spec của workload; từ 6a web-config có
+#    thể đi qua volume projected
+has_cm "$(jp deployment/web '{.spec.template.spec.volumes[*].configMap.name} {.spec.template.spec.volumes[*].projected.sources[*].configMap.name}')" web-config \
+  && pass 'web dung ConfigMap web-config' || fail 'web khong tham chieu ConfigMap web-config ton tai'
+has_cm "$(jp deployment/api '{.spec.template.spec.containers[*].envFrom[*].configMapRef.name}')" api-config \
+  && pass 'api dung ConfigMap api-config' || fail 'api khong tham chieu ConfigMap api-config ton tai'
+has_cm "$(jp statefulset/db '{.spec.template.spec.volumes[*].configMap.name}')" db-init \
+  && pass 'db dung ConfigMap db-init' || fail 'db khong tham chieu ConfigMap db-init ton tai'
+D="$(jp secret/db-credentials '{.data}')"
+{ echo "$D" | grep -q '"postgres-password"' && echo "$D" | grep -q '"authenticator-password"'; } \
+  && pass 'Secret db-credentials du hai key' || fail 'Secret db-credentials thieu key'
+D="$(jp secret/bookstore-tls '{.data}')"
+{ [ "$(jp secret/bookstore-tls '{.type}')" = 'kubernetes.io/tls' ] && echo "$D" | grep -q '"tls.crt"' \
+  && echo "$D" | grep -q '"tls.key"'; } \
+  && pass 'Secret bookstore-tls kieu TLS, du tls.crt va tls.key' || fail 'Secret bookstore-tls sai kieu hoac thieu key'
+for P in web api; do
+  k get pdb "$P" >/dev/null 2>&1 && pass "co PodDisruptionBudget $P" || fail "thieu PodDisruptionBudget $P"
+done
 
-**Ý nghĩa:** `ephemeral-storage` là một tài nguyên node đúng nghĩa, đứng cạnh `cpu` và `memory`, và
-scheduler dùng `allocatable` của nó y như cách bạn đã thấy ở Lab 3c: tổng `requests` của các Pod
-được lập lịch phải nhỏ hơn dung lượng node. Phần chênh giữa `capacity` và `allocatable` là phần
-kubelet giữ lại cho hệ thống.
+# 3. Controller, tài nguyên, emptyDir (3c, 4a, 4b, 6a)
+[ "$(jp statefulset/db '{.status.readyReplicas}')" = '1' ] && pass 'StatefulSet db 1/1 Ready' || fail 'StatefulSet db chua Ready'
+[ "$(jp statefulset/db '{.spec.serviceName}')" = 'db' ] && pass 'StatefulSet db khai serviceName db' || fail 'serviceName khong phai db'
+[ "$(jp pod/db-0 '{.spec.nodeName}')" = 'lab-k8s-worker2' ] && pass 'db-0 tren lab-k8s-worker2' || fail 'db-0 khong o lab-k8s-worker2'
+[ "$(jp pod/db-0 '{.status.qosClass}')" = 'Guaranteed' ] && pass 'db-0 QoS Guaranteed' || fail 'db-0 khong Guaranteed'
+{ [ -n "$PRIO" ] && [ "$(jp pod/db-0 '{.spec.priority}')" = "$PRIO" ]; } && pass 'db-0 dung bookstore-critical' || fail 'db-0 sai priority'
+for N in web api; do
+  R="$(jp "deployment/$N" '{.spec.replicas}/{.status.readyReplicas}')"
+  { [ "${R%%/*}" = "${R##*/}" ] && [ "${R%%/*}" -ge 2 ] 2>/dev/null; } \
+    && pass "Deployment $N $R Ready" || fail "Deployment $N chua du ban sao Ready ($R)"
+done
+ORPHAN="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.name}:{.metadata.ownerReferences[0].kind}{"\n"}{end}' 2>/dev/null | grep -c ':$')"
+[ "$ORPHAN" -eq 0 ] && pass 'moi Pod cua du an deu co controller' || fail "$ORPHAN Pod tran"
+MISS="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.name}={.resources.requests.cpu},{.resources.limits.memory}{"\n"}{end}{end}' 2>/dev/null | grep -E '=,|,$' | sort -u)"
+[ -z "$MISS" ] && pass 'moi container co requests va limits' || fail "container thieu tai nguyen: $(echo $MISS)"
+NOLIM="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{range .spec.volumes[*]}{.name}={.emptyDir}{"\n"}{end}{end}' 2>/dev/null | grep '={}$' | sort -u)"
+[ -z "$NOLIM" ] && pass 'moi emptyDir cua du an co sizeLimit' || fail "emptyDir khong tran: $(echo $NOLIM)"
 
-Bài 95 nói kubelet **chỉ đo được** khi node theo một trong các bố cục được hỗ trợ. Cluster lab theo
-bố cục *một filesystem duy nhất*: `/var/lib/kubelet` và `/var/log` cùng nằm trên filesystem gốc —
-đúng bố cục mà kubelet được thiết kế cho.
+# 4. Dữ liệu và migration (4b)
+N="$(SQL 'SELECT count(*) FROM api.books')"
+[ "${N:-0}" -ge 8 ] && pass "db co $N cuon sach" || fail "db co ${N:-0} cuon sach, can >= 8"
+if k get job db-migrate >/dev/null 2>&1; then
+  [ "$(jp job/db-migrate '{.status.conditions[?(@.type=="Complete")].status}')" = 'True' ] \
+    && pass 'Job db-migrate Complete' || fail 'Job db-migrate chua Complete'
+else
+  pass 'Job db-migrate da duoc TTL don, ket qua nam trong db'
+fi
 
-**PASS:** dòng `PASS: node quảng bá ephemeral-storage…` xuất hiện.
+# 5. Dữ liệu bền của db (6a)
+[ "$(jp pvc/data-db-0 '{.status.phase}|{.spec.storageClassName}|{.metadata.labels.app\.kubernetes\.io/part-of}')" = 'Bound|bookstore-retain|bookstore' ] \
+  && pass 'PVC data-db-0 Bound, class bookstore-retain, label du an' || fail 'PVC data-db-0 sai hoac chua Bound'
+VOL="$(jp pod/db-0 '{.spec.containers[?(@.name=="postgres")].volumeMounts[?(@.mountPath=="/var/lib/postgresql/data")].name}')"
+{ [ -n "$VOL" ] && [ "$(jp pod/db-0 "{.spec.volumes[?(@.name==\"$VOL\")].persistentVolumeClaim.claimName}")" = 'data-db-0' ]; } \
+  && pass 'du lieu db-0 nam tren PVC data-db-0' || fail 'db-0 khong dung PVC data-db-0'
+PGD="$(jp pod/db-0 '{.spec.containers[?(@.name=="postgres")].env[?(@.name=="PGDATA")].value}')"
+case "$PGD" in
+  /var/lib/postgresql/data/?*) pass "PGDATA=$PGD la thu muc con cua volume" ;;
+  *) fail "PGDATA='$PGD' khong phai thu muc con cua volume" ;;
+esac
+PV="$(jp pvc/data-db-0 '{.spec.volumeName}')"
+PVJ="$(kubectl get pv "$PV" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}|{.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]}' 2>/dev/null)"
+[ "$PVJ" = "Retain|$(jp pod/db-0 '{.spec.nodeName}')" ] \
+  && pass "PV cua data-db-0: Retain, cung node voi db-0" || fail "PV cua data-db-0 sai ($PVJ)"
+[ "$(jp statefulset/db '{.spec.persistentVolumeClaimRetentionPolicy.whenDeleted}|{.spec.persistentVolumeClaimRetentionPolicy.whenScaled}')" = 'Retain|Retain' ] \
+  && pass 'StatefulSet db giu PVC khi xoa va khi thu nho' || fail 'chinh sach giu PVC cua db sai'
 
-### B9.2. Khai `requests` và `limits` cho từng container
+# 6. Service và DNS (5a); web về ClusterIP, NetworkPolicy chặn mặc định (5b)
+svc() {  # $1 tên; $2 cổng Service; $3 các targetPort chấp nhận, ngăn bằng |
+  local P T; P="$(jp "service/$1" '{.spec.ports[0].port}')"; T="$(jp "service/$1" '{.spec.ports[0].targetPort}')"
+  { [ "$P" = "$2" ] && echo "|$3|" | grep -qF "|$T|"; } && pass "Service $1 cong $P -> $T" || fail "Service $1 sai cong ($P -> $T)"
+}
+svc web 80 'http|8080'; svc api 3000 'http|3000'; svc db 5432 'postgres|5432'; svc node-agent 9100 'http|9100'
+{ [ "$(jp service/web '{.spec.type}')" = 'ClusterIP' ] && [ -z "$(jp service/web '{.spec.ports[*].nodePort}')" ]; } \
+  && pass 'Service web la ClusterIP, khong con NodePort' || fail 'Service web van mo NodePort'
+[ "$(jp service/db '{.spec.clusterIP}')" = 'None' ] && pass 'Service db headless' || fail 'Service db khong headless'
+[ "$(jp service/node-agent '{.spec.internalTrafficPolicy}')" = 'Local' ] \
+  && pass 'Service node-agent internalTrafficPolicy Local' || fail 'Service node-agent khong Local'
+DENY="$(jp networkpolicy '{range .items[*]}{.spec.podSelector}|{.spec.policyTypes}{"\n"}{end}' | grep '^{}|' | grep 'Ingress' | grep -c 'Egress')"
+[ "${DENY:-0}" -ge 1 ] && pass 'co NetworkPolicy chan mac dinh hai chieu cho ca namespace' || fail 'thieu NetworkPolicy chan mac dinh'
+DB_IP="$(jp pod/db-0 '{.status.podIP}')"
 
-```bash
-cat > ~/lab-work/6a/eph-budget.yaml <<'EOF'
+# 7. web, api, node-agent bên trong cluster — các luồng ma trận cho phép (5a, 5b, 6a)
+WEB="$(k get pod -l "$SEL,app.kubernetes.io/component=web" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+WNODE="$(jp "pod/$WEB" '{.spec.nodeName}')"
+get() { k exec "$WEB" -c status-writer -- wget -qO- -T 5 "$1" 2>/dev/null; }
+# Hỏi DNS của cluster từ Pod khác: trong chính db-0, tên này nằm sẵn ở /etc/hosts do kubelet ghi (5a).
+k exec "$WEB" -c status-writer -- nslookup "db-0.db.$NS.svc.cluster.local" 2>/dev/null | grep -qwF "$DB_IP" \
+  && pass 'ten db-0.db phan giai ve IP cua db-0' || fail 'ten db-0.db khong phan giai dung'
+T="$(get http://api:3000/books | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && pass "Service api /books tra $T cuon" || fail "Service api /books tra $T cuon"
+get http://127.0.0.1:8080/ | grep -q 'Bookstore' && pass 'web phuc vu trang chu' || fail 'web khong phuc vu trang chu'
+S="$(get http://127.0.0.1:8080/status.json)"
+{ echo "$S" | grep -Eq "\"pod\" *: *\"$WEB\"" && echo "$S" | grep -q '"version"' && echo "$S" | grep -q '"updated"'; } \
+  && pass 'status.json dung ten Pod, co version va updated' || fail 'status.json sai hoac thieu'
+T="$(get http://127.0.0.1:8080/api/books | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && pass "nginx proxy /api/ toi api ($T cuon)" || fail "nginx /api/ tra $T cuon"
+PROJ="$(jp "pod/$WEB" '{range .spec.volumes[*]}{.name}|{.projected.sources[*].downwardAPI.items[*].path}|{.projected.sources[*].configMap.name}{"\n"}{end}' \
+        | grep -v '^kube-api-access-' | awk -F'|' '$2!="" && $3 ~ /^web-config/ {print $1; exit}')"
+{ [ -n "$PROJ" ] && [ "$(jp "pod/$WEB" "{.spec.initContainers[?(@.name==\"status-writer\")].volumeMounts[?(@.name==\"$PROJ\")].mountPath}")" = '/etc/status-writer' ]; } \
+  && pass 'status-writer doc label va cau hinh tu mot volume projected' || fail 'status-writer chua dung volume projected'
+get http://node-agent:9100/node.json | grep -Eq "\"node\" *: *\"$WNODE\"" \
+  && pass 'node-agent qua Service tra dung node cua Pod goi' || fail 'node-agent qua Service sai node'
+R="$(jp daemonset/node-agent '{.status.numberReady}')"
+[ "${R:-0}" -eq "$NODES" ] && pass "node-agent Ready tren $R/$NODES node" || fail "node-agent ${R:-0}/$NODES node"
+BAD=0
+for L in $(k get pod -l "$SEL,app.kubernetes.io/component=agent" -o jsonpath='{range .items[*]}{.spec.nodeName}={.status.podIP}{"\n"}{end}' 2>/dev/null); do
+  get "http://${L##*=}:9100/node.json" | grep -Eq "\"node\" *: *\"${L%%=*}\"" || { echo "FAIL: node-agent tren ${L%%=*} sai /node.json"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && pass 'moi node-agent tra /node.json dung ten node' || FAIL=1
+
+# 8. Các luồng ma trận KHÔNG cho phép phải bị chặn (5b). Phủ định chỉ tính khi kết nối hết giờ hoặc bị
+#    từ chối, và có đối chứng dương; lỗi khác là "không kết luận được", không phải PASS.
+WEB_IP="$(jp "pod/$WEB" '{.status.podIP}')"
+# Probe phải được phép đi ra thì mới thử được ingress của web: trong bookstore, default-deny chặn luôn
+# egress của chính probe. Dùng namespace thử bookstore-thu (không NetworkPolicy, mang label dự án),
+# chỉ xóa nếu smoke tự tạo. DNS-OK là đối chứng dương: probe có mạng.
+PNS=bookstore-thu; MADE=0
+if ! kubectl get namespace "$PNS" >/dev/null 2>&1; then
+  kubectl create namespace "$PNS" >/dev/null 2>&1 \
+    && kubectl label namespace "$PNS" app.kubernetes.io/part-of=bookstore >/dev/null 2>&1 && MADE=1
+fi
+OUT="$(kubectl -n "$PNS" run "smoke-np-$(date +%s)" --rm -i --restart=Never --image=busybox:1.37 \
+         --command -- sh -c \
+         "nslookup web.$NS.svc.cluster.local >/dev/null 2>&1 && echo DNS-OK; wget -q -T 3 -O /dev/null http://${WEB_IP}:8080/healthz && echo LOT-QUA || echo BI-CHAN" 2>/dev/null)"
+[ "$MADE" -eq 1 ] && kubectl delete namespace "$PNS" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1
+{ echo "$OUT" | grep -q 'DNS-OK' && echo "$OUT" | grep -q 'BI-CHAN'; } \
+  && pass 'Pod ngoai Traefik co mang nhung bi ingress cua web chan toi web:8080' \
+  || fail "Pod ngoai Traefik toi web:8080: $(echo $OUT)"
+# web -> api:3001. Đối chứng: cùng Pod web tới cùng IP Pod api ở cổng 3000 được (mục 7 dùng tên Service,
+# ở đây dùng IP Pod); cổng 3001 đang nghe (readinessProbe của api đi qua cổng admin và Pod Ready).
+API_POD="$(k get pod -l "$SEL,app.kubernetes.io/component=api" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+API_IP="$(jp "pod/$API_POD" '{.status.podIP}')"
+RP="$(jp "pod/$API_POD" '{.spec.containers[?(@.name=="postgrest")].readinessProbe.httpGet.port}')"
+RD="$(jp "pod/$API_POD" '{.status.conditions[?(@.type=="Ready")].status}')"
+if [ -z "$API_IP" ]; then fail 'khong tim thay Pod api'
+elif ! get "http://${API_IP}:3000/books" | grep -q '"title"'; then
+  fail 'doi chung: web khong toi duoc api:3000 — khong ket luan duoc ve cong 3001'
+elif [ "$RD" != True ] || { [ "$RP" != admin ] && [ "$RP" != 3001 ]; }; then
+  fail "doi chung: chua chac cong admin 3001 dang nghe (probe=$RP, Ready=$RD)"
+else
+  OUT="$(k exec "$WEB" -c status-writer -- timeout 10 wget -q -T 5 -O /dev/null "http://${API_IP}:3001/live" 2>&1)"; RC=$?
+  if [ "$RC" -eq 0 ]; then fail 'web toi duoc cong admin 3001 cua api - ma tran rong hon muc 3.5'
+  elif echo "$OUT" | grep -Eq 'timed out|Connection refused|exit code 143'; then pass 'web -> api:3001 bi chan, chi cong 3000 duoc mo'
+  else fail "web toi api:3001 loi khac chan mang — khong ket luan duoc: $(echo $OUT)"; fi
+fi
+if k exec db-0 -c postgres -- getent hosts web >/dev/null 2>&1; then
+  if k exec db-0 -c postgres -- timeout 5 bash -c 'exec 3<>/dev/tcp/web/80' >/dev/null 2>&1; then
+    fail 'db-0 mo duoc ket noi toi web:80 - chieu di chua bi chan mac dinh'
+  else
+    pass 'db-0 -> web:80 bi chan, DNS van phan giai'
+  fi
+else
+  fail 'db-0 khong phan giai duoc ten web - DNS bi chan?'
+fi
+
+# 9. Đường vào duy nhất: HTTPS qua Traefik bằng certificate của dự án (5b)
+ING='{.spec.rules[0].host}|{.spec.ingressClassName}|{.spec.tls[0].hosts[0]}|{.spec.tls[0].secretName}|{.spec.rules[0].http.paths[0].backend.service.name}'
+[ "$(jp ingress/bookstore "$ING")" = "$HOST|traefik|$HOST|bookstore-tls|web" ] \
+  && pass "Ingress bookstore: $HOST, class traefik, TLS bookstore-tls, ve web" || fail 'Ingress bookstore sai host, class, TLS hoac backend'
+NP="$(kubectl -n traefik get service traefik -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}' 2>/dev/null)"
+if [ -s secrets/tls.crt ] && [ -n "$NP" ]; then
+  openssl x509 -in secrets/tls.crt -noout -checkend 0 >/dev/null && pass 'certificate trong secrets/ con han' \
+    || fail 'certificate trong secrets/ da het han (TD-11)'
+  for W in lab-k8s-worker1 lab-k8s-worker2; do
+    IP="$(kubectl get node "$W" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+    C="curl -fsS --max-time 10 --cacert secrets/tls.crt --resolve $HOST:$NP:$IP"
+    $C "https://$HOST:$NP/" 2>/dev/null | grep -q 'Bookstore' \
+      && pass "HTTPS $HOST qua $W:$NP tra trang chu" || fail "HTTPS qua $W khong tra trang chu"
+    T="$($C "https://$HOST:$NP/api/books" 2>/dev/null | grep -o '"title"' | wc -l)"
+    [ "$T" -ge 8 ] && pass "HTTPS /api/books qua $W tra $T cuon" || fail "HTTPS /api/books qua $W tra $T cuon"
+  done
+else
+  fail 'thieu secrets/tls.crt hoac NodePort websecure cua Traefik'
+fi
+
+# 10. Backup trên PVC backup-store (4b, 6a)
+[ "$(jp cronjob/db-backup '{.spec.concurrencyPolicy}')" = 'Forbid' ] && pass 'db-backup Forbid' || fail 'db-backup khong Forbid'
+SDS="$(jp cronjob/db-backup '{.spec.startingDeadlineSeconds}')"
+[ "${SDS:-0}" -ge 10 ] && pass "db-backup startingDeadlineSeconds=$SDS" || fail 'db-backup thieu startingDeadlineSeconds >= 10'
+[ "$(jp cronjob/db-backup '{.spec.suspend}')" != 'true' ] && pass 'db-backup khong bi tam ngung' || fail 'db-backup dang suspend'
+jp cronjob/db-backup '{.spec.jobTemplate.spec.template.spec.volumes[*].persistentVolumeClaim.claimName}' | grep -qw 'backup-store' \
+  && pass 'db-backup ghi vao PVC backup-store' || fail 'db-backup khong dung PVC backup-store'
+[ "$(jp pvc/backup-store '{.metadata.labels.app\.kubernetes\.io/component}|{.spec.storageClassName}')" = 'backup|bookstore-retain' ] \
+  && pass 'PVC backup-store component=backup, class bookstore-retain' || fail 'PVC backup-store sai'
+J="smoke-backup-$(date +%s)"; F=''
+if k create job "$J" --from=cronjob/db-backup >/dev/null 2>&1 \
+   && k wait --for=condition=Complete "job/$J" --timeout=300s >/dev/null 2>&1; then
+  F="$(k logs "job/$J" 2>/dev/null | awk '/^db-backup: OK/ {print $3; exit}')"
+fi
+[ -n "$F" ] && pass "chay thu db-backup: $F" || fail 'chay thu db-backup that bai'
+JN="$(k get pod -l "batch.kubernetes.io/job-name=$J" -o jsonpath='{.items[0].spec.nodeName}' 2>/dev/null)"
+PVB="$(jp pvc/backup-store '{.spec.volumeName}')"
+PVBJ="$(kubectl get pv "$PVB" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}|{.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]}' 2>/dev/null)"
+{ [ -n "$JN" ] && [ "$PVBJ" = "Retain|$JN" ]; } \
+  && pass "backup-store: PV Retain, cung node voi Pod backup ($JN)" || fail "backup-store sai ($PVBJ, Pod backup o ${JN:-?})"
+k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+if [ -n "$F" ]; then
+  RD="smoke-doc-backup-$(date +%s)"
+  k apply -f - >/dev/null 2>&1 <<POD
 apiVersion: v1
 kind: Pod
 metadata:
-  name: eph-budget
-  namespace: lab-6a
+  name: $RD
 spec:
-  nodeSelector:
-    kubernetes.io/hostname: lab-k8s-worker2
   restartPolicy: Never
   containers:
-  - name: app
+  - name: doc
     image: busybox:1.37
-    command: ["sh", "-c", "dd if=/dev/zero of=/scratch/small bs=1M count=16; sleep 3600"]
-    resources:
-      requests:
-        ephemeral-storage: "32Mi"
-      limits:
-        ephemeral-storage: "64Mi"
+    command: ["ls", "/backup"]
     volumeMounts:
-    - name: scratch
-      mountPath: /scratch
+    - {name: b, mountPath: /backup, readOnly: true}
   volumes:
-  - name: scratch
-    emptyDir: {}
+  - name: b
+    persistentVolumeClaim: {claimName: backup-store, readOnly: true}
+POD
+  k wait --for=jsonpath='{.status.phase}'=Succeeded "pod/$RD" --timeout=120s >/dev/null 2>&1
+  k logs "$RD" 2>/dev/null | grep -qx "$(basename "$F")" \
+    && pass 'ban dump van tren backup-store sau khi Job bi xoa' || fail 'khong thay ban dump tren backup-store'
+  k delete pod "$RD" --ignore-not-found --wait=false >/dev/null 2>&1
+fi
+
+exit "$FAIL"
 EOF
-
-kubectl apply -f ~/lab-work/6a/eph-budget.yaml
-kubectl wait --for=condition=Ready pod/eph-budget -n lab-6a --timeout=180s
-
-REQ="$(kubectl get pod eph-budget -n lab-6a \
-  -o jsonpath='{.spec.containers[0].resources.requests.ephemeral-storage}')"
-LIM="$(kubectl get pod eph-budget -n lab-6a \
-  -o jsonpath='{.spec.containers[0].resources.limits.ephemeral-storage}')"
-QOS="$(kubectl get pod eph-budget -n lab-6a -o jsonpath='{.status.qosClass}')"
-USED="$(kubectl exec -n lab-6a eph-budget -- sh -c 'du -sm /scratch' | cut -f1)"
-echo "requests=$REQ | limits=$LIM | qosClass=$QOS | đã ghi ${USED}Mi"
-
-test "$REQ" = '32Mi' && test "$LIM" = '64Mi' && test "$USED" -lt 64 \
-  && echo 'PASS: Pod khai ngân sách lưu trữ tạm thời và đang nằm dưới trần'
+chmod +x ~/bookstore/tests/smoke.sh
 ```
 
-**Ý nghĩa:** cú pháp giống hệt CPU và memory của Lab 3c, nhưng đơn vị là **byte**. Bài 95 nêu một
-cái bẫy đáng nhớ: `400m` là **0.4 byte**, không phải 400 mebibyte — người gõ như vậy gần như chắc
-chắn muốn `400Mi` hoặc `400M`. Limit của **Pod** là tổng limit của các container, và dung lượng mà
-`emptyDir` tiêu thụ tính vào chính limit đó.
+Smoke tạo ba object tạm thời — Pod `smoke-np-*` trong namespace thử `bookstore-thu` (tạo khi chưa có,
+mang label dự án, xóa lại nếu smoke tự tạo); Job `smoke-backup-*` và Pod `smoke-doc-backup-*` trong
+`bookstore` — và tự xóa chúng; hai Pod không mang label dự án nên không lẫn vào các kiểm tra theo label. Bản dump do smoke tạo nằm lại trên `backup-store`, chịu cùng giới hạn 10 bản.
 
-**PASS:** dòng `PASS: Pod khai ngân sách lưu trữ tạm thời và đang nằm dưới trần` xuất hiện.
+2. Cập nhật `docs/tech-debt.md`: `TD-04` đổi thành đã trả (6a, bằng chứng
+   `~/lab-evidence/6a/b1-don-hang.txt` và `b5-db-log.txt`); `TD-08` đã trả và `TD-10` đã thêm ở B4.
 
-### B9.3. Vượt trần thì kubelet trục xuất Pod
-
-> **Fault injection — chỉ chạy trên `lab-k8s-worker2`.** Pod dưới đây cố tình ghi vượt limit của
-> chính nó. Nó ghi khoảng 200 mebibyte rồi bị trục xuất, không đủ để gây áp lực đĩa lên node.
+3. Dựng lại sạch từ repo và chạy kiểm thử khói:
 
 ```bash
-sed -e 's/name: eph-budget/name: eph-overflow/' \
-    -e 's/count=16/count=200/' ~/lab-work/6a/eph-budget.yaml \
-  > ~/lab-work/6a/eph-overflow.yaml
-kubectl apply -f ~/lab-work/6a/eph-overflow.yaml
+cd ~/bookstore
+./scripts/teardown.sh && ./scripts/deploy.sh > ~/lab-evidence/6a/b10-deploy.txt 2>&1
+./tests/smoke.sh > ~/lab-evidence/6a/b10-smoke.txt 2>&1; echo "smoke exit=$?"
+cat ~/lab-evidence/6a/b10-smoke.txt
+```
 
-for i in $(seq 1 150); do
-  OV_PHASE="$(kubectl get pod eph-overflow -n lab-6a -o jsonpath='{.status.phase}')"
-  OV_REASON="$(kubectl get pod eph-overflow -n lab-6a -o jsonpath='{.status.reason}')"
-  test "$OV_REASON" = 'Evicted' && break
-  sleep 2
+4. Commit, tag, đóng gói, chép ra ngoài VM theo
+   [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm):
+
+```bash
+cd ~/bookstore
+git status --short
+git add -A && git commit -m 'lab-6a: sprint 8 — du lieu ben cho db va backup'
+git tag lab-6a
+git bundle create ~/bookstore-lab-6a.bundle --all && git bundle verify ~/bookstore-lab-6a.bundle
+```
+
+Chép `~/bookstore-lab-6a.bundle` về máy host bằng `scp` trước khi đi tiếp. `secrets/` không nằm trong
+bundle — đúng chủ đích: sau teardown không còn dữ liệu nào mà bí mật cũ phải khớp.
+
+5. Dọn object thử nghiệm và trả cluster về hạ tầng thuần:
+
+```bash
+kubectl -n bookstore delete pod,pvc,job -l '!app.kubernetes.io/part-of' --ignore-not-found --wait=true
+kubectl delete storageclass thu-immediate --ignore-not-found
+rm -rf ~/lab-work/6a
+cd ~/bookstore && ./scripts/teardown.sh
+```
+
+6. Gate cuối — repo, dự án, tầng lưu trữ:
+
+```bash
+cd ~/bookstore
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
+git describe --tags --exact-match HEAD | grep -qx 'lab-6a' && echo 'PASS: HEAD mang tag lab-6a'
+test -s ~/bookstore-lab-6a.bundle && echo 'PASS: co bundle'
+{ test -f k8s/cluster/storageclass-retain.yaml && test -f k8s/app/backup/pvc.yaml && \
+  grep -q 'volumeClaimTemplates' k8s/app/db/statefulset.yaml && test -f k8s/app/web/status-writer.env && \
+  test -f platform/local-path-provisioner/README.md && test -f platform/local-path-provisioner/local-path-storage.yaml; } \
+  && echo 'PASS: bo cuc repo dung muc 5.5'
+{ grep -E 'TD-04.*đã trả' docs/tech-debt.md && grep -E 'TD-08.*đã trả' docs/tech-debt.md && grep -q 'TD-10' docs/tech-debt.md; } >/dev/null \
+  && echo 'PASS: tech-debt.md cap nhat TD-04, TD-08, TD-10'
+BAD=0
+for F in 'adr/*-local-path-provisioner.md' 'adr/*-du-lieu-ben-db.md' 'adr/*-mat-khau-du-lieu-ben.md' 'adr/*-backup-store.md' \
+         'adr/*-projected-status-writer.md' 'adr/*-luu-tru-tam-thoi.md' 'adr/*-hostpath.md' \
+         'postmortem/6a-du-lieu-emptydir.md' 'postmortem/6a-mat-pvc.md' 'runbook-khoi-phuc-pv.md'; do
+  ls docs/$F >/dev/null 2>&1 || { echo "FAIL: thieu docs/$F"; BAD=1; }
 done
+[ "$BAD" -eq 0 ] && echo 'PASS: du ADR, postmortem va runbook cua sprint 8'
 
-echo "phase=$OV_PHASE | reason=${OV_REASON:-<chưa có>}"
-kubectl get pod eph-overflow -n lab-6a -o jsonpath='{.status.message}'; echo
-kubectl describe pod eph-overflow -n lab-6a | tail -n 12 \
-  | tee ~/lab-evidence/6a/b9-evicted.txt
-
-test "$OV_PHASE" = 'Failed' && test "$OV_REASON" = 'Evicted' \
-  && echo 'PASS: vượt limit ephemeral-storage thì kubelet đặt tín hiệu trục xuất và trục xuất Pod'
-
-kubectl delete pod eph-overflow eph-budget -n lab-6a --wait=true
-```
-
-**Ý nghĩa:** bài 95 mô tả đúng dây chuyền: *"Nếu một Pod dùng nhiều lưu trữ tạm thời hơn mức bạn
-cho phép, kubelet đặt một tín hiệu trục xuất kích hoạt việc trục xuất Pod."* Đây là **cách ly cấp
-pod**: tổng của các container cộng các volume `emptyDir` vượt limit tổng. Thời điểm trục xuất phụ
-thuộc chu kỳ đo của kubelet, nên vòng lặp ở trên chờ theo điều kiện chứ không theo một con số cố
-định.
-
-Ranh giới quan trọng nhất của bài nằm ở khối *Thận trọng*: nếu kubelet **không** đo được lưu trữ
-tạm thời cục bộ trên bố cục node của bạn thì Pod vượt limit **sẽ không** bị trục xuất vì lý do đó —
-nhưng khi filesystem xuống thấp, node tự taint chính nó là đang thiếu lưu trữ cục bộ và taint đó
-đuổi mọi Pod không tolerate. Cơ chế taint và eviction do áp lực node là nội dung giai đoạn 7.
-
-**PASS:** dòng `PASS: vượt limit ephemeral-storage…` xuất hiện.
-
-### B9.4. `emptyDir` dạng bộ nhớ không tính vào lưu trữ tạm thời
-
-```bash
-kubectl apply -f - <<'EOF'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: eph-mem
-  namespace: lab-6a
-spec:
-  containers:
-  - name: app
-    image: busybox:1.37
-    command: ["sh", "-c", "sleep 600"]
-    volumeMounts:
-    - name: ram
-      mountPath: /ram
-  volumes:
-  - name: ram
-    emptyDir:
-      medium: Memory
-      sizeLimit: 32Mi
-EOF
-
-kubectl wait --for=condition=Ready pod/eph-mem -n lab-6a --timeout=180s
-kubectl exec -n lab-6a eph-mem -- sh -c 'mount | grep " /ram "' \
-  | tee ~/lab-evidence/6a/b9-tmpfs.txt
-
-grep -q 'tmpfs' ~/lab-evidence/6a/b9-tmpfs.txt \
-  && echo 'PASS: emptyDir medium Memory được mount bằng tmpfs'
-
-kubectl delete pod eph-mem -n lab-6a --wait=true
-```
-
-**Ý nghĩa:** bài 91 nói `medium: "Memory"` đổi backing sang tmpfs, và bài 95 bổ sung hệ quả kế
-toán: kubelet theo dõi `emptyDir` dạng tmpfs như **mức sử dụng bộ nhớ của container**, không phải
-lưu trữ tạm thời. Nghĩa là file bạn ghi vào `/ram` tiêu vào memory limit — cùng loại giới hạn đã
-làm Pod bị `OOMKilled` ở Lab 3c, chứ không phải loại vừa gây eviction ở B9.3.
-
-**PASS:** dòng `PASS: emptyDir medium Memory được mount bằng tmpfs` xuất hiện.
-
----
-
-## B10. Cleanup và gate tạo snapshot `03-storage-ready`
-
-**Mục đích:** xóa mọi object của bài học, **giữ lại đúng phần hạ tầng** mà mốc mới được định nghĩa
-là có — provisioner và StorageClass mặc định — rồi chứng minh cluster khỏe trước khi chụp.
-
-Định nghĩa của mốc `03-storage-ready` theo [chuỗi snapshot](README.md#3-chuỗi-snapshot): mọi thứ
-của `02-net-ready`, **cộng** namespace `local-path-storage` đang chạy provisioner, **cộng**
-StorageClass `local-path` được đánh dấu mặc định. Không workload, không PV, không PVC.
-
-### B10.1. Xóa object của bài học
-
-```bash
-kubectl delete namespace lab-6a --wait=true --timeout=600s
-
-for i in $(seq 1 60); do
-  ST="$(kubectl get pv lab-6a-static -o jsonpath='{.status.phase}' 2>/dev/null)"
-  test "$ST" = 'Released' && break
-  sleep 2
+{ [ "$(kubectl get namespace,priorityclass,storageclass -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
+  [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+  && echo 'PASS: khong con object nao cua du an'
+{ [ "$(kubectl get pv --no-headers 2>/dev/null | wc -l)" -eq 0 ] && [ "$(kubectl get pvc -A --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+  && echo 'PASS: khong con PV, PVC nao trong cluster'
+SCS="$(kubectl get storageclass -o jsonpath='{range .items[*]}{.metadata.name}={.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}')"
+{ [ "$SCS" = 'local-path=true' ] && \
+  [ "$(kubectl -n local-path-storage get deploy local-path-provisioner -o jsonpath='{.status.readyReplicas}')" -ge 1 ]; } \
+  && echo 'PASS: dung mot StorageClass local-path mac dinh, provisioner dang chay'
+for N in lab-k8s-worker1 lab-k8s-worker2; do
+  [ "$(ssh "$N" 'sudo sh -c "ls -A /opt/local-path-provisioner 2>/dev/null | wc -l"')" -eq 0 ] \
+    && echo "PASS: $N khong con thu muc volume nao" || echo "FAIL: $N con thu muc trong /opt/local-path-provisioner"
 done
-echo "PV lab-6a-static sau khi namespace biến mất: ${ST:-<không còn>}"
+test ! -e ~/lab-work/6a && echo 'PASS: da don lab-work'
 
-kubectl delete pv lab-6a-static --ignore-not-found --wait=true
-kubectl delete storageclass lab-6a-retain lab-6a-immediate --ignore-not-found
-
-rm -f ~/lab-work/6a/emptydir.yaml ~/lab-work/6a/pv-static.yaml \
-      ~/lab-work/6a/pvc-static.yaml ~/lab-work/6a/pvc-static-2.yaml \
-      ~/lab-work/6a/pvc-no-class.yaml ~/lab-work/6a/pod-static-a.yaml \
-      ~/lab-work/6a/pod-static-b.yaml ~/lab-work/6a/pod-static-c.yaml \
-      ~/lab-work/6a/local-path-storage.yaml ~/lab-work/6a/pvc-dyn.yaml \
-      ~/lab-work/6a/pod-dyn.yaml ~/lab-work/6a/sc-immediate.yaml \
-      ~/lab-work/6a/sc-retain.yaml ~/lab-work/6a/keep.yaml \
-      ~/lab-work/6a/statefulset.yaml ~/lab-work/6a/projected.yaml \
-      ~/lab-work/6a/projected-sai.yaml ~/lab-work/6a/ephemeral.yaml \
-      ~/lab-work/6a/ephemeral-b.yaml ~/lab-work/6a/eph-budget.yaml \
-      ~/lab-work/6a/eph-overflow.yaml
-rmdir ~/lab-work/6a
-```
-
-`rmdir` cố ý không dùng `-rf`: nó fail nếu thư mục còn file lạ, và gate dưới đây biến điều đó thành
-lỗi thấy được thay vì im lặng bỏ qua. Thư mục `~/lab-evidence/6a/` **giữ lại** — đó là bằng chứng.
-
-**PASS:** namespace biến mất; PV `lab-6a-static` chuyển `Released` rồi bị xóa; `rmdir` không báo
-lỗi.
-
-### B10.2. Dọn thư mục còn sót trên node
-
-`hostPath` không dọn theo object. B2 tạo `/srv/lab-6a/static` trên **hai** node: `lab-k8s-worker1`
-(B2.4) và `lab-k8s-worker2` (B2.6).
-
-Chạy trên **`lab-k8s-worker1`**, rồi lặp lại y hệt trên **`lab-k8s-worker2`**:
-
-```bash
-sudo rm -rf /srv/lab-6a
-sudo test -d /srv/lab-6a && echo 'FAIL: /srv/lab-6a vẫn còn' || echo 'PASS: /srv/lab-6a đã dọn'
-sudo ls -A /opt/local-path-provisioner
-```
-
-**PASS:** cả hai node in `PASS: /srv/lab-6a đã dọn`; `/opt/local-path-provisioner` **rỗng** trên cả
-hai — thư mục gốc ở lại vì nó thuộc provisioner, nhưng không được còn volume nào bên trong.
-
-> Nếu `/opt/local-path-provisioner` còn thư mục con, có một PV chưa được thu hồi. Quay lại
-> `kubectl get pv` trên master và xử lý theo mục 4 trước khi chụp snapshot.
-
-### B10.3. Gate trạng thái tầng lưu trữ
-
-```bash
-PVC_ALL="$(kubectl get pvc -A --no-headers 2>/dev/null | wc -l)"
-PV_ALL="$(kubectl get pv --no-headers 2>/dev/null | wc -l)"
-SC_ALL="$(kubectl get sc --no-headers | wc -l)"
-SC_NAME="$(kubectl get sc -o jsonpath='{.items[0].metadata.name}')"
-SC_DEF="$(kubectl get sc local-path \
-  -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}')"
-LPP_READY="$(kubectl -n local-path-storage get deploy local-path-provisioner \
-  -o jsonpath='{.status.readyReplicas}')"
-NS_LAB="$(kubectl get namespace lab-6a --ignore-not-found -o name | wc -l)"
-
-echo "PVC toàn cluster=$PVC_ALL | PV=$PV_ALL | StorageClass=$SC_ALL ($SC_NAME, default=$SC_DEF)"
-echo "provisioner readyReplicas=${LPP_READY:-0} | namespace lab-6a còn=$NS_LAB"
-test ! -e ~/lab-work/6a && echo 'PASS: manifest tạm đã xóa'
-
-test "$PVC_ALL" -eq 0 && test "$PV_ALL" -eq 0 && test "$NS_LAB" -eq 0 \
-  && echo 'PASS: không còn PVC, PV hay namespace của lab'
-test "$SC_ALL" -eq 1 && test "$SC_NAME" = 'local-path' && test "$SC_DEF" = 'true' \
-  && test "${LPP_READY:-0}" -ge 1 \
-  && echo 'PASS: đúng một StorageClass mặc định và provisioner đang chạy'
-
+kubectl wait --for=condition=Ready node --all --timeout=180s
+test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
+kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
+kubectl -n kube-system get deployment coredns
+kubectl get pods -n default
 {
-  echo "=== $(date -Is) — tầng lưu trữ sau Lab 6a ==="
-  kubectl get sc -o wide
-  kubectl get pv
-  kubectl get pvc -A
+  echo "=== $(date -Is) — tang luu tru sau Lab 6a ==="
+  kubectl get storageclass -o wide; kubectl get pv; kubectl get pvc -A
   kubectl -n local-path-storage get all
-} | tee ~/lab-evidence/6a/b10-sau.txt
+} > ~/lab-evidence/6a/b10-sau.txt 2>&1
 ```
 
-**Ý nghĩa:** hai gate này là định nghĩa của mốc mới ở dạng lệnh. Gate thứ nhất bảo đảm bạn không
-chụp kèm rác của bài học; gate thứ hai bảo đảm bạn **có** chụp kèm phần hạ tầng mà các lab sau
-(6b, 7a, 7b, 8a, 9a, 9b, 11a) sẽ dựa vào.
+**PASS:** `smoke exit=0` và file smoke ở bước 3 in toàn `PASS:`; mười hai dòng `PASS:` của gate cuối
+(hai dòng cho hai worker), không dòng `FAIL:`; dòng `PASS: readyz ok`; ba node `Ready`; lệnh field selector trả
+`No resources found`; CoreDNS đủ replica; namespace `default` không có Pod. Thư mục
+`~/lab-evidence/6a/` **giữ lại**.
 
-**PASS:** đủ ba dòng `PASS:`.
-
-### B10.4. Chạy trọn bảy tầng gate của A5.4
-
-Lab này đổi hạ tầng, nên **không** được dừng ở gate ngắn A5.5. Chạy **toàn bộ bảy tầng** của
-[A5.4](LAB-00-MOI-TRUONG-1.35.7.md#a54-gate-01-cluster-ready) theo đúng thứ tự từ dưới lên:
+7. Lab này đổi hạ tầng, nên **không** dừng ở gate ngắn. Chạy **toàn bộ bảy tầng** của
+   [A5.4](LAB-00-MOI-TRUONG-1.35.7.md#a54-gate-01-cluster-ready) theo thứ tự từ dưới lên:
 
 | Tầng | Nội dung | Điều chỉnh cho mốc `03-storage-ready` |
 | --- | --- | --- |
 | 0 | prereq OS trên cả ba node | không đổi |
 | 1 | control plane khỏe thật | không đổi |
 | 2 | node, condition, taint và PodCIDR | không đổi |
-| 3 | Pod networking xuyên node | CNI là loại do Lab 5b cài, không phải Flannel |
+| 3 | Pod networking xuyên node | CNI là Calico do Lab 5b cài, không phải Flannel |
 | 4 | DNS trong cluster và ra Internet | không đổi |
 | 5 | Service, EndpointSlice và kube-proxy | không đổi |
 | 6 | đường control plane → kubelet | không đổi |
 
-Khi đối chiếu danh sách Pod, tập namespace hệ thống hợp lệ ở mốc này là: `kube-system`, namespace
-của CNI và của ingress controller do Lab 5b cài, **cộng** `local-path-storage`.
+Tập namespace hệ thống hợp lệ ở mốc này: `kube-system`, namespace của Calico và `traefik` do Lab 5b
+cài, **cộng** `local-path-storage`.
 
-```bash
-kubectl get pods -A -o wide | tee ~/lab-evidence/6a/b10-pods.txt
-kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
-kubectl get pods -n default
-kubectl get svc -n default
-```
+**PASS:** bảy tầng của A5.4 đều PASS; mọi Pod của `local-path-storage` ở `Running`.
 
-**PASS:** bảy tầng của A5.4 đều PASS; lệnh field selector trả `No resources found`; `default` không
-có Pod và chỉ còn Service `kubernetes`; Pod của `local-path-storage` ở trạng thái `Running`.
-
-### B10.5. Tắt máy và chụp `03-storage-ready`
-
-Chụp khi VM đã tắt để snapshot không kèm trạng thái RAM — cùng lý do như A5.4.8 của Lab 00. Chạy
-trên **từng node** theo thứ tự worker 2 → worker 1 → master:
+8. Tắt máy và chụp `03-storage-ready`. Chụp khi VM đã tắt để snapshot không kèm trạng thái RAM — cùng lý
+   do như A5.4.8 của Lab 00. Chạy trên **từng node** theo thứ tự worker 2 → worker 1 → master:
 
 ```bash
 sudo shutdown -h now
 ```
 
-Chờ VMware Workstation hiển thị cả ba VM ở trạng thái *Powered off*. Chụp trên **cả ba VM**:
-chuột phải VM → **Snapshot → Take Snapshot** → ô *Name* điền đúng nguyên văn:
+Chờ VMware Workstation hiển thị cả ba VM ở trạng thái *Powered off*. Chụp trên **cả ba VM**: chuột
+phải VM → **Snapshot → Take Snapshot** → ô *Name* điền đúng nguyên văn:
 
 ```text
 03-storage-ready
 ```
 
 Ô *Description* ghi lab đã dựng mốc này và ngày chụp, ví dụ
-`dựng bằng LAB-6A-PV-PVC-VA-STORAGECLASS.md, chụp <ngày>`.
-
-Quy tắc tên giống hệt Lab 00: đúng nguyên văn `03-storage-ready` trên cả ba VM, không hậu tố theo
-VM, không thêm ngày, không đổi hoa thường. **Giữ nguyên snapshot `02-net-ready`** — đừng xóa nó,
-đó vẫn là điểm quay lui của cả hai mốc.
+`dựng bằng LAB-6A-PV-PVC-VA-STORAGECLASS.md, chụp <ngày>`. Quy tắc tên giống hệt Lab 00: đúng nguyên văn
+trên cả ba VM, không hậu tố theo VM, không thêm ngày, không đổi hoa thường. **Giữ nguyên snapshot
+`02-net-ready`** — đó vẫn là điểm quay lui của cả hai mốc.
 
 Verify từ PowerShell trên máy host:
 
@@ -2246,96 +2872,92 @@ foreach ($f in $vmx) {
 }
 ```
 
-**PASS:** đúng ba dòng `PASS:`, không dòng `FAIL:` nào — cả ba VM có **cả hai** mốc, tên phân biệt
-hoa thường chính xác. Lab 6a kết thúc ở đây; để ba VM ở trạng thái tắt, lab sau tự bật theo A5.5.
+**PASS:** đúng ba dòng `PASS:`, không dòng `FAIL:` nào. Lab 6a kết thúc ở đây; để ba VM tắt, lab sau
+tự bật theo A5.5.
 
 ---
 
 ## 3. Checkpoint 6a
 
-Không đánh dấu lab hoàn tất chỉ vì command chạy hết. Tự trả lời, không nhìn tài liệu:
+Không đánh dấu lab hoàn tất chỉ vì script nghiệm thu PASS. Tự trả lời, không nhìn tài liệu:
 
-- [ ] Một Pod ghi file vào `emptyDir`. Container crash rồi chạy lại: file còn không? Bạn xóa Pod
-      rồi apply lại đúng manifest đó: file còn không? Vì sao hai câu trả lời khác nhau?
-- [ ] PV ở pha `Available` và một PVC vừa được tạo. Ai ghép hai cái đó lại, ghi vào những trường
-      nào, và vì sao PVC thứ hai giống hệt PVC thứ nhất lại không bao giờ được phục vụ?
-- [ ] Ba PVC: một khai `storageClassName: local-path`, một khai `""`, một bỏ trống hẳn. Bạn tạo
-      một StorageClass mặc định **sau đó**. Số phận từng PVC ra sao, và hai cơ chế nào của
-      Kubernetes tạo ra khác biệt đó?
-- [ ] `ReadWriteOnce` có nghĩa là "chỉ một Pod dùng được volume" không? Trên cluster ba node của
-      bạn, hai Pod thế nào thì dùng chung được một PVC `ReadWriteOnce`, và access mode nào mới
-      thật sự giới hạn còn đúng một Pod?
-- [ ] Bạn tạo một PVC dùng class mặc định của lab và không tạo Pod nào. Sau 10 phút PVC vẫn
-      `Pending`. Đây là lỗi hay là hành vi đúng? Trường nào của StorageClass quyết định điều đó,
-      và đổi nó thành `Immediate` thì chuyện gì xảy ra trên chính cluster này?
-- [ ] Kể lại chuỗi sự kiện từ lúc bạn gõ `kubectl delete pvc` cho tới lúc thư mục trên node biến
-      mất, khi class dùng `reclaimPolicy: Delete`. Ở bước nào finalizer chặn lại, và vì sao?
-- [ ] Với `reclaimPolicy: Retain`, sau khi xóa PVC thì PV ở pha nào, còn giữ trường gì, và vì sao
-      một PVC mới chỉ đích danh PV đó bằng `volumeName` vẫn không bind được? Ba bước thu hồi thủ
-      công là gì?
-- [ ] **Nợ #2 — đã trả ở lab này.** Một StatefulSet tên `web`, 3 replica, `volumeClaimTemplates`
-      tên `www`. Kể đủ tên ba PVC sinh ra. Bạn scale xuống 1 rồi xóa luôn StatefulSet: còn lại bao
-      nhiêu PVC, vì sao, và trường nào đổi được hành vi đó?
-- [ ] Bạn scale StatefulSet đó từ 1 lên lại 3. `web-1` là một Pod mới hoàn toàn — vì sao nó đọc
-      được đúng dữ liệu mà `web-1` cũ đã ghi?
-- [ ] Volume tạm thời tổng quát và `volumeClaimTemplates` cùng sinh ra PVC. Kể hai khác biệt: quy
-      tắc đặt tên, và điều xảy ra với PVC khi Pod bị xóa. Cái gì làm nên khác biệt thứ hai?
-- [ ] Trong một volume `projected` gộp Secret, ConfigMap và downwardAPI: trường nào của secret đổi
-      tên so với volume `secret` rời, `defaultMode` đặt được ở cấp nào, và ba nguồn đó có được nằm
-      ở namespace khác không?
-- [ ] Container của bạn khai `limits.ephemeral-storage: 64Mi` và ghi 200Mi vào một `emptyDir`. Ai
-      phát hiện, làm gì với Pod, và kết quả đó khác gì với việc ghi 200Mi vào một `emptyDir` có
-      `medium: Memory`?
+- [ ] Trước sprint này, dữ liệu `db` sống qua sự cố nào, chết theo sự cố nào? Thư mục của nó nằm ở đâu
+      trên `lab-k8s-worker2`, và vì sao `db-0` mới cùng tên vẫn nhận một thư mục rỗng?
+- [ ] Trong cấp phát động của dự án, ai là quản trị viên, ai là người dùng? Hai điều kiện để có class
+      mặc định là gì, bạn chứng minh điều kiện thứ hai bằng hành vi nào? `thu-khong-class` và
+      `thu-chuoi-rong` rẽ hai hướng ra sao?
+- [ ] Kể chuỗi sự kiện từ lúc `deploy.sh` apply StatefulSet `db` tới lúc thư mục
+      `<PV>_bookstore_data-db-0` xuất hiện trên `lab-k8s-worker2`: ai tạo PVC, vì sao PVC chờ, ai chọn
+      node, ai tạo thư mục, PV mang những trường nào bạn chưa từng viết. **Nợ lab #2 — đã trả.**
+- [ ] Vì sao `db` dùng `bookstore-retain` chứ không dùng class mặc định? `thu-immediate` hỏng ra sao,
+      và `WaitForFirstConsumer` sửa đúng điều gì?
+- [ ] Vì sao `PGDATA` là thư mục con của volume, và vì sao không dùng `subPath`?
+- [ ] Dữ liệu bền buộc mật khẩu vào dữ liệu thế nào? Khi nào `deploy.sh` sinh bí mật mới, khi nào nó từ
+      chối, và bạn làm gì khi mất `secrets/db.env` mà dữ liệu còn?
+- [ ] `backup-store` đứng `Pending` sau `deploy.sh` vì sao? Vì sao ghim Job backup vào một node, và
+      `ReadWriteOnce` cho phép `thu-doc-backup` đọc cùng lúc Job ghi vì sao? `TD-10` là gì?
+- [ ] Bốn kịch bản của B5: cái nào tự lành nhờ cơ chế nào, cái nào cần người? Nếu chạy `deploy.sh` ngay
+      sau khi mất PVC thì sao? Kể quy trình khôi phục, và vì sao PV tĩnh dùng `claimRef` không `uid` và
+      `type: Directory`.
+- [ ] Projected volume của `status-writer`: hai khác biệt cú pháp so với volume rời, ràng buộc namespace,
+      và volume `kube-api-access-*` gồm những gì?
+- [ ] `thu-sizelimit` và `thu-gioi-han` bị trục xuất vì hai giới hạn nào, ai đo, ai trục xuất? `tmpfs`
+      tính vào đâu? `400m` ephemeral-storage là bao nhiêu?
+- [ ] Vì sao `db` không mount thẳng `hostPath`? Bước nào của B8 chứng minh rủi ro, cái gì chặn nó từ Lab
+      9b, và PV `hostPath` của local-path khác ở đâu?
+- [ ] `teardown.sh` dọn những gì, theo thứ tự nào, và vì sao mốc `03-storage-ready` phải được chụp sau
+      nó?
+
+Nợ còn mở sau lab này — nói được **vì sao chưa trả**:
+
+- Nợ lab #1 (VPA — chưa có lab trả; HPA ở Lab 11b), #5 (snapshot và nhân bản volume — Lab 6b, cần CSI
+  driver), #6, #7, #8 (Phần II của lộ trình). Phần replication MySQL của bài 343 không thực hành (mục
+  1.1). **Nợ lab #2 đã trả** ở B3.
+- Nợ kỹ thuật: `TD-06` (`db` khởi động bằng root — Lab 9b), `TD-07` (quyền debug — Lab 9a), `TD-10`
+  mới (bản backup cùng cluster với DB — chấp nhận có điều kiện ở Lab 6b). **`TD-04` và `TD-08` đã trả.**
 
 ### Bài giải thích cuối cùng
 
-Trong vài phút, kể lại bằng lời hai luồng sau, không nhìn tài liệu:
-
-1. **Luồng cấp phát.** Bạn tạo một PVC không khai `storageClassName` trên cluster này. Kể đủ:
-   thành phần nào điền class vào spec; vì sao chưa có gì xảy ra tiếp; điều gì kích hoạt phần còn
-   lại; ai tạo PV; PV mang những trường nào mà bạn chưa từng viết ra và mỗi trường đến từ đâu; và
-   cuối cùng thứ gì xuất hiện trên đĩa của node nào. Sau đó kể ngược lại luồng xóa, tới tận lúc
-   thư mục biến mất — và chỉ ra đúng chỗ mà `Retain` làm câu chuyện rẽ hướng.
-2. **Luồng danh tính có trạng thái.** Bạn apply một StatefulSet 3 replica có `volumeClaimTemplates`
-   rồi xóa nó đi. Kể: mỗi Pod nhận những gì trong định danh của nó; PVC nào được tạo, tên theo quy
-   tắc nào, ai giữ chúng lại khi Pod biến mất; điều gì còn sót lại trong cluster sau khi
-   StatefulSet đã bị xóa, và bạn phải làm gì để dọn cho sạch. So sánh với một Pod dùng volume tạm
-   thời tổng quát: cùng sinh PVC, nhưng vì sao cái này tự biến mất còn cái kia thì không.
-
-Khi toàn bộ checkbox được đánh dấu và bạn không còn nhầm **volume** với **PersistentVolume**,
-`""` với **bỏ trống**, `Delete` với `Retain`, `Immediate` với `WaitForFirstConsumer`, hay
-**lưu trữ tạm thời cục bộ** với **volume tạm thời** — Lab 6a hoàn tất.
-
-**Nợ #2 đã được trả ở lab này** (`volumeClaimTemplates` của StatefulSet, B6). Nợ #5 — ảnh chụp
-nhanh và nhân bản volume — **chưa trả**, và nó cần một CSI driver có hỗ trợ snapshot; xem
-[sổ nợ lab](README.md#5-sổ-nợ-lab) và Lab 6b.
+Trong vài phút, kể lại cuộc đời của một đơn hàng trong hệ thống của bạn: nó được ghi vào đâu — từ bảng
+`api.orders` xuống tận thư mục nào trên node nào; nó sống sót thế nào khi `db-0` bị xóa, khi StatefulSet
+bị thu về 0 rồi bị xóa; nó nằm ở đâu trong ba mươi phút sau khi một bản backup chạy. Rồi kể kịch bản tệ
+nhất của B5 — PVC bị xóa: object nào biến mất, object nào ở lại ở pha nào, vì sao không ai tự nối dữ liệu
+lại, và bạn nối lại bằng những bước nào mà không làm lệch mật khẩu. Kết thúc bằng việc chỉ ra Lab 6b
+(bản dump ra ngoài cluster), Lab 9b (`db` chạy uid 999 trên chính `PGDATA` này) và Lab 12 (bảo trì
+`lab-k8s-worker2`) sẽ dựa vào những gì bạn vừa dựng.
 
 ---
 
 ## 4. Troubleshooting của lab này
 
-Sự cố dựng môi trường nằm ở [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường).
-Bảng dưới chỉ liệt kê sự cố phát sinh từ nội dung bài học 6a.
+Sự cố dựng môi trường xem [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường).
+Dưới đây chỉ là sự cố phát sinh trong nội dung bài học.
 
-| Triệu chứng | Kiểm tra | Xử lý đúng phạm vi |
+| Triệu chứng | Nguyên nhân thường gặp | Xử lý |
 | --- | --- | --- |
-| **PVC kẹt `Pending`** sau khi đã có provisioner | `kubectl describe pvc <tên> -n lab-6a` rồi đọc phần Events | Ba nguyên nhân khác nhau: event `WaitForFirstConsumer` là **đúng** — tạo Pod tiêu thụ; event `ProvisioningFailed` là provisioner thất bại — xem log ở dòng dưới; không event nào và `storageClassName` là `""` thì claim tự vô hiệu hóa cấp phát động, không có cách nào cứu ngoài sửa PVC |
-| PVC `Pending`, event `ProvisioningFailed` | `kubectl -n local-path-storage logs deploy/local-path-provisioner --tail=50` | Thường là helper Pod không kéo được image `docker.io/library/busybox`, hoặc class dùng `Immediate` như B4.4. Sửa nguyên nhân rồi xóa và tạo lại PVC |
-| PVC `Pending` mà PV đích ở pha `Released` | `kubectl get pv <tên> -o jsonpath='{.spec.claimRef}'` | `claimRef` cũ vẫn giữ chỗ. Đây là hành vi đúng của `Retain`; muốn dùng lại thì thu hồi thủ công ba bước như B5.6, không xóa `claimRef` bằng tay giữa chừng lab |
-| **PV kẹt `Terminating`** | `kubectl get pv <tên> -o jsonpath='{.metadata.finalizers}'` và `kubectl get pvc -A` | Còn PVC bind vào nó thì finalizer `kubernetes.io/pv-protection` giữ lại — xóa PVC trước. Nếu là finalizer của provisioner, kiểm tra provisioner còn chạy không: nó phải sống để dọn thư mục thì PV mới được gỡ |
-| PVC kẹt `Terminating` | `kubectl get pvc <tên> -n lab-6a -o jsonpath='{.metadata.finalizers}'`; `kubectl get pods -n lab-6a` | Finalizer `kubernetes.io/pvc-protection` chờ Pod cuối cùng dùng nó biến mất. Xóa Pod, đừng gỡ finalizer bằng tay |
-| Deployment `local-path-provisioner` không lên `Ready` | `kubectl -n local-path-storage describe pod` và `logs` | Kiểm tra image kéo được không, và ServiceAccount/ClusterRoleBinding trong manifest đã apply đủ chưa. Apply lại đúng file đã tải ở B3.1, không sửa manifest |
-| B3.1 gate image fail | `grep image ~/lab-work/6a/local-path-storage.yaml` | Bạn tải nhầm nhánh hoặc nhầm tag. `LPP_VERSION` phải khớp bảng A1.4 của Lab 00; sửa ở bảng đó trước, rồi tải lại |
-| Pod `Pending` với `node(s) had volume node affinity conflict` | `kubectl get pv <tên> -o jsonpath='{.spec.nodeAffinity}'` | Volume đã bị đóng đinh vào một node còn Pod bị ghim sang node khác. Bỏ `nodeSelector` hoặc dùng PVC khác — đừng sửa `nodeAffinity` của PV |
-| B2.6 in `FAIL: static-c thấy marker` | `kubectl get pod static-c -n lab-6a -o wide` | Pod không lên `lab-k8s-worker2`. Kiểm tra label `kubernetes.io/hostname` của node và `nodeSelector` trong manifest sinh bởi `sed` |
-| B4.3 không tìm thấy thư mục trên worker1 | `kubectl get pv "$PV_DYN" -o yaml` | Đọc lại `nodeAffinity` xem PV nằm ở node nào; nếu là worker2 thì `nodeSelector` của `dyn-a` chưa ăn. Xóa Pod và PVC rồi làm lại B4.1 |
-| B6 rollout treo, Pod StatefulSet `Pending` | `kubectl describe pod web-0 -n lab-6a` | Nếu do PVC chưa bind, xem hai dòng đầu bảng này. Nếu do thiếu tài nguyên node, xem [tầng 2 của A5.4](LAB-00-MOI-TRUONG-1.35.7.md#a543-tầng-2--node-condition-taint-và-podcidr) — không thêm node, không hạ replica |
-| B6.5 đọc ra dữ liệu sai ordinal | `kubectl get pvc -n lab-6a -o wide` | Kiểm tra từng PVC còn bind đúng PV cũ không. Nếu bạn lỡ xóa một PVC giữa chừng, StatefulSet sẽ tạo PVC mới rỗng — làm lại B6 từ đầu sau khi xóa cả ba PVC |
-| B8.3 Pod `eph-b` lại chạy được | `kubectl get pvc eph-b-scratch -n lab-6a -o jsonpath='{.metadata.ownerReferences}'` | Bạn tạo Pod trước PVC nên controller đã kịp làm chủ PVC. Xóa cả hai rồi làm lại đúng thứ tự: PVC trước, Pod sau |
-| B9.3 chờ hết vòng lặp mà Pod không bị trục xuất | `kubectl describe node lab-k8s-worker2 \| grep -i ephemeral`; `du -sh /var/lib/kubelet` trên worker2 | Kubelet chỉ áp giới hạn khi node theo bố cục được hỗ trợ (bài 95). Kiểm tra `/var/lib/kubelet` và `/var/log` có nằm trên filesystem gốc không. Không chỉnh cấu hình kubelet để "ép" bước này |
-| Xóa namespace `lab-6a` treo ở `Terminating` | `kubectl get pvc,pod -n lab-6a`; `kubectl get pv` | Gần như luôn là PVC đang chờ Pod, hoặc PV chờ provisioner dọn. Chờ provisioner làm việc; không gỡ finalizer của Namespace |
-| `/opt/local-path-provisioner` còn thư mục con sau cleanup | `kubectl get pv`; `kubectl -n local-path-storage logs deploy/local-path-provisioner` | Có PV chưa thu hồi xong, hoặc helper Pod xóa thất bại. Xử lý PV trước; chỉ khi `kubectl get pv` đã rỗng mới xóa tay thư mục thừa trên node |
-| Sau cleanup còn StorageClass lạ | `kubectl get sc` | `lab-6a-retain` hoặc `lab-6a-immediate` chưa xóa. Xóa chúng; **giữ lại** `local-path` — mốc `03-storage-ready` được định nghĩa là có class đó và nó là mặc định |
+| B0: `SC_N` khác 0 | Cluster đã chạy Lab 6a dở dang | Restore `02-net-ready` cho cả ba VM rồi bắt đầu lại |
+| B0: `sudo -n true` fail trên worker | `sudo` của user lab đòi mật khẩu | Sự cố môi trường; `teardown.sh` từ lab này cần `sudo` không hỏi mật khẩu qua `ssh`. Sửa theo quy ước quản trị của bạn trước khi đi tiếp |
+| B2: Deployment `local-path-provisioner` không Ready | Không kéo được image, hoặc manifest chưa apply đủ ServiceAccount, ClusterRoleBinding | `kubectl -n local-path-storage describe pod`; kéo image bằng `crictl pull`; apply lại đúng file trong `platform/`, không sửa manifest |
+| B2: `thu-khong-class` mãi không được gán class | Chưa đánh dấu `local-path` mặc định, hoặc chưa chờ vòng lặp của control plane | `kubectl get sc` phải in `local-path (default)`; chờ theo điều kiện |
+| PVC `Pending`, event `WaitForFirstConsumer` | **Đúng hành vi**: chưa có Pod nào dùng PVC | Với `data-db-0`: xem vì sao `db-0` chưa được lập lịch (`describe pod`); với `backup-store`: chờ Job đầu tiên |
+| PVC `Pending`, event `ProvisioningFailed` | Helper Pod không kéo được `docker.io/library/busybox`, hoặc class dùng `Immediate` | `kubectl -n local-path-storage logs deploy/local-path-provisioner --tail=50`; kéo sẵn image helper; xóa rồi tạo lại PVC |
+| B3: `deploy.sh` báo `spec: Forbidden: updates to statefulset spec for fields other than ...` | Thêm `volumeClaimTemplates` vào StatefulSet đang tồn tại | `./scripts/teardown.sh && ./scripts/deploy.sh` |
+| B3: `db-0` khởi tạo DB mới sau khi đổi `PGDATA` | Dữ liệu cũ nằm ở đường dẫn cũ trong volume; `PGDATA` mới rỗng | Chấp nhận trong lúc chuyển đổi; `./scripts/teardown.sh && ./scripts/deploy.sh` cho sạch |
+| B3, B5: `api` `CrashLoopBackOff`, log lỗi xác thực mật khẩu | `secrets/db.env` khác bí mật đã khởi tạo dữ liệu đang có | Theo ADR `mat-khau-du-lieu-ben`: chép lại `secrets/db.env` cũ, hoặc teardown để xóa dữ liệu |
+| `deploy.sh` dừng ở `thieu secrets/db.env trong khi du lieu db cu con` | Repo vừa clone từ bundle, hoặc ai đó xóa `secrets/db.env` | Đúng thiết kế. Chép lại file cũ; hoặc `./scripts/teardown.sh` nếu chấp nhận mất dữ liệu |
+| `deploy.sh` dừng ở `db-migrate that bai` ngay lần đầu | Hiếm: migration lỗi thật — `deploy.sh` đã chờ `db-0` Ready trước khi tạo Job | `kubectl -n bookstore logs job/db-migrate`; sửa migration ở repo |
+| B4: Pod backup `Pending`, `volume node affinity conflict` | PV `backup-store` đã được tạo ở node khác trước khi Job được ghim | `./scripts/teardown.sh && ./scripts/deploy.sh`: PV mới tạo đúng node của lần chạy đầu |
+| B5: PVC `data-db-0` biến mất ngay, không qua `Terminating` | `db-0` đã không còn khi xóa PVC | Đúng thứ tự của kịch bản D: xóa PVC khi `db-0` đang chạy, rồi mới xóa StatefulSet |
+| B5: `db-0` treo `ContainerCreating`, event `hostPath type check failed` | Đường dẫn trong PV khôi phục sai | Xóa StatefulSet, PVC `data-db-0`, PV khôi phục (Retain — thư mục cũ không bị đụng); sửa đường dẫn từ `b5-pv-cu.yaml`; apply lại; `deploy.sh` |
+| B5: `data-db-0` bind vào một PV mới, log `db-0` không có `Skipping initialization` | Chạy `deploy.sh` trước khi có PV khôi phục, hoặc PV khôi phục khác class, dung lượng, `claimRef` | Như dòng trên, cộng xóa PV mới (thư mục của nó được `teardown.sh` dọn sau). Dữ liệu cũ vẫn ở thư mục cũ |
+| B6: `deploy.sh` báo không tìm thấy ConfigMap `web-config` | Tên trong `projected.sources` khác tên của generator | Viết đúng tên generator; Kustomize tự thêm hậu tố hash |
+| B6: `/status.json` không đổi version sau ba phút | Đổi label trên Deployment thay vì trên Pod; hoặc mount nguồn projected bằng `subPath` | `kubectl label pod <Pod web> ... --overwrite`; mount cả thư mục |
+| B7: Pod vượt giới hạn không bị trục xuất | Kubelet không đo được trên bố cục node hiện tại (bài 95) | Đối chiếu `b7-filesystem.txt`; không chỉnh cấu hình kubelet để "ép" bước này |
+| B8: `cat .../PG_VERSION` báo không có file | Mount sai đường dẫn, hoặc Pod không ở `lab-k8s-worker2` | Đọc `mountPath` và `nodeName` của Pod; thư mục dữ liệu nằm dưới `<mount>/local-path-provisioner/` |
+| B10: `teardown.sh` in `teardown: con ... thu muc du lieu tren node` | `ssh` tới worker hỏng, hoặc PV chưa xóa xong | Chạy lại `teardown.sh`; kiểm `ssh <worker> 'sudo -n true'` và `kubectl get pv` |
+| PV kẹt `Terminating` | Còn PVC bind vào nó (`kubernetes.io/pv-protection`), hoặc provisioner không chạy để dọn PV loại `Delete` | Xóa PVC trước; kiểm provisioner Ready. Không gỡ finalizer bằng tay |
+| PVC hoặc namespace kẹt `Terminating` | `kubernetes.io/pvc-protection` chờ Pod cuối cùng dùng PVC biến mất | Xóa Pod; chờ hết ân hạn của `db-0` (60 giây) |
+| B10: `/opt/local-path-provisioner` còn thư mục con | PV của một PVC thử nghiệm chưa thu hồi xong | `kubectl get pv`; chờ provisioner; chạy lại `teardown.sh` — chỉ xóa tay khi `kubectl get pv` đã rỗng |
 
 ---
 
@@ -2354,6 +2976,9 @@ Bảng dưới chỉ liệt kê sự cố phát sinh từ nội dung bài học 
 - [Kubernetes v1.35 — Configure a Pod to Use a Volume for Storage](https://v1-35.docs.kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/)
 - [Kubernetes v1.35 — Run a Single-Instance Stateful Application](https://v1-35.docs.kubernetes.io/docs/tasks/run-application/run-single-instance-stateful-application/)
 - [Kubernetes v1.35 — Run a Replicated Stateful Application](https://v1-35.docs.kubernetes.io/docs/tasks/run-application/run-replicated-stateful-application/)
-- [Kubernetes v1.35 — Delete a StatefulSet](https://v1-35.docs.kubernetes.io/docs/tasks/run-application/delete-stateful-set/)
 - [Kubernetes v1.35 — Change the default StorageClass](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/)
+- [Kubernetes — `kubectl apply` (cờ `--selector`)](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_apply/)
+- [Kubernetes — Node-pressure Eviction](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/)
 - [Rancher — local-path-provisioner](https://github.com/rancher/local-path-provisioner)
+- [Docker Hub — postgres (PGDATA, Initialization scripts)](https://hub.docker.com/_/postgres)
+- [PostgreSQL 17 — pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html)

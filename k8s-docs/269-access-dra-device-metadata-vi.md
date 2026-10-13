@@ -14,11 +14,11 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 13 — Lập lịch và workload nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao)
-→ dòng **Thực hành**, bài 3/5 · Kiểm chứng ở [Lab 13 — DRA](labs/LAB-13-DRA.md) phần B5.4.
+→ dòng **Thực hành**, bài 3/5 · Kiểm chứng ở [Lab 13 — DRA](labs/LAB-13-DRA.md) ticket B3.
 
 Bài này ở mức **alpha** và đòi Kubernetes server v1.36 trở lên — khác hai bài kế
 [270](270-allocate-devices-dra-vi.md) và [271](271-set-up-dra-cluster-vi.md) vốn đã stable. Cluster
-lab không có GPU và không có DRA driver, nên phần B5.4 của Lab 13 chỉ kiểm được **vế phủ định**:
+lab không có GPU và không có DRA driver, nên ticket B3 của Lab 13 chỉ kiểm được **vế phủ định**:
 container không yêu cầu thiết bị thì không có thư mục metadata. Đọc bài này để nắm quy ước đường
 dẫn, chưa phải để chạy.
 
@@ -46,7 +46,7 @@ dẫn, chưa phải để chạy.
 | --- | --- | --- |
 | Ba hàm Go của package `devicemetadata` (`ReadResourceClaimMetadata`, `ReadResourceClaimTemplateMetadata`, `ReadResourceClaimMetadataWithDriverName`) | là việc của người viết ứng dụng tiêu thụ thiết bị, không phải của quản trị viên | không cần cho lộ trình; thứ phải nhớ là quy ước đường dẫn ở hai mục *Truy cập metadata thiết bị bằng ResourceClaim* và *…bằng ResourceClaimTemplate* của chính bài này |
 | Nội dung thật bên trong file JSON — model, phiên bản driver, UUID thiết bị | cần một driver thật công bố thuộc tính mới có dữ liệu để đọc | bài [149](149-dynamic-resource-allocation-vi.md) mục *Lược đồ metadata*, đã đọc ở mạch chính giai đoạn 13 |
-| Hai lệnh `kubectl apply -f https://k8s.io/examples/dra/…` và mục *Dọn dẹp* | trên cluster không có thiết bị, Pod dừng ở pending chứ không chạy tới bước xem log | bài [270](270-allocate-devices-dra-vi.md) giải thích trạng thái pending đó; [Lab 13](labs/LAB-13-DRA.md) phần B4 kiểm chứng |
+| Hai lệnh `kubectl apply -f https://k8s.io/examples/dra/…` và mục *Dọn dẹp* | trên cluster không có thiết bị, Pod dừng ở pending chứ không chạy tới bước xem log | bài [270](270-allocate-devices-dra-vi.md) giải thích trạng thái pending đó; [Lab 13](labs/LAB-13-DRA.md) ticket B2 kiểm chứng |
 
 ---
 

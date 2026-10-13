@@ -18,7 +18,7 @@ Phần II không có lab riêng: bạn thực hành thẳng trên cluster VM c�
 Bài nối tiếp [137](137-kube-scheduler-vi.md) ở
 [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), và dùng lại nguyên vẹn phần
 ServiceAccount, ClusterRole, RoleBinding mà bạn đã tự tay dựng ở
-[Lab 9a chặng 2](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md#b3-chặng-2--phân-quyền-và-rbac)
+[Lab 9a ticket B4 và B5](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md#b5-bs-9a-05-đội-phát-triển-chỉ-đọc-người-trực-được-gỡ-lỗi)
 thuộc [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy).
 
 **Bài chia làm hai nửa rất khác nhau về khả năng thực hành.** Nửa đầu — mục *Đóng gói scheduler*

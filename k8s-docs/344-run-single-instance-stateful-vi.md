@@ -12,8 +12,8 @@
 **Vị trí:**
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 6 — Lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), dòng **Thực hành**, bài 4/4 ·
-Kiểm chứng ở [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md), phần B2
-(và B2.4 cho phần dữ liệu sống lâu hơn Pod).
+Kiểm chứng ở [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md), ticket B3
+(và ticket B5 cho phần PV tĩnh, dữ liệu sống lâu hơn Pod).
 
 Đây là **bài cuối của nhóm Thực hành giai đoạn 6**, và là mặt đối lập của bài
 [343](343-run-replicated-stateful-application-vi.md) vừa đọc: cùng là MySQL, nhưng một thực thể,
@@ -41,10 +41,10 @@ không.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| `hostPath: "/mnt/data"` trong `mysql-pv.yaml` | bài viết cho tình huống một đĩa cục bộ và không bàn gì về rủi ro của `hostPath` | bài [91](91-volumes-vi.md) và [92](92-persistent-volumes-vi.md) ở đầu [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ); [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B2.6 dựng đúng cái bẫy đó trên cluster nhiều node |
+| `hostPath: "/mnt/data"` trong `mysql-pv.yaml` | bài viết cho tình huống một đĩa cục bộ và không bàn gì về rủi ro của `hostPath` | bài [91](91-volumes-vi.md) và [92](92-persistent-volumes-vi.md) ở đầu [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ); [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) ticket B8 dựng đúng cái bẫy đó trên cluster nhiều node |
 | Mật khẩu `MYSQL_ROOT_PASSWORD: password` đặt thẳng trong YAML | bài tự cảnh báo là không an toàn và chỉ sang Secret | bài [109](109-secret-vi.md) đã đọc ở [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod) |
 | Các dòng `Conditions`, `OldReplicaSets`, `NewReplicaSet` trong output `kubectl describe deployment mysql` | thuộc cơ chế rollout của Deployment, không phải chuyện lưu trữ | bài [63](63-deployment-vi.md) đã đọc ở [4a](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout) |
-| Nhánh "hoặc dùng trình cấp phát động với StorageClass mặc định" ở mục *Trước khi bạn bắt đầu* | ở lần đọc này bạn đi nhánh PV tĩnh, đúng như manifest của bài | [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B3–B4 cài provisioner rồi làm lại bằng nhánh động |
+| Nhánh "hoặc dùng trình cấp phát động với StorageClass mặc định" ở mục *Trước khi bạn bắt đầu* | ở lần đọc này bạn đi nhánh PV tĩnh, đúng như manifest của bài | [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) ticket B2–B3 cài provisioner rồi làm lại bằng nhánh động |
 
 ---
 
@@ -383,6 +383,6 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 Câu nào chưa trả lời được thì quay lại đúng mục tương ứng. Trả lời trôi chảy được cả bốn bài thực
 hành của nhóm rồi thì mở [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md):
-B1 chạy lại bài [280](280-configure-volume-storage-vi.md), B2 chạy lại bài này, B6 trả nợ #2 của
-bài [343](343-run-replicated-stateful-application-vi.md), và B7 chạy bài
+ticket B1 chạy lại bài [280](280-configure-volume-storage-vi.md), B3 và B5 đối chiếu bài này với `db`, B3 trả nợ #2 của
+bài [343](343-run-replicated-stateful-application-vi.md), và B6 chạy bài
 [277](277-configure-projected-volume-vi.md).

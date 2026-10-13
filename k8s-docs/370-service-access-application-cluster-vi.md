@@ -15,9 +15,9 @@
 bài 3/4 · Phần II không có lab: thực hành thẳng trên cluster VM của
 [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) và tự chấm bằng **Checkpoint** ở cuối
 [mục giai đoạn 30](00-ALO-TRINH-ADMIN.md#giai-đoạn-30--truy-cập-ứng-dụng-trong-cluster). Cơ chế
-của bài đã được kiểm chứng ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) — phần **B2**
-(selector, `port`/`targetPort`, cluster IP) và phần **B6** (`NodePort` mở cùng một port trên mọi
-node, `LoadBalancer` treo trên cluster bare metal).
+của bài đã được kiểm chứng ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) — ticket **B1**
+(selector, `port`/`targetPort`, cluster IP), ticket **B3** (`NodePort` mở cùng một port trên mọi
+node) và ticket **B9** (`LoadBalancer` treo trên cluster bare metal).
 
 Bài nối tiếp [82 — Service](82-service-vi.md) và là **đường vào thứ nhất** trong ba đường mà
 Checkpoint giai đoạn 30 bắt phân biệt: đường **Service**, đường dành cho người dùng thật của ứng
@@ -51,9 +51,9 @@ chốt phần "vào bằng Service", chưa cần so ba đường vội.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Gợi ý dựng cluster bằng minikube hoặc các playground ở mục *Trước khi bạn bắt đầu* | lộ trình không dùng minikube, kind hay cluster dùng chung | **không áp dụng**: bạn đã có cluster ba VM từ [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md), thỏa luôn yêu cầu "ít nhất hai node không phải control plane" của bài |
-| Cụm "địa chỉ IP công khai (public IP)" và cách lấy nó bằng `kubectl cluster-info` của Minikube hay `gcloud compute instances list` | ba VM lab không có IP công khai và không thuộc nhà cung cấp cloud nào | **không áp dụng cho cluster lab**: địa chỉ cần dùng là IP nội bộ của node, đọc bằng `kubectl get nodes -o wide` đúng như [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B6.1 đã làm |
-| Bước 8 — cách tạo quy tắc tường lửa của từng nhà cung cấp cloud | không có security group của cloud để cấu hình | **không áp dụng cho cluster lab**: ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B6.1 bạn đã `curl` thẳng vào node port của cả ba node mà không phải khai báo luật nào của cloud |
-| Các giá trị ví dụ `IP: 10.32.0.16`, `Endpoints: 10.200.1.4:8080,10.200.2.5:8080`, `NodePort 31496` | đó là dải địa chỉ của cluster viết tài liệu, không phải của bạn | dải thật của cluster lab: [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B1 (Pod CIDR và Service CIDR) cùng bài [88](88-cluster-ip-allocation-vi.md) |
+| Cụm "địa chỉ IP công khai (public IP)" và cách lấy nó bằng `kubectl cluster-info` của Minikube hay `gcloud compute instances list` | ba VM lab không có IP công khai và không thuộc nhà cung cấp cloud nào | **không áp dụng cho cluster lab**: địa chỉ cần dùng là IP nội bộ của node, đọc bằng `kubectl get nodes -o wide` đúng như [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B3 đã làm |
+| Bước 8 — cách tạo quy tắc tường lửa của từng nhà cung cấp cloud | không có security group của cloud để cấu hình | **không áp dụng cho cluster lab**: ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B3 bạn đã `curl` thẳng vào node port của cả ba node mà không phải khai báo luật nào của cloud |
+| Các giá trị ví dụ `IP: 10.32.0.16`, `Endpoints: 10.200.1.4:8080,10.200.2.5:8080`, `NodePort 31496` | đó là dải địa chỉ của cluster viết tài liệu, không phải của bạn | dải thật của cluster lab: [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket B2 (Pod CIDR và Service CIDR) cùng bài [88](88-cluster-ip-allocation-vi.md) |
 | Link *Kết nối ứng dụng với Service* ở mục *Tiếp theo* | là tutorial trên kubernetes.io, không nằm trong lộ trình | bài [363](363-connecting-frontend-backend-vi.md) đã đọc ở [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) đã phủ đúng nội dung đó |
 
 ---
@@ -258,7 +258,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    chặng khác nhau; ở đây chúng tình cờ trùng nhau ở hai chặng sau nên rất dễ gõ nhầm.
 3. **Vẫn ra `Hello, world!`.** `NodePort` mở **cùng một số port trên mọi node**, kể cả node không
    chạy backend nào, rồi chuyển tiếp tới một endpoint sẵn sàng — đúng điều bạn đã đo ở
-   [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B6.1 khi cả ba node cùng trả `200`.
+   [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B3 khi cả ba node cùng trả `200`.
    Bài gốc bảo lấy IP của "một trong các node đang chạy pod" là cách nói cho chắc, không phải ràng
    buộc của cơ chế.
 4. **Phần của môi trường.** Kubernetes chỉ cấp số port và làm mọi node lắng nghe trên port đó; còn

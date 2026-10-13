@@ -10,13 +10,14 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 3/9 ·
-**Không kiểm chứng được trên cluster lab** — [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md)
-ghi rõ lý do ở bảng *Ánh xạ tài liệu sang bài thực hành*; phần gần nhất bạn làm được là B1,
-nơi request và limit được khai ở **cấp container**.
+Kiểm chứng **tùy chọn** ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B8 ⭐ — ticket
+đó hỏi chính API server của cluster bạn xem tài nguyên cấp Pod có được nhận không; phần bắt buộc gần
+nhất là ticket B2, nơi request và limit được khai ở **cấp container**.
 
-Bài mô tả một tính năng còn sau feature gate `PodLevelResources`, mà baseline của
-[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) không bật. Vì vậy đọc bài này để **phân biệt hai tầng
-khai báo tài nguyên**, không phải để chạy. Mọi ví dụ trong bài giả định gate đã bật.
+Bài mô tả một tính năng beta mà feature gate `PodLevelResources` **bật mặc định**, nên baseline của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) nhận tài nguyên cấp Pod mà không phải sửa cấu hình gì.
+Dù vậy, mục tiêu của lần đọc này là **phân biệt hai tầng khai báo tài nguyên**; chạy thử trên
+cluster là ticket tùy chọn B8 ⭐.
 
 **Phải hiểu ở lần đọc này:**
 
@@ -32,13 +33,14 @@ khai báo tài nguyên**, không phải để chạy. Mọi ví dụ trong bài 
 - Cũng ở mục đó: vì cấp Pod đã khai request, mức **đảm bảo** cho cả hai container là con số cấp Pod
   (1 core và `100Mi`), chứ không phải tổng phần khai riêng của từng container.
 - Ranh giới của tính năng, mục *Giới hạn*: chỉ **CPU, memory và hugepages** đặt được ở cấp Pod; và
-  gate `PodLevelResources` phải bật cho **cả control plane lẫn mọi node**, không phải chỉ apiserver.
+  theo mục *Trước khi bạn bắt đầu*, gate `PodLevelResources` phải bật cho **cả control plane lẫn mọi
+  node**, không phải chỉ apiserver.
 
 **Đọc lướt, chưa cần hiểu:**
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Cách bật feature gate `PodLevelResources` trên apiserver và kubelet | bật gate là sửa cấu hình cluster đang chạy, làm lệch baseline của Lab 00 | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
+| Cách bật hoặc tắt feature gate — các link ở đầu bài và ở *Trước khi bạn bắt đầu* | baseline không phải làm gì vì `PodLevelResources` đã bật mặc định; tự đổi gate là sửa cấu hình cluster đang chạy, làm lệch baseline của Lab 00 | bài [196](196-configure-feature-gates-vi.md) ở [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
 | Topology Manager, Memory Manager, CPU Manager và gate `PodLevelResourceManagers` trong mục *Giới hạn* | thuộc cấu hình kubelet ở mức node | bài [74](74-resource-managers-vi.md) ở [giai đoạn 7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên) |
 | Resize tại chỗ tài nguyên cấp Pod và gate `InPlacePodLevelResourcesVerticalScaling` | cần biết cơ chế resize trước đã | bài [289](289-resize-container-resources-vi.md) rồi bài [290](290-resize-pod-resources-vi.md), cùng nhóm 3c |
 | Mọi lệnh `kubectl top` trong các ví dụ | cluster lab cố ý chưa có metrics-server | [giai đoạn 11](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability) |

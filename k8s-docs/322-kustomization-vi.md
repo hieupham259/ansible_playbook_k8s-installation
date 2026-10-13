@@ -15,10 +15,10 @@
 
 **Vị trí:** [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), dòng **Thực
-hành**, bài 3/10 · Bảng ánh xạ của [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) và
-[Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) **không có bài này**; phần Kustomize duy nhất
-đã được thực hành là [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B6.3 — `secretGenerator` và
-hậu tố hash, tức đúng một trường trong số hàng chục trường mà bài này liệt kê.
+hành**, bài 3/10 · Kiểm chứng ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B2 —
+kustomization gom cả namespace, `configMapGenerator`, `namespace`, `labels` — ticket B3 — hậu tố hash
+biến việc đổi cấu hình thành một rollout — và phần ⭐ của ticket B8 — `labels` so với `commonLabels`.
+`secretGenerator` đã được thực hành từ [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) ticket B1 và B8.
 
 **Đây là bài dài nhất của nhóm Thực hành giai đoạn 5**, và cũng là bài dễ đọc sai mục đích nhất. Nó
 là **tài liệu tra cứu một công cụ**, không phải bài học về Kubernetes: gần hết độ dài là các cặp

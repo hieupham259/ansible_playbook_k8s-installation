@@ -9,8 +9,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 5/7 ·
-Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
+**Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 2/4 ·
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B2, B3 và B4.
 
 Bài này là **hệ quả trực tiếp** của bài [110](110-manage-resources-containers-vi.md): QoS
 class không phải một trường bạn khai báo, mà là kết luận Kubernetes rút ra từ `requests` và
@@ -43,8 +43,8 @@ phải ở bài này — quay lại đó trước.
 | Chính sách quản lý CPU `static` và CPU độc quyền cho Pod `Guaranteed` | thuộc các resource manager của kubelet | giai đoạn 7b, bài [74](74-resource-managers-vi.md) |
 | Cơ chế trục xuất do áp lực node (ngưỡng, tín hiệu) — ở đây chỉ cần **thứ tự** | là một bài riêng | giai đoạn 7a, bài [142](142-node-pressure-eviction-vi.md) |
 | Chiếm chỗ (preemption) và độ ưu tiên | chưa học PriorityClass | giai đoạn 7a, bài [141](141-pod-priority-preemption-vi.md) |
-| *Tài nguyên cấp Pod* trong tiêu chí `Guaranteed` | beta, cluster lab không bật feature gate | không cần |
-| In-place resize làm đổi QoS bị admission từ chối | co giãn dọc gắn với VPA | giai đoạn 4, bài [73](73-vertical-pod-autoscale-vi.md) |
+| *Tài nguyên cấp Pod* trong tiêu chí `Guaranteed` | tầng khai báo cấp Pod chưa học; tính năng beta, gate `PodLevelResources` bật mặc định nên baseline đã có | bài [265](265-assign-pod-level-resources-vi.md) trong khối thực hành của nhóm 3c; kiểm chứng tùy chọn ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B8 ⭐ |
+| Cơ chế resize tại chỗ trong ý cuối của mục *Một số hành vi không phụ thuộc vào QoS class* — ở đây chỉ cần nhớ QoS **không đổi** | resize tại chỗ (stable, bật mặc định trên baseline) là nội dung của một bài thực hành riêng | bài [289](289-resize-container-resources-vi.md) trong khối thực hành của nhóm 3c; [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B5 cho thấy resize làm đổi QoS bị từ chối |
 
 ---
 

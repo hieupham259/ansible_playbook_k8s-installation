@@ -11,7 +11,7 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 5/11 ·
-Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B5.1.
+Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B2.
 
 Bài rất ngắn và chỉ trình bày **một mẫu hình duy nhất**: init container chuẩn bị dữ liệu, app
 container dùng dữ liệu đó. Lý thuyết về init container nằm ở bài [50](50-init-containers-vi.md);
@@ -35,8 +35,8 @@ container dùng dữ liệu đó. Lý thuyết về init container nằm ở bà
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | `dnsPolicy: Default` trong manifest | chính sách DNS của Pod là chủ đề riêng, không liên quan tới init container | bài [10](10-dns-pod-service-vi.md) ở [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
-| Việc init container `wget http://info.cern.ch` — tức cần internet | môi trường lab có thể không ra được internet, và điểm cần học không phải là `wget` | [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B5.1 dựng lại cùng mẫu hình bằng lệnh cục bộ |
-| `apt-get update && apt-get install curl` bên trong container nginx | là cách trang gốc xem kết quả, không phải cơ chế | [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B5.1 kiểm bằng gate so sánh nội dung file |
+| Việc init container `wget http://info.cern.ch` — tức cần internet | môi trường lab có thể không ra được internet, và điểm cần học không phải là `wget` | [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B2 dựng lại cùng mẫu hình bằng lệnh cục bộ: init container ghi schema SQL cho PostgreSQL |
+| `apt-get update && apt-get install curl` bên trong container nginx | là cách trang gốc xem kết quả, không phải cơ chế | [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B2 kiểm bằng script nghiệm thu đọc dữ liệu đã nạp |
 | Mục *Tiếp theo* trỏ sang bài Volume và bài Gỡ lỗi Init Container | Volume là chủ đề riêng; gỡ lỗi thuộc giai đoạn xử lý sự cố | bài [91](91-volumes-vi.md) ở [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài [298](298-debug-init-containers-vi.md) ở [giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố) |
 
 ---

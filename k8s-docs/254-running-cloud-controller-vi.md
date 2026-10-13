@@ -13,13 +13,14 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
 dòng **Thực hành**, bài 1/10 · Kiểm chứng ở
-[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), phần B9.7.
+[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), ticket
+[B11](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b11-bs-9b-11-rà-soát-bảo-mật-theo-hai-checklist).
 
 Nói thẳng một điều trước khi đọc: **cluster lab của bạn không có cloud provider**. Ba VM
 `lab-k8s-master`, `lab-k8s-worker1`, `lab-k8s-worker2` do bạn tự dựng, không nằm trên IaaS nào, nên
 không có `cloud-controller-manager`, không có `--cloud-provider=external`, và không node nào mang
 taint `node.cloudprovider.kubernetes.io/uninitialized`. Vì vậy bài này đọc để biết **thành phần
-nào vắng mặt và hệ quả của việc vắng mặt đó**, chứ không phải để làm theo. Lab 9b phần B9.7 kiểm
+nào vắng mặt và hệ quả của việc vắng mặt đó**, chứ không phải để làm theo. Lab 9b ticket B11 kiểm
 chứng đúng sự vắng mặt ấy.
 
 **Phải hiểu ở lần đọc này:**

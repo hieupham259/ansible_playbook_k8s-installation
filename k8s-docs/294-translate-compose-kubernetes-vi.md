@@ -11,10 +11,10 @@
 
 **Vị trí:** [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), dòng **Thực
-hành**, bài 1/10 · **Không có mục thực hành trong lab**: bảng ánh xạ của
-[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) và
-[Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) đều không có bài này — Kompose là một binary
-bên ngoài phải tải và cài thêm, còn hai lab của giai đoạn 5 không cài thêm công cụ nào.
+hành**, bài 1/10 · Kiểm chứng ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B13 —
+đối chiếu bằng tay file compose cũ của dự án Bookstore theo các quy tắc chuyển đổi của bài. Lab
+**không** cài Kompose: đó là một binary bên ngoài phải tải và cài thêm, còn hai lab của giai đoạn 5
+không cài thêm công cụ nào.
 
 Bài nằm ở giai đoạn 5 vì thứ Kompose sinh ra chủ yếu là **Deployment và Service**: bạn chỉ đọc được
 kết quả chuyển đổi sau khi đã biết Service và các loại Service. Đọc bài này như một **bảng ánh xạ**
@@ -44,7 +44,7 @@ từ khái niệm `docker-compose` sang object Kubernetes, không phải như h�
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Mục *Cài đặt Kompose* — tải binary từ GitHub, `go get`, Homebrew | lần đọc này cần bảng ánh xạ compose → object, không cần chạy công cụ; hai lab của giai đoạn 5 không cài thêm gì | không có bài nào khác trong lộ trình dạy Kompose; nếu dùng thật thì cài ngoài phạm vi lab |
-| `kompose.service.expose` sinh ra một tài nguyên Ingress và **giả định ingress controller đã được cấu hình sẵn** | Ingress là phần sau của chính giai đoạn 5, và cluster lab chưa có ingress controller | bài [11 — Ingress](11-ingress-vi.md) và [12 — Ingress Controllers](12-ingress-controllers-vi.md) ở cuối [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng); controller được cài ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B8 |
+| `kompose.service.expose` sinh ra một tài nguyên Ingress và **giả định ingress controller đã được cấu hình sẵn** | Ingress là phần sau của chính giai đoạn 5, và cluster lab chưa có ingress controller | bài [11 — Ingress](11-ingress-vi.md) và [12 — Ingress Controllers](12-ingress-controllers-vi.md) ở cuối [giai đoạn 5](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng); controller được cài ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket B4 |
 | File `mongodb-claim0-persistentvolumeclaim.yaml` trong output của lần convert nhiều file compose | PersistentVolumeClaim thuộc giai đoạn sau; ở đây chỉ cần thấy Kompose cũng sinh ra loại object đó | [giai đoạn 6 — Lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), bài [92](92-persistent-volumes-vi.md) |
 | `kompose convert --replication-controller` và cờ `--replicas` đi kèm | ReplicationController là tiền thân của ReplicaSet; lộ trình xếp nó vào diện đọc như tài liệu lịch sử | bài [70](70-replicationcontroller-vi.md) ở [giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller) |
 | Toàn bộ mục *Ví dụ `kompose convert` với OpenShift* — DeploymentConfig, ImageStream, BuildConfig | đây là object của OpenShift, không phải của Kubernetes | không có bài nào trong lộ trình; bỏ qua trừ khi bạn thật sự làm việc với OpenShift |

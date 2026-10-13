@@ -13,8 +13,8 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3b. Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
-bài 3/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B6 — ba đường tạo Secret
-chạy liền nhau trong ba mục con B6.1, B6.2 và B6.3.
+bài 3/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) ticket B8 — ba đường tạo Secret
+chạy liền nhau trong phần A của ticket.
 
 Đây là **trang mục lục**, đọc trong vài phút. Nó chỉ tồn tại để dẫn bạn sang ba bài kế tiếp.
 
@@ -27,7 +27,7 @@ chạy liền nhau trong ba mục con B6.1, B6.2 và B6.3.
   ở loại Secret hay mức bảo vệ. Ba bài kế tiếp là ba lần làm cùng một việc, nên đọc để chọn đường
   chứ không phải để học ba cơ chế.
 - Dùng trang này như điểm vào khi cần tra "tạo Secret bằng cách nào": mở đúng trang con, rồi đối
-  chiếu cả ba ở phần B6 của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
+  chiếu cả ba ở ticket B8 của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
 
 **Đọc lướt, chưa cần hiểu:**
 

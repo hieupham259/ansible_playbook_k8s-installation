@@ -16,9 +16,9 @@ bài 1/3 · Giai đoạn này của Phần II không có lab riêng: thực hàn
 cuối mục giai đoạn trong lộ trình.
 
 Bạn **đã có metrics-server** trên cluster này: nó được cài ở
-[Lab 11a B5](labs/LAB-11A-OBSERVABILITY.md#b5-cài-metrics-server-và-chữa-lỗi-certificate), và
+[Lab 11a ticket B3](labs/LAB-11A-OBSERVABILITY.md#b3-bs-11a-03-vận-hành-cài-metrics-server-và-chữa-lỗi-certificate), và
 `kubectl top` đã chạy ở
-[Lab 11a B6](labs/LAB-11A-OBSERVABILITY.md#b6-kubectl-top-và-ranh-giới-của-metrics-server). Vì vậy
+[cùng ticket đó](labs/LAB-11A-OBSERVABILITY.md#b3-bs-11a-03-vận-hành-cài-metrics-server-và-chữa-lỗi-certificate). Vì vậy
 đây **không phải bài cài đặt**. Phần mới nằm ở bản đồ kiến trúc: con số mà `kubectl top` in ra đã
 đi qua những chặng nào, ai kéo dữ liệu từ ai, và vì sao Metrics API chỉ có đúng CPU với memory.
 

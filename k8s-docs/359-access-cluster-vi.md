@@ -13,10 +13,10 @@
 
 **Vị trí:** [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
 dòng **Thực hành**, bài 9/10 — bài cuối cùng trước khi mở lab · Kiểm chứng ở
-[Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md): phần B2.1 (`kubectl config view` và
-client certificate), phần B6.1 (dựng kubeconfig cho một ServiceAccount), phần B6.2 và B6.3
-(`kubectl proxy` và quyền mà nó mang theo), phần B6.4 (bốn loại proxy, cái nào thật sự có trên
-cluster này), phần B6.5 (nhánh *Không dùng kubectl proxy*).
+[Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md): ticket B1 (`kubectl config view` và
+client certificate), ticket B4 (kubeconfig cho ServiceAccount `ci-deployer`, `kubectl proxy` và quyền
+mà nó mang theo, gọi REST bằng token kèm CA thay cho `--insecure`, ⭐ loại proxy nào thật sự có trên
+cluster này).
 
 Bài này là mặt kia của bài [338](338-access-api-from-pod-vi.md) vừa đọc. Bài 338 đứng ở góc nhìn
 **tiến trình bên trong cluster**: không có kubeconfig, danh tính là ServiceAccount, mọi thứ nằm sẵn
@@ -55,7 +55,7 @@ phía nào.
 | *Truy cập API bằng lập trình* — Go client, Python client, các ngôn ngữ khác | dành cho người **viết ứng dụng**; `go get` và `pip install` nằm ngoài bộ công cụ được khóa của lab | vai trò người viết controller xuất hiện ở [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài [181](181-operator-vi.md) |
 | *Truy cập API từ một Pod* | chỉ là một con trỏ, không có nội dung mới | bài [338](338-access-api-from-pod-vi.md) vừa đọc ngay trước bài này |
 | *Truy cập các service đang chạy trên cluster*, và chi tiết URL của **apiserver proxy** | ở đây chỉ cần biết apiserver proxy tồn tại và nó tới được Node/Pod/Service; cú pháp URL là chuyện của nhóm bài truy cập ứng dụng | bài [369](369-access-cluster-services-vi.md), [giai đoạn 30](00-ALO-TRINH-ADMIN.md#giai-đoạn-30--truy-cập-ứng-dụng-trong-cluster) |
-| Loại proxy thứ 4 và thứ 5 — *Proxy/Load-balancer đặt trước apiserver* và *Cloud Load Balancer* | cluster lab có **một** control plane và không có nhà cung cấp cloud, nên hai loại này không tồn tại để quan sát | load balancer đặt trước apiserver thuộc [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) phần HA; Lab 9a phần B6.4 chỉ ghi nhận loại nào có thật trên cluster này |
+| Loại proxy thứ 4 và thứ 5 — *Proxy/Load-balancer đặt trước apiserver* và *Cloud Load Balancer* | cluster lab có **một** control plane và không có nhà cung cấp cloud, nên hai loại này không tồn tại để quan sát | load balancer đặt trước apiserver thuộc [giai đoạn 8](00-ALO-TRINH-ADMIN.md#giai-đoạn-8--dựng-cluster-bằng-kubeadm) phần HA; Lab 9a ticket B4 (phần ⭐) chỉ ghi nhận loại nào có thật trên cluster này |
 | *Yêu cầu chuyển hướng* | khả năng redirect đã bị gỡ khỏi Kubernetes, không còn gì để dùng | thứ thay thế nó chính là mục *Truy cập trực tiếp REST API* ngay trong bài này |
 
 ---

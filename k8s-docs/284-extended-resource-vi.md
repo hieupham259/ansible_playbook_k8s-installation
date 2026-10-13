@@ -10,11 +10,11 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 4/9 ·
-Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B5.
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B9 ⭐ (tùy chọn).
 
 Bài rất ngắn và chỉ là **một nửa câu chuyện**: nửa *tiêu thụ*. Nửa *quảng bá* — làm cho Node công
 bố ra bốn dongle — nằm ở bài [209](209-extended-resource-node-vi.md), đọc ở giai đoạn 25. Vì vậy
-mục *Trước khi bạn bắt đầu* yêu cầu làm bài 209 trước; Lab 3c B5.1 lấp chỗ đó bằng đúng lệnh PATCH
+mục *Trước khi bạn bắt đầu* yêu cầu làm bài 209 trước; Lab 3c ticket B9 lấp chỗ đó bằng đúng lệnh PATCH
 đã trình bày trong bài [110](110-manage-resources-containers-vi.md).
 
 **Phải hiểu ở lần đọc này:**
@@ -34,7 +34,7 @@ mục *Trước khi bạn bắt đầu* yêu cầu làm bài 209 trước; Lab 3
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Bài [209](209-extended-resource-node-vi.md) mà mục *Trước khi bạn bắt đầu* bắt làm trước | đó là vế quản trị Node, không phải cấu hình Pod; Lab 3c B5.1 dùng lệnh PATCH của bài [110](110-manage-resources-containers-vi.md) để thay thế | [giai đoạn 25](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace) |
+| Bài [209](209-extended-resource-node-vi.md) mà mục *Trước khi bạn bắt đầu* bắt làm trước | đó là vế quản trị Node, không phải cấu hình Pod; Lab 3c ticket B9 dùng lệnh PATCH của bài [110](110-manage-resources-containers-vi.md) để thay thế | [giai đoạn 25](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace) |
 | Nhánh *Dành cho quản trị viên cluster* trong mục *Tiếp theo* | cùng lý do trên: thuộc phần quản trị Node và namespace | [giai đoạn 25](00-ALO-TRINH-ADMIN.md#giai-đoạn-25--quản-trị-tài-nguyên-theo-namespace) |
 
 ---

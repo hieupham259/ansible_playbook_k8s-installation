@@ -1,2812 +1,156 @@
 # Lab 14 — CRD và Operator
 
 > **Điểm bắt đầu:** snapshot `04-metrics-ready` — mốc do Lab 11a tạo, xem
-> [chuỗi snapshot](README.md#3-chuỗi-snapshot).
-> **Điểm kết thúc:** cleanup trả cluster về đúng `04-metrics-ready`, **không tạo snapshot mới**.
-> Lab này không cài thêm bất kỳ thành phần hạ tầng nào, không cài operator framework, không cài
-> toolchain lập trình, và không sửa cấu hình node nào.
-> **Lab trước:** [Lab 13 — DRA](LAB-13-DRA.md) (tùy chọn) cũng trả cluster về `04-metrics-ready`;
-> bỏ qua lab 13 thì lab trước là [Lab 12 — Vận hành vòng đời node](LAB-12-VAN-HANH-VONG-DOI-NODE.md).
-> Cluster vào lab này phải ở đúng mốc đó: có CNI thực thi
-> NetworkPolicy, ingress controller, StorageClass mặc định và metrics-server; không workload.
+> [chuỗi snapshot](README.md#3-chuỗi-snapshot). Repo `~/bookstore` ở tag `lab-13`, hoặc `lab-12` nếu
+> bạn bỏ [Lab 13](LAB-13-DRA.md) tùy chọn. Vừa restore snapshot thì khôi phục repo từ bundle mới nhất.
+> **Điểm kết thúc:** teardown trả cluster về đúng `04-metrics-ready`, **không tạo snapshot mới**.
+> Repo `~/bookstore` có tag `lab-14` — **tag cuối của dự án** — và một bản bundle nằm ngoài VM.
+> **Sprint dự án:** Sprint 21 — Operator sao lưu và nghiệm thu dự án, sprint cuối của
+> [dự án Bookstore](DU-AN-BOOKSTORE.md).
+> **Lab trước:** [Lab 13 — DRA](LAB-13-DRA.md) (tùy chọn), hoặc
+> [Lab 12 — Vận hành vòng đời node](LAB-12-VAN-HANH-VONG-DOI-NODE.md).
+> **Sau lab này:** dự án đóng. [Lab 15](LAB-15-NODE-WINDOWS.md) nằm ngoài dự án; phần tiếp theo của
+> lộ trình là [Phần II — Vận hành cluster](../00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster).
 >
-> **Cập nhật và đối chiếu phiên bản:** 25/08/2026.
+> **Cập nhật và đối chiếu phiên bản:** 13/10/2026.
 
 Lab này đi cùng mục
-[Giai đoạn 14 — Khả năng mở rộng](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng)
-— bảy bài [177](../177-extend-kubernetes-vi.md), [178](../178-api-extension-vi.md),
+[Giai đoạn 14 — Khả năng mở rộng](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng): bảy bài
+khái niệm [177](../177-extend-kubernetes-vi.md), [178](../178-api-extension-vi.md),
 [179](../179-custom-resources-vi.md), [180](../180-apiserver-aggregation-vi.md),
 [181](../181-operator-vi.md), [182](../182-compute-storage-net-vi.md),
-[184](../184-device-plugins-vi.md), cộng hai bài thực hành
-[313](../313-debug-topology-vi.md) và [323](../323-storage-version-migration-vi.md).
+[184](../184-device-plugins-vi.md), cộng hai bài thực hành [313](../313-debug-topology-vi.md) và
+[323](../323-storage-version-migration-vi.md). Mọi ticket dựa vào hợp đồng kỹ thuật ở
+[mục 4 của file dự án](DU-AN-BOOKSTORE.md#4-hợp-đồng-kỹ-thuật), bố cục repo ở
+[mục 5.5](DU-AN-BOOKSTORE.md#55-bố-cục-repo-theo-sprint) và kế hoạch gốc ở
+[mục 7.2](DU-AN-BOOKSTORE.md#sprint-21--lab-14-operator-sao-lưu).
 
-**Xương sống của lab là một vòng đời CRD đầy đủ**: tạo `CustomResourceDefinition`, apply custom
-resource, siết schema, mở subresource `status`, rồi tự tay đóng vai controller để chứng minh câu
-mà [checkpoint của giai đoạn 14](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) bắt bạn
-giải thích được: **CRD không có controller thì chỉ là kho lưu dữ liệu**. Ba mục còn lại là phần
-**đọc bản đồ điểm mở rộng trên chính cluster của bạn** — bốn điểm mở rộng bạn đã dùng từ Lab 5b,
-6a và 11a mà chưa gọi tên chúng.
+Sprint này làm hai việc. Một: đưa sao lưu theo yêu cầu lên **API khai báo của chính dự án** —
+custom resource `DbBackup` cộng một controller `backup-operator` (yêu cầu `R19`). Hai: **nghiệm thu
+toàn bộ dự án** — đối chiếu từng yêu cầu `R1`–`R19` với bằng chứng, đóng sổ nợ kỹ thuật, viết retro.
 
 Cluster giữ nguyên baseline của
-[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); lab này **không
-chép lại con số phiên bản nào** và cũng **không cần con số nào**, vì nó không cài gì. Thành phần
-ngoài baseline mà lab thấy đang chạy — CNI thay Flannel, ingress controller, dynamic provisioner,
-metrics-server — đã được khóa ở
-[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) và do Lab 5b, Lab 6a,
-Lab 11a cài; lab 14 chỉ **đọc** và **phân loại** chúng, không đụng vào.
-
-Quan hệ với ba lab đã học, cả ba đều được dùng lại nguyên vẹn:
-
-- [Lab 1c](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md#b2-owner-reference-và-garbage-collection)
-  đã dạy `ownerReferences` và garbage collection. B8 gắn owner reference từ ConfigMap lên custom
-  resource, rồi chứng minh phần dọn dẹp đó **không phải công của controller**.
-- [Lab 9a](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md#b3-chặng-2--phân-quyền-và-rbac) đã dạy
-  ServiceAccount, Role, ClusterRole và `kubectl auth can-i`. B6 và B8 dùng lại y hệt, lần này cho
-  một kind **do bạn định nghĩa**.
-- [Lab 7b](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md#b92-gate-quan-trọng-nhất-của-lab-cấu-hình-node-không-đổi)
-  đã dạy cách chụp checksum cấu hình ở B0 rồi `diff` ở gate cuối. B0.4 và B11.4 làm đúng như vậy.
+[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa). Image của dự án nằm ở
+[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00); lab này không chép lại
+con số phiên bản nào trong phần văn bản, **không cài thêm gì** vào cluster, không cài toolchain lập
+trình hay operator framework.
 
 Trước khi bắt đầu, chạy [quy trình mở đầu A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab)
-trên `lab-k8s-master`, rồi thêm ba lệnh riêng của lab này:
-
-```bash
-kubectl wait --for=condition=Ready node --all --timeout=180s
-test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
-kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
-kubectl -n kube-system get deployment coredns
-kubectl get pods -n default
-
-# Ba lenh rieng cua lab 14: dung moc 04-metrics-ready, va cluster chua co dau vet cua lab nay.
-kubectl top node
-kubectl get crd --no-headers | wc -l
-kubectl get crd,clusterrole,clusterrolebinding -l lab=14
-```
-
-**PASS:** ba node `Ready`; có dòng `PASS: readyz ok`; lệnh field selector trả `No resources found`;
-CoreDNS đủ replica `READY`; namespace `default` không có Pod; **`kubectl top node` in đủ ba dòng số
-liệu** (đó là định nghĩa của mốc `04-metrics-ready`); lệnh đếm CRD in ra một số **lớn hơn 0** — nếu
-nó in `0` thì cluster của bạn không ở mốc đầu vào, vì cả Lab 5b lẫn Lab 6a đều cài thành phần mang
-theo CRD; lệnh cuối trả `No resources found`.
-
-Nếu `kubectl top node` báo lỗi, hoặc lệnh cuối trả về object nào, thì cluster đã lệch — restore cả
-ba VM về `04-metrics-ready` trước khi tiếp tục. B11 dựa hẳn vào việc **chưa có object cluster-scoped
-nào mang label `lab=14`** ở thời điểm bắt đầu.
+trên `lab-k8s-master`. B0 bên dưới chạy lại đúng gate đó.
 
 ---
 
 ## 1. Kết quả phải đạt
 
-Hoàn thành lab khi có thể tự chứng minh và giải thích được:
+Hoàn thành lab khi hệ thống Bookstore đạt trạng thái cuối của dự án — **sao lưu theo yêu cầu đi qua
+API của chính dự án** — **và** bạn chứng minh, giải thích được:
 
-- Bảy điểm mở rộng của bài [177](../177-extend-kubernetes-vi.md), và với mỗi điểm chỉ ra được
-  **một hiện vật có thật** trong cluster của mình — hoặc chứng minh được điểm đó đang trống.
-- Cluster của bạn đã dùng **bốn điểm mở rộng khác nhau** từ trước lab này, và gọi đúng tên từng
-  cái: network plugin, tầng tổng hợp API, custom resource, và mẫu controller.
-- Ranh giới **webhook so với binary plugin**: cái nào là request mạng, cái nào là chương trình
-  nhị phân do kubelet thực thi, và mỗi loại đang tồn tại ở đâu trên cluster này.
-- Có **đúng hai cách** thêm custom resource, và trên cluster này đọc ra được cả hai đang chạy song
-  song: một API group do kube-apiserver tự phục vụ, một API group được proxy sang server khác.
-- Tạo một CRD, apply một custom resource và đọc lại bằng `kubectl get` — **đúng checkpoint của
-  giai đoạn 14** — kèm giải thích endpoint REST mới nằm ở đường dẫn nào và ai phục vụ nó.
-- Schema OpenAPI trong CRD là một **hợp đồng được API server cưỡng chế**: object sai bị từ chối,
-  đọc đúng câu từ chối, và trường lạ bị **cắt tỉa** chứ không được lưu.
-- `shortNames`, `categories` và `additionalPrinterColumns` đổi **bề mặt CLI** của kind mới ra sao,
-  và vì sao chúng là thuộc tính của server chứ không phải của `kubectl`.
-- Khác biệt thật giữa `scope: Namespaced` và `scope: Cluster`, chứng minh bằng thực nghiệm, cộng
-  hệ quả nguy hiểm nhất của nó: **xóa namespace không dọn object cluster-scoped**.
-- Vì sao một ServiceAccount mang ClusterRole `view` dựng sẵn **vẫn không đọc được** kind mới, và
-  vì sao phải cấp quyền tường minh cho API group mới.
-- Subresource `status` đổi điều gì: trước khi bật, `status` chỉ là một trường ai cũng ghi được;
-  sau khi bật, **người dùng ghi `spec`, controller ghi `status`**, và `metadata.generation` chỉ
-  tăng theo `spec`.
-- **CRD không có controller thì chỉ là kho lưu dữ liệu**: chứng minh bằng một custom resource
-  không làm gì cả, rồi bằng một vòng lặp điều khiển thủ công biến chính dữ liệu đó thành hành vi.
-- Ba tính chất của một vòng lặp điều khiển, chứng minh riêng từng cái: **tạo** object phụ thuộc,
-  **hội tụ** khi `spec` đổi, và **tự chữa** khi object phụ thuộc bị xóa.
-- Phần nào của "operator" **không** phải công của vòng lặp: garbage collection theo
-  `ownerReferences` là công của API machinery, không phải của controller.
-- `status.storedVersions` là gì, vì sao API server **từ chối** gỡ một version còn nằm trong đó, và
-  chạy trọn quy trình nâng cấp storage version thủ công của bài
-  [377](../377-custom-resource-definition-versioning-vi.md).
-- Vì sao cluster lab **không** có device plugin nào, đọc đúng bằng chứng cho điều đó, và nói được
-  device plugin khác DRA của giai đoạn 13 ở điểm nào.
-- Cleanup đúng phạm vi: namespace biến mất **không** kéo theo CRD và ClusterRole, và số CRD,
-  ClusterRole, ClusterRoleBinding, APIService trở về **đúng con số cũ**.
+- Bảy điểm mở rộng của bài 177, và mỗi thứ cluster Bookstore đang dùng (Calico, Traefik,
+  local-path-provisioner, metrics-server) nằm ở điểm nào; vì sao provisioner của StorageClass là
+  *controller* chứ không phải *storage plugin*.
+- Có **đúng hai cách** thêm custom resource, đọc ra được cả hai đang chạy trên cluster: một API group
+  do kube-apiserver tự phục vụ và lưu, một API group được proxy sang server khác.
+- Vì sao `DbBackup` là CRD chứ không phải aggregated API, và là custom resource chứ không phải thêm
+  một key vào ConfigMap `backup-status`.
+- Schema của CRD là **hợp đồng do API server cưỡng chế**: object sai bị từ chối, trường lạ bị cắt
+  tỉa, giá trị mặc định được điền; subresource `status` tách hai đường ghi.
+- Kind mới **không** tự có trong role dựng sẵn: `view` không đọc được `DbBackup`; quyền phải cấp tường
+  minh, `dbbackups` và `dbbackups/status` là hai resource khác nhau trong RBAC; ResourceQuota đếm được
+  số object của CRD.
+- **CRD không có controller chỉ là kho dữ liệu** — chứng minh bằng chính operator của bạn khi nó
+  dừng, và chứng minh vòng lặp **hội tụ** khi nó chạy lại mà không mất yêu cầu nào.
+- `backup-operator` đọc `spec`, tạo Job, ghi `status`; Job của nó đi qua đủ bốn lớp chính sách của
+  các sprint trước: Pod Security `restricted`, NetworkPolicy, quota, PriorityClass `bookstore-batch`.
+- Phần dọn dẹp theo `ownerReferences` là công của garbage collector, không phải của controller; việc
+  phải xảy ra **trước** khi xóa thì cần cơ chế khác.
+- `status.storedVersions`: vì sao API server từ chối gỡ một version còn nằm trong đó, và quy trình ghi
+  lại object để chuyển storage version — cái `StorageVersionMigration` của bài 323 tự động hóa.
+- Cluster không có device plugin nào và không thể kích hoạt nhánh debug Topology Manager — đọc đúng
+  bằng chứng, và nói được một tính năng dùng GPU sẽ cần gì trên hệ thống này.
+- Hệ thống cuối đáp ứng từng yêu cầu `R1`–`R19` bằng bằng chứng nào; nợ kỹ thuật nào đã trả, nào
+  chấp nhận có điều kiện, nào chuyển sang Phần II, và nợ lab nào còn mở.
 
 ### 1.1. Ánh xạ tài liệu sang bài thực hành
 
-| Bài trong nhóm 14 | Phần lab kiểm chứng |
+| Bài trong nhóm 14 | Ticket kiểm chứng |
 | --- | --- |
-| [177 — Mở rộng Kubernetes](../177-extend-kubernetes-vi.md) | B1 — dựng lại bảy điểm mở rộng của mục *Chú giải cho hình vẽ* bằng lệnh, tìm hiện vật cho từng điểm trên cluster thật; B1.3 phân loại webhook so với binary plugin; B1.4 chốt bốn điểm mở rộng cluster đã dùng từ trước lab này |
-| [182 — Các phần mở rộng về Tính toán, Lưu trữ và Mạng](../182-compute-storage-net-vi.md) | B1.2 — ba nhóm hạ tầng đối chiếu với add-on thật: provisioner của StorageClass **không** phải CSI driver nên nó nằm ở điểm mở rộng *controller* chứ không phải *storage plugin*; CNI là nhóm duy nhất thiếu thì cluster không chạy |
-| [178 — Mở rộng Kubernetes API](../178-api-extension-vi.md) | B2 — đúng hai cách, đo trên cluster thật: đếm APIService do kube-apiserver tự phục vụ so với APIService được proxy sang một Service |
-| [180 — Tầng tổng hợp API](../180-apiserver-aggregation-vi.md) | B2.2 — `v1beta1.metrics.k8s.io` là APIService duy nhất có `.spec.service`, gọi thẳng `/apis/metrics.k8s.io/v1beta1` để thấy đường proxy; B3.5 — API group của CRD cũng có APIService nhưng `.spec.service` **rỗng**, tức không có API server thứ hai nào |
-| [179 — Tài nguyên tùy chỉnh](../179-custom-resources-vi.md) | B3 (tạo CRD, apply CR, đọc lại — checkpoint giai đoạn 14), B4 (validation và cắt tỉa trường), B5 (`shortNames`, `categories`, `additionalPrinterColumns`), B6 (`scope` và RBAC cho kind mới), B7 (subresource `status`), B9 (multi-versioning và storage version) — sáu mục ứng với sáu ô "Có" của cột CRD trong bảng *Tính năng nâng cao và tính linh hoạt* |
-| [181 — Mẫu Operator](../181-operator-vi.md) | B8 — custom resource một mình không làm gì; rồi một vòng lặp điều khiển thủ công chạy bằng ServiceAccount có quyền tối thiểu, chứng minh ba tính chất tạo/hội tụ/tự chữa; B8.6 ánh xạ từng bước sang bảy bước của ví dụ `SampleDB` |
-| [184 — Device Plugin](../184-device-plugins-vi.md) | B10.1–B10.2 — `Capacity`/`Allocatable` của ba node không có resource nào dạng `vendor-domain/resourcetype`; socket đăng ký `kubelet.sock` tồn tại nhưng không plugin nào đăng ký; B10.3 đối chiếu với DRA của giai đoạn 13 |
-| [313 — Khắc phục sự cố Topology Management](../313-debug-topology-vi.md) | B10.4 — đọc `topologyManagerPolicy` và `memoryManagerPolicy` **hiệu lực** của cả ba kubelet qua `configz`, cộng số NUMA node thật của máy, để chứng minh nhánh debug của bài không thể kích hoạt trên cluster này |
-| [323 — Storage Version Migration](../323-storage-version-migration-vi.md) | B9 — `status.storedVersions` của một CRD thật, API server **từ chối** gỡ version còn nằm trong `storedVersions`, và quy trình nâng cấp thủ công ba bước của bài [377](../377-custom-resource-definition-versioning-vi.md) chạy trọn bằng `kubectl` |
+| [177 — Mở rộng Kubernetes](../177-extend-kubernetes-vi.md) | B1 — bảy điểm của *Chú giải cho hình vẽ* đọc trên cluster thật, webhook so với binary plugin, ADR *Thay đổi các resource có sẵn*; B4 — mẫu controller: đọc `.spec`, làm, cập nhật `.status`; B5 — controller là một điểm lỗi nhưng nằm ngoài đường request |
+| [178 — Mở rộng Kubernetes API](../178-api-extension-vi.md) | B1 — đúng hai cách, đếm trên cluster; B2 — với CRD, control plane phục vụ và lưu, không thêm API server nào |
+| [179 — Tài nguyên tùy chỉnh](../179-custom-resources-vi.md) | B1 — ADR chọn CRD so với aggregated API, ConfigMap so với custom resource; B2 — CRD, validation, defaulting, cắt tỉa, status subresource, cột in; B3 — RBAC không tự cấp quyền cho kind mới, mục *Lưu trữ* qua quota; B5 — *Custom controller*: thiếu controller thì chỉ là kho dữ liệu; B6 — storage version |
+| [180 — Tầng tổng hợp API](../180-apiserver-aggregation-vi.md) | B1 — APIService của metrics-server có `.spec.service`, API group của CRD thì không; B3 — câu hỏi vì sao quota đếm được `DbBackup` mà không đếm được object của aggregated API |
+| [181 — Mẫu Operator](../181-operator-vi.md) | B4 — `backup-operator` dưới ServiceAccount riêng, đối chiếu bảy bước của `SampleDB`; B5 — diễn tập controller vắng mặt, Job mất, owner bị xóa |
+| [182 — Phần mở rộng tính toán, lưu trữ, mạng](../182-compute-storage-net-vi.md) | B1 — ba nhóm đối chiếu với hạ tầng thật: CNI là nhóm bắt buộc, provisioner không phải CSI; B7 — nhóm thiết bị |
+| [184 — Device Plugin](../184-device-plugins-vi.md) | B7 — `Capacity`/`Allocatable` không có resource `vendor-domain/resourcetype`, socket đăng ký có nhưng không ai đăng ký, đối chiếu DRA, ADR GPU cho dự án |
+| [313 — Khắc phục sự cố Topology Management](../313-debug-topology-vi.md) | B7 — đọc `topologyManagerPolicy`, `memoryManagerPolicy` hiệu lực qua `configz` và số NUMA node để chứng minh nhánh debug không kích hoạt được |
+| [323 — Storage Version Migration](../323-storage-version-migration-vi.md) | B6 — thêm `v1` cho `DbBackup`, `status.storedVersions`, API server từ chối gỡ version còn lưu, ghi lại object rồi cập nhật `storedVersions` |
 
-Các phần dưới đây **không kiểm chứng được trong lab này**, ghi rõ lý do thay vì bỏ trống:
+Các phần dưới đây **không kiểm chứng được trong lab này** — ghi rõ lý do thay vì bỏ trống:
 
 | Phần | Vì sao không thực hành ở đây |
 | --- | --- |
-| Bài [181](../181-operator-vi.md) — viết một operator thật bằng Go, kubebuilder, Kopf hay Operator Framework | Cần cài toolchain ngôn ngữ và framework lên node lab, tức thêm phần mềm ngoài baseline. B8 làm phần **cơ chế** bằng công cụ có sẵn: vòng lặp `kubectl` chạy dưới danh tính một ServiceAccount có quyền tối thiểu. Khác biệt so với operator thật nằm ở **nơi chạy và cách kích hoạt** (một Deployment trong cluster, `watch` thay cho vòng lặp), không phải ở bản chất vòng lặp — B8.6 liệt kê từng khác biệt |
-| Bài [180](../180-apiserver-aggregation-vi.md) — dựng một extension API server của riêng bạn | Phải viết và build binary cùng image, rồi cấu hình cụm cờ `--requestheader-*` cho kube-apiserver. Đó là bài [374](../374-configure-aggregation-layer-vi.md) và [380](../380-setup-extension-api-server-vi.md) của [giai đoạn 28](../00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes). B2 kiểm chứng **phần đọc được** trên một extension API server đang chạy thật là metrics-server |
-| Bài [179](../179-custom-resources-vi.md) — conversion webhook, validating/mutating webhook cho custom resource | Webhook đòi một dịch vụ HTTPS trong cluster kèm certificate và `caBundle`. Dựng nó là dựng thêm hạ tầng, và bản thân admission webhook thuộc [giai đoạn 9](../00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài [173](../173-admission-webhooks-vi.md). B9 dùng `conversion.strategy: None` — đúng trường hợp bài [377](../377-custom-resource-definition-versioning-vi.md) mô tả là an toàn khi mọi version dùng chung một schema |
-| Bài [184](../184-device-plugins-vi.md) — chạy một device plugin thật và cấp GPU cho Pod | Cluster lab là ba VM không có GPU, NIC hiệu năng cao hay FPGA. Đây là giới hạn **phần cứng**, không phải thiếu cấu hình. B10 kiểm chứng phần đọc được, còn cơ chế **extended resource** mà device plugin dùng để công bố thiết bị thì bạn đã làm bằng tay ở [Lab 3c phần B5](LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md#b5-extended-resource-tài-nguyên-do-bạn-tự-đặt-tên) |
-| Bài [184](../184-device-plugins-vi.md) — ba endpoint gRPC `List`, `GetAllocatableResources`, `Get` của Pod Resources API | Phải viết một client gRPC nói đúng protobuf của kubelet; không công cụ nào trong baseline làm được. Chính bài xếp phần này vào mục đọc lướt |
-| Bài [313](../313-debug-topology-vi.md) — dựng lỗi `TopologyAffinityError` và đọc `numaAffinity` trong `/var/lib/kubelet/memory_manager_state` | Chỉ xuất hiện khi Topology Manager chạy policy khác `none` **và** máy có nhiều NUMA domain. Bật policy khác là sửa `KubeletConfiguration` trên node đang chạy — thuộc [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy), bài [224](../224-kubelet-config-file-vi.md); và VM một NUMA node thì không có ranh giới nào để căn. **Lab 14 tuyệt đối không sửa cấu hình kubelet** — B11.4 chứng minh điều đó bằng checksum |
-| Bài [323](../323-storage-version-migration-vi.md) — object `StorageVersionMigration` và luồng mã hóa lại Secret | Cần bật feature gate `StorageVersionMigrator` và runtime config `storagemigration.k8s.io/v1beta1` trên API server, cộng một `EncryptionConfiguration`. Cả hai là sửa control plane: cái đầu thuộc [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy), cái sau thuộc [nợ #6](README.md#5-sổ-nợ-lab) trả ở [giai đoạn 22](../00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu). B9 chạy **phương án 2 của bài [377](../377-custom-resource-definition-versioning-vi.md)** — nâng cấp thủ công — vốn không cần feature gate nào |
-| Bài [323](../323-storage-version-migration-vi.md) — đọc thẳng etcd bằng `etcdctl … \| hexdump -C` để thấy định dạng byte của object cũ | Cần đối số kết nối etcd và quy trình vận hành etcd của [giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa), bài [197](../197-configure-upgrade-etcd-vi.md). B9 chứng minh cùng luận điểm từ phía API bằng `status.storedVersions` — thứ chính API server ghi ra để trả lời đúng câu hỏi đó |
-| Bài [179](../179-custom-resources-vi.md) — `selectableFields` và field selector cho custom resource; subresource `scale` | Cả hai là tinh chỉnh sau khi CRD đã chạy. Riêng `scale` chỉ có ý nghĩa khi ghép với HorizontalPodAutoscaler, và HPA là nội dung của [Lab 11b](LAB-11B-HPA-VA-VPA.md) — lab 14 không lặp lại lab khác. B5 dừng ở phần bề mặt CLI mà mọi CRD đều dùng |
+| Bài 181 — viết operator thật bằng Go, kubebuilder, Kopf hay Operator Framework, và chạy nó như một Deployment trong cluster | Cần cài toolchain, framework và **build image** — ngoài baseline. B4 làm phần **cơ chế** bằng công cụ có sẵn: vòng lặp `kubectl` chạy trên master dưới danh tính ServiceAccount có quyền tối thiểu. Thiếu nơi chạy thường trực trong cluster là nợ kỹ thuật mới *operator ngoài cluster* |
+| Bài 180 — dựng một extension API server của riêng bạn | Phải viết và build binary cùng image, rồi cấu hình cụm cờ `--requestheader-*` cho kube-apiserver. Đó là bài [374](../374-configure-aggregation-layer-vi.md) và [380](../380-setup-extension-api-server-vi.md) của [giai đoạn 28](../00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes). B1 chỉ đọc phần **đọc được** trên extension API server đang chạy thật là metrics-server |
+| Bài 179 — conversion webhook, validating/mutating webhook cho custom resource | Webhook đòi một dịch vụ HTTPS trong cluster kèm certificate và `caBundle` — thêm hạ tầng. B6 dùng `conversion.strategy: None`, an toàn khi mọi version chung một schema |
+| Bài 184 — chạy device plugin thật và cấp GPU cho Pod; ba endpoint gRPC của Pod Resources API | Ba VM không có GPU, NIC hiệu năng cao hay FPGA — giới hạn phần cứng. Gọi gRPC cần viết client protobuf. B7 kiểm chứng phần đọc được |
+| Bài 313 — dựng lỗi `TopologyAffinityError`, đọc `memory_manager_state` | Cần policy khác `none` (sửa `KubeletConfiguration` — [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy)) **và** máy nhiều NUMA domain. Lab không sửa cấu hình kubelet; gate cuối so checksum |
+| Bài 323 — object `StorageVersionMigration`, luồng mã hóa lại Secret, đọc etcd bằng `etcdctl … \| hexdump -C` | Cần feature gate `StorageVersionMigrator` và runtime config trên API server (giai đoạn 20), `EncryptionConfiguration` ([nợ lab #6](README.md#5-sổ-nợ-lab), giai đoạn 22), và quy trình etcd của giai đoạn 19. B6 làm phần **ghi lại thủ công** — không cần feature gate nào |
+| Bài 179 — `selectableFields`, subresource `scale` | Tinh chỉnh sau khi CRD đã chạy; `scale` chỉ có nghĩa khi ghép với HPA, mà `DbBackup` là yêu cầu một lần, không có bản sao để co giãn |
 
-Đây **không phải nợ lộ trình mới**. Toàn bộ phần cố ý không làm ở trên hoặc là giới hạn phần cứng
-của môi trường lab, hoặc là nội dung đã có chỗ đứng ở giai đoạn sau —
-[giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy),
-[22](../00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu) và
-[28](../00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes). Lab 14 **không phát sinh nợ mới**
-và **không trả nợ nào**; xem [sổ nợ lab](README.md#5-sổ-nợ-lab).
+Lab này **không thay thế** bài [378](../378-custom-resource-definitions-vi.md) — trang xương sống về
+cú pháp CRD, đọc ở [giai đoạn 28](../00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes). Ở đây
+bạn chỉ dùng những trường mà bài 179 đã nêu tên trong hai bảng so sánh và ví dụ YAML của nó.
 
-Lab này **không** thay thế bài [378](../378-custom-resource-definitions-vi.md) — trang xương sống
-về cú pháp CRD, đọc ở [giai đoạn 28](../00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes),
-vốn là nhóm thực hành của chính giai đoạn 14. Ở đây bạn chỉ dùng đúng những trường mà bài
-[179](../179-custom-resources-vi.md) đã nêu tên trong hai bảng so sánh và trong ví dụ YAML của
-chính nó; mọi tinh chỉnh sâu hơn để dành cho giai đoạn 28.
+Lab **không phát sinh nợ lab mới** và **không trả nợ lab nào**. Nó phát sinh một nợ kỹ thuật mới —
+*operator ngoài cluster* (B4), mã `TD-20` theo [mục 8 của file dự án](DU-AN-BOOKSTORE.md#8-sổ-nợ-kỹ-thuật-dự-án) — và **đóng sổ** toàn bộ nợ kỹ thuật của dự án
+ở B8.
 
 ### 1.2. Thời lượng
 
-2–3 giờ, tính từ lúc gate mở đầu đã PASS. Phần lớn thời gian nằm ở B3–B9; B1, B2 và B10 chỉ đọc.
-
-Lab có ba chỗ phải chờ: CRD chuyển sang `Established`, discovery của `kubectl` nhận kiểu mới, và
-APIService tự đăng ký biến mất sau khi xóa CRD. **Cả ba đều phụ thuộc cấu hình cluster**, nên
-chúng được viết dưới dạng `kubectl wait --timeout` hoặc vòng lặp có điều kiện dừng, không phải một
-con số giây. Riêng discovery của `kubectl` là **cache phía client**, xử lý bằng cách làm mới cache
-chứ không phải bằng cách chờ — xem B3.2 và [mục 4](#4-troubleshooting-của-lab-này).
+4–5 giờ. Phần cốt lõi (B0–B6, B8, B9 và phần chính của B7) khoảng 4 giờ; các mục ⭐ là tùy chọn.
+B1 và B7 chỉ đọc. B8 là việc viết tài liệu nghiệm thu — đừng dồn nó vào cuối phiên mệt. Có thể chia
+hai phiên: phiên 1 làm B0–B4, phiên 2 làm B5–B9. Giữa hai phiên cứ để nguyên cluster; đầu phiên 2
+chạy lại gate ngắn A5.5, `./scripts/deploy.sh` (nó khởi động lại `backup-operator`) và
+`./scripts/backup-operator.sh status`.
 
 ---
 
 ## 2. Quy ước và an toàn
 
-> **Cảnh báo — lab này tạo object phạm vi cluster.** `CustomResourceDefinition`, `ClusterRole` và
-> `ClusterRoleBinding` **không thuộc namespace nào**. Xóa namespace `lab-14` sẽ **không** dọn
-> chúng. Đây là bẫy lớn nhất của giai đoạn 14 và cũng là lý do B11 tồn tại: nó xóa theo **label**
-> rồi **so số lượng trước và sau** để bắt object sót lại.
-
-**Bảng object phạm vi cluster mà lab này tạo ra.** Không object cluster-scoped nào khác được tạo;
-B11.2 kiểm chứng đúng bảng này:
-
-| Tên | Kind | Tạo ở | Xóa ở | Label |
-| --- | --- | --- | --- | --- |
-| `webpages.lab14.example.com` | CustomResourceDefinition | B3.1 | B11.2 | `lab=14` |
-| `clusterwidgets.lab14.example.com` | CustomResourceDefinition | B6.4 | B11.2 | `lab=14` |
-| `lab-14-doc-clusterwidget` | ClusterRole | B6.5 | B11.2 | `lab=14` |
-| `lab-14-doc-clusterwidget` | ClusterRoleBinding | B6.5 | B11.2 | `lab=14` |
-
-Ngoài bảng trên, kube-apiserver **tự** tạo thêm object `APIService` cho mỗi API group của CRD
-(B2.3 giải thích cơ chế). Bạn không tạo và cũng không được xóa chúng bằng tay: chúng biến mất theo
-CRD. B11.3 chờ và đối chiếu số lượng.
-
-> **Cảnh báo thứ hai — không bao giờ xóa một CRD bạn không tạo.** Cluster ở mốc `04-metrics-ready`
-> đã có sẵn CRD của CNI và của ingress controller. Xóa một CRD sẽ **xóa toàn bộ custom object
-> đang lưu trong đó** (bài [378](../378-custom-resource-definitions-vi.md), mục *Xóa một
-> CustomResourceDefinition*) — với CRD của CNI, đó là xóa cấu hình mạng của cluster. Mọi lệnh xóa
-> CRD trong lab này đều đi qua selector `-l lab=14` và có gate đếm **trước khi** xóa.
-
-Các quy ước còn lại:
-
-- Mọi lệnh `kubectl` chạy trên `lab-k8s-master` bằng user quản trị có kubeconfig, **trừ khi ghi rõ
-  node khác**. Lệnh cần đọc file trên worker chạy qua `ssh` từ master, đúng cách
-  [Lab 7b](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) và [Lab 12](LAB-12-VAN-HANH-VONG-DOI-NODE.md)
-  đã dùng.
-- **Lab này không có fault injection.** Không node nào bị tắt, không tiến trình nào bị dừng. Thao
-  tác duy nhất chạm tới node là **đọc** hai đường dẫn ở B10, và chúng chỉ đọc trên
-  `lab-k8s-worker2` — giữ đúng quy ước "chỉ đụng vào worker2" của
-  [mục 6 trong README](README.md#6-quy-ước-chung-trong-mọi-lab).
-- **Lab này chỉ ĐỌC cấu hình node và cấu hình control plane.** Tuyệt đối không sửa
-  `/var/lib/kubelet/config.yaml`, không sửa file nào trong `/etc/kubernetes/manifests`, không đổi
-  feature gate, không restart kubelet. B0.4 ghi checksum của sáu file đó và B11.4 đối chiếu lại.
-- **Lab không cài thêm gì.** Không Helm chart, không operator framework, không image mới, không
-  binary mới. Vì thế lab **không cần con số phiên bản nào** và không chép lại bảng
-  [A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) hay
-  [A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00). Toàn bộ phần B chạy bằng
-  `kubectl`, `curl`, `ssh` và shell có sẵn trên node.
-- **Lab không tạo image và không chạy container nào của riêng nó.** Custom resource của lab được
-  vật chất hóa thành ConfigMap chứ không phải Deployment — B8.6 nói rõ vì sao lựa chọn đó không
-  làm mất bài học.
-- Kiến thức được phép dùng làm công cụ: toàn bộ giai đoạn 1–13, gồm ConfigMap, ServiceAccount,
-  Role/ClusterRole, `ownerReferences`, `kubectl auth can-i`, `kubectl create token`, metrics-server
-  và StorageClass. Giai đoạn 14 là gần cuối Phần I nên **không có món nào phải hoãn vì chưa học**.
-- **Mọi con số của cluster đều đọc từ cluster thật** — số CRD, số ClusterRole, số APIService, tên
-  StorageClass, tên provisioner, số NUMA node. Không con số nào của cluster viết cứng vào gate.
-- **Chạy toàn bộ phần B trong cùng một phiên shell.** Gần như mọi gate so sánh với biến đặt ở B0
-  (`WK`, `EV`, `NS`, `LAB_GROUP`, `CRD_N0`, `CR_N0`, `CRB_N0`, `APISVC_N0`) và với hàm `kctl` định
-  nghĩa ở B8; mở shell mới giữa chừng là mất hết.
-- Manifest tạm ghi vào `~/lab-work/14/`; bằng chứng ghi vào `~/lab-evidence/14/`. Token sinh ra ở
-  B8 chỉ tồn tại trong biến shell và trong một file kubeconfig quyền `600`, **không ghi vào
-  bằng chứng**.
-- Dòng bắt đầu bằng `PASS:` là gate; không đi tiếp khi gate fail.
-
-**Cách quay lui khi hỏng:** tắt **cả ba VM**, restore **cả ba** về `04-metrics-ready` — không bao
-giờ restore riêng một VM, xem ghi chú cuối
-[mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường) — rồi bật lại theo
-thứ tự master → worker 1 → worker 2, chạy lại gate mở đầu và bắt đầu lại từ B0.
-
-**Trước khi chạy B0, xác nhận trên máy host rằng cả ba VM đều còn mốc `04-metrics-ready`.** Không
-có mốc này thì không có đường lui. Chạy trên **máy host**, PowerShell:
-
-```powershell
-$vmrun = 'C:\Program Files\VMware\VMware Workstation\vmrun.exe'
-$vmx = @(
-  'E:\Virtual Machines\lab-k8s-master\lab-k8s-master.vmx'
-  'E:\Virtual Machines\lab-k8s-worker1\lab-k8s-worker1.vmx'
-  'E:\Virtual Machines\lab-k8s-worker2\lab-k8s-worker2.vmx'
-)
-foreach ($f in $vmx) {
-  $names = & $vmrun -T ws listSnapshots $f | Select-Object -Skip 1
-  if ($names -ccontains '04-metrics-ready') { "PASS: $f" } else { "FAIL: $f" }
-}
-```
-
-**PASS:** đúng ba dòng `PASS:`. Không mở B0 khi còn dòng `FAIL:`. Đường dẫn `.vmx` ở trên theo máy
-host đang dùng; sửa lại nếu VM nằm chỗ khác.
+- Mọi lệnh `kubectl` chạy trên `lab-k8s-master` bằng kubeconfig quản trị, trừ khi ghi rõ node khác
+  hoặc ghi rõ kubeconfig của `backup-operator`. Lệnh đọc file trên worker chạy qua `ssh` từ master.
+- **Lab không có fault injection trên node.** Diễn tập ở B5 chỉ dừng tiến trình `backup-operator` của
+  dự án và xóa object của dự án. B1 và B7 chỉ **đọc** trên `lab-k8s-worker2`.
+- Repo dự án: `~/bookstore`. Manifest thử nghiệm: `~/lab-work/14/`. Bằng chứng: `~/lab-evidence/14/`.
+- **Không bao giờ xóa một CRD bạn không tạo.** Cluster ở mốc `04-metrics-ready` đã có CRD của Calico
+  và của Traefik; xóa CRD là xóa **mọi** object đang lưu trong nó — với CRD của CNI là xóa cấu hình
+  mạng của cluster. Mọi lệnh xóa CRD trong lab đi qua selector `app.kubernetes.io/part-of=bookstore`.
+- Lab thêm hai object cấp cluster vào dự án: CRD `dbbackups.bookstore.example.com` và ClusterRole
+  `bookstore-dbbackup-viewer`. `teardown.sh` mới gỡ chúng theo label; gate cuối so **số lượng**
+  CRD, ClusterRole, ClusterRoleBinding, APIService với tồn kho ghi ở B0.
+- `backup-operator` là **tiến trình nền trên master**, không phải Pod: nó chết khi master khởi động
+  lại. Sau khi bật lại VM, chạy `./scripts/deploy.sh` hoặc `./scripts/backup-operator.sh start`.
+- Token của ServiceAccount nằm trong `secrets/*.kubeconfig`, quyền `600`, không vào git, **không bao
+  giờ** chép vào `~/lab-evidence/`. Gate cuối quét bằng chứng tìm chuỗi giống JWT.
+- Lab chỉ **đọc** cấu hình kubelet. B0 ghi checksum `/var/lib/kubelet/config.yaml` của ba node, gate
+  cuối so lại.
+- Kiến thức được dùng: giai đoạn 1–13 — ServiceAccount, Role/ClusterRole, `kubectl auth can-i`,
+  `kubectl create token`, `ownerReferences`, Pod Security, NetworkPolicy, ResourceQuota,
+  PriorityClass, Job, PVC. Giai đoạn 14 gần cuối Phần I nên **không có món nào phải hoãn vì chưa học**.
+- `kubectl scale`, `kubectl patch`, `kubectl delete` trên object của dự án chỉ dùng trong script nghiệm
+  thu hoặc diễn tập. Repo là nguồn sự thật duy nhất.
+- Dòng bắt đầu bằng `PASS:` là gate; không đi tiếp khi gate fail. Dòng `FAIL:` trong script nghiệm
+  thu nghĩa là ticket chưa xong.
 
 ---
 
-# Phần B — Thực hành kiến thức giai đoạn 14
+# Phần B — Sprint 21: Operator sao lưu và nghiệm thu dự án
 
-## B0. Chuẩn bị workspace, namespace và tồn kho "trước"
+## B0. Nhận bàn giao sprint
 
-**Mục đích:** dựng chỗ làm việc, khóa tên và API group của lab vào biến, đếm chính xác số object
-phạm vi cluster **trước** khi bắt đầu, và chụp checksum cấu hình để B11 chứng minh lab không sửa gì.
+**Mục đích:** xác nhận cluster ở đúng `04-metrics-ready`, repo ở đúng tag của sprint trước, hệ thống
+sau sprint 19/20 dựng lại được **chỉ từ repo**, và ghi tồn kho object cấp cluster để gate cuối so lại.
 
-### B0.1. Workspace, biến của lab và namespace
-
-```bash
-mkdir -p ~/lab-work/14 ~/lab-evidence/14
-WK=~/lab-work/14
-EV=~/lab-evidence/14
-NS=lab-14
-LAB_GROUP=lab14.example.com
-MASTER=lab-k8s-master
-W1=lab-k8s-worker1
-W2=lab-k8s-worker2
-
-kubectl config current-context
-kubectl create namespace "$NS"
-kubectl label namespace "$NS" lab=14 --overwrite
-```
-
-```bash
-echo "WK=$WK | EV=$EV | NS=$NS | LAB_GROUP=$LAB_GROUP"
-test -d "$WK" && test -d "$EV" && echo 'PASS: hai thu muc lam viec da ton tai'
-test "$(kubectl get namespace "$NS" -o jsonpath='{.status.phase}')" = 'Active' \
-  && echo 'PASS: namespace lab-14 da Active'
-case "$LAB_GROUP" in
-  *.*.*) echo "PASS: LAB_GROUP = $LAB_GROUP co dang DNS subdomain nhieu nhan" ;;
-  *)     echo 'FAIL: LAB_GROUP phai la mot ten DNS subdomain, vi du lab14.example.com' ;;
-esac
-```
-
-**Ý nghĩa:** `LAB_GROUP` là **API group mới** mà lab sẽ tạo ra. Bài
-[177](../177-extend-kubernetes-vi.md) nói rõ ở mục *Thay đổi các resource có sẵn*: custom resource
-luôn nằm trong một API group mới, và bạn **không thay thế hay thay đổi được API group hiện có**.
-Cả lab này quay quanh đúng câu đó — cuối B3 bạn sẽ thấy `lab14.example.com` xuất hiện cạnh `apps`
-và `batch` trong `kubectl api-resources`, còn nội dung của `apps` thì không hề đổi.
-
-Tên miền `example.com` được dùng vì nó là miền dành riêng cho ví dụ, không ai sở hữu thật. Trên
-cluster thật, dùng miền của tổ chức bạn.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B0.2. Tồn kho "trước" của object phạm vi cluster
-
-Đây là bốn con số mà B11 sẽ so lại. Đọc chúng **trước khi** tạo bất cứ thứ gì:
-
-```bash
-CRD_N0="$(kubectl get crd --no-headers | wc -l)"
-CR_N0="$(kubectl get clusterrole --no-headers | wc -l)"
-CRB_N0="$(kubectl get clusterrolebinding --no-headers | wc -l)"
-APISVC_N0="$(kubectl get apiservice --no-headers | wc -l)"
-DEPLOY_N0="$(kubectl get deployments -A --no-headers | wc -l)"
-POD_N0="$(kubectl get pods -A --no-headers | wc -l)"
-
-{
-  echo "=== $(date -Is) — ton kho pham vi cluster truoc Lab 14 ==="
-  echo "crd=$CRD_N0 clusterrole=$CR_N0 clusterrolebinding=$CRB_N0 apiservice=$APISVC_N0"
-  echo "deployment toan cluster=$DEPLOY_N0 | pod toan cluster=$POD_N0"
-  echo '--- crd dang co, kem API group va scope ---'
-  kubectl get crd -o custom-columns='NAME:.metadata.name,GROUP:.spec.group,SCOPE:.spec.scope' \
-    --no-headers | sort
-  echo '--- object pham vi cluster mang label lab=14 ---'
-  kubectl get crd,clusterrole,clusterrolebinding -l lab=14 2>&1
-} | tee "$EV/b0-truoc.txt"
-```
-
-```bash
-test "$CRD_N0" -gt 0 \
-  && echo 'PASS: cluster da co CRD tu truoc lab nay — B1 se goi ten chung'
-test "$CR_N0" -gt 0 && test "$CRB_N0" -gt 0 && test "$APISVC_N0" -gt 0 \
-  && echo 'PASS: doc duoc ca ba con so ClusterRole, ClusterRoleBinding va APIService'
-test -z "$(kubectl get crd,clusterrole,clusterrolebinding -l lab=14 -o name 2>/dev/null)" \
-  && echo 'PASS: chua object pham vi cluster nao mang label lab=14'
-```
-
-**Ý nghĩa:** con số `CRD_N0` lớn hơn 0 **trước khi bạn làm gì** chính là bài học đầu tiên của giai
-đoạn 14: bạn đã dùng cơ chế CRD từ Lab 5b và Lab 6a mà chưa gọi tên nó. B1.1 sẽ mở danh sách này
-ra xem từng cái đến từ đâu.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B0.3. Ảnh chụp "trước" của hạ tầng mốc `04-metrics-ready`
-
-```bash
-{
-  echo "=== $(date -Is) — ha tang moc 04-metrics-ready truoc Lab 14 ==="
-  echo '--- storageclass';  kubectl get storageclass -o wide 2>&1
-  echo '--- ingressclass';  kubectl get ingressclass 2>&1
-  echo '--- apiservice metrics'; kubectl get apiservice v1beta1.metrics.k8s.io 2>&1
-  echo '--- persistentvolume'; kubectl get pv 2>&1
-  echo '--- namespaces';    kubectl get namespaces
-} | tee "$EV/b0-hatang-truoc.txt"
-
-SC_NAME="$(kubectl get storageclass \
-  -o jsonpath='{range .items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")]}{.metadata.name}{"\n"}{end}')"
-SC_PROV="$(kubectl get storageclass "$SC_NAME" -o jsonpath='{.provisioner}')"
-MS_AVAIL0="$(kubectl get apiservice v1beta1.metrics.k8s.io \
-  -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')"
-echo "storageclass mac dinh=$SC_NAME | provisioner=$SC_PROV | metrics Available=$MS_AVAIL0"
-
-test -n "$SC_NAME" && test -n "$SC_PROV" \
-  && echo 'PASS: doc duoc ten StorageClass mac dinh va ten provisioner cua no'
-test "$MS_AVAIL0" = 'True' \
-  && echo 'PASS: APIService cua metrics-server dang Available — dung moc dau vao'
-```
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện. Nếu `MS_AVAIL0` không phải `True` thì cluster
-chưa ở `04-metrics-ready`; dừng lại và restore trước khi đi tiếp.
-
-### B0.4. Checksum cấu hình node và control plane
-
-Lab 14 hứa **chỉ đọc** cấu hình kubelet và control plane. Chụp checksum ngay bây giờ để B11.4 biến
-lời hứa đó thành thứ kiểm chứng được, đúng cách
-[Lab 7b](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md#b92-gate-quan-trọng-nhất-của-lab-cấu-hình-node-không-đổi)
-đã làm:
-
-```bash
-{
-  echo "$MASTER kubelet $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
-  for n in "$W1" "$W2"; do
-    echo "$n kubelet $(ssh "$n" 'sudo sha256sum /var/lib/kubelet/config.yaml' | awk '{print $1}')"
-  done
-  for f in kube-apiserver kube-scheduler kube-controller-manager; do
-    echo "$MASTER $f $(sudo sha256sum /etc/kubernetes/manifests/$f.yaml | awk '{print $1}')"
-  done
-} | tee "$EV/b0-config-sha.txt"
-
-test "$(wc -l < "$EV/b0-config-sha.txt")" -eq 6 \
-  && test "$(awk '{print $3}' "$EV/b0-config-sha.txt" | grep -c '^[0-9a-f]\{64\}$')" -eq 6 \
-  && echo 'PASS: ghi duoc checksum cua sau file cau hinh'
-```
-
-**Ý nghĩa:** cám dỗ lớn nhất của B10 là "bật thử Topology Manager policy khác `none` để xem bài
-[313](../313-debug-topology-vi.md) nói gì". Sáu dòng checksum này chặn đúng cám dỗ đó.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B1. Bản đồ điểm mở rộng, đọc trên chính cluster của bạn
-
-**Mục đích:** dựng lại bảy điểm mở rộng của mục *Chú giải cho hình vẽ* trong bài
-[177](../177-extend-kubernetes-vi.md) bằng lệnh, rồi tìm cho mỗi điểm một hiện vật có thật trên
-cluster này. Đây là mục **tổng hợp**: cuối B1 bạn sẽ chỉ ra được bốn điểm mở rộng khác nhau mà
-cluster của bạn đã dùng suốt từ Lab 5b tới Lab 11a.
-
-Toàn bộ B1 **chỉ đọc**. Không lệnh nào ở đây tạo, sửa hay xóa object.
-
-### B1.1. Điểm 1, 2 và 3 — client, truy cập API, và loại resource
-
-```bash
-{
-  echo '=== diem 1 — phan mo rong phia client (kubectl plugin) ==='
-  kubectl plugin list 2>&1
-  echo '=== diem 2 — phan mo rong truy cap API (admission webhook) ==='
-  kubectl get validatingwebhookconfigurations 2>&1
-  kubectl get mutatingwebhookconfigurations 2>&1
-  echo '=== diem 3 — loai resource: CRD dang co ==='
-  kubectl get crd -o custom-columns='NAME:.metadata.name,GROUP:.spec.group,SCOPE:.spec.scope' \
-    --no-headers | sort
-} | tee "$EV/b1-diem-1-2-3.txt"
-
-PLUGIN_N="$(kubectl plugin list 2>/dev/null | grep -c '^/')"
-VWH_N="$(kubectl get validatingwebhookconfigurations --no-headers 2>/dev/null | wc -l)"
-MWH_N="$(kubectl get mutatingwebhookconfigurations --no-headers 2>/dev/null | wc -l)"
-GROUP_N="$(kubectl get crd -o jsonpath='{range .items[*]}{.spec.group}{"\n"}{end}' | sort -u | wc -l)"
-echo "kubectl plugin=$PLUGIN_N | validating webhook=$VWH_N | mutating webhook=$MWH_N"
-echo "so API group do CRD tao ra=$GROUP_N"
-```
-
-```bash
-test "$PLUGIN_N" -eq 0 \
-  && echo 'PASS: diem mo rong phia client dang trong — chua ai cai kubectl plugin nao'
-test "$GROUP_N" -ge 1 \
-  && echo 'PASS: diem mo rong loai resource DA duoc dung — cluster co API group do CRD tao'
-kubectl get crd -o jsonpath='{range .items[*]}{.spec.group}{"\n"}{end}' | sort -u \
-  | tee "$EV/b1-crd-groups.txt"
-test "$(wc -l < "$EV/b1-crd-groups.txt")" -eq "$GROUP_N" \
-  && echo 'PASS: ghi duoc danh sach API group do CRD tao ra'
-```
-
-**Ý nghĩa:** ba điểm đầu của chú giải hình vẽ ứng với ba câu hỏi khác nhau. Điểm 1 hỏi *client có
-được tùy biến không* — ở đây là không, và bài nói rõ phần mở rộng phía client "chỉ ảnh hưởng đến
-môi trường cục bộ của từng người dùng, do đó không thể áp đặt các policy cho toàn hệ thống". Điểm
-2 hỏi *có ai chặn hay sửa request theo nội dung không* — đây là chỗ duy nhất tác động được lên
-hành vi của các API **có sẵn** như Pod. Điểm 3 hỏi *API server đang phục vụ những loại resource
-nào*, và danh sách CRD ở trên là câu trả lời: mỗi API group trong `b1-crd-groups.txt` là một
-add-on đã thêm kiểu resource của riêng nó vào cluster của bạn.
-
-Nếu `VWH_N` hoặc `MWH_N` khác 0, mở `b1-diem-1-2-3.txt` và đọc tên chúng: đó là add-on đang dùng
-điểm mở rộng số 2. Nếu cả hai bằng 0 thì cluster này chưa dùng điểm đó — cả hai kết quả đều hợp
-lệ, tùy add-on bạn đã cài ở Lab 5b và Lab 8.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B1.2. Điểm 5, 6 và 7 — controller, network plugin, device và storage plugin
-
-Đây là ba nhóm mà bài [182](../182-compute-storage-net-vi.md) gọi là *phần mở rộng hạ tầng*. Đọc
-từng nhóm trên cluster thật:
-
-```bash
-{
-  echo '=== diem 6 — network plugin: cau hinh CNI that tren node ==='
-  ssh "$W2" 'ls -1 /etc/cni/net.d/'
-  ssh "$W2" 'ls -1 /opt/cni/bin/ | head -20'
-  echo '=== diem 7a — device plugin: thu muc dang ky cua kubelet ==='
-  ssh "$W2" 'sudo ls -l /var/lib/kubelet/device-plugins/'
-  echo '=== diem 7b — storage plugin: CSI driver dang dang ky ==='
-  kubectl get csidrivers 2>&1
-  echo '=== diem 5 — controller: provisioner cua StorageClass mac dinh ==='
-  kubectl get storageclass "$SC_NAME" -o yaml | grep -E '^provisioner:|^volumeBindingMode:'
-} | tee "$EV/b1-diem-5-6-7.txt"
-```
-
-Phân loại provisioner: nó là **CSI driver** (điểm 7) hay chỉ là một **controller** (điểm 5)?
-
-```bash
-CSI_N="$(kubectl get csidrivers --no-headers 2>/dev/null | wc -l)"
-if kubectl get csidriver "$SC_PROV" >/dev/null 2>&1; then IS_CSI=co; else IS_CSI=khong; fi
-echo "so CSIDriver dang dang ky=$CSI_N | provisioner '$SC_PROV' co la CSIDriver khong: $IS_CSI"
-
-test "$IS_CSI" = 'khong' \
-  && echo "PASS: '$SC_PROV' khong nam trong danh sach CSIDriver — no la controller, khong phai storage plugin"
-```
-
-```bash
-CNI_CONF="$(ssh "$W2" 'ls -1 /etc/cni/net.d/ | wc -l')"
-DP_SOCK="$(ssh "$W2" 'sudo test -S /var/lib/kubelet/device-plugins/kubelet.sock && echo co || echo khong')"
-echo "so file cau hinh CNI tren $W2=$CNI_CONF | socket dang ky device plugin: $DP_SOCK"
-
-test "$CNI_CONF" -ge 1 \
-  && echo 'PASS: diem mo rong network plugin DA duoc dung — node co cau hinh CNI that'
-test "$DP_SOCK" = 'co' \
-  && echo 'PASS: kubelet co san socket dang ky device plugin, nhung chua plugin nao dung toi no'
-```
-
-**Ý nghĩa:** ba kết quả này tách bạch đúng ba nhóm của bài [182](../182-compute-storage-net-vi.md).
-
-- **Network plugin là nhóm bắt buộc.** Bài viết cluster "cần" một network plugin để có mạng Pod
-  hoạt động. File conflist trên node là hiện vật; gỡ nó ra thì Pod không có mạng.
-- **Device plugin là nhóm bổ sung.** Socket `kubelet.sock` có sẵn vì kubelet luôn phơi ra dịch vụ
-  gRPC `Registration`; nhưng chưa plugin nào tự đăng ký, nên node không công bố thiết bị nào. B10
-  quay lại chỗ này với `Capacity` và `Allocatable`.
-- **Provisioner của bạn không phải storage plugin.** Đây là chỗ dễ nhầm nhất của B1: bài
-  [177](../177-extend-kubernetes-vi.md) xếp CSI vào điểm 7 — binary plugin do **kubelet** thực thi
-  để mount volume. Provisioner mặc định của cluster này không có mặt trong `kubectl get csidrivers`,
-  nghĩa là nó không phải CSI driver; nó là một **Pod thường xuyên watch PersistentVolumeClaim rồi
-  tạo PersistentVolume** — tức mẫu **controller**, điểm mở rộng số 5. Đây cũng chính là lý do
-  [nợ #5](README.md#5-sổ-nợ-lab) — snapshot volume — chưa trả được: không có CSI driver thì không
-  có snapshot.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B1.3. Ranh giới webhook so với binary plugin
-
-Bài [177](../177-extend-kubernetes-vi.md) chia mọi lời gọi ra ngoài thành hai mô hình, khác nhau ở
-chỗ **Kubernetes gọi qua mạng hay thực thi một chương trình nhị phân**. Điền bảng dưới đây bằng
-chính output bạn vừa ghi:
-
-| Thành phần trên cluster này | Mô hình | Bên gọi | Điểm mở rộng |
-| --- | --- | --- | --- |
-| CNI plugin trong `/opt/cni/bin/` | binary plugin | kubelet | 6 |
-| Admission webhook (nếu `VWH_N` hoặc `MWH_N` khác 0) | webhook | kube-apiserver | 2 |
-| Extension API server của metrics-server | webhook (request mạng qua tầng tổng hợp) | kube-apiserver | 3 |
-| Provisioner của StorageClass | không phải cả hai — nó là **client** của API server | chính nó gọi vào API server | 5 |
-
-```bash
-CNI_BIN="$(ssh "$W2" 'ls -1 /opt/cni/bin/ | wc -l')"
-echo "so binary CNI tren $W2=$CNI_BIN"
-test "$CNI_BIN" -ge 1 \
-  && echo 'PASS: mo hinh binary plugin ton tai that — co file thuc thi tren dia cua node'
-test "$MS_AVAIL0" = 'True' \
-  && echo 'PASS: mo hinh goi qua mang ton tai that — metrics-server tra loi qua tang tong hop'
-```
-
-**Ý nghĩa:** hàng thứ tư là hàng đáng nhớ nhất. Controller **không** nằm trong hai mô hình kia:
-Kubernetes không gọi nó, nó gọi Kubernetes. Đó là lý do bài xếp controller thành một điểm mở rộng
-riêng và cũng là lý do một controller **không thêm điểm lỗi vào đường xử lý request** — nếu
-provisioner chết, API server vẫn nhận PVC bình thường, chỉ là không ai đáp ứng. Ngược lại, một
-admission webhook chết có thể chặn đứng mọi thao tác ghi.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B1.4. Chốt: bốn điểm mở rộng cluster của bạn đã dùng
-
-```bash
-{
-  echo "=== $(date -Is) — bon diem mo rong cluster nay dang dung ==="
-  echo "1) diem 6 — network plugin (CNI): $CNI_CONF file cau hinh, $CNI_BIN binary tren $W2"
-  echo "2) diem 3 — tang tong hop API: apiservice v1beta1.metrics.k8s.io, Available=$MS_AVAIL0"
-  echo "3) diem 3 — custom resource: $CRD_N0 CRD thuoc $GROUP_N API group"
-  echo "4) diem 5 — mau controller: provisioner '$SC_PROV' cua storageclass '$SC_NAME'"
-  echo "diem 1 (client) = trong | diem 4 (scheduler) = chi co scheduler mac dinh"
-  echo "diem 7 (device plugin) = trong, socket dang ky co san"
-} | tee "$EV/b1-bon-diem.txt"
-
-SCHED_N="$(kubectl -n kube-system get pods -l component=kube-scheduler --no-headers 2>/dev/null | wc -l)"
-echo "so Pod kube-scheduler=$SCHED_N"
-
-test "$CNI_CONF" -ge 1 && test "$MS_AVAIL0" = 'True' \
-  && test "$CRD_N0" -gt 0 && test -n "$SC_PROV" \
-  && echo 'PASS: chung minh duoc bon diem mo rong khac nhau dang duoc dung tren cluster nay'
-test "$SCHED_N" -ge 1 \
-  && echo 'PASS: diem mo rong lap lich chi co scheduler mac dinh — khong scheduler thu hai nao'
-```
-
-**Ý nghĩa:** đây là câu trả lời cho câu hỏi mở đầu bài [177](../177-extend-kubernetes-vi.md): "mỗi
-thứ bạn đã cài nằm ở ô nào trên bản đồ". Bạn chưa viết dòng mã mở rộng nào, nhưng cluster của bạn
-đã dùng bốn ô khác nhau. Phần còn lại của lab đi vào ô số ba — ô mà bạn **tự** thêm được mà không
-cần lập trình.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B2. Đúng hai cách thêm custom resource, đo trên cluster thật
-
-**Mục đích:** kiểm chứng câu trung tâm của bài [178](../178-api-extension-vi.md) — có **đúng hai**
-cách — và câu phân biệt của bài [180](../180-apiserver-aggregation-vi.md): CRD làm kube-apiserver
-**tự phục vụ** kind mới, còn tầng tổng hợp làm kube-apiserver **chuyển tiếp** sang server khác.
-
-### B2.1. Phân loại toàn bộ APIService của cluster
-
-```bash
-kubectl get apiservice \
-  -o custom-columns='NAME:.metadata.name,SVC:.spec.service.name,SVCNS:.spec.service.namespace' \
-  --no-headers | tee "$EV/b2-apiservice.txt"
-
-PROXY_N="$(awk '$2 != "<none>"' "$EV/b2-apiservice.txt" | wc -l)"
-LOCAL_N="$(awk '$2 == "<none>"' "$EV/b2-apiservice.txt" | wc -l)"
-echo "apiservice duoc proxy sang mot Service=$PROXY_N | apiservice do kube-apiserver tu phuc vu=$LOCAL_N"
-awk '$2 != "<none>"' "$EV/b2-apiservice.txt" | tee "$EV/b2-apiservice-proxy.txt"
-```
-
-```bash
-test "$PROXY_N" -ge 1 \
-  && echo 'PASS: co it nhat mot API duoc proxy — tang tong hop dang lam viec that'
-test "$LOCAL_N" -gt "$PROXY_N" \
-  && echo 'PASS: phan lon API van do chinh kube-apiserver phuc vu'
-grep -q 'metrics.k8s.io' "$EV/b2-apiservice-proxy.txt" \
-  && echo 'PASS: API duoc proxy chinh la cua metrics-server'
-```
-
-**Ý nghĩa:** bài [180](../180-apiserver-aggregation-vi.md) nói tầng tổng hợp "chạy trong cùng tiến
-trình với kube-apiserver" và "cho tới khi có một extension resource được đăng ký, nó không làm gì
-cả". Cột `SVC` là chỗ phân biệt: `<none>` nghĩa là APIService đó chỉ **khai báo** một đường dẫn do
-chính kube-apiserver phục vụ; có tên Service nghĩa là mọi request tới đường dẫn ấy bị **chuyển
-tiếp** sang Pod đứng sau Service đó.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B2.2. Đi thẳng vào đường proxy
-
-```bash
-MS_SVC="$(awk '$1 ~ /metrics.k8s.io/ {print $3"/"$2}' "$EV/b2-apiservice.txt")"
-echo "metrics-server dung sau Service: $MS_SVC"
-
-kubectl get --raw '/apis/metrics.k8s.io/v1beta1' | tee "$EV/b2-metrics-discovery.json"
-echo
-kubectl get --raw '/apis/metrics.k8s.io/v1beta1/nodes' > "$EV/b2-metrics-nodes.json"
-wc -c "$EV/b2-metrics-nodes.json"
-```
-
-```bash
-grep -q 'APIResourceList' "$EV/b2-metrics-discovery.json" \
-  && echo 'PASS: duong dan /apis/metrics.k8s.io/v1beta1 tra ve danh sach resource that'
-grep -q 'NodeMetricsList' "$EV/b2-metrics-nodes.json" \
-  && echo 'PASS: du lieu tra ve duoc sinh ra tai thoi diem hoi, boi mot server rieng'
-MS_POD_N="$(kubectl -n kube-system get pods -l k8s-app=metrics-server --no-headers 2>/dev/null | wc -l)"
-echo "so Pod metrics-server dang chay=$MS_POD_N"
-test "$MS_POD_N" -ge 1 \
-  && echo 'PASS: co tien trinh that dung sau API nay — do la "dich vu co the hong" cua bang so sanh'
-```
-
-**Ý nghĩa:** đây là ô "Aggregated API" trong bảng *So sánh mức độ dễ dùng* của bài
-[179](../179-custom-resources-vi.md), nhìn thấy được: "có thêm một dịch vụ phải tạo ra và dịch vụ
-đó có thể hỏng". Bạn đã chứng kiến đúng điều đó ở
-[Lab 11a phần B5](LAB-11A-OBSERVABILITY.md#b5-cài-metrics-server-và-chữa-lỗi-certificate), khi
-APIService ở trạng thái `Available=False` cho tới lúc Pod metrics-server chạy được.
-
-Chú ý điều `metrics.k8s.io` **không** làm: nó không lưu gì cả. Metric là dữ liệu được tính ra tại
-thời điểm hỏi. Đó là lý do nó không thể là một CRD — CRD chỉ giúp kube-apiserver **nhận biết và
-lưu trữ** kind mới.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B2.3. API group của CRD cũng có APIService — nhưng không có server nào phía sau
-
-```bash
-for g in $(cat "$EV/b1-crd-groups.txt"); do
-  echo "--- API group $g ---"
-  grep -E "\.${g}\b" "$EV/b2-apiservice.txt" || echo "  (khong co apiservice nao cho group nay)"
-done | tee "$EV/b2-crd-group-apiservice.txt"
-
-CRD_PROXY_N="$(awk '$2 != "<none>"' "$EV/b2-apiservice.txt" \
-  | grep -cFf "$EV/b1-crd-groups.txt" || true)"
-echo "so API group cua CRD duoc proxy sang mot Service = $CRD_PROXY_N"
-
-test "$CRD_PROXY_N" -eq 0 \
-  && echo 'PASS: khong API group nao cua CRD can toi mot API server rieng'
-```
-
-**Ý nghĩa:** kube-apiserver **tự** đăng ký một APIService cho mỗi API group mà nó phục vụ, kể cả
-group do CRD sinh ra. Vì thế tên group của CRD có thể xuất hiện trong `kubectl get apiservice` —
-nhưng luôn với `.spec.service` **rỗng**. Đó chính là ranh giới bài
-[178](../178-api-extension-vi.md) mô tả bằng hai vế: với CRD, "control plane của Kubernetes phục vụ
-và đảm nhận việc lưu trữ"; với tầng tổng hợp, "bạn viết và triển khai API server của riêng mình".
-
-Nếu output ghi "(khong co apiservice nao cho group nay)" cho mọi group thì kết luận **không đổi**:
-vẫn không có server riêng nào. Gate ở trên đúng trong cả hai trường hợp.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B3. CRD đầu tiên: tạo, đăng ký, đọc lại
-
-**Mục đích:** làm đúng checkpoint của
-[giai đoạn 14](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) — tạo một CRD, apply một
-custom resource, đọc lại bằng `kubectl get` — và hiểu ba thứ xảy ra sau lưng: endpoint REST mới,
-điều kiện `Established`, và cache discovery của `kubectl`.
-
-### B3.1. Viết và apply CustomResourceDefinition
-
-CRD ở bước này cố tình **tối giản**: chỉ có group, scope, names và schema. B4, B5 và B7 lần lượt
-thêm ba lớp còn lại, mỗi lớp một mục để đo được nó thay đổi gì.
-
-```bash
-cat > "$WK/b3-crd-webpage.yaml" <<EOF
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  # name bat buoc phai la <plural>.<group>
-  name: webpages.${LAB_GROUP}
-  labels:
-    lab: "14"
-spec:
-  group: ${LAB_GROUP}
-  scope: Namespaced
-  names:
-    plural: webpages
-    singular: webpage
-    kind: WebPage
-  versions:
-  - name: v1
-    served: true
-    storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        properties:
-          spec:
-            type: object
-            properties:
-              message:
-                type: string
-              size:
-                type: integer
-          status:
-            type: object
-            properties:
-              phase:
-                type: string
-              observedGeneration:
-                type: integer
-              configMap:
-                type: string
-EOF
-
-kubectl apply --dry-run=server --validate=strict -f "$WK/b3-crd-webpage.yaml"
-kubectl apply -f "$WK/b3-crd-webpage.yaml"
-```
-
-```bash
-kubectl wait --for=condition=Established --timeout=120s "crd/webpages.${LAB_GROUP}"
-kubectl get "crd/webpages.${LAB_GROUP}" \
-  -o jsonpath='Established={.status.conditions[?(@.type=="Established")].status}{"\n"}NamesAccepted={.status.conditions[?(@.type=="NamesAccepted")].status}{"\n"}acceptedKind={.status.acceptedNames.kind}{"\n"}acceptedPlural={.status.acceptedNames.plural}{"\n"}storedVersions={.status.storedVersions}{"\n"}' \
-  | tee "$EV/b3-crd-status.txt"
-
-EST="$(kubectl get "crd/webpages.${LAB_GROUP}" \
-  -o jsonpath='{.status.conditions[?(@.type=="Established")].status}')"
-NAMES_OK="$(kubectl get "crd/webpages.${LAB_GROUP}" \
-  -o jsonpath='{.status.conditions[?(@.type=="NamesAccepted")].status}')"
-test "$EST" = 'True' && echo 'PASS: CRD da Established — endpoint REST moi da san sang'
-test "$NAMES_OK" = 'True' \
-  && echo 'PASS: NamesAccepted=True — khong ten nao xung dot voi resource dang co'
-```
-
-**Ý nghĩa:** `--dry-run=server --validate=strict` gửi manifest lên API server để kiểm mà không ghi
-gì; đây là thói quen đúng với mọi object phạm vi cluster. Hai condition trong `status` trả lời hai
-câu hỏi khác nhau: `NamesAccepted` nói *tên bạn xin có bị trùng không*, còn `Established` nói
-*endpoint đã phục vụ được chưa*. Chỉ khi `Established=True` mới có gì để `kubectl get`.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B3.2. Endpoint REST mới, và cache discovery của `kubectl`
-
-Hỏi thẳng API server — đường này **không** đi qua cache nào của client:
-
-```bash
-kubectl get --raw "/apis/${LAB_GROUP}" | tee "$EV/b3-group-discovery.json"
-echo
-kubectl get --raw "/apis/${LAB_GROUP}/v1" | tee "$EV/b3-version-discovery.json"
-echo
-
-grep -q "\"name\":\"webpages\"" "$EV/b3-version-discovery.json" \
-  && echo 'PASS: API server da phuc vu resource webpages tai /apis/'"$LAB_GROUP"'/v1'
-grep -q '"namespaced":true' "$EV/b3-version-discovery.json" \
-  && echo 'PASS: resource moi duoc khai bao la namespaced, dung nhu spec.scope'
-```
-
-Bây giờ mới tới lượt `kubectl`. Nó giữ một **cache discovery phía client** ở `~/.kube/cache`, nên
-kiểu vừa tạo có thể chưa xuất hiện ngay. Cách xử lý là **làm mới cache**, không phải chờ:
-
-```bash
-# Cache discovery la file cua client, xoa duoc an toan; kubectl tu dung lai o lan goi sau.
-rm -rf ~/.kube/cache/discovery
-kubectl api-resources --api-group="$LAB_GROUP" | tee "$EV/b3-api-resources.txt"
-
-test "$(grep -c 'WebPage' "$EV/b3-api-resources.txt")" -ge 1 \
-  && echo 'PASS: kubectl da nhin thay kind WebPage trong API group moi'
-```
-
-**Ý nghĩa:** hai lệnh `--raw` hỏi trực tiếp API server; `kubectl api-resources` đi qua cache. Phân
-biệt được hai đường này là thứ cứu bạn khỏi kết luận sai "CRD chưa được tạo" khi thực ra chỉ là
-client chưa làm mới danh sách kiểu. **Thời gian sống của cache phụ thuộc cấu hình `kubectl`**, nên
-lab không nêu con số; nó xóa cache để kết quả xác định. Xem thêm
-[mục 4](#4-troubleshooting-của-lab-này).
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B3.3. Apply custom resource đầu tiên và đọc lại
-
-```bash
-cat > "$WK/b3-cr-trang-a.yaml" <<EOF
-apiVersion: ${LAB_GROUP}/v1
-kind: WebPage
-metadata:
-  name: trang-a
-  namespace: ${NS}
-  labels:
-    lab: "14"
-spec:
-  message: Xin chao tu custom resource
-  size: 2
-EOF
-
-kubectl apply --dry-run=server --validate=strict -f "$WK/b3-cr-trang-a.yaml"
-kubectl apply -f "$WK/b3-cr-trang-a.yaml"
-
-kubectl get webpages -n "$NS" | tee "$EV/b3-get-webpages.txt"
-kubectl get webpage trang-a -n "$NS" -o yaml | tee "$EV/b3-cr-doc-lai.yaml"
-```
-
-```bash
-MSG_BACK="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.spec.message}')"
-SIZE_BACK="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.spec.size}')"
-UID_BACK="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.metadata.uid}')"
-echo "message=$MSG_BACK | size=$SIZE_BACK | uid co dai=$(printf '%s' "$UID_BACK" | wc -c)"
-
-test "$MSG_BACK" = 'Xin chao tu custom resource' \
-  && echo 'PASS: doc lai dung gia tri da apply — API server luu tru custom resource that'
-test "$SIZE_BACK" -eq 2 \
-  && echo 'PASS: truong so nguyen giu dung kieu, khong bi bien thanh chuoi'
-test -n "$UID_BACK" \
-  && echo 'PASS: object co uid do API server cap — no la object day du, khong phai mot manh YAML'
-```
-
-**Ý nghĩa:** đây là **checkpoint của giai đoạn 14, làm xong**. Chú ý những gì bạn nhận được miễn
-phí, đúng bảng *Các tính năng chung* của bài [179](../179-custom-resources-vi.md): CRUD qua HTTP và
-`kubectl`, discovery, HTTPS, xác thực và phân quyền dựng sẵn, `metadata` với `uid` và
-`resourceVersion`, label và annotation. Bạn không viết một dòng mã nào cho những thứ đó.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B3.4. Đọc theo ba bí danh, và `kubectl explain`
-
-```bash
-kubectl get webpages -n "$NS" --no-headers | wc -l
-kubectl get webpage  -n "$NS" --no-headers | wc -l
-kubectl get "webpages.${LAB_GROUP}" -n "$NS" --no-headers | wc -l
-kubectl explain webpage.spec | tee "$EV/b3-explain.txt"
-```
-
-```bash
-N1="$(kubectl get webpages -n "$NS" --no-headers | wc -l)"
-N2="$(kubectl get webpage  -n "$NS" --no-headers | wc -l)"
-N3="$(kubectl get "webpages.${LAB_GROUP}" -n "$NS" --no-headers | wc -l)"
-echo "so nhieu=$N1 | so it=$N2 | day du <plural>.<group>=$N3"
-
-test "$N1" -eq 1 && test "$N2" -eq 1 && test "$N3" -eq 1 \
-  && echo 'PASS: ba cach goi ten cung tro toi mot resource'
-grep -q 'message' "$EV/b3-explain.txt" \
-  && echo 'PASS: kubectl explain doc duoc schema — API server cong bo schema OpenAPI cua kind moi'
-```
-
-**Ý nghĩa:** dạng đầy đủ `<plural>.<group>` là dạng **không bao giờ nhập nhằng**; hãy dùng nó trong
-script và khi hai add-on cùng đặt tên một kind. `kubectl explain` chạy được là bằng chứng cho ô
-*OpenAPI Schema* trong bảng *Tính năng nâng cao* của bài [179](../179-custom-resources-vi.md):
-schema lấy động được từ server, nên client bảo vệ được người dùng khỏi gõ sai tên trường.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B3.5. CRD tạo API group mới mà không cần API server nào
-
-```bash
-DEPLOY_N1="$(kubectl get deployments -A --no-headers | wc -l)"
-POD_N1="$(kubectl get pods -A --no-headers | wc -l)"
-SVC_OF_CRD="$(kubectl get "apiservice/v1.${LAB_GROUP}" --ignore-not-found \
-  -o jsonpath='{.spec.service.name}')"
-echo "deployment: truoc=$DEPLOY_N0 sau=$DEPLOY_N1 | pod: truoc=$POD_N0 sau=$POD_N1"
-echo "apiservice cho group moi tro toi Service ten: '${SVC_OF_CRD:-<khong co>}'"
-
-test "$DEPLOY_N1" -eq "$DEPLOY_N0" && test "$POD_N1" -eq "$POD_N0" \
-  && echo 'PASS: them mot API vao cluster ma khong them Deployment hay Pod nao'
-test -z "$SVC_OF_CRD" \
-  && echo 'PASS: API group moi khong tro toi Service nao — khong co API server thu hai'
-kubectl get --raw "/apis/${LAB_GROUP}/v1/namespaces/${NS}/webpages" \
-  | grep -q 'WebPageList' \
-  && echo 'PASS: chinh kube-apiserver tra loi tren duong dan cua group moi'
-```
-
-**Ý nghĩa:** đây là **ranh giới CRD so với aggregated API**, chứng minh xong bằng ba dữ kiện. Một,
-API group mới đã tồn tại và phục vụ được. Hai, không APIService nào của nó trỏ tới một Service —
-đối chiếu với `metrics.k8s.io` ở B2.2 thì khác biệt hiện ra ngay. Ba, không Pod và không Deployment
-nào được thêm vào cluster.
-
-Đúng bảng *So sánh mức độ dễ dùng* của bài [179](../179-custom-resources-vi.md), cột CRD: "không
-đòi hỏi lập trình", "không có dịch vụ bổ sung nào phải chạy; CRD được API server xử lý". Bạn vừa
-thêm một API vào Kubernetes bằng đúng một file YAML.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B4. Schema là hợp đồng được API server cưỡng chế
-
-**Mục đích:** kiểm chứng ô *Validation* và ô *OpenAPI Schema* của bảng *Tính năng nâng cao và tính
-linh hoạt* trong bài [179](../179-custom-resources-vi.md) — hai ô mà CRD ghi "Có" và người ta hay
-tưởng là "Không". Sau mục này bạn sẽ đọc được đúng câu từ chối của API server và biết trường lạ đi
-đâu.
-
-### B4.1. Siết schema: bắt buộc, giới hạn và biểu thức chính quy
-
-Sửa CRD của B3 bằng cách thêm ràng buộc vào đúng schema cũ. Đây là một lần **cập nhật** CRD; object
-`trang-a` đã lưu **không bị kiểm lại**, vì validation chỉ chạy lúc ghi:
-
-```bash
-cat > "$WK/b4-crd-webpage.yaml" <<EOF
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: webpages.${LAB_GROUP}
-  labels:
-    lab: "14"
-spec:
-  group: ${LAB_GROUP}
-  scope: Namespaced
-  names:
-    plural: webpages
-    singular: webpage
-    kind: WebPage
-  versions:
-  - name: v1
-    served: true
-    storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        properties:
-          spec:
-            type: object
-            required: ["message"]
-            properties:
-              message:
-                type: string
-                minLength: 1
-                maxLength: 80
-                pattern: '^[A-Za-z0-9 .,-]+$'
-              size:
-                type: integer
-                minimum: 1
-                maximum: 5
-          status:
-            type: object
-            properties:
-              phase:
-                type: string
-              observedGeneration:
-                type: integer
-              configMap:
-                type: string
-EOF
-
-kubectl apply -f "$WK/b4-crd-webpage.yaml"
-kubectl wait --for=condition=Established --timeout=120s "crd/webpages.${LAB_GROUP}"
-```
-
-```bash
-REQ_OK="$(kubectl get "crd/webpages.${LAB_GROUP}" \
-  -o jsonpath='{.spec.versions[0].schema.openAPIV3Schema.properties.spec.required[0]}')"
-MAXI="$(kubectl get "crd/webpages.${LAB_GROUP}" \
-  -o jsonpath='{.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.size.maximum}')"
-echo "truong bat buoc=$REQ_OK | size.maximum=$MAXI"
-
-test "$REQ_OK" = 'message' && test "$MAXI" -eq 5 \
-  && echo 'PASS: rang buoc moi da nam trong CRD tren server'
-test "$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.spec.message}')" \
-     = 'Xin chao tu custom resource' \
-  && echo 'PASS: object da luu khong bi kiem lai — validation chi chay luc ghi'
-```
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B4.2. Ba kiểu vi phạm, ba câu từ chối khác nhau
-
-```bash
-cat > "$WK/b4-thieu-message.yaml" <<EOF
-apiVersion: ${LAB_GROUP}/v1
-kind: WebPage
-metadata:
-  name: thieu-message
-  namespace: ${NS}
-spec:
-  size: 2
-EOF
-
-cat > "$WK/b4-size-qua-lon.yaml" <<EOF
-apiVersion: ${LAB_GROUP}/v1
-kind: WebPage
-metadata:
-  name: size-qua-lon
-  namespace: ${NS}
-spec:
-  message: Trang thu nghiem
-  size: 9
-EOF
-
-cat > "$WK/b4-sai-kieu.yaml" <<EOF
-apiVersion: ${LAB_GROUP}/v1
-kind: WebPage
-metadata:
-  name: sai-kieu
-  namespace: ${NS}
-spec:
-  message: Trang thu nghiem
-  size: "hai"
-EOF
-
-for f in b4-thieu-message b4-size-qua-lon b4-sai-kieu; do
-  echo "=== $f ==="
-  kubectl apply --dry-run=server -f "$WK/$f.yaml" 2>&1
-done | tee "$EV/b4-tu-choi.txt"
-```
-
-```bash
-CREATED_N="$(kubectl get webpages -n "$NS" --no-headers | wc -l)"
-echo "so WebPage dang co sau ba lan thu=$CREATED_N"
-
-grep -qi 'required' "$EV/b4-tu-choi.txt" \
-  && echo 'PASS: thieu truong bat buoc bi tu choi, thong bao noi ro Required'
-grep -q 'spec.size' "$EV/b4-tu-choi.txt" \
-  && echo 'PASS: thong bao goi dung duong dan truong sai la spec.size'
-grep -qi 'integer' "$EV/b4-tu-choi.txt" \
-  && echo 'PASS: sai kieu du lieu bi bat, thong bao nhac dung kieu mong doi la integer'
-test "$CREATED_N" -eq 1 \
-  && echo 'PASS: khong object hong nao duoc tao — --dry-run=server kiem ma khong ghi'
-```
-
-**Ý nghĩa:** cả ba câu từ chối đến từ **API server**, không phải từ `kubectl`. Đó là điều làm
-validation của CRD khác hẳn việc tự kiểm trong ứng dụng: mọi client đều bị chặn như nhau, kể cả
-client gọi thẳng REST. Bài [179](../179-custom-resources-vi.md) đặt điểm này ở ngay đầu ô
-*Validation*: nó "cho phép bạn phát triển API độc lập với các client của mình".
-
-Chú ý `--dry-run=server`: request đi trọn đường qua xác thực, phân quyền, admission và validation
-rồi bị vứt bỏ trước khi ghi. Đây là cách an toàn để kiểm một manifest trên cluster thật.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
-### B4.3. Trường lạ: bị từ chối hay bị cắt tỉa?
-
-```bash
-cat > "$WK/b4-truong-la.yaml" <<EOF
-apiVersion: ${LAB_GROUP}/v1
-kind: WebPage
-metadata:
-  name: trang-la
-  namespace: ${NS}
-  labels:
-    lab: "14"
-spec:
-  message: Trang co truong la
-  size: 1
-  mauNen: xanh
-EOF
-
-echo '=== apply mac dinh (validate=strict) ==='
-kubectl apply -f "$WK/b4-truong-la.yaml" 2>&1 | tee "$EV/b4-truong-la-strict.txt"
-echo '=== apply voi validate=ignore ==='
-kubectl apply --validate=ignore -f "$WK/b4-truong-la.yaml" 2>&1 \
-  | tee "$EV/b4-truong-la-ignore.txt"
-```
-
-```bash
-MAU="$(kubectl get webpage trang-la -n "$NS" -o jsonpath='{.spec.mauNen}')"
-MSG_LA="$(kubectl get webpage trang-la -n "$NS" -o jsonpath='{.spec.message}')"
-echo "spec.mauNen doc lai duoc: '${MAU:-<rong>}' | spec.message='$MSG_LA'"
-
-grep -qi 'unknown field' "$EV/b4-truong-la-strict.txt" \
-  && echo 'PASS: che do strict tu choi truong la thay vi im lang bo qua'
-test -n "$MSG_LA" \
-  && echo 'PASS: voi validate=ignore, object van duoc tao'
-test -z "$MAU" \
-  && echo 'PASS: truong la KHONG duoc luu — API server da cat tia no khoi object'
-```
-
-**Ý nghĩa:** hai hành vi khác nhau ở hai tầng khác nhau, và lẫn lộn chúng là lỗi kinh điển.
-
-- `--validate=strict` là **kiểm tra trường**: request bị từ chối vì bạn gõ một tên không có trong
-  schema. Đây là lá chắn chống gõ sai — đúng câu hỏi mà ô *OpenAPI Schema* của bài
-  [179](../179-custom-resources-vi.md) đặt ra: "người dùng có được bảo vệ khỏi việc gõ sai tên
-  trường bằng cách chỉ cho phép đặt các trường hợp lệ hay không".
-- **Cắt tỉa trường** là hành vi lưu trữ: nếu request lọt qua, mọi trường không khai trong schema bị
-  **bỏ đi trước khi ghi**. Custom resource **không** phải chỗ nhét dữ liệu tùy ý; schema là ranh
-  giới của những gì tồn tại.
-
-Hệ quả vận hành: một trường bạn quên khai trong schema sẽ **biến mất im lặng** với client dùng
-`--validate=ignore`. Đó là lý do lúc thiết kế CRD, schema phải viết trước, không phải viết sau.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-```bash
-kubectl delete webpage trang-la -n "$NS"
-test "$(kubectl get webpages -n "$NS" --no-headers | wc -l)" -eq 1 \
-  && echo 'PASS: da don object thu nghiem cua B4, chi con trang-a'
-```
-
-**PASS:** dòng `PASS:` trên xuất hiện.
-
----
-
-## B5. Bề mặt CLI của một kind mới
-
-**Mục đích:** chứng minh `shortNames`, `categories` và `additionalPrinterColumns` là thuộc tính của
-**server**, không phải mẹo của `kubectl`, và đo được chúng đổi gì. Ba trường này là thứ khiến một
-custom resource "trông như resource dựng sẵn" — đúng dòng của bài
-[179](../179-custom-resources-vi.md): "bạn muốn `kubectl` hỗ trợ ở mức cao nhất".
-
-### B5.1. Ảnh chụp "trước" của output `kubectl get`
-
-```bash
-kubectl get webpages -n "$NS" | tee "$EV/b5-get-truoc.txt"
-COL_TRUOC="$(head -1 "$EV/b5-get-truoc.txt" | wc -w)"
-echo "so cot truoc khi them printer column=$COL_TRUOC"
-
-test "$COL_TRUOC" -eq 2 \
-  && echo 'PASS: mac dinh chi co hai cot NAME va AGE'
-kubectl get wp -n "$NS" 2>&1 | tee "$EV/b5-shortname-truoc.txt"
-grep -qi 'error\|the server doesn' "$EV/b5-shortname-truoc.txt" \
-  && echo 'PASS: bi danh wp chua ton tai — chua khai shortNames'
-```
-
-**Ý nghĩa:** `kubectl` **không** tự bịa ra cột. Bài [378](../378-custom-resource-definitions-vi.md)
-nói thẳng ở mục *Cột hiển thị bổ sung*: "API server của cluster quyết định những cột nào được hiển
-thị bởi lệnh `kubectl get`". Hai cột `NAME` và `AGE` là mặc định của server cho mọi kind chưa khai
-cột riêng.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B5.2. Thêm `shortNames`, `categories` và `additionalPrinterColumns`
-
-```bash
-cat > "$WK/b5-crd-webpage.yaml" <<EOF
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: webpages.${LAB_GROUP}
-  labels:
-    lab: "14"
-spec:
-  group: ${LAB_GROUP}
-  scope: Namespaced
-  names:
-    plural: webpages
-    singular: webpage
-    kind: WebPage
-    shortNames:
-    - wp
-    categories:
-    - lab14
-  versions:
-  - name: v1
-    served: true
-    storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        properties:
-          spec:
-            type: object
-            required: ["message"]
-            properties:
-              message:
-                type: string
-                minLength: 1
-                maxLength: 80
-                pattern: '^[A-Za-z0-9 .,-]+$'
-              size:
-                type: integer
-                minimum: 1
-                maximum: 5
-          status:
-            type: object
-            properties:
-              phase:
-                type: string
-              observedGeneration:
-                type: integer
-              configMap:
-                type: string
-    additionalPrinterColumns:
-    - name: Message
-      type: string
-      description: Noi dung se duoc controller ghi ra ConfigMap
-      jsonPath: .spec.message
-    - name: Size
-      type: integer
-      jsonPath: .spec.size
-    - name: Phase
-      type: string
-      jsonPath: .status.phase
-    - name: Age
-      type: date
-      jsonPath: .metadata.creationTimestamp
-EOF
-
-kubectl apply -f "$WK/b5-crd-webpage.yaml"
-kubectl wait --for=condition=Established --timeout=120s "crd/webpages.${LAB_GROUP}"
-
-# Ba truong vua them nam trong thong tin discovery, nen phai lam moi cache cua client.
-rm -rf ~/.kube/cache/discovery
-kubectl api-resources --api-group="$LAB_GROUP" -o wide | tee "$EV/b5-api-resources.txt"
-```
-
-```bash
-kubectl get webpages -n "$NS" | tee "$EV/b5-get-sau.txt"
-COL_SAU="$(head -1 "$EV/b5-get-sau.txt" | wc -w)"
-echo "so cot sau khi them printer column=$COL_SAU"
-
-test "$COL_SAU" -gt "$COL_TRUOC" \
-  && echo 'PASS: output kubectl get da nhieu cot hon truoc'
-head -1 "$EV/b5-get-sau.txt" | grep -q 'MESSAGE' \
-  && echo 'PASS: cot MESSAGE lay tu .spec.message da xuat hien'
-grep -q 'wp' "$EV/b5-api-resources.txt" \
-  && echo 'PASS: shortName wp da nam trong thong tin discovery cua server'
-```
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B5.3. Ba lối gọi mới, và một lối gọi theo category
-
-```bash
-kubectl get wp -n "$NS" | tee "$EV/b5-shortname-sau.txt"
-kubectl get lab14 -n "$NS" | tee "$EV/b5-category.txt"
-kubectl get all -n "$NS" 2>&1 | tee "$EV/b5-category-all.txt"
-```
-
-```bash
-SHORT_N="$(kubectl get wp -n "$NS" --no-headers | wc -l)"
-CAT_N="$(kubectl get lab14 -n "$NS" --no-headers | wc -l)"
-ALL_N="$(kubectl get all -n "$NS" --no-headers 2>/dev/null | grep -c 'webpage' || true)"
-echo "wp=$SHORT_N | category lab14=$CAT_N | xuat hien trong 'kubectl get all'=$ALL_N"
-
-test "$SHORT_N" -eq 1 \
-  && echo 'PASS: shortName wp goi duoc custom resource'
-test "$CAT_N" -eq 1 \
-  && echo 'PASS: kubectl get lab14 tra ve custom resource — category hoat dong'
-test "$ALL_N" -eq 0 \
-  && echo 'PASS: khong lot vao category all vi CRD nay khong khai all'
-```
-
-**Ý nghĩa:** category là **danh sách nhóm resource** mà kind của bạn thuộc về. `all` chỉ là một
-category có sẵn tên đẹp, không phải "mọi thứ" — CRD này khai `lab14` chứ không khai `all`, nên
-`kubectl get all` không thấy nó. Trên cluster thật, đây là cách gom mọi kind của một sản phẩm lại
-để `kubectl get <ten-san-pham>` liệt kê được hết trong một lệnh.
-
-Nếu `kubectl get lab14` báo không nhận kiểu, đó là cache discovery chứ không phải CRD sai — làm mới
-cache như B5.2 rồi chạy lại; xem [mục 4](#4-troubleshooting-của-lab-này).
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B6. `scope`, và vì sao RBAC không tự cấp quyền cho kind mới
-
-**Mục đích:** chứng minh bằng thực nghiệm khác biệt giữa `scope: Namespaced` và `scope: Cluster`,
-rồi kiểm chứng câu cảnh báo vận hành của bài [179](../179-custom-resources-vi.md) ở mục *Xác thực,
-phân quyền và kiểm toán*: "hầu hết các role RBAC sẽ không cấp quyền truy cập tới resource mới".
-
-Đây cũng là mục **tạo hai object phạm vi cluster** đã khai ở
-[bảng mục 2](#2-quy-ước-và-an-toàn). Từ đây tới hết lab, mọi object mới đều mang label `lab=14`.
-
-### B6.1. Ranh giới namespace của kind namespaced
-
-```bash
-kubectl get webpages -n "$NS" --no-headers | wc -l
-kubectl get webpages -n default 2>&1 | tee "$EV/b6-webpage-default.txt"
-kubectl get webpages -A | tee "$EV/b6-webpage-all-ns.txt"
-kubectl api-resources --namespaced=true --api-group="$LAB_GROUP" \
-  | tee "$EV/b6-namespaced-true.txt"
-```
-
-```bash
-IN_NS="$(kubectl get webpages -n "$NS" --no-headers | wc -l)"
-IN_DEF="$(kubectl get webpages -n default --no-headers 2>/dev/null | wc -l)"
-echo "webpage trong $NS=$IN_NS | trong default=$IN_DEF"
-
-test "$IN_NS" -eq 1 && test "$IN_DEF" -eq 0 \
-  && echo 'PASS: cung mot kind, hai namespace, hai ket qua — object thuoc ve namespace'
-grep -q 'webpages' "$EV/b6-namespaced-true.txt" \
-  && echo 'PASS: server tu khai bao webpages la kind namespaced'
-```
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B6.2. ServiceAccount mang ClusterRole `view` vẫn không đọc được kind mới
-
-```bash
-kubectl create serviceaccount sa-doc-wp -n "$NS"
-kubectl create rolebinding doc-view -n "$NS" \
-  --clusterrole=view --serviceaccount="${NS}:sa-doc-wp"
-SA_WP="system:serviceaccount:${NS}:sa-doc-wp"
-
-kubectl get clusterrole view -o yaml > "$EV/b6-clusterrole-view.yaml"
-grep -c "$LAB_GROUP" "$EV/b6-clusterrole-view.yaml" || true
-```
-
-```bash
-CAN_CM="$(kubectl auth can-i list configmaps -n "$NS" --as="$SA_WP")"
-CAN_WP="$(kubectl auth can-i list "webpages.${LAB_GROUP}" -n "$NS" --as="$SA_WP")"
-VIEW_MENTION="$(grep -c "$LAB_GROUP" "$EV/b6-clusterrole-view.yaml" || true)"
-echo "view co doc duoc configmap khong=$CAN_CM | co doc duoc webpage khong=$CAN_WP"
-echo "so lan ClusterRole view nhac toi $LAB_GROUP=$VIEW_MENTION"
-
-test "$CAN_CM" = 'yes' \
-  && echo 'PASS: ClusterRole view that su dang co hieu luc — no doc duoc ConfigMap'
-test "$CAN_WP" = 'no' \
-  && echo 'PASS: nhung chinh no KHONG doc duoc kind moi'
-test "$VIEW_MENTION" -eq 0 \
-  && echo 'PASS: ly do nam trong chinh noi dung role — no khong he nhac toi API group moi'
-```
-
-**Ý nghĩa:** đây là câu bẫy lớn nhất về vận hành CRD, và ba dòng trên chứng minh trọn vẹn. Role
-dựng sẵn liệt kê **tường minh** từng API group và từng resource; API group của bạn ra đời sau, nên
-không role nào biết tới nó. Bài [179](../179-custom-resources-vi.md) chốt: "Bạn sẽ cần cấp quyền
-truy cập một cách tường minh cho resource mới. CRD và Aggregated API thường được đóng gói kèm các
-định nghĩa role mới cho những kiểu dữ liệu mà chúng bổ sung."
-
-Đó cũng là lý do một Helm chart cài operator luôn kèm sẵn một bộ ClusterRole: không phải để bản
-thân operator chạy, mà để **người dùng** đọc được kind mới.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-```bash
-kubectl create role doc-webpage -n "$NS" \
-  --verb=get,list,watch --resource="webpages.${LAB_GROUP}"
-kubectl create rolebinding doc-webpage -n "$NS" \
-  --role=doc-webpage --serviceaccount="${NS}:sa-doc-wp"
-
-CAN_WP2="$(kubectl auth can-i list "webpages.${LAB_GROUP}" -n "$NS" --as="$SA_WP")"
-echo "sau khi cap quyen tuong minh=$CAN_WP2"
-test "$CAN_WP2" = 'yes' \
-  && echo 'PASS: cap quyen tuong minh cho API group moi thi doc duoc'
-```
-
-**PASS:** dòng `PASS:` trên xuất hiện. Hai object vừa tạo là Role và RoleBinding **trong namespace**
-`lab-14`, nên chúng biến mất theo namespace ở B11.1 — khác hẳn hai object ở B6.5.
-
-### B6.3. CRD thứ hai, lần này `scope: Cluster`
-
-```bash
-cat > "$WK/b6-crd-clusterwidget.yaml" <<EOF
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: clusterwidgets.${LAB_GROUP}
-  labels:
-    lab: "14"
-spec:
-  group: ${LAB_GROUP}
-  scope: Cluster
-  names:
-    plural: clusterwidgets
-    singular: clusterwidget
-    kind: ClusterWidget
-    shortNames:
-    - cw
-    categories:
-    - lab14
-  versions:
-  - name: v1
-    served: true
-    storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        properties:
-          spec:
-            type: object
-            properties:
-              note:
-                type: string
-                maxLength: 120
-    additionalPrinterColumns:
-    - name: Note
-      type: string
-      jsonPath: .spec.note
-    - name: Age
-      type: date
-      jsonPath: .metadata.creationTimestamp
-EOF
-
-kubectl apply --dry-run=server --validate=strict -f "$WK/b6-crd-clusterwidget.yaml"
-kubectl apply -f "$WK/b6-crd-clusterwidget.yaml"
-kubectl wait --for=condition=Established --timeout=120s "crd/clusterwidgets.${LAB_GROUP}"
-rm -rf ~/.kube/cache/discovery
-kubectl api-resources --namespaced=false --api-group="$LAB_GROUP" \
-  | tee "$EV/b6-namespaced-false.txt"
-
-cat > "$WK/b6-cr-widget.yaml" <<EOF
-apiVersion: ${LAB_GROUP}/v1
-kind: ClusterWidget
-metadata:
-  name: widget-toan-cluster
-  labels:
-    lab: "14"
-spec:
-  note: Object nay khong thuoc namespace nao
-EOF
-
-kubectl apply -f "$WK/b6-cr-widget.yaml"
-kubectl get clusterwidgets | tee "$EV/b6-get-clusterwidget.txt"
-```
-
-```bash
-CW_N="$(kubectl get clusterwidgets --no-headers | wc -l)"
-CW_NS="$(kubectl get clusterwidget widget-toan-cluster -o jsonpath='{.metadata.namespace}')"
-CW_TRONG_NS="$(kubectl get clusterwidgets -n "$NS" --no-headers | wc -l)"
-echo "clusterwidget=$CW_N | metadata.namespace='${CW_NS:-<rong>}' | goi kem -n $NS ra=$CW_TRONG_NS"
-
-test "$CW_N" -eq 1 \
-  && echo 'PASS: doc duoc custom resource pham vi cluster ma khong can -n'
-test -z "$CW_NS" \
-  && echo 'PASS: object khong co metadata.namespace — no khong thuoc namespace nao'
-test "$CW_TRONG_NS" -eq 1 \
-  && echo 'PASS: them -n cung ra dung ket qua do — co -n bi bo qua voi kind cluster-scoped'
-grep -q 'clusterwidgets' "$EV/b6-namespaced-false.txt" \
-  && echo 'PASS: server khai bao clusterwidgets la kind KHONG namespaced'
-```
-
-**Ý nghĩa:** `-n` bị bỏ qua chứ không báo lỗi — đây là nguồn nhầm lẫn thường trực khi vận hành.
-Bạn tưởng mình đang xóa object của một namespace, thực ra bạn đang xóa object của **cả cluster**.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
-### B6.4. Kind cluster-scoped đòi ClusterRole, Role không đủ
-
-`sa-doc-wp` đang có một Role đọc `webpages` trong `lab-14`. Nó có đọc được `clusterwidgets` không?
-
-```bash
-CAN_CW="$(kubectl auth can-i list "clusterwidgets.${LAB_GROUP}" --as="$SA_WP")"
-echo "Role trong lab-14 co doc duoc clusterwidget khong=$CAN_CW"
-test "$CAN_CW" = 'no' \
-  && echo 'PASS: quyen gan bang Role khong voi toi object pham vi cluster'
-```
-
-**PASS:** dòng `PASS:` trên xuất hiện.
-
-Cấp quyền đúng cách — đây là **hai object cluster-scoped** duy nhất lab tạo ngoài hai CRD:
-
-```bash
-cat > "$WK/b6-rbac-clusterwidget.yaml" <<EOF
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: lab-14-doc-clusterwidget
-  labels:
-    lab: "14"
-rules:
-- apiGroups: ["${LAB_GROUP}"]
-  resources: ["clusterwidgets"]
-  verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: lab-14-doc-clusterwidget
-  labels:
-    lab: "14"
-subjects:
-- kind: ServiceAccount
-  name: sa-doc-wp
-  namespace: ${NS}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: lab-14-doc-clusterwidget
-EOF
-
-kubectl apply --dry-run=server --validate=strict -f "$WK/b6-rbac-clusterwidget.yaml"
-kubectl apply -f "$WK/b6-rbac-clusterwidget.yaml"
-```
-
-```bash
-CAN_CW2="$(kubectl auth can-i list "clusterwidgets.${LAB_GROUP}" --as="$SA_WP")"
-CAN_WP3="$(kubectl auth can-i list "webpages.${LAB_GROUP}" -n default --as="$SA_WP")"
-LABELED_N="$(kubectl get crd,clusterrole,clusterrolebinding -l lab=14 --no-headers 2>/dev/null | wc -l)"
-echo "sau ClusterRoleBinding: clusterwidget=$CAN_CW2 | webpage trong default=$CAN_WP3"
-echo "so object pham vi cluster mang label lab=14=$LABELED_N"
-
-test "$CAN_CW2" = 'yes' \
-  && echo 'PASS: ClusterRole gan bang ClusterRoleBinding moi voi toi kind cluster-scoped'
-test "$CAN_WP3" = 'no' \
-  && echo 'PASS: quyen moi khong lan sang kind khac — no chi ke ten clusterwidgets'
-test "$LABELED_N" -eq 4 \
-  && echo 'PASS: dung bon object pham vi cluster mang label lab=14, khop bang o muc 2'
-```
-
-**Ý nghĩa:** cùng một bài học của
-[Lab 9a](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md#b3-chặng-2--phân-quyền-và-rbac), lần này áp
-lên một kind bạn tự định nghĩa: **phạm vi của quyền phải khớp phạm vi của object**. Và vì CRD "luôn
-dùng cùng cơ chế xác thực, phân quyền và ghi log kiểm toán như các resource dựng sẵn", bạn không
-phải học một mô hình phân quyền thứ hai — đó chính là ưu điểm bài
-[179](../179-custom-resources-vi.md) nêu ở cột CRD.
-
-Con số `4` ở gate cuối là con số B11.2 sẽ đưa về `0`.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B6.5. Bẫy: xóa namespace **không** dọn object phạm vi cluster
-
-Thí nghiệm có kiểm soát, trên một namespace dùng một lần:
-
-```bash
-kubectl create namespace lab-14-tam
-kubectl label namespace lab-14-tam lab=14 --overwrite
-
-cat > "$WK/b6-cr-tam.yaml" <<EOF
-apiVersion: ${LAB_GROUP}/v1
-kind: WebPage
-metadata:
-  name: trang-tam
-  namespace: lab-14-tam
-  labels:
-    lab: "14"
-spec:
-  message: Trang nay se chet theo namespace
-  size: 1
-EOF
-
-kubectl apply -f "$WK/b6-cr-tam.yaml"
-WP_TAM_TRUOC="$(kubectl get webpages -n lab-14-tam --no-headers | wc -l)"
-CW_TRUOC="$(kubectl get clusterwidgets --no-headers | wc -l)"
-CRD_TRUOC="$(kubectl get crd -l lab=14 --no-headers | wc -l)"
-echo "truoc khi xoa namespace: webpage trong lab-14-tam=$WP_TAM_TRUOC clusterwidget=$CW_TRUOC crd=$CRD_TRUOC"
-
-kubectl delete namespace lab-14-tam --wait=true --timeout=300s
-```
-
-```bash
-NS_TAM="$(kubectl get namespace lab-14-tam --ignore-not-found -o name | wc -l)"
-CW_SAU="$(kubectl get clusterwidgets --no-headers | wc -l)"
-CRD_SAU="$(kubectl get crd -l lab=14 --no-headers | wc -l)"
-WP_CON="$(kubectl get webpages -A --no-headers | wc -l)"
-echo "namespace lab-14-tam con=$NS_TAM | clusterwidget=$CW_SAU | crd lab=14=$CRD_SAU"
-echo "tong so webpage con lai tren toan cluster=$WP_CON"
-
-test "$NS_TAM" -eq 0 \
-  && echo 'PASS: namespace da bien mat'
-test "$WP_CON" -eq 1 \
-  && echo 'PASS: WebPage trong namespace do chet theo namespace — dung nhu kind namespaced'
-test "$CW_SAU" -eq "$CW_TRUOC" \
-  && echo 'PASS: ClusterWidget KHONG chet theo namespace — no khong thuoc namespace nao'
-test "$CRD_SAU" -eq "$CRD_TRUOC" \
-  && echo 'PASS: hai CRD van con nguyen — CRD la object pham vi cluster'
-```
-
-**Ý nghĩa:** bài [378](../378-custom-resource-definitions-vi.md) viết đúng hai câu này ở mục *Tạo
-một CustomResourceDefinition*: "việc xóa một namespace sẽ xóa toàn bộ custom object trong namespace
-đó" và "Bản thân các CustomResourceDefinition thì không thuộc namespace nào và có sẵn cho mọi
-namespace". Bạn vừa chứng minh cả hai trong một thí nghiệm.
-
-Hệ quả vận hành: `kubectl delete namespace` **không phải** lệnh dọn dẹp đủ cho một lab hay một sản
-phẩm dùng CRD. Đó là lý do B11 tồn tại và vì sao nó đếm.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B7. Subresource `status`: hai đường ghi tách nhau
-
-**Mục đích:** đo chính xác điều mà `subresources.status` đổi. Đây là ô *Status Subresource* của
-bảng *Tính năng nâng cao và tính linh hoạt* trong bài [179](../179-custom-resources-vi.md), và nó
-là điều kiện kỹ thuật để B8 chia được vai "người dùng ghi `spec`, controller ghi `status`".
-
-### B7.1. Trước khi bật: `status` chỉ là một trường như mọi trường khác
-
-CRD hiện tại **có** `status` trong schema nhưng **chưa** bật subresource. Hai thứ đó khác nhau:
-
-```bash
-SUBRES="$(kubectl get "crd/webpages.${LAB_GROUP}" \
-  -o jsonpath='{.spec.versions[0].subresources}')"
-echo "subresources hien tai='${SUBRES:-<khong co>}'"
-
-kubectl patch webpage trang-a -n "$NS" --type=merge \
-  -p '{"status":{"phase":"nguoi-dung-ghi"}}'
-PHASE_1="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.status.phase}')"
-echo "status.phase sau khi patch tren resource chinh='${PHASE_1:-<rong>}'"
-
-test -z "$SUBRES" \
-  && echo 'PASS: CRD chua bat subresource nao'
-test "$PHASE_1" = 'nguoi-dung-ghi' \
-  && echo 'PASS: chua bat subresource thi ai co quyen ghi object la ghi duoc ca status'
-```
-
-**Ý nghĩa:** có `status` trong schema chỉ nghĩa là **cho phép lưu** một object con tên `status`.
-Không có gì bảo vệ nó. Bất kỳ ai sửa được object là sửa được `status` — tức là một người dùng có
-thể tự khai "tôi Ready" mà không ai làm gì.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B7.2. Bật subresource `status`
-
-CRD dưới đây giống hệt bản ở B5.2, **chỉ thêm hai dòng** `subresources:` và `status: {}` — chúng
-là anh em cùng cấp với `schema:` và `additionalPrinterColumns:` bên trong một phần tử của
-`versions`:
-
-```bash
-cat > "$WK/b7-crd-webpage.yaml" <<EOF
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: webpages.${LAB_GROUP}
-  labels:
-    lab: "14"
-spec:
-  group: ${LAB_GROUP}
-  scope: Namespaced
-  names:
-    plural: webpages
-    singular: webpage
-    kind: WebPage
-    shortNames:
-    - wp
-    categories:
-    - lab14
-  versions:
-  - name: v1
-    served: true
-    storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        properties:
-          spec:
-            type: object
-            required: ["message"]
-            properties:
-              message:
-                type: string
-                minLength: 1
-                maxLength: 80
-                pattern: '^[A-Za-z0-9 .,-]+$'
-              size:
-                type: integer
-                minimum: 1
-                maximum: 5
-          status:
-            type: object
-            properties:
-              phase:
-                type: string
-              observedGeneration:
-                type: integer
-              configMap:
-                type: string
-    subresources:
-      status: {}
-    additionalPrinterColumns:
-    - name: Message
-      type: string
-      description: Noi dung se duoc controller ghi ra ConfigMap
-      jsonPath: .spec.message
-    - name: Size
-      type: integer
-      jsonPath: .spec.size
-    - name: Phase
-      type: string
-      jsonPath: .status.phase
-    - name: Age
-      type: date
-      jsonPath: .metadata.creationTimestamp
-EOF
-
-diff -u "$WK/b5-crd-webpage.yaml" "$WK/b7-crd-webpage.yaml" | tee "$EV/b7-diff-crd.txt"
-test "$(grep -c '^+[^+]' "$EV/b7-diff-crd.txt")" -eq 2 \
-  && test "$(grep -c '^-[^-]' "$EV/b7-diff-crd.txt")" -eq 0 \
-  && echo 'PASS: so voi ban B5, CRD chi them dung hai dong va khong bo dong nao'
-
-kubectl apply --dry-run=server --validate=strict -f "$WK/b7-crd-webpage.yaml"
-kubectl apply -f "$WK/b7-crd-webpage.yaml"
-kubectl wait --for=condition=Established --timeout=120s "crd/webpages.${LAB_GROUP}"
-```
-
-```bash
-SUBRES2="$(kubectl get "crd/webpages.${LAB_GROUP}" \
-  -o jsonpath='{.spec.versions[0].subresources.status}')"
-echo "subresources.status='${SUBRES2:-<khong co>}'"
-kubectl get --raw "/apis/${LAB_GROUP}/v1" | tr ',' '\n' | grep -q 'webpages/status' \
-  && echo 'PASS: duong dan webpages/status da xuat hien trong discovery cua API group'
-test -n "$SUBRES2" \
-  && echo 'PASS: CRD da khai subresources.status'
-```
-
-**Ý nghĩa:** `diff` là gate ở đây vì nó chứng minh **thay đổi duy nhất** so với B5 là hai dòng bật
-subresource. Nhờ vậy mọi khác biệt hành vi quan sát được ở B7.3 và B7.4 chỉ có thể do hai dòng đó,
-không do thứ gì khác bạn vô tình sửa. Đường dẫn `webpages/status` xuất hiện trong discovery là bằng
-chứng phía server: API server vừa mở thêm một endpoint con cho kind này.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện — một của `diff` và hai của khối gate.
-
-### B7.3. Sau khi bật: cùng lệnh patch đó không còn tác dụng
-
-```bash
-kubectl patch webpage trang-a -n "$NS" --type=merge \
-  -p '{"status":{"phase":"co-gang-ghi-lai"}}'
-PHASE_2="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.status.phase}')"
-echo "status.phase sau khi patch tren resource chinh='${PHASE_2:-<rong>}'"
-
-test "$PHASE_2" = 'nguoi-dung-ghi' \
-  && echo 'PASS: gia tri cu van nguyen — thay doi len status qua resource chinh bi bo qua'
-```
-
-```bash
-kubectl patch webpage trang-a -n "$NS" --subresource=status --type=merge \
-  -p '{"status":{"phase":"controller-ghi"}}'
-PHASE_3="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.status.phase}')"
-echo "status.phase sau khi patch qua subresource='${PHASE_3:-<rong>}'"
-
-test "$PHASE_3" = 'controller-ghi' \
-  && echo 'PASS: chi duong /status moi ghi duoc status'
-```
-
-```bash
-MSG_TRUOC_STATUS="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.spec.message}')"
-kubectl patch webpage trang-a -n "$NS" --subresource=status --type=merge \
-  -p '{"spec":{"message":"Ghi spec qua duong status"}}' 2>&1 \
-  | tee "$EV/b7-ghi-spec-qua-status.txt"
-MSG_SAU_STATUS="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.spec.message}')"
-echo "spec.message truoc='$MSG_TRUOC_STATUS' | sau='$MSG_SAU_STATUS'"
-
-test "$MSG_SAU_STATUS" = "$MSG_TRUOC_STATUS" \
-  && echo 'PASS: duong /status khong ghi duoc spec — hai chieu deu bi chan'
-```
-
-**Ý nghĩa:** đây là toàn bộ giá trị của subresource `status`, và nó là **cơ chế phân quyền chứ
-không phải cú pháp**. Bài [179](../179-custom-resources-vi.md) mô tả đúng một câu: "cho phép kiểm
-soát truy cập chi tiết, trong đó người dùng ghi phần spec còn controller ghi phần status". B8 sẽ
-dùng đúng ranh giới này: ServiceAccount của controller được cấp `webpages/status` chứ **không** được
-cấp quyền sửa `webpages`.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B7.4. `metadata.generation` chỉ tăng theo `spec`
-
-```bash
-gen_wp() { kubectl get webpage trang-a -n "$NS" -o jsonpath='{.metadata.generation}'; }
-
-GEN_0="$(gen_wp)"; GEN_0="${GEN_0:-0}"
-kubectl patch webpage trang-a -n "$NS" --subresource=status --type=merge \
-  -p '{"status":{"phase":"lan-hai"}}' >/dev/null
-GEN_1="$(gen_wp)"; GEN_1="${GEN_1:-0}"
-kubectl patch webpage trang-a -n "$NS" --type=merge \
-  -p '{"spec":{"size":3}}' >/dev/null
-GEN_2="$(gen_wp)"; GEN_2="${GEN_2:-0}"
-echo "generation: ban dau=$GEN_0 | sau khi ghi status=$GEN_1 | sau khi ghi spec=$GEN_2"
-
-test "$GEN_1" -eq "$GEN_0" \
-  && echo 'PASS: ghi status khong lam tang generation'
-test "$GEN_2" -gt "$GEN_1" \
-  && echo 'PASS: ghi spec thi generation tang — day la tin hieu "co viec moi cho controller"'
-```
-
-**Ý nghĩa:** cặp `metadata.generation` và `status.observedGeneration` là **giao thức tiêu chuẩn**
-giữa người dùng và controller: người dùng đổi `spec` thì `generation` tăng; controller làm xong
-thì ghi `observedGeneration` bằng `generation`. Hai số bằng nhau nghĩa là controller đã bắt kịp;
-khác nhau nghĩa là còn việc chưa làm. B8 hiện thực đúng giao thức đó, và bạn sẽ đọc được nó bằng
-mắt trong cột `PHASE` của `kubectl get wp`.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B8. CRD không có controller thì chỉ là kho lưu dữ liệu
-
-**Mục đích:** đây là **mục đích cuối cùng của cả giai đoạn 14**, và là câu mà
-[checkpoint của lộ trình](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) bắt bạn giải
-thích được. Bài [179](../179-custom-resources-vi.md) viết: "Bản thân custom resource chỉ cho phép
-bạn lưu trữ và truy xuất dữ liệu có cấu trúc. Khi bạn kết hợp một custom resource với một *custom
-controller*, custom resource sẽ cung cấp một API khai báo thực thụ." B8 chứng minh **cả hai vế**:
-vế đầu bằng một custom resource không làm gì cả, vế sau bằng một vòng lặp điều khiển do bạn tự chạy.
-
-> **Lab này KHÔNG viết controller bằng Go và KHÔNG cài operator framework** — cả hai đòi toolchain
-> ngoài baseline, xem [bảng lý do ở mục 1.1](#11-ánh-xạ-tài-liệu-sang-bài-thực-hành). Thay vào đó
-> bạn đóng vai controller bằng một hàm shell chạy `kubectl` dưới danh tính một ServiceAccount có
-> quyền tối thiểu. B8.6 liệt kê chính xác những gì khác so với một operator thật.
-
-### B8.1. Một custom resource, và không có gì xảy ra
-
-Đếm mọi thứ trong namespace **trước**:
-
-```bash
-CM_N0="$(kubectl get configmaps -n "$NS" --no-headers | wc -l)"
-POD_NS0="$(kubectl get pods -n "$NS" --no-headers 2>/dev/null | wc -l)"
-DEP_NS0="$(kubectl get deployments -n "$NS" --no-headers 2>/dev/null | wc -l)"
-echo "truoc: configmap=$CM_N0 pod=$POD_NS0 deployment=$DEP_NS0"
-
-cat > "$WK/b8-cr-trang-b.yaml" <<EOF
-apiVersion: ${LAB_GROUP}/v1
-kind: WebPage
-metadata:
-  name: trang-b
-  namespace: ${NS}
-  labels:
-    lab: "14"
-spec:
-  message: Trang B chua co ai cham toi
-  size: 1
-EOF
-
-kubectl apply -f "$WK/b8-cr-trang-b.yaml"
-kubectl get wp -n "$NS" | tee "$EV/b8-truoc-controller.txt"
-```
-
-Quan sát có giới hạn — vòng lặp dừng ngay khi thấy bất kỳ object nào xuất hiện:
-
-```bash
-i=0; DOI=khong
-while [ "$i" -lt 15 ]; do
-  CM_NOW="$(kubectl get configmaps -n "$NS" --no-headers | wc -l)"
-  POD_NOW="$(kubectl get pods -n "$NS" --no-headers 2>/dev/null | wc -l)"
-  if [ "$CM_NOW" -ne "$CM_N0" ] || [ "$POD_NOW" -ne "$POD_NS0" ]; then DOI=co; break; fi
-  i=$(( i + 1 )); sleep 2
-done
-echo "sau $i vong quan sat: co gi doi khong = $DOI"
-
-EV_N="$(kubectl get events -n "$NS" --field-selector involvedObject.kind=WebPage \
-  --no-headers 2>/dev/null | wc -l)"
-PHASE_B="$(kubectl get webpage trang-b -n "$NS" -o jsonpath='{.status.phase}')"
-echo "so Event lien quan toi WebPage=$EV_N | status.phase cua trang-b='${PHASE_B:-<rong>}'"
-```
-
-```bash
-test "$DOI" = 'khong' \
-  && echo 'PASS: qua ca vong quan sat, khong object nao xuat hien trong namespace'
-test "$EV_N" -eq 0 \
-  && echo 'PASS: khong thanh phan nao phat Event ve WebPage — khong ai dang lang nghe kind nay'
-test -z "$PHASE_B" \
-  && echo 'PASS: status van rong — khong ai ghi vao no'
-test "$(kubectl get webpage trang-b -n "$NS" -o jsonpath='{.spec.message}')" \
-     = 'Trang B chua co ai cham toi' \
-  && echo 'PASS: du lieu thi van con nguyen — day dung la mot kho luu du lieu'
-```
-
-**Ý nghĩa:** bốn gate trên là **vế thứ nhất của luận điểm**, chứng minh xong. Bạn đã có một API
-đầy đủ: schema, validation, `kubectl get`, RBAC, watch, audit log. Bạn **chưa có** một API khai báo,
-vì không có ai đọc `spec` rồi làm cho thực tế khớp với nó.
-
-`kubectl` vẫn chạy trơn tru dù thiếu controller — đúng như bài [181](../181-operator-vi.md) mô tả ở
-mục *Triển khai operator*: cách phổ biến nhất là thêm **Custom Resource Definition và Controller
-tương ứng**, hai vế chứ không phải một. Bạn vừa cài đúng một vế.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
-### B8.2. Danh tính và quyền tối thiểu cho controller
-
-Controller là một **client của Kubernetes API**, nên nó cần một danh tính và một bộ quyền. Dùng lại
-đúng ba bước của [Lab 9a](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md#b5-serviceaccount-là-danh-tính-của-pod):
-tạo ServiceAccount, cấp quyền, rồi gán danh tính đó cho thứ đang chạy.
-
-```bash
-kubectl create serviceaccount sa-lab14-controller -n "$NS"
-
-cat > "$WK/b8-role-thieu-status.yaml" <<EOF
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: lab14-controller
-  namespace: ${NS}
-rules:
-- apiGroups: ["${LAB_GROUP}"]
-  resources: ["webpages"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["get", "list", "watch", "create", "update", "patch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: lab14-controller
-  namespace: ${NS}
-subjects:
-- kind: ServiceAccount
-  name: sa-lab14-controller
-  namespace: ${NS}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: lab14-controller
-EOF
-
-kubectl apply -f "$WK/b8-role-thieu-status.yaml"
-```
-
-Dựng kubeconfig cho danh tính đó — địa chỉ và CA lấy từ chính kubeconfig quản trị, credential thì
-không:
-
-```bash
-SRV="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
-CACERT=/etc/kubernetes/pki/ca.crt
-KCFG="$WK/ctrl.kubeconfig"
-rm -f "$KCFG"; touch "$KCFG"; chmod 600 "$KCFG"
-
-TOK_CTRL="$(kubectl create token sa-lab14-controller -n "$NS")"
-kubectl --kubeconfig="$KCFG" config set-cluster lab \
-  --server="$SRV" --certificate-authority="$CACERT" --embed-certs=true >/dev/null
-kubectl --kubeconfig="$KCFG" config set-credentials ctrl --token="$TOK_CTRL" >/dev/null
-kubectl --kubeconfig="$KCFG" config set-context lab \
-  --cluster=lab --user=ctrl --namespace="$NS" >/dev/null
-kubectl --kubeconfig="$KCFG" config use-context lab >/dev/null
-
-kctl() { kubectl --kubeconfig="$KCFG" -n "$NS" "$@"; }
-```
-
-```bash
-WHO="$(kctl auth whoami -o jsonpath='{.status.userInfo.username}')"
-echo "controller dang la: $WHO"
-test "$WHO" = "system:serviceaccount:${NS}:sa-lab14-controller" \
-  && echo 'PASS: kubeconfig cua controller xac thuc dung danh tinh ServiceAccount'
-test "$(stat -c '%a' "$KCFG")" = '600' \
-  && echo 'PASS: file kubeconfig chua token dang o quyen 600'
-test "$(kctl auth can-i list webpages)" = 'yes' \
-  && test "$(kctl auth can-i create configmaps)" = 'yes' \
-  && echo 'PASS: controller doc duoc webpage va tao duoc configmap'
-test "$(kctl auth can-i update webpages)" = 'no' \
-  && test "$(kctl auth can-i delete configmaps)" = 'no' \
-  && test "$(kctl auth can-i create pods)" = 'no' \
-  && echo 'PASS: va khong lam duoc gi ngoai ba viec do — quyen dung la toi thieu'
-```
-
-**Ý nghĩa:** chú ý điều controller **không** được cấp: quyền `update` trên `webpages`. Đó là ranh
-giới B7 vừa dựng, nay được RBAC cưỡng chế: người dùng ghi `spec`, controller ghi `status`, và không
-bên nào lấn sân. Nếu controller sửa được `spec`, nó có thể tự viết lại yêu cầu của người dùng rồi
-báo cáo "đã xong" — một operator viết ẩu hoàn toàn có thể làm thế.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện. Không ghi `TOK_CTRL` ra bằng chứng.
-
-### B8.3. Vòng lặp điều khiển, viết bằng shell
-
-Đây là toàn bộ "operator" của lab. Ba việc, đúng thứ tự của mọi controller: **đọc trạng thái mong
-muốn**, **làm cho thực tế khớp**, **báo cáo lại bằng `status`**.
-
-```bash
-reconcile() {
-  local name msg gen uid cm rc=0
-  for name in $(kctl get webpages -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'); do
-    msg="$(kctl get webpage "$name" -o jsonpath='{.spec.message}')"
-    gen="$(kctl get webpage "$name" -o jsonpath='{.metadata.generation}')"
-    uid="$(kctl get webpage "$name" -o jsonpath='{.metadata.uid}')"
-    cm="web-${name}"
-    cat > "$WK/reconcile-${name}.yaml" <<YAML
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ${cm}
-  namespace: ${NS}
-  labels:
-    lab: "14"
-  ownerReferences:
-  - apiVersion: ${LAB_GROUP}/v1
-    kind: WebPage
-    name: ${name}
-    uid: ${uid}
-    controller: true
-    blockOwnerDeletion: false
-data:
-  message: "${msg}"
-YAML
-    kctl apply -f "$WK/reconcile-${name}.yaml" >/dev/null || rc=1
-    kctl patch webpage "$name" --subresource=status --type=merge \
-      -p "{\"status\":{\"phase\":\"Ready\",\"observedGeneration\":${gen},\"configMap\":\"${cm}\"}}" \
-      >/dev/null 2>&1 || rc=1
-    echo "reconcile $name -> configmap=$cm generation=$gen"
-  done
-  return "$rc"
-}
-```
-
-Chạy lần đầu — và nó **fail một nửa**, đúng như thiết kế:
-
-```bash
-reconcile; echo "ma tra ve cua reconcile=$?"
-kctl patch webpage trang-a --subresource=status --type=merge \
-  -p '{"status":{"phase":"Ready"}}' 2>&1 | tee "$EV/b8-status-bi-tu-choi.txt"
-```
-
-```bash
-CM_SAU1="$(kubectl get configmaps -n "$NS" --no-headers | wc -l)"
-PHASE_A1="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.status.phase}')"
-echo "configmap trong namespace=$CM_SAU1 | status.phase cua trang-a='$PHASE_A1'"
-
-test "$CM_SAU1" -gt "$CM_N0" \
-  && echo 'PASS: phan tao ConfigMap chay duoc — controller co quyen do'
-grep -qi 'forbidden' "$EV/b8-status-bi-tu-choi.txt" \
-  && echo 'PASS: nhung ghi status bi tu choi — Role chua ke ten webpages/status'
-grep -q 'webpages/status' "$EV/b8-status-bi-tu-choi.txt" \
-  && echo 'PASS: thong bao goi dung ten subresource con thieu quyen'
-```
-
-**Ý nghĩa:** quyền trên `webpages` **không** kéo theo quyền trên `webpages/status`. RBAC coi
-subresource là một resource riêng, và đó chính là thứ làm cơ chế "hai đường ghi" của B7 có giá trị
-thực tế — nếu chúng dùng chung một quyền thì tách đường cũng vô nghĩa.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-Bổ sung đúng một rule rồi chạy lại:
-
-```bash
-cat > "$WK/b8-role-du.yaml" <<EOF
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: lab14-controller
-  namespace: ${NS}
-rules:
-- apiGroups: ["${LAB_GROUP}"]
-  resources: ["webpages"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["${LAB_GROUP}"]
-  resources: ["webpages/status"]
-  verbs: ["get", "patch", "update"]
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["get", "list", "watch", "create", "update", "patch"]
-EOF
-
-kubectl apply -f "$WK/b8-role-du.yaml"
-
-i=0; CAN_ST=no
-while [ "$i" -lt 15 ]; do
-  CAN_ST="$(kctl auth can-i patch "webpages.${LAB_GROUP}" --subresource=status)"
-  test "$CAN_ST" = 'yes' && break
-  i=$(( i + 1 )); sleep 2
-done
-echo "controller co patch duoc webpages/status khong=$CAN_ST (sau $i vong)"
-
-reconcile; echo "ma tra ve cua reconcile=$?"
-kubectl get wp -n "$NS" | tee "$EV/b8-sau-controller.txt"
-```
-
-```bash
-PHASE_A2="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.status.phase}')"
-PHASE_B2="$(kubectl get webpage trang-b -n "$NS" -o jsonpath='{.status.phase}')"
-CM_A="$(kubectl get configmap web-trang-a -n "$NS" -o jsonpath='{.data.message}')"
-SPEC_A="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.spec.message}')"
-echo "phase: trang-a=$PHASE_A2 trang-b=$PHASE_B2"
-echo "configmap web-trang-a data.message='$CM_A' | spec.message='$SPEC_A'"
-
-test "$CAN_ST" = 'yes' \
-  && echo 'PASS: them dung mot rule la mo duoc duong ghi status'
-test "$PHASE_A2" = 'Ready' && test "$PHASE_B2" = 'Ready' \
-  && echo 'PASS: ca hai custom resource da co status do controller ghi'
-test "$CM_A" = "$SPEC_A" \
-  && echo 'PASS: noi dung ConfigMap khop dung spec.message — du lieu da bien thanh hanh vi'
-```
-
-**Ý nghĩa:** đây là **vế thứ hai của luận điểm**, chứng minh xong. Không có gì trong CRD thay đổi
-giữa B8.1 và bây giờ: cùng schema, cùng object, cùng API. Thứ duy nhất được thêm vào là **một vòng
-lặp đọc `spec` rồi hành động**. Đó là toàn bộ khác biệt giữa "kho lưu dữ liệu" và "API khai báo".
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B8.4. Ba tính chất của một vòng lặp điều khiển
-
-Một controller không phải là "cái chạy khi tôi apply". Ba thí nghiệm dưới đây tách bạch điều đó.
-
-**Một — hội tụ.** Đổi `spec`, chưa chạy vòng lặp:
-
-```bash
-kubectl patch webpage trang-a -n "$NS" --type=merge \
-  -p '{"spec":{"message":"Noi dung da doi lan hai"}}' >/dev/null
-
-GEN_A="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.metadata.generation}')"
-OBS_A="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.status.observedGeneration}')"
-CM_A2="$(kubectl get configmap web-trang-a -n "$NS" -o jsonpath='{.data.message}')"
-echo "generation=$GEN_A observedGeneration=$OBS_A | configmap van dang giu='$CM_A2'"
-
-test "$GEN_A" -gt "$OBS_A" \
-  && echo 'PASS: generation da vuot observedGeneration — tin hieu "con viec chua lam"'
-test "$CM_A2" != 'Noi dung da doi lan hai' \
-  && echo 'PASS: thuc te chua doi theo, vi vong lap chua chay'
-```
-
-```bash
-reconcile >/dev/null
-GEN_A2="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.metadata.generation}')"
-OBS_A2="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.status.observedGeneration}')"
-CM_A3="$(kubectl get configmap web-trang-a -n "$NS" -o jsonpath='{.data.message}')"
-echo "sau reconcile: generation=$GEN_A2 observedGeneration=$OBS_A2 configmap='$CM_A3'"
-
-test "$OBS_A2" -eq "$GEN_A2" \
-  && echo 'PASS: observedGeneration da bat kip generation'
-test "$CM_A3" = 'Noi dung da doi lan hai' \
-  && echo 'PASS: thuc te da hoi tu ve trang thai mong muon moi'
-```
-
-**Hai — tự chữa.** Xóa object phụ thuộc bằng tay, với tư cách quản trị:
-
-```bash
-kubectl delete configmap web-trang-a -n "$NS"
-CM_MAT="$(kubectl get configmap web-trang-a -n "$NS" --ignore-not-found -o name | wc -l)"
-echo "configmap sau khi xoa: con $CM_MAT"
-
-reconcile >/dev/null
-CM_VE="$(kubectl get configmap web-trang-a -n "$NS" --ignore-not-found -o name | wc -l)"
-CM_A4="$(kubectl get configmap web-trang-a -n "$NS" -o jsonpath='{.data.message}')"
-echo "configmap sau khi chay lai vong lap: con $CM_VE, noi dung='$CM_A4'"
-
-test "$CM_MAT" -eq 0 \
-  && echo 'PASS: object phu thuoc da that su bi xoa'
-test "$CM_VE" -eq 1 && test "$CM_A4" = 'Noi dung da doi lan hai' \
-  && echo 'PASS: vong lap dung lai no voi dung noi dung — day la tu chua, khong phai phat lai lenh'
-```
-
-**Ba — vòng lặp là bất biến theo số lần chạy.** Chạy thêm hai lần, không gì đổi:
-
-```bash
-RV_1="$(kubectl get configmap web-trang-a -n "$NS" -o jsonpath='{.metadata.resourceVersion}')"
-reconcile >/dev/null; reconcile >/dev/null
-RV_2="$(kubectl get configmap web-trang-a -n "$NS" -o jsonpath='{.metadata.resourceVersion}')"
-echo "resourceVersion cua ConfigMap: truoc=$RV_1 sau hai lan reconcile=$RV_2"
-
-test "$RV_1" = "$RV_2" \
-  && echo 'PASS: chay lai vong lap khi da khop thi khong ghi gi — thao tac la idempotent'
-```
-
-**Ý nghĩa:** ba tính chất này là định nghĩa thật của mẫu controller trong bài
-[25](../25-controllers-vi.md) mà bài [181](../181-operator-vi.md) nối tiếp: vòng lặp **so sánh** hai
-trạng thái rồi **thu hẹp khoảng cách**, chứ không "phản ứng với lệnh của bạn". Đó là lý do nó tự
-chữa được và chạy lại được bao nhiêu lần cũng không hỏng — trong khi một script chạy một lần thì
-không có tính chất nào trong ba tính chất trên.
-
-**PASS:** bảy dòng `PASS:` của ba thí nghiệm xuất hiện.
-
-### B8.5. Phần dọn dẹp **không** phải công của controller
-
-```bash
-CM_TRUOC_XOA="$(kubectl get configmaps -n "$NS" -l lab=14 --no-headers | wc -l)"
-kubectl get configmap web-trang-b -n "$NS" \
-  -o jsonpath='owner={.metadata.ownerReferences[0].kind}/{.metadata.ownerReferences[0].name}{"\n"}uid={.metadata.ownerReferences[0].uid}{"\n"}' \
-  | tee "$EV/b8-owner-ref.txt"
-
-kubectl delete webpage trang-b -n "$NS"
-
-i=0
-while [ "$i" -lt 30 ]; do
-  kubectl get configmap web-trang-b -n "$NS" >/dev/null 2>&1 || break
-  i=$(( i + 1 )); sleep 2
-done
-CM_B_CON="$(kubectl get configmap web-trang-b -n "$NS" --ignore-not-found -o name | wc -l)"
-echo "sau $i vong cho: configmap web-trang-b con $CM_B_CON"
-```
-
-```bash
-test "$CM_TRUOC_XOA" -eq 2 \
-  && echo 'PASS: truoc khi xoa co dung hai ConfigMap do vong lap tao ra'
-test "$CM_B_CON" -eq 0 \
-  && echo 'PASS: ConfigMap bien mat theo custom resource — vong lap KHONG he chay lan nao'
-grep -q 'WebPage/trang-b' "$EV/b8-owner-ref.txt" \
-  && echo 'PASS: ly do nam o ownerReferences tro tu ConfigMap len WebPage'
-```
-
-**Ý nghĩa:** đây là chỗ dễ gán công nhầm nhất. Việc xóa theo dây chuyền do **garbage collector của
-control plane** làm, dựa trên `ownerReferences` mà bạn đã học ở
-[Lab 1c phần B2](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md#b2-owner-reference-và-garbage-collection).
-Controller chỉ có công **gắn** owner reference lúc tạo. Một operator thật khai thác đúng điều này:
-gắn owner reference cho mọi object nó tạo, để phần dọn dẹp thành việc của Kubernetes chứ không phải
-việc nó phải nhớ.
-
-Điều garbage collector **không** làm được là những việc phải xảy ra **trước** khi xóa — ví dụ bước
-"tạo một snapshot rồi mới xóa StatefulSet và Volume" trong ví dụ `SampleDB` của bài
-[181](../181-operator-vi.md). Muốn thế thì controller phải đặt **finalizer** như
-[Lab 1c phần B1](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md#b1-finalizer-giữ-object-ở-trạng-thái-đang-xóa)
-đã làm, và tự gỡ finalizer khi dọn xong.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B8.6. Đối chiếu với bảy bước của `SampleDB`, và những gì lab cố ý không có
-
-Ánh xạ từng bước ví dụ *Một ví dụ về operator* trong bài [181](../181-operator-vi.md) sang thứ bạn
-vừa chạy:
-
-| Bước của `SampleDB` | Trong lab này | Khác biệt |
-| --- | --- | --- |
-| 1. Một custom resource `SampleDB` cấu hình vào cluster | CRD `webpages.lab14.example.com` và hai object của nó | giống hệt về bản chất |
-| 2. Một Deployment đảm bảo có Pod chạy phần controller | hàm `reconcile` chạy trong shell trên `lab-k8s-master` | **khác**: không có Deployment, không có Pod. Vòng lặp do bạn gọi tay |
-| 3. Một container image chứa mã của operator | không có; mã là mấy dòng `kubectl` | **khác**: không cần build image |
-| 4. Mã truy vấn control plane tìm các resource đang được cấu hình | `kctl get webpages` ở đầu hàm | giống; operator thật dùng `watch` thay vì hỏi lại từ đầu |
-| 5. Làm cho thực tế khớp cấu hình: tạo PVC, StatefulSet, Job | tạo ConfigMap mang `ownerReferences` | giống về cơ chế, khác về loại object được tạo |
-| 5. Khi xóa: tạo snapshot **trước**, rồi xóa StatefulSet và Volume | garbage collector xóa ConfigMap theo owner reference | **khác**: lab không có bước "trước khi xóa", vì không dùng finalizer |
-| 6. Sao lưu định kỳ theo lịch | không có | **khác**: cần một vòng lặp thường trực, không phải lời gọi tay |
-| 7. Mã hỗ trợ: phát hiện phiên bản cũ và tạo Job nâng cấp | không có | **khác**: đây là phần "tri thức nghiệp vụ", thứ chỉ có ý nghĩa với ứng dụng thật |
-
-Bốn khác biệt đó gói gọn thành đúng một câu: **lab có vòng lặp nhưng không có nơi chạy thường
-trực**. Trên cluster thật, chỗ chạy đó là một Deployment trong cluster — bài
-[181](../181-operator-vi.md) nói rõ ở mục *Triển khai operator*: "Controller thường chạy bên ngoài
-control plane, giống như cách bạn chạy bất kỳ ứng dụng container hóa nào."
-
-```bash
-{
-  echo "=== $(date -Is) — tong ket B8 ==="
-  kubectl get wp -n "$NS" -o wide
-  kubectl get configmaps -n "$NS" -l lab=14
-  kubectl get webpage trang-a -n "$NS" \
-    -o jsonpath='generation={.metadata.generation} observedGeneration={.status.observedGeneration} phase={.status.phase} configMap={.status.configMap}{"\n"}'
-} | tee "$EV/b8-tong-ket.txt"
-
-OBS_F="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.status.observedGeneration}')"
-GEN_F="$(kubectl get webpage trang-a -n "$NS" -o jsonpath='{.metadata.generation}')"
-test "$OBS_F" -eq "$GEN_F" \
-  && echo 'PASS: ket thuc B8 voi controller da bat kip trang thai mong muon'
-```
-
-**PASS:** dòng `PASS:` trên xuất hiện.
-
----
-
-## B9. Storage version và `status.storedVersions`
-
-**Mục đích:** trả lời câu hỏi mở đầu của bài [323](../323-storage-version-migration-vi.md) — vì sao
-phải **chủ động ghi lại** dữ liệu trong etcd — bằng thứ đọc được từ chính API server. Object
-`StorageVersionMigration` cần feature gate nên nằm ngoài lab (xem
-[bảng lý do](#11-ánh-xạ-tài-liệu-sang-bài-thực-hành)); ở đây bạn chạy **phương án 2** của bài
-[377](../377-custom-resource-definition-versioning-vi.md): nâng cấp thủ công, không cần feature gate.
-
-Toàn bộ B9 thao tác trên CRD `clusterwidgets` của B6, để `webpages` và vòng lặp B8 không bị động tới.
-
-### B9.1. Một version, một storage version
-
-```bash
-SV_1="$(kubectl get "crd/clusterwidgets.${LAB_GROUP}" -o jsonpath='{.status.storedVersions}')"
-VER_1="$(kubectl get "crd/clusterwidgets.${LAB_GROUP}" -o jsonpath='{.spec.versions[*].name}')"
-CONV="$(kubectl get "crd/clusterwidgets.${LAB_GROUP}" -o jsonpath='{.spec.conversion.strategy}')"
-echo "spec.versions=$VER_1 | status.storedVersions=$SV_1 | conversion.strategy=$CONV"
-
-test "$SV_1" = '["v1"]' \
-  && echo 'PASS: moi object dang duoc luu o v1 — do la storage version duy nhat tung ton tai'
-test "$CONV" = 'None' \
-  && echo 'PASS: chien luoc chuyen doi mac dinh la None'
-```
-
-**Ý nghĩa:** `spec.versions` là những version **được phục vụ**; `status.storedVersions` là những
-version **từng được dùng để lưu**. Hai danh sách khác nhau, và bài
-[377](../377-custom-resource-definition-versioning-vi.md) chốt một câu quan trọng: "Không thể có
-object nào tồn tại trong bộ lưu trữ ở một phiên bản chưa từng là storage version."
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B9.2. Thêm `v2` và chuyển storage version sang nó
-
-```bash
-cat > "$WK/b9-crd-v2.yaml" <<EOF
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: clusterwidgets.${LAB_GROUP}
-  labels:
-    lab: "14"
-spec:
-  group: ${LAB_GROUP}
-  scope: Cluster
-  conversion:
-    # None gia dinh moi phien ban dung chung mot schema va chi dat lai truong apiVersion.
-    strategy: None
-  names:
-    plural: clusterwidgets
-    singular: clusterwidget
-    kind: ClusterWidget
-    shortNames:
-    - cw
-    categories:
-    - lab14
-  versions:
-  - name: v1
-    served: true
-    storage: false
-    schema:
-      openAPIV3Schema:
-        type: object
-        properties:
-          spec:
-            type: object
-            properties:
-              note:
-                type: string
-                maxLength: 120
-    additionalPrinterColumns:
-    - name: Note
-      type: string
-      jsonPath: .spec.note
-    - name: Age
-      type: date
-      jsonPath: .metadata.creationTimestamp
-  - name: v2
-    served: true
-    storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        properties:
-          spec:
-            type: object
-            properties:
-              note:
-                type: string
-                maxLength: 120
-    additionalPrinterColumns:
-    - name: Note
-      type: string
-      jsonPath: .spec.note
-    - name: Age
-      type: date
-      jsonPath: .metadata.creationTimestamp
-EOF
-
-kubectl apply --dry-run=server --validate=strict -f "$WK/b9-crd-v2.yaml"
-kubectl apply -f "$WK/b9-crd-v2.yaml"
-kubectl wait --for=condition=Established --timeout=120s "crd/clusterwidgets.${LAB_GROUP}"
-rm -rf ~/.kube/cache/discovery
-```
-
-```bash
-i=0; SV_2=''
-while [ "$i" -lt 15 ]; do
-  SV_2="$(kubectl get "crd/clusterwidgets.${LAB_GROUP}" -o jsonpath='{.status.storedVersions}')"
-  case "$SV_2" in *v2*) break ;; esac
-  i=$(( i + 1 )); sleep 2
-done
-VER_2="$(kubectl get "crd/clusterwidgets.${LAB_GROUP}" -o jsonpath='{.spec.versions[*].name}')"
-echo "spec.versions=$VER_2 | status.storedVersions=$SV_2 (sau $i vong)"
-
-case "$SV_2" in
-  *v1*) echo 'PASS: v1 van nam trong storedVersions — object cu VAN dang o dinh dang v1' ;;
-esac
-case "$SV_2" in
-  *v2*) echo 'PASS: v2 da duoc them vao storedVersions ngay khi no thanh storage version' ;;
-esac
-```
-
-Đọc cùng một object qua hai version:
-
-```bash
-kubectl get "clusterwidgets.v1.${LAB_GROUP}" widget-toan-cluster -o yaml \
-  > "$EV/b9-doc-v1.yaml"
-kubectl get "clusterwidgets.v2.${LAB_GROUP}" widget-toan-cluster -o yaml \
-  > "$EV/b9-doc-v2.yaml"
-diff -u "$EV/b9-doc-v1.yaml" "$EV/b9-doc-v2.yaml" | tee "$EV/b9-diff-hai-version.txt"
-
-NOTE_V1="$(kubectl get "clusterwidgets.v1.${LAB_GROUP}" widget-toan-cluster -o jsonpath='{.spec.note}')"
-NOTE_V2="$(kubectl get "clusterwidgets.v2.${LAB_GROUP}" widget-toan-cluster -o jsonpath='{.spec.note}')"
-echo "note doc qua v1='$NOTE_V1' | note doc qua v2='$NOTE_V2'"
-
-test "$NOTE_V1" = "$NOTE_V2" \
-  && echo 'PASS: noi dung doc ra qua hai version giong het nhau'
-grep -q "^-apiVersion: ${LAB_GROUP}/v1" "$EV/b9-diff-hai-version.txt" \
-  && grep -q "^+apiVersion: ${LAB_GROUP}/v2" "$EV/b9-diff-hai-version.txt" \
-  && ! grep -qE '^[+-]  note:' "$EV/b9-diff-hai-version.txt" \
-  && echo 'PASS: chi truong apiVersion doi, phan spec khong doi — dung nhu chien luoc None mo ta'
-```
-
-**Ý nghĩa:** đây là hai câu của bài [377](../377-custom-resource-definition-versioning-vi.md) hiện
-ra bằng số. Một, `storedVersions` **mọc thêm** ngay khi bạn đổi storage version, và v1 **không tự
-biến mất** — vì các object cũ vẫn nằm nguyên trong bộ lưu trữ theo định dạng v1. Hai, chuyển đổi
-`None` chỉ đặt lại `apiVersion`, nên nó **chỉ an toàn khi mọi version dùng chung một schema**;
-schema của v1 và v2 ở trên giống hệt nhau đúng vì lý do đó.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
-### B9.3. API server từ chối gỡ một version còn nằm trong `storedVersions`
-
-```bash
-sed '/^  - name: v1$/,/^      jsonPath: .metadata.creationTimestamp$/d' "$WK/b9-crd-v2.yaml" \
-  > "$WK/b9-crd-bo-v1.yaml"
-grep -cE '^  - name: v[12]$' "$WK/b9-crd-bo-v1.yaml"
-
-kubectl apply -f "$WK/b9-crd-bo-v1.yaml" 2>&1 | tee "$EV/b9-tu-choi-bo-v1.txt"
-```
-
-```bash
-VER_CON="$(kubectl get "crd/clusterwidgets.${LAB_GROUP}" -o jsonpath='{.spec.versions[*].name}')"
-echo "spec.versions sau khi thu bo v1=$VER_CON"
-
-test "$(grep -cE '^  - name: v[12]$' "$WK/b9-crd-bo-v1.yaml")" -eq 1 \
-  && echo 'PASS: file moi chi con mot version'
-grep -qi 'storedVersions' "$EV/b9-tu-choi-bo-v1.txt" \
-  && echo 'PASS: API server tu choi, va noi thang ly do nam o status.storedVersions'
-echo "$VER_CON" | grep -q 'v1' \
-  && echo 'PASS: CRD tren server khong he doi — request bi tu choi truoc khi ghi'
-```
-
-**Ý nghĩa:** đây là **lý do tồn tại của storage version migration**, do chính API server nói ra.
-Nó không cho bạn gỡ v1 chừng nào còn khả năng có object đang nằm ở v1 trong bộ lưu trữ — vì gỡ rồi
-thì không còn cách nào đọc chúng lên. Bài [323](../323-storage-version-migration-vi.md) mô tả đúng
-tình huống này ở câu mở: đổi storage schema "chỉ tác động tới bản ghi **được ghi mới** — object cũ
-nằm im theo định dạng cũ cho tới khi có thứ ghi lại nó".
-
-Nếu `grep` không thấy chữ `storedVersions`, mở `b9-tu-choi-bo-v1.txt` đọc nguyên văn thông báo
-trước khi đi tiếp; xem [mục 4](#4-troubleshooting-của-lab-này).
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B9.4. Nâng cấp thủ công ba bước, rồi gỡ được v1
-
-Bước 1 đã xong ở B9.2 (đặt v2 làm storage). Bước 2: **ghi lại mọi object hiện có**, ép bộ lưu trữ
-dùng storage version hiện hành:
-
-```bash
-RV_TRUOC="$(kubectl get clusterwidget widget-toan-cluster \
-  -o jsonpath='{.metadata.resourceVersion}')"
-
-for w in $(kubectl get clusterwidgets -o name); do
-  kubectl get "$w" -o yaml | kubectl replace -f - >/dev/null
-  echo "da ghi lai $w"
-done
-
-RV_SAU="$(kubectl get clusterwidget widget-toan-cluster \
-  -o jsonpath='{.metadata.resourceVersion}')"
-echo "resourceVersion: truoc=$RV_TRUOC sau=$RV_SAU"
-
-test "$RV_SAU" != "$RV_TRUOC" \
-  && echo 'PASS: object da that su duoc ghi lai — gio no nam o storage version hien hanh'
-```
-
-Bước 3: gỡ v1 khỏi `status.storedVersions`:
-
-```bash
-kubectl patch "customresourcedefinitions/clusterwidgets.${LAB_GROUP}" \
-  --subresource='status' --type='merge' -p '{"status":{"storedVersions":["v2"]}}'
-
-SV_3="$(kubectl get "crd/clusterwidgets.${LAB_GROUP}" -o jsonpath='{.status.storedVersions}')"
-echo "status.storedVersions sau khi vá=$SV_3"
-test "$SV_3" = '["v2"]' \
-  && echo 'PASS: storedVersions chi con v2'
-```
-
-Bây giờ mới gỡ được v1 khỏi `spec.versions`:
-
-```bash
-kubectl apply -f "$WK/b9-crd-bo-v1.yaml"
-kubectl wait --for=condition=Established --timeout=120s "crd/clusterwidgets.${LAB_GROUP}"
-rm -rf ~/.kube/cache/discovery
-
-VER_3="$(kubectl get "crd/clusterwidgets.${LAB_GROUP}" -o jsonpath='{.spec.versions[*].name}')"
-CW_CON="$(kubectl get clusterwidgets --no-headers | wc -l)"
-CAN_CW3="$(kubectl auth can-i list "clusterwidgets.${LAB_GROUP}" --as="$SA_WP")"
-echo "spec.versions=$VER_3 | so object con lai=$CW_CON | sa-doc-wp con doc duoc khong=$CAN_CW3"
-
-test "$VER_3" = 'v2' \
-  && echo 'PASS: da go duoc v1 sau khi hoan tat nang cap thu cong'
-test "$CW_CON" -eq 1 \
-  && echo 'PASS: object cu van doc duoc binh thuong qua v2 — khong mat du lieu'
-kubectl get --raw "/apis/${LAB_GROUP}/v1/clusterwidgets" >/dev/null 2>&1 \
-  || echo 'PASS: duong dan v1 khong con duoc phuc vu'
-test "$CAN_CW3" = 'yes' \
-  && echo 'PASS: ClusterRole van con hieu luc — RBAC ke ten resource, khong ke ten version'
-```
-
-**Ý nghĩa:** ba bước bạn vừa chạy chính là *Phương án 2* trong mục *Nâng cấp các object hiện có lên
-storage version mới* của bài [377](../377-custom-resource-definition-versioning-vi.md). Chúng chạy
-được ở đây vì cluster chỉ có **một** object; trên cluster thật với hàng nghìn object, bước 2 là
-công việc cần tự động hóa — và đó đúng là thứ `StorageVersionMigration` của bài
-[323](../323-storage-version-migration-vi.md) sinh ra để làm.
-
-Gate cuối là một chi tiết đáng nhớ: **RBAC không có khái niệm version**. Rule của bạn ghi
-`apiGroups` và `resources`, nên nó sống sót qua mọi lần đổi version của CRD.
-
-**PASS:** sáu dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B10. Device plugin, extended resource và Topology Manager — ranh giới đọc được
-
-**Mục đích:** đóng nốt hai điểm mở rộng còn lại của bản đồ B1 bằng bằng chứng, không bằng phỏng
-đoán. Cluster lab không có GPU và không có node nhiều NUMA domain, nên bài
-[184](../184-device-plugins-vi.md) và bài [313](../313-debug-topology-vi.md) chỉ kiểm chứng được
-phần đọc được — nhưng phần đó đủ để trả lời checkpoint.
-
-Toàn bộ B10 **chỉ đọc**. Không lệnh nào sửa cấu hình kubelet.
-
-### B10.1. `Capacity` và `Allocatable`: không thiết bị nào được công bố
-
-```bash
-for n in "$MASTER" "$W1" "$W2"; do
-  echo "$n capacity:    $(kubectl get node "$n" -o jsonpath='{.status.capacity}')"
-  echo "$n allocatable: $(kubectl get node "$n" -o jsonpath='{.status.allocatable}')"
-done | tee "$EV/b10-capacity.txt"
-
-EXT_N="$(grep -o '"[a-z0-9.-]\{1,\}/[a-z0-9.-]\{1,\}"' "$EV/b10-capacity.txt" | wc -l)"
-echo "so resource dang vendor-domain/resourcetype tren ba node=$EXT_N"
-
-test "$EXT_N" -eq 0 \
-  && echo 'PASS: khong node nao cong bo extended resource — khong device plugin nao dang chay'
-grep -q 'hugepages' "$EV/b10-capacity.txt" \
-  && echo 'PASS: chi co resource dung san (cpu, memory, pods, ephemeral-storage, hugepages-*)'
-```
-
-**Ý nghĩa:** bài [184](../184-device-plugins-vi.md) mô tả luồng đăng ký gồm hai chặng: plugin tự
-đăng ký với **kubelet**, rồi **kubelet** mới công bố resource lên API server "như một phần của việc
-cập nhật trạng thái node". Danh sách trên là đầu ra của chặng thứ hai. Không có tên nào dạng
-`vendor-domain/resourcetype` nghĩa là chặng thứ nhất chưa từng xảy ra.
-
-Bạn đã tự tay đi qua chặng thứ hai ở
-[Lab 3c phần B5](LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md#b5-extended-resource-tài-nguyên-do-bạn-tự-đặt-tên):
-PATCH thẳng vào `/status/capacity` của Node để quảng bá `example.com/dongle`, rồi Pod xin nó bằng
-`resources.limits`. Điều một device plugin làm thêm so với bạn ở đó là **tự động phát hiện thiết bị
-và tự báo cáo sức khỏe của chúng** — chứ không phải một cơ chế API khác.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B10.2. Điểm đăng ký có sẵn, nhưng không ai dùng
-
-```bash
-ssh "$W2" 'sudo ls -l /var/lib/kubelet/device-plugins/' | tee "$EV/b10-device-plugins-dir.txt"
-
-DP_SOCK2="$(ssh "$W2" 'sudo test -S /var/lib/kubelet/device-plugins/kubelet.sock && echo co || echo khong')"
-DP_KHAC="$(ssh "$W2" 'sudo ls -1 /var/lib/kubelet/device-plugins/ | grep -c "\.sock$"')"
-echo "kubelet.sock ton tai=$DP_SOCK2 | tong so file .sock trong thu muc=$DP_KHAC"
-
-test "$DP_SOCK2" = 'co' \
-  && echo 'PASS: kubelet dang phuc vu dich vu gRPC Registration tai duong dan hard-code'
-test "$DP_KHAC" -ge 1 \
-  && echo 'PASS: doc duoc so socket trong thu muc dang ky'
-```
-
-**Ý nghĩa:** đường dẫn `/var/lib/kubelet/device-plugins/` là **hard-code trong kubelet**, không đổi
-theo `--root-dir` hay cấu hình nào khác — đó là lý do bài
-[184](../184-device-plugins-vi.md) dặn khi triển khai plugin dạng DaemonSet thì phải mount đúng
-đường dẫn này vào Pod. `kubelet.sock` là đầu kia của cuộc đăng ký: plugin gọi vào đó để khai tên
-socket của nó, phiên bản API và `ResourceName`.
-
-Nếu `DP_KHAC` lớn hơn 1, mở `b10-device-plugins-dir.txt` xem socket thừa là của ai — trên cluster
-lab sạch thì chỉ có `kubelet.sock`.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B10.3. Đối chiếu với DRA của giai đoạn 13
-
-```bash
-DRA_N="$(kubectl api-resources --api-group=resource.k8s.io --no-headers 2>/dev/null | wc -l)"
-kubectl api-resources --api-group=resource.k8s.io 2>&1 | tee "$EV/b10-dra.txt"
-echo "so resource cua nhom resource.k8s.io duoc phuc vu=$DRA_N"
-
-if [ "$DRA_N" -gt 0 ]; then
-  SLICE_N="$(kubectl get resourceslices --no-headers 2>/dev/null | wc -l)"
-  echo "so ResourceSlice=$SLICE_N"
-  test "$SLICE_N" -eq 0 \
-    && echo 'PASS: API DRA duoc phuc vu nhung khong driver nao cong bo thiet bi'
-else
-  echo 'PASS: nhom API DRA khong duoc phuc vu tren cluster nay'
-fi
-```
-
-**Ý nghĩa:** hai cơ chế, hai chỗ dữ liệu nằm. Device plugin đẩy thiết bị vào **`status` của Node**
-dưới dạng extended resource — số nguyên, không overcommit được, không chia sẻ được giữa các
-container, và Pod xin bằng `resources.limits`. DRA đặt thiết bị vào **object API riêng** của nhóm
-`resource.k8s.io`, nơi mô tả được thuộc tính và ràng buộc của từng thiết bị, và Pod xin bằng một
-claim. Cả hai cùng tồn tại: device plugin là cơ chế đang chạy trong hầu hết cluster có GPU hiện nay,
-DRA là hướng thay thế.
-
-Đó là toàn bộ nội dung mà
-[checkpoint giai đoạn 13](../00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao) yêu
-cầu giải thích khi cluster không có GPU. [Lab 13 — DRA](LAB-13-DRA.md) đi sâu vào phía DRA; ở đây
-bạn chỉ cần đối chiếu đủ để gọi tên khác biệt.
-
-**PASS:** một dòng `PASS:` của nhánh tương ứng xuất hiện.
-
-### B10.4. Topology Manager đang ở policy nào
-
-```bash
-for n in "$MASTER" "$W1" "$W2"; do
-  kubectl get --raw "/api/v1/nodes/$n/proxy/configz" > "$EV/b10-configz-$n.json" 2>/dev/null \
-    || echo "khong doc duoc configz cua $n"
-done
-
-pol() { grep -o "\"$2\":\"[^\"]*\"" "$EV/b10-configz-$1.json" | head -1 | sed 's/.*:"//;s/"$//'; }
-
-TM_OK=0; MM_OK=0
-# Khong dung pipe o day: vong lap phai chay trong chinh shell nay thi hai bien dem moi giu lai.
-for n in "$MASTER" "$W1" "$W2"; do
-  TM="$(pol "$n" topologyManagerPolicy)"
-  MM="$(pol "$n" memoryManagerPolicy)"
-  echo "$n topologyManagerPolicy='${TM:-<khong khai, mac dinh none>}' memoryManagerPolicy='${MM:-<khong khai, mac dinh None>}'"
-  case "${TM:-none}" in none) TM_OK=$(( TM_OK + 1 )) ;; esac
-  case "${MM:-None}" in None|none) MM_OK=$(( MM_OK + 1 )) ;; esac
-done > "$EV/b10-topology-policy.txt"
-cat "$EV/b10-topology-policy.txt"
-
-NUMA_N="$(ssh "$W2" 'ls -d /sys/devices/system/node/node[0-9]* 2>/dev/null | wc -l')"
-echo "so NUMA node tren $W2=$NUMA_N"
-```
-
-```bash
-echo "so node co topologyManagerPolicy=none: $TM_OK/3 | memoryManagerPolicy=None: $MM_OK/3"
-
-test "$TM_OK" -eq 3 \
-  && echo 'PASS: ca ba kubelet deu o policy none — Topology Manager khong can chinh gi'
-test "$MM_OK" -eq 3 \
-  && echo 'PASS: ca ba kubelet deu o Memory Manager policy None'
-test "$NUMA_N" -eq 1 \
-  && echo 'PASS: may chi co mot NUMA domain — khong co ranh gioi nao de can'
-```
-
-**Ý nghĩa:** bài [313](../313-debug-topology-vi.md) là trang **tra cứu khi hỏng**, và ba con số
-trên nói rõ vì sao nó không hỏng được ở đây. Với policy `none`, kubelet không sinh hint và không từ
-chối Pod nào vì lý do topology, nên `TopologyAffinityError` không xuất hiện trong status của Pod.
-Với một NUMA domain, mọi cách sắp đặt đều thỏa mãn, nên cả khi bật policy khác thì cũng chẳng có gì
-để quan sát.
-
-Giá trị của bài với bạn là **biết tra ở đâu** khi vận hành máy chủ vật lý nhiều socket: bốn nguồn
-thông tin là status của Pod, log hệ thống, file trạng thái của kubelet, và device plugin resource
-API — chính là điểm mở rộng số 7 mà B10.2 vừa đọc.
-
-**Không đổi policy để "thử cho biết".** Đó là sửa `KubeletConfiguration` trên node đang chạy, thuộc
-giai đoạn 20, và B11.4 sẽ bắt được nếu bạn làm.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B11. Cleanup và gate cuối
-
-**Mục đích:** xóa mọi thứ lab tạo ra — kể cả thứ **nằm ngoài namespace** — rồi chứng minh bốn con
-số tồn kho của B0.2 trở về đúng như cũ và cluster về đúng `04-metrics-ready`.
-
-### B11.1. Xóa namespace, và xem thứ gì **không** chết theo
-
-```bash
-CRD_LAB_TRUOC="$(kubectl get crd -l lab=14 --no-headers | wc -l)"
-CR_LAB_TRUOC="$(kubectl get clusterrole,clusterrolebinding -l lab=14 --no-headers | wc -l)"
-CW_TRUOC_XOA_NS="$(kubectl get clusterwidgets --no-headers | wc -l)"
-echo "truoc khi xoa namespace: crd lab=14 la $CRD_LAB_TRUOC, rbac lab=14 la $CR_LAB_TRUOC, clusterwidget la $CW_TRUOC_XOA_NS"
-
-kubectl delete namespace "$NS" --wait=true --timeout=300s
-```
-
-```bash
-NS_LEFT="$(kubectl get namespace "$NS" --ignore-not-found -o name 2>/dev/null | wc -l)"
-NS_TAM_LEFT="$(kubectl get namespace lab-14-tam --ignore-not-found -o name 2>/dev/null | wc -l)"
-CRD_LAB_SAU="$(kubectl get crd -l lab=14 --no-headers | wc -l)"
-CR_LAB_SAU="$(kubectl get clusterrole,clusterrolebinding -l lab=14 --no-headers | wc -l)"
-CW_SAU_XOA_NS="$(kubectl get clusterwidgets --no-headers | wc -l)"
-echo "sau khi xoa namespace: crd lab=14 la $CRD_LAB_SAU, rbac lab=14 la $CR_LAB_SAU, clusterwidget la $CW_SAU_XOA_NS"
-
-test "$NS_LEFT" -eq 0 && test "$NS_TAM_LEFT" -eq 0 \
-  && echo 'PASS: khong con namespace nao cua lab'
-test "$CRD_LAB_SAU" -eq "$CRD_LAB_TRUOC" \
-  && test "$CR_LAB_SAU" -eq "$CR_LAB_TRUOC" \
-  && test "$CW_SAU_XOA_NS" -eq "$CW_TRUOC_XOA_NS" \
-  && echo 'PASS: xoa namespace KHONG don CRD, ClusterRole, ClusterRoleBinding hay object cluster-scoped'
-```
-
-**Ý nghĩa:** đây là lý do lab này có mục cleanup dài hơn mọi lab trước. Nếu bạn dừng ở đây và
-chuyển sang lab sau, cluster của bạn mang theo hai CRD, một ClusterRole, một ClusterRoleBinding và
-một custom object — tất cả đều **vô hình** với `kubectl get all` và với mọi lệnh có `-n`. Đó là
-cách một cluster tích tụ rác trong đời thật.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B11.2. Xóa theo label, và so số lượng trước với sau
-
-Kiểm **trước khi** xóa: đúng bốn object, đúng bốn cái tên đã khai ở
-[bảng mục 2](#2-quy-ước-và-an-toàn):
-
-```bash
-kubectl get crd,clusterrole,clusterrolebinding -l lab=14 -o name | sort \
-  | tee "$EV/b11-se-xoa.txt"
-
-SE_XOA_N="$(wc -l < "$EV/b11-se-xoa.txt")"
-echo "so object pham vi cluster se bi xoa=$SE_XOA_N"
-
-test "$SE_XOA_N" -eq 4 \
-  && echo 'PASS: dung bon object, khop bang khai bao o muc 2'
-grep -q "webpages.${LAB_GROUP}" "$EV/b11-se-xoa.txt" \
-  && grep -q "clusterwidgets.${LAB_GROUP}" "$EV/b11-se-xoa.txt" \
-  && grep -q 'lab-14-doc-clusterwidget' "$EV/b11-se-xoa.txt" \
-  && echo 'PASS: ba cai ten deu dung nhu du kien — khong CRD la nao lot vao selector'
-```
-
-**PASS:** hai dòng `PASS:` của bước kiểm này xuất hiện.
-
-> Không đi tiếp khi hai gate trên chưa PASS. Nếu selector bắt nhầm một CRD của CNI hay của ingress
-> controller thì lệnh xóa bên dưới sẽ **xóa luôn cấu hình mạng hoặc cấu hình ingress** của cluster.
-> Trường hợp đó: dừng hẳn, restore cả ba VM về `04-metrics-ready`.
-
-```bash
-kubectl delete crd -l lab=14 --wait=true --timeout=300s
-kubectl delete clusterrolebinding -l lab=14 --wait=true --timeout=120s
-kubectl delete clusterrole -l lab=14 --wait=true --timeout=120s
-```
-
-```bash
-CON_LAI="$(kubectl get crd,clusterrole,clusterrolebinding -l lab=14 --no-headers 2>/dev/null | wc -l)"
-echo "so object pham vi cluster mang label lab=14 con lai=$CON_LAI"
-
-test "$CON_LAI" -eq 0 \
-  && echo 'PASS: khong con object pham vi cluster nao cua lab'
-kubectl get --raw "/apis/${LAB_GROUP}/v2/clusterwidgets" >/dev/null 2>&1 \
-  || echo 'PASS: duong dan cua API group da khong con duoc phuc vu'
-kubectl get clusterwidgets 2>&1 | grep -qi 'server doesn\|not find\|unable to' \
-  && echo 'PASS: kind cu khong con ton tai — xoa CRD xoa luon moi custom object cua no'
-```
-
-**Ý nghĩa:** ba gate này chứng minh đúng câu của bài
-[378](../378-custom-resource-definitions-vi.md): "Khi bạn xóa một CustomResourceDefinition, server
-sẽ gỡ cài đặt endpoint API RESTful và xóa toàn bộ custom object đang được lưu trong đó." Bạn không
-phải xóa `widget-toan-cluster` riêng — nó biến mất cùng CRD. Đây cũng chính là lý do cảnh báo thứ
-hai ở [mục 2](#2-quy-ước-và-an-toàn) tồn tại.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B11.3. Bốn con số tồn kho trở về đúng như B0.2
-
-```bash
-i=0
-while [ "$i" -lt 30 ]; do
-  APISVC_N1="$(kubectl get apiservice --no-headers | wc -l)"
-  test "$APISVC_N1" -eq "$APISVC_N0" && break
-  i=$(( i + 1 )); sleep 2
-done
-
-CRD_N1="$(kubectl get crd --no-headers | wc -l)"
-CR_N1="$(kubectl get clusterrole --no-headers | wc -l)"
-CRB_N1="$(kubectl get clusterrolebinding --no-headers | wc -l)"
-APISVC_N1="$(kubectl get apiservice --no-headers | wc -l)"
-
-{
-  echo "=== $(date -Is) — ton kho pham vi cluster sau Lab 14 ==="
-  echo "crd:                truoc=$CRD_N0    sau=$CRD_N1"
-  echo "clusterrole:        truoc=$CR_N0     sau=$CR_N1"
-  echo "clusterrolebinding: truoc=$CRB_N0    sau=$CRB_N1"
-  echo "apiservice:         truoc=$APISVC_N0 sau=$APISVC_N1 (sau $i vong cho)"
-} | tee "$EV/b11-ton-kho.txt"
-
-test "$CRD_N1" -eq "$CRD_N0" \
-  && echo 'PASS: so CRD tro ve dung con so cu'
-test "$CR_N1" -eq "$CR_N0" && test "$CRB_N1" -eq "$CRB_N0" \
-  && echo 'PASS: so ClusterRole va ClusterRoleBinding tro ve dung con so cu'
-test "$APISVC_N1" -eq "$APISVC_N0" \
-  && echo 'PASS: APIService tu dang ky cua CRD da bien mat theo CRD'
-```
-
-**Ý nghĩa:** đây là **gate quan trọng nhất của Lab 14**. Xóa theo label là đủ khi bạn nhớ gắn label;
-so số lượng là thứ bắt được cái bạn quên gắn. Hai kỹ thuật bổ sung cho nhau, và trên object phạm vi
-cluster thì thiếu cái nào cũng không đủ.
-
-Con số `apiservice` cần vòng chờ vì object đó do kube-apiserver tự dọn — **thời gian phụ thuộc cấu
-hình control plane**. Nếu sau cả vòng chờ nó vẫn lệch, mở `b2-apiservice.txt` và
-`kubectl get apiservice` để tìm dòng thừa trước khi kết luận.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B11.4. Cấu hình node và control plane không hề đổi
-
-```bash
-{
-  echo "$MASTER kubelet $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
-  for n in "$W1" "$W2"; do
-    echo "$n kubelet $(ssh "$n" 'sudo sha256sum /var/lib/kubelet/config.yaml' | awk '{print $1}')"
-  done
-  for f in kube-apiserver kube-scheduler kube-controller-manager; do
-    echo "$MASTER $f $(sudo sha256sum /etc/kubernetes/manifests/$f.yaml | awk '{print $1}')"
-  done
-} | tee "$EV/b11-config-sha.txt"
-
-diff -u "$EV/b0-config-sha.txt" "$EV/b11-config-sha.txt" \
-  && echo 'PASS: sau file cau hinh khong he doi trong suot lab' \
-  || echo 'FAIL: cau hinh da bi sua — xem muc 4'
-```
-
-**Ý nghĩa:** gate này khóa lời hứa của B10: lab đọc `topologyManagerPolicy` chứ không đổi nó. Nếu
-`diff` báo khác, cluster đã lệch khỏi `04-metrics-ready` và **không được** mang sang lab sau.
-
-**PASS:** dòng `PASS:` xuất hiện, không dòng `FAIL:` nào.
-
-### B11.5. Hạ tầng của mốc `04-metrics-ready` còn nguyên
-
-```bash
-SC_N1="$(kubectl get storageclass --no-headers | wc -l)"
-SC_DEF1="$(kubectl get storageclass \
-  -o jsonpath='{range .items[*]}{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' \
-  | grep -c '^true$')"
-IC_N1="$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)"
-MS_AVAIL1="$(kubectl get apiservice v1beta1.metrics.k8s.io \
-  -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')"
-PV_N1="$(kubectl get pv --no-headers 2>/dev/null | wc -l)"
-PVC_N1="$(kubectl get pvc -A --no-headers 2>/dev/null | wc -l)"
-TOP_N="$(kubectl top node --no-headers 2>/dev/null | wc -l)"
-echo "storageclass=$SC_N1 (mac dinh=$SC_DEF1) | ingressclass=$IC_N1 | metrics=$MS_AVAIL1"
-echo "pv=$PV_N1 pvc=$PVC_N1 | so dong kubectl top node=$TOP_N"
-
-test "$SC_DEF1" -eq 1 && test "$IC_N1" -ge 1 && test "$MS_AVAIL1" = 'True' \
-  && echo 'PASS: StorageClass mac dinh, ingress controller va metrics-server deu con nguyen'
-test "$PV_N1" -eq 0 && test "$PVC_N1" -eq 0 \
-  && echo 'PASS: khong PV hay PVC nao — lab 14 khong dung toi tang luu tru'
-test "$TOP_N" -eq 3 \
-  && echo 'PASS: kubectl top node van in du ba node — dung dinh nghia moc 04-metrics-ready'
-```
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B11.6. Dọn workspace và gate ngắn A5.5
-
-```bash
-rm -f "$WK"/b3-*.yaml "$WK"/b4-*.yaml "$WK"/b5-*.yaml "$WK"/b6-*.yaml \
-      "$WK"/b7-*.yaml "$WK"/b8-*.yaml "$WK"/b9-*.yaml \
-      "$WK"/reconcile-*.yaml "$WK"/ctrl.kubeconfig
-rmdir "$WK"
-unset TOK_CTRL
-```
-
-`rmdir` cố ý không dùng `-rf`: nó fail nếu thư mục còn file lạ, và `test ! -e` bên dưới biến điều
-đó thành gate thay vì im lặng bỏ qua. Thư mục `~/lab-evidence/14/` **giữ lại** — đó là bằng chứng.
-
-```bash
-test ! -e "$WK" && echo 'PASS: manifest tam va kubeconfig chua token da xoa het'
-grep -rl 'eyJ' "$EV" 2>/dev/null | tee "$EV/b11-quet-token.txt"
-test ! -s "$EV/b11-quet-token.txt" \
-  && echo 'PASS: khong file bang chung nao chua chuoi giong JWT'
-```
+Gate ngắn A5.5, chạy nguyên văn:
 
 ```bash
 kubectl wait --for=condition=Ready node --all --timeout=180s
@@ -2814,145 +158,2816 @@ test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
 kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
 kubectl -n kube-system get deployment coredns
 kubectl get pods -n default
-
-READY_N="$(kubectl get nodes \
-  -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' \
-  | grep -c '^True$')"
-echo "so node Ready=True: $READY_N"
-test "$READY_N" -eq 3 && echo 'PASS: ca ba node Ready'
-
-{
-  echo "=== $(date -Is) — trang thai sau Lab 14 ==="
-  echo '--- ton kho pham vi cluster'
-  echo "crd=$CRD_N1 clusterrole=$CR_N1 clusterrolebinding=$CRB_N1 apiservice=$APISVC_N1"
-  echo '--- crd dang co, kem API group va scope'
-  kubectl get crd -o custom-columns='NAME:.metadata.name,GROUP:.spec.group,SCOPE:.spec.scope' \
-    --no-headers | sort
-  echo '--- storageclass'; kubectl get storageclass -o wide
-  echo '--- ingressclass'; kubectl get ingressclass 2>&1
-  echo '--- apiservice metrics'; kubectl get apiservice v1beta1.metrics.k8s.io 2>&1
-  echo '--- persistentvolume'; kubectl get pv 2>&1
-  echo '--- namespaces'; kubectl get namespaces
-} | tee "$EV/b11-sau.txt"
-
-diff -u "$EV/b0-truoc.txt" "$EV/b11-sau.txt" > "$EV/b11-diff.txt" 2>&1 || true
-grep -c '^[+-]' "$EV/b11-diff.txt"
 ```
 
-**PASS:** ba node `Ready`; dòng `PASS: readyz ok` xuất hiện; lệnh field selector trả
-`No resources found`; CoreDNS đủ replica `READY`; `default` không có Pod; dòng
-`PASS: ca ba node Ready` xuất hiện; danh sách namespace không còn `lab-14` lẫn `lab-14-tam`; danh
-sách CRD trong `b11-sau.txt` **không còn** dòng nào thuộc API group của lab.
+Mốc `04-metrics-ready` và cluster chưa có dấu vết của dự án:
 
-Cluster đã trở về `04-metrics-ready`. **Lab 14 không tạo snapshot mới** — để ba VM nguyên trạng
-đang chạy hoặc tắt tùy bạn; lab sau tự bật máy theo
-[A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab).
+```bash
+test "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 && echo 'PASS: kubectl top node du ba node'
+test "$(kubectl get apiservice v1beta1.metrics.k8s.io \
+  -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')" = 'True' \
+  && echo 'PASS: APIService metrics.k8s.io Available'
+test "$(kubectl get crd --no-headers | wc -l)" -gt 0 && echo 'PASS: cluster da co CRD cua ha tang nen'
+test "$(kubectl get crd,clusterrole,clusterrolebinding,priorityclass,storageclass \
+  -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 \
+  && echo 'PASS: chua co object cap cluster nao cua du an'
+```
+
+Repo, thư mục làm việc và tồn kho "trước". Nếu vừa restore snapshot, repo đã mất — khôi phục từ bundle
+theo [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm):
+
+```bash
+mkdir -p ~/lab-work/14 ~/lab-evidence/14
+EV=~/lab-evidence/14
+test -d ~/bookstore/.git || git clone "$(ls -t ~/bookstore-lab-1[23].bundle | head -n 1)" ~/bookstore
+cd ~/bookstore
+git describe --tags --exact-match HEAD 2>/dev/null | grep -qxE 'lab-1[23]' && echo 'PASS: HEAD dung tag lab-13 hoac lab-12'
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong co thay doi chua commit'
+kubectl get namespace bookstore >/dev/null 2>&1 \
+  && echo 'FAIL: namespace bookstore con sot tu lan truoc' || echo 'PASS: cluster chua co du an'
+
+{ for R in crd clusterrole clusterrolebinding apiservice; do
+    echo "$R=$(kubectl get "$R" --no-headers | wc -l)"
+  done; } | tee "$EV/b0-ton-kho.txt"
+{ echo "lab-k8s-master $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
+  for N in lab-k8s-worker1 lab-k8s-worker2; do
+    echo "$N $(ssh "$N" 'sudo sha256sum /var/lib/kubelet/config.yaml' | awk '{print $1}')"
+  done; } | tee "$EV/b0-kubelet-sha.txt"
+test "$(grep -c ' [0-9a-f]\{64\}$' "$EV/b0-kubelet-sha.txt")" -eq 3 && echo 'PASS: ghi duoc checksum kubelet cua ba node'
+```
+
+Dựng lại hệ thống của sprint trước bằng script của chính sprint đó:
+
+```bash
+cd ~/bookstore
+./scripts/deploy.sh > "$EV/b0-deploy.txt" 2>&1; echo "deploy exit=$?"
+./tests/smoke.sh > "$EV/b0-smoke-sprint-truoc.txt" 2>&1; echo "smoke exit=$?"
+grep -c '^PASS:' "$EV/b0-smoke-sprint-truoc.txt"; grep '^FAIL:' "$EV/b0-smoke-sprint-truoc.txt"
+```
+
+**PASS:** gate A5.5 đạt như mô tả ở Lab 00; bốn dòng `PASS:` của mốc `04-metrics-ready`; ba dòng
+`PASS:` về repo và cluster; tồn kho bốn con số được ghi; dòng `PASS:` checksum; `deploy exit=0`,
+`smoke exit=0` và file smoke không có dòng `FAIL:`.
+
+`deploy.sh` hoặc `smoke.sh` fail nghĩa là repo của sprint trước **chưa đủ** — có thứ chỉ tồn tại trên
+cluster cũ. Sửa repo ở tag đó trước, không sửa tay trên cluster
+([mục 6.1 của file dự án](DU-AN-BOOKSTORE.md#61-mở-đầu)).
+
+## B1. [BS-14-01] Điều tra: bản đồ điểm mở rộng của cluster
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** trước khi thêm API của riêng mình, đội phải biết cluster **đã** được mở rộng ở đâu. Từ
+Lab 5b tới Lab 11a bạn đã cài Calico, Traefik, local-path-provisioner và metrics-server mà chưa gọi
+tên chúng theo bản đồ điểm mở rộng. Ticket này gọi tên từng thứ, rồi quyết định `DbBackup` — yêu cầu
+sao lưu theo nhu cầu, hiện được làm bằng `kubectl create job --from=cronjob/db-backup` — sẽ đứng ở ô
+nào trên bản đồ.
+
+**Yêu cầu:**
+
+1. Với mỗi điểm trong bảy điểm của *Chú giải cho hình vẽ* (bài 177), chỉ ra **một hiện vật có thật**
+   trên cluster đang chạy Bookstore, hoặc chứng minh điểm đó đang trống.
+2. Chứng minh có đúng hai cách thêm API đang chạy song song trên cluster: một API group do
+   kube-apiserver tự phục vụ và lưu (từ CRD), một API group được chuyển tiếp sang server khác. Gọi
+   thẳng vào đường dẫn của API group thứ hai và cho thấy dữ liệu được tính tại thời điểm hỏi.
+3. Phân loại provisioner của StorageClass `bookstore-retain`: storage plugin hay controller? Phân loại
+   CNI của cluster: webhook hay binary plugin, ai gọi nó?
+4. Ghi ADR quyết định cơ chế cho `DbBackup`.
+
+**Ràng buộc:** chỉ đọc. Không tạo, sửa, xóa object nào; không sửa file nào trên node.
+
+**Đọc lại:**
+
+- Bài [177](../177-extend-kubernetes-vi.md):
+  [*Các mẫu thiết kế phần mở rộng*](../177-extend-kubernetes-vi.md#extension-patterns),
+  [*Chú giải cho hình vẽ*](../177-extend-kubernetes-vi.md#chú-giải-cho-hình-vẽ-key-to-the-figure),
+  [*Thay đổi các resource có sẵn*](../177-extend-kubernetes-vi.md#changing-built-in-resources),
+  [*Kết hợp API mới với tự động hóa*](../177-extend-kubernetes-vi.md#combining-new-apis-with-automation).
+- Bài [178](../178-api-extension-vi.md) — cả bài, hai gạch đầu dòng.
+- Bài [180](../180-apiserver-aggregation-vi.md), mục
+  [*Tầng tổng hợp*](../180-apiserver-aggregation-vi.md#tầng-tổng-hợp-aggregation-layer).
+- Bài [179](../179-custom-resources-vi.md):
+  [*Tôi nên dùng ConfigMap hay custom resource?*](../179-custom-resources-vi.md#tôi-nên-dùng-configmap-hay-custom-resource-should-i-use-a-configmap-or-a-custom-resource),
+  [*Chọn phương pháp thêm custom resource*](../179-custom-resources-vi.md#chọn-phương-pháp-thêm-custom-resource-choosing-a-method-for-adding-custom-resources)
+  và hai bảng con của nó.
+- Bài [182](../182-compute-storage-net-vi.md) — cả bài.
+
+**Bàn giao:** `docs/adr/NNNN-chon-co-che-mo-rong.md` (`NNNN` là số tiếp theo trong `docs/adr/`);
+`~/lab-evidence/14/b1-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` cluster đã có ít nhất một API group sinh ra từ CRD trước khi dự án thêm CRD nào.
+- `PASS:` `metrics.k8s.io` là API được chuyển tiếp sang một Service trong `kube-system`; gọi thẳng đường
+  dẫn của nó trả `NodeMetricsList`.
+- `PASS:` không API group nào sinh ra từ CRD trỏ tới một Service.
+- `PASS:` provisioner của `bookstore-retain` không có trong danh sách CSIDriver; nó chạy như một
+  Deployment thường.
+- `PASS:` `lab-k8s-worker2` có file cấu hình CNI và binary CNI trên đĩa.
+- `PASS:` mọi Pod của dự án dùng scheduler mặc định; không có kubectl plugin nào.
+- `PASS:` có ADR chọn cơ chế mở rộng.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-chon-co-che-mo-rong.md`:
+
+1. `DbBackup` nên là CRD hay aggregated API? Dẫn đúng các dòng trong bảng *So sánh mức độ dễ dùng* và
+   bảng *Tính năng nâng cao và tính linh hoạt* của bài 179 quyết định lựa chọn đó. Nếu sau này cần một
+   thao tác `restore` ngoài CRUD thì quyết định còn đứng không?
+2. Sprint 15 đã có ConfigMap `backup-status` do CronJob `db-backup` ghi kết quả. Vì sao yêu cầu backup
+   theo nhu cầu lại là custom resource chứ không phải thêm một key vào ConfigMap đó? Dẫn mục *Tôi nên
+   dùng ConfigMap hay custom resource?*
+3. Đội muốn "mọi CronJob của dự án phải `concurrencyPolicy: Forbid`". Thêm một CRD có làm được việc đó
+   không? Bài 177 nói gì, và điểm mở rộng nào mới làm được?
+4. `backup-operator` sẽ nằm ở điểm số mấy? Bài 177 nói controller cũng thêm một điểm lỗi — nếu nó chết
+   thì request tới `api` của Bookstore có bị ảnh hưởng không?
+
+<details>
+<summary>Gợi ý</summary>
+
+- APIService có `.spec.service` là API được chuyển tiếp; `.spec.service` rỗng là API do chính
+  kube-apiserver phục vụ. In ba cột bằng
+  `-o custom-columns='NAME:.metadata.name,SVCNS:.spec.service.namespace,SVC:.spec.service.name'`.
+- Gọi thẳng một đường dẫn API, không qua `kubectl get <kind>`: `kubectl get --raw /apis/<group>/<version>`.
+- Danh sách storage plugin đã đăng ký: `kubectl get csidrivers`.
+- CNI trên node: `/etc/cni/net.d/` và `/opt/cni/bin/` — đọc qua `ssh lab-k8s-worker2`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự điều tra xong; chỉ đọc</summary>
+
+```bash
+EV=~/lab-evidence/14
+cd ~/bookstore
+
+# Điểm 3 — loại resource: API group sinh ra từ CRD, và APIService
+kubectl get crd -o jsonpath='{range .items[*]}{.spec.group}{"\n"}{end}' | sort | uniq -c \
+  | tee "$EV/b1-crd-groups.txt"
+test "$(wc -l < "$EV/b1-crd-groups.txt")" -ge 1 && echo 'PASS: cluster da co API group sinh ra tu CRD'
+kubectl get apiservice --no-headers \
+  -o custom-columns='NAME:.metadata.name,SVCNS:.spec.service.namespace,SVC:.spec.service.name' \
+  > "$EV/b1-apiservice.txt"
+awk '$3 != "<none>"' "$EV/b1-apiservice.txt" | tee "$EV/b1-apiservice-proxy.txt"
+grep -q '^v1beta1.metrics.k8s.io *kube-system ' "$EV/b1-apiservice-proxy.txt" \
+  && echo 'PASS: metrics.k8s.io duoc chuyen tiep sang Service trong kube-system'
+kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes > "$EV/b1-metrics-nodes.json"
+grep -q 'NodeMetricsList' "$EV/b1-metrics-nodes.json" && echo 'PASS: du lieu metric tinh tai thoi diem hoi'
+N_CRD_PROXY="$(awk '{print $1}' "$EV/b1-apiservice-proxy.txt" \
+  | grep -cFf <(awk '{print $2}' "$EV/b1-crd-groups.txt") || true)"
+test "$N_CRD_PROXY" -eq 0 && echo 'PASS: khong API group nao cua CRD can API server rieng'
+
+# Điểm 5 — controller, và điểm 7 — storage plugin
+PROV="$(kubectl get storageclass bookstore-retain -o jsonpath='{.provisioner}')"
+kubectl get csidrivers > "$EV/b1-csidrivers.txt" 2>&1
+kubectl get csidriver "$PROV" >/dev/null 2>&1 \
+  && echo "FAIL: $PROV la CSIDriver" || echo "PASS: $PROV khong phai CSIDriver — no la controller"
+test "$(kubectl -n local-path-storage get deployment --no-headers | wc -l)" -ge 1 \
+  && echo 'PASS: provisioner chay nhu mot Deployment thuong, ngoai control plane'
+
+# Điểm 6 — network plugin: binary plugin do kubelet thực thi
+ssh lab-k8s-worker2 'ls -l /etc/cni/net.d/ /opt/cni/bin/' > "$EV/b1-cni-worker2.txt"
+{ ssh lab-k8s-worker2 'ls /etc/cni/net.d/' | grep -q 'conflist$' \
+  && ssh lab-k8s-worker2 'test -x /opt/cni/bin/calico'; } \
+  && echo 'PASS: worker2 co cau hinh CNI va binary calico tren dia'
+
+# Điểm 1, 2, 4 — client, truy cập API, lập lịch
+PLUGIN_N="$(kubectl plugin list 2>/dev/null | grep -c '^/')"
+VWH_N="$(kubectl get validatingwebhookconfigurations --no-headers 2>/dev/null | wc -l)"
+MWH_N="$(kubectl get mutatingwebhookconfigurations --no-headers 2>/dev/null | wc -l)"
+SCHED="$(kubectl -n bookstore get pods -o jsonpath='{range .items[*]}{.spec.schedulerName}{"\n"}{end}' | sort -u)"
+echo "kubectl plugin=$PLUGIN_N validating=$VWH_N mutating=$MWH_N scheduler=$SCHED" | tee "$EV/b1-diem-1-2-4.txt"
+{ test "$PLUGIN_N" -eq 0 && test "$SCHED" = 'default-scheduler'; } \
+  && echo 'PASS: khong kubectl plugin; moi Pod du an dung scheduler mac dinh'
+
+ls docs/adr/*-chon-co-che-mo-rong.md >/dev/null 2>&1 && echo 'PASS: co ADR chon co che mo rong'
+```
+
+Nếu `VWH_N` hoặc `MWH_N` khác 0, đọc tên chúng: đó là add-on đang dùng điểm số 2. Bằng 0 cũng hợp lệ
+— tùy add-on bạn đã cài.
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+Bản đồ trên cluster Bookstore (điền bằng output thật của bạn):
+
+| Điểm | Hiện vật trên cluster | Mô hình gọi |
+| --- | --- | --- |
+| 1 — client | trống: không kubectl plugin nào | binary plugin do kubectl thực thi |
+| 2 — truy cập API | admission webhook nếu có; Pod Security admission là plugin dựng sẵn, không phải phần mở rộng | webhook — kube-apiserver gọi ra |
+| 3 — loại resource | API group của Calico, Traefik (CRD, kube-apiserver tự phục vụ); `metrics.k8s.io` (chuyển tiếp) | CRD: không gọi ra; tầng tổng hợp: request mạng |
+| 4 — lập lịch | chỉ scheduler mặc định | — |
+| 5 — controller | local-path-provisioner; sắp tới là `backup-operator` | controller là **client** của API server |
+| 6 — network plugin | Calico: conflist trong `/etc/cni/net.d/`, binary trong `/opt/cni/bin/` | binary plugin do kubelet thực thi |
+| 7 — device/storage plugin | trống: không CSIDriver nào, không device plugin nào (B7) | binary plugin do kubelet gọi |
+
+Ý chính cho ADR:
+
+1. **CRD.** Bảng *So sánh mức độ dễ dùng*: không lập trình, không dịch vụ bổ sung nào phải chạy, vá lỗi
+   theo đợt nâng cấp Kubernetes. Bảng *Tính năng nâng cao*: `DbBackup` cần validation, defaulting,
+   status subresource, multi-versioning — CRD đều có. Nó không cần custom storage, Protocol Buffers
+   hay subresource ngoài CRUD. Một thao tác `restore` dạng subresource thì **không** làm được bằng CRD;
+   khi đó hoặc mô hình hóa thành kind thứ hai (`DbRestore`) — vẫn CRD — hoặc chuyển sang aggregated API.
+2. ConfigMap hợp khi chương trình trong Pod đọc file cấu hình để tự cấu hình. `DbBackup` là một **yêu
+   cầu** có vòng đời riêng: muốn `kubectl get dbbackups` ở mức cao nhất, muốn watch thay đổi để tự động
+   hóa, muốn quy ước `.spec`/`.status` — đúng các dấu hiệu "dùng custom resource" của bài 179.
+   `backup-status` vẫn giữ vai trò cũ: kết quả của lịch backup định kỳ.
+3. **Không.** Custom resource luôn ở API group mới; không thay đổi được hành vi của API có sẵn như
+   CronJob. Việc đó cần *phần mở rộng truy cập API* — admission webhook ở điểm số 2.
+4. Điểm số 5. Nó là client của API server, **không nằm trên đường request**: `api` vẫn phục vụ bình
+   thường khi nó chết; chỉ yêu cầu backup mới không được ai xử lý. B5 chứng minh điều này.
+
+</details>
+
+## B2. [BS-14-02] CRD `DbBackup`
+
+**Loại:** Tính năng.
+
+**Bối cảnh:** muốn có một bản sao lưu ngay — trước khi phát hành, trước khi bảo trì `lab-k8s-worker2`
+— người vận hành đang phải nhớ lệnh `kubectl create job --from=cronjob/db-backup`, và kết quả chỉ nằm
+trong log của một Pod sớm bị dọn. Dự án cần một **kind** để khai báo "tôi muốn một bản backup" và đọc
+lại kết quả ngay trên object đó. Ticket này tạo kind; B4 tạo thứ làm cho nó có hành vi.
+
+**Yêu cầu:**
+
+1. CRD tên `dbbackups.bookstore.example.com` ở `k8s/cluster/crd-dbbackup.yaml`: API group
+   `bookstore.example.com`, kind `DbBackup`, số nhiều `dbbackups`, số ít `dbbackup`, tên ngắn `dbb`,
+   thuộc category `bookstore`. Mang label `app.kubernetes.io/part-of=bookstore` và
+   `app.kubernetes.io/component=operator`. Object thuộc về một namespace.
+2. Đúng một version, `v1alpha1` — B6 sẽ thêm `v1`.
+3. Hợp đồng `spec`, được **API server** cưỡng chế:
+   - `database` bắt buộc, chỉ nhận `bookstore`;
+   - `format` là `plain` hoặc `custom`, bỏ trống thì thành `plain`;
+   - `note` tùy chọn, tối đa 120 ký tự;
+   - trường không khai báo không được lưu.
+4. `status` gồm `phase` (`Running`, `Succeeded`, `Failed`), `jobName`, `file`, `sizeBytes` (số
+   nguyên), `startTime`, `completionTime` (thời điểm), `observedGeneration`, `message`. `status` chỉ
+   ghi được qua đường riêng, và ghi `status` không làm tăng `metadata.generation`.
+5. `kubectl get dbb` hiện các cột `PHASE`, `SIZE`, `FILE`, `AGE`, mọi cột hiện ở output thường.
+6. `scripts/deploy.sh` và `scripts/teardown.sh` thay bằng phiên bản Lab 14 — chép nguyên văn khối bên
+   dưới. Đây là **bản cuối** của hai script: chúng đã có sẵn các bước cho ticket B3, B4 và tự bỏ qua
+   khi file tương ứng chưa có.
+7. Chứng minh trên một namespace dùng một lần: `DbBackup` mất theo namespace, CRD thì không.
+
+**Ràng buộc:** không viết webhook. Không dùng trường nào ngoài những trường bài 179 đã nêu tên trong
+hai bảng và ví dụ YAML — riêng từ khóa schema (`required`, `enum`, `default`, `maxLength`) là phần
+*validation theo OpenAPI v3.0* mà bảng đó dẫn tới. Mọi thử nghiệm làm trong namespace `bookstore-thu`,
+**không** trong `bookstore`: chưa có controller nào, và B4 sẽ xử lý mọi `DbBackup` còn sót trong
+`bookstore`.
+
+**Đọc lại:**
+
+- Bài [179](../179-custom-resources-vi.md):
+  [*Custom controller*](../179-custom-resources-vi.md#custom-controller),
+  [*CustomResourceDefinition*](../179-custom-resources-vi.md#customresourcedefinitions),
+  [*Tính năng nâng cao và tính linh hoạt*](../179-custom-resources-vi.md#advanced-features-and-flexibility)
+  — các dòng Validation, Defaulting, Status Subresource, OpenAPI Schema, Instance Name;
+  [*Các tính năng chung*](../179-custom-resources-vi.md#common-features); ví dụ YAML ở
+  [*Các trường có thể chọn lọc*](../179-custom-resources-vi.md#crd-selectable-fields) cho khung của
+  một CRD có `additionalPrinterColumns`.
+- Bài [178](../178-api-extension-vi.md) — với CRD, control plane phục vụ và lưu.
+- [Mục 5.5 của file dự án](DU-AN-BOOKSTORE.md#55-bố-cục-repo-theo-sprint) — hàng "14".
+
+**Bàn giao:** `k8s/cluster/crd-dbbackup.yaml`; hai script mới; `docs/adr/NNNN-crd-dbbackup.md`;
+`~/lab-evidence/14/b2-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `teardown.sh` gỡ sạch; `deploy.sh` hai lần liên tiếp đều thành công và chờ CRD `Established`.
+- `PASS:` CRD `Established` và `NamesAccepted`, mang label dự án, `Namespaced`, đúng tên, tên ngắn,
+  category; chỉ có `v1alpha1`, `storedVersions` là `["v1alpha1"]`.
+- `PASS:` `/apis/bookstore.example.com/v1alpha1` do chính kube-apiserver phục vụ, không Service nào.
+- `PASS:` ba object sai bị API server từ chối: thiếu `database`, `database` lạ, `note` quá dài.
+- `PASS:` trường lạ bị từ chối ở chế độ `strict`; qua `ignore` thì object được tạo nhưng trường lạ
+  không được lưu; `format` bỏ trống đọc ra `plain`.
+- `PASS:` `kubectl get dbb` có bốn cột yêu cầu; `kubectl get bookstore` liệt kê `DbBackup`.
+- `PASS:` ghi `status` qua resource chính bị bỏ qua; qua subresource thì được; `generation` chỉ tăng
+  theo `spec`; `phase` sai giá trị bị từ chối ngay cả trên đường `status`.
+- `PASS:` xóa namespace thử thì `DbBackup` trong đó mất, CRD còn nguyên.
+
+Hai script, chép nguyên văn. Khung kế thừa `deploy.sh`, `teardown.sh` của
+[Lab 11a](LAB-11A-OBSERVABILITY.md) (sprint 18–20 không đổi cơ chế); khối đánh dấu `[14]` là phần mới.
+Nếu repo của bạn có công cụ riêng mà bản dưới không gọi — ví dụ `scripts/ci-kubeconfig.sh` của Lab 9a
+— chúng vẫn chạy độc lập như cũ.
+
+```bash
+cat > ~/bookstore/scripts/deploy.sh <<'EOF'
+#!/usr/bin/env bash
+# Triển khai dự án Bookstore từ repo — phiên bản Lab 14, bản cuối của dự án.
+# Thứ tự: kiểm hạ tầng nền -> bí mật tại chỗ -> object cấp cluster (CRD phải Established) và label node
+# -> k8s/system -> k8s/app (db trước, migration sau) -> k8s/tenants/* -> chờ controller
+# -> HTTPS qua Traefik -> danh tính có thời hạn của backup-operator -> backup-operator -> DbBackup nền.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+NS=bookstore
+SYS=bookstore-system
+CRD=dbbackups.bookstore.example.com
+HOST=bookstore.lab.local
+DATA_NODE=lab-k8s-worker2
+DATA_LABEL=bookstore.example.com/data
+ERR="$(mktemp)"
+APP="$(mktemp)"
+trap 'rm -f "$ERR" "$APP"' EXIT
+# secrets/ nằm ngoài thư mục gốc của kustomization nên phải nới load restrictor (Lab 3b, ADR 0007).
+render() { kubectl kustomize --load-restrictor=LoadRestrictionsNone "$1"; }
+# Cảnh báo "would violate PodSecurity" lúc apply là lỗi triển khai (9b): namespace enforce sẽ không tạo
+# được Pod của workload đó, nên dừng ngay thay vì chờ rollout hết hạn.
+apply_ps() {   # tham số chuyển nguyên cho kubectl apply
+  if ! kubectl apply "$@" 2>"$ERR"; then cat "$ERR" >&2; return 1; fi
+  cat "$ERR" >&2
+  if grep -q 'would violate PodSecurity' "$ERR"; then
+    echo 'deploy: co workload vi pham Pod Security — xem canh bao o tren' >&2
+    return 1
+  fi
+}
+
+wait_job() {        # thành công khi Job Complete, thất bại ngay khi Job Failed (Lab 4b)
+  local c=''
+  for _ in $(seq 1 100); do
+    c="$(kubectl -n "$NS" get job "$1" \
+          -o jsonpath='{.status.conditions[?(@.status=="True")].type}' 2>/dev/null || true)"
+    case " $c " in
+      *' Complete '*) return 0 ;;
+      *' Failed '*) kubectl -n "$NS" logs "job/$1" --tail=20 || true; return 1 ;;
+    esac
+    sleep 3
+  done
+  return 1
+}
+wait_dbbackup() {   # [14] thành công khi DbBackup Succeeded, thất bại ngay khi Failed
+  local p=''
+  for _ in $(seq 1 100); do
+    p="$(kubectl -n "$NS" get dbbackup "$1" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+    case "$p" in Succeeded) return 0 ;; Failed) return 1 ;; esac
+    sleep 3
+  done
+  return 1
+}
+mk_kubeconfig() {   # [14] $1 = ServiceAccount trong bookstore, $2 = file đích, $3 = thời hạn token
+  local srv tmp tok
+  srv="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
+  tmp="$(mktemp -d)"
+  kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' \
+    | base64 -d > "$tmp/ca.crt"
+  tok="$(kubectl -n "$NS" create token "$1" --duration="$3")"
+  rm -f "$2"; ( umask 077; : > "$2" )
+  kubectl --kubeconfig="$2" config set-cluster bookstore-lab --server="$srv" \
+    --certificate-authority="$tmp/ca.crt" --embed-certs=true >/dev/null
+  kubectl --kubeconfig="$2" config set-credentials "$1" --token="$tok" >/dev/null
+  kubectl --kubeconfig="$2" config set-context "$1" --cluster=bookstore-lab --user="$1" \
+    --namespace="$NS" >/dev/null
+  kubectl --kubeconfig="$2" config use-context "$1" >/dev/null
+  rm -rf "$tmp"
+}
+
+# 0. Hạ tầng nền thuộc cluster, không thuộc repo: thiếu thì dừng, không tự cài.
+#    Calico, IngressClass traefik, Service traefik (02-net-ready, 5b); provisioner
+#    rancher.io/local-path đang chạy (03-storage-ready, 6a).
+for X in 'daemonset/calico-node -n kube-system' 'ingressclass/traefik' 'service/traefik -n traefik'; do
+  kubectl get $X >/dev/null 2>&1 || { echo "deploy: thieu $X - cluster chua o moc 02-net-ready"; exit 1; }
+done
+kubectl get storageclass -o jsonpath='{range .items[*]}{.provisioner}{"\n"}{end}' \
+  | grep -qx 'rancher.io/local-path' \
+  || { echo 'deploy: cluster chua co provisioner rancher.io/local-path (moc 03-storage-ready)'; exit 1; }
+kubectl -n local-path-storage rollout status deployment/local-path-provisioner --timeout=120s
+
+# 1. Bí mật sinh tại chỗ khi thiếu; secrets/ không vào git (3b, 5b). Dữ liệu DB cũ còn trên cluster
+#    thì không sinh mới: mật khẩu thật nằm trong chính dữ liệu đó (6a).
+mkdir -p secrets
+if [ ! -s secrets/db.env ]; then
+  CU="$( { kubectl -n "$NS" get pvc data-db-0 -o name 2>/dev/null || true
+           kubectl get pv -o jsonpath='{range .items[*]}{.spec.claimRef.namespace}/{.spec.claimRef.name}{"\n"}{end}' \
+             | grep -x "$NS/data-db-0" || true; } | wc -l)"
+  if [ "$CU" -gt 0 ]; then
+    echo 'deploy: thieu secrets/db.env trong khi du lieu db cu con tren cluster.'
+    echo 'deploy: chep lai secrets/db.env cu, hoac chay scripts/teardown.sh de xoa du lieu cu.'
+    exit 1
+  fi
+  ( umask 077
+    printf 'postgres-password=%s\nauthenticator-password=%s\n' \
+      "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" > secrets/db.env )
+  echo 'deploy: da sinh secrets/db.env moi'
+fi
+if [ ! -s secrets/tls.crt ] || [ ! -s secrets/tls.key ]; then
+  ( umask 077
+    openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj '/CN=bookstore.lab.local' \
+      -addext 'subjectAltName=DNS:bookstore.lab.local' \
+      -keyout secrets/tls.key -out secrets/tls.crt 2>/dev/null )
+  echo 'deploy: da sinh certificate tu ky moi'
+fi
+
+# 2. Object cấp cluster, rồi label node giữ dữ liệu của db: đúng một node mang label (7a).
+#    [14] CRD phải Established trước khi bất kỳ custom resource nào được apply ở bước 4.
+if compgen -G 'k8s/cluster/*.yaml' >/dev/null; then kubectl apply -f k8s/cluster/; fi
+if [ -f k8s/cluster/crd-dbbackup.yaml ]; then
+  kubectl wait --for=condition=Established "crd/$CRD" --timeout=60s
+fi
+kubectl label node "$DATA_NODE" "${DATA_LABEL}=true" --overwrite
+for N in $(kubectl get nodes -l "$DATA_LABEL" -o jsonpath='{.items[*].metadata.name}'); do
+  [ "$N" = "$DATA_NODE" ] || kubectl label node "$N" "${DATA_LABEL}-"
+done
+
+# 3. Namespace hệ thống và node-agent, áp trước ứng dụng; node-agent cũ ở namespace bookstore
+#    nhường chỗ (11a).
+render k8s/system | kubectl apply -f -
+kubectl -n "$NS" delete daemonset,service,serviceaccount node-agent --ignore-not-found --wait=true >/dev/null 2>&1 || true
+
+# 4. Ứng dụng. Render một lần; áp mọi thứ trừ migration, chờ db-0, rồi mới chạy migration.
+#    Job db-migrate chạy lại ở MỖI lần triển khai nên phải bất biến kết quả; pod template của Job
+#    không sửa được, nên xóa Job cũ trước (4b).
+render k8s/app > "$APP"
+apply_ps -f "$APP" -l 'app.kubernetes.io/component!=migrate'
+kubectl -n "$NS" rollout status statefulset/db --timeout=300s
+kubectl -n "$NS" wait --for=condition=Ready pod/db-0 --timeout=300s
+kubectl -n "$NS" delete job db-migrate --ignore-not-found --wait=true
+OUT="$(kubectl apply -f "$APP" -l 'app.kubernetes.io/component=migrate' 2>&1)" \
+  || echo "$OUT" | grep -q 'no objects passed to apply' || { echo "$OUT"; exit 1; }
+echo "$OUT"
+if grep -q 'would violate PodSecurity' <<<"$OUT"; then   # (9b)
+  echo 'deploy: db-migrate vi pham Pod Security — xem canh bao o tren' >&2; exit 1
+fi
+if kubectl -n "$NS" get job db-migrate >/dev/null 2>&1; then
+  wait_job db-migrate || { echo 'deploy: db-migrate that bai'; exit 1; }
+fi
+
+# 5. Tenant (9b): mỗi thư mục con của k8s/tenants là một tenant, namespace bookstore-<tên>, có ít
+#    nhất một Deployment. Apply qua kiểm Pod Security, rồi chờ Available.
+for D in k8s/tenants/*/; do
+  [ -d "$D" ] || continue
+  if [ -f "${D}kustomization.yaml" ]; then render "$D" | apply_ps -f -; else apply_ps -f "$D"; fi
+  kubectl -n "bookstore-$(basename "$D")" wait --for=condition=Available deployment --all --timeout=180s
+done
+
+# 6. Chờ các controller còn lại.
+for D in web api; do
+  kubectl -n "$NS" rollout status "deployment/$D" --timeout=300s
+done
+kubectl -n "$SYS" rollout status daemonset/node-agent --timeout=300s
+
+# 7. Đường vào (5b): Traefik phải phục vụ HTTPS bằng đúng certificate của dự án.
+NP="$(kubectl -n traefik get service traefik -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}')"
+IP="$(kubectl get node lab-k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+OK=0
+for _ in $(seq 1 30); do
+  if curl -fsS --max-time 5 --cacert secrets/tls.crt --resolve "${HOST}:${NP}:${IP}" \
+       "https://${HOST}:${NP}/healthz" >/dev/null 2>&1; then OK=1; break; fi
+  sleep 2
+done
+[ "$OK" -eq 1 ] || { echo "deploy: https://${HOST}:${NP}/ chua phuc vu qua Traefik"; exit 1; }
+
+# 8. [14] backup-operator: token có thời hạn vào secrets/, chạy nền trên master (nợ "operator
+#    ngoài cluster"), và DbBackup nền trong repo phải thành công.
+if kubectl -n "$NS" get serviceaccount backup-operator >/dev/null 2>&1; then
+  mk_kubeconfig backup-operator secrets/backup-operator.kubeconfig 24h
+fi
+if [ -x scripts/backup-operator.sh ] && [ -s secrets/backup-operator.kubeconfig ]; then
+  ./scripts/backup-operator.sh restart
+  if kubectl -n "$NS" get dbbackup baseline >/dev/null 2>&1; then
+    wait_dbbackup baseline || { echo 'deploy: DbBackup baseline khong Succeeded'; exit 1; }
+  fi
+fi
+
+kubectl -n "$NS" get statefulset,deployment,hpa,cronjob,job,pvc -o wide
+kubectl -n "$SYS" get daemonset,service -o wide
+if kubectl get crd "$CRD" >/dev/null 2>&1; then kubectl -n "$NS" get dbbackups; fi
+EOF
+
+cat > ~/bookstore/scripts/teardown.sh <<'EOF'
+#!/usr/bin/env bash
+# Gỡ toàn bộ dự án Bookstore khỏi cluster — phiên bản Lab 14, bản cuối của dự án.
+# Gỡ mọi object mang label dự án (cả bookstore-system và namespace thử nghiệm), object cấp cluster
+# (CRD, ClusterRole, PriorityClass, StorageClass), PV cùng thư mục dữ liệu trên node, label và taint
+# node, kubeconfig chứa token và tiến trình backup-operator trên master; rồi tự kiểm. KHÔNG đụng hạ
+# tầng nền (Calico, Traefik, local-path-provisioner, metrics-server): chúng không mang label dự án.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+NS=bookstore
+SEL='app.kubernetes.io/part-of=bookstore'
+CRD=dbbackups.bookstore.example.com
+LP_ROOT=/opt/local-path-provisioner
+WORKERS='lab-k8s-worker1 lab-k8s-worker2'
+# Kind namespaced được dọn theo label ở mọi namespace (3b, 4a, 5a, 5b, 6a, 9b, 11a).
+KINDS='statefulsets,deployments,daemonsets,cronjobs,jobs,replicasets,pods,poddisruptionbudgets,services,networkpolicies,ingresses,configmaps,secrets,persistentvolumeclaims,roles,rolebindings,resourcequotas,limitranges,serviceaccounts'
+# Thư mục volume tên <PV>_<namespace>_<PVC>: khớp namespace bookstore và bookstore-* (6a).
+LP_FIND="sudo find $LP_ROOT -mindepth 1 -maxdepth 1 \( -name '*_bookstore_*' -o -name '*_bookstore-*_*' \)"
+
+# PV do provisioner sinh không mang label dự án: nhận diện theo namespace của claim hoặc theo class;
+# PV tạo tay thì mang label dự án (6a).
+project_pvs() {
+  { kubectl get pv -o jsonpath='{range .items[*]}{.metadata.name} {.spec.claimRef.namespace} {.spec.storageClassName}{"\n"}{end}' \
+      | awk '$2 == "bookstore" || $2 ~ /^bookstore-/ || $3 == "bookstore-retain" {print $1}'
+    kubectl get pv -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'; } | sort -u
+}
+
+# 1. [14] Dừng controller trước, để nó không tạo Job mới trong lúc gỡ.
+if [ -x scripts/backup-operator.sh ]; then ./scripts/backup-operator.sh stop; fi
+
+# 2. [14] Custom resource trước CRD; Job của chúng đi theo ownerReferences.
+if kubectl get crd "$CRD" >/dev/null 2>&1; then
+  kubectl delete dbbackups --all --all-namespaces --ignore-not-found --wait=true --timeout=120s
+fi
+
+# 3. db tắt êm trước khi xóa namespace (4b).
+if kubectl -n "$NS" get statefulset db >/dev/null 2>&1; then
+  kubectl -n "$NS" scale statefulset db --replicas=0
+  kubectl -n "$NS" wait --for=delete pod/db-0 --timeout=180s || true
+fi
+
+# 4. Namespace của dự án: bookstore, bookstore-staging, bookstore-system, namespace thử có label.
+kubectl delete namespace -l "$SEL" --ignore-not-found --wait=true --timeout=300s
+kubectl delete "$KINDS" --all-namespaces -l "$SEL" --ignore-not-found --wait=true --timeout=120s
+
+# 5. PV còn lại và thư mục dữ liệu trên node — reclaimPolicy Retain giữ lại cả hai (6a).
+for PV in $(project_pvs); do
+  P="$(kubectl get pv "$PV" -o jsonpath='{.spec.hostPath.path}{.spec.local.path}' 2>/dev/null || true)"
+  N="$(kubectl get pv "$PV" -o jsonpath='{.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]}' 2>/dev/null || true)"
+  kubectl delete pv "$PV" --ignore-not-found --wait=true --timeout=120s
+  case "$P" in
+    "$LP_ROOT"/?*)
+      if [ "$N" = "$(hostname)" ]; then sudo rm -rf -- "$P"
+      elif [ -n "$N" ]; then ssh "$N" "sudo rm -rf -- '$P'"; fi ;;
+  esac
+done
+#    Thư mục còn sót trên mọi worker, kể cả của PV đã mất từ trước (6a).
+for W in $WORKERS; do
+  ssh "$W" "$LP_FIND -exec rm -rf {} +" || true
+done
+
+# 6. Object cấp cluster mang label dự án — [14] CRD xóa sau namespace để namespace không kẹt
+#    Terminating; StorageClass của dự án xóa cả theo tên (6a) — rồi label và taint node (7a).
+kubectl delete crd -l "$SEL" --ignore-not-found --wait=true --timeout=120s
+kubectl delete clusterrolebinding,clusterrole,priorityclass,storageclass -l "$SEL" --ignore-not-found
+kubectl delete storageclass bookstore-retain --ignore-not-found
+kubectl label node --all bookstore.example.com/data- >/dev/null 2>&1 || true
+for N in $(kubectl get nodes -o jsonpath='{.items[*].metadata.name}'); do
+  for K in $(kubectl get node "$N" -o jsonpath='{range .spec.taints[*]}{.key}{"\n"}{end}' \
+             | grep '^bookstore\.example\.com/' | sort -u || true); do
+    kubectl taint node "$N" "${K}-"
+  done
+done
+
+# 7. [14] Token trong kubeconfig đã chết theo ServiceAccount; xóa file cho khỏi nhầm.
+rm -f secrets/*.kubeconfig
+
+# 8. Tự kiểm: cluster, thư mục dữ liệu trên worker, tiến trình trên master.
+LEFT="$( { kubectl get namespace,priorityclass,storageclass,crd,clusterrole,clusterrolebinding -l "$SEL" --no-headers
+           kubectl get storageclass bookstore-retain --no-headers --ignore-not-found; } 2>/dev/null | wc -l)"
+LEFT_NS="$( { kubectl get all -A -l "$SEL" --no-headers
+              kubectl get "$KINDS,endpointslices" -A -l "$SEL" --no-headers; } 2>/dev/null | wc -l)"
+LEFT_PV="$(project_pvs | wc -l)"
+LEFT_NODE="$(kubectl get nodes -l bookstore.example.com/data --no-headers 2>/dev/null | wc -l)"
+LEFT_TAINT="$(kubectl get nodes -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}' \
+              | grep -c '^bookstore\.example\.com/' || true)"
+LEFT_DIR=0
+for W in $WORKERS; do
+  C="$(ssh "$W" "$LP_FIND 2>/dev/null | wc -l" || echo 0)"
+  LEFT_DIR=$(( LEFT_DIR + ${C:-0} ))
+done
+LEFT_OP=0
+if [ -x scripts/backup-operator.sh ] && ./scripts/backup-operator.sh status >/dev/null 2>&1; then LEFT_OP=1; fi
+if [ $(( LEFT + LEFT_NS + LEFT_PV + LEFT_NODE + LEFT_TAINT + LEFT_DIR + LEFT_OP )) -eq 0 ]; then
+  echo 'teardown: sach'
+else
+  echo "teardown: con $LEFT object cap cluster, $LEFT_NS object co label, $LEFT_PV PV, $LEFT_NODE node co label, $LEFT_TAINT taint, $LEFT_DIR thu muc du lieu, operator=$LEFT_OP"
+  exit 1
+fi
+# Hạ tầng nền không mang label dự án và phải còn nguyên (5b).
+{ kubectl get ingressclass traefik >/dev/null 2>&1 && kubectl -n kube-system get daemonset calico-node >/dev/null 2>&1; } \
+  || echo 'teardown: CANH BAO - ha tang 02-net-ready khong con nguyen (khong do script nay go)'
+EOF
+
+chmod +x ~/bookstore/scripts/*.sh
+```
+
+Từ ticket này mọi triển khai đi qua `deploy.sh` — cả CRD. Hai giả định kế thừa từ Lab 11a: mọi
+manifest của `k8s/app` nằm trong `k8s/app/kustomization.yaml`, và Job `db-migrate` mang label
+`app.kubernetes.io/component=migrate`. Repo của bạn khác ở điểm nào thì sửa repo cho khớp
+[mục 5.5](DU-AN-BOOKSTORE.md#55-bố-cục-repo-theo-sprint), không sửa script.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-crd-dbbackup.md`:
+
+1. `DbBackup` thuộc namespace hay phạm vi cluster? Nghĩ tới tenant `bookstore-staging`, tới RBAC theo
+   namespace, và tới việc mỗi `DbBackup` sao lưu DB **của namespace nào**.
+2. `database` chỉ có một giá trị hợp lệ — vì sao vẫn khai `enum` thay vì để operator tự kiểm? Câu nào
+   của bài 179 về validation trả lời điều này?
+3. Vì sao bật subresource `status` ngay ở version đầu, trước khi có controller?
+4. `deploy.sh` chờ CRD `Established` trước khi apply `k8s/app`. Nếu `k8s/app` có một `DbBackup` mà
+   không chờ thì lần triển khai đầu trên cluster sạch hỏng thế nào? Xóa namespace có dọn CRD không, và
+   `teardown.sh` phải làm gì vì điều đó?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Khung CRD: `group`, `scope`, `names`, `versions[]`. Mỗi phần tử `versions` có `served`, `storage`,
+   `schema.openAPIV3Schema`, `subresources`, `additionalPrinterColumns`. Ví dụ YAML trong bài 179 là
+   khung đủ dùng.
+2. Từ khóa schema: `required: [...]` ở object cha, `enum: [...]`, `default: ...`, `maxLength: ...`;
+   kiểu thời điểm là `type: string` với `format: date-time`.
+3. Thử object sai mà không ghi gì: `kubectl create --dry-run=server -f ...`.
+4. Trường lạ: so `kubectl create --validate=strict` với `--validate=ignore`.
+5. Ghi `status` qua đường riêng: `kubectl patch ... --subresource=status --type=merge -p '...'`.
+6. Nếu `kubectl get dbb` báo không có resource type mà
+   `kubectl get --raw /apis/bookstore.example.com/v1alpha1` trả danh sách thì server đã đúng — xem
+   [mục 4](#4-troubleshooting-của-lab-này).
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; script teardown rồi deploy lại</summary>
+
+```bash
+EV=~/lab-evidence/14; T=bookstore-thu; GRP=bookstore.example.com; CRD=dbbackups.$GRP
+cd ~/bookstore
+
+./scripts/teardown.sh > "$EV/b2-teardown.txt" 2>&1
+grep -q 'teardown: sach' "$EV/b2-teardown.txt" && echo 'PASS: teardown.sh go sach du an'
+./scripts/deploy.sh > "$EV/b2-deploy-1.txt" 2>&1 && echo 'PASS: deploy.sh lan 1 thanh cong'
+./scripts/deploy.sh > "$EV/b2-deploy-2.txt" 2>&1 && echo 'PASS: deploy.sh lan 2 thanh cong'
+grep -q "$CRD condition met" "$EV/b2-deploy-1.txt" && echo 'PASS: deploy.sh cho CRD Established'
+
+c() { kubectl get crd "$CRD" -o jsonpath="$1"; }
+[ "$(c '{.status.conditions[?(@.type=="Established")].status}/{.status.conditions[?(@.type=="NamesAccepted")].status}')" = 'True/True' ] \
+  && echo 'PASS: CRD Established va NamesAccepted'
+[ "$(c '{.metadata.labels.app\.kubernetes\.io/part-of}')" = 'bookstore' ] && echo 'PASS: CRD mang label du an'
+[ "$(c '{.spec.scope}|{.spec.names.kind}|{.spec.names.plural}|{.spec.names.shortNames[*]}|{.spec.names.categories[*]}')" \
+  = 'Namespaced|DbBackup|dbbackups|dbb|bookstore' ] && echo 'PASS: scope, ten, ten ngan, category dung'
+[ "$(c '{.spec.versions[*].name}|{.status.storedVersions}')" = 'v1alpha1|["v1alpha1"]' ] \
+  && echo 'PASS: chi co v1alpha1, storedVersions ["v1alpha1"]'
+{ [ -z "$(kubectl get apiservice "v1alpha1.$GRP" -o jsonpath='{.spec.service.name}' 2>/dev/null)" ] \
+  && kubectl get --raw "/apis/$GRP/v1alpha1" | grep -q '"name":"dbbackups"'; } \
+  && echo 'PASS: kube-apiserver tu phuc vu /apis/bookstore.example.com/v1alpha1'
+
+kubectl create namespace "$T" >/dev/null
+dbb() { printf 'apiVersion: %s/v1alpha1\nkind: DbBackup\nmetadata:\n  name: %s\n  namespace: %s\nspec: %s\n' \
+          "$GRP" "$1" "$T" "$2"; }
+dbb thieu-db '{note: thu}'        | kubectl create --dry-run=server -f - > "$EV/b2-sai-1.txt" 2>&1
+dbb sai-db   '{database: khac}'   | kubectl create --dry-run=server -f - > "$EV/b2-sai-2.txt" 2>&1
+dbb note-dai "{database: bookstore, note: $(printf 'x%.0s' $(seq 1 130))}" \
+                                  | kubectl create --dry-run=server -f - > "$EV/b2-sai-3.txt" 2>&1
+grep -q 'spec.database: Required value' "$EV/b2-sai-1.txt" && echo 'PASS: thieu database bi tu choi'
+grep -q 'spec.database: Unsupported value' "$EV/b2-sai-2.txt" && echo 'PASS: database la bi tu choi'
+grep -q 'spec.note: Too long' "$EV/b2-sai-3.txt" && echo 'PASS: note qua 120 ky tu bi tu choi'
+
+dbb la '{database: bookstore, mauNen: xanh}' | kubectl create --validate=strict -f - > "$EV/b2-strict.txt" 2>&1
+grep -qi 'unknown field' "$EV/b2-strict.txt" && echo 'PASS: che do strict tu choi truong la'
+dbb la '{database: bookstore, mauNen: xanh}' | kubectl create --validate=ignore -f - >/dev/null
+[ -z "$(kubectl -n "$T" get dbbackup la -o jsonpath='{.spec.mauNen}')" ] && echo 'PASS: truong la bi cat tia, khong duoc luu'
+[ "$(kubectl -n "$T" get dbbackup la -o jsonpath='{.spec.format}')" = 'plain' ] && echo 'PASS: format mac dinh la plain'
+
+kubectl -n "$T" get dbb > "$EV/b2-get.txt"
+head -n 1 "$EV/b2-get.txt" | grep -q '^NAME *PHASE *SIZE *FILE *AGE' && echo 'PASS: kubectl get dbb co du bon cot'
+kubectl -n "$T" get bookstore --no-headers 2>/dev/null | grep -q '^la ' && echo 'PASS: category bookstore liet ke DbBackup'
+
+g() { kubectl -n "$T" get dbbackup la -o jsonpath="$1"; }
+G0="$(g '{.metadata.generation}')"
+kubectl -n "$T" patch dbbackup la --type=merge -p '{"status":{"phase":"Succeeded"}}' >/dev/null
+[ -z "$(g '{.status.phase}')" ] && echo 'PASS: ghi status qua resource chinh bi bo qua'
+kubectl -n "$T" patch dbbackup la --subresource=status --type=merge -p '{"status":{"phase":"Running"}}' >/dev/null
+[ "$(g '{.status.phase}')" = 'Running' ] && echo 'PASS: chi duong /status ghi duoc status'
+G1="$(g '{.metadata.generation}')"
+kubectl -n "$T" patch dbbackup la --type=merge -p '{"spec":{"note":"doi spec"}}' >/dev/null
+G2="$(g '{.metadata.generation}')"
+{ [ "$G1" = "$G0" ] && [ "$G2" -gt "$G1" ]; } && echo "PASS: generation $G0 -> $G1 (ghi status) -> $G2 (ghi spec)"
+kubectl -n "$T" patch dbbackup la --subresource=status --type=merge -p '{"status":{"phase":"XongRoi"}}' \
+  > "$EV/b2-status-sai.txt" 2>&1
+grep -q 'Unsupported value' "$EV/b2-status-sai.txt" && echo 'PASS: schema ap ca len duong status'
+
+kubectl delete namespace "$T" --wait=true --timeout=120s >/dev/null
+[ "$(kubectl get dbbackups -A --no-headers 2>/dev/null | grep -c "^$T ")" -eq 0 ] \
+  && kubectl get crd "$CRD" >/dev/null && echo 'PASS: DbBackup mat theo namespace, CRD van con'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# k8s/cluster/crd-dbbackup.yaml — B6 thêm version v1
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: dbbackups.bookstore.example.com      # bắt buộc là <plural>.<group>
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: operator
+spec:
+  group: bookstore.example.com
+  scope: Namespaced
+  names:
+    plural: dbbackups
+    singular: dbbackup
+    kind: DbBackup
+    shortNames: [dbb]
+    categories: [bookstore]
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    subresources:
+      status: {}
+    additionalPrinterColumns:
+    - {name: Phase, type: string, jsonPath: .status.phase}
+    - {name: Size, type: integer, jsonPath: .status.sizeBytes}
+    - {name: File, type: string, jsonPath: .status.file}
+    - {name: Age, type: date, jsonPath: .metadata.creationTimestamp}
+    schema:
+      openAPIV3Schema:
+        type: object
+        required: [spec]
+        properties:
+          spec:
+            type: object
+            required: [database]
+            properties:
+              database: {type: string, enum: [bookstore]}
+              format: {type: string, enum: [plain, custom], default: plain}
+              note: {type: string, maxLength: 120}
+          status:
+            type: object
+            properties:
+              phase: {type: string, enum: [Running, Succeeded, Failed]}
+              jobName: {type: string}
+              file: {type: string}
+              sizeBytes: {type: integer, format: int64}
+              startTime: {type: string, format: date-time}
+              completionTime: {type: string, format: date-time}
+              observedGeneration: {type: integer, format: int64}
+              message: {type: string}
+```
+
+```bash
+cd ~/bookstore
+./scripts/teardown.sh && ./scripts/deploy.sh
+kubectl get crd dbbackups.bookstore.example.com
+```
+
+Ý chính cho ADR:
+
+1. **Namespace.** Một `DbBackup` sao lưu DB của chính namespace chứa nó; RoleBinding trong `bookstore`
+   giới hạn ai được yêu cầu backup DB nào; tenant `bookstore-staging` sau này có `DbBackup` của riêng
+   nó mà không đụng tới production. Phạm vi cluster sẽ buộc dùng ClusterRoleBinding — rộng hơn cần
+   thiết.
+2. Validation ở API server chặn **mọi** client như nhau, kể cả client gọi thẳng REST, và chặn **trước
+   khi ghi**. Bài 179: validation "cho phép bạn phát triển API độc lập với các client của mình". Một
+   yêu cầu sai bị từ chối ngay trên `kubectl apply`, thay vì nằm trong etcd chờ operator báo `Failed`.
+3. Không có subresource thì ai sửa được object là sửa được `status` — người dùng có thể tự khai
+   `Succeeded` cho một bản backup chưa từng chạy. Có subresource thì RBAC tách được quyền ghi `spec`
+   (người dùng) và quyền ghi `status` (controller), và `generation` thành tín hiệu "có việc mới".
+4. Chưa `Established` thì endpoint chưa tồn tại: `kubectl apply` báo không tìm được mapping cho kind
+   `DbBackup` và trả mã lỗi — `set -e` dừng `deploy.sh` giữa chừng. Xóa namespace **không** dọn CRD
+   (object cấp cluster); `teardown.sh` phải xóa CRD theo label, và xóa **sau** namespace.
+
+</details>
+
+## B3. [BS-14-03] Danh tính, quyền và hạn mức cho kind mới
+
+**Loại:** Tính năng.
+
+**Bối cảnh:** một kind mới ra đời sau mọi role dựng sẵn, nên không role nào biết tới nó. Sprint này cần
+ba thứ trước khi có controller: một **danh tính** cho controller với quyền vừa đủ, quyền **đọc**
+`DbBackup` cho đội phát triển (sprint 15 chỉ cho họ `view`), và một **trần số lượng** — custom resource
+nằm trong kho lưu trữ của API server như ConfigMap, tạo vô hạn là làm hại control plane.
+
+**Yêu cầu:**
+
+1. ServiceAccount `backup-operator` trong `bookstore`, label theo hợp đồng
+   (`app.kubernetes.io/component=operator`). Nó có **đúng** những quyền mà vòng lặp ở B4 cần trong
+   namespace `bookstore`: đọc, liệt kê, theo dõi `DbBackup`; ghi `status` của `DbBackup`; tạo và đọc
+   Job; đọc Pod và log của Pod. **Không** sửa `spec` hay xóa `DbBackup`, không xóa Job, không tạo Pod
+   trực tiếp, không đọc Secret, không có quyền gì ở namespace khác.
+2. Không Pod nào chạy dưới ServiceAccount này. Danh tính được dùng qua
+   `secrets/backup-operator.kubeconfig` — token có thời hạn mà `deploy.sh` (đã chép ở B2) sinh ra;
+   file quyền `600`, git bỏ qua.
+3. Nhóm `bookstore-devs` đọc được `DbBackup` trong `bookstore` nhưng không tạo, sửa, xóa. Quyền đọc
+   này được định nghĩa **một lần** ở cấp cluster — ClusterRole `bookstore-dbbackup-viewer` ở
+   `k8s/cluster/`, mang label dự án — và chỉ được **gán** trong namespace `bookstore`.
+4. `bookstore-quota` đặt trần 20 `DbBackup` trong `bookstore`. Sprint 11 đặt `count/jobs.batch: "12"`
+   và trạng thái thường đã dùng khoảng 9–10 Job; mỗi `DbBackup` sẽ sinh một Job sống tới khi TTL dọn
+   (B4). Nâng **đúng** key `count/jobs.batch` vừa đủ để có ít nhất ba chỗ trống cho Job của operator,
+   giữ nguyên mọi key khác, ghi lý do vào ADR.
+5. Manifest trong namespace đặt ở `k8s/app/rbac/` và được kustomization của `k8s/app` gom vào.
+6. Chứng minh trên namespace thử `bookstore-thu`: ClusterRole `view` dựng sẵn đọc được Pod nhưng không
+   đọc được `DbBackup`; quota đếm `DbBackup` và từ chối object vượt trần.
+
+**Ràng buộc:** không dùng wildcard trong rule. Không dùng ClusterRoleBinding. Không cấp quyền cho
+`bookstore-devs` bằng cách sửa ClusterRole `view` dựng sẵn.
+
+**Đọc lại:**
+
+- Bài [179](../179-custom-resources-vi.md), mục
+  [*Xác thực, phân quyền và kiểm toán*](../179-custom-resources-vi.md#xác-thực-phân-quyền-và-kiểm-toán-authentication-authorization-and-auditing)
+  và [*Lưu trữ*](../179-custom-resources-vi.md#storage).
+- Bài [120](../120-rbac-good-practices-vi.md):
+  [*Đặc quyền tối thiểu*](../120-rbac-good-practices-vi.md#least-privilege),
+  [*Tạo workload*](../120-rbac-good-practices-vi.md#workload-creation),
+  [*Từ chối dịch vụ qua việc tạo đối tượng*](../120-rbac-good-practices-vi.md#object-creation-dos).
+- Bài [134](../134-resource-quotas-vi.md), mục
+  [*Hạn ngạch theo số lượng đối tượng*](../134-resource-quotas-vi.md#quota-on-object-count) — đoạn về
+  custom resource và về API aggregation.
+- Bài [279](../279-configure-service-account-vi.md) — token có thời hạn qua `--duration`.
+
+**Bàn giao:** `k8s/cluster/clusterrole-dbbackup-viewer.yaml`; `k8s/app/rbac/backup-operator.yaml`;
+kustomization và manifest quota đã cập nhật; `docs/adr/NNNN-rbac-dbbackup.md`;
+`~/lab-evidence/14/b3-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `view` dựng sẵn không nhắc tới `bookstore.example.com`; gán `view` thì đọc được Pod nhưng không
+  đọc được `DbBackup`.
+- `PASS:` `bookstore-devs` liệt kê được `DbBackup` trong `bookstore`; không tạo, không xóa; vẫn không
+  đọc Secret.
+- `PASS:` `backup-operator` làm được đúng bảy việc liệt kê ở yêu cầu 1 và bị từ chối ở tám việc còn lại
+  được kiểm.
+- `PASS:` kubeconfig của operator quyền `600`, git bỏ qua, xác thực đúng danh tính ServiceAccount, bị
+  từ chối khi đọc Secret.
+- `PASS:` ClusterRole mang label dự án; ServiceAccount mang `component=operator`.
+- `PASS:` `bookstore-quota` có trần `DbBackup`; trên namespace thử, object vượt trần bị từ chối với
+  `exceeded quota`.
+- `PASS:` `count/jobs.batch` còn ít nhất ba chỗ trống sau khi triển khai.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-rbac-dbbackup.md`:
+
+1. Vì sao `view` không đọc được `DbBackup`, và câu nào của bài 179 nói về việc đóng gói CRD kèm role?
+   Vì sao định nghĩa quyền đọc bằng ClusterRole mà gán bằng RoleBinding, chứ không viết một Role?
+2. RBAC coi `dbbackups` và `dbbackups/status` là hai resource. Điều đó cho dự án ranh giới gì giữa
+   người dùng và controller?
+3. Operator không đọc được Secret nhưng tạo được Job. Theo mục *Tạo workload* của bài 120, thực tế nó
+   chạm tới được những gì trong `bookstore`? Lớp nào của dự án giới hạn thiệt hại nếu kubeconfig của
+   nó bị lộ?
+4. Token có thời hạn: hết hạn thì operator ra sao, ai cấp lại, và vì sao vẫn chọn token có hạn thay
+   vì token dài hạn dạng Secret?
+5. Vì sao quota đếm được `DbBackup` mà không đếm được object của một aggregated API? Trần 20 bảo vệ cái
+   gì?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Một rule RBAC có `apiGroups`, `resources`, `verbs`. Subresource viết dạng `dbbackups/status`,
+  `pods/log`.
+- Group trong `subjects` cần `apiGroup: rbac.authorization.k8s.io`.
+- Kiểm quyền: `kubectl auth can-i <verb> <resource> -n <ns> --as=system:serviceaccount:<ns>:<sa>`;
+  với group: `--as=<user bất kỳ> --as-group=bookstore-devs`; subresource: `--subresource=status`.
+- Quota cho custom resource: khóa `count/<plural>.<group>` trong `spec.hard`.
+- Quota vừa tạo cần controller tính `status` trước; tạo object ngay lúc đó có thể bị từ chối vì chưa
+  biết mức dùng — chờ `status.hard` có giá trị.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau `./scripts/deploy.sh`</summary>
+
+```bash
+NS=bookstore; T=bookstore-thu; EV=~/lab-evidence/14; GRP=bookstore.example.com
+OP="system:serviceaccount:$NS:backup-operator"
+cd ~/bookstore
+./scripts/deploy.sh > "$EV/b3-deploy.txt" 2>&1 && echo 'PASS: deploy.sh thanh cong'
+want() { local w="$1" m="$2"; shift 2
+         [ "$(kubectl auth can-i "$@" 2>/dev/null)" = "$w" ] && echo "PASS: $m" || echo "FAIL: $m"; }
+
+kubectl get clusterrole view -o yaml > "$EV/b3-clusterrole-view.yaml"
+grep -q "$GRP" "$EV/b3-clusterrole-view.yaml" \
+  && echo 'FAIL: view nhac toi API group cua du an' || echo 'PASS: ClusterRole view khong biet bookstore.example.com'
+kubectl create namespace "$T" >/dev/null
+kubectl -n "$T" create rolebinding chi-view --clusterrole=view --user=nguoi-thu >/dev/null
+want yes 'view doc duoc Pod'                     list pods -n "$T" --as=nguoi-thu
+want no  'view KHONG doc duoc DbBackup'          list "dbbackups.$GRP" -n "$T" --as=nguoi-thu
+
+want yes 'bookstore-devs liet ke duoc DbBackup'  list "dbbackups.$GRP" -n "$NS" --as=dev-thu --as-group=bookstore-devs
+want no  'bookstore-devs khong tao DbBackup'     create "dbbackups.$GRP" -n "$NS" --as=dev-thu --as-group=bookstore-devs
+want no  'bookstore-devs khong xoa DbBackup'     delete "dbbackups.$GRP" -n "$NS" --as=dev-thu --as-group=bookstore-devs
+want no  'bookstore-devs van khong doc Secret'   get secrets -n "$NS" --as=dev-thu --as-group=bookstore-devs
+
+want yes 'operator get DbBackup'                 get "dbbackups.$GRP" -n "$NS" --as="$OP"
+want yes 'operator list DbBackup'                list "dbbackups.$GRP" -n "$NS" --as="$OP"
+want yes 'operator watch DbBackup'               watch "dbbackups.$GRP" -n "$NS" --as="$OP"
+want yes 'operator ghi dbbackups/status'         patch "dbbackups.$GRP" --subresource=status -n "$NS" --as="$OP"
+want yes 'operator tao Job'                      create jobs.batch -n "$NS" --as="$OP"
+want yes 'operator doc Pod'                      list pods -n "$NS" --as="$OP"
+want yes 'operator doc log Pod'                  get pods --subresource=log -n "$NS" --as="$OP"
+want no  'operator khong sua spec DbBackup'      patch "dbbackups.$GRP" -n "$NS" --as="$OP"
+want no  'operator khong xoa DbBackup'           delete "dbbackups.$GRP" -n "$NS" --as="$OP"
+want no  'operator khong xoa Job'                delete jobs.batch -n "$NS" --as="$OP"
+want no  'operator khong tao Pod truc tiep'      create pods -n "$NS" --as="$OP"
+want no  'operator khong doc Secret'             get secrets -n "$NS" --as="$OP"
+want no  'operator khong exec vao Pod'           create pods --subresource=exec -n "$NS" --as="$OP"
+want no  'operator khong co quyen o staging'     list "dbbackups.$GRP" -n bookstore-staging --as="$OP"
+want no  'operator khong co quyen cap cluster'   list "dbbackups.$GRP" -A --as="$OP"
+
+KC=secrets/backup-operator.kubeconfig
+[ "$(stat -c '%a' "$KC" 2>/dev/null)" = '600' ] && echo 'PASS: kubeconfig cua operator quyen 600'
+git check-ignore -q "$KC" && echo 'PASS: git bo qua kubeconfig cua operator'
+[ "$(kubectl --kubeconfig="$KC" auth whoami -o jsonpath='{.status.userInfo.username}' 2>/dev/null)" = "$OP" ] \
+  && echo 'PASS: kubeconfig xac thuc dung danh tinh ServiceAccount'
+kubectl --kubeconfig="$KC" -n "$NS" get secrets >/dev/null 2>&1 \
+  && echo 'FAIL: kubeconfig cua operator doc duoc Secret' || echo 'PASS: kubeconfig cua operator bi tu choi doc Secret'
+[ "$(kubectl get clusterrole bookstore-dbbackup-viewer -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}')" = 'bookstore' ] \
+  && [ "$(kubectl -n "$NS" get sa backup-operator -o jsonpath='{.metadata.labels.app\.kubernetes\.io/component}')" = 'operator' ] \
+  && echo 'PASS: ClusterRole va ServiceAccount mang label theo hop dong'
+
+Q="$(kubectl -n "$NS" get resourcequota bookstore-quota -o jsonpath='{.spec.hard.count/dbbackups\.bookstore\.example\.com}')"
+[ "${Q:-0}" -ge 1 ] && echo "PASS: bookstore-quota dat tran $Q DbBackup"
+JH="$(kubectl -n "$NS" get resourcequota bookstore-quota -o jsonpath='{.status.hard.count/jobs\.batch}')"
+JU="$(kubectl -n "$NS" get resourcequota bookstore-quota -o jsonpath='{.status.used.count/jobs\.batch}')"
+[ $(( ${JH:-0} - ${JU:-0} )) -ge 3 ] && echo "PASS: count/jobs.batch $JU/$JH, con du cho cho Job cua operator"
+kubectl -n "$T" create quota tran-dbb --hard="count/dbbackups.$GRP=1" >/dev/null
+for _ in $(seq 1 30); do [ -n "$(kubectl -n "$T" get quota tran-dbb -o jsonpath='{.status.hard}')" ] && break; sleep 2; done
+mk() { printf 'apiVersion: %s/v1alpha1\nkind: DbBackup\nmetadata:\n  name: %s\n  namespace: %s\nspec: {database: bookstore}\n' \
+         "$GRP" "$1" "$T"; }
+mk mot | kubectl create -f - >/dev/null 2>&1 && echo 'PASS: DbBackup thu nhat nam trong tran'
+mk hai | kubectl create -f - > "$EV/b3-quota.txt" 2>&1
+grep -q 'exceeded quota' "$EV/b3-quota.txt" && echo 'PASS: DbBackup thu hai bi quota tu choi'
+kubectl delete namespace "$T" --wait=true --timeout=120s >/dev/null && echo 'PASS: da xoa namespace thu'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# k8s/cluster/clusterrole-dbbackup-viewer.yaml — "role đóng gói kèm CRD" của dự án
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: bookstore-dbbackup-viewer
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: operator
+rules:
+- apiGroups: [bookstore.example.com]
+  resources: [dbbackups]
+  verbs: [get, list, watch]
+```
+
+```yaml
+# k8s/app/rbac/backup-operator.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backup-operator
+  namespace: bookstore
+  labels: {app.kubernetes.io/part-of: bookstore, app.kubernetes.io/component: operator}
+automountServiceAccountToken: false      # không Pod nào chạy dưới danh tính này
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backup-operator
+  namespace: bookstore
+  labels: {app.kubernetes.io/part-of: bookstore, app.kubernetes.io/component: operator}
+rules:
+- {apiGroups: [bookstore.example.com], resources: [dbbackups], verbs: [get, list, watch]}
+- {apiGroups: [bookstore.example.com], resources: [dbbackups/status], verbs: [get, patch, update]}
+- {apiGroups: [batch], resources: [jobs], verbs: [get, list, watch, create]}
+- {apiGroups: [""], resources: [pods], verbs: [get, list]}
+- {apiGroups: [""], resources: [pods/log], verbs: [get]}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backup-operator
+  namespace: bookstore
+  labels: {app.kubernetes.io/part-of: bookstore, app.kubernetes.io/component: operator}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: backup-operator}
+subjects:
+- {kind: ServiceAccount, name: backup-operator, namespace: bookstore}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bookstore-devs-dbbackup-viewer
+  namespace: bookstore
+  labels: {app.kubernetes.io/part-of: bookstore, app.kubernetes.io/component: operator}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: bookstore-dbbackup-viewer}
+subjects:
+- {kind: Group, name: bookstore-devs, apiGroup: rbac.authorization.k8s.io}
+```
+
+Thêm `rbac/backup-operator.yaml` vào danh sách `resources` của kustomization đang gom `k8s/app/rbac/`
+(của `k8s/app` hoặc của chính thư mục `rbac/` nếu sprint 15 tách riêng). Trong `spec.hard` của
+`k8s/app/policy/resourcequota.yaml` thêm một dòng và sửa đúng một dòng, giữ nguyên các key khác:
+
+```yaml
+    count/jobs.batch: "16"     # Lab 14: +4 cho Job của backup-operator, mỗi Job sống tới TTL 600 giây
+    count/dbbackups.bookstore.example.com: "20"
+```
+
+```bash
+cd ~/bookstore && ./scripts/deploy.sh
+ls -l secrets/backup-operator.kubeconfig
+```
+
+Ý chính cho ADR:
+
+1. Role dựng sẵn liệt kê **tường minh** từng API group; `bookstore.example.com` ra đời sau nên không
+   role nào biết. Bài 179: CRD và aggregated API "thường được đóng gói kèm các định nghĩa role mới cho
+   những kiểu dữ liệu mà chúng bổ sung". ClusterRole là định nghĩa dùng lại được — sau này gán thêm cho
+   `bookstore-staging` bằng một RoleBinding nữa; RoleBinding giữ phạm vi trong một namespace, đúng
+   *Đặc quyền tối thiểu* của bài 120 ("RoleBinding thay vì ClusterRoleBinding").
+2. Quyền trên `dbbackups` không kéo theo quyền trên `dbbackups/status`. Operator chỉ ghi được `status`,
+   người dùng chỉ ghi được `spec`: operator không tự viết lại yêu cầu rồi báo "xong", người dùng không
+   tự khai `Succeeded`.
+3. Quyền tạo workload ngầm cấp quyền tới Secret, ConfigMap, PVC mount được và tới mọi ServiceAccount
+   trong namespace — tức operator **gián tiếp** đọc được `db-credentials` qua một Job tự viết. Thiệt hại
+   bị giới hạn bởi: Pod Security `restricted` (không Pod đặc quyền, không `hostPath`), quota (không tạo
+   vô hạn), NetworkPolicy (Pod mới vẫn chỉ đi được theo ma trận), token có hạn, và RBAC chỉ trong
+   `bookstore`. Ghi điều này vào `R13` khi nghiệm thu: đạt có điều kiện.
+4. Hết hạn thì mọi lệnh `kubectl` của operator trả `Unauthorized`, vòng lặp ghi lỗi và chờ — không làm
+   hỏng gì, chỉ ngừng xử lý yêu cầu mới. `deploy.sh` cấp token mới; operator đọc lại file ở lần gọi
+   sau. Token có hạn giới hạn thời gian một token bị lộ còn dùng được; token dạng Secret sống mãi và
+   nằm trong etcd. Gánh nặng cấp lại là một phần của nợ *operator ngoài cluster* (B4).
+5. Quota được control plane cưỡng chế cho API do chính API server phục vụ, **kể cả custom resource từ
+   CRD**; aggregated API do server khác phục vụ nên phải tự cưỡng chế (bài 134). Trần 20 bảo vệ kho
+   lưu trữ của API server (bài 179, *Lưu trữ*) khỏi một script lỗi tạo `DbBackup` liên tục — đúng rủi ro
+   *Từ chối dịch vụ qua việc tạo đối tượng* của bài 120. Trần `count/jobs.batch` thì phải nâng: mỗi
+   `DbBackup` sinh một Job, và ở mức dùng thường 9–10/12, chỉ hai yêu cầu backup liền nhau đã đủ làm
+   Job của CronJob `db-backup` bị quota từ chối. Nâng đúng key đó, không nới các trần khác.
+
+</details>
+
+## B4. [BS-14-04] `backup-operator`: vòng lặp điều khiển cho `DbBackup`
+
+**Loại:** Tính năng.
+
+**Bối cảnh:** CRD và quyền đã có, nhưng một `DbBackup` vẫn chỉ là dữ liệu nằm trong kho. Ticket này
+viết thứ biến dữ liệu đó thành hành vi: một controller đọc `spec`, tạo Job `pg_dump`, theo dõi Job và
+ghi kết quả vào `status`. Dự án không có toolchain hay quy trình build image, nên controller là một
+vòng lặp shell chạy trên master dưới ServiceAccount `backup-operator` — cùng cơ chế, khác nơi chạy.
+
+**Yêu cầu:**
+
+1. `scripts/backup-operator.sh` theo khung dưới đây. **Phần công cụ** (quản lý tiến trình, `reconcile`)
+   chép nguyên văn; bạn viết hai hàm `job_manifest` và `reconcile_one`.
+2. Hợp đồng của vòng lặp, cho mỗi `DbBackup` trong `bookstore`:
+   - `phase` đã là `Succeeded` hoặc `Failed`: **không làm gì**, không ghi gì.
+   - Chưa có Job `dbbackup-<tên>`: tạo Job, ghi `phase: Running`, `jobName`, `startTime`,
+     `observedGeneration`.
+   - Job `Complete`: đọc dòng `db-backup: OK <file> <bytes> byte` trong log của Pod thành công, ghi
+     `phase: Succeeded`, `file`, `sizeBytes`, `completionTime`.
+   - Job `Failed`: ghi `phase: Failed`, `completionTime`, `message`.
+   - `phase` là `Running` mà Job không còn: ghi `phase: Failed` với `message` nói rõ — **không** tạo lại.
+3. Job do operator tạo:
+   - tên `dbbackup-<tên DbBackup>`; label `app.kubernetes.io/part-of=bookstore`,
+     `app.kubernetes.io/component=backup`, `app.kubernetes.io/name=postgresql`,
+     `app.kubernetes.io/managed-by=backup-operator`, `bookstore.example.com/dbbackup=<tên>`;
+     `ownerReferences` trỏ về đúng `DbBackup` đó với vai trò controller;
+   - `pg_dump` database `bookstore` qua `db-0.db`, mật khẩu từ Secret `db-credentials`, định dạng theo
+     `spec.format`; ghi một file mới vào PVC `backup-store` ở `/backup`; kiểm file có bảng `api.books`;
+     in **đúng hợp đồng** của `db-backup`
+     ([mục 4.2](DU-AN-BOOKSTORE.md#42-cổng-đường-dẫn-và-điểm-kiểm-tra-sức-khỏe)): một dòng
+     `db-backup: OK <file> <bytes> byte`;
+   - đạt Pod Security `restricted`; tới được `db` qua NetworkPolicy đang có; có `requests`/`limits`
+     nằm trong quota; PriorityClass `bookstore-batch`; không mount token; tự được dọn sau một thời gian.
+4. `k8s/app/backup/dbbackup-baseline.yaml`: `DbBackup` tên `baseline` — bản sao lưu nền sau mỗi lần dựng
+   hệ thống từ repo — được kustomization gom vào. `deploy.sh` của B2 tự khởi động operator và chờ
+   `baseline` thành công.
+5. `docs/runbook-backup-operator.md`: chạy, dừng, xem log, cấp lại token, yêu cầu một bản backup, đọc
+   kết quả, chép file dump ra máy host.
+6. Ghi nợ mới *operator ngoài cluster* vào `docs/tech-debt.md` với mã `TD-20` — mã cố định theo
+   sổ nợ của file dự án.
+
+**Ràng buộc:** chỉ `bash`, `kubectl`, coreutils — không `jq`, không ngôn ngữ khác. Operator **không**
+dùng kubeconfig quản trị. Không nới Pod Security, NetworkPolicy hay quota để Job chạy được — Job bị chặn
+thì sửa Job. Nếu NetworkPolicy của bạn không chọn được Pod của Job bằng label hợp đồng thì bổ sung
+đúng ô ma trận "Job của `backup-operator` → `db`" ở [mục 3.5](DU-AN-BOOKSTORE.md#35-thiết-kế-bảo-mật),
+không mở rộng hơn.
+
+Khung `scripts/backup-operator.sh`, chép nguyên văn rồi viết hai hàm trong khối đánh dấu:
+
+```bash
+cat > ~/bookstore/scripts/backup-operator.sh <<'EOF'
+#!/usr/bin/env bash
+# backup-operator — controller của custom resource DbBackup (dự án Bookstore, Lab 14).
+# Chạy trên lab-k8s-master dưới ServiceAccount bookstore/backup-operator, ngoài cluster (nợ kỹ thuật).
+# Cách dùng: backup-operator.sh run | once | start | stop | restart | status
+set -uo pipefail
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+cd "$(dirname "$SELF")/.."
+NS=bookstore
+RES=dbbackups.bookstore.example.com
+KCFG="${KCFG:-secrets/backup-operator.kubeconfig}"
+PIDFILE=secrets/backup-operator.pid
+LOGFILE=secrets/backup-operator.log
+INTERVAL="${INTERVAL:-5}"
+
+k()   { kubectl --kubeconfig="$KCFG" -n "$NS" "$@"; }
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+log() { echo "$(now) $*"; }
+set_status() {      # $1 = tên DbBackup, $2 = object JSON gộp vào status
+  k patch "$RES" "$1" --subresource=status --type=merge -p "{\"status\":$2}" >/dev/null
+}
+
+# ==== PHẦN BẠN VIẾT (BS-14-04) ==================================================================
+job_manifest() {    # $1 = tên DbBackup, $2 = uid, $3 = apiVersion, $4 = plain|custom → in YAML của Job
+  echo 'job_manifest: chua viet' >&2; return 1
+}
+reconcile_one() {   # $1 = tên một DbBackup → đưa thực tế về đúng spec, ghi status; lỗi thì return 1
+  echo 'reconcile_one: chua viet' >&2; return 1
+}
+# ================================================================================================
+
+reconcile() {       # một vòng: mọi DbBackup trong namespace
+  local rc=0 n names
+  names="$(k get "$RES" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')" || return 1
+  for n in $names; do
+    reconcile_one "$n" || { log "$n: loi, thu lai o vong sau"; rc=1; }
+  done
+  return "$rc"
+}
+
+is_running() {
+  local p
+  p="$(cat "$PIDFILE" 2>/dev/null)" || return 1
+  [ -n "$p" ] && kill -0 "$p" 2>/dev/null && grep -qa 'backup-operator' "/proc/$p/cmdline" 2>/dev/null
+}
+do_start() {
+  if is_running; then echo "backup-operator: dang chay (pid $(cat "$PIDFILE"))"; return 0; fi
+  [ -s "$KCFG" ] || { echo "backup-operator: thieu $KCFG — chay scripts/deploy.sh"; return 1; }
+  setsid nohup "$SELF" run >> "$LOGFILE" 2>&1 < /dev/null &
+  for _ in $(seq 1 10); do is_running && break; sleep 1; done
+  if is_running; then echo "backup-operator: da chay nen (pid $(cat "$PIDFILE"), log $LOGFILE)"
+  else echo "backup-operator: khong khoi dong duoc, xem $LOGFILE"; return 1; fi
+}
+do_stop() {
+  if is_running; then
+    kill -TERM "$(cat "$PIDFILE")"
+    for _ in $(seq 1 30); do is_running || break; sleep 1; done
+    if is_running; then kill -KILL "$(cat "$PIDFILE")"; fi
+  fi
+  rm -f "$PIDFILE"
+  echo 'backup-operator: da dung'
+}
+
+case "${1:-run}" in
+  run)
+    if is_running && [ "$(cat "$PIDFILE")" != "$$" ]; then echo 'backup-operator: da co ban dang chay'; exit 1; fi
+    echo $$ > "$PIDFILE"
+    trap 'log "nhan tin hieu dung, thoat"; rm -f "$PIDFILE"; exit 0' TERM INT
+    log "bat dau: namespace $NS, chu ky ${INTERVAL}s, kubeconfig $KCFG"
+    while true; do
+      reconcile || true
+      sleep "$INTERVAL" & wait $!
+    done ;;
+  once)    reconcile ;;
+  start)   do_start ;;
+  stop)    do_stop ;;
+  restart) do_stop; do_start ;;
+  status)  if is_running; then echo "backup-operator: dang chay (pid $(cat "$PIDFILE"))"
+           else echo 'backup-operator: khong chay'; exit 3; fi ;;
+  *)       echo "cach dung: $0 run|once|start|stop|restart|status"; exit 2 ;;
+esac
+EOF
+chmod +x ~/bookstore/scripts/backup-operator.sh
+```
+
+**Đọc lại:**
+
+- Bài [181](../181-operator-vi.md):
+  [*Operator trong Kubernetes*](../181-operator-vi.md#operator-trong-kubernetes-operators-in-kubernetes),
+  [*Một ví dụ về operator*](../181-operator-vi.md#example),
+  [*Triển khai operator*](../181-operator-vi.md#triển-khai-operator-deploying-operators),
+  [*Sử dụng một operator*](../181-operator-vi.md#using-operators).
+- Bài [177](../177-extend-kubernetes-vi.md), mục
+  [*Các mẫu thiết kế phần mở rộng*](../177-extend-kubernetes-vi.md#extension-patterns) — controller đọc
+  `.spec`, làm việc, cập nhật `.status`.
+- Bài [179](../179-custom-resources-vi.md), mục
+  [*Custom controller*](../179-custom-resources-vi.md#custom-controller).
+- Bài [25 — Controller](../25-controllers-vi.md) — vòng lặp điều khiển.
+- [Mục 3.5](DU-AN-BOOKSTORE.md#35-thiết-kế-bảo-mật) và
+  [mục 3.6](DU-AN-BOOKSTORE.md#36-ngân-sách-tài-nguyên-và-lập-lịch) của file dự án — ma trận
+  NetworkPolicy, PriorityClass cho Job.
+
+**Bàn giao:** `scripts/backup-operator.sh`; `k8s/app/backup/dbbackup-baseline.yaml`; kustomization đã
+cập nhật; `docs/runbook-backup-operator.md`; `docs/adr/NNNN-backup-operator.md`; `docs/tech-debt.md`;
+`~/lab-evidence/14/b4-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `teardown.sh` gỡ sạch (kể cả dừng operator); `deploy.sh` dựng lại, khởi động operator và chờ
+  được `baseline` thành công; chạy lại `deploy.sh` lần hai vẫn thành công.
+- `PASS:` `baseline` ở `Succeeded`, đủ sáu trường `status`, `observedGeneration` bằng `generation`,
+  file nằm dưới `/backup`, kích thước lớn hơn 0.
+- `PASS:` một Pod đọc PVC `backup-store` thấy file đúng kích thước mà `status` ghi.
+- `PASS:` `DbBackup` với `format: custom` thành công, file đuôi `.dump`.
+- `PASS:` Job đúng tên, label, `ownerReferences` (đúng `uid`, `controller: true`), PriorityClass
+  `bookstore-batch`, không mount token, có TTL, có `requests`/`limits`.
+- `PASS:` thử gắn nhãn `enforce=restricted` cho `bookstore` ở chế độ dry-run server không ra cảnh báo
+  nào.
+- `PASS:` chạy `once` hai lần khi mọi thứ đã khớp: không `DbBackup` nào bị ghi, không Job nào được tạo.
+- `PASS:` có runbook, ADR, và một dòng nợ về `backup-operator` trong `docs/tech-debt.md`.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-backup-operator.md`:
+
+1. Ánh xạ vòng lặp của bạn vào mẫu controller của bài 177: đọc gì, làm gì, ghi gì. Vì sao mọi trạng
+   thái nằm trong `status` của `DbBackup` thay vì trong bộ nhớ hay một file của operator?
+2. Job mang `component=backup` chứ không phải `operator`. Nó tái dùng những hợp đồng nào của các
+   sprint trước nhờ label đó, và lớp nào sẽ chặn nó nếu gắn sai?
+3. Đối chiếu bảy bước của ví dụ `SampleDB` (bài 181) với `backup-operator`: bước nào có, bước nào khác,
+   bước nào không có. Khác biệt lớn nhất là gì, và nó thành nợ nào?
+4. TTL của Job và `ownerReferences` cùng dọn Job — mỗi cơ chế dọn trong trường hợp nào? Vì sao TTL
+   không làm mất kết quả backup?
+5. Vì sao đọc kết quả từ log của **Pod thành công** thay vì `kubectl logs job/<tên>`?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Đọc nhiều trường của một object trong một lệnh:
+   `k get "$RES" "$1" -o jsonpath='{.status.phase}|{.metadata.uid}|{.apiVersion}|{.metadata.generation}|{.spec.format}'`
+   rồi tách bằng `IFS='|' read -r ...`. Trường chưa có thì jsonpath in rỗng.
+2. `apiVersion` dùng cho `ownerReferences` lấy từ chính object vừa đọc — B6 sẽ đổi nó mà bạn không phải
+   sửa script.
+3. Tạo Job bằng `job_manifest ... | k create -f -` (operator có quyền `create`, không có `patch`).
+4. Condition của Job: `-o jsonpath='{.status.conditions[?(@.status=="True")].type}'`, so khớp
+   ` Complete ` và ` Failed `.
+5. Pod thành công của một Job:
+   `-l batch.kubernetes.io/job-name=<job> --field-selector=status.phase=Succeeded`.
+6. Pod Security `restricted` cho image `postgres` không khai `USER`: `runAsNonRoot`, `runAsUser: 999`,
+   `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, drop mọi capability.
+7. Job phải tự được dọn sau vài phút (`ttlSecondsAfterFinished`): trần `count/jobs.batch` đã nâng ở B3
+   chỉ đủ cho vài Job của operator cùng lúc.
+8. Trong heredoc không đặt nháy (`<<YAML`), biến của shell trong Pod phải viết `\$` để không bị mở rộng
+   ngay trên master.
+9. Chạy thử từng vòng: `./scripts/backup-operator.sh stop; ./scripts/backup-operator.sh once`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; script teardown rồi deploy lại</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/14; W=~/lab-work/14; GRP=bookstore.example.com
+cd ~/bookstore
+s() { kubectl -n "$NS" get dbbackup "$1" -o jsonpath="$2" 2>/dev/null; }
+wait_phase() { for _ in $(seq 1 80); do case "$(s "$1" '{.status.phase}')" in Succeeded|Failed) return 0;; esac; sleep 3; done; return 1; }
+
+./scripts/teardown.sh > "$EV/b4-teardown.txt" 2>&1
+grep -q 'teardown: sach' "$EV/b4-teardown.txt" && echo 'PASS: teardown.sh go sach, operator da dung'
+./scripts/deploy.sh > "$EV/b4-deploy-1.txt" 2>&1 && echo 'PASS: deploy.sh dung lai he thong va baseline Succeeded'
+./scripts/deploy.sh > "$EV/b4-deploy-2.txt" 2>&1 && echo 'PASS: deploy.sh lan 2 thanh cong'
+./scripts/backup-operator.sh status && grep -q 'bat dau' secrets/backup-operator.log && echo 'PASS: operator dang chay nen'
+
+[ "$(s baseline '{.status.phase}')" = 'Succeeded' ] && echo 'PASS: baseline Succeeded'
+BAD=0
+for F in jobName file sizeBytes startTime completionTime observedGeneration; do
+  [ -n "$(s baseline "{.status.$F}")" ] || { echo "FAIL: baseline thieu status.$F"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: status cua baseline du sau truong'
+[ "$(s baseline '{.status.observedGeneration}')" = "$(s baseline '{.metadata.generation}')" ] \
+  && echo 'PASS: observedGeneration bang generation'
+FILE="$(s baseline '{.status.file}')"; SIZE="$(s baseline '{.status.sizeBytes}')"
+case "$FILE" in /backup/*.sql) [ "${SIZE:-0}" -gt 0 ] && echo "PASS: $FILE, $SIZE byte" ;; esac
+
+cat > "$W/doc-backup.yaml" <<'YAML'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: doc-backup
+  namespace: bookstore
+spec:
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 1
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    seccompProfile: {type: RuntimeDefault}
+  volumes:
+  - name: backup
+    persistentVolumeClaim: {claimName: backup-store, readOnly: true}
+  containers:
+  - name: doc
+    image: busybox:1.37
+    command: ["sh", "-c", "sleep 600"]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: [ALL]}
+    resources:
+      requests: {cpu: 10m, memory: 8Mi}
+      limits: {cpu: 50m, memory: 16Mi}
+    volumeMounts:
+    - {name: backup, mountPath: /backup, readOnly: true}
+YAML
+kubectl apply -f "$W/doc-backup.yaml" >/dev/null
+kubectl -n "$NS" wait --for=condition=Ready pod/doc-backup --timeout=180s >/dev/null
+[ "$(kubectl -n "$NS" exec doc-backup -- stat -c %s "$FILE")" = "$SIZE" ] \
+  && echo 'PASS: file tren PVC backup-store dung kich thuoc status ghi'
+kubectl -n "$NS" exec doc-backup -- ls -l /backup > "$EV/b4-backup-store.txt"
+
+kubectl apply -f - >/dev/null <<YAML
+apiVersion: $GRP/v1alpha1
+kind: DbBackup
+metadata:
+  name: b4-custom
+  namespace: $NS
+  labels: {app.kubernetes.io/part-of: bookstore, app.kubernetes.io/component: backup}
+spec: {database: bookstore, format: custom, note: thu dinh dang custom}
+YAML
+wait_phase b4-custom
+{ [ "$(s b4-custom '{.status.phase}')" = 'Succeeded' ] && s b4-custom '{.status.file}' | grep -q '\.dump$'; } \
+  && echo 'PASS: format custom cho file .dump'
+J="$(s b4-custom '{.status.jobName}')"
+jj() { kubectl -n "$NS" get job "$J" -o jsonpath="$1" 2>/dev/null; }
+kubectl -n "$NS" get job "$J" -o yaml > "$EV/b4-job.yaml"
+[ "$J" = 'dbbackup-b4-custom' ] && echo 'PASS: ten Job theo hop dong'
+[ "$(jj '{.metadata.labels.app\.kubernetes\.io/component}|{.metadata.labels.app\.kubernetes\.io/managed-by}|{.metadata.labels.bookstore\.example\.com/dbbackup}')" \
+  = 'backup|backup-operator|b4-custom' ] && echo 'PASS: label cua Job theo hop dong'
+[ "$(jj '{.metadata.ownerReferences[0].kind}|{.metadata.ownerReferences[0].uid}|{.metadata.ownerReferences[0].controller}')" \
+  = "DbBackup|$(s b4-custom '{.metadata.uid}')|true" ] && echo 'PASS: Job thuoc dung DbBackup qua ownerReferences'
+[ "$(jj '{.spec.template.spec.priorityClassName}|{.spec.template.spec.automountServiceAccountToken}')" = 'bookstore-batch|false' ] \
+  && echo 'PASS: PriorityClass bookstore-batch, khong mount token'
+{ [ -n "$(jj '{.spec.ttlSecondsAfterFinished}')" ] && [ -n "$(jj '{.spec.template.spec.containers[0].resources.requests.cpu}')" ] \
+  && [ -n "$(jj '{.spec.template.spec.containers[0].resources.limits.memory}')" ]; } && echo 'PASS: co TTL, requests, limits'
+# Đặt lại đúng mức enforce đang có thì policy không đổi, Pod đang chạy không được đánh giá lại;
+# đổi enforce-version mới buộc đánh giá (cùng cách với smoke 9b).
+W1="$(kubectl label --dry-run=server --overwrite namespace "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1)"
+echo "$W1" | grep -q 'violate' && echo "FAIL: $W1" || echo 'PASS: moi Pod trong bookstore dat restricted, ke ca Pod cua operator'
+
+RV0="$(s baseline '{.metadata.resourceVersion}')"
+JN0="$(kubectl -n "$NS" get jobs -l app.kubernetes.io/managed-by=backup-operator --no-headers | wc -l)"
+./scripts/backup-operator.sh once >/dev/null; ./scripts/backup-operator.sh once >/dev/null
+RV1="$(s baseline '{.metadata.resourceVersion}')"
+JN1="$(kubectl -n "$NS" get jobs -l app.kubernetes.io/managed-by=backup-operator --no-headers | wc -l)"
+{ [ "$RV0" = "$RV1" ] && [ "$JN0" = "$JN1" ]; } && echo 'PASS: chay lai vong lap khi da khop khong ghi gi, khong tao Job'
+
+{ test -s docs/runbook-backup-operator.md && grep -qE '^\| *TD-[0-9]+ .*backup-operator' docs/tech-debt.md \
+  && ls docs/adr/*-backup-operator.md >/dev/null 2>&1; } && echo 'PASS: co runbook, ADR va no operator ngoai cluster'
+kubectl -n "$NS" delete pod doc-backup --wait=true >/dev/null
+kubectl -n "$NS" delete dbbackup b4-custom --wait=true >/dev/null
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+Hai hàm thay vào khối `PHẦN BẠN VIẾT`:
+
+```bash
+job_manifest() {    # $1 = tên DbBackup, $2 = uid, $3 = apiVersion, $4 = plain|custom → in YAML của Job
+  local fmt=p ext=sql
+  if [ "$4" = custom ]; then fmt=c; ext=dump; fi
+  cat <<YAML
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dbbackup-$1
+  namespace: $NS
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/managed-by: backup-operator
+    bookstore.example.com/dbbackup: "$1"
+  ownerReferences:
+  - apiVersion: $3
+    kind: DbBackup
+    name: "$1"
+    uid: "$2"
+    controller: true
+    blockOwnerDeletion: false
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: bookstore
+        app.kubernetes.io/component: backup
+        app.kubernetes.io/name: postgresql
+        app.kubernetes.io/managed-by: backup-operator
+        bookstore.example.com/dbbackup: "$1"
+    spec:
+      restartPolicy: Never
+      priorityClassName: bookstore-batch
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: backup
+        persistentVolumeClaim:
+          claimName: backup-store
+      containers:
+      - name: pg-dump
+        image: postgres:17.11
+        env:
+        - {name: PGHOST, value: db-0.db}
+        - {name: PGUSER, value: postgres}
+        - {name: PGDATABASE, value: bookstore}
+        - {name: PGCONNECT_TIMEOUT, value: "5"}
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef: {name: db-credentials, key: postgres-password}
+        - {name: FMT, value: $fmt}
+        - {name: EXT, value: $ext}
+        - {name: OUT, value: /backup/dbbackup-$1}
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          F="\$OUT-\$(date -u +%Y%m%dT%H%M%SZ).\$EXT"
+          pg_dump --no-owner --format="\$FMT" --file="\$F"
+          if [ "\$FMT" = c ]; then pg_restore --list "\$F" | grep -q 'TABLE api books'
+          else grep -q 'CREATE TABLE api.books' "\$F"; fi
+          echo "db-backup: OK \$F \$(wc -c < "\$F") byte"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        resources:
+          requests: {cpu: 50m, memory: 64Mi}
+          limits: {cpu: 200m, memory: 128Mi}
+        volumeMounts:
+        - {name: backup, mountPath: /backup}
+YAML
+}
+
+reconcile_one() {   # $1 = tên một DbBackup → đưa thực tế về đúng spec, ghi status; lỗi thì return 1
+  local name="$1" line phase uid av gen fmt job conds pod out file size
+  line="$(k get "$RES" "$name" \
+    -o jsonpath='{.status.phase}|{.metadata.uid}|{.apiVersion}|{.metadata.generation}|{.spec.format}')" || return 1
+  IFS='|' read -r phase uid av gen fmt <<< "$line"
+  case "$phase" in Succeeded|Failed) return 0 ;; esac            # yêu cầu đã xong: không làm gì
+  job="dbbackup-$name"
+
+  if ! k get job "$job" >/dev/null 2>&1; then
+    if [ "$phase" = Running ]; then                              # Job mất giữa chừng: báo thật
+      set_status "$name" "{\"phase\":\"Failed\",\"completionTime\":\"$(now)\",\"message\":\"Job $job bien mat truoc khi xong\"}"
+      log "$name: Failed — Job bien mat"; return 0
+    fi
+    job_manifest "$name" "$uid" "$av" "${fmt:-plain}" | k create -f - >/dev/null || return 1
+    set_status "$name" "{\"phase\":\"Running\",\"jobName\":\"$job\",\"startTime\":\"$(now)\",\"observedGeneration\":$gen}"
+    log "$name: tao Job $job"; return 0
+  fi
+
+  conds="$(k get job "$job" -o jsonpath='{.status.conditions[?(@.status=="True")].type}')"
+  case " $conds " in
+    *' Complete '*)
+      pod="$(k get pods -l "batch.kubernetes.io/job-name=$job" --field-selector=status.phase=Succeeded \
+               -o jsonpath='{.items[0].metadata.name}')"
+      out="$(k logs "$pod" 2>/dev/null | grep '^db-backup: OK' | tail -n 1)"
+      file="$(echo "$out" | awk '{print $3}')"; size="$(echo "$out" | awk '{print $4}')"
+      case "$size" in
+        ''|*[!0-9]*)
+          set_status "$name" "{\"phase\":\"Failed\",\"completionTime\":\"$(now)\",\"message\":\"Job xong nhung khong doc duoc dong db-backup: OK\"}"
+          log "$name: Failed — khong doc duoc ket qua"; return 0 ;;
+      esac
+      set_status "$name" "{\"phase\":\"Succeeded\",\"file\":\"$file\",\"sizeBytes\":$size,\"completionTime\":\"$(now)\",\"observedGeneration\":$gen,\"message\":\"\"}"
+      log "$name: Succeeded $file $size byte" ;;
+    *' Failed '*)
+      set_status "$name" "{\"phase\":\"Failed\",\"completionTime\":\"$(now)\",\"message\":\"Job $job that bai, xem log cua Pod\"}"
+      log "$name: Failed — Job that bai" ;;
+    *)                                                           # Job đang chạy
+      [ "$phase" = Running ] || set_status "$name" "{\"phase\":\"Running\",\"jobName\":\"$job\",\"startTime\":\"$(now)\",\"observedGeneration\":$gen}" ;;
+  esac
+}
+```
+
+```yaml
+# k8s/app/backup/dbbackup-baseline.yaml — B6 đổi apiVersion sang v1
+apiVersion: bookstore.example.com/v1alpha1
+kind: DbBackup
+metadata:
+  name: baseline
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/name: postgresql
+spec:
+  database: bookstore
+  note: Ban sao luu nen sau moi lan dung he thong tu repo
+```
+
+Thêm `backup/dbbackup-baseline.yaml` vào `resources` của `k8s/app/kustomization.yaml`. Dòng mới của
+`docs/tech-debt.md`:
+
+```markdown
+| TD-20 | backup-operator chạy ngoài cluster như tiến trình nền trên master: không HA, chết khi master khởi động lại, token 24 giờ phải cấp lại bằng deploy.sh | 14 | Phần II, giai đoạn 28 | mở | docs/runbook-backup-operator.md |
+```
+
+
+Khung `docs/runbook-backup-operator.md` — năm mục: *Chạy và dừng* (`start`, `stop`, `status`, log ở
+`secrets/backup-operator.log`); *Sau khi master khởi động lại* (`./scripts/deploy.sh`); *Token hết hạn*
+(dấu hiệu `Unauthorized` trong log, cấp lại bằng `./scripts/deploy.sh`); *Yêu cầu một bản backup* (một
+manifest `DbBackup`, `kubectl -n bookstore get dbb -w`); *Chép bản dump ra máy host* (Pod đọc
+`backup-store` như `doc-backup`, `kubectl cp`, rồi `scp` — điều kiện của `TD-10`).
+
+Ý chính cho ADR:
+
+1. Đọc `spec` (và `phase`), làm cho thực tế khớp (tạo Job), cập nhật `status` — đúng câu của bài 177:
+   controller "đọc `.spec` của một object, có thể thực hiện một số việc, rồi cập nhật `.status`". Mọi
+   trạng thái nằm trong API server nên operator **không có trạng thái riêng**: chết, khởi động lại,
+   chạy hai bản `once` song song — mỗi vòng đọc lại sự thật từ đầu. B5 chứng minh.
+2. `component=backup` cho Job đi qua đúng ô ma trận NetworkPolicy tới `db` cổng 5432 mà sprint 7 đã mở
+   cho Pod sao lưu, cùng nhóm với CronJob `db-backup`. Gắn `component=operator` thì default deny chặn
+   kết nối tới `db`: `pg_dump` hết thời gian chờ kết nối, Job `Failed`. Pod Security và quota không xét
+   label — chúng xét spec: thiếu `seccompProfile` thì bị từ chối ngay lúc tạo Pod, thiếu `requests`
+   thì quota từ chối.
+3. Có: bước 1 (custom resource), 4 (truy vấn control plane — bằng `list` mỗi vòng thay cho `watch`), 5
+   (làm thực tế khớp — một Job thay cho PVC, StatefulSet, Job). Khác: bước 5 phần xóa — garbage
+   collector xóa Job, không có bước "trước khi xóa" (B5). Không có: bước 2 và 3 (Deployment, image —
+   operator chạy trên master), bước 6 (lịch — đã có CronJob `db-backup`), bước 7 (nâng cấp). Khác biệt
+   lớn nhất là **nơi chạy**: không Deployment nên không ai khởi động lại nó — nợ *operator ngoài cluster*.
+4. TTL dọn Job đã xong sau mười phút dù `DbBackup` còn — giữ `count/jobs.batch` dưới trần;
+   `ownerReferences` dọn Job khi `DbBackup` bị xóa, kể cả Job chưa xong. Kết quả nằm trong `status` của `DbBackup` và file trên PVC, không nằm trong Job —
+   miễn operator ghi `status` trước khi TTL hết (B5 cho thấy điều gì xảy ra nếu không).
+5. `backoffLimit: 1` cho phép một Pod thất bại rồi một Pod thành công; `kubectl logs job/<tên>` chọn
+   **một** Pod của Job, có thể đúng Pod thất bại — operator sẽ ghi `Failed` cho một bản backup thực ra
+   đã xong.
+
+</details>
+
+## B5. [BS-14-05] Diễn tập: CRD không có controller
+
+**Loại:** Diễn tập sự cố — chỉ trên tiến trình `backup-operator` và object của dự án; không node nào bị
+chạm tới.
+
+**Bối cảnh:** bài 177 nói controller tùy chỉnh thêm một **điểm lỗi**. Trước khi đưa `R19` vào nghiệm
+thu, đội phải thấy điểm lỗi đó hỏng ra sao và phần còn lại của hệ thống chịu thế nào: controller vắng
+mặt, Job biến mất giữa chừng, yêu cầu bị xóa, tiến trình bị giết thô.
+
+**Yêu cầu:**
+
+1. **Kịch bản A — không có controller.** Dừng operator, tạo `DbBackup` `kho-du-lieu`. Chứng minh trong
+   một khoảng quan sát có giới hạn: không Job, không Pod, `status` rỗng, không Event nào về object đó —
+   nhưng object đọc được đầy đủ, kể cả bằng danh tính của operator, và ứng dụng vẫn phục vụ. Chạy lại
+   operator: yêu cầu thành công mà không ai tạo lại nó.
+2. **Kịch bản B — Job mất giữa chừng.** Với operator dừng, tạo `mat-job`, chạy **một** vòng để có Job và
+   `phase: Running`, xóa Job, chạy vòng tiếp: `phase: Failed` có `message`, không Job mới; vòng sau đó
+   không ghi gì nữa.
+3. **Kịch bản C — xóa yêu cầu.** Xóa `kho-du-lieu`: Job của nó biến mất dù operator không có quyền xóa
+   Job; file dump vẫn còn trên PVC.
+4. ⭐ **Kịch bản D — tiến trình bị giết thô.** `kill -9` tiến trình operator: `status` phát hiện nó đã
+   chết dù file PID còn; `start` chạy lại được; không `DbBackup` nào có hai Job.
+5. Viết postmortem `docs/postmortem/14-controller-vang-mat.md`.
+
+**Ràng buộc:** không sửa script operator trong lúc diễn tập. Không xóa `baseline`. Xóa mọi `DbBackup`
+diễn tập khi xong.
+
+**Đọc lại:**
+
+- Bài [179](../179-custom-resources-vi.md), mục
+  [*Custom controller*](../179-custom-resources-vi.md#custom-controller).
+- Bài [181](../181-operator-vi.md), [*Một ví dụ về operator*](../181-operator-vi.md#example) — bước 5,
+  phần "nếu bạn xóa nó";
+  [*Triển khai operator*](../181-operator-vi.md#triển-khai-operator-deploying-operators).
+- Bài [177](../177-extend-kubernetes-vi.md), mục
+  [*Các mẫu thiết kế phần mở rộng*](../177-extend-kubernetes-vi.md#extension-patterns) — điểm lỗi.
+- [Lab 1c](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md) — owner reference, garbage collection,
+  finalizer.
+
+**Bàn giao:** `docs/postmortem/14-controller-vang-mat.md`; `~/lab-evidence/14/b5-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` A — 30 giây không Job, `status` rỗng, không Event; `spec` đủ cả giá trị mặc định; danh tính
+  operator đọc được object; `/books` vẫn trả dữ liệu; chạy lại operator thì `Succeeded`.
+- `PASS:` B — vòng 1 cho `Running`; sau khi Job bị xóa, vòng 2 cho `Failed` có `message`, không Job mới;
+  vòng 3 không đổi `resourceVersion`.
+- `PASS:` C — Job biến mất theo `DbBackup`; operator không có quyền xóa Job; file dump còn trên PVC.
+- `PASS:` ⭐ D — `status` báo không chạy sau `kill -9`; `start` chạy lại được; không `DbBackup` nào có
+  hai Job.
+- `PASS:` có postmortem; không còn `DbBackup` diễn tập.
+
+**Câu hỏi thiết kế** — trả lời trong postmortem:
+
+1. Ở kịch bản A, controller vắng mặt đúng lúc yêu cầu được tạo, vậy mà yêu cầu không mất. Vì sao?
+   Lúc controller dừng, bạn đang có gì và chưa có gì?
+2. Ở kịch bản B, vì sao ghi `Failed` thay vì tạo lại Job? Khi nào tạo lại mới là đúng?
+3. Ở kịch bản C, ai xóa Job, dựa vào trường nào? Vì sao file dump còn — có nên xóa theo không? Bước 5
+   của `SampleDB` làm một việc **trước** khi xóa: cơ chế nào cho phép điều đó?
+4. Operator chết ba ngày mà không ai biết. Hệ thống hỏng ở đâu, **không** hỏng ở đâu? Yêu cầu nào trong
+   `R1`–`R19` bị ảnh hưởng?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Một vòng duy nhất, không nền: `./scripts/backup-operator.sh once` khi operator đang dừng.
+- Event về một object:
+  `kubectl get events --field-selector involvedObject.kind=DbBackup,involvedObject.name=<tên>`.
+- Đọc file trên PVC: dùng lại Pod `doc-backup` mà script nghiệm thu B4 đã ghi ở
+  `~/lab-work/14/doc-backup.yaml`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi đọc yêu cầu; script này chính là cuộc diễn tập</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/14; W=~/lab-work/14; GRP=bookstore.example.com
+OP="system:serviceaccount:$NS:backup-operator"
+cd ~/bookstore
+s() { kubectl -n "$NS" get dbbackup "$1" -o jsonpath="$2" 2>/dev/null; }
+mk() { kubectl apply -f - >/dev/null <<YAML
+apiVersion: $GRP/v1alpha1
+kind: DbBackup
+metadata:
+  name: $1
+  namespace: $NS
+  labels: {app.kubernetes.io/part-of: bookstore, app.kubernetes.io/component: backup}
+spec: {database: bookstore, note: dien tap B5}
+YAML
+}
+wait_phase() { for _ in $(seq 1 80); do [ "$(s "$1" '{.status.phase}')" = "$2" ] && return 0; sleep 3; done; return 1; }
+
+# Kịch bản A — không có controller
+./scripts/backup-operator.sh stop >/dev/null
+mk kho-du-lieu
+sleep 30
+JN="$(kubectl -n "$NS" get jobs -l bookstore.example.com/dbbackup=kho-du-lieu --no-headers 2>/dev/null | wc -l)"
+EN="$(kubectl -n "$NS" get events --field-selector involvedObject.kind=DbBackup,involvedObject.name=kho-du-lieu \
+      --no-headers 2>/dev/null | wc -l)"
+kubectl -n "$NS" get dbb kho-du-lieu -o yaml > "$EV/b5-a-kho-du-lieu.yaml"
+[ "$JN" -eq 0 ] && echo 'PASS: A — 30 giay khong Job nao duoc tao'
+[ -z "$(s kho-du-lieu '{.status.phase}')" ] && echo 'PASS: A — status rong, khong ai ghi'
+[ "$EN" -eq 0 ] && echo 'PASS: A — khong thanh phan nao phat Event ve DbBackup'
+[ "$(s kho-du-lieu '{.spec.format}')" = 'plain' ] && echo 'PASS: A — du lieu day du, ke ca gia tri mac dinh'
+kubectl --kubeconfig=secrets/backup-operator.kubeconfig -n "$NS" get dbbackup kho-du-lieu >/dev/null 2>&1 \
+  && echo 'PASS: A — danh tinh controller doc duoc: thieu vong lap, khong thieu quyen'
+WEB="$(kubectl -n "$NS" get pod -l app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=web \
+       --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')"
+T="$(kubectl -n "$NS" exec "$WEB" -c status-writer -- wget -q -T 5 -O- http://api:3000/books 2>/dev/null | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && echo "PASS: A — ung dung van phuc vu $T cuon sach"
+./scripts/backup-operator.sh start >/dev/null
+wait_phase kho-du-lieu Succeeded && echo 'PASS: A — controller chay lai thi hoi tu, khong mat yeu cau'
+
+# Kịch bản B — Job mất giữa chừng
+./scripts/backup-operator.sh stop >/dev/null
+mk mat-job
+./scripts/backup-operator.sh once > "$EV/b5-b-vong-1.txt" 2>&1
+[ "$(s mat-job '{.status.phase}')" = 'Running' ] && echo 'PASS: B — vong 1 tao Job, phase Running'
+kubectl -n "$NS" delete job dbbackup-mat-job --wait=true >/dev/null
+./scripts/backup-operator.sh once > "$EV/b5-b-vong-2.txt" 2>&1
+{ [ "$(s mat-job '{.status.phase}')" = 'Failed' ] && [ -n "$(s mat-job '{.status.message}')" ]; } \
+  && echo 'PASS: B — Job mat khi Running: controller ghi Failed kem message'
+kubectl -n "$NS" get job dbbackup-mat-job >/dev/null 2>&1 \
+  && echo 'FAIL: B — controller tao lai Job' || echo 'PASS: B — khong Job moi nao duoc tao lai'
+RV0="$(s mat-job '{.metadata.resourceVersion}')"
+./scripts/backup-operator.sh once >/dev/null 2>&1
+[ "$(s mat-job '{.metadata.resourceVersion}')" = "$RV0" ] && echo 'PASS: B — phase cuoi khong bi ghi lai'
+./scripts/backup-operator.sh start >/dev/null
+
+# Kịch bản C — xóa yêu cầu
+F="$(s kho-du-lieu '{.status.file}')"; JC=dbbackup-kho-du-lieu
+kubectl -n "$NS" get job "$JC" >/dev/null 2>&1 && echo 'PASS: C — truoc khi xoa, Job cua kho-du-lieu con'
+kubectl -n "$NS" delete dbbackup kho-du-lieu --wait=true >/dev/null
+for _ in $(seq 1 30); do kubectl -n "$NS" get job "$JC" >/dev/null 2>&1 || break; sleep 2; done
+kubectl -n "$NS" get job "$JC" >/dev/null 2>&1 \
+  && echo 'FAIL: C — Job con sau khi xoa DbBackup' || echo 'PASS: C — Job bien mat theo DbBackup'
+[ "$(kubectl auth can-i delete jobs.batch -n "$NS" --as="$OP")" = 'no' ] \
+  && echo 'PASS: C — operator khong co quyen xoa Job: nguoi xoa la garbage collector'
+kubectl apply -f "$W/doc-backup.yaml" >/dev/null
+kubectl -n "$NS" wait --for=condition=Ready pod/doc-backup --timeout=180s >/dev/null
+kubectl -n "$NS" exec doc-backup -- test -s "$F" && echo "PASS: C — file $F van con tren PVC"
+kubectl -n "$NS" delete pod doc-backup --wait=true >/dev/null
+
+# ⭐ Kịch bản D — tiến trình bị giết thô
+kill -9 "$(cat secrets/backup-operator.pid)"; sleep 1
+./scripts/backup-operator.sh status >/dev/null 2>&1 \
+  && echo 'FAIL: D — status van bao dang chay' || echo 'PASS: D — status phat hien tien trinh da chet'
+./scripts/backup-operator.sh start >/dev/null && ./scripts/backup-operator.sh status >/dev/null \
+  && echo 'PASS: D — start chay lai duoc'
+DUP="$(kubectl -n "$NS" get jobs -l app.kubernetes.io/managed-by=backup-operator \
+       -o jsonpath='{range .items[*]}{.metadata.labels.bookstore\.example\.com/dbbackup}{"\n"}{end}' | sort | uniq -d | wc -l)"
+[ "$DUP" -eq 0 ] && echo 'PASS: D — khong DbBackup nao co hai Job'
+
+kubectl -n "$NS" delete dbbackup mat-job --ignore-not-found --wait=true >/dev/null
+[ "$(kubectl -n "$NS" get dbbackups --no-headers | grep -vc '^baseline ')" -eq 0 ] && echo 'PASS: chi con baseline'
+test -s docs/postmortem/14-controller-vang-mat.md && echo 'PASS: co postmortem'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo — ý chính của postmortem</summary>
+
+1. Yêu cầu nằm trong **API server**, không nằm trong một sự kiện mà controller phải bắt kịp. Mỗi vòng
+   lặp đọc lại toàn bộ trạng thái mong muốn rồi so với thực tế — bài 25 gọi là đưa trạng thái hiện tại
+   về trạng thái mong muốn — nên chạy lại lúc nào cũng tìm thấy việc còn dở. Khi controller dừng, bạn có
+   đủ một API: schema, validation, defaulting, `kubectl get`, RBAC, quota. Bạn **chưa có** API khai báo:
+   bài 179 — "bản thân custom resource chỉ cho phép bạn lưu trữ và truy xuất dữ liệu có cấu trúc".
+2. Controller không biết Job đã làm tới đâu: `pg_dump` có thể đã ghi xong file, cũng có thể đã ghi dở.
+   `DbBackup` là **yêu cầu một lần**; tự tạo lại là quyết định thay người vận hành. Báo thật rồi để người
+   tạo `DbBackup` mới. Tạo lại chỉ đúng khi tài nguyên là **trạng thái cần duy trì** (như ReplicaSet giữ
+   số Pod), không phải một hành động đã diễn ra.
+3. Garbage collector của control plane, dựa vào `metadata.ownerReferences` của Job trỏ về `DbBackup`
+   (Lab 1c). File không phải object Kubernetes nên không ai xóa nó — và đó là điều đúng: bản backup phải
+   sống lâu hơn yêu cầu tạo ra nó. Việc phải làm **trước** khi xóa (như tạo snapshot của `SampleDB`) cần
+   một **finalizer** do controller đặt rồi tự gỡ khi xong việc; garbage collector không làm được.
+4. Hỏng: `DbBackup` mới tồn đọng, không ai báo — `R19` ngừng, và thứ phát hiện được duy nhất là
+   `PHASE` rỗng trong `kubectl get dbb`. Không hỏng: `web`, `api`, `db` phục vụ bình thường (controller
+   không nằm trên đường request), CronJob `db-backup` vẫn sao lưu theo lịch (`R5`, `R8`). Hệ quả cho vận
+   hành: cần một kiểm tra định kỳ "operator còn sống" — chính là dòng `R19` của `smoke.sh` — và một nơi
+   chạy tự khởi động lại (nợ *operator ngoài cluster*).
+
+</details>
+
+## B6. [BS-14-06] Thêm version `v1` và chuyển storage version
+
+**Loại:** Tính năng.
+
+**Bối cảnh:** API `DbBackup` đã dùng thật qua hai ticket mà không đổi schema — đủ để tuyên bố `v1`.
+Nhưng đổi version của CRD **không** tự ghi lại dữ liệu cũ: object tạo ở `v1alpha1` vẫn nằm trong kho
+ở `v1alpha1` cho tới khi có thứ ghi lại nó (bài 323). Sprint này đổi storage version, đưa mọi object cũ
+sang `v1` mà không mất `status`, không phải sửa operator.
+
+**Yêu cầu:**
+
+1. CRD phục vụ cả `v1` và `v1alpha1`, schema, subresource, cột in giống hệt nhau; `v1` là storage
+   version; chiến lược chuyển đổi để mặc định.
+2. Có ít nhất một `DbBackup` tạo ở `v1alpha1` **trước** khi đổi.
+3. Chứng minh sau khi đổi: `status.storedVersions` có cả hai; cùng một object đọc qua hai version chỉ
+   khác `apiVersion`; API server **từ chối** bỏ `v1alpha1` khỏi `spec.versions` và nói lý do.
+4. Đưa mọi `DbBackup` về `v1` trong kho, rồi gỡ `v1alpha1` khỏi `status.storedVersions`. Chứng minh
+   `status` của object không mất và API server bây giờ **chấp nhận** bỏ `v1alpha1` — chỉ thử, không bỏ
+   thật.
+5. `dbbackup-baseline.yaml` trong repo dùng `v1`; không manifest hay script nào của repo còn dùng
+   `v1alpha1`; script operator không phải sửa; Job tạo sau khi đổi có `ownerReferences` trỏ `v1`.
+6. `v1alpha1` vẫn được phục vụ nhưng không còn là storage. Ghi vào ADR lý do và điều kiện gỡ hẳn.
+
+**Ràng buộc:** không dùng conversion webhook, không bật feature gate, không tạo `StorageVersionMigration`.
+Sửa `k8s/cluster/crd-dbbackup.yaml` và `dbbackup-baseline.yaml` trong repo **rồi mới** chạy script
+nghiệm thu — script tự apply CRD, nên đừng apply trước.
+
+**Đọc lại:**
+
+- Bài [323](../323-storage-version-migration-vi.md): đoạn mở đầu về việc dữ liệu phải được chủ động ghi
+  lại; [*Trước khi bạn bắt đầu*](../323-storage-version-migration-vi.md#trước-khi-bạn-bắt-đầu-before-you-begin)
+  — vì sao cách tự động không dùng được trên cluster lab;
+  [*Cập nhật storage schema ưu tiên của một CRD*](../323-storage-version-migration-vi.md#cập-nhật-storage-schema-ưu-tiên-của-một-crd-update-the-preferred-storage-schema-of-a-crd)
+  — chuỗi `storage: true` → object cũ vẫn ở version cũ → `storedVersions` chỉ còn version mới.
+- Bài [179](../179-custom-resources-vi.md), mục [*Lưu trữ*](../179-custom-resources-vi.md#storage).
+- ⭐ Bài [377](../377-custom-resource-definition-versioning-vi.md), mục
+  [*Nâng cấp các object hiện có lên storage version mới*](../377-custom-resource-definition-versioning-vi.md#upgrade-existing-objects-to-a-new-stored-version)
+  — trang đó thuộc giai đoạn 28; ở đây chỉ cần đúng ba bước của *Phương án 2*, có sẵn trong gợi ý.
+
+**Bàn giao:** `k8s/cluster/crd-dbbackup.yaml`, `k8s/app/backup/dbbackup-baseline.yaml` đã cập nhật;
+`docs/adr/NNNN-dbbackup-v1.md`; `~/lab-evidence/14/b6-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` trước khi đổi, `storedVersions` là `["v1alpha1"]` và `truoc-v1` thành công.
+- `PASS:` sau khi áp CRD mới: storage là `v1`, `v1alpha1` vẫn phục vụ, `storedVersions` có cả hai;
+  đọc qua hai version chỉ khác `apiVersion`.
+- `PASS:` API server từ chối bỏ `v1alpha1`, lý do nằm ở `status.storedVersions`.
+- `PASS:` mọi `DbBackup` được ghi lại (`resourceVersion` đổi), `status` giữ nguyên; `storedVersions`
+  chỉ còn `["v1"]`; bây giờ bỏ `v1alpha1` được chấp nhận.
+- `PASS:` repo không còn `v1alpha1` ngoài file CRD; Job mới trỏ `v1`, Job cũ vẫn trỏ `v1alpha1`.
+- `PASS:` teardown rồi deploy: CRD dựng mới có `storedVersions` là `["v1"]`.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-dbbackup-v1.md`:
+
+1. `spec.versions` và `status.storedVersions` khác nhau thế nào? Vì sao API server từ chối bỏ
+   `v1alpha1` lúc đầu?
+2. Đặt `storage: true` cho `v1` có chuyển object cũ không? Trên cluster có hàng nghìn object thì bước nào
+   tốn công nhất, công cụ nào sinh ra để làm nó, và vì sao lab không dùng công cụ đó?
+3. Vì sao chiến lược chuyển đổi mặc định an toàn ở đây? Nếu `v1` đổi tên trường `note` thì sao?
+4. API server đã cho bỏ `v1alpha1` — vì sao vẫn giữ nó? Kể ít nhất ba thứ có thể còn tham chiếu
+   `v1alpha1`, và điều kiện để gỡ hẳn.
+5. Đổi version có phải sửa Role, ClusterRole, quota nào không? Vì sao?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Hai phần tử trong `versions`, chỉ một phần tử có `storage: true`.
+- Đọc một object qua version cụ thể: `kubectl get dbbackups.v1alpha1.bookstore.example.com <tên>` và
+  `kubectl get dbbackups.v1.bookstore.example.com <tên>`.
+- Ba bước ghi lại thủ công: (1) đặt version mới làm storage và apply; (2) liệt kê mọi object, ghi lại
+  từng object với đúng nội dung cũ — `kubectl get ... -o yaml | kubectl replace -f -`; (3) vá `status`
+  của chính CRD:
+  `kubectl patch crd <tên> --subresource=status --type=merge -p '{"status":{"storedVersions":["v1"]}}'`.
+- Thử bỏ một version mà không bỏ thật: `kubectl patch crd <tên> --type=json --dry-run=server -p
+  '[{"op":"remove","path":"/spec/versions/<chỉ số>"}]'`.
+- Đừng chạy bước (2) khi có `DbBackup` đang `Running` — operator đang ghi `status` của nó, `replace`
+  sẽ gặp xung đột `resourceVersion`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy ngay sau khi sửa hai file trong repo, CHƯA apply</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/14; GRP=bookstore.example.com; CRD=dbbackups.$GRP
+cd ~/bookstore
+sv() { kubectl get crd "$CRD" -o jsonpath='{.status.storedVersions}'; }
+s() { kubectl -n "$NS" get dbbackup "$1" -o jsonpath="$2" 2>/dev/null; }
+mk() { kubectl apply -f - >/dev/null <<YAML
+apiVersion: $GRP/$2
+kind: DbBackup
+metadata:
+  name: $1
+  namespace: $NS
+  labels: {app.kubernetes.io/part-of: bookstore, app.kubernetes.io/component: backup}
+spec: {database: bookstore, note: tao o $2}
+YAML
+}
+wait_ok() { for _ in $(seq 1 80); do [ "$(s "$1" '{.status.phase}')" = 'Succeeded' ] && return 0; sleep 3; done; return 1; }
+idx() { local i=0 v; for v in $(kubectl get crd "$CRD" -o jsonpath='{.spec.versions[*].name}'); do
+          [ "$v" = v1alpha1 ] && { echo "$i"; return; }; i=$((i + 1)); done; }
+
+# 0. Trước khi đổi
+[ "$(sv)" = '["v1alpha1"]' ] && echo 'PASS: truoc khi doi, storedVersions ["v1alpha1"]'
+mk truoc-v1 v1alpha1
+wait_ok truoc-v1 && echo 'PASS: truoc-v1 Succeeded khi CRD chi co v1alpha1'
+OWNER0="$(kubectl -n "$NS" get job dbbackup-truoc-v1 -o jsonpath='{.metadata.ownerReferences[0].apiVersion}')"
+
+# 1. Áp CRD mới từ repo
+kubectl apply -f k8s/cluster/crd-dbbackup.yaml >/dev/null
+kubectl wait --for=condition=Established "crd/$CRD" --timeout=60s >/dev/null
+{ [ "$(kubectl get crd "$CRD" -o jsonpath='{.spec.versions[?(@.storage==true)].name}')" = 'v1' ] \
+  && [ "$(kubectl get crd "$CRD" -o jsonpath='{.spec.versions[?(@.name=="v1alpha1")].served}')" = 'true' ]; } \
+  && echo 'PASS: storage la v1, v1alpha1 van duoc phuc vu'
+for _ in $(seq 1 15); do sv | grep -q '"v1"' && break; sleep 2; done
+sv > "$EV/b6-stored-1.txt"; cat "$EV/b6-stored-1.txt"; echo
+grep -q 'v1alpha1' "$EV/b6-stored-1.txt" && grep -q '"v1"' "$EV/b6-stored-1.txt" \
+  && echo 'PASS: storedVersions co ca hai — object cu van nam o v1alpha1'
+kubectl -n "$NS" get "dbbackups.v1alpha1.$GRP" truoc-v1 -o yaml > "$EV/b6-doc-v1alpha1.yaml"
+kubectl -n "$NS" get "dbbackups.v1.$GRP" truoc-v1 -o yaml > "$EV/b6-doc-v1.yaml"
+diff "$EV/b6-doc-v1alpha1.yaml" "$EV/b6-doc-v1.yaml" > "$EV/b6-diff.txt"
+{ [ "$(grep -c '^[<>]' "$EV/b6-diff.txt")" -eq 2 ] && grep -q "^> apiVersion: $GRP/v1$" "$EV/b6-diff.txt"; } \
+  && echo 'PASS: doc qua hai version chi khac apiVersion'
+
+# 2. Bỏ v1alpha1 khi nó còn trong storedVersions
+I="$(idx)"
+kubectl patch crd "$CRD" --type=json --dry-run=server -p "[{\"op\":\"remove\",\"path\":\"/spec/versions/$I\"}]" \
+  > "$EV/b6-tu-choi.txt" 2>&1 \
+  && echo 'FAIL: API server cho bo v1alpha1 khi con trong storedVersions' \
+  || { grep -q 'storedVersions' "$EV/b6-tu-choi.txt" && echo 'PASS: API server tu choi, ly do o status.storedVersions'; }
+
+# 3. Ghi lại mọi DbBackup, rồi gỡ v1alpha1 khỏi storedVersions
+RV0="$(s truoc-v1 '{.metadata.resourceVersion}')"; ST0="$(s truoc-v1 '{.status.phase}|{.status.file}|{.status.sizeBytes}')"
+kubectl get dbbackups -A -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name}{"\n"}{end}' \
+  | while read -r N O; do
+      kubectl -n "$N" get dbbackup "$O" -o yaml | kubectl replace -f - >/dev/null && echo "da ghi lai $N/$O"
+    done | tee "$EV/b6-ghi-lai.txt"
+[ "$(s truoc-v1 '{.metadata.resourceVersion}')" != "$RV0" ] && echo 'PASS: object da duoc ghi lai o storage version moi'
+[ "$(s truoc-v1 '{.status.phase}|{.status.file}|{.status.sizeBytes}')" = "$ST0" ] \
+  && echo 'PASS: status giu nguyen — ghi resource chinh khong dung toi status'
+kubectl patch crd "$CRD" --subresource=status --type=merge -p '{"status":{"storedVersions":["v1"]}}' >/dev/null
+[ "$(sv)" = '["v1"]' ] && echo 'PASS: storedVersions chi con v1'
+kubectl patch crd "$CRD" --type=json --dry-run=server -p "[{\"op\":\"remove\",\"path\":\"/spec/versions/$I\"}]" \
+  >/dev/null 2>&1 && echo 'PASS: bay gio API server chap nhan bo v1alpha1 (chi thu, chua bo)'
+
+# 4. Repo và operator
+grep -q "^apiVersion: $GRP/v1$" k8s/app/backup/dbbackup-baseline.yaml && echo 'PASS: baseline trong repo dung v1'
+grep -rl "$GRP/v1alpha1" k8s/app k8s/system scripts tests 2>/dev/null | grep -q . \
+  && echo 'FAIL: con file dung v1alpha1' || echo 'PASS: repo khong con manifest, script nao dung v1alpha1'
+mk sau-v1 v1
+wait_ok sau-v1
+{ [ "$(kubectl -n "$NS" get job dbbackup-sau-v1 -o jsonpath='{.metadata.ownerReferences[0].apiVersion}')" = "$GRP/v1" ] \
+  && [ "$OWNER0" = "$GRP/v1alpha1" ]; } \
+  && echo 'PASS: Job moi tro v1, Job cu van tro v1alpha1 — script operator khong doi'
+
+# 5. Dựng lại sạch
+kubectl -n "$NS" delete dbbackup truoc-v1 sau-v1 --wait=true >/dev/null
+./scripts/teardown.sh > "$EV/b6-teardown.txt" 2>&1 && ./scripts/deploy.sh > "$EV/b6-deploy.txt" 2>&1 \
+  && echo 'PASS: teardown + deploy sau khi doi version'
+[ "$(sv)" = '["v1"]' ] && echo 'PASS: CRD dung moi co storedVersions ["v1"]'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# k8s/cluster/crd-dbbackup.yaml — bản cuối: v1 là storage, v1alpha1 còn phục vụ
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: dbbackups.bookstore.example.com
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: operator
+spec:
+  group: bookstore.example.com
+  scope: Namespaced
+  names:
+    plural: dbbackups
+    singular: dbbackup
+    kind: DbBackup
+    shortNames: [dbb]
+    categories: [bookstore]
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    subresources: &sub              # &tên: neo YAML; *tên ở dưới dùng lại đúng khối này
+      status: {}
+    additionalPrinterColumns: &cols
+    - {name: Phase, type: string, jsonPath: .status.phase}
+    - {name: Size, type: integer, jsonPath: .status.sizeBytes}
+    - {name: File, type: string, jsonPath: .status.file}
+    - {name: Age, type: date, jsonPath: .metadata.creationTimestamp}
+    schema: &schema
+      openAPIV3Schema:
+        type: object
+        required: [spec]
+        properties:
+          spec:
+            type: object
+            required: [database]
+            properties:
+              database: {type: string, enum: [bookstore]}
+              format: {type: string, enum: [plain, custom], default: plain}
+              note: {type: string, maxLength: 120}
+          status:
+            type: object
+            properties:
+              phase: {type: string, enum: [Running, Succeeded, Failed]}
+              jobName: {type: string}
+              file: {type: string}
+              sizeBytes: {type: integer, format: int64}
+              startTime: {type: string, format: date-time}
+              completionTime: {type: string, format: date-time}
+              observedGeneration: {type: integer, format: int64}
+              message: {type: string}
+  - name: v1alpha1                 # còn phục vụ cho tới khi không còn gì tham chiếu — xem ADR
+    served: true
+    storage: false
+    subresources: *sub             # schema, subresource, cột in giống hệt v1
+    additionalPrinterColumns: *cols
+    schema: *schema
+```
+
+Trong `k8s/app/backup/dbbackup-baseline.yaml` đổi dòng đầu thành
+`apiVersion: bookstore.example.com/v1`.
+
+Ý chính cho ADR:
+
+1. `spec.versions` là những version **được phục vụ**; `status.storedVersions` là những version **từng
+   được dùng để lưu**, do API server ghi. Còn `v1alpha1` trong `storedVersions` nghĩa là kho có thể còn
+   object ở định dạng đó; bỏ nó khỏi `spec.versions` thì không còn cách đọc chúng lên.
+2. **Không.** `storage: true` chỉ quyết định định dạng của những lần ghi **từ nay**. Bài 323: đổi
+   storage schema chỉ tác động tới bản ghi được ghi mới — object cũ nằm im cho tới khi có thứ ghi lại
+   nó. Bước tốn công là **ghi lại mọi object**; `StorageVersionMigration` sinh ra để tự động hóa đúng
+   bước đó, nhưng cần feature gate và runtime config trên API server — sửa control plane, ngoài phạm vi
+   lab.
+3. Chiến lược mặc định chỉ đặt lại `apiVersion`, nên đúng khi mọi version **chung một schema** — ở đây
+   giống hệt. Đổi tên `note` thì object `v1alpha1` đọc qua `v1` sẽ mất trường đó (bị cắt tỉa); khi ấy
+   bắt buộc có conversion webhook.
+4. Còn tham chiếu `v1alpha1`: `ownerReferences` của các Job tạo trước khi đổi; manifest và script ở
+   ngoài repo (của người dùng, của CI) còn ghi `v1alpha1`; client đang chạy. Điều kiện gỡ hẳn:
+   `storedVersions` chỉ còn `v1` (đã xong), không object nào còn `ownerReferences` trỏ `v1alpha1` (TTL đã
+   dọn hết Job cũ), không client nào còn dùng — rồi mới bỏ khỏi `spec.versions` ở một release sau.
+5. **Không.** Rule RBAC và khóa quota kể **group** và **resource** (`dbbackups`), không kể version.
+
+</details>
+
+## B7. [BS-14-07] Điều tra: thiết bị chuyên dụng và topology của node
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** `R18` — đánh giá khả năng dùng thiết bị chuyên dụng cho một tính năng tương lai, "gợi ý
+sách bằng GPU". Nếu đã làm [Lab 13](LAB-13-DRA.md), dự án có ADR về DRA; sprint này đóng nốt phía
+**device plugin** và **Topology Manager** bằng bằng chứng đọc từ cluster thật, rồi chốt ADR.
+
+**Yêu cầu:**
+
+1. Chứng minh không node nào công bố resource dạng `vendor-domain/resourcetype`; trên
+   `lab-k8s-worker2`, socket đăng ký của kubelet có mặt nhưng không plugin nào đăng ký.
+2. Đối chiếu DRA: nhóm API `resource.k8s.io` có được phục vụ không, có `ResourceSlice` nào không.
+3. Đọc `topologyManagerPolicy` và `memoryManagerPolicy` **hiệu lực** của ba kubelet cùng số NUMA node
+   của máy, đủ để kết luận nhánh debug của bài 313 không thể kích hoạt trên cluster này.
+4. ADR: để chạy tính năng dùng GPU trên hệ thống Bookstore cần những gì — phần cứng, plugin chạy ở
+   namespace nào (nhớ Pod Security của ba namespace), Pod xin thiết bị ra sao, quota, và so với DRA.
+
+**Ràng buộc:** chỉ đọc. Không sửa `KubeletConfiguration`, không đổi policy "để thử cho biết". Script
+so checksum kubelet với B0.
+
+**Đọc lại:**
+
+- Bài [184](../184-device-plugins-vi.md):
+  [*Đăng ký device plugin*](../184-device-plugins-vi.md#đăng-ký-device-plugin-device-plugin-registration),
+  [*Hiện thực device plugin*](../184-device-plugins-vi.md#hiện-thực-device-plugin-device-plugin-implementation),
+  [*Triển khai device plugin*](../184-device-plugins-vi.md#triển-khai-device-plugin-device-plugin-deployment),
+  [*Tích hợp với Topology Manager*](../184-device-plugins-vi.md#device-plugin-integration-with-the-topology-manager).
+- Bài [313](../313-debug-topology-vi.md):
+  [*Các nguồn thông tin để khắc phục sự cố*](../313-debug-topology-vi.md#các-nguồn-thông-tin-để-khắc-phục-sự-cố-sources-of-troubleshooting-information),
+  [*Khắc phục lỗi `TopologyAffinityError`*](../313-debug-topology-vi.md#TopologyAffinityError).
+- Bài [182](../182-compute-storage-net-vi.md) — nhóm device plugin "bổ sung cho" `cpu` và `memory`.
+- Bài [134](../134-resource-quotas-vi.md), mục *Hạn ngạch cho tài nguyên mở rộng*.
+
+**Bàn giao:** `docs/adr/NNNN-thiet-bi-va-topology.md` — trỏ tới `docs/adr/*-dra-bookstore.md` nếu đã
+làm Lab 13;
+`~/lab-evidence/14/b7-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` không node nào công bố resource `vendor-domain/resourcetype`.
+- `PASS:` `kubelet.sock` có trên `lab-k8s-worker2`; không socket plugin nào khác.
+- `PASS:` một dòng của nhánh DRA tương ứng với cluster.
+- `PASS:` ba kubelet ở Topology Manager `none` và Memory Manager `None`; máy có một NUMA node.
+- `PASS:` checksum kubelet không đổi so với B0; có ADR.
+
+**Câu hỏi thiết kế** — trả lời trong ADR:
+
+1. Luồng đăng ký device plugin có hai chặng. Chặng nào chưa từng xảy ra trên cluster của bạn, và bằng
+   chứng nào cho từng chặng?
+2. Device plugin dạng DaemonSet cần security context privileged và mount
+   `/var/lib/kubelet/device-plugins`. Nó chạy được ở namespace nào của dự án, không được ở namespace
+   nào, vì sao?
+3. Pod gợi ý sách xin GPU bằng gì, chịu hai ràng buộc nào? Quota giới hạn GPU của namespace bằng khóa
+   nào? DRA thay đổi điều gì so với cách đó?
+4. Vì sao không bật thử policy Topology Manager khác `none` trên cluster lab, kể cả để quan sát?
+
+<details>
+<summary>Script nghiệm thu — chỉ đọc</summary>
+
+```bash
+EV=~/lab-evidence/14
+cd ~/bookstore
+for N in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
+  echo "$N capacity: $(kubectl get node "$N" -o jsonpath='{.status.capacity}')"
+  echo "$N allocatable: $(kubectl get node "$N" -o jsonpath='{.status.allocatable}')"
+done > "$EV/b7-capacity.txt"
+EXT_N="$(grep -o '"[a-z0-9.-]\{1,\}/[a-z0-9.-]\{1,\}"' "$EV/b7-capacity.txt" | wc -l)"
+[ "$EXT_N" -eq 0 ] && echo 'PASS: khong node nao cong bo resource vendor-domain/resourcetype'
+
+ssh lab-k8s-worker2 'sudo ls -l /var/lib/kubelet/device-plugins/' > "$EV/b7-device-plugins.txt"
+SOCK="$(ssh lab-k8s-worker2 'sudo ls -1 /var/lib/kubelet/device-plugins/' | grep '\.sock$')"
+[ "$SOCK" = 'kubelet.sock' ] && echo 'PASS: chi co kubelet.sock — dang ky san sang, khong plugin nao dang ky'
+
+kubectl api-resources --api-group=resource.k8s.io > "$EV/b7-dra.txt" 2>&1
+if [ "$(grep -c resource.k8s.io "$EV/b7-dra.txt")" -gt 0 ]; then
+  [ "$(kubectl get resourceslices --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+    && echo 'PASS: API DRA duoc phuc vu nhung khong driver nao cong bo thiet bi'
+else
+  echo 'PASS: nhom API DRA khong duoc phuc vu tren cluster nay'
+fi
+
+TM=0; MM=0
+for N in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
+  kubectl get --raw "/api/v1/nodes/$N/proxy/configz" > "$EV/b7-configz-$N.json"
+  T="$(grep -o '"topologyManagerPolicy":"[^"]*"' "$EV/b7-configz-$N.json" | sed 's/.*:"//;s/"$//')"
+  M="$(grep -o '"memoryManagerPolicy":"[^"]*"' "$EV/b7-configz-$N.json" | sed 's/.*:"//;s/"$//')"
+  echo "$N topologyManagerPolicy=${T:-<mac dinh none>} memoryManagerPolicy=${M:-<mac dinh None>}" | tee -a "$EV/b7-policy.txt"
+  case "${T:-none}" in none) TM=$((TM + 1)) ;; esac
+  case "${M:-None}" in None|none) MM=$((MM + 1)) ;; esac
+done
+NUMA="$(ssh lab-k8s-worker2 'ls -d /sys/devices/system/node/node[0-9]* | wc -l')"
+{ [ "$TM" -eq 3 ] && [ "$MM" -eq 3 ] && [ "$NUMA" -eq 1 ]; } \
+  && echo 'PASS: Topology Manager none, Memory Manager None, mot NUMA node — khong co ranh gioi nao de can'
+
+{ echo "lab-k8s-master $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
+  for N in lab-k8s-worker1 lab-k8s-worker2; do
+    echo "$N $(ssh "$N" 'sudo sha256sum /var/lib/kubelet/config.yaml' | awk '{print $1}')"
+  done; } > "$EV/b7-kubelet-sha.txt"
+diff -q "$EV/b0-kubelet-sha.txt" "$EV/b7-kubelet-sha.txt" >/dev/null && echo 'PASS: cau hinh kubelet khong doi tu B0'
+ls docs/adr/*thiet-bi* >/dev/null 2>&1 && echo 'PASS: co ADR thiet bi'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo — ý chính của ADR</summary>
+
+1. Chặng một: plugin tự đăng ký với **kubelet** qua `kubelet.sock`, gửi `ResourceName` dạng
+   `vendor-domain/resourcetype`. Chặng hai: **kubelet** công bố resource lên API server khi cập nhật
+   trạng thái node. Không có tên nào dạng đó trong `capacity`/`allocatable` — chặng hai chưa xảy ra; thư
+   mục đăng ký chỉ có `kubelet.sock` — chặng một cũng chưa. Socket có sẵn vì kubelet luôn phục vụ dịch
+   vụ `Registration`.
+2. Không ở `bookstore` hay `bookstore-staging`: cả hai `enforce: restricted`, cấm privileged và
+   `hostPath`. `bookstore-system` (`privileged`) thì được về mặt Pod Security, nhưng đó là namespace của
+   agent dự án; plugin của nhà cung cấp nên có namespace hạ tầng riêng như Calico, Traefik — tách quyền
+   và vòng đời khỏi ứng dụng (bài 120, *Giảm thiểu việc phân phối các token đặc quyền*).
+3. Bằng một **extended resource** trong `resources.limits` (ví dụ `nvidia.com/gpu: 1`): chỉ số nguyên,
+   không overcommit, không chia sẻ giữa container. Quota dùng khóa `requests.<tên resource>` cho tài
+   nguyên mở rộng (bài 134). DRA đưa thiết bị vào object API riêng của `resource.k8s.io`, mô tả được
+   thuộc tính và cho Pod xin bằng claim — điều mà một cái tên và một con số không diễn đạt được.
+4. Đổi policy là sửa `KubeletConfiguration` của node đang chạy — giai đoạn 20 — và với một NUMA node
+   thì mọi cách sắp đặt đều thỏa, không có gì để quan sát. Cluster sẽ lệch mốc `04-metrics-ready`.
+
+</details>
+
+## B8. [BS-14-08] Nghiệm thu cuối dự án
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** dự án bắt đầu từ một file `docker compose` với tám vấn đề `P1`–`P8` và mười chín yêu cầu
+`R1`–`R19` ([mục 2 của file dự án](DU-AN-BOOKSTORE.md#2-bài-toán)). Hai mươi mốt sprint sau, đội phải
+trả lời bằng **bằng chứng**, không bằng cảm nhận: yêu cầu nào đạt, đạt có điều kiện gì, nợ nào đã trả,
+nợ nào còn và đi đâu. Đây là biên bản bàn giao cuối của dự án.
+
+**Yêu cầu:**
+
+1. `tests/smoke.sh` thay bằng **bản cuối của dự án** — chép nguyên văn khối dưới đây. Nó kiểm mọi hợp
+   đồng còn hiệu lực ở mục 3 và 4 của file dự án; mỗi dòng ghi mã `R<n>` mà nó làm bằng chứng. Chạy sau
+   một lần dựng sạch, phải PASS toàn bộ.
+2. `docs/nghiem-thu.md`: một bảng `| Mã | Yêu cầu | Bằng chứng | Kết quả |` đủ `R1` → `R19`. Kết quả là
+   `ĐẠT`, `ĐẠT CÓ ĐIỀU KIỆN` (ghi rõ điều kiện) hoặc `KHÔNG ÁP DỤNG` (ghi rõ lý do). Bằng chứng là dòng
+   `PASS: R<n>` của smoke, hoặc file trong repo — ADR, postmortem, runbook — với đường dẫn **có thật**.
+   `R9`, `R12`, `R18` không kiểm được trên một cluster đang chạy, và `R17` chỉ kiểm được một phần: bằng
+   chứng của chúng là tài liệu của sprint tương ứng.
+3. `docs/tech-debt.md`: **mọi** dòng `TD-nn` có trạng thái cuối — `đã trả`, `chấp nhận có điều kiện`
+   hoặc `chuyển Phần II` — kèm bằng chứng hoặc lý do. Không còn dòng nào `mở`. Bảng có đủ `TD-01`
+   → `TD-20` của sổ nợ trong file dự án, `TD-20` là nợ *operator ngoài cluster* của B4.
+4. `docs/retro.md`: năm mục `## Đã làm tốt`, `## Chưa tốt`, `## Bài học`, `## Nợ còn lại`,
+   `## Bước tiếp theo`. Mục nợ nêu **nợ lab** còn mở — `#1` (phần VPA), `#5`, `#6`, `#7`, `#8` — và nơi
+   trả trong lộ trình.
+5. `README.md` của repo mô tả trạng thái cuối và trỏ tới `docs/nghiem-thu.md`.
+6. Vệ sinh repo: `secrets/` không có gì trong git ngoài `.gitkeep`; không còn file `.tpl`; không còn mật
+   khẩu trong manifest hay script; overlay `k8s/overlays/ha-lab` vẫn render được; `platform/` còn ghi
+   chép dựng cluster.
+
+**Ràng buộc:** không sửa `smoke.sh` để nó PASS — hệ thống fail thì sửa hệ thống (trong repo), hoặc ghi
+yêu cầu đó là `ĐẠT CÓ ĐIỀU KIỆN` với lý do thật. Không viết kết luận `ĐẠT` cho yêu cầu không có bằng
+chứng.
+
+**Đọc lại:**
+
+- [Mục 2](DU-AN-BOOKSTORE.md#2-bài-toán), [mục 3](DU-AN-BOOKSTORE.md#3-kiến-trúc-đích),
+  [mục 4](DU-AN-BOOKSTORE.md#4-hợp-đồng-kỹ-thuật) và [mục 8](DU-AN-BOOKSTORE.md#8-sổ-nợ-kỹ-thuật-dự-án)
+  của file dự án; `docs/tech-debt.md` của repo là bản đang sống của mục 8.
+- [Sổ nợ lab](README.md#5-sổ-nợ-lab) và [sổ nợ lộ trình](../00-ALO-TRINH-ADMIN.md#sổ-nợ-lộ-trình).
+- [Phần II — Vận hành cluster](../00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster) — giai đoạn 18, 19,
+  20, 22, 23, 28.
+- Bài [120](../120-rbac-good-practices-vi.md#workload-creation) — mục *Tạo workload*, cho điều kiện của
+  `R13`.
+
+**Bàn giao:** `tests/smoke.sh`; `docs/nghiem-thu.md`; `docs/tech-debt.md`; `docs/retro.md`;
+`README.md`; `~/lab-evidence/14/b8-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `smoke.sh` bản cuối PASS toàn bộ; có ít nhất một dòng `PASS:` cho mỗi `R1`–`R8`, `R10`,
+  `R11`, `R13`–`R17`, `R19`.
+- `PASS:` `nghiem-thu.md` đủ `R1`–`R19`, mỗi dòng có kết luận, mọi đường dẫn trong bảng tồn tại.
+- `PASS:` `tech-debt.md` có `TD-01` → `TD-20`, `TD-20` là nợ `backup-operator`; không dòng nào còn `mở`.
+- `PASS:` `retro.md` đủ năm mục, nêu nợ lab `#1`, `#5`, `#6`, `#7`, `#8` và giai đoạn 18, 19, 22.
+- `PASS:` repo sạch theo yêu cầu 6; `README.md` trỏ tới biên bản nghiệm thu.
+
+`tests/smoke.sh` bản cuối, chép nguyên văn. Nó kế thừa cách kiểm của bản Lab 11b và Lab 12 — chờ HPA
+đưa `web` lên `minReplicas` trước khi kiểm, đọc tên ConfigMap từ spec của workload, vào Ingress qua IP
+của `lab-k8s-master` (đặt `ENTRY_IP` để đổi) — và thêm các dòng `R19` của sprint này:
+
+```bash
+cat > ~/bookstore/tests/smoke.sh <<'EOF'
+#!/usr/bin/env bash
+# Kiểm thử khói — trạng thái CUỐI của dự án Bookstore (Lab 14, sprint 21).
+# Tích lũy: kiểm mọi hợp đồng còn hiệu lực ở DU-AN-BOOKSTORE.md mục 3 và 4. Mỗi dòng ghi mã yêu cầu
+# R<n> mà nó làm bằng chứng. R9, R12, R18 có bằng chứng ở tài liệu, không kiểm trên cluster đang chạy.
+set -u
+cd "$(dirname "$0")/.."
+NS=bookstore; SYS=bookstore-system; STG=bookstore-staging
+SEL='app.kubernetes.io/part-of=bookstore'
+GRP=bookstore.example.com
+HOST=bookstore.lab.local
+FAIL=0
+pass() { echo "PASS: $*"; }
+fail() { echo "FAIL: $*"; FAIL=1; }
+ok()   { if [ "$1" = "$2" ]; then pass "$3"; else fail "$3 (thay '$1')"; fi; }
+k()    { kubectl -n "$NS" "$@"; }
+jp()   { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+pods() { k get pod -l "$SEL,app.kubernetes.io/component=$1" --field-selector=status.phase=Running \
+           -o jsonpath="$2" 2>/dev/null; }
+
+# 0. HPA cần một chu kỳ để đưa web lên minReplicas và một cửa sổ đo để có số liệu (11b).
+MIN="$(jp hpa/web '{.spec.minReplicas}')"
+for _ in $(seq 1 48); do
+  R="$(jp deployment/web '{.spec.replicas}')"; RR="$(jp deployment/web '{.status.readyReplicas}')"
+  U="$(jp hpa/web '{.status.currentMetrics[0].resource.current.averageUtilization}')"
+  [ -n "$MIN" ] && [ "${R:-0}" -ge "$MIN" ] && [ "${RR:-0}" = "${R:-x}" ] && [ -n "$U" ] && break
+  sleep 5
+done
+
+# 1. Namespace và Pod Security (R14)
+for X in "$NS:restricted" "$STG:restricted" "$SYS:privileged"; do
+  N="${X%%:*}"; L="${X##*:}"
+  ok "$(kubectl get namespace "$N" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}|{.metadata.labels.pod-security\.kubernetes\.io/enforce}' 2>/dev/null)" \
+     "bookstore|$L" "R14 namespace $N mang label du an, enforce=$L"
+done
+# Đặt lại đúng mức enforce đang có thì policy không đổi và Pod đang chạy không được đánh giá lại;
+# đổi enforce-version mới buộc đánh giá (cùng cách với smoke 9b).
+W="$(kubectl label --dry-run=server --overwrite namespace "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1)"
+if echo "$W" | grep -q 'violate'; then fail "R14 co Pod vi pham restricted: $W"; else pass 'R14 moi Pod trong bookstore dat restricted'; fi
+
+# 2. Object cấp cluster và node (R8, R10, R13, R17, R19)
+PRIO="$(kubectl get priorityclass bookstore-critical -o jsonpath='{.value}' 2>/dev/null)"
+[ -n "$PRIO" ] && pass "R10 PriorityClass bookstore-critical ($PRIO)" || fail 'R10 thieu PriorityClass bookstore-critical'
+[ -n "$(kubectl get priorityclass bookstore-batch -o jsonpath='{.value}' 2>/dev/null)" ] \
+  && pass 'R10 PriorityClass bookstore-batch' || fail 'R10 thieu PriorityClass bookstore-batch'
+ok "$(kubectl get storageclass bookstore-retain -o jsonpath='{.reclaimPolicy}' 2>/dev/null)" 'Retain' \
+   'R8 StorageClass bookstore-retain giu PV khi xoa PVC'
+ok "$(kubectl get nodes -l bookstore.example.com/data=true -o jsonpath='{.items[*].metadata.name}')" 'lab-k8s-worker2' \
+   'R10 chi lab-k8s-worker2 mang label du lieu'
+UNS="$(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.unschedulable}{"\n"}{end}' | grep -c '^true$')"
+[ "$UNS" -eq 0 ] && pass 'R17 khong node nao con bi cordon' || fail "R17 con $UNS node bi cordon"
+ok "$(kubectl get crd "dbbackups.$GRP" -o jsonpath='{.status.conditions[?(@.type=="Established")].status}|{.metadata.labels.app\.kubernetes\.io/part-of}|{.status.storedVersions}' 2>/dev/null)" \
+   'True|bookstore|["v1"]' 'R19 CRD DbBackup Established, mang label, storedVersions ["v1"]'
+ok "$(kubectl get clusterrole bookstore-dbbackup-viewer -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}' 2>/dev/null)" \
+   'bookstore' 'R13 ClusterRole bookstore-dbbackup-viewer mang label du an'
+
+# 3. Cấu hình và bí mật (R2, R7). ConfigMap có hậu tố hash từ 5a: đọc tên từ spec của workload.
+D="$(jp secret/db-credentials '{.data}')"
+{ echo "$D" | grep -q '"postgres-password"' && echo "$D" | grep -q '"authenticator-password"'; } \
+  && pass 'R2 Secret db-credentials du hai key' || fail 'R2 Secret db-credentials thieu key'
+ok "$(jp secret/bookstore-tls '{.type}')" 'kubernetes.io/tls' 'R7 Secret bookstore-tls kieu TLS'
+WL="$(k get deployment,statefulset -o json 2>/dev/null)"
+for B in web-config api-config db-init; do
+  CM="$(echo "$WL" | grep -o "\"$B\(-[a-z0-9]*\)\?\"" | head -n 1 | tr -d '"')"
+  [ -n "$CM" ] && k get configmap "$CM" >/dev/null 2>&1 && pass "R2 ConfigMap $CM duoc workload dung" \
+    || fail "R2 thieu ConfigMap $B duoc workload tham chieu"
+done
+ok "$(jp deployment/api '{.spec.template.spec.containers[?(@.name=="postgrest")].env[?(@.name=="DB_PASSWORD")].valueFrom.secretKeyRef.name}')" \
+   'db-credentials' 'R2 mat khau cua api lay tu Secret'
+
+# 4. db: định danh, dữ liệu bền, non-root (R3, R5, R8, R10, R14)
+ok "$(jp statefulset/db '{.status.readyReplicas}')" '1' 'R5 StatefulSet db 1/1 Ready'
+ok "$(jp pod/db-0 '{.metadata.ownerReferences[0].kind}/{.spec.nodeName}/{.status.qosClass}')" \
+   'StatefulSet/lab-k8s-worker2/Guaranteed' 'R10 db-0 thuoc StatefulSet, tren lab-k8s-worker2, R3 QoS Guaranteed'
+jp statefulset/db '{.spec.template.spec.affinity}' | grep -q 'bookstore.example.com/data' \
+  && pass 'R10 db chon node bang affinity theo label du an' || fail 'R10 db khong dung affinity theo label du an'
+[ -n "$PRIO" ] && [ "$(jp pod/db-0 '{.spec.priority}')" = "$PRIO" ] && pass 'R10 db-0 dung bookstore-critical' \
+  || fail 'R10 db-0 sai priority'
+ok "$(k exec db-0 -c postgres -- id -u 2>/dev/null)" '999' 'R14 postgres chay uid 999'
+ok "$(jp pvc/data-db-0 '{.status.phase}|{.spec.storageClassName}')" 'Bound|bookstore-retain' \
+   'R8 PVC data-db-0 Bound tren bookstore-retain'
+ok "$(jp pvc/backup-store '{.status.phase}')" 'Bound' 'R8 PVC backup-store Bound'
+N="$(k exec db-0 -c postgres -- psql -U postgres -d bookstore -tAc 'SELECT count(*) FROM api.books' 2>/dev/null)"
+[ "${N:-0}" -ge 8 ] && pass "R5 db co $N cuon sach" || fail "R5 db co ${N:-0} cuon sach, can >= 8"
+
+# 5. Controller, probe, tài nguyên, phát hành, co giãn, chịu bảo trì (R1, R3, R4, R10, R16, R17)
+ok "$(jp deployment/api '{.status.readyReplicas}')" '2' 'R1 Deployment api 2/2 Ready'
+C='{.spec.template.spec.containers[?(@.name=="postgrest")]'
+ok "$(jp deployment/api "$C.readinessProbe.httpGet.path}|$C.livenessProbe.httpGet.path}")" '/ready|/live' \
+   'R1 api: readiness /ready, liveness /live'
+[ -n "$(jp deployment/api "$C.startupProbe}")" ] && pass 'R1 api co startup probe' || fail 'R1 api thieu startup probe'
+[ -n "$(jp deployment/web '{.spec.template.spec.containers[?(@.name=="nginx")].readinessProbe}')" ] \
+  && pass 'R1 nginx co readiness probe' || fail 'R1 nginx thieu readiness probe'
+ok "$(jp deployment/web '{.spec.strategy.type}')" 'RollingUpdate' 'R4 web phat hanh RollingUpdate'
+ok "$(jp hpa/web '{.spec.scaleTargetRef.kind}/{.spec.scaleTargetRef.name} {.spec.minReplicas}-{.spec.maxReplicas}')" \
+   'Deployment/web 2-5' 'R16 HPA web dieu khien Deployment web trong khoang 2-5'
+ok "$(jp hpa/web '{.status.conditions[?(@.type=="ScalingActive")].status}')" 'True' 'R16 HPA doc duoc metric (ScalingActive=True)'
+R="$(jp deployment/web '{.spec.replicas}')"; RR="$(jp deployment/web '{.status.readyReplicas}')"
+{ [ "${R:-0}" -ge 2 ] && [ "${RR:-0}" = "$R" ]; } && pass "R16 web $RR/$R ban sao Ready trong khoang HPA" \
+  || fail "R16 web ${RR:-0}/${R:-0} ban sao Ready"
+for D in web api; do
+  NN="$(pods "$D" '{range .items[*]}{.spec.nodeName}{"\n"}{end}' | sort -u | grep -c .)"
+  if [ "$D" = web ]; then   # web: topology spread DoNotSchedule (7a) — ràng buộc cứng
+    [ "$NN" -ge 2 ] && pass "R10 $D trai tren $NN node" || fail "R10 $D chi tren $NN node"
+  else                      # api: anti-affinity mềm (7a) — mong muốn, không bảo đảm
+    echo "INFO: R10 $D tren $NN node (anti-affinity mem)"
+  fi
+  k get pdb "$D" >/dev/null 2>&1 && pass "R3 PodDisruptionBudget $D" || fail "R3 thieu PodDisruptionBudget $D"
+  [ "$(jp "pdb/$D" '{.status.disruptionsAllowed}')" -ge 1 ] 2>/dev/null \
+    && pass "R17 PDB $D cho phep mot gian doan — drain mot worker khong ket" || fail "R17 PDB $D khong cho gian doan nao"
+done
+MISS="$(k get pods -l "$SEL" --field-selector=status.phase=Running \
+  -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.name}={.resources.requests.cpu},{.resources.limits.memory}{"\n"}{end}{end}' \
+  2>/dev/null | grep -E '=,|,$' | sort -u)"
+[ -z "$MISS" ] && pass 'R3 moi container dang chay co requests va limits' || fail "R3 thieu tai nguyen: $(echo $MISS)"
+ORPHAN="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.name}:{.metadata.ownerReferences[0].kind}{"\n"}{end}' \
+  2>/dev/null | grep -c ':$')"
+[ "$ORPHAN" -eq 0 ] && pass 'R1 moi Pod cua du an co controller' || fail "R1 co $ORPHAN Pod tran"
+[ "$(k get job,networkpolicy,pod -l app.kubernetes.io/component=loadtest --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && pass 'R16 khong con object kiem thu tai' || fail 'R16 con object loadtest tren cluster'
+
+# 6. Tác vụ nền (R5, R8, R10, R13, R15)
+if k get job db-migrate >/dev/null 2>&1; then
+  ok "$(jp job/db-migrate '{.status.conditions[?(@.type=="Complete")].status}')" 'True' 'R5 Job db-migrate Complete'
+else pass 'R5 Job db-migrate da duoc TTL don, ket qua nam trong db'; fi
+ok "$(jp cronjob/db-backup '{.spec.concurrencyPolicy}|{.spec.jobTemplate.spec.template.spec.priorityClassName}')" \
+   'Forbid|bookstore-batch' 'R5 db-backup Forbid, R10 chay o bookstore-batch'
+jp cronjob/db-backup '{.spec.jobTemplate.spec.template.spec.volumes[*].persistentVolumeClaim.claimName}' | grep -qw backup-store \
+  && pass 'R8 db-backup ghi vao PVC backup-store' || fail 'R8 db-backup khong dung PVC backup-store'
+J="smoke-backup-$(date +%s)"
+if k create job "$J" --from=cronjob/db-backup >/dev/null 2>&1 \
+   && k wait --for=condition=Complete "job/$J" --timeout=240s >/dev/null 2>&1 \
+   && k logs "job/$J" --all-containers=true 2>/dev/null | grep -q '^db-backup: OK'; then
+  pass 'R5 chay thu db-backup thanh cong'
+else fail 'R5 chay thu db-backup that bai'; fi
+k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+k get configmap backup-status >/dev/null 2>&1 && pass 'R13 db-backup bao cao qua ConfigMap backup-status' \
+  || fail 'R13 thieu ConfigMap backup-status'
+NODES="$(kubectl get nodes --no-headers | wc -l)"
+AR="$(kubectl -n "$SYS" get daemonset node-agent -o jsonpath='{.status.numberReady}' 2>/dev/null)"
+[ "${AR:-0}" -eq "$NODES" ] && pass "R15 node-agent Ready tren $AR/$NODES node" || fail "R15 node-agent ${AR:-0}/$NODES node"
+
+# 7. Tìm nhau bằng tên, zero-trust, HTTPS (R1, R6, R7)
+ok "$(jp service/db '{.spec.clusterIP}')" 'None' 'R6 Service db headless'
+ok "$(jp service/api '{.spec.ports[0].port}')" '3000' 'R6 Service api cong 3000'
+ok "$(jp service/web '{.spec.type}|{.spec.ports[0].port}')" 'ClusterIP|80' 'R7 Service web ClusterIP cong 80'
+WEB="$(pods web '{.items[0].metadata.name}')"
+get() { k exec "$WEB" -c status-writer -- timeout 10 wget -q -T 5 -O- "$1" 2>/dev/null; }
+T="$(get http://api:3000/books | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && pass "R6 web goi api bang ten: $T cuon" || fail "R6 web goi api bang ten: $T cuon"
+T="$(get http://127.0.0.1:8080/api/books | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && pass 'R6 nginx chuyen /api/ sang api' || fail 'R6 nginx khong chuyen /api/'
+get http://127.0.0.1:8080/status.json | grep -Eq "\"pod\" *: *\"$WEB\"" \
+  && pass 'R1 status.json dung ten Pod' || fail 'R1 status.json sai'
+WN="$(jp "pod/$WEB" '{.spec.nodeName}')"
+{ [ "$(kubectl -n "$SYS" get service node-agent -o jsonpath='{.spec.internalTrafficPolicy}' 2>/dev/null)" = 'Local' ] \
+  && get "http://node-agent.$SYS.svc.cluster.local:9100/node.json" | grep -Eq "\"node\" *: *\"$WN\""; } \
+  && pass 'R6 web doc node-agent cung node qua Service Local' || fail 'R6 node-agent qua Service Local loi'
+NPOL="$(k get networkpolicy -o jsonpath='{range .items[*]}{.spec.podSelector}|{.spec.policyTypes}{"\n"}{end}' 2>/dev/null | grep '^{}|')"
+{ echo "$NPOL" | grep -q 'Ingress' && echo "$NPOL" | grep -q 'Egress'; } \
+  && pass 'R7 bookstore co default deny hai chieu' || fail 'R7 thieu default deny hai chieu'
+# Pod ngoài ma trận phải có egress mở thì phép thử mới chạm tới ingress của api: node-agent không
+# dùng được vì bookstore-system chặn mọi egress, kể cả DNS (11a). Dùng namespace thử bookstore-thu
+# (không NetworkPolicy); chỉ xóa nó nếu smoke tự tạo. DNS-OK là đối chứng: Pod có mạng.
+PNS=bookstore-thu; MADE=0
+if ! kubectl get namespace "$PNS" >/dev/null 2>&1; then
+  kubectl create namespace "$PNS" >/dev/null 2>&1 \
+    && kubectl label namespace "$PNS" app.kubernetes.io/part-of=bookstore >/dev/null 2>&1 && MADE=1
+fi
+OUT="$(kubectl -n "$PNS" run "smoke-r7-$(date +%s)" --rm -i --restart=Never --image=busybox:1.37 \
+         --command -- sh -c \
+         "nslookup api.$NS.svc.cluster.local >/dev/null 2>&1 && echo DNS-OK; timeout 10 wget -q -T 3 -O /dev/null http://api.$NS:3000/books && echo LOT-QUA || echo BI-CHAN" 2>/dev/null)"
+[ "$MADE" -eq 1 ] && kubectl delete namespace "$PNS" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1
+{ echo "$OUT" | grep -q 'DNS-OK' && echo "$OUT" | grep -q 'BI-CHAN'; } \
+  && pass 'R7 Pod ngoai ma tran phan giai duoc api nhung khong goi duoc' \
+  || fail "R7 Pod ngoai ma tran: $(echo $OUT)"
+ok "$(jp ingress/bookstore '{.spec.rules[0].host}|{.spec.tls[0].secretName}')" "$HOST|bookstore-tls" 'R7 Ingress bookstore co host va TLS'
+NP="$(kubectl -n traefik get service traefik -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}' 2>/dev/null)"
+[ -n "$NP" ] || NP="$(kubectl -n traefik get service traefik -o jsonpath='{.spec.ports[?(@.port==443)].nodePort}' 2>/dev/null)"
+IP="${ENTRY_IP:-$(kubectl get node lab-k8s-master -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')}"
+GET() { curl -sk --max-time 10 --resolve "$HOST:$NP:$IP" "https://$HOST:$NP$1"; }
+GET / | grep -q 'Bookstore' && pass 'R7 HTTPS qua Ingress: trang chu' || fail 'R7 HTTPS qua Ingress: trang chu hong'
+T="$(GET /api/books | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && pass "R7 HTTPS qua Ingress: /api/books $T cuon" || fail "R7 HTTPS qua Ingress: /api/books $T cuon"
+curl -skv --max-time 10 --resolve "$HOST:$NP:$IP" "https://$HOST:$NP/healthz" 2>&1 | grep -qi "subject:.*$HOST" \
+  && pass "R7 certificate cap cho $HOST" || fail 'R7 certificate sai ten'
+
+# 8. Quyền tối thiểu (R13), giới hạn quyền debug (TD-07)
+SAN() { echo "system:serviceaccount:$NS:$1"; }
+can() { kubectl auth can-i "$@" -n "$NS" 2>/dev/null; }
+want() { local w="$1" m="$2"; shift 2; ok "$(can "$@")" "$w" "R13 $m"; }
+{ [ "$(can patch deployments.apps --as="$(SAN ci-deployer)")" = 'yes' ] \
+  || [ "$(can update deployments.apps --as="$(SAN ci-deployer)")" = 'yes' ]; } \
+  && pass 'R13 ci-deployer cap nhat duoc Deployment' || fail 'R13 ci-deployer khong cap nhat duoc Deployment'
+want no  'ci-deployer khong doc Secret'                   get secrets --as="$(SAN ci-deployer)"
+want yes 'bookstore-devs xem duoc Pod'                    list pods --as=smoke-dev --as-group=bookstore-devs
+want no  'bookstore-devs khong doc Secret'                get secrets --as=smoke-dev --as-group=bookstore-devs
+want no  'bookstore-devs khong exec vao Pod (TD-07)'      create pods --subresource=exec --as=smoke-dev --as-group=bookstore-devs
+want no  'bookstore-devs khong gan debug container (TD-07)' patch pods --subresource=ephemeralcontainers --as=smoke-dev --as-group=bookstore-devs
+want yes 'bookstore-devs xem duoc DbBackup'               list "dbbackups.$GRP" --as=smoke-dev --as-group=bookstore-devs
+want no  'bookstore-devs khong tao DbBackup'              create "dbbackups.$GRP" --as=smoke-dev --as-group=bookstore-devs
+want yes 'db-backup sua duoc ConfigMap backup-status'     patch configmaps/backup-status --as="$(SAN db-backup)"
+want no  'db-backup khong doc Secret'                     get secrets --as="$(SAN db-backup)"
+want yes 'backup-operator ghi duoc dbbackups/status'      patch "dbbackups.$GRP" --subresource=status --as="$(SAN backup-operator)"
+want no  'backup-operator khong sua spec DbBackup'        patch "dbbackups.$GRP" --as="$(SAN backup-operator)"
+want yes 'backup-operator tao duoc Job'                   create jobs.batch --as="$(SAN backup-operator)"
+want no  'backup-operator khong xoa Job'                  delete jobs.batch --as="$(SAN backup-operator)"
+want no  'backup-operator khong doc Secret'               get secrets --as="$(SAN backup-operator)"
+TOK="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.labels.app\.kubernetes\.io/component}:{.spec.volumes[*].name}{"\n"}{end}' \
+       2>/dev/null | grep -E '^(web|api|db):' | grep -c 'kube-api-access')"
+[ "$TOK" -eq 0 ] && pass 'R13 web, api, db khong mount token ServiceAccount' || fail "R13 co $TOK Pod web/api/db mount token"
+
+# 9. Quan sát (R15)
+TOPN="$(kubectl top pod -n "$NS" --no-headers 2>/dev/null | wc -l)"
+[ "$TOPN" -ge 4 ] && pass "R15 kubectl top pod co metric cho $TOPN Pod" || fail 'R15 kubectl top pod khong co du lieu'
+kubectl -n "$NS" port-forward deployment/api 13001:3001 >/dev/null 2>&1 & PF=$!
+for _ in $(seq 1 20); do curl -s -o /dev/null http://127.0.0.1:13001/live && break; sleep 0.5; done
+curl -s --max-time 5 http://127.0.0.1:13001/metrics | grep -q '^pgrst_' \
+  && pass 'R15 api /metrics dang Prometheus' || fail 'R15 api /metrics hong'
+kill "$PF" 2>/dev/null; wait "$PF" 2>/dev/null
+
+# 10. Hạn mức và tenant (R11, R14)
+for X in resourcequota/bookstore-quota limitrange/bookstore-limits; do
+  k get "$X" >/dev/null 2>&1 && pass "R11 co $X" || fail "R11 thieu $X"
+done
+[ -n "$(jp resourcequota/bookstore-quota '{.status.used}')" ] && pass 'R11 quota dang tinh muc dung' || fail 'R11 quota chua co status.used'
+[ -n "$(jp resourcequota/bookstore-quota '{.spec.hard.count/dbbackups\.bookstore\.example\.com}')" ] \
+  && pass 'R11 quota dat tran so DbBackup' || fail 'R11 quota chua dat tran DbBackup'
+for KND in resourcequota networkpolicy rolebinding; do
+  [ "$(kubectl -n "$STG" get "$KND" --no-headers 2>/dev/null | wc -l)" -ge 1 ] \
+    && pass "R14 tenant staging co $KND" || fail "R14 tenant staging thieu $KND"
+done
+
+# 11. Sao lưu bằng API khai báo của dự án (R10, R19)
+./scripts/backup-operator.sh status >/dev/null 2>&1 && pass 'R19 backup-operator dang chay' || fail 'R19 backup-operator khong chay'
+ok "$(jp dbbackup/baseline '{.status.phase}')" 'Succeeded' 'R19 DbBackup baseline Succeeded'
+B="smoke-$(date +%s)"
+kubectl apply -f - >/dev/null 2>&1 <<YAML
+apiVersion: $GRP/v1
+kind: DbBackup
+metadata:
+  name: $B
+  namespace: $NS
+  labels: {app.kubernetes.io/part-of: bookstore, app.kubernetes.io/component: backup}
+spec: {database: bookstore, note: smoke test}
+YAML
+P=''
+for _ in $(seq 1 80); do
+  P="$(jp "dbbackup/$B" '{.status.phase}')"; case "$P" in Succeeded|Failed) break ;; esac; sleep 3
+done
+SZ="$(jp "dbbackup/$B" '{.status.sizeBytes}')"
+{ [ "$P" = 'Succeeded' ] && [ "${SZ:-0}" -gt 0 ]; } && pass "R19 DbBackup theo yeu cau Succeeded, $SZ byte" \
+  || fail "R19 DbBackup $B phase='$P'"
+JB="$(jp "dbbackup/$B" '{.status.jobName}')"
+ok "$(jp "job/$JB" '{.metadata.ownerReferences[0].kind}|{.metadata.labels.app\.kubernetes\.io/component}|{.spec.template.spec.priorityClassName}')" \
+   'DbBackup|backup|bookstore-batch' 'R19 Job thuoc DbBackup, component backup, R10 chay o bookstore-batch'
+k delete dbbackup "$B" --wait=true >/dev/null 2>&1
+for _ in $(seq 1 30); do k get job "$JB" >/dev/null 2>&1 || break; sleep 2; done
+k get job "$JB" >/dev/null 2>&1 && fail 'R19 xoa DbBackup khong keo theo Job' || pass 'R19 xoa DbBackup keo theo Job'
+
+exit "$FAIL"
+EOF
+chmod +x ~/bookstore/tests/smoke.sh
+```
+
+**Câu hỏi thiết kế** — trả lời trong `docs/retro.md`:
+
+1. Yêu cầu nào bạn ghi `ĐẠT CÓ ĐIỀU KIỆN`? Với mỗi cái: điều kiện là gì, ai phải theo dõi, và dấu hiệu
+   nào cho biết điều kiện bị vi phạm?
+2. Nợ nào chuyển sang Phần II, tới giai đoạn nào, và vì sao không trả trong Phần I?
+3. Trong ba script dùng chung, nếu chỉ được giữ một, giữ cái nào? Vì sao?
+4. Sprint nào sinh nhiều nợ nhất? Nhìn lại, có nợ nào lẽ ra tránh được bằng một quyết định khác ở sprint
+   đó không?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Bảng nghiệm thu là để người khác **kiểm lại** được: mỗi ô bằng chứng nên là một dòng `PASS:` cụ thể
+  hoặc một đường dẫn trong backtick, không phải một câu kể.
+- Trạng thái của `TD-07`, `TD-10`: đọc lại sổ nợ của file dự án — "giảm", "giới hạn", "chấp nhận có
+  điều kiện" là những chữ đã được chọn có chủ đích.
+- `R18` phụ thuộc bạn có làm Lab 13 hay không; B7 của lab này đã có ADR thiết bị.
+- Viết đường dẫn trong bảng không kèm dấu chấm cuối câu — script so đường dẫn theo đúng ký tự.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+```bash
+EV=~/lab-evidence/14
+cd ~/bookstore
+./scripts/teardown.sh > "$EV/b8-teardown.txt" 2>&1 && ./scripts/deploy.sh > "$EV/b8-deploy.txt" 2>&1 \
+  && echo 'PASS: dung lai sach tu repo'
+./tests/smoke.sh > "$EV/b8-smoke.txt" 2>&1; echo "smoke exit=$?"
+echo "so dong PASS: $(grep -c '^PASS:' "$EV/b8-smoke.txt")"
+grep -q '^FAIL:' "$EV/b8-smoke.txt" && grep '^FAIL:' "$EV/b8-smoke.txt" || echo 'PASS: smoke ban cuoi toan PASS'
+BAD=0
+for R in 1 2 3 4 5 6 7 8 10 11 13 14 15 16 17 19; do
+  grep -q "^PASS: R$R " "$EV/b8-smoke.txt" || { echo "FAIL: smoke khong co dong PASS nao cho R$R"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: smoke co bang chung cho moi yeu cau kiem duoc tren cluster'
+
+BAD=0
+for R in $(seq 1 19); do
+  L="$(grep -E "^\| *R$R *\|" docs/nghiem-thu.md | head -n 1)"
+  [ -n "$L" ] || { echo "FAIL: nghiem-thu.md thieu R$R"; BAD=1; continue; }
+  echo "$L" | grep -qE 'ĐẠT|KHÔNG ÁP DỤNG' || { echo "FAIL: R$R chua co ket luan"; BAD=1; }
+  for P in $(echo "$L" | grep -oE '(docs|platform|k8s|scripts|tests)/[A-Za-z0-9._/-]+'); do
+    P="${P%.}"; [ -e "$P" ] || { echo "FAIL: R$R tro toi $P khong ton tai"; BAD=1; }
+  done
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: nghiem-thu.md du R1-R19, moi dong co ket luan, moi duong dan ton tai'
+
+grep -E '^\| *TD-[0-9]+ *\|' docs/tech-debt.md > "$EV/b8-td.txt"
+BAD=0
+for T in $(seq -w 1 20); do grep -q "TD-$T" "$EV/b8-td.txt" || { echo "FAIL: thieu TD-$T"; BAD=1; }; done
+grep -q 'backup-operator' "$EV/b8-td.txt" || { echo 'FAIL: thieu no operator ngoai cluster'; BAD=1; }
+while IFS= read -r L; do
+  echo "$L" | grep -qE '\| *(đã trả|chấp nhận có điều kiện|chuyển Phần II) *\|' || { echo "FAIL: chua dong: $L"; BAD=1; }
+done < "$EV/b8-td.txt"
+[ "$BAD" -eq 0 ] && echo "PASS: $(wc -l < "$EV/b8-td.txt") no ky thuat deu co trang thai cuoi"
+
+BAD=0
+for H in 'Đã làm tốt' 'Chưa tốt' 'Bài học' 'Nợ còn lại' 'Bước tiếp theo'; do
+  grep -q "^## $H" docs/retro.md || { echo "FAIL: retro thieu muc $H"; BAD=1; }
+done
+for N in 1 5 6 7 8; do grep -q "#$N" docs/retro.md || { echo "FAIL: retro khong neu no lab #$N"; BAD=1; }; done
+for G in 18 19 22; do grep -q "giai đoạn $G" docs/retro.md || { echo "FAIL: retro khong neu giai doan $G"; BAD=1; }; done
+[ "$BAD" -eq 0 ] && echo 'PASS: retro du nam muc, neu no lab con mo va noi tra'
+
+[ "$(git ls-files secrets)" = 'secrets/.gitkeep' ] && echo 'PASS: R2 secrets/ khong co gi trong git ngoai .gitkeep'
+[ -z "$(git ls-files 'k8s/*.tpl')" ] && echo 'PASS: TD-03 khong con file .tpl'
+git grep -qE 'lab-3a-mat-khau|lab-3a-authenticator|doi-mat-khau-nay' -- k8s scripts \
+  && echo 'FAIL: TD-02 con mat khau trong repo' || echo 'PASS: TD-02 khong con mat khau trong manifest va script'
+kubectl kustomize --load-restrictor=LoadRestrictionsNone k8s/overlays/ha-lab >/dev/null 2>&1 \
+  && echo 'PASS: R12 overlay ha-lab van render duoc'
+{ test -s platform/README.md && ls platform/kubeadm/* >/dev/null 2>&1; } && echo 'PASS: R12 platform/ con ghi chep dung cluster'
+grep -q 'docs/nghiem-thu.md' README.md && echo 'PASS: README tro toi bien ban nghiem thu'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+Khung `docs/nghiem-thu.md` — điền đường dẫn **thật** trong repo của bạn vào chỗ `<...>`:
+
+```markdown
+# Biên bản nghiệm thu — dự án Bookstore
+
+Tag `lab-14`; smoke: `~/lab-evidence/14/b8-smoke.txt` (cluster mốc `04-metrics-ready`).
+
+| Mã | Yêu cầu | Bằng chứng | Kết quả |
+| --- | --- | --- | --- |
+| R1 | Health check đúng vai trò; container hỏng tự được thay | smoke `PASS: R1 ...`; `docs/postmortem/3a-db-bien-mat.md` | ĐẠT |
+| R2 | Cấu hình, bí mật tách khỏi manifest và image | smoke `PASS: R2 ...`; `git ls-files secrets` chỉ `.gitkeep` | ĐẠT |
+| R3 | Tài nguyên khai báo; chịu gián đoạn tự nguyện | smoke `PASS: R3 ...` (requests/limits, QoS, PDB) | ĐẠT |
+| R4 | Phát hành không gián đoạn, rollback được | smoke `PASS: R4 ...`; `<postmortem rollout hỏng của 4a>` | ĐẠT |
+| R5 | DB định danh ổn định; migration, backup, agent là workload riêng | smoke `PASS: R5 ...` | ĐẠT |
+| R6 | Các tầng tìm nhau bằng tên | smoke `PASS: R6 ...` | ĐẠT |
+| R7 | Zero-trust giữa các tầng; HTTPS từ ngoài | smoke `PASS: R7 ...`; `<ADR https-ingress của 5b>` | ĐẠT CÓ ĐIỀU KIỆN — certificate tự ký, client không tin; Traefik → web là plaintext |
+| R8 | Dữ liệu và backup sống sót qua xóa Pod, xóa workload | smoke `PASS: R8 ...`; `<postmortem 6a>` | ĐẠT |
+| R9 | Quy trình khôi phục đã diễn tập | `<postmortem 6b>`; `<postmortem 8a>` | ĐẠT |
+| R10 | Trải đều; tác vụ nền không chiếm chỗ dịch vụ chính | smoke `PASS: R10 ...` | ĐẠT |
+| R11 | Hạn mức namespace | smoke `PASS: R11 ...` | ĐẠT |
+| R12 | Dựng lại toàn bộ từ repo; đánh giá HA | `platform/README.md`; `k8s/overlays/ha-lab`; `<ADR topology HA của 8c>` | ĐẠT |
+| R13 | Quyền tối thiểu cho thành phần, CI, đội phát triển | smoke `PASS: R13 ...`; `<ADR rbac-dbbackup>` | ĐẠT CÓ ĐIỀU KIỆN — ci-deployer và backup-operator tạo được workload nên gián tiếp chạm Secret (bài 120, *Tạo workload*) |
+| R14 | Pod Security `restricted`; nhiều tenant | smoke `PASS: R14 ...` | ĐẠT |
+| R15 | Metric, log theo node, quy trình chẩn đoán | smoke `PASS: R15 ...`; `<runbook, postmortem của 11a>` | ĐẠT CÓ ĐIỀU KIỆN — chưa có nơi lưu metric, log dài hạn |
+| R16 | `web` tự co giãn | smoke `PASS: R16 ...`; `<evidence, ADR của 11b>` | ĐẠT |
+| R17 | Bảo trì node không gián đoạn | smoke `PASS: R17 ...`; `docs/runbook-bao-tri-node.md`; `docs/postmortem/12-bao-tri-worker1.md` | ĐẠT CÓ ĐIỀU KIỆN — `db` một instance trên PV local: bảo trì worker2 cần cửa sổ bảo trì |
+| R18 | Đánh giá thiết bị chuyên dụng | `<ADR thiết bị của B7>`; `<ADR dra-bookstore nếu làm Lab 13>` | ĐẠT |
+| R19 | Backup bằng API khai báo của dự án | smoke `PASS: R19 ...`; `docs/runbook-backup-operator.md` | ĐẠT CÓ ĐIỀU KIỆN — operator chạy ngoài cluster |
+```
+
+Trạng thái cuối của sổ nợ, mã theo [mục 8 của file dự án](DU-AN-BOOKSTORE.md#8-sổ-nợ-kỹ-thuật-dự-án):
+
+| Nợ | Trạng thái cuối | Lý do, bằng chứng |
+| --- | --- | --- |
+| `TD-01` → `TD-06`, `TD-08`, `TD-09` | `đã trả` | dòng `PASS:` tương ứng của smoke: controller, Secret, tên DNS, PVC, tài nguyên, uid 999, `backup-store`, default deny |
+| `TD-07` — debug, `exec` đọc được mật khẩu | `chấp nhận có điều kiện` | mật khẩu của `api` vẫn nằm trong biến môi trường; `bookstore-devs` không có `pods/exec`, `pods/ephemeralcontainers` — smoke `R13 ... (TD-07)`; chỉ nhóm trực có quyền debug |
+| `TD-10` — bản backup ở cùng cluster với DB | `chấp nhận có điều kiện` | điều kiện: chép bản dump ra máy host theo `docs/runbook-backup-operator.md` sau mỗi đợt quan trọng; khôi phục thảm họa của cả cluster là [giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa) |
+| `TD-11` — certificate tự ký (5b) | `chấp nhận có điều kiện` | công cụ cấp certificate nằm ngoài chuỗi lab; điều kiện: theo dõi hạn 365 ngày, `deploy.sh` sinh lại khi thiếu |
+| `TD-12` — `web`, `api` không tự trải lại sau bảo trì (7a) | `đã trả` | quy trình bảo trì của Lab 12 có bước cân bằng lại; `docs/runbook-bao-tri-node.md` |
+| `TD-13` — kubelet chưa giới hạn PID (7b) | `chuyển Phần II` | [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) — cấu hình kubelet |
+| `TD-14` — cluster dựng lại bằng tay, không backup etcd (8a) | `chuyển Phần II` | [giai đoạn 19](../00-ALO-TRINH-ADMIN.md#giai-đoạn-19--etcd-backup-và-khôi-phục-thảm-họa) — nợ lab #8 |
+| `TD-15` — `ci-deployer` sửa được pod template (9a) | `chấp nhận có điều kiện` | token CI ngắn hạn, thu hồi bằng xóa ServiceAccount. Giai đoạn 14 chỉ gọi tên điểm mở rộng phù hợp — admission webhook, điểm số 2 — chưa dạy viết nó |
+| `TD-16` — metrics-server bỏ kiểm certificate của kubelet (11a) | `chuyển Phần II` | [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) — `serverTLSBootstrap` và duyệt CSR |
+| `TD-17` — chưa có nơi lưu metric, log dài hạn (11a) | `chuyển Phần II` | [giai đoạn 23](../00-ALO-TRINH-ADMIN.md#giai-đoạn-23--giám-sát-và-cảnh-báo) |
+| `TD-18` — đường vào chưa HA (12) | `chấp nhận có điều kiện` | hosts trỏ một IP node, Traefik một bản sao; điều kiện: bảo trì node đó theo runbook, đổi IP trong hosts |
+| `TD-19` — `db` một instance trên PV local (12) | `chấp nhận có điều kiện` | cửa sổ bảo trì theo `docs/runbook-bao-tri-node.md` |
+| `TD-20` — *operator ngoài cluster* (14) | `chuyển Phần II` | cần đóng gói controller thành image và chạy như Deployment — [giai đoạn 28](../00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes); dự án không có toolchain, không build image |
+
+Khung `docs/retro.md`:
+
+```markdown
+# Retro — dự án Bookstore (sprint 1 → 21)
+
+## Đã làm tốt
+- Dựng lại toàn bộ hệ thống chỉ từ repo ở đầu mọi sprint; ...
+
+## Chưa tốt
+- ...
+
+## Bài học
+- ...
+
+## Nợ còn lại
+- Nợ kỹ thuật chấp nhận có điều kiện: TD-07, TD-10, TD-11, TD-15, TD-18, TD-19 — điều kiện ghi ở
+  docs/tech-debt.md.
+- Nợ kỹ thuật chuyển Phần II: TD-13 PID và TD-16 metrics-server (giai đoạn 20), TD-14 etcd (giai
+  đoạn 19), TD-17 metric và log dài hạn (giai đoạn 23), TD-20 operator ngoài cluster (giai đoạn 28).
+- Nợ lab #1 (phần VPA): chưa có lab trả — cần chốt version add-on VPA ở bảng A1.4 rồi làm lại phần
+  VPA của Lab 11b.
+- Nợ lab #5 (snapshot volume): chạy lại Lab 6b nhánh A khi cluster có CSI driver hỗ trợ snapshot.
+- Nợ lab #6 (mã hóa Secret at rest): giai đoạn 22.
+- Nợ lab #7 (vòng đời certificate): giai đoạn 18.
+- Nợ lab #8 (backup, restore etcd): giai đoạn 19.
+
+## Bước tiếp theo
+- Phần II của lộ trình, theo thứ tự giai đoạn 16 → 30.
+```
+
+Ý chính cho bốn câu hỏi:
+
+1. Điển hình: `R7` (certificate tự ký — dấu hiệu: ai đó tắt kiểm tra certificate trên client để "cho
+   chạy"), `R13` (quyền tạo workload của CI và operator — dấu hiệu: Job, Pod lạ mang
+   `managed-by=backup-operator`), `R15` (log mất khi xoay vòng), `R17` (`db` ngừng trong cửa sổ bảo
+   trì worker2), `R19` (operator ngoài cluster — dấu hiệu: smoke báo `R19 backup-operator khong chay`,
+   `DbBackup` có `PHASE` rỗng lâu).
+2. *Operator ngoài cluster* sang giai đoạn 28 vì cần đóng gói controller thành image và chạy như
+   Deployment — thứ dự án không có toolchain. metrics-server sang giai đoạn 20, metric/log dài hạn sang
+   giai đoạn 23 — cả hai cần sửa cấu hình cluster hoặc thêm hạ tầng. Nợ lab `#6`, `#7`, `#8` vốn đã xếp
+   ở giai đoạn 22, 18, 19.
+3. `deploy.sh` — nó là bản mô tả **thực thi được** của cả hệ thống: dựng lại được từ repo thì có thể
+   viết lại hai script kia; mất nó thì repo chỉ còn là một đống manifest không thứ tự.
+4. Sprint 1 (Pod trần) sinh nhiều nợ nhất, và đó là chủ đích của lộ trình: mỗi nợ là một cơ chế chưa
+   học. Nợ tránh được thật sự thường là nợ về **quy trình** (bí mật sinh tại chỗ, bundle ra ngoài VM),
+   không phải nợ về cơ chế.
+
+</details>
+
+## B9. Đóng sprint: cleanup và gate cuối
+
+**Mục đích:** bàn giao repo ở tag cuối của dự án, rồi trả cluster về đúng `04-metrics-ready` với tồn
+kho object cấp cluster bằng đúng con số ở B0.
+
+1. `tests/smoke.sh` của Lab 14 là bản đã chép ở B8 — bản cuối của dự án. `docs/tech-debt.md` đã đóng ở
+   B8. Không sửa gì thêm ở hai file này.
+
+2. Dựng lại sạch từ repo và chạy kiểm thử khói:
+
+```bash
+cd ~/bookstore
+./scripts/teardown.sh && ./scripts/deploy.sh > ~/lab-evidence/14/b9-deploy.txt 2>&1
+./tests/smoke.sh > ~/lab-evidence/14/b9-smoke.txt 2>&1; echo "smoke exit=$?"
+grep -c '^PASS:' ~/lab-evidence/14/b9-smoke.txt; grep '^FAIL:' ~/lab-evidence/14/b9-smoke.txt
+```
+
+3. Commit, tag, đóng gói, chép ra ngoài VM theo
+   [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm):
+
+```bash
+cd ~/bookstore
+git status --short
+git add -A && git commit -m 'lab-14: sprint 21 — CRD DbBackup, backup-operator, nghiem thu cuoi du an'
+git tag lab-14
+git bundle create ~/bookstore-lab-14.bundle --all && git bundle verify ~/bookstore-lab-14.bundle
+```
+
+Chép `~/bookstore-lab-14.bundle` về máy host bằng `scp`. Đây là bundle **cuối** của dự án — giữ lâu
+dài; bundle của các sprint trước có thể xóa.
+
+4. Dọn object thử nghiệm và trả cluster:
+
+```bash
+kubectl -n bookstore delete pod,job -l '!app.kubernetes.io/part-of' --ignore-not-found --wait=true
+kubectl delete namespace bookstore-thu --ignore-not-found --wait=true
+rm -rf ~/lab-work/14
+cd ~/bookstore && ./scripts/teardown.sh
+```
+
+5. Gate cuối:
+
+```bash
+EV=~/lab-evidence/14
+cd ~/bookstore
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
+git describe --tags --exact-match HEAD | grep -qx 'lab-14' && echo 'PASS: HEAD mang tag lab-14'
+test -s ~/bookstore-lab-14.bundle && echo 'PASS: co bundle cuoi cua du an'
+{ test -f k8s/cluster/crd-dbbackup.yaml && test -f k8s/cluster/clusterrole-dbbackup-viewer.yaml \
+  && test -x scripts/backup-operator.sh && test -f k8s/app/backup/dbbackup-baseline.yaml \
+  && test -f k8s/app/rbac/backup-operator.yaml; } && echo 'PASS: bo cuc repo dung muc 5.5'
+BAD=0
+for F in 'adr/*-chon-co-che-mo-rong.md' 'adr/*-crd-dbbackup.md' 'adr/*-rbac-dbbackup.md' \
+         'adr/*-backup-operator.md' 'adr/*-dbbackup-v1.md' 'adr/*thiet-bi*' \
+         'postmortem/14-controller-vang-mat.md' 'runbook-backup-operator.md' 'nghiem-thu.md' 'retro.md'; do
+  ls docs/$F >/dev/null 2>&1 || { echo "FAIL: thieu docs/$F"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: du ADR, postmortem, runbook, bien ban nghiem thu va retro'
+grep -E '^\| *TD-' docs/tech-debt.md | grep -qE '\| *mở *\|' && echo 'FAIL: con no ky thuat mo' \
+  || echo 'PASS: so no ky thuat da dong'
+
+{ [ "$(kubectl get namespace,priorityclass,storageclass,crd,clusterrole,clusterrolebinding \
+       -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && [ "$(kubectl get all -A -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+  && echo 'PASS: khong con object nao cua du an'
+./scripts/backup-operator.sh status >/dev/null 2>&1 && echo 'FAIL: operator con chay' || echo 'PASS: backup-operator da dung'
+ls secrets/*.kubeconfig >/dev/null 2>&1 && echo 'FAIL: con kubeconfig chua token' || echo 'PASS: khong con kubeconfig chua token'
+test ! -e ~/lab-work/14 && echo 'PASS: da don lab-work'
+
+for _ in $(seq 1 30); do
+  { for R in crd clusterrole clusterrolebinding apiservice; do
+      echo "$R=$(kubectl get "$R" --no-headers | wc -l)"; done; } > "$EV/b9-ton-kho.txt"
+  diff -q "$EV/b0-ton-kho.txt" "$EV/b9-ton-kho.txt" >/dev/null && break
+  sleep 2
+done
+diff "$EV/b0-ton-kho.txt" "$EV/b9-ton-kho.txt" \
+  && echo 'PASS: CRD, ClusterRole, ClusterRoleBinding, APIService ve dung so luong cua B0'
+{ echo "lab-k8s-master $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
+  for N in lab-k8s-worker1 lab-k8s-worker2; do
+    echo "$N $(ssh "$N" 'sudo sha256sum /var/lib/kubelet/config.yaml' | awk '{print $1}')"
+  done; } > "$EV/b9-kubelet-sha.txt"
+diff -q "$EV/b0-kubelet-sha.txt" "$EV/b9-kubelet-sha.txt" >/dev/null && echo 'PASS: cau hinh kubelet khong doi suot lab'
+[ -z "$(grep -rl 'eyJ' "$EV" 2>/dev/null)" ] && echo 'PASS: bang chung khong chua chuoi giong JWT'
+
+test "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 && echo 'PASS: kubectl top node du ba node'
+test "$(kubectl get apiservice v1beta1.metrics.k8s.io \
+  -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')" = 'True' && echo 'PASS: metrics.k8s.io Available'
+test "$(kubectl get storageclass \
+  -o jsonpath='{range .items[*]}{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' \
+  | grep -c '^true$')" -eq 1 && echo 'PASS: dung mot StorageClass mac dinh'
+test "$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)" -ge 1 && echo 'PASS: IngressClass van con'
+
+kubectl wait --for=condition=Ready node --all --timeout=180s
+test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
+kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
+kubectl -n kube-system get deployment coredns
+kubectl get pods -n default
+```
+
+**PASS:** `smoke exit=0` và file smoke ở bước 2 in toàn `PASS:`; mười tám dòng `PASS:` của gate cuối
+xuất hiện, không dòng `FAIL:`; ba node `Ready`; lệnh field selector trả `No resources found`; CoreDNS
+đủ replica; namespace `default` không có Pod. Thư mục `~/lab-evidence/14/` **giữ lại**. Cluster trở về
+`04-metrics-ready`; **không tạo snapshot mới**.
+
+Dự án Bookstore kết thúc ở tag `lab-14`. [Lab 15](LAB-15-NODE-WINDOWS.md) (tùy chọn) không thuộc dự án
+và bắt đầu từ chính mốc này; phần tiếp theo của lộ trình là
+[Phần II — Vận hành cluster](../00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster).
 
 ---
 
 ## 3. Checkpoint 14
 
-Không đánh dấu lab hoàn tất chỉ vì command chạy hết. Tự trả lời, không nhìn tài liệu:
+Không đánh dấu lab hoàn tất chỉ vì script nghiệm thu PASS. Tự trả lời, không nhìn tài liệu:
 
-- [ ] Bạn `kubectl apply` một custom resource và không có gì xảy ra trong cluster. Kubernetes hỏng
-      à? Bạn **đang có** thứ gì và **chưa có** thứ gì? Nêu đúng thành phần còn thiếu, và nói vì sao
-      `kubectl get`, `kubectl edit` và RBAC vẫn hoạt động bình thường dù thiếu nó.
-- [ ] Kể ba tính chất phân biệt một **vòng lặp điều khiển** với một script chạy một lần, và với mỗi
-      tính chất nói bạn đã chứng minh nó bằng thí nghiệm nào ở B8.4. Nếu chạy vòng lặp mười lần
-      liên tiếp khi mọi thứ đã khớp thì object bị ghi mấy lần, và bạn đọc trường nào để biết?
-- [ ] Bạn xóa custom resource và object phụ thuộc của nó cũng biến mất, **dù vòng lặp không chạy**.
-      Ai đã xóa nó, dựa vào cái gì, và điều đó nằm ở trường nào của object phụ thuộc? Việc gì mà
-      cơ chế đó **không** làm được, và một operator thật dùng cơ chế nào để làm việc đó?
-- [ ] Câu bẫy: cluster của bạn có `metrics.k8s.io` và có API group của CRD, cả hai đều "mở rộng
-      Kubernetes API". Bạn đọc **trường nào** của object nào để phân biệt chúng, và với mỗi cái thì
-      **ai** phục vụ và **ai** lưu trữ dữ liệu? Vì sao `metrics.k8s.io` **không thể** là một CRD?
-- [ ] Bạn cần thêm bốn trường vào một API dùng nội bộ công ty, không cần kho lưu trữ riêng. Chọn CRD
-      hay aggregated API, và vì sao? Nếu sáu tháng sau cần một subresource `logs` thì quyết định đó
-      còn đứng vững không? Kể thêm ba khả năng nữa mà aggregated API có còn CRD không có.
-- [ ] Bạn khai một trường trong custom resource mà schema không có. Với `--validate=strict` thì sao,
-      với `--validate=ignore` thì sao, và sau khi object được lưu thì đọc lại trường đó ra gì? Hai
-      hành vi ấy xảy ra ở **hai tầng khác nhau** — tầng nào là tầng nào?
-- [ ] Trước khi bật subresource `status`, ai ghi được `status`? Sau khi bật thì lệnh `kubectl patch`
-      cũ đi đâu về đâu? Nêu **hai** thứ mà việc bật subresource thay đổi, và nói vì sao RBAC lại là
-      lý do chính khiến người ta bật nó.
-- [ ] `metadata.generation` và `status.observedGeneration` tạo thành một giao thức. Ai tăng số nào,
-      khi nào, và khi hai số lệch nhau thì bạn kết luận điều gì về cluster? Ghi `status` có làm tăng
-      `generation` không?
-- [ ] Bạn cấp cho một ServiceAccount ClusterRole `view` dựng sẵn rồi bảo nó đọc custom resource của
-      bạn. Nó đọc được không, vì sao, và bạn đọc gì trong chính nội dung của role để chứng minh?
-      Điều này nói gì về việc đóng gói một operator để phát hành?
-- [ ] Bạn xóa namespace chứa toàn bộ đồ của một sản phẩm dùng CRD. Kể **ba loại object** vẫn còn lại
-      trong cluster sau lệnh đó. Chúng có hiện ra trong `kubectl get all` không? Bạn dùng hai kỹ
-      thuật nào để cleanup cho đủ, và vì sao thiếu một trong hai là chưa đủ?
-- [ ] API server từ chối không cho bạn gỡ version `v1` khỏi một CRD. Nó viện lý do ở trường nào, vì
-      sao ràng buộc đó tồn tại, và ba bước nào đưa bạn tới chỗ gỡ được? Trên cluster có hàng nghìn
-      object thì bước nào là bước tốn công nhất và công cụ nào sinh ra để làm nó?
-- [ ] Node của bạn không công bố resource nào dạng `vendor-domain/resourcetype`. Bạn kết luận gì, và
-      **hai chặng** nào của luồng đăng ký device plugin đã không xảy ra? Device plugin đặt dữ liệu
-      thiết bị ở đâu, DRA đặt ở đâu, và vì sao khác biệt đó quan trọng?
+- [ ] Bạn `kubectl apply` một `DbBackup` khi operator đang dừng và không có gì xảy ra. Bạn **đang có**
+      gì và **chưa có** gì? Vì sao `kubectl get`, validation, RBAC, quota vẫn chạy đủ? Khi operator
+      chạy lại, vì sao yêu cầu đó không bị bỏ sót?
+- [ ] Câu bẫy: `metrics.k8s.io` và `bookstore.example.com` đều "mở rộng Kubernetes API". Đọc trường nào
+      của object nào để phân biệt? Ai phục vụ, ai lưu dữ liệu ở mỗi bên? Vì sao `metrics.k8s.io` không
+      thể là CRD, và vì sao quota đếm được `DbBackup` mà không đếm được object của nó?
+- [ ] Bảy điểm mở rộng của bài 177: Calico, Traefik, local-path-provisioner, metrics-server,
+      `backup-operator` nằm ở điểm nào, mô hình gọi nào? Vì sao provisioner không phải storage plugin?
+- [ ] Một `DbBackup` có `database: khac`, một cái có trường lạ, một cái bỏ trống `format`. API server làm
+      gì với từng cái, ở tầng nào? Vì sao validation ở API server tốt hơn để operator tự kiểm?
+- [ ] Trước và sau khi bật subresource `status`: ai ghi được `status`, `generation` tăng khi nào, và
+      RBAC tách hai đường ghi đó bằng resource nào?
+- [ ] Nhóm `bookstore-devs` có `view` mà không đọc được `DbBackup`. Vì sao? Bạn sửa bằng object nào, ở
+      phạm vi nào, và vì sao không dùng ClusterRoleBinding?
+- [ ] `backup-operator` không đọc được Secret nhưng tạo được Job. Theo bài 120 nó thực tế chạm tới được
+      gì? Bốn lớp chính sách nào của các sprint trước giới hạn Job của nó, và label nào làm NetworkPolicy
+      cho Job tới được `db`?
+- [ ] Kể vòng lặp của operator cho một `DbBackup` từ lúc tạo tới `Succeeded`: đọc gì, tạo gì, đọc kết
+      quả ở đâu, ghi gì. Vì sao Job biến mất giữa chừng thì ghi `Failed` thay vì tạo lại? Vì sao chạy
+      lại vòng lặp khi đã khớp không ghi gì?
+- [ ] Xóa một `DbBackup`: ai xóa Job, dựa vào trường nào, file dump còn không? Muốn làm một việc
+      **trước** khi xóa — như bước 5 của `SampleDB` — cần cơ chế gì?
+- [ ] `status.storedVersions` là gì? Vì sao API server từ chối bỏ `v1alpha1` lúc đầu, ba bước nào đưa
+      bạn tới chỗ bỏ được, và vì sao dự án vẫn giữ `v1alpha1` được phục vụ?
+- [ ] Node của bạn không công bố resource `vendor-domain/resourcetype`. Hai chặng đăng ký nào chưa xảy
+      ra? Một device plugin GPU sẽ chạy ở namespace nào của dự án, và Pod gợi ý sách xin GPU bằng gì?
+- [ ] Nghiệm thu: yêu cầu nào trong `R1`–`R19` đạt có điều kiện, điều kiện gì? Nợ kỹ thuật nào chuyển
+      sang Phần II, tới giai đoạn nào?
+
+Nợ còn mở khi đóng dự án — nói được **vì sao chưa trả** và trả ở đâu:
+
+- **Nợ lab:** `#1` phần VPA (add-on ngoài A1.4, chưa có lab trả), `#5` (snapshot volume — cần CSI
+  driver hỗ trợ snapshot, chạy lại Lab 6b nhánh A), `#6` (mã hóa Secret at rest — giai đoạn 22), `#7`
+  (vòng đời certificate — giai đoạn 18), `#8` (backup, restore etcd — giai đoạn 19). Lab 14 không phát
+  sinh và không trả nợ lab nào.
+- **Nợ kỹ thuật:** sau B8 không còn dòng `mở`. Đã trả: `TD-12`. Chấp nhận có điều kiện: `TD-07`,
+  `TD-10`, `TD-11`, `TD-15`, `TD-18`, `TD-19`. Chuyển Phần II: `TD-13`, `TD-16` (giai đoạn 20), `TD-14`
+  (giai đoạn 19), `TD-17` (giai đoạn 23) và nợ mới của sprint này — `TD-20` *operator ngoài cluster*
+  (giai đoạn 28).
 
 ### Bài giải thích cuối cùng
 
-Trong vài phút, kể lại bằng lời hai luồng sau, không nhìn tài liệu:
+Trong vài phút, kể lại bằng lời hai luồng, không nhìn tài liệu:
 
-1. **Từ một file YAML tới một API khai báo.** Bắt đầu từ lúc bạn `kubectl apply` file CRD. Kể đủ
-   sáu chặng: API server làm gì để endpoint mới tồn tại và bạn đọc **hai condition nào** để biết nó
-   xong; vì sao `kubectl` có thể vẫn chưa thấy kiểu mới và bạn xử lý bằng cách nào; bạn tạo một
-   custom object thì nó được **ai** kiểm và **ai** lưu; ở thời điểm này bạn đang có chính xác cái
-   gì; bạn thêm gì để nó thành API khai báo và thứ đó cần **danh tính** cùng **quyền** nào; và cuối
-   cùng, chuyện gì xảy ra khi ai đó xóa object phụ thuộc mà controller tạo ra. Kết bằng câu trả lời
-   cho: nếu vòng lặp của bạn chết trong ba ngày thì cluster hỏng ở đâu, và **không** hỏng ở đâu.
-2. **Cluster này đứng ở đâu trên bản đồ mở rộng.** Đi qua bảy điểm mở rộng của bài 177 và với mỗi
-   điểm nói một hiện vật bạn đã sờ được trong lab, hoặc nói rõ điểm đó đang trống và bạn biết bằng
-   bằng chứng gì. Rồi trả lời ba câu ranh giới: `metrics.k8s.io` và API group của bạn khác nhau ở
-   **ai phục vụ và ai lưu**, đọc ở đâu ra; provisioner của StorageClass nằm ở điểm mở rộng nào và
-   vì sao **không** phải điểm storage plugin; cluster có device plugin không, và nếu ngày mai cắm
-   một GPU vào `lab-k8s-worker2` thì cần thêm chính xác thứ gì để Pod xin được nó. Cuối cùng, nói
-   rõ **một chủ đề của giai đoạn 14 mà lab này cố ý không làm** và nó được trả ở đâu.
+1. **Một yêu cầu backup đi qua hệ thống.** Bắt đầu từ lúc người trực `kubectl apply` một `DbBackup`:
+   API server xác thực, phân quyền (RBAC cho kind mới), admission (quota đếm `DbBackup`), validation và
+   defaulting theo schema, rồi lưu ở storage version nào. Operator — chạy ở đâu, dưới danh tính nào, token
+   gì — thấy object ra sao, tạo Job thế nào, Job đi qua Pod Security, NetworkPolicy, quota, PriorityClass
+   ra sao để tới `db-0.db:5432` và ghi vào `backup-store`. Kết quả quay về `status` bằng đường nào. Cuối
+   cùng: xóa yêu cầu thì ai dọn gì, cái gì còn lại. Kết bằng: nếu operator chết ba ngày thì hệ thống hỏng
+   ở đâu, **không** hỏng ở đâu.
+2. **Dự án từ `docker compose` tới `lab-14`.** Đi qua tám vấn đề `P1`–`P8` của hệ thống cũ; với mỗi vấn
+   đề nói sprint nào giải nó bằng cơ chế Kubernetes nào, và bằng chứng nằm ở dòng `PASS:` nào của
+   `smoke.sh` hoặc tài liệu nào trong repo. Rồi nói thật ba chỗ hệ thống **vẫn** yếu khi đóng dự án và
+   chúng sẽ được xử lý ở đâu trong Phần II.
 
-Khi mọi checkbox được đánh dấu và bạn không còn nhầm *CRD* với *aggregated API*, *custom resource*
-với *custom controller*, *`spec` trong schema* với *subresource `status`*, *`spec.versions`* với
-*`status.storedVersions`*, hay *garbage collection theo owner reference* với *việc của controller* —
-Lab 14 và [giai đoạn 14](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) hoàn tất.
-
-Lab này **không phát sinh nợ mới** và **không trả nợ nào**; xem
-[sổ nợ lab](README.md#5-sổ-nợ-lab). Subresource `scale` không nằm trong lab vì nó chỉ có ý nghĩa
-khi ghép với HorizontalPodAutoscaler, và HPA là nội dung của
-[Lab 11b](LAB-11B-HPA-VA-VPA.md). Nhóm thực hành đầy đủ của giai đoạn 14 nằm ở
-[giai đoạn 28](../00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes), với bài
-[378](../378-custom-resource-definitions-vi.md) là trang xương sống; những phần cố ý không làm còn
-lại đều nằm trong bảng lý do ở [mục 1.1](#11-ánh-xạ-tài-liệu-sang-bài-thực-hành).
+Khi mọi checkbox được đánh dấu và bạn không còn nhầm *CRD* với *aggregated API*, *custom resource* với
+*custom controller*, *`spec.versions`* với *`status.storedVersions`*, hay *garbage collection theo owner
+reference* với *việc của controller* — Lab 14,
+[giai đoạn 14](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) và dự án Bookstore hoàn tất.
 
 ---
 
 ## 4. Troubleshooting của lab này
 
-Sự cố dựng môi trường nằm ở
-[mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường). Bảng dưới chỉ liệt kê
-sự cố phát sinh từ nội dung bài học 14.
+Sự cố dựng môi trường xem [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường).
+Dưới đây chỉ là sự cố phát sinh trong nội dung bài học.
 
-| Triệu chứng | Kiểm tra | Xử lý đúng phạm vi |
+| Triệu chứng | Nguyên nhân thường gặp | Xử lý |
 | --- | --- | --- |
-| **B3.2 / B5.3 / B6.3: CRD đã tạo nhưng `kubectl get webpages` báo `the server doesn't have a resource type`** | `kubectl get crd -l lab=14`; `kubectl get --raw "/apis/$LAB_GROUP/v1"`; `ls ~/.kube/cache/discovery` | Phân biệt hai tầng trước khi sửa. **(1)** Nếu `--raw` trả về `APIResourceList` thì **server đã đúng**, vấn đề nằm ở **cache discovery phía client**: `kubectl` lưu danh sách kiểu trong `~/.kube/cache/discovery/<host>/` và dùng lại bản đã lưu, nên kiểu vừa tạo có thể chưa có trong đó — thời gian sống của cache **phụ thuộc cấu hình `kubectl`**, đừng ngồi chờ. Chạy `rm -rf ~/.kube/cache/discovery` rồi `kubectl api-resources --api-group="$LAB_GROUP"`, sau đó thử lại. **(2)** Nếu `--raw` trả `404` thì CRD chưa `Established`: đọc `kubectl get crd <ten> -o jsonpath='{.status.conditions}'`; condition `NamesAccepted=False` nghĩa là tên bạn xin đang xung đột với resource khác — đổi `plural`, `singular`, `kind`, `shortNames` hoặc `categories` rồi apply lại. **(3)** Nếu bạn gõ thiếu group ở dạng đầy đủ, dùng `kubectl get webpages.$LAB_GROUP` — dạng `<plural>.<group>` không bao giờ nhập nhằng |
-| B5.3: `kubectl get lab14` không trả gì trong khi `kubectl get wp` chạy được | `kubectl api-resources -o wide \| grep webpages`; kiểm cột `CATEGORIES` | Category cũng nằm trong thông tin discovery, nên nó dính đúng cache ở dòng trên. Làm mới cache rồi thử lại. Nếu cột `CATEGORIES` trống thì `categories:` chưa vào CRD — kiểm nó nằm dưới `spec.names`, không phải dưới `spec.versions` |
-| B4.3: `kubectl apply` báo `unknown field` trong khi bạn muốn thấy cơ chế cắt tỉa | đọc `$EV/b4-truong-la-strict.txt` | Đây **không phải lỗi**, đó là kết quả mong đợi của `--validate=strict`. Muốn thấy cắt tỉa thì chạy đúng lệnh thứ hai của B4.3 với `--validate=ignore`. Đừng sửa schema để "cho nó qua" — thêm trường vào schema là đổi hợp đồng API, không phải cách chữa lỗi gõ sai |
-| B7.3: patch `--subresource=status` báo `the server could not find the requested resource` | `kubectl get crd <ten> -o jsonpath='{.spec.versions[0].subresources}'`; `kubectl get --raw "/apis/$LAB_GROUP/v1" \| tr ',' '\n' \| grep status` | Subresource chưa được bật. Kiểm hai dòng `subresources:` và `status: {}` nằm **bên trong một phần tử của `versions`**, cùng cấp với `schema:` — đặt nhầm lên `spec` là lỗi thường gặp nhất. Chạy lại `diff` của B7.2 để thấy chính xác bạn thêm gì |
-| B8.3: `reconcile` trả mã khác 0 và status không đổi | `kctl auth can-i patch "webpages.$LAB_GROUP" --subresource=status`; đọc `$EV/b8-status-bi-tu-choi.txt` | Nếu trả `no`: Role chưa có rule cho `webpages/status` — apply `$WK/b8-role-du.yaml` rồi chạy lại vòng chờ ở B8.3. Nếu trả `yes` mà vẫn hỏng: token trong `$KCFG` thuộc phiên shell cũ; tạo lại bằng `kubectl create token sa-lab14-controller -n "$NS"` và dựng lại kubeconfig theo B8.2 |
-| B8.3: `kctl` báo `Unauthorized` hoặc `error: You must be logged in` | `kctl auth whoami`; `stat -c '%a' "$KCFG"` | Token của ServiceAccount **có thời hạn**. Sinh token mới và đặt lại `set-credentials` theo B8.2; đừng nới quyền để "cho chạy". Nếu `auth whoami` ra đúng tên mà vẫn lỗi thì `--certificate-authority` trỏ sai file — dùng đúng `/etc/kubernetes/pki/ca.crt` |
-| B8.5: xóa custom resource nhưng ConfigMap **không** biến mất | `kubectl get configmap web-<ten> -o jsonpath='{.metadata.ownerReferences}'` | So `uid` trong owner reference với `uid` thật của custom resource. Sai `uid` thì garbage collector coi owner là đã biến mất theo kiểu khác và có thể không xóa — đây đúng là cái bẫy [Lab 1c](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md#b2-owner-reference-và-garbage-collection) đã cảnh báo. Xóa ConfigMap bằng tay rồi chạy lại `reconcile` để nó gắn owner reference đúng |
-| B9.3: `kubectl apply` bỏ v1 **không** bị từ chối như mong đợi | `kubectl get crd <ten> -o jsonpath='{.status.storedVersions}'`; `grep -cE '^  - name: v[12]$' "$WK/b9-crd-bo-v1.yaml"` | Nếu `grep` ra `2` thì `sed` chưa cắt được khối v1 — mở file và xóa tay khối `- name: v1` cho tới hết `additionalPrinterColumns` của nó. Nếu `storedVersions` đã là `["v2"]` thì bạn đã lỡ chạy B9.4 trước B9.3; đó là thứ tự sai nhưng vô hại, ghi vào evidence rồi đi tiếp |
-| B9.4: `kubectl replace` báo lỗi về `resourceVersion` | `kubectl get <object> -o yaml \| head -20` | Object đã bị ai đó ghi giữa lúc bạn `get` và lúc bạn `replace`. Chạy lại đúng vòng lặp của B9.4 — nó `get` lại từ đầu mỗi vòng |
-| **Bạn lỡ xóa một CRD không thuộc lab** | `kubectl get crd`; `kubectl -n kube-system get pods`; `kubectl get pods -A` | Dừng mọi thứ. Xóa CRD xóa luôn toàn bộ custom object trong đó, và với CRD của CNI hay ingress controller thì đó là mất cấu hình, không phải mất một object. **Tắt cả ba VM và restore cả ba về `04-metrics-ready`** — xem ghi chú cuối [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường). Đừng cố cài lại add-on bằng tay: bạn sẽ dựng ra một cluster không còn khớp mốc snapshot |
-| B11.1: `kubectl delete namespace` treo ở `Terminating` | `kubectl get namespace <ten> -o jsonpath='{.spec.finalizers}{"\n"}{.status.conditions}'`; `kubectl api-resources --verbs=list --namespaced -o name` | Namespace chỉ biến mất khi mọi kind namespaced trong nó đã dọn xong. Nếu bạn còn một CRD **đã bị xóa** trong khi API group của nó vẫn nằm trong discovery, namespace sẽ chờ. Trong lab này thứ tự đúng là **xóa namespace trước, CRD sau** — đúng như B11.1 rồi B11.2. Nếu đã lỡ đảo thứ tự, đọc `status.conditions` để biết kind nào đang chặn |
-| B11.3: `apiservice` sau lab nhiều hơn trước | `kubectl get apiservice \| grep "$LAB_GROUP"`; `kubectl get crd -l lab=14` | APIService tự đăng ký chỉ biến mất khi CRD của nó đã biến mất. Kiểm CRD đã xóa hết chưa; nếu đã hết mà APIService vẫn còn sau cả vòng chờ, đọc `kubectl describe apiservice <ten>` — **không** xóa nó bằng tay trừ khi nó thuộc API group của lab |
-| B11.4: `diff` báo checksum kubelet đã đổi | `sudo cat /var/lib/kubelet/config.yaml \| grep -iE 'topology\|memoryManager'` | Bạn đã sửa cấu hình kubelet, gần như chắc chắn ở B10.4. Lab 14 chỉ đọc. Cluster đã lệch mốc: restore cả ba VM về `04-metrics-ready` trước khi sang lab sau, và ghi vào evidence rằng baseline đã lệch |
+| B0: `deploy.sh` của sprint trước fail | Repo ở tag cũ thiếu thứ chỉ tồn tại trên cluster cũ | Sửa repo ở tag đó; không sửa tay trên cluster |
+| B2: `deploy.sh` dừng ở `kubectl apply` với lỗi không tìm được mapping cho kind `DbBackup` | CRD chưa `Established` khi apply custom resource, hoặc file CRD không nằm trong `k8s/cluster/` | Giữ đúng thứ tự của `deploy.sh`: `k8s/cluster` → chờ `Established` → `k8s/app` |
+| B2: CRD có `NamesAccepted=False` | Tên ngắn, category hoặc số nhiều trùng resource khác | `kubectl get crd dbbackups.bookstore.example.com -o jsonpath='{.status.conditions}'`; đổi tên trùng rồi apply lại |
+| B2: apply CRD báo lỗi schema, condition `NonStructuralSchema` | Thiếu `type` ở một mức của schema, hoặc `default` đặt ở chỗ không có `type` | Mỗi `properties` con phải có `type`; `default` phải hợp lệ với chính schema của trường đó |
+| B2: `kubectl get dbb` báo không có resource type trong khi CRD đã tạo | Cache discovery phía client chưa làm mới | `kubectl get --raw /apis/bookstore.example.com` trả danh sách thì server đã đúng; `rm -rf ~/.kube/cache/discovery` rồi thử lại |
+| B2: patch `--subresource=status` báo không tìm thấy resource | `subresources` đặt sai cấp | `subresources: {status: {}}` nằm **trong** một phần tử của `versions`, cùng cấp `schema` |
+| B3: `bookstore-devs` vẫn không đọc được `DbBackup` | Sai tên group, RoleBinding sai namespace, `apiGroups` của ClusterRole sai | `kubectl -n bookstore get rolebinding bookstore-devs-dbbackup-viewer -o yaml`; group là `bookstore.example.com`, không có `/v1alpha1` |
+| B3: tạo `DbBackup` đầu tiên trên namespace thử bị từ chối vì quota | Quota vừa tạo chưa được controller tính `status` | Chờ `status.hard` có giá trị như script làm |
+| B4: log operator `Unauthorized` | Token hết hạn, hoặc ServiceAccount bị xóa rồi tạo lại | `./scripts/deploy.sh` cấp token mới; operator đọc lại file ở lần gọi sau |
+| B4: log operator `forbidden ... dbbackups/status` hoặc `pods/log` | Role thiếu subresource | Thêm đúng rule còn thiếu vào `k8s/app/rbac/backup-operator.yaml`, `deploy.sh` |
+| B4: Job tạo xong nhưng không có Pod, sự kiện `FailedCreate ... violates PodSecurity "restricted"` | Thiếu `seccompProfile`, `runAsNonRoot`, `allowPrivilegeEscalation: false` hoặc drop capability | Sửa `job_manifest`; đọc `kubectl -n bookstore describe job dbbackup-<tên>` |
+| B4: sự kiện `FailedCreate ... exceeded quota` | `count/jobs.batch` đầy, hoặc Pod thiếu `requests`/`limits` | `kubectl -n bookstore describe quota bookstore-quota`; TTL của Job đủ ngắn, trần nâng ở B3 |
+| B4: Pod của Job lỗi `pg_dump: error: connection to server ... timeout` | Pod không mang `app.kubernetes.io/component=backup`, NetworkPolicy chặn | Label hợp đồng trên **template** của Pod, không chỉ trên Job |
+| B4: Pod của Job lỗi `password authentication failed` | `secrets/db.env` sinh lại trong khi PV `Retain` còn dữ liệu cũ | Xem [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm); teardown sạch rồi deploy |
+| B4: Pod của Job lỗi `could not open output file ... Permission denied` | Thư mục của PVC không cho uid 999 ghi | `kubectl exec` Pod `doc-backup` xem `ls -ld /backup`; so với CronJob `db-backup` đang ghi được ở cùng PVC |
+| B4: Job `Complete` mà `status` không bao giờ `Succeeded` | Operator không chạy, hoặc dòng log khác hợp đồng `db-backup: OK <file> <bytes> byte` | `./scripts/backup-operator.sh status`; `kubectl -n bookstore logs job/dbbackup-<tên>` |
+| B4: `k create -f -` báo Job đã tồn tại | `DbBackup` mới trùng tên một `DbBackup` cũ vừa xóa, Job cũ chưa được dọn | Chờ garbage collector, hoặc dùng tên khác |
+| B5: `stop` không dừng được operator | File PID thiếu hoặc lệch | `pgrep -af backup-operator.sh`, `kill` đúng PID, rồi `start` |
+| B6: bỏ `v1alpha1` không bị từ chối | Đã chạy bước ghi lại và vá `storedVersions` trước | Thứ tự sai nhưng vô hại; ghi vào bằng chứng rồi đi tiếp |
+| B6: `kubectl replace` báo object đã bị sửa | Operator đang ghi `status` của một `DbBackup` đang chạy | Chờ mọi `DbBackup` ở pha cuối rồi chạy lại vòng ghi lại |
+| B6: `deploy.sh` báo lỗi khi apply CRD chỉ có `v1` | `storedVersions` vẫn còn `v1alpha1` | Giữ `v1alpha1` trong file CRD cho tới khi di trú xong |
+| B8: smoke `R16` fail ngay sau `deploy.sh` | HPA chưa có số đo đầu tiên | Chạy lại smoke sau một chu kỳ đo; vòng chờ của smoke cho tối đa 240 giây |
+| B8: smoke `R7` HTTPS fail | Tên cổng Service của Traefik khác, hoặc IP vào không phải node đang chạy | Đặt `ENTRY_IP` thành IP một worker; kiểm `kubectl -n traefik get svc traefik` |
+| B9: `teardown.sh` kẹt ở xóa namespace | CRD bị xóa trước namespace | Giữ thứ tự của script: custom resource → namespace → CRD |
+| B9: tồn kho APIService lệch B0 | APIService tự đăng ký của API group chưa bị dọn | Chờ thêm; không xóa tay APIService nào ngoài group `bookstore.example.com` |
+| Lỡ xóa một CRD không thuộc dự án | Selector sai | Dừng hẳn; restore cả ba VM về `04-metrics-ready` — xem [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường) |
 
 ---
 
 ## 5. Nguồn chính thức
-
-Các phần giải thích command trong thân bài ưu tiên snapshot tài liệu Kubernetes v1.35
-(`https://v1-35.docs.kubernetes.io/`) để hành vi, trường và flag khớp minor version của cluster.
 
 - [Kubernetes v1.35 — Extending Kubernetes](https://v1-35.docs.kubernetes.io/docs/concepts/extend-kubernetes/)
 - [Kubernetes v1.35 — Extending the Kubernetes API](https://v1-35.docs.kubernetes.io/docs/concepts/extend-kubernetes/api-extension/)
@@ -2961,16 +2976,20 @@ Các phần giải thích command trong thân bài ưu tiên snapshot tài liệ
 - [Kubernetes v1.35 — Operator pattern](https://v1-35.docs.kubernetes.io/docs/concepts/extend-kubernetes/operator/)
 - [Kubernetes v1.35 — Compute, Storage, and Networking Extensions](https://v1-35.docs.kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/)
 - [Kubernetes v1.35 — Device Plugins](https://v1-35.docs.kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/)
+- [Kubernetes v1.35 — Troubleshooting Topology Management](https://v1-35.docs.kubernetes.io/docs/tasks/debug/debug-cluster/topology/)
+- [Kubernetes v1.35 — Migrate Kubernetes Objects Using Storage Version Migration](https://v1-35.docs.kubernetes.io/docs/tasks/manage-kubernetes-objects/storage-version-migration/)
 - [Kubernetes v1.35 — Extend the Kubernetes API with CustomResourceDefinitions](https://v1-35.docs.kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/)
 - [Kubernetes v1.35 — Versions in CustomResourceDefinitions](https://v1-35.docs.kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/)
-- [Kubernetes v1.35 — Migrate Kubernetes Objects Using Storage Version Migration](https://v1-35.docs.kubernetes.io/docs/tasks/manage-kubernetes-objects/storage-version-migration/)
-- [Kubernetes v1.35 — Troubleshooting Topology Management](https://v1-35.docs.kubernetes.io/docs/tasks/debug/debug-cluster/topology/)
 - [Kubernetes v1.35 — Controllers](https://v1-35.docs.kubernetes.io/docs/concepts/architecture/controller/)
 - [Kubernetes v1.35 — Owners and Dependents](https://v1-35.docs.kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/)
-- [Kubernetes v1.35 — Using RBAC Authorization](https://v1-35.docs.kubernetes.io/docs/reference/access-authn-authz/rbac/)
-- [Kubernetes v1.35 — Field Validation](https://v1-35.docs.kubernetes.io/docs/reference/using-api/api-concepts/#field-validation)
-- [Kubernetes v1.35 — `kubectl api-resources`](https://v1-35.docs.kubernetes.io/docs/reference/kubectl/generated/kubectl_api-resources/)
-- [Kubernetes v1.35 — `kubectl patch`](https://v1-35.docs.kubernetes.io/docs/reference/kubectl/generated/kubectl_patch/)
+- [Kubernetes v1.35 — Role Based Access Control Good Practices](https://v1-35.docs.kubernetes.io/docs/concepts/security/rbac-good-practices/)
+- [Kubernetes v1.35 — Resource Quotas](https://v1-35.docs.kubernetes.io/docs/concepts/policy/resource-quotas/)
+- [Kubernetes v1.35 — Automatic Cleanup for Finished Jobs](https://v1-35.docs.kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/)
+- [Kubernetes v1.35 — Pod Security Standards](https://v1-35.docs.kubernetes.io/docs/concepts/security/pod-security-standards/)
+- [Kubernetes v1.35 — `kubectl create token`](https://v1-35.docs.kubernetes.io/docs/reference/kubectl/generated/kubectl_create/kubectl_create_token/)
 - [Kubernetes v1.35 — `kubectl auth can-i`](https://v1-35.docs.kubernetes.io/docs/reference/kubectl/generated/kubectl_auth/kubectl_auth_can-i/)
 - [Kubernetes API — CustomResourceDefinition v1](https://v1-35.docs.kubernetes.io/docs/reference/kubernetes-api/extend-resources/custom-resource-definition-v1/)
 - [Kubernetes API — APIService v1](https://v1-35.docs.kubernetes.io/docs/reference/kubernetes-api/cluster-resources/api-service-v1/)
+- [PostgreSQL 17 — pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html)
+- [PostgreSQL 17 — pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html)
+- [PostgREST v14 — Observability, mục Metrics](https://docs.postgrest.org/en/v14/references/observability.html)

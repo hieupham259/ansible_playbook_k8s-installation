@@ -42,8 +42,8 @@ nào chỉ có ở volume. Nhầm ranh giới này là lỗi manifest thường 
 | --- | --- | --- |
 | `spec.serviceAccountName` | chưa học ServiceAccount | giai đoạn 9 — bài [118](118-service-accounts-vi.md) |
 | Volume `downwardAPI` với tư cách một loại volume | chưa học volume | giai đoạn 6 — bài [91](91-volumes-vi.md), [93](93-projected-volumes-vi.md) |
-| Ghi chú về resize: volume được cập nhật còn biến môi trường thì không | resize dựa trên requests/limits chưa học | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
-| `hugepages-*` và `ephemeral-storage` trong `resourceFieldRef` | là tài nguyên chưa học | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md); lưu trữ tạm ở giai đoạn 6 — bài [95](95-ephemeral-storage-vi.md) |
+| Ghi chú về resize: volume được cập nhật còn biến môi trường thì không | resize dựa trên requests/limits chưa học | giai đoạn 3, nhóm 3c — bài [110](110-manage-resources-containers-vi.md) |
+| `hugepages-*` và `ephemeral-storage` trong `resourceFieldRef` | là tài nguyên chưa học | giai đoạn 3, nhóm 3c — bài [110](110-manage-resources-containers-vi.md); lưu trữ tạm ở giai đoạn 6 — bài [95](95-ephemeral-storage-vi.md) |
 | Phép tính *node allocatable* trong phần dự phòng | thuộc phần tài nguyên của node | giai đoạn 7 — bài [142](142-node-pressure-eviction-vi.md) |
 
 ---

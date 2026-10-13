@@ -43,7 +43,7 @@ lab: đổi CNI sẽ phá [chuỗi snapshot](labs/README.md#3-chuỗi-snapshot) 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Hướng dẫn *Tích hợp Kubernetes qua Addon* mà mục cài đặt trỏ tới | đó là quy trình cài một CNI thật | **không chạy trên cluster lab** — cluster đã dùng Calico từ [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) và đổi CNI phá [chuỗi snapshot](labs/README.md#3-chuỗi-snapshot). Chỉ mở khi bạn tiếp quản một cluster đã chạy Weave Net |
-| Tên node và địa chỉ IP trong output mẫu — `worknode3`, `masternode`, `192.168.2.10`… | là output của một cluster khác, không phải cluster của bạn | tên ba VM và dải IP của cluster lab nằm ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md); cách đọc chúng đã làm ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B1 |
+| Tên node và địa chỉ IP trong output mẫu — `worknode3`, `masternode`, `192.168.2.10`… | là output của một cluster khác, không phải cluster của bạn | tên ba VM và dải IP của cluster lab nằm ở [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md); cách đọc chúng đã làm ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket B2 |
 | Kênh Slack `#weave-community` và Weave User Group ở mục *Tiếp theo* | là kênh hỗ trợ của một dự án bên ngoài | không có trong lộ trình |
 
 ---

@@ -10,10 +10,10 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 5/9 ·
-Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B3.
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B3.
 
 Đây là vế thực hành của bài [54](54-pod-qos-vi.md). Mục tiêu duy nhất của lần đọc này: **nhìn
-manifest là suy ra được QoS class**, không cần chạy Pod. Lab 3c B3 bắt bạn đoán trước rồi mới đối
+manifest là suy ra được QoS class**, không cần chạy Pod. Lab 3c ticket B3 bắt bạn đoán trước rồi mới đối
 chiếu với `status.qosClass`, nên đọc bài này với tâm thế học cách đoán.
 
 **Phải hiểu ở lần đọc này:**

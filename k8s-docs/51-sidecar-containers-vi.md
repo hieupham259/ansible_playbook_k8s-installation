@@ -41,9 +41,9 @@ khác đi. Hai ví dụ trong bài dùng Deployment và Job của giai đoạn 4
 | --- | --- | --- |
 | Ví dụ dùng Deployment ở mục *Ứng dụng ví dụ* | controller chưa học; ở đây chỉ đọc phần `spec.template` | giai đoạn 4 — bài [63](63-deployment-vi.md) |
 | *Job với sidecar container* | Job học ở giai đoạn sau | giai đoạn 4 — bài [67](67-job-vi.md) |
-| Phần *hạng QoS hiệu dụng* trong mục chia sẻ tài nguyên | chưa học QoS | giai đoạn 3, nhóm 3b — bài [54](54-pod-qos-vi.md) |
+| Phần *hạng QoS hiệu dụng* trong mục chia sẻ tài nguyên | chưa học QoS | giai đoạn 3, nhóm 3c — bài [54](54-pod-qos-vi.md); thực hành ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B3 |
 | *pod overhead* trong công thức request/limit hiệu dụng | là chủ đề riêng của phần lập lịch | giai đoạn 7 — bài [144](144-pod-overhead-vi.md) |
-| *Sidecar container và cgroup trên Linux*, quota và limit | phần cấp phát thuộc quản lý tài nguyên | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
+| *Sidecar container và cgroup trên Linux*, quota và limit | phần cấp phát thuộc quản lý tài nguyên | giai đoạn 3, nhóm 3c — bài [110](110-manage-resources-containers-vi.md); thực hành ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B3 |
 
 ---
 

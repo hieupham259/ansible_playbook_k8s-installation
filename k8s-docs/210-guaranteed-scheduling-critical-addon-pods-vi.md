@@ -13,7 +13,7 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 7 — Lập lịch và chính sách tài nguyên](00-ALO-TRINH-ADMIN.md#giai-đoạn-7--lập-lịch-và-chính-sách-tài-nguyên)
 → [7a. Scheduling và eviction](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), dòng **Thực hành**,
-bài 1/3 · Kiểm chứng ở [Lab 7a — Lập lịch và eviction](labs/LAB-7A-LAP-LICH-VA-EVICTION.md), phần B6.1.
+bài 1/3 · Kiểm chứng ở [Lab 7a — Lập lịch và eviction](labs/LAB-7A-LAP-LICH-VA-EVICTION.md), ticket B4.
 
 Trang này rất ngắn — nó chỉ có một mục và không có bước thực hành nào. Đọc nó như phần ứng dụng
 cụ thể của bài [141](141-pod-priority-preemption-vi.md) vừa đọc: hai PriorityClass tích hợp sẵn
@@ -36,8 +36,8 @@ dùng để làm gì, và chúng bảo đảm được tới đâu.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Cơ chế preemption đứng sau PriorityClass | trang này chỉ nêu tên hai class, không giải thích chúng hoạt động ra sao | bài [141](141-pod-priority-preemption-vi.md) đã đọc ở đầu [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction); [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) B6.2–B6.4 dựng preemption thật |
-| Khái niệm static pod và vì sao nó không bị trục xuất | bài dùng thuật ngữ này mà không định nghĩa | bài [58](58-static-pods-vi.md) đã đọc ở [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod) |
+| Cơ chế preemption đứng sau PriorityClass | trang này chỉ nêu tên hai class, không giải thích chúng hoạt động ra sao | bài [141](141-pod-priority-preemption-vi.md) đã đọc ở đầu [7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction); [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md#b5-bs-7a-05-diễn-tập-preemption-trên-lab-k8s-worker2) ticket B5 dựng preemption thật trên `lab-k8s-worker2` |
+| Khái niệm static pod và vì sao nó không bị trục xuất | bài dùng thuật ngữ này mà không định nghĩa | bài [58](58-static-pods-vi.md) đã đọc ở [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn) |
 | metrics-server được nêu làm ví dụ add-on quan trọng | cluster lab chưa cài metrics-server ở giai đoạn này | [giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability), [Lab 11a](labs/LAB-11A-OBSERVABILITY.md) |
 
 ---

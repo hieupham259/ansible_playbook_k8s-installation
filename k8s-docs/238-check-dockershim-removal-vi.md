@@ -49,7 +49,7 @@ không đáng, và lộ trình không yêu cầu.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Điểm 4 của danh sách — công cụ bên thứ ba làm thao tác đặc quyền | bài này chỉ nêu tên rồi trỏ đi, chi tiết nằm ở bài kế | bài [240](240-migrating-telemetry-agents-vi.md) của chính giai đoạn 27 |
-| Mục *Các vấn đề đã biết* — đổi định dạng tên metric và danh sách `container_fs_*` bị thiếu | chỉ áp dụng khi tiếp quản cluster dockershim đang có collector bám vào `/metrics/cadvisor` theo định dạng cũ; cluster lab sinh ra đã ở định dạng của containerd nên không có bước "đổi" nào | nền tảng metric là bài [160](160-system-metrics-vi.md), endpoint đã gọi tay ở [Lab 11a phần B2.3](labs/LAB-11A-OBSERVABILITY.md#b23-bốn-endpoint-của-kubelet) |
+| Mục *Các vấn đề đã biết* — đổi định dạng tên metric và danh sách `container_fs_*` bị thiếu | chỉ áp dụng khi tiếp quản cluster dockershim đang có collector bám vào `/metrics/cadvisor` theo định dạng cũ; cluster lab sinh ra đã ở định dạng của containerd nên không có bước "đổi" nào | nền tảng metric là bài [160](160-system-metrics-vi.md), endpoint đã gọi tay ở [Lab 11a ticket B1](labs/LAB-11A-OBSERVABILITY.md#b1-bs-11a-01-điều-tra-ba-nguồn-metric-của-hệ-thống) |
 | Mục *Giải pháp tạm thời* — chạy cAdvisor như một daemonset độc lập | là bản vá cho cluster đang di chuyển, và là add-on ngoài baseline của Lab 00 | chỉ áp dụng khi tiếp quản cluster dockershim có collector bị hụt metric |
 
 ---

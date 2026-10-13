@@ -13,8 +13,8 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3b. Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
-bài 6/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B6.3 — `secretGenerator`,
-hậu tố hash, và bằng chứng rằng sửa dữ liệu sinh ra object mới.
+bài 6/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) ticket B1 (`secretGenerator`
+sinh Secret của dự án) và ticket B8 (hậu tố hash, và bằng chứng rằng sửa dữ liệu sinh ra object mới).
 
 Đây là bài **thứ ba trong ba bài** làm cùng một việc: [326](326-secret-config-file-vi.md) (file cấu
 hình), [327](327-secret-kubectl-vi.md) (`kubectl`), 328 (Kustomize). Đường của bài này khác hai

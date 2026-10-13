@@ -234,6 +234,16 @@ số ở một chỗ, cho lab nào thật sự cần thì link về.
 | cloudflared (Tunnel) | image `cloudflare/cloudflared:latest`, digest amd64 `sha256:b392761b…` | ngoài chuỗi lab hiện có |
 | Rancher (Cluster management) | chart/appVersion `2.14.3` | ngoài chuỗi lab hiện có |
 | MetalLB | `v0.16.0` | ngoài baseline; chỉ cần khi dùng Service `LoadBalancer` thật |
+| Image `web` của [dự án Bookstore](DU-AN-BOOKSTORE.md) | `nginxinc/nginx-unprivileged:1.30.5-alpine` (digest amd64 `sha256:0f5f7068…`) | Lab 3a trở đi |
+| Image `api` của dự án Bookstore | `postgrest/postgrest:v14.18` (digest amd64 `sha256:c8471270…`) | Lab 3a trở đi |
+| Image `db` của dự án Bookstore | `postgres:17.11` (digest amd64 `sha256:3cec7eb0…`) | Lab 3a trở đi |
+
+Ba image cuối được chọn ngày 13/10/2026 cho dự án xuyên suốt từ Lab 3a. `postgres` khóa ở dòng 17
+vì từ dòng 18 image đổi `PGDATA` mặc định sang `/var/lib/postgresql/18/docker` và `VOLUME` sang
+`/var/lib/postgresql`; `postgrest` khóa ở dòng v14 vì đó là bản tài liệu mà
+[dự án](DU-AN-BOOKSTORE.md#42-cổng-đường-dẫn-và-điểm-kiểm-tra-sức-khỏe) đối chiếu cấu hình và admin
+server. Digest đọc từ manifest `linux/amd64` trên Docker Hub ở ngày chọn; các tag được build lại
+theo bản vá của image nền nên digest có thể đổi trong khi tag giữ nguyên.
 
 Ràng buộc quyết định trần của bảng A1.3: chart Rancher `2.14.3` khai `kubeVersion: < 1.36.0-0`,
 nên Kubernetes không lên được `1.36`. Nếu bạn dựng cluster **không** có ý định cài Rancher thì

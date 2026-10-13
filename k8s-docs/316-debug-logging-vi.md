@@ -13,8 +13,8 @@
 
 **Vị trí:** [Giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability)
 → dòng **Thực hành**, bài 5/7 · Kiểm chứng ở
-[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) phần B7–B9 (toàn bộ trụ cột log) và
-phần B1.3, nơi lab xác định trang này nằm ở nhánh nào của bài [296](296-debug-vi.md).
+[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) ticket B4–B6 (toàn bộ trụ cột log); ticket
+B6 cũng là nơi lab xác định trang này nằm ở nhánh nào của bài [296](296-debug-vi.md).
 
 Đây là **trang trỏ hướng**, đọc trong một phút. Hai trang con của nó chính là hai bài bạn đã đọc
 ở đầu giai đoạn 11.

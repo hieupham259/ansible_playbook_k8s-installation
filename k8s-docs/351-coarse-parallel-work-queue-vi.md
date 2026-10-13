@@ -17,7 +17,7 @@ bài 5/7 của dòng **Thực hành** ·
 [Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) xếp bài này
 vào nhóm **không kiểm chứng được trên cluster baseline**: bài dựng một Service RabbitMQ và bắt bạn
 tự build rồi push một image worker lên registry, hai thứ lab không làm. Lab chỉ thực hành **hình
-dạng** của Job hàng đợi công việc, ở **phần B6.4**.
+dạng** của Job hàng đợi công việc, ở phần ⭐ của **ticket B9**.
 
 Bài dài, nhưng phần lớn độ dài là dựng hạ tầng cho ví dụ. Đọc để nắm **mẫu** và **ranh giới** của
 mẫu, đừng cố chạy theo từng lệnh. Đây là mẫu song song thứ nhất trong ba mẫu của nhóm 4b; hai mẫu
@@ -47,7 +47,7 @@ còn lại là Indexed Job ([353](353-indexed-parallel-processing-vi.md)) và kh
 | --- | --- | --- |
 | Toàn bộ phần dựng RabbitMQ: `rabbitmq-service`, Pod `temp` tương tác, `nslookup rabbitmq-service`, biến môi trường `RABBITMQ_SERVICE_SERVICE_HOST` | Service và DNS trong cluster là nội dung của giai đoạn sau; [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) không tạo Service | [giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
 | Build và push image worker: `docker build`, `docker tag`, `docker push`, Dockerfile và `worker.py` | cần Docker trên máy và một registry riêng; lab không build hay push image | [giai đoạn 2 — Container và runtime](00-ALO-TRINH-ADMIN.md#giai-đoạn-2--container-và-runtime) đã bàn phần image |
-| Các lệnh AMQP `amqp-declare-queue`, `amqp-publish`, `amqp-consume` | là công cụ của RabbitMQ, không phải cơ chế Kubernetes; ở đây chỉ cần nắm vai trò của chúng trong mẫu | phần Job tương ứng thực hành ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B6.4 |
+| Các lệnh AMQP `amqp-declare-queue`, `amqp-publish`, `amqp-consume` | là công cụ của RabbitMQ, không phải cơ chế Kubernetes; ở đây chỉ cần nắm vai trò của chúng trong mẫu | phần Job tương ứng thực hành ở phần ⭐ của [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) ticket B9 |
 | Link *ví dụ hàng đợi công việc song song mịn* (bài [352](352-fine-parallel-work-queue-vi.md)) | cùng lý do: cần một Service và một image worker tự build | dòng **Thực hành** của [giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng) |
 
 ---

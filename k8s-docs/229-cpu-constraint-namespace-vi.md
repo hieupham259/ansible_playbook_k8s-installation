@@ -29,8 +29,8 @@ vào** Pod không khai gì. Cặp thứ ba ([233](233-quota-memory-cpu-namespace
 
 Lý thuyết bạn đã đọc ở bài [133](133-limit-range-vi.md) và [134](134-resource-quotas-vi.md) (giai
 đoạn 7b), và [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) đã thực hành đúng phần
-`min`/`max` từ chối ngay lúc tạo (phần B2.4, B2.5) cùng việc sửa LimitRange không đụng Pod đang
-chạy (phần B2.7). Cái giai đoạn 25 thêm vào ở trang này là **hai chi tiết chưa gặp**: LimitRange
+`min`/`max` từ chối ngay lúc tạo (ticket B2) cùng việc sửa LimitRange không đụng Pod đang
+chạy (ticket B6). Cái giai đoạn 25 thêm vào ở trang này là **hai chi tiết chưa gặp**: LimitRange
 chỉ khai `min`/`max` thì Kubernetes **tự sinh** `default` và `defaultRequest`, và **câu chữ chính
 xác của hai thông báo từ chối** — thứ mà Checkpoint giai đoạn 25 bắt bạn đọc đúng.
 

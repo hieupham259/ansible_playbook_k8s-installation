@@ -9,8 +9,8 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 6/7 ·
-Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
+**Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 3/4 ·
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B6.
 
 Bài này viết cho **hai người đọc khác nhau** — chủ sở hữu ứng dụng và quản trị viên cluster —
 và câu mở đầu nói rõ điều đó. Bạn đang học vai trò thứ hai, nên phần đáng giá nhất là ví dụ

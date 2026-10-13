@@ -14,10 +14,11 @@
 
 **Vị trí:** [Giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability)
 → dòng **Thực hành**, bài 7/7 — bài cuối của nhóm · Kiểm chứng ở
-[Lab 11b — HPA và VPA](labs/LAB-11B-HPA-VA-VPA.md) phần B3 (workload đích và Service), B4 (tạo
-HPA bằng hai cách, và các status condition lúc nghỉ), B6 (tăng tải rồi dừng tải) và B8 (HPA gặp
-`kubectl scale`). Đây là bài duy nhất của nhóm không kiểm chứng ở
-[Lab 11a](labs/LAB-11A-OBSERVABILITY.md), vì nó cần metrics-server mà Lab 11a mới cài xong.
+[Lab 11b — HPA và VPA](labs/LAB-11B-HPA-VA-VPA.md) ticket B1 (điều kiện Metrics Server), B2 (HPA
+`web` tạo bằng hai cách, và các status condition lúc nghỉ), B4 (Job sinh tải thay `load-generator`),
+B6 (tăng tải rồi dừng tải) và B8 (HPA gặp `kubectl scale`). Đây là bài duy nhất của nhóm không
+kiểm chứng ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md), vì nó cần metrics-server mà Lab 11a mới cài
+xong.
 
 Bài dài nhất nhóm và **hơn một nửa nội dung không dùng được trên cluster lab**: từ mục
 *Autoscaling dựa trên nhiều metric và metric tùy chỉnh* trở đi, mọi thứ đều cần một adapter
@@ -56,8 +57,8 @@ vì chưa có metrics-server. Nếu bài 72 đã mờ, đọc lại nó trước
 | Mục *Autoscaling dựa trên nhiều metric và metric tùy chỉnh* — `type: Pods` và `type: Object` | cần một adapter `custom.metrics.k8s.io` của bên thứ ba; metrics-server không cung cấp API đó | [giai đoạn 23](00-ALO-TRINH-ADMIN.md#giai-đoạn-23--giám-sát-và-cảnh-báo) |
 | Mục *Autoscaling dựa trên các metric cụ thể hơn* — label selector cho metric | cùng lý do: selector được chuyển cho pipeline metric bên ngoài, mà cluster lab không có | [giai đoạn 23](00-ALO-TRINH-ADMIN.md#giai-đoạn-23--giám-sát-và-cảnh-báo) |
 | Mục *Autoscaling dựa trên các metric không liên quan đến object Kubernetes* — `type: External` | cần hệ thống giám sát ngoài cluster; chính bài khuyên hạn chế expose API này | [giai đoạn 23](00-ALO-TRINH-ADMIN.md#giai-đoạn-23--giám-sát-và-cảnh-báo) |
-| Câu `minikube addons enable metrics-server` ở mục *Trước khi bạn bắt đầu* | lộ trình không dùng minikube; metrics-server được cài bằng tay và có chẩn đoán lỗi certificate đi kèm | [Lab 11a](labs/LAB-11A-OBSERVABILITY.md) phần B5 |
-| Image `registry.k8s.io/hpa-example` và Pod `load-generator` chạy vòng lặp vô hạn | image nằm ngoài bộ đã khóa của baseline, và một vòng lặp không có trần rất dễ làm nghẽn hai worker nhỏ của cluster lab | [Lab 11b](labs/LAB-11B-HPA-VA-VPA.md) phần B3 và B6, nơi lab thay bằng image đã khóa và một Job có trần lẫn deadline |
+| Câu `minikube addons enable metrics-server` ở mục *Trước khi bạn bắt đầu* | lộ trình không dùng minikube; metrics-server được cài bằng tay và có chẩn đoán lỗi certificate đi kèm | [Lab 11a](labs/LAB-11A-OBSERVABILITY.md) ticket B3 |
+| Image `registry.k8s.io/hpa-example` và Pod `load-generator` chạy vòng lặp vô hạn | image nằm ngoài bộ đã khóa của baseline, và một vòng lặp không có trần rất dễ làm nghẽn hai worker nhỏ của cluster lab | [Lab 11b](labs/LAB-11B-HPA-VA-VPA.md) ticket B4 và B6, nơi workload đích là chính `web` của dự án (image đã khóa) và nguồn tải là một Job có trần lẫn deadline |
 
 ---
 

@@ -1,36 +1,184 @@
 # Lab 5b — NetworkPolicy, Ingress và CNI
 
-> **Điểm bắt đầu:** snapshot `01-cluster-ready` — xem
-> [Lab 00 — Môi trường](LAB-00-MOI-TRUONG-1.35.7.md).
-> **Điểm kết thúc:** **tạo snapshot mới `02-net-ready`**. Lab này thay CNI và cài ingress
-> controller, tức là **đổi hạ tầng vĩnh viễn** trên chuỗi snapshot chính; mọi lab từ giai đoạn 6
-> trở đi bắt đầu từ mốc mới này chứ không quay lại `01-cluster-ready`.
-> **Lab trước:** [Lab 5a — Service, EndpointSlice và DNS](LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md)
-> đã cleanup và trả cluster về `01-cluster-ready`. Nếu bạn tới thẳng từ
-> [Lab 4b](LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) thì cluster cũng vẫn đang ở đúng
-> `01-cluster-ready` và lab này chạy được ngay.
+> **Điểm bắt đầu:** snapshot `01-cluster-ready` — xem [Lab 00 — Môi trường](LAB-00-MOI-TRUONG-1.35.7.md).
+> Repo `~/bookstore` ở tag `lab-5a` (hoặc bundle `~/bookstore-lab-5a.bundle` nếu bạn vừa restore
+> snapshot).
+> **Điểm kết thúc:** **tạo snapshot mới `02-net-ready`**. Lab đổi CNI sang Calico và cài ingress
+> controller Traefik, tức là **đổi hạ tầng vĩnh viễn** trên chuỗi snapshot chính. Snapshot chụp
+> **sau** teardown nên chỉ chứa hạ tầng, không chứa dự án. Repo `~/bookstore` có tag `lab-5b` và một
+> bản bundle nằm ngoài VM.
+> **Sprint dự án:** Sprint 7 — Mạng zero-trust và HTTPS của [dự án Bookstore](DU-AN-BOOKSTORE.md).
+> **Lab trước:** [Lab 5a — Service, EndpointSlice và DNS](LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md).
+> **Lab sau:** [Lab 6a — PV, PVC và StorageClass](LAB-6A-PV-PVC-VA-STORAGECLASS.md), bắt đầu từ
+> `02-net-ready` và tag `lab-5b`.
 >
-> **Cập nhật và đối chiếu phiên bản:** 25/08/2026.
+> **Cập nhật và đối chiếu phiên bản:** 13/10/2026.
 
-Lab này đi cùng phần policy/ingress/CNI của mục
-[Giai đoạn 5 — Mạng nền tảng](../00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), gồm nhóm bài
-đứng **sau** Lab 5a trong giai đoạn: [11](../11-ingress-vi.md), [12](../12-ingress-controllers-vi.md),
-[13](../13-gateway-vi.md), [85](../85-dual-stack-vi.md) và nhánh
+Lab này đi cùng phần policy/ingress/CNI của
+[Giai đoạn 5 — Mạng nền tảng](../00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng): nhóm bài đứng
+**sau** Lab 5a — [11](../11-ingress-vi.md), [12](../12-ingress-controllers-vi.md),
+[13](../13-gateway-vi.md), [85](../85-dual-stack-vi.md) — và nhánh
 [Tầng hạ tầng mạng của cluster](../00-ALO-TRINH-ADMIN.md#tầng-hạ-tầng-mạng-của-cluster)
 ([157](../157-networking-vi.md), [183](../183-network-plugins-vi.md), [164](../164-proxies-vi.md)).
+Mọi ticket dựa vào hợp đồng ở [mục 4 của file dự án](DU-AN-BOOKSTORE.md#4-hợp-đồng-kỹ-thuật), ma trận
+NetworkPolicy ở [mục 3.5](DU-AN-BOOKSTORE.md#35-thiết-kế-bảo-mật) và bố cục repo ở
+[mục 5.5](DU-AN-BOOKSTORE.md#55-bố-cục-repo-theo-sprint). Kế hoạch gốc của sprint nằm ở
+[mục 7.2](DU-AN-BOOKSTORE.md#sprint-7--lab-5b-mạng-zero-trust-và-https).
 
-Đây cũng là lab **trả [nợ #4](README.md#5-sổ-nợ-lab) — NetworkPolicy được thực thi thật**, phát
-sinh ở bài [84 — Chính sách mạng](../84-network-policies-vi.md). **Đọc lại bài 84 trước khi bắt
-đầu**; toàn bộ B3 và B5 bám đúng những gì bài đó trình bày, và lab sẽ chứng minh bằng lưu lượng
-thật cả hai nửa của nó: policy nằm im khi CNI không hiện thực nó, và policy chặn thật khi CNI có
-hiện thực.
+Đây cũng là lab **trả [nợ lab #4](README.md#5-sổ-nợ-lab) — NetworkPolicy được thực thi thật** — và
+nợ kỹ thuật `TD-09`. **Đọc lại bài [84 — Chính sách mạng](../84-network-policies-vi.md) trước khi bắt
+đầu**: sprint 6 đã viết policy theo bài đó nhưng chưa ai thấy policy chặn được gì.
 
-Ba con số phiên bản của cluster vẫn là baseline ở
-[bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); lab này **không chép
-lại** con số nào của bảng đó. Phần lab **thêm vào** chuỗi snapshot nằm ở [mục 2.3](#23-phiên-bản-lab-5b-đưa-vào-chuỗi-snapshot).
+Cluster giữ nguyên baseline của
+[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa). Ba thành phần lab
+này đưa vào chuỗi snapshot — Calico, Helm, Traefik — đã chốt version ở
+[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00). Lab **không chép lại**
+con số nào trong văn bản: repo đọc chúng từ một file bạn tự chép từ A1.4 ở ticket B3.
 
 Trước khi bắt đầu, chạy [quy trình mở đầu A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab)
-trên `lab-k8s-master`:
+trên `lab-k8s-master`. B0 bên dưới chạy lại đúng gate đó.
+
+---
+
+## 1. Kết quả phải đạt
+
+Hoàn thành lab khi hệ thống Bookstore đạt trạng thái sau sprint 7 — **mạng giữa các tầng đóng theo
+ma trận, đường vào duy nhất là HTTPS qua Ingress** — cluster đã được chụp `02-net-ready`, **và** bạn
+chứng minh, giải thích được:
+
+- Một NetworkPolicy hợp lệ, được API server lưu, **không chặn gì** khi CNI không hiện thực nó; và
+  **cùng một phép đo** cho kết quả ngược lại sau khi đổi CNI. Thứ duy nhất đổi giữa hai lần đo là
+  network plugin.
+- Ba dải IP của cluster — Pod, Service, Node — do ba thành phần khác nhau cấp; vì sao đổi CNI làm
+  IP của Pod đổi chủ còn ClusterIP thì không; vì sao `ip addr` không phải thứ Kubernetes nhìn.
+- Ai nạp CNI plugin trên node, hai đường dẫn phải đọc khi gỡ lỗi, và quy trình đổi CNI an toàn: vì
+  sao gỡ dự án trước, vì sao gỡ plugin cũ ở tầng API trước khi dọn node, vì sao khởi động lại
+  containerd trước kubelet.
+- Ma trận zero-trust của dự án: mặc định chặn **hai chiều**; mỗi luồng cần rule ở **cả hai đầu**; DNS
+  phải mở riêng; cổng trong policy là cổng **Pod**; một phần tử `from` chứa hai selector là phép
+  **giao**; và vì sao probe của kubelet không bị chặn.
+- Không có controller thì Ingress vô nghĩa; IngressClass mặc định chỉ được áp lúc tạo object;
+  controller là phần mềm bên thứ ba với hành vi riêng, có chỗ lệch khỏi đặc tả.
+- TLS kết thúc tại Traefik: Secret kiểu `kubernetes.io/tls`, `hosts` khớp `host`, đoạn nào sau đó là
+  plaintext, và vì sao certificate tự ký được sinh tại chỗ, không vào git.
+- kube-proxy không hiểu HTTP; ClusterIP chỉ tồn tại dưới dạng rule trên node; năm thứ cùng tên
+  "proxy" chạy ở năm chỗ khác nhau.
+- Cluster là single-stack IPv4, chứng minh bằng phản ứng của API server; Gateway API là add-on chưa
+  có trên cluster, khác Ingress ở chỗ thiếu cả **kiểu dữ liệu** chứ không chỉ thiếu người thực thi.
+- Đưa cluster qua trọn bảy tầng gate A5.4 với CNI mới, và chụp `02-net-ready` khi cluster **chỉ còn
+  hạ tầng**.
+
+### 1.1. Ánh xạ tài liệu sang bài thực hành
+
+| Bài | Ticket kiểm chứng |
+| --- | --- |
+| [84 — Chính sách mạng](../84-network-policies-vi.md) (nhóm 5a, **nợ #4**) | B1 — policy của sprint 6 được lưu mà không chặn gì trên Flannel; B5 — mặc định chặn hai chiều, rule ở hai đầu, cổng Pod, phép giao, bẫy DNS, *Vòng đời Pod*, ⭐ `endPort` (**trả nợ #4**) |
+| [157 — Mạng trong cluster](../157-networking-vi.md) | B2 — ba dải IP đọc từ tiến trình đang chạy, `node.status.addresses` so với `ip addr`, PodCIDR từng node; B3 — IPAM đổi chủ trong khi `.spec.podCIDR` giữ nguyên |
+| [183 — Network Plugin](../183-network-plugins-vi.md) | B2 — `/etc/cni/net.d`, `/opt/cni/bin`, `portMappings`, `loopback`, containerd nạp plugin, kubelet không còn cờ quản lý CNI; B3 — thay plugin rồi đọc lại hai đường dẫn |
+| [12 — Ingress Controllers](../12-ingress-controllers-vi.md) | B4 — Ingress nằm im khi chưa có controller; cài Traefik (controller bên thứ ba); IngressClass mặc định duy nhất; B8 ⭐ — controller lệch khỏi đặc tả |
+| [11 — Ingress](../11-ingress-vi.md) | B4 — `.status` rỗng, class mặc định không hồi tố; B6 — Ingress `bookstore`: `host`, `pathType: Prefix`, `ingressClassName`, TLS bằng Secret `kubernetes.io/tls`, TLS kết thúc tại ingress; B8 ⭐ — `Prefix` theo phần tử path, path khớp dài nhất thắng, `Exact`, wildcard host, `pathType` bắt buộc |
+| [164 — Các loại proxy](../164-proxies-vi.md) | B4 — Service mặc định `LoadBalancer` của chart (loại 5) không có ai cấp địa chỉ; B7 — mode kube-proxy, ClusterIP trong rule của node, `kubectl proxy`, apiserver proxy. Loại 4 chỉ đọc: cần control plane HA (Lab 8b) |
+| [85 — Dual-stack IPv4/IPv6](../85-dual-stack-vi.md) | B7 — `ipFamilyPolicy`, `ipFamilies`, `clusterIPs` của Service `api` và `db`; `RequireDualStack` bị từ chối, `PreferDualStack` quay về single-stack; ⭐ headless không selector |
+| [13 — Gateway API](../13-gateway-vi.md) | B7 — **chỉ kiểm tính add-on**: API group không tồn tại, `HTTPRoute` bị từ chối, trong khi Traefik tự mang CRD riêng. Không cài Gateway API: đó là thêm một hạ tầng thứ hai vào lab đang đổi CNI, và CRD thuộc [giai đoạn 14](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), thực hành ở [giai đoạn 28](../00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes). Quyết định định hướng ghi thành ADR ở B7 |
+
+Các trang **mượn quy trình**, không thuộc nhóm 5b:
+
+| Trang | Dùng ở |
+| --- | --- |
+| [201 — Khai báo Network Policy](../201-declare-network-policy-vi.md) | B1, B5 — trình tự đo: dựng đích → đo đường cơ sở → áp policy → thử Pod có quyền và Pod không có quyền |
+| [243 — Cài đặt một Network Policy Provider](../243-network-policy-provider-vi.md), [245 — Sử dụng Calico cho NetworkPolicy](../245-calico-network-policy-vi.md) | B2 — chọn provider từ danh sách chính thức; B3 — nhánh *cluster cục bộ với kubeadm* |
+| [109 — Secret](../109-secret-vi.md), [328 — Secret bằng Kustomize](../328-secret-kustomize-vi.md), [322 — Kustomize](../322-kustomization-vi.md) | B6 — Secret TLS sinh bằng `secretGenerator` từ file trong `secrets/` |
+
+Nợ của sprint:
+
+| Nợ | Trạng thái sau sprint 7 |
+| --- | --- |
+| Nợ lab #4 — NetworkPolicy được thực thi thật | **Trả** ở B5; bằng chứng hai đầu ở B1 và B5 |
+| `TD-09` — Lưu lượng giữa các tầng chưa bị giới hạn | **Trả** ở B5 |
+| `TD-11` (mới) — Certificate tự ký, client không tin được, gia hạn bằng tay; đoạn sau Traefik là plaintext | Phát sinh ở B6. Chưa có lab trả: công cụ cấp certificate nằm ngoài chuỗi lab ([A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00)) — chấp nhận có điều kiện |
+
+Nợ còn mở từ trước: nợ lab #1 (HPA ở Lab 11b, VPA chưa có lab), #2 (`volumeClaimTemplates`, Lab
+6a), #5 → #8; nợ kỹ thuật `TD-04`, `TD-06`, `TD-07`, `TD-08`.
+
+Ba điểm cố ý dừng ở phần đo được, không phát sinh nợ:
+
+- **Thứ tự khi hai path khớp ngang nhau** (`Exact` thắng `Prefix`) không vào gate: bài 11 và bài 12
+  đều nói các controller hoạt động hơi khác nhau. B8 chỉ gate phần đặc tả nói rõ, và **so** chỗ
+  Traefik lệch với cấu hình đang chạy của nó.
+- **`hostPort` và điều tiết băng thông** của bài 183: chỉ đọc khai báo `portMappings` trong conflist;
+  plugin `bandwidth` là tính năng thử nghiệm.
+- **Loại proxy 4** của bài 164 cần nhiều apiserver — thực hành ở Lab 8b.
+
+### 1.2. Thời lượng
+
+4–5 giờ. Phần cốt lõi (B0–B7, B9) khoảng 4 giờ rưỡi nếu không bí lâu ở ticket nào; B8 và các mục ⭐
+là tùy chọn. **B3 dài nhất (60–90 phút) và rủi ro nhất** — đừng bắt đầu B3 khi không còn đủ thời gian
+chạy hết B3 và B4. Chia hai phiên: phiên 1 làm B0–B4 (kết thúc khi cluster đã có Calico và Traefik,
+dự án chưa triển khai lại); phiên 2 làm B5–B9. Giữa hai phiên có thể tắt ba VM; đầu phiên 2 chạy lại
+gate ngắn A5.5.
+
+---
+
+## 2. Quy ước và an toàn
+
+- Mọi lệnh `kubectl` chạy trên `lab-k8s-master` trừ khi ghi rõ node khác. Lệnh trên node chạy qua
+  `ssh <node> '...'` từ master như các lab trước; script dùng hàm `on` chạy tại chỗ khi node đích
+  chính là master.
+- Repo dự án: `~/bookstore`. Manifest thử nghiệm và file tải về: `~/lab-work/5b/`. Bằng chứng:
+  `~/lab-evidence/5b/`.
+- Lab chỉ dùng kiến thức nhóm 5b và các nhóm trước. **Không** dùng PVC, StorageClass (giai đoạn 6),
+  HPA, metrics-server (giai đoạn 11), RBAC tự viết (giai đoạn 9) — quyền của Calico và Traefik do
+  chính manifest và chart của chúng khai báo.
+- Object thử nghiệm nằm ở namespace `np-ngoai`, `ing-thu`, `net-thu`, hoặc là Pod không label trong
+  `bookstore`, `traefik`. Chúng **không** mang label `app.kubernetes.io/part-of`; xóa khi xong ticket
+  hoặc ở mục đóng sprint.
+- **Ngoại lệ về phạm vi tác động:** B3 chạm **cả ba node**, vì đổi CNI là thao tác trên từng node chứ
+  không trên API. Đó là lý do lab tạo snapshot mới. Ngoài B3, lệnh trên node chỉ để đọc. Lab không có
+  ticket diễn tập sự cố; muốn tự phá thêm thì chỉ phá `lab-k8s-worker2`.
+- Hạ tầng nền thuộc **cluster**, không thuộc repo dự án
+  ([mục 3.3 của file dự án](DU-AN-BOOKSTORE.md#33-hạ-tầng-nền-của-cluster)). Calico và Traefik không
+  mang label dự án, `teardown.sh` không gỡ chúng. Repo chỉ giữ **ghi chép** cách cài, trong
+  `platform/`.
+- Dòng bắt đầu bằng `PASS:` là gate; không đi tiếp khi gate fail. Dòng `FAIL:` trong script nghiệm
+  thu nghĩa là ticket chưa xong.
+
+### 2.1. Đổi CNI là thao tác phá hoại
+
+Trong B3, giữa lúc gỡ Flannel và lúc Calico chạy xong, cluster **mất tầng mạng Pod**: node có thể
+chuyển `NotReady`, CoreDNS không chạy được, Pod mới không có IP. Đó là trạng thái **đúng** của giai
+đoạn giữa, không phải sự cố. Nhưng dừng lại ở đó, hoặc dọn sót interface và file cấu hình cũ, thì
+cluster có thể không hồi phục bằng cách sửa vặt.
+
+Bắt buộc trước B3:
+
+1. **Snapshot `01-cluster-ready` còn nguyên trên cả ba VM** — B0 kiểm việc này từ máy host. Thiếu dù
+   một VM thì **dừng**.
+2. Dự án đã được gỡ khỏi cluster và repo đã có bundle ngoài VM của tag `lab-5a`.
+3. Chạy trọn B3 trong một lần, không tắt máy giữa chừng.
+
+Khi B3 hỏng và không sửa được trong vài phút bằng [mục 4](#4-troubleshooting-của-lab-này): tắt và
+**restore cả ba VM về `01-cluster-ready`**, khôi phục repo từ bundle, chạy lại bảy tầng
+[gate A5.4](LAB-00-MOI-TRUONG-1.35.7.md#a54-gate-01-cluster-ready), rồi làm lại từ B0. Không
+restore riêng một VM.
+
+### 2.2. Phiên bản hạ tầng nằm ở đâu
+
+Calico, Helm và chart Traefik (kèm `appVersion`) đã chốt ở
+[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00). B3 cho bạn tạo
+`platform/versions.env` trong repo bằng cách **chép tay** bốn giá trị từ bảng đó; mọi lệnh cài nền
+trong lab và trong runbook `platform/` đọc số từ file này. A1.4 vẫn là nguồn duy nhất; lab không chép
+con số nào.
+
+---
+
+# Phần B — Sprint 7: Mạng zero-trust và HTTPS
+
+## B0. Nhận bàn giao sprint
+
+**Mục đích:** xác nhận cluster ở đúng `01-cluster-ready` với Flannel, repo ở đúng tag `lab-5a`, hệ
+thống của sprint 6 dựng lại được **chỉ từ repo**, và có đường lùi trước khi đụng vào mạng.
+
+Gate ngắn A5.5, chạy nguyên văn:
 
 ```bash
 kubectl wait --for=condition=Ready node --all --timeout=180s
@@ -40,234 +188,47 @@ kubectl -n kube-system get deployment coredns
 kubectl get pods -n default
 ```
 
-**PASS:** ba node `Ready`; có dòng `PASS: readyz ok`; lệnh field selector trả `No resources found`;
-CoreDNS đủ replica `READY`; namespace `default` không có Pod.
-
----
-
-## 1. Kết quả phải đạt
-
-Hoàn thành lab khi có thể tự chứng minh và giải thích được:
-
-- Chỉ ra trên cluster của mình **ba dải IP không chồng lấn** — Pod, Service, Node — và nói đúng
-  thành phần nào cấp phát từng dải; đọc được chúng từ tiến trình đang chạy chứ không từ trí nhớ.
-- Nói được vì sao `ip addr` trên node và `node.status.addresses` là hai thứ khác nhau, và
-  Kubernetes chỉ nhìn cái nào.
-- Chỉ ra **ai nạp CNI plugin** trên node, hai đường dẫn phải thuộc lòng khi gỡ lỗi, và đọc được
-  file cấu hình CNI thật trước lẫn sau khi đổi plugin.
-- Chứng minh bằng lưu lượng rằng một NetworkPolicy hợp lệ **không chặn được gì** khi CNI không
-  hiện thực nó — và phân biệt được "object được API server chấp nhận" với "policy có hiệu lực".
-- Thực hiện được quy trình **đổi CNI** trên cluster đang chạy theo đúng thứ tự an toàn: gỡ plugin
-  cũ, dọn interface và file cấu hình còn sót, cài plugin mới, đưa mọi Pod và DNS trở lại.
-- Chứng minh **cùng một NetworkPolicy** giờ chặn thật; mở đúng một cổng cho đúng một nhóm Pod, và
-  giải thích vì sao số cổng trong policy là cổng của **Pod đích** chứ không phải cổng của Service.
-- Phân biệt phép **giao** và phép **hợp** trong `from` bằng một phép đo, chứ không bằng cách nhớ
-  quy tắc.
-- Chứng minh rằng cô lập chiều đi chặn luôn **DNS**, và mở lại đúng đường tối thiểu để traffic
-  chạy được.
-- Đọc được mode kube-proxy đang chạy và tìm thấy ClusterIP của Service mình tạo trong rule mà nó
-  sinh ra trên node; nói được vì sao kube-proxy không thay được Ingress.
-- Chứng minh **Ingress không có controller thì vô nghĩa**, rồi cài một ingress controller và làm
-  cho cùng tài nguyên đó phục vụ thật từ ngoài cluster.
-- Viết Ingress có `host`, nhiều `path` và `pathType`; đo được quy tắc "khớp theo từng phần tử
-  path" và "path khớp dài nhất thắng"; giải thích `ingressClassName` và IngressClass mặc định.
-- Kết thúc TLS tại điểm ingress bằng một Secret `kubernetes.io/tls` và nói được đoạn nào sau đó là
-  plaintext.
-- Chứng minh cluster này là **single-stack IPv4** bằng chính phản ứng của API server với
-  `RequireDualStack` và `PreferDualStack`.
-- Đưa cluster qua **trọn bảy tầng gate A5.4** với CNI mới rồi chụp snapshot `02-net-ready`.
-
-### 1.1. Ánh xạ tài liệu sang bài thực hành
-
-Thứ tự bảng dưới đây chính là thứ tự các mục `B`.
-
-| Bài trong nhóm 5b | Phần lab kiểm chứng |
-| --- | --- |
-| [157 — Mạng trong cluster](../157-networking-vi.md) | B1 — đọc Pod CIDR từ kube-controller-manager, Service CIDR từ kube-apiserver, IP node từ `node.status.addresses`; kiểm ba dải không dùng chung tiền tố; đối chiếu số địa chỉ thật trên interface của `lab-k8s-worker2` với số địa chỉ Kubernetes ghi nhận |
-| [183 — Network Plugin](../183-network-plugins-vi.md) | B2 — `/etc/cni/net.d` và `/opt/cni/bin` trên cả ba node, khai báo `portMappings`, plugin `loopback`, và bằng chứng kubelet **không** còn cờ quản lý CNI; B4 — thay chính plugin đó và đọc lại toàn bộ hai đường dẫn |
-| [84 — Chính sách mạng](../84-network-policies-vi.md) | B3 — deny-all ingress trên CNI cũ mà lưu lượng vẫn qua (**bằng chứng của nợ #4**); B5 — cùng file policy đó chặn thật, mở một cổng, giao/hợp trong `from`, `endPort`, bẫy DNS của cô lập chiều đi (**trả nợ #4**) |
-| [164 — Các loại proxy trong Kubernetes](../164-proxies-vi.md) | B6 — mode kube-proxy, ClusterIP trong bảng rule của node, `kubectl proxy` và apiserver proxy tới Service; loại 4 và loại 5 chỉ đọc vì cluster một control plane và không có cloud provider |
-| [12 — Ingress Controllers](../12-ingress-controllers-vi.md) | B7 — cluster chưa có IngressClass nào và Ingress nằm im; B8 — cài một controller, đọc `.metadata.name` của IngressClass nó tạo và annotation class mặc định |
-| [11 — Ingress](../11-ingress-vi.md) | B7 — `.status` rỗng khi chưa có controller; B9 — `host`, `pathType: Prefix` khớp theo phần tử path, path khớp dài nhất thắng, `pathType: Exact` không khớp dấu gạch chéo cuối, `ingressClassName` và class mặc định, TLS kết thúc tại ingress |
-| [85 — Dual-stack IPv4/IPv6](../85-dual-stack-vi.md) | B10 — `.spec.ipFamilyPolicy`, `.spec.ipFamilies`, `.spec.clusterIPs` của Service thật; `RequireDualStack` bị API server từ chối và `PreferDualStack` tự quay về single-stack |
-
-Ba trang lab **mượn quy trình cài đặt**, không thuộc nhóm bài giai đoạn 5 — lộ trình xếp chúng ở
-[giai đoạn 21](../00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy):
-
-| Trang | Lab dùng phần nào |
-| --- | --- |
-| [243 — Cài đặt một Network Policy Provider](../243-network-policy-provider-vi.md) | Trang mục; B4 dùng nó để chọn provider trong danh sách chính thức thay vì chọn theo cảm tính |
-| [245 — Sử dụng Calico cho NetworkPolicy](../245-calico-network-policy-vi.md) | B4 — nhánh *cluster cục bộ với kubeadm*; phần GKE không áp dụng |
-| [201 — Khai báo Network Policy](../201-declare-network-policy-vi.md) | B3 và B5 — trình tự kiểm chứng: dựng đích → đo đường cơ sở → áp policy → thử cả Pod có label lẫn Pod không có label |
-
-Một bài của nhóm **không kiểm chứng được trên cluster lab**, đọc để biết:
-
-| Bài | Vì sao không có bước thực hành |
-| --- | --- |
-| [13 — Gateway API](../13-gateway-vi.md) | Gateway API **không có sẵn** trong Kubernetes: nó là add-on gồm một bộ CustomResourceDefinition cộng với một bản hiện thực riêng. Cài nó là thêm một hạ tầng thứ hai vào cùng lab đang đổi CNI, và kiến thức CRD thuộc [giai đoạn 14](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) với phần thực hành ở [giai đoạn 28](../00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes). B7 chỉ chạy **một lệnh đối chiếu** để thấy API group `gateway.networking.k8s.io` chưa tồn tại — đó là kiểm chứng cho *tính chất add-on* của Gateway API, không phải cho nội dung định tuyến của bài |
-
-Ba điểm của nhóm bài **cố ý dừng ở phần đo được**, không phát sinh nợ mới:
-
-- **Thứ tự ưu tiên khi hai path khớp bằng nhau** (`Exact` thắng `Prefix`) không được đưa vào gate.
-  Cả bài [11](../11-ingress-vi.md) lẫn bài [12](../12-ingress-controllers-vi.md) đều cảnh báo các
-  controller hoạt động hơi khác nhau, và cách xếp ưu tiên khi hòa là phần controller tự quyết. B9
-  chỉ đo hai quy tắc không phụ thuộc controller: khớp **theo từng phần tử path**, và **path khớp
-  dài nhất thắng**.
-- **Wildcard hostname** (`*.foo.com`) cần một tên miền thật trỏ vào cluster. B9 dùng header `Host`
-  nên chỉ đo được so khớp chính xác.
-- **`hostPort` và điều tiết lưu lượng** của bài [183](../183-network-plugins-vi.md): B2 và B4 chỉ
-  đọc khai báo `portMappings` trong file conflist chứ không dựng Pod `hostPort`; plugin
-  `bandwidth` vẫn là tính năng thử nghiệm nên bài xếp là không cần.
-
-### 1.2. Thời lượng
-
-3–4 giờ, chia không đều:
-
-- B0–B3 khoảng 45 phút: đọc cấu hình và dựng bằng chứng cho nợ #4.
-- **B4 khoảng 60–90 phút** và là phần rủi ro nhất; đừng bắt đầu B4 khi không còn đủ thời gian chạy
-  hết B4.
-- B5–B6 khoảng 45 phút.
-- B7–B9 khoảng 60 phút, phụ thuộc tốc độ tải chart và image.
-- B10–B11 khoảng 30 phút, chưa kể thời gian tắt máy và chụp snapshot ba VM.
-
----
-
-## 2. Quy ước và an toàn
-
-- Mọi lệnh chạy trên `lab-k8s-master` bằng user quản trị có kubeconfig, **trừ khi mục ghi rõ node
-  khác**. B2, B4.3 và một phần B6 chạy trên từng node.
-- Object của lab nằm trong hai namespace `lab-5b` và `lab-5b-ext`, luôn gọi kèm `-n`. Ingress
-  controller nằm ở namespace riêng của nó và **được giữ lại** sau lab.
-- Manifest tạm ghi vào `~/lab-work/5b/`, bằng chứng ghi vào `~/lab-evidence/5b/`. Không lưu token,
-  key hay certificate của cluster; certificate tự ký sinh ra ở B9 là của lab, không phải của
-  control plane.
-- Dòng bắt đầu bằng `PASS:` là gate; không đi tiếp khi gate fail.
-- Phần B dùng biến shell nối tiếp giữa các bước, nên chạy **toàn bộ phần B trong cùng một phiên
-  shell** trên `lab-k8s-master`. Các giá trị quan trọng đều được ghi ra file trong
-  `~/lab-evidence/5b/` để đọc lại được khi phải mở phiên mới.
-- Lab **không** dùng PersistentVolumeClaim, StorageClass hay HorizontalPodAutoscaler — lưu trữ là
-  [giai đoạn 6](../00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), autoscaling cần metrics-server của
-  [giai đoạn 11](../00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability). Cũng **không** đụng tới
-  RBAC ([giai đoạn 9](../00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy)): mọi
-  quyền của chart và của CNI do chính manifest của chúng khai báo, lab không tự viết Role.
-- Lab này **không có bước fault injection**. Nếu bạn muốn tự thử phá thêm, chỉ được phá
-  `lab-k8s-worker2`.
-- **Ngoại lệ về phạm vi tác động:** B4 buộc phải chạm **cả ba node**, vì đổi CNI là thao tác trên
-  từng node chứ không phải trên API. Đây là lý do lab này tạo snapshot mới thay vì trả cluster về
-  mốc cũ.
-
-### 2.1. Cảnh báo: đổi CNI là thao tác phá hoại
-
-Giữa B4.2 và B4.4, cluster **mất tầng mạng Pod**: node chuyển `NotReady`, CoreDNS không chạy được,
-Pod mới không có IP. Đó là trạng thái **đúng** của giai đoạn giữa, không phải sự cố. Nhưng nếu
-dừng lại ở đó, hoặc dọn sót interface và file cấu hình cũ, cluster có thể không hồi phục bằng cách
-sửa vặt.
-
-Bắt buộc trước khi vào B4:
-
-1. **Điểm khôi phục `01-cluster-ready` phải còn nguyên trên cả ba VM.** B0 có gate kiểm việc này
-   từ máy host. Thiếu dù chỉ một VM thì **dừng**: tắt ba VM và chụp lại mốc theo đúng quy trình ở
-   [A5.4.8 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a548-dọn-resource-test-ghi-evidence-và-chụp-snapshot)
-   trước khi tiếp tục.
-2. Chạy trọn B4 trong một lần. Không tắt máy giữa chừng.
-
-Khi B4 hỏng và không sửa được trong vài phút bằng [mục 4](#4-troubleshooting-của-lab-này): tắt và
-**restore cả ba VM về `01-cluster-ready`**, chạy lại
-[bảy tầng gate A5.4](LAB-00-MOI-TRUONG-1.35.7.md#a54-gate-01-cluster-ready), rồi làm lại lab từ B0.
-Không restore riêng một VM; với cluster một control plane, restore là thao tác trên cả ba VM cùng
-một mốc.
-
-### 2.2. Vì sao phải đổi CNI
-
-Bảng A1.3 của Lab 00 chọn Flannel có chủ đích và ghi rõ Flannel **không thực thi NetworkPolicy**.
-Bài [183](../183-network-plugins-vi.md) giải thích vì sao điều đó vẫn hợp lệ: hợp đồng duy nhất mà
-Kubernetes đặt ra cho một CNI plugin là **hiện thực mô hình mạng Kubernetes**, cộng hai yêu cầu bổ
-sung là interface `lo` và hỗ trợ `hostPort`. NetworkPolicy **không** nằm trong hợp đồng đó.
-
-Vì vậy chuỗi lab không "sửa lỗi" Flannel — nó dùng Flannel để dạy đúng một điều mà không cách nào
-dạy bằng lý thuyết: một object hợp lệ, được API server nhận và lưu, vẫn có thể **không có hiệu lực
-nào**. B3 lấy bằng chứng đó. B4 đổi plugin. B5 lấy lại bằng chứng ngược lại trên **cùng một file
-policy**.
-
-### 2.3. Phiên bản lab 5b đưa vào chuỗi snapshot
-
-Snapshot `02-net-ready` chứa hai thành phần mà `01-cluster-ready` không có. Bảng dưới **không ghi con số nào** — cả ba đều đã được chốt ở
-[bảng A1.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00). Bảng này chỉ nói lab dùng gì và vì sao, bổ sung cho
-[bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) chứ không thay thế, và
-mọi lab sau cần nói tới hai thành phần này thì link về đây.
-
-| Thành phần | Phiên bản | Nguồn của con số |
-| --- | --- | --- |
-| CNI thay Flannel — Calico, cài bằng manifest | xem dòng *Calico (CNI thay Flannel)* trong [bảng A1.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) | Calico 3.32 ghi nhận dải Kubernetes đã kiểm thử bao gồm minor của baseline |
-| Helm | xem dòng *Helm* trong [bảng A1.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) | Đã chốt sẵn ở A1.4 với ghi chú "lab nào cần chart đầu tiên" — chính là lab này |
-| Ingress controller — Traefik, cài bằng chart | xem dòng *Traefik (Ingress)* trong [bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) (chart **và** `appVersion`) | Đã chốt sẵn ở A1.4 với ghi chú "Lab 5b (ingress controller)" |
-
-**Vì sao Calico chứ không phải plugin khác:** trang [243](../243-network-policy-provider-vi.md) liệt
-kê sáu provider. Trong đó [Romana](../248-romana-network-policy-vi.md) đã ngừng phát triển;
-[Cilium](../246-cilium-network-policy-vi.md) được trang chính thức hướng dẫn qua minikube và một
-CLI riêng phải tải thêm; còn [Calico](../245-calico-network-policy-vi.md) có sẵn nhánh *cluster cục
-bộ với kubeadm* và cài được bằng **một manifest duy nhất**, đúng hình dạng thao tác mà bạn đã làm
-với Flannel ở [A5.2 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a52-cài-flannel-v0289). Ít bước lạ hơn
-thì phần học nằm ở NetworkPolicy chứ không nằm ở việc vật lộn với trình cài đặt.
-
-Chạy **một lần** ở đầu phiên shell phần B, trên `lab-k8s-master`:
-
-```bash
-export CALICO_VER='<Calico trong bảng A1.4 của Lab 00, dạng vX.Y.Z>'
-export HELM_VER='<Helm trong bảng A1.4 của Lab 00, dạng vX.Y.Z>'
-export TRAEFIK_CHART='<chart Traefik trong bảng A1.4 của Lab 00, dạng X.Y.Z>'
-
-test -n "$CALICO_VER" && test -n "$HELM_VER" && test -n "$TRAEFIK_CHART" \
-  && echo 'PASS: ba bien phien ban da duoc dat'
-case "$CALICO_VER$HELM_VER$TRAEFIK_CHART" in
-  *'<'*) echo 'FAIL: con placeholder chua thay bang so that trong bang A1.4';;
-  *) echo 'PASS: khong con placeholder';;
-esac
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện, không có dòng `FAIL:`. Hai biến `HELM_VER` và
-`TRAEFIK_CHART` phải được điền bằng đúng con số đọc từ bảng A1.4 — lab cố ý **không** chép chúng
-vào đây, để bảng A1.4 vẫn là nơi duy nhất giữ số của hai thành phần đó.
-
----
-
-# Phần B — Thực hành kiến thức 5b
-
-## B0. Chuẩn bị workspace, điểm khôi phục và namespace
-
-**Mục đích:** dựng chỗ làm việc, và chứng minh **trước khi đụng vào mạng** rằng cluster có đường
-lùi.
-
-Trên `lab-k8s-master`:
+Repo, thư mục làm việc và điểm xuất phát của mạng. Nếu vừa restore snapshot, repo đã mất — khôi phục
+từ bundle theo [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm) trước:
 
 ```bash
 mkdir -p ~/lab-work/5b ~/lab-evidence/5b
-kubectl config current-context
-kubectl get nodes -o wide | tee ~/lab-evidence/5b/b0-nodes-truoc.txt
-
-kubectl create namespace lab-5b
-kubectl create namespace lab-5b-ext
-
-test "$(kubectl get ns lab-5b -o jsonpath='{.status.phase}')" = 'Active' \
-  && echo 'PASS: namespace lab-5b Active'
-test "$(kubectl get ns lab-5b-ext -o jsonpath='{.status.phase}')" = 'Active' \
-  && echo 'PASS: namespace lab-5b-ext Active'
+test -d ~/bookstore/.git || git clone ~/bookstore-lab-5a.bundle ~/bookstore
+cd ~/bookstore
+git describe --tags --exact-match HEAD 2>/dev/null | grep -qx 'lab-5a' && echo 'PASS: HEAD dung tag lab-5a'
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong co thay doi chua commit'
+test -s ~/bookstore-lab-5a.bundle && echo 'PASS: co bundle lab-5a de lui lai neu B3 hong'
+kubectl get namespace bookstore >/dev/null 2>&1 \
+  && echo 'FAIL: namespace bookstore con sot tu lan truoc' || echo 'PASS: cluster chua co du an'
+kubectl -n kube-flannel get daemonset kube-flannel-ds >/dev/null 2>&1 && echo 'PASS: CNI dang la Flannel'
+kubectl -n kube-system get daemonset calico-node >/dev/null 2>&1 \
+  && echo 'FAIL: cluster da co Calico - khong phai 01-cluster-ready' || echo 'PASS: chua co Calico'
+test "$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)" -eq 0 && echo 'PASS: chua co IngressClass nao'
 ```
 
-Namespace mang sẵn label tự động `kubernetes.io/metadata.name`; B5 sẽ dùng chính label đó làm
-`namespaceSelector`, nên xác nhận nó có thật:
+Dựng lại hệ thống của sprint 6 bằng script của chính sprint đó:
 
 ```bash
-kubectl get ns lab-5b-ext -o jsonpath='{.metadata.labels}'; echo
-kubectl get ns lab-5b-ext \
-  -o jsonpath='{.metadata.labels.kubernetes\.io/metadata\.name}' | grep -qx 'lab-5b-ext' \
-  && echo 'PASS: namespace mang label kubernetes.io/metadata.name dung ten cua no'
+cd ~/bookstore
+./scripts/deploy.sh > ~/lab-evidence/5b/b0-deploy.txt 2>&1; echo "deploy exit=$?"
+./tests/smoke.sh > ~/lab-evidence/5b/b0-smoke-lab-5a.txt 2>&1; echo "smoke exit=$?"
+cat ~/lab-evidence/5b/b0-smoke-lab-5a.txt
 ```
 
-**PASS:** ba dòng `PASS:` xuất hiện.
+Kéo sẵn image dùng cho Pod đo lên hai worker — Pod đo của B1 và B5 chạy image `postgres` vì nó có
+`bash`, `getent` và `timeout`. Tag lấy đúng từ [A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa)
+và [A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00):
 
-Gate điểm khôi phục — chạy trên **PowerShell của máy host Windows**, không phải trên VM. Đường dẫn
-`.vmx` theo máy host đang dùng, sửa lại nếu VM nằm chỗ khác:
+```bash
+for N in lab-k8s-worker1 lab-k8s-worker2; do
+  for I in docker.io/library/busybox:1.37 docker.io/library/postgres:17.11; do
+    ssh "$N" "sudo crictl pull $I" >/dev/null && echo "PASS: $N co $I" || echo "FAIL: $N khong keo duoc $I"
+  done
+done
+```
+
+Gate điểm khôi phục — chạy trên **PowerShell của máy host Windows**. Đường dẫn `.vmx` theo máy host
+đang dùng, sửa lại nếu VM nằm chỗ khác:
 
 ```powershell
 $vmrun = 'C:\Program Files\VMware\VMware Workstation\vmrun.exe'
@@ -283,2162 +244,2417 @@ foreach ($f in $vmx) {
 }
 ```
 
-**PASS:** đúng ba dòng `PASS:`, không có dòng `FAIL:`. Thiếu bất kỳ VM nào thì **dừng lab tại
-đây**: tắt ba VM và chụp mốc theo
-[A5.4.8 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a548-dọn-resource-test-ghi-evidence-và-chụp-snapshot),
-rồi mới quay lại. Đây là điều kiện của [mục 2.1](#21-cảnh-báo-đổi-cni-là-thao-tác-phá-hoại).
+Chép `~/bookstore-lab-5a.bundle` về máy host bằng `scp` nếu bản trên host chưa phải bản mới nhất.
 
----
+**PASS:** gate A5.5 đạt như mô tả ở Lab 00; bảy dòng `PASS:` về repo và cluster; `deploy exit=0`,
+`smoke exit=0` và file smoke không có dòng `FAIL:`; đủ bốn dòng `PASS: ... co ...`; đúng ba dòng
+`PASS:` trên máy host.
 
-## B1. Ba dải IP và mô hình mạng thật của cluster
+`deploy.sh` hoặc `smoke.sh` fail nghĩa là repo của sprint 6 **chưa đủ** — sửa repo ở tag `lab-5a`
+trước, không sửa tay trên cluster ([mục 6.1 của file dự án](DU-AN-BOOKSTORE.md#61-mở-đầu)). Thiếu
+snapshot trên bất kỳ VM nào thì **dừng lab**: tắt ba VM, chụp lại mốc theo
+[A5.4.8 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a548-dọn-resource-test-ghi-evidence-và-chụp-snapshot).
 
-**Mục đích:** bài [157](../157-networking-vi.md) nói cluster phải cấp ba dải IP không chồng lấn và
-mỗi dải do một thành phần khác nhau cấp. Bước này đọc cả ba từ **tiến trình đang chạy**, không từ
-tài liệu.
+## B1. [BS-5B-01] Điều tra: NetworkPolicy của sprint 6 trên Flannel
 
-### B1.1. Đọc ba dải từ đúng nơi cấp phát chúng
+**Loại:** Điều tra — bằng chứng của nợ lab #4.
 
-```bash
-MASTER=lab-k8s-master
+**Bối cảnh:** sprint 6 đã viết NetworkPolicy theo ma trận ở
+[mục 3.5](DU-AN-BOOKSTORE.md#35-thiết-kế-bảo-mật), và `deploy.sh` đã áp chúng. API server nhận,
+`kubectl get` liệt kê đủ — nhưng chưa ai đo xem chúng có chặn gì không. Trước khi đổi CNI, đội cần
+**một phép đo chuẩn**: chạy nó bây giờ trên Flannel, rồi chạy lại đúng phép đo đó ở B5 trên Calico.
+Hai kết quả ngược nhau chính là nội dung của nợ #4.
 
-SVC_CIDR="$(kubectl -n kube-system get pod "kube-apiserver-$MASTER" \
-  -o jsonpath='{range .spec.containers[0].command[*]}{@}{"\n"}{end}' \
-  | sed -n 's/^--service-cluster-ip-range=//p')"
+**Yêu cầu:**
 
-POD_CIDR="$(kubectl -n kube-system get pod "kube-controller-manager-$MASTER" \
-  -o jsonpath='{range .spec.containers[0].command[*]}{@}{"\n"}{end}' \
-  | sed -n 's/^--cluster-cidr=//p')"
+1. Liệt kê NetworkPolicy của dự án đang có trong `bookstore` và lưu cách Kubernetes diễn giải từng
+   cái.
+2. Dựng hai Pod đo theo file `~/lab-work/5b/probe-pods.yaml` — một Pod **không mang label nào** trong
+   `bookstore`, một Pod ở namespace riêng `np-ngoai`. File chép nguyên văn từ khối Script nghiệm thu.
+3. Đo **bảy cặp mà ma trận không cho phép** bằng `~/lab-work/5b/probe.sh` (chép nguyên văn): Pod lạ
+   trong `bookstore` tới `web`, `api`, `db`; Pod ở namespace khác tới `web`, `api`, `db`; và `db-0`
+   tới `web`. Chứng minh **cả bảy** đều mở được kết nối TCP.
+4. Chứng minh đường vào NodePort `30080` của sprint 6 vẫn trả trang chủ — một đường vào đi vòng ngoài
+   Traefik mà ma trận không có.
+5. Ghi hồ sơ bằng chứng của nợ #4. Xóa Pod đo và namespace đo, **giữ** hai file trong
+   `~/lab-work/5b/` cho B5.
 
-MASTER_IP="$(kubectl get node "$MASTER" \
-  -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+**Ràng buộc:** không sửa, không xóa policy; không đổi gì trong repo. Pod đo không mang label
+`app.kubernetes.io/part-of`.
 
-printf '%s\n' "$POD_CIDR" | tee ~/lab-evidence/5b/b1-pod-cidr.txt
-printf '%s\n' "$SVC_CIDR" | tee ~/lab-evidence/5b/b1-svc-cidr.txt
-printf '%s\n' "$MASTER_IP" | tee ~/lab-evidence/5b/b1-master-ip.txt
-```
+**Đọc lại:**
 
-Hai file `b1-pod-cidr.txt` và `b1-svc-cidr.txt` được các mục sau đọc lại, nên đừng xóa chúng giữa
-chừng.
+- Bài [84](../84-network-policies-vi.md):
+  [*Điều kiện tiên quyết*](../84-network-policies-vi.md#điều-kiện-tiên-quyết-prerequisites),
+  [*Hai kiểu cô lập pod*](../84-network-policies-vi.md#hai-kiểu-cô-lập-pod-the-two-sorts-of-pod-isolation),
+  [*Tài nguyên NetworkPolicy*](../84-network-policies-vi.md#networkpolicy-resource) — đoạn về
+  `podSelector` rỗng và ghi chú "POST nội dung này lên API server sẽ không có tác dụng gì".
+- Bài [183](../183-network-plugins-vi.md), đoạn mở đầu và
+  [*Yêu cầu đối với Network Plugin*](../183-network-plugins-vi.md#yêu-cầu-đối-với-network-plugin-network-plugin-requirements)
+  — hợp đồng của một CNI plugin gồm những gì.
+- Bài [201](../201-declare-network-policy-vi.md) — trình tự dựng đích, đo đường cơ sở, áp policy, đo
+  lại.
 
-Đối chiếu với cấu hình mà kubeadm đã ghi lại:
+**Bàn giao:** `docs/adr/NNNN-networkpolicy-tren-flannel.md` (`NNNN` là số tiếp theo trong
+`docs/adr/`); `~/lab-evidence/5b/b1-*.txt`; `~/lab-work/5b/probe-pods.yaml`, `~/lab-work/5b/probe.sh`.
 
-```bash
-kubectl -n kube-system get cm kubeadm-config -o jsonpath='{.data.ClusterConfiguration}' \
-  | grep -E 'podSubnet|serviceSubnet' | tee ~/lab-evidence/5b/b1-kubeadm-config.txt
+**Nghiệm thu:**
 
-grep -q "$POD_CIDR" ~/lab-evidence/5b/b1-kubeadm-config.txt \
-  && echo 'PASS: podSubnet trong kubeadm-config trung --cluster-cidr dang chay'
-grep -q "$SVC_CIDR" ~/lab-evidence/5b/b1-kubeadm-config.txt \
-  && echo 'PASS: serviceSubnet trong kubeadm-config trung --service-cluster-ip-range dang chay'
-```
+- `PASS:` API server đang lưu ít nhất một NetworkPolicy mang label dự án trong `bookstore`.
+- `PASS:` cả bảy cặp bị cấm đều `THONG` trên Flannel, không cặp nào lỗi DNS.
+- `PASS:` NodePort `30080` vẫn trả trang chủ có chữ `Bookstore`.
+- `PASS:` đã lưu hồ sơ bằng chứng của nợ #4.
+- `PASS:` Pod đo và namespace `np-ngoai` đã bị xóa; hai file đo còn trong `~/lab-work/5b/`.
 
-**PASS:** hai dòng `PASS:` xuất hiện. Lệch nhau nghĩa là ai đó đã sửa manifest control plane sau
-khi init — dừng lại và tìm nguyên nhân trước khi đổi CNI.
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-networkpolicy-tren-flannel.md`:
 
-Kiểm nhanh ba dải không dùng chung tiền tố:
+1. API server nhận và lưu policy, `describe` in đủ rule. Vậy thiếu thứ gì để policy có hiệu lực, và
+   thành phần nào trên cluster này lẽ ra phải làm việc đó?
+2. Bài 183 liệt kê những gì một CNI plugin **bắt buộc** phải làm. NetworkPolicy có trong danh sách
+   không? Flannel có "lỗi" không?
+3. Policy của sprint 6 chưa từng chạy thật. **Dự đoán** — ghi lại, chưa sửa: khi CNI bắt đầu thực
+   thi, luồng nào **được phép** theo ma trận có thể hỏng vì policy viết thiếu? B5 đối chiếu dự đoán
+   này.
+4. NodePort `30080` đưa lưu lượng vào `web` không qua Traefik. Ma trận mục 3.5 có cho phép đường đó
+   không? Khi policy có hiệu lực, bạn chờ đợi gì ở đường này?
 
-```bash
-POD_PFX="$(echo "$POD_CIDR" | cut -d. -f1,2)"
-SVC_PFX="$(echo "$SVC_CIDR" | cut -d. -f1,2)"
-NODE_PFX="$(echo "$MASTER_IP" | cut -d. -f1,2)"
-echo "pod=$POD_PFX svc=$SVC_PFX node=$NODE_PFX"
+<details>
+<summary>Gợi ý</summary>
 
-if [ "$POD_PFX" != "$SVC_PFX" ] && [ "$POD_PFX" != "$NODE_PFX" ] && [ "$SVC_PFX" != "$NODE_PFX" ]; then
-  echo 'PASS: ba dai IP khong dung chung tien to hai octet dau'
-else
-  echo 'FAIL: hai trong ba dai dung chung tien to - kiem tra lai truoc khi doi CNI'
-fi
-```
+1. `kubectl -n bookstore describe networkpolicy` in `PodSelector: <none> (Allowing the specific
+   traffic to all pods in this namespace)` cho policy có `podSelector` rỗng.
+2. Không thấy NetworkPolicy nào sau `deploy.sh`? Sprint 6 có thể mới viết file trong
+   `k8s/app/network/` mà chưa đưa vào `k8s/app/kustomization.yaml`. Đó là thiếu sót của tag `lab-5a`:
+   sửa, commit, rồi chạy lại B0 — không `kubectl apply` tay.
+3. `probe.sh` dùng `bash` với `/dev/tcp` để mở kết nối TCP thuần, nên đo được cả cổng 5432 của DB lẫn
+   cổng HTTP. `getent hosts` tách lỗi DNS khỏi lỗi kết nối.
 
-**PASS:** dòng `PASS:` xuất hiện. Đây là **điều kiện cần chứ không phải điều kiện đủ** — nó bắt
-được trường hợp chồng lấn thô, không chứng minh được hai dải rời nhau hoàn toàn.
+</details>
 
-**Ý nghĩa:** ba dải, ba nơi cấp. Network plugin cấp IP cho **Pod** — đó là lý do đổi plugin ở B4
-làm Pod IP đổi. kube-apiserver cấp IP cho **Service** — đó là lý do ClusterIP **không** đổi khi bạn
-thay CNI. kubelet cấp IP cho **Node** — dải LAN của ba VM.
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; script dựng và xóa Pod đo</summary>
 
-### B1.2. `ip addr` không phải thứ Kubernetes nhìn
-
-Chạy trên **`lab-k8s-worker2`**:
-
-```bash
-ip -br a | tee ~/lab-evidence/5b/b1-worker2-ip.txt
-hostname -I
-test "$(hostname -I | wc -w)" -gt 1 \
-  && echo 'PASS: node co nhieu hon mot dia chi IPv4 tren cac interface'
-```
-
-Chạy trên `lab-k8s-master`:
-
-```bash
-kubectl get node lab-k8s-worker2 \
-  -o jsonpath='{range .status.addresses[*]}{.type}{"\t"}{.address}{"\n"}{end}' \
-  | tee ~/lab-evidence/5b/b1-worker2-addresses.txt
-
-test "$(kubectl get node lab-k8s-worker2 \
-  -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}' | wc -w)" = '1' \
-  && echo 'PASS: Kubernetes chi ghi nhan dung mot InternalIP cho node do'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** đúng khẳng định của bài 157 — một node có thể mang nhiều IP trên nhiều interface
-(`lo`, `cni0`, `flannel.1`, card LAN), nhưng Kubernetes **chỉ xét** những địa chỉ nằm trong
-`node.status.addresses` và `pod.status.ips` khi hiện thực hóa mô hình mạng. Nhìn `ip addr` để gỡ
-lỗi thì được; suy ra "Kubernetes đang dùng địa chỉ này" thì sai.
-
-### B1.3. PodCIDR của mỗi node
+Hai file đo, chép nguyên văn:
 
 ```bash
-kubectl get nodes \
-  -o custom-columns='NODE:.metadata.name,INTERNAL-IP:.status.addresses[?(@.type=="InternalIP")].address,PODCIDR:.spec.podCIDR' \
-  | tee ~/lab-evidence/5b/b1-podcidr.txt
-
-test "$(awk 'NR>1 {print $3}' ~/lab-evidence/5b/b1-podcidr.txt | sort -u | wc -l)" = '3' \
-  && echo 'PASS: ba node co ba PodCIDR khac nhau'
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** `--pod-network-cidr` lúc `kubeadm init` làm kube-controller-manager cắt dải lớn thành
-ba khối `/24` và ghi vào `.spec.podCIDR` của từng Node. Flannel dùng đúng con số đó để dựng route.
-Giữ file này lại: B4.5 sẽ cho thấy plugin mới **không** bắt buộc phải dùng nó, và đó là một khác
-biệt có thật chứ không phải lỗi.
-
----
-
-## B2. CNI đang chạy: đọc cấu hình thật trên node
-
-**Mục đích:** bài [183](../183-network-plugins-vi.md) yêu cầu thuộc hai đường dẫn và biết **ai**
-nạp plugin. Bước này đọc chúng trên node trước khi thay plugin, để B4.5 có cái đối chiếu.
-
-Chạy trên **cả ba node**, bắt đầu từ `lab-k8s-worker1`:
-
-```bash
-ls -l /etc/cni/net.d/
-ls /opt/cni/bin/ | tr '\n' ' '; echo
-
-test -f /etc/cni/net.d/10-flannel.conflist \
-  && echo 'PASS: co file cau hinh CNI cua Flannel trong /etc/cni/net.d'
-test -x /opt/cni/bin/loopback \
-  && echo 'PASS: co binary loopback trong /opt/cni/bin'
-test -x /opt/cni/bin/portmap \
-  && echo 'PASS: co binary portmap trong /opt/cni/bin'
-```
-
-**PASS:** ba dòng `PASS:` trên **từng node**.
-
-Đọc chính file cấu hình:
-
-```bash
-sudo cat /etc/cni/net.d/10-flannel.conflist
-
-sudo grep -q '"type": "flannel"' /etc/cni/net.d/10-flannel.conflist \
-  && echo 'PASS: plugin chinh trong conflist la flannel'
-sudo grep -q '"portMappings": true' /etc/cni/net.d/10-flannel.conflist \
-  && echo 'PASS: conflist co khai bao portMappings capability'
-sudo grep -q 'cniVersion' /etc/cni/net.d/10-flannel.conflist \
-  && echo 'PASS: conflist co khai bao cniVersion'
-```
-
-**PASS:** ba dòng `PASS:`.
-
-**Ý nghĩa:** đây đúng là hình dạng hai file JSON mà bài 183 lấy làm ví dụ, chỉ khác là ví dụ của
-bài dùng Calico còn bản trên máy bạn đang dùng Flannel. Khối `portmap` với
-`"capabilities": {"portMappings": true}` chính là thứ bài nói phải khai trong `cni-conf-dir` nếu
-muốn `hostPort` hoạt động — nó có sẵn ở đây, không phải bạn thêm.
-
-### B2.1. Ai nạp plugin: containerd, không phải kubelet
-
-Vẫn trên node:
-
-```bash
-sudo containerd config dump | grep -A6 -iE '\.cni\]' | tee /tmp/b2-cni-conf.txt
-grep -q '/opt/cni/bin' /tmp/b2-cni-conf.txt \
-  && echo 'PASS: containerd tro toi /opt/cni/bin'
-grep -q '/etc/cni/net.d' /tmp/b2-cni-conf.txt \
-  && echo 'PASS: containerd tro toi /etc/cni/net.d'
-
-if kubelet --help 2>&1 | grep -q -- '--cni-bin-dir'; then
-  echo 'FAIL: kubelet van con co --cni-bin-dir'
-else
-  echo 'PASS: kubelet khong con co --cni-bin-dir, quan ly CNI khong thuoc kubelet'
-fi
-if kubelet --help 2>&1 | grep -q -- '--network-plugin'; then
-  echo 'FAIL: kubelet van con co --network-plugin'
-else
-  echo 'PASS: kubelet khong con co --network-plugin'
-fi
-```
-
-**PASS:** bốn dòng `PASS:`, không có dòng `FAIL:`.
-
-**Ý nghĩa:** hai cờ `cni-bin-dir` và `network-plugin` đã bị gỡ khỏi kubelet, đúng như bài 183 nói:
-việc quản lý CNI **không còn nằm trong phạm vi trách nhiệm của kubelet**. Thứ thật sự nạp plugin là
-container runtime cung cấp dịch vụ CRI — ở đây là containerd — và hai đường dẫn nó trỏ tới chính là
-hai đường dẫn bạn vừa `ls`. Ghi nhớ điều này: ở B4.3, dọn xong file cấu hình thì phải restart
-**containerd** trước, rồi mới tới kubelet.
-
-Lưu một bản conflist cũ làm bằng chứng, chạy trên `lab-k8s-master`:
-
-```bash
-{
-  date -Is
-  echo '--- /etc/cni/net.d cua lab-k8s-master'
-  ls -l /etc/cni/net.d/
-  echo '--- noi dung conflist'
-  sudo cat /etc/cni/net.d/10-flannel.conflist
-} | tee ~/lab-evidence/5b/b2-cni-truoc.txt
-
-test -s ~/lab-evidence/5b/b2-cni-truoc.txt && echo 'PASS: da luu conflist cu lam bang chung'
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
----
-
-## B3. NetworkPolicy trên CNI hiện tại: hợp lệ nhưng không chặn
-
-**Mục đích:** lấy **bằng chứng cốt lõi** của [nợ #4](README.md#5-sổ-nợ-lab). Đọc lại bài
-[84](../84-network-policies-vi.md) trước khi làm mục này. Trình tự bốn bước dưới đây lấy từ bài
-[201](../201-declare-network-policy-vi.md): dựng đích → đo đường cơ sở → áp policy → thử lại.
-
-### B3.1. Dựng đích và client
-
-Tạo `~/lab-work/5b/app.yaml`:
-
-```yaml
+cat > ~/lab-work/5b/probe-pods.yaml <<'EOF'
+# Pod đo của Lab 5b — KHÔNG mang label dự án. B1 tạo rồi xóa; B5 tạo lại đúng file này.
 apiVersion: v1
-kind: Pod
+kind: Namespace
 metadata:
-  name: web-w1
-  namespace: lab-5b
-  labels:
-    app: web
-spec:
-  nodeName: lab-k8s-worker1
-  containers:
-    - name: httpd
-      image: busybox:1.37
-      command:
-        - sh
-        - -c
-        - 'mkdir -p /www && echo web-ok > /www/index.html && httpd -f -p 8080 -h /www'
-      ports:
-        - containerPort: 8080
+  name: np-ngoai
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: web-w2
-  namespace: lab-5b
-  labels:
-    app: web
+  name: np-thu
+  namespace: bookstore
 spec:
-  nodeName: lab-k8s-worker2
+  terminationGracePeriodSeconds: 1
   containers:
-    - name: httpd
-      image: busybox:1.37
-      command:
-        - sh
-        - -c
-        - 'mkdir -p /www && echo web-ok > /www/index.html && httpd -f -p 8080 -h /www'
-      ports:
-        - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: web
-  namespace: lab-5b
-spec:
-  selector:
-    app: web
-  ports:
-    - name: http
-      port: 80
-      targetPort: 8080
+  - name: probe
+    image: postgres:17.11
+    command: ["sleep", "3600"]
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: client
-  namespace: lab-5b
+  name: np-ngoai
+  namespace: np-ngoai
 spec:
-  nodeName: lab-k8s-worker1
+  terminationGracePeriodSeconds: 1
   containers:
-    - name: shell
-      image: busybox:1.37
-      command: ['sleep', '36000']
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: client-ok
-  namespace: lab-5b
-  labels:
-    access: "true"
-spec:
-  nodeName: lab-k8s-worker1
-  containers:
-    - name: shell
-      image: busybox:1.37
-      command: ['sleep', '36000']
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: client-ext
-  namespace: lab-5b-ext
-spec:
-  nodeName: lab-k8s-worker2
-  containers:
-    - name: shell
-      image: busybox:1.37
-      command: ['sleep', '36000']
+  - name: probe
+    image: postgres:17.11
+    command: ["sleep", "3600"]
+EOF
+
+cat > ~/lab-work/5b/probe.sh <<'EOF'
+#!/usr/bin/env bash
+# Đo bảy cặp mà ma trận mục 3.5 của file dự án KHÔNG cho phép. Mỗi dòng một kết quả:
+#   THONG  mở được kết nối TCP
+#   CHAN   tên phân giải được nhưng kết nối không mở trong 5 giây
+#   LOIDNS không phân giải được tên — chưa kết luận được gì về policy
+set -u
+F=bookstore.svc.cluster.local
+tcp() {  # $1 namespace  $2 Pod  $3 container  $4 host  $5 cổng
+  local X="kubectl -n $1 exec $2 -c $3 --"
+  if ! $X getent hosts "$4" >/dev/null 2>&1; then echo "LOIDNS $2 -> $4:$5"; return; fi
+  if $X timeout 5 bash -c "exec 3<>/dev/tcp/$4/$5" >/dev/null 2>&1; then
+    echo "THONG  $2 -> $4:$5"
+  else
+    echo "CHAN   $2 -> $4:$5"
+  fi
+}
+tcp bookstore np-thu   probe    "web.$F"      80
+tcp bookstore np-thu   probe    "api.$F"      3000
+tcp bookstore np-thu   probe    "db-0.db.$F"  5432
+tcp np-ngoai  np-ngoai probe    "web.$F"      80
+tcp np-ngoai  np-ngoai probe    "api.$F"      3000
+tcp np-ngoai  np-ngoai probe    "db-0.db.$F"  5432
+tcp bookstore db-0     postgres "web.$F"      80
+EOF
+chmod +x ~/lab-work/5b/probe.sh
 ```
 
-Hai Pod `web-*` dùng `nodeName` để ghim mỗi bản lên một worker: để scheduler tự chọn thì cả hai có
-thể rơi vào cùng một node và phép đo xuyên node mất ý nghĩa. `client-ext` nằm ở namespace khác và
-trên worker khác — B5.5 cần đúng hai khác biệt đó.
+Đo:
 
 ```bash
-kubectl apply -f ~/lab-work/5b/app.yaml
-kubectl -n lab-5b wait --for=condition=Ready pod/web-w1 pod/web-w2 pod/client pod/client-ok --timeout=180s
-kubectl -n lab-5b-ext wait --for=condition=Ready pod/client-ext --timeout=180s
-kubectl -n lab-5b get pods -o wide
-kubectl -n lab-5b get endpointslice -l kubernetes.io/service-name=web
+NS=bookstore; EV=~/lab-evidence/5b
+SEL='app.kubernetes.io/part-of=bookstore'
 
-test "$(kubectl -n lab-5b get pods -l app=web \
-  -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' | sort -u | wc -l)" = '2' \
-  && echo 'PASS: hai Pod web nam tren hai node khac nhau'
-test "$(kubectl -n lab-5b get endpointslice -l kubernetes.io/service-name=web \
-  -o jsonpath='{range .items[*].endpoints[*]}{.addresses[0]}{"\n"}{end}' | wc -l)" = '2' \
-  && echo 'PASS: EndpointSlice cua Service web co du hai dia chi'
-```
+kubectl -n "$NS" get networkpolicy -o wide > "$EV/b1-networkpolicy.txt"
+kubectl -n "$NS" describe networkpolicy >> "$EV/b1-networkpolicy.txt"
+N="$(kubectl -n "$NS" get networkpolicy -l "$SEL" --no-headers 2>/dev/null | wc -l)"
+[ "$N" -ge 1 ] && echo "PASS: API server dang luu $N NetworkPolicy cua du an"
 
-**PASS:** năm Pod `Running`, hai dòng `PASS:` xuất hiện.
+kubectl apply -f ~/lab-work/5b/probe-pods.yaml
+kubectl -n "$NS" wait --for=condition=Ready pod/np-thu --timeout=180s
+kubectl -n np-ngoai wait --for=condition=Ready pod/np-ngoai --timeout=180s
+~/lab-work/5b/probe.sh > "$EV/b1-probe-flannel.txt"
+cat "$EV/b1-probe-flannel.txt"
+{ [ "$(grep -c '^THONG' "$EV/b1-probe-flannel.txt")" -eq 7 ] && ! grep -q '^LOIDNS' "$EV/b1-probe-flannel.txt"; } \
+  && echo 'PASS: ca bay cap bi cam deu THONG tren Flannel'
 
-### B3.2. Đo đường cơ sở
+W1="$(kubectl get node lab-k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+curl -s --max-time 5 "http://$W1:30080/" | grep -q 'Bookstore' && echo 'PASS: NodePort 30080 van tra trang chu'
 
-```bash
-kubectl -n lab-5b exec client -- wget -q -T 3 -O- http://web \
-  | tee ~/lab-evidence/5b/b3-duong-co-so.txt
-
-grep -qx 'web-ok' ~/lab-evidence/5b/b3-duong-co-so.txt \
-  && echo 'PASS: duong co so thong - client goi duoc Service web'
-
-kubectl -n lab-5b-ext exec client-ext -- wget -q -T 3 -O- http://web.lab-5b.svc.cluster.local \
-  | grep -qx 'web-ok' && echo 'PASS: duong co so xuyen namespace cung thong'
-```
-
-**PASS:** hai dòng `PASS:`. Không có đường cơ sở thì mọi timeout ở bước sau đều mơ hồ: bạn không
-phân biệt được "policy đang chặn" với "Service, DNS hoặc CNI vốn đã hỏng".
-
-### B3.3. Áp một policy chặn sạch chiều đến
-
-Tạo `~/lab-work/5b/np-01-deny-ingress.yaml`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny-ingress
-  namespace: lab-5b
-spec:
-  podSelector: {}
-  policyTypes:
-    - Ingress
-```
-
-```bash
-kubectl apply -f ~/lab-work/5b/np-01-deny-ingress.yaml
-kubectl -n lab-5b get networkpolicy
-kubectl -n lab-5b describe networkpolicy default-deny-ingress \
-  | tee ~/lab-evidence/5b/b3-policy-da-luu.txt
-
-test -n "$(kubectl -n lab-5b get networkpolicy default-deny-ingress -o jsonpath='{.metadata.uid}')" \
-  && echo 'PASS: API server da nhan va luu object NetworkPolicy'
-```
-
-**PASS:** dòng `PASS:` xuất hiện. `podSelector: {}` chọn **tất cả** Pod trong namespace, và
-`policyTypes: [Ingress]` không kèm danh sách `ingress` nào — theo bài 84, mọi Pod trong `lab-5b`
-bây giờ **bị cô lập chiều đến** và không kết nối vào nào được phép.
-
-### B3.4. Đo lại: không có gì bị chặn
-
-```bash
-if kubectl -n lab-5b exec client -- wget -q -T 3 -O- http://web >/dev/null 2>&1; then
-  echo 'PASS: luu luong VAN QUA - CNI hien tai khong thuc thi NetworkPolicy'
-else
-  echo 'FAIL: luu luong bi chan - cluster nay khong con dung baseline cua Lab 00'
-fi
-
-kubectl -n lab-5b exec client -- wget -q -T 3 -O- http://web \
-  | tee ~/lab-evidence/5b/b3-sau-policy.txt
-diff -q ~/lab-evidence/5b/b3-duong-co-so.txt ~/lab-evidence/5b/b3-sau-policy.txt \
-  && echo 'PASS: ket qua truoc va sau khi ap policy giong het nhau'
-```
-
-**PASS:** hai dòng `PASS:`, không có dòng `FAIL:`. Nếu ra `FAIL` thì cluster của bạn **đã** chạy một
-CNI có thực thi policy — dừng lại và đối chiếu với
-[bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa), vì lab này giả định điểm bắt đầu
-là `01-cluster-ready`.
-
-Lưu bằng chứng của nợ #4:
-
-```bash
 {
   date -Is
   echo '--- CNI dang chay'
-  kubectl get pods -A -o wide | grep -iE 'flannel|calico|cilium' || echo '(khong tim thay)'
+  kubectl get pods -A -o wide | grep -iE 'flannel|calico' || echo '(khong tim thay)'
   echo '--- NetworkPolicy dang ton tai'
-  kubectl -n lab-5b get networkpolicy
-  echo '--- Ket qua goi Service khi dang co deny-all ingress'
-  cat ~/lab-evidence/5b/b3-sau-policy.txt
-} | tee ~/lab-evidence/5b/b3-bang-chung-no-4.txt
+  kubectl -n "$NS" get networkpolicy
+  echo '--- Bay cap bi cam, do tren Flannel'
+  cat "$EV/b1-probe-flannel.txt"
+} > "$EV/b1-bang-chung-no-4.txt"
+test -s "$EV/b1-bang-chung-no-4.txt" && echo 'PASS: da luu ho so bang chung no #4'
 
-test -s ~/lab-evidence/5b/b3-bang-chung-no-4.txt \
-  && echo 'PASS: da luu bang chung cho no #4'
+kubectl delete -f ~/lab-work/5b/probe-pods.yaml --wait=true
+{ ! kubectl get namespace np-ngoai >/dev/null 2>&1 && ! kubectl -n "$NS" get pod np-thu >/dev/null 2>&1 \
+  && test -f ~/lab-work/5b/probe-pods.yaml && test -x ~/lab-work/5b/probe.sh; } \
+  && echo 'PASS: da xoa Pod do, con giu hai file do cho B5'
 ```
 
-**PASS:** dòng `PASS:` xuất hiện.
+</details>
 
-Gỡ policy trước khi đổi CNI. File YAML vẫn giữ nguyên — B5 sẽ apply lại **đúng file này**:
+<details>
+<summary>Lời giải tham khảo</summary>
+
+Ticket không thay đổi repo. Đọc thêm từng policy theo đúng thành phần mà nó chọn:
 
 ```bash
-kubectl -n lab-5b delete networkpolicy --all
-test "$(kubectl -n lab-5b get networkpolicy --no-headers 2>/dev/null | wc -l)" = '0' \
-  && echo 'PASS: da go het policy truoc khi doi CNI'
+kubectl -n bookstore get networkpolicy \
+  -o custom-columns='NAME:.metadata.name,SELECTOR:.spec.podSelector,TYPES:.spec.policyTypes'
 ```
 
-**PASS:** dòng `PASS:` xuất hiện.
+Ý chính cho ADR:
 
-**Ý nghĩa:** đây là nửa đầu của bài 84 được chứng minh bằng lưu lượng thật. `kubectl apply` thành
-công chỉ nói API server chấp nhận object; nó **không** nói gì về việc có ai đó đang hiện thực object
-đó. Bài 84 viết thẳng: *tạo một tài nguyên NetworkPolicy mà không có controller hiện thực nó sẽ
-không có tác dụng gì*. Bạn vừa nhìn thấy điều đó xảy ra.
+1. Bài 84, *Điều kiện tiên quyết*: NetworkPolicy do **network plugin** hiện thực; tạo tài nguyên mà
+   không có controller hiện thực nó thì không có tác dụng gì. API server chỉ kiểm cú pháp và lưu vào
+   etcd. Trên cluster này, người đáng lẽ phải dịch policy thành rule trên từng node là CNI — và
+   Flannel không làm việc đó.
+2. Bài 183: plugin **bắt buộc** hiện thực mô hình mạng Kubernetes, cộng interface `lo` và hỗ trợ
+   `hostPort`. NetworkPolicy không nằm trong hợp đồng. Flannel hợp lệ; nó chỉ không phải lựa chọn
+   đúng cho yêu cầu `R7` của dự án.
+3. Dự đoán điển hình: thiếu đường DNS ra CoreDNS (mọi Pod mất tên), thiếu rule ở một trong hai đầu
+   (egress ở `web` hoặc ingress ở `api`), viết cổng `80` của Service thay cho `8080` của Pod, quên Job
+   `db-migrate` và CronJob `db-backup` trong danh sách được vào `db`.
+4. Không. Ma trận chỉ cho Traefik vào `web`. Bài 84 chỉ miễn cho kết nối từ **node đang chạy Pod**;
+   lưu lượng NodePort vào qua một node khác thì không phải từ node đó. Khi policy có hiệu lực, đường
+   này có thể chỉ còn chạy khi gói tin rơi đúng node đang chạy Pod `web` — một đường vào không đoán
+   trước được và đi vòng qua ma trận. B6 đóng hẳn nó.
 
+</details>
+
+## B2. [BS-5B-02] Điều tra: mạng của cluster trước khi đổi CNI
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** B3 sẽ thay network plugin trên cả ba node. Trước khi thay phải biết chính xác cái đang
+chạy: dải nào do ai cấp, file nào cấu hình plugin, ai nạp nó. Đây vừa là bằng chứng "trước" để so với
+"sau" ở B3, vừa là dữ liệu B3 và B7 cần.
+
+**Yêu cầu:**
+
+1. Đọc ba dải IP từ **tiến trình đang chạy**, không từ tài liệu: dải Pod, dải Service, IP của node.
+   Đối chiếu với cấu hình kubeadm lưu trong cluster. Ghi dải Pod và ClusterIP của Service DNS ra file
+   cho B3, B7.
+2. Trên `lab-k8s-worker2`: số địa chỉ IPv4 trên các interface so với số địa chỉ Kubernetes ghi nhận
+   cho node đó.
+3. PodCIDR của từng node.
+4. Trên **cả ba** node: thư mục cấu hình CNI, thư mục binary, file conflist của plugin đang chạy —
+   plugin chính, khai báo `portMappings`, binary `loopback` và `portmap`.
+5. Chứng minh **ai** nạp plugin: thành phần trỏ tới hai thư mục trên, và kubelet không còn cờ quản lý
+   CNI.
+6. Chọn CNI thay thế từ danh sách provider chính thức, ghi lý do vào ADR.
+
+**Ràng buộc:** chỉ đọc; không sửa file nào trên node.
+
+**Đọc lại:**
+
+- Bài [157](../157-networking-vi.md):
+  [*Các dải địa chỉ IP của Kubernetes*](../157-networking-vi.md#các-dải-địa-chỉ-ip-của-kubernetes-kubernetes-ip-address-ranges),
+  [*Các kiểu mạng cluster*](../157-networking-vi.md#cluster-network-ipfamilies) — đoạn về
+  `node.status.addresses`,
+  [*Cách hiện thực mô hình mạng*](../157-networking-vi.md#how-to-implement-the-kubernetes-network-model).
+- Bài [183](../183-network-plugins-vi.md):
+  [*Cài đặt*](../183-network-plugins-vi.md#cài-đặt-installation) — ghi chú về Kubernetes 1.24;
+  [*Loopback CNI*](../183-network-plugins-vi.md#loopback-cni);
+  [*Hỗ trợ hostPort*](../183-network-plugins-vi.md#hỗ-trợ-hostport-support-hostport).
+- Bài [243](../243-network-policy-provider-vi.md) — danh sách provider; bài
+  [245](../245-calico-network-policy-vi.md#creating-a-local-calico-cluster-with-kubeadm) — nhánh
+  kubeadm.
+
+**Bàn giao:** `docs/adr/NNNN-mang-cluster-va-chon-cni.md`; `~/lab-evidence/5b/b2-*.txt` — trong đó
+`b2-pod-cidr.txt` dùng ở B3, `b2-dns-clusterip.txt` dùng ở B7.
+
+**Nghiệm thu:**
+
+- `PASS:` đọc đủ ba dải từ tiến trình đang chạy; khớp cấu hình kubeadm; ba dải không chung tiền tố.
+- `PASS:` `lab-k8s-worker2` có nhiều IPv4 trên interface hơn số InternalIP mà Kubernetes ghi nhận.
+- `PASS:` ba node có ba PodCIDR khác nhau.
+- `PASS:` trên cả ba node: conflist của Flannel, plugin chính `flannel`, có `portMappings`, có binary
+  `loopback` và `portmap`.
+- `PASS:` containerd trỏ tới hai thư mục CNI; kubelet không còn cờ `--cni-bin-dir`, `--network-plugin`.
+- `PASS:` đã lưu ClusterIP của Service DNS và bản conflist cũ.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-mang-cluster-va-chon-cni.md`:
+
+1. Ba dải, ba nơi cấp. Khi đổi network plugin, dải nào đổi người cấp, dải nào không? Hệ quả với Pod
+   đang chạy và với ClusterIP?
+2. `ip addr` trên worker2 cho nhiều địa chỉ hơn `node.status.addresses`. Kubernetes dựa vào cái nào
+   khi hiện thực mô hình mạng?
+3. Ai nạp CNI plugin trên node? Vậy ở B3, sau khi dọn cấu hình CNI cũ, phải khởi động lại tiến trình
+   nào trước?
+4. Chọn provider nào trong danh sách của bài 243, và vì sao? Nêu tiêu chí, không chỉ nêu tên.
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Static Pod `kube-apiserver-lab-k8s-master` và `kube-controller-manager-lab-k8s-master` mang cờ
+   dòng lệnh trong `.spec.containers[0].command`. Tìm `--service-cluster-ip-range` và `--cluster-cidr`.
+2. Cấu hình kubeadm nằm trong ConfigMap `kubeadm-config` của `kube-system`.
+3. Thành phần nạp plugin in cấu hình của nó bằng `containerd config dump`.
+4. Cờ đã bị gỡ thì không còn trong `kubelet --help`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chỉ đọc</summary>
+
+```bash
+EV=~/lab-evidence/5b
+MASTER=lab-k8s-master
+on() { if [ "$1" = "$(hostname)" ]; then bash -c "$2"; else ssh "$1" "$2"; fi; }
+args() { kubectl -n kube-system get pod "$1" -o jsonpath='{range .spec.containers[0].command[*]}{@}{"\n"}{end}'; }
+
+# 1. Ba dải IP
+SVC_CIDR="$(args "kube-apiserver-$MASTER" | sed -n 's/^--service-cluster-ip-range=//p')"
+POD_CIDR="$(args "kube-controller-manager-$MASTER" | sed -n 's/^--cluster-cidr=//p')"
+NODE_IP="$(kubectl get node "$MASTER" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+printf '%s\n' "$POD_CIDR" > "$EV/b2-pod-cidr.txt"
+printf '%s\n' "$SVC_CIDR" > "$EV/b2-svc-cidr.txt"
+echo "pod=$POD_CIDR svc=$SVC_CIDR node=$NODE_IP"
+kubectl -n kube-system get cm kubeadm-config -o jsonpath='{.data.ClusterConfiguration}' \
+  | grep -E 'podSubnet|serviceSubnet' > "$EV/b2-kubeadm-config.txt"
+P="$(echo "$POD_CIDR" | cut -d. -f1,2)"; S="$(echo "$SVC_CIDR" | cut -d. -f1,2)"; H="$(echo "$NODE_IP" | cut -d. -f1,2)"
+{ [ -n "$POD_CIDR" ] && [ -n "$SVC_CIDR" ] && [ -n "$NODE_IP" ] \
+  && grep -qF "$POD_CIDR" "$EV/b2-kubeadm-config.txt" && grep -qF "$SVC_CIDR" "$EV/b2-kubeadm-config.txt" \
+  && [ "$P" != "$S" ] && [ "$P" != "$H" ] && [ "$S" != "$H" ]; } \
+  && echo 'PASS: ba dai doc tu tien trinh, khop kubeadm-config, khong chung tien to'
+
+# 2. ip addr so với node.status.addresses
+on lab-k8s-worker2 'ip -br a' > "$EV/b2-worker2-ip.txt"
+NIP="$(on lab-k8s-worker2 'hostname -I' | wc -w)"
+NA="$(kubectl get node lab-k8s-worker2 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}' | wc -w)"
+{ [ "$NIP" -gt 1 ] && [ "$NA" -eq 1 ]; } \
+  && echo "PASS: worker2 co $NIP IPv4 tren interface, Kubernetes chi ghi nhan $NA InternalIP"
+
+# 3. PodCIDR từng node
+kubectl get nodes -o custom-columns='NODE:.metadata.name,PODCIDR:.spec.podCIDR' > "$EV/b2-podcidr.txt"
+[ "$(awk 'NR>1 {print $2}' "$EV/b2-podcidr.txt" | sort -u | wc -l)" -eq 3 ] && echo 'PASS: ba node co ba PodCIDR khac nhau'
+
+# 4. CNI trên cả ba node
+BAD=0
+for N in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
+  on "$N" 'test -f /etc/cni/net.d/10-flannel.conflist && test -x /opt/cni/bin/loopback \
+    && test -x /opt/cni/bin/portmap \
+    && sudo grep -q "\"type\": \"flannel\"" /etc/cni/net.d/10-flannel.conflist \
+    && sudo grep -q "\"portMappings\": true" /etc/cni/net.d/10-flannel.conflist' || { echo "FAIL: $N"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: ca ba node: conflist Flannel, plugin flannel, portMappings, loopback, portmap'
+
+# 5. Ai nạp plugin
+BAD=0
+for N in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
+  on "$N" 'sudo containerd config dump | grep -A6 -iE "\.cni\]"' > "$EV/b2-containerd-cni-$N.txt"
+  { grep -q '/opt/cni/bin' "$EV/b2-containerd-cni-$N.txt" && grep -q '/etc/cni/net.d' "$EV/b2-containerd-cni-$N.txt"; } || BAD=1
+  on "$N" 'kubelet --help 2>&1' | grep -qE -- '--(cni-bin-dir|network-plugin)' && BAD=1
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: containerd tro toi hai thu muc CNI; kubelet khong con co quan ly CNI'
+
+# 6. Dữ liệu cho B3, B7
+kubectl -n kube-system get svc kube-dns -o jsonpath='{.spec.clusterIP}' > "$EV/b2-dns-clusterip.txt"
+{ date -Is; echo '--- /etc/cni/net.d cua lab-k8s-master'; ls -l /etc/cni/net.d/
+  echo '--- conflist'; sudo cat /etc/cni/net.d/10-flannel.conflist; } > "$EV/b2-cni-truoc.txt"
+{ test -s "$EV/b2-dns-clusterip.txt" && test -s "$EV/b2-cni-truoc.txt"; } \
+  && echo 'PASS: da luu ClusterIP cua DNS va conflist cu'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo — ý chính cho ADR</summary>
+
+1. Network plugin cấp IP **Pod**; kube-apiserver cấp IP **Service**; kubelet cấp IP **Node** (bài
+   157). Đổi plugin là đổi người cấp IP Pod: Pod đang chạy giữ IP của plugin cũ cho tới khi bị tạo
+   lại. ClusterIP không đổi vì apiserver không liên quan tới CNI — B7 kiểm lại bằng ClusterIP của DNS.
+2. Chỉ `node.status.addresses` (và `pod.status.ips` với Pod). Interface `cni0`, `flannel.1`, `lo`
+   đều có địa chỉ nhưng không phải thứ Kubernetes xét. Nhìn `ip addr` để gỡ lỗi thì được, suy ra
+   "Kubernetes đang dùng địa chỉ này" thì sai.
+3. **containerd** — container runtime cung cấp CRI. Từ 1.24, `cni-bin-dir` và `network-plugin` bị gỡ
+   khỏi kubelet (bài 183, *Cài đặt*). Dọn cấu hình xong phải khởi động lại containerd trước để nó nạp
+   lại thư mục CNI, rồi mới tới kubelet.
+4. Calico: nằm trong danh sách chính thức của bài 243; trang 245 có nhánh *cluster cục bộ với
+   kubeadm*; cài bằng **một manifest** giống hệt hình dạng thao tác bạn đã làm với Flannel ở
+   [A5.2 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a52-cài-flannel-v0289); version đã chốt ở A1.4. Ít
+   bước lạ thì phần học nằm ở NetworkPolicy chứ không nằm ở trình cài đặt.
+
+</details>
+
+## B3. [BS-5B-03] Vận hành: gỡ dự án, đổi CNI sang Calico
+
+**Loại:** Vận hành — chạm cả ba node. Đọc lại [mục 2.1](#21-đổi-cni-là-thao-tác-phá-hoại) trước khi gõ
+lệnh đầu tiên.
+
+**Bối cảnh:** yêu cầu `R7` của dự án — mạng zero-trust giữa các tầng — cần một CNI thực thi
+NetworkPolicy. Thay plugin là việc của **hạ tầng nền**: nó làm ra mốc `02-net-ready` cho mọi lab sau,
+và Lab 8a sẽ phải làm lại nó trên một cluster dựng mới. Vì vậy ngoài việc đổi plugin, đội phải để lại
+một runbook trong repo.
+
+**Yêu cầu:**
+
+1. `platform/versions.env` chứa bốn giá trị chép đúng từ A1.4: version Calico, version Helm, version
+   chart Traefik và `appVersion` của Traefik. Mẫu file ở khối Lời giải; giá trị là phần bạn tự điền.
+2. Dự án được gỡ **trước** khi chạm vào mạng; cluster không còn object nào của dự án.
+3. Sau ticket: không còn object, Pod, file cấu hình hay interface nào của Flannel trên cả ba node;
+   mỗi node chỉ còn cấu hình CNI của Calico.
+4. Calico chạy đúng một Pod trên mỗi node, đúng version trong `versions.env`; ba node `Ready`.
+5. Dải IP mà Calico cấp **trùng dải Pod** đọc ở B2; Calico chọn đúng InternalIP của từng node.
+6. Không còn Pod nào mang IP do plugin cũ cấp; Pod trên hai worker nói chuyện được với nhau; DNS trong
+   cluster và ra Internet chạy.
+7. `platform/calico/README.md` là runbook của bạn, gồm hai nhánh: cài mới trên cluster chưa có CNI
+   (Lab 8a sẽ dùng) và thay Flannel trên cluster đang chạy (ticket này), kèm các gate.
+
+**Ràng buộc:** manifest Calico tải đúng version trong `versions.env`. Không sửa IPPool bằng tay khi Pod
+đã lấy IP. Không restore riêng một VM. Pod kiểm tra mạng nằm ở namespace `net-thu`, xóa khi xong.
+
+**Đọc lại:**
+
+- Bài [183](../183-network-plugins-vi.md#cài-đặt-installation) — ai nạp plugin; hai thư mục.
+- Bài [157](../157-networking-vi.md#các-dải-địa-chỉ-ip-của-kubernetes-kubernetes-ip-address-ranges) —
+  ai cấp IP Pod.
+- Bài [245](../245-calico-network-policy-vi.md#creating-a-local-calico-cluster-with-kubeadm) — nhánh
+  kubeadm trỏ sang tài liệu cài của Calico; cách xác minh bằng Pod tên `calico`.
+- Calico: [Install on on-premises deployments](https://docs.tigera.io/calico/latest/getting-started/kubernetes/self-managed-onprem/onpremises),
+  tab *Manifest* — với kubeadm, Pod CIDR khác mặc định thì không cần sửa gì vì Calico tự dò. Lab
+  không tin lời đó: có gate đối chiếu.
+- [A5.2 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a52-cài-flannel-v0289) — hình dạng thao tác cài một
+  CNI bằng manifest.
+
+**Bàn giao:** `platform/versions.env`, `platform/calico/README.md`,
+`docs/adr/NNNN-quy-trinh-doi-cni.md`; `~/lab-evidence/5b/b3-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `platform/versions.env` có đủ bốn giá trị, đúng dạng.
+- `PASS:` không còn object nào của dự án trên cluster.
+- `PASS:` không còn namespace, ClusterRole, Pod nào của Flannel.
+- `PASS:` trên cả ba node: không còn conflist và interface của Flannel; có conflist của Calico với
+  plugin `calico`, IPAM `calico-ipam`, `portMappings`.
+- `PASS:` `calico-node` đúng ba Pod `Running`, đúng version; `calico-kube-controllers` sẵn sàng; ba
+  node `Ready`.
+- `PASS:` IPPool trùng dải Pod; địa chỉ Calico chọn cho từng node là InternalIP của node đó; IPAM tự
+  chia khối cho các node.
+- `PASS:` mọi Pod dùng mạng Pod đều do Calico cấp IP.
+- `PASS:` TCP xuyên node, DNS trong cluster và DNS ra Internet đều chạy.
+- `PASS:` runbook `platform/calico/README.md` có mặt và đọc version từ `versions.env`.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-quy-trinh-doi-cni.md`:
+
+1. Bốn bước của quy trình đổi CNI theo đúng thứ tự. Đảo bước gỡ ở tầng API với bước dọn node thì
+   hỏng gì? Bỏ bước tạo lại Pod cũ thì hỏng gì?
+2. Vì sao gỡ dự án **trước**, thay vì đổi CNI ngay dưới chân hệ thống đang chạy?
+3. `.spec.podCIDR` của từng node không đổi, nhưng IP Pod mới không nhất thiết nằm trong `/24` đó. Có
+   mâu thuẫn với bài 157 không?
+4. Đường lùi khi B3 hỏng giữa chừng là gì, và vì sao không restore riêng một VM?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Thứ tự an toàn: (1) gỡ Flannel ở tầng API — namespace `kube-flannel`, ClusterRole và
+   ClusterRoleBinding `flannel`; (2) dọn từng node — conflist, thư mục trạng thái, interface
+   `flannel.1` và `cni0`, khởi động lại containerd rồi kubelet; (3) cài Calico; (4) tạo lại Pod còn
+   mang IP cũ. Sau khi gỡ dự án, Pod như vậy chỉ còn CoreDNS.
+2. Đọc trước khi apply: `grep` dòng image `calico/node` và biến `CALICO_IPV4POOL_CIDR` trong manifest.
+3. Calico lưu cấu hình trong CRD: `ippools.crd.projectcalico.org`, `ipamblocks.crd.projectcalico.org`;
+   ghi địa chỉ chọn cho node vào annotation `projectcalico.org/IPv4Address` của Node, và ghi IP đã
+   cấp vào annotation `cni.projectcalico.org/podIP` của từng Pod.
+4. Thời gian rollout phụ thuộc tốc độ kéo image; con số `--timeout` chỉ là trần chờ, không phải cam
+   kết.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+```bash
+EV=~/lab-evidence/5b
+SEL='app.kubernetes.io/part-of=bookstore'
+on() { if [ "$1" = "$(hostname)" ]; then bash -c "$2"; else ssh "$1" "$2"; fi; }
+. ~/bookstore/platform/versions.env
+POD_CIDR="$(cat "$EV/b2-pod-cidr.txt")"
+
+# 0. Phiên bản
+BAD=0
+for V in "${CALICO_VER:-}" "${HELM_VER:-}" "${TRAEFIK_APP:-}"; do echo "$V" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || BAD=1; done
+echo "${TRAEFIK_CHART:-}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || BAD=1
+[ "$BAD" -eq 0 ] && echo 'PASS: platform/versions.env du bon gia tri, dung dang'
+
+# 1. Dự án đã gỡ
+{ [ "$(kubectl get namespace,priorityclass -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] && \
+  [ "$(kubectl get all -A -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } && echo 'PASS: khong con object cua du an'
+
+# 2. Flannel ở tầng API
+{ ! kubectl get namespace kube-flannel >/dev/null 2>&1 && ! kubectl get clusterrole flannel >/dev/null 2>&1 \
+  && ! kubectl get pods -A --no-headers | grep -q flannel; } && echo 'PASS: khong con namespace, ClusterRole, Pod cua Flannel'
+
+# 3. Từng node
+BAD=0
+for N in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
+  on "$N" 'test ! -e /etc/cni/net.d/10-flannel.conflist && test -f /etc/cni/net.d/10-calico.conflist \
+    && ! ip link show flannel.1 >/dev/null 2>&1 && ! ip link show cni0 >/dev/null 2>&1 \
+    && sudo grep -q "\"type\": \"calico\"" /etc/cni/net.d/10-calico.conflist \
+    && sudo grep -q "calico-ipam" /etc/cni/net.d/10-calico.conflist \
+    && sudo grep -q "\"portMappings\": true" /etc/cni/net.d/10-calico.conflist' || { echo "FAIL: $N"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: ca ba node chi con cau hinh CNI cua Calico, khong con interface cu'
+on lab-k8s-master 'ls -l /etc/cni/net.d/; sudo cat /etc/cni/net.d/10-calico.conflist' > "$EV/b3-cni-sau.txt"
+
+# 4. Calico chạy đủ, đúng version
+kubectl -n kube-system get ds calico-node \
+  -o jsonpath='{range .spec.template.spec.initContainers[*]}{.image}{"\n"}{end}{range .spec.template.spec.containers[*]}{.image}{"\n"}{end}' \
+  > "$EV/b3-calico-images.txt"
+{ [ "$(kubectl -n kube-system get pods -l k8s-app=calico-node --field-selector=status.phase=Running --no-headers | wc -l)" -eq 3 ] \
+  && grep -q "calico/node:$CALICO_VER" "$EV/b3-calico-images.txt" \
+  && kubectl -n kube-system wait --for=condition=Available deployment/calico-kube-controllers --timeout=60s >/dev/null \
+  && kubectl wait --for=condition=Ready node --all --timeout=60s >/dev/null; } \
+  && echo "PASS: calico-node 3/3 Running, dung $CALICO_VER; calico-kube-controllers san sang; ba node Ready"
+
+# 5. Dải IP và địa chỉ node
+IPPOOL="$(kubectl get ippools.crd.projectcalico.org default-ipv4-ippool -o jsonpath='{.spec.cidr}')"
+BAD=0
+for N in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
+  A="$(kubectl get node "$N" -o jsonpath='{.metadata.annotations.projectcalico\.org/IPv4Address}')"
+  I="$(kubectl get node "$N" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+  case "$A" in "$I"/*) ;; *) echo "FAIL: $N - Calico chon $A, InternalIP la $I"; BAD=1 ;; esac
+done
+kubectl get ipamblocks.crd.projectcalico.org -o custom-columns='BLOCK:.spec.cidr,AFFINITY:.spec.affinity' \
+  > "$EV/b3-ipamblock.txt"
+{ [ "$IPPOOL" = "$POD_CIDR" ] && [ "$BAD" -eq 0 ] && [ "$(awk 'NR>1' "$EV/b3-ipamblock.txt" | wc -l)" -ge 2 ]; } \
+  && echo "PASS: IPPool $IPPOOL trung dai Pod; Calico chon dung InternalIP; IPAM chia khoi theo node"
+
+# 6. Không còn Pod mang IP của plugin cũ: Pod dùng mạng Pod phải có annotation do Calico CNI ghi
+OLD="$(kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name} {.status.podIP} {.status.hostIP} {.metadata.annotations.cni\.projectcalico\.org/podIP}{"\n"}{end}' \
+  | awk '$2!=$3 && $4==""')"
+[ -z "$OLD" ] && echo 'PASS: moi Pod dung mang Pod deu do Calico cap IP' || echo "FAIL: con Pod mang IP cu: $OLD"
+
+# 7. Mạng liền: TCP xuyên node, DNS trong cluster và ra ngoài
+cat > ~/lab-work/5b/net-thu.yaml <<'EOF'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: net-thu
 ---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: net-w1
+  namespace: net-thu
+spec:
+  nodeName: lab-k8s-worker1
+  terminationGracePeriodSeconds: 1
+  containers:
+  - name: shell
+    image: busybox:1.37
+    command: ["sleep", "3600"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: net-w2
+  namespace: net-thu
+spec:
+  nodeName: lab-k8s-worker2
+  terminationGracePeriodSeconds: 1
+  containers:
+  - name: httpd
+    image: busybox:1.37
+    command: ["sh", "-c", "mkdir -p /www && echo net-w2-ok > /www/index.html && httpd -f -p 8080 -h /www"]
+EOF
+kubectl apply -f ~/lab-work/5b/net-thu.yaml
+kubectl -n net-thu wait --for=condition=Ready pod/net-w1 pod/net-w2 --timeout=180s
+IP2="$(kubectl -n net-thu get pod net-w2 -o jsonpath='{.status.podIP}')"
+KIP="$(kubectl get svc kubernetes -o jsonpath='{.spec.clusterIP}')"
+{ kubectl -n net-thu exec net-w1 -- wget -qO- -T 5 "http://$IP2:8080" | grep -qx 'net-w2-ok' \
+  && kubectl -n net-thu exec net-w1 -- nslookup kubernetes.default.svc.cluster.local | grep -q "$KIP" \
+  && kubectl -n net-thu exec net-w1 -- nslookup registry.k8s.io >/dev/null; } \
+  && echo 'PASS: TCP xuyen node, DNS trong cluster va ra Internet deu chay'
+kubectl get pods -A -o wide > "$EV/b3-pods-sau-doi-cni.txt"
+kubectl delete -f ~/lab-work/5b/net-thu.yaml --wait=true
 
-## B4. Đổi CNI sang plugin có thực thi NetworkPolicy
+# 8. Runbook
+grep -q 'CALICO_VER' ~/bookstore/platform/calico/README.md && echo 'PASS: runbook Calico co mat va doc version tu versions.env'
+```
 
-**Mục đích:** thay network plugin trên một cluster đang chạy, theo đúng thứ tự an toàn. Đây là mục
-rủi ro nhất của lab. Đọc lại [mục 2.1](#21-cảnh-báo-đổi-cni-là-thao-tác-phá-hoại) trước khi gõ lệnh
-đầu tiên, và chỉ bắt đầu khi còn đủ thời gian chạy hết B4.
+</details>
 
-Thứ tự bốn bước **không được đảo**:
+<details>
+<summary>Lời giải tham khảo</summary>
 
-1. Gỡ plugin cũ ở tầng API (B4.2) — nếu không, DaemonSet cũ sẽ ghi lại file cấu hình bạn vừa xóa.
-2. Dọn file cấu hình và interface trên từng node (B4.3) — nếu không, hai plugin cùng để lại
-   conflist và bạn không biết cái nào đang được nạp.
-3. Cài plugin mới (B4.4).
-4. Tái tạo Pod mang IP cũ (B4.6) — Pod đã có IP của plugin cũ **không** tự đổi sang dải mới.
-
-### B4.1. Tải manifest và đọc trước khi apply
+Mẫu `platform/versions.env` — chép vào repo, thay bốn chỗ `<...>` bằng đúng giá trị ở
+[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00):
 
 ```bash
-echo "$CALICO_VER"
+# platform/versions.env — phiên bản hạ tầng nền của cluster lab.
+# Nguồn duy nhất: bảng A1.4 của Lab 00. Sửa ở A1.4 trước, rồi mới sửa file này.
+CALICO_VER='<Calico, dạng vX.Y.Z>'
+HELM_VER='<Helm, dạng vX.Y.Z>'
+TRAEFIK_CHART='<chart Traefik, dạng X.Y.Z>'
+TRAEFIK_APP='<appVersion Traefik, dạng vX.Y.Z>'
+```
+
+Quy trình đã kiểm, chạy trên `lab-k8s-master` trong một phiên shell:
+
+```bash
+. ~/bookstore/platform/versions.env
+on() { if [ "$1" = "$(hostname)" ]; then bash -c "$2"; else ssh "$1" "$2"; fi; }
+
+# 0. Gỡ dự án trước khi chạm vào mạng
+cd ~/bookstore && ./scripts/teardown.sh
+
+# 1. Tải manifest, đọc trước khi apply
 curl -fsSL "https://raw.githubusercontent.com/projectcalico/calico/$CALICO_VER/manifests/calico.yaml" \
   -o ~/lab-work/5b/calico.yaml
+grep -q "image: .*calico/node:$CALICO_VER" ~/lab-work/5b/calico.yaml && echo 'PASS: manifest dung version'
+grep -E '^\s*#.*CALICO_IPV4POOL_CIDR' ~/lab-work/5b/calico.yaml >/dev/null \
+  && echo 'PASS: CALICO_IPV4POOL_CIDR dang bi comment - Calico tu do dai Pod cua kubeadm'
 
-test -s ~/lab-work/5b/calico.yaml && echo 'PASS: da tai duoc manifest CNI moi'
-
-grep -c 'kind: CustomResourceDefinition' ~/lab-work/5b/calico.yaml
-grep -nE '^\s+image: ' ~/lab-work/5b/calico.yaml | tee ~/lab-evidence/5b/b4-image-trong-manifest.txt
-grep -n 'CALICO_IPV4POOL_CIDR' ~/lab-work/5b/calico.yaml
-```
-
-```bash
-grep -q "image: .*calico/node:$CALICO_VER" ~/lab-work/5b/calico.yaml \
-  && echo 'PASS: manifest mang dung tag da chot o muc 2.3'
-if grep -E '^\s*#.*CALICO_IPV4POOL_CIDR' ~/lab-work/5b/calico.yaml >/dev/null; then
-  echo 'PASS: CALICO_IPV4POOL_CIDR dang bi comment - plugin se tu do Pod CIDR tu cau hinh kubeadm'
-else
-  echo 'FAIL: CALICO_IPV4POOL_CIDR khong o dang comment - doc lai manifest truoc khi apply'
-fi
-```
-
-**PASS:** ba dòng `PASS:`, không có dòng `FAIL:`.
-
-**Ý nghĩa:** trang [245](../245-calico-network-policy-vi.md) dẫn sang nhánh *cluster cục bộ với
-kubeadm*, và tài liệu chính thức của plugin nói: với kubeadm, khi Pod CIDR **khác** giá trị mặc
-định của manifest thì không cần sửa gì — plugin tự dò từ cấu hình đang chạy. Lab không tin lời đó:
-B4.5 có gate đối chiếu dải thật mà plugin cấp phát với `POD_CIDR` bạn đọc ở B1.
-
-### B4.2. Gỡ plugin cũ ở tầng API
-
-```bash
+# 2. Gỡ Flannel ở tầng API — trước khi dọn node, nếu không DaemonSet cũ ghi lại conflist
 kubectl delete namespace kube-flannel --wait=true --timeout=300s
 kubectl delete clusterrole flannel --ignore-not-found
 kubectl delete clusterrolebinding flannel --ignore-not-found
 
-if kubectl get ns kube-flannel >/dev/null 2>&1; then
-  echo 'FAIL: namespace kube-flannel van con'
-else
-  echo 'PASS: namespace kube-flannel da bien mat'
-fi
-if kubectl get clusterrole flannel >/dev/null 2>&1; then
-  echo 'FAIL: ClusterRole flannel van con'
-else
-  echo 'PASS: khong con ClusterRole flannel'
-fi
-
-kubectl get nodes \
-  -o custom-columns='NODE:.metadata.name,READY:.status.conditions[?(@.type=="Ready")].status,REASON:.status.conditions[?(@.type=="Ready")].reason'
-```
-
-**PASS:** hai dòng `PASS:`, không có dòng `FAIL:`.
-
-Cột `READY` chuyển `False` với `REASON` nói về network plugin chưa sẵn sàng là **trạng thái đúng**
-ở giữa bước đổi CNI. Node còn `Ready` ở thời điểm này cũng không sao: file cấu hình CNI cũ vẫn nằm
-trên đĩa và sẽ bị dọn ngay ở B4.3. Thời điểm chuyển trạng thái phụ thuộc chu kỳ báo cáo của kubelet,
-nên **đừng** dùng nó làm gate.
-
-Lệnh xóa dùng tên object thay vì `kubectl delete -f <url>`: cách này không cần nhắc lại số phiên bản
-của manifest cũ, mà số đó chỉ tồn tại ở
-[bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa).
-
-### B4.3. Dọn file cấu hình và interface trên từng node
-
-Chạy trên **cả ba node**, thứ tự `lab-k8s-worker2` → `lab-k8s-worker1` → `lab-k8s-master`:
-
-```bash
-sudo rm -f /etc/cni/net.d/10-flannel.conflist
-sudo rm -rf /var/lib/cni/flannel /var/lib/cni/networks /run/flannel
-
-for i in flannel.1 cni0; do
-  if ip link show "$i" >/dev/null 2>&1; then
-    echo "xoa interface $i"
-    sudo ip link delete "$i"
-  fi
+# 3. Dọn từng node: worker2 → worker1 → master. containerd nạp plugin nên khởi động lại trước kubelet
+for N in lab-k8s-worker2 lab-k8s-worker1 lab-k8s-master; do
+  on "$N" 'sudo rm -f /etc/cni/net.d/10-flannel.conflist
+           sudo rm -rf /var/lib/cni/flannel /var/lib/cni/networks /run/flannel
+           for i in flannel.1 cni0; do ip link show "$i" >/dev/null 2>&1 && sudo ip link delete "$i"; done
+           sudo systemctl restart containerd
+           sudo systemctl restart kubelet'
 done
 
-sudo systemctl restart containerd
-sudo systemctl restart kubelet
-```
-
-Gate trên **từng node**:
-
-```bash
-test ! -e /etc/cni/net.d/10-flannel.conflist \
-  && echo 'PASS: da xoa file cau hinh CNI cu'
-test "$(ls -A /etc/cni/net.d 2>/dev/null | wc -l)" = '0' \
-  && echo 'PASS: /etc/cni/net.d rong - chua co plugin nao'
-
-if ip link show flannel.1 >/dev/null 2>&1; then
-  echo 'FAIL: interface flannel.1 van con'
-else
-  echo 'PASS: khong con interface flannel.1'
-fi
-if ip link show cni0 >/dev/null 2>&1; then
-  echo 'FAIL: interface cni0 van con'
-else
-  echo 'PASS: khong con interface cni0'
-fi
-
-systemctl is-active containerd kubelet
-```
-
-**PASS:** bốn dòng `PASS:` trên **mỗi node**, không có dòng `FAIL:`; `containerd` và `kubelet` đều
-`active`.
-
-**Ý nghĩa:** hai thứ sót lại hay giết bước đổi CNI. Thứ nhất là **file conflist cũ**: containerd
-chọn file cấu hình theo thứ tự tên, nên để lại hai file là để lại một cái bẫy im lặng. Thứ hai là
-**interface cũ** — `cni0` giữ nguyên địa chỉ gateway của dải cũ, và plugin mới dựng đường đi riêng
-trên interface riêng; hai bộ route chồng nhau thì Pod lên được nhưng gói tin đi lạc. Restart
-containerd trước kubelet là vì containerd mới là thứ nạp plugin, đúng như B2.1 đã chứng minh.
-
-### B4.4. Cài plugin mới
-
-Trên `lab-k8s-master`:
-
-```bash
+# 4. Cài Calico
 kubectl apply -f ~/lab-work/5b/calico.yaml
-
 kubectl -n kube-system rollout status daemonset/calico-node --timeout=600s
 kubectl -n kube-system rollout status deployment/calico-kube-controllers --timeout=600s
-kubectl -n kube-system get pods -l k8s-app=calico-node -o wide
-```
+kubectl wait --for=condition=Ready node --all --timeout=300s
 
-Thời gian rollout phụ thuộc tốc độ kéo image và cấu hình máy; đừng coi con số `--timeout` ở trên là
-cam kết, nó chỉ là trần chờ.
-
-```bash
-test "$(kubectl -n kube-system get pods -l k8s-app=calico-node \
-  --field-selector=status.phase=Running --no-headers | wc -l)" = '3' \
-  && echo 'PASS: dung ba Pod calico-node Running, moi node mot Pod'
-
-kubectl -n kube-system get ds calico-node \
-  -o jsonpath='{range .spec.template.spec.initContainers[*]}{.image}{"\n"}{end}{range .spec.template.spec.containers[*]}{.image}{"\n"}{end}' \
-  | tee ~/lab-evidence/5b/b4-calico-images.txt
-grep -q ":$CALICO_VER" ~/lab-evidence/5b/b4-calico-images.txt \
-  && echo 'PASS: image dang chay dung tag da chot'
-
-kubectl wait --for=condition=Ready node --all --timeout=300s \
-  && echo 'PASS: ba node tro lai Ready sau khi cai plugin moi'
-```
-
-**PASS:** ba dòng `PASS:` xuất hiện.
-
-### B4.5. Đọc lại CNI trên node và kiểm dải IP plugin cấp
-
-Chạy trên **cả ba node**:
-
-```bash
-ls -l /etc/cni/net.d/
-sudo cat /etc/cni/net.d/10-calico.conflist
-
-test -f /etc/cni/net.d/10-calico.conflist \
-  && echo 'PASS: co file cau hinh CNI cua plugin moi'
-test ! -e /etc/cni/net.d/10-flannel.conflist \
-  && echo 'PASS: khong con file cau hinh CNI cua plugin cu'
-sudo grep -q '"type": "calico"' /etc/cni/net.d/10-calico.conflist \
-  && echo 'PASS: plugin chinh trong conflist la calico'
-sudo grep -q 'calico-ipam' /etc/cni/net.d/10-calico.conflist \
-  && echo 'PASS: IPAM da chuyen sang calico-ipam'
-sudo grep -q '"portMappings": true' /etc/cni/net.d/10-calico.conflist \
-  && echo 'PASS: conflist moi van khai portMappings capability'
-```
-
-**PASS:** năm dòng `PASS:` trên **mỗi node**.
-
-Trên `lab-k8s-master`, đối chiếu dải IP mà plugin mới tự cấu hình:
-
-```bash
-POD_CIDR="$(cat ~/lab-evidence/5b/b1-pod-cidr.txt)"
-
-kubectl get ippools.crd.projectcalico.org -o wide
-IPPOOL="$(kubectl get ippools.crd.projectcalico.org default-ipv4-ippool \
-  -o jsonpath='{.spec.cidr}')"
-echo "ippool=$IPPOOL pod_cidr=$POD_CIDR"
-
-test "$IPPOOL" = "$POD_CIDR" \
-  && echo 'PASS: dai IP plugin moi cap trung Pod CIDR cua cluster'
-```
-
-**PASS:** dòng `PASS:` xuất hiện. Nếu hai giá trị khác nhau, **dừng** và xử lý theo dòng tương ứng
-ở [mục 4](#4-troubleshooting-của-lab-này) — chạy tiếp với dải sai sẽ làm mọi phép đo sau vô nghĩa.
-
-Kiểm plugin mới bám đúng interface mang IP node:
-
-```bash
-for n in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
-  A="$(kubectl get node "$n" -o jsonpath='{.metadata.annotations.projectcalico\.org/IPv4Address}')"
-  I="$(kubectl get node "$n" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
-  case "$A" in
-    "$I"/*) echo "PASS: $n - plugin chon dung InternalIP ($A)";;
-    *)      echo "FAIL: $n - plugin chon $A trong khi InternalIP la $I";;
-  esac
-done
-```
-
-**PASS:** ba dòng `PASS:`, không có dòng `FAIL:`. Đây chính là lỗi kinh điển khi VM có nhiều card
-mạng: plugin tự dò và bắt nhầm interface, cluster vẫn `Ready` nhưng Pod hai node không thấy nhau.
-
-IPAM đổi chủ — đối chiếu với `.spec.podCIDR` bạn ghi ở B1.3:
-
-```bash
-kubectl get ipamblocks.crd.projectcalico.org \
-  -o custom-columns='BLOCK:.spec.cidr,AFFINITY:.spec.affinity' \
-  | tee ~/lab-evidence/5b/b4-ipamblock.txt
-
-test "$(awk 'NR>1' ~/lab-evidence/5b/b4-ipamblock.txt | wc -l)" -ge 2 \
-  && echo 'PASS: plugin moi tu chia khoi dia chi va gan cho tung node'
-
-cat ~/lab-evidence/5b/b1-podcidr.txt
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-**Ý nghĩa — đọc kỹ chỗ này:** `.spec.podCIDR` của Node **vẫn nguyên** vì nó do kube-controller-manager
-cấp, không phải do plugin. Nhưng IPAM giờ là của plugin mới: nó tự cắt dải lớn thành các khối riêng
-và gán cho từng node, nên **Pod IP không nhất thiết còn nằm trong `/24` mà kubeadm gán cho node
-đó**. Cả hai đều đúng và không mâu thuẫn — bài [157](../157-networking-vi.md) chỉ ràng buộc rằng
-network plugin là thành phần cấp IP cho Pod, chứ không ràng buộc plugin phải dùng `.spec.podCIDR`.
-Đây là khác biệt thật giữa hai plugin, không phải lỗi cấu hình.
-
-### B4.6. Tái tạo Pod mang IP cũ và kiểm mạng đã liền
-
-Pod tạo trước khi đổi plugin vẫn giữ IP của dải cũ cho tới khi bị tạo lại. CoreDNS là quan trọng
-nhất trong số đó:
-
-```bash
+# 5. Tạo lại Pod còn mang IP cũ — sau khi gỡ dự án chỉ còn CoreDNS
 kubectl -n kube-system delete pod -l k8s-app=kube-dns
 kubectl -n kube-system rollout status deployment/coredns --timeout=300s
-
-kubectl delete -f ~/lab-work/5b/app.yaml --ignore-not-found
-kubectl apply -f ~/lab-work/5b/app.yaml
-kubectl -n lab-5b wait --for=condition=Ready pod/web-w1 pod/web-w2 pod/client pod/client-ok --timeout=300s
-kubectl -n lab-5b-ext wait --for=condition=Ready pod/client-ext --timeout=300s
 ```
+
+`platform/calico/README.md` — khung tối thiểu; nội dung lệnh là khối trên, viết bằng lời của bạn:
+
+```markdown
+# Calico — CNI có thực thi NetworkPolicy
+
+Phiên bản: biến CALICO_VER trong platform/versions.env (nguồn: bảng A1.4 của Lab 00).
+Cài bằng một manifest; mọi object nằm trong kube-system. Với kubeadm, không sửa CALICO_IPV4POOL_CIDR.
+
+## A. Cluster mới, chưa có CNI (Lab 8a)
+tải manifest → đọc image và CALICO_IPV4POOL_CIDR → apply → chờ calico-node, calico-kube-controllers
+→ gate C.
+
+## B. Thay Flannel trên cluster đang chạy (Lab 5b)
+0. teardown dự án  1. gỡ Flannel ở tầng API  2. dọn từng node, containerd trước kubelet
+3. apply Calico  4. tạo lại Pod còn IP cũ (CoreDNS)  → gate C.
+Đường lùi: restore cả ba VM về 01-cluster-ready.
+
+## C. Gate
+IPPool = dải Pod của kubeadm; annotation projectcalico.org/IPv4Address = InternalIP;
+Pod dùng mạng Pod có annotation cni.projectcalico.org/podIP; TCP xuyên node; DNS trong và ngoài.
+```
+
+Ý chính cho ADR:
+
+1. Gỡ API → dọn node → cài mới → tạo lại Pod cũ. Dọn node trước khi gỡ API thì Pod Flannel còn sống
+   ghi lại conflist vừa xóa, node có **hai** cấu hình CNI và containerd chọn theo thứ tự tên — một cái
+   bẫy im lặng. Bỏ bước cuối thì CoreDNS giữ IP của dải cũ, không ai định tuyến tới nó: DNS chết.
+2. Pod đang chạy giữ IP của plugin cũ cho tới khi bị tạo lại; `db` còn dữ liệu trên `emptyDir`
+   (`TD-04`) sẽ mất khi Pod bị thay. Dự án sống trong repo, dựng lại chỉ tốn một lần `deploy.sh` — rẻ
+   hơn nhiều so với gỡ rối một hệ thống đang nằm giữa hai plugin.
+3. Không. `.spec.podCIDR` do kube-controller-manager cấp và vẫn nguyên. Bài 157 chỉ nói **network
+   plugin** cấp IP Pod; nó không bắt plugin dùng `.spec.podCIDR`. Calico có IPAM riêng, tự chia dải
+   lớn thành khối nhỏ gán cho từng node.
+4. Restore **cả ba VM** về `01-cluster-ready` rồi clone repo từ bundle. Với cluster một control plane,
+   etcd trên master và trạng thái mạng trên worker phải cùng một mốc; restore lệch là có hai thế giới.
+
+</details>
+
+## B4. [BS-5B-04] Vận hành: Helm, Traefik và IngressClass mặc định
+
+**Loại:** Vận hành.
+
+**Bối cảnh:** yêu cầu `R7` cũng nói truy cập từ ngoài phải qua HTTPS. Sprint 6 mở `web` bằng NodePort
+— cổng TCP thô, không hiểu host hay path, không kết thúc TLS. Cluster cần một **ingress controller**.
+Đây là chart đầu tiên của chuỗi lab, nên cũng là lúc Helm vào cluster, đúng ghi chú ở A1.4.
+
+**Yêu cầu:**
+
+1. **Trước khi cài controller**, chứng minh bằng Ingress thử nghiệm `som` ở namespace `ing-thu` (file
+   chép nguyên văn ở khối Script nghiệm thu): API server nhận Ingress, nhưng cluster không có
+   IngressClass nào, Ingress không được gán class, `.status` rỗng, và không có gì nghe ở cổng NodePort
+   mà controller sẽ dùng.
+2. Helm trên `lab-k8s-master`, đúng version trong `versions.env`, binary đã kiểm checksum do nhà phát
+   hành công bố.
+3. Traefik: release `traefik`, namespace `traefik`, chart đúng version, image đúng `appVersion`. Mọi
+   cấu hình nằm trong `platform/traefik/values.yaml`; không sửa tay object của chart sau khi cài.
+4. Service của Traefik là NodePort **cố định**: `30081` cho HTTP, `30443` cho HTTPS.
+5. Cluster có đúng **một** IngressClass, tên `traefik`, được đánh dấu mặc định.
+6. Ingress `som` tạo ở yêu cầu 1 vẫn không có class sau khi cài. Tạo lại đúng file đó thì được gán
+   `traefik` và phục vụ được qua NodePort HTTP với đúng header `Host`.
+7. `platform/traefik/README.md`: cách cài, cách kiểm, và vì sao không cài thêm load balancer.
+
+**Ràng buộc:** không cài MetalLB (nằm ngoài baseline), không cài Gateway API. Không `kubectl patch`,
+`edit` object của chart — Helm và file values là nguồn sự thật. Namespace `ing-thu` không mang label
+dự án; **giữ** tới B7, B8, xóa ở mục đóng sprint.
+
+**Đọc lại:**
+
+- Bài [12](../12-ingress-controllers-vi.md): đoạn mở đầu;
+  [*Các ingress controller của bên thứ ba*](../12-ingress-controllers-vi.md#các-ingress-controller-của-bên-thứ-ba-third-party-ingress-controllers);
+  [*Sử dụng nhiều Ingress controller*](../12-ingress-controllers-vi.md#sử-dụng-nhiều-ingress-controller-using-multiple-ingress-controllers).
+- Bài [11](../11-ingress-vi.md): [*Điều kiện tiên quyết*](../11-ingress-vi.md#điều-kiện-tiên-quyết-prerequisites),
+  [*Ingress class*](../11-ingress-vi.md#ingress-class),
+  [*IngressClass mặc định*](../11-ingress-vi.md#default-ingress-class).
+- Bài [164](../164-proxies-vi.md#proxy-proxies) — loại 5, cloud load balancer.
+- Bài [82](../82-service-vi.md): [`type: NodePort`](../82-service-vi.md#type-nodeport),
+  [*Tự chọn port*](../82-service-vi.md#nodeport-custom-port), [`type: LoadBalancer`](../82-service-vi.md#loadbalancer).
+- [Traefik Helm chart](https://github.com/traefik/traefik-helm-chart) — file `values.yaml` của đúng
+  version chart; [Helm — Installing Helm](https://helm.sh/docs/intro/install/).
+
+**Bàn giao:** `platform/traefik/values.yaml`, `platform/traefik/README.md`;
+`docs/adr/NNNN-ingress-controller.md`; `~/lab-work/5b/ing-thu.yaml`; `~/lab-evidence/5b/b4-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` trước khi cài: không có IngressClass; Ingress `som` được lưu, không class, `.status` rỗng;
+  cổng `30081` không trả lời.
+- `PASS:` `helm` đúng version.
+- `PASS:` release `traefik` đã triển khai, đúng chart; image đúng `appVersion`; Deployment sẵn sàng.
+- `PASS:` chart mặc định tạo Service kiểu `LoadBalancer`; Service đang chạy là `NodePort` `30081`,
+  `30443`.
+- `PASS:` đúng một IngressClass, tên `traefik`, mặc định.
+- `PASS:` Ingress cũ vẫn không class; tạo lại thì được gán `traefik`; `som.lab.local` trả `som-ok`.
+- `PASS:` `platform/traefik/` có đủ hai file.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-ingress-controller.md`:
+
+1. Ingress `som` hợp lệ, được lưu, `describe` in đủ rule — vì sao trước khi cài không chuyển một byte
+   nào? So với NetworkPolicy ở B1: cùng hình dạng vấn đề hay khác?
+2. Cài controller xong, `som` vẫn không có class. Cơ chế nào điền class khi tạo lại? Vì sao Ingress
+   của dự án ở B6 nên ghi `ingressClassName` tường minh thay vì dựa vào class mặc định?
+3. Chart mặc định Service `LoadBalancer`. Trên cluster này nó sẽ ra sao, và đó là loại proxy nào của
+   bài 164? Vì sao chọn NodePort cố định thay vì cài một load balancer?
+4. Bài 12 nói Traefik là controller **bên thứ ba**. Điều đó đổi trách nhiệm của đội vận hành ở đâu?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Bản phát hành Helm có file `.sha256sum` đi kèm; `sha256sum -c` kiểm nó.
+2. `helm show values traefik/traefik --version "$TRAEFIK_CHART"` in toàn bộ giá trị mặc định của
+   chart. Tìm khối `service`, khối `ports.web`, `ports.websecure` (có khóa `nodePort`) và khối
+   `ingressClass`.
+3. Class mặc định là annotation `ingressclass.kubernetes.io/is-default-class: "true"` trên
+   IngressClass.
+4. Tạo lại chỉ Ingress: xóa đúng object `ingress/som` rồi apply lại cả file — các object khác trong file
+   không đổi.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — phần 1 chạy TRƯỚC khi cài Traefik, phần 2 sau</summary>
+
+File thử nghiệm, chép nguyên văn:
 
 ```bash
-POD_PFX="$(cut -d. -f1,2 ~/lab-evidence/5b/b1-pod-cidr.txt)"
-kubectl -n lab-5b get pods -o wide | tee ~/lab-evidence/5b/b4-pod-ip-moi.txt
-
-BAD="$(kubectl -n lab-5b get pods -o jsonpath='{range .items[*]}{.status.podIP}{"\n"}{end}' \
-  | grep -vc "^$POD_PFX\." || true)"
-test "$BAD" = '0' \
-  && echo 'PASS: moi Pod cua lab deu lay IP trong dai Pod CIDR'
-
-kubectl -n lab-5b exec client -- wget -q -T 3 -O- http://web \
-  | grep -qx 'web-ok' && echo 'PASS: Service va DNS trong cluster hoat dong lai'
-
-BIP="$(kubectl -n lab-5b get pod web-w2 -o jsonpath='{.status.podIP}')"
-kubectl -n lab-5b exec client -- wget -q -T 3 -O- "http://$BIP:8080" \
-  | grep -qx 'web-ok' && echo 'PASS: TCP xuyen node bang Pod IP hoat dong'
-
-kubectl -n lab-5b exec client -- nslookup kubernetes.default.svc.cluster.local >/dev/null \
-  && echo 'PASS: DNS trong cluster tra loi'
-kubectl -n lab-5b exec client -- nslookup registry.k8s.io >/dev/null \
-  && echo 'PASS: DNS ra Internet tra loi'
-
-kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
-```
-
-**PASS:** năm dòng `PASS:` xuất hiện và lệnh cuối trả `No resources found`. Đây là gate quyết định
-của B4: qua được nghĩa là cluster đã sống lại đầy đủ trên plugin mới.
-
-Ghi bằng chứng bước đổi CNI:
-
-```bash
-{
-  date -Is
-  echo '--- Pod cua plugin mang'
-  kubectl -n kube-system get pods -l k8s-app=calico-node -o wide
-  echo '--- IPPool'
-  kubectl get ippools.crd.projectcalico.org -o wide
-  echo '--- Pod IP sau khi doi'
-  cat ~/lab-evidence/5b/b4-pod-ip-moi.txt
-} | tee ~/lab-evidence/5b/b4-sau-doi-cni.txt
-test -s ~/lab-evidence/5b/b4-sau-doi-cni.txt && echo 'PASS: da luu bang chung buoc doi CNI'
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
+cat > ~/lab-work/5b/ing-thu.yaml <<'EOF'
+# Đích thử nghiệm của B4, B7 — KHÔNG mang label dự án.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ing-thu
 ---
-
-## B5. Cùng một NetworkPolicy, lần này chặn thật
-
-**Mục đích:** trả [nợ #4](README.md#5-sổ-nợ-lab). Mục này apply lại **đúng những file YAML** đã dùng
-ở B3, không sửa một ký tự nào — thứ duy nhất đổi giữa hai lần đo là network plugin.
-
-### B5.1. Cùng file `np-01`, lần này lưu lượng dừng
-
-```bash
-kubectl apply -f ~/lab-work/5b/np-01-deny-ingress.yaml
-kubectl -n lab-5b get networkpolicy
-
-if kubectl -n lab-5b exec client -- wget -q -T 3 -O- http://web >/dev/null 2>&1; then
-  echo 'FAIL: policy van khong chan - plugin moi chua thuc thi NetworkPolicy'
-else
-  echo 'PASS: deny-all ingress da chan that'
-fi
-
-if kubectl -n lab-5b-ext exec client-ext -- \
-     wget -q -T 3 -O- http://web.lab-5b.svc.cluster.local >/dev/null 2>&1; then
-  echo 'FAIL: Pod o namespace khac van vao duoc'
-else
-  echo 'PASS: Pod o namespace khac cung bi chan'
-fi
-```
-
-**PASS:** hai dòng `PASS:`, không có dòng `FAIL:`.
-
-Nhìn xem policy được hiện thực ở đâu — chạy trên **`lab-k8s-worker1`**:
-
-```bash
-if sudo iptables-save 2>/dev/null | grep -q 'cali-'; then
-  echo 'PASS: tim thay chain cali- o dataplane iptables cua node'
-elif sudo nft list ruleset 2>/dev/null | grep -q 'cali'; then
-  echo 'PASS: tim thay rule cali o dataplane nftables cua node'
-else
-  echo 'FAIL: khong tim thay rule nao cua plugin tren node nay'
-fi
-```
-
-**PASS:** một dòng `PASS:`, không có dòng `FAIL:`.
-
-**Ý nghĩa:** cùng một object, cùng một API, hai kết quả trái ngược. Sự khác nhau nằm ở chỗ **có
-thành phần trên node dịch object đó thành rule hay không**. Đây là toàn bộ nội dung của nợ #4, và
-tới đây nó đã được trả.
-
-### B5.2. Mở đúng một cổng — và cái bẫy số cổng
-
-Tạo `~/lab-work/5b/np-02-access-web-sai-port.yaml`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
+apiVersion: v1
+kind: Pod
 metadata:
-  name: access-web
-  namespace: lab-5b
+  name: som
+  namespace: ing-thu
+  labels:
+    app: som
 spec:
-  podSelector:
-    matchLabels:
-      app: web
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              access: "true"
-      ports:
-        - protocol: TCP
-          port: 80
-```
-
-```bash
-kubectl apply -f ~/lab-work/5b/np-02-access-web-sai-port.yaml
-
-if kubectl -n lab-5b exec client-ok -- wget -q -T 3 -O- http://web >/dev/null 2>&1; then
-  echo 'FAIL: khong chan - doc lai truong port cua policy'
-else
-  echo 'PASS: van bi chan du Pod da mang dung label access=true'
-fi
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-Sửa đúng: cùng file, đổi `port: 80` thành `port: 8080` và lưu thành
-`~/lab-work/5b/np-03-access-web.yaml`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: access-web
-  namespace: lab-5b
-spec:
-  podSelector:
-    matchLabels:
-      app: web
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              access: "true"
-      ports:
-        - protocol: TCP
-          port: 8080
-```
-
-```bash
-kubectl apply -f ~/lab-work/5b/np-03-access-web.yaml
-
-kubectl -n lab-5b exec client-ok -- wget -q -T 3 -O- http://web \
-  | grep -qx 'web-ok' && echo 'PASS: Pod mang label access=true di qua duoc'
-
-if kubectl -n lab-5b exec client -- wget -q -T 3 -O- http://web >/dev/null 2>&1; then
-  echo 'FAIL: Pod khong co label van vao duoc'
-else
-  echo 'PASS: Pod khong co label van bi chan'
-fi
-
-kubectl -n lab-5b get svc web -o jsonpath='{.spec.ports[0].port}{"\t"}{.spec.ports[0].targetPort}{"\n"}'
-```
-
-**PASS:** hai dòng `PASS:`, không có dòng `FAIL:`.
-
-**Ý nghĩa:** Service nghe cổng `80` và chuyển tiếp tới cổng `8080` của Pod. NetworkPolicy làm việc ở
-tầng Pod, nên `ports` trong policy là **cổng của Pod đích** — kết nối tới ClusterIP đã được
-kube-proxy dịch địa chỉ đích trước khi tới Pod. Điền số cổng của Service vào policy là lỗi im lặng
-kinh điển: object hợp lệ, gate không báo gì, traffic vẫn chết.
-
-### B5.3. `endPort`: dải cổng có được thực thi không
-
-Tạo `~/lab-work/5b/np-04-endport-ngoai-dai.yaml` — vẫn tên `access-web` nên nó thay thế policy
-trước:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: access-web
-  namespace: lab-5b
-spec:
-  podSelector:
-    matchLabels:
-      app: web
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              access: "true"
-      ports:
-        - protocol: TCP
-          port: 8081
-          endPort: 8090
-```
-
-```bash
-kubectl apply -f ~/lab-work/5b/np-04-endport-ngoai-dai.yaml
-
-if kubectl -n lab-5b exec client-ok -- wget -q -T 3 -O- http://web >/dev/null 2>&1; then
-  echo 'FAIL: cong 8080 nam ngoai dai 8081-8090 ma van qua duoc'
-else
-  echo 'PASS: cong ngoai dai bi chan - endPort duoc thuc thi'
-fi
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-Đưa cổng đích vào trong dải — `~/lab-work/5b/np-05-endport-trong-dai.yaml` giống hệt file trên, chỉ
-đổi `port: 8081` thành `port: 8080`:
-
-```bash
-sed 's/port: 8081/port: 8080/' ~/lab-work/5b/np-04-endport-ngoai-dai.yaml \
-  > ~/lab-work/5b/np-05-endport-trong-dai.yaml
-grep -q 'port: 8080' ~/lab-work/5b/np-05-endport-trong-dai.yaml \
-  && grep -q 'endPort: 8090' ~/lab-work/5b/np-05-endport-trong-dai.yaml \
-  && echo 'PASS: file moi co dai 8080-8090'
-
-kubectl apply -f ~/lab-work/5b/np-05-endport-trong-dai.yaml
-kubectl -n lab-5b exec client-ok -- wget -q -T 3 -O- http://web \
-  | grep -qx 'web-ok' && echo 'PASS: cong trong dai di qua duoc'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** bài 84 xếp `endPort` vào phần đọc lướt với lý do "cần CNI hỗ trợ đúng trường này mới có
-tác dụng". Hai phép đo trên là cách duy nhất trả lời câu hỏi đó cho một cluster cụ thể: không đọc
-tài liệu của plugin, mà đo trực tiếp hai cổng nằm trong và ngoài dải.
-
-Đưa policy về bản đơn giản trước khi sang B5.4:
-
-```bash
-kubectl apply -f ~/lab-work/5b/np-03-access-web.yaml
-kubectl -n lab-5b exec client-ok -- wget -q -T 3 -O- http://web \
-  | grep -qx 'web-ok' && echo 'PASS: quay lai policy mot cong 8080'
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-### B5.4. Giao và hợp trong `from` — một dấu gạch đầu dòng đổi cả chính sách
-
-`client-ext` nằm ở namespace `lab-5b-ext` và **không** mang label `access=true`. Tạo
-`~/lab-work/5b/np-06-tu-ns-khac-giao.yaml`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: access-web-tu-ns-khac
-  namespace: lab-5b
-spec:
-  podSelector:
-    matchLabels:
-      app: web
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: lab-5b-ext
-          podSelector:
-            matchLabels:
-              access: "true"
-      ports:
-        - protocol: TCP
-          port: 8080
-```
-
-```bash
-kubectl apply -f ~/lab-work/5b/np-06-tu-ns-khac-giao.yaml
-
-if kubectl -n lab-5b-ext exec client-ext -- \
-     wget -q -T 3 -O- http://web.lab-5b.svc.cluster.local >/dev/null 2>&1; then
-  echo 'FAIL: phan tu giao ma Pod thieu label van qua duoc'
-else
-  echo 'PASS: mot phan tu chua ca hai selector la phep GIAO - thieu label thi bi chan'
-fi
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-Bây giờ tách đúng **một dấu gạch đầu dòng** — `~/lab-work/5b/np-07-tu-ns-khac-hop.yaml`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: access-web-tu-ns-khac
-  namespace: lab-5b
-spec:
-  podSelector:
-    matchLabels:
-      app: web
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: lab-5b-ext
-        - podSelector:
-            matchLabels:
-              access: "true"
-      ports:
-        - protocol: TCP
-          port: 8080
-```
-
-```bash
-kubectl apply -f ~/lab-work/5b/np-07-tu-ns-khac-hop.yaml
-
-kubectl -n lab-5b-ext exec client-ext -- wget -q -T 3 -O- http://web.lab-5b.svc.cluster.local \
-  | grep -qx 'web-ok' \
-  && echo 'PASS: hai phan tu tach roi la phep HOP - moi Pod trong namespace do di qua duoc'
-
-diff ~/lab-work/5b/np-06-tu-ns-khac-giao.yaml ~/lab-work/5b/np-07-tu-ns-khac-hop.yaml \
-  | tee ~/lab-evidence/5b/b5-giao-va-hop.diff
-test "$(grep -c '^[<>]' ~/lab-evidence/5b/b5-giao-va-hop.diff)" -le 4 \
-  && echo 'PASS: hai chinh sach khac nhau rat it dong nhung nguoc nghia'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** bài 84 nói một phần tử `from` chứa **cả** `namespaceSelector` lẫn `podSelector` là phép
-**giao**, còn hai phần tử tách rời bằng dấu `-` là phép **hợp**. Bạn vừa đo cả hai trên cùng một
-cặp Pod. Trong review manifest thật, đây là chỗ phải soi kỹ nhất: nhìn thoáng qua hai file gần như
-giống nhau.
-
-### B5.5. Cô lập chiều đi chặn luôn DNS
-
-Tạo `~/lab-work/5b/np-08-deny-egress.yaml`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: deny-egress-client-ok
-  namespace: lab-5b
-spec:
-  podSelector:
-    matchLabels:
-      access: "true"
-  policyTypes:
-    - Egress
-```
-
-```bash
-kubectl apply -f ~/lab-work/5b/np-08-deny-egress.yaml
-
-if kubectl -n lab-5b exec client-ok -- nslookup web >/dev/null 2>&1; then
-  echo 'FAIL: DNS van hoat dong du da co lap chieu di'
-else
-  echo 'PASS: co lap chieu di chan luon DNS - nslookup that bai'
-fi
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-Mở **đúng** đường DNS — `~/lab-work/5b/np-09-egress-dns.yaml`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: deny-egress-client-ok
-  namespace: lab-5b
-spec:
-  podSelector:
-    matchLabels:
-      access: "true"
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
-```
-
-```bash
-kubectl apply -f ~/lab-work/5b/np-09-egress-dns.yaml
-
-kubectl -n lab-5b exec client-ok -- nslookup web >/dev/null \
-  && echo 'PASS: DNS hoat dong lai sau khi mo dung duong toi Service DNS'
-
-if kubectl -n lab-5b exec client-ok -- wget -q -T 3 -O- http://web >/dev/null 2>&1; then
-  echo 'FAIL: da goi duoc web trong khi chi moi mo DNS'
-else
-  echo 'PASS: phan giai duoc ten nhung ket noi toi web van bi chan'
-fi
-```
-
-**PASS:** hai dòng `PASS:`, không có dòng `FAIL:`.
-
-Mở nốt đường tới Pod đích — `~/lab-work/5b/np-10-egress-dns-va-web.yaml` là file trên cộng thêm một
-phần tử `to`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: deny-egress-client-ok
-  namespace: lab-5b
-spec:
-  podSelector:
-    matchLabels:
-      access: "true"
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
-    - to:
-        - podSelector:
-            matchLabels:
-              app: web
-      ports:
-        - protocol: TCP
-          port: 8080
-```
-
-```bash
-kubectl apply -f ~/lab-work/5b/np-10-egress-dns-va-web.yaml
-
-kubectl -n lab-5b exec client-ok -- wget -q -T 3 -O- http://web \
-  | grep -qx 'web-ok' && echo 'PASS: mo du hai duong thi ket noi chay lai'
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** hai điều của bài 84 vừa được đo cùng lúc. Thứ nhất, **deny egress chặn luôn traffic
-DNS** — bài cảnh báo riêng chỗ này vì triệu chứng hiện ra là "không phân giải được tên", rất dễ bị
-quy oan cho CoreDNS. Thứ hai, một kết nối chỉ đi được khi **cả** chính sách egress ở Pod nguồn
-**lẫn** chính sách ingress ở Pod đích cùng cho phép: `client-ok` phải được `np-10` cho ra, đồng thời
-`web` phải được `np-03` cho vào.
-
-### B5.6. Xóa policy thì hết cô lập
-
-```bash
-kubectl -n lab-5b get networkpolicy | tee ~/lab-evidence/5b/b5-policy-truoc-khi-xoa.txt
-kubectl -n lab-5b delete networkpolicy --all
-
-test "$(kubectl -n lab-5b get networkpolicy --no-headers 2>/dev/null | wc -l)" = '0' \
-  && echo 'PASS: khong con NetworkPolicy nao trong lab-5b'
-
-kubectl -n lab-5b exec client -- wget -q -T 3 -O- http://web \
-  | grep -qx 'web-ok' && echo 'PASS: Pod khong co label da vao lai duoc'
-kubectl -n lab-5b-ext exec client-ext -- wget -q -T 3 -O- http://web.lab-5b.svc.cluster.local \
-  | grep -qx 'web-ok' && echo 'PASS: Pod o namespace khac cung vao lai duoc'
-```
-
-**PASS:** ba dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** mặc định là **cho phép tất cả**. Một Pod chỉ bị cô lập theo một hướng khi **tồn tại**
-một NetworkPolicy vừa chọn nó vừa có hướng đó trong `policyTypes`. Xóa policy đi là quay về mặc
-định ngay, không cần khởi động lại gì.
-
-Chốt bằng chứng trả nợ:
-
-```bash
-{
-  date -Is
-  echo '=== NO #4 DA TRA TAI LAB 5B ==='
-  echo '--- Truoc khi doi CNI (B3): deny-all ingress khong chan duoc'
-  cat ~/lab-evidence/5b/b3-bang-chung-no-4.txt
-  echo '--- Sau khi doi CNI (B5): cung file policy do chan that'
-  cat ~/lab-evidence/5b/b5-policy-truoc-khi-xoa.txt
-} | tee ~/lab-evidence/5b/b5-tra-no-4.txt
-test -s ~/lab-evidence/5b/b5-tra-no-4.txt && echo 'PASS: da luu ho so tra no #4'
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
+  terminationGracePeriodSeconds: 1
+  containers:
+  - name: httpd
+    image: busybox:1.37
+    command: ["sh", "-c", "mkdir -p /www && echo som-ok > /www/index.html && httpd -f -p 8080 -h /www"]
+    ports:
+    - containerPort: 8080
 ---
-
-## B6. kube-proxy và bốn thứ khác cũng tên là "proxy"
-
-**Mục đích:** bài [164](../164-proxies-vi.md) xếp lại năm thứ đều được gọi là proxy. Mục này chạm
-tay vào ba loại đầu; loại 4 và loại 5 chỉ đọc, vì cluster lab có một control plane và không có cloud
-provider.
-
-### B6.1. kube-proxy vẫn nguyên sau khi đổi CNI
-
-```bash
-kubectl -n kube-system get daemonset kube-proxy
-kubectl -n kube-system get pods -l k8s-app=kube-proxy -o wide
-
-test "$(kubectl -n kube-system get pods -l k8s-app=kube-proxy \
-  --field-selector=status.phase=Running --no-headers | wc -l)" = '3' \
-  && echo 'PASS: kube-proxy van du ba Pod sau khi doi CNI'
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** đổi network plugin **không** đụng tới kube-proxy. Hai thứ giải hai bài toán khác nhau:
-plugin lo Pod-với-Pod, kube-proxy lo Pod-với-Service. Đây cũng là lý do ClusterIP của Service `web`
-không đổi khi bạn thay CNI ở B4.
-
-### B6.2. Mode đang chạy
-
-```bash
-kubectl -n kube-system get cm kube-proxy \
-  -o jsonpath='{.data.config\.conf}' | grep -E '^mode:' \
-  | tee ~/lab-evidence/5b/b6-kube-proxy-mode-cm.txt
-
-kubectl -n kube-system logs -l k8s-app=kube-proxy --tail=200 2>/dev/null \
-  | grep -iE 'proxier|proxy mode|using .*proxy' | head -5 \
-  | tee ~/lab-evidence/5b/b6-kube-proxy-mode-log.txt
-
-grep -qiE 'iptables|nftables|ipvs' ~/lab-evidence/5b/b6-kube-proxy-mode-log.txt \
-  && echo 'PASS: log kube-proxy noi ro dataplane dang dung'
-```
-
-**PASS:** dòng `PASS:` xuất hiện. `mode:` rỗng trong ConfigMap nghĩa là kube-proxy dùng mode mặc
-định của phiên bản đang chạy — đó là lý do phải đọc log chứ không suy từ file cấu hình.
-
-### B6.3. Tìm ClusterIP của Service mình tạo trong rule của node
-
-Trên `lab-k8s-master`:
-
-```bash
-CIP="$(kubectl -n lab-5b get svc web -o jsonpath='{.spec.clusterIP}')"
-echo "$CIP" | tee ~/lab-evidence/5b/b6-clusterip.txt
-```
-
-Chạy trên **`lab-k8s-worker1`**, thay `<CIP>` bằng giá trị vừa in:
-
-```bash
-CIP='<CIP>'
-if sudo iptables-save -t nat 2>/dev/null | grep -q "$CIP"; then
-  echo 'PASS: ClusterIP xuat hien trong bang nat cua node (dataplane iptables)'
-elif sudo nft list ruleset 2>/dev/null | grep -q "$CIP"; then
-  echo 'PASS: ClusterIP xuat hien trong ruleset nftables cua node'
-else
-  echo 'FAIL: khong tim thay ClusterIP trong rule cua node'
-fi
-```
-
-**PASS:** một dòng `PASS:`, không có dòng `FAIL:`.
-
-**Ý nghĩa:** ClusterIP là một địa chỉ **ảo** — không interface nào mang nó. Thứ làm nó "tồn tại" là
-tập rule mà kube-proxy sinh trên **mỗi node**. Đó cũng là lý do bài 164 xếp kube-proxy vào nhóm quản
-trị viên phải lo, không phải nhóm người dùng.
-
-### B6.4. `kubectl proxy` và apiserver proxy
-
-Trên `lab-k8s-master`:
-
-```bash
-kubectl proxy --port=18001 >/tmp/lab5b-proxy.log 2>&1 &
-PF_PID=$!
-for i in $(seq 1 20); do
-  curl -fsS http://127.0.0.1:18001/version >/dev/null 2>&1 && break
-  sleep 1
-done
-
-curl -s http://127.0.0.1:18001/version | tee ~/lab-evidence/5b/b6-kubectl-proxy.txt
-grep -q 'gitVersion' ~/lab-evidence/5b/b6-kubectl-proxy.txt \
-  && echo 'PASS: goi API qua kubectl proxy bang HTTP thuan, khong gui token nao'
-
-curl -s "http://127.0.0.1:18001/api/v1/namespaces/lab-5b/services/web:http/proxy/" \
-  | tee ~/lab-evidence/5b/b6-apiserver-proxy.txt
-grep -qx 'web-ok' ~/lab-evidence/5b/b6-apiserver-proxy.txt \
-  && echo 'PASS: apiserver proxy cham toi Service ben trong cluster'
-
-kill "$PF_PID"
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** ba loại proxy vừa lộ ra cùng lúc. `kubectl proxy` nhận HTTP từ bạn, nói HTTPS với
-apiserver và **tự thêm header xác thực** — đó là lý do `curl` không cần token. Chặng tiếp theo là
-**apiserver proxy**, cái bastion tích hợp trong apiserver, đưa bạn tới một ClusterIP mà máy ngoài
-vốn không chạm được. Và chặng cuối tới Pod đi qua **kube-proxy**. Ba thứ, ba vị trí, cùng một
-request.
-
-Hệ quả bảo mật đáng nhớ: bất kỳ ai chạm được cổng mà `kubectl proxy` đang lắng nghe đều phát request
-đi với danh nghĩa của bạn. Đừng bind nó ra ngoài localhost.
-
-### B6.5. kube-proxy không hiểu HTTP
-
-```bash
-curl -s -o /dev/null -w '%{http_code}\n' "http://$CIP/"
-curl -s -o /dev/null -w '%{http_code}\n' "http://$CIP/duong-dan-khong-ton-tai"
-```
-
-Hai lệnh cho kết quả như nhau, và đó chính là điểm cần thấy: kube-proxy chuyển tiếp **TCP**, nó
-không đọc đường dẫn, không đọc header `Host`, không định tuyến theo path. Muốn `/shop` đi một nơi và
-`/blog` đi nơi khác thì phải có một thứ đọc được HTTP đứng trước — đó là Ingress cộng ingress
-controller, nội dung của B7 tới B9.
-
-Không đặt gate `PASS:` cho bước này: hai mã trả về phụ thuộc ứng dụng phía sau chứ không phụ thuộc
-kube-proxy, nên nó là bước quan sát để dẫn sang B7, không phải bước kiểm chứng.
-
+apiVersion: v1
+kind: Service
+metadata:
+  name: som
+  namespace: ing-thu
+spec:
+  selector:
+    app: som
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
 ---
-
-## B7. Ingress khi chưa có controller
-
-**Mục đích:** bài [12](../12-ingress-controllers-vi.md) mở đầu bằng đúng một câu: để Ingress hoạt
-động thì **phải có một ingress controller đang chạy**. Mục này biến câu đó thành phép đo, trước khi
-cài controller ở B8.
-
-### B7.1. Cluster chưa có IngressClass nào
-
-```bash
-kubectl get ingressclass
-test "$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)" = '0' \
-  && echo 'PASS: cluster chua co IngressClass nao'
-
-kubectl api-resources --api-group=gateway.networking.k8s.io 2>/dev/null \
-  | tee ~/lab-evidence/5b/b7-gateway-api.txt
-if grep -qi 'gateway' ~/lab-evidence/5b/b7-gateway-api.txt; then
-  echo 'FAIL: cluster da co Gateway API - lab nay khong cai no'
-else
-  echo 'PASS: API group gateway.networking.k8s.io chua ton tai'
-fi
-```
-
-**PASS:** hai dòng `PASS:`, không có dòng `FAIL:`.
-
-**Ý nghĩa của lệnh thứ hai:** `Ingress` là kiểu có sẵn trong Kubernetes — bạn tạo được nó ngay bây
-giờ. `Gateway` thì không: bài [13](../13-gateway-vi.md) nói Gateway API là **add-on** gồm các
-CustomResourceDefinition, không cài CRD và một bản hiện thực thì không loại object nào trong bài đó
-tồn tại. Kết quả rỗng ở trên là bằng chứng cho tính chất add-on đó. Lab dừng lại ở đây và **không**
-cài Gateway API; xem dòng tương ứng ở [mục 1.1](#11-ánh-xạ-tài-liệu-sang-bài-thực-hành).
-
-### B7.2. Tạo Ingress khi chưa có ai hiện thực nó
-
-Tạo `~/lab-work/5b/ingress-som.yaml`:
-
-```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: web-som
-  namespace: lab-5b
+  name: som
+  namespace: ing-thu
 spec:
   rules:
-    - host: som.lab.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: web
-                port:
-                  number: 80
+  - host: som.lab.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: som
+            port:
+              number: 80
+EOF
 ```
 
-```bash
-kubectl apply -f ~/lab-work/5b/ingress-som.yaml
-kubectl -n lab-5b get ingress
-kubectl -n lab-5b describe ingress web-som | tee ~/lab-evidence/5b/b7-ingress-som.txt
-
-test -n "$(kubectl -n lab-5b get ingress web-som -o jsonpath='{.metadata.uid}')" \
-  && echo 'PASS: API server chap nhan va luu object Ingress'
-test -z "$(kubectl -n lab-5b get ingress web-som -o jsonpath='{.status.loadBalancer.ingress}')" \
-  && echo 'PASS: .status cua Ingress rong - khong controller nao nhan viec'
-test -z "$(kubectl -n lab-5b get ingress web-som -o jsonpath='{.spec.ingressClassName}')" \
-  && echo 'PASS: ingressClassName van rong vi cluster chua co class mac dinh'
-```
-
-**PASS:** ba dòng `PASS:` xuất hiện.
-
-### B7.3. Không có gì phục vụ trên cổng HTTP của node
+Phần 1 — trước khi cài:
 
 ```bash
-W1IP="$(kubectl get node lab-k8s-worker1 \
-  -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
-echo "$W1IP" | tee ~/lab-evidence/5b/b7-worker1-ip.txt
-
-if curl -s --max-time 3 -H 'Host: som.lab.local' -o /dev/null "http://$W1IP/"; then
-  echo 'FAIL: co thu gi do dang phuc vu cong 80 tren node'
+NS=ing-thu; EV=~/lab-evidence/5b
+W1="$(kubectl get node lab-k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+[ "$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: cluster chua co IngressClass nao'
+kubectl apply -f ~/lab-work/5b/ing-thu.yaml
+kubectl -n "$NS" wait --for=condition=Ready pod/som --timeout=180s
+kubectl -n "$NS" describe ingress som > "$EV/b4-ingress-som-truoc.txt"
+{ [ -n "$(kubectl -n "$NS" get ingress som -o jsonpath='{.metadata.uid}')" ] \
+  && [ -z "$(kubectl -n "$NS" get ingress som -o jsonpath='{.spec.ingressClassName}')" ] \
+  && [ -z "$(kubectl -n "$NS" get ingress som -o jsonpath='{.status.loadBalancer.ingress}')" ]; } \
+  && echo 'PASS: Ingress som duoc luu, khong class, .status rong'
+if curl -s --max-time 3 -o /dev/null -H 'Host: som.lab.local' "http://$W1:30081/"; then
+  echo 'FAIL: da co thu gi nghe cong 30081'
 else
-  echo 'PASS: khong co ingress controller nen cong 80 tren node khong tra loi'
+  echo 'PASS: chua co gi nghe cong 30081 tren node'
 fi
 ```
 
-**PASS:** dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** đây là toàn bộ khác biệt giữa **tài nguyên** và **bản hiện thực**. Object Ingress hợp
-lệ, được lưu trong etcd, `describe` ra đầy đủ rule — và không chuyển một byte nào. Cùng một hình
-dạng vấn đề bạn đã gặp ở B3 với NetworkPolicy, chỉ khác tên API.
-
-Giữ nguyên Ingress `web-som`; B8 sẽ cho thấy nó tự sống lại khi controller xuất hiện.
-
----
-
-## B8. Cài ingress controller
-
-**Mục đích:** đưa vào cluster thành phần thứ hai của snapshot `02-net-ready`. Controller và phiên
-bản đã chốt ở [mục 2.3](#23-phiên-bản-lab-5b-đưa-vào-chuỗi-snapshot).
-
-### B8.1. Cài Helm trên `lab-k8s-master`
-
-Đây là chart đầu tiên của chuỗi lab, nên cũng là chỗ Helm được đưa vào — đúng ghi chú ở
-[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00).
+Phần 2 — sau khi cài:
 
 ```bash
+NS=ing-thu; EV=~/lab-evidence/5b
+. ~/bookstore/platform/versions.env
+W1="$(kubectl get node lab-k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+
+helm version --short | grep -q "^${HELM_VER}" && echo "PASS: helm dung $HELM_VER"
+
+helm list -n traefik > "$EV/b4-helm-list.txt"
+IMG="$(kubectl -n traefik get deployment traefik -o jsonpath='{.spec.template.spec.containers[0].image}')"
+echo "$IMG" > "$EV/b4-traefik-image.txt"
+{ helm status traefik -n traefik | grep -q 'STATUS: deployed' && grep -q "traefik-$TRAEFIK_CHART" "$EV/b4-helm-list.txt" \
+  && echo "$IMG" | grep -q ":${TRAEFIK_APP}$" \
+  && kubectl -n traefik rollout status deployment/traefik --timeout=300s >/dev/null; } \
+  && echo "PASS: release traefik da trien khai, chart $TRAEFIK_CHART, image $IMG"
+
+helm show values traefik/traefik --version "$TRAEFIK_CHART" > "$EV/b4-values-mac-dinh.yaml"
+grep -qE '^\s+type: LoadBalancer' "$EV/b4-values-mac-dinh.yaml" && echo 'PASS: chart mac dinh tao Service LoadBalancer'
+SVC='{.spec.type} {.spec.ports[?(@.name=="web")].nodePort} {.spec.ports[?(@.name=="websecure")].nodePort}'
+[ "$(kubectl -n traefik get svc traefik -o jsonpath="$SVC")" = 'NodePort 30081 30443' ] \
+  && echo 'PASS: Service traefik la NodePort 30081 (http), 30443 (https)'
+
+kubectl get ingressclass -o wide > "$EV/b4-ingressclass.txt"
+DEF='{.metadata.annotations.ingressclass\.kubernetes\.io/is-default-class}'
+{ [ "$(kubectl get ingressclass --no-headers | wc -l)" -eq 1 ] \
+  && [ "$(kubectl get ingressclass traefik -o jsonpath="$DEF")" = 'true' ]; } \
+  && echo 'PASS: dung mot IngressClass, ten traefik, la mac dinh'
+
+[ -z "$(kubectl -n "$NS" get ingress som -o jsonpath='{.spec.ingressClassName}')" ] \
+  && echo 'PASS: Ingress tao truoc khi co class van khong class - mac dinh khong hoi to'
+kubectl -n "$NS" delete ingress som --wait=true
+kubectl apply -f ~/lab-work/5b/ing-thu.yaml
+[ "$(kubectl -n "$NS" get ingress som -o jsonpath='{.spec.ingressClassName}')" = 'traefik' ] \
+  && echo 'PASS: tao lai thi Ingress duoc gan class traefik'
+for i in $(seq 1 15); do
+  curl -s --max-time 3 -H 'Host: som.lab.local' "http://$W1:30081/" | grep -qx 'som-ok' && break; sleep 2
+done
+curl -s --max-time 3 -H 'Host: som.lab.local' "http://$W1:30081/" | grep -qx 'som-ok' \
+  && echo 'PASS: som.lab.local qua NodePort 30081 tra som-ok'
+
+{ test -s ~/bookstore/platform/traefik/values.yaml && test -s ~/bookstore/platform/traefik/README.md; } \
+  && echo 'PASS: platform/traefik co du values.yaml va README.md'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+```yaml
+# platform/traefik/values.yaml — Lab 5b. Chart và appVersion: platform/versions.env (bảng A1.4).
+# Cluster lab không có cloud load balancer: Service của Traefik là NodePort với cổng cố định để file
+# hosts và bookmark trên máy host không đổi giữa các lần cài.
+service:
+  spec:
+    type: NodePort
+ports:
+  web:
+    nodePort: 30081
+  websecure:
+    nodePort: 30443
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+  name: traefik
+```
+
+```bash
+. ~/bookstore/platform/versions.env
+
+# Helm — kiểm checksum trước khi cài binary
 cd ~/lab-work/5b
 curl -fsSLO "https://get.helm.sh/helm-${HELM_VER}-linux-amd64.tar.gz"
 curl -fsSLO "https://get.helm.sh/helm-${HELM_VER}-linux-amd64.tar.gz.sha256sum"
-
-sha256sum -c "helm-${HELM_VER}-linux-amd64.tar.gz.sha256sum" \
-  && echo 'PASS: checksum ban tai ve khop gia tri nha phat hanh cong bo'
-
+sha256sum -c "helm-${HELM_VER}-linux-amd64.tar.gz.sha256sum" && echo 'PASS: checksum khop'
 tar -xzf "helm-${HELM_VER}-linux-amd64.tar.gz"
 sudo install -o root -g root -m 0755 linux-amd64/helm /usr/local/bin/helm
 rm -rf linux-amd64 "helm-${HELM_VER}-linux-amd64.tar.gz" "helm-${HELM_VER}-linux-amd64.tar.gz.sha256sum"
-
-helm version --short
-helm version --short | grep -q "$HELM_VER" \
-  && echo 'PASS: helm tren PATH dung version da chot o bang A1.4'
 cd ~
-```
 
-**PASS:** hai dòng `PASS:` xuất hiện. Checksum fail thì **dừng**: không cài binary mà mình không xác
-minh được nguồn.
-
-### B8.2. Cài chart
-
-```bash
+# Traefik
 helm repo add traefik https://traefik.github.io/charts
 helm repo update
-
-helm install traefik traefik/traefik \
-  --version "$TRAEFIK_CHART" \
-  --namespace traefik --create-namespace
-
+helm install traefik traefik/traefik --version "$TRAEFIK_CHART" \
+  --namespace traefik --create-namespace -f ~/bookstore/platform/traefik/values.yaml
 kubectl -n traefik rollout status deployment/traefik --timeout=600s
-kubectl -n traefik get pods -o wide
 ```
 
+`platform/traefik/README.md` ghi: nguồn version (`versions.env`), lệnh cài Helm có kiểm checksum, lệnh
+`helm install` với file values, cách kiểm (Service NodePort `30081`/`30443`, IngressClass `traefik`
+mặc định duy nhất), cách nâng cấp (`helm upgrade ... -f values.yaml`, không sửa tay), và lý do không cài
+load balancer.
+
+Ý chính cho ADR:
+
+1. Bài 11, *Điều kiện tiên quyết*: phải có Ingress controller; chỉ tạo tài nguyên thì không có tác
+   dụng gì. Cùng hình dạng với B1 — object hợp lệ nhưng không ai hiện thực — chỉ khác API.
+2. Bài 11, *IngressClass mặc định*: annotation bảo đảm Ingress **mới** không ghi class được gán class
+   mặc định — admission điền lúc tạo, không sửa object cũ. Bài 11 cũng nói một số controller vẫn xử lý
+   Ingress không class — hành vi riêng của từng controller; đừng dựa vào nó. Ghi class tường minh thì
+   Ingress của dự án không đổi nghĩa khi cluster có thêm controller hay đổi class mặc định.
+3. Không có cloud provider thì không ai cấp địa chỉ: `EXTERNAL-IP` treo `<pending>`. Đó là loại 5 của
+   bài 164 — cloud load balancer do nhà cung cấp tạo khi Service kiểu `LoadBalancer`. MetalLB nằm ngoài
+   baseline; NodePort cố định đủ cho cluster lab và cho file hosts.
+4. Dự án Kubernetes chỉ bảo trì controller AWS và GCE; Traefik là bên thứ ba. Đội vận hành tự chịu
+   trách nhiệm chọn version, đọc tài liệu và lưu ý của nó, theo dõi bản vá — và kiểm hành vi thật chứ
+   không mặc định nó đúng đặc tả (B8).
+
+</details>
+
+## B5. [BS-5B-05] Zero-trust trong namespace `bookstore`
+
+**Loại:** Tính năng — trả nợ lab #4 và `TD-09`.
+
+**Bối cảnh:** hệ thống cũ chạy mọi thứ trên một mạng phẳng (`P7`): một container bị chiếm là chạm được
+mọi thứ. Cluster giờ đã có CNI thực thi NetworkPolicy, nên ma trận ở
+[mục 3.5](DU-AN-BOOKSTORE.md#35-thiết-kế-bảo-mật) lần đầu có hiệu lực thật. Policy của sprint 6 chưa
+từng được đo; ticket này dựng lại hệ thống, xem chỗ nào hỏng, rồi đưa `k8s/app/network/` về đúng ma
+trận.
+
+**Yêu cầu:**
+
+1. Triển khai lại hệ thống bằng chính `deploy.sh` của tag `lab-5a`, **chưa sửa gì**. Ghi lại vào ADR:
+   cái gì hỏng khi policy của sprint 6 lần đầu có hiệu lực, đối chiếu với dự đoán ở B1.
+2. `k8s/app/network/` hiện thực đúng ma trận: **mặc định chặn cả hai chiều** với mọi Pod trong
+   `bookstore`; chỉ mở đúng năm luồng — Traefik tới `web` 8080, `web` tới `api` 3000, `web` tới
+   `node-agent` 9100, `api`/`db-migrate`/`db-backup` tới `db` 5432, mọi Pod tới CoreDNS 53 UDP và TCP.
+   Không mở thêm gì.
+3. Mọi NetworkPolicy mang label dự án và chọn Pod bằng cặp label của hợp đồng
+   ([mục 4.1](DU-AN-BOOKSTORE.md#41-tên-và-label)).
+4. Từ trạng thái sạch, `deploy.sh` thành công: `api` Ready, migration xong, backup chạy được, `web` gọi
+   được `api` và `node-agent` cùng node.
+5. **Đúng phép đo B1, trên đúng hai file đo:** cả bảy cặp bị cấm giờ bị chặn, trong khi DNS vẫn phân
+   giải.
+6. Ba phép đo ranh giới: `web` tới `api` ở cổng admin bị chặn dù cổng 3000 thông; một Pod lạ trong
+   namespace `traefik` không tới được `web`; `db` phân giải được một tên ngoài Internet nhưng không mở
+   được kết nối ra ngoài.
+7. Tìm thấy rule do Calico sinh cho policy trên một worker.
+8. `docs/tech-debt.md`: `TD-09` đã trả, trỏ tới bằng chứng.
+
+**Ràng buộc:** không dùng `ipBlock` để chọn Pod. Không viết policy cho namespace khác (`traefik`,
+`kube-system`). Không đổi cổng, label hay tên của hợp đồng. Đường DNS chỉ mở tới CoreDNS, không mở cổng
+53 tới mọi nơi.
+
+**Đọc lại** — bài [84](../84-network-policies-vi.md), lần này đọc để viết:
+
+- [*Hai kiểu cô lập pod*](../84-network-policies-vi.md#hai-kiểu-cô-lập-pod-the-two-sorts-of-pod-isolation)
+  — kết nối từ node của Pod luôn được phép; một kết nối cần **cả** egress ở nguồn **lẫn** ingress ở
+  đích.
+- [*Hành vi của các bộ chọn `to` và `from`*](../84-network-policies-vi.md#hành-vi-của-các-bộ-chọn-to-và-from-behavior-of-to-and-from-selectors)
+  — giao và hợp.
+- [*Các chính sách mặc định*](../84-network-policies-vi.md#các-chính-sách-mặc-định-default-policies)
+  — `default-deny-all`, và cảnh báo deny egress chặn luôn DNS.
+- [*Nhắm đến một Namespace theo tên*](../84-network-policies-vi.md#nhắm-đến-một-namespace-theo-tên-targeting-a-namespace-by-its-name).
+- [*Vòng đời Pod*](../84-network-policies-vi.md#vòng-đời-pod-pod-lifecycle) — Pod có thể khởi động
+  trước khi rule cho phép được áp.
+- [*Những gì bạn không thể làm với network policy*](../84-network-policies-vi.md#những-gì-bạn-không-thể-làm-với-network-policy-ít-nhất-là-chưa-what-you-cant-do-with-network-policies-at-least-not-yet)
+  — loopback và lưu lượng từ host.
+- Bài [201](../201-declare-network-policy-vi.md) — thử cả Pod có quyền lẫn Pod không có quyền.
+
+**Bàn giao:** `k8s/app/network/*.yaml`; `k8s/app/kustomization.yaml`; `docs/adr/NNNN-zero-trust.md`;
+`docs/tech-debt.md`; `~/lab-evidence/5b/b5-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` `teardown.sh` rồi `deploy.sh` thành công khi ma trận có hiệu lực; mọi policy mang label dự án.
+- `PASS:` `api` Ready (probe của kubelet và luồng `api` → `db` thông); `db-migrate` Complete; một lần
+  chạy `db-backup` thành công.
+- `PASS:` `web` gọi `api:3000/books` theo tên; `web` đọc `/node.json` của agent cùng node; `db-0` phân
+  giải được tên.
+- `PASS:` `probe.sh` trên đúng hai file đo của B1: cả bảy cặp `CHAN`, không cặp nào lỗi DNS.
+- `PASS:` `web` → `api:3001` bị chặn; Pod lạ trong `traefik` → `web` bị chặn; `db-0` phân giải được
+  tên ngoài nhưng không kết nối ra ngoài được.
+- `PASS:` `lab-k8s-worker1` có chain policy của Calico.
+- `PASS:` đã lưu hồ sơ trả nợ #4; `tech-debt.md` ghi `TD-09` đã trả.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-zero-trust.md`:
+
+1. Luồng `web` → `api` cần rule ở đâu, vì sao một policy ở `api` là chưa đủ khi đã chặn hai chiều?
+2. Readiness của `api` gọi `/ready` ở cổng 3001 — cổng mà không ai được mở tới. Vì sao Pod vẫn Ready?
+   Readiness của `db` là `pg_isready -h 127.0.0.1` — NetworkPolicy có chặn được nó không?
+3. Rule Traefik → `web`: một phần tử `from` chứa cả hai selector, hay hai phần tử tách rời? Với Pod lạ
+   trong namespace `traefik`, mỗi cách viết cho kết quả gì?
+4. Policy ghi cổng `8080` cho `web`, trong khi Service `web` nghe cổng `80`. Vì sao? Triệu chứng khi
+   ghi nhầm là gì?
+5. Bài 84 nói một Pod có thể khởi động khi quy tắc cô lập đã áp mà quy tắc cho phép chưa áp. Hệ thống
+   của bạn đã có sẵn cơ chế nào chịu được điều đó, và thành phần nào chưa có?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Bắt đầu bằng một policy chọn mọi Pod (`podSelector: {}`) với cả `Ingress` lẫn `Egress` trong
+   `policyTypes`, không có rule nào. Rồi mỗi luồng thêm rule cho phép.
+2. Namespace mang sẵn label `kubernetes.io/metadata.name`. CoreDNS là Pod label `k8s-app: kube-dns`
+   trong `kube-system`. Pod của Traefik mang `app.kubernetes.io/name: traefik` — kiểm bằng
+   `kubectl -n traefik get pods --show-labels`.
+3. Nhiều thành phần cùng được vào `db`: `matchExpressions` với `operator: In` trên key
+   `app.kubernetes.io/component`.
+4. `kubectl apply` không xóa object đã bỏ khỏi repo. Đổi tên hay gộp policy thì
+   `./scripts/teardown.sh && ./scripts/deploy.sh` để không còn policy cũ — policy cộng gộp, một policy
+   sót lại có thể mở một luồng bạn tưởng đã đóng.
+5. Khi không chắc Kubernetes hiểu policy ra sao: `kubectl -n bookstore describe networkpolicy <tên>`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; script teardown rồi deploy lại</summary>
+
 ```bash
-helm list -n traefik | tee ~/lab-evidence/5b/b8-helm-list.txt
-grep -q "$TRAEFIK_CHART" ~/lab-evidence/5b/b8-helm-list.txt \
-  && echo 'PASS: chart dang chay dung version da chot'
+NS=bookstore; EV=~/lab-evidence/5b
+SEL='app.kubernetes.io/part-of=bookstore'
+cd ~/bookstore
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
 
-kubectl -n traefik get deployment traefik \
-  -o jsonpath='{range .spec.template.spec.containers[*]}{.image}{"\n"}{end}' \
-  | tee ~/lab-evidence/5b/b8-traefik-image.txt
-```
+# 1. Dựng sạch với ma trận mới
+./scripts/teardown.sh > "$EV/b5-teardown.txt" 2>&1
+./scripts/deploy.sh > "$EV/b5-deploy.txt" 2>&1 && grep -q 'teardown: sach' "$EV/b5-teardown.txt" \
+  && echo 'PASS: teardown sach, deploy.sh thanh cong khi ma tran co hieu luc'
+ALL="$(kubectl -n "$NS" get networkpolicy --no-headers 2>/dev/null | wc -l)"
+LAB="$(kubectl -n "$NS" get networkpolicy -l "$SEL" --no-headers 2>/dev/null | wc -l)"
+kubectl -n "$NS" describe networkpolicy > "$EV/b5-networkpolicy.txt"
+{ [ "$ALL" -ge 1 ] && [ "$ALL" -eq "$LAB" ]; } && echo "PASS: $ALL NetworkPolicy, tat ca mang label du an"
 
-**PASS:** rollout thành công; dòng `PASS:` xuất hiện. Đối chiếu tag trong
-`b8-traefik-image.txt` với cột `appVersion` của dòng *Traefik* trong
-[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) — hai giá trị phải khớp.
-Không khớp nghĩa là bảng A1.4 và chart đã lệch nhau: dừng và cập nhật bảng đó, đừng chạy tiếp với
-version lạ.
+# 2. Các luồng được phép
+{ [ "$(jp deployment/api '{.status.readyReplicas}')" = "$(jp deployment/api '{.spec.replicas}')" ] \
+  && [ "$(jp job/db-migrate '{.status.conditions[?(@.type=="Complete")].status}')" = 'True' ]; } \
+  && echo 'PASS: api Ready (probe kubelet va api -> db thong), db-migrate -> db thong'
+J="b5-backup-$(date +%s)"
+kubectl -n "$NS" create job "$J" --from=cronjob/db-backup >/dev/null
+kubectl -n "$NS" wait --for=condition=Complete "job/$J" --timeout=180s >/dev/null \
+  && kubectl -n "$NS" logs "job/$J" | grep -q '^db-backup: OK' && echo 'PASS: db-backup -> db thong'
+kubectl -n "$NS" delete job "$J" --wait=true >/dev/null
+WEB="$(kubectl -n "$NS" get pod -l "$SEL,app.kubernetes.io/component=web" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')"
+WNODE="$(jp "pod/$WEB" '{.spec.nodeName}')"
+get() { kubectl -n "$NS" exec "$WEB" -c status-writer -- wget -qO- -T 5 "$1" 2>/dev/null; }
+{ [ "$(get http://api:3000/books | grep -o '"title"' | wc -l)" -ge 8 ] \
+  && get http://node-agent:9100/node.json | grep -Eq "\"node\" *: *\"$WNODE\"" \
+  && kubectl -n "$NS" exec db-0 -c postgres -- getent hosts api >/dev/null; } \
+  && echo 'PASS: web -> api:3000, web -> node-agent cung node, DNS tu db-0 deu thong'
 
-### B8.3. IngressClass mà controller tạo ra
+# 3. Đúng phép đo B1
+kubectl apply -f ~/lab-work/5b/probe-pods.yaml
+kubectl -n "$NS" wait --for=condition=Ready pod/np-thu --timeout=180s
+kubectl -n np-ngoai wait --for=condition=Ready pod/np-ngoai --timeout=180s
+~/lab-work/5b/probe.sh > "$EV/b5-probe-calico.txt"
+paste "$EV/b1-probe-flannel.txt" "$EV/b5-probe-calico.txt" | tee "$EV/b5-truoc-sau.txt"
+{ [ "$(grep -c '^CHAN' "$EV/b5-probe-calico.txt")" -eq 7 ] && ! grep -q '^LOIDNS' "$EV/b5-probe-calico.txt"; } \
+  && echo 'PASS: cung phep do cua B1 - ca bay cap bi cam deu CHAN, DNS van phan giai'
 
-```bash
-kubectl get ingressclass -o wide | tee ~/lab-evidence/5b/b8-ingressclass.txt
-
-IC="$(kubectl get ingressclass -o jsonpath='{.items[0].metadata.name}')"
-echo "$IC" | tee ~/lab-evidence/5b/b8-ingressclass-name.txt
-kubectl get ingressclass "$IC" -o jsonpath='{.spec.controller}{"\n"}'
-
-test "$(kubectl get ingressclass --no-headers | wc -l)" = '1' \
-  && echo 'PASS: cluster co dung mot IngressClass'
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-Đánh dấu class này là mặc định của cluster, nếu chart chưa làm:
-
-```bash
-DEF="$(kubectl get ingressclass "$IC" \
-  -o jsonpath='{.metadata.annotations.ingressclass\.kubernetes\.io/is-default-class}')"
-echo "is-default-class=$DEF"
-
-if [ "$DEF" != 'true' ]; then
-  kubectl annotate ingressclass "$IC" \
-    ingressclass.kubernetes.io/is-default-class='true' --overwrite
+# 4. Ranh giới
+API_IP="$(kubectl -n "$NS" get pod -l "$SEL,app.kubernetes.io/component=api" -o jsonpath='{.items[0].status.podIP}')"
+WEB_IP="$(jp "pod/$WEB" '{.status.podIP}')"
+kubectl -n "$NS" exec "$WEB" -c status-writer -- wget -q -O /dev/null -T 5 "http://$API_IP:3001/live" >/dev/null 2>&1 \
+  && echo 'FAIL: web toi duoc cong admin 3001 cua api' || echo 'PASS: web -> api:3001 bi chan, chi cong 3000 duoc mo'
+kubectl -n traefik run np-la --image=postgres:17.11 --restart=Never --command -- sleep 600 >/dev/null
+kubectl -n traefik wait --for=condition=Ready pod/np-la --timeout=180s >/dev/null
+kubectl -n traefik exec np-la -- timeout 5 bash -c "exec 3<>/dev/tcp/$WEB_IP/8080" >/dev/null 2>&1 \
+  && echo 'FAIL: Pod la trong namespace traefik vao duoc web' \
+  || echo 'PASS: Pod la trong traefik bi chan - rule Traefik -> web la phep giao'
+kubectl -n traefik delete pod np-la --wait=true >/dev/null
+if kubectl -n "$NS" exec db-0 -c postgres -- getent hosts registry.k8s.io >/dev/null 2>&1; then
+  kubectl -n "$NS" exec db-0 -c postgres -- timeout 5 bash -c 'exec 3<>/dev/tcp/registry.k8s.io/443' >/dev/null 2>&1 \
+    && echo 'FAIL: db-0 ket noi ra Internet duoc' \
+    || echo 'PASS: db-0 phan giai duoc ten ngoai nhung khong ket noi ra ngoai duoc'
 fi
 
-test "$(kubectl get ingressclass "$IC" \
-  -o jsonpath='{.metadata.annotations.ingressclass\.kubernetes\.io/is-default-class}')" = 'true' \
-  && echo 'PASS: IngressClass da duoc danh dau la mac dinh cua cluster'
+# 5. Calico dịch policy thành rule trên node
+ssh lab-k8s-worker1 "sudo iptables-save 2>/dev/null | grep -qE 'cali-p[io]-' || sudo nft list ruleset 2>/dev/null | grep -qE 'cali-p[io]-'" \
+  && echo 'PASS: lab-k8s-worker1 co chain policy cua Calico'
 
-test "$(kubectl get ingressclass \
-  -o jsonpath='{range .items[*]}{.metadata.annotations.ingressclass\.kubernetes\.io/is-default-class}{"\n"}{end}' \
-  | grep -c '^true$')" = '1' \
-  && echo 'PASS: dung mot class mac dinh - khong roi vao truong hop admission controller chan'
+# 6. Hồ sơ
+{
+  date -Is
+  echo '=== NO #4 DA TRA TAI LAB 5B ==='
+  echo '--- B1, Flannel: policy ton tai nhung khong chan'
+  cat "$EV/b1-bang-chung-no-4.txt"
+  echo '--- B5, Calico: cung hai file do, cung probe.sh'
+  cat "$EV/b5-truoc-sau.txt"
+} > "$EV/b5-tra-no-4.txt"
+{ test -s "$EV/b5-tra-no-4.txt" && grep -E 'TD-09.*đã trả' docs/tech-debt.md >/dev/null; } \
+  && echo 'PASS: da luu ho so tra no #4; tech-debt.md ghi TD-09 da tra'
+kubectl delete -f ~/lab-work/5b/probe-pods.yaml --wait=true
 ```
 
-**PASS:** hai dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** bài [11](../11-ingress-vi.md) cảnh báo có **nhiều hơn một** IngressClass mặc định thì
-admission controller **chặn** việc tạo Ingress không ghi `ingressClassName`. Gate thứ hai đếm đúng
-số class mang annotation `true` để bảo đảm cluster không rơi vào tình trạng đó.
-
-### B8.4. Đưa controller ra ngoài cluster bằng NodePort
+⭐ `endPort` — đo trên đích thử nghiệm `som` của B4, không đụng vào dự án:
 
 ```bash
-kubectl -n traefik get svc traefik -o wide
-kubectl -n traefik get svc traefik -o jsonpath='{.spec.type}{"\t"}{.status.loadBalancer}{"\n"}'
-```
-
-Service của chart mặc định là `type: LoadBalancer`, và trên cluster bare-metal không có cloud
-controller thì `EXTERNAL-IP` treo ở `<pending>` — không ai cấp địa chỉ cho nó. Đây đúng là loại
-proxy thứ năm trong bài [164](../164-proxies-vi.md): cloud load balancer do nhà cung cấp đám mây
-tạo, thứ mà cluster lab không có. MetalLB nằm ngoài baseline
-([bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00)), nên lab dùng NodePort:
-
-```bash
-kubectl -n traefik patch svc traefik -p '{"spec":{"type":"NodePort"}}'
-
-test "$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.type}')" = 'NodePort' \
-  && echo 'PASS: Service cua controller da chuyen sang NodePort'
-
-HTTP_NP="$(kubectl -n traefik get svc traefik \
-  -o jsonpath='{.spec.ports[?(@.name=="web")].nodePort}')"
-HTTPS_NP="$(kubectl -n traefik get svc traefik \
-  -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}')"
-printf '%s\n' "$HTTP_NP" | tee ~/lab-evidence/5b/b8-http-nodeport.txt
-printf '%s\n' "$HTTPS_NP" | tee ~/lab-evidence/5b/b8-https-nodeport.txt
-
-test -n "$HTTP_NP" && test -n "$HTTPS_NP" \
-  && echo 'PASS: doc duoc ca hai nodePort http va https'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện. Nếu tên port trong Service không phải `web` và `websecure`,
-đọc `kubectl -n traefik get svc traefik -o yaml` rồi thay tên trong hai lệnh `jsonpath` — con số
-nodePort phải **đọc từ cluster**, không tự đặt.
-
-### B8.5. Ingress tạo ở B7 tự sống lại
-
-```bash
-W1IP="$(cat ~/lab-evidence/5b/b7-worker1-ip.txt)"
-HTTP_NP="$(cat ~/lab-evidence/5b/b8-http-nodeport.txt)"
-IC="$(cat ~/lab-evidence/5b/b8-ingressclass-name.txt)"
-
-kubectl -n lab-5b get ingress web-som -o wide
-
-test -z "$(kubectl -n lab-5b get ingress web-som -o jsonpath='{.spec.ingressClassName}')" \
-  && echo 'PASS: Ingress tao truoc khi co class van de trong ingressClassName'
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** class mặc định được áp **lúc tạo object**, không hồi tố. Ingress `web-som` ra đời khi
-cluster chưa có IngressClass nào, nên nó ở lại với trường rỗng dù bây giờ đã có class mặc định. Đây
-là cái bẫy vận hành thật: cài controller xong mà Ingress cũ vẫn nằm im, và người ta đi sửa
-controller trong khi thứ phải sửa là chính object đó.
-
-Tạo lại chính file YAML đó — không sửa một ký tự nào trong file:
-
-```bash
-kubectl delete -f ~/lab-work/5b/ingress-som.yaml
-kubectl apply -f ~/lab-work/5b/ingress-som.yaml
-
-test "$(kubectl -n lab-5b get ingress web-som -o jsonpath='{.spec.ingressClassName}')" = "$IC" \
-  && echo 'PASS: lan tao lai da duoc gan class mac dinh'
-
-curl -s --max-time 5 -H 'Host: som.lab.local' "http://$W1IP:$HTTP_NP/" \
-  | tee ~/lab-evidence/5b/b8-ingress-som-sau.txt
-grep -qx 'web-ok' ~/lab-evidence/5b/b8-ingress-som-sau.txt \
-  && echo 'PASS: chinh Ingress tao o B7 gio da phuc vu that'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** không sửa một dòng nào trong `ingress-som.yaml`, chỉ thêm một controller vào cluster và
-tạo lại object, và tài nguyên nằm im từ B7 bắt đầu chuyển lưu lượng. Trường `spec.ingressClassName`
-được điền do **admission controller** áp class mặc định — đúng cơ chế bài 11 và bài 12 mô tả, không
-phải do bạn hay do chart ghi vào. Cách khác cho Ingress cũ là ghi thẳng `ingressClassName` vào
-manifest rồi `kubectl apply`; lab chọn cách tạo lại để nhìn thấy cơ chế mặc định hoạt động.
-
-Cột `ADDRESS` của `kubectl get ingress` có thể vẫn trống với Service `NodePort`, vì không có địa chỉ
-load balancer nào để controller ghi vào `.status`. Bài 11 nói thẳng phần địa chỉ này phụ thuộc bản
-hiện thực, nên **đừng lấy `ADDRESS` làm gate** — gate là phản hồi HTTP thật ở trên.
-
----
-
-## B9. Ingress thật: host, path, pathType và TLS
-
-**Mục đích:** đo những quy tắc so khớp mà bài [11](../11-ingress-vi.md) đặt ra, trên lưu lượng
-thật.
-
-### B9.1. Dựng ba backend phân biệt được
-
-Tạo `~/lab-work/5b/backends.yaml`:
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: shop
-  namespace: lab-5b
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: shop
-  template:
-    metadata:
-      labels:
-        app: shop
-    spec:
-      containers:
-        - name: httpd
-          image: busybox:1.37
-          command:
-            - sh
-            - -c
-            - 'mkdir -p /www && echo shop-ok > /www/index.html && httpd -f -p 8080 -h /www'
-          ports:
-            - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: shop
-  namespace: lab-5b
-spec:
-  selector:
-    app: shop
-  ports:
-    - port: 80
-      targetPort: 8080
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: blog
-  namespace: lab-5b
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: blog
-  template:
-    metadata:
-      labels:
-        app: blog
-    spec:
-      containers:
-        - name: httpd
-          image: busybox:1.37
-          command:
-            - sh
-            - -c
-            - 'mkdir -p /www && echo blog-ok > /www/index.html && httpd -f -p 8080 -h /www'
-          ports:
-            - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: blog
-  namespace: lab-5b
-spec:
-  selector:
-    app: blog
-  ports:
-    - port: 80
-      targetPort: 8080
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: chinhxac
-  namespace: lab-5b
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: chinhxac
-  template:
-    metadata:
-      labels:
-        app: chinhxac
-    spec:
-      containers:
-        - name: httpd
-          image: busybox:1.37
-          command:
-            - sh
-            - -c
-            - 'mkdir -p /www && echo chinhxac-ok > /www/index.html && httpd -f -p 8080 -h /www'
-          ports:
-            - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: chinhxac
-  namespace: lab-5b
-spec:
-  selector:
-    app: chinhxac
-  ports:
-    - port: 80
-      targetPort: 8080
-```
-
-`httpd` của busybox trả cùng `index.html` cho mọi đường dẫn thư mục, nên nội dung trả về cho biết
-**Service nào** đã nhận request — đúng thứ cần để đọc kết quả so khớp path.
-
-```bash
-kubectl apply -f ~/lab-work/5b/backends.yaml
-kubectl -n lab-5b rollout status deploy/shop --timeout=180s
-kubectl -n lab-5b rollout status deploy/blog --timeout=180s
-kubectl -n lab-5b rollout status deploy/chinhxac --timeout=180s
-kubectl -n lab-5b get svc
-
-test "$(kubectl -n lab-5b get endpointslice \
-  -l 'kubernetes.io/service-name in (shop,blog,chinhxac)' --no-headers | wc -l)" = '3' \
-  && echo 'PASS: ba Service deu co EndpointSlice'
-```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-### B9.2. Một Ingress, một host, ba path
-
-Tạo `~/lab-work/5b/ingress-chinh.yaml` — nhớ thay `<IC>` bằng giá trị trong
-`~/lab-evidence/5b/b8-ingressclass-name.txt`:
-
-```yaml
+cat > ~/lab-work/5b/endport-thu.yaml <<'EOF'
 apiVersion: networking.k8s.io/v1
-kind: Ingress
+kind: NetworkPolicy
 metadata:
-  name: lab-ingress
-  namespace: lab-5b
+  name: endport-thu
+  namespace: ing-thu
 spec:
-  ingressClassName: <IC>
-  rules:
-    - host: shop.lab.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: shop
-                port:
-                  number: 80
-          - path: /blog
-            pathType: Prefix
-            backend:
-              service:
-                name: blog
-                port:
-                  number: 80
-          - path: /chinhxac
-            pathType: Exact
-            backend:
-              service:
-                name: chinhxac
-                port:
-                  number: 80
+  podSelector:
+    matchLabels:
+      app: som
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8081
+      endPort: 8090
+EOF
+SOM="$(kubectl -n ing-thu get pod som -o jsonpath='{.status.podIP}')"
+kubectl -n ing-thu run ep-client --image=busybox:1.37 --restart=Never --command -- sleep 600 >/dev/null
+kubectl -n ing-thu wait --for=condition=Ready pod/ep-client --timeout=120s >/dev/null
+kubectl apply -f ~/lab-work/5b/endport-thu.yaml
+kubectl -n ing-thu exec ep-client -- wget -qO- -T 5 "http://$SOM:8080/" >/dev/null 2>&1 \
+  && echo 'FAIL: 8080 ngoai dai 8081-8090 van qua' || echo 'PASS: cong ngoai dai bi chan - endPort duoc thuc thi'
+sed 's/port: 8081/port: 8080/' ~/lab-work/5b/endport-thu.yaml | kubectl apply -f -
+kubectl -n ing-thu exec ep-client -- wget -qO- -T 5 "http://$SOM:8080/" | grep -qx 'som-ok' \
+  && echo 'PASS: dua 8080 vao dai thi qua duoc'
+kubectl -n ing-thu delete networkpolicy endport-thu; kubectl -n ing-thu delete pod ep-client --wait=true
 ```
 
-```bash
-IC="$(cat ~/lab-evidence/5b/b8-ingressclass-name.txt)"
-sed -i "s|<IC>|$IC|" ~/lab-work/5b/ingress-chinh.yaml
-grep -q "ingressClassName: $IC" ~/lab-work/5b/ingress-chinh.yaml \
-  && echo 'PASS: da dien dung ten IngressClass vao manifest'
+</details>
 
-kubectl apply -f ~/lab-work/5b/ingress-chinh.yaml
-kubectl -n lab-5b describe ingress lab-ingress | tee ~/lab-evidence/5b/b9-ingress-describe.txt
+<details>
+<summary>Lời giải tham khảo</summary>
+
+Bảy file trong `k8s/app/network/`. Nếu sprint 6 đặt tên khác, thay hẳn bằng bộ của bạn rồi teardown,
+deploy — đừng để hai bộ cùng tồn tại.
+
+```yaml
+# k8s/app/network/00-default-deny.yaml — mọi Pod trong bookstore: chặn cả hai chiều
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# k8s/app/network/01-allow-dns.yaml — mọi Pod tới CoreDNS, đúng cổng 53
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - {protocol: UDP, port: 53}
+    - {protocol: TCP, port: 53}
 ```
 
-**PASS:** dòng `PASS:` xuất hiện.
+```yaml
+# k8s/app/network/web.yaml — vào: chỉ Pod Traefik; ra: api 3000, node-agent 9100
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: web
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: web
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: bookstore
+      app.kubernetes.io/component: web
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:              # MỘT phần tử, hai selector: phép giao
+        matchLabels:
+          kubernetes.io/metadata.name: traefik
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: traefik
+    ports:
+    - {protocol: TCP, port: 8080}     # cổng của Pod nginx, không phải cổng 80 của Service
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: bookstore
+          app.kubernetes.io/component: api
+    ports:
+    - {protocol: TCP, port: 3000}
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: bookstore
+          app.kubernetes.io/component: agent
+    ports:
+    - {protocol: TCP, port: 9100}
+---
+# k8s/app/network/api.yaml — vào: chỉ web ở 3000; ra: db 5432
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: api
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: bookstore
+      app.kubernetes.io/component: api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: bookstore
+          app.kubernetes.io/component: web
+    ports:
+    - {protocol: TCP, port: 3000}
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: bookstore
+          app.kubernetes.io/component: db
+    ports:
+    - {protocol: TCP, port: 5432}
+```
 
-Thử bỏ `pathType` để thấy nó là trường bắt buộc:
+```yaml
+# k8s/app/network/db.yaml — vào: api, db-migrate, db-backup ở 5432. Lab 14 thêm Job của operator.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: db
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: bookstore
+      app.kubernetes.io/component: db
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: bookstore
+        matchExpressions:
+        - {key: app.kubernetes.io/component, operator: In, values: [api, migrate, backup]}
+    ports:
+    - {protocol: TCP, port: 5432}
+---
+# k8s/app/network/jobs.yaml — db-migrate và db-backup ra db 5432
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jobs
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: bookstore
+    matchExpressions:
+    - {key: app.kubernetes.io/component, operator: In, values: [migrate, backup]}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: bookstore
+          app.kubernetes.io/component: db
+    ports:
+    - {protocol: TCP, port: 5432}
+---
+# k8s/app/network/agent.yaml — node-agent: vào chỉ từ web ở 9100
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: node-agent
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: agent
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: bookstore
+      app.kubernetes.io/component: agent
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/part-of: bookstore
+          app.kubernetes.io/component: web
+    ports:
+    - {protocol: TCP, port: 9100}
+```
+
+Trong `k8s/app/kustomization.yaml`, mục `resources` liệt kê đúng bảy file trên (bỏ các dòng `network/`
+cũ của sprint 6 nếu tên khác). Rồi:
 
 ```bash
-sed '/pathType: Exact/d' ~/lab-work/5b/ingress-chinh.yaml \
-  > ~/lab-work/5b/ingress-thieu-pathtype.yaml
-if kubectl apply --dry-run=server -f ~/lab-work/5b/ingress-thieu-pathtype.yaml >/dev/null 2>&1; then
-  echo 'FAIL: manifest thieu pathType van qua duoc validation'
-else
-  echo 'PASS: path khong khai pathType bi tu choi tu phia server'
+cd ~/bookstore && ./scripts/teardown.sh && ./scripts/deploy.sh
+```
+
+Dòng `TD-09` trong `docs/tech-debt.md`: trạng thái `đã trả`, trả ở `5b`, bằng chứng
+`~/lab-evidence/5b/b5-tra-no-4.txt`.
+
+Ý chính cho ADR:
+
+1. Bài 84: kết nối chỉ đi được khi **cả** egress ở Pod nguồn **lẫn** ingress ở Pod đích cho phép.
+   `default-deny-all` cô lập `web` chiều đi, nên chỉ mở ingress ở `api` thì gói tin không ra khỏi
+   `web`.
+2. Kết nối từ node của Pod luôn được phép (bài 84, *Hai kiểu cô lập pod*): probe `httpGet` đi từ
+   kubelet trên chính node đó. `pg_isready -h 127.0.0.1` chạy trong Pod qua loopback — bài 84 liệt kê
+   việc chặn loopback là thứ NetworkPolicy **không** làm được.
+3. Một phần tử chứa cả `namespaceSelector` và `podSelector` là phép **giao**: chỉ Pod Traefik trong
+   namespace `traefik`. Hai phần tử tách rời là phép **hợp**: **mọi** Pod trong `traefik`, hoặc Pod
+   label `traefik` trong chính `bookstore` — Pod lạ ở `traefik` lọt vào. Script nghiệm thu đo đúng chỗ
+   này.
+4. NetworkPolicy làm việc ở tầng Pod; kết nối tới ClusterIP đã được đổi đích sang `PodIP:8080` trước
+   khi tới Pod. Ghi `80` thì object hợp lệ, không gate nào báo lỗi, nhưng Traefik nhận timeout — lỗi im
+   lặng kinh điển.
+5. Init container `wait-for-db` của `api` lặp tới khi DB nhận kết nối — đúng cách bài 84 khuyên khi
+   Pod phải tiếp cận đích trước khi chạy. `db-migrate` chưa có: lượt thử đầu có thể hỏng nếu rule chưa
+   áp; nó dựa vào `backoffLimit` và `deploy.sh` tạo lại Job một lần.
+
+</details>
+
+## B6. [BS-5B-06] HTTPS qua Ingress, `web` về ClusterIP
+
+**Loại:** Tính năng — thay `deploy.sh`, `teardown.sh`.
+
+**Bối cảnh:** người dùng của hiệu sách phải vào bằng một tên và bằng HTTPS, không bằng `IP:30080`. Với
+ma trận đã đóng, Traefik là đường vào **duy nhất** được phép tới `web`; NodePort `30080` vừa thừa vừa
+đi vòng qua ma trận. Certificate là bí mật sinh tại chỗ, theo đúng cơ chế mà `secrets/db.env` đã dùng
+từ Lab 3b ([mục 5.5](DU-AN-BOOKSTORE.md#55-bố-cục-repo-theo-sprint)).
+
+**Yêu cầu:**
+
+1. `scripts/deploy.sh` và `scripts/teardown.sh` thay bằng phiên bản Lab 5b — chép nguyên văn từ khối
+   bên dưới. `deploy.sh` sinh `secrets/tls.crt`, `secrets/tls.key` (tự ký, tên `bookstore.lab.local`)
+   khi thiếu, và chỉ thoát `0` khi Traefik đã phục vụ HTTPS bằng đúng certificate đó.
+2. Secret `bookstore-tls`: kiểu TLS, label dự án, tên cố định, **Kustomize sinh** từ hai file trong
+   `secrets/` — không tạo bằng lệnh gõ tay.
+3. Ingress `bookstore` ở `k8s/app/ingress/ingress.yaml`: host `bookstore.lab.local`, class `traefik`
+   ghi **tường minh**, TLS bằng Secret trên, mọi path về Service `web`.
+4. Service `web` về `ClusterIP`; cổng `30080` không còn trả lời.
+5. Từ master: HTTPS tới `bookstore.lab.local` qua cổng `30443` của **cả hai** worker trả trang chủ và
+   `/api/books`; client kiểm certificate bằng chính `secrets/tls.crt`, không dùng `-k`.
+6. Traefik chỉ dùng certificate của dự án cho đúng tên đó; tên khác nhận certificate khác.
+7. Từ máy host Windows: file hosts trỏ `bookstore.lab.local` tới IP một worker; trình duyệt mở
+   `https://bookstore.lab.local:30443/` thấy trang Bookstore có danh sách sách (cảnh báo certificate
+   là bình thường — `TD-11`).
+8. `README.md` của repo ghi URL truy cập và việc cần làm trên máy host.
+
+**Ràng buộc:** không commit certificate hay key. Không `kubectl create secret tls`. Ingress không mở
+đường tới `api` trực tiếp — ma trận chỉ cho Traefik vào `web`.
+
+**Đọc lại:**
+
+- Bài [11](../11-ingress-vi.md): [*Quy tắc Ingress*](../11-ingress-vi.md#quy-tắc-ingress-ingress-rules),
+  [*Các loại path*](../11-ingress-vi.md#các-loại-path-path-types), [*TLS*](../11-ingress-vi.md#tls) —
+  Secret, cổng 443 duy nhất, TLS kết thúc tại ingress, ghi chú `hosts` khớp `rules`.
+- Bài [109](../109-secret-vi.md#secret-tls-tls-secrets) — Secret TLS.
+- Bài [328](../328-secret-kustomize-vi.md#file-files) — nguồn `files`, tên file thành key; bài
+  [322](../322-kustomization-vi.md#generatoroptions) — `generatorOptions`.
+- Kustomize: [secretGenerator](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/secretgenerator/)
+  — ví dụ Secret kiểu `kubernetes.io/tls`.
+- Bài [82](../82-service-vi.md#type-clusterip) — `type: ClusterIP`.
+
+**Bàn giao:** `scripts/deploy.sh`, `scripts/teardown.sh`, `k8s/app/ingress/ingress.yaml`,
+`k8s/app/web/service.yaml`, `k8s/app/kustomization.yaml`, `README.md`; `docs/adr/NNNN-https-ingress.md`;
+`docs/tech-debt.md` thêm `TD-11`; `~/lab-evidence/5b/b6-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` teardown sạch mà hạ tầng còn nguyên; `deploy.sh` chạy hai lần liên tiếp đều thành công.
+- `PASS:` git bỏ qua `secrets/tls.crt`, `secrets/tls.key`; key quyền `600`; certificate mang tên
+  `bookstore.lab.local` và còn hạn.
+- `PASS:` Secret `bookstore-tls` kiểu `kubernetes.io/tls`, label dự án, dữ liệu khớp file trong
+  `secrets/`.
+- `PASS:` Ingress `bookstore`: đúng host, class `traefik`, TLS khớp host, Secret `bookstore-tls`, về
+  Service `web`.
+- `PASS:` Service `web` là `ClusterIP`; `30080` không trả lời.
+- `PASS:` HTTPS qua cả hai worker: trang chủ và `/api/books`, certificate kiểm được bằng
+  `secrets/tls.crt`.
+- `PASS:` tên khác nhận certificate khác certificate của dự án.
+- `PASS:` máy host Windows mở được `https://bookstore.lab.local:30443/` qua file hosts.
+
+Hai script, chép nguyên văn:
+
+```bash
+cat > ~/bookstore/scripts/deploy.sh <<'EOF'
+#!/usr/bin/env bash
+# Triển khai dự án Bookstore từ repo — phiên bản Lab 5b.
+# Cần cluster ở mốc 02-net-ready: Calico thực thi NetworkPolicy; Traefik và IngressClass traefik.
+# - Bí mật sinh tại chỗ khi thiếu, không bao giờ vào git: secrets/db.env (từ 3b) và cặp certificate
+#   tự ký secrets/tls.crt, secrets/tls.key cho bookstore.lab.local (từ 5b).
+# - Mọi object của namespace bookstore nằm trong k8s/app/kustomization.yaml (từ 5a). Secret sinh từ
+#   file ngoài thư mục gốc của kustomization nên phải render với --load-restrictor (Lab 3b, ADR 0007).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+NS=bookstore
+HOST=bookstore.lab.local
+
+# 0. Hạ tầng nền thuộc cluster, không thuộc repo: thiếu thì dừng, không tự cài.
+for X in 'daemonset/calico-node -n kube-system' 'ingressclass/traefik' 'service/traefik -n traefik'; do
+  kubectl get $X >/dev/null 2>&1 || { echo "deploy: thieu $X - cluster chua o moc 02-net-ready"; exit 1; }
+done
+
+# 1. Bí mật sinh tại chỗ khi thiếu.
+mkdir -p secrets
+if [ ! -s secrets/db.env ]; then
+  ( umask 077
+    printf 'postgres-password=%s\nauthenticator-password=%s\n' \
+      "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" > secrets/db.env )
+  echo 'deploy: da sinh secrets/db.env moi'
 fi
-```
+if [ ! -s secrets/tls.crt ] || [ ! -s secrets/tls.key ]; then
+  ( umask 077
+    openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
+      -keyout secrets/tls.key -out secrets/tls.crt \
+      -subj "/CN=${HOST}" -addext "subjectAltName=DNS:${HOST}" )
+  echo "deploy: da sinh certificate tu ky moi cho ${HOST}"
+fi
 
-**PASS:** dòng `PASS:` xuất hiện. `--dry-run=server` gửi object lên API server để validate mà
-**không** ghi gì — không có object rác nào sinh ra từ bước này.
+# 2. Object cấp cluster, rồi toàn bộ namespace bookstore. Pod template của Job không sửa được sau khi
+#    tạo: xóa db-migrate cũ để lần apply này tạo Job mới (migration bất biến kết quả, Lab 4b).
+if compgen -G 'k8s/cluster/*.yaml' >/dev/null; then kubectl apply -f k8s/cluster/; fi
+if kubectl get namespace "$NS" >/dev/null 2>&1; then
+  kubectl -n "$NS" delete job db-migrate --ignore-not-found --wait=true
+fi
+render() { kubectl kustomize --load-restrictor=LoadRestrictionsNone k8s/app; }
+render | kubectl apply -f -
 
-### B9.3. Đo bốn quy tắc so khớp
-
-```bash
-W1IP="$(cat ~/lab-evidence/5b/b7-worker1-ip.txt)"
-HTTP_NP="$(cat ~/lab-evidence/5b/b8-http-nodeport.txt)"
-
-goi() {
-  curl -s --max-time 5 -H "Host: $1" "http://$W1IP:$HTTP_NP$2"
+wait_job() {   # thành công khi Job Complete, thất bại ngay khi Job Failed
+  local c=''
+  for _ in $(seq 1 100); do
+    c="$(kubectl -n "$NS" get job "$1" \
+          -o jsonpath='{.status.conditions[?(@.status=="True")].type}' 2>/dev/null || true)"
+    case " $c " in
+      *' Complete '*) return 0 ;;
+      *' Failed '*) kubectl -n "$NS" logs "job/$1" --tail=20 || true; return 1 ;;
+    esac
+    sleep 3
+  done
+  return 1
 }
 
-{
-  echo "/            -> $(goi shop.lab.local /)"
-  echo "/blog        -> $(goi shop.lab.local /blog)"
-  echo "/blog/bai-1  -> $(goi shop.lab.local /blog/bai-1)"
-  echo "/blogxyz     -> $(goi shop.lab.local /blogxyz)"
-  echo "/chinhxac    -> $(goi shop.lab.local /chinhxac)"
-} | tee ~/lab-evidence/5b/b9-so-khop.txt
-```
-
-```bash
-goi shop.lab.local / | grep -qx 'shop-ok' \
-  && echo 'PASS: path / khop tien to ngan nhat va di toi shop'
-goi shop.lab.local /blog/bai-1 | grep -qx 'blog-ok' \
-  && echo 'PASS: Prefix /blog khop ca path con /blog/bai-1'
-goi shop.lab.local /blogxyz | grep -qx 'shop-ok' \
-  && echo 'PASS: /blogxyz KHONG khop /blog - so khop theo tung phan tu path, khong theo chuoi'
-goi shop.lab.local /blog | grep -qx 'blog-ok' \
-  && echo 'PASS: path khop dai nhat thang - /blog di toi blog chu khong ve /'
-```
-
-**PASS:** bốn dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** hai quy tắc của bài 11 vừa được đo. `Prefix` so khớp **theo từng phần tử path tách bởi
-`/`**, nên `/blog` khớp `/blog/bai-1` nhưng **không** khớp `/blogxyz` — đây là chỗ trực giác "tiền
-tố chuỗi" dẫn sai. Và khi nhiều path cùng khớp thì **path khớp dài nhất thắng**, nên `/blog` không
-rơi về backend của `/`.
-
-`Exact` không bỏ qua dấu gạch chéo cuối:
-
-```bash
-CX="$(goi shop.lab.local /chinhxac)"
-CXS="$(goi shop.lab.local /chinhxac/)"
-echo "chinhxac=$CX chinhxac-slash=$CXS"
-
-echo "$CX" | grep -qx 'chinhxac-ok' \
-  && echo 'PASS: Exact /chinhxac khop dung duong dan do'
-if echo "$CXS" | grep -qx 'chinhxac-ok'; then
-  echo 'FAIL: /chinhxac/ van khop Exact /chinhxac'
-else
-  echo 'PASS: /chinhxac/ KHONG khop Exact /chinhxac'
+# 3. Chờ theo thứ tự phụ thuộc: db → migration → api, web → agent.
+kubectl -n "$NS" rollout status statefulset/db --timeout=300s
+kubectl -n "$NS" wait --for=condition=Ready pod/db-0 --timeout=300s
+if kubectl -n "$NS" get job db-migrate >/dev/null 2>&1; then
+  if ! wait_job db-migrate; then
+    # Job tạo cùng lúc với db-0 có thể hết lượt thử trước khi DB nhận kết nối: tạo lại một lần.
+    echo 'deploy: db-migrate that bai lan dau, tao lai khi db-0 da Ready'
+    kubectl -n "$NS" delete job db-migrate --wait=true
+    render | kubectl apply -f -
+    wait_job db-migrate || { echo 'deploy: db-migrate that bai'; exit 1; }
+  fi
 fi
+for D in api web; do kubectl -n "$NS" rollout status "deployment/$D" --timeout=300s; done
+kubectl -n "$NS" rollout status daemonset/node-agent --timeout=300s
+
+# 4. Đường vào: Traefik phải phục vụ HTTPS bằng đúng certificate của dự án.
+NP="$(kubectl -n traefik get service traefik -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}')"
+IP="$(kubectl get node lab-k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+OK=0
+for _ in $(seq 1 30); do
+  if curl -fsS --max-time 5 --cacert secrets/tls.crt --resolve "${HOST}:${NP}:${IP}" \
+       "https://${HOST}:${NP}/healthz" >/dev/null 2>&1; then OK=1; break; fi
+  sleep 2
+done
+[ "$OK" -eq 1 ] || { echo "deploy: https://${HOST}:${NP}/ chua phuc vu qua Traefik"; exit 1; }
+
+kubectl -n "$NS" get statefulset,deployment,daemonset,cronjob,job,service,ingress,networkpolicy
+echo "deploy: xong - https://${HOST}:${NP}/ (file hosts tro ${HOST} toi IP mot worker)"
+EOF
+
+cat > ~/bookstore/scripts/teardown.sh <<'EOF'
+#!/usr/bin/env bash
+# Gỡ toàn bộ dự án Bookstore khỏi cluster — phiên bản Lab 5b.
+# Chỉ gỡ object mang label dự án. Hạ tầng của mốc 02-net-ready (Calico, Traefik, IngressClass traefik)
+# không mang label đó và phải còn nguyên. Giữ nguyên secrets/ trên máy.
+set -euo pipefail
+NS=bookstore
+SEL='app.kubernetes.io/part-of=bookstore'
+# Kind namespaced được dọn theo label ở mọi namespace (3b, 4a, 5a); 5b thêm ingresses.
+KINDS='statefulsets,deployments,daemonsets,cronjobs,jobs,replicasets,pods,poddisruptionbudgets,services,networkpolicies,ingresses,configmaps,secrets'
+
+# Xóa StatefulSet không bảo đảm Pod tắt có thứ tự (bài 65, mục Hạn chế): thu db về 0 trước.
+if kubectl -n "$NS" get statefulset db >/dev/null 2>&1; then
+  kubectl -n "$NS" scale statefulset db --replicas=0
+  kubectl -n "$NS" wait --for=delete pod/db-0 --timeout=180s || true
+fi
+
+kubectl delete namespace -l "$SEL" --ignore-not-found --wait=true --timeout=300s
+kubectl delete "$KINDS" --all-namespaces -l "$SEL" --ignore-not-found --wait=true --timeout=120s
+kubectl delete priorityclass -l "$SEL" --ignore-not-found
+
+LEFT="$(kubectl get namespace,priorityclass -l "$SEL" --no-headers 2>/dev/null | wc -l)"
+LEFT_NS="$( { kubectl get all -A -l "$SEL" --no-headers
+              kubectl get "$KINDS,endpointslices" -A -l "$SEL" --no-headers; } 2>/dev/null | wc -l)"
+if [ "$LEFT" -eq 0 ] && [ "$LEFT_NS" -eq 0 ]; then
+  echo 'teardown: sach'
+else
+  echo "teardown: con $LEFT object cap cluster va $LEFT_NS object co label du an"; exit 1
+fi
+{ kubectl get ingressclass traefik >/dev/null 2>&1 && kubectl -n kube-system get daemonset calico-node >/dev/null 2>&1; } \
+  || echo 'teardown: CANH BAO - ha tang 02-net-ready khong con nguyen (khong do script nay go)'
+EOF
+
+chmod +x ~/bookstore/scripts/*.sh
 ```
 
-**PASS:** hai dòng `PASS:`, không có dòng `FAIL:`.
+`deploy.sh` giả định mọi object của `bookstore` — kể cả Job `db-migrate` và CronJob `db-backup` — nằm
+trong `k8s/app/kustomization.yaml`, như cơ chế của sprint 6 ([mục 5.5](DU-AN-BOOKSTORE.md#55-bố-cục-repo-theo-sprint)).
+Nếu tag `lab-5a` của bạn còn object nào triển khai ngoài Kustomize, đưa nó vào `resources` trước khi
+dùng bản mới.
 
-Host phải khớp:
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-https-ingress.md`:
+
+1. TLS kết thúc ở đâu? Đoạn nào từ trình duyệt tới DB là plaintext, và vì sao dự án tạm chấp nhận
+   (`TD-11`)?
+2. Vì sao `hosts` trong phần `tls` phải khớp tường minh `host` trong `rules`? Bài 11 nói gì về TLS trên
+   quy tắc mặc định?
+3. Vì sao `web` về `ClusterIP` thay vì giữ thêm NodePort `30080` "cho tiện"? Trả lời bằng ma trận và
+   bằng điều bạn thấy ở câu 4 của B1.
+4. Certificate và key sinh tại chỗ, không vào git, không có trong bundle. Restore snapshot rồi clone lại
+   từ bundle thì chuyện gì xảy ra với trình duyệt của người dùng? Vì sao vẫn không commit chúng?
+5. Bài 109 nói Secret TLS chỉ là kiểu "để thuận tiện". Vì sao dự án vẫn dùng kiểu `kubernetes.io/tls`
+   thay vì `Opaque`?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. `secretGenerator` có trường `type`; nguồn `files` lấy tên file làm key — hai file đã mang đúng tên
+   `tls.crt` và `tls.key` mà Secret TLS bắt buộc.
+2. Tên cố định: cùng khối `options` mà `db-credentials` đã dùng từ Lab 3b.
+3. Backend của Ingress trỏ **Service** `web` ở cổng của Service (80), không phải cổng Pod.
+4. Gọi bằng tên mà không sửa `/etc/hosts` của master:
+   `curl --cacert secrets/tls.crt --resolve bookstore.lab.local:30443:<IP worker> https://bookstore.lab.local:30443/`.
+5. Đổi `type` của Service đang có thì `kubectl apply` gỡ `nodePort`; nếu báo lỗi, teardown rồi deploy.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong; script teardown rồi deploy lại</summary>
 
 ```bash
-if goi khong-ton-tai.lab.local / | grep -qx 'shop-ok'; then
-  echo 'FAIL: host khac van roi vao rule cua shop.lab.local'
-else
-  echo 'PASS: host khong khop thi khong dung rule cua host do'
-fi
+NS=bookstore; EV=~/lab-evidence/5b; HOST=bookstore.lab.local
+cd ~/bookstore
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+
+./scripts/teardown.sh > "$EV/b6-teardown.txt" 2>&1
+{ grep -q 'teardown: sach' "$EV/b6-teardown.txt" && kubectl get ingressclass traefik >/dev/null \
+  && kubectl -n traefik rollout status deployment/traefik --timeout=60s >/dev/null; } \
+  && echo 'PASS: teardown sach, ha tang con nguyen'
+{ ./scripts/deploy.sh > "$EV/b6-deploy-1.txt" 2>&1 && ./scripts/deploy.sh > "$EV/b6-deploy-2.txt" 2>&1; } \
+  && echo 'PASS: deploy.sh chay hai lan lien tiep deu thanh cong'
+
+{ git check-ignore -q secrets/tls.crt && git check-ignore -q secrets/tls.key \
+  && [ "$(stat -c %a secrets/tls.key)" = '600' ] \
+  && openssl x509 -in secrets/tls.crt -noout -ext subjectAltName | grep -q "DNS:$HOST" \
+  && openssl x509 -in secrets/tls.crt -noout -checkend 2592000 >/dev/null; } \
+  && echo "PASS: cert/key ngoai git, key 600, certificate cho $HOST con han"
+
+{ [ "$(jp secret/bookstore-tls '{.type}')" = 'kubernetes.io/tls' ] \
+  && [ "$(jp secret/bookstore-tls '{.metadata.labels.app\.kubernetes\.io/part-of}')" = 'bookstore' ] \
+  && kubectl -n "$NS" get secret bookstore-tls -o jsonpath='{.data.tls\.crt}' | base64 -d | cmp -s - secrets/tls.crt \
+  && kubectl -n "$NS" get secret bookstore-tls -o jsonpath='{.data.tls\.key}' | base64 -d | cmp -s - secrets/tls.key; } \
+  && echo 'PASS: Secret bookstore-tls kieu TLS, label du an, du lieu khop secrets/'
+
+ING='{.spec.rules[0].host}|{.spec.ingressClassName}|{.spec.tls[0].hosts[0]}|{.spec.tls[0].secretName}|{.spec.rules[0].http.paths[0].backend.service.name}'
+[ "$(jp ingress/bookstore "$ING")" = "$HOST|traefik|$HOST|bookstore-tls|web" ] \
+  && echo 'PASS: Ingress bookstore dung host, class traefik, TLS khop host, ve Service web'
+
+W1="$(kubectl get node lab-k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+{ [ "$(jp service/web '{.spec.type}')" = 'ClusterIP' ] && [ -z "$(jp service/web '{.spec.ports[*].nodePort}')" ] \
+  && ! curl -s --max-time 3 -o /dev/null "http://$W1:30080/"; } \
+  && echo 'PASS: Service web la ClusterIP, cong 30080 khong con tra loi'
+
+NP="$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}')"
+BAD=0
+for N in lab-k8s-worker1 lab-k8s-worker2; do
+  IP="$(kubectl get node "$N" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+  C="curl -fsS --max-time 10 --cacert secrets/tls.crt --resolve $HOST:$NP:$IP"
+  $C "https://$HOST:$NP/" > "$EV/b6-https-$N.html" 2>&1 && grep -q 'Bookstore' "$EV/b6-https-$N.html" || BAD=1
+  [ "$($C "https://$HOST:$NP/api/books" 2>/dev/null | grep -o '"title"' | wc -l)" -ge 8 ] || BAD=1
+done
+[ "$BAD" -eq 0 ] && echo "PASS: HTTPS qua ca hai worker, cong $NP: trang chu va /api/books, certificate kiem duoc"
+
+fp() { openssl s_client -connect "$W1:$NP" -servername "$1" </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256; }
+MINE="$(openssl x509 -in secrets/tls.crt -noout -fingerprint -sha256)"
+{ [ "$(fp "$HOST")" = "$MINE" ] && [ -n "$(fp khac.lab.local)" ] && [ "$(fp khac.lab.local)" != "$MINE" ]; } \
+  && echo 'PASS: Traefik chon certificate theo SNI - ten khac nhan certificate khac'
 ```
 
-**PASS:** dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** bài 11 nói **cả host lẫn path đều phải khớp** thì request mới được chuyển đi. Request
-không khớp rule nào rơi về `defaultBackend`, mà `defaultBackend` theo quy ước là tùy chọn cấu hình
-của controller chứ không khai trong tài nguyên Ingress — nên phản hồi ở trường hợp này do controller
-quyết định, và lab chỉ gate ở mức "không phải `shop-ok`".
-
-### B9.4. Từ ngoài cluster
-
-Chạy trên **PowerShell của máy host Windows**. Thay hai giá trị bằng nội dung của
-`~/lab-evidence/5b/b7-worker1-ip.txt` và `~/lab-evidence/5b/b8-http-nodeport.txt`:
+Trên **PowerShell chạy "Run as administrator" của máy host Windows** — thay IP bằng InternalIP của
+`lab-k8s-worker1`:
 
 ```powershell
 $w1 = '<IP cua lab-k8s-worker1>'
-$np = '<nodePort http>'
-$out = & curl.exe -s --max-time 5 -H 'Host: shop.lab.local' "http://${w1}:${np}/"
-if ($out -eq 'shop-ok') { 'PASS: goi duoc tu may host qua Ingress' }
-else { "FAIL: nhan duoc '$out'" }
+$hosts = "$env:SystemRoot\System32\drivers\etc\hosts"
+if (-not (Select-String -Path $hosts -Pattern 'bookstore\.lab\.local' -Quiet)) {
+  Add-Content -Path $hosts -Value "`r`n$w1 bookstore.lab.local"
+}
+ipconfig /flushdns | Out-Null
+$ip = [System.Net.Dns]::GetHostAddresses('bookstore.lab.local') | Select-Object -First 1 -ExpandProperty IPAddressToString
+if ($ip -eq $w1) { 'PASS: file hosts tro bookstore.lab.local toi worker' } else { "FAIL: phan giai ra '$ip'" }
+$page = (& curl.exe -k -s --max-time 10 'https://bookstore.lab.local:30443/') -join "`n"
+if ($page -match 'Bookstore') { 'PASS: may host mo duoc https://bookstore.lab.local:30443/' } else { 'FAIL: khong co trang Bookstore' }
+$api = (& curl.exe -k -s --max-time 10 'https://bookstore.lab.local:30443/api/books') -join ''
+if (([regex]::Matches($api, '"title"')).Count -ge 8) { 'PASS: /api/books qua HTTPS tra du sach' } else { 'FAIL: /api/books thieu sach' }
 ```
 
-**PASS:** dòng `PASS: goi duoc tu may host qua Ingress` xuất hiện. Đây là chứng minh "truy cập được
-từ ngoài": request xuất phát từ một máy **không thuộc cluster**, đi vào NodePort của controller, rồi
-được định tuyến theo `Host` và path tới đúng Service.
+`-k` ở đây chỉ vì máy host chưa tin certificate tự ký (`TD-11`); phía master đã kiểm certificate thật.
+Mở thêm trang đó bằng trình duyệt để thấy danh sách sách do JavaScript gọi `/api/books`.
 
-### B9.5. TLS kết thúc tại điểm ingress
+</details>
 
-Sinh certificate tự ký cho `shop.lab.local` trên `lab-k8s-master`:
-
-```bash
-openssl req -x509 -nodes -newkey rsa:2048 -days 30 \
-  -keyout ~/lab-work/5b/tls.key -out ~/lab-work/5b/tls.crt \
-  -subj '/CN=shop.lab.local' -addext 'subjectAltName=DNS:shop.lab.local'
-
-kubectl -n lab-5b create secret tls shop-tls \
-  --cert=~/lab-work/5b/tls.crt --key=~/lab-work/5b/tls.key
-
-kubectl -n lab-5b get secret shop-tls -o jsonpath='{.type}{"\n"}'
-test "$(kubectl -n lab-5b get secret shop-tls -o jsonpath='{.type}')" = 'kubernetes.io/tls' \
-  && echo 'PASS: Secret dung kieu kubernetes.io/tls'
-test -n "$(kubectl -n lab-5b get secret shop-tls -o jsonpath='{.data.tls\.crt}')" \
-  && test -n "$(kubectl -n lab-5b get secret shop-tls -o jsonpath='{.data.tls\.key}')" \
-  && echo 'PASS: Secret co du hai khoa tls.crt va tls.key'
-```
-
-**PASS:** hai dòng `PASS:` xuất hiện. Nếu `create secret tls` báo không tìm thấy file, thay `~` bằng
-đường dẫn tuyệt đối `$HOME` — `kubectl` không tự khai triển dấu ngã trong giá trị cờ.
-
-Thêm khối `tls` vào Ingress. Tạo `~/lab-work/5b/ingress-tls.yaml` bằng cách chép
-`ingress-chinh.yaml` và chèn ngay dưới dòng `spec:`:
+<details>
+<summary>Lời giải tham khảo</summary>
 
 ```yaml
+# k8s/app/ingress/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bookstore
+  namespace: bookstore
+  labels:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: web
+spec:
+  ingressClassName: traefik        # tường minh: không phụ thuộc class mặc định của cluster
   tls:
-    - hosts:
-        - shop.lab.local
-      secretName: shop-tls
+  - hosts:
+    - bookstore.lab.local          # phải khớp tường minh host trong rules
+    secretName: bookstore-tls
+  rules:
+  - host: bookstore.lab.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web
+            port:
+              number: 80           # cổng của Service; policy ở B5 ghi 8080 của Pod
 ```
 
-```bash
-kubectl apply -f ~/lab-work/5b/ingress-tls.yaml
-kubectl -n lab-5b get ingress lab-ingress \
-  -o jsonpath='{range .spec.tls[*]}{.secretName}{"\t"}{.hosts[0]}{"\n"}{end}'
-
-W1IP="$(cat ~/lab-evidence/5b/b7-worker1-ip.txt)"
-HTTPS_NP="$(cat ~/lab-evidence/5b/b8-https-nodeport.txt)"
-
-curl -k -s --max-time 5 \
-  --resolve "shop.lab.local:$HTTPS_NP:$W1IP" \
-  "https://shop.lab.local:$HTTPS_NP/" | tee ~/lab-evidence/5b/b9-tls.txt
-grep -qx 'shop-ok' ~/lab-evidence/5b/b9-tls.txt \
-  && echo 'PASS: HTTPS di qua ingress toi dung backend'
-
-curl -k -s -o /dev/null -w '%{ssl_verify_result}\n' \
-  --resolve "shop.lab.local:$HTTPS_NP:$W1IP" \
-  "https://shop.lab.local:$HTTPS_NP/"
-```
-
-**PASS:** dòng `PASS:` xuất hiện. Giá trị `ssl_verify_result` khác `0` là **đúng** — certificate tự
-ký không có chuỗi tin cậy, nên `-k` là bắt buộc; đó cũng là lý do cột `hosts` trong khối `tls` phải
-khớp tường minh `host` trong `rules`, như bài 11 nhắc.
-
-**Ý nghĩa:** TLS **kết thúc tại điểm ingress**. Đoạn từ máy bạn tới controller được mã hóa; đoạn từ
-controller tới Service và Pod là **plaintext** — chính đoạn `http://` mà backend `shop` đang phục vụ
-trên cổng 8080 và bạn đã gọi trực tiếp ở B9.3. Bài 11 cũng nói Ingress chỉ hỗ trợ **một** port TLS
-là 443; đây là lý do nodePort `websecure` là cửa duy nhất cho HTTPS.
-
----
-
-## B10. Cluster này là single-stack IPv4
-
-**Mục đích:** bài [85](../85-dual-stack-vi.md) không dựng được trên cluster lab, nhưng ba khẳng định
-của nó **kiểm chứng được bằng phản ứng của API server**.
-
-### B10.1. Đọc họ IP của một Service thật
-
-```bash
-kubectl -n lab-5b get svc web -o jsonpath='{.spec.ipFamilyPolicy}{"\n"}'
-kubectl -n lab-5b get svc web -o jsonpath='{range .spec.ipFamilies[*]}{@}{"\n"}{end}'
-kubectl -n lab-5b get svc web -o jsonpath='{range .spec.clusterIPs[*]}{@}{"\n"}{end}'
-kubectl -n lab-5b get svc web -o jsonpath='{.spec.clusterIP}{"\n"}'
-
-test "$(kubectl -n lab-5b get svc web -o jsonpath='{.spec.ipFamilyPolicy}')" = 'SingleStack' \
-  && echo 'PASS: ipFamilyPolicy mac dinh la SingleStack'
-test "$(kubectl -n lab-5b get svc web -o jsonpath='{.spec.ipFamilies[0]}')" = 'IPv4' \
-  && echo 'PASS: ho IP chinh la IPv4'
-test "$(kubectl -n lab-5b get svc web \
-  -o jsonpath='{range .spec.clusterIPs[*]}{@}{"\n"}{end}' | wc -l)" = '1' \
-  && echo 'PASS: clusterIPs chi co dung mot phan tu'
-test "$(kubectl -n lab-5b get svc web -o jsonpath='{.spec.clusterIP}')" \
-   = "$(kubectl -n lab-5b get svc web -o jsonpath='{.spec.clusterIPs[0]}')" \
-  && echo 'PASS: clusterIP bang phan tu dau cua clusterIPs'
-```
-
-**PASS:** bốn dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** `clusterIPs` là trường **chính** dạng mảng; `clusterIP` là trường **thứ cấp** tính từ
-mảng đó theo phần tử đầu của `ipFamilies`. Bạn đã nhìn thấy `clusterIPs` số nhiều trong mọi
-`kubectl get svc -o yaml` từ giai đoạn trước mà chưa biết vì sao — lý do là dual-stack.
-
-### B10.2. `RequireDualStack` bị từ chối
-
-Tạo `~/lab-work/5b/svc-require-dualstack.yaml`:
+`k8s/app/web/service.yaml` — chỉ đổi phần `spec`: bỏ `type: NodePort` và `nodePort: 30080`:
 
 ```yaml
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/part-of: bookstore
+    app.kubernetes.io/component: web
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+```
+
+Thêm vào `k8s/app/kustomization.yaml`:
+
+```yaml
+resources:
+# ... các dòng đã có ...
+- ingress/ingress.yaml
+
+secretGenerator:
+# ... db-credentials giữ nguyên ...
+- name: bookstore-tls
+  namespace: bookstore
+  type: kubernetes.io/tls
+  files:
+  - ../../secrets/tls.crt
+  - ../../secrets/tls.key
+  options:
+    disableNameSuffixHash: true
+    labels:
+      app.kubernetes.io/part-of: bookstore
+      app.kubernetes.io/component: web
+```
+
+```bash
+mkdir -p ~/bookstore/k8s/app/ingress
+cat >> ~/bookstore/README.md <<'EOF'
+- Truy cập:   https://bookstore.lab.local:30443/ — máy host thêm dòng "<IP worker> bookstore.lab.local"
+              vào file hosts. Certificate tự ký sinh tại chỗ ở secrets/tls.crt (TD-11).
+EOF
+cd ~/bookstore && ./scripts/teardown.sh && ./scripts/deploy.sh
+```
+
+Dòng mới trong `docs/tech-debt.md`:
+
+```markdown
+| TD-11 | Certificate tự ký sinh tại chỗ, client không tin; gia hạn bằng tay (365 ngày); Traefik → web là plaintext | 5b | chưa có lab trả — chấp nhận có điều kiện | mở | docs/adr/NNNN-https-ingress.md |
+```
+
+Ý chính cho ADR:
+
+1. Bài 11, *TLS*: TLS kết thúc tại điểm ingress — trình duyệt tới Traefik được mã hóa; Traefik tới
+   `web`, `web` tới `api` và `api` tới `db` là plaintext trong mạng Pod. Chấp nhận vì mọi chặng đó giờ
+   bị ma trận giới hạn đúng cặp nguồn–đích; mã hóa trong cluster cần service mesh hoặc cấu hình TLS
+   từng thành phần — bài 84 xếp "mọi thứ liên quan TLS" ra ngoài NetworkPolicy.
+2. Certificate phải cấp cho đúng tên; TLS trên quy tắc mặc định (không host) sẽ cần certificate cho
+   mọi tên con có thể có. Traefik chọn certificate theo SNI — tên khác nhận certificate khác, đúng điều
+   script đo.
+3. Ma trận chỉ cho Traefik vào `web`. NodePort đưa lưu lượng vào qua node; ngoại lệ "kết nối từ node
+   của Pod" của bài 84 không phủ được node khác, nên với policy có hiệu lực đường này không đoán trước
+   được, lại đi vòng qua ma trận. Một đường vào duy nhất thì dễ bảo vệ, dễ đo.
+4. `deploy.sh` sinh certificate mới; trình duyệt thấy một certificate khác và cảnh báo lại. Không commit
+   vì key riêng nằm trong git là lộ cho mọi người đọc được repo — đúng quy tắc 3 của
+   [mục 5.3](DU-AN-BOOKSTORE.md#53-quy-tắc-làm-việc-với-repo). Muốn giữ certificate qua các lần dựng
+   lại thì sao lưu `secrets/` bằng một kênh an toàn riêng.
+5. API server kiểm Secret kiểu TLS có đủ `tls.crt` và `tls.key` (bài 109); thiếu một key là bị từ
+   chối ngay lúc apply thay vì lỗi lúc Traefik nạp certificate. Kiểu chuẩn cũng là thứ controller tìm.
+
+</details>
+
+## B7. [BS-5B-07] Điều tra: proxy, dual-stack và Gateway API
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** trước khi đóng sprint, đội cần trả lời ba câu hỏi mà người vận hành sẽ gặp: lưu lượng tới
+ClusterIP thực sự được xử lý ở đâu; cluster có dùng được IPv6 không; và có nên chuyển Ingress sang
+Gateway API ngay không. Mỗi câu trả lời phải dựa trên phản ứng thật của cluster.
+
+**Yêu cầu:**
+
+1. kube-proxy: số Pod không đổi qua lần đổi CNI; đọc mode đang chạy; tìm ClusterIP của Service `web`
+   trong rule của một worker; ClusterIP của Service DNS **bằng** giá trị ghi ở B2.
+2. `kubectl proxy` gọi được API mà `curl` không gửi token; apiserver proxy tới Service `som` ở
+   `ing-thu` trả `som-ok`. ⭐ Thử cùng dạng URL với Service `web` của `bookstore`, ghi kết quả và giải
+   thích bằng bài 84.
+3. Dual-stack: đọc `ipFamilyPolicy`, `ipFamilies`, `clusterIPs` của Service `api` và `db`. Ở
+   `ing-thu`: Service `RequireDualStack` bị từ chối, `PreferDualStack` quay về IPv4. ⭐ Headless không
+   selector, không khai `ipFamilyPolicy`: đọc giá trị API server tự đặt.
+4. Gateway API: API group `gateway.networking.k8s.io` không tồn tại; một `HTTPRoute` bị từ chối ngay ở
+   bước ánh xạ kiểu; trong khi Traefik đã mang theo API riêng dạng CRD.
+
+**Ràng buộc:** object thử nghiệm chỉ ở `ing-thu`, xóa khi xong. Không cài CRD của Gateway API.
+
+**Đọc lại:**
+
+- Bài [164](../164-proxies-vi.md#proxy-proxies) — năm loại proxy.
+- Bài [85](../85-dual-stack-vi.md): [*Service*](../85-dual-stack-vi.md#service-services),
+  [*Headless Service không có selector*](../85-dual-stack-vi.md#headless-service-không-có-selector-headless-services-without-selector).
+- Bài [13](../13-gateway-vi.md): đoạn mở đầu (add-on),
+  [*Mô hình tài nguyên*](../13-gateway-vi.md#mô-hình-tài-nguyên-resource-model),
+  [*Di chuyển từ Ingress*](../13-gateway-vi.md#di-chuyển-từ-ingress-migrating-from-ingress).
+- Bài [157](../157-networking-vi.md#cluster-network-ipfamilies) — các kiểu mạng cluster.
+
+**Bàn giao:** `docs/adr/NNNN-proxy-dual-stack-gateway.md`; `~/lab-evidence/5b/b7-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` kube-proxy vẫn đủ ba Pod; log nói rõ dataplane; ClusterIP của `web` có trong rule của
+  `lab-k8s-worker1`; ClusterIP của DNS không đổi qua lần đổi CNI.
+- `PASS:` `kubectl proxy` trả `/version` không cần token; apiserver proxy tới `som` trả `som-ok`.
+- `PASS:` Service `api` là `SingleStack`, `IPv4`, một `clusterIPs`, `clusterIP` bằng phần tử đầu;
+  Service `db` headless cũng `SingleStack`.
+- `PASS:` `RequireDualStack` bị từ chối với lỗi nhắc dual-stack; `PreferDualStack` được tạo với đúng
+  một họ `IPv4`.
+- `PASS:` (⭐) headless không selector được API server đặt `RequireDualStack`.
+- `PASS:` không có API group Gateway; `HTTPRoute` bị từ chối; có `IngressRoute` của Traefik.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-proxy-dual-stack-gateway.md`:
+
+1. Kể năm loại proxy của bài 164, mỗi loại chạy ở đâu, và ba loại bạn đã chạm trong sprint này.
+2. ClusterIP của `web` không gắn với interface nào. Nó tồn tại ở đâu, và vì sao đổi CNI không đụng tới
+   kube-proxy?
+3. (⭐) Apiserver proxy tới `web` của `bookstore` cho kết quả gì? Lưu lượng đó xuất phát từ đâu, và
+   ngoại lệ "kết nối từ node của Pod" của bài 84 có áp cho nó không?
+4. `PreferDualStack` và `RequireDualStack` khác nhau thế nào **trên cluster của bạn**? Manifest copy từ
+   tài liệu của một cluster dual-stack sẽ hỏng ở bước nào?
+5. Dự án có nên chuyển Ingress `bookstore` sang Gateway API ngay không? Nếu chuyển, những object nào
+   thay Ingress, ai sở hữu từng object theo vai trò, và vì sao không chạy song song trên cùng object?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Mode kube-proxy: ConfigMap `kube-proxy` trong `kube-system` (khóa `config.conf`, dòng `mode:`). Rỗng
+   nghĩa là dùng mặc định của phiên bản đang chạy — nên đọc thêm log của Pod kube-proxy.
+2. Rule của node: `sudo iptables-save -t nat` (hoặc `sudo nft list ruleset`) trên worker.
+3. Đường dẫn apiserver proxy tới Service: `/api/v1/namespaces/<ns>/services/<tên>:<tên cổng>/proxy/`.
+4. Một kind lạ bị `kubectl` từ chối trước cả khi gửi lên server, kể cả với `--dry-run=server`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau B6, khi hệ thống đang chạy</summary>
+
+```bash
+NS=bookstore; EV=~/lab-evidence/5b
+jp() { kubectl -n "$1" get "$2" -o jsonpath="$3" 2>/dev/null; }
+
+# 1. kube-proxy
+kubectl -n kube-system get cm kube-proxy -o jsonpath='{.data.config\.conf}' | grep -E '^mode:' > "$EV/b7-mode-cm.txt"
+kubectl -n kube-system logs -l k8s-app=kube-proxy --tail=200 2>/dev/null \
+  | grep -iE 'proxier|proxy mode|using .*proxy' | head -5 > "$EV/b7-mode-log.txt"
+CIP="$(jp "$NS" svc/web '{.spec.clusterIP}')"
+{ [ "$(kubectl -n kube-system get pods -l k8s-app=kube-proxy --field-selector=status.phase=Running --no-headers | wc -l)" -eq 3 ] \
+  && grep -qiE 'iptables|nftables|ipvs' "$EV/b7-mode-log.txt" \
+  && ssh lab-k8s-worker1 "sudo iptables-save -t nat 2>/dev/null | grep -qF '$CIP' || sudo nft list ruleset 2>/dev/null | grep -qF '$CIP'" \
+  && [ "$(jp kube-system svc/kube-dns '{.spec.clusterIP}')" = "$(cat "$EV/b2-dns-clusterip.txt")" ]; } \
+  && echo "PASS: kube-proxy 3 Pod; dataplane trong log; ClusterIP $CIP trong rule worker1; ClusterIP DNS khong doi"
+
+# 2. kubectl proxy và apiserver proxy
+kubectl proxy --port=18001 > /tmp/lab5b-proxy.log 2>&1 & PF=$!
+for i in $(seq 1 20); do curl -fsS http://127.0.0.1:18001/version >/dev/null 2>&1 && break; sleep 1; done
+curl -s http://127.0.0.1:18001/version > "$EV/b7-kubectl-proxy.txt"
+curl -s --max-time 15 http://127.0.0.1:18001/api/v1/namespaces/ing-thu/services/som:http/proxy/ > "$EV/b7-apiserver-proxy.txt"
+{ grep -q 'gitVersion' "$EV/b7-kubectl-proxy.txt" && grep -qx 'som-ok' "$EV/b7-apiserver-proxy.txt"; } \
+  && echo 'PASS: kubectl proxy goi API khong token; apiserver proxy toi som tra som-ok'
+# ⭐ cùng dạng URL cho web của bookstore — chỉ ghi lại, giải thích trong ADR
+PN="$(jp "$NS" svc/web '{.spec.ports[0].name}')"
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 40 \
+  "http://127.0.0.1:18001/api/v1/namespaces/$NS/services/web${PN:+:$PN}/proxy/" | tee "$EV/b7-apiserver-proxy-web.txt"
+kill "$PF"
+
+# 3. Dual-stack
+F='{.spec.ipFamilyPolicy}|{.spec.ipFamilies[*]}|{.spec.clusterIPs[*]}|{.spec.clusterIP}'
+A="$(jp "$NS" svc/api "$F")"; D="$(jp "$NS" svc/db "$F")"
+echo "api: $A" > "$EV/b7-dual-stack.txt"; echo "db: $D" >> "$EV/b7-dual-stack.txt"
+IFS='|' read -r POL FAM IPS IP1 <<< "$A"
+{ [ "$POL" = 'SingleStack' ] && [ "$FAM" = 'IPv4' ] && [ "$(echo "$IPS" | wc -w)" -eq 1 ] && [ "$IPS" = "$IP1" ] \
+  && echo "$D" | grep -q '^SingleStack|IPv4|None|None$'; } \
+  && echo 'PASS: api SingleStack IPv4 mot clusterIPs; db headless cung SingleStack'
+
+cat > ~/lab-work/5b/ds-thu.yaml <<'EOF'
 apiVersion: v1
 kind: Service
 metadata:
-  name: web-require
-  namespace: lab-5b
+  name: ds-require
+  namespace: ing-thu
 spec:
   ipFamilyPolicy: RequireDualStack
   selector:
-    app: web
+    app: som
   ports:
-    - port: 80
-      targetPort: 8080
-```
-
-```bash
-if kubectl apply -f ~/lab-work/5b/svc-require-dualstack.yaml \
-     2>~/lab-evidence/5b/b10-loi-require.txt; then
-  echo 'FAIL: cluster single-stack ma van tao duoc Service RequireDualStack'
+  - port: 80
+    targetPort: 8080
+EOF
+if kubectl apply -f ~/lab-work/5b/ds-thu.yaml 2> "$EV/b7-loi-require.txt"; then
+  echo 'FAIL: cluster single-stack ma van tao duoc RequireDualStack'
 else
-  echo 'PASS: RequireDualStack bi tu choi tren cluster single-stack'
+  grep -qi 'dual-stack' "$EV/b7-loi-require.txt" && echo 'PASS: RequireDualStack bi tu choi, loi nhac dual-stack'
 fi
-cat ~/lab-evidence/5b/b10-loi-require.txt
+sed -e 's/ds-require/ds-prefer/' -e 's/RequireDualStack/PreferDualStack/' ~/lab-work/5b/ds-thu.yaml | kubectl apply -f -
+[ "$(jp ing-thu svc/ds-prefer '{.spec.ipFamilyPolicy}|{.spec.ipFamilies[*]}')" = 'PreferDualStack|IPv4' ] \
+  && echo 'PASS: PreferDualStack duoc tao, quay ve dung mot ho IPv4'
+# ⭐ headless không selector, không khai ipFamilyPolicy
+cat <<'EOF' | kubectl apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: ds-headless
+  namespace: ing-thu
+spec:
+  clusterIP: None
+  ports:
+  - port: 80
+EOF
+jp ing-thu svc/ds-headless '{.spec.ipFamilyPolicy}|{.spec.ipFamilies[*]}' | tee -a "$EV/b7-dual-stack.txt"; echo
+[ "$(jp ing-thu svc/ds-headless '{.spec.ipFamilyPolicy}')" = 'RequireDualStack' ] \
+  && echo 'PASS: headless khong selector duoc dat RequireDualStack'
+kubectl -n ing-thu delete svc ds-prefer ds-headless --ignore-not-found
+
+# 4. Gateway API
+kubectl api-resources --api-group=gateway.networking.k8s.io > "$EV/b7-gateway-api.txt" 2>&1
+cat > ~/lab-work/5b/httproute-thu.yaml <<'EOF'
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: bookstore
+  namespace: ing-thu
+spec:
+  parentRefs:
+  - name: khong-ton-tai
+  hostnames:
+  - som.lab.local
+  rules:
+  - backendRefs:
+    - name: som
+      port: 80
+EOF
+kubectl apply --dry-run=server -f ~/lab-work/5b/httproute-thu.yaml > "$EV/b7-httproute.txt" 2>&1
+{ ! grep -qi 'gateway' "$EV/b7-gateway-api.txt" && grep -qi 'no matches for kind' "$EV/b7-httproute.txt" \
+  && kubectl api-resources --api-group=traefik.io | grep -q IngressRoute; } \
+  && echo 'PASS: chua co Gateway API, HTTPRoute bi tu choi; Traefik da mang CRD IngressRoute rieng'
 ```
 
-**PASS:** dòng `PASS:` xuất hiện, và file lỗi ghi rõ lý do.
+</details>
 
-### B10.3. `PreferDualStack` tự quay về single-stack
+<details>
+<summary>Lời giải tham khảo — ý chính cho ADR</summary>
 
-Tạo `~/lab-work/5b/svc-prefer-dualstack.yaml` giống file trên, đổi tên thành `web-prefer` và
-`ipFamilyPolicy` thành `PreferDualStack`:
+1. `kubectl proxy` — máy người dùng hoặc trong Pod; apiserver proxy — trong tiến trình apiserver;
+   kube-proxy — trên mỗi node; load balancer trước nhiều apiserver — ngoài cluster, chỉ có ở control
+   plane HA; cloud load balancer — của nhà cung cấp cloud. Sprint này chạm ba loại đầu, và gặp loại 5
+   ở dạng `<pending>` khi đọc giá trị mặc định của chart Traefik.
+2. Trong rule NAT mà kube-proxy sinh trên **mỗi** node. kube-proxy lo Pod-với-Service; CNI lo
+   Pod-với-Pod (bài 157). Vì vậy kube-proxy giữ nguyên ba Pod, và ClusterIP của DNS — do apiserver
+   cấp — không đổi.
+3. Thường là lỗi kết nối hoặc timeout (`503`). Apiserver chạy `hostNetwork` trên master; nó gọi thẳng
+   IP của một Pod `web` trên worker, nên nguồn là master — không phải node đang chạy Pod đó — và
+   không phải Pod Traefik. Ngoại lệ của bài 84 chỉ dành cho node của chính Pod. Zero-trust đóng cả
+   "bastion tích hợp" của apiserver; muốn mở phải viết rule `ipBlock` cho node, một quyết định có chủ
+   đích.
+4. Bài 85: `PreferDualStack` quay về single-stack; `RequireDualStack` làm việc tạo Service qua API
+   thất bại. Manifest copy sẽ chết ngay ở `kubectl apply`, với lỗi bạn đã lưu. Headless không selector
+   là ngoại lệ: không khai gì thì mặc định là `RequireDualStack` mà vẫn tạo được, vì nó không cần cấp
+   IP nào.
+5. Chưa. Gateway API là add-on gồm CRD cộng một bản hiện thực; cluster chưa có cả hai — HTTPRoute bị
+   từ chối vì cluster **không biết kiểu**, khác Ingress ở B4 (có kiểu, thiếu người thực thi). Nếu
+   chuyển: GatewayClass (người vận hành hạ tầng) ← Gateway với listener HTTPS (người vận hành cluster)
+   ← HTTPRoute `bookstore` trỏ Service `web` (đội ứng dụng). Gateway API không bao gồm kiểu Ingress,
+   nên chuyển một lần dứt điểm chứ không chạy song song trên cùng object. Ghi điều kiện chuyển: có CRD
+   và bản hiện thực được chốt version ở A1.4, có lab cho CRD (giai đoạn 14).
+
+</details>
+
+## B8. [BS-5B-08] ⭐ Điều tra: Traefik so khớp path có đúng đặc tả không
+
+**Loại:** Điều tra — tùy chọn.
+
+**Bối cảnh:** bài 11 và bài 12 cùng cảnh báo các controller hoạt động hơi khác nhau. Trước khi dự án
+thêm path thứ hai vào Ingress, đội muốn biết Traefik — với cấu hình đang chạy — so khớp path và host
+có đúng như đặc tả không, và lệch ở đâu.
+
+**Yêu cầu:** dựng ba backend phân biệt được và một Ingress thử nghiệm `duong-dan` ở `ing-thu` (file chép
+nguyên văn ở khối dưới). Đo: `Prefix` khớp path con; path khớp dài nhất thắng; `Exact` không khớp dấu
+gạch chéo cuối; host phải khớp; wildcard `*.thu.lab.local` khớp một nhãn; thiếu `pathType` bị từ chối.
+Đo thêm `/blogxyz` và `a.b.thu.lab.local` — hai chỗ đặc tả nói **không** khớp — rồi giải thích kết quả
+bằng cấu hình đang chạy của Traefik. Xóa object thử nghiệm khi xong.
+
+**Đọc lại:** bài [11](../11-ingress-vi.md): [*Các loại path*](../11-ingress-vi.md#các-loại-path-path-types),
+[*Ví dụ*](../11-ingress-vi.md#ví-dụ-examples),
+[*Khớp nhiều path*](../11-ingress-vi.md#khớp-nhiều-path-multiple-matches),
+[*Wildcard cho hostname*](../11-ingress-vi.md#wildcard-cho-hostname-hostname-wildcards);
+[Traefik — Kubernetes Ingress provider](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-ingress/),
+tùy chọn `strictPrefixMatching`.
+
+**Nghiệm thu:**
+
+- `PASS:` `/` → backend gốc; `/blog/bai-1` → `blog`; `/blog/` → `blog` (dài nhất thắng).
+- `PASS:` `/chinhxac` → `chinhxac`; `/chinhxac/` không về `chinhxac`; host lạ không về backend nào của
+  rule.
+- `PASS:` `abc.thu.lab.local` khớp wildcard; `thu.lab.local` không khớp.
+- `PASS:` `/blogxyz` cho đúng kết quả mà cấu hình `strictPrefixMatching` đang chạy quy định.
+- `PASS:` manifest thiếu `pathType` bị API server từ chối.
+
+**Câu hỏi thiết kế** — trả lời trong `docs/adr/NNNN-so-khop-path.md`: Traefik lệch đặc tả ở đâu với
+cấu hình mặc định? Dự án có nên bật chế độ khớp chặt trong `platform/traefik/values.yaml` không, và
+cái giá là gì?
+
+<details>
+<summary>Script nghiệm thu và lời giải tham khảo</summary>
 
 ```bash
-sed -e 's/web-require/web-prefer/' -e 's/RequireDualStack/PreferDualStack/' \
-  ~/lab-work/5b/svc-require-dualstack.yaml > ~/lab-work/5b/svc-prefer-dualstack.yaml
-
-kubectl apply -f ~/lab-work/5b/svc-prefer-dualstack.yaml \
-  && echo 'PASS: PreferDualStack duoc chap nhan'
-
-test "$(kubectl -n lab-5b get svc web-prefer \
-  -o jsonpath='{range .spec.ipFamilies[*]}{@}{"\n"}{end}' | wc -l)" = '1' \
-  && echo 'PASS: Service chi duoc cap mot ho IP - da quay ve single-stack'
-test "$(kubectl -n lab-5b get svc web-prefer -o jsonpath='{.spec.ipFamilies[0]}')" = 'IPv4' \
-  && echo 'PASS: ho IP duoc cap la IPv4'
-
-kubectl -n lab-5b delete svc web-prefer
-```
-
-**PASS:** ba dòng `PASS:` xuất hiện.
-
-**Ý nghĩa:** hai giá trị nghe gần giống nhau nhưng hành xử ngược nhau khi cluster không bật
-dual-stack: `PreferDualStack` **quay về** single-stack, còn `RequireDualStack` làm **việc tạo Service
-qua API thất bại**. Manifest dùng `RequireDualStack` copy từ tài liệu về cluster như thế này sẽ chết
-ngay ở bước apply, và thông báo lỗi bạn vừa lưu là thứ giúp nhận ra nguyên nhân trong ba giây.
-
+cat > ~/lab-work/5b/duong-dan.yaml <<'EOF'
+# Ba backend busybox httpd. Mỗi backend chỉ có đúng các file mà phép đo cần, nội dung là tên của nó,
+# nên chuỗi trả về cho biết backend nào đã nhận request. httpd trả index.html cho đường dẫn thư mục.
+apiVersion: v1
+kind: Pod
+metadata: {name: dd-goc, namespace: ing-thu, labels: {app: dd-goc}}
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+  - name: httpd
+    image: busybox:1.37
+    command: ["sh", "-c", "set -e; mkdir -p /www/chinhxac; for f in index.html blogxyz chinhxac/index.html; do echo goc-ok > /www/$f; done; exec httpd -f -p 8080 -h /www"]
 ---
+apiVersion: v1
+kind: Pod
+metadata: {name: dd-blog, namespace: ing-thu, labels: {app: dd-blog}}
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+  - name: httpd
+    image: busybox:1.37
+    command: ["sh", "-c", "set -e; mkdir -p /www/blog; for f in index.html blog/index.html blog/bai-1 blogxyz; do echo blog-ok > /www/$f; done; exec httpd -f -p 8080 -h /www"]
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: dd-chinhxac, namespace: ing-thu, labels: {app: dd-chinhxac}}
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+  - name: httpd
+    image: busybox:1.37
+    command: ["sh", "-c", "set -e; mkdir -p /www; echo chinhxac-ok > /www/chinhxac; exec httpd -f -p 8080 -h /www"]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: dd-goc, namespace: ing-thu}
+spec: {selector: {app: dd-goc}, ports: [{port: 80, targetPort: 8080}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: dd-blog, namespace: ing-thu}
+spec: {selector: {app: dd-blog}, ports: [{port: 80, targetPort: 8080}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: dd-chinhxac, namespace: ing-thu}
+spec: {selector: {app: dd-chinhxac}, ports: [{port: 80, targetPort: 8080}]}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: {name: duong-dan, namespace: ing-thu}
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: duongdan.lab.local
+    http:
+      paths:
+      - {path: /, pathType: Prefix, backend: {service: {name: dd-goc, port: {number: 80}}}}
+      - {path: /blog, pathType: Prefix, backend: {service: {name: dd-blog, port: {number: 80}}}}
+      - {path: /chinhxac, pathType: Exact, backend: {service: {name: dd-chinhxac, port: {number: 80}}}}
+  - host: "*.thu.lab.local"
+    http:
+      paths:
+      - {path: /, pathType: Prefix, backend: {service: {name: dd-blog, port: {number: 80}}}}
+EOF
+kubectl apply -f ~/lab-work/5b/duong-dan.yaml
+kubectl -n ing-thu wait --for=condition=Ready pod/dd-goc pod/dd-blog pod/dd-chinhxac --timeout=180s
+sleep 5
 
-## B11. Cleanup, bảy tầng gate và snapshot `02-net-ready`
+EV=~/lab-evidence/5b
+W1="$(kubectl get node lab-k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+goi() { curl -s --max-time 5 -H "Host: $1" "http://$W1:30081$2"; }
+for P in / /blog/bai-1 /blog/ /blogxyz /chinhxac /chinhxac/; do echo "$P -> $(goi duongdan.lab.local "$P")"; done \
+  > "$EV/b8-so-khop.txt"
+cat "$EV/b8-so-khop.txt"
 
-**Mục đích:** xóa mọi object của bài học, **giữ lại** hạ tầng mới, và chứng minh cluster đủ khỏe để
-đóng mốc.
+{ [ "$(goi duongdan.lab.local /)" = 'goc-ok' ] && [ "$(goi duongdan.lab.local /blog/bai-1)" = 'blog-ok' ] \
+  && [ "$(goi duongdan.lab.local /blog/)" = 'blog-ok' ]; } \
+  && echo 'PASS: Prefix khop path con; path khop dai nhat thang'
+{ [ "$(goi duongdan.lab.local /chinhxac)" = 'chinhxac-ok' ] && [ "$(goi duongdan.lab.local /chinhxac/)" != 'chinhxac-ok' ] \
+  && ! goi khac.lab.local / | grep -qE '^(goc|blog|chinhxac)-ok$'; } \
+  && echo 'PASS: Exact khong khop dau gach cheo cuoi; host la khong dung rule nao'
+{ [ "$(goi abc.thu.lab.local /)" = 'blog-ok' ] && [ "$(goi thu.lab.local /)" != 'blog-ok' ]; } \
+  && echo 'PASS: wildcard *.thu.lab.local khop abc, khong khop thu.lab.local'
 
-### B11.1. Xóa object của lab, giữ hạ tầng
+STRICT="$(helm get values traefik -n traefik --all -o json | grep -o '"strictPrefixMatching":[a-z]*' | head -1 | cut -d: -f2)"
+[ "$STRICT" = 'true' ] && WANT='goc-ok' || WANT='blog-ok'
+X="$(goi duongdan.lab.local /blogxyz)"
+echo "strictPrefixMatching=${STRICT:-khong khai} /blogxyz=$X a.b.thu=$(goi a.b.thu.lab.local /)" | tee -a "$EV/b8-so-khop.txt"
+[ "$X" = "$WANT" ] && echo "PASS: /blogxyz -> $X, dung voi strictPrefixMatching=${STRICT:-false}"
+
+sed '/pathType: Exact/s/, pathType: Exact//' ~/lab-work/5b/duong-dan.yaml > ~/lab-work/5b/duong-dan-thieu.yaml
+kubectl apply --dry-run=server -f ~/lab-work/5b/duong-dan-thieu.yaml >/dev/null 2>&1 \
+  && echo 'FAIL: thieu pathType van qua validation' || echo 'PASS: path khong khai pathType bi tu choi'
+kubectl delete -f ~/lab-work/5b/duong-dan.yaml --wait=true
+```
+
+Ý chính: chart mặc định để `strictPrefixMatching` tắt — Traefik so `Prefix` theo **chuỗi**, nên
+`/blogxyz` rơi vào `/blog`, trái bảng ví dụ của bài 11 (`/aaa/bbb` không khớp `/aaa/bbbxyz`). Kết quả
+`a.b.thu.lab.local` cũng là hành vi riêng của controller — đối chiếu với bảng wildcard của bài 11 và
+ghi lại. Bật chế độ khớp chặt thì Ingress cư xử đúng đặc tả, giá phải trả là kiểm lại mọi Ingress đang
+dựa vào kiểu khớp chuỗi. Dự án hiện chỉ có path `/` nên chưa bị ảnh hưởng; ghi điều kiện xem lại khi
+thêm path.
+
+</details>
+
+## B9. Đóng sprint: cleanup, bảy tầng gate và snapshot `02-net-ready`
+
+**Mục đích:** bàn giao một repo dựng lại được toàn bộ hệ thống của sprint 7, rồi đưa cluster về trạng
+thái **chỉ còn hạ tầng** — Calico, Traefik — chứng minh nó khỏe, và chụp `02-net-ready`.
+
+1. Thay `tests/smoke.sh` bằng phiên bản của Lab 5b — kiểm thử khói **tích lũy**, chép nguyên văn:
 
 ```bash
-kubectl delete namespace lab-5b --wait=true --timeout=300s
-kubectl delete namespace lab-5b-ext --wait=true --timeout=300s
+cat > ~/bookstore/tests/smoke.sh <<'EOF'
+#!/usr/bin/env bash
+# Kiểm thử khói — trạng thái sau Lab 5b, cluster ở mốc 02-net-ready (Calico, Traefik). Kiểm mọi hợp
+# đồng còn hiệu lực tới sprint 7: controller (4a, 4b), Service và DNS (5a), NetworkPolicy zero-trust có
+# hiệu lực và đường vào duy nhất là HTTPS qua Ingress (5b). Script không in bí mật.
+set -u
+cd "$(dirname "$0")/.."
+NS=bookstore
+SEL='app.kubernetes.io/part-of=bookstore'
+HOST=bookstore.lab.local
+FAIL=0
+pass() { echo "PASS: $*"; }
+fail() { echo "FAIL: $*"; FAIL=1; }
+k() { kubectl -n "$NS" "$@"; }
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+has_cm() {  # $1 = các tên ConfigMap workload tham chiếu; $2 = tên theo hợp đồng (từ 5a có thể kèm hậu tố hash)
+  for N in $1; do case "$N" in "$2"|"$2"-*) k get configmap "$N" >/dev/null 2>&1 && return 0 ;; esac; done
+  return 1
+}
 
-for ns in lab-5b lab-5b-ext; do
-  if kubectl get namespace "$ns" >/dev/null 2>&1; then
-    echo "FAIL: namespace $ns van ton tai"
-  else
-    echo "PASS: namespace $ns da bien mat"
-  fi
+# 1. Namespace, object cấp cluster, hạ tầng của mốc 02-net-ready
+[ "$(kubectl get namespace "$NS" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/part-of}' 2>/dev/null)" = 'bookstore' ] \
+  && pass 'namespace bookstore mang label du an' || fail 'namespace bookstore thieu hoac thieu label'
+PRIO="$(kubectl get priorityclass bookstore-critical -o jsonpath='{.value}' 2>/dev/null)"
+[ -n "$PRIO" ] && pass "co PriorityClass bookstore-critical ($PRIO)" || fail 'thieu PriorityClass bookstore-critical'
+NODES="$(kubectl get nodes --no-headers | wc -l)"
+R="$(kubectl -n kube-system get daemonset calico-node -o jsonpath='{.status.numberReady}' 2>/dev/null)"
+[ "${R:-0}" -eq "$NODES" ] && pass "Calico Ready tren $R/$NODES node" || fail "Calico ${R:-0}/$NODES node"
+[ "$(kubectl get ingressclass traefik -o jsonpath='{.metadata.annotations.ingressclass\.kubernetes\.io/is-default-class}' 2>/dev/null)" = 'true' ] \
+  && pass 'IngressClass traefik la mac dinh' || fail 'thieu IngressClass traefik mac dinh'
+
+# 2. Cấu hình và bí mật (3b, 5b), PDB (3c)
+has_cm "$(jp deployment/web '{.spec.template.spec.volumes[*].configMap.name}')" web-config \
+  && pass 'web dung ConfigMap web-config' || fail 'web khong tham chieu ConfigMap web-config ton tai'
+has_cm "$(jp deployment/api '{.spec.template.spec.containers[*].envFrom[*].configMapRef.name}')" api-config \
+  && pass 'api dung ConfigMap api-config' || fail 'api khong tham chieu ConfigMap api-config ton tai'
+has_cm "$(jp statefulset/db '{.spec.template.spec.volumes[*].configMap.name}')" db-init \
+  && pass 'db dung ConfigMap db-init' || fail 'db khong tham chieu ConfigMap db-init ton tai'
+D="$(jp secret/db-credentials '{.data}')"
+{ echo "$D" | grep -q '"postgres-password"' && echo "$D" | grep -q '"authenticator-password"'; } \
+  && pass 'Secret db-credentials du hai key' || fail 'Secret db-credentials thieu key'
+D="$(jp secret/bookstore-tls '{.data}')"
+{ [ "$(jp secret/bookstore-tls '{.type}')" = 'kubernetes.io/tls' ] && echo "$D" | grep -q '"tls.crt"' \
+  && echo "$D" | grep -q '"tls.key"'; } \
+  && pass 'Secret bookstore-tls kieu TLS, du tls.crt va tls.key' || fail 'Secret bookstore-tls sai kieu hoac thieu key'
+for P in web api; do
+  k get pdb "$P" >/dev/null 2>&1 && pass "co PodDisruptionBudget $P" || fail "thieu PodDisruptionBudget $P"
 done
 
-kubectl get ingress -A
-kubectl get networkpolicy -A
-test "$(kubectl get networkpolicy -A --no-headers 2>/dev/null | wc -l)" = '0' \
-  && echo 'PASS: khong con NetworkPolicy nao tren cluster'
-```
-
-**PASS:** ba dòng `PASS:`, không có dòng `FAIL:`.
-
-**Giữ lại — đây là nội dung của mốc mới:**
-
-```bash
-kubectl -n kube-system get daemonset calico-node
-kubectl -n traefik get deployment traefik
-kubectl get ingressclass
-helm list -n traefik
-
-test "$(kubectl -n kube-system get ds calico-node \
-  -o jsonpath='{.status.numberReady}')" = '3' \
-  && echo 'PASS: CNI moi van chay du ba node'
-test "$(kubectl -n traefik get deployment traefik \
-  -o jsonpath='{.status.readyReplicas}')" -ge 1 \
-  && echo 'PASS: ingress controller van chay'
-test "$(kubectl get ingressclass --no-headers | wc -l)" = '1' \
-  && echo 'PASS: IngressClass mac dinh van con'
-```
-
-**PASS:** ba dòng `PASS:` xuất hiện. Xóa nhầm hai thứ này là làm hỏng chính mốc sắp chụp.
-
-Dọn file tạm, giữ nguyên thư mục bằng chứng:
-
-```bash
-rm -f ~/lab-work/5b/app.yaml ~/lab-work/5b/backends.yaml \
-      ~/lab-work/5b/np-0*.yaml ~/lab-work/5b/np-10-egress-dns-va-web.yaml \
-      ~/lab-work/5b/ingress-som.yaml ~/lab-work/5b/ingress-chinh.yaml \
-      ~/lab-work/5b/ingress-thieu-pathtype.yaml ~/lab-work/5b/ingress-tls.yaml \
-      ~/lab-work/5b/svc-require-dualstack.yaml ~/lab-work/5b/svc-prefer-dualstack.yaml \
-      ~/lab-work/5b/tls.crt ~/lab-work/5b/tls.key ~/lab-work/5b/calico.yaml
-rmdir ~/lab-work/5b
-test ! -e ~/lab-work/5b && echo 'PASS: manifest tam da duoc xoa het'
-```
-
-**PASS:** dòng `PASS:` xuất hiện. `rmdir` cố ý không dùng `-rf`: nó fail nếu còn file lạ, và
-`test ! -e` biến điều đó thành gate thay vì im lặng bỏ qua. Certificate và key tự ký bị xóa ở đây —
-không đưa chúng vào snapshot.
-
-### B11.2. Chạy trọn bảy tầng gate A5.4
-
-Chạy **đầy đủ bảy tầng** ở
-[A5.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a54-gate-01-cluster-ready), từ
-[tầng 0](LAB-00-MOI-TRUONG-1.35.7.md#a541-tầng-0--prereq-os-còn-đúng-sau-khi-cluster-chạy) tới
-[tầng 6](LAB-00-MOI-TRUONG-1.35.7.md#a547-tầng-6--đường-control-plane--kubelet), rồi dọn resource
-test theo [A5.4.8](LAB-00-MOI-TRUONG-1.35.7.md#a548-dọn-resource-test-ghi-evidence-và-chụp-snapshot).
-Lab này thuộc đúng trường hợp A5.5 nói phải chạy cả bảy tầng: **lab vừa đụng vào mạng và CNI**.
-
-Hai tầng phải **đọc lại theo CNI mới** — đây là khác biệt duy nhất so với văn bản của Lab 00:
-
-| Tầng | Câu trong Lab 00 | Đọc lại thế nào sau lab 5b |
-| --- | --- | --- |
-| [A5.4.3](LAB-00-MOI-TRUONG-1.35.7.md#a543-tầng-2--node-condition-taint-và-podcidr) | "`kube-proxy` và `kube-flannel-ds` mỗi cái có đúng một Pod `Running` trên mỗi node" | Không còn DaemonSet `kube-flannel-ds` và không còn namespace `kube-flannel`. Thay bằng: `kube-proxy` (namespace `kube-system`) và `calico-node` (namespace `kube-system`) mỗi cái đúng một Pod `Running` trên mỗi node, cộng Deployment `calico-kube-controllers` `Running`. Ba node vẫn phải có ba `.spec.podCIDR` khác nhau, nhưng **Pod IP không nhất thiết nằm trong `/24` của node** — xem [B4.5](#b45-đọc-lại-cni-trên-node-và-kiểm-dải-ip-plugin-cấp) |
-| [A5.4.4](LAB-00-MOI-TRUONG-1.35.7.md#a544-tầng-3--pod-networking-xuyên-node) | Ba nguyên nhân fail: UDP `8472` bị chặn, Flannel bind nhầm interface, `--pod-network-cidr` sai | Đường hầm giữa các node giờ do CNI mới dựng, không còn là VXLAN cổng `8472` của Flannel. Ba nguyên nhân đọc lại thành: lưu lượng đóng gói giữa các node bị chặn, plugin bind nhầm interface (gate ở [B4.5](#b45-đọc-lại-cni-trên-node-và-kiểm-dải-ip-plugin-cấp) bắt được lỗi này), hoặc IPPool lệch Pod CIDR |
-
-Gate bổ sung riêng cho mốc mới, chạy sau khi bảy tầng đã PASS:
-
-```bash
-kubectl get pods -A -o wide | tee ~/lab-evidence/5b/b11-pods-toan-cluster.txt
-kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
-
-grep -qi 'flannel' ~/lab-evidence/5b/b11-pods-toan-cluster.txt \
-  && echo 'FAIL: van con Pod cua CNI cu' \
-  || echo 'PASS: khong con dau vet cua CNI cu tren cluster'
-
-for n in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
-  echo "== $n : kiem tren chinh node do"
+# 3. Controller cho mọi thành phần (4a, 4b) và tài nguyên (3c)
+[ "$(jp statefulset/db '{.status.readyReplicas}')" = '1' ] && pass 'StatefulSet db 1/1 Ready' || fail 'StatefulSet db chua Ready'
+[ "$(jp pod/db-0 '{.spec.nodeName}')" = 'lab-k8s-worker2' ] && pass 'db-0 tren lab-k8s-worker2' || fail 'db-0 khong o lab-k8s-worker2'
+[ "$(jp pod/db-0 '{.status.qosClass}')" = 'Guaranteed' ] && pass 'db-0 QoS Guaranteed' || fail 'db-0 khong Guaranteed'
+[ -n "$PRIO" ] && [ "$(jp pod/db-0 '{.spec.priority}')" = "$PRIO" ] && pass 'db-0 dung bookstore-critical' || fail 'db-0 sai priority'
+for X in web api; do
+  W="$(jp "deployment/$X" '{.spec.replicas}')"; RR="$(jp "deployment/$X" '{.status.readyReplicas}')"
+  { [ "${W:-0}" -ge 2 ] && [ "${RR:-0}" = "$W" ]; } && pass "Deployment $X $RR/$W Ready" || fail "Deployment $X ${RR:-0}/${W:-0} Ready"
 done
-```
+ORPHAN="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.name}:{.metadata.ownerReferences[0].kind}{"\n"}{end}' 2>/dev/null | grep -c ':$')"
+[ "$ORPHAN" -eq 0 ] && pass 'moi Pod cua du an deu co controller' || fail "$ORPHAN Pod tran"
+MISS="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.name}={.resources.requests.cpu},{.resources.limits.memory}{"\n"}{end}{end}' 2>/dev/null | grep -E '=,|,$' | sort -u)"
+[ -z "$MISS" ] && pass 'moi container co requests va limits' || fail "container thieu tai nguyen: $(echo $MISS)"
 
-Trên **từng node**:
-
-```bash
-test ! -e /etc/cni/net.d/10-flannel.conflist \
-  && test -f /etc/cni/net.d/10-calico.conflist \
-  && echo 'PASS: /etc/cni/net.d chi con cau hinh cua CNI moi'
-if ip link show flannel.1 >/dev/null 2>&1; then
-  echo 'FAIL: interface cu van con'
+# 4. Dữ liệu và migration (4b)
+N="$(k exec db-0 -c postgres -- psql -U postgres -d bookstore -tAc 'SELECT count(*) FROM api.books' 2>/dev/null)"
+[ "${N:-0}" -ge 8 ] && pass "db co $N cuon sach (khoi tao + migration)" || fail "db co ${N:-0} cuon sach, can >= 8"
+if k get job db-migrate >/dev/null 2>&1; then
+  [ "$(jp job/db-migrate '{.status.conditions[?(@.type=="Complete")].status}')" = 'True' ] \
+    && pass 'Job db-migrate Complete' || fail 'Job db-migrate chua Complete'
 else
-  echo 'PASS: khong con interface cua CNI cu'
+  pass 'Job db-migrate da duoc TTL don, ket qua nam trong db'
 fi
+
+# 5. Service và DNS (5a); web về ClusterIP (5b)
+svc() {  # $1 tên; $2 cổng Service; $3 các targetPort chấp nhận, ngăn bằng |
+  local P T; P="$(jp "service/$1" '{.spec.ports[0].port}')"; T="$(jp "service/$1" '{.spec.ports[0].targetPort}')"
+  { [ "$P" = "$2" ] && echo "|$3|" | grep -qF "|$T|"; } && pass "Service $1 cong $P -> $T" || fail "Service $1 sai cong ($P -> $T)"
+}
+svc web 80 'http|8080'; svc api 3000 'http|3000'; svc db 5432 'postgres|5432'; svc node-agent 9100 'http|9100'
+{ [ "$(jp service/web '{.spec.type}')" = 'ClusterIP' ] && [ -z "$(jp service/web '{.spec.ports[*].nodePort}')" ]; } \
+  && pass 'Service web la ClusterIP, khong con NodePort' || fail 'Service web van mo NodePort'
+[ "$(jp service/db '{.spec.clusterIP}')" = 'None' ] && pass 'Service db headless' || fail 'Service db khong headless'
+[ "$(jp service/node-agent '{.spec.internalTrafficPolicy}')" = 'Local' ] \
+  && pass 'Service node-agent internalTrafficPolicy Local' || fail 'Service node-agent khong Local'
+DB_IP="$(jp pod/db-0 '{.status.podIP}')"
+
+# 6. Các luồng ma trận cho phép (5b)
+WEB="$(k get pod -l "$SEL,app.kubernetes.io/component=web" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+WNODE="$(jp "pod/$WEB" '{.spec.nodeName}')"
+get() { k exec "$WEB" -c status-writer -- wget -qO- -T 5 "$1" 2>/dev/null; }
+# Hỏi DNS của cluster từ Pod khác: trong chính db-0, tên này nằm sẵn ở /etc/hosts do kubelet ghi (5a).
+k exec "$WEB" -c status-writer -- nslookup "db-0.db.$NS.svc.cluster.local" 2>/dev/null | grep -qwF "$DB_IP" \
+  && pass 'ten db-0.db phan giai ve IP cua db-0' || fail 'ten db-0.db khong phan giai dung'
+T="$(get http://api:3000/books | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && pass "web -> api:3000 theo ten, /books tra $T cuon" || fail "web -> api tra $T cuon"
+get http://127.0.0.1:8080/ | grep -q 'Bookstore' && pass 'web phuc vu trang chu' || fail 'web khong phuc vu trang chu'
+get http://127.0.0.1:8080/status.json | grep -Eq "\"pod\" *: *\"$WEB\"" \
+  && pass 'web phuc vu status.json dung ten Pod' || fail 'status.json sai hoac thieu'
+T="$(get http://127.0.0.1:8080/api/books | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && pass "nginx proxy /api/ toi api ($T cuon)" || fail "nginx /api/ tra $T cuon"
+get http://node-agent:9100/node.json | grep -Eq "\"node\" *: *\"$WNODE\"" \
+  && pass "web doc node-agent cung node ($WNODE)" || fail 'web khong doc duoc node-agent cung node'
+
+# 7. CronJob db-backup (4b): chính sách và một lần chạy thử — luồng backup -> db
+[ "$(jp cronjob/db-backup '{.spec.concurrencyPolicy}')" = 'Forbid' ] && pass 'db-backup Forbid' || fail 'db-backup khong Forbid'
+[ "$(jp cronjob/db-backup '{.spec.suspend}')" != 'true' ] && pass 'db-backup khong bi tam ngung' || fail 'db-backup dang suspend'
+J="smoke-backup-$(date +%s)"
+if k create job "$J" --from=cronjob/db-backup >/dev/null 2>&1 \
+   && k wait --for=condition=Complete "job/$J" --timeout=180s >/dev/null 2>&1 \
+   && k logs "job/$J" 2>/dev/null | grep -q '^db-backup: OK'; then
+  pass 'chay thu db-backup thanh cong'
+else
+  fail 'chay thu db-backup that bai'
+fi
+k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+
+# 8. DaemonSet node-agent (4b)
+R="$(jp daemonset/node-agent '{.status.numberReady}')"
+[ "${R:-0}" -eq "$NODES" ] && pass "node-agent Ready tren $R/$NODES node" || fail "node-agent ${R:-0}/$NODES node"
+BAD=0
+for L in $(k get pod -l "$SEL,app.kubernetes.io/component=agent" -o jsonpath='{range .items[*]}{.spec.nodeName}={.status.podIP}{"\n"}{end}' 2>/dev/null); do
+  get "http://${L##*=}:9100/node.json" | grep -Eq "\"node\" *: *\"${L%%=*}\"" || { echo "FAIL: node-agent tren ${L%%=*} sai /node.json"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && pass 'moi node-agent tra /node.json dung ten node' || FAIL=1
+
+# 9. Các luồng ma trận KHÔNG cho phép phải bị chặn (5b)
+API_IP="$(k get pod -l "$SEL,app.kubernetes.io/component=api" --field-selector=status.phase=Running -o jsonpath='{.items[0].status.podIP}' 2>/dev/null)"
+if k exec "$WEB" -c status-writer -- wget -q -O /dev/null -T 5 "http://${API_IP}:3001/live" >/dev/null 2>&1; then
+  fail 'web toi duoc cong admin 3001 cua api - ma tran rong hon muc 3.5'
+else
+  pass 'web -> api:3001 bi chan, chi cong 3000 duoc mo'
+fi
+if k exec db-0 -c postgres -- getent hosts web >/dev/null 2>&1; then
+  if k exec db-0 -c postgres -- timeout 5 bash -c 'exec 3<>/dev/tcp/web/80' >/dev/null 2>&1; then
+    fail 'db-0 mo duoc ket noi toi web:80 - chieu di chua bi chan mac dinh'
+  else
+    pass 'db-0 -> web:80 bi chan, DNS van phan giai'
+  fi
+else
+  fail 'db-0 khong phan giai duoc ten web - DNS bi chan?'
+fi
+
+# 10. Đường vào duy nhất: HTTPS qua Traefik bằng certificate của dự án (5b)
+ING='{.spec.rules[0].host}|{.spec.ingressClassName}|{.spec.tls[0].hosts[0]}|{.spec.tls[0].secretName}|{.spec.rules[0].http.paths[0].backend.service.name}'
+[ "$(jp ingress/bookstore "$ING")" = "$HOST|traefik|$HOST|bookstore-tls|web" ] \
+  && pass "Ingress bookstore: $HOST, class traefik, TLS bookstore-tls, ve web" || fail 'Ingress bookstore sai host, class, TLS hoac backend'
+NP="$(kubectl -n traefik get service traefik -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}' 2>/dev/null)"
+if [ -s secrets/tls.crt ] && [ -n "$NP" ]; then
+  openssl x509 -in secrets/tls.crt -noout -checkend 0 >/dev/null && pass 'certificate trong secrets/ con han' \
+    || fail 'certificate trong secrets/ da het han (TD-11)'
+  for N in lab-k8s-worker1 lab-k8s-worker2; do
+    IP="$(kubectl get node "$N" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+    C="curl -fsS --max-time 10 --cacert secrets/tls.crt --resolve $HOST:$NP:$IP"
+    $C "https://$HOST:$NP/" 2>/dev/null | grep -q 'Bookstore' \
+      && pass "HTTPS $HOST qua $N:$NP tra trang chu" || fail "HTTPS qua $N khong tra trang chu"
+    T="$($C "https://$HOST:$NP/api/books" 2>/dev/null | grep -o '"title"' | wc -l)"
+    [ "$T" -ge 8 ] && pass "HTTPS /api/books qua $N tra $T cuon" || fail "HTTPS /api/books qua $N tra $T cuon"
+  done
+else
+  fail 'thieu secrets/tls.crt hoac NodePort websecure cua Traefik'
+fi
+
+exit "$FAIL"
+EOF
+chmod +x ~/bookstore/tests/smoke.sh
 ```
 
-**PASS:** trên master, lệnh field selector trả `No resources found` và dòng
-`PASS: khong con dau vet cua CNI cu` xuất hiện; trên **mỗi node**, hai dòng `PASS:` và không có dòng
-`FAIL:`.
+2. Cập nhật `docs/tech-debt.md`: `TD-09` đã trả (B5); thêm `TD-11` (B6). Ghi chú ở `TD-07`: sprint này
+   không đổi gì. Kiểm `README.md` của repo có URL truy cập.
 
-Ghi hồ sơ của mốc mới:
+3. Dựng lại sạch từ repo và chạy kiểm thử khói:
+
+```bash
+cd ~/bookstore
+./scripts/teardown.sh && ./scripts/deploy.sh > ~/lab-evidence/5b/b9-deploy.txt 2>&1
+./tests/smoke.sh > ~/lab-evidence/5b/b9-smoke.txt 2>&1; echo "smoke exit=$?"
+cat ~/lab-evidence/5b/b9-smoke.txt
+```
+
+4. Commit, tag, đóng gói, chép ra ngoài VM theo
+   [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm):
+
+```bash
+cd ~/bookstore
+git status --short
+git add -A && git commit -m 'lab-5b: sprint 7 — Calico, NetworkPolicy zero-trust, Ingress HTTPS'
+git tag lab-5b
+git bundle create ~/bookstore-lab-5b.bundle --all && git bundle verify ~/bookstore-lab-5b.bundle
+```
+
+Chép `~/bookstore-lab-5b.bundle` về máy host bằng `scp` **trước** khi đi tiếp — bước 8 tắt máy và
+chụp snapshot.
+
+5. Dọn object thử nghiệm, rồi gỡ dự án:
+
+```bash
+kubectl delete namespace ing-thu np-ngoai net-thu --ignore-not-found --wait=true --timeout=300s
+kubectl -n bookstore delete pod -l '!app.kubernetes.io/part-of' --ignore-not-found --wait=true
+kubectl -n traefik delete pod np-la --ignore-not-found --wait=true
+rm -rf ~/lab-work/5b
+cd ~/bookstore && ./scripts/teardown.sh
+```
+
+6. Gate: repo đủ, cluster **chỉ còn hạ tầng**:
+
+```bash
+cd ~/bookstore
+SEL='app.kubernetes.io/part-of=bookstore'
+on() { if [ "$1" = "$(hostname)" ]; then bash -c "$2"; else ssh "$1" "$2"; fi; }
+. platform/versions.env
+
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
+git describe --tags --exact-match HEAD | grep -qx 'lab-5b' && echo 'PASS: HEAD mang tag lab-5b'
+test -s ~/bookstore-lab-5b.bundle && echo 'PASS: co bundle'
+{ ls k8s/app/network/*.yaml >/dev/null 2>&1 && test -f k8s/app/ingress/ingress.yaml \
+  && test -f platform/versions.env && test -f platform/calico/README.md \
+  && test -f platform/traefik/values.yaml && test -f platform/traefik/README.md \
+  && [ -z "$(find k8s -name '*.tpl')" ]; } && echo 'PASS: bo cuc repo dung muc 5.5 cho sprint 7'
+{ grep -E 'TD-09.*đã trả' docs/tech-debt.md >/dev/null && grep -q 'TD-11' docs/tech-debt.md; } \
+  && echo 'PASS: tech-debt.md: TD-09 da tra, co TD-11'
+BAD=0
+for F in networkpolicy-tren-flannel mang-cluster-va-chon-cni quy-trinh-doi-cni ingress-controller \
+         zero-trust https-ingress proxy-dual-stack-gateway; do
+  ls docs/adr/*-"$F".md >/dev/null 2>&1 || { echo "FAIL: thieu docs/adr/*-$F.md"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: du ADR cua sprint 7'
+
+{ [ "$(kubectl get namespace,priorityclass -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && [ "$(kubectl get all,configmaps,secrets,networkpolicies,ingresses -A -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+  && echo 'PASS: khong con object nao cua du an'
+{ [ "$(kubectl get networkpolicy -A --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && [ "$(kubectl get ingress -A --no-headers 2>/dev/null | wc -l)" -eq 0 ]; } \
+  && echo 'PASS: cluster khong con NetworkPolicy hay Ingress nao'
+[ "$(kubectl get ns -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | sort | tr '\n' ' ')" \
+  = 'default kube-node-lease kube-public kube-system traefik ' ] && echo 'PASS: chi con namespace he thong va traefik'
+{ [ "$(kubectl -n kube-system get ds calico-node -o jsonpath='{.status.numberReady}')" -eq 3 ] \
+  && kubectl -n kube-system wait --for=condition=Available deployment/calico-kube-controllers --timeout=60s >/dev/null; } \
+  && echo 'PASS: Calico chay du ba node'
+{ kubectl -n traefik wait --for=condition=Available deployment/traefik --timeout=60s >/dev/null \
+  && [ "$(kubectl get ingressclass --no-headers | wc -l)" -eq 1 ] \
+  && [ "$(kubectl get ingressclass traefik -o jsonpath='{.metadata.annotations.ingressclass\.kubernetes\.io/is-default-class}')" = 'true' ] \
+  && [ "$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.type} {.spec.ports[?(@.name=="web")].nodePort} {.spec.ports[?(@.name=="websecure")].nodePort}')" = 'NodePort 30081 30443' ] \
+  && helm list -n traefik | grep -q "traefik-$TRAEFIK_CHART"; } \
+  && echo 'PASS: Traefik san sang, IngressClass traefik mac dinh duy nhat, NodePort 30081/30443'
+BAD=0
+for N in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
+  on "$N" 'test ! -e /etc/cni/net.d/10-flannel.conflist && test -f /etc/cni/net.d/10-calico.conflist \
+    && ! ip link show flannel.1 >/dev/null 2>&1' || { echo "FAIL: $N con dau vet CNI cu"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: ca ba node chi con cau hinh CNI cua Calico'
+test ! -e ~/lab-work/5b && echo 'PASS: da don lab-work'
+```
+
+<a id="b112-chạy-trọn-bảy-tầng-gate-a54"></a>
+
+7. Chạy **đầy đủ bảy tầng** ở [A5.4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a54-gate-01-cluster-ready),
+   từ [tầng 0](LAB-00-MOI-TRUONG-1.35.7.md#a541-tầng-0--prereq-os-còn-đúng-sau-khi-cluster-chạy) tới
+   [tầng 6](LAB-00-MOI-TRUONG-1.35.7.md#a547-tầng-6--đường-control-plane--kubelet), rồi **chỉ phần dọn
+   resource test** của [A5.4.8](LAB-00-MOI-TRUONG-1.35.7.md#a548-dọn-resource-test-ghi-evidence-và-chụp-snapshot)
+   — không chụp `01-cluster-ready`. Lab này thuộc đúng trường hợp A5.5 nói phải chạy cả bảy tầng: **lab
+   vừa đụng vào mạng và CNI**. Hai tầng phải **đọc lại theo CNI mới**:
+
+| Tầng | Câu trong Lab 00 | Đọc lại thế nào sau Lab 5b |
+| --- | --- | --- |
+| [A5.4.3](LAB-00-MOI-TRUONG-1.35.7.md#a543-tầng-2--node-condition-taint-và-podcidr) | "`kube-proxy` và `kube-flannel-ds` mỗi cái có đúng một Pod `Running` trên mỗi node" | Không còn DaemonSet `kube-flannel-ds`, không còn namespace `kube-flannel`. Thay bằng: `kube-proxy` và `calico-node` (cùng namespace `kube-system`) mỗi cái đúng một Pod `Running` trên mỗi node, cộng Deployment `calico-kube-controllers` sẵn sàng. Ba node vẫn có ba `.spec.podCIDR` khác nhau, nhưng **IP Pod không nhất thiết nằm trong `/24` của node** — xem câu 3 của B3 |
+| [A5.4.4](LAB-00-MOI-TRUONG-1.35.7.md#a544-tầng-3--pod-networking-xuyên-node) | Ba nguyên nhân fail: UDP `8472` bị chặn, Flannel bind nhầm interface, `--pod-network-cidr` sai | Đường hầm giữa các node do Calico dựng, không còn là VXLAN cổng `8472`. Ba nguyên nhân đọc lại: lưu lượng đóng gói giữa các node bị chặn, Calico chọn nhầm interface (gate ở B3 bắt lỗi này), IPPool lệch dải Pod |
+
+**PASS:** bảy tầng đều PASS với hai tầng đã đọc lại như trên.
+
+8. Ghi hồ sơ của mốc mới, tắt máy và chụp snapshot:
 
 ```bash
 {
@@ -2453,15 +2669,11 @@ Ghi hồ sơ của mốc mới:
   kubectl get ingressclass -o wide
   echo '--- Helm'
   helm version --short
-} | tee ~/lab-evidence/5b/b11-ho-so-02-net-ready.txt
-
-test -s ~/lab-evidence/5b/b11-ho-so-02-net-ready.txt \
-  && echo 'PASS: da ghi ho so cua moc 02-net-ready'
+  echo '--- Namespace'
+  kubectl get ns
+} > ~/lab-evidence/5b/b9-ho-so-02-net-ready.txt
+test -s ~/lab-evidence/5b/b9-ho-so-02-net-ready.txt && echo 'PASS: da ghi ho so cua moc 02-net-ready'
 ```
-
-**PASS:** dòng `PASS:` xuất hiện.
-
-### B11.3. Chụp snapshot `02-net-ready`
 
 Tắt ba VM sạch sẽ rồi mới chụp. Chạy trên **từng node** theo thứ tự worker 2 → worker 1 → master:
 
@@ -2469,22 +2681,17 @@ Tắt ba VM sạch sẽ rồi mới chụp. Chạy trên **từng node** theo th
 sudo shutdown -h now
 ```
 
-Chờ VMware Workstation hiển thị cả ba VM ở trạng thái *Powered off*. Chụp khi VM đã tắt để snapshot
-không kèm trạng thái RAM.
-
-Chụp trên **cả ba VM**: chuột phải VM → **Snapshot → Take Snapshot** → ô *Name* điền đúng nguyên
-văn:
+Chờ VMware Workstation hiển thị cả ba VM ở trạng thái *Powered off*. Chụp trên **cả ba VM**: chuột
+phải VM → **Snapshot → Take Snapshot** → ô *Name* điền đúng nguyên văn:
 
 ```text
 02-net-ready
 ```
 
 Ô *Description* ghi lab đã dựng và ngày chụp, ví dụ
-`dung bang LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md, chup <ngay>`.
-
-Quy tắc tên giống hệt mốc trước: đúng nguyên văn `02-net-ready` trên cả ba VM, không hậu tố theo VM,
-không thêm ngày, không đổi hoa thường, không thừa khoảng trắng. **Giữ nguyên** snapshot
-`01-cluster-ready`: nó vẫn là điểm quay lui khi cần dựng lại chuỗi từ đầu.
+`dung bang LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md, repo lab-5b, chup <ngay>`. Quy tắc tên giống hệt
+mốc trước: đúng nguyên văn trên cả ba VM, không hậu tố, không ngày, không đổi hoa thường. **Giữ
+nguyên** `01-cluster-ready`.
 
 Verify từ PowerShell trên máy host:
 
@@ -2498,109 +2705,106 @@ $vmx = @(
 foreach ($f in $vmx) {
   $names = & $vmrun -T ws listSnapshots $f | Select-Object -Skip 1
   $ok = ($names -ccontains '02-net-ready') -and ($names -ccontains '01-cluster-ready')
-  if ($ok) { "PASS: $f" }
-  else { "FAIL: $f -> $($names -join ', ')" }
+  if ($ok) { "PASS: $f" } else { "FAIL: $f -> $($names -join ', ')" }
 }
 ```
 
-**PASS:** đúng ba dòng `PASS:`, không có dòng `FAIL:`. `-ccontains` so sánh phân biệt hoa thường nên
-gate này bắt được cả lỗi gõ sai tên. Lab 5b kết thúc ở đây; để nguyên ba VM ở trạng thái tắt.
-
-Từ lab sau, **điểm bắt đầu là `02-net-ready`**, không phải `01-cluster-ready` — xem
-[chuỗi snapshot](README.md#3-chuỗi-snapshot).
+**PASS:** `smoke exit=0` và file smoke ở bước 3 in toàn `PASS:`; mười ba dòng `PASS:` của gate bước 6;
+bảy tầng A5.4 PASS với hai dòng đọc lại; dòng `PASS:` của hồ sơ; đúng ba dòng `PASS:` trên máy host.
+Thư mục `~/lab-evidence/5b/` **giữ lại**. Dòng hosts `bookstore.lab.local` trên máy host cũng giữ —
+các lab sau đi vào hệ thống bằng đúng đường đó. Từ lab sau, **điểm bắt đầu là `02-net-ready`**, không
+phải `01-cluster-ready` — xem [chuỗi snapshot](README.md#3-chuỗi-snapshot).
 
 ---
 
 ## 3. Checkpoint 5b
 
-Tự trả lời không nhìn tài liệu:
+Không đánh dấu lab hoàn tất chỉ vì script nghiệm thu PASS. Tự trả lời, không nhìn tài liệu:
 
-- [ ] Kể tên ba dải IP của cluster và thành phần cấp phát từng dải; giải thích vì sao đổi CNI làm
-      Pod IP đổi nhưng ClusterIP thì không, và vì sao `ip addr` trên node cho ra nhiều địa chỉ hơn
-      `node.status.addresses`.
-- [ ] Nói ai nạp CNI plugin trên node, hai đường dẫn phải nhìn khi gỡ lỗi, và vì sao ở B4.3 phải
-      restart containerd trước kubelet.
-- [ ] **Xác nhận nợ #4 đã được trả ở lab này:** kể lại hai phép đo trên **cùng một file
-      NetworkPolicy** trước và sau khi đổi CNI, nói kết quả mỗi lần và nêu chính xác thứ đã thay
-      đổi giữa hai lần đo.
-- [ ] Nêu bốn bước của quy trình đổi CNI theo đúng thứ tự, và hỏng gì xảy ra nếu đảo bước 1 với
-      bước 2, hoặc bỏ hẳn bước 4.
-- [ ] Giải thích vì sao `ports` trong NetworkPolicy phải là cổng của Pod đích chứ không phải cổng
-      của Service, và triệu chứng khi điền nhầm.
-- [ ] Vẽ lại hai chính sách của B5.4 và nói dấu gạch đầu dòng nào biến phép giao thành phép hợp.
-- [ ] Giải thích vì sao một policy cô lập chiều đi làm hỏng phân giải tên, và đường tối thiểu phải
-      mở lại gồm những gì; kèm quy tắc hai đầu (egress ở nguồn và ingress ở đích).
-- [ ] Kể năm loại proxy của bài 164, nói mỗi loại chạy ở đâu, và chỉ ra ba loại bạn đã chạm tay
-      trong B6.
-- [ ] Giải thích vì sao Ingress tạo ở B7 không chuyển được gói tin nào, rồi tự sống lại ở B8 mà
-      không sửa manifest; nói cơ chế đã điền `spec.ingressClassName` giúp bạn.
-- [ ] Với `path: /blog`, `pathType: Prefix`, nói `/blog`, `/blog/bai-1` và `/blogxyz` cái nào khớp
-      và vì sao; thêm quy tắc áp dụng khi nhiều path cùng khớp.
-- [ ] Nói TLS của Ingress kết thúc ở đâu, đoạn nào sau đó là plaintext, Secret phải mang kiểu và
-      hai khóa nào; và vì sao `hosts` trong `tls` phải khớp tường minh `host` trong `rules`.
-- [ ] Phân biệt `SingleStack`, `PreferDualStack` và `RequireDualStack` bằng đúng phản ứng của API
-      server trên cluster của bạn.
+- [ ] **Nợ #4:** kể hai lần chạy `probe.sh` trên cùng hai file đo — ở B1 và ở B5 — kết quả mỗi lần,
+      và chính xác thứ gì đã đổi giữa hai lần.
+- [ ] Ba dải IP của cluster bạn, ai cấp từng dải; vì sao đổi CNI làm IP Pod đổi người cấp còn
+      ClusterIP của DNS giữ nguyên; vì sao `ip addr` trên worker2 không phải thứ Kubernetes nhìn.
+- [ ] Ai nạp CNI plugin, hai thư mục phải đọc; bốn bước đổi CNI theo thứ tự, hậu quả khi đảo bước 1
+      với 2 hoặc bỏ bước 4; vì sao gỡ dự án trước và vì sao snapshot chụp sau teardown.
+- [ ] Luồng `web` → `api`: những rule nào, ở policy nào, cho chiều nào? Vì sao DNS phải mở riêng, và
+      vì sao probe của kubelet không bị chặn?
+- [ ] Rule Traefik → `web`: vì sao cổng `8080` chứ không `80`; phép giao khác phép hợp ở đâu; Pod lạ
+      trong namespace `traefik` vào được `web` với cách viết nào?
+- [ ] `db-0` phân giải được `registry.k8s.io` nhưng không kết nối được tới nó. Giải thích bằng đường
+      đi của truy vấn DNS và bằng ma trận.
+- [ ] Ingress `som` tạo trước khi có controller: vì sao không chuyển byte nào, vì sao sau khi cài vẫn
+      không có class, cơ chế nào điền class khi tạo lại? Vì sao Ingress `bookstore` ghi class tường
+      minh?
+- [ ] Kể đường đi của `https://bookstore.lab.local:30443/` từ trình duyệt: file hosts, NodePort,
+      Traefik, Service `web`, Pod `web`. TLS kết thúc ở đâu, Secret mang kiểu và hai key nào, chặng nào
+      plaintext?
+- [ ] Vì sao `web` về ClusterIP; vì sao certificate sinh tại chỗ, không vào git; điều gì xảy ra với
+      trình duyệt sau khi dựng lại từ bundle (`TD-11`)?
+- [ ] Năm loại proxy của bài 164, nơi mỗi loại chạy; ClusterIP của `web` tồn tại ở đâu; kube-proxy có
+      định tuyến theo path được không?
+- [ ] `SingleStack`, `PreferDualStack`, `RequireDualStack` — phản ứng của API server trên cluster của
+      bạn; ngoại lệ của headless không selector.
+- [ ] Vì sao `HTTPRoute` bị từ chối còn Ingress thì không; nếu dự án chuyển sang Gateway API, object
+      nào thay Ingress `bookstore` và ai sở hữu nó?
+
+Nợ sau lab này — nói được **vì sao**:
+
+- **Đã trả:** nợ lab #4 (NetworkPolicy được thực thi thật) và `TD-09` (lưu lượng giữa các tầng).
+- **Mới:** `TD-11` — certificate tự ký, gia hạn bằng tay, đoạn sau Traefik là plaintext; chưa có lab
+  trả vì công cụ cấp certificate nằm ngoài chuỗi lab.
+- **Còn mở:** nợ lab #1 (VPA chưa có lab; HPA ở Lab 11b), #2 (`volumeClaimTemplates` — Lab 6a), #5 →
+  #8; nợ kỹ thuật `TD-04` (dữ liệu trên `emptyDir` — Lab 6a), `TD-06` (`db` khởi động bằng root — Lab
+  9b), `TD-07` (quyền debug — Lab 9a), `TD-08` (bản dump chưa có nơi bền — Lab 6a).
 
 ### Bài giải thích cuối cùng
 
-Trong tối đa 10 phút, kể lại luồng sau mà không mở tài liệu:
-
-1. Cluster có ba dải IP không chồng lấn. kube-apiserver cấp ClusterIP, kubelet cấp IP node, còn
-   **network plugin** cấp IP Pod — nên plugin là thứ duy nhất trong ba cái đó bạn thay được mà
-   không dựng lại cluster.
-2. Bạn viết một NetworkPolicy chặn sạch chiều đến. API server nhận và lưu nó. Lưu lượng **vẫn
-   qua**, vì plugin đang chạy không hiện thực NetworkPolicy — hợp đồng của CNI không bắt buộc điều
-   đó.
-3. Bạn gỡ plugin cũ ở tầng API, dọn conflist và interface trên từng node, restart containerd rồi
-   kubelet, cài plugin mới bằng một manifest. Node rời `Ready` rồi quay lại.
-4. Pod cũ vẫn mang IP của dải cũ cho tới khi bị tạo lại, nên bạn xóa Pod CoreDNS và apply lại
-   manifest của lab. DNS và Service sống lại.
-5. Bạn apply lại **đúng file policy cũ**. Lần này lưu lượng dừng, và trên node xuất hiện các chain
-   do thành phần của plugin mới sinh ra. Nợ #4 được trả ở chính chỗ này.
-6. Bạn mở đúng một cổng cho đúng một nhóm Pod, và học rằng cổng trong policy là cổng **Pod**. Bạn
-   tách một dấu gạch đầu dòng và biến phép giao thành phép hợp. Bạn chặn chiều đi và mất luôn DNS.
-7. Bạn tạo một Ingress khi chưa có controller: object hợp lệ, không byte nào chạy — cùng hình dạng
-   vấn đề với bước 2.
-8. Bạn cài ingress controller. Nó tạo IngressClass, và admission controller gán class mặc định vào
-   Ingress cũ. Cùng manifest đó bắt đầu định tuyến theo `Host` và path — thứ kube-proxy không làm
-   được vì nó không đọc HTTP.
-9. Bạn kết thúc TLS tại ingress và nhớ rằng đoạn phía sau là plaintext.
-10. Bạn dọn object của bài học, **giữ** plugin mới và controller, chạy trọn bảy tầng gate với hai
-    dòng đọc lại cho CNI mới, rồi chụp `02-net-ready`.
-
-Khi mọi checkbox được đánh dấu và bạn không còn nhầm "object được chấp nhận" với "object có hiệu
-lực", không nhầm cổng Service với cổng Pod, không nhầm giao với hợp, thì Lab 5b hoàn tất. Giai đoạn
-6 — lưu trữ — là bước tiếp theo, và nó bắt đầu từ mốc bạn vừa chụp.
+Trong vài phút, kể lại đường đi của một request `https://bookstore.lab.local:30443/api/books` từ trình
+duyệt trên máy host tới PostgreSQL và ngược lại. Ở mỗi chặng nói rõ: thành phần nào xử lý (file hosts,
+kube-proxy với NodePort, Traefik, Service, nginx, PostgREST, PostgreSQL), chặng đó mã hóa hay plaintext,
+và **rule NetworkPolicy nào** cho phép nó — ở đầu nguồn và ở đầu đích. Rồi kể lại cùng request đó trên
+cluster của B1 (Flannel, NodePort `30080`): chặng nào khác, và vì sao một Pod lạ trên cluster đó chạm
+được tới `db`. Kết thúc bằng việc chỉ ra Lab 6a sẽ thay đổi câu chuyện này ở điểm nào.
 
 ---
 
 ## 4. Troubleshooting của lab này
 
-Sự cố khi dựng môi trường nằm ở
-[mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường). Bảng dưới chỉ liệt kê
-sự cố phát sinh từ nội dung bài học 5b.
+Sự cố dựng môi trường xem [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường).
+Dưới đây chỉ là sự cố phát sinh trong nội dung bài học.
 
-| Triệu chứng | Kiểm tra | Xử lý đúng phạm vi |
+| Triệu chứng | Nguyên nhân thường gặp | Xử lý |
 | --- | --- | --- |
-| B3.4 ra `FAIL` vì policy chặn được ngay | `kubectl get pods -A -o wide \| grep -iE 'calico\|cilium'` | Cluster không ở `01-cluster-ready`; restore cả ba VM về mốc đó rồi làm lại từ B0 |
-| B4.2: namespace `kube-flannel` kẹt `Terminating` | `kubectl get ns kube-flannel -o yaml`; `kubectl get all -n kube-flannel` | Chờ Pod hết grace period; đừng ép xóa finalizer khi chưa biết nguyên nhân |
-| **B4.4: Pod của CNI mới `CrashLoopBackOff`** | `kubectl -n kube-system logs -l k8s-app=calico-node --tail=50` | Thường do B4.3 làm sót: còn conflist cũ hoặc còn interface cũ. Chạy lại B4.3 trên **cả ba node** rồi `kubectl -n kube-system rollout restart ds/calico-node` |
-| **B4.5: IPPool khác Pod CIDR** | `kubectl get ippools.crd.projectcalico.org -o wide` và `cat ~/lab-evidence/5b/b1-pod-cidr.txt` | Gỡ CNI mới (`kubectl delete -f ~/lab-work/5b/calico.yaml`), bỏ comment `CALICO_IPV4POOL_CIDR` trong `~/lab-work/5b/calico.yaml`, đặt đúng giá trị `POD_CIDR`, chạy lại B4.3 và B4.4. Không sửa IPPool bằng tay khi Pod đã lấy IP |
-| **B4.5: annotation IP của node khác InternalIP** | Cột `FAIL` của vòng lặp trong B4.5 | Plugin dò nhầm interface. Gỡ CNI mới, khai phương thức tự dò theo đúng interface giữ default route (`ip route \| awk '/default/ {print $5; exit}'`) trong manifest, rồi cài lại |
-| **B4.6: node `Ready` nhưng Pod hai worker không thấy nhau** | `kubectl -n lab-5b exec client -- wget -q -T 3 -O- "http://<PodIP web-w2>:8080"` | Đúng tầng 3 của A5.4. Kiểm annotation IP của node trước, rồi tới lưu lượng đóng gói giữa hai node; UFW phải `inactive` như A4.4 |
-| B4.6: CoreDNS `ContainerCreating` mãi | `kubectl -n kube-system describe pod -l k8s-app=kube-dns` | CNI chưa sẵn sàng trên node đang giữ Pod đó; chờ `calico-node` của node đó `Running` rồi xóa lại Pod CoreDNS |
-| Không sửa được B4 trong vài phút | — | Tắt và **restore cả ba VM về `01-cluster-ready`**, chạy lại bảy tầng A5.4, rồi làm lại lab từ B0. Không debug một cluster đã lệch state |
-| B5.2: Pod có label vẫn bị chặn | `kubectl -n lab-5b get svc web -o jsonpath='{.spec.ports[0].targetPort}'` | `ports` trong policy phải là cổng Pod (`targetPort`), không phải cổng Service |
-| B5.4: cả hai biến thể đều cho qua | `kubectl get ns lab-5b-ext --show-labels` | Thiếu label `kubernetes.io/metadata.name`; tạo lại namespace bằng `kubectl create namespace` thay vì manifest tự viết |
-| B5.5: `nslookup` vẫn chạy sau khi deny egress | `kubectl -n lab-5b get netpol deny-egress-client-ok -o yaml` | `podSelector` không chọn đúng Pod: `client-ok` phải mang label `access: "true"` |
-| B7.3: cổng 80 của node trả lời dù chưa cài controller | `sudo ss -lntp \| grep ':80'` trên node | Có dịch vụ khác đang nghe cổng 80; dừng nó hoặc đổi phép đo sang một node sạch — đừng bỏ qua gate |
-| B8.2: `helm install` báo không tương thích `kubeVersion` | `helm show chart traefik/traefik --version "$TRAEFIK_CHART"` | Chart và baseline lệch nhau; dừng và cập nhật [bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) sau khi đối chiếu, không tự chọn chart khác |
-| B8.4: `EXTERNAL-IP` của Service treo `<pending>` | `kubectl -n traefik get svc traefik` | Đúng hành vi trên cluster không có cloud provider; lab dùng NodePort. Không cài MetalLB — nó nằm ngoài baseline |
-| B8.4: `jsonpath` nodePort trả rỗng | `kubectl -n traefik get svc traefik -o yaml` | Tên port khác `web`/`websecure`; đọc tên thật rồi thay vào lệnh |
-| B8.5: Ingress `web-som` vẫn không phục vụ | `kubectl -n lab-5b get ingress web-som -o yaml` | `spec.ingressClassName` còn rỗng vì chưa có class mặc định; làm lại phần đánh dấu class ở B8.3 |
-| B9.3: mọi path đều trả cùng một backend | `kubectl -n lab-5b describe ingress lab-ingress` | Ingress chưa được controller nhận (sai `ingressClassName`), hoặc `curl` thiếu header `Host` |
-| B9.5: `create secret tls` báo không thấy file | Đường dẫn trong lệnh | `kubectl` không khai triển dấu ngã trong giá trị cờ; dùng `$HOME/lab-work/5b/tls.crt` |
-| B11.1: namespace `lab-5b` kẹt `Terminating` | `kubectl get all -n lab-5b` | Chờ Pod hết grace period; nếu state vẫn lệch thì restore cả ba VM về `01-cluster-ready` và làm lại — **chưa chụp** `02-net-ready` |
+| B0: `git describe` không ra `lab-5a` | Repo ở commit khác, hoặc clone từ bundle cũ | `git checkout lab-5a` hoặc clone lại từ `~/bookstore-lab-5a.bundle` mới nhất |
+| B1: không có NetworkPolicy nào sau `deploy.sh` | Sprint 6 viết file trong `k8s/app/network/` nhưng chưa đưa vào `k8s/app/kustomization.yaml` | Sửa repo ở tag `lab-5a`, commit, chạy lại B0 — không `kubectl apply` tay |
+| B1: `probe.sh` in `LOIDNS` | Pod đo chưa Ready, hoặc tên Service của sprint 6 khác hợp đồng | `kubectl -n bookstore get svc`; đối chiếu [mục 4.2](DU-AN-BOOKSTORE.md#42-cổng-đường-dẫn-và-điểm-kiểm-tra-sức-khỏe) |
+| B1: có cặp `CHAN` trên Flannel | Cluster đã có CNI thực thi policy — không phải `01-cluster-ready` | `kubectl get pods -A -o wide \| grep -iE 'calico\|cilium'`; restore cả ba VM về `01-cluster-ready` |
+| B3: namespace `kube-flannel` kẹt `Terminating` | Pod Flannel chưa hết ân hạn | Chờ; đừng ép xóa finalizer khi chưa biết nguyên nhân |
+| **B3: Pod `calico-node` `CrashLoopBackOff`** | B3 dọn sót: còn conflist cũ hoặc interface cũ trên một node | Chạy lại bước dọn node trên **cả ba node**, rồi `kubectl -n kube-system rollout restart ds/calico-node` |
+| **B3: IPPool khác dải Pod** | Calico không dò được dải của kubeadm | `kubectl delete -f ~/lab-work/5b/calico.yaml`, bỏ comment `CALICO_IPV4POOL_CIDR`, đặt đúng giá trị ở `b2-pod-cidr.txt`, làm lại bước dọn node và cài. Không sửa IPPool khi Pod đã lấy IP |
+| **B3: annotation `projectcalico.org/IPv4Address` khác InternalIP** | Calico dò nhầm interface | Gỡ Calico, khai phương thức dò theo interface giữ default route (`ip route \| awk '/default/ {print $5; exit}'`) trong manifest, cài lại |
+| B3: CoreDNS `ContainerCreating` mãi | CNI chưa sẵn sàng trên node giữ Pod đó | Chờ `calico-node` của node đó `Running`, xóa lại Pod CoreDNS |
+| B3: node `Ready` nhưng `net-w1` không tới `net-w2` | Lưu lượng đóng gói giữa node bị chặn, hoặc Calico chọn nhầm interface | Kiểm annotation IP của node trước; UFW phải `inactive` như A4.4 |
+| Không sửa được B3 trong vài phút | — | Tắt và **restore cả ba VM về `01-cluster-ready`**, clone repo từ bundle, chạy bảy tầng A5.4, làm lại từ B0 |
+| B4: `sha256sum -c` fail | Tải hỏng hoặc sai file | Xóa, tải lại; không cài binary chưa kiểm được nguồn |
+| B4: `helm install` báo không tương thích `kubeVersion` | Chart và baseline lệch | `helm show chart traefik/traefik --version "$TRAEFIK_CHART"`; dừng và cập nhật [A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00), không tự chọn chart khác |
+| B4: Service `traefik` vẫn `LoadBalancer` | Khóa trong `values.yaml` không khớp chart đang dùng | Đối chiếu `helm show values` của đúng version: kiểu Service nằm ở `service.spec.type`. Sửa file values rồi `helm upgrade traefik traefik/traefik --version "$TRAEFIK_CHART" -n traefik -f platform/traefik/values.yaml`; không `kubectl patch` |
+| B4: `curl` tới `30081` trả `404` | Thiếu header `Host: som.lab.local`, hoặc Ingress `som` chưa có class | Thêm `-H 'Host: ...'`; tạo lại Ingress như yêu cầu 6 |
+| B5: `deploy.sh` treo ở rollout `api` hoặc báo `db-migrate that bai` | Thiếu đường DNS, hoặc thiếu rule ở một trong hai đầu `api`/`db-migrate` → `db` | `kubectl -n bookstore describe networkpolicy`; `kubectl -n bookstore logs` init container `wait-for-db` |
+| B5: `probe.sh` vẫn còn `THONG` | Policy cũ của sprint 6 còn sót và mở rộng hơn (policy cộng gộp), hoặc Calico chưa chạy | `./scripts/teardown.sh && ./scripts/deploy.sh`; kiểm `calico-node` |
+| B5: Pod lạ trong `traefik` vào được `web` | Rule Traefik → `web` viết thành hai phần tử (phép hợp) | Gộp `namespaceSelector` và `podSelector` vào **một** phần tử `from` |
+| B5: `web` không tới `api:3000` theo tên | Thiếu egress ở `web`, hoặc DNS bị chặn | Mỗi luồng cần egress ở nguồn **và** ingress ở đích; kiểm policy DNS chọn mọi Pod |
+| B5: `web` không đọc được `node-agent` | Thiếu egress `web` → agent 9100 hoặc ingress ở agent | Bổ sung rule ở cả hai đầu |
+| B6: `deploy.sh` báo `thieu ingressclass/traefik` | Cluster không ở trạng thái của mốc `02-net-ready` | Làm B4; ở lab sau, kiểm đúng snapshot đầu vào |
+| B6: `curl: (60) SSL certificate problem` khi dùng `--cacert` | Traefik phục vụ certificate mặc định: Secret sai kiểu, sai tên, `tls.hosts` không khớp `host`, hoặc Ingress không được Traefik nhận | `kubectl -n bookstore describe ingress bookstore`; kiểm `type` của Secret `bookstore-tls` |
+| B6: HTTPS timeout hoặc `504` | Rule Traefik → `web` ghi cổng `80`, hoặc phép hợp sai namespace | Cổng trong policy là `8080` của Pod |
+| B6: `apply` Service `web` báo lỗi `nodePort` | Đổi `type` trên object đang có | `./scripts/teardown.sh && ./scripts/deploy.sh` |
+| B6: máy host phân giải sai `bookstore.lab.local` | File hosts chưa lưu bằng quyền quản trị, hoặc bộ đệm DNS cũ | Mở PowerShell "Run as administrator"; `ipconfig /flushdns` |
+| B7: log kube-proxy không có dòng mode | Pod đã chạy lâu, `--tail=200` không còn dòng khởi động | Đọc thêm `mode:` trong ConfigMap `kube-proxy`; tăng `--tail` |
+| B7: apiserver proxy tới `som` trả lỗi | Sai tên cổng trong URL | Service `som` có cổng tên `http`: `.../services/som:http/proxy/` |
+| B8: mọi path trả cùng một backend | Ingress `duong-dan` chưa được Traefik nhận, hoặc thiếu header `Host` | `kubectl -n ing-thu describe ingress duong-dan`; giữ `-H "Host: ..."` |
+| B9: namespace kẹt `Terminating` | Pod chưa hết ân hạn (`db-0` 60 giây) | Chờ; nếu state vẫn lệch thì restore cả ba VM về `01-cluster-ready` và làm lại — **chưa chụp** `02-net-ready` |
+| B9: gate namespace thấy thừa namespace | Object thử nghiệm chưa dọn | Xóa namespace thừa; mốc mới chỉ chứa namespace hệ thống và `traefik` |
 
 ---
 
@@ -2614,10 +2818,14 @@ sự cố phát sinh từ nội dung bài học 5b.
 - [Kubernetes v1.35 — Cluster Networking](https://v1-35.docs.kubernetes.io/docs/concepts/cluster-administration/networking/)
 - [Kubernetes v1.35 — Network Plugins](https://v1-35.docs.kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/)
 - [Kubernetes v1.35 — Proxies in Kubernetes](https://v1-35.docs.kubernetes.io/docs/concepts/cluster-administration/proxies/)
+- [Kubernetes v1.35 — Secrets, mục TLS Secrets](https://v1-35.docs.kubernetes.io/docs/concepts/configuration/secret/)
 - [Kubernetes v1.35 — Declare Network Policy](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/declare-network-policy/)
 - [Kubernetes v1.35 — Install a Network Policy Provider](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/network-policy-provider/)
 - [Kubernetes v1.35 — Use Calico for NetworkPolicy](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/network-policy-provider/calico-network-policy/)
-- [Calico — System requirements](https://docs.tigera.io/calico/latest/getting-started/kubernetes/requirements) (nguồn của dải minor Kubernetes đã kiểm thử, dùng ở [mục 2.3](#23-phiên-bản-lab-5b-đưa-vào-chuỗi-snapshot))
-- [Calico — Install on on-premises deployments](https://docs.tigera.io/calico/latest/getting-started/kubernetes/self-managed-onprem/onpremises) (nguồn của quy trình cài bằng manifest ở B4)
-- [Traefik Helm chart](https://github.com/traefik/traefik-helm-chart) (nguồn của repo chart ở B8)
+- [Kubernetes v1.35 — Managing Secrets using Kustomize](https://v1-35.docs.kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kustomize/)
+- [Kustomize — secretGenerator](https://kubectl.docs.kubernetes.io/references/kustomize/kustomization/secretgenerator/)
+- [Calico — System requirements](https://docs.tigera.io/calico/latest/getting-started/kubernetes/requirements)
+- [Calico — Install on on-premises deployments](https://docs.tigera.io/calico/latest/getting-started/kubernetes/self-managed-onprem/onpremises)
+- [Traefik Helm chart](https://github.com/traefik/traefik-helm-chart)
+- [Traefik — Kubernetes Ingress provider](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-ingress/)
 - [Helm — Installing Helm](https://helm.sh/docs/intro/install/)

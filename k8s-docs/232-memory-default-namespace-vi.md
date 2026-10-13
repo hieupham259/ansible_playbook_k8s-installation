@@ -25,8 +25,8 @@ con — **LimitRange đặt `default`/`defaultRequest`**, **điền vào** Pod k
 `min`/`max` ở [231](231-memory-constraint-namespace-vi.md) vốn **từ chối** Pod khai ngoài khoảng.
 Bản memory có thêm **một ghi chú mà bản CPU không có**: LimitRange không kiểm tra tính nhất quán
 giữa `default` và `requests` của client — đúng cái bẫy bạn đã dựng ở
-[Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) phần B2.6. Việc LimitRange chèn giá trị mặc
-định vào Pod trần thì phần B2.3 của lab đó đã làm rồi.
+[Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) ticket B2. Việc LimitRange chèn giá trị mặc
+định vào Pod trần thì ticket B2 của lab đó cũng đã làm rồi.
 
 **Phải hiểu ở lần đọc này:**
 

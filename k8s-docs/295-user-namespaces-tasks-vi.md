@@ -11,7 +11,7 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 8/11 ·
-Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B9.2.
+Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B9.
 
 Bài là mặt thi công của [55](55-user-namespaces-vi.md): một trường trong manifest, và **đúng hai
 lệnh** để tự chứng minh nó có tác dụng. Đọc để nắm hai lệnh đó và biết đọc kết quả của chúng.
@@ -35,8 +35,8 @@ lệnh** để tự chứng minh nó có tác dụng. Đọc để nắm hai l�
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Link "lập lịch (schedule) đến các node phù hợp" | ràng buộc Pod vào node là một chủ đề riêng | bài [138](138-assign-pod-node-vi.md) ở [giai đoạn 7](00-ALO-TRINH-ADMIN.md#giai-đoạn-7--lập-lịch-và-chính-sách-tài-nguyên); `nodeSelector` có làm sơ ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B11.2 |
-| Danh sách yêu cầu chi tiết mà node phải đáp ứng | nằm ở bài khái niệm, không nằm ở bài này | bài [55](55-user-namespaces-vi.md) của chính nhóm 3a, thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B9.1 |
+| Link "lập lịch (schedule) đến các node phù hợp" | ràng buộc Pod vào node là một chủ đề riêng | bài [138](138-assign-pod-node-vi.md) ở [giai đoạn 7](00-ALO-TRINH-ADMIN.md#giai-đoạn-7--lập-lịch-và-chính-sách-tài-nguyên); `nodeSelector` có làm sơ ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B2 |
+| Danh sách yêu cầu chi tiết mà node phải đáp ứng | nằm ở bài khái niệm, không nằm ở bài này | bài [55](55-user-namespaces-vi.md) của chính nhóm 3a, thực hành ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B9 |
 | Đoạn cuối "nếu bạn đang chạy kubelet bên trong một user namespace" và `readlink /proc/$pid/ns/user` | đó là rootless mode, chuyện của thành phần Node chứ không phải của Pod | bài [226](226-kubelet-in-userns-vi.md) của chính nhóm 3a |
 
 ---

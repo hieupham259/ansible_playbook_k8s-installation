@@ -15,8 +15,8 @@
 → [4a. ReplicaSet, Deployment và rollout](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout),
 bài 7/7 của dòng **Thực hành** · Kiểm chứng ở
 [Lab 4a — ReplicaSet, Deployment và rollout](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md),
-**phần B4** (rollout, history, undo, pause/resume), **B5** (tham số chiến lược), **B6**
-(`Recreate`) và **B7** (rollout đình trệ).
+**ticket B4** (rolling update, `rollout status`, tham số chiến lược, lịch sử), **B6** (rollout
+đình trệ, `undo`) và **B7** (`Recreate`, pause/resume).
 
 Đây là **bài cuối của nhóm 4a**. Nó là bản tóm tắt thao tác của những gì bài
 [63](63-deployment-vi.md) đã trình bày ở dạng khái niệm, nên đọc nhanh được — nhưng mọi lệnh
@@ -48,8 +48,8 @@ trong bài đều xuất hiện lại trong lab.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Mục *Trước khi bạn bắt đầu* — minikube, playground và việc apply manifest thẳng từ `k8s.io/examples` | cluster lab đã dựng sẵn, và lab tự viết manifest vào `~/lab-work/4a/` | [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
-| Ví dụ số học chi tiết của `maxUnavailable` và `maxSurge` mà bài đẩy sang tài liệu khái niệm | ở lần đọc này chỉ cần biết hai núm đó khống chế cái gì | bài [63](63-deployment-vi.md#max-surge) cùng nhóm 4a; đo bằng số liệu lấy trên cluster của mình ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B5 |
-| Cột `CHANGE-CAUSE` và annotation `kubernetes.io/change-cause` | bài nói rõ annotation này **không** được đặt tự động, nên trên cluster tự dựng cột đó luôn rỗng | [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B4.2, khi bạn đọc `rollout history` thật |
+| Ví dụ số học chi tiết của `maxUnavailable` và `maxSurge` mà bài đẩy sang tài liệu khái niệm | ở lần đọc này chỉ cần biết hai núm đó khống chế cái gì | bài [63](63-deployment-vi.md#max-surge) cùng nhóm 4a; đo bằng số liệu lấy trên cluster của mình ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ticket B4 |
+| Cột `CHANGE-CAUSE` và annotation `kubernetes.io/change-cause` | bài nói rõ annotation này **không** được đặt tự động, nên trên cluster tự dựng cột đó luôn rỗng | [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ticket B4, khi bạn đọc `rollout history` thật |
 | Link *thực hiện rolling update trên một DaemonSet* (bài [388](388-update-daemon-set-vi.md)) ở mục *Tiếp theo* | DaemonSet mới được học ở [nhóm 4b](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling), còn rolling update cho DaemonSet là chủ đề nâng cao | [giai đoạn 29 — DaemonSet, Job nâng cao và thiết bị chuyên dụng](00-ALO-TRINH-ADMIN.md#giai-đoạn-29--daemonset-job-nâng-cao-và-thiết-bị-chuyên-dụng) |
 | Link *Horizontal Pod Autoscaling* (bài [342](342-hpa-walkthrough-vi.md)) ở mục *Tiếp theo* | HPA cần metrics-server của giai đoạn 11 — đây là **nợ #1** của lộ trình | [Sổ nợ lộ trình](00-ALO-TRINH-ADMIN.md#sổ-nợ-lộ-trình), trả ở [Lab 11b](labs/LAB-11B-HPA-VA-VPA.md) |
 

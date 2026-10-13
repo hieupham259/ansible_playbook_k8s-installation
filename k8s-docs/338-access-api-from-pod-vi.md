@@ -10,9 +10,10 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
-dòng **Thực hành**, bài 8/10 · Kiểm chứng ở [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md)
-phần B5: B5.1 Pod gọi API bằng token của chính nó, B5.2 đối chiếu ba file và hai biến môi trường
-mà bài liệt kê với giá trị thật trên cluster, B5.3 cùng một Pod nhưng hai namespace cho hai kết quả.
+dòng **Thực hành**, bài 8/10 · Kiểm chứng ở [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md):
+ticket B1 (Pod gọi discovery bằng token tự mount, bị `403` khi đọc ConfigMap của namespace) và ticket
+B3 (container báo trạng thái của `db-backup` tự đọc ba file `token`, `ca.crt`, `namespace` rồi gọi
+REST trực tiếp tới `kubernetes.default.svc`, không qua proxy).
 
 Bài này và bài [359](359-access-cluster-vi.md) ngay sau nó rất dễ nhầm vào nhau. Bài này trả lời
 câu hỏi của **tiến trình chạy bên trong cluster**: một container không có kubeconfig thì tìm API
@@ -48,7 +49,7 @@ với đúng góc nhìn "tôi là Pod", đừng lẫn sang góc nhìn "tôi là 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | *Sử dụng các thư viện client chính thức* — ví dụ Go và Python | dành cho người **viết ứng dụng** gọi API, không phải cho quản trị viên; cài SDK cũng nằm ngoài bộ image được khóa của lab | vai trò người viết controller xuất hiện ở [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), bài [181](181-operator-vi.md) |
-| *Sử dụng kubectl proxy* chạy dạng sidecar trong Pod | image của Pod phải có sẵn `kubectl`, mà bộ image được khóa của lab không có | bài [359](359-access-cluster-vi.md) ngay sau bài này mô tả đầy đủ `kubectl proxy`; Lab 9a kiểm chứng nhánh proxy ở phần B6.2, chạy trên `lab-k8s-master` |
+| *Sử dụng kubectl proxy* chạy dạng sidecar trong Pod | image của Pod phải có sẵn `kubectl`, mà bộ image được khóa của lab không có | bài [359](359-access-cluster-vi.md) ngay sau bài này mô tả đầy đủ `kubectl proxy`; Lab 9a kiểm chứng nhánh proxy ở ticket B4, chạy trên `lab-k8s-master` |
 | Cơ chế **tiêm** ba file đó vào Pod: projected volume, token ngắn hạn tự xoay vòng, audience | bài này chỉ nói các file "được đặt vào", không nói ai đặt và token sống bao lâu | bài [118](118-service-accounts-vi.md) và [279](279-configure-service-account-vi.md) của cùng giai đoạn 9 |
 
 ---

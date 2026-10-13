@@ -20,7 +20,7 @@ bài 5/8 · Kiểm chứng trực tiếp trên cluster lab: gắn label cho `lab
 
 Bài rất ngắn và là bài cuối của nhóm `tasks/manage-daemon/`. Nó dùng đúng một công cụ bạn đã học kỹ
 ở bài [138](138-assign-pod-node-vi.md) và thực hành ở
-[Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) phần B2 — `nodeSelector`. Điểm mới **không** nằm ở
+[Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) ticket B2 — `nodeSelector`. Điểm mới **không** nằm ở
 `nodeSelector` mà ở chỗ ai phản ứng khi tập node đổi. Một lưu ý khi làm thật: manifest trong bài để
 `image: example-image`, đó là chỗ giữ chỗ, thay bằng một image chạy được trước khi apply.
 
@@ -46,7 +46,7 @@ Bài rất ngắn và là bài cuối của nhóm `tasks/manage-daemon/`. Nó d�
 | --- | --- | --- |
 | Mục *Trước khi bạn bắt đầu* — minikube và ba playground | Lộ trình cấm minikube, kind và cluster dùng chung | Bỏ hẳn — dùng ba VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
 | Nhãn `app: nginx` ở `metadata.labels` của DaemonSet | Nó không tham gia vào `selector`, cũng không liên quan `nodeSelector` — chỉ là nhãn dán lên chính đối tượng DaemonSet | Ba chỗ đặt label khác nhau đã phân biệt ở bài [18](18-labels-vi.md), giai đoạn 1 |
-| Các cách thu hẹp tập node khác ngoài `nodeSelector` — node affinity, taint và toleration | Bài chỉ trình bày đúng một công cụ | Bài [138](138-assign-pod-node-vi.md) và [139](139-taint-and-toleration-vi.md) ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), thực hành ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) phần B2–B4 |
+| Các cách thu hẹp tập node khác ngoài `nodeSelector` — node affinity, taint và toleration | Bài chỉ trình bày đúng một công cụ | Bài [138](138-assign-pod-node-vi.md) và [139](139-taint-and-toleration-vi.md) ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), thực hành ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) ticket B2, B4 và B7 |
 
 ---
 

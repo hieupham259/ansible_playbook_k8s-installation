@@ -22,7 +22,7 @@ cluster của bạn đã dùng containerd*. Tuyệt đối **không** cài Docke
 mà chuyển": việc đó phá baseline của Lab 00 và không dạy thêm gì. Điều đáng lấy ở đây là **trình tự**
 và **những chỗ dễ chết người** trong trình tự đó. Một nửa khung ngoài thì bạn đã chạy tay rồi: vòng
 `drain → bảo trì → uncordon` là bài [255](255-safely-drain-node-vi.md) của giai đoạn 16 và
-[Lab 12 phần B7](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md#b7-vòng-bảo-trì-node-cordon--drain--tắt--bật--uncordon).
+[Lab 12 ticket B5](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md#b5-bs-12-05-bảo-trì-lab-k8s-worker1-cordon--drain--tắt--bật--uncordon).
 Phần ruột — dừng Docker, cài containerd, trỏ kubelet sang socket mới — thì chỉ đọc.
 
 **Phải hiểu ở lần đọc này:**

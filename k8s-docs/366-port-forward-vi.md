@@ -13,11 +13,11 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), dòng
 **Thực hành**, bài 10/10 — **bài cuối của dòng Thực hành** · Kiểm chứng ở
-[Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B9.3.
+[Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B10.
 
 Bài gốc dùng MongoDB làm ví dụ và yêu cầu cài MongoDB Shell (`mongosh`) — một công cụ client
-**nằm ngoài baseline** của cluster lab. Lab 5a **không** thực hành phần MongoDB: ở phần B9.3 lab
-chạy `port-forward` tới một Service HTTP đã dựng sẵn trong lab. Đọc phần MongoDB để hiểu bối
+**nằm ngoài baseline** của cluster lab. Lab 5a **không** thực hành phần MongoDB: ở ticket B10 lab
+chạy `port-forward` tới Service `db` của dự án Bookstore và kiểm đầu bên kia bằng `python3`. Đọc phần MongoDB để hiểu bối
 cảnh, còn thứ phải nắm là **cú pháp, giới hạn và ranh giới an toàn** của `kubectl port-forward`.
 
 Đây là đường vào thứ ba và là đường cuối trong ba đường của cuối giai đoạn 5. Bài
@@ -49,7 +49,7 @@ và không dùng cho production.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Toàn bộ phần MongoDB — cài MongoDB Shell, `mongosh --port 28015`, `db.runCommand( { ping: 1 } )` | `mongosh` là công cụ nằm ngoài baseline của cluster lab; MongoDB chỉ là ví dụ, không phải nội dung của `port-forward` | [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B9.3 kiểm chứng đúng cơ chế này bằng một Service HTTP đã có sẵn trong lab, không cần `mongosh` |
+| Toàn bộ phần MongoDB — cài MongoDB Shell, `mongosh --port 28015`, `db.runCommand( { ping: 1 } )` | `mongosh` là công cụ nằm ngoài baseline của cluster lab; MongoDB chỉ là ví dụ, không phải nội dung của `port-forward` | [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B10 kiểm chứng đúng cơ chế này với Service `db` của dự án, không cần `mongosh` |
 | Tên quyền cụ thể mà mục *Cân nhắc về ủy quyền và bảo mật* liệt kê | RBAC chưa học ở giai đoạn 5; ở đây bạn dùng kubeconfig quản trị dựng từ [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) nên quyền không phải vấn đề | [Giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy), bài [119](119-controlling-access-vi.md) và [120](120-rbac-good-practices-vi.md); thực hành ở [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) |
 
 ---

@@ -12,7 +12,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 4 → nhóm [4a](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout), bài 3/7 ·
-Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B3.3 và B9.3.
+Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ticket B8 (và B7 cho `$retainKeys`).
 
 Đọc bài này ngay sau bài [319](319-declarative-config-vi.md). Hai bài nói về hai đường **khác nhau**
 để sửa một object đang chạy: 319 sửa qua **file cấu hình** rồi `apply`, còn bài này sửa **tại chỗ**
@@ -47,8 +47,8 @@ list khác** có hành vi merge khác `containers`, chưa cần biết nó dùng
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Các khối `types.go`, OpenApi spec và link API reference dùng để tra `patchStrategy` / `patchMergeKey` | là chỗ tra cứu khi cần biết một field cụ thể sẽ merge hay replace, không phải đoạn để đọc hiểu | tra khi viết patch ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B9.3 |
-| Giá trị `type: json` (JSON Patch, RFC 6902) — chỉ xuất hiện trong bảng, bài không có ví dụ nào | bài này không thực hành nó; nó là loại patch thứ ba, khác cả `strategic` lẫn `merge` | [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B3.3, nơi JSON patch dùng phép `test` để tiền kiểm trước khi đổi `replicas` |
+| Các khối `types.go`, OpenApi spec và link API reference dùng để tra `patchStrategy` / `patchMergeKey` | là chỗ tra cứu khi cần biết một field cụ thể sẽ merge hay replace, không phải đoạn để đọc hiểu | tra khi viết patch ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ticket B8 |
+| Giá trị `type: json` (JSON Patch, RFC 6902) — chỉ xuất hiện trong bảng, bài không có ví dụ nào | bài này không thực hành nó; nó là loại patch thứ ba, khác cả `strategic` lẫn `merge` | [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ticket B8, nơi JSON patch dùng phép `test` để tiền kiểm trước khi đổi `replicas` |
 | Ghi chú cuối mục *Tóm tắt*: strategic merge patch không được hỗ trợ cho custom resource | custom resource và CRD chưa học | [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng) |
 | Ví dụ `tolerations` với `key: dedicated` và `key: disktype` xét như một cơ chế lập lịch | ở đây nó chỉ đóng vai một list có hành vi merge khác `containers` | bài [139](139-taint-and-toleration-vi.md) ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction) |
 

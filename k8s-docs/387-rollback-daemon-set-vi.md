@@ -19,7 +19,7 @@ rồi `rollout status` trên chính DaemonSet bạn vừa update ở bài [388](
 Bài rất ngắn nhưng là bài duy nhất của lộ trình nói về `ControllerRevision`. Bài giả định bạn vừa
 đọc [388](388-update-daemon-set-vi.md) và đang có sẵn một DaemonSet đã qua ít nhất một lần update —
 không có revision thứ hai thì không có gì để quay lui. Bạn đã rollback **Deployment** ở
-[Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B4 bằng cùng bộ lệnh `rollout
+[Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ticket B6 bằng cùng bộ lệnh `rollout
 history`/`undo`/`status`; điểm phải để ý ở đây là **nơi lưu revision khác hẳn**, và cách đánh số
 revision sau khi quay lui cũng khác trực giác.
 

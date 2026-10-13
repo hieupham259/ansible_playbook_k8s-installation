@@ -21,7 +21,7 @@ nối tiếp bài [184](184-device-plugins-vi.md).
 **Ba VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) không có GPU.** `lab-k8s-master`,
 `lab-k8s-worker1` và `lab-k8s-worker2` là máy ảo với 2 vCPU và 6 GB RAM, không thiết bị chuyên dụng
 nào. Đây không phải phỏng đoán: [Lab 13](labs/LAB-13-DRA.md) đã chạy
-[năm phép kiểm năng lực](labs/LAB-13-DRA.md#b1-kiểm-tra-năng-lực-dra--chọn-nhánh) và kết luận cluster
+[năm phép kiểm năng lực](labs/LAB-13-DRA.md#b1-bs-13-01-điều-tra-năng-lực-dra-của-cluster) và kết luận cluster
 này thiếu đúng điều kiện phần cứng đó. Hệ quả cho bài này, nói thẳng:
 
 - **Không có gì để chạy.** Không có GPU thì không cài driver được, không chạy device plugin được, và
@@ -58,9 +58,9 @@ Nên đọc bài ở mức **hiểu ai làm việc gì và cú pháp khai báo r
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Ba link hướng dẫn cài của AMD, Intel, NVIDIA và mục *Các triển khai của nhà cung cấp GPU* | Không có GPU thì driver không có thiết bị nào để điều khiển; cài chúng cũng là đưa phần mềm bên thứ ba vào node | Ràng buộc phần cứng thật — [Lab 13](labs/LAB-13-DRA.md) đã chứng minh bằng [năm phép kiểm](labs/LAB-13-DRA.md#b1-kiểm-tra-năng-lực-dra--chọn-nhánh) rằng cluster này không có thiết bị chuyên dụng |
+| Ba link hướng dẫn cài của AMD, Intel, NVIDIA và mục *Các triển khai của nhà cung cấp GPU* | Không có GPU thì driver không có thiết bị nào để điều khiển; cài chúng cũng là đưa phần mềm bên thứ ba vào node | Ràng buộc phần cứng thật — [Lab 13](labs/LAB-13-DRA.md) đã chứng minh bằng [năm phép kiểm](labs/LAB-13-DRA.md#b1-bs-13-01-điều-tra-năng-lực-dra-của-cluster) rằng cluster này không có thiết bị chuyên dụng |
 | Triển khai Node Feature Discovery và các feature label của nó | NFD là add-on phải cài thêm, và trên VM không GPU nó không có tính năng GPU nào để phát hiện | Ràng buộc phần cứng thật — chỉ cần hiểu vai trò: NFD thay bạn gắn label thay vì gõ `kubectl label` từng node |
-| Cú pháp `nodeAffinity` với `operator: Gt` trong manifest thứ hai | Node affinity đã học kỹ rồi; ở đây nó chỉ là chỗ áp dụng | Bài [138](138-assign-pod-node-vi.md) ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), thực hành ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) phần B2 |
+| Cú pháp `nodeAffinity` với `operator: Gt` trong manifest thứ hai | Node affinity đã học kỹ rồi; ở đây nó chỉ là chỗ áp dụng | Bài [138](138-assign-pod-node-vi.md) ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction), thực hành ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md#b2-bs-7a-02-db-đi-theo-label-dữ-liệu-của-dự-án) ticket B2 |
 
 ---
 

@@ -10,7 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 1/9 ·
-Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B1.2, B2.1 và B4.1.
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B2 (`cpu.max`) và B4
+(throttle, request CPU vượt sức node).
 
 Đây là vế thực hành của bài [110](110-manage-resources-containers-vi.md) cho riêng CPU. Bài kế
 tiếp — [264](264-assign-memory-resource-vi.md) — có cấu trúc gần như y hệt nhưng cho memory, và

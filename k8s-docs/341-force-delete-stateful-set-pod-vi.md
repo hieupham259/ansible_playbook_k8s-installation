@@ -18,7 +18,7 @@
 → [4b. StatefulSet, DaemonSet, Job và autoscaling](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling),
 bài 1/7 của dòng **Thực hành** · Kiểm chứng ở
 [Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md),
-**phần B3.2**.
+**ticket B3**.
 
 Đây là bài **cảnh báo**, không phải bài hướng dẫn thao tác hằng ngày. Nó nói ngay từ đầu rằng
 trong hoạt động bình thường **không bao giờ** có nhu cầu xóa cưỡng bức Pod của StatefulSet. Đọc

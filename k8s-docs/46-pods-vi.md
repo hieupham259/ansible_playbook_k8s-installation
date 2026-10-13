@@ -38,9 +38,9 @@ Pod: chia sẻ cái gì, sống bao lâu, và sửa được gì.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Init container, sidecar, ephemeral container, probe — ở đây chỉ nêu tên | mỗi thứ có bài riêng trong chính nhóm này | bài [49](49-probes-vi.md), [50](50-init-containers-vi.md), [51](51-sidecar-containers-vi.md), [52](52-ephemeral-containers-vi.md) |
-| *Yêu cầu và giới hạn tài nguyên* | ở đây chỉ tóm tắt vài dòng | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
+| *Yêu cầu và giới hạn tài nguyên* | ở đây chỉ tóm tắt vài dòng | giai đoạn 3, nhóm 3c — bài [110](110-manage-resources-containers-vi.md) |
 | *Thiết lập bảo mật cho Pod* (`securityContext`) | mới chỉ nêu tên trường | bài [60](60-advanced-pod-config-vi.md) cuối nhóm này, rồi giai đoạn 9 |
-| *Static Pod* | gắn với cách kubeadm chạy control plane | giai đoạn 3, nhóm 3b — bài [58](58-static-pods-vi.md) |
+| *Static Pod* | gắn với cách kubeadm chạy control plane | giai đoạn 3, nhóm 3c — bài [58](58-static-pods-vi.md) |
 | *Subresource của Pod* và *Generation của Pod* (`observedGeneration`) | chi tiết API, chưa cần để tạo Pod | phần `resize` ở bài [47](47-pod-lifecycle-vi.md); `observedGeneration` ở bài [48](48-pod-condition-vi.md) |
 | *Hệ điều hành của Pod* (`.spec.os.name`) | chỉ có nghĩa khi cluster có node Windows | giai đoạn 15 |
 | *Chỉ định nhóm lập lịch* (`spec.schedulingGroup`) | tính năng alpha, cần PodGroup | giai đoạn 13 — bài [59](59-scheduling-group-vi.md) |

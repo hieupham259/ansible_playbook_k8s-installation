@@ -1,191 +1,135 @@
 # Lab 12 — Vận hành vòng đời node
 
-> **Điểm bắt đầu:** snapshot `04-metrics-ready` — mốc do Lab 11a tạo, xem
-> [chuỗi snapshot](README.md#3-chuỗi-snapshot).
-> **Điểm kết thúc:** cleanup trả cluster về đúng `04-metrics-ready`, **không tạo snapshot mới**.
-> Lab này không cài thêm bất kỳ thành phần hạ tầng nào và không sửa cấu hình node nào.
-> **Lab trước:** Lab 11b — HPA và VPA (chưa viết, xem [bản đồ lab](README.md#4-bản-đồ-lab)) cũng
-> trả cluster về `04-metrics-ready`. Cluster vào lab này phải ở đúng mốc đó: có CNI thực thi
-> NetworkPolicy, ingress controller, StorageClass mặc định và metrics-server; không workload.
+> **Điểm bắt đầu:** snapshot `04-metrics-ready` — mốc do [Lab 11a](LAB-11A-OBSERVABILITY.md) tạo, xem
+> [chuỗi snapshot](README.md#3-chuỗi-snapshot). Repo `~/bookstore` ở tag `lab-11b` (hoặc bundle
+> `~/bookstore-lab-11b.bundle` nếu bạn vừa restore snapshot).
+> **Điểm kết thúc:** teardown trả cluster về đúng `04-metrics-ready`, **không tạo snapshot mới**. Repo
+> `~/bookstore` có tag `lab-12` và một bản bundle nằm ngoài VM. Lab tắt rồi bật lại hai worker nhưng
+> không cài thêm gì và không sửa cấu hình node hay control plane nào.
+> **Sprint dự án:** Sprint 19 — Bảo trì node không gián đoạn của [dự án Bookstore](DU-AN-BOOKSTORE.md).
+> **Lab trước:** [Lab 11b — HPA và VPA](LAB-11B-HPA-VA-VPA.md).
+> **Lab sau:** [Lab 13 — DRA](LAB-13-DRA.md) (tùy chọn) hoặc [Lab 14 — CRD và Operator](LAB-14-CRD-VA-OPERATOR.md).
 >
-> **Cập nhật và đối chiếu phiên bản:** 25/08/2026.
+> **Cập nhật và đối chiếu phiên bản:** 13/10/2026.
 
 Lab này đi cùng mục
-[Giai đoạn 12 — Quản trị cluster nâng cao](../00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao)
-— tám bài [155](../155-cluster-administration-vi.md), [169](../169-node-shutdown-vi.md),
+[Giai đoạn 12 — Quản trị cluster nâng cao](../00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao):
+tám bài khái niệm [155](../155-cluster-administration-vi.md), [169](../169-node-shutdown-vi.md),
 [170](../170-swap-memory-management-vi.md), [171](../171-node-autoscaling-vi.md),
 [165](../165-addons-vi.md), [168](../168-compatibility-version-vi.md),
-[167](../167-coordinated-leader-election-vi.md), [156](../156-certificates-vi.md), cộng ba bài
-thực hành [189](../189-administer-cluster-vi.md), [190](../190-access-cluster-api-vi.md),
-[198](../198-controller-manager-leader-migration-vi.md).
+[167](../167-coordinated-leader-election-vi.md), [156](../156-certificates-vi.md) và hai bài thực hành
+[189](../189-administer-cluster-vi.md), [198](../198-controller-manager-leader-migration-vi.md). Mọi
+ticket dựa vào [hợp đồng kỹ thuật](DU-AN-BOOKSTORE.md#4-hợp-đồng-kỹ-thuật) của dự án; kế hoạch gốc
+của sprint nằm ở [mục 7.2](DU-AN-BOOKSTORE.md#sprint-19--lab-12-bảo-trì-node).
 
-**Xương sống của lab là một vòng bảo trì node đầy đủ** trên `lab-k8s-worker2`: `cordon` →
-`drain` → tắt máy → bật lại → `uncordon`. Bảy mục còn lại là phần **đọc cấu hình thật** của
-cluster: swap, graceful node shutdown, add-on, phiên bản tương thích, Lease của control plane.
+Sprint 18 để lại một hệ thống đầy đủ: `web` 2–5 bản sao do HPA điều khiển, `api` hai bản sao, PDB
+cho cả hai, `db-0` trên `lab-k8s-worker2` với PV local `Retain`, Ingress HTTPS qua Traefik,
+`node-agent` ở `bookstore-system`. Vấn đề `P1` của hệ thống cũ — "bảo trì OS là downtime" — đã được
+thiết kế để giải ([mục 3.7](DU-AN-BOOKSTORE.md#37-chịu-lỗi-và-vận-hành)), nhưng **chưa ai đo**.
+Sprint này đo: bảo trì thật hai worker, một node không giữ dữ liệu và một node giữ DB, đọc cấu hình
+node để biết tắt máy có an toàn không, và để lại cho đội một runbook bảo trì đã diễn tập.
 
 Cluster giữ nguyên baseline của
-[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); lab này **không
-chép lại con số phiên bản nào**. Thành phần ngoài baseline mà lab thấy đang chạy — CNI thay
-Flannel, ingress controller, dynamic provisioner, metrics-server — đã được khóa ở
-[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) và do Lab 5b, Lab 6a,
-Lab 11a cài; lab 12 chỉ **đọc** và **liệt kê** chúng, không đụng vào.
-
-Quan hệ với hai lab đã học: [Lab 7a](LAB-7A-LAP-LICH-VA-EVICTION.md) đã gọi thẳng subresource
-`pods/eviction` và đã làm taint/toleration cùng PodDisruptionBudget; lab này dùng `kubectl drain`
-ở **góc vận hành** và chỉ ra quan hệ giữa hai thứ.
-[Lab 1c](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md#b3-lease-heartbeat-leader-election-và-api-server-identity)
-đã đọc Lease ở mức khái niệm; B4 ở đây đọc lại chúng như một tín hiệu vận hành.
-
-Lab dùng Deployment, `topologySpreadConstraints`, `nodeSelector`, ServiceAccount token của các
-giai đoạn đã học làm công cụ. **Không** dùng CRD tự tạo hay DRA — hai thứ đó thuộc
-[giai đoạn 13](../00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao) và
-[giai đoạn 14](../00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng), đứng **sau** lab này.
-Cũng **không** dùng HPA: nó là nội dung của Lab 11b.
+[bảng A1.3 trong Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); image và add-on nằm ở
+[bảng A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00). Lab không chép lại con số
+phiên bản nào trong phần văn bản.
 
 Trước khi bắt đầu, chạy [quy trình mở đầu A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab)
-trên `lab-k8s-master`, rồi thêm ba lệnh riêng của lab này:
-
-```bash
-kubectl wait --for=condition=Ready node --all --timeout=180s
-test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
-kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
-kubectl -n kube-system get deployment coredns
-kubectl get pods -n default
-
-# Ba lệnh riêng của lab 12: đúng mốc 04-metrics-ready, chưa node nào bị cordon, chưa có PDB.
-kubectl top node
-kubectl get nodes -o custom-columns='NODE:.metadata.name,UNSCHEDULABLE:.spec.unschedulable'
-kubectl get pdb -A
-```
-
-**PASS:** ba node `Ready`; có dòng `PASS: readyz ok`; lệnh field selector trả `No resources found`;
-CoreDNS đủ replica `READY`; namespace `default` không có Pod; **`kubectl top node` in đủ ba dòng
-số liệu** (đó là định nghĩa của mốc `04-metrics-ready`); cột `UNSCHEDULABLE` của cả ba node là
-`<none>`; `kubectl get pdb -A` trả `No resources found`.
-
-Nếu `kubectl top node` báo lỗi thì cluster của bạn chưa ở mốc đầu vào — restore cả ba VM về
-`04-metrics-ready` trước khi tiếp tục. Nếu một node đã `SchedulingDisabled` hoặc còn PDB sót lại,
-cũng dừng: B7 dựa hẳn vào việc cả hai worker sạch và không có PDB nào chặn `drain`.
+trên `lab-k8s-master`. B0 bên dưới chạy lại đúng gate đó.
 
 ---
 
 ## 1. Kết quả phải đạt
 
-Hoàn thành lab khi có thể tự chứng minh và giải thích được:
+Hoàn thành lab khi bạn đã bảo trì xong hai worker, có runbook bảo trì trong repo **và** chứng minh,
+giải thích được:
 
-- Bốn nhóm việc quản trị mà bài [155](../155-cluster-administration-vi.md) chia ra, và với mỗi
-  nhóm chỉ ra được **một hiện vật có thật** trong cluster của mình.
-- Add-on nào đang chạy trên cluster, xếp vào **nhóm chức năng nào** của bài
-  [165](../165-addons-vi.md) — và vì sao có những thứ đang chạy mà danh mục đó **không liệt kê**.
-- `--emulated-version` làm gì, ràng buộc `≤ binaryVersion` nghĩa là gì, và chứng minh được cluster
-  của mình **không** đặt flag đó nên emulation version bằng đúng binary version.
-- Lease của control plane ở góc vận hành: đọc `holderIdentity`, thấy `renewTime` tiến lên, và
-  chứng minh **bầu chọn leader có phối hợp đang tắt** trên cluster này.
-- Trạng thái swap thật của ba node, `failSwapOn`/`memorySwap` hiệu lực của kubelet, và giải thích
-  được vì sao baseline tắt swap thay vì bật nó.
-- Graceful node shutdown **có được kích hoạt hay không** trên node lab — đọc từ cấu hình hiệu lực
-  của kubelet, không đoán từ feature gate — và hệ quả của câu trả lời đó với thao tác tắt máy.
-- Phân biệt dứt khoát `cordon` với `drain`: một cái chỉ **đánh dấu**, một cái đánh dấu **và**
-  trục xuất; chứng minh bằng số Pod trên node trước và sau mỗi lệnh.
-- Vì sao `--ignore-daemonsets` gần như luôn cần, đọc đúng câu từ chối của `kubectl drain` khi
-  thiếu nó, và nói được `drain` gọi cơ chế nào ở bên dưới.
-- Chạy trọn vòng bảo trì `cordon` → `drain` → tắt máy → bật lại → `uncordon` trên
-  `lab-k8s-worker2`, chứng minh workload **dịch chuyển** sang worker còn lại rồi **quay về** sau
-  khi uncordon, và biết reboot **không** tự gỡ cordon.
-- Điều gì xảy ra ở phía control plane khi node biến mất: condition `Ready` thành `Unknown`, taint
-  `node.kubernetes.io/unreachable`, Node Lease ngừng được gia hạn — và vì sao không Pod nào kẹt
-  `Terminating` trong kịch bản này.
-- Vì sao cluster ba VM cố định **không thể** có autoscaling Node, và định nghĩa "Node rỗng" của
-  bài [171](../171-node-autoscaling-vi.md) khớp với trạng thái node vừa drain xong.
-- Truy cập cluster qua Kubernetes API bằng ba đường: `kubectl`, `kubectl proxy`, và HTTP client
-  trực tiếp có xác thực — kèm lý do không dùng `--insecure`.
-- Vì sao quy trình Leader Migration của bài [198](../198-controller-manager-leader-migration-vi.md)
-  **không bao giờ chạy** trên cluster này, chứng minh bằng bốn dữ kiện đọc được.
-- Cleanup đúng phạm vi: không node nào còn cordon, cấu hình node không đổi, cluster về đúng
-  `04-metrics-ready` và **cả ba node `Ready`**.
+- Mỗi node đang gánh những gì trước khi bạn chạm vào nó: Pod của Bookstore, add-on nền nằm trên
+  đường request, dữ liệu gắn với node — và add-on nào một bản sao, không PDB, nên chắc chắn gây
+  gián đoạn khi node của nó được bảo trì.
+- `cordon` chỉ đánh dấu, `drain` đánh dấu **và** trục xuất qua Eviction API nên tôn trọng PDB; vì sao
+  Pod DaemonSet phải được bỏ qua tường minh; node sau drain là "Node rỗng" theo bài 171.
+- Bảo trì `lab-k8s-worker1` không làm gián đoạn `web` và `api` — hoặc đo đúng số request lỗi, chỉ ra
+  tầng gây lỗi và cách sửa.
+- Vì sao `db-0` **không thể** rời `lab-k8s-worker2`, nên bảo trì node đó là một cửa sổ bảo trì có
+  downtime đo được; PDB `maxUnavailable: 0` cho một DB một instance làm gì với `drain`, và đánh đổi
+  khi đưa nó vào repo.
+- Graceful node shutdown **không** hoạt động trên cluster này dù feature gate bật — chứng minh bằng
+  cấu hình hiệu lực của kubelet và bằng inhibitor lock của systemd; vì vậy drain trước khi tắt máy
+  là bắt buộc.
+- Khi một node biến mất: condition `Ready` thành `Unknown`, taint `unreachable`, Node Lease đứng
+  yên, Pod trên node mang trạng thái cũ không ai cập nhật được — đó chính là phase `Unknown` mà bài 47
+  nói tới (trả nợ lab của Lab 3a).
+- Reboot không gỡ cordon; uncordon không tự đưa Pod về; cân bằng lại bằng cách tôn trọng PDB.
+- Swap trên ba node, vì sao kubelet từ chối swap, và nếu bật `LimitedSwap` thì Pod nào của Bookstore
+  được swap.
+- Control plane trước mùa nâng cấp: không thành phần nào giả lập phiên bản cũ, ai giữ Lease leader,
+  bầu chọn leader có phối hợp đang tắt, Leader Migration không áp dụng — bằng dữ kiện đọc được.
+- Cluster ba VM cố định không có autoscaling Node, và vì sao đó là giới hạn bản chất.
+- Chủ đề certificate của giai đoạn 12 **chưa** được học — nợ lab #7 vẫn mở.
 
 ### 1.1. Ánh xạ tài liệu sang bài thực hành
 
-| Bài trong nhóm 12 | Phần lab kiểm chứng |
+| Bài trong nhóm 12 | Ticket kiểm chứng |
 | --- | --- |
-| [155 — Quản trị cluster](../155-cluster-administration-vi.md) | B1 — trang mục lục; lab tìm trong cluster một hiện vật cho từng nhóm: lập kế hoạch (`providerID` rỗng, `nodeInfo`), quản lý cluster (Node và ResourceQuota), bảo mật cluster và bảo mật kubelet (`--authorization-mode`, kubelet authn/authz, chứng chỉ do TLS bootstrapping cấp), dịch vụ tùy chọn (CoreDNS và nguồn metric) |
-| [165 — Cài đặt các Add-on](../165-addons-vi.md) | B2 — kiểm kê add-on **đang chạy thật**, xếp vào năm nhóm chức năng của bài, và chỉ ra ba thứ đang chạy mà danh mục không liệt kê |
-| [168 — Phiên bản tương thích cho Control Plane](../168-compatibility-version-vi.md) | B3 — đọc ba manifest control plane để chứng minh không thành phần nào đặt `--emulated-version`; so `gitVersion` của API server với tag image và với baseline A1.3 |
-| [167 — Bầu chọn leader có phối hợp](../167-coordinated-leader-election-vi.md) | B4 — `holderIdentity`, `acquireTime`, `renewTime`, `leaseDurationSeconds`, `leaseTransitions` của Lease control plane; `renewTime` tiến lên theo thời gian; API group `coordination.k8s.io/v1beta1` không được phục vụ nên `LeaseCandidate` không tồn tại |
-| [170 — Quản lý bộ nhớ swap](../170-swap-memory-management-vi.md) | B5 — `swapon --show` và `free` trên cả ba node; trường `swap` vắng mặt trong Node status; `failSwapOn` và `memorySwap` hiệu lực của ba kubelet |
-| [169 — Tắt node](../169-node-shutdown-vi.md) | B6 — `shutdownGracePeriod`, `shutdownGracePeriodCriticalPods`, feature gate, và ba điều kiện nền mà bài cảnh báo (`unattended-upgrades`, file `logind.conf.d`, `systemd-logind`); B7 — vòng bảo trì đầy đủ, gồm cả phần *tắt node không nhẹ nhàng* quan sát từ phía control plane |
-| [171 — Tự động mở rộng Node](../171-node-autoscaling-vi.md) | B7.4 — trạng thái "Node rỗng" (chỉ còn Pod DaemonSet) sau khi drain, đúng định nghĩa của bài; B8 — không autoscaler nào chạy, không node nào có `providerID`, số node không đổi qua cả vòng bảo trì |
-| [189 — Quản trị một Cluster](../189-administer-cluster-vi.md) | B9.1 — trang mục lục; lab tìm trong cluster ba hiện vật ứng với ba mục của trang: `/api` (bài 190), subresource `pods/eviction` (bài 255, cơ chế nằm dưới `drain` của B7), annotation `storageclass.kubernetes.io/is-default-class` (bài 192) |
-| [190 — Truy cập cluster bằng Kubernetes API](../190-access-cluster-api-vi.md) | B9.2–B9.4 — `kubectl config view`, `kubectl proxy` rồi `curl` qua proxy, và HTTP client trực tiếp dùng token của ServiceAccount cộng CA lấy từ kubeconfig thay cho `--insecure` |
-| [198 — Di trú control plane sang Cloud Controller Manager](../198-controller-manager-leader-migration-vi.md) | B10 — bốn dữ kiện đọc được chứng minh quy trình này không áp dụng: không `--cloud-provider`, không `cloud-controller-manager`, `providerID` rỗng, control plane một node; cộng nội dung role `system::leader-locking-kube-controller-manager` giải thích vì sao bước cấp quyền RBAC là bắt buộc |
+| [155 — Quản trị cluster](../155-cluster-administration-vi.md) | B1 — mỗi nhóm việc một hiện vật trên cluster: lập kế hoạch (`providerID` rỗng), quản lý (`bookstore-quota`), bảo mật cluster và kubelet (RBAC, kubelet Webhook, certificate từ TLS bootstrapping), dịch vụ tùy chọn (DNS, nguồn metric) |
+| [165 — Cài đặt các Add-on](../165-addons-vi.md) | B1 — kiểm kê add-on theo năm nhóm, ba add-on ngoài danh mục, add-on một bản sao nằm trên đường request của Bookstore |
+| [189 — Quản trị một Cluster](../189-administer-cluster-vi.md) | B1 — dùng trang mục lục chọn ba tác vụ cho runbook, mỗi tác vụ một hiện vật: `/api` (190), `pods/eviction` (255), StorageClass mặc định (192) |
+| [171 — Tự động mở rộng Node](../171-node-autoscaling-vi.md) | B1 — không autoscaler, không cloud provider; B5, B7 — Node rỗng sau drain; B7 — câu hỏi PDB `db` khi có autoscaler hợp nhất node |
+| [168 — Phiên bản tương thích](../168-compatibility-version-vi.md) | B2 — không thành phần nào đặt `--emulated-version`; binary version từ hai nguồn, đối chiếu A1.3 |
+| [167 — Bầu chọn leader có phối hợp](../167-coordinated-leader-election-vi.md) | B2 — các trường Lease control plane, `renewTime` tiến lên, tính năng đang tắt; B7 — Node Lease đứng yên khi node tắt |
+| [198 — Di trú sang Cloud Controller Manager](../198-controller-manager-leader-migration-vi.md) | B2 — bốn dữ kiện chứng minh Leader Migration không áp dụng, cộng nội dung role `system::leader-locking-kube-controller-manager` |
+| [170 — Quản lý bộ nhớ swap](../170-swap-memory-management-vi.md) | B3 — swap trên ba node, `/etc/fstab` trước khi reboot, Node không báo swap, `failSwapOn`; ADR swap cho node chứa `db` |
+| [169 — Tắt node](../169-node-shutdown-vi.md) | B3 — `shutdownGracePeriod` bằng 0, không có inhibitor lock, `db-0` không phải pod quan trọng; B5, B7 — tắt máy sau drain; B7 — vì sao `db-0` không kẹt `Terminating`, vì sao taint `out-of-service` không cứu được PV local |
+| [156 — Chứng chỉ](../156-certificates-vi.md) | **Không thực hành.** Trang trỏ hướng sáu dòng, không có thao tác. Quản lý vòng đời certificate là **[nợ lab #7](README.md#5-sổ-nợ-lab)**, chưa trả ở lab này; B8 ghi nó vào runbook dưới mục "ngoài phạm vi" |
 
-Các phần dưới đây **không kiểm chứng được trong lab này**, ghi rõ lý do thay vì bỏ trống:
+Lab còn dùng các bài đã học trước: [47](../47-pod-lifecycle-vi.md) (phase, kubelet khởi động lại),
+[53](../53-disruptions-vi.md) và [339](../339-configure-pdb-vi.md) (PDB),
+[143](../143-api-eviction-vi.md) (Eviction API), [23](../23-nodes-vi.md) và
+[35](../35-leases-vi.md) (heartbeat, node controller), [139](../139-taint-and-toleration-vi.md)
+(taint theo điều kiện), [210](../210-guaranteed-scheduling-critical-addon-pods-vi.md) (pod quan
+trọng), [42](../42-container-lifecycle-hooks-vi.md) (handler `sleep`).
 
-| Phần | Vì sao không thực hành ở đây |
+Nợ lab trả trong sprint này — **đọc lại bài gốc trước khi làm ticket trả nợ**:
+
+| Nợ | Phát sinh ở | Trả ở |
+| --- | --- | --- |
+| Phase `Unknown` của Pod (bài [47](../47-pod-lifecycle-vi.md#pod-phase)) | [Lab 3a](LAB-3A-POD-VA-VONG-DOI.md) | B7 — quan sát Pod trên node đã mất liên lạc |
+| Mục *Hành vi của Pod khi kubelet khởi động lại* (bài [47](../47-pod-lifecycle-vi.md#kubelet-restarts)), hoãn sang giai đoạn 12 | khối *Đọc bài này thế nào* của bài 47 | B3 ⭐ |
+
+Phần không thực hành, ghi rõ lý do:
+
+| Phần | Vì sao không làm ở đây |
 | --- | --- |
-| Bài [156](../156-certificates-vi.md) — toàn bộ | Đây là **trang trỏ hướng sáu dòng**, không chứa một thao tác nào; nội dung thật là quản lý vòng đời certificate. Đó là **[nợ #7](README.md#5-sổ-nợ-lab)**, phát sinh ở chính giai đoạn 12 và **chưa được trả ở lab này**. Trả ở [giai đoạn 18](../00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) với bài [219](../219-kubeadm-certs-vi.md) và [191](../191-certificates-manual-vi.md). Lab 12 **không** chạy `kubeadm certs`, không đọc hạn certificate, không xoay CA |
-| Bài [169](../169-node-shutdown-vi.md) — **bật** graceful node shutdown và đo hai giai đoạn chấm dứt Pod | Phải đặt `shutdownGracePeriod` và `shutdownGracePeriodCriticalPods` khác 0 trong `KubeletConfiguration`, tức sửa cấu hình kubelet trên node đang chạy — thuộc [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy), bài [224](../224-kubelet-config-file-vi.md). B6 kiểm chứng **phần đọc được**: giá trị hiệu lực, feature gate, và ba điều kiện nền |
-| Bài [169](../169-node-shutdown-vi.md) — taint `node.kubernetes.io/out-of-service` và Pod StatefulSet kẹt `Terminating` | Kịch bản đó chỉ xuất hiện khi node chết **mà chưa drain** và trên node có Pod StatefulSet gắn volume. Cố ý dựng nó là cố ý làm hỏng dữ liệu trên mốc snapshot của lộ trình; B7 làm **đúng quy trình** (drain trước) và chứng minh hệ quả ngược lại: không Pod nào kẹt |
-| Bài [169](../169-node-shutdown-vi.md) — `shutdownGracePeriodByPodPriority` và `disable-force-detach-on-timeout` | Cái đầu cần bật thêm feature gate và nhiều lớp PriorityClass; cái sau phải sửa cấu hình `kube-controller-manager`. Cả hai được chính bài xếp vào phần đọc lướt |
-| Bài [170](../170-swap-memory-management-vi.md) — bật swap, `LimitedSwap`, `kubectl top --show-swap` có số liệu thật | Bật swap là đổi prereq OS mà [A4.1 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) đã khóa, cộng sửa `failSwapOn` của kubelet. Baseline tắt swap có chủ đích; B5 kiểm chứng đúng trạng thái đó và đọc ranh giới |
-| Bài [171](../171-node-autoscaling-vi.md) — chạy Cluster Autoscaler hoặc Karpenter thật | Autoscaler cấp phát Node bằng cách **tạo và xóa tài nguyên của cloud provider**; ba VM tự dựng không có API nào để nó gọi. Đây là giới hạn về bản chất, không phải thiếu cấu hình. B8 chứng minh bằng bốn dữ kiện đọc được |
-| Bài [167](../167-coordinated-leader-election-vi.md) — bật `CoordinatedLeaderElection` và quan sát chiến lược `OldestEmulationVersion` | Phải thêm `--feature-gates` và `--runtime-config` vào manifest static Pod của kube-apiserver, và phải có **nhiều instance** mỗi thành phần mới có gì để tranh. Cả hai điều kiện đều nằm ngoài topology một control plane; sửa manifest thuộc giai đoạn 20, nhiều control plane thuộc lab 8b/8c |
-| Bài [168](../168-compatibility-version-vi.md) — đặt `--emulated-version` và quan sát API bị cắt | Đổi flag control plane trên cluster đang chạy; giá trị thật của tính năng chỉ hiện ra trong một lần **nâng cấp**, tức [giai đoạn 17](../00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster) |
-| Bài [198](../198-controller-manager-leader-migration-vi.md) — chạy Leader Migration thật | Cần cloud provider in-tree, một `cloud-controller-manager` do nhà cung cấp build, control plane **nhân bản**, và sửa manifest của cả hai controller manager. Không dữ kiện nào trong bốn cái đó tồn tại ở đây; B10 kiểm chứng đúng điều đó |
-| Bài [190](../190-access-cluster-api-vi.md) — thư viện client Go/Python/Java/dotnet/JavaScript/Haskell | Phải cài toolchain ngôn ngữ lên node lab, tức thêm phần mềm ngoài baseline. B9 làm phần tương đương bằng HTTP client có sẵn |
-| Bài [189](../189-administer-cluster-vi.md) — các trang con còn lại của mục | Đó là mục lục của gần 50 trang task trải khắp [Phần II](../00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster); mỗi trang có chỗ đứng riêng ở giai đoạn 16–27. B9.1 chỉ dùng nó đúng công dụng của một trang mục lục |
+| Bài 169 — **bật** graceful node shutdown, `shutdownGracePeriodByPodPriority` | Phải sửa `KubeletConfiguration` trên node đang chạy — [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy). B3 đọc phần đọc được |
+| Bài 169 — tắt node **không** nhẹ nhàng với `db-0` trên node, taint `out-of-service` | Cố ý dựng là cố ý tắt ngang PostgreSQL đang ghi. B7 làm đúng quy trình và chứng minh hệ quả ngược lại; B7 ⭐ dựng kịch bản đó trên một Pod thử nghiệm không có dữ liệu |
+| Bài 170 — bật swap, `LimitedSwap` thật | Đổi prereq OS của [A4.1](LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) và cấu hình kubelet |
+| Bài 171 — Cluster Autoscaler hay Karpenter thật | Cần API của cloud provider; ba VM tự dựng không có. Giới hạn bản chất |
+| Bài 167, 168 — bật tính năng, đặt `--emulated-version` | Sửa manifest control plane (giai đoạn 20); giá trị thật chỉ hiện ra khi nâng cấp nhiều control plane (giai đoạn 17, Lab 8b/8c) |
+| Bài 198 — chạy Leader Migration | Cần cloud provider in-tree và control plane nhân bản; không dữ kiện nào tồn tại ở đây |
+| Bài 189 — các trang con còn lại | Mục lục của Phần II; mỗi trang có chỗ đứng ở giai đoạn 16–27. Quy trình drain chi tiết (bài [255](../255-safely-drain-node-vi.md)) học sâu ở [giai đoạn 16](../00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node) |
 
-Đây **không phải nợ lộ trình mới**, trừ nợ #7 vốn đã có sẵn trong
-[sổ nợ lab](README.md#5-sổ-nợ-lab) và **không được trả ở lab này**. Những phần còn lại là giới
-hạn cố định của môi trường lab hoặc là nội dung đã có chỗ đứng ở giai đoạn sau.
-
-Lab này **không** dạy quy trình rút node khỏi cluster rồi join lại, cũng không dạy nâng cấp node.
-Cả hai thuộc [giai đoạn 16](../00-ALO-TRINH-ADMIN.md#giai-đoạn-16--vòng-đời-node) và
-[giai đoạn 17](../00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster), với bài
-[255](../255-safely-drain-node-vi.md) đi sâu hơn vào chính lệnh `drain` mà B7 dùng ở đây.
+Nợ kỹ thuật của hệ thống sau sprint: **phát sinh hai nợ mới** — đường vào từ ngoài chưa có HA, và
+DB một instance trên PV local — ghi ở B8. Nợ lab #1 (phần VPA), #5, #6, #7, #8 vẫn mở.
 
 ### 1.2. Thời lượng
 
-2–3 giờ, tính từ lúc gate mở đầu đã PASS. B7 có ba bước phải chờ: chờ node chuyển khỏi `Ready`
-sau khi tắt máy, chờ VM boot lại, chờ Pod hội tụ. **Thời gian chờ phụ thuộc cấu hình cluster và
-phần cứng host**, nên mọi bước chờ đều viết dưới dạng vòng lặp có điều kiện dừng hoặc
-`kubectl wait --timeout`, không phải một con số cố định.
+4–5 giờ. Phần cốt lõi (B0–B5, B7–B9) khoảng 4 giờ, trong đó hai vòng tắt–bật máy chiếm phần lớn
+thời gian chờ. B6 và các mục ⭐ là tùy chọn; ⭐ của B7 làm cửa sổ bảo trì worker2 dài thêm vài phút.
+Thời gian chờ phụ thuộc cấu hình cluster và phần cứng host, nên mọi bước chờ trong lab là vòng lặp
+có điều kiện dừng hoặc `kubectl wait --timeout`. Có thể chia hai phiên: phiên 1 làm B0–B5, phiên 2
+làm B6–B9; đầu phiên 2 chạy lại gate ngắn A5.5 và `./tests/smoke.sh`.
 
 ---
 
 ## 2. Quy ước và an toàn
 
-> **Cảnh báo — lab này TẮT và BẬT LẠI một máy ảo.** Đây là lab đầu tiên của chuỗi làm việc đó.
-> Chỉ `lab-k8s-worker2` được tắt. **Không bao giờ tắt `lab-k8s-master`**: mất control plane là
-> mất luôn đường quan sát, và không có gate nào chạy được nữa. Cũng không tắt `lab-k8s-worker1`:
-> nó là nơi workload chạy trong lúc worker2 vắng mặt.
+> **Cảnh báo — lab này TẮT và BẬT LẠI hai máy ảo, mỗi lần một máy.** Không bao giờ tắt
+> `lab-k8s-master`: mất control plane là mất đường quan sát. Không bao giờ tắt hai worker cùng
+> lúc: đó là mất toàn bộ dịch vụ, không phải bảo trì.
 
-**Trình tự an toàn bắt buộc của B7**, không đảo thứ tự và không bỏ bước:
-
-1. `cordon` worker2 — node ngừng nhận Pod mới.
-2. `drain` worker2 — Pod đang chạy được trục xuất có kiểm soát và lên lại ở worker1.
-3. Xác nhận worker2 **chỉ còn Pod DaemonSet** trước khi chạm vào lệnh tắt máy.
-4. `sudo shutdown -h now` **trên chính worker2**, qua `ssh` từ master.
-5. Xác nhận trên máy host rằng VM đã ở trạng thái *Powered off* trước khi bật lại.
-6. Bật VM, chờ `kubectl wait --for=condition=Ready node/lab-k8s-worker2` PASS.
-7. `uncordon` worker2, rồi chứng minh workload quay lại.
-
-**Cách xác nhận node đã trở lại `Ready`** — dùng đúng lệnh này, không dựa vào việc `ssh` vào được:
-
-```bash
-kubectl wait --for=condition=Ready node/lab-k8s-worker2 --timeout=600s
-kubectl get node lab-k8s-worker2 \
-  -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{"\n"}'
-```
-
-**Đường quay lui khi worker2 không lên được:** xem [mục 4](#4-troubleshooting-của-lab-này) trước.
-Nếu không sửa được trong vài phút thì tắt **cả ba VM** và restore **cả ba** về `04-metrics-ready`
-— không bao giờ restore riêng một VM, xem ghi chú cuối
-[mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường) — rồi bật lại theo
-thứ tự master → worker 1 → worker 2 và chạy lại từ gate mở đầu.
-
-**Trước khi chạy B0, xác nhận trên máy host rằng cả ba VM đều còn mốc `04-metrics-ready`.** Không
-có mốc này thì không có đường lui. Chạy trên **máy host**, PowerShell:
+Trước B0, xác nhận trên **máy host** rằng cả ba VM còn mốc `04-metrics-ready` — không có mốc này
+thì không có đường lui. Chạy trên máy host, PowerShell:
 
 ```powershell
 $vmrun = 'C:\Program Files\VMware\VMware Workstation\vmrun.exe'
@@ -200,1778 +144,2452 @@ foreach ($f in $vmx) {
 }
 ```
 
-**PASS:** đúng ba dòng `PASS:`. Không mở B0 khi còn dòng `FAIL:`. Đường dẫn `.vmx` ở trên theo máy
-host đang dùng; sửa lại nếu VM nằm chỗ khác. Giữ nguyên cửa sổ PowerShell này — B7 dùng lại hai
-biến `$vmrun` và `$vmx`.
+**PASS:** đúng ba dòng `PASS:`. Đường dẫn `.vmx` theo máy host của bạn; sửa nếu VM nằm chỗ khác. Giữ
+cửa sổ PowerShell này mở — B5 và B7 dùng lại `$vmrun` và `$vmx`.
 
 Các quy ước còn lại:
 
-- Mọi lệnh `kubectl` chạy trên `lab-k8s-master` bằng user quản trị có kubeconfig, **trừ khi ghi rõ
-  node khác**. Lệnh cần đọc file trên worker chạy qua `ssh` từ master, đúng cách
-  [Lab 7b](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) và [Lab 11a](LAB-11A-OBSERVABILITY.md) đã dùng.
-- Các khối PowerShell chạy trên **máy host Windows**, không phải trên VM. Chúng luôn được mở đầu
-  bằng dòng "Chạy trên máy host".
-- **Chạy toàn bộ phần B trong cùng một phiên shell.** Gần như mọi gate so sánh với biến đặt ở B0
-  (`NODES`, `W1`, `W2`, `MASTER`, `EV`, `WK`, `NODE_N0`, `DS_W2_0`) và hàm `cfgz`; mở shell mới
-  giữa chừng là mất hết. Phiên shell này nằm trên master nên nó sống sót qua lúc worker2 tắt máy.
-- **Lab này chỉ ĐỌC cấu hình node và cấu hình control plane.** Tuyệt đối không sửa
-  `/var/lib/kubelet/config.yaml`, không sửa file nào trong `/etc/kubernetes/manifests`, không đổi
-  feature gate, không restart kubelet bằng tay. B0.3 ghi checksum của sáu file đó và B11.2 đối
-  chiếu lại — đó là gate chứng minh bạn không đụng vào.
-- **Lab không cài thêm gì và không tạo snapshot mới.** Thành phần duy nhất lab tạo là namespace
-  `lab-12` cùng object bên trong nó; toàn bộ bị xóa ở B11.
-- **Fault injection chỉ trên `lab-k8s-worker2`.** Cordon, drain và tắt máy đều ghim vào đúng node
-  này. `lab-k8s-worker1` chỉ nhận Pod bình thường.
-- **Đừng dùng `--force` với `kubectl drain` trong lab này.** `--force` xóa cả Pod không có
-  controller quản lý, tức xóa vĩnh viễn. Lab cố ý không để Pod trần nào còn sống lúc drain, nên
-  không cần cờ đó. Nếu drain đòi `--force`, dừng lại và đọc
-  [mục 4](#4-troubleshooting-của-lab-này).
-- **`--delete-emptydir-data` xóa dữ liệu trong volume `emptyDir` của Pod bị trục xuất.** Trên
-  cluster này các volume đó là thư mục tạm của add-on nên xóa được. Đừng mang thói quen này sang
-  cluster có workload thật mà chưa kiểm tra Pod nào đang giữ dữ liệu ở `emptyDir`.
-- Image dùng cho toàn bộ workload của lab là `busybox:1.37` đã khóa ở
-  [bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) và đã có sẵn trên cả ba node từ
-  Lab 00, nên lab không phụ thuộc mạng ra ngoài.
-- **Mọi con số của cluster đều đọc từ cluster thật** — tên node, số worker, số replica, số Pod
-  DaemonSet trên worker2, `gitVersion` của API server. Không con số nào của cluster được viết cứng
-  vào gate.
-- Manifest tạm ghi vào `~/lab-work/12/`; bằng chứng ghi vào `~/lab-evidence/12/`. Token sinh ra ở
-  B9 chỉ tồn tại trong biến shell, **không ghi vào evidence**.
-- Dòng bắt đầu bằng `PASS:` là gate; không đi tiếp khi gate fail.
+- Mọi lệnh `kubectl` chạy trên `lab-k8s-master` trừ khi ghi rõ node khác. Lệnh trên worker chạy qua
+  `ssh <node> 'sudo ...'` từ master. Khối PowerShell chạy trên **máy host** và luôn được ghi rõ như
+  vậy.
+- Repo dự án: `~/bookstore`. Manifest thử nghiệm: `~/lab-work/12/`. Bằng chứng: `~/lab-evidence/12/`.
+- **Bảo trì worker1 là vận hành có kế hoạch, không phải fault injection.** Nó đi qua drain và tắt máy
+  êm — đúng việc [mục 3.7](DU-AN-BOOKSTORE.md#37-chịu-lỗi-và-vận-hành) hứa là không gián đoạn. Mọi
+  **diễn tập sự cố** của lab (Pod thử nghiệm mất liên lạc, khởi động lại kubelet, PDB thử chặn drain)
+  chỉ chạy trên `lab-k8s-worker2`.
+- **Không dùng `--force`, không dùng `--disable-eviction` với `kubectl drain`.** Cái đầu xóa vĩnh viễn
+  Pod không có controller; cái sau bỏ qua PDB — đúng cơ chế mà sprint này muốn đo. Drain đòi một
+  trong hai cờ đó thì dừng lại và đọc [mục 4](#4-troubleshooting-của-lab-này).
+- `--delete-emptydir-data` xóa dữ liệu `emptyDir` của Pod bị trục xuất. Với Bookstore, `emptyDir`
+  chỉ chứa trang HTML do init container sinh lại và file tạm — xóa được. Dữ liệu thật của `db` và
+  bản backup nằm trên PVC, drain không đụng tới. Đừng mang cờ này sang cluster khác mà chưa kiểm.
+- **Lab chỉ đọc cấu hình node và control plane.** Không sửa `/var/lib/kubelet/config.yaml`, không sửa
+  `/etc/kubernetes/manifests/*`, không đổi feature gate, không đổi số bản sao của add-on nào. B0 ghi
+  checksum sáu file cấu hình; gate cuối đối chiếu lại.
+- Không gỡ taint bằng tay. Taint do cordon và do node controller gắn thì để cơ chế tương ứng gỡ.
+- Object thử nghiệm (`PodDisruptionBudget` `db-thu`, Pod `thu-mat-lien-lac`) nằm trong namespace
+  `bookstore`, **không** mang label `app.kubernetes.io/part-of`, bị xóa khi xong ticket.
+- `kubectl rollout restart`, Eviction API gọi tay chỉ dùng để **cân bằng lại** sau bảo trì — thao tác
+  vận hành, không đổi cấu hình. Mọi thay đổi cấu hình của hệ thống đi qua repo.
+- Chạy mỗi ticket bảo trì (B5, B7) trong **một phiên shell liền mạch** trên master: probe chạy nền và
+  hàm `moc` sống trong phiên đó. Phiên này nằm trên master nên sống sót qua lúc worker tắt.
+- Dòng bắt đầu bằng `PASS:` là gate; không đi tiếp khi gate fail. Dòng `FAIL:` trong script nghiệm
+  thu nghĩa là ticket chưa xong.
 
 ---
 
-# Phần B — Thực hành kiến thức giai đoạn 12
+# Phần B — Sprint 19: Bảo trì node không gián đoạn
 
-## B0. Chuẩn bị workspace và ảnh chụp "trước"
+## B0. Nhận bàn giao sprint
 
-**Mục đích:** dựng chỗ làm việc, khóa tên node và số node vào biến, lấy cấu hình hiệu lực của ba
-kubelet, và chụp checksum của sáu file cấu hình để B11 chứng minh lab không sửa gì.
+**Mục đích:** xác nhận cluster ở đúng `04-metrics-ready`, repo ở đúng tag `lab-11b`, hệ thống của
+sprint 18 dựng lại được **chỉ từ repo**, và ghi lại cấu hình node trước khi đụng vào máy nào.
 
-### B0.1. Workspace, namespace và topology
+Gate ngắn A5.5, chạy nguyên văn:
+
+```bash
+kubectl wait --for=condition=Ready node --all --timeout=180s
+test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
+kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
+kubectl -n kube-system get deployment coredns
+kubectl get pods -n default
+```
+
+Ba điều kiện riêng của mốc `04-metrics-ready` và của lab này:
+
+```bash
+kubectl top node
+test "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 \
+  && echo 'PASS: dung moc 04-metrics-ready — top node du ba node'
+test "$(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.unschedulable}{"\n"}{end}' | grep -c true)" -eq 0 \
+  && echo 'PASS: chua node nao bi cordon'
+kubectl get pdb -A 2>&1 | grep -q 'No resources found' && echo 'PASS: cluster chua co PDB nao'
+```
+
+Repo và thư mục làm việc. Nếu vừa restore snapshot, khôi phục repo từ bundle theo
+[mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm):
 
 ```bash
 mkdir -p ~/lab-work/12 ~/lab-evidence/12
-WK=~/lab-work/12
-EV=~/lab-evidence/12
-
-kubectl config current-context
-kubectl create namespace lab-12
-
-MASTER='lab-k8s-master'
-W1='lab-k8s-worker1'
-W2='lab-k8s-worker2'
-NODES="$MASTER $W1 $W2"
-
-CP_N="$(kubectl get nodes -l 'node-role.kubernetes.io/control-plane' --no-headers | wc -l)"
-WK_N="$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane' --no-headers | wc -l)"
-NODE_N0="$(kubectl get nodes --no-headers | wc -l)"
-echo "control plane=$CP_N | worker=$WK_N | tong node=$NODE_N0"
-
-test "$CP_N" -eq 1 && test "$WK_N" -eq 2 && test "$NODE_N0" -eq 3 \
-  && test "$(kubectl get namespace lab-12 -o jsonpath='{.status.phase}')" = 'Active' \
-  && echo 'PASS: dung topology mot control plane hai worker, namespace lab-12 da Active'
+test -d ~/bookstore/.git || git clone ~/bookstore-lab-11b.bundle ~/bookstore
+cd ~/bookstore
+git describe --tags --exact-match HEAD 2>/dev/null | grep -qx 'lab-11b' && echo 'PASS: HEAD dung tag lab-11b'
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong co thay doi chua commit'
+kubectl get namespace -l app.kubernetes.io/part-of=bookstore --no-headers 2>/dev/null | grep -q . \
+  && echo 'FAIL: con namespace du an sot tu lan truoc' || echo 'PASS: cluster chua co du an'
 ```
 
-**Ý nghĩa:** `-l '!node-role.kubernetes.io/control-plane'` chọn node **không mang** label đó, tức
-hai worker. Ba con số này là dữ kiện của B7 (bao nhiêu replica), B8 (số node có đổi không) và B10
-(control plane một node hay nhiều node).
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
-### B0.2. Cấu hình hiệu lực của ba kubelet
-
-Cấu hình *hiệu lực* — gồm cả giá trị mặc định mà file trên đĩa không viết ra — đọc qua endpoint
-`configz`, đi đúng đường control plane → kubelet mà
-[tầng 6 của A5.4](LAB-00-MOI-TRUONG-1.35.7.md#a547-tầng-6--đường-control-plane--kubelet) đã kiểm.
-B5 và B6 dựa hẳn vào file này:
+Dựng lại hệ thống của sprint 18 bằng script của chính sprint đó:
 
 ```bash
-for n in $NODES; do
-  kubectl get --raw "/api/v1/nodes/$n/proxy/configz" > "$EV/b0-configz-$n.json" 2>/dev/null || true
-  echo "$n -> $(wc -c < "$EV/b0-configz-$n.json") byte"
-done
-
-OKZ=0
-for n in $NODES; do
-  grep -q '"kubeletconfig"' "$EV/b0-configz-$n.json" && OKZ=$(( OKZ + 1 ))
-done
-echo "configz doc duoc tren $OKZ/3 node"
-test "$OKZ" -eq 3 && echo 'PASS: doc duoc cau hinh hieu luc cua ca ba kubelet'
+cd ~/bookstore
+./scripts/deploy.sh > ~/lab-evidence/12/b0-deploy.txt 2>&1; echo "deploy exit=$?"
+./tests/smoke.sh > ~/lab-evidence/12/b0-smoke-lab-11b.txt 2>&1; echo "smoke exit=$?"
+cat ~/lab-evidence/12/b0-smoke-lab-11b.txt
 ```
 
-Hàm rút một trường vô hướng ra khỏi file JSON đó, không cần `jq` — node lab không cài `jq`. Hàm
-này giống bản dùng ở [Lab 11a](LAB-11A-OBSERVABILITY.md), giữ nguyên để hai lab đọc cùng một cách:
+Kéo sẵn image lên **cả hai** worker: lúc bảo trì, mọi Pod sẽ dồn sang worker còn lại, và thời gian
+kéo image không được lẫn vào số đo gián đoạn. Tag lấy đúng từ
+[A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) và
+[A1.4](LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00):
 
 ```bash
-cfgz() { grep -o "\"$1\":[^,}]*" "$2" | head -1 | cut -d: -f2- | tr -d '"'; }
-
-test -n "$(cfgz cgroupDriver "$EV/b0-configz-$W2.json")" \
-  && echo "PASS: cfgz doc duoc — cgroupDriver = $(cfgz cgroupDriver "$EV/b0-configz-$W2.json")"
+for N in lab-k8s-worker1 lab-k8s-worker2; do
+  for I in docker.io/library/busybox:1.37 \
+           docker.io/library/postgres:17.11 \
+           docker.io/postgrest/postgrest:v14.18 \
+           docker.io/nginxinc/nginx-unprivileged:1.30.5-alpine; do
+    ssh "$N" "sudo crictl pull $I" >/dev/null && echo "PASS: $N co $I" || echo "FAIL: $N khong keo duoc $I"
+  done
+done
 ```
 
-**PASS:** hai dòng `PASS:` của bước này xuất hiện. Nếu `configz` không đọc được, dừng lại và xem
-[mục 4](#4-troubleshooting-của-lab-này) trước khi đi tiếp.
-
-### B0.3. Checksum của cấu hình node và của manifest control plane
+Checksum của cấu hình ba kubelet và ba manifest control plane — gate cuối đối chiếu lại để chứng
+minh lab không sửa gì, kể cả sau hai lần tắt–bật máy:
 
 ```bash
 {
-  echo "$MASTER kubelet $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
-  for n in "$W1" "$W2"; do
+  echo "lab-k8s-master kubelet $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
+  for n in lab-k8s-worker1 lab-k8s-worker2; do
     echo "$n kubelet $(ssh "$n" 'sudo sha256sum /var/lib/kubelet/config.yaml' | awk '{print $1}')"
   done
   for f in kube-apiserver kube-scheduler kube-controller-manager; do
-    echo "$MASTER $f $(sudo sha256sum /etc/kubernetes/manifests/$f.yaml | awk '{print $1}')"
+    echo "lab-k8s-master $f $(sudo sha256sum /etc/kubernetes/manifests/$f.yaml | awk '{print $1}')"
   done
-} | tee "$EV/b0-config-sha.txt"
-
-test "$(wc -l < "$EV/b0-config-sha.txt")" -eq 6 \
-  && test "$(awk '{print $3}' "$EV/b0-config-sha.txt" | grep -c '^[0-9a-f]\{64\}$')" -eq 6 \
-  && echo 'PASS: ghi duoc checksum cua 3 cau hinh kubelet va 3 manifest control plane'
+} > ~/lab-evidence/12/b0-config-sha.txt
+cat ~/lab-evidence/12/b0-config-sha.txt
+test "$(awk '{print $3}' ~/lab-evidence/12/b0-config-sha.txt | grep -c '^[0-9a-f]\{64\}$')" -eq 6 \
+  && echo 'PASS: ghi duoc checksum cua sau file cau hinh'
 ```
 
-**Ý nghĩa:** lab đọc rất nhiều thứ trên node, và cám dỗ "sửa thử một dòng để xem graceful shutdown
-chạy thế nào" là có thật. Gate này biến lời hứa "chỉ đọc" thành thứ kiểm chứng được ở B11.2. Nó
-cũng bắt được một sự cố khác: node boot lại sau khi tắt máy mà cấu hình bị đổi.
+**PASS:** gate A5.5 đạt như mô tả ở Lab 00; ba dòng `PASS:` của mốc `04-metrics-ready`; ba dòng
+`PASS:` về repo và cluster; `deploy exit=0`, `smoke exit=0` và file smoke không có dòng `FAIL:`; đủ
+tám dòng `PASS: ... co ...`; dòng `PASS:` về checksum.
 
-**PASS:** dòng `PASS:` của bước này xuất hiện.
+`deploy.sh` hoặc `smoke.sh` fail nghĩa là repo của sprint 18 **chưa đủ** — sửa repo ở tag `lab-11b`
+trước, không sửa tay trên cluster ([mục 6.1 của file dự án](DU-AN-BOOKSTORE.md#61-mở-đầu)). Nếu
+`kubectl top node` báo lỗi, cluster chưa ở mốc đầu vào: restore cả ba VM về `04-metrics-ready`.
 
-### B0.4. Ảnh chụp "trước" của worker2 và của cluster
+## B1. [BS-12-01] Kiểm kê nền tảng và rủi ro trước bảo trì
 
-Số Pod DaemonSet đang chạy trên worker2 là **dữ kiện quyết định** của B7: sau khi drain, con số đó
-phải là toàn bộ những gì còn lại trên node; sau khi node boot lại, nó phải trở về đúng mức cũ.
+**Loại:** Điều tra.
+
+**Bối cảnh:** trước khi tắt một node, đội phải biết node đó đang gánh gì. Request của khách không chỉ
+đi qua `web`, `api`, `db` mà còn qua ingress controller, DNS của cluster, và HPA của `web` cần nguồn
+metric. Những thứ đó là **add-on** — dự án không viết chúng nhưng phụ thuộc vào chúng. Bài 155 chia
+việc quản trị thành nhóm, bài 165 là danh mục add-on, bài 189 là mục lục tác vụ: ba trang mục lục
+này, đọc đúng cách, cho bạn bản đồ để lập bảng rủi ro.
+
+**Yêu cầu:**
+
+1. Với mỗi nhóm việc của bài 155 — lập kế hoạch, quản lý cluster, bảo mật cluster (kể cả nhánh bảo
+   mật kubelet), dịch vụ tùy chọn — chỉ ra **một hiện vật có thật** trên cluster của bạn.
+2. Kiểm kê add-on đang chạy, xếp vào năm nhóm chức năng của bài 165, chỉ ra những add-on đang chạy
+   mà danh mục **không** liệt kê, và những nhóm đang trống.
+3. Chứng minh cluster không có autoscaling Node: không autoscaler nào chạy, không cloud provider nào
+   đứng sau Node.
+4. Dùng trang 189 đúng công dụng mục lục: chọn ba tác vụ liên quan tới runbook bảo trì — truy cập
+   API, drain node, StorageClass mặc định — và chỉ ra cho mỗi tác vụ một hiện vật trên cluster.
+5. Lập **bảng rủi ro** ở mục 1 của `docs/runbook-bao-tri-node.md`: với mỗi workload của Bookstore và
+   mỗi add-on nằm trên đường request hoặc trên đường của HPA — số bản sao, có PDB không, đang ở node
+   nào, dữ liệu gắn với node nào; rồi **dự đoán** điều gì xảy ra khi drain `lab-k8s-worker1` và khi
+   drain `lab-k8s-worker2`. B5 và B7 sẽ đối chiếu dự đoán với số đo.
+
+**Ràng buộc:** chỉ đọc. Không đổi số bản sao của add-on nào, không thêm PDB cho add-on nào — đó là đổi
+hạ tầng của mốc `04-metrics-ready`.
+
+**Đọc lại:**
+
+- Bài [155](../155-cluster-administration-vi.md):
+  [*Lập kế hoạch cho cluster*](../155-cluster-administration-vi.md#lập-kế-hoạch-cho-cluster-planning-a-cluster),
+  [*Quản lý cluster*](../155-cluster-administration-vi.md#quản-lý-cluster-managing-a-cluster),
+  [*Bảo mật kubelet*](../155-cluster-administration-vi.md#bảo-mật-kubelet-securing-the-kubelet),
+  [*Các dịch vụ cluster tùy chọn*](../155-cluster-administration-vi.md#các-dịch-vụ-cluster-tùy-chọn-optional-cluster-services).
+- Bài [165](../165-addons-vi.md) — câu mở đầu về độ đầy đủ của danh sách;
+  [*Mạng và Network Policy*](../165-addons-vi.md#networking-and-network-policy),
+  [*Hạ tầng*](../165-addons-vi.md#hạ-tầng-infrastructure),
+  [*Đo lường*](../165-addons-vi.md#đo-lường-instrumentation).
+- Bài [171](../171-node-autoscaling-vi.md): [*Cấp phát Node*](../171-node-autoscaling-vi.md#provisioning),
+  [*Các autoscaler*](../171-node-autoscaling-vi.md#autoscalers).
+- Bài [189](../189-administer-cluster-vi.md#danh-sách-các-trang-trong-mục-này-pages-in-this-section)
+  — chỉ đọc như mục lục.
+- Bài [53](../53-disruptions-vi.md#pod-disruption-budgets) — ai nên tôn trọng PDB, và PDB chỉ chặn được
+  gián đoạn đi qua Eviction API.
+
+**Bàn giao:** `docs/runbook-bao-tri-node.md` với mục `## 1. Hiện trạng và rủi ro`;
+`~/lab-evidence/12/b1-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` không node nào có `providerID`, `kube-controller-manager` không đặt cloud provider, không
+  autoscaler hay descheduler nào chạy.
+- `PASS:` ResourceQuota `bookstore-quota` là hiện vật của nhóm *Quản lý cluster*.
+- `PASS:` API server phân quyền bằng RBAC; cả ba kubelet ủy quyền quyết định cho API server; kubelet
+  của worker2 dùng client certificate do TLS bootstrapping cấp.
+- `PASS:` DNS và nguồn metric đang chạy; ba nhóm *Đo lường*, *Hạ tầng*, *Trực quan hóa* đang trống;
+  có IngressClass và đúng một StorageClass mặc định, không phải `bookstore-retain`.
+- `PASS:` mọi PDB trên cluster đều thuộc dự án — add-on nền không có PDB nào.
+- `PASS:` dữ liệu của `db-0` gắn với `lab-k8s-worker2`.
+- `PASS:` `/api` và subresource `pods/eviction` tồn tại trong API.
+- `PASS:` runbook có mục 1 nhắc tên mọi add-on một bản sao và nơi đặt `data-db-0`, `backup-store`.
+
+**Câu hỏi thiết kế** — trả lời ngay trong mục 1 của runbook, phần *Nhận định*:
+
+1. Add-on nào nằm trên đường request của khách (trình duyệt → … → `db`)? Cái nào một bản sao và
+   không có PDB? Dự đoán chuyện gì xảy ra với request khi bạn drain node đang chạy nó.
+2. Ba add-on đang chạy không có tên trong danh mục 165. Kết luận đúng khi tra danh mục mà không thấy
+   công cụ mình cần là gì?
+3. "Bảo trì worker1 không gián đoạn" và "bảo trì worker2 không gián đoạn" — cái nào khả thi với thiết
+   kế hiện tại? Lý do nằm ở bảng *dữ liệu gắn node* của bạn.
+4. Nếu cluster chạy trên cloud có autoscaler hợp nhất node, ai sẽ gây gián đoạn tự nguyện cho
+   Bookstore mà không cần con người, và cơ chế nào của bạn còn đứng chắn?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Một Pod "nằm ở node nào": cột `NODE` của `kubectl get pods -A -o wide`.
+- Số bản sao của mọi Deployment trên cluster:
+  `kubectl get deployment -A -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name,REPL:.spec.replicas`.
+- PV của local-path mang node affinity tới đúng một node: `kubectl get pv -o yaml`, tìm
+  `nodeAffinity`.
+- Cấu hình **hiệu lực** của kubelet, kể cả giá trị mặc định không viết ra file:
+  `kubectl get --raw /api/v1/nodes/<node>/proxy/configz`. Node lab không có `jq`; dùng `grep -o`.
+- Danh mục API của nhóm core: `kubectl get --raw /api/v1`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 ```bash
-ALL_W2_0="$(kubectl get pods -A \
-  --field-selector "spec.nodeName=$W2,status.phase=Running" --no-headers 2>/dev/null | wc -l)"
-DS_W2_0="$(kubectl get pods -A --field-selector "spec.nodeName=$W2,status.phase=Running" \
-  -o jsonpath='{range .items[*]}{.metadata.ownerReferences[0].kind}{"\n"}{end}' \
-  | grep -c '^DaemonSet$')"
-echo "worker2 truoc lab: tong Pod Running=$ALL_W2_0 | do DaemonSet quan ly=$DS_W2_0"
+EV=~/lab-evidence/12; RB=~/bookstore/docs/runbook-bao-tri-node.md; W2=lab-k8s-worker2
+NODES='lab-k8s-master lab-k8s-worker1 lab-k8s-worker2'
 
-kubectl get pods -A --field-selector "spec.nodeName=$W2,status.phase=Running" -o wide \
-  | tee "$EV/b0-pods-worker2.txt"
+# 155 — lập kế hoạch; 171 — không autoscaling Node
+PID_N="$(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.providerID}{"\n"}{end}' | grep -c .)"
+CP_F="$(sudo grep -c -e '--cloud-provider' /etc/kubernetes/manifests/kube-controller-manager.yaml)"
+AS_N="$(kubectl get deployment,statefulset,daemonset -A --no-headers 2>/dev/null \
+  | grep -ciE 'cluster-autoscaler|karpenter|descheduler')"
+echo "providerID=$PID_N cloud-provider=$CP_F autoscaler=$AS_N" | tee "$EV/b1-ke-hoach.txt"
+[ "$PID_N" -eq 0 ] && [ "$CP_F" -eq 0 ] && [ "$AS_N" -eq 0 ] \
+  && echo 'PASS: tu host, khong cloud provider, khong autoscaler Node'
 
-test "$DS_W2_0" -gt 0 && test "$ALL_W2_0" -ge "$DS_W2_0" \
-  && echo 'PASS: doc duoc so Pod va so Pod DaemonSet dang chay tren worker2'
-```
+# 155 — quản lý cluster
+kubectl -n bookstore get resourcequota bookstore-quota >/dev/null 2>&1 \
+  && echo 'PASS: nhom Quan ly cluster co hien vat — ResourceQuota bookstore-quota'
 
-**Ý nghĩa:** `--field-selector` lọc ngay ở API server theo `spec.nodeName` và `status.phase`, nên
-con số không lẫn Pod đã `Succeeded` hay `Failed`. `ownerReferences[0].kind` cho biết ai tạo ra Pod;
-Pod của DaemonSet có `kind: DaemonSet` ở đó. Đây chính là ranh giới mà `kubectl drain` dùng để
-quyết định Pod nào nó **không** trục xuất được nếu thiếu `--ignore-daemonsets`.
-
-```bash
-{
-  echo "=== $(date -Is) — trang thai truoc Lab 12 ==="
-  echo '--- nodes'; kubectl get nodes -o wide
-  echo '--- unschedulable'
-  kubectl get nodes -o custom-columns='NODE:.metadata.name,UNSCHEDULABLE:.spec.unschedulable'
-  echo '--- pdb'; kubectl get pdb -A 2>&1
-  echo '--- top node'; kubectl top node 2>&1
-  echo '--- storageclass'; kubectl get storageclass
-  echo '--- ingressclass'; kubectl get ingressclass 2>&1
-  echo '--- apiservice metrics'; kubectl get apiservice v1beta1.metrics.k8s.io 2>&1
-  echo '--- namespaces'; kubectl get namespaces
-} | tee "$EV/b0-truoc.txt"
-
-test -s "$EV/b0-truoc.txt" && echo 'PASS: da ghi anh chup truoc cua cluster'
-```
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B1. Bốn nhóm việc quản trị, bốn hiện vật trong cluster
-
-**Mục đích:** bài [155](../155-cluster-administration-vi.md) là **trang mục lục** của cả nhánh
-quản trị cluster. Giá trị của nó nằm ở cấu trúc: biết công việc quản trị chia thành nhóm nào để
-khi gặp câu hỏi vận hành thì biết mở nhánh nào. Ở đây bạn đi tìm, với từng nhóm, một hiện vật có
-thật trong cluster của mình — mục lục chỉ hữu ích khi nó nối được với thứ sờ được.
-
-### B1.1. Nhóm *Lập kế hoạch cho cluster*
-
-```bash
-kubectl get nodes -o wide | tee "$EV/b1-nodes.txt"
-
+# 155 — bảo mật cluster và bảo mật kubelet
+AUTHZ="$(sudo grep -oE -e '--authorization-mode=[^ ]+' /etc/kubernetes/manifests/kube-apiserver.yaml \
+  | head -1 | cut -d= -f2)"
+WH=0
 for n in $NODES; do
-  kubectl get node "$n" -o jsonpath='{.metadata.name}{"\t"}{.status.nodeInfo.osImage}{"\t"}{.status.nodeInfo.kernelVersion}{"\t"}{.status.nodeInfo.containerRuntimeVersion}{"\n"}'
-done | tee "$EV/b1-nodeinfo.txt"
-
-PID_N="$(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.providerID}{"\n"}{end}' \
-  | grep -c .)"
-echo "so node co providerID = $PID_N"
-
-test "$PID_N" -eq 0 && test "$(wc -l < "$EV/b1-nodeinfo.txt")" -eq 3 \
-  && echo 'PASS: khong node nao co providerID — cluster tu host, khong phai IaaS'
-```
-
-**Ý nghĩa:** `.spec.providerID` là chuỗi định danh tài nguyên của nhà cung cấp cloud đứng sau Node.
-Rỗng ở cả ba node nghĩa là **không có nhà cung cấp cloud nào biết tới ba máy này**. Đối chiếu với
-danh sách cân nhắc ở mục *Lập kế hoạch cho cluster*: bạn đang **tự host**, **on-premises**, trên
-**máy ảo**, cluster **nhiều node nhưng không HA**, và mục đích là **vận hành**. Chính dữ kiện
-`providerID` rỗng này còn quay lại ở B8 và B10.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
-### B1.2. Nhóm *Quản lý cluster*
-
-Bài xếp vào nhóm này đúng hai việc: quản lý node, và resource quota cho cluster dùng chung.
-
-```bash
-kubectl get nodes -o custom-columns='NODE:.metadata.name,ROLES:.metadata.labels.node-role\.kubernetes\.io/control-plane,CPU:.status.allocatable.cpu,MEM:.status.allocatable.memory' \
-  | tee "$EV/b1-allocatable.txt"
-
-RQ_N="$(kubectl get resourcequota -A --no-headers 2>/dev/null | wc -l)"
-LR_N="$(kubectl get limitrange -A --no-headers 2>/dev/null | wc -l)"
-echo "resourcequota=$RQ_N | limitrange=$LR_N"
-
-test "$RQ_N" -eq 0 && test "$LR_N" -eq 0 \
-  && echo 'PASS: chua namespace nao co chinh sach tai nguyen — dung moc 04-metrics-ready'
-```
-
-**Ý nghĩa:** hai việc của nhóm này bạn đã làm ở hai lab khác nhau — node ở
-[Lab 1a](LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md), quota ở
-[Lab 7b](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md). Trang 155 chỉ ghép chúng lại thành một nhóm
-công việc. Con số 0 ở đây là bằng chứng Lab 7b đã cleanup sạch.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
-### B1.3. Nhóm *Bảo mật cluster* và nhánh *Bảo mật kubelet*
-
-```bash
-AUTHZ="$(sudo grep -oE '\-\-authorization-mode=[^ ]+' \
-  /etc/kubernetes/manifests/kube-apiserver.yaml | head -1 | cut -d= -f2)"
-echo "authorization-mode cua API server = $AUTHZ"
-case "$AUTHZ" in
-  *RBAC*) echo 'PASS: API server dang cuong che phan quyen bang RBAC' ;;
-  *)      echo "FAIL: khong thay RBAC trong authorization-mode ($AUTHZ)" ;;
-esac
-```
-
-Ba mục của nhánh *Bảo mật kubelet* — giao tiếp control plane ↔ node, TLS bootstrapping, và
-authn/authz cho kubelet — đều để lại dấu vết đọc được:
-
-```bash
-KA_OK=0
-for n in $NODES; do
-  M="$(grep -c '"mode":"Webhook"' "$EV/b0-configz-$n.json")"
-  A="$(grep -c '"anonymous":{"enabled":false}' "$EV/b0-configz-$n.json")"
-  echo "$n kubelet authorization Webhook=$M | anonymous bi tat=$A"
-  test "$M" -ge 1 && KA_OK=$(( KA_OK + 1 ))
+  kubectl get --raw "/api/v1/nodes/$n/proxy/configz" > "$EV/b1-configz-$n.json" 2>/dev/null
+  grep -q '"mode":"Webhook"' "$EV/b1-configz-$n.json" && WH=$((WH + 1))
 done
-test "$KA_OK" -eq 3 \
-  && echo 'PASS: ca ba kubelet uy quyen quyet dinh phan quyen cho API server (Webhook)'
+echo "authorization-mode=$AUTHZ kubelet-webhook=$WH/3"
+case "$AUTHZ" in *RBAC*) [ "$WH" -eq 3 ] && echo 'PASS: RBAC tren API server, Webhook tren ca ba kubelet' ;; esac
+ssh "$W2" 'sudo test -e /var/lib/kubelet/pki/kubelet-client-current.pem' \
+  && echo 'PASS: kubelet worker2 dung client certificate do TLS bootstrapping cap'
 
-ssh "$W2" 'test -e /var/lib/kubelet/pki/kubelet-client-current.pem' \
-  && echo 'PASS: kubelet cua worker2 dang dung client certificate do TLS bootstrapping cap'
-```
+# 155 — dịch vụ tùy chọn; 165 — năm nhóm và add-on ngoài danh mục
+DNS_R="$(kubectl -n kube-system get deployment coredns -o jsonpath='{.status.readyReplicas}')"
+MS="$(kubectl get apiservice v1beta1.metrics.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')"
+KSM="$(kubectl get deployment,statefulset -A --no-headers 2>/dev/null | grep -ci 'kube-state-metrics')"
+NPD="$(kubectl get daemonset -A --no-headers 2>/dev/null | grep -ci 'node-problem-detector')"
+UI="$(kubectl get deployment -A --no-headers 2>/dev/null | grep -ciE 'dashboard|headlamp')"
+IC="$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)"
+DEF="$(kubectl get storageclass -o jsonpath='{range .items[*]}{.metadata.name}={.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' | grep '=true$')"
+echo "coredns=$DNS_R metrics=$MS ksm=$KSM npd=$NPD ui=$UI ingressclass=$IC mac_dinh=$DEF" | tee "$EV/b1-addon.txt"
+{ [ "${DNS_R:-0}" -ge 1 ] && [ "$MS" = 'True' ] && [ "$KSM" -eq 0 ] && [ "$NPD" -eq 0 ] && [ "$UI" -eq 0 ] \
+  && [ "$IC" -ge 1 ] && [ "$(echo "$DEF" | grep -c .)" -eq 1 ] && ! echo "$DEF" | grep -q '^bookstore-retain='; } \
+  && echo 'PASS: DNS, metric, ingress co mat; ba nhom trong; StorageClass mac dinh khong phai bookstore-retain'
 
-**Ý nghĩa:** kubelet **không** tự quyết định ai được gọi nó. `authorization.mode: Webhook` nghĩa là
-mỗi request tới kubelet được hỏi ngược lại API server, và `anonymous.enabled: false` chặn client
-không danh tính. Đó là hai trong ba mục mà bài 155 tách riêng thành nhánh *Bảo mật kubelet*. File
-`kubelet-client-current.pem` là kết quả của TLS bootstrapping: kubelet tự xin certificate cho
-chính nó thay vì được phát bằng tay. Đường control plane → kubelet mà B0.2 vừa dùng là mục thứ ba.
+# Rủi ro: add-on một bản sao, PDB toàn cluster, dữ liệu gắn node
+kubectl get deployment -A -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}={.spec.replicas}{"\n"}{end}' \
+  | grep -v '^bookstore' | grep '=1$' | cut -d= -f1 > "$EV/b1-mot-ban-sao.txt"
+echo '--- add-on mot ban sao:'; cat "$EV/b1-mot-ban-sao.txt"
+[ "$(kubectl get pdb -A --no-headers 2>/dev/null | awk '$1 !~ /^bookstore/' | wc -l)" -eq 0 ] \
+  && echo 'PASS: moi PDB tren cluster deu thuoc du an'
+kubectl get pv -o jsonpath='{range .items[*]}{.spec.claimRef.namespace}/{.spec.claimRef.name}={.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]}{"\n"}{end}' \
+  | tee "$EV/b1-pv-node.txt"
+grep -qx 'bookstore/data-db-0=lab-k8s-worker2' "$EV/b1-pv-node.txt" \
+  && echo 'PASS: du lieu cua db-0 gan voi lab-k8s-worker2'
 
-**PASS:** ba dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
+# 189 — ba hiện vật cho ba mục (StorageClass mặc định đã kiểm ở trên)
+kubectl get --raw /api | grep -q '"versions"' \
+  && kubectl get --raw /api/v1 | grep -q '"pods/eviction"' \
+  && echo 'PASS: /api va subresource pods/eviction ton tai'
 
-### B1.4. Nhóm *Các dịch vụ cluster tùy chọn*
-
-```bash
-DNS_RDY="$(kubectl -n kube-system get deployment coredns -o jsonpath='{.status.readyReplicas}')"
-MS_AVAIL="$(kubectl get apiservice v1beta1.metrics.k8s.io \
-  -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')"
-echo "CoredDNS readyReplicas=$DNS_RDY | APIService metrics.k8s.io Available=$MS_AVAIL"
-
-test -n "$DNS_RDY" && test "$DNS_RDY" -ge 1 && test "$MS_AVAIL" = 'True' \
-  && echo 'PASS: ca hai dich vu tuy chon cua nhom nay dang chay: DNS va nguon metric'
-```
-
-**Ý nghĩa:** bài 155 gọi DNS và logging/monitoring là **dịch vụ tùy chọn** — Kubernetes chạy được
-mà không có chúng, nhưng gần như không ai vận hành thiếu chúng. Trên cluster này, DNS đến từ Lab 00
-và nguồn metric đến từ Lab 11a. Phần logging tập trung thì **chưa có** và đó là ranh giới bạn đã
-ghi lại ở Lab 11a.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B2. Kiểm kê add-on đang chạy và xếp theo nhóm chức năng
-
-**Mục đích:** bài [165](../165-addons-vi.md) là một **danh mục**, không phải bài giảng. Ở đây bạn
-làm ngược lại việc đọc danh mục: đi từ cluster của mình lên danh mục, và phát hiện ra rằng có
-những thứ đang chạy mà danh mục **không** liệt kê — đúng như trang tự cảnh báo.
-
-### B2.1. Toàn cảnh workload hệ thống
-
-```bash
-kubectl get daemonset -A -o wide | tee "$EV/b2-daemonset.txt"
-kubectl get deployment -A -o wide | tee "$EV/b2-deployment.txt"
-
-test -s "$EV/b2-daemonset.txt" && test -s "$EV/b2-deployment.txt" \
-  && echo 'PASS: da ghi danh sach DaemonSet va Deployment cua toan cluster'
-```
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
-### B2.2. Nhóm *Mạng và Network Policy*
-
-```bash
-CNI_CONF="$(ssh "$W2" 'sudo ls /etc/cni/net.d/ 2>/dev/null' | wc -l)"
-ssh "$W2" 'sudo ls -l /etc/cni/net.d/' | tee "$EV/b2-cni-netd.txt"
-NP_KIND="$(kubectl api-resources --api-group=networking.k8s.io --no-headers \
-  | grep -c 'networkpolicies')"
-echo "file cau hinh CNI tren worker2=$CNI_CONF | NetworkPolicy co trong API=$NP_KIND"
-
-test "$CNI_CONF" -ge 1 && test "$NP_KIND" -eq 1 \
-  && echo 'PASS: nhom Mang va Network Policy co dai dien that tren node'
-```
-
-**Ý nghĩa:** đây là nhóm dài nhất của danh mục và cũng là nhóm bạn đã trực tiếp đổi ở Lab 5b. Bài
-165 mô tả Flannel đúng là "**nhà cung cấp mạng overlay**", không nhắc network policy; còn các mục
-như Calico, Canal, Cilium, Antrea, OVN-Kubernetes thì có kèm network policy. Chính khác biệt một
-dòng đó là lý do lộ trình phải đổi CNI. Lưu ý: `NetworkPolicy` **có trong API** kể cả khi CNI không
-thực thi nó — sự tồn tại của kind không chứng minh chính sách được cưỡng chế; phần chứng minh đó
-đã làm ở Lab 5b.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
-### B2.3. Bốn nhóm còn lại: cái nào có, cái nào không
-
-```bash
-KSM_N="$(kubectl get deployment,statefulset -A --no-headers 2>/dev/null \
-  | grep -ci 'kube-state-metrics')"
-NPD_N="$(kubectl get daemonset -A --no-headers 2>/dev/null | grep -ci 'node-problem-detector')"
-UI_N="$(kubectl get deployment -A --no-headers 2>/dev/null | grep -ciE 'dashboard|headlamp')"
-DNS_N="$(kubectl -n kube-system get deployment coredns --no-headers 2>/dev/null | wc -l)"
-echo "kube-state-metrics=$KSM_N | node-problem-detector=$NPD_N | UI=$UI_N | CoreDNS=$DNS_N"
-
-test "$DNS_N" -eq 1 \
-  && echo 'PASS: nhom Kham pha dich vu co dai dien — CoreDNS'
-test "$KSM_N" -eq 0 && test "$NPD_N" -eq 0 && test "$UI_N" -eq 0 \
-  && echo 'PASS: ba nhom Do luong, Ha tang va Truc quan hoa dang TRONG tren cluster nay'
-```
-
-**Ý nghĩa:** nhóm *Đo lường* của danh mục chỉ có đúng một mục,
-[kube-state-metrics](../163-kube-state-metrics-vi.md), và bạn **không** cài nó ở Lab 11a — đó
-chính là khoảng trống "metric trạng thái đối tượng" mà Lab 11a đã đo và ghi lại. Nhóm *Hạ tầng* có
-node-problem-detector, thứ báo sự cố hệ thống của máy dưới dạng Event hoặc Node condition; nếu
-cluster này có nó, B7 sẽ có thêm một nguồn tín hiệu lúc worker2 tắt. Không có nó cũng là một câu
-trả lời hợp lệ, miễn là bạn biết mình đang thiếu gì.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B2.4. Ba thứ đang chạy mà danh mục không liệt kê
-
-```bash
-IC_N="$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)"
-SC_DEF="$(kubectl get storageclass \
-  -o jsonpath='{range .items[*]}{.metadata.name}{"="}{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' \
-  | grep -c '=true')"
-MS_AVAIL="$(kubectl get apiservice v1beta1.metrics.k8s.io \
-  -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')"
-echo "IngressClass=$IC_N | StorageClass mac dinh=$SC_DEF | metrics APIService=$MS_AVAIL"
-
-kubectl get storageclass -o wide | tee "$EV/b2-storageclass.txt"
-
-test "$IC_N" -ge 1 && test "$SC_DEF" -eq 1 && test "$MS_AVAIL" = 'True' \
-  && echo 'PASS: ba add-on ngoai danh muc 165 deu dang chay'
-```
-
-**Ý nghĩa:** ingress controller của Lab 5b, dynamic provisioner của Lab 6a và metrics-server của
-Lab 11a **đều là add-on** theo đúng định nghĩa của bài — thứ mở rộng chức năng Kubernetes, phải
-cài thêm, là dự án bên thứ ba — nhưng **không** có tên trong danh mục. Trang tự nói rõ: "danh sách
-này không nhằm liệt kê đầy đủ tất cả". Kết luận đúng khi tra không thấy một công cụ là *danh mục
-chưa liệt kê nó*, không phải *nó không tồn tại*.
-
-Ghi bảng phân loại vào evidence để checkpoint có cái đối chiếu:
-
-```bash
-{
-  echo "=== $(date -Is) — add-on cua cluster xep theo nhom cua bai 165 ==="
-  echo "Mang va Network Policy : CNI cua Lab 5b (file cau hinh: $CNI_CONF tren worker2)"
-  echo "Kham pha dich vu       : CoreDNS ($DNS_N Deployment trong kube-system)"
-  echo "Truc quan hoa & Dieu khien : khong co ($UI_N)"
-  echo "Ha tang                : khong co node-problem-detector ($NPD_N)"
-  echo "Do luong               : khong co kube-state-metrics ($KSM_N)"
-  echo "Ngoai danh muc         : ingress controller ($IC_N IngressClass), provisioner"
-  echo "                         ($SC_DEF StorageClass mac dinh), metrics-server ($MS_AVAIL)"
-} | tee "$EV/b2-phan-loai.txt"
-
-test "$(wc -l < "$EV/b2-phan-loai.txt")" -ge 7 && echo 'PASS: da ghi bang phan loai add-on'
-```
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B3. Phiên bản tương thích của control plane
-
-**Mục đích:** bài [168](../168-compatibility-version-vi.md) giới thiệu một ý tưởng đổi cách nghĩ về
-nâng cấp: **đổi binary và đổi hành vi là hai việc tách rời được**. Ở đây bạn chứng minh cluster của
-mình đang ở trạng thái mặc định — không tách gì cả — và đọc đúng ràng buộc của flag.
-
-### B3.1. Không thành phần nào đặt `--emulated-version`
-
-```bash
-for f in kube-apiserver kube-controller-manager kube-scheduler; do
-  echo "--- $f: $(sudo grep -c 'emulated-version' /etc/kubernetes/manifests/$f.yaml) dong khop"
-done | tee "$EV/b3-emulated.txt"
-
-EMU_N=0
-for f in kube-apiserver kube-controller-manager kube-scheduler; do
-  EMU_N=$(( EMU_N + $(sudo grep -c 'emulated-version' /etc/kubernetes/manifests/$f.yaml) ))
+# Runbook
+BAD=0
+grep -q '^## 1\.' "$RB" 2>/dev/null || { echo 'FAIL: runbook chua co muc 1'; BAD=1; }
+for X in $(cut -d/ -f2 "$EV/b1-mot-ban-sao.txt") data-db-0 backup-store; do
+  grep -q "$X" "$RB" 2>/dev/null || { echo "FAIL: runbook chua nhac $X"; BAD=1; }
 done
-echo "tong so dong dat --emulated-version = $EMU_N"
-
-test "$EMU_N" -eq 0 \
-  && echo 'PASS: khong thanh phan control plane nao dat --emulated-version'
+[ "$BAD" -eq 0 ] && echo 'PASS: runbook muc 1 nhac moi add-on mot ban sao va noi dat du lieu'
 ```
 
-**Ý nghĩa:** không đặt flag nghĩa là emulation version **bằng đúng** binary version, tức mọi khả
-năng của binary đều khả dụng và không khả năng nào bị cắt. Đó là trạng thái mặc định của một
-cluster kubeadm và cũng là trạng thái bạn muốn ở lab.
+</details>
 
-**PASS:** dòng `PASS:` của bước này xuất hiện.
+<details>
+<summary>Lời giải tham khảo</summary>
 
-### B3.2. Binary version đọc từ hai nguồn độc lập
+Lệnh thu thập, ngoài những lệnh đã có trong script nghiệm thu:
 
 ```bash
-SRV_VER="$(kubectl get --raw /version | grep -o '"gitVersion":"[^"]*"' | cut -d'"' -f4)"
-IMG_VER="$(sudo grep -oE 'image: registry\.k8s\.io/kube-apiserver:[^[:space:]]+' \
-  /etc/kubernetes/manifests/kube-apiserver.yaml | head -1 | cut -d: -f3)"
-echo "API server gitVersion=$SRV_VER | tag image trong manifest=$IMG_VER"
-
-test -n "$SRV_VER" && test "$SRV_VER" = "$IMG_VER" \
-  && echo 'PASS: hai nguon doc lap cho cung mot binary version'
+kubectl get pods -A -o wide --field-selector=status.phase=Running \
+  | awk 'NR==1 || $1 !~ /^bookstore/ || $1 == "bookstore"' > ~/lab-evidence/12/b1-pods.txt
+kubectl get daemonset,deployment,statefulset -A -o wide > ~/lab-evidence/12/b1-workload.txt
+kubectl -n bookstore get pdb,hpa,pvc
 ```
 
-Bây giờ đối chiếu với baseline. **Không chép con số vào lab** — mở
-[bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa), đọc dòng
-*Kubernetes control plane*, rồi điền vào biến dưới đây:
+Mục 1 của runbook — ví dụ, cột node điền theo cluster của bạn:
+
+```markdown
+## 1. Hiện trạng và rủi ro (đọc ngày 2026-10-13)
+
+### 1.1. Bốn nhóm việc của bài 155 trên cluster này
+- Lập kế hoạch: tự host, on-premises, VM, không HA; `providerID` rỗng ở cả ba node.
+- Quản lý cluster: ba Node; ResourceQuota `bookstore-quota` của dự án.
+- Bảo mật: `--authorization-mode` có RBAC; kubelet `authorization.mode: Webhook`;
+  `kubelet-client-current.pem` do TLS bootstrapping cấp.
+- Dịch vụ tùy chọn: CoreDNS; metrics-server; log node do `node-agent` đọc (Lab 11a).
+
+### 1.2. Đường request và đường dữ liệu
+| Thành phần | Nhóm (bài 165) | Bản sao | PDB | Node | Drain worker1 | Drain worker2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| traefik | ngoài danh mục | 1 | không | worker1 | rơi request vài giây | không ảnh hưởng |
+| coredns | Khám phá dịch vụ | 2 | không | master, worker2 | không ảnh hưởng | còn bản kia |
+| metrics-server | ngoài danh mục | 1 | không | worker2 | không | HPA mất metric vài phút |
+| local-path-provisioner | ngoài danh mục | 1 | không | worker1 | chỉ chặn PVC mới | không |
+| calico-kube-controllers | Mạng | 1 | không | worker1 | không trên đường request | không |
+| web (Bookstore) | — | 2–5 (HPA) | có | worker1, worker2 | không gián đoạn | không gián đoạn |
+| api (Bookstore) | — | 2 | có | worker1, worker2 | không gián đoạn | không gián đoạn khi db còn |
+| db-0 (Bookstore) | — | 1 | không | worker2, PV `data-db-0` trên worker2 | không | **ngừng** tới khi worker2 về |
+| backup-store | — | PVC | — | PV trên worker1 | backup trễ tới khi worker1 về | không |
+
+### 1.3. Nhận định
+...
+```
+
+Ý chính cho phần *Nhận định*:
+
+1. Đường request: Traefik → `web` → `api` → `db`, cộng CoreDNS khi một tầng phân giải tên lúc khởi
+   động hay lúc kết nối lại. Traefik theo chart mặc định chạy **một** bản sao, không PDB: drain node
+   của nó là trục xuất bản duy nhất; trong lúc Pod mới chưa Ready, NodePort không có đích — request
+   rơi. PDB của Bookstore không bảo vệ được tầng này vì nó không thuộc Bookstore.
+2. Ingress controller (5b), provisioner (6a), metrics-server (11a) đều là add-on theo đúng định nghĩa
+   của bài — mở rộng Kubernetes, cài thêm, bên thứ ba — nhưng không có tên trong danh mục. Bài nói
+   thẳng danh sách *không nhằm liệt kê đầy đủ*: tra không thấy nghĩa là danh mục chưa liệt kê.
+3. Worker1 khả thi: mọi thứ của Bookstore trên đó đều có bản sao ở worker2. Worker2 không: `db-0`
+   một bản sao, PV local của nó chỉ tồn tại trên đĩa worker2, và node affinity của `db` (Lab 7a) chỉ
+   chấp nhận worker2. Bảo trì worker2 là một **cửa sổ bảo trì** có downtime DB.
+4. Autoscaler hợp nhất node bằng cách drain node (sơ đồ ở mục *Các autoscaler* của bài 171) — tức đi
+   qua Eviction API. PDB `web`, `api` vẫn đứng chắn; `db` không có PDB nên không có gì đứng chắn.
+   Câu này quay lại ở ADR của B7.
+
+</details>
+
+## B2. [BS-12-02] Control plane trước mùa nâng cấp
+
+**Loại:** Điều tra.
+
+**Bối cảnh:** sau bảo trì node, việc lớn tiếp theo của đội vận hành là nâng cấp cluster (giai đoạn 17)
+để Bookstore được dùng phiên bản mới. Runbook nâng cấp sẽ cần vài dữ kiện về control plane mà ngày
+thường không ai nhìn: thành phần nào đang giả lập phiên bản cũ, ai giữ quyền leader và giữ bằng
+cách nào, có cần quy trình Leader Migration không. Sprint này thu thập chúng, không thay đổi gì.
+
+**Yêu cầu:**
+
+1. Chứng minh không thành phần control plane nào giả lập phiên bản cũ; đọc binary version từ hai
+   nguồn độc lập, chúng khớp nhau và khớp baseline ở A1.3.
+2. Với kube-scheduler và kube-controller-manager: ai đang giữ quyền leader, Lease hiệu lực bao lâu, đã
+   đổi chủ bao nhiêu lần; chứng minh leader còn sống.
+3. Chứng minh kubelet của hai worker đang gửi nhịp tim qua Lease — mốc so sánh cho B7, khi một
+   worker tắt.
+4. Chứng minh bầu chọn leader có phối hợp đang tắt.
+5. Bốn dữ kiện đọc được chứng minh Leader Migration không áp dụng cho cluster này, cộng quyền mà role
+   leader-locking của controller manager đang cho phép.
+6. ADR `docs/adr/NNNN-control-plane-truoc-nang-cap.md` (`NNNN` là số tiếp theo trong `docs/adr/`).
+
+**Ràng buộc:** chỉ đọc. Không sửa manifest control plane, không patch role nào.
+
+**Đọc lại:**
+
+- Bài [168](../168-compatibility-version-vi.md#phiên-bản-giả-lập-emulated-version) — hai quy tắc khả
+  dụng và ràng buộc `≤ binaryVersion`.
+- Bài [167](../167-coordinated-leader-election-vi.md):
+  [*Bật bầu chọn leader có phối hợp*](../167-coordinated-leader-election-vi.md#bật-bầu-chọn-leader-có-phối-hợp-enabling-coordinated-leader-election),
+  [*Lựa chọn leader cho các thành phần Kubernetes*](../167-coordinated-leader-election-vi.md#lựa-chọn-leader-cho-các-thành-phần-kubernetes-leader-selection-for-kubernetes-components).
+- Bài [198](../198-controller-manager-leader-migration-vi.md):
+  [*Bối cảnh*](../198-controller-manager-leader-migration-vi.md#bối-cảnh-background),
+  [*Cấp quyền truy cập Lease di trú*](../198-controller-manager-leader-migration-vi.md#cấp-quyền-truy-cập-lease-di-trú-grant-access-to-migration-lease).
+- Bài [35](../35-leases-vi.md#node-heart-beats) và
+  [Lab 1c phần B3](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md#b3-lease-heartbeat-leader-election-và-api-server-identity).
+
+**Bàn giao:** `docs/adr/NNNN-control-plane-truoc-nang-cap.md`; `~/lab-evidence/12/b2-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` không manifest control plane nào có `--emulated-version`; `gitVersion` của API server khớp
+  tag image trong manifest và khớp baseline A1.3.
+- `PASS:` leader của kube-scheduler nằm trên `lab-k8s-master`; `renewTime` tiến lên theo thời gian.
+- `PASS:` Node Lease của từng worker được gia hạn.
+- `PASS:` `LeaseCandidate` không có trong API, `coordination.k8s.io/v1beta1` không được phục vụ, không
+  feature gate nào bật tính năng.
+- `PASS:` bốn dữ kiện loại trừ Leader Migration; role leader-locking chưa từng được vá cho Lease di
+  trú, và Lease đó không tồn tại.
+- `PASS:` có ADR.
+
+**Câu hỏi thiết kế** — trả lời trong ADR:
+
+1. Đội nâng binary control plane lên minor kế tiếp nhưng giữ `--emulated-version` ở phiên bản hiện
+   tại. Một trường API chỉ có ở phiên bản mới — manifest Bookstore dùng được chưa? Một API đã bị gỡ ở
+   bản mới — còn dùng được không? Tùy chọn này tách hai việc gì?
+2. Cluster chỉ có một kube-scheduler. Lease của nó bảo đảm điều gì? Nếu static Pod kube-scheduler
+   khởi động lại giữa giờ cao điểm, Pod `web` đang chạy có bị ảnh hưởng không, còn Pod mới HPA vừa
+   yêu cầu thì sao?
+3. Bật `CoordinatedLeaderElection` có thay thế cơ chế Lease không? Nó đổi **điều gì** trong cách chọn
+   leader?
+4. Bốn dữ kiện nào loại trừ Leader Migration? Nếu một ngày cluster chạy trên cloud với ba control
+   plane, bước đầu tiên của quy trình là vá role — vì sao?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Ba manifest control plane nằm ở `/etc/kubernetes/manifests/` trên master; đọc bằng `sudo grep`.
+- `kubectl get --raw /version` trả JSON có `gitVersion`.
+- Lease control plane ở namespace `kube-system`, Lease của node ở `kube-node-lease`, tên trùng tên node.
+- API group đang được phục vụ: `kubectl get --raw /apis/coordination.k8s.io`.
+- Role của controller manager:
+  `kubectl -n kube-system get role 'system::leader-locking-kube-controller-manager' -o yaml`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+Trước khi chạy, mở [bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa), đọc dòng
+*Kubernetes control plane* rồi đặt biến — lab không chép con số vào đây:
 
 ```bash
 export K8S_BASELINE='<phien ban Kubernetes control plane trong bang A1.3, dang vX.Y.Z>'
-
-case "$K8S_BASELINE" in
-  ''|*'<'*) echo 'FAIL: chua dien gia tri that vao K8S_BASELINE — quay lai bang A1.3' ;;
-  v*)       echo "OK: K8S_BASELINE = $K8S_BASELINE" ;;
-  *)        echo 'FAIL: gia tri phai bat dau bang chu v' ;;
-esac
-
-test "$SRV_VER" = "$K8S_BASELINE" \
-  && echo 'PASS: cluster van dung dung baseline cua bang A1.3, khong bi ha bang emulation'
 ```
 
-**Ý nghĩa:** ràng buộc cứng của bài là `--emulated-version` **phải ≤ `binaryVersion`**: bạn giả lập
-được phiên bản cũ hơn binary đang chạy, không bao giờ giả lập được phiên bản mới hơn. Hai quy tắc
-đối xứng đi kèm: khả năng được **giới thiệu sau** emulation version thì **không** khả dụng, khả
-năng bị **loại bỏ sau** emulation version thì **vẫn** khả dụng. Nghĩa là emulation cắt cả hai
-chiều — giữ được cái cũ nhưng mất quyền dùng cái mới.
-
-Công dụng thực dụng chỉ hiện ra trong một lần nâng cấp: triển khai binary mới trong khi hành vi
-giữ nguyên, xác nhận cluster ổn, rồi mới nâng emulation version thành một bước riêng — và nếu bước
-đó gây sự cố thì lùi lại chỉ là đổi một flag, không phải hạ cấp binary. Việc đó thuộc
-[giai đoạn 17](../00-ALO-TRINH-ADMIN.md#giai-đoạn-17--nâng-cấp-cluster).
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện, và dòng `OK: K8S_BASELINE = …` chứa con số thật.
-
----
-
-## B4. Lease của control plane ở góc vận hành
-
-**Mục đích:** [Lab 1c](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md#b3-lease-heartbeat-leader-election-và-api-server-identity)
-đã đọc Lease ở mức khái niệm. Ở đây bạn đọc chúng như một **tín hiệu vận hành**: ai đang là leader,
-lần gia hạn gần nhất lúc nào, và quyền leader đã đổi chủ bao nhiêu lần. Bài
-[167](../167-coordinated-leader-election-vi.md) thêm một tầng lên trên cơ chế đó; B4.3 chứng minh
-tầng ấy đang tắt.
-
-### B4.1. Năm trường của Lease control plane
-
 ```bash
+EV=~/lab-evidence/12; W1=lab-k8s-worker1; W2=lab-k8s-worker2
+M=/etc/kubernetes/manifests
+
+# 168
+EMU=0
+for f in kube-apiserver kube-controller-manager kube-scheduler; do
+  EMU=$((EMU + $(sudo grep -c 'emulated-version' "$M/$f.yaml")))
+done
+SRV="$(kubectl get --raw /version | grep -o '"gitVersion":"[^"]*"' | cut -d'"' -f4)"
+IMG="$(sudo grep -oE 'image: registry\.k8s\.io/kube-apiserver:[^[:space:]]+' "$M/kube-apiserver.yaml" | head -1 | cut -d: -f3)"
+echo "emulated=$EMU gitVersion=$SRV tag_image=$IMG baseline=$K8S_BASELINE" | tee "$EV/b2-phien-ban.txt"
+{ [ "$EMU" -eq 0 ] && [ -n "$SRV" ] && [ "$SRV" = "$IMG" ] && [ "$SRV" = "$K8S_BASELINE" ]; } \
+  && echo 'PASS: khong gia lap; binary version khop tag image va baseline A1.3'
+
+# 167 — Lease control plane
 kubectl -n kube-system get lease kube-controller-manager kube-scheduler \
   -o custom-columns='NAME:.metadata.name,HOLDER:.spec.holderIdentity,ACQUIRE:.spec.acquireTime,RENEW:.spec.renewTime,DUR:.spec.leaseDurationSeconds,TRANS:.spec.leaseTransitions' \
-  | tee "$EV/b4-lease.txt"
-
-HOLDER="$(kubectl -n kube-system get lease kube-scheduler \
-  -o jsonpath='{.spec.holderIdentity}')"
-DUR="$(kubectl -n kube-system get lease kube-scheduler \
-  -o jsonpath='{.spec.leaseDurationSeconds}')"
-echo "holderIdentity cua kube-scheduler = $HOLDER | leaseDurationSeconds = $DUR"
-
-case "$HOLDER" in
-  *"$MASTER"*) echo "PASS: leader dang nam tren $MASTER — dung topology mot control plane" ;;
-  *)           echo "FAIL: holderIdentity khong chua ten master ($HOLDER)" ;;
-esac
-test -n "$DUR" && test "$DUR" -gt 0 && echo 'PASS: doc duoc leaseDurationSeconds'
-```
-
-**Ý nghĩa:** `holderIdentity` là danh tính của leader hiện tại — trên cluster kubeadm nó là chuỗi
-dựa trên hostname của node chạy static Pod. `leaseDurationSeconds` là khoảng hiệu lực; ứng viên
-phải chờ hết khoảng này cộng một grace period nhỏ trước khi thử giành một Lease đã hết hạn.
-`leaseTransitions` đếm số lần quyền leader đổi chủ — trên cluster một control plane, con số này chỉ
-tăng khi Pod control plane khởi động lại.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
-
-### B4.2. `renewTime` tiến lên — leader đang còn sống
-
-```bash
+  | tee "$EV/b2-lease.txt"
+H="$(kubectl -n kube-system get lease kube-scheduler -o jsonpath='{.spec.holderIdentity}')"
 R1="$(kubectl -n kube-system get lease kube-scheduler -o jsonpath='{.spec.renewTime}')"
 sleep 20
 R2="$(kubectl -n kube-system get lease kube-scheduler -o jsonpath='{.spec.renewTime}')"
-echo "renewTime: $R1  ->  $R2"
+case "$H" in *lab-k8s-master*) [ -n "$R1" ] && [ "$R1" != "$R2" ] \
+  && echo "PASS: leader kube-scheduler tren lab-k8s-master, renewTime $R1 -> $R2" ;; esac
 
-test -n "$R1" && test -n "$R2" && test "$R1" != "$R2" \
-  && echo 'PASS: leader dang dinh ky gia han Lease — renewTime tien len'
-```
+# Node Lease — mốc cho B7
+for N in "$W1" "$W2"; do
+  A="$(kubectl -n kube-node-lease get lease "$N" -o jsonpath='{.spec.renewTime}')"; sleep 15
+  B="$(kubectl -n kube-node-lease get lease "$N" -o jsonpath='{.spec.renewTime}')"
+  echo "$N $A -> $B" | tee -a "$EV/b2-node-lease.txt"
+  [ -n "$A" ] && [ "$A" != "$B" ] && echo "PASS: kubelet $N dang gia han Node Lease"
+done
 
-**Ý nghĩa:** leader gia hạn Lease bằng cách cập nhật `renewTime`, thường mỗi `leaseDurationSeconds`
-÷ 2 để tránh xung đột lúc Lease sắp hết hạn. Chừng nào việc gia hạn còn diễn ra trước khi Lease hết
-hạn thì leader hiện tại giữ quyền. Nếu leader crash hoặc mất liên lạc, Lease hết hạn và các instance
-khỏe mạnh khác tiến hành cuộc bầu chọn mới. **Đây chính là cơ chế bạn sẽ thấy dừng lại ở B7.5** —
-lần đó trên Node Lease của worker2 thay vì Lease của scheduler.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
-### B4.3. Bầu chọn leader có phối hợp đang tắt
-
-```bash
-kubectl api-resources --api-group=coordination.k8s.io | tee "$EV/b4-api-resources.txt"
-
-LC_N="$(kubectl api-resources --api-group=coordination.k8s.io --no-headers \
-  | grep -ci 'leasecandidate')"
+# 167 — bầu chọn có phối hợp
+LC="$(kubectl api-resources --api-group=coordination.k8s.io --no-headers 2>/dev/null | grep -ci leasecandidate)"
 V1B="$(kubectl get --raw /apis/coordination.k8s.io | grep -c 'v1beta1')"
-FG_N="$(sudo grep -c 'CoordinatedLeaderElection' /etc/kubernetes/manifests/kube-apiserver.yaml)"
-echo "leasecandidates trong API=$LC_N | v1beta1 duoc phuc vu=$V1B | feature gate=$FG_N"
+FG="$(sudo grep -c 'CoordinatedLeaderElection' "$M/kube-apiserver.yaml")"
+echo "leasecandidate=$LC v1beta1=$V1B feature-gate=$FG" | tee "$EV/b2-cle.txt"
+[ "$LC" -eq 0 ] && [ "$V1B" -eq 0 ] && [ "$FG" -eq 0 ] && echo 'PASS: bau chon leader co phoi hop dang tat'
 
-test "$LC_N" -eq 0 && test "$V1B" -eq 0 && test "$FG_N" -eq 0 \
-  && echo 'PASS: CoordinatedLeaderElection dang TAT — dung mac dinh cua tinh nang beta nay'
+# 198 — bốn dữ kiện và role
+CPF="$(sudo grep -c -e '--cloud-provider' "$M/kube-controller-manager.yaml")"
+MIG="$(sudo grep -c 'enable-leader-migration' "$M/kube-controller-manager.yaml")"
+CCM="$(kubectl get deployment,daemonset,pod -A --no-headers 2>/dev/null | grep -ci 'cloud-controller-manager')"
+PIDN="$(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.providerID}{"\n"}{end}' | grep -c .)"
+CPN="$(kubectl get nodes -l node-role.kubernetes.io/control-plane --no-headers | wc -l)"
+echo "cloud-provider=$CPF leader-migration=$MIG ccm=$CCM providerID=$PIDN control-plane=$CPN" | tee "$EV/b2-migration.txt"
+{ [ "$CPF" -eq 0 ] && [ "$CCM" -eq 0 ] && [ "$PIDN" -eq 0 ] && [ "$CPN" -eq 1 ] && [ "$MIG" -eq 0 ]; } \
+  && echo 'PASS: bon du kien loai tru Leader Migration'
+kubectl -n kube-system get role 'system::leader-locking-kube-controller-manager' \
+  -o jsonpath='{range .rules[*]}{.resources}{" "}{.resourceNames}{" "}{.verbs}{"\n"}{end}' | tee "$EV/b2-role-kcm.txt"
+{ ! grep -q 'cloud-provider-extraction-migration' "$EV/b2-role-kcm.txt" \
+  && ! kubectl -n kube-system get lease cloud-provider-extraction-migration >/dev/null 2>&1; } \
+  && echo 'PASS: role chua duoc va cho Lease di tru, Lease di tru khong ton tai'
+
+ls ~/bookstore/docs/adr/*-control-plane-truoc-nang-cap.md >/dev/null 2>&1 && echo 'PASS: co ADR'
 ```
 
-**Ý nghĩa:** tính năng này ở mức beta và **mặc định tắt**; muốn bật phải có **cả hai**: feature gate
-`CoordinatedLeaderElection` và API group `coordination.k8s.io/v1beta1`. Cả hai đều vắng ở đây, nên
-`LeaseCandidate` không tồn tại và các thành phần vẫn bầu leader theo kiểu thông thường.
+</details>
 
-Điều quan trọng phải hiểu đúng: bật tính năng ấy **không thay thế** cơ chế Lease. Các ứng viên vẫn
-phối hợp qua **một Lease dùng chung**; cái được thêm vào là đối tượng `LeaseCandidate` mang danh
-tính, binary version và emulation version của từng instance. Khác biệt thật nằm ở **cách chọn ai
-thắng**: bầu chọn thông thường về bản chất là ai giành được Lease trước thì thắng — do điều khiển
-đồng thời lạc quan qua `resourceVersion`, chỉ một lần cập nhật thành công; còn bầu chọn có phối hợp
-chọn leader **một cách xác định**, theo chiến lược dựng sẵn duy nhất hiện nay là
-`OldestEmulationVersion` — ưu tiên emulation version thấp nhất, rồi binary version, rồi thời điểm
-tạo. Đó là chỗ bài 167 nối thẳng vào `--emulated-version` của B3.
+<details>
+<summary>Lời giải tham khảo — ý chính cho ADR</summary>
 
-Và trên cluster một control plane thì **không có gì để tranh**: mỗi thành phần đúng một instance.
-Giá trị thật của cả hai cơ chế chỉ xuất hiện ở cluster HA — nội dung của lab 8b và 8c.
+1. Không dùng được trường mới: khả năng **giới thiệu sau** emulation version thì không khả dụng. API
+   bị gỡ ở bản mới **vẫn dùng được**: khả năng **bị loại bỏ sau** emulation version vẫn khả dụng.
+   Emulation cắt cả hai chiều. Nó tách **thay binary** khỏi **đổi hành vi**: bước một thay binary mà
+   hành vi y cũ, xác nhận Bookstore chạy ổn, bước hai mới nâng emulation version — lùi lại chỉ là đổi
+   một flag.
+2. Lease bảo đảm chỉ một instance chủ động điều khiển tại một thời điểm; với một instance thì không
+   có gì để tranh, và khi nó khởi động lại thì không ai lập lịch thay. Pod đang chạy không bị ảnh
+   hưởng — scheduler chỉ quyết định chỗ cho Pod **mới**. Pod mới do HPA yêu cầu nằm `Pending` cho tới
+   khi scheduler giành lại Lease. `leaseTransitions` chỉ tăng khi thành phần khởi động lại.
+3. Không thay thế: các ứng viên vẫn phối hợp qua **một Lease dùng chung**; thứ thêm vào là
+   `LeaseCandidate` mang binary và emulation version. Khác biệt nằm ở cách chọn ai thắng: từ "ai cập
+   nhật được Lease trước" (điều khiển đồng thời lạc quan qua `resourceVersion`) sang chọn **xác định**
+   theo `OldestEmulationVersion`.
+4. Không `--cloud-provider`, không `cloud-controller-manager`, `providerID` rỗng, control plane một
+   node — bài 198 nói thẳng control plane một node không cần quy trình này. Bước đầu là vá role vì
+   quyền mặc định của controller manager chỉ cho truy cập **Lease chính của nó**; Lease di trú dùng
+   chung giữa hai manager là một Lease khác, đúng như `b2-role-kcm.txt` cho thấy.
 
-**PASS:** dòng `PASS:` của bước này xuất hiện.
+</details>
 
----
+## B3. [BS-12-03] Node có sẵn sàng để tắt máy không
 
-## B5. Swap trên ba node
+**Loại:** Điều tra.
 
-**Mục đích:** ở [A4.1 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites)
-bạn đã chạy `swapoff -a` theo kiểu copy-paste. Đây là chỗ kiểm chứng trạng thái đó còn đúng và đọc
-ranh giới mà bài [170](../170-swap-memory-management-vi.md) vẽ ra. Lab **không bật swap**.
+**Bối cảnh:** B5 và B7 sẽ tắt hẳn hai worker. Hai câu hỏi phải trả lời **trước**: máy có quay lại
+đúng như cũ không — swap là nguyên nhân kinh điển khiến kubelet không lên sau reboot; và nếu ai đó
+tắt máy mà quên drain thì kubelet có tự chấm dứt Pod êm không. Câu thứ hai quyết định drain là
+"nên" hay "bắt buộc" trong runbook.
 
-### B5.1. Trạng thái swap thật của ba node
+**Yêu cầu:**
+
+1. Trên cả ba node: có thiết bị swap nào đang hoạt động không, tổng dung lượng swap, và có cấu hình
+   nào sẽ bật lại swap sau reboot không.
+2. Chứng minh Kubernetes nhìn thấy cùng sự thật: Node không báo dung lượng swap, và cả ba kubelet được
+   cấu hình **từ chối** chạy khi có swap (giá trị hiệu lực, không phải giá trị trong file).
+3. Graceful node shutdown trên hai worker: đọc hai thời lượng quyết định từ cấu hình hiệu lực, rồi
+   chứng minh **ở tầng hệ điều hành** rằng kubelet không giữ khóa trì hoãn tắt máy nào.
+4. Chứng minh `db-0` **không** phải "pod quan trọng" theo nghĩa mà graceful node shutdown dùng, dù nó
+   mang PriorityClass `bookstore-critical`.
+5. ADR `docs/adr/NNNN-swap-va-tat-node.md`; ghi kết luận "drain trước khi tắt máy: bắt buộc hay
+   không" vào runbook.
+6. ⭐ (trả phần hoãn của bài 47 — đọc lại mục
+   [*Hành vi của Pod khi kubelet khởi động lại*](../47-pod-lifecycle-vi.md#kubelet-restarts) trước khi
+   làm) Khởi động lại kubelet trên `lab-k8s-worker2`; chứng minh `db-0` không bị thay và container
+   PostgreSQL không bị khởi động lại.
+
+**Ràng buộc:** không bật swap, không sửa cấu hình kubelet, không đổi feature gate. ⭐ chỉ chạy trên
+`lab-k8s-worker2` và chỉ khởi động lại dịch vụ, không đổi file nào.
+
+**Đọc lại:**
+
+- Bài [170](../170-swap-memory-management-vi.md):
+  [*Hỗ trợ theo hệ điều hành*](../170-swap-memory-management-vi.md#hỗ-trợ-theo-hệ-điều-hành-operating-system-support),
+  [*Các hành vi swap*](../170-swap-memory-management-vi.md#các-hành-vi-swap-swap-behaviors),
+  [*Node báo cáo dung lượng swap*](../170-swap-memory-management-vi.md#node-báo-cáo-dung-lượng-swap-trong-trạng-thái-node-nodes-to-report-swap-capacity-as-part-of-node-status),
+  [*Giới hạn swap với LimitedSwap*](../170-swap-memory-management-vi.md#how-is-the-swap-limit-being-determined-with-limitedswap),
+  [*Lập lịch có nhận biết swap*](../170-swap-memory-management-vi.md#lập-lịch-có-nhận-biết-swap-swap-aware-scheduling).
+- Bài [169](../169-node-shutdown-vi.md): [*Tắt node nhẹ nhàng*](../169-node-shutdown-vi.md#graceful-node-shutdown)
+  — ghi chú về systemd inhibitor lock;
+  [*Cấu hình tắt node nhẹ nhàng*](../169-node-shutdown-vi.md#cấu-hình-tắt-node-nhẹ-nhàng-configuring-graceful-node-shutdown);
+  [*Xử lý tắt node không nhẹ nhàng*](../169-node-shutdown-vi.md#non-graceful-node-shutdown).
+- Bài [210](../210-guaranteed-scheduling-critical-addon-pods-vi.md#marking-pod-as-critical) — pod quan
+  trọng là pod nào.
+- [A4.1 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) —
+  bạn đã tắt swap ở đâu, bằng cách nào.
+
+**Bàn giao:** `docs/adr/NNNN-swap-va-tat-node.md`; dòng kết luận trong runbook;
+`~/lab-evidence/12/b3-*.txt`.
+
+**Nghiệm thu:**
+
+- `PASS:` cả ba node: không thiết bị swap, tổng swap 0, `/etc/fstab` không có dòng swap còn hiệu lực.
+- `PASS:` không Node nào báo dung lượng swap; `failSwapOn` hiệu lực là `true` trên cả ba kubelet.
+- `PASS:` hai thời lượng tắt nhẹ nhàng đều `0s` trên hai worker **và** không có inhibitor lock nào của
+  kubelet — tính năng không hoạt động.
+- `PASS:` `systemd-logind` đang chạy trên worker2.
+- `PASS:` `value` của `bookstore-critical` thấp hơn ngưỡng của `system-cluster-critical`.
+- `PASS:` (⭐) sau khi kubelet worker2 khởi động lại: UID của `db-0`, `startedAt` và `restartCount` của
+  container `postgres` không đổi; node Ready trở lại.
+- `PASS:` có ADR; runbook có dòng kết luận về drain.
+
+**Câu hỏi thiết kế** — trả lời trong ADR:
+
+1. Đề xuất "bật `LimitedSwap` trên worker2 cho DB đỡ OOM". Với QoS của từng Pod Bookstore trên node đó,
+   Pod nào được swap, Pod nào không? `db-0` có được lợi gì không? Scheduler có tính swap khi đặt Pod
+   không, và bài đề xuất cách phòng nào?
+2. Ai đó `sudo shutdown -h now` trên worker2 khi `db-0` đang chạy, không drain. Trên cluster **này**,
+   kubelet có chạy luồng kết thúc Pod của bài 47 (`preStop`, ân hạn 60 giây của `db`) không? Bạn dựa
+   vào hai dữ kiện nào?
+3. Giả sử giai đoạn 20 bật `shutdownGracePeriod=30s`, `shutdownGracePeriodCriticalPods=10s`. `db-0`
+   rơi vào giai đoạn nào, có bao nhiêu giây, có đủ ân hạn 60 giây mà Lab 3a chọn cho PostgreSQL không?
+   Drain còn cần không?
+4. Vì sao dòng swap trong `/etc/fstab` quan trọng với **chính lab này** hơn mọi lab trước?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Ba câu hỏi về swap trên node: `swapon --show`, `free -m`, `/etc/fstab`.
+- Trường swap của Node: lệnh go-template ở mục *Node báo cáo dung lượng swap* của bài 170.
+- Cấu hình hiệu lực của kubelet: endpoint `configz` qua API server, như B1.
+- Khóa trì hoãn tắt máy của systemd: `systemd-inhibit --list` trên chính node đó.
+- Giá trị ưu tiên của hai PriorityClass hệ thống: `kubectl get priorityclass`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
 
 ```bash
+EV=~/lab-evidence/12; WK=~/lab-work/12; W2=lab-k8s-worker2
+NODES='lab-k8s-master lab-k8s-worker1 lab-k8s-worker2'
+cfgz() { grep -o "\"$1\":[^,}]*" "$2" | head -1 | cut -d: -f2- | tr -d '"'; }
+
+# Swap: ba câu hỏi khác nhau trên ba node
 cat > "$WK/doc-swap.sh" <<'EOS'
 swapon --show | wc -l
 free -m | sed -n 's/^Swap:[[:space:]]*\([0-9][0-9]*\).*/\1/p'
 grep -cE '^[^#].*[[:space:]]swap[[:space:]]' /etc/fstab
 EOS
-
 for n in $NODES; do
-  if [ "$n" = "$MASTER" ]; then OUT="$(sh "$WK/doc-swap.sh")"
-  else OUT="$(ssh "$n" 'sh -s' < "$WK/doc-swap.sh")"; fi
-  L="$(echo "$OUT" | sed -n 1p)"
-  T="$(echo "$OUT" | sed -n 2p)"
-  F="$(echo "$OUT" | sed -n 3p)"
-  echo "$n: swapon=$L swaptotal=$T fstab=$F"
-done | tee "$EV/b5-swap-node.txt"
+  if [ "$n" = lab-k8s-master ]; then OUT="$(sh "$WK/doc-swap.sh")"; else OUT="$(ssh "$n" 'sh -s' < "$WK/doc-swap.sh")"; fi
+  echo "$n: swapon=$(echo "$OUT" | sed -n 1p) swaptotal=$(echo "$OUT" | sed -n 2p) fstab=$(echo "$OUT" | sed -n 3p)"
+done > "$EV/b3-swap-node.txt"
+cat "$EV/b3-swap-node.txt"
+[ "$(grep -cF 'swapon=0 swaptotal=0 fstab=0' "$EV/b3-swap-node.txt")" -eq 3 ] \
+  && echo 'PASS: ca ba node tat swap va fstab khong bat lai sau reboot'
 
-SWAP_OK="$(grep -cF 'swapon=0 swaptotal=0 fstab=0' "$EV/b5-swap-node.txt")"
-echo "so node tat swap hoan toan = $SWAP_OK/3"
-
-test "$SWAP_OK" -eq 3 \
-  && echo 'PASS: ca ba node tat swap, va fstab khong bat lai sau reboot'
-```
-
-**Ý nghĩa:** ba số này trả lời ba câu khác nhau. `swapon --show` in ra **thiết bị swap đang hoạt
-động**, không có thì không in dòng nào. `free -m` cho tổng dung lượng swap. Dòng `swap` còn hiệu
-lực trong `/etc/fstab` là thứ quyết định swap có bật lại sau reboot hay không — câu hỏi rất đáng
-hỏi trong lab này, vì **B7 sẽ reboot worker2**. Nếu `fstab` còn dòng swap chưa comment, node quay
-lại với swap bật và kubelet có thể không khởi động được.
-
-Chú ý cách đếm: vòng lặp bị đẩy vào **subshell** vì nó đứng trước `| tee`, nên một biến đếm tăng
-bên trong đó **không thoát ra được**. Vì vậy `SWAP_OK` được tính lại từ chính file evidence bằng
-`grep -cF` chứ không cộng dồn trong vòng lặp. Cùng lý do đó, mọi vòng lặp có `| tee` trong lab này
-đều lấy kết quả từ file, không từ biến.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện. Nếu một node fail, dừng lại và xem
-[mục 4](#4-troubleshooting-của-lab-này) **trước khi** chạy B7.
-
-### B5.2. Node không báo cáo dung lượng swap
-
-```bash
-kubectl get nodes -o json > "$EV/b5-nodes.json"
-SWAP_FIELD="$(grep -c '"swap"' "$EV/b5-nodes.json")"
-echo "so lan truong swap xuat hien trong Node object = $SWAP_FIELD"
-
-test "$SWAP_FIELD" -eq 0 \
-  && echo 'PASS: khong node nao bao cao swap capacity — dung voi node khong duoc cap phat swap'
-```
-
-**Ý nghĩa:** bài 170 mô tả trường trạng thái `node.status.nodeInfo.swap.capacity`. Trên cluster có
-swap, lệnh go-template của bài in ra số byte cho từng node; ở đây trường ấy **không tồn tại**, và
-bài nói rõ điều đó "rất có thể nghĩa là node không được cấp phát swap". Đó là cách đọc trạng thái
-swap từ phía Kubernetes, không phải từ phía OS như B5.1.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
-### B5.3. `failSwapOn` và `memorySwap` hiệu lực của kubelet
-
-```bash
+# Kubernetes nhìn swap
+kubectl get nodes -o json > "$EV/b3-nodes.json"
 for n in $NODES; do
-  FS="$(grep -o '"failSwapOn":[a-z]*' "$EV/b0-configz-$n.json" | head -1 | cut -d: -f2)"
-  MS="$(grep -o '"memorySwap":{[^}]*}' "$EV/b0-configz-$n.json" | head -1)"
-  echo "$n failSwapOn=${FS:-<khong co trong configz>} memorySwap=${MS:-<khong co trong configz>}"
-done | tee "$EV/b5-kubelet-swap.txt"
+  kubectl get --raw "/api/v1/nodes/$n/proxy/configz" > "$EV/b3-configz-$n.json" 2>/dev/null
+  echo "$n failSwapOn=$(cfgz failSwapOn "$EV/b3-configz-$n.json") memorySwap=$(grep -o '"memorySwap":{[^}]*}' "$EV/b3-configz-$n.json")"
+done | tee "$EV/b3-kubelet-swap.txt"
+[ "$(grep -c '"swap"' "$EV/b3-nodes.json")" -eq 0 ] && [ "$(grep -c 'failSwapOn=true' "$EV/b3-kubelet-swap.txt")" -eq 3 ] \
+  && echo 'PASS: Node khong bao swap; ca ba kubelet tu choi swap'
 
-FS_OK="$(grep -c 'failSwapOn=[a-z]' "$EV/b5-kubelet-swap.txt")"
-test "$FS_OK" -eq 3 \
-  && echo 'PASS: doc duoc gia tri failSwapOn hieu luc cua ca ba kubelet'
+# Graceful node shutdown: cấu hình hiệu lực và inhibitor lock
+for n in lab-k8s-worker1 lab-k8s-worker2; do
+  SGP="$(cfgz shutdownGracePeriod "$EV/b3-configz-$n.json")"
+  SGC="$(cfgz shutdownGracePeriodCriticalPods "$EV/b3-configz-$n.json")"
+  LOCK="$(ssh "$n" 'systemd-inhibit --list --no-pager' 2>/dev/null | grep -ci kubelet)"
+  echo "$n shutdownGracePeriod=${SGP:-<vang>} shutdownGracePeriodCriticalPods=${SGC:-<vang>} khoa_kubelet=$LOCK"
+done | tee "$EV/b3-shutdown.txt"
+[ "$(grep -c 'shutdownGracePeriod=0s shutdownGracePeriodCriticalPods=0s khoa_kubelet=0' "$EV/b3-shutdown.txt")" -eq 2 ] \
+  && echo 'PASS: graceful node shutdown KHONG hoat dong tren hai worker — drain truoc khi tat may la bat buoc'
+[ "$(ssh "$W2" 'systemctl is-active systemd-logind')" = 'active' ] && echo 'PASS: systemd-logind dang chay tren worker2'
+
+# Pod quan trọng
+V_BS="$(kubectl get priorityclass bookstore-critical -o jsonpath='{.value}')"
+V_SC="$(kubectl get priorityclass system-cluster-critical -o jsonpath='{.value}')"
+echo "bookstore-critical=$V_BS system-cluster-critical=$V_SC" | tee "$EV/b3-priority.txt"
+[ "$V_BS" -lt "$V_SC" ] && echo 'PASS: db-0 khong phai pod quan trong theo nghia bai 210'
+
+ls ~/bookstore/docs/adr/*-swap-va-tat-node.md >/dev/null 2>&1 && grep -qi 'drain' ~/bookstore/docs/runbook-bao-tri-node.md \
+  && echo 'PASS: co ADR va dong ket luan ve drain trong runbook'
 ```
 
-**Ý nghĩa và ranh giới cần nhớ:**
-
-- Mặc định trên Linux, **kubelet không khởi động trên node đang bật swap**; muốn chạy phải đặt
-  `failSwapOn: false`. Node Windows thì ngược lại: kubelet không khởi động khi swap **tắt**.
-- Cho kubelet chạy được với swap **chưa** đồng nghĩa workload dùng được swap. Mặc định kubelet chỉ
-  thị cho CRI cấp phát **0 byte swap** cho workload, và hành vi mặc định là **`NoSwap`**. Chỉ
-  `LimitedSwap` mới cho workload đụng vào swap.
-- Ngay cả với `NoSwap`, các tiến trình **ngoài** container do Kubernetes quản lý — dịch vụ systemd,
-  và cả bản thân kubelet — **vẫn có thể** bị swap.
-- Với `LimitedSwap`, chỉ Pod QoS **Burstable** được dùng swap; `BestEffort` và `Guaranteed` bị cấm.
-- **Scheduler không xét swap** khi đặt Pod: Pod chỉ request `memory`, không request swap. Hệ quả là
-  rủi ro "hàng xóm ồn ào", và cách phòng mà bài đề xuất là **gắn taint cho node có swap** — đúng cơ
-  chế bạn đã làm ở [Lab 7a](LAB-7A-LAP-LICH-VA-EVICTION.md#b4-taint-và-toleration--mặt-đối-ngẫu-của-affinity).
-
-**Vì sao baseline tắt swap:** cluster lab chạy trên đĩa của một máy host duy nhất. Bài nói thẳng
-rằng hiệu năng node có swap phụ thuộc thiết bị lưu trữ bên dưới và tệ đi đáng kể trong môi trường
-bị hạn chế IOPS. Thêm nữa, bật swap làm **giảm tính dự đoán được** — thứ đối lập hẳn với mục tiêu
-của một môi trường học: mỗi phép đo ở lab 3c, 7b, 11a đều muốn kết quả lặp lại được. Và ngưỡng
-eviction trên node có swap phải đặt tương quan với `vm.min_free_kbytes`, một bài toán chỉnh ngưỡng
-thuộc [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy).
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B6. Graceful node shutdown — đọc cấu hình thật
-
-**Mục đích:** trả lời một câu hỏi vận hành cụ thể trước khi B7 tắt máy: **nếu tôi gõ `shutdown -h
-now` trên worker2 mà không drain trước, kubelet có kịp chấm dứt Pod nhẹ nhàng không?** Bài
-[169](../169-node-shutdown-vi.md) cảnh báo cái bẫy lớn nhất ở đây, và lab **không sửa cấu hình
-kubelet** để "chữa" nó.
-
-### B6.1. Hai con số quyết định
+Phần ⭐ — khởi động lại kubelet trên worker2:
 
 ```bash
-for n in $NODES; do
-  SGP="$(grep -o '"shutdownGracePeriod":"[^"]*"' "$EV/b0-configz-$n.json" | head -1 | cut -d'"' -f4)"
-  SGC="$(grep -o '"shutdownGracePeriodCriticalPods":"[^"]*"' "$EV/b0-configz-$n.json" \
-    | head -1 | cut -d'"' -f4)"
-  echo "$n shutdownGracePeriod=${SGP:-<khong co>} shutdownGracePeriodCriticalPods=${SGC:-<khong co>}"
-done | tee "$EV/b6-shutdown.txt"
-
-SGP2="$(grep -o '"shutdownGracePeriod":"[^"]*"' "$EV/b0-configz-$W2.json" \
-  | head -1 | cut -d'"' -f4)"
-SGC2="$(grep -o '"shutdownGracePeriodCriticalPods":"[^"]*"' "$EV/b0-configz-$W2.json" \
-  | head -1 | cut -d'"' -f4)"
-
-case "${SGP2:-0s}|${SGC2:-0s}" in
-  '0s|0s')
-    echo 'PASS: ca hai bang 0s — graceful node shutdown KHONG duoc kich hoat tren worker2' ;;
-  *)
-    echo "PASS: hai gia tri khac 0s (${SGP2}/${SGC2}) — tinh nang DANG kich hoat; ghi lai va doc muc 4" ;;
-esac
+NS=bookstore; EV=~/lab-evidence/12; W2=lab-k8s-worker2
+jp() { kubectl -n "$NS" get pod db-0 -o jsonpath="$1"; }
+C='{.status.containerStatuses[?(@.name=="postgres")]'
+U0="$(jp '{.metadata.uid}')"; S0="$(jp "$C.state.running.startedAt}")"; R0="$(jp "$C.restartCount}")"
+K0="$(ssh "$W2" 'systemctl show kubelet -p ActiveEnterTimestamp')"
+ssh "$W2" 'sudo systemctl restart kubelet'
+sleep 10
+kubectl wait --for=condition=Ready "node/$W2" --timeout=300s
+kubectl -n "$NS" wait --for=condition=Ready pod/db-0 --timeout=300s
+K1="$(ssh "$W2" 'systemctl show kubelet -p ActiveEnterTimestamp')"
+U1="$(jp '{.metadata.uid}')"; S1="$(jp "$C.state.running.startedAt}")"; R1="$(jp "$C.restartCount}")"
+printf 'kubelet: %s -> %s\nuid: %s -> %s\nstartedAt: %s -> %s\nrestartCount: %s -> %s\n' \
+  "$K0" "$K1" "$U0" "$U1" "$S0" "$S1" "$R0" "$R1" | tee "$EV/b3-kubelet-restart.txt"
+{ [ "$K0" != "$K1" ] && [ "$U0" = "$U1" ] && [ "$S0" = "$S1" ] && [ "$R0" = "$R1" ]; } \
+  && echo 'PASS: kubelet da khoi dong lai, db-0 va PostgreSQL chay tiep nhu cu'
 ```
 
-**Ý nghĩa — đây là cái bẫy của bài:** feature gate `GracefulNodeShutdown` **bật mặc định từ 1.21**,
-nhưng `shutdownGracePeriod` và `shutdownGracePeriodCriticalPods` **mặc định đều bằng 0**, nghĩa là
-tính năng **không hoạt động** cho tới khi bạn đặt cả hai khác 0. Thấy dòng "enabled by default"
-rồi kết luận mình đang được bảo vệ là chỗ dễ ngã nhất của giai đoạn 12.
+</details>
 
-Cách đọc hai con số khi chúng khác 0: `shutdownGracePeriod` là **tổng**; phần dành cho Pod thông
-thường bằng tổng trừ đi `shutdownGracePeriodCriticalPods`. Với `30s`/`10s` thì 20 giây đầu cho Pod
-thường, 10 giây cuối cho Pod quan trọng — và **Pod thông thường bị chấm dứt trước**.
+<details>
+<summary>Lời giải tham khảo — ý chính cho ADR</summary>
 
-**PASS:** một trong hai dòng `PASS:` của bước này xuất hiện, kèm hai giá trị thật cho cả ba node.
+1. Với `LimitedSwap` chỉ Pod QoS **Burstable** được swap: `web`, `api`, `node-agent` (theo ngân sách ở
+   [mục 3.6](DU-AN-BOOKSTORE.md#36-ngân-sách-tài-nguyên-và-lập-lịch)). `db-0` là **Guaranteed** nên
+   bị cấm — đề xuất không mang lại gì cho DB, chỉ làm `web`, `api` khó dự đoán hơn. Scheduler không
+   xét swap vì Pod chỉ request `memory`; bài đề xuất gắn taint cho node có swap. Quyết định: không bật.
+2. Không. Hai thời lượng bằng `0s` và kubelet không giữ inhibitor lock nào, nên systemd tắt máy mà
+   không chờ kubelet: không `preStop`, không ân hạn — đúng nhánh *tắt node không nhẹ nhàng* của bài
+   169. API server vẫn tin `db-0` đang chạy cho tới khi node controller phát hiện node mất liên lạc.
+   Vì vậy trên cluster này **drain trước khi tắt máy là bắt buộc**.
+3. Pod quan trọng là Pod mang `system-cluster-critical` hoặc `system-node-critical` (bài 210);
+   `bookstore-critical` thấp hơn nhiều. `db-0` rơi vào nhóm **thông thường**: 20 giây đầu (30 − 10),
+   ít hơn 60 giây ân hạn của `db`. Graceful node shutdown với cấu hình đó là lưới an toàn cuối, không
+   thay drain: drain tôn trọng `terminationGracePeriodSeconds` của từng Pod.
+4. Vì B5 và B7 reboot hai worker. Dòng swap chưa comment trong `fstab` làm swap bật lại khi boot, và
+   kubelet mặc định không khởi động trên node có swap: node quay lại `NotReady`.
 
-### B6.2. Feature gate không bị ai tắt
+Phần ⭐: bài 47 nói khởi động lại kubelet **không** dừng các Pod cục bộ, và từ phiên bản baseline,
+mặc định kubelet không đổi trạng thái container sau khi khởi động lại. Pod đi qua lần khởi động lại
+đó với cùng UID, cùng container. Muốn dừng Pod trên node thì dùng `kubectl drain` — đúng câu cuối
+của mục bài 47.
 
-```bash
-FGS="$(grep -o '"featureGates":{[^}]*}' "$EV/b0-configz-$W2.json" | head -1)"
-echo "featureGates cua kubelet worker2: ${FGS:-<khong dat gate nao>}"
-GNS="$(echo "$FGS" | grep -c 'GracefulNodeShutdown')"
-echo "so lan GracefulNodeShutdown xuat hien trong featureGates = $GNS"
+</details>
 
-test "$GNS" -eq 0 \
-  && echo 'PASS: khong ai tat GracefulNodeShutdown bang feature gate — no giu mac dinh'
-```
+## B4. [BS-12-04] Công cụ đo sẵn sàng qua Ingress
 
-**Ý nghĩa:** kết hợp với B6.1, bạn có câu trả lời đầy đủ: gate **bật**, nhưng hai con số **bằng 0**,
-nên tính năng **không chạy**. Đây đúng là tình huống mà bài mô tả ở mục *Xử lý tắt node không nhẹ
-nhàng*: "lỗi của người dùng, tức `ShutdownGracePeriod` và `ShutdownGracePeriodCriticalPods` không
-được cấu hình đúng". Lab **không sửa** nó — sửa cấu hình kubelet thuộc giai đoạn 20 — mà rút ra hệ
-quả vận hành: **trên cluster này, drain trước khi tắt máy không phải lựa chọn, mà là bắt buộc.**
+**Loại:** Tính năng.
 
-**PASS:** dòng `PASS:` của bước này xuất hiện.
+**Bối cảnh:** "không gián đoạn" là một khẳng định phải đo được. Đo từ góc người dùng: HTTPS qua
+Traefik tới trang chủ và tới `/api/books`, liên tục, ghi mã trả về và thời gian của từng request.
+Sprint này thêm vào repo hai công cụ: một probe chạy nền, một bộ tóm tắt. Chúng là công cụ — chép
+nguyên văn; phần học là đặt chúng đúng chỗ và đọc đúng con số.
 
-### B6.3. Ba điều kiện nền mà bài cảnh báo
+**Yêu cầu:**
 
-```bash
-cat > "$WK/doc-shutdown-prereq.sh" <<'EOS'
-dpkg-query -W -f='goi unattended-upgrades: ${Status}\n' unattended-upgrades 2>/dev/null \
-  || echo 'goi unattended-upgrades: chua cai'
-if [ -e /etc/systemd/logind.conf.d/unattended-upgrades-logind-maxdelay.conf ]; then
-  echo "file logind maxdelay: co -> $(readlink -f /etc/systemd/logind.conf.d/unattended-upgrades-logind-maxdelay.conf)"
-else
-  echo 'file logind maxdelay: khong co'
-fi
-echo "systemd-logind: $(systemctl is-active systemd-logind)"
-EOS
+1. `tests/availability-probe.sh` và `tests/availability-report.sh` — chép nguyên văn từ khối dưới.
+2. Xác định điểm vào mà probe dùng: IP nào, cổng nào, và vì sao điểm vào đó còn sống khi **một worker
+   bất kỳ** tắt.
+3. Bộ tóm tắt đếm đúng trên một file mẫu có lỗi cố ý.
+4. Probe chạy nền ít nhất hai phút khi hệ thống yên tĩnh cho **0** request lỗi trên cả hai đường dẫn —
+   đây là đường nền để so sánh ở B5, B7.
+5. Trả lời câu hỏi thiết kế trong `docs/runbook-bao-tri-node.md`, mục *Cách đo*.
 
-ssh "$W2" 'sh -s' < "$WK/doc-shutdown-prereq.sh" | tee "$EV/b6-prereq-$W2.txt"
+**Ràng buộc:** probe chạy trên `lab-k8s-master`, đi qua Traefik bằng HTTPS; không gọi thẳng IP Pod hay
+ClusterIP — đó không phải đường của người dùng.
 
-grep -q 'file logind maxdelay' "$EV/b6-prereq-$W2.txt" \
-  && grep -q 'systemd-logind: active' "$EV/b6-prereq-$W2.txt" \
-  && echo 'PASS: doc duoc ba dieu kien nen ma bai 169 canh bao, va systemd-logind dang chay'
-```
+**Đọc lại:** [mục 3.1](DU-AN-BOOKSTORE.md#31-sơ-đồ-tổng-thể) và
+[mục 4.2](DU-AN-BOOKSTORE.md#42-cổng-đường-dẫn-và-điểm-kiểm-tra-sức-khỏe) của file dự án;
+[Lab 5b](LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) — Traefik được đưa ra ngoài bằng NodePort.
 
-**Ý nghĩa:** tính năng tắt node nhẹ nhàng trên Linux **phụ thuộc systemd**, vì nó dùng
-[systemd inhibitor lock](https://www.freedesktop.org/wiki/Software/systemd/inhibit/) để trì hoãn
-việc tắt máy. `systemd-logind` không chạy thì không có lock để lấy. Và bài có một khối *Thận trọng*
-riêng: cấu hình thông thường của gói `unattended-upgrades` **xung đột** với tính năng này — nó tùy
-chỉnh grace period khi tắt máy, khiến kubelet không lấy được lock cần thiết. Vấn đề xảy ra khi
-`shutdownGracePeriod` lớn hơn 30 giây, và cách né là biến file
-`/etc/systemd/logind.conf.d/unattended-upgrades-logind-maxdelay.conf` thành symlink tới `/dev/null`.
+**Bàn giao:** hai script trong `tests/`; mục *Cách đo* trong runbook; `~/lab-evidence/12/b4-*`.
 
-Ba dòng bạn vừa ghi là **ảnh chụp điều kiện nền**, để khi nào thật sự bật tính năng ở giai đoạn 20
-thì biết mình phải xử lý gì trước. Lab **không** đụng vào chúng.
+**Nghiệm thu:**
 
-**PASS:** dòng `PASS:` của bước này xuất hiện.
+- `PASS:` hai công cụ có trong repo và chạy được.
+- `PASS:` bộ tóm tắt đếm đúng trên file mẫu.
+- `PASS:` probe nền có ít nhất 200 mẫu mỗi đường dẫn, 0 lỗi.
+- `PASS:` runbook có mục *Cách đo*.
 
----
-
-## B7. Vòng bảo trì node: cordon → drain → tắt → bật → uncordon
-
-**Mục đích:** đây là xương sống của lab. Bạn chạy trọn một chu trình bảo trì phần cứng trên
-`lab-k8s-worker2` và chứng minh bằng con số rằng workload **dịch chuyển** sang worker còn lại rồi
-**quay về**. Mỗi bước có một câu hỏi riêng, đừng gộp chúng lại.
-
-> **Đọc lại [mục 2](#2-quy-ước-và-an-toàn) trước khi chạy B7.** Bước B7.5 tắt một máy ảo. Không
-> chạy nó nếu gate snapshot `04-metrics-ready` ở mục 2 chưa PASS, hoặc nếu B5.1 báo `/etc/fstab`
-> còn dòng swap chưa comment.
-
-### B7.1. Workload nền trải trên cả hai worker
+Hai công cụ, chép nguyên văn:
 
 ```bash
-REPL=$(( WK_N * 2 ))
-echo "so worker=$WK_N -> so replica=$REPL"
-
-cat > "$WK/b7-web.yaml" <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: web
-  namespace: lab-12
-spec:
-  replicas: $REPL
-  selector:
-    matchLabels:
-      app: web
-  template:
-    metadata:
-      labels:
-        app: web
-    spec:
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              app: web
-      containers:
-        - name: web
-          image: busybox:1.37
-          command: ["sh", "-c", "while true; do sleep 30; done"]
-          resources:
-            requests:
-              cpu: 10m
-              memory: 16Mi
-            limits:
-              cpu: 50m
-              memory: 32Mi
+cat > ~/bookstore/tests/availability-probe.sh <<'EOF'
+#!/usr/bin/env bash
+# Đo sẵn sàng của Bookstore từ góc người dùng: HTTPS qua Traefik tới / và /api/books — Lab 12.
+# Dùng:  tests/availability-probe.sh <file.csv> [giay-giua-hai-luot]
+# Dừng:  tạo file <file.csv>.stop, hoặc gửi TERM.
+# ENTRY_IP (tùy chọn): IP node làm điểm vào; mặc định là IP của lab-k8s-master.
+set -u
+OUT="${1:?dung: availability-probe.sh <file.csv> [giay]}"
+STEP="${2:-1}"
+HOST=bookstore.lab.local
+NP="$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}' 2>/dev/null)"
+[ -n "$NP" ] || NP="$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.ports[?(@.port==443)].nodePort}' 2>/dev/null)"
+IP="${ENTRY_IP:-$(kubectl get node lab-k8s-master -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')}"
+if [ -z "$NP" ] || [ -z "$IP" ]; then echo "probe: khong xac dinh duoc diem vao (np=$NP ip=$IP)" >&2; exit 1; fi
+echo "probe: https://$HOST:$NP qua $IP, moi ${STEP}s, ghi $OUT" >&2
+trap 'exit 0' TERM INT
+rm -f "$OUT.stop"
+echo 'epoch_ms,duong_dan,ma,curl_exit,thoi_gian_s' > "$OUT"
+while [ ! -e "$OUT.stop" ]; do
+  for P in / /api/books; do
+    R="$(curl -sk -o /dev/null --max-time 2 --resolve "$HOST:$NP:$IP" \
+           -w '%{http_code},%{time_total}' "https://$HOST:$NP$P")"
+    E=$?
+    echo "$(date +%s%3N),$P,${R%%,*},$E,${R##*,}" >> "$OUT"
+  done
+  sleep "$STEP" & wait $!
+done
+echo "probe: dung theo $OUT.stop" >&2
 EOF
 
-kubectl apply -f "$WK/b7-web.yaml"
-kubectl -n lab-12 rollout status deployment/web --timeout=300s
-```
-
-```bash
-count_on() {
-  kubectl -n lab-12 get pods -l app=web \
-    --field-selector "spec.nodeName=$1,status.phase=Running" --no-headers 2>/dev/null | wc -l
+cat > ~/bookstore/tests/availability-report.sh <<'EOF'
+#!/usr/bin/env bash
+# Tóm tắt file CSV của tests/availability-probe.sh — Lab 12.
+# Dùng: tests/availability-report.sh <file.csv> [tu_epoch_ms] [den_epoch_ms]
+# Mỗi đường dẫn: số mẫu, số lỗi (mã khác 200), số đợt lỗi liên tiếp, đợt dài nhất, mã lỗi/exit curl.
+set -eu
+F="${1:?dung: availability-report.sh <file.csv> [tu_ms] [den_ms]}"
+TU="${2:-0}"; DEN="${3:-99999999999999}"
+awk -F, -v tu="$TU" -v den="$DEN" '
+function dot_ra(p, d) { dl[++nd] = sprintf("dot_loi duong_dan=%s bat_dau_ms=%.0f dai_s=%.1f", p, bd[p], d / 1000) }
+BEGIN { np = split("/ /api/books", P, " ") }
+NR == 1 || NF < 5 { next }
+{
+  t = $1 + 0; p = $2
+  if (t < tu + 0 || t > den + 0) next
+  if (t0 == "") t0 = t
+  t1 = t; n[p]++
+  if ($3 == "200") {
+    if (dang[p]) { d = t - bd[p]; if (d > mx[p]) mx[p] = d; dot_ra(p, d); dang[p] = 0 }
+  } else {
+    loi[p]++; k = $3 "/" $4
+    if (!((p, k) in dem)) ds[p] = ds[p] (ds[p] == "" ? "" : ",") k
+    dem[p, k]++
+    if (!dang[p]) { dang[p] = 1; bd[p] = t; sd[p]++ }
+    cuoi[p] = t
+  }
 }
-
-W1_0="$(count_on "$W1")"; W2_0="$(count_on "$W2")"
-echo "web tren $W1=$W1_0 | tren $W2=$W2_0 | tong can co=$REPL"
-kubectl -n lab-12 get pods -o wide | tee "$EV/b7-1-truoc.txt"
-
-test "$W1_0" -gt 0 && test "$W2_0" -gt 0 && test $(( W1_0 + W2_0 )) -eq "$REPL" \
-  && echo 'PASS: workload trai deu tren ca hai worker truoc khi bao tri'
-```
-
-**Ý nghĩa:** `whenUnsatisfiable: ScheduleAnyway` là lựa chọn có chủ đích, không phải tiện tay.
-`DoNotSchedule` sẽ giữ Pod ở `Pending` khi một worker biến mất — đúng như bạn đã thấy ở
-[Lab 7a B5](LAB-7A-LAP-LICH-VA-EVICTION.md#b5-ràng-buộc-phân-bố-pod-theo-topology) — và như vậy sẽ
-không quan sát được việc **dịch chuyển**. Với `ScheduleAnyway`, ràng buộc chỉ là một tín hiệu chấm
-điểm: lúc đủ node thì Pod trải đều, lúc thiếu node thì chúng dồn hết về nơi còn lại.
-
-Không dùng PersistentVolumeClaim trong lab này: provisioner của baseline gắn dữ liệu vào **thư mục
-trên chính node**, nên một Pod có PVC sẽ không lập lịch được sang worker kia — nó biến bài học về
-dịch chuyển workload thành bài học về ràng buộc lưu trữ.
-
-**PASS:** dòng `PASS:` của bước này xuất hiện.
-
-### B7.2. `cordon` chỉ đánh dấu, không đuổi ai
-
-```bash
-kubectl cordon "$W2"
-kubectl get nodes | tee "$EV/b7-2-nodes-cordon.txt"
-
-UNSCH="$(kubectl get node "$W2" -o jsonpath='{.spec.unschedulable}')"
-kubectl get node "$W2" -o jsonpath='{range .spec.taints[*]}{.key}{"="}{.effect}{"\n"}{end}' \
-  | tee "$EV/b7-2-taint-cordon.txt"
-W2_1="$(count_on "$W2")"
-echo "unschedulable=$UNSCH | web tren worker2 truoc cordon=$W2_0, sau cordon=$W2_1"
-
-test "$UNSCH" = 'true' && echo 'PASS: cordon dat .spec.unschedulable=true'
-grep -q '^node.kubernetes.io/unschedulable=NoSchedule$' "$EV/b7-2-taint-cordon.txt" \
-  && echo 'PASS: cordon them taint node.kubernetes.io/unschedulable:NoSchedule'
-grep -q 'SchedulingDisabled' "$EV/b7-2-nodes-cordon.txt" \
-  && echo 'PASS: kubectl get nodes hien SchedulingDisabled'
-test "$W2_1" -eq "$W2_0" \
-  && echo 'PASS: cordon KHONG duoi Pod nao — so Pod web tren worker2 khong doi'
-```
-
-**Ý nghĩa:** đây là ranh giới đầu tiên phải nhớ. `cordon` **chỉ** đặt `.spec.unschedulable=true` và
-gắn taint `node.kubernetes.io/unschedulable:NoSchedule`. Taint effect `NoSchedule` **không đuổi Pod
-đang chạy** — bạn đã chứng minh điều đó ở
-[Lab 7a B4](LAB-7A-LAP-LICH-VA-EVICTION.md#b4-taint-và-toleration--mặt-đối-ngẫu-của-affinity), và
-đây là hệ quả trực tiếp.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
-### B7.3. Node đã cordon không nhận Pod mới
-
-```bash
-cat > "$WK/b7-thu-cordon.yaml" <<EOF
-apiVersion: v1
-kind: Pod
-metadata:
-  name: thu-cordon
-  namespace: lab-12
-spec:
-  nodeSelector:
-    kubernetes.io/hostname: $W2
-  containers:
-    - name: c
-      image: busybox:1.37
-      command: ["sh", "-c", "while true; do sleep 30; done"]
+END {
+  for (i = 1; i <= np; i++) {
+    p = P[i]
+    if (dang[p]) { d = cuoi[p] - bd[p]; if (d > mx[p]) mx[p] = d; dot_ra(p, d) }
+    m = "-"
+    if (ds[p] != "") {
+      m = ""; c = split(ds[p], K, ",")
+      for (j = 1; j <= c; j++) m = m (j > 1 ? "," : "") K[j] ":" dem[p, K[j]]
+    }
+    printf "duong_dan=%s mau=%d loi=%d so_dot_loi=%d dot_dai_nhat_s=%.1f ma_loi=%s\n", \
+      p, n[p], loi[p], sd[p], mx[p] / 1000, m
+  }
+  printf "khoang_do_s=%.0f\n", (t1 - t0) / 1000
+  for (i = 1; i <= nd; i++) print dl[i]
+}' "$F" | while IFS= read -r L; do
+  case "$L" in
+    dot_loi*) MS="${L#*bat_dau_ms=}"; MS="${MS%% *}"; echo "$L gio=$(date -d "@$((MS / 1000))" +%T)" ;;
+    *) echo "$L" ;;
+  esac
+done
 EOF
+chmod +x ~/bookstore/tests/availability-*.sh
+```
 
-kubectl apply -f "$WK/b7-thu-cordon.yaml"
+Cách dùng trong các ticket sau, trong cùng một phiên shell:
 
-PH=''
-for i in $(seq 1 24); do
-  PH="$(kubectl -n lab-12 get pod thu-cordon -o jsonpath='{.status.phase}')"
-  kubectl -n lab-12 describe pod thu-cordon > "$EV/b7-3-thu-cordon.txt" 2>&1
-  if [ "$PH" = 'Pending' ] && grep -qi 'unschedulable' "$EV/b7-3-thu-cordon.txt"; then break; fi
-  sleep 5
+```bash
+CSV=~/lab-evidence/12/<ten>.csv
+nohup ~/bookstore/tests/availability-probe.sh "$CSV" 0.5 > "$CSV.log" 2>&1 &
+PROBE=$!
+# ... làm việc ...
+touch "$CSV.stop"; wait "$PROBE"
+~/bookstore/tests/availability-report.sh "$CSV"
+```
+
+Một dòng `ma_loi=000/7:3` nghĩa là ba request không nhận được phản hồi HTTP nào, curl thoát mã 7.
+`502/0:1` nghĩa là một request nhận phản hồi HTTP 502.
+
+**Câu hỏi thiết kế** — trả lời trong mục *Cách đo* của runbook:
+
+1. File hosts trên máy host Windows trỏ `bookstore.lab.local` tới IP **một** worker. Vì sao probe vào
+   bằng IP của master thay vì IP đó? Đo như vậy thì bỏ sót trải nghiệm gì của người dùng thật trong lúc
+   bảo trì đúng worker đó?
+2. `000` kèm exit curl khác 0, `502`, `503` — mỗi loại do tầng nào sinh ra trong đường
+   Traefik → `web` → `api` → `db`?
+3. Probe 0,5 giây một lượt bỏ sót được gì? Kể ít nhất hai thứ của Bookstore mà probe này không thấy.
+
+<details>
+<summary>Gợi ý</summary>
+
+- NodePort mở trên **mọi** node, kể cả control plane; kube-proxy trên node đó chuyển tiếp tới Pod
+  Traefik ở bất kỳ đâu — trừ khi Service của Traefik khai `externalTrafficPolicy: Local`. Kiểm:
+  `kubectl -n traefik get svc traefik -o jsonpath='{.spec.externalTrafficPolicy}'`.
+- File mẫu cho yêu cầu 3 nằm trong script nghiệm thu; tự đoán trước kết quả rồi mới chạy.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+```bash
+EV=~/lab-evidence/12; WK=~/lab-work/12; T=~/bookstore/tests
+test -x "$T/availability-probe.sh" && test -x "$T/availability-report.sh" && echo 'PASS: hai cong cu co trong repo, chay duoc'
+kubectl -n traefik get svc traefik -o jsonpath='type={.spec.type} etp={.spec.externalTrafficPolicy}{"\n"}' | tee "$EV/b4-traefik-svc.txt"
+
+cat > "$WK/mau.csv" <<'EOM'
+epoch_ms,duong_dan,ma,curl_exit,thoi_gian_s
+1000,/,200,0,0.010
+1000,/api/books,200,0,0.020
+2000,/,000,7,0.000
+2000,/api/books,502,0,0.010
+3000,/,000,7,0.000
+3000,/api/books,200,0,0.020
+4000,/,200,0,0.010
+4000,/api/books,200,0,0.020
+EOM
+"$T/availability-report.sh" "$WK/mau.csv" | tee "$EV/b4-mau.txt"
+{ grep -qx 'duong_dan=/ mau=4 loi=2 so_dot_loi=1 dot_dai_nhat_s=2.0 ma_loi=000/7:2' "$EV/b4-mau.txt" \
+  && grep -qx 'duong_dan=/api/books mau=4 loi=1 so_dot_loi=1 dot_dai_nhat_s=1.0 ma_loi=502/0:1' "$EV/b4-mau.txt"; } \
+  && echo 'PASS: bo tom tat dem dung tren file mau'
+
+CSV="$EV/b4-nen.csv"
+nohup "$T/availability-probe.sh" "$CSV" 0.5 > "$CSV.log" 2>&1 &
+PROBE=$!
+sleep 130
+touch "$CSV.stop"; wait "$PROBE"
+cat "$CSV.log"
+"$T/availability-report.sh" "$CSV" | tee "$EV/b4-nen.txt"
+BAD=0
+for P in / /api/books; do
+  L="$(grep "^duong_dan=$P " "$EV/b4-nen.txt")"
+  N="$(echo "$L" | sed -n 's/.* mau=\([0-9]*\) .*/\1/p')"; E="$(echo "$L" | sed -n 's/.* loi=\([0-9]*\) .*/\1/p')"
+  { [ "${N:-0}" -ge 200 ] && [ "${E:-1}" -eq 0 ]; } || BAD=1
 done
-sed -n '/Events:/,$p' "$EV/b7-3-thu-cordon.txt"
-echo "phase = $PH"
-
-test "$PH" = 'Pending' && grep -qi 'unschedulable' "$EV/b7-3-thu-cordon.txt" \
-  && echo 'PASS: Pod moi khong len duoc node da cordon, va scheduler noi ro ly do'
-
-kubectl -n lab-12 delete pod thu-cordon --wait=true --timeout=120s
-test "$(kubectl -n lab-12 get pod thu-cordon --ignore-not-found -o name | wc -l)" -eq 0 \
-  && echo 'PASS: da xoa Pod thu — khong con Pod tran nao truoc khi drain'
+[ "$BAD" -eq 0 ] && echo 'PASS: probe nen du mau, 0 loi tren ca hai duong dan'
+grep -qi 'cách đo\|cach do' ~/bookstore/docs/runbook-bao-tri-node.md && echo 'PASS: runbook co muc Cach do'
 ```
 
-**Ý nghĩa:** `nodeSelector` ghim Pod vào đúng worker2, nên nếu node đó nhận Pod thì Pod chạy, còn
-không thì Pod nằm `Pending` với lý do do scheduler ghi vào `Events`. Đây là mặt còn lại của cordon:
-**không đuổi ai, nhưng cũng không nhận thêm ai.**
+</details>
 
-Xóa Pod này trước khi drain là bắt buộc: nó là Pod **trần**, không có controller quản lý, nên
-`kubectl drain` sẽ đòi `--force` — mà `--force` thì xóa vĩnh viễn, và [mục 2](#2-quy-ước-và-an-toàn)
-cấm dùng cờ đó trong lab này.
+<details>
+<summary>Lời giải tham khảo — ý chính cho mục <em>Cách đo</em></summary>
 
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
+1. Probe đo **hệ thống**, nên điểm vào phải là thứ không bị bảo trì: master không bao giờ tắt trong
+   lab, và NodePort trên master vẫn chuyển tới Traefik dù Traefik chạy ở worker nào (`etp=Cluster`).
+   Cái giá: người dùng thật đi qua IP một worker trong file hosts — bảo trì đúng worker đó là họ mất
+   truy cập hoàn toàn, dù hệ thống vẫn khỏe. Đường vào chưa có HA; B8 ghi thành nợ kỹ thuật.
+2. `000` + exit khác 0: không có phản hồi HTTP — không ai nhận kết nối ở NodePort hoặc ở Pod
+   Traefik (exit 7 từ chối kết nối, 28 hết giờ, 35/56 TLS hoặc kết nối bị cắt). `502`, `503` từ
+   Traefik: không có Pod `web` Ready để chuyển tới, hoặc Pod `web` đóng kết nối. `502` từ nginx:
+   Service `api` không có đích. `503` từ PostgREST: `api` sống nhưng mất DB.
+3. Bỏ sót đợt lỗi ngắn hơn khoảng lấy mẫu, độ trễ tăng mà chưa lỗi; không thấy ghi dữ liệu (POST),
+   không thấy Job `db-migrate`, CronJob `db-backup`, không thấy HPA mất metric. Probe là một chỉ số,
+   không phải toàn bộ sức khỏe.
 
-### B7.4. `drain` — đánh dấu **và** trục xuất
+</details>
 
-Chạy `drain` trần trước, để chính lệnh nói cho bạn biết nó thiếu gì:
+## B5. [BS-12-05] Bảo trì lab-k8s-worker1: cordon → drain → tắt → bật → uncordon
+
+**Loại:** Vận hành.
+
+**Bối cảnh:** kernel của `lab-k8s-worker1` cần vá và reboot. Đây đúng là dòng "Bảo trì một worker"
+trong [mục 3.7](DU-AN-BOOKSTORE.md#37-chịu-lỗi-và-vận-hành): `web`, `api` phải không gián đoạn nhờ PDB
+và bản sao trên node kia. Worker1 không giữ dữ liệu của `db`, nên đây là ca dễ — và chính vì dễ, mọi
+request lỗi đo được ở đây đều là thiếu sót thiết kế cần giải thích.
+
+**Yêu cầu:**
+
+1. Kiểm **tiền điều kiện** và ghi thành checklist ở mục 2 của runbook: mọi node Ready; `web`, `api`
+   đủ bản sao Ready và có Pod trên cả hai worker; PDB của cả hai đang cho phép ít nhất một gián đoạn;
+   `db-0` không nằm trên worker1.
+2. Probe chạy nền suốt từ trước khi đánh dấu node tới sau khi cân bằng lại.
+3. Đưa worker1 ra khỏi lập lịch, rồi trục xuất mọi Pod trục xuất được bằng cơ chế **tôn trọng PDB**;
+   node chỉ còn Pod DaemonSet.
+4. Tắt máy worker1 thật sự (VM *Powered off*), giữ tắt ít nhất hai phút. Trong lúc đó `web`, `api` phục
+   vụ đầy đủ từ worker2.
+5. Bật lại, chờ node Ready, chứng minh node **vẫn chưa** nhận Pod mới; rồi đưa nó trở lại lập lịch.
+6. Cân bằng lại: mỗi Deployment `web`, `api` lại có Pod trên cả hai worker, bằng cách không vi phạm
+   PDB.
+7. Ghi mốc thời gian bằng hàm `moc` bên dưới, đủ tám mốc theo đúng thứ tự.
+8. Postmortem `docs/postmortem/12-bao-tri-worker1.md`: số đo của probe, phân loại **mọi** request lỗi
+   (thời điểm, mã, tầng gây lỗi, vì sao, sửa ở đâu), đối chiếu với dự đoán ở B1.
+9. Mục 2 của runbook: quy trình bảo trì một worker không giữ dữ liệu.
+
+**Ràng buộc:** không `--force`, không `--disable-eviction`; không gỡ taint bằng tay; không đổi
+`replicas`, HPA hay PDB trong repo để "làm cho qua"; một node một lúc; không tắt master. HPA `web` vẫn
+chạy trong suốt cuộc bảo trì: số bản sao `web` có thể đổi giữa chừng, nên mọi kiểm tra so `ready` với
+số bản sao **hiện tại** chứ không với một con số cố định. Ngay sau `deploy.sh`, `web` bắt đầu ở một
+bản sao cho tới khi HPA nâng lên `minReplicas` (Lab 11b) — đừng bắt đầu bảo trì trong khoảng đó.
+
+**Đọc lại:**
+
+- Bài [23](../23-nodes-vi.md#manual-node-administration) — đánh dấu unschedulable, và ghi chú về Pod
+  DaemonSet trên node unschedulable.
+- Bài [53](../53-disruptions-vi.md): [*Ngân sách gián đoạn Pod*](../53-disruptions-vi.md#pod-disruption-budgets),
+  [*Ví dụ về PodDisruptionBudget*](../53-disruptions-vi.md#pdb-example).
+- Bài [143](../143-api-eviction-vi.md#cách-hoạt-động-của-eviction-khởi-phát-qua-api-how-api-initiated-eviction-works)
+  — trình tự xóa Pod sau khi eviction được chấp nhận.
+- Bài [339](../339-configure-pdb-vi.md#kiểm-tra-trạng-thái-của-pdb-check-the-status-of-the-pdb) —
+  đọc `disruptionsAllowed`, `currentHealthy`, `desiredHealthy`.
+- Bài [171](../171-node-autoscaling-vi.md#consolidation) — định nghĩa Node rỗng.
+- Bài [139](../139-taint-and-toleration-vi.md#taint-nodes-by-condition) — toleration mà DaemonSet
+  controller tự thêm.
+
+**Bàn giao:** postmortem; mục 2 của runbook; trong `~/lab-evidence/12/`: `b5-truoc.txt`,
+`b5-su-kien.txt`, `b5-probe.csv`, `b5-drain.txt` (toàn bộ output của lệnh drain), `b5-tom-tat.txt`.
+
+Hai công cụ ghi bằng chứng, chép nguyên văn — chạy **trước** khi đánh dấu node:
 
 ```bash
-kubectl drain "$W2" > "$EV/b7-4-drain-tran.txt" 2>&1 || true
-cat "$EV/b7-4-drain-tran.txt"
-
-grep -q 'ignore-daemonsets' "$EV/b7-4-drain-tran.txt" \
-  && echo 'PASS: drain tran bi tu choi va noi ro no can --ignore-daemonsets'
+EV=~/lab-evidence/12; W=lab-k8s-worker1
+MOC="$EV/b5-su-kien.txt"; : > "$MOC"
+moc() { echo "$(date +%s%3N) $(date -Is) $1" | tee -a "$MOC"; }
+{ echo "boot_id=$(kubectl get node "$W" -o jsonpath='{.status.nodeInfo.bootID}')"
+  echo "agent_uid=$(kubectl -n bookstore-system get pod -l app.kubernetes.io/component=agent \
+       --field-selector "spec.nodeName=$W" -o jsonpath='{.items[0].metadata.uid}')"
+} > "$EV/b5-truoc.txt"; cat "$EV/b5-truoc.txt"
 ```
 
-Đọc chính lời giải thích của lệnh:
+Tám mốc, đúng tên và đúng thứ tự: `bat-dau`, `cordon`, `drain-xong`, `tat-may`, `node-ready`,
+`uncordon`, `can-bang-xong`, `ket-thuc`. Mốc `bat-dau` ghi **sau** khi probe đã chạy; mốc `ket-thuc`
+ghi **trước** khi dừng probe.
+
+**Nghiệm thu:**
+
+- `PASS:` drain dùng Eviction API cho Pod của dự án, không Pod nào bị xóa thẳng, drain báo hoàn tất.
+- `PASS:` worker1 chỉ còn Pod DaemonSet — Node rỗng; PDB `web`, `api` vẫn giữ `currentHealthy` ≥
+  `desiredHealthy`; `web`, `api` đủ bản sao Ready.
+- `PASS:` khi máy tắt: `Ready` của worker1 là `Unknown`, không Pod nào của dự án nằm trên worker1,
+  `db-0` không bị ảnh hưởng.
+- `PASS:` máy đã thật sự khởi động lại (`bootID` đổi); node Ready và nhận lập lịch.
+- `PASS:` Pod `node-agent` trên worker1 vẫn là Pod cũ (cùng UID).
+- `PASS:` `web`, `api` lại có Pod trên cả hai worker.
+- `PASS:` đủ tám mốc đúng thứ tự; probe phủ trọn cửa sổ.
+- `PASS:` 0 request lỗi — **hoặc** postmortem chép đúng hai dòng số đo của bộ tóm tắt và phân loại
+  từng đợt lỗi.
+
+**Câu hỏi thiết kế** — trả lời trong postmortem:
+
+1. Ba cơ chế nào cùng làm `web`, `api` không gián đoạn khi worker1 bị drain? Cơ chế nào là của
+   Kubernetes, cơ chế nào là của chính Bookstore (Lab 3a, 3c, 7a)?
+2. Nếu có request lỗi: tầng nào, vì sao PDB của Bookstore không ngăn được, và sửa ở đâu — trong repo
+   Bookstore hay ở hạ tầng nền?
+3. Vì sao drain từ chối chạy nếu bạn không bỏ qua Pod DaemonSet một cách tường minh? Pod `node-agent`
+   trên worker1 đã đi đâu trong lúc máy tắt, và vì sao sau reboot nó vẫn là Pod cũ?
+4. Node `Ready` mà vẫn không nhận Pod mới: trạng thái đó nằm ở đâu, trên đĩa worker1 hay trong API
+   server? Vì sao uncordon không đưa Pod về, và vì sao bạn chọn cách cân bằng lại như đã làm?
+5. PDB `web` khai `maxUnavailable: 1`. Nếu bạn drain ngay sau `deploy.sh`, lúc HPA chưa nâng `web` khỏi
+   một bản sao, PDB có chặn việc trục xuất Pod `web` duy nhất không? Tiền điều kiện nào của bạn ngăn
+   tình huống đó?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. Đọc `kubectl drain --help`: cờ bỏ qua Pod DaemonSet, cờ chấp nhận xóa dữ liệu `emptyDir`, cờ
+   `--timeout`. Chạy drain trần một lần để chính lệnh nói nó thiếu gì.
+2. Lưu output của drain: `kubectl drain ... > ~/lab-evidence/12/b5-drain.txt 2>&1`.
+3. Tắt máy từ master: `ssh lab-k8s-worker1 'sudo shutdown -h now'`. Xác nhận *Powered off* và bật lại
+   bằng khối PowerShell trong lời giải, hoặc bằng giao diện VMware.
+4. Cân bằng lại mà vẫn tôn trọng PDB: gọi Eviction API cho **một** Pod trên node đang đông, như
+   [Lab 7a](LAB-7A-LAP-LICH-VA-EVICTION.md) đã làm; ReplicaSet tạo Pod thay thế và scheduler đặt nó theo
+   ràng buộc phân bố. `kubectl rollout restart` cũng được nhưng thay **mọi** Pod.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy theo ba thời điểm</summary>
+
+Phần A — chạy ngay sau khi drain xong, **trước** khi tắt máy:
 
 ```bash
-kubectl drain --help > "$EV/b7-4-drain-help.txt" 2>&1
-sed -n '/--ignore-daemonsets/,+4p' "$EV/b7-4-drain-help.txt"
-sed -n '/--delete-emptydir-data/,+4p' "$EV/b7-4-drain-help.txt"
-
-grep -q -- '--ignore-daemonsets' "$EV/b7-4-drain-help.txt" \
-  && grep -q -- '--delete-emptydir-data' "$EV/b7-4-drain-help.txt" \
-  && echo 'PASS: doc duoc mo ta cua hai co tu chinh kubectl drain'
+NS=bookstore; EV=~/lab-evidence/12; W1=lab-k8s-worker1
+grep -q 'evicting pod bookstore/' "$EV/b5-drain.txt" && echo 'PASS: drain dung Eviction API voi Pod cua du an'
+grep -q '^deleting pod' "$EV/b5-drain.txt" && echo 'FAIL: co Pod bi xoa thang' || echo 'PASS: khong Pod nao bi xoa thang'
+grep -q "node/$W1 drained" "$EV/b5-drain.txt" && echo 'PASS: drain bao hoan tat'
+KHAC="$(kubectl get pods -A --field-selector "spec.nodeName=$W1" \
+  -o jsonpath='{range .items[*]}{.metadata.ownerReferences[0].kind}{"\n"}{end}' | grep -vc '^DaemonSet$')"
+[ "$(kubectl get node "$W1" -o jsonpath='{.spec.unschedulable}')" = 'true' ] && [ "$KHAC" -eq 0 ] \
+  && echo 'PASS: worker1 unschedulable, chi con Pod DaemonSet — Node rong theo bai 171'
+for P in web api; do
+  set -- $(kubectl -n "$NS" get pdb "$P" -o jsonpath='{.status.currentHealthy} {.status.desiredHealthy}')
+  [ "${1:-0}" -ge "${2:-1}" ] && echo "PASS: PDB $P giu currentHealthy=$1 >= desiredHealthy=$2"
+  W="$(kubectl -n "$NS" get deployment "$P" -o jsonpath='{.spec.replicas}')"
+  R="$(kubectl -n "$NS" get deployment "$P" -o jsonpath='{.status.readyReplicas}')"
+  [ "${R:-0}" = "$W" ] && echo "PASS: $P du $R/$W ban sao Ready"
+done
 ```
 
-**Vì sao `--ignore-daemonsets` gần như luôn cần:** DaemonSet controller có nhiệm vụ giữ đúng một
-Pod trên **mỗi** node phù hợp, và nó **không quan tâm node có unschedulable hay không**. Trục xuất
-một Pod DaemonSet chỉ khiến controller tạo lại ngay Pod đó trên chính node vừa drain, nên `drain`
-sẽ không bao giờ kết thúc. `kubectl drain` xử lý bằng cách từ chối chạy cho tới khi bạn nói rõ là
-mình chấp nhận **bỏ qua** nhóm Pod đó. Trên mọi cluster thật đều có ít nhất CNI và kube-proxy chạy
-dạng DaemonSet, nên trên thực tế cờ này gần như luôn phải có.
-
-Bây giờ chạy thật:
+Phần B — chạy khi worker1 đã *Powered off* (chờ tới khi dòng đầu PASS):
 
 ```bash
-if kubectl drain "$W2" --ignore-daemonsets --delete-emptydir-data --timeout=300s \
-     > "$EV/b7-4-drain.txt" 2>&1; then
-  echo 'PASS: drain hoan tat'
+NS=bookstore; EV=~/lab-evidence/12; W1=lab-k8s-worker1
+for i in $(seq 1 120); do
+  ST="$(kubectl get node "$W1" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
+  [ "$ST" = 'Unknown' ] && break; sleep 5
+done
+[ "$ST" = 'Unknown' ] && echo 'PASS: worker1 Ready=Unknown — control plane mat nhip tim'
+kubectl -n "$NS" get pods -o wide > "$EV/b5-khi-tat.txt"
+TREN_W1="$(kubectl -n "$NS" get pod -l app.kubernetes.io/part-of=bookstore --field-selector=status.phase=Running \
+  -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' | grep -c "^$W1$")"
+[ "$TREN_W1" -eq 0 ] && echo 'PASS: khong Pod nao cua bookstore nam tren worker1'
+[ "$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')" = 'True' ] \
+  && echo 'PASS: db-0 khong bi anh huong'
+[ "$(tail -n 20 "$EV/b5-probe.csv" | awk -F, '$3 != "200"' | wc -l)" -eq 0 ] \
+  && echo 'PASS: 20 mau gan nhat cua probe deu 200'
+```
+
+Phần C — chạy sau khi đã dừng probe và viết xong postmortem:
+
+```bash
+NS=bookstore; EV=~/lab-evidence/12; W1=lab-k8s-worker1; MOC="$EV/b5-su-kien.txt"
+PM=~/bookstore/docs/postmortem/12-bao-tri-worker1.md
+tm() { awk -v m="$1" '$3 == m {print $1; exit}' "$MOC"; }
+T=0; BAD=0
+for M in bat-dau cordon drain-xong tat-may node-ready uncordon can-bang-xong ket-thuc; do
+  X="$(tm "$M")"
+  if [ -z "$X" ] || [ "$X" -lt "$T" ]; then echo "FAIL: moc $M thieu hoac sai thu tu"; BAD=1; else T="$X"; fi
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: du tam moc theo dung thu tu'
+
+B0="$(sed -n 's/^boot_id=//p' "$EV/b5-truoc.txt")"; B1="$(kubectl get node "$W1" -o jsonpath='{.status.nodeInfo.bootID}')"
+[ -n "$B0" ] && [ "$B0" != "$B1" ] && echo 'PASS: worker1 da khoi dong lai that (bootID doi)'
+{ [ "$(kubectl get node "$W1" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')" = 'True' ] \
+  && [ -z "$(kubectl get node "$W1" -o jsonpath='{.spec.unschedulable}')" ]; } && echo 'PASS: worker1 Ready va nhan lap lich'
+A0="$(sed -n 's/^agent_uid=//p' "$EV/b5-truoc.txt")"
+A1="$(kubectl -n bookstore-system get pod -l app.kubernetes.io/component=agent --field-selector "spec.nodeName=$W1" -o jsonpath='{.items[0].metadata.uid}')"
+[ -n "$A0" ] && [ "$A0" = "$A1" ] && echo 'PASS: node-agent tren worker1 van la Pod cu'
+for D in web api; do
+  NN="$(kubectl -n "$NS" get pod -l "app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=$D" \
+    --field-selector=status.phase=Running -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' | sort -u | grep -c .)"
+  [ "$NN" -ge 2 ] && echo "PASS: $D lai co Pod tren $NN node"
+done
+
+F1="$(awk -F, 'NR == 2 {print $1}' "$EV/b5-probe.csv")"; FL="$(tail -n 1 "$EV/b5-probe.csv" | cut -d, -f1)"
+[ "$F1" -le "$(tm cordon)" ] && [ "$FL" -ge "$(tm can-bang-xong)" ] && echo 'PASS: probe phu tron cua so bao tri'
+~/bookstore/tests/availability-report.sh "$EV/b5-probe.csv" > "$EV/b5-tom-tat.txt"; cat "$EV/b5-tom-tat.txt"
+L1="$(grep '^duong_dan=/ ' "$EV/b5-tom-tat.txt")"; L2="$(grep '^duong_dan=/api/books ' "$EV/b5-tom-tat.txt")"
+E1="$(echo "$L1" | sed -n 's/.* loi=\([0-9]*\) .*/\1/p')"; E2="$(echo "$L2" | sed -n 's/.* loi=\([0-9]*\) .*/\1/p')"
+if [ "$((E1 + E2))" -eq 0 ]; then
+  echo 'PASS: khong gian doan — 0 request loi tren ca hai duong dan'
 else
-  echo 'FAIL: drain khong hoan tat — doc file evidence va muc 4'
+  echo "DO DUOC: $E1 loi tren /, $E2 loi tren /api/books"
+  grep -qF "$L1" "$PM" && grep -qF "$L2" "$PM" && echo 'PASS: postmortem chep dung so do va phai phan loai tung dot loi'
 fi
-cat "$EV/b7-4-drain.txt"
+test -s "$PM" && grep -q '^## 2\.' ~/bookstore/docs/runbook-bao-tri-node.md && echo 'PASS: co postmortem va muc 2 cua runbook'
 ```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+Toàn bộ trong một phiên shell trên master, sau khi đã chạy khối công cụ ở *Bàn giao*:
 
 ```bash
-kubectl -n lab-12 rollout status deployment/web --timeout=300s
-W1_2="$(count_on "$W1")"; W2_2="$(count_on "$W2")"
-echo "web tren $W1=$W1_2 | tren $W2=$W2_2"
-kubectl -n lab-12 get pods -o wide | tee "$EV/b7-4-sau-drain.txt"
+NS=bookstore; W1=lab-k8s-worker1; CSV="$EV/b5-probe.csv"
 
-test "$W2_2" -eq 0 && test "$W1_2" -eq "$REPL" \
-  && echo 'PASS: toan bo Pod web da chuyen sang worker con lai'
+# 1. Tiền điều kiện
+kubectl get nodes
+kubectl -n "$NS" get pdb
+kubectl -n "$NS" get pods -o wide -l app.kubernetes.io/part-of=bookstore
+
+# 2. Probe nền
+nohup ~/bookstore/tests/availability-probe.sh "$CSV" 0.5 > "$CSV.log" 2>&1 &
+PROBE=$!; sleep 15; moc bat-dau
+
+# 3. Đánh dấu, rồi trục xuất
+kubectl cordon "$W1"; moc cordon
+kubectl drain "$W1" --ignore-daemonsets --delete-emptydir-data --timeout=600s > "$EV/b5-drain.txt" 2>&1
+echo "drain exit=$?"; cat "$EV/b5-drain.txt"; moc drain-xong
+# -> chạy Phần A của script nghiệm thu
+
+# 4. Tắt máy
+ssh "$W1" 'sudo shutdown -h now' || true; moc tat-may
 ```
 
-```bash
-ALL_W2_2="$(kubectl get pods -A \
-  --field-selector "spec.nodeName=$W2,status.phase=Running" --no-headers 2>/dev/null | wc -l)"
-DS_W2_2="$(kubectl get pods -A --field-selector "spec.nodeName=$W2,status.phase=Running" \
-  -o jsonpath='{range .items[*]}{.metadata.ownerReferences[0].kind}{"\n"}{end}' \
-  | grep -c '^DaemonSet$')"
-echo "worker2 sau drain: tong Pod Running=$ALL_W2_2 | do DaemonSet quan ly=$DS_W2_2"
-kubectl get pods -A --field-selector "spec.nodeName=$W2,status.phase=Running" -o wide \
-  | tee "$EV/b7-4-pods-worker2.txt"
-
-test "$ALL_W2_2" -eq "$DS_W2_2" && test "$DS_W2_2" -gt 0 \
-  && echo 'PASS: worker2 chi con Pod DaemonSet — dung dinh nghia "Node rong" cua bai 171'
-```
-
-**Ý nghĩa:** đây là ranh giới thứ hai và là điểm mấu chốt của cả lab. `drain` làm **hai việc**:
-`cordon` node, rồi **trục xuất** mọi Pod mà nó được phép trục xuất. Cơ chế nằm dưới không phải
-`kubectl delete pod`: `drain` gọi **Eviction API**, đúng subresource `pods/eviction` mà bạn đã gọi
-tay ở [Lab 7a B7](LAB-7A-LAP-LICH-VA-EVICTION.md#b7-eviction-khởi-phát-qua-api). Hệ quả trực tiếp:
-`drain` **tôn trọng PodDisruptionBudget**, và nó **thử lại** các yêu cầu bị từ chối cho tới khi
-xong hoặc hết `--timeout`. Nếu cluster có một PDB quá chặt, `drain` sẽ treo — đó là lý do gate mở
-đầu của lab bắt `kubectl get pdb -A` phải trả `No resources found`.
-
-Bảng phân biệt phải thuộc:
-
-| | `cordon` | `drain` |
-| --- | --- | --- |
-| Đặt `.spec.unschedulable` | có | có |
-| Thêm taint `node.kubernetes.io/unschedulable:NoSchedule` | có | có |
-| Trục xuất Pod đang chạy | **không** | **có**, qua Eviction API |
-| Tôn trọng PodDisruptionBudget | không liên quan | **có** |
-| Đụng Pod DaemonSet | không | chỉ khi có `--ignore-daemonsets` để **bỏ qua** chúng |
-
-Và trạng thái worker2 lúc này khớp đúng định nghĩa của bài
-[171](../171-node-autoscaling-vi.md): một Node được coi là **rỗng** nếu chỉ còn Pod DaemonSet và
-static Pod chạy trên đó. B8 dùng lại quan sát này.
-
-**PASS:** năm dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
-
-### B7.5. Tắt máy và quan sát từ phía control plane
-
-Ghi lại Node Lease **trước** khi tắt, để lát nữa so:
-
-```bash
-kubectl -n kube-node-lease get lease "$W2" \
-  -o custom-columns='NAME:.metadata.name,HOLDER:.spec.holderIdentity,RENEW:.spec.renewTime,DUR:.spec.leaseDurationSeconds' \
-  | tee "$EV/b7-5-lease-truoc.txt"
-
-test -s "$EV/b7-5-lease-truoc.txt" && echo 'PASS: da ghi Node Lease cua worker2 truoc khi tat may'
-```
-
-Tắt **đúng worker2**, từ master:
-
-```bash
-ssh "$W2" 'sudo shutdown -h now' || true
-```
-
-**Chạy trên máy host**, PowerShell — dùng lại `$vmrun` và `$vmx` đã đặt ở mục 2:
+Chạy trên **máy host**, PowerShell — xác nhận đã tắt, chờ, chạy Phần B trên master, rồi bật lại:
 
 ```powershell
-$w2 = $vmx | Where-Object { $_ -like '*worker2*' }
-$running = & $vmrun -T ws list
-if ($running -notcontains $w2) { "PASS: worker2 da Powered off" }
-else { "CHUA TAT: doi them roi chay lai lenh nay" }
+$w1 = $vmx | Where-Object { $_ -like '*worker1*' }
+if ((& $vmrun -T ws list) -notcontains $w1) { "PASS: worker1 da Powered off" } else { "CHUA TAT: doi roi chay lai" }
+# ... chờ ít nhất hai phút, chạy Phần B trên master ...
+& $vmrun -T ws start $w1
 ```
-
-**PASS:** dòng `PASS: worker2 da Powered off` xuất hiện. Nếu sau vài lần chạy lại vẫn chưa tắt, xem
-[mục 4](#4-troubleshooting-của-lab-này); **không** dùng `vmrun stop … hard` trừ khi mục 4 chỉ dẫn.
-
-Quay lại master, quan sát control plane phản ứng:
-
-```bash
-ST=''
-for i in $(seq 1 180); do
-  ST="$(kubectl get node "$W2" \
-    -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
-  test "$ST" != 'True' && break
-  sleep 5
-done
-echo "Ready condition cua $W2 = $ST"
-kubectl get nodes | tee "$EV/b7-5-nodes-down.txt"
-
-test "$ST" = 'Unknown' \
-  && echo 'PASS: node controller da doi Ready thanh Unknown khi mat heartbeat'
-```
-
-```bash
-kubectl get node "$W2" -o jsonpath='{range .spec.taints[*]}{.key}{"="}{.effect}{"\n"}{end}' \
-  | tee "$EV/b7-5-taint-down.txt"
-
-grep -q 'node.kubernetes.io/unreachable' "$EV/b7-5-taint-down.txt" \
-  && echo 'PASS: node mang them taint node.kubernetes.io/unreachable'
-grep -q 'node.kubernetes.io/unschedulable' "$EV/b7-5-taint-down.txt" \
-  && echo 'PASS: taint cordon van con — tat may khong go no'
-```
-
-```bash
-R1="$(kubectl -n kube-node-lease get lease "$W2" -o jsonpath='{.spec.renewTime}')"
-sleep 30
-R2="$(kubectl -n kube-node-lease get lease "$W2" -o jsonpath='{.spec.renewTime}')"
-echo "Node Lease renewTime: $R1  ->  $R2"
-
-test -n "$R1" && test "$R1" = "$R2" \
-  && echo 'PASS: Node Lease dung yen — khong con kubelet nao gia han no'
-```
-
-```bash
-STILL="$(kubectl get pods -A --field-selector "spec.nodeName=$W2" --no-headers 2>/dev/null | wc -l)"
-TERM="$(kubectl get pods -A --field-selector "spec.nodeName=$W2" \
-  -o jsonpath='{range .items[*]}{.metadata.deletionTimestamp}{"\n"}{end}' | grep -c .)"
-echo "Pod con gan voi worker2 trong API=$STILL | trong do dang bi xoa=$TERM"
-kubectl get pods -A --field-selector "spec.nodeName=$W2" -o wide | tee "$EV/b7-5-pods-down.txt"
-
-test "$STILL" -gt 0 \
-  && echo 'PASS: Pod DaemonSet van con trong API du node da tat — API server khong xoa ho'
-test "$TERM" -eq 0 \
-  && echo 'PASS: khong Pod nao ket Terminating — vi da drain truoc khi tat may'
-```
-
-**Ý nghĩa:** ba tín hiệu bạn vừa thấy đến từ ba nơi khác nhau.
-
-- **Condition `Ready` thành `Unknown`** là việc của **node controller**: khi node trở nên không thể
-  truy cập được, nó cập nhật condition trong `.status` của Node. Bài [23](../23-nodes-vi.md) mô tả
-  chu kỳ kiểm tra và khoảng chờ trước yêu cầu trục xuất đầu tiên là **giá trị mặc định, phụ thuộc
-  cấu hình** — chúng đọc được từ các cờ `--node-monitor-period` và các cờ liên quan trên
-  `kube-controller-manager`. Đừng học thuộc con số; hãy đọc cấu hình thật khi cần.
-- **Node Lease dừng lại** là mặt còn lại của cùng một sự việc, nhìn từ phía kubelet: kubelet gia hạn
-  Lease trùng tên Node trong `kube-node-lease`, và khi kubelet chết thì `renewTime` đứng im. Đây
-  chính là cơ chế bạn thấy còn sống ở B4.2, giờ thấy nó dừng.
-- **Taint `node.kubernetes.io/unreachable`** được control plane tự gắn theo condition. Pod thường
-  mang toleration tự thêm cho taint này với một `tolerationSeconds` hữu hạn nên sẽ bị đuổi sau đó;
-  Pod DaemonSet thì tolerate **không giới hạn**, nên chúng ở lại — đúng những gì bạn đang thấy.
-
-Và điều **không** xảy ra cũng quan trọng không kém: không Pod nào kẹt `Terminating`. Bài
-[169](../169-node-shutdown-vi.md) mô tả kịch bản ngược lại — node tắt mà kubelet không kịp biết,
-Pod của StatefulSet kẹt `Terminating` vĩnh viễn và VolumeAttachment không được xóa nên volume không
-attach sang node khác được, buộc phải gắn tay taint `node.kubernetes.io/out-of-service`. Bạn tránh
-được toàn bộ chuỗi đó **chỉ bằng cách drain trước**. Đó là toàn bộ lý do B6 phải chạy trước B7.
-
-**PASS:** bảy dòng `PASS:` của bước này xuất hiện.
-
-### B7.6. Bật lại máy và chờ node trở lại `Ready`
-
-**Chạy trên máy host**, PowerShell:
-
-```powershell
-$w2 = $vmx | Where-Object { $_ -like '*worker2*' }
-& $vmrun -T ws start $w2
-Start-Sleep -Seconds 5
-$running = & $vmrun -T ws list
-if ($running -contains $w2) { "PASS: worker2 dang chay" } else { "FAIL: VM chua len" }
-```
-
-**PASS:** dòng `PASS: worker2 dang chay` xuất hiện. Nếu bạn quen bật VM bằng giao diện VMware
-Workstation thì làm cách đó cũng được; điều bắt buộc là **bật lại đúng một VM là worker2**.
 
 Quay lại master:
 
 ```bash
-kubectl wait --for=condition=Ready node/"$W2" --timeout=600s
-kubectl get nodes -o wide | tee "$EV/b7-6-nodes-up.txt"
+kubectl wait --for=condition=Ready "node/$W1" --timeout=600s; moc node-ready
+kubectl get node "$W1"                 # vẫn SchedulingDisabled
+kubectl uncordon "$W1"; moc uncordon
 
-RDY="$(kubectl get node "$W2" \
-  -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
-UNSCH2="$(kubectl get node "$W2" -o jsonpath='{.spec.unschedulable}')"
-echo "Ready=$RDY | unschedulable=$UNSCH2"
+# Cân bằng lại: Deployment nào còn dồn một node thì evict một Pod của nó qua Eviction API
+can_bang() {
+  for D in web api; do
+    L="app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=$D"
+    N="$(kubectl -n "$NS" get pod -l "$L" --field-selector=status.phase=Running \
+         -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' | sort -u | grep -c .)"
+    [ "$N" -ge 2 ] && continue
+    P="$(kubectl -n "$NS" get pod -l "$L" -o jsonpath='{.items[0].metadata.name}')"
+    kubectl create --raw "/api/v1/namespaces/$NS/pods/$P/eviction" -f - <<EOF
+{"apiVersion":"policy/v1","kind":"Eviction","metadata":{"name":"$P","namespace":"$NS"}}
+EOF
+    kubectl -n "$NS" rollout status "deployment/$D" --timeout=300s
+  done
+  kubectl -n "$NS" get pods -o wide -l app.kubernetes.io/part-of=bookstore
+}
+can_bang
+moc can-bang-xong
 
-test "$RDY" = 'True' && echo 'PASS: worker2 da tro lai Ready'
-test "$UNSCH2" = 'true' \
-  && echo 'PASS: node VAN unschedulable — reboot khong tu go cordon'
-grep -q 'SchedulingDisabled' "$EV/b7-6-nodes-up.txt" && echo 'PASS: van hien SchedulingDisabled'
+sleep 15; moc ket-thuc
+touch "$CSV.stop"; wait "$PROBE"
+~/bookstore/tests/availability-report.sh "$CSV" | tee "$EV/b5-tom-tat.txt"
 ```
 
+Ý chính cho postmortem:
+
+1. Bản sao trên node kia (Deployment, ràng buộc phân bố của `web` và anti-affinity của `api` từ Lab 7a);
+   drain đi qua Eviction API nên PDB `maxUnavailable: 1` (Lab 3c, 4a) chỉ cho trục xuất **từng Pod
+   một** — Pod thứ hai của cùng Deployment phải chờ bản thay thế của Pod thứ nhất Ready; tắt êm — Pod bị
+   evict vẫn đi luồng kết thúc của bài 47, `preStop` của nginx từ Lab 3a giữ nginx phục vụ trong lúc
+   control plane gỡ Pod khỏi EndpointSlice (bài 143, bước 3).
+2. Hai nguồn lỗi hay gặp. (a) `000` trên **cả hai** đường dẫn cùng lúc, khoảng vài giây, ngay sau
+   `cordon`: Pod Traefik duy nhất nằm trên worker1 bị evict — đúng dự đoán ở B1. PDB của Bookstore
+   không với tới tầng này; sửa ở hạ tầng nền (hai bản sao Traefik và PDB) — ngoài phạm vi snapshot,
+   ghi nợ ở B8. (b) Một hai `502` chỉ trên `/api/books` đúng lúc Pod `api` bị evict: PostgREST dừng
+   ngay khi nhận tín hiệu trong khi kube-proxy trên node của nginx chưa kịp gỡ đích — sửa trong repo
+   Bookstore ở B6.
+3. Pod DaemonSet không đi đâu được: DaemonSet controller đặt lại ngay trên chính node đó và nó dung thứ
+   taint `unschedulable` (bài 139), nên drain không bao giờ xong nếu cố trục xuất chúng. Trong lúc
+   máy tắt, Pod `node-agent` vẫn nằm trong API gắn với worker1 — DaemonSet dung thứ `unreachable` vô
+   thời hạn. Sau reboot, kubelet thấy Pod vẫn được gán cho node, dựng lại sandbox và chạy lại
+   container: cùng Pod, cùng UID, `restartCount` tăng.
+4. `.spec.unschedulable` nằm trong Node object ở API server, không ở đĩa worker1 — reboot không đụng
+   tới nó. Pod đã được lập lịch thì ở yên; chỉ Pod **mới** mới được đặt lên worker1. Evict một Pod trên
+   node đông là cách tạo Pod mới mà vẫn đi qua PDB; `rollout restart` thay mọi Pod và tốn thời gian hơn.
+5. Không chặn. Với một bản sao, `maxUnavailable: 1` cho `disruptionsAllowed` bằng 1 (bài 339, mục
+   *Kiểm tra trạng thái của PDB*): Pod `web` duy nhất bị trục xuất và trang chủ mất cho tới khi Pod mới
+   Ready. PDB theo `maxUnavailable` bảo vệ **tỉ lệ** bản sao, không bảo vệ bản sao cuối cùng. Tiền điều
+   kiện "`web` đủ bản sao Ready và có Pod trên cả hai worker" chặn đúng tình huống này — đó là lý do nó
+   đứng đầu runbook.
+
+</details>
+
+## B6. [BS-12-06] ⭐ api tắt êm không làm rơi request
+
+**Loại:** Tính năng — tùy chọn. Làm khi B5 đo được lỗi trên `/api/books` trùng lúc Pod `api` bị evict
+hoặc bị thay.
+
+**Bối cảnh:** Lab 3a cho `nginx` một `preStop` giữ nó phục vụ thêm vài giây, vì việc gỡ Pod khỏi danh
+sách đích của Service diễn ra **song song** với việc tắt Pod. `api` thì chưa có: image PostgREST không
+có shell, nên không chạy được lệnh `sleep` trong container. Kubelet có một loại handler tự chờ mà
+không cần gì trong image.
+
+**Yêu cầu:**
+
+1. Khi Pod `api` bị đánh dấu kết thúc, tiến trình PostgREST tiếp tục phục vụ thêm vài giây rồi mới nhận
+   tín hiệu dừng — không dùng shell, không đổi image.
+2. Ân hạn tắt của `api` vẫn đủ lớn để chứa khoảng chờ đó.
+3. Thay đổi nằm trong repo; triển khai bằng `./scripts/deploy.sh`.
+4. Thay toàn bộ Pod `api` trong lúc probe chạy: `/api/books` có 0 request lỗi.
+
+**Ràng buộc:** không đổi image, không thêm container, không sửa cấu hình nginx. Manifest vẫn đạt Pod
+Security `restricted`.
+
+**Đọc lại:**
+
+- Bài [42](../42-container-lifecycle-hooks-vi.md#container-hooks) — ba loại handler, đặc biệt đoạn
+  *ai gọi hook và ai chạy handler* về `sleep`.
+- Bài [47](../47-pod-lifecycle-vi.md#pod-termination-flow) — đồng hồ ân hạn và hook `preStop`.
+- Bài [143](../143-api-eviction-vi.md#cách-hoạt-động-của-eviction-khởi-phát-qua-api-how-api-initiated-eviction-works)
+  — bước 2 và bước 3 diễn ra cùng lúc.
+
+**Bàn giao:** manifest `api` trong `k8s/app/api/`; `~/lab-evidence/12/b6-*`; một dòng trong postmortem
+của B5: lỗi loại (b) đã sửa ở đâu.
+
+**Nghiệm thu:**
+
+- `PASS:` container `postgrest` có handler chờ ở `preStop`; ân hạn lớn hơn thời gian chờ.
+- `PASS:` thay đổi nằm trong repo.
+- `PASS:` thay toàn bộ Pod `api` dưới probe: 0 lỗi trên `/api/books`.
+
+**Câu hỏi thiết kế** — trả lời trong postmortem của B5, mục *Đã sửa*:
+
+1. Vì sao cách Lab 3a làm cho nginx (chạy lệnh trong container) không dùng được cho `api`, còn cách
+   này thì được? Ai thực thi handler?
+2. Thời gian chờ nên dài bao nhiêu, bị chặn trên bởi trường nào? Chờ lâu thì việc drain một node chậm
+   đi ở đâu?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Trường cần tìm: `kubectl explain pod.spec.containers.lifecycle.preStop`.
+- Thay toàn bộ Pod của một Deployment: `kubectl rollout restart`.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi đã triển khai bằng deploy.sh</summary>
+
 ```bash
-DS_UP=0
-for i in $(seq 1 60); do
-  DS_UP="$(kubectl get pods -A --field-selector "spec.nodeName=$W2,status.phase=Running" \
-    -o jsonpath='{range .items[*]}{.metadata.ownerReferences[0].kind}{"\n"}{end}' \
-    | grep -c '^DaemonSet$')"
-  test "$DS_UP" -ge "$DS_W2_0" && break
+NS=bookstore; EV=~/lab-evidence/12
+C='{.spec.template.spec.containers[?(@.name=="postgrest")]'
+S="$(kubectl -n "$NS" get deployment api -o jsonpath="$C.lifecycle.preStop.sleep.seconds}")"
+G="$(kubectl -n "$NS" get deployment api -o jsonpath='{.spec.template.spec.terminationGracePeriodSeconds}')"
+[ "${S:-0}" -ge 1 ] && [ "${G:-30}" -gt "$S" ] && echo "PASS: preStop cho $S giay, an han $G giay"
+grep -rq 'preStop' ~/bookstore/k8s/app/api/ && echo 'PASS: thay doi nam trong repo'
+
+CSV="$EV/b6-probe.csv"
+nohup ~/bookstore/tests/availability-probe.sh "$CSV" 0.5 > "$CSV.log" 2>&1 &
+PROBE=$!; sleep 10
+kubectl -n "$NS" rollout restart deployment/api
+kubectl -n "$NS" rollout status deployment/api --timeout=300s
+sleep 15; touch "$CSV.stop"; wait "$PROBE"
+~/bookstore/tests/availability-report.sh "$CSV" | tee "$EV/b6-tom-tat.txt"
+grep -q '^duong_dan=/api/books .* loi=0 ' "$EV/b6-tom-tat.txt" && echo 'PASS: thay toan bo Pod api ma /api/books khong loi'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+Thêm vào container `postgrest` trong `k8s/app/api/deployment.yaml`:
+
+```yaml
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: 5
+```
+
+`terminationGracePeriodSeconds: 30` của `api` (Lab 3a) đã lớn hơn 5 — giữ nguyên. Handler `sleep` do
+**kubelet** thực thi, không cần gì trong image; trong 5 giây đó PostgREST vẫn phục vụ request đang tới,
+còn control plane gỡ Pod khỏi EndpointSlice và kube-proxy trên mọi node cập nhật quy tắc. Hết 5 giây,
+runtime mới gửi tín hiệu dừng. Đây cùng một lý do với `preStop` của nginx ở Lab 3a.
+
+```bash
+cd ~/bookstore && ./scripts/deploy.sh
+```
+
+Ý chính cho câu hỏi thiết kế:
+
+1. Handler `exec` chạy **trong** container, nên cần shell và lệnh `sleep` trong image; image
+   PostgREST chỉ có một binary. Handler `sleep` do kubelet thực thi (bài 42), image không cần gì.
+2. Đủ để control plane gỡ Pod khỏi EndpointSlice và kube-proxy trên mọi node cập nhật — phụ thuộc cấu
+   hình và tải của cluster, thường vài giây. Chặn trên là `terminationGracePeriodSeconds`, vì đồng hồ
+   ân hạn chạy **trước** khi hook được gọi (bài 47). Mỗi Pod `api` bị evict mất thêm đúng khoảng chờ
+   đó, nên drain node chứa nó chậm thêm chừng ấy — rẻ so với request rơi.
+
+</details>
+
+## B7. [BS-12-07] Bảo trì lab-k8s-worker2: cửa sổ bảo trì cho db
+
+**Loại:** Vận hành, kèm diễn tập — trên `lab-k8s-worker2`.
+
+**Bối cảnh:** worker2 cũng cần vá kernel. Khác worker1, nó giữ `db-0` và PV local của DB. B1 đã dự
+đoán: `db` không thể sang worker1, nên đây là một **cửa sổ bảo trì** có downtime DB. Việc của đội là
+làm cửa sổ đó **ngắn nhất và có kiểm soát**: có bản backup mới trước khi bắt đầu, dời mọi thứ không
+phải `db` ra khỏi node khi DB còn chạy, chỉ mở cửa sổ khi đã sẵn sàng, đo đúng downtime, và chứng
+minh dữ liệu còn nguyên. Trong lúc máy tắt, đội quan sát control plane nhìn một node biến mất ra sao.
+
+> **Trả nợ lab của Lab 3a — phase `Unknown`.** Đọc lại bài
+> [47, mục *Phase của Pod*](../47-pod-lifecycle-vi.md#pod-phase), đặc biệt dòng `Unknown` và đoạn cuối
+> của mục, **trước** khi làm ticket này.
+
+**Yêu cầu:**
+
+1. Trước cửa sổ: một bản backup thành công của `db` ngay trước khi bắt đầu; ghi trạng thái "trước"
+   bằng công cụ bên dưới (gồm một đơn hàng đánh dấu ghi vào DB).
+2. **Pha 1 — DB vẫn chạy:** đưa worker2 ra khỏi lập lịch và trục xuất mọi thứ **trừ** `db-0`, bằng
+   cách để chính Kubernetes giữ `db-0` lại: một PDB thử nghiệm tên `db-thu` không cho phép gián đoạn
+   tự nguyện nào với `db`. Chứng minh: drain bị chặn đúng ở `db-0` và nói rõ lý do; mọi Pod khác của
+   node đã đi; `db-0` vẫn là Pod cũ, vẫn Ready.
+3. **Pha 2 — mở cửa sổ:** gỡ PDB thử nghiệm, drain lại. Chứng minh: `db-0` bị thay bằng Pod mới nằm
+   `Pending` vì không node nào nhận được; `api` chuyển NotReady nhưng **không** bị khởi động lại
+   ([mục 3.7](DU-AN-BOOKSTORE.md#37-chịu-lỗi-và-vận-hành), dòng đầu); worker2 là Node rỗng.
+4. Tắt máy worker2. Trong lúc máy tắt, chứng minh ba tín hiệu của control plane — condition, taint,
+   Lease — và trạng thái của Pod `node-agent` còn gắn với worker2: phase, condition `Ready`, trạng thái
+   container mà API đang báo.
+5. Bật lại, chờ node Ready, đưa node trở lại lập lịch; `db-0` lên lại **trên worker2, cùng PV**, dữ liệu
+   còn nguyên (số sách và đơn hàng đánh dấu); `api` Ready lại; cân bằng `web`, `api` như B5.
+6. Ghi mốc bằng `moc`, đủ mười bốn mốc đúng thứ tự (danh sách bên dưới).
+7. Postmortem `docs/postmortem/12-bao-tri-worker2.md`: downtime DB, đợt lỗi dài nhất của `/api/books`
+   trong cửa sổ, số lỗi của trang chủ, các đoạn thời gian cấu thành downtime; trả lời câu hỏi phase
+   `Unknown`.
+8. ADR `docs/adr/NNNN-pdb-cho-db.md`; mục 3 của runbook: quy trình cửa sổ bảo trì node giữ dữ liệu.
+9. ⭐ Diễn tập node mất liên lạc với một Pod **không** phải DaemonSet: sau pha 2, tạo Pod thử nghiệm
+   `thu-mat-lien-lac` gắn thẳng vào worker2 (không qua scheduler, không dữ liệu); giữ máy tắt tới khi
+   control plane đánh dấu xóa nó; chứng minh nó kẹt ở trạng thái đang kết thúc cho tới khi node quay
+   lại.
+
+**Ràng buộc:** không `--force`, không `--disable-eviction`; không xóa cưỡng bức `db-0`; không gắn taint
+`out-of-service`; không sửa node affinity hay PV của `db` để "dời DB sang worker1"; PDB `db-thu` và Pod
+⭐ là object thử nghiệm ở `~/lab-work/12/`, xóa khi xong.
+
+**Đọc lại:**
+
+- Bài [339](../339-configure-pdb-vi.md#suy-nghĩ-về-cách-ứng-dụng-của-bạn-phản-ứng-với-gián-đoạn-think-about-how-your-application-reacts-to-disruptions)
+  — dòng *Ứng dụng Stateful một instance*, hai giải pháp khả dĩ.
+- Bài [53](../53-disruptions-vi.md#how-to-perform-disruptive-actions-on-your-cluster) — ba lựa chọn khi
+  phải làm hành động gây gián đoạn.
+- Bài [23](../23-nodes-vi.md): [*Nhịp tim của Node*](../23-nodes-vi.md#node-heartbeats),
+  [*Node controller*](../23-nodes-vi.md#node-controller).
+- Bài [139](../139-taint-and-toleration-vi.md#eviction-dựa-trên-taint-taint-based-evictions) — taint
+  `unreachable`, toleration tự thêm với `tolerationSeconds`, toleration của Pod DaemonSet.
+- Bài [169](../169-node-shutdown-vi.md#non-graceful-node-shutdown) — Pod StatefulSet kẹt `Terminating`,
+  taint `out-of-service` và hai điều kiện của nó.
+- Bài [47](../47-pod-lifecycle-vi.md): [*Phase của Pod*](../47-pod-lifecycle-vi.md#pod-phase),
+  [*Thu gom rác cho Pod*](../47-pod-lifecycle-vi.md#pod-garbage-collection).
+- Bài [138](../138-assign-pod-node-vi.md), mục *nodeName* — cho ⭐.
+
+**Bàn giao:** postmortem; ADR; mục 3 của runbook; trong `~/lab-evidence/12/`: `b7-truoc.txt`,
+`b7-su-kien.txt`, `b7-probe.csv`, `b7-backup.txt`, `b7-drain-pha1.txt`, `b7-drain-pha2.txt`.
+
+Hai công cụ ghi bằng chứng, chép nguyên văn — chạy **trước** khi bắt đầu, khi `db-0` đang Ready:
+
+```bash
+EV=~/lab-evidence/12; W=lab-k8s-worker2; NS=bookstore
+MOC="$EV/b7-su-kien.txt"; : > "$MOC"
+moc() { echo "$(date +%s%3N) $(date -Is) $1" | tee -a "$MOC"; }
+SQL() { kubectl -n "$NS" exec db-0 -c postgres -- psql -U postgres -d bookstore -qtAc "$1"; }
+{ echo "boot_id=$(kubectl get node "$W" -o jsonpath='{.status.nodeInfo.bootID}')"
+  echo "agent_uid=$(kubectl -n bookstore-system get pod -l app.kubernetes.io/component=agent \
+       --field-selector "spec.nodeName=$W" -o jsonpath='{.items[0].metadata.uid}')"
+  echo "db_uid=$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.metadata.uid}')"
+  echo "pv=$(kubectl -n "$NS" get pvc data-db-0 -o jsonpath='{.spec.volumeName}')"
+  echo "so_sach=$(SQL 'SELECT count(*) FROM api.books')"
+  echo "don_danh_dau=$(SQL 'INSERT INTO api.orders (book_id, quantity) SELECT min(id), 1 FROM api.books RETURNING id' | head -n 1)"
+} > "$EV/b7-truoc.txt"; cat "$EV/b7-truoc.txt"
+```
+
+Mười bốn mốc, đúng tên và đúng thứ tự: `bat-dau`, `backup-xong`, `cordon`, `drain-pha1-xong`,
+`xoa-pdb`, `drain-pha2-xong`, `tat-may`, `bat-may`, `node-ready`, `uncordon`, `db-ready`, `api-ready`,
+`can-bang-xong`, `ket-thuc`. Cửa sổ bảo trì tính từ `xoa-pdb`.
+
+**Nghiệm thu:**
+
+- `PASS:` backup trước cửa sổ in dòng `db-backup: OK`; file "trước" không có giá trị rỗng.
+- `PASS:` pha 1 — drain bị PDB chặn ở `db-0`; trên worker2 chỉ còn Pod DaemonSet và `db-0`;
+  `db-0` cùng UID, Ready; `web`, `api` đủ bản sao.
+- `PASS:` pha 2 — `db-0` mới khác UID, `Pending` với `PodScheduled=False`/`Unschedulable`;
+  `api` NotReady, phase `Running`, không khởi động lại sau ít nhất 60 giây; worker2 là Node rỗng.
+- `PASS:` máy tắt — `Ready=Unknown`; taint `unreachable` (`NoExecute`) cùng taint `unschedulable`; Node
+  Lease đứng yên; Pod `node-agent` trên worker2 còn trong API, phase chưa kết thúc, `Ready=False`, API
+  vẫn báo container đang chạy.
+- `PASS:` sau bảo trì — `bootID` đổi; `db-0` trên worker2, cùng PV, cùng số sách, đơn hàng đánh dấu còn;
+  `node-agent` cùng UID; `web`, `api` có Pod trên cả hai worker.
+- `PASS:` đủ mười bốn mốc đúng thứ tự; probe phủ trọn; postmortem chép đúng dòng `db_ngung_s=` mà
+  script tính.
+- `PASS:` có ADR và mục 3 của runbook.
+- `PASS:` (⭐) Pod thử nghiệm chạy trên worker2 dù node đã cordon; mang toleration `unreachable` tự thêm;
+  khi máy tắt đủ lâu nó có `deletionTimestamp` nhưng vẫn còn trong API; sau khi node quay lại thì biến
+  mất.
+
+**Câu hỏi thiết kế:**
+
+Trong ADR `docs/adr/NNNN-pdb-cho-db.md`:
+
+1. Có nên đưa PDB `maxUnavailable: 0` cho `db` vào repo không? Dùng hai giải pháp của bài 339 cho ứng
+   dụng stateful một instance, câu hỏi "trên cluster này ai gây gián đoạn tự nguyện" của bài 53, và
+   câu 4 của B1 về autoscaler. Nêu rõ điều kiện khiến bạn đổi quyết định.
+2. Pha 1 dùng PDB để giữ `db-0` lại. Còn cách nào khác để drain "mọi thứ trừ `db`" mà không cần
+   object thử nghiệm? Đánh đổi?
+3. Hai lý do độc lập khiến `db-0` không thể chạy trên worker1. Nếu worker2 hỏng hẳn, không quay lại,
+   khôi phục DB bằng con đường nào đã diễn tập trong dự án?
+4. Nếu ai đó tắt thẳng worker2 không drain: `db-0` sẽ ra sao? Gắn taint `out-of-service` có cứu được
+   `db` không — vì sao với PV local câu trả lời khác với ví dụ volume của bài 169?
+
+Trong postmortem `docs/postmortem/12-bao-tri-worker2.md`:
+
+5. Downtime DB đo được gồm những đoạn nào (drain, tắt, boot, node Ready, uncordon, lập lịch, khởi động
+   PostgreSQL, `api` kết nối lại)? Đoạn nào đội rút ngắn được, đoạn nào không?
+6. **(Trả nợ 3a.)** Trong lúc worker2 tắt: Node condition, phase của Pod `node-agent`, condition `Ready`
+   của Pod, trạng thái container mà API báo — cái nào phản ánh sự thật, cái nào là dữ liệu cũ? "Không
+   thể lấy được trạng thái của Pod" của dòng `Unknown` trong bài 47 hiện ra ở đâu trên cluster của bạn?
+
+<details>
+<summary>Gợi ý</summary>
+
+1. PDB chỉ chọn Pod bằng label; dùng đúng cặp selector của hợp đồng cho `db`.
+2. Drain có cờ `--timeout`: pha 1 cần drain **bỏ cuộc** sau một khoảng ngắn thay vì chờ mãi.
+3. Một bản backup ngay lúc này: `kubectl -n bookstore create job <ten> --from=cronjob/db-backup`.
+4. Đọc taint của một node:
+   `kubectl get node <n> -o jsonpath='{range .spec.taints[*]}{.key}={.effect}{"\n"}{end}'`.
+5. Pod `api` không có shell; trạng thái NotReady đọc từ condition, số lần khởi động lại từ
+   `containerStatuses`.
+6. ⭐ Pod gắn thẳng vào node bằng `spec.nodeName`; namespace `bookstore` là `restricted` nên Pod thử
+   nghiệm phải đủ `securityContext` và có `resources` hợp LimitRange.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy theo bốn thời điểm</summary>
+
+Phần A — sau pha 1 (drain đã bỏ cuộc), trước khi gỡ PDB:
+
+```bash
+NS=bookstore; EV=~/lab-evidence/12; W2=lab-k8s-worker2
+grep -q 'db-backup: OK' "$EV/b7-backup.txt" && [ "$(grep -c '=$' "$EV/b7-truoc.txt")" -eq 0 ] \
+  && echo 'PASS: co backup moi va du trang thai truoc cua so'
+grep -qi "disruption budget" "$EV/b7-drain-pha1.txt" && grep -q 'db-0' "$EV/b7-drain-pha1.txt" \
+  && echo 'PASS: drain pha 1 bi PDB chan o db-0'
+[ "$(kubectl -n "$NS" get pdb db-thu -o jsonpath='{.status.disruptionsAllowed}')" = '0' ] && echo 'PASS: db-thu khong cho gian doan nao'
+CON="$(kubectl get pods -A --field-selector "spec.nodeName=$W2" \
+  -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}={.metadata.ownerReferences[0].kind}{"\n"}{end}' \
+  | grep -v '=DaemonSet$')"
+[ "$CON" = 'bookstore/db-0=StatefulSet' ] && echo 'PASS: tren worker2 chi con Pod DaemonSet va db-0'
+U0="$(sed -n 's/^db_uid=//p' "$EV/b7-truoc.txt")"
+{ [ "$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.metadata.uid}')" = "$U0" ] \
+  && [ "$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')" = 'True' ]; } \
+  && echo 'PASS: db-0 van la Pod cu va Ready — DB chua gian doan'
+for D in web api; do
+  [ "$(kubectl -n "$NS" get deployment "$D" -o jsonpath='{.status.readyReplicas}')" = \
+    "$(kubectl -n "$NS" get deployment "$D" -o jsonpath='{.spec.replicas}')" ] && echo "PASS: $D du ban sao Ready"
+done
+kubectl -n "$NS" get pod -l app.kubernetes.io/component=api \
+  -o jsonpath='{range .items[*]}{.metadata.name}={.status.containerStatuses[0].restartCount}{"\n"}{end}' \
+  > "$EV/b7-api-sau-pha1.txt"
+```
+
+Phần B — sau pha 2, máy còn bật:
+
+```bash
+NS=bookstore; EV=~/lab-evidence/12; W2=lab-k8s-worker2; SEL='app.kubernetes.io/part-of=bookstore'
+! kubectl -n "$NS" get pdb db-thu >/dev/null 2>&1 && grep -q "node/$W2 drained" "$EV/b7-drain-pha2.txt" \
+  && echo 'PASS: da go PDB thu nghiem, drain pha 2 hoan tat'
+U0="$(sed -n 's/^db_uid=//p' "$EV/b7-truoc.txt")"; U1="$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.metadata.uid}')"
+{ [ -n "$U1" ] && [ "$U1" != "$U0" ] && [ "$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.status.phase}')" = 'Pending' ] \
+  && [ "$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.status.conditions[?(@.type=="PodScheduled")].reason}')" = 'Unschedulable' ]; } \
+  && echo 'PASS: db-0 moi Pending, Unschedulable'
+kubectl -n "$NS" get pod db-0 -o jsonpath='{.status.conditions[?(@.type=="PodScheduled")].message}{"\n"}' | tee "$EV/b7-db-pending.txt"
+kubectl -n "$NS" wait --for=condition=Ready=false pod -l "$SEL,app.kubernetes.io/component=api" --timeout=180s \
+  && echo 'PASS: api NotReady khi mat DB'
+sleep 60
+kubectl -n "$NS" get pod -l app.kubernetes.io/component=api \
+  -o jsonpath='{range .items[*]}{.metadata.name}={.status.containerStatuses[0].restartCount}{"\n"}{end}' > "$EV/b7-api-pha2.txt"
+diff -q "$EV/b7-api-sau-pha1.txt" "$EV/b7-api-pha2.txt" >/dev/null \
+  && [ "$(kubectl -n "$NS" get pod -l app.kubernetes.io/component=api -o jsonpath='{.items[*].status.phase}' | tr ' ' '\n' | sort -u)" = 'Running' ] \
+  && echo 'PASS: api van Running, khong bi khoi dong lai sau 60 giay'
+KHAC="$(kubectl get pods -A --field-selector "spec.nodeName=$W2" \
+  -o jsonpath='{range .items[*]}{.metadata.ownerReferences[0].kind}{"\n"}{end}' | grep -vc '^DaemonSet$')"
+[ "$KHAC" -eq 0 ] && echo 'PASS: worker2 la Node rong'
+```
+
+Nếu làm ⭐, sau Phần B tạo Pod thử nghiệm rồi chạy:
+
+```bash
+NS=bookstore; W2=lab-k8s-worker2
+kubectl -n "$NS" wait --for=condition=Ready pod/thu-mat-lien-lac --timeout=120s
+[ "$(kubectl -n "$NS" get pod thu-mat-lien-lac -o jsonpath='{.spec.nodeName}')" = "$W2" ] \
+  && echo 'PASS: Pod gan thang vao worker2 van chay du node da cordon'
+kubectl -n "$NS" get pod thu-mat-lien-lac \
+  -o jsonpath='{.spec.tolerations[?(@.key=="node.kubernetes.io/unreachable")].tolerationSeconds}{"\n"}' | tee ~/lab-evidence/12/b7-sao-toleration.txt
+grep -q '^[0-9]' ~/lab-evidence/12/b7-sao-toleration.txt && echo 'PASS: toleration unreachable co tolerationSeconds do he thong tu them'
+```
+
+Phần C — khi worker2 đã *Powered off*:
+
+```bash
+NS=bookstore; EV=~/lab-evidence/12; W2=lab-k8s-worker2
+for i in $(seq 1 120); do
+  ST="$(kubectl get node "$W2" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
+  [ "$ST" = 'Unknown' ] && break; sleep 5
+done
+[ "$ST" = 'Unknown' ] && echo 'PASS: worker2 Ready=Unknown'
+sleep 20
+kubectl get node "$W2" -o jsonpath='{range .spec.taints[*]}{.key}={.effect}{"\n"}{end}' | tee "$EV/b7-taint-khi-tat.txt"
+grep -qx 'node.kubernetes.io/unreachable=NoExecute' "$EV/b7-taint-khi-tat.txt" \
+  && grep -q '^node.kubernetes.io/unschedulable=' "$EV/b7-taint-khi-tat.txt" \
+  && echo 'PASS: taint unreachable NoExecute, taint cordon van con'
+L1="$(kubectl -n kube-node-lease get lease "$W2" -o jsonpath='{.spec.renewTime}')"; sleep 30
+L2="$(kubectl -n kube-node-lease get lease "$W2" -o jsonpath='{.spec.renewTime}')"
+[ -n "$L1" ] && [ "$L1" = "$L2" ] && echo "PASS: Node Lease dung yen tai $L1"
+
+AG="$(kubectl -n bookstore-system get pod -l app.kubernetes.io/component=agent --field-selector "spec.nodeName=$W2" -o jsonpath='{.items[0].metadata.name}')"
+for i in $(seq 1 24); do
+  PR="$(kubectl -n bookstore-system get pod "$AG" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
+  [ "$PR" = 'False' ] && break; sleep 5
+done
+CS='{.status.containerStatuses[?(@.name=="agent")]'
+kubectl -n bookstore-system get pod "$AG" -o jsonpath="pod={.metadata.name} phase={.status.phase} pod_ready={.status.conditions[?(@.type==\"Ready\")].status} container_ready=$CS.ready} container_running_tu=$CS.state.running.startedAt}{\"\n\"}" \
+  | tee "$EV/b7-agent-khi-tat.txt"
+kubectl -n bookstore-system get pod "$AG" -o wide | tee -a "$EV/b7-agent-khi-tat.txt"
+grep -qE 'phase=(Running|Unknown) ' "$EV/b7-agent-khi-tat.txt" && echo 'PASS: Pod node-agent con trong API, phase chua ket thuc'
+grep -q 'pod_ready=False' "$EV/b7-agent-khi-tat.txt" && echo 'PASS: condition Ready cua Pod da thanh False'
+grep -q 'container_running_tu=20' "$EV/b7-agent-khi-tat.txt" && echo 'PASS: API van bao container dang chay — du lieu cu, khong ai cap nhat duoc'
+[ "$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.status.phase}')" = 'Pending' ] && echo 'PASS: db-0 van Pending'
+[ "$(tail -n 40 "$EV/b7-probe.csv" | awk -F, '$2 == "/" && $3 != "200"' | wc -l)" -eq 0 ] \
+  && echo 'PASS: trang chu van phuc vu tu worker1'
+```
+
+Nếu làm ⭐, giữ máy tắt và chạy tới khi PASS (thời điểm phụ thuộc `tolerationSeconds` vừa đọc):
+
+```bash
+NS=bookstore
+for i in $(seq 1 120); do
+  DT="$(kubectl -n "$NS" get pod thu-mat-lien-lac -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null)"
+  [ -n "$DT" ] && break; sleep 10
+done
+kubectl -n "$NS" get pod thu-mat-lien-lac -o wide | tee ~/lab-evidence/12/b7-sao-ket.txt
+[ -n "$DT" ] && kubectl -n "$NS" get pod thu-mat-lien-lac >/dev/null 2>&1 \
+  && echo "PASS: Pod da bi danh dau xoa luc $DT nhung van ket trong API vi kubelet vang mat"
+```
+
+Phần D — sau mốc `ket-thuc`, đã dừng probe và viết xong postmortem:
+
+```bash
+NS=bookstore; EV=~/lab-evidence/12; W2=lab-k8s-worker2; MOC="$EV/b7-su-kien.txt"
+PM=~/bookstore/docs/postmortem/12-bao-tri-worker2.md; R=~/bookstore/tests/availability-report.sh
+tm() { awk -v m="$1" '$3 == m {print $1; exit}' "$MOC"; }
+SQL() { kubectl -n "$NS" exec db-0 -c postgres -- psql -U postgres -d bookstore -qtAc "$1"; }
+v() { sed -n "s/^$1=//p" "$EV/b7-truoc.txt"; }
+
+T=0; BAD=0
+for M in bat-dau backup-xong cordon drain-pha1-xong xoa-pdb drain-pha2-xong tat-may bat-may \
+         node-ready uncordon db-ready api-ready can-bang-xong ket-thuc; do
+  X="$(tm "$M")"
+  if [ -z "$X" ] || [ "$X" -lt "$T" ]; then echo "FAIL: moc $M thieu hoac sai thu tu"; BAD=1; else T="$X"; fi
+done
+[ "$BAD" -eq 0 ] && echo 'PASS: du muoi bon moc theo dung thu tu'
+
+[ "$(kubectl get node "$W2" -o jsonpath='{.status.nodeInfo.bootID}')" != "$(v boot_id)" ] && echo 'PASS: worker2 da khoi dong lai that'
+{ [ "$(kubectl -n "$NS" get pod db-0 -o jsonpath='{.spec.nodeName}')" = "$W2" ] \
+  && [ "$(kubectl -n "$NS" get pvc data-db-0 -o jsonpath='{.spec.volumeName}')" = "$(v pv)" ]; } \
+  && echo 'PASS: db-0 tro lai worker2, cung PV'
+{ [ "$(SQL 'SELECT count(*) FROM api.books')" = "$(v so_sach)" ] \
+  && [ "$(SQL "SELECT count(*) FROM api.orders WHERE id = $(v don_danh_dau)")" = '1' ]; } \
+  && echo 'PASS: du lieu con nguyen — so sach va don hang danh dau'
+[ "$(kubectl -n bookstore-system get pod -l app.kubernetes.io/component=agent --field-selector "spec.nodeName=$W2" -o jsonpath='{.items[0].metadata.uid}')" = "$(v agent_uid)" ] \
+  && echo 'PASS: node-agent tren worker2 van la Pod cu'
+for D in web api; do
+  NN="$(kubectl -n "$NS" get pod -l "app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=$D" \
+    --field-selector=status.phase=Running -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' | sort -u | grep -c .)"
+  [ "$NN" -ge 2 ] && echo "PASS: $D lai co Pod tren $NN node"
+done
+! kubectl -n "$NS" get pod thu-mat-lien-lac >/dev/null 2>&1 && echo 'PASS: khong con Pod thu nghiem'
+
+F1="$(awk -F, 'NR == 2 {print $1}' "$EV/b7-probe.csv")"; FL="$(tail -n 1 "$EV/b7-probe.csv" | cut -d, -f1)"
+[ "$F1" -le "$(tm cordon)" ] && [ "$FL" -ge "$(tm can-bang-xong)" ] && echo 'PASS: probe phu tron'
+"$R" "$EV/b7-probe.csv" > "$EV/b7-tom-tat.txt"
+"$R" "$EV/b7-probe.csv" "$(tm cordon)" "$(tm xoa-pdb)" > "$EV/b7-tom-tat-pha1.txt"
+"$R" "$EV/b7-probe.csv" "$(tm xoa-pdb)" "$(tm ket-thuc)" > "$EV/b7-tom-tat-cua-so.txt"
+{ echo "db_ngung_s=$(( ($(tm db-ready) - $(tm xoa-pdb)) / 1000 ))"
+  echo "cua_so_s=$(( ($(tm ket-thuc) - $(tm xoa-pdb)) / 1000 ))"
+  grep '^duong_dan=/api/books ' "$EV/b7-tom-tat-cua-so.txt" | sed -n 's/.*dot_dai_nhat_s=\([0-9.]*\).*/api_dot_loi_dai_nhat_s=\1/p'
+  grep '^duong_dan=/ ' "$EV/b7-tom-tat.txt" | sed -n 's/.* loi=\([0-9]*\) .*/trang_chu_loi=\1/p'
+} | tee "$EV/b7-cua-so.txt"
+cat "$EV/b7-tom-tat-pha1.txt"
+grep -qF "$(grep '^db_ngung_s=' "$EV/b7-cua-so.txt")" "$PM" && echo 'PASS: postmortem chep dung downtime DB'
+ls ~/bookstore/docs/adr/*-pdb-cho-db.md >/dev/null 2>&1 && grep -q '^## 3\.' ~/bookstore/docs/runbook-bao-tri-node.md \
+  && echo 'PASS: co ADR va muc 3 cua runbook'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+Hai object thử nghiệm, mỗi cái một file:
+
+```yaml
+# ~/lab-work/12/pdb-db-thu.yaml — giữ db-0 lại trong pha 1
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: db-thu
+  namespace: bookstore
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: bookstore
+      app.kubernetes.io/component: db
+```
+
+```yaml
+# ~/lab-work/12/thu-mat-lien-lac.yaml — ⭐, không dữ liệu, gắn thẳng vào worker2
+apiVersion: v1
+kind: Pod
+metadata:
+  name: thu-mat-lien-lac
+  namespace: bookstore
+spec:
+  nodeName: lab-k8s-worker2
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: ngu
+    image: busybox:1.37
+    command: ["sh", "-c", "trap 'exit 0' TERM; while true; do sleep 5 & wait $!; done"]
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 50m, memory: 32Mi}
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+```
+
+Quy trình, trong một phiên shell sau khối công cụ ở *Bàn giao*; hàm `can_bang` là hàm đã định nghĩa
+trong lời giải của B5:
+
+```bash
+NS=bookstore; W2=lab-k8s-worker2; CSV="$EV/b7-probe.csv"
+nohup ~/bookstore/tests/availability-probe.sh "$CSV" 0.5 > "$CSV.log" 2>&1 &
+PROBE=$!; sleep 15; moc bat-dau
+
+kubectl -n "$NS" create job bt12-truoc-bao-tri --from=cronjob/db-backup
+kubectl -n "$NS" wait --for=condition=Complete job/bt12-truoc-bao-tri --timeout=300s
+kubectl -n "$NS" logs job/bt12-truoc-bao-tri > "$EV/b7-backup.txt"; cat "$EV/b7-backup.txt"
+moc backup-xong
+
+# Pha 1 — DB còn chạy
+kubectl apply -f ~/lab-work/12/pdb-db-thu.yaml
+kubectl cordon "$W2"; moc cordon
+kubectl drain "$W2" --ignore-daemonsets --delete-emptydir-data --timeout=90s > "$EV/b7-drain-pha1.txt" 2>&1
+echo "drain pha 1 exit=$? (mong doi khac 0)"; moc drain-pha1-xong
+# -> Phần A của script nghiệm thu; thông báo mở cửa sổ bảo trì
+
+# Pha 2 — mở cửa sổ
+kubectl -n "$NS" delete pdb db-thu; moc xoa-pdb
+kubectl drain "$W2" --ignore-daemonsets --delete-emptydir-data --timeout=300s > "$EV/b7-drain-pha2.txt" 2>&1
+echo "drain pha 2 exit=$?"; moc drain-pha2-xong
+# -> Phần B. Chỉ khi làm ⭐: tạo Pod thử nghiệm rồi chạy khối ⭐ ngay sau Phần B
+kubectl apply -f ~/lab-work/12/thu-mat-lien-lac.yaml
+
+ssh "$W2" 'sudo shutdown -h now' || true; moc tat-may
+```
+
+Chạy trên **máy host**, PowerShell:
+
+```powershell
+$w2 = $vmx | Where-Object { $_ -like '*worker2*' }
+if ((& $vmrun -T ws list) -notcontains $w2) { "PASS: worker2 da Powered off" } else { "CHUA TAT: doi roi chay lai" }
+# ... chạy Phần C trên master (và khối ⭐ nếu làm), rồi:
+& $vmrun -T ws start $w2
+```
+
+Quay lại master:
+
+```bash
+moc bat-may
+kubectl wait --for=condition=Ready "node/$W2" --timeout=600s; moc node-ready
+kubectl uncordon "$W2"; moc uncordon
+kubectl -n "$NS" wait --for=condition=Ready pod/db-0 --timeout=600s; moc db-ready
+kubectl -n "$NS" wait --for=condition=Ready pod -l app.kubernetes.io/part-of=bookstore,app.kubernetes.io/component=api \
+  --timeout=300s; moc api-ready
+kubectl -n "$NS" delete pod thu-mat-lien-lac --ignore-not-found --wait=true
+can_bang
+moc can-bang-xong
+sleep 15; moc ket-thuc
+touch "$CSV.stop"; wait "$PROBE"
+```
+
+Ý chính cho ADR:
+
+1. Bài 339 cho hai giải pháp: không PDB và chấp nhận downtime thỉnh thoảng; hoặc PDB `maxUnavailable: 0`
+   kèm thỏa thuận "hỏi chủ ứng dụng trước", xóa PDB khi sẵn sàng, tạo lại sau. Bài 53: trên một
+   cluster cơ bản không có gián đoạn tự nguyện tự động — ở đây người duy nhất drain node là đội vận
+   hành, theo runbook. Quyết định tham khảo: **chưa** đưa PDB `db` vào repo; runbook mục 3 là "thỏa
+   thuận ngoài Kubernetes". Đổi quyết định ngay khi cluster có tác nhân drain tự động — autoscaler hợp
+   nhất node (bài 171), nâng cấp node tự động: khi đó PDB là thứ duy nhất buộc tác nhân đó dừng lại
+   trước `db-0`. Cái giá khi có PDB: drain mặc định chờ **vô hạn**, và mỗi lần bảo trì worker2 phải
+   nhớ xóa rồi tạo lại PDB.
+2. Drain có cờ lọc Pod theo label: `--pod-selector='app.kubernetes.io/component!=db'` trục xuất mọi
+   thứ trừ `db-0` mà không cần object nào. Đánh đổi: không có gì **chặn** người quên cờ đó; PDB thì
+   chặn cả người quên lẫn tác nhân tự động.
+3. PV local của `data-db-0` mang node affinity tới worker2 — dữ liệu nằm trên đĩa worker2; và node
+   affinity của chính `db` (Lab 7a) chỉ chấp nhận node mang label dữ liệu của dự án. Worker2 chết hẳn:
+   dựng DB mới từ bản dump gần nhất, đúng quy trình đã diễn tập ở Lab 6b — vì vậy bước backup đứng đầu
+   cửa sổ.
+4. Không drain thì kubelet không chấm dứt gì (B3); `db-0` vẫn "chạy" trong API tới khi node controller
+   gắn taint `unreachable`, hết `tolerationSeconds` thì `db-0` bị đánh dấu xóa và kẹt `Terminating` —
+   StatefulSet không tạo được `db-0` mới vì tên còn bị giữ (bài 169). Taint `out-of-service` xóa cưỡng
+   bức được Pod, nhưng `db-0` mới vẫn chỉ chạy được trên worker2 vì dữ liệu ở đó; ví dụ của bài 169
+   nói về volume **gắn sang node khác được**, PV local thì không. Với `db`, taint đó không cứu được gì
+   mà còn mở đường cho hai PostgreSQL cùng một thư mục dữ liệu nếu node chỉ đang khởi động lại.
+
+Ý chính cho postmortem:
+
+5. Downtime DB = drain pha 2 (PostgreSQL tắt nhanh theo `STOPSIGNAL`) + thời gian máy tắt + boot +
+   node Ready + uncordon + lập lịch + PostgreSQL khởi động. `api` còn chậm thêm một đoạn vì PostgREST
+   thử kết nối lại với backoff (theo tài liệu PostgREST, tối đa 32 giây). Rút được: thời gian làm việc
+   trên máy, thao tác uncordon ngay khi node Ready. Không rút được: boot VM, khởi động PostgreSQL. Pha 1
+   không tính vào downtime — đó là lợi ích của việc giữ `db-0` lại.
+6. Node condition `Ready=Unknown` là thứ duy nhất phản ánh sự thật: node controller **không biết**.
+   Phase của Pod `node-agent` vẫn là giá trị kubelet báo lần cuối, và API vẫn báo container đang chạy
+   dù VM đã tắt — dữ liệu cũ, vì chỉ kubelet trên node mới cập nhật được chúng. Node controller chỉ hạ
+   condition `Ready` của Pod. Câu "không thể lấy được trạng thái của Pod … do lỗi giao tiếp với node"
+   của bài 47 hiện ra đúng như vậy: trạng thái không lấy được, nên API giữ giá trị cũ và đánh dấu node
+   `Unknown`. Bài 47 cũng nói nếu node mất hẳn thì Pod trên đó bị đặt phase `Failed` — việc của PodGC
+   khi Node object không còn, không xảy ra ở đây vì worker2 quay lại.
+
+⭐: `nodeName` bỏ qua scheduler, nên cordon — vốn chỉ là tín hiệu cho scheduler — không chặn được Pod
+đó. Pod không có toleration `unreachable` riêng nên mang toleration tự thêm với `tolerationSeconds`
+mặc định (bài 139); hết khoảng đó nó bị đánh dấu xóa, nhưng không ai trên node xác nhận việc dừng nên
+nó kẹt trong API — phiên bản không dữ liệu của chính kịch bản bài 169 mô tả cho StatefulSet.
+
+</details>
+
+## B8. [BS-12-08] Sprint review: runbook bảo trì và sổ nợ
+
+**Loại:** Điều tra — sản phẩm là tài liệu.
+
+**Bối cảnh:** hai lần bảo trì đã cho đội số đo thật. Trước khi đóng sprint, runbook phải đủ để một
+người khác trong đội bảo trì bất kỳ worker nào mà không cần đọc lab này, và sổ nợ phải ghi đúng những
+gì yêu cầu `R17` **chưa** đạt.
+
+**Yêu cầu:**
+
+1. `docs/runbook-bao-tri-node.md` hoàn chỉnh với các mục: `## 1.` hiện trạng và rủi ro (B1),
+   `## 2.` bảo trì worker không giữ dữ liệu (B5), `## 3.` cửa sổ bảo trì node giữ dữ liệu (B7),
+   `## 4.` node tắt ngoài kế hoạch — làm gì và **không** làm gì, `## 5.` ngoài phạm vi. Mỗi bước có
+   điều kiện để đi tiếp, như một dòng `PASS:`.
+2. Mục 5 ghi rõ những việc vận hành node mà sprint này **không** làm: kiểm và gia hạn certificate
+   (nợ lab #7, bài 156 chỉ là trang trỏ hướng), nâng cấp node, rút node khỏi cluster.
+3. `docs/tech-debt.md`: hai nợ mới — đường vào chưa HA (một IP node trong file hosts, ingress controller
+   một bản sao, không PDB); DB một instance trên PV local, bảo trì node của nó là downtime. Mỗi nợ có
+   bằng chứng trong `~/lab-evidence/12/`.
+4. Một đoạn đánh giá `R17` trong runbook: đạt cho phần nào, chưa đạt cho phần nào, số đo nào chứng minh.
+
+**Ràng buộc:** hai nợ mới mang mã `TD-18` và `TD-19`, cố định theo [mục 8 của file dự án](DU-AN-BOOKSTORE.md#8-sổ-nợ-kỹ-thuật-dự-án). Không sửa hạ tầng nền để "trả" nợ trong sprint này.
+
+**Đọc lại:** bài [156](../156-certificates-vi.md); [sổ nợ lab](README.md#5-sổ-nợ-lab), dòng #7;
+[mục 8 của file dự án](DU-AN-BOOKSTORE.md#8-sổ-nợ-kỹ-thuật-dự-án); bài
+[169](../169-node-shutdown-vi.md#non-graceful-node-shutdown) cho mục 4 của runbook.
+
+**Bàn giao:** runbook; `docs/tech-debt.md`.
+
+**Nghiệm thu:**
+
+- `PASS:` runbook có đủ năm mục; mục 4 nhắc taint `out-of-service`; mục 5 nhắc certificate và nợ #7.
+- `PASS:` `docs/tech-debt.md` có nợ về đường vào và nợ về DB một instance.
+- `PASS:` runbook có đoạn đánh giá `R17`.
+
+**Câu hỏi thiết kế** — trả lời trong đoạn đánh giá `R17` của runbook:
+
+1. Bài 53 nêu ba lựa chọn khi phải làm hành động gây gián đoạn trên cluster. Dự án đang dùng lựa chọn
+   nào cho `web`, `api`, và lựa chọn nào cho `db`?
+2. Nếu chỉ được đầu tư một việc để `R17` đạt cho cả `db`, đó là việc gì, và vì sao nó nằm ngoài những
+   gì lộ trình đã dạy tới giai đoạn 12?
+
+<details>
+<summary>Gợi ý</summary>
+
+- Đọc lại mục *Cách thực hiện các hành động gây gián đoạn trên Cluster* của bài
+  [53](../53-disruptions-vi.md#how-to-perform-disruptive-actions-on-your-cluster).
+- Mục 4 của runbook là chỗ trả lời câu "node tắt mà chưa drain thì làm gì" — đọc lại hai điều kiện
+  của taint `out-of-service` ở bài 169.
+
+</details>
+
+<details>
+<summary>Script nghiệm thu — chạy sau khi tự làm xong</summary>
+
+```bash
+RB=~/bookstore/docs/runbook-bao-tri-node.md; TD=~/bookstore/docs/tech-debt.md
+BAD=0
+for H in 1 2 3 4 5; do grep -q "^## $H\." "$RB" || { echo "FAIL: runbook thieu muc $H"; BAD=1; }; done
+[ "$BAD" -eq 0 ] && echo 'PASS: runbook du nam muc'
+sed -n '/^## 4\./,/^## 5\./p' "$RB" | grep -q 'out-of-service' && echo 'PASS: muc 4 nhac taint out-of-service'
+sed -n '/^## 5\./,$p' "$RB" | grep -qi 'certificate\|chứng chỉ' && sed -n '/^## 5\./,$p' "$RB" | grep -q '#7' \
+  && echo 'PASS: muc 5 ghi certificate la no lab #7'
+grep -qi 'traefik\|ingress' "$TD" && grep -qi 'hosts' "$TD" && echo 'PASS: tech-debt co no duong vao'
+grep -qi 'db-0\|PV local\|một instance' "$TD" && echo 'PASS: tech-debt co no DB mot instance'
+grep -q 'R17' "$RB" && echo 'PASS: runbook co danh gia R17'
+```
+
+</details>
+
+<details>
+<summary>Lời giải tham khảo</summary>
+
+Khung mục 3 và mục 4 của runbook:
+
+```markdown
+## 3. Cửa sổ bảo trì cho lab-k8s-worker2 (giữ db-0 và PV data-db-0)
+
+Thông báo trước: downtime đo được ở lần diễn tập 2026-10-13 là <db_ngung_s> giây cho DB,
+<api_dot_loi_dai_nhat_s> giây cho /api/books; trang chủ không gián đoạn.
+
+1. Tiền điều kiện như mục 2. PASS: mọi node Ready, PDB web/api cho phép >= 1.
+2. Backup: Job từ CronJob db-backup. PASS: log có `db-backup: OK`. Chép bản dump ra ngoài (TD-10).
+3. Pha 1: tạo PDB giữ db (`maxUnavailable: 0`), cordon, drain có `--timeout`.
+   PASS: drain dừng ở db-0 vì disruption budget; node chỉ còn DaemonSet và db-0; probe 0 lỗi.
+4. Mở cửa sổ: xóa PDB giữ db, drain lại. PASS: db-0 mới Pending; api NotReady, không restart.
+5. Tắt máy, làm việc, bật máy. PASS: node Ready (vẫn SchedulingDisabled).
+6. Uncordon. PASS: db-0 Ready trên worker2, cùng PV; api Ready; số sách khớp.
+7. Cân bằng web/api bằng Eviction API. PASS: mỗi Deployment có Pod trên hai worker.
+8. Đóng cửa sổ, ghi postmortem.
+
+## 4. Node tắt ngoài kế hoạch
+- Không gắn `out-of-service` khi chưa xác minh máy đã tắt hẳn (bài 169).
+- web/api: Pod trên node mất bị đánh dấu xóa sau tolerationSeconds; ReplicaSet tạo bản mới ở node còn lại.
+- db-0 trên worker2: KHÔNG gắn `out-of-service` — dữ liệu chỉ có trên đĩa worker2, Pod mới không chạy
+  được ở đâu khác. Chờ worker2 hoặc khôi phục từ dump (Lab 6b).
+```
+
+Hai dòng nợ:
+
+```markdown
+| TD-18 | Đường vào chưa HA: hosts trỏ một IP node, Traefik một bản sao, không PDB | 12 | chưa có lab trả — sửa ở hạ tầng nền khi dựng lại cluster | mở | ~/lab-evidence/12/b1-mot-ban-sao.txt, b5-tom-tat.txt |
+| TD-19 | DB một instance trên PV local của worker2: bảo trì worker2 là downtime DB | 12 | chấp nhận có điều kiện: cửa sổ bảo trì theo runbook mục 3 | mở | ~/lab-evidence/12/b7-cua-so.txt |
+```
+
+Đánh giá `R17`: đạt cho `web` và `api` khi bảo trì một worker (B5, cộng B6 nếu đã làm); **chưa đạt**
+cho `db` — đó là quyết định kiến trúc (một instance, PV local) chứ không phải thiếu sót vận hành; và
+chưa đạt ở đường vào khi node trong file hosts được bảo trì.
+
+Ý chính cho câu hỏi thiết kế:
+
+1. `web`, `api`: lựa chọn thứ ba của bài 53 — ứng dụng chịu được gián đoạn cộng PDB, không downtime.
+   `db`: lựa chọn thứ nhất — chấp nhận downtime, nhưng có kiểm soát bằng cửa sổ bảo trì. Lựa chọn thứ
+   hai (chuyển sang một cluster bản sao hoàn chỉnh) dự án không có; bản dump chép ra ngoài (`TD-10`)
+   chỉ là đường khôi phục, không phải failover.
+2. DB nhân bản — nhiều instance đồng bộ dữ liệu, mỗi instance trên một node, có cơ chế bầu primary —
+   hoặc storage không gắn chặt vào một node. Cả hai đòi kiến thức về vận hành cơ sở dữ liệu nhân bản
+   và hạ tầng lưu trữ mà lộ trình chưa dạy; bài 339 xếp loại ứng dụng đó vào nhóm "stateful nhiều
+   instance" với quorum, khác hẳn trường hợp một instance của Bookstore.
+
+</details>
+
+## B9. Đóng sprint: cleanup và gate cuối
+
+**Mục đích:** bàn giao một repo dựng lại được toàn bộ hệ thống của sprint 19, rồi trả cluster về đúng
+`04-metrics-ready` — kể cả cấu hình node không đổi sau hai lần tắt–bật.
+
+1. Thay `tests/smoke.sh` bằng phiên bản của Lab 12 — kiểm thử khói **tích lũy**, chép nguyên văn. Nó
+   giữ nguyên mọi kiểm tra của bản Lab 11b (kể cả vòng chờ có giới hạn tới khi HPA đưa `web` lên
+   `minReplicas`) và thêm các hợp đồng vận hành của sprint này:
+
+```bash
+cat > ~/bookstore/tests/smoke.sh <<'EOF'
+#!/usr/bin/env bash
+# Kiểm thử khói — trạng thái sau Lab 12: hệ thống sprint 1–18 cộng hợp đồng vận hành của sprint 19.
+# Kế thừa nguyên bản Lab 11b, thêm: mọi node Ready và nhận lập lịch, không còn taint bảo trì; api trải
+# trên hai node (chỉ INFO — anti-affinity mềm); PDB api còn chỗ cho một gián đoạn; HTTPS qua NodePort
+# sống trên mọi node.
+# Tên ConfigMap đọc từ spec của workload (configMapGenerator gắn hậu tố hash từ 5a). Số bản sao web do
+# HPA quyết định. Không in mật khẩu.
+set -u
+cd "$(dirname "$0")/.."
+NS=bookstore
+SYS=bookstore-system
+TNS=bookstore-staging
+SEL='app.kubernetes.io/part-of=bookstore'
+FAIL=0
+pass() { echo "PASS: $*"; }
+fail() { echo "FAIL: $*"; FAIL=1; }
+k() { kubectl -n "$NS" "$@"; }
+jp() { kubectl -n "$NS" get "$1" -o jsonpath="$2" 2>/dev/null; }
+lbl() { kubectl get "$1" -o jsonpath="{.metadata.labels.$2}" 2>/dev/null; }
+can() { kubectl auth can-i "$@" -n "$NS" 2>/dev/null; }
+psa() { kubectl get namespace "$1" -o jsonpath="{.metadata.labels.pod-security\.kubernetes\.io/$2}" 2>/dev/null; }
+pst() { kubectl -n "$1" exec "$2" -c "$3" -- sh -c "awk '/^$4:/{print \$2}' /proc/1/status" 2>/dev/null; }
+dry_priv() {
+  printf '%s\n' 'apiVersion: v1' 'kind: Pod' 'metadata: {name: smoke-dac-quyen}' 'spec:' \
+    '  containers: [{name: c, image: busybox:1.37, securityContext: {privileged: true}}]' \
+    | kubectl -n "$1" create --dry-run=server -f - 2>&1
+}
+V="$(kubectl get --raw /version 2>/dev/null)"
+PSA_VER="v$(echo "$V" | sed -n 's/.*"major": *"\([0-9]*\).*/\1/p').$(echo "$V" | sed -n 's/.*"minor": *"\([0-9]*\).*/\1/p')"
+cond() { jp hpa/web "{.status.conditions[?(@.type==\"$1\")].status}"; }
+
+# 0. HPA cần một chu kỳ để đưa web lên minReplicas và một cửa sổ đo để có số liệu — chờ có giới hạn.
+MIN="$(jp hpa/web '{.spec.minReplicas}')"; MAX="$(jp hpa/web '{.spec.maxReplicas}')"
+for i in $(seq 1 48); do
+  R="$(jp deployment/web '{.spec.replicas}')"; RR="$(jp deployment/web '{.status.readyReplicas}')"
+  U="$(jp hpa/web '{.status.currentMetrics[0].resource.current.averageUtilization}')"
+  [ -n "$MIN" ] && [ "${R:-0}" -ge "$MIN" ] && [ "${RR:-0}" = "${R:-x}" ] && [ -n "$U" ] && break
   sleep 5
 done
-echo "Pod DaemonSet dang chay tren worker2: $DS_UP (truoc lab: $DS_W2_0)"
 
-test "$DS_UP" -ge "$DS_W2_0" \
-  && echo 'PASS: du Pod DaemonSet da chay lai tren worker2 sau khi boot'
-```
+# 0b. Node sẵn sàng nhận Pod, không còn dấu bảo trì (12)
+NODES="$(kubectl get nodes --no-headers | wc -l)"
+RDY="$(kubectl get nodes -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' | grep -c '^True$')"
+[ "$NODES" -ge 3 ] && [ "$RDY" -eq "$NODES" ] && pass "ca $NODES node Ready" || fail "$RDY/$NODES node Ready"
+UNS="$(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.unschedulable}{"\n"}{end}' | grep -c '^true$')"
+[ "$UNS" -eq 0 ] && pass 'khong node nao bi cordon' || fail "$UNS node con bi cordon"
+TNT="$(kubectl get nodes -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}' \
+  | grep -cE '^node\.kubernetes\.io/(unschedulable|unreachable|not-ready|out-of-service)$')"
+[ "$TNT" -eq 0 ] && pass 'khong con taint bao tri hay mat lien lac' || fail "con $TNT taint bao tri"
 
-**Ý nghĩa:** hai kết luận từ bước này. Thứ nhất, **reboot không gỡ cordon**: `.spec.unschedulable`
-nằm trong Node object trên API server, không nằm trên đĩa của node, nên nó sống sót qua việc tắt
-máy. Người vận hành quên bước cuối sẽ có một node `Ready` mà mãi không nhận Pod nào — một sự cố
-kinh điển. Thứ hai, Pod DaemonSet quay lại **mà không cần bạn làm gì**: DaemonSet controller đặt Pod
-lên node bất kể node có unschedulable hay không, đúng lý do B7.4 cần `--ignore-daemonsets`.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
-### B7.7. `uncordon` và workload quay về
-
-```bash
-kubectl uncordon "$W2"
-kubectl get nodes | tee "$EV/b7-7-nodes-uncordon.txt"
-
-UNSCH3="$(kubectl get node "$W2" -o jsonpath='{.spec.unschedulable}')"
-TAINT_N="$(kubectl get node "$W2" -o jsonpath='{range .spec.taints[*]}{.key}{"\n"}{end}' \
-  | grep -c 'node.kubernetes.io/unschedulable')"
-echo "unschedulable=[$UNSCH3] | taint unschedulable con lai=$TAINT_N"
-
-test -z "$UNSCH3" && echo 'PASS: uncordon da go .spec.unschedulable'
-test "$TAINT_N" -eq 0 && echo 'PASS: taint node.kubernetes.io/unschedulable da bien mat'
-grep -q 'SchedulingDisabled' "$EV/b7-7-nodes-uncordon.txt" \
-  || echo 'PASS: khong node nao con SchedulingDisabled'
-```
-
-```bash
-kubectl -n lab-12 rollout restart deployment/web
-kubectl -n lab-12 rollout status deployment/web --timeout=300s
-
-W1_3="$(count_on "$W1")"; W2_3="$(count_on "$W2")"
-echo "web tren $W1=$W1_3 | tren $W2=$W2_3 | tong can co=$REPL"
-kubectl -n lab-12 get pods -o wide | tee "$EV/b7-7-sau-uncordon.txt"
-
-test "$W2_3" -gt 0 && test $(( W1_3 + W2_3 )) -eq "$REPL" \
-  && echo 'PASS: sau uncordon workload quay lai worker2'
-```
-
-**Ý nghĩa:** `uncordon` gỡ dấu, nhưng **không tự mang Pod về**. Kubernetes không chủ động cân bằng
-lại Pod đang chạy: Pod đã lập lịch thì ở yên nơi nó đang ở. Thứ đưa workload quay lại là một sự
-kiện tạo Pod mới — ở đây là `rollout restart`, ngoài đời thường là lần deploy tiếp theo, một lần
-scale, hoặc một Pod chết đi và được tạo lại. Ràng buộc `topologySpreadConstraints` của B7.1 khi đó
-mới có cơ hội chấm điểm và kéo Pod về worker2.
-
-Nếu bạn muốn Pod tự phân bố lại mà không đợi sự kiện nào, đó là việc của một
-[Descheduler](https://github.com/kubernetes-sigs/descheduler) — add-on riêng mà bài
-[171](../171-node-autoscaling-vi.md) nhắc tới ở mục *Các thành phần liên quan*, và cluster này
-không có.
-
-**PASS:** bốn dòng `PASS:` của bước này xuất hiện.
-
-### B7.8. Ghi lại toàn bộ vòng bảo trì
-
-```bash
-{
-  echo "=== $(date -Is) — vong bao tri $W2 ==="
-  echo "buoc 1 truoc bao tri  : web tren $W1=$W1_0, tren $W2=$W2_0"
-  echo "buoc 2 sau cordon     : web tren $W2=$W2_1 (khong doi), unschedulable=true"
-  echo "buoc 3 sau drain      : web tren $W1=$W1_2, tren $W2=$W2_2; con lai tren node=$ALL_W2_2"
-  echo "                        trong do DaemonSet=$DS_W2_2 -> node RONG"
-  echo "buoc 4 khi tat may    : Ready=$ST, Node Lease dung tai $R1"
-  echo "buoc 5 sau khi bat lai: Ready=$RDY, unschedulable=$UNSCH2, DaemonSet=$DS_UP"
-  echo "buoc 6 sau uncordon   : web tren $W1=$W1_3, tren $W2=$W2_3"
-} | tee "$EV/b7-8-tong-ket.txt"
-
-test "$(wc -l < "$EV/b7-8-tong-ket.txt")" -ge 7 \
-  && echo 'PASS: da ghi tong ket sau buoc cua vong bao tri'
-```
-
-**PASS:** dòng `PASS:` của bước này xuất hiện, và bảng tổng kết đọc thành một câu chuyện liền mạch.
-
----
-
-## B8. Tự động mở rộng node — vì sao cluster này không có
-
-**Mục đích:** bài [171](../171-node-autoscaling-vi.md) **không kiểm chứng được** trên cluster lab,
-và đó chính là bài học đầu tiên. Ở đây bạn chứng minh điều đó bằng dữ kiện thay vì tin lời, và đọc
-lại quan sát của B7.4 dưới đúng thuật ngữ của bài.
-
-```bash
-AS_N="$(kubectl get deployment,statefulset,daemonset -A --no-headers 2>/dev/null \
-  | grep -ciE 'cluster-autoscaler|karpenter|descheduler')"
-PID_N2="$(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.providerID}{"\n"}{end}' \
-  | grep -c .)"
-NODE_N1="$(kubectl get nodes --no-headers | wc -l)"
-CP_FLAG0="$(sudo grep -c 'cloud-provider' /etc/kubernetes/manifests/kube-controller-manager.yaml)"
-echo "autoscaler/descheduler=$AS_N | node co providerID=$PID_N2"
-echo "so node=$NODE_N1 (dau lab: $NODE_N0) | --cloud-provider tren KCM=$CP_FLAG0"
-
-test "$AS_N" -eq 0 && echo 'PASS: khong autoscaler nao dang chay tren cluster'
-test "$PID_N2" -eq 0 && test "$CP_FLAG0" -eq 0 \
-  && echo 'PASS: khong co cloud provider nao dung sau Node — khong co API de autoscaler goi'
-test "$NODE_N1" -eq "$NODE_N0" \
-  && echo 'PASS: so node khong doi qua ca vong bao tri — ba VM co dinh'
-```
-
-**Ý nghĩa:** autoscaler cấp phát Node bằng cách **tạo và xóa tài nguyên của nhà cung cấp đám mây**
-đứng sau Node — phổ biến nhất là máy ảo — nên chúng cần **tích hợp tường minh với từng cloud
-provider**. Ba VM bạn tự tạo trong VMware Workstation không có API nào để autoscaler gọi. Đây là
-giới hạn về **bản chất**, không phải thiếu một dòng cấu hình.
-
-Điều vẫn phải nắm dù không chạy được:
-
-- Hai thao tác đối xứng: **cấp phát** (provisioning, trước gọi là *scale-up*) khi có Pod không lập
-  lịch được, và **hợp nhất** (consolidation, trước gọi là *scale-down*) khi Node đang dùng dưới mức.
-- **Cả hai chỉ xét resource request của Pod, không xét mức sử dụng thực tế.** Request quá thấp thì
-  cấp Node mới cũng không cứu được Pod; request quá cao thì chặn nhầm việc hợp nhất Node.
-- Node **rỗng** = chỉ còn Pod DaemonSet và static Pod. **Bạn vừa tạo ra đúng trạng thái đó ở
-  B7.4** — bằng tay, bằng `drain`. Loại bỏ Node rỗng đơn giản; loại bỏ Node **không rỗng** gây gián
-  đoạn vì Pod bị terminate và phải được tạo lại.
-- Kết hợp với autoscaling workload: **theo chiều ngang** tạo thêm Pod theo tải rồi autoscaling Node
-  cấp Node để chứa chúng — thứ tự phản ứng luôn là workload trước, Node theo sau; **theo chiều dọc**
-  sửa lại request cho đúng, nhưng **không dùng cho Pod DaemonSet** vì autoscaler phải dự đoán được
-  Pod DaemonSet chiếm bao nhiêu trên một Node mới.
-
-Phần autoscaling workload theo chiều ngang là nội dung của **Lab 11b**, nơi
-[nợ #1](README.md#5-sổ-nợ-lab) được trả. Lab 12 **không** tạo HPA nào.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B9. Truy cập cluster qua Kubernetes API
-
-**Mục đích:** bài [189](../189-administer-cluster-vi.md) là **trang mục lục** của cả nhánh
-*Tasks → Administer a Cluster*; bài [190](../190-access-cluster-api-vi.md) là một trang trong đó.
-B9.1 dùng trang mục lục đúng công dụng của nó, ba mục còn lại đi ba đường khác nhau tới cùng một
-API server.
-
-### B9.1. Ba mục của trang mục lục, ba hiện vật trong cluster
-
-```bash
-API_V="$(kubectl get --raw /api | grep -c '"versions"')"
-EVICT="$(kubectl get --raw /api/v1 | grep -c 'pods/eviction')"
-SC_DEF2="$(kubectl get storageclass \
-  -o jsonpath='{range .items[*]}{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' \
-  | grep -c '^true$')"
-echo "/api tra versions=$API_V | subresource pods/eviction=$EVICT | StorageClass mac dinh=$SC_DEF2"
-
-test "$API_V" -eq 1 \
-  && echo 'PASS: muc "Truy cap cluster bang Kubernetes API" -> endpoint /api co that'
-test "$EVICT" -ge 1 \
-  && echo 'PASS: muc "Drain mot node an toan" -> subresource pods/eviction, co che duoi drain o B7'
-test "$SC_DEF2" -eq 1 \
-  && echo 'PASS: muc "Doi StorageClass mac dinh" -> annotation is-default-class dang o dung mot class'
-```
-
-**Ý nghĩa:** trang mục lục không dạy gì, nhưng nó rút ngắn quãng đường từ một câu hỏi vận hành tới
-đúng tài liệu. Ba mục bạn vừa nối vào cluster là ba mục có liên quan trực tiếp tới lab này: một cái
-là B9 tiếp theo, một cái là cơ chế nằm dưới `drain` của B7, một cái là hạ tầng Lab 6a để lại. Gần
-50 mục còn lại trải khắp [Phần II](../00-ALO-TRINH-ADMIN.md#phần-ii--vận-hành-cluster) và có chỗ
-đứng riêng ở giai đoạn 16–27.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B9.2. Đường thứ nhất — `kubectl` và kubeconfig
-
-```bash
-kubectl config view | tee "$EV/b9-config-view.txt"
-
-APISERVER="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
-CTX="$(kubectl config current-context)"
-echo "context=$CTX | server=$APISERVER"
-
-grep -q 'DATA+OMITTED\|REDACTED' "$EV/b9-config-view.txt" \
-  && echo 'PASS: kubectl config view che du lieu nhay cam — dung de dan file nay di dau'
-case "$APISERVER" in
-  https://*) echo 'PASS: kubectl biet vi tri cluster, va no la mot endpoint HTTPS' ;;
-  *)         echo "FAIL: server khong phai https ($APISERVER)" ;;
-esac
-```
-
-**Ý nghĩa:** để truy cập một cluster bạn cần **vị trí** và **thông tin xác thực**. Với `kubectl`,
-cả hai nằm trong kubeconfig và bạn không phải nghĩ tới chúng. Lưu ý `kubectl config view` **che**
-phần dữ liệu nhạy cảm; muốn thấy nguyên bản phải thêm `--raw` — và lúc đó file chứa client
-certificate của admin, đừng dán nó vào đâu.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
-
-### B9.3. Đường thứ hai — `kubectl proxy`
-
-```bash
-kubectl proxy --port=8080 > "$WK/proxy.log" 2>&1 &
-PROXY_PID=$!
-echo "kubectl proxy PID=$PROXY_PID"
-
-OK_PROXY=0
-for i in $(seq 1 20); do
-  if curl -s --max-time 3 http://127.0.0.1:8080/api/ > "$EV/b9-proxy-api.json" 2>/dev/null; then
-    grep -q '"versions"' "$EV/b9-proxy-api.json" && OK_PROXY=1 && break
-  fi
-  sleep 1
+# 1. Namespace, label dự án, Pod Security (9b, 11a)
+for X in "$NS:restricted" "$TNS:restricted" "$SYS:privileged"; do
+  N="${X%%:*}"; L="${X##*:}"
+  { [ "$(lbl "namespace/$N" 'app\.kubernetes\.io/part-of')" = 'bookstore' ] && \
+    [ "$(lbl "namespace/$N" 'pod-security\.kubernetes\.io/enforce')" = "$L" ]; } \
+    && pass "namespace $N, PSS enforce=$L" || fail "namespace $N thieu, thieu label du an hoac PSS khac $L"
 done
-cat "$EV/b9-proxy-api.json"
+for N in "$NS" "$TNS"; do
+  OK=1
+  for M in enforce warn audit; do
+    { [ "$(psa "$N" "$M")" = restricted ] && [ "$(psa "$N" "$M-version")" = "$PSA_VER" ]; } || OK=0
+  done
+  [ "$OK" -eq 1 ] && pass "$N restricted o ca ba che do, version $PSA_VER" || fail "$N sai nhan Pod Security"
+  dry_priv "$N" | grep -q "violates PodSecurity \"restricted:$PSA_VER\"" \
+    && pass "$N tu choi Pod dac quyen" || fail "$N khong tu choi Pod dac quyen"
+done
+kubectl label --dry-run=server --overwrite ns "$NS" pod-security.kubernetes.io/enforce-version=latest 2>&1 \
+  | grep -q 'violate' && fail 'co Pod dang chay vi pham restricted' || pass 'moi Pod dang chay dat restricted'
 
-test "$OK_PROXY" -eq 1 \
-  && echo 'PASS: curl khong kem chung thuc gi van goi duoc /api qua kubectl proxy'
+# 2. Object cấp cluster, label node (3a, 6a, 7a, 9a)
+PRIO="$(kubectl get priorityclass bookstore-critical -o jsonpath='{.value}' 2>/dev/null)"
+for PC in bookstore-critical bookstore-batch; do
+  [ "$(lbl "priorityclass/$PC" 'app\.kubernetes\.io/part-of')" = bookstore ] \
+    && pass "co PriorityClass $PC" || fail "thieu PriorityClass $PC"
+done
+[ "$(kubectl get storageclass bookstore-retain -o jsonpath='{.reclaimPolicy}' 2>/dev/null)" = 'Retain' ] \
+  && pass 'StorageClass bookstore-retain, Retain' || fail 'StorageClass bookstore-retain thieu hoac khong Retain'
+[ "$(kubectl get nodes -l bookstore.example.com/data=true -o jsonpath='{.items[*].metadata.name}')" = lab-k8s-worker2 ] \
+  && pass 'chi lab-k8s-worker2 mang label du lieu' || fail 'label node bookstore.example.com/data sai'
+N_CL="$(kubectl get clusterrole,clusterrolebinding -l "$SEL" --no-headers 2>/dev/null | wc -l)"
+[ "$N_CL" -eq 0 ] && pass 'du an khong co ClusterRole, ClusterRoleBinding' || fail "co $N_CL object RBAC cap cluster"
 
-kill "$PROXY_PID" 2>/dev/null
-sleep 2
-curl -s --max-time 3 http://127.0.0.1:8080/api/ > /dev/null 2>&1 \
-  || echo 'PASS: da tat proxy — cong 8080 khong con phuc vu'
+# 2b. HPA web (11b)
+[ "$(jp hpa/web '{.metadata.labels.app\.kubernetes\.io/part-of}')" = 'bookstore' ] && pass 'HPA web ton tai, mang label du an' || fail 'thieu HPA web'
+[ "$(jp hpa/web '{.spec.scaleTargetRef.kind}/{.spec.scaleTargetRef.name} {.spec.minReplicas}-{.spec.maxReplicas} {.spec.metrics[0].resource.name}/{.spec.metrics[0].resource.target.type}')" = 'Deployment/web 2-5 cpu/Utilization' ] \
+  && pass 'HPA web: Deployment/web, 2-5 ban sao, CPU Utilization' || fail 'HPA web sai dich, khoang hoac metric'
+{ [ "$(cond AbleToScale)" = 'True' ] && [ "$(cond ScalingActive)" = 'True' ]; } \
+  && pass 'HPA AbleToScale=True, ScalingActive=True' || fail "HPA AbleToScale=$(cond AbleToScale) ScalingActive=$(cond ScalingActive)"
+[ -n "$(jp hpa/web '{.status.currentMetrics[0].resource.current.averageUtilization}')" ] \
+  && pass 'HPA co so do CPU hien tai' || fail 'HPA chua co so do — kiem metrics-server va requests cua web'
+LA="$(jp deployment/web '{.metadata.annotations.kubectl\.kubernetes\.io/last-applied-configuration}')"
+{ [ -n "$LA" ] && ! echo "$LA" | grep -q '"replicas"'; } \
+  && pass 'manifest web khong khai replicas — HPA so huu truong nay' || fail 'manifest web con replicas'
+[ "$(k get job,networkpolicy,pod -l app.kubernetes.io/component=loadtest --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && pass 'khong con object kiem thu tai' || fail 'con object loadtest tren cluster'
+
+# 3. Cấu hình, bí mật, PDB, hạn mức, trạng thái backup (3b, 3c, 5b, 7b, 9a)
+for P in web-config api-config db-init; do
+  k get configmap -o name 2>/dev/null | grep -q "^configmap/$P" && pass "co ConfigMap $P" || fail "thieu ConfigMap $P"
+done
+WL="$(k get deployment,statefulset -o json 2>/dev/null)"
+for B in web-config api-config db-init; do
+  CM="$(echo "$WL" | grep -o "\"$B\(-[a-z0-9]*\)\?\"" | head -1 | tr -d '"')"
+  [ -n "$CM" ] && k get configmap "$CM" >/dev/null 2>&1 && pass "ConfigMap $CM ton tai, duoc workload tham chieu" || fail "thieu ConfigMap $B duoc workload tham chieu"
+done
+D="$(jp secret/db-credentials '{.data}')"
+{ echo "$D" | grep -q '"postgres-password"' && echo "$D" | grep -q '"authenticator-password"'; } \
+  && pass 'Secret db-credentials du hai key' || fail 'Secret db-credentials thieu key'
+[ "$(jp secret/bookstore-tls '{.type}')" = 'kubernetes.io/tls' ] && pass 'Secret bookstore-tls kieu TLS' || fail 'thieu Secret TLS bookstore-tls'
+for R in pdb/web pdb/api resourcequota/bookstore-quota limitrange/bookstore-limits configmap/backup-status; do
+  k get "$R" >/dev/null 2>&1 && pass "co $R" || fail "thieu $R"
+done
+
+# 4. Controller, vị trí, bảo mật (4a, 4b, 7a, 9b)
+[ "$(jp statefulset/db '{.status.readyReplicas}')" = '1' ] && pass 'StatefulSet db 1/1 Ready' || fail 'StatefulSet db chua Ready'
+{ [ "$(jp pod/db-0 '{.spec.nodeName}')" = 'lab-k8s-worker2' ] && [ "$(jp pod/db-0 '{.status.qosClass}')" = 'Guaranteed' ] && \
+  [ -n "$PRIO" ] && [ "$(jp pod/db-0 '{.spec.priority}')" = "$PRIO" ]; } \
+  && pass 'db-0 tren lab-k8s-worker2, Guaranteed, bookstore-critical' || fail 'db-0 sai node, QoS hoac priority'
+[ "$(jp pod/db-0 '{.metadata.ownerReferences[0].kind}')" = 'StatefulSet' ] && pass 'db-0 thuoc StatefulSet' || fail 'db-0 khong thuoc StatefulSet'
+W="$(jp deployment/api '{.spec.replicas}')"; R="$(jp deployment/api '{.status.readyReplicas}')"
+{ [ -n "$W" ] && [ "$W" -ge 2 ] && [ "${R:-0}" = "$W" ]; } && pass "Deployment api $R/$W Ready" || fail "Deployment api ${R:-0}/${W:-?} Ready"
+# web: số bản sao do HPA quyết định (11b) — kiểm theo khoảng của HPA.
+R="$(jp deployment/web '{.spec.replicas}')"; RR="$(jp deployment/web '{.status.readyReplicas}')"
+{ [ -n "$MIN" ] && [ "${R:-0}" -ge "$MIN" ] && [ "${R:-0}" -le "$MAX" ] && [ "${RR:-0}" = "$R" ]; } \
+  && pass "Deployment web $RR/$R Ready trong khoang HPA $MIN-$MAX" || fail "Deployment web ${RR:-0}/${R:-0} ngoai khoang HPA hoac chua Ready"
+NW="$(k get pod -l "$SEL,app.kubernetes.io/component=web" --field-selector=status.phase=Running \
+  -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' 2>/dev/null | sort -u | wc -l)"
+[ "$NW" -ge 2 ] && pass 'Pod web trai tren hai worker' || fail 'Pod web chi nam tren mot node'
+[ "$(jp pdb/web '{.status.disruptionsAllowed}')" -ge 1 ] 2>/dev/null \
+  && pass 'PDB web cho phep it nhat mot gian doan o so ban sao hien tai' || fail 'PDB web khong cho gian doan nao — drain se ket'
+NA="$(k get pod -l "$SEL,app.kubernetes.io/component=api" --field-selector=status.phase=Running \
+  -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' 2>/dev/null | sort -u | wc -l)"
+# api dùng anti-affinity mềm theo hợp đồng (7a): trải hai node không bảo đảm — chỉ báo INFO.
+[ "$NA" -ge 2 ] && echo 'INFO: Pod api trai tren hai worker' \
+  || echo 'INFO: Pod api don vao mot node — bao tri node do la mat api; can bang lai truoc khi drain'
+[ "$(jp pdb/api '{.status.disruptionsAllowed}')" -ge 1 ] 2>/dev/null \
+  && pass 'PDB api cho phep it nhat mot gian doan' || fail 'PDB api khong cho gian doan nao — drain se ket'
+ORPHAN="$(kubectl get pods -A -l "$SEL" -o jsonpath='{range .items[*]}{.metadata.name}:{.metadata.ownerReferences[0].kind}{"\n"}{end}' 2>/dev/null | grep -c ':$')"
+[ "$ORPHAN" -eq 0 ] && pass 'moi Pod cua du an deu co controller' || fail "$ORPHAN Pod tran"
+MISS="$(kubectl get pods -A -l "$SEL" -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.name}={.resources.requests.cpu},{.resources.limits.memory}{"\n"}{end}{end}' 2>/dev/null | grep -E '=,|,$' | sort -u)"
+[ -z "$MISS" ] && pass 'moi container co requests va limits' || fail "container thieu tai nguyen: $(echo $MISS)"
+
+# 5. Hardening (9b): db non-root, không capability, rootfs chỉ đọc
+[ "$(pst "$NS" db-0 postgres Uid)" = 999 ] && pass 'db chay uid 999' || fail 'db khong chay uid 999'
+C="$(pst "$NS" db-0 postgres CapEff)"
+[ "$((0x${C:-1}))" -eq 0 ] && pass 'db khong giu capability nao' || fail 'db con capability'
+NODROP="$(k get pods -l "$SEL" -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.name}={.securityContext.capabilities.drop}{"\n"}{end}{end}' 2>/dev/null \
+          | grep -v 'ALL' | sort -u)"
+[ -z "$NODROP" ] && pass 'moi container cua du an drop ALL capability' || fail "container chua drop ALL: $(echo $NODROP)"
+RO() { jp "deployment/$1" "{.spec.template.spec.containers[?(@.name==\"$2\")].securityContext.readOnlyRootFilesystem}"; }
+{ [ "$(RO web nginx)" = true ] && [ "$(RO api postgrest)" = true ]; } \
+  && pass 'nginx, postgrest khai rootfs chi doc' || fail 'nginx hoac postgrest chua rootfs chi doc'
+SC='{.spec.jobTemplate.spec.template.spec.securityContext'
+{ [ "$(jp cronjob/db-backup "$SC.runAsUser}")" = 999 ] && [ "$(jp cronjob/db-backup "$SC.runAsNonRoot}")" = true ]; } \
+  && pass 'db-backup chay uid 999, kubelet kiem non-root' || fail 'db-backup chua non-root'
+jp deployment/api '{range .spec.template.spec.securityContext.sysctls[*]}{.name}={.value}{" "}{end}' \
+  | grep -q 'net.ipv4.tcp_keepalive_time=60' && pass 'api dat sysctl keepalive' || fail 'api thieu sysctl keepalive'
+
+# 6. Dữ liệu bền (4b, 6a)
+# backup-store (WaitForFirstConsumer) chỉ Bound sau lần chạy thử db-backup bên dưới (6a).
+[ "$(jp pvc/data-db-0 '{.status.phase}')" = 'Bound' ] && pass 'PVC data-db-0 Bound' || fail 'PVC data-db-0 chua Bound'
+[ "$(jp pvc/data-db-0 '{.spec.storageClassName}')" = 'bookstore-retain' ] && pass 'data-db-0 dung bookstore-retain' || fail 'data-db-0 sai StorageClass'
+N="$(k exec db-0 -c postgres -- psql -U postgres -d bookstore -tAc 'SELECT count(*) FROM api.books' 2>/dev/null)"
+[ "${N:-0}" -ge 8 ] && pass "db co $N cuon sach" || fail "db co ${N:-0} cuon sach, can >= 8"
+if k get job db-migrate >/dev/null 2>&1; then
+  [ "$(jp job/db-migrate '{.status.conditions[?(@.type=="Complete")].status}')" = 'True' ] \
+    && pass 'Job db-migrate Complete' || fail 'Job db-migrate chua Complete'
+else
+  pass 'Job db-migrate da duoc TTL don, ket qua nam trong db'
+fi
+
+# 7. Service, DNS, đường đi của request (5a, 9b)
+[ "$(jp service/db '{.spec.clusterIP}')" = 'None' ] && pass 'Service db headless' || fail 'Service db khong headless'
+[ "$(jp service/web '{.spec.type}/{.spec.ports[0].port}')" = 'ClusterIP/80' ] && pass 'Service web ClusterIP:80' || fail 'Service web sai'
+[ "$(jp service/api '{.spec.ports[0].port}')" = '3000' ] && pass 'Service api cong 3000' || fail 'Service api sai cong'
+WEB="$(k get pod -l "$SEL,app.kubernetes.io/component=web" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+WNODE="$(jp "pod/$WEB" '{.spec.nodeName}')"
+get() { k exec "$WEB" -c status-writer -- timeout 10 wget -q -T 5 -O- "$1" 2>/dev/null; }
+T="$(get http://api:3000/books | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && pass "web goi api bang ten: $T cuon sach" || fail "web goi api bang ten: $T cuon sach"
+get http://127.0.0.1:8080/healthz >/dev/null && pass 'web /healthz' || fail 'web /healthz loi'
+get http://127.0.0.1:8080/ | grep -q 'Bookstore' && pass 'web phuc vu trang chu' || fail 'web khong phuc vu trang chu'
+get http://127.0.0.1:8080/status.json | grep -Eq "\"pod\" *: *\"$WEB\"" && pass 'status.json dung ten Pod' || fail 'status.json sai hoac thieu'
+T="$(get http://127.0.0.1:8080/api/books | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && pass "web /api/books tra $T cuon sach" || fail "web /api/books tra $T cuon sach"
+DB_IP="$(jp pod/db-0 '{.status.podIP}')"
+k exec "$WEB" -c status-writer -- nslookup "db-0.db.$NS.svc.cluster.local" 2>/dev/null | grep -qwF "$DB_IP" \
+  && pass 'ten db-0.db phan giai ve IP cua db-0' || fail 'ten db-0.db khong phan giai dung'
+k exec "$WEB" -c nginx -- sh -c 'touch /thu-ghi' >/dev/null 2>&1 \
+  && fail 'nginx ghi duoc root filesystem' || pass 'root filesystem cua nginx chi doc'
+
+# 8. Ingress HTTPS qua Traefik (5b)
+{ [ "$(jp ingress/bookstore '{.spec.rules[0].host}')" = 'bookstore.lab.local' ] && \
+  [ "$(jp ingress/bookstore '{.spec.tls[0].secretName}')" = 'bookstore-tls' ]; } \
+  && pass 'Ingress bookstore dung host va TLS' || fail 'Ingress bookstore sai host hoac TLS'
+NP="$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}' 2>/dev/null)"
+IP="$(kubectl get node lab-k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+if [ -n "$NP" ] && curl -ks --max-time 5 --resolve "bookstore.lab.local:$NP:$IP" "https://bookstore.lab.local:$NP/" | grep -q 'Bookstore'; then
+  pass "HTTPS qua Traefik (NodePort $NP) tra trang chu"
+else
+  fail 'khong vao duoc trang chu qua Ingress HTTPS'
+fi
+HP="$(kubectl -n traefik get service traefik -o jsonpath='{.spec.ports[?(@.name=="websecure")].nodePort}' 2>/dev/null)"
+[ -n "$HP" ] || HP="$(kubectl -n traefik get service traefik -o jsonpath='{.spec.ports[?(@.port==443)].nodePort}' 2>/dev/null)"
+for NN in lab-k8s-master lab-k8s-worker1 lab-k8s-worker2; do
+  IPN="$(kubectl get node "$NN" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')"
+  curl -sk --max-time 10 --resolve "bookstore.lab.local:${HP:-0}:$IPN" "https://bookstore.lab.local:${HP:-0}/" | grep -q 'Bookstore' \
+    && pass "HTTPS qua NodePort $HP tren $NN tra trang chu" || fail "HTTPS qua NodePort tren $NN loi"
+done
+T="$(curl -sk --max-time 10 --resolve "bookstore.lab.local:${HP:-0}:$IPN" "https://bookstore.lab.local:${HP:-0}/api/books" | grep -o '"title"' | wc -l)"
+[ "$T" -ge 8 ] && pass "/api/books qua Ingress HTTPS tra $T cuon sach" || fail "/api/books qua Ingress HTTPS tra $T cuon sach"
+
+# 9. Chính sách mạng (5b, 9a, 11a)
+for N in "$NS" "$SYS"; do
+  P="$(kubectl -n "$N" get networkpolicy -o jsonpath='{range .items[*]}{.spec.podSelector}|{.spec.policyTypes}{"\n"}{end}' 2>/dev/null | grep '^{}|')"
+  { echo "$P" | grep -q 'Ingress' && echo "$P" | grep -q 'Egress'; } \
+    && pass "moi Pod trong $N bi co lap hai chieu" || fail "namespace $N thieu policy co lap hai chieu"
+done
+# web không tới được API server. Đối chứng dương cùng đường đi: Pod busybox ở namespace thử
+# bookstore-thu (không NetworkPolicy; chỉ xóa nếu smoke tự tạo) gọi được đúng URL đó bằng đúng lệnh đó.
+# Phủ định chỉ tính khi wget hết giờ hoặc bị từ chối kết nối; lỗi khác là "không kết luận được".
+WGET_API='timeout 10 wget -q -T 5 -O /dev/null --no-check-certificate https://kubernetes.default.svc/version'
+PNS=bookstore-thu; MADE=0
+if ! kubectl get namespace "$PNS" >/dev/null 2>&1; then
+  kubectl create namespace "$PNS" >/dev/null 2>&1 \
+    && kubectl label namespace "$PNS" app.kubernetes.io/part-of=bookstore >/dev/null 2>&1 && MADE=1
+fi
+CTRL="$(kubectl -n "$PNS" run "smoke-api-$(date +%s)" --rm -i --restart=Never --image=busybox:1.37 --command -- \
+        sh -c "$WGET_API && echo TOI-DUOC || echo KHONG-TOI" 2>/dev/null)"
+[ "$MADE" -eq 1 ] && kubectl delete namespace "$PNS" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1
+OUT="$(k exec "$WEB" -c status-writer -- sh -c "$WGET_API" 2>&1)"; RC=$?
+if ! echo "$CTRL" | grep -q 'TOI-DUOC'; then fail 'doi chung: Pod ngoai NetworkPolicy khong goi duoc API server — khong ket luan duoc'
+elif [ "$RC" -eq 0 ]; then fail 'web toi duoc API server'
+elif echo "$OUT" | grep -Eq 'timed out|Connection refused|exit code 143'; then pass 'web bi NetworkPolicy chan toi API server'
+else fail "web toi API server loi khac chan mang — khong ket luan duoc: $(echo $OUT)"; fi
+
+# 10. CronJob db-backup và backup-status (4b, 6a, 7a, 9a)
+[ "$(jp cronjob/db-backup '{.spec.concurrencyPolicy}')" = Forbid ] && pass 'db-backup Forbid' || fail 'db-backup khong Forbid'
+SDS="$(jp cronjob/db-backup '{.spec.startingDeadlineSeconds}')"
+[ "${SDS:-0}" -ge 10 ] && pass "db-backup startingDeadlineSeconds=$SDS" || fail 'db-backup thieu startingDeadlineSeconds'
+[ "$(jp cronjob/db-backup '{.spec.suspend}')" != true ] && pass 'db-backup khong bi tam ngung' || fail 'db-backup dang suspend'
+[ "$(jp cronjob/db-backup '{.spec.jobTemplate.spec.template.spec.priorityClassName}')" = bookstore-batch ] \
+  && pass 'db-backup dung bookstore-batch' || fail 'db-backup khong dung bookstore-batch'
+J="smoke-backup-$(date +%s)"
+if k create job "$J" --from=cronjob/db-backup >/dev/null 2>&1 \
+   && k wait --for=condition=Complete "job/$J" --timeout=300s >/dev/null 2>&1; then
+  LINE="$(k logs "job/$J" 2>/dev/null | grep '^db-backup: OK' | tail -1)"
+  F="$(echo "$LINE" | awk '{print $3}')"; B="$(echo "$LINE" | awk '{print $4}')"
+  [ -n "$LINE" ] && pass "chay thu db-backup: $F ($B byte)" || fail 'chay thu db-backup khong in db-backup: OK'
+  { [ -n "$F" ] && [ "$(jp configmap/backup-status '{.data.file}')" = "$F" ] && \
+    [ "$(jp configmap/backup-status '{.data.bytes}')" = "$B" ]; } \
+    && pass 'backup-status ghi dung lan chay vua roi' || fail 'backup-status khong khop lan chay'
+else
+  fail 'chay thu db-backup that bai'
+fi
+k delete job "$J" --ignore-not-found --wait=true >/dev/null 2>&1
+[ "$(jp pvc/backup-store '{.status.phase}')" = 'Bound' ] && pass 'PVC backup-store Bound (sau lan chay thu)' || fail 'PVC backup-store chua Bound'
+
+# 11. Danh tính và quyền (9a, 9b); ServiceAccount node-agent chuyển sang bookstore-system (11a)
+BAD=0
+for X in deployment/web:web deployment/api:api statefulset/db:db; do
+  [ "$(jp "${X%%:*}" '{.spec.template.spec.serviceAccountName}')" = "${X##*:}" ] || { echo "FAIL: ${X%%:*} sai ServiceAccount"; BAD=1; }
+done
+[ "$(jp cronjob/db-backup '{.spec.jobTemplate.spec.template.spec.serviceAccountName}')" = db-backup ] \
+  || { echo 'FAIL: db-backup sai ServiceAccount'; BAD=1; }
+for SA in default web api db db-migrate db-backup ci-deployer; do
+  [ "$(jp "serviceaccount/$SA" '{.automountServiceAccountToken}')" = false ] \
+    || { echo "FAIL: ServiceAccount $SA thieu hoac tu mount token"; BAD=1; }
+done
+{ [ "$(kubectl -n "$SYS" get daemonset node-agent -o jsonpath='{.spec.template.spec.serviceAccountName}' 2>/dev/null)" = node-agent ] && \
+  [ "$(kubectl -n "$SYS" get serviceaccount node-agent -o jsonpath='{.automountServiceAccountToken}' 2>/dev/null)" = false ]; } \
+  || { echo 'FAIL: node-agent khong dung ServiceAccount node-agent khong token o bookstore-system'; BAD=1; }
+[ "$BAD" -eq 0 ] && pass 'moi thanh phan mot ServiceAccount, khong ai tu mount token' || FAIL=1
+TOKP="$(kubectl get pods -A -l "$SEL" -o jsonpath='{range .items[*]}{range .spec.volumes[*]}{.name}{"\n"}{end}{end}' 2>/dev/null | grep -c '^kube-api-access-')"
+[ "$TOKP" -eq 0 ] && pass 'khong Pod nao cua du an mang token tu dong' || fail "$TOKP volume token tu dong"
+B=system:serviceaccount:bookstore:db-backup
+{ [ "$(can patch configmaps/backup-status --as="$B")" = yes ] && [ "$(can list configmaps --as="$B")" = no ] && \
+  [ "$(can get secrets --as="$B")" = no ]; } && pass 'db-backup chi sua duoc backup-status' || fail 'quyen db-backup sai'
+CI=system:serviceaccount:bookstore:ci-deployer
+{ [ "$(can patch deployments --as="$CI")" = yes ] && [ "$(can get secrets --as="$CI")" = no ] && \
+  [ "$(can create pods --subresource=exec --as="$CI")" = no ] && [ "$(can patch namespaces/bookstore --as="$CI")" = no ]; } \
+  && pass 'ci-deployer sua Deployment, khong Secret, exec hay Namespace' || fail 'quyen ci-deployer sai'
+{ [ "$(can list pods --as=dev --as-group=bookstore-devs)" = yes ] && [ "$(can get secrets --as=dev --as-group=bookstore-devs)" = no ] && \
+  [ "$(can patch pods --subresource=ephemeralcontainers --as=dev --as-group=bookstore-devs)" = no ]; } \
+  && pass 'bookstore-devs chi doc' || fail 'quyen bookstore-devs sai'
+{ [ "$(can patch pods --subresource=ephemeralcontainers --as=truc --as-group=bookstore-oncall)" = yes ] && \
+  [ "$(can get secrets --as=truc --as-group=bookstore-oncall)" = no ]; } \
+  && pass 'bookstore-oncall go loi duoc, khong doc Secret' || fail 'quyen bookstore-oncall sai'
+
+# 12. Tenant bookstore-staging (9b)
+{ kubectl -n "$TNS" get resourcequota staging-quota >/dev/null 2>&1 && \
+  kubectl -n "$TNS" get limitrange staging-limits >/dev/null 2>&1; } \
+  && pass 'staging co quota va LimitRange' || fail 'staging thieu quota hoac LimitRange'
+kubectl -n "$TNS" get networkpolicy -o jsonpath='{range .items[*]}{.spec.podSelector}|{.spec.policyTypes}{"\n"}{end}' 2>/dev/null \
+  | grep -q '^{}|.*Ingress.*Egress' && pass 'staging co default deny hai chieu' || fail 'staging thieu default deny'
+SW="$(kubectl -n "$TNS" get pod -l "$SEL,app.kubernetes.io/component=web" --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+kubectl -n "$TNS" exec "$SW" -- wget -qO- -T 5 http://web/ 2>/dev/null | grep -q 'Bookstore staging' \
+  && pass 'staging phuc vu trang qua Service cua chinh no' || fail 'staging khong phuc vu duoc trang'
+kubectl -n "$TNS" exec "$SW" -- wget -qO- -T 3 http://api.bookstore.svc.cluster.local:3000/books >/dev/null 2>&1 \
+  && fail 'staging goi duoc api cua bookstore' || pass 'staging bi chan khi goi bookstore'
+DEV='--as=dev --as-group=bookstore-devs'
+{ [ "$(kubectl auth can-i create deployments -n "$TNS" $DEV 2>/dev/null)" = yes ] && \
+  [ "$(kubectl auth can-i get secrets -n "$TNS" $DEV 2>/dev/null)" = no ] && \
+  [ "$(kubectl auth can-i patch "namespace/$TNS" $DEV 2>/dev/null)" = no ] && \
+  [ "$(can create deployments $DEV)" = no ]; } \
+  && pass 'bookstore-devs trien khai duoc o staging; khong Secret, Namespace, bookstore' || fail 'quyen staging sai'
+
+# 13. node-agent ở bookstore-system (4b, 5a, 11a)
+NODES="$(kubectl get nodes --no-headers | wc -l)"
+R="$(kubectl -n "$SYS" get daemonset node-agent -o jsonpath='{.status.numberReady}' 2>/dev/null)"
+[ "${R:-0}" -eq "$NODES" ] && pass "node-agent Ready tren $R/$NODES node" || fail "node-agent ${R:-0}/$NODES node"
+[ "$(k get daemonset,service,serviceaccount --field-selector metadata.name=node-agent --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && pass 'khong con node-agent trong bookstore, ke ca ServiceAccount' || fail 'con node-agent trong bookstore'
+[ "$(kubectl -n "$SYS" get svc node-agent -o jsonpath='{.spec.internalTrafficPolicy}/{.spec.ports[0].port}' 2>/dev/null)" = 'Local/9100' ] \
+  && pass 'Service node-agent Local, cong 9100' || fail 'Service node-agent sai'
+get "http://node-agent.$SYS.svc.cluster.local:9100/node.json" | grep -Eq "\"node\" *: *\"$WNODE\"" \
+  && pass "web doc /node.json cua agent cung node ($WNODE)" || fail 'web khong doc duoc agent cung node'
+AS="$(kubectl get service -A -l "$SEL,app.kubernetes.io/component=agent" -o jsonpath='{.items[0].metadata.namespace}/{.items[0].metadata.name}' 2>/dev/null)"
+{ [ "$(kubectl -n "${AS%/*}" get service "${AS#*/}" -o jsonpath='{.spec.internalTrafficPolicy}' 2>/dev/null)" = 'Local' ] && \
+  get "http://${AS#*/}.${AS%/*}.svc.cluster.local:9100/node.json" | grep -Eq "\"node\" *: *\"$WNODE\""; } \
+  && pass 'node-agent cung node tra /node.json qua Service Local tim theo label' || fail 'node-agent qua Service Local loi'
+BAD=0
+for L in $(kubectl -n "$SYS" get pod -l "$SEL,app.kubernetes.io/component=agent" -o jsonpath='{range .items[*]}{.spec.nodeName}={.status.podIP}{"\n"}{end}' 2>/dev/null); do
+  get "http://${L##*=}:9100/node.json" | grep -Eq "\"node\" *: *\"${L%%=*}\"" || { echo "FAIL: node-agent tren ${L%%=*} sai /node.json"; BAD=1; }
+done
+[ "$BAD" -eq 0 ] && pass 'moi node-agent tra /node.json dung ten node' || FAIL=1
+LOGS=''
+for i in $(seq 1 12); do
+  LOGS="$(get "http://node-agent.$SYS.svc.cluster.local:9100/logs.txt")"
+  echo "$LOGS" | grep -q "^last /var/log/pods/${NS}_${WEB}_" && break
+  sleep 5
+done
+{ echo "$LOGS" | tail -n 1 | grep -q "^node=$WNODE files=[1-9]" && \
+  echo "$LOGS" | grep -q "^file [0-9]* /var/log/pods/${NS}_${WEB}_" && \
+  echo "$LOGS" | grep -q "^last /var/log/pods/${NS}_${WEB}_"; } \
+  && pass "/logs.txt cua agent tren $WNODE liet ke log cua $WEB" || fail '/logs.txt thieu hoac sai'
+
+# 14. Metric (11a)
+[ "$(kubectl get apiservice v1beta1.metrics.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null)" = 'True' ] \
+  && pass 'APIService v1beta1.metrics.k8s.io Available' || fail 'Metrics API chua Available'
+[ "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq "$NODES" ] && pass 'kubectl top node du moi node' || fail 'kubectl top node thieu node'
+TOP=''
+for i in $(seq 1 18); do
+  TOP="$(kubectl top pod -n "$NS" --no-headers 2>/dev/null)"
+  echo "$TOP" | grep -q '^db-0 ' && break
+  sleep 5
+done
+echo "$TOP" | grep -q '^db-0 ' && pass 'kubectl top pod co db-0' || fail 'kubectl top pod chua co db-0'
+DBN="$(jp pod/db-0 '{.spec.nodeName}')"
+kubectl get --raw "/api/v1/nodes/$DBN/proxy/metrics/resource" 2>/dev/null | grep '^container_memory_working_set_bytes{' \
+  | grep 'container="postgres"' | grep -q 'pod="db-0"' \
+  && pass 'kubelet /metrics/resource co bo nho cua postgres' || fail 'kubelet /metrics/resource thieu db-0'
+API="$(k get pod -l "$SEL,app.kubernetes.io/component=api" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+kubectl -n "$NS" port-forward "pod/$API" 13001:3001 >/dev/null 2>&1 & PF=$!
+M=''
+for i in $(seq 1 20); do M="$(curl -fsS http://127.0.0.1:13001/metrics 2>/dev/null)" && [ -n "$M" ] && break; sleep 1; done
+kill "$PF" 2>/dev/null; wait "$PF" 2>/dev/null
+echo "$M" | grep -q '^pgrst_db_pool_max' && pass 'PostgREST /metrics doc duoc qua port-forward' || fail 'khong doc duoc /metrics cua PostgREST'
+
+# 15. Repo và bí mật (3b, 9a)
+git check-ignore -q secrets/ci-deployer.kubeconfig \
+  && pass 'kubeconfig CI nam ngoai git' || fail 'secrets/ khong bi .gitignore chan'
+PGPW="$(k get secret db-credentials -o go-template='{{index .data "postgres-password"}}' 2>/dev/null | base64 -d 2>/dev/null)"
+if [ -n "$PGPW" ]; then
+  git grep --untracked -qF -e "$PGPW" && fail 'mat khau nam trong file se vao git' || pass 'repo khong chua mat khau'
+  kubectl get pods -A -l "$SEL" -o yaml 2>/dev/null | grep -qF -e "$PGPW" \
+    && fail 'mat khau xuat hien trong spec Pod' || pass 'spec Pod khong chua mat khau'
+else
+  fail 'khong doc duoc Secret db-credentials'
+fi
+
+exit "$FAIL"
+EOF
+chmod +x ~/bookstore/tests/smoke.sh
 ```
 
-**Ý nghĩa:** đây là cách **được khuyến nghị** trong bài. `kubectl proxy` chạy như một reverse proxy:
-nó tự định vị API server, tự xác thực, và **xác minh danh tính API server bằng certificate tự ký**
-đã lưu sẵn — nên không thể xảy ra tấn công xen giữa. Cái giá phải trả là proxy mở một cổng trên
-localhost mà **bất kỳ tiến trình nào trên máy đó cũng gọi được với quyền của bạn**; đó là lý do lab
-tắt nó ngay sau khi dùng xong.
+2. Cập nhật `docs/tech-debt.md` theo B8; kiểm `docs/` có đủ ADR, postmortem và runbook của sprint.
 
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B9.4. Đường thứ ba — HTTP client trực tiếp, có xác thực
+3. Dọn object thử nghiệm, rồi dựng lại sạch từ repo và chạy kiểm thử khói:
 
 ```bash
-kubectl config view --raw --minify \
-  -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' \
-  | base64 -d > "$WK/ca.crt"
-chmod 600 "$WK/ca.crt"
-head -1 "$WK/ca.crt"
-
-TOKEN="$(kubectl create token default -n lab-12)"
-
-test -s "$WK/ca.crt" && grep -q 'BEGIN CERTIFICATE' "$WK/ca.crt" \
-  && echo 'PASS: lay duoc CA cua cluster tu kubeconfig'
-test -n "$TOKEN" \
-  && echo 'PASS: tao duoc token cho ServiceAccount default cua namespace lab-12'
+kubectl -n bookstore delete pdb db-thu --ignore-not-found
+kubectl -n bookstore delete pod thu-mat-lien-lac --ignore-not-found --wait=true
+kubectl -n bookstore delete job bt12-truoc-bao-tri --ignore-not-found --wait=true
+cd ~/bookstore
+./scripts/teardown.sh && ./scripts/deploy.sh > ~/lab-evidence/12/b9-deploy.txt 2>&1
+./tests/smoke.sh > ~/lab-evidence/12/b9-smoke.txt 2>&1; echo "smoke exit=$?"
+cat ~/lab-evidence/12/b9-smoke.txt
 ```
 
-```bash
-curl -s --cacert "$WK/ca.crt" -H "Authorization: Bearer $TOKEN" \
-  "$APISERVER/api" > "$EV/b9-direct-api.json"
-cat "$EV/b9-direct-api.json"
+4. Commit, tag, đóng gói, chép ra ngoài VM theo
+   [mục 5.4 của file dự án](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm):
 
-grep -q '"versions"' "$EV/b9-direct-api.json" \
-  && echo 'PASS: HTTP client truc tiep goi duoc /api, KHONG can --insecure'
+```bash
+cd ~/bookstore
+git status --short
+git add -A && git commit -m 'lab-12: sprint 19 — bao tri node, cong cu do san sang, runbook'
+git tag lab-12
+git bundle create ~/bookstore-lab-12.bundle --all && git bundle verify ~/bookstore-lab-12.bundle
 ```
 
-```bash
-CODE="$(curl -s -o /dev/null -w '%{http_code}' --cacert "$WK/ca.crt" \
-  -H "Authorization: Bearer $TOKEN" "$APISERVER/api/v1/namespaces/lab-12/pods")"
-echo "HTTP code khi liet ke Pod bang token cua ServiceAccount default = $CODE"
+Chép `~/bookstore-lab-12.bundle` về máy host bằng `scp` trước khi đi tiếp.
 
-test "$CODE" = '403' \
-  && echo 'PASS: xac thuc thanh cong nhung phan quyen tu choi — hai buoc khac nhau'
+5. Dọn và trả cluster:
+
+```bash
+rm -rf ~/lab-work/12
+cd ~/bookstore && ./scripts/teardown.sh
 ```
 
-**Ý nghĩa:** bài đưa ví dụ dùng `--insecure`, và **nói thẳng rằng điều đó khiến client dễ bị tấn
-công xen giữa**. Lab làm đúng phần bài gợi ý ngay sau đó: vì certificate của cluster thường là tự
-ký, cần **cấu hình đặc biệt để HTTP client dùng được root certificate** — ở đây là trích CA từ
-chính kubeconfig rồi truyền qua `--cacert`.
-
-Hai mã HTTP ở trên nói hai chuyện khác nhau. `/api` trả `200` vì mọi client **đã xác thực** đều
-được phép khám phá API. `/api/v1/namespaces/lab-12/pods` trả `403` vì ServiceAccount `default` chưa
-có RoleBinding nào — token hợp lệ, danh tính hợp lệ, nhưng **không có quyền**. Đây đúng ranh giới
-authn/authz bạn đã dựng ở [Lab 9a](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md).
-
-Xóa dấu vết ngay, đừng để token và CA nằm lại:
+6. Gate cuối:
 
 ```bash
-unset TOKEN
-rm -f "$WK/ca.crt"
-test ! -e "$WK/ca.crt" && echo 'PASS: da xoa ban sao CA; token chi ton tai trong bien shell'
-```
+cd ~/bookstore; EV=~/lab-evidence/12; SEL='app.kubernetes.io/part-of=bookstore'
+test -z "$(git status --porcelain)" && echo 'PASS: repo khong con thay doi chua commit'
+git describe --tags --exact-match HEAD | grep -qx 'lab-12' && echo 'PASS: HEAD mang tag lab-12'
+test -s ~/bookstore-lab-12.bundle && echo 'PASS: co bundle'
+{ test -x tests/availability-probe.sh && test -x tests/availability-report.sh && test -s docs/runbook-bao-tri-node.md \
+  && ls docs/postmortem/12-bao-tri-worker1.md docs/postmortem/12-bao-tri-worker2.md >/dev/null 2>&1; } \
+  && echo 'PASS: cong cu, runbook va postmortem cua sprint 19 nam trong repo'
+[ "$(kubectl get namespace,priorityclass,storageclass,pv,clusterrole,clusterrolebinding -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && [ "$(kubectl get all -A -l "$SEL" --no-headers 2>/dev/null | wc -l)" -eq 0 ] \
+  && echo 'PASS: khong con object nao cua du an'
+[ "$(kubectl get nodes -l bookstore.example.com/data --no-headers 2>/dev/null | wc -l)" -eq 0 ] && echo 'PASS: da go label node cua du an'
+test ! -e ~/lab-work/12 && echo 'PASS: da don lab-work'
 
-**PASS:** năm dòng `PASS:` của bước này xuất hiện.
-
----
-
-## B10. Leader migration của controller manager — phần đọc được
-
-**Mục đích:** bài [198](../198-controller-manager-leader-migration-vi.md) mô tả một quy trình di
-trú **không bao giờ chạy** trên cluster này. Thay vì bỏ trống, bạn chứng minh bằng bốn dữ kiện tại
-sao nó không áp dụng, và đọc một chi tiết RBAC giải thích vì sao bước đầu tiên của quy trình lại là
-vá role.
-
-### B10.1. Bốn dữ kiện loại trừ
-
-```bash
-CP_FLAG="$(sudo grep -c 'cloud-provider' /etc/kubernetes/manifests/kube-controller-manager.yaml)"
-MIG_FLAG="$(sudo grep -c 'enable-leader-migration' \
-  /etc/kubernetes/manifests/kube-controller-manager.yaml)"
-CCM_N="$(kubectl get deployment,daemonset,pod -A --no-headers 2>/dev/null \
-  | grep -ci 'cloud-controller-manager')"
-PID_N3="$(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.providerID}{"\n"}{end}' \
-  | grep -c .)"
-CP_N2="$(kubectl get nodes -l 'node-role.kubernetes.io/control-plane' --no-headers | wc -l)"
-echo "--cloud-provider tren KCM=$CP_FLAG | --enable-leader-migration=$MIG_FLAG"
-echo "cloud-controller-manager dang chay=$CCM_N | node co providerID=$PID_N3 | so control plane=$CP_N2"
-
-test "$CP_FLAG" -eq 0 && test "$CCM_N" -eq 0 \
-  && echo 'PASS: khong cloud provider in-tree, khong cloud-controller-manager'
-test "$PID_N3" -eq 0 \
-  && echo 'PASS: khong Node nao gan voi tai nguyen cua mot nha cung cap cloud'
-test "$CP_N2" -eq 1 \
-  && echo 'PASS: control plane MOT node — bai noi ro truong hop nay khong can Leader Migration'
-test "$MIG_FLAG" -eq 0 \
-  && echo 'PASS: --enable-leader-migration khong duoc dat o dau ca'
-```
-
-**Ý nghĩa:** Leader Migration tồn tại để chuyển ba controller đặc thù cloud — `route`, `service`,
-`cloud-node-lifecycle` — từ `kube-controller-manager` sang `cloud-controller-manager` **trong lúc
-nâng cấp cuốn chiếu một control plane HA**, sao cho không controller nào chạy đồng thời ở hai nơi.
-Bài nêu thẳng khi nào **không** cần nó: control plane một node, hoặc chấp nhận controller manager
-không sẵn sàng trong lúc nâng cấp. Cluster của bạn rơi vào cả hai.
-
-### B10.2. Lease di trú không tồn tại, và role chưa cho phép nó tồn tại
-
-```bash
-kubectl -n kube-system get lease | tee "$EV/b10-lease.txt"
-MIG_LEASE="$(grep -c 'cloud-provider-extraction-migration' "$EV/b10-lease.txt")"
-
-kubectl -n kube-system get role 'system::leader-locking-kube-controller-manager' \
-  -o jsonpath='{range .rules[*]}{.apiGroups}{" "}{.resources}{" "}{.resourceNames}{" "}{.verbs}{"\n"}{end}' \
-  | tee "$EV/b10-role-kcm.txt"
-CCM_ROLE="$(kubectl -n kube-system get role \
-  'system::leader-locking-cloud-controller-manager' --ignore-not-found -o name | wc -l)"
-echo "Lease di tru=$MIG_LEASE | role leader-locking cho CCM=$CCM_ROLE"
-
-test "$MIG_LEASE" -eq 0 \
-  && echo 'PASS: khong co Lease cloud-provider-extraction-migration'
-grep -q 'cloud-provider-extraction-migration' "$EV/b10-role-kcm.txt" \
-  || echo 'PASS: role chi cho truy cap Lease chinh cua no, chua he duoc va cho Lease di tru'
-test "$CCM_ROLE" -eq 0 \
-  && echo 'PASS: role leader-locking cua cloud-controller-manager khong ton tai o day'
-```
-
-**Ý nghĩa:** cơ chế của Leader Migration là hai controller manager chia sẻ **một Lease di trú** —
-một resource lock chung, tên ví dụ `cloud-provider-extraction-migration`; manager nào giữ Lease thì
-chạy nhóm controller được khai trong `LeaderMigrationConfiguration`. Nhưng **quyền mặc định của
-controller manager chỉ cho phép truy cập Lease chính của nó**, đúng như bạn vừa đọc trong
-`.rules` — đó là lý do bước đầu tiên của quy trình là `kubectl patch` hai role
-`system::leader-locking-*` để thêm `resourceNames: [cloud-provider-extraction-migration]`.
-
-Lab **không** chạy lệnh patch đó: nó sửa RBAC của control plane trên một cluster không có gì để di
-trú. Nếu sau này bạn thật sự chạy quy trình này, hai chi tiết đáng nhớ: đặt `component: *` cho cả
-hai phía để một file cấu hình dùng chung được, và từ Kubernetes 1.22 có **cấu hình mặc định** — chỉ
-cần `--enable-leader-migration`, không cần file.
-
-**PASS:** bốn dòng `PASS:` của B10.1 và ba dòng `PASS:` của B10.2 xuất hiện.
-
----
-
-## B11. Cleanup và gate cuối
-
-**Mục đích:** xóa mọi thứ lab tạo ra, chứng minh **không node nào còn cordon** và **cấu hình node
-không hề bị sửa** dù đã qua một lần tắt máy, rồi chứng minh cluster về đúng `04-metrics-ready`.
-
-### B11.1. Xóa object của bài học
-
-```bash
-kubectl delete namespace lab-12 --wait=true --timeout=300s
-
-rm -f "$WK/b7-web.yaml" "$WK/b7-thu-cordon.yaml" "$WK/doc-swap.sh" \
-      "$WK/doc-shutdown-prereq.sh" "$WK/proxy.log" "$WK/ca.crt"
-rmdir "$WK"
-```
-
-`rmdir` cố ý không dùng `-rf`: nó fail nếu thư mục còn file lạ, và `test ! -e` bên dưới biến điều
-đó thành gate thay vì im lặng bỏ qua. Thư mục `~/lab-evidence/12/` **giữ lại** — đó là bằng chứng.
-
-```bash
-NS_LEFT="$(kubectl get namespace lab-12 --ignore-not-found -o name 2>/dev/null | wc -l)"
-POD_DEF="$(kubectl get pods -n default --no-headers 2>/dev/null | wc -l)"
-echo "namespace lab-12 con=$NS_LEFT | Pod trong default=$POD_DEF"
-
-test "$NS_LEFT" -eq 0 && echo 'PASS: namespace lab-12 da bien mat'
-test "$POD_DEF" -eq 0 && echo 'PASS: namespace default khong con Pod nao'
-test ! -e "$WK" && echo 'PASS: manifest tam da xoa het'
-```
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện.
-
-### B11.2. Gate quan trọng nhất: node trở về nguyên trạng
-
-```bash
-UNSCH_N="$(kubectl get nodes \
-  -o jsonpath='{range .items[*]}{.spec.unschedulable}{"\n"}{end}' | grep -c 'true')"
-TAINT_N2="$(kubectl get nodes -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}' \
-  | grep -cE 'node.kubernetes.io/(unschedulable|unreachable|not-ready)')"
-kubectl get nodes -o custom-columns='NODE:.metadata.name,UNSCHEDULABLE:.spec.unschedulable,TAINTS:.spec.taints' \
-  | tee "$EV/b11-nodes.txt"
-echo "node dang unschedulable=$UNSCH_N | taint bao tri con sot=$TAINT_N2"
-
-test "$UNSCH_N" -eq 0 \
-  && echo 'PASS: khong node nao con bi cordon'
-test "$TAINT_N2" -eq 0 \
-  && echo 'PASS: khong con taint unschedulable/unreachable/not-ready nao'
-```
-
-```bash
+# Node trở về nguyên trạng sau hai lần tắt–bật
+[ "$(kubectl get nodes -o jsonpath='{range .items[*]}{.spec.unschedulable}{"\n"}{end}' | grep -c true)" -eq 0 ] \
+  && [ "$(kubectl get nodes -o jsonpath='{range .items[*]}{range .spec.taints[*]}{.key}{"\n"}{end}{end}' \
+     | grep -cE 'node.kubernetes.io/(unschedulable|unreachable|not-ready)')" -eq 0 ] \
+  && echo 'PASS: khong node nao con cordon hay taint bao tri'
 {
-  echo "$MASTER kubelet $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
-  for n in "$W1" "$W2"; do
+  echo "lab-k8s-master kubelet $(sudo sha256sum /var/lib/kubelet/config.yaml | awk '{print $1}')"
+  for n in lab-k8s-worker1 lab-k8s-worker2; do
     echo "$n kubelet $(ssh "$n" 'sudo sha256sum /var/lib/kubelet/config.yaml' | awk '{print $1}')"
   done
   for f in kube-apiserver kube-scheduler kube-controller-manager; do
-    echo "$MASTER $f $(sudo sha256sum /etc/kubernetes/manifests/$f.yaml | awk '{print $1}')"
+    echo "lab-k8s-master $f $(sudo sha256sum /etc/kubernetes/manifests/$f.yaml | awk '{print $1}')"
   done
-} | tee "$EV/b11-config-sha.txt"
+} > "$EV/b9-config-sha.txt"
+diff -u "$EV/b0-config-sha.txt" "$EV/b9-config-sha.txt" && echo 'PASS: sau file cau hinh khong doi'
 
-diff -u "$EV/b0-config-sha.txt" "$EV/b11-config-sha.txt" \
-  && echo 'PASS: sau cau hinh khong he doi — ke ca sau mot lan tat va bat lai worker2' \
-  || echo 'FAIL: cau hinh da bi sua — xem muc 4'
-```
+# Hạ tầng của mốc 04-metrics-ready còn nguyên
+[ "$(kubectl top node --no-headers 2>/dev/null | wc -l)" -eq 3 ] && echo 'PASS: top node du ba node'
+[ "$(kubectl get storageclass -o jsonpath='{range .items[*]}{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' | grep -c '^true$')" -eq 1 ] \
+  && [ "$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)" -ge 1 ] \
+  && [ "$(kubectl get apiservice v1beta1.metrics.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')" = 'True' ] \
+  && echo 'PASS: StorageClass mac dinh, ingress controller, metrics-server con nguyen'
 
-**Ý nghĩa:** gate này nặng hơn bản ở [Lab 7b](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md#b92-gate-quan-trọng-nhất-của-lab-cấu-hình-node-không-đổi)
-một bậc, vì lab 12 có một VM đi qua chu kỳ tắt–bật. Nếu checksum của worker2 đổi, hoặc là bạn đã
-sửa file, hoặc node boot lên với cấu hình khác — cả hai đều làm cluster lệch khỏi
-`04-metrics-ready` và **không được** mang sang lab sau.
-
-**PASS:** ba dòng `PASS:` của bước này xuất hiện, không dòng `FAIL:` nào.
-
-### B11.3. Hạ tầng của mốc `04-metrics-ready` còn nguyên
-
-```bash
-SC_N="$(kubectl get storageclass --no-headers | wc -l)"
-SC_DEF3="$(kubectl get storageclass \
-  -o jsonpath='{range .items[*]}{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{"\n"}{end}' \
-  | grep -c '^true$')"
-IC_N2="$(kubectl get ingressclass --no-headers 2>/dev/null | wc -l)"
-MS_AVAIL2="$(kubectl get apiservice v1beta1.metrics.k8s.io \
-  -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')"
-PV_N="$(kubectl get pv --no-headers 2>/dev/null | wc -l)"
-echo "storageclass=$SC_N (mac dinh=$SC_DEF3) | ingressclass=$IC_N2 | metrics=$MS_AVAIL2 | pv=$PV_N"
-
-test "$SC_DEF3" -eq 1 && test "$IC_N2" -ge 1 && test "$MS_AVAIL2" = 'True' && test "$PV_N" -eq 0 \
-  && echo 'PASS: StorageClass mac dinh, ingress controller va metrics-server deu con nguyen'
-```
-
-```bash
-TOP_N="$(kubectl top node --no-headers 2>/dev/null | wc -l)"
-kubectl top node | tee "$EV/b11-top-node.txt"
-test "$TOP_N" -eq 3 \
-  && echo 'PASS: kubectl top node lai in du ba node — worker2 da bao cao metric tro lai'
-```
-
-**Ý nghĩa:** `kubectl top node` in đủ ba dòng là bằng chứng gọn nhất rằng worker2 đã thật sự quay
-lại phục vụ: kubelet của nó chạy, metrics-server thu được số liệu từ nó, và APIService còn
-`Available`. Nếu chỉ có hai dòng, node vừa boot chưa kịp báo cáo — chờ rồi chạy lại lệnh trước khi
-kết luận là hỏng.
-
-Lưu ý: các Pod hạ tầng bị trục xuất ở B7.4 — ingress controller, provisioner, metrics-server nếu
-chúng từng nằm trên worker2 — **không tự quay lại** worker2 sau uncordon. Đó là hành vi đúng, không
-phải hỏng hóc; gate chỉ yêu cầu chúng `Running`.
-
-**PASS:** hai dòng `PASS:` của bước này xuất hiện.
-
-### B11.4. Gate ngắn A5.5 và kết thúc
-
-```bash
-kubectl wait --for=condition=Ready node --all --timeout=300s
+kubectl wait --for=condition=Ready node --all --timeout=180s
 test "$(kubectl get --raw='/readyz')" = 'ok' && echo 'PASS: readyz ok'
 kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
 kubectl -n kube-system get deployment coredns
 kubectl get pods -n default
-
-READY_N="$(kubectl get nodes \
-  -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' \
-  | grep -c '^True$')"
-echo "so node Ready=True: $READY_N"
-test "$READY_N" -eq 3 && echo 'PASS: ca ba node Ready'
-
-{
-  echo "=== $(date -Is) — trang thai sau Lab 12 ==="
-  echo '--- nodes'; kubectl get nodes -o wide
-  echo '--- unschedulable'
-  kubectl get nodes -o custom-columns='NODE:.metadata.name,UNSCHEDULABLE:.spec.unschedulable'
-  echo '--- pdb'; kubectl get pdb -A 2>&1
-  echo '--- top node'; kubectl top node 2>&1
-  echo '--- storageclass'; kubectl get storageclass
-  echo '--- ingressclass'; kubectl get ingressclass 2>&1
-  echo '--- apiservice metrics'; kubectl get apiservice v1beta1.metrics.k8s.io 2>&1
-  echo '--- namespaces'; kubectl get namespaces
-} | tee "$EV/b11-sau.txt"
-
-diff -u "$EV/b0-truoc.txt" "$EV/b11-sau.txt" > "$EV/b11-diff.txt" 2>&1 || true
-grep -c '^[+-]' "$EV/b11-diff.txt"
 ```
 
-**PASS:** ba node `Ready`; dòng `PASS: readyz ok` xuất hiện; lệnh field selector trả
-`No resources found`; CoreDNS đủ replica `READY`; `default` không có Pod; dòng
-`PASS: ca ba node Ready` xuất hiện; danh sách namespace không còn `lab-12`.
-
-File `b11-diff.txt` sẽ có vài dòng khác biệt: mốc thời gian, `AGE` của object, số liệu `top node`,
-và **cột `NODE` của một số Pod hạ tầng đã đổi chỗ ở B7.4**. Đó là những khác biệt hợp lệ. Khác biệt
-**không** hợp lệ là: một node còn `SchedulingDisabled`, một StorageClass biến mất, `metrics` không
-còn `Available`, hay `top node` báo lỗi — gặp bất kỳ cái nào thì xử lý theo
-[mục 4](#4-troubleshooting-của-lab-này) trước khi sang lab sau.
-
-Cluster đã trở về `04-metrics-ready`. **Lab 12 không tạo snapshot mới** — để ba VM nguyên trạng
-đang chạy hoặc tắt tùy bạn; lab sau tự bật máy theo
-[A5.5](LAB-00-MOI-TRUONG-1.35.7.md#a55-quy-trình-mở-đầu-mỗi-lab).
+**PASS:** `smoke exit=0` và file smoke ở bước 3 in toàn `PASS:`; mười một dòng `PASS:` của gate cuối
+trước khối A5.5; dòng `PASS: readyz ok`; ba node `Ready`; lệnh field selector trả `No resources
+found`; CoreDNS đủ replica; namespace `default` không có Pod. Pod hạ tầng (Traefik, metrics-server,
+CoreDNS…) có thể đã đổi node sau hai lần drain — đó là khác biệt hợp lệ. Thư mục
+`~/lab-evidence/12/` **giữ lại**. Cluster trở về `04-metrics-ready`; **không tạo snapshot mới**.
 
 ---
 
 ## 3. Checkpoint 12
 
-Không đánh dấu lab hoàn tất chỉ vì command chạy hết. Tự trả lời, không nhìn tài liệu:
+Không đánh dấu lab hoàn tất chỉ vì script nghiệm thu PASS. Tự trả lời, không nhìn tài liệu:
 
-- [ ] Bạn gõ `kubectl cordon lab-k8s-worker2` rồi đi uống nước. Quay lại, node có còn Pod nào
-      không? Nếu bây giờ bạn tắt máy, chuyện gì xảy ra với những Pod đó? Kể đúng **hai** việc mà
-      `drain` làm còn `cordon` không làm, và nói `drain` gọi cơ chế nào ở bên dưới.
-- [ ] `kubectl drain` trần bị từ chối. Câu từ chối nhắc tới cờ nào, và vì sao **gần như mọi
-      cluster thật** đều cần cờ đó? Điều gì xảy ra nếu Kubernetes cứ để bạn trục xuất Pod
-      DaemonSet mà không cần cờ?
-- [ ] Trong lúc drain, một PodDisruptionBudget quá chặt sẽ gây ra chuyện gì cho lệnh của bạn? Vì
-      sao câu trả lời đó là hệ quả trực tiếp của việc `drain` không dùng `kubectl delete pod`?
-- [ ] Node của bạn boot lại và `kubectl get nodes` báo `Ready`, nhưng suốt buổi chiều không Pod
-      mới nào lên đó. Chuyện gì đã xảy ra, thứ giữ trạng thái đó nằm ở đâu — trên đĩa của node hay
-      trong API server — và bạn sửa bằng lệnh gì?
-- [ ] Bạn `uncordon` xong mà workload vẫn nằm hết ở worker còn lại. Kubernetes hỏng à? Cần chuyện
-      gì xảy ra thì Pod mới quay về, và thành phần nào (không có trên cluster này) sinh ra để làm
-      việc đó tự động?
-- [ ] Feature gate `GracefulNodeShutdown` bật mặc định từ 1.21. Trên `lab-k8s-worker2`, Pod có
-      được chấm dứt nhẹ nhàng khi bạn `shutdown -h now` không? Bạn đọc **hai giá trị nào** để trả
-      lời, và nếu chúng khác 0 thì với `30s`/`10s` Pod thường có bao nhiêu giây, Pod quan trọng
-      bao nhiêu giây, ai bị chấm dứt trước?
-- [ ] Kể ba tín hiệu mà control plane phát ra khi worker2 tắt máy, và mỗi tín hiệu do **thành
-      phần nào** tạo ra. Vì sao Pod DaemonSet vẫn còn nằm trong API server trong khi Pod thường
-      thì không? Vì sao trong bài này **không** Pod nào kẹt `Terminating`, và kịch bản nào mới làm
-      chúng kẹt?
-- [ ] Cluster lab tắt swap. Nêu ba câu hỏi khác nhau mà `swapon --show`, `free -m` và dòng `swap`
-      trong `/etc/fstab` trả lời, và giải thích vì sao câu thứ ba đặc biệt quan trọng với **chính
-      lab này**. Nếu bật swap, kubelet có tự động cho workload dùng nó không?
-- [ ] Cluster của bạn có ba VM cố định. Chạy được autoscaling Node không? Thiếu chính xác thứ gì —
-      không phải "thiếu cấu hình"? Sau khi drain xong, worker2 rơi vào trạng thái nào theo thuật
-      ngữ của bài 171, và vì sao ranh giới đó đáng nhớ?
-- [ ] Cluster đang chạy ít nhất ba add-on **không** có tên trong danh mục của bài 165. Kể tên
-      chúng theo chức năng, và nói kết luận đúng khi tra danh mục mà không thấy công cụ mình cần.
-      Nhóm *Đo lường* của danh mục có gì, và cluster của bạn có nó không?
-- [ ] `--emulated-version` phải thỏa ràng buộc nào so với `binaryVersion`? Nếu đặt nó về một phiên
-      bản cũ, một API đã bị xóa ở phiên bản mới còn dùng được không, và một tính năng chỉ có ở
-      phiên bản mới thì sao? Tùy chọn này tách **hai việc gì** ra khỏi nhau khi nâng cấp?
-- [ ] **Nợ #7 chưa được trả ở lab này.** Món nợ đó là gì, phát sinh ở đâu, vì sao bài
-      [156](../156-certificates-vi.md) không đủ để gạch chủ đề certificate khỏi danh sách, và nó
-      được trả ở giai đoạn nào bằng quy trình nào? Trước khi làm giai đoạn đó bạn phải đọc lại
-      bài nào?
+- [ ] `cordon` và `drain` khác nhau đúng hai việc gì? `drain` gọi cơ chế nào ở bên dưới, và vì sao điều
+      đó làm PDB của Bookstore có hiệu lực còn `kubectl delete pod` thì không?
+- [ ] Drain trần bị từ chối nhắc tới cờ nào? Vì sao gần như mọi cluster đều cần nó, và Pod `node-agent`
+      trên worker1 trải qua những gì từ lúc drain tới sau reboot?
+- [ ] Ở B5, ba cơ chế nào giữ `web`, `api` không gián đoạn? Nếu probe đo được lỗi, lỗi đó ở tầng nào,
+      vì sao PDB của Bookstore không chặn được, và sửa ở đâu?
+- [ ] Vì sao `db-0` không thể chạy trên worker1 — hai lý do độc lập? Downtime DB của bạn là bao nhiêu
+      giây và gồm những đoạn nào?
+- [ ] PDB `db-thu` làm gì với drain ở pha 1? Bài 339 đưa hai giải pháp nào cho ứng dụng stateful một
+      instance, và ADR của bạn chọn gì, đổi quyết định khi nào?
+- [ ] Graceful node shutdown bật mặc định mà vẫn không hoạt động trên cluster này: hai giá trị nào, dấu
+      hiệu nào ở tầng hệ điều hành chứng minh? Nếu bật 30s/10s thì `db-0` có bao nhiêu giây, vì sao?
+- [ ] Worker2 tắt: ba tín hiệu của control plane là gì, thành phần nào tạo ra từng cái? Vì sao không
+      Pod nào kẹt `Terminating` trong cửa sổ bảo trì của bạn, và kịch bản nào làm `db-0` kẹt?
+- [ ] **(Nợ 3a.)** Phase của Pod `node-agent` trên worker2 lúc máy tắt là gì, condition `Ready` của Pod
+      là gì, API báo container ra sao? Dòng `Unknown` của bài 47 hiện ra ở đâu?
+- [ ] Node `Ready` mà không nhận Pod mới: trạng thái nằm ở đâu, sửa bằng gì? Uncordon xong vì sao Pod
+      không tự về, và bạn cân bằng lại thế nào mà vẫn tôn trọng PDB?
+- [ ] Swap: ba câu hỏi mà `swapon --show`, `free -m`, `/etc/fstab` trả lời; vì sao câu thứ ba quan
+      trọng với chính lab này; với `LimitedSwap`, Pod nào của Bookstore được swap?
+- [ ] Cluster có autoscaling Node không, vì sao không? Worker sau drain là Node gì theo bài 171? Có
+      autoscaler hợp nhất node thì PDB của `db` đổi vai trò ra sao?
+- [ ] `--emulated-version` phải thỏa ràng buộc nào, tách hai việc gì khi nâng cấp? Bầu chọn leader có
+      phối hợp thêm gì lên cơ chế Lease? Bốn dữ kiện nào loại trừ Leader Migration?
+
+Nợ còn mở sau lab này — nói được **vì sao chưa trả**:
+
+- Nợ lab **#7 — quản lý vòng đời certificate** phát sinh ở chính nhóm bài này (bài
+  [156](../156-certificates-vi.md) chỉ là trang trỏ hướng), **chưa trả**; trả ở
+  [giai đoạn 18](../00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ) với quy trình `kubeadm
+  certs` — trước khi làm giai đoạn đó, đọc lại bài 156 và bài [191](../191-certificates-manual-vi.md).
+- Nợ lab #1 (phần VPA), #5 (snapshot cần CSI), #6 (mã hóa Secret at rest), #8 (backup etcd) vẫn mở,
+  xem [sổ nợ lab](README.md#5-sổ-nợ-lab). Nợ phase `Unknown` của Lab 3a **đã trả** ở B7.
+- Nợ kỹ thuật: hai nợ mới của B8 — đường vào chưa HA, DB một instance trên PV local; `TD-10` (backup
+  cùng cluster, chấp nhận có điều kiện) cùng mọi nợ còn mở khác trong `docs/tech-debt.md`.
 
 ### Bài giải thích cuối cùng
 
-Trong vài phút, kể lại bằng lời hai luồng sau, không nhìn tài liệu:
-
-1. **Vòng bảo trì một node, từ đầu tới cuối.** Bắt đầu từ lúc bạn quyết định thay RAM cho
-   `lab-k8s-worker2`. Kể đủ sáu chặng: bạn gõ gì, mỗi lệnh đổi **trường nào** trong Node object,
-   Pod nào đi đâu ở mỗi chặng và **ai** ra quyết định đó, node còn lại gì trước khi bạn dám tắt
-   máy, control plane thấy gì trong lúc node vắng mặt, và hai việc bạn **phải** làm sau khi máy
-   lên lại — kèm lý do vì sao quên việc thứ hai lại tạo ra một node `Ready` mà vô dụng. Kết bằng
-   câu trả lời cho: nếu bỏ hẳn bước `drain` thì hỏng ở đâu, và vì sao câu trả lời đó **phụ thuộc
-   vào hai con số** bạn đã đọc ở B6.
-2. **Cluster này đứng ở đâu trên bản đồ quản trị.** Đi qua bốn nhóm việc của bài 155 và với mỗi
-   nhóm nói một hiện vật bạn đã sờ được trong lab. Rồi trả lời ba câu ranh giới: cluster có
-   autoscaling Node không và **vì sao không**; bầu chọn leader có phối hợp đang bật hay tắt, làm
-   sao bạn biết, và nó **thêm** gì lên trên cơ chế Lease chứ không thay thế cơ chế nào; quy trình
-   Leader Migration của bài 198 có áp dụng không và **bốn dữ kiện nào** loại trừ nó. Cuối cùng,
-   nói rõ **một chủ đề của giai đoạn 12 mà lab này cố ý không làm** và nó được trả ở đâu.
-
-Khi mọi checkbox được đánh dấu và bạn không còn nhầm `cordon` với `drain`, *taint `NoSchedule`* với
-*taint `NoExecute`*, *tắt node nhẹ nhàng* với *tắt node không nhẹ nhàng*, hay *bầu chọn leader
-thông thường* với *bầu chọn leader có phối hợp* — Lab 12 và
-[giai đoạn 12](../00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao) hoàn tất.
-
-Lab này **không phát sinh nợ mới** và **không trả nợ nào**; xem
-[sổ nợ lab](README.md#5-sổ-nợ-lab). Riêng [nợ #7](README.md#5-sổ-nợ-lab) — quản lý vòng đời
-certificate — vẫn **đang treo**, đúng như bài [156](../156-certificates-vi.md) đã báo trước, và
-được trả ở [giai đoạn 18](../00-ALO-TRINH-ADMIN.md#giai-đoạn-18--vòng-đời-chứng-chỉ). Những phần
-cố ý không làm còn lại đều nằm trong bảng lý do ở
-[mục 1.1](#11-ánh-xạ-tài-liệu-sang-bài-thực-hành).
+Trong vài phút, kể lại cửa sổ bảo trì `lab-k8s-worker2` của bạn như kể cho người trực ca sau: vì sao
+phải có cửa sổ trong khi worker1 thì không; bản backup và trạng thái "trước" để làm gì; pha 1 — ai
+giữ `db-0` lại, Pod nào đi đâu, ai quyết định chỗ mới; pha 2 — chuyện gì xảy ra với `db-0`, với `api`
+(vì sao NotReady mà không bị khởi động lại), với trang chủ; lúc máy tắt — control plane thấy gì, Pod
+trên node mang trạng thái gì và vì sao trạng thái đó là cũ; lúc máy lên — hai việc bạn phải làm và
+điều gì xảy ra nếu quên việc thứ hai; cuối cùng là con số downtime và bằng chứng dữ liệu còn nguyên.
+Kết thúc bằng một câu: nếu cluster này có autoscaler hợp nhất node, câu chuyện đổi ở điểm nào.
 
 ---
 
 ## 4. Troubleshooting của lab này
 
-Sự cố dựng môi trường nằm ở
-[mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường). Bảng dưới chỉ liệt kê
-sự cố phát sinh từ nội dung bài học 12.
+Sự cố dựng môi trường xem [mục 4 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#4-troubleshooting-môi-trường).
+Dưới đây chỉ là sự cố phát sinh trong nội dung bài học.
 
-| Triệu chứng | Kiểm tra | Xử lý đúng phạm vi |
+| Triệu chứng | Nguyên nhân thường gặp | Xử lý |
 | --- | --- | --- |
-| **B7.6: worker2 không trở lại `Ready` sau khi bật máy** | Trên máy host: `vmrun -T ws list` xem VM có chạy không. Nếu chạy: `ssh lab-k8s-worker2 'systemctl is-active kubelet containerd'`; `ssh lab-k8s-worker2 'journalctl -u kubelet -n 80 --no-pager'` | Đi từ dưới lên, đừng nhảy cóc. **(1)** VM không boot → xem console VM trong VMware, không sửa gì trong cluster. **(2)** VM boot nhưng `ssh` chết → IP tĩnh của [A3](LAB-00-MOI-TRUONG-1.35.7.md#a3-đặt-ip-tĩnh-và-phân-giải-tên) không lên; sửa ở tầng netplan. **(3)** `ssh` được nhưng `kubelet` `inactive` → đọc `journalctl`; nguyên nhân thường gặp nhất là **swap bật lại sau reboot** (xem dòng kế) hoặc `containerd` chưa lên. **(4)** kubelet chạy mà Node vẫn `NotReady` → chạy lại [tầng 0 và tầng 1 của A5.4](LAB-00-MOI-TRUONG-1.35.7.md#a54-gate-01-cluster-ready). **Nếu sau vài phút vẫn không lên: tắt cả ba VM, restore cả ba về `04-metrics-ready`.** Không restore riêng worker2 |
-| B7.6: kubelet báo lỗi liên quan swap sau reboot | `ssh lab-k8s-worker2 'swapon --show; grep -nE "^[^#].*[[:space:]]swap[[:space:]]" /etc/fstab'` | `/etc/fstab` còn dòng swap chưa comment nên swap bật lại khi boot, và kubelet mặc định **không khởi động trên node đang bật swap** (B5.3). Đây là lệch baseline của [A4.1](LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites), không phải nội dung lab 12. Xử lý theo A4.1 rồi chạy lại B11; ghi vào evidence rằng baseline đã lệch |
-| B7.5: VM không chuyển sang *Powered off* | Chạy lại khối PowerShell của B7.5; `vmrun -T ws list` | Node đang tắt dịch vụ, chờ thêm rồi chạy lại. Chỉ khi chờ mãi không xong mới dùng `vmrun -T ws stop <vmx> hard` — và khi đó **ghi vào evidence** rằng lần tắt này là cưỡng bức, vì nó đổi bản chất phép thử |
-| B7.4: `drain` treo, không kết thúc | `kubectl get pdb -A`; `kubectl -n <ns> describe pdb <ten>`; đọc `$EV/b7-4-drain.txt` | `drain` gọi Eviction API nên nó **tôn trọng PDB** và thử lại yêu cầu bị từ chối. Tìm PDB đang chặn và xử lý nó; **không** thay `drain` bằng `kubectl delete pod` để "cho nhanh" — làm thế là bỏ qua đúng cơ chế mà bài học này muốn bạn thấy. Nếu PDB không phải của bạn thì cluster lệch mốc đầu vào: restore `04-metrics-ready` |
-| B7.4: `drain` đòi `--force` | `kubectl get pods -A --field-selector spec.nodeName=lab-k8s-worker2 -o wide`; tìm Pod không có `ownerReferences` | Còn Pod trần trên node. Nếu là `thu-cordon` của B7.3 thì bạn quên xóa nó — xóa rồi chạy lại. Nếu là Pod lạ, xác định nguồn gốc trước; [mục 2](#2-quy-ước-và-an-toàn) cấm dùng `--force` trong lab này vì nó xóa vĩnh viễn |
-| B7.4: `drain` báo lỗi về `emptyDir` | Đọc `$EV/b7-4-drain-tran.txt` | Có Pod dùng volume `emptyDir` trên node. Cờ `--delete-emptydir-data` trong lệnh của B7.4 xử lý đúng trường hợp này; nếu bạn tự gõ lại lệnh thì đừng bỏ cờ đó. Đọc lại cảnh báo về cờ này ở [mục 2](#2-quy-ước-và-an-toàn) trước khi mang thói quen sang cluster thật |
-| B7.4: sau drain, số Pod `web` trên worker1 không đủ `$REPL` | `kubectl -n lab-12 get pods -o wide`; `kubectl -n lab-12 describe pod <pending>` | Nếu Pod `Pending` vì `didn't match pod topology spread constraints` thì manifest của bạn đang dùng `DoNotSchedule` thay vì `ScheduleAnyway` — sửa lại theo B7.1 và apply lại. Nếu `Pending` vì `Insufficient cpu/memory` thì worker1 không đủ chỗ; giảm `replicas` xuống `$WK_N` rồi chạy lại từ B7.1 |
-| B7.5: `Ready` không chuyển sang `Unknown` sau nhiều vòng lặp | `kubectl get node lab-k8s-worker2 -o yaml \| sed -n '/conditions:/,/^  [a-z]/p'`; trên master `sudo grep -nE 'node-monitor\|pod-eviction' /etc/kubernetes/manifests/kube-controller-manager.yaml` | Khoảng chờ trước khi node controller đổi condition **phụ thuộc cấu hình**; nếu manifest không đặt cờ nào thì đang dùng giá trị mặc định. Tăng số vòng trong `seq` của B7.5 và chờ thêm. Nếu VM thật sự đã tắt mà condition mãi không đổi, kiểm tra `kube-controller-manager` còn `Running` không |
-| B7.7: sau `uncordon` và `rollout restart`, worker2 vẫn 0 Pod | `kubectl get node lab-k8s-worker2 -o jsonpath='{.spec.taints}'`; `kubectl -n lab-12 describe pod <ten>` | Còn taint sót trên node (ví dụ `not-ready` chưa kịp biến mất) hoặc node vừa Ready chưa được chấm điểm. Chờ `kubectl wait --for=condition=Ready` rồi `rollout restart` lại một lần. **Không** gỡ taint bằng tay để ép Pod lên |
-| B0.2 hoặc B5.3: `configz` không đọc được, hoặc thiếu `failSwapOn` | `kubectl get --raw "/api/v1/nodes/<node>/proxy/healthz"`; [tầng 6 của A5.4](LAB-00-MOI-TRUONG-1.35.7.md#a547-tầng-6--đường-control-plane--kubelet) | Nếu `configz` rỗng thì đường control plane → kubelet đang hỏng: chạy lại tầng 6 của A5.4. Nếu đọc được nhưng **thiếu trường**, đọc thẳng file cấu hình: `ssh <node> 'sudo grep -iE "failSwapOn\|memorySwap\|shutdownGracePeriod" /var/lib/kubelet/config.yaml'`, ghi giá trị vào evidence và ghi rõ rằng trường vắng nghĩa là kubelet đang dùng mặc định |
-| B6.1: hai giá trị khác `0s` | Đọc `$EV/b6-shutdown.txt` | Node của bạn **đã** bật graceful node shutdown từ trước — cluster lệch baseline. **Không sửa file để "đưa về chuẩn"**: ghi giá trị thật vào evidence, và ở B7.5 hiểu rằng kubelet sẽ chấm dứt Pod theo hai giai đoạn trước khi tắt. Việc đưa ba node về cùng một mức thuộc [giai đoạn 20](../00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
-| B3.2: `SRV_VER` khác `K8S_BASELINE` | `kubectl get --raw /version`; đối chiếu [bảng A1.3](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) | Hoặc bạn điền nhầm biến, hoặc cluster đã bị nâng cấp ngoài lộ trình. Kiểm tra biến trước. Nếu cluster thật sự lệch version, dừng và cập nhật bảng A1.3 theo đúng quy trình của Lab 00 — không âm thầm sửa gate |
-| B9.3: `kubectl proxy` không lên, hoặc cổng 8080 bận | `ss -lntp \| grep 8080`; đọc `$WK/proxy.log` | Có tiến trình khác giữ cổng. Đổi `--port` sang một cổng trống và sửa URL trong hai lệnh `curl` tương ứng. Nhớ `kill` proxy sau khi xong — nó là một cửa vào cluster mở trên localhost |
-| B9.4: `curl` báo lỗi certificate | `openssl x509 -noout -subject -issuer -in "$WK/ca.crt"` | File CA trích ra rỗng hoặc sai. Kiểm tra `kubectl config view --raw --minify` có trường `certificate-authority-data` không; nếu kubeconfig dùng `certificate-authority` trỏ file thì đọc đường dẫn đó thay vì giải mã base64. **Đừng** chuyển sang `--insecure` để đi tiếp — đó là chính thứ B9.4 muốn tránh |
-| B9.4: mã HTTP khác `403` khi liệt kê Pod | `kubectl auth can-i list pods -n lab-12 --as=system:serviceaccount:lab-12:default` | Nếu là `200`, ServiceAccount `default` đã được gán quyền từ lab trước — cluster lệch mốc. Nếu là `401`, token hết hạn: tạo lại token rồi gọi lại |
-| B11.1: namespace `lab-12` kẹt `Terminating` | `kubectl get pods -n lab-12 -o wide`; `kubectl get events -n lab-12` | Thường là Pod còn trong grace period, hoặc một Pod nằm trên node vừa boot lại. Chờ; **không** cưỡng chế finalizer của Namespace |
-| B11.2: `diff` báo checksum khác | `diff -u "$EV/b0-config-sha.txt" "$EV/b11-config-sha.txt"` | Cấu hình đã bị sửa, hoặc node boot lên với file khác. Cluster lệch baseline: tắt cả ba VM, restore cả ba về `04-metrics-ready`, và **không** sang lab sau trước khi gate này PASS |
-| B11.3: `kubectl top node` chỉ in hai dòng | `kubectl -n kube-system get pods -l k8s-app=metrics-server -o wide`; `kubectl get apiservice v1beta1.metrics.k8s.io` | Worker2 vừa boot chưa kịp báo cáo, hoặc metrics-server vừa bị dời chỗ ở B7.4 và đang khởi động lại. Chờ rồi chạy lại. Nếu APIService không `Available`, xử lý theo [mục 4 của Lab 11a](LAB-11A-OBSERVABILITY.md#4-troubleshooting-của-lab-này) — mốc `04-metrics-ready` được định nghĩa là có nguồn metric hoạt động |
+| B0: `kubectl top node` lỗi | Cluster chưa ở `04-metrics-ready` | Restore cả ba VM về `04-metrics-ready` |
+| B1, B3: file `configz` rỗng | Đường control plane → kubelet hỏng | Chạy lại [tầng 6 của A5.4](LAB-00-MOI-TRUONG-1.35.7.md#a547-tầng-6--đường-control-plane--kubelet); đọc tạm `/var/lib/kubelet/config.yaml` qua `ssh` và ghi rõ trường vắng là đang dùng mặc định |
+| B2: `gitVersion` khác `K8S_BASELINE` | Điền nhầm biến, hoặc cluster bị nâng cấp ngoài lộ trình | Kiểm biến trước; lệch thật thì dừng và đối chiếu A1.3 theo quy trình Lab 00 |
+| B3: hai thời lượng khác `0s`, hoặc thấy khóa của kubelet | Node đã bật graceful node shutdown từ trước — lệch baseline | Không sửa file; ghi giá trị thật vào ADR, hiểu rằng kubelet sẽ chấm dứt Pod theo hai giai đoạn khi tắt máy |
+| B3: `fstab=1` trên một node | Dòng swap chưa comment | Xử lý theo [A4.1](LAB-00-MOI-TRUONG-1.35.7.md#a41-cập-nhật-os-tắt-swap-và-bật-kernel-prerequisites) **trước** B5; không tắt máy khi chưa sửa |
+| B4: mọi mẫu `000/7` | Tên cổng của Service Traefik khác, hoặc `externalTrafficPolicy: Local` nên NodePort trên master không chuyển tiếp | Xem `kubectl -n traefik get svc traefik -o yaml`; với `Local`, đặt `ENTRY_IP` là IP node đang chạy Traefik và ghi rõ hạn chế vào mục *Cách đo* |
+| B4: mọi mẫu `404` | Host trong Ingress khác `bookstore.lab.local` | Đối chiếu Ingress với [mục 4.1](DU-AN-BOOKSTORE.md#41-tên-và-label); không sửa probe |
+| B5, B7: drain đòi `--force` | Còn Pod trần trên node: Pod thử nghiệm quên xóa, hoặc Pod ⭐ tạo trước pha 2 | Xóa Pod thử nghiệm rồi drain lại; không dùng `--force` |
+| B5: drain treo, lặp `Cannot evict pod ... disruption budget` với `web` hoặc `api` | Bản sao trên node kia chưa Ready hoặc không có; PDB đang `disruptionsAllowed: 0` | `kubectl -n bookstore get pdb,pods -o wide`; tiền điều kiện của B5 chưa đạt. Uncordon, chờ đủ bản sao trải hai node, làm lại |
+| B5: Pod thay thế của `web` nằm `Pending`, lý do nhắc topology spread | Ràng buộc phân bố `DoNotSchedule` tính cả node đang cordon vào độ lệch | Đọc bài [140](../140-topology-spread-constraints-vi.md), mục *Định nghĩa ràng buộc phân bố* — trường `nodeTaintsPolicy`; sửa trong repo, ghi ADR, triển khai lại rồi làm lại B5 |
+| B5: trang chủ mất ngay khi drain, `web` chỉ có một Pod | Bảo trì bắt đầu khi HPA chưa nâng `web` khỏi một bản sao; PDB `maxUnavailable: 1` cho phép trục xuất Pod duy nhất | Uncordon, chờ `web` đạt `minReplicas` và trải hai worker, làm lại từ tiền điều kiện; ghi vào postmortem |
+| B5, B7: số bản sao `web` đổi giữa chừng, hoặc HPA báo không lấy được metric | HPA vẫn chạy: Pod mới khởi động làm CPU tăng tạm thời; metrics-server bị evict khỏi node đang drain nên HPA tạm thiếu số đo và giữ nguyên số bản sao | Không can thiệp; kiểm tra so với số bản sao hiện tại. Ghi khoảng HPA mất metric vào postmortem — nó là một gián đoạn của add-on, không phải của `web` |
+| B5, B7: Pod thay thế bị từ chối, event `exceeded quota` | Pod đang kết thúc vẫn tính vào ResourceQuota trong lúc ân hạn | Thường tự hết khi Pod cũ biến mất; lặp lại mãi thì quota của Lab 7b không chừa chỗ cho bảo trì — ghi vào postmortem |
+| B5, B7: VM không chuyển sang *Powered off* | Hệ điều hành đang tắt dịch vụ | Chờ rồi chạy lại khối PowerShell; chỉ dùng `vmrun -T ws stop <vmx> hard` khi chờ mãi không xong, và ghi vào postmortem rằng lần tắt đó là cưỡng bức |
+| B5, B7: `Ready` không thành `Unknown` sau nhiều vòng | Khoảng chờ của node controller phụ thuộc cấu hình | Tăng số vòng chờ; kiểm `kube-controller-manager` còn `Running` |
+| B5, B7: node không trở lại `Ready` sau khi bật | VM không boot, IP tĩnh không lên, hoặc kubelet không chạy (swap bật lại) | Đi từ dưới lên: console VM → `ssh` → `systemctl is-active kubelet containerd` → `journalctl -u kubelet -n 80`. Vài phút không sửa được thì tắt và restore **cả ba** VM về `04-metrics-ready` |
+| B5: sau uncordon và evict, Pod mới vẫn lên node đông | Anti-affinity của `api` là mềm; điểm số khác lấn át | Evict thêm một lần; vẫn dồn thì ghi vào postmortem — smoke ở B9 sẽ bắt nếu sau triển khai sạch vẫn dồn |
+| B5, B7: `node-agent` đổi UID sau reboot | Pod DaemonSet bị xóa và tạo lại thay vì chạy lại container | Không phải lỗi thao tác; ghi lại và giải thích trong postmortem |
+| B7: drain pha 1 không bị chặn, `db-0` bị evict luôn | PDB tạo sau khi drain đã chạy, hoặc selector không khớp label của `db-0` | Chờ `db-0` lên lại (uncordon nếu cần), kiểm `kubectl -n bookstore get pdb db-thu` có `ALLOWED DISRUPTIONS 0`, làm lại từ pha 1 |
+| B7: `db-0` vẫn `Pending` sau uncordon | Thiếu label dữ liệu trên worker2, hoặc PV không còn | `kubectl -n bookstore describe pod db-0`; label do `deploy.sh` gắn từ Lab 7a — chạy lại `./scripts/deploy.sh` |
+| B7: `api` không Ready lâu sau khi `db-0` Ready | PostgREST đang chờ backoff trước lần kết nối lại | Chờ; nếu `CrashLoopBackOff` với lỗi xác thực mật khẩu thì `secrets/db.env` đã đổi trong khi dữ liệu giữ mật khẩu cũ — xem [mục 5.4](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm) |
+| B7 ⭐: Pod thử nghiệm bị từ chối | Thiếu trường `securityContext` theo `restricted`, hoặc `resources` ngoài LimitRange | Đọc thông báo từ chối; sửa manifest theo lời giải |
+| B7 ⭐: Pod thử nghiệm mãi không có `deletionTimestamp` | Chưa hết `tolerationSeconds` tính từ lúc gắn taint `unreachable` | Chờ thêm; khoảng thời gian phụ thuộc cấu hình và giá trị đọc được ở khối ⭐ đầu |
+| B9: `diff` checksum báo khác | Cấu hình đã bị sửa hoặc node boot với file khác | Cluster lệch baseline: restore cả ba VM về `04-metrics-ready`, không sang lab sau |
+| B9: `kubectl top node` chỉ hai dòng | Worker vừa boot chưa báo metric, hoặc metrics-server vừa bị dời | Chờ rồi chạy lại; APIService không `Available` thì xem [mục 4 của Lab 11a](LAB-11A-OBSERVABILITY.md#4-troubleshooting-của-lab-này) |
+| B9: xóa namespace treo `Terminating` | `db-0` đang trong 60 giây ân hạn | Chờ; `teardown.sh` tự chờ |
 
 ---
 
 ## 5. Nguồn chính thức
-
-Các phần giải thích command trong thân bài ưu tiên snapshot tài liệu Kubernetes v1.35
-(`https://v1-35.docs.kubernetes.io/`) để hành vi và flag khớp minor version của cluster. Tài liệu
-systemd và Linux man-pages chỉ giải thích cú pháp command có sẵn, không thay đổi quy trình hoặc gate.
 
 - [Kubernetes v1.35 — Cluster Administration](https://v1-35.docs.kubernetes.io/docs/concepts/cluster-administration/)
 - [Kubernetes v1.35 — Node Shutdowns](https://v1-35.docs.kubernetes.io/docs/concepts/cluster-administration/node-shutdown/)
@@ -1982,16 +2600,21 @@ systemd và Linux man-pages chỉ giải thích cú pháp command có sẵn, kh�
 - [Kubernetes v1.35 — Coordinated Leader Election](https://v1-35.docs.kubernetes.io/docs/concepts/cluster-administration/coordinated-leader-election/)
 - [Kubernetes v1.35 — Certificates](https://v1-35.docs.kubernetes.io/docs/concepts/cluster-administration/certificates/)
 - [Kubernetes v1.35 — Administer a Cluster](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/)
-- [Kubernetes v1.35 — Access Clusters Using the Kubernetes API](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/access-cluster-api/)
 - [Kubernetes v1.35 — Migrate Replicated Control Plane To Use Cloud Controller Manager](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/controller-manager-leader-migration/)
 - [Kubernetes v1.35 — Safely Drain a Node](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/safely-drain-node/)
-- [Kubernetes v1.35 — `kubectl drain`](https://v1-35.docs.kubernetes.io/docs/reference/kubectl/generated/kubectl_drain/)
-- [Kubernetes v1.35 — `kubectl cordon`](https://v1-35.docs.kubernetes.io/docs/reference/kubectl/generated/kubectl_cordon/)
-- [Kubernetes v1.35 — `kubectl uncordon`](https://v1-35.docs.kubernetes.io/docs/reference/kubectl/generated/kubectl_uncordon/)
+- [Kubernetes v1.35 — Disruptions](https://v1-35.docs.kubernetes.io/docs/concepts/workloads/pods/disruptions/)
+- [Kubernetes v1.35 — Specifying a Disruption Budget for your Application](https://v1-35.docs.kubernetes.io/docs/tasks/run-application/configure-pdb/)
+- [Kubernetes v1.35 — API-initiated Eviction](https://v1-35.docs.kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/)
 - [Kubernetes v1.35 — Nodes](https://v1-35.docs.kubernetes.io/docs/concepts/architecture/nodes/)
 - [Kubernetes v1.35 — Leases](https://v1-35.docs.kubernetes.io/docs/concepts/architecture/leases/)
 - [Kubernetes v1.35 — Taints and Tolerations](https://v1-35.docs.kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
-- [Kubernetes v1.35 — API-initiated Eviction](https://v1-35.docs.kubernetes.io/docs/concepts/scheduling-eviction/api-eviction/)
+- [Kubernetes v1.35 — Pod Lifecycle](https://v1-35.docs.kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/)
+- [Kubernetes v1.35 — Container Lifecycle Hooks](https://v1-35.docs.kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/)
+- [Kubernetes v1.35 — Guaranteed Scheduling For Critical Add-On Pods](https://v1-35.docs.kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/)
+- [Kubernetes v1.35 — Feature Gates](https://v1-35.docs.kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/)
+- [Kubernetes v1.35 — `kubectl drain`](https://v1-35.docs.kubernetes.io/docs/reference/kubectl/generated/kubectl_drain/)
 - [Kubernetes v1.35 — Kubelet Configuration (v1beta1)](https://v1-35.docs.kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/)
+- [PostgREST v14 — Admin Server](https://docs.postgrest.org/en/v14/references/admin_server.html)
+- [PostgREST v14 — Connection Pool, mục Automatic Recovery](https://docs.postgrest.org/en/v14/references/connection_pool.html)
 - [systemd — inhibitor locks](https://www.freedesktop.org/wiki/Software/systemd/inhibit/)
-- [systemd — `logind.conf`](https://www.freedesktop.org/software/systemd/man/latest/logind.conf.html)
+- [systemd — `systemd-inhibit`](https://www.freedesktop.org/software/systemd/man/latest/systemd-inhibit.html)

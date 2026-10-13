@@ -14,9 +14,11 @@
 hành**, bài 5/10 · **Không có mục thực hành trong lab**:
 [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) xếp bài này vào bảng *không kiểm chứng được
 trên cluster baseline* vì nó bắt bạn tự build một image worker Python rồi đẩy lên registry; phần
-B6.4 của lab đó chỉ thực hành **hình dạng** của Job hàng đợi công việc. Bảng ánh xạ của
-[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) và
-[Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) cũng không có bài này.
+⭐ của ticket B9 trong lab đó chỉ thực hành **hình dạng** của Job hàng đợi công việc. Bảng ánh xạ của
+[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) cũng xếp bài này vào diện không thực hành vì
+cùng lý do, và dùng phần thuộc giai đoạn 5 của bài — tìm hàng đợi bằng tên Service, đường lui bằng
+biến môi trường — ở câu hỏi thiết kế của ticket B6;
+[Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) không có bài này.
 
 Bài về Job nhưng nằm ở giai đoạn 5 vì hàng đợi sống sau một **Service**: worker tìm Redis bằng tên
 `redis`, và bài đưa sẵn đường lui bằng biến môi trường khi DNS không hoạt động — đúng hai cách khám
@@ -49,7 +51,7 @@ ngay: phần image là thứ bạn không dựng ở lab.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Mục *Tạo container image* và *Đẩy image lên registry* — `docker build -t job-wq-2 .`, `docker tag`, `docker push` | cluster lab không build và không push image; đây chính là lý do bài không có bước thực hành | [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B6.4 thực hành **hình dạng** Job hàng đợi công việc, và bảng *không kiểm chứng được* của lab đó ghi rõ lý do |
+| Mục *Tạo container image* và *Đẩy image lên registry* — `docker build -t job-wq-2 .`, `docker tag`, `docker push` | cluster lab không build và không push image; đây chính là lý do bài không có bước thực hành | [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) ticket B9 (phần ⭐) thực hành **hình dạng** Job hàng đợi công việc, và bảng *không kiểm chứng được* của lab đó ghi rõ lý do |
 | Nội dung và cơ chế lease/session của thư viện `rediswq.py` | đây là thư viện ví dụ của trang gốc, không phải API Kubernetes | không có bài nào trong lộ trình dạy nó; đoạn `worker.py` in ngay trong bài là đủ để thấy vòng lặp |
 | Link tới ví dụ triển khai Redis "có khả năng mở rộng và dự phòng" ở mục *Khởi động Redis* | bài chỉ trỏ ra ngoài; với ví dụ này một instance Redis duy nhất là đủ | bài [343 — Chạy ứng dụng có trạng thái được nhân bản](343-run-replicated-stateful-application-vi.md), [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) |
 

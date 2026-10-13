@@ -13,8 +13,8 @@
 
 **Vị trí:** [Giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability)
 → dòng **Thực hành**, bài 6/7 · Kiểm chứng ở
-[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) phần B2 (endpoint `/metrics`) và phần
-B10 (cấu hình tracing), cộng phần B1.3 nơi lab xác định trang này nằm ở nhánh nào của bài
+[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) ticket B1 (endpoint `/metrics`) và ticket
+B6 (cấu hình tracing), ticket B6 cũng là nơi lab xác định trang này nằm ở nhánh nào của bài
 [296](296-debug-vi.md).
 
 Đây là **trang trỏ hướng**, đọc trong một phút và là cặp song sinh của bài
@@ -36,7 +36,7 @@ B10 (cấu hình tracing), cộng phần B1.3 nơi lab xác định trang này n
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Việc "thu thập metric" theo nghĩa dựng một hệ thống thu thập và lưu trữ | trang chỉ dẫn tới nguồn metric; bản thân Kubernetes không kèm hệ thống thu thập nào | [giai đoạn 23](00-ALO-TRINH-ADMIN.md#giai-đoạn-23--giám-sát-và-cảnh-báo), nơi lộ trình dựng stack giám sát thật |
-| Việc thu thập trace theo nghĩa có backend nhận span | phải bật tracing trên kube-apiserver và kubelet rồi thêm collector, tức sửa cấu hình control plane | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy); ở giai đoạn 11 chỉ **đọc** cấu hình, xem [Lab 11a](labs/LAB-11A-OBSERVABILITY.md) phần B10 |
+| Việc thu thập trace theo nghĩa có backend nhận span | phải bật tracing trên kube-apiserver và kubelet rồi thêm collector, tức sửa cấu hình control plane | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy); ở giai đoạn 11 chỉ **đọc** cấu hình, xem [Lab 11a](labs/LAB-11A-OBSERVABILITY.md) ticket B6 |
 
 ---
 

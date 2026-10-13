@@ -13,7 +13,7 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 12 — Quản trị cluster nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-12--quản-trị-cluster-nâng-cao),
 bài 2/2 của dòng **Thực hành** · Kiểm chứng ở
-[Lab 12 — Vận hành vòng đời node](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md) phần B10, nơi lab đọc
+[Lab 12 — Vận hành vòng đời node](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md#b2-bs-12-02-control-plane-trước-mùa-nâng-cấp) ticket B2, nơi lab đọc
 bốn dữ kiện chứng minh quy trình này không áp dụng cho cluster lab — không `--cloud-provider`,
 không `cloud-controller-manager`, `providerID` rỗng, control plane một node — cộng nội dung role
 `system::leader-locking-kube-controller-manager` để giải thích vì sao bước cấp quyền RBAC là bắt

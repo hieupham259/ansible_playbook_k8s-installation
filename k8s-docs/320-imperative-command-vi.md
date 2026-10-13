@@ -17,10 +17,11 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng),
 bài 2/10 của dòng **Thực hành** · Kiểm chứng ở
-[Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md). Bảng ánh
-xạ 1.1 của lab không dành riêng một dòng cho bài này, nhưng chính các lệnh mà bài hệ thống hóa
-được lab chạy thật: `kubectl create namespace` ở B0, `kubectl label --overwrite` ở B3,
-`kubectl run` ở B4.4, `kubectl annotate` với `--overwrite` rồi với hậu tố `key-` ở B8.
+[Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B1 —
+`kubectl expose` và `kubectl create service` ở chế độ dry-run so với manifest khai báo — và ticket
+B11 — pipeline `create --dry-run` → `set selector --local` → `create -f -`, `kubectl annotate` với
+`--overwrite` rồi với hậu tố `key-`. Lab còn dùng `kubectl label` gỡ label bằng hậu tố `key-` ở B5
+và `kubectl run` ở B6.
 
 Bài là bản thực hành chi tiết cho kỹ thuật **imperative commands**, kỹ thuật thứ nhất trong ba
 kỹ thuật quản lý object mà bài

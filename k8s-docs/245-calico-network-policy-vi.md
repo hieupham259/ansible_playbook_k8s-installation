@@ -19,7 +19,7 @@ bằng **Checkpoint** ở cuối [mục giai đoạn
 21](00-ALO-TRINH-ADMIN.md#giai-đoạn-21--dns-cni-và-kube-proxy).
 
 Trong năm trang provider, **đây là trang duy nhất khớp cluster lab**: bạn đã chạy đúng nhánh của
-nó ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B4 — lab đổi CNI sang Calico và
+nó ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket B3 — lab đổi CNI sang Calico và
 trả nợ *NetworkPolicy được thực thi thật*. Đọc lại ở đây là để **đối chiếu việc đã làm với tài
 liệu**, không phải để cài lại. Bốn trang provider còn lại chỉ đọc cho biết, không được cài vào
 cluster lab vì sẽ phá [chuỗi snapshot](labs/README.md#3-chuỗi-snapshot).
@@ -40,8 +40,8 @@ cluster lab vì sẽ phá [chuỗi snapshot](labs/README.md#3-chuỗi-snapshot).
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Toàn bộ nhánh *Tạo một cluster Calico với Google Kubernetes Engine (GKE)*, điều kiện tiên quyết `gcloud` | cluster lab là ba VM tự dựng, **không có nhà cung cấp cloud** nào để chạy `gcloud` | không có trong lộ trình; nhánh áp dụng được là nhánh kubeadm ngay dưới nó, đã chạy ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B4 |
-| Chi tiết bên trong *Calico Quickstart* mà nhánh kubeadm trỏ tới | quy trình cài đã chạy rồi, theo đúng phiên bản Calico được khóa cho lộ trình | [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B4; số phiên bản nằm ở [bảng A1.4 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) |
+| Toàn bộ nhánh *Tạo một cluster Calico với Google Kubernetes Engine (GKE)*, điều kiện tiên quyết `gcloud` | cluster lab là ba VM tự dựng, **không có nhà cung cấp cloud** nào để chạy `gcloud` | không có trong lộ trình; nhánh áp dụng được là nhánh kubeadm ngay dưới nó, đã chạy ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket B3 |
+| Chi tiết bên trong *Calico Quickstart* mà nhánh kubeadm trỏ tới | quy trình cài đã chạy rồi, theo đúng phiên bản Calico được khóa cho lộ trình | [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket B3; số phiên bản nằm ở [bảng A1.4 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a14-phần-stack-không-thuộc-lab-00) |
 
 ---
 

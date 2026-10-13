@@ -11,9 +11,8 @@
 
 **Vị trí:** [Giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability)
 → dòng **Thực hành**, bài 3/7 · Kiểm chứng ở
-[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) phần B11.1 (mở shell), B11.2 (ghi trang
-gốc rồi tự gọi từ bên trong), B11.3 (chạy lệnh rời và vai trò của dấu `--`) và B11.4 (Pod nhiều
-container).
+[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) ticket B7 (mở shell, ghi trang gốc rồi tự
+gọi từ bên trong, chạy lệnh rời và vai trò của dấu `--`, Pod nhiều container).
 
 Đây là bài thao tác duy nhất của nhánh *Gỡ lỗi ứng dụng* mà giai đoạn 11 làm trọn vẹn. Nó ngắn
 và đi thẳng vào lệnh; phần đáng nhớ là **ranh giới** giữa shell tương tác và lệnh rời, chứ không

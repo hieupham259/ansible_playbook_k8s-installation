@@ -13,8 +13,8 @@
 
 **Vị trí:** [Giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability)
 → dòng **Thực hành**, bài 2/7 · Kiểm chứng ở
-[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) phần B7.1 và B7.3 (`kubectl logs` và
-`--previous`) và phần B11 (`kubectl exec`) — đó là ba thao tác duy nhất của nhánh này dùng được
+[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) ticket B7 (`kubectl logs`, `--previous`
+và `kubectl exec` trên một sự cố dựng sẵn) — đó là ba thao tác duy nhất của nhánh này dùng được
 ở giai đoạn 11.
 
 Trang này chỉ có một đoạn mô tả, không có mục nào. Nó là **trang mô tả nhánh** *Gỡ lỗi ứng dụng*
@@ -75,7 +75,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    trong nó, nên không phải chủ đề termination message (dành cho container đã chết) cũng không
    phải chủ đề sự cố của object. Bài dạy thao tác là
    [304 — Truy cập shell của một container đang chạy](304-get-shell-running-container-vi.md),
-   thực hành ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md) phần B11.
+   thực hành ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md) ticket B7.
 
 </details>
 

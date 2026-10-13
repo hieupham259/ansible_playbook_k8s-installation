@@ -596,6 +596,6 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Đây là bài cuối của **Giai đoạn 14**. Trả lời được hết bảy bài thì bạn sẵn sàng vào Lab 14 (chưa
-viết, xem [bản đồ lab](labs/README.md#4-bản-đồ-lab)); trước đó hãy chốt lại checkpoint của giai
-đoạn trong [lộ trình](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng).
+Đây là bài cuối của **Giai đoạn 14**. Trả lời được hết bảy bài thì bạn sẵn sàng vào
+[Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md), sprint cuối của dự án Bookstore; trước
+đó hãy chốt lại checkpoint của giai đoạn trong [lộ trình](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng).

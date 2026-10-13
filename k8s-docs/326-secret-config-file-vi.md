@@ -13,7 +13,7 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3b. Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
-bài 4/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B6.2 — `data`, `stringData`
+bài 4/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) ticket B8 — `data`, `stringData`
 và ai thắng khi trùng key.
 
 Đây là bài **thứ nhất trong ba bài** làm cùng một việc bằng ba đường khác nhau: 326 (file cấu

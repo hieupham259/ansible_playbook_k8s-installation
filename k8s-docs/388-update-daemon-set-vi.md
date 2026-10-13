@@ -23,7 +23,7 @@ bài kia quay lui. Hai lưu ý khi làm trên cluster lab. Thứ nhất, manifes
 namespace `kube-system` — nơi đang chạy DaemonSet của CNI và kube-proxy; mọi lệnh trong bài đều kèm
 `-n kube-system`, gõ nhầm tên đối tượng ở namespace đó là chạm vào hạ tầng cluster. An toàn hơn là
 tạo namespace riêng cho bài tập. Thứ hai, bạn đã làm rollout và `rollout status` cho **Deployment** ở
-[Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B4–B5; đọc bài này với câu hỏi thường
+[Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ticket B4 và B6; đọc bài này với câu hỏi thường
 trực "DaemonSet khác Deployment ở chỗ nào", vì các núm điều khiển trùng tên nhưng mặc định khác nhau.
 
 **Phải hiểu ở lần đọc này:**

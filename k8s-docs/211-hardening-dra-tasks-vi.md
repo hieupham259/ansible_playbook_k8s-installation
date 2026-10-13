@@ -10,10 +10,10 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 13 — Lập lịch và workload nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao)
-→ dòng **Thực hành**, bài 1/5 · Kiểm chứng ở [Lab 13 — DRA](labs/LAB-13-DRA.md) phần B10.
+→ dòng **Thực hành**, bài 1/5 · Kiểm chứng ở [Lab 13 — DRA](labs/LAB-13-DRA.md) ticket B7.
 
 **Giai đoạn 13 không bắt buộc với admin mới**, và Lab 13 là **lab tùy chọn**. Ba VM của lab không
-có GPU và không có DRA driver nào, nên Lab 13 chạy **nhánh đọc-hiểu**: phần B10 đọc quyền **thật
+có GPU và không có DRA driver nào, nên Lab 13 chạy **nhánh đọc-hiểu**: ticket B7 đọc quyền **thật
 đang có** trên `resourceclaims` thay vì tạo quyền mới. Đây là mặt thi công của bài
 [125](125-hardening-dra-vi.md) đã đọc ở mạch chính cùng giai đoạn: 125 giải thích *vì sao* tách hai
 subresource tổng hợp, bài này nói *bạn phải làm gì* với chúng.
@@ -42,7 +42,7 @@ subresource tổng hợp, bài này nói *bạn phải làm gì* với chúng.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Áp ba manifest ClusterRole vào cluster và roll out lại các thành phần DRA | ba role chỉ có nghĩa khi gắn vào ServiceAccount của một driver thật; cluster lab không có driver nào | [Lab 13](labs/LAB-13-DRA.md) phần B10 — đọc quyền thật đang có thay vì tạo quyền mới |
+| Áp ba manifest ClusterRole vào cluster và roll out lại các thành phần DRA | ba role chỉ có nghĩa khi gắn vào ServiceAccount của một driver thật; cluster lab không có driver nào | [Lab 13](labs/LAB-13-DRA.md) ticket B7 — đọc quyền thật đang có thay vì tạo quyền mới |
 | Bước 3 của *Kiểm chứng và giám sát* — theo dõi sự kiện audit của API server | cluster baseline chưa bật audit policy | [giai đoạn 22](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu) |
 | Vì sao `status` của ResourceClaim lại bị tách làm hai subresource tổng hợp | ở đây chỉ cần biết **phải cấp cái nào cho ai**, chưa cần lý do thiết kế | bài [125](125-hardening-dra-vi.md), đã đọc ở mạch chính giai đoạn 13 |
 | Điều kiện tiên quyết "Cấp phát tài nguyên động đã được cấu hình trong cluster của bạn" | đó là việc của quản trị viên, bài này giả định đã xong | bài [271](271-set-up-dra-cluster-vi.md), bài cuối của chính nhóm Thực hành này |

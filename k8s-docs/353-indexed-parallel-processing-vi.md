@@ -15,7 +15,7 @@
 → [4b. StatefulSet, DaemonSet, Job và autoscaling](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling),
 bài 6/7 của dòng **Thực hành** · Kiểm chứng ở
 [Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md),
-**phần B6.3**.
+**ticket B9**.
 
 Đây là mẫu song song thứ hai của nhóm 4b, và là mẫu **duy nhất chạy trọn vẹn được** trên cluster
 lab: nó không cần hàng đợi, không cần Service, không cần image tự build. Đọc nó cạnh bài

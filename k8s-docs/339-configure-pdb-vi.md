@@ -10,8 +10,8 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 8/9 ·
-Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) phần B7, trong đó B7.1 dựng đúng
-tình huống "Pod trần" của mục *Workload tùy ý và selector tùy ý*.
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B6, nơi PDB `web` và `api`
+của dự án dựng đúng tình huống "Pod trần" của mục *Workload tùy ý và selector tùy ý*.
 
 Đây là vế thực hành của bài [53](53-disruptions-vi.md): bài 53 chia gián đoạn thành **tự nguyện**
 và **không tự nguyện**, còn bài này là cách bạn đặt trần cho vế tự nguyện. Mục *Trước khi bạn bắt

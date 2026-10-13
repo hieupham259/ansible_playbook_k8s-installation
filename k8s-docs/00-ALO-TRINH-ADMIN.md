@@ -17,6 +17,10 @@ hoàn tất sau khi đã thực hành trên cluster lab, không chỉ sau khi đ
 hết nhóm bài đứng trên nó. Bản đồ lab, chuỗi snapshot và sổ nợ lab nằm ở
 [labs/README.md](labs/README.md).
 
+**Từ Lab 3a tới Lab 14, mỗi lab là một sprint của [dự án Bookstore](labs/DU-AN-BOOKSTORE.md)** —
+đưa một ứng dụng ba tầng lên Kubernetes và hoàn thiện dần theo từng nhóm bài. Lab giao ticket
+thay vì lệnh để gõ theo; đọc file dự án một lần trước khi mở Lab 3a.
+
 Phần thực hành vận hành thực tế (upgrade, backup etcd, drain node, xử lý sự cố…) nằm ở [Checkpoint tiếp nối](#phần-ii--vận-hành-cluster) ở cuối file.
 
 ---
@@ -218,7 +222,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Chạy các thành phần Node của Kubernetes dưới người dùng không phải root](226-kubelet-in-userns-vi.md) · [Cấu hình Pod và Container](262-configure-pod-container-vi.md) · [Gắn handler vào các sự kiện vòng đời của Container](272-attach-handler-lifecycle-event-vi.md) · [Cấu hình các probe Liveness, Readiness và Startup](274-configure-probes-vi.md) · [Cấu hình khởi tạo Pod](276-configure-pod-initialization-vi.md) · [Sử dụng Image Volume với một Pod](285-image-volumes-vi.md) · [Chia sẻ Process Namespace giữa các Container trong một Pod](292-share-process-namespace-vi.md) · [Sử dụng user namespace với Pod](295-user-namespaces-tasks-vi.md) · [Expose thông tin Pod cho container thông qua file](335-downward-api-volume-vi.md) · [Expose thông tin Pod cho container thông qua biến môi trường](336-env-variable-expose-pod-info-vi.md) · [Giao tiếp giữa các Container trong cùng Pod bằng Volume dùng chung](360-containers-shared-volume-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 3a — Pod và vòng đời](labs/LAB-3A-POD-VA-VONG-DOI.md) — vòng đời Pod: phase và condition, `restartPolicy`, ba loại probe, init container, sidecar, kết thúc êm, ephemeral container và Downward API.
+- [ ] 🧪 [Lab 3a — Pod và vòng đời](labs/LAB-3A-POD-VA-VONG-DOI.md) — **Sprint 1 của [dự án Bookstore](labs/DU-AN-BOOKSTORE.md)**: khởi tạo repo, dựng ba Pod trần `db`, `api`, `web`; init container nạp schema, ba probe đúng vai trò, sidecar và downward API, tắt êm theo `STOPSIGNAL`, diễn tập DB biến mất và Pod không lên, gỡ lỗi container không có shell, securityContext, user namespace, PriorityClass.
 
 #### 3b. Cấu hình ứng dụng: ConfigMap, Secret và dữ liệu cho Pod
 
@@ -228,7 +232,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Cấu hình một Pod để sử dụng ConfigMap](275-configure-pod-configmap-vi.md) · [Pull image từ một private registry](287-pull-image-private-registry-vi.md) · [Quản lý Secret](325-configmap-secret-vi.md) · [Quản lý Secret bằng file cấu hình](326-secret-config-file-vi.md) · [Quản lý Secret bằng kubectl](327-secret-kubectl-vi.md) · [Quản lý Secret bằng Kustomize](328-secret-kustomize-vi.md) · [Đưa dữ liệu vào ứng dụng](329-inject-data-application-vi.md) · [Định nghĩa command và argument cho container](330-define-command-argument-vi.md) · [Định nghĩa biến môi trường cho một Container](331-define-environment-variable-vi.md) · [Định nghĩa giá trị biến môi trường bằng một Init Container](332-define-env-via-file-vi.md) · [Định nghĩa các biến môi trường phụ thuộc](333-interdependent-env-variables-vi.md) · [Phân phối thông tin xác thực một cách an toàn bằng Secret](334-distribute-credentials-secure-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) — thực hành ConfigMap, Secret, biến môi trường và Downward API trên Pod trần; chứng minh Secret chỉ là base64. Phát sinh ⏳ **nợ #6** — mã hóa Secret at rest, trả ở [giai đoạn 22](#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu).
+- [ ] 🧪 [Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) — **Sprint 2 của dự án Bookstore**: bí mật sinh tại chỗ và Secret qua `secretGenerator` của Kustomize, schema `db` từ ConfigMap, `api` cấu hình bằng `envFrom` và biến phụ thuộc, cấu hình nginx từ ConfigMap, mật khẩu ra khỏi manifest; điều tra cập nhật ConfigMap lan tới Pod, ba đường tạo Secret và chứng minh Secret chỉ là base64, `args` cho PostgreSQL, registry riêng. Phát sinh ⏳ **nợ #6** — mã hóa Secret at rest, trả ở [giai đoạn 22](#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu).
 
 #### 3c. Tài nguyên, QoS và gián đoạn
 
@@ -239,7 +243,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Gán tài nguyên CPU cho Container và Pod](263-assign-cpu-resource-vi.md) · [Gán tài nguyên memory cho Container và Pod](264-assign-memory-resource-vi.md) · [Gán tài nguyên CPU và memory ở cấp Pod](265-assign-pod-level-resources-vi.md) · [Gán Extended Resource cho một Container](284-extended-resource-vi.md) · [Cấu hình Quality of Service cho Pod](288-quality-service-pod-vi.md) · [Thay đổi kích thước tài nguyên CPU và Memory được gán cho Container](289-resize-container-resources-vi.md) · [Thay đổi kích thước tài nguyên CPU và Memory được gán cho Pod](290-resize-pod-resources-vi.md) · [Chỉ định Disruption Budget cho ứng dụng của bạn](339-configure-pdb-vi.md) · [Tạo static Pod](293-static-pod-tasks-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 3c — Tài nguyên, QoS và gián đoạn](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) — requests quyết định lập lịch còn limits quyết định thực thi — đọc thẳng `cpu.max`/`memory.max` trong cgroup v2; suy QoS từ manifest; Pod `Pending` vì vượt `Allocatable` thật; PodDisruptionBudget chặn Eviction API; static Pod và mirror Pod.
+- [ ] 🧪 [Lab 3c — Tài nguyên, QoS và gián đoạn](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) — **Sprint 3 của dự án Bookstore**: đo mức dùng trong cgroup rồi đặt `requests`/`limits` cho mọi container, QoS và tài nguyên hiệu dụng của init container và sidecar, diễn tập throttle, `OOMKilled`, `Pending`; resize CPU của `api` tại chỗ; PodDisruptionBudget chặn Eviction API; static Pod và mirror Pod.
 
 **Checkpoint:** viết tay một Pod manifest có init container, sidecar, readiness + liveness probe, requests/limits, mount ConfigMap và Secret. Cố ý đặt request vượt sức node để thấy Pod `Pending`, rồi đọc `kubectl describe` tìm lý do. Xác định QoS class của 3 Pod khác nhau chỉ bằng cách nhìn manifest.
 
@@ -259,7 +263,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Sử dụng xóa theo tầng trong Cluster](260-use-cascading-deletion-vi.md) · [Quản lý object Kubernetes theo kiểu khai báo bằng file cấu hình](319-declarative-config-vi.md) · [Cập nhật đối tượng API tại chỗ bằng kubectl patch](324-kubectl-patch-vi.md) · [Chạy ứng dụng](337-run-application-vi.md) · [Chạy một ứng dụng Stateless bằng Deployment](345-run-stateless-application-vi.md) · [Scale thủ công theo chiều ngang cho một Deployment](346-scale-deployment-vi.md) · [Cập nhật một Deployment mà không gây gián đoạn](348-update-deployment-rolling-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 4a — ReplicaSet, Deployment và rollout](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) — chuỗi Pod → ReplicaSet → Deployment qua `ownerReferences`, rollout/rollback, `maxSurge`/`maxUnavailable`, Recreate so với RollingUpdate, và rollout thất bại.
+- [ ] 🧪 [Lab 4a — ReplicaSet, Deployment và rollout](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) — **Sprint 4 của dự án Bookstore**: ReplicaSet trần trước, rồi `web` và `api` lên Deployment với chuỗi `ownerReferences`; phát hành không gián đoạn có ghi lý do, bẫy đổi ConfigMap không gây rollout, bản phát hành hỏng và rollback; Recreate so với RollingUpdate, trôi cấu hình giữa `apply`/`scale`/`patch`, xóa theo tầng `orphan`, canary thủ công.
 
 #### 4b. StatefulSet, DaemonSet, Job và autoscaling
 
@@ -275,7 +279,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Xóa cưỡng bức Pod của StatefulSet](341-force-delete-stateful-set-pod-vi.md) · [Scale một StatefulSet](347-scale-stateful-set-vi.md) · [Chạy Job](349-job-tasks-vi.md) · [Chạy các tác vụ tự động với CronJob](350-automated-tasks-cron-jobs-vi.md) · [Xử lý song song thô sử dụng hàng đợi công việc](351-coarse-parallel-work-queue-vi.md) · [Indexed Job để xử lý song song với phân công việc tĩnh](353-indexed-parallel-processing-vi.md) · [Xử lý song song bằng cách khai triển template](355-parallel-processing-expansion-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) — định danh ổn định và thứ tự khởi tạo của StatefulSet, DaemonSet với taint/toleration, Job và `backoffLimit`, TTL, CronJob. ⏳ Còn treo **nợ #1, #2, #3** — xem [Sổ nợ lộ trình](#sổ-nợ-lộ-trình).
+- [ ] 🧪 [Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) — **Sprint 5 của dự án Bookstore**: `db` lên StatefulSet, thứ tự và định danh trên StatefulSet thử nghiệm, rollout kẹt và xóa cưỡng bức, Job `db-migrate` bất biến kết quả, Job thất bại và TTL, CronJob `db-backup`, DaemonSet `node-agent` trên cả ba node, tự phục hồi ba tầng, Indexed Job, thiết kế HPA dạng tài liệu. ⏳ Còn treo **nợ #1, #2, #3** — xem [Sổ nợ lộ trình](#sổ-nợ-lộ-trình).
 
 **Checkpoint:** tạo Deployment 3 replica, thực hiện rolling update, theo dõi `kubectl rollout status`, rồi rollback về revision trước. Xóa thủ công một Pod và quan sát ReplicaSet tạo lại. Giải thích được vì sao StatefulSet không thể thay bằng Deployment cho database.
 
@@ -297,7 +301,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Chuyển đổi file Docker Compose thành tài nguyên Kubernetes](294-translate-compose-kubernetes-vi.md) · [Quản lý object Kubernetes bằng lệnh imperative](320-imperative-command-vi.md) · [Quản lý object Kubernetes theo kiểu khai báo bằng Kustomize](322-kustomization-vi.md) · [Xóa một StatefulSet](340-delete-stateful-set-vi.md) · [Xử lý song song mịn sử dụng hàng đợi công việc](352-fine-parallel-work-queue-vi.md) · [Job với giao tiếp Pod-đến-Pod](354-job-pod-to-pod-communication-vi.md) · [Cấu hình DNS cho một cluster](362-configure-dns-cluster-vi.md) · [Kết nối Frontend với Backend bằng Service](363-connecting-frontend-backend-vi.md) · [Tạo bộ cân bằng tải bên ngoài](364-create-external-load-balancer-vi.md) · [Sử dụng Port Forwarding để truy cập ứng dụng trong Cluster](366-port-forward-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) — ClusterIP/NodePort/ExternalName, EndpointSlice theo selector, DNS `ndots:5` và FQDN, `internalTrafficPolicy` theo node. ✅ **Trả nợ #3** — headless Service cho StatefulSet.
+- [ ] 🧪 [Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) — **Sprint 6 của dự án Bookstore**: Service cho ba tầng và headless `db`, các tầng gọi nhau bằng tên thay IP, Kustomize đầy đủ, nginx proxy `/api/` và NodePort; `internalTrafficPolicy: Local` cho `node-agent`; EndpointSlice khi Pod NotReady và terminating; DNS `ndots:5`, FQDN, `hostname`/`subdomain`; canary chia lưu lượng thật; NetworkPolicy viết trước. ✅ **Trả nợ #3** — headless Service cho StatefulSet.
 - [ ] [Ingress](11-ingress-vi.md) — trọng tâm: rule, path type, IngressClass, TLS.
 - [ ] [Ingress Controllers](12-ingress-controllers-vi.md) — không có controller thì Ingress vô nghĩa.
 - [ ] [Gateway API](13-gateway-vi.md) — hướng thay thế Ingress; đọc để biết định hướng tương lai.
@@ -308,7 +312,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Mạng trong cluster](157-networking-vi.md) — mô hình mạng ở góc nhìn quản trị và các cách hiện thực.
 - [ ] [Network Plugin](183-network-plugins-vi.md) — CNI; cần trước khi cài CNI thật ở giai đoạn 8.
 - [ ] [Các loại proxy trong Kubernetes](164-proxies-vi.md) — kube-proxy và các loại proxy khác.
-- [ ] 🧪 [Lab 5b — NetworkPolicy, Ingress và CNI](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) — chứng minh Flannel **không** thực thi NetworkPolicy, đổi CNI sang Calico, chứng minh policy chặn thật, rồi cài ingress controller. ✅ **Trả nợ #4**. Tạo snapshot `02-net-ready`.
+- [ ] 🧪 [Lab 5b — NetworkPolicy, Ingress và CNI](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) — **Sprint 7 của dự án Bookstore**: chứng minh NetworkPolicy của sprint 6 không chặn gì trên Flannel, đổi CNI sang Calico, cài Helm và Traefik, zero-trust hai chiều trong `bookstore`, HTTPS qua Ingress với certificate tự ký; điều tra proxy, dual-stack, Gateway API. ✅ **Trả nợ #4**. Tạo snapshot `02-net-ready`.
 
 **Checkpoint:** expose một Deployment bằng ClusterIP rồi NodePort; từ trong một Pod dùng `nslookup`/`curl` gọi Service bằng tên ngắn và FQDN. Viết một NetworkPolicy chặn toàn bộ ingress vào một namespace rồi mở đúng một cổng. Giải thích được khác biệt giữa Service, Ingress và load balancer bên ngoài.
 
@@ -329,7 +333,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Cấu hình Pod sử dụng projected Volume cho lưu trữ](277-configure-projected-volume-vi.md) · [Cấu hình Pod sử dụng Volume để lưu trữ](280-configure-volume-storage-vi.md) · [Chạy ứng dụng có trạng thái được nhân bản](343-run-replicated-stateful-application-vi.md) · [Chạy ứng dụng có trạng thái đơn thực thể](344-run-single-instance-stateful-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) — cài local-path-provisioner, vòng đời PV/PVC, `reclaimPolicy` Delete so với Retain, `volumeBindingMode`, và dữ liệu bền qua vòng đời Pod. ✅ **Trả nợ #2** — `volumeClaimTemplates`. Tạo snapshot `03-storage-ready`.
+- [ ] 🧪 [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) — **Sprint 8 của dự án Bookstore**: cài local-path-provisioner, StorageClass `bookstore-retain`, `volumeClaimTemplates` cho `db` với `PGDATA` thư mục con, PVC `backup-store`; diễn tập mất Pod, StatefulSet, PVC rồi khôi phục dữ liệu từ PV `Released`; projected volume, `emptyDir.sizeLimit`, rủi ro `hostPath`. ✅ **Trả nợ #2** — `volumeClaimTemplates`. Tạo snapshot `03-storage-ready`.
 - [ ] [Lớp thuộc tính Volume](97-volume-attributes-classes-vi.md)
 - [ ] [Ảnh chụp nhanh Volume](99-volume-snapshots-vi.md) — ⏳ **Nợ #5** bắt đầu từ đây và kéo tới bài [101](101-volume-pvc-datasource-vi.md): chỉ thực hành được nếu CSI driver đang dùng hỗ trợ snapshot; trả ở [Lab 6b](#giai-đoạn-6--lưu-trữ).
 - [ ] [Các lớp Volume Snapshot](100-volume-snapshot-classes-vi.md)
@@ -338,7 +342,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Dung lượng lưu trữ](103-storage-capacity-vi.md)
 - [ ] [Giới hạn volume theo từng Node](104-storage-limits-vi.md)
 - [ ] [Giám sát tình trạng volume](105-volume-health-monitoring-vi.md)
-- [ ] 🧪 [Lab 6b — Snapshot và volume nâng cao](labs/LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md) — kiểm tra năng lực CSI driver rồi rẽ nhánh: chụp/khôi phục/nhân bản snapshot nếu driver hỗ trợ, hoặc ghi hồ sơ nợ nếu không. ⏳ **Nợ #5 chưa trả** với provisioner của baseline.
+- [ ] 🧪 [Lab 6b — Snapshot và volume nâng cao](labs/LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md) — **Sprint 9 của dự án Bookstore**: kiểm năng lực snapshot, clone, VolumeAttributesClass, dung lượng và giới hạn volume của cluster; ADR chọn `pg_dump` thay VolumeSnapshot; chép bản dump ra ngoài cluster; diễn tập khôi phục vào namespace tạm. ⏳ **Nợ #5 chưa trả** với provisioner của baseline.
 
 **Checkpoint:** tạo StorageClass, xin một PVC và mount vào Pod; xóa Pod rồi tạo lại, chứng minh dữ liệu còn nguyên. Thử `reclaimPolicy: Retain` và `Delete` để thấy khác biệt khi xóa PVC. Chạy một StatefulSet có `volumeClaimTemplates` và quan sát PVC sinh ra theo từng replica.
 
@@ -366,7 +370,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Bảo đảm lập lịch cho các Pod add-on quan trọng](210-guaranteed-scheduling-critical-addon-pods-vi.md) · [Gán Pod vào Node bằng Node Affinity](266-assign-pods-nodes-node-affinity-vi.md) · [Gán Pod vào Node](267-assign-pods-nodes-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 7a — Lập lịch và eviction](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) — chu trình filter/score của scheduler, `nodeSelector` và node affinity, taint/toleration, topology spread, PriorityClass và preemption, `schedulingGates`, và đọc ngưỡng eviction thật của kubelet.
+- [ ] 🧪 [Lab 7a — Lập lịch và eviction](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) — **Sprint 10 của dự án Bookstore**: node affinity cho `db` theo label dữ liệu, topology spread cho `web`, anti-affinity mềm cho `api`, PriorityClass `bookstore-batch` và diễn tập preemption, Job báo cáo có `schedulingGates`, taint bảo trì `NoSchedule`/`NoExecute`, Eviction API so với eviction do áp lực node, cấu hình scheduler và Pod overhead.
 
 #### 7b. Chính sách giới hạn tài nguyên
 
@@ -377,7 +381,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Các trình quản lý tài nguyên](74-resource-managers-vi.md) — CPU manager, memory manager, topology manager của kubelet.
 - [ ] [Tính năng do Node khai báo](154-node-declared-features-vi.md) — đọc lướt.
 
-- [ ] 🧪 [Lab 7b — Quota và giới hạn tài nguyên](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) — LimitRange đặt mặc định và trần cho từng Pod, ResourceQuota đặt trần cho cả namespace, và mối liên hệ bắt buộc giữa hai thứ; đọc `podPidsLimit` và policy của resource manager từ cấu hình kubelet thật.
+- [ ] 🧪 [Lab 7b — Quota và giới hạn tài nguyên](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) — **Sprint 11 của dự án Bookstore**: kiểm kê ngân sách thật của namespace, LimitRange `bookstore-limits`, ResourceQuota tính toán và theo số object; diễn tập rollout kẹt vì quota và Pod thiếu khai báo; giới hạn PID, resource manager, tính năng do node khai báo.
 
 **Checkpoint:** taint một node và chứng minh Pod thường không lên đó, rồi thêm toleration để lên được. Đặt ResourceQuota + LimitRange cho một namespace, thử tạo Pod vượt quota và đọc thông báo từ chối. Tạo tình huống node hết đĩa để quan sát eviction và thứ tự Pod bị trục xuất.
 
@@ -399,9 +403,9 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Quản trị với kubeadm](214-kubeadm-tasks-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 8a — Dựng cluster bằng kubeadm](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md) — đọc hiểu từng bước kubeadm rồi phá cluster có kiểm soát và dựng lại bằng `--config`; kết thúc bằng restore về `03-storage-ready` với bốn bằng chứng đây là cluster cũ.
-- [ ] 🧪 [Lab 8b — HA với stacked etcd](labs/LAB-8B-HA-VOI-STACKED-ETCD.md) — dựng bộ VM riêng 6 máy, HA stacked etcd sau load balancer; chứng minh mất quorum khi tắt hai control plane và chứng minh chính LB là SPOF.
-- [ ] 🧪 [Lab 8c — HA với external etcd](labs/LAB-8C-HA-VOI-EXTERNAL-ETCD.md) — reset cụm stacked rồi dựng lại thành 3 node etcd ngoài + 2 control plane; chứng minh quorum etcd tách rời khỏi số control plane.
+- [ ] 🧪 [Lab 8a — Dựng cluster bằng kubeadm](labs/LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md) — **Sprint 12 của dự án Bookstore** — diễn tập thảm họa có kế hoạch: viết `kubeadm-config.yaml` và quy trình dựng nền vào repo, phá static Pod control plane, `kubeadm reset`, `init --config`, join, dựng lại Calico, Traefik, local-path, triển khai Bookstore từ repo và nạp bản dump, đo RPO/RTO; kết thúc bằng restore `03-storage-ready`.
+- [ ] 🧪 [Lab 8b — HA với stacked etcd](labs/LAB-8B-HA-VOI-STACKED-ETCD.md) — **Sprint 13 của dự án Bookstore**: dựng bộ VM riêng 6 máy, chọn topology và ghi dự đoán trước khi `init`, HA stacked etcd sau load balancer; triển khai Bookstore bằng overlay `ha-lab` rồi đo sẵn sàng từ máy host trong lúc mất một control plane, mất manifest apiserver, mất quorum và tắt load balancer — chứng minh chính LB là SPOF.
+- [ ] 🧪 [Lab 8c — HA với external etcd](labs/LAB-8C-HA-VOI-EXTERNAL-ETCD.md) — **Sprint 14 của dự án Bookstore**: reset cụm stacked rồi dựng lại thành 3 node etcd ngoài + 2 control plane; chứng minh quorum etcd tách rời khỏi số control plane; đo lại sẵn sàng của Bookstore khi mất etcd member và mất control plane, chốt ADR topology cho production.
 
 **Checkpoint — bắt buộc làm thật, không xem video:**
 
@@ -426,7 +430,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 
 **Thực hành:** [Quản trị Cloud Controller Manager](254-running-cloud-controller-vi.md) · [Sử dụng sysctl trong một cluster Kubernetes](258-sysctl-cluster-vi.md) · [Cấu hình Service Account cho Pod](279-configure-service-account-vi.md) · [Thực thi Pod Security Standards bằng cách cấu hình Admission Controller tích hợp sẵn](282-enforce-standards-admission-controller-vi.md) · [Thực thi Pod Security Standards bằng nhãn Namespace](283-enforce-standards-namespace-labels-vi.md) · [Di chuyển từ PodSecurityPolicy sang PodSecurity Admission Controller tích hợp sẵn](286-migrate-from-psp-vi.md) · [Cấu hình Security Context cho Pod hoặc Container](291-security-context-vi.md) · [Truy cập Kubernetes API từ một Pod](338-access-api-from-pod-vi.md) · [Truy cập cluster](359-access-cluster-vi.md) · [Truy cập cluster bằng Kubernetes API](190-access-cluster-api-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 9a — ServiceAccount, authn/authz và RBAC](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) — ba chặng authentication → authorization → admission, mỗi chặng có bước dựng lại request bị chặn đúng ở chặng đó; ServiceAccount làm danh tính của Pod; bốn tổ hợp Role/ClusterRole × RoleBinding/ClusterRoleBinding.
+- [ ] 🧪 [Lab 9a — ServiceAccount, authn/authz và RBAC](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) — **Sprint 15 của dự án Bookstore**: ServiceAccount riêng cho từng thành phần, `db-backup` ghi `backup-status` qua API với Role tối thiểu, danh tính CI `ci-deployer` có token hạn ngắn, nhóm `bookstore-devs` chỉ đọc và `bookstore-oncall` được gỡ lỗi; diễn tập request bị chặn ở từng chặng authentication → authorization → admission; Job chạy uid 999, sysctl an toàn.
 - [ ] [Chuẩn bảo mật Pod](115-pod-security-standards-vi.md) — ba profile Privileged/Baseline/Restricted.
 - [ ] [Cơ chế admission bảo mật Pod](116-pod-security-admission-vi.md) — áp ba profile trên vào namespace bằng label, chế độ enforce/audit/warn.
 - [ ] [Các thực hành tốt cho Kubernetes Secrets](121-secrets-good-practices-vi.md)
@@ -439,7 +443,7 @@ Không có tài liệu trong thư mục. Thiếu phần này thì mọi giai đo
 - [ ] [Danh sách kiểm tra bảo mật ứng dụng](130-application-security-checklist-vi.md)
 - [ ] [Ưu tiên và Công bằng cho API](166-flow-control-vi.md) — bảo vệ API server khỏi quá tải; FlowSchema và PriorityLevelConfiguration.
 - [ ] [Thực hành tốt cho Admission Webhook](173-admission-webhooks-vi.md) — webhook hỏng có thể làm chết cả cluster; đọc kỹ phần failure policy.
-- [ ] 🧪 [Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) — ba profile Pod Security Standards và ba chế độ `enforce`/`audit`/`warn`; security context đọc thẳng giá trị kernel; sysctl bị chặn ở hai mặt phẳng; chứng minh API PodSecurityPolicy đã bị gỡ.
+- [ ] 🧪 [Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) — **Sprint 16 của dự án Bookstore**: `warn`/`audit` rồi `enforce: restricted` cho `bookstore`, `db` non-root, root filesystem chỉ đọc cho `web` và `api`, Job/CronJob/`node-agent` đạt `restricted`; tenant thứ hai `bookstore-staging`; rà Secret và RBAC, checklist bảo mật; điều tra API Priority and Fairness, admission webhook, chứng minh API PodSecurityPolicy đã bị gỡ.
 - [ ] **Đọc như tài liệu lịch sử:** [Chính sách bảo mật Pod](117-pod-security-policy-vi.md) — PodSecurityPolicy đã bị gỡ khỏi Kubernetes, thay bằng bài 6–7 ở trên. Chỉ đọc khi tiếp quản cluster rất cũ.
 
 **Để sau:** [Hướng dẫn tăng cường bảo mật — Cấu hình Scheduler](124-hardening-scheduler-vi.md) và [— Cấp phát tài nguyên động](125-hardening-dra-vi.md) nằm ở giai đoạn 13, sau khi đã học DRA và scheduler nâng cao.
@@ -469,8 +473,8 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 
 **Thực hành:** [Giám sát, ghi log và gỡ lỗi](296-debug-vi.md) · [Xử lý sự cố ứng dụng](297-debug-application-vi.md) · [Truy cập shell của một container đang chạy](304-get-shell-running-container-vi.md) · [Phát triển và debug service cục bộ bằng telepresence](309-local-debugging-vi.md) · [Ghi log trong Kubernetes](316-debug-logging-vi.md) · [Giám sát trong Kubernetes](317-debug-monitoring-vi.md) · [Hướng dẫn từng bước về HorizontalPodAutoscaler](342-hpa-walkthrough-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) — ba trụ cột observability, endpoint `/metrics` của kubelet và apiserver, kiến trúc log và log rotation, rồi cài metrics-server — **cho hỏng vì certificate trước rồi mới sửa**. Tạo snapshot `04-metrics-ready`.
-- [ ] 🧪 [Lab 11b — HPA và VPA](labs/LAB-11B-HPA-VA-VPA.md) — HPA theo CPU utilization tính từ `requests`, sinh tải thật để scale lên rồi xuống, `behavior` và `status.conditions`, xung đột với `kubectl scale`. ✅ **Trả nợ #1 phần HPA**; phần VPA vẫn treo vì add-on không đi kèm Kubernetes.
+- [ ] 🧪 [Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) — **Sprint 17 của dự án Bookstore**: ba nguồn metric (PostgREST, apiserver, kubelet) và quyền đọc `/metrics`, cài metrics-server — **cho hỏng vì certificate trước rồi mới sửa**, `node-agent` sang `bookstore-system` đọc log trên node, diễn tập xoay vòng log, log hệ thống và trace, chẩn đoán ứng dụng theo quy trình. Tạo snapshot `04-metrics-ready`.
+- [ ] 🧪 [Lab 11b — HPA và VPA](labs/LAB-11B-HPA-VA-VPA.md) — **Sprint 18 của dự án Bookstore**: HPA cho `web` từ bản thiết kế của Lab 4b, bỏ `replicas` khỏi Deployment, công cụ sinh tải có trần, quota đủ cho max + surge, phép chia trong `status`, `behavior` thu hẹp, xung đột với `kubectl scale`, ADR về VPA. ✅ **Trả nợ #1 phần HPA**; phần VPA vẫn treo vì add-on không đi kèm Kubernetes.
 
 **Checkpoint:** triển khai metrics-server và chạy được `kubectl top node`/`kubectl top pod`. Triển khai một stack Prometheus + Grafana, thu metric từ kubelet và kube-state-metrics, dựng một dashboard và một alert (ví dụ node NotReady hoặc Pod CrashLoopBackOff). Gom log tập trung bằng một agent chạy dạng DaemonSet. Sau đó cho một Deployment tự co giãn bằng HPA dưới tải và quan sát số replica thay đổi — phần này đóng nốt checkpoint autoscaling của giai đoạn 4.
 
@@ -491,7 +495,7 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 
 **Thực hành:** [Quản trị một Cluster](189-administer-cluster-vi.md) · [Di chuyển control plane được nhân bản sang dùng Cloud Controller Manager](198-controller-manager-leader-migration-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 12 — Vận hành vòng đời node](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md) — vòng bảo trì node đầy đủ cordon → drain → tắt máy → bật lại → uncordon trên `lab-k8s-worker2`; kiểm kê add-on, Lease control plane, swap và cấu hình graceful shutdown. ⏳ **Nợ #7** chưa trả — xem [giai đoạn 18](#giai-đoạn-18--vòng-đời-chứng-chỉ).
+- [ ] 🧪 [Lab 12 — Vận hành vòng đời node](labs/LAB-12-VAN-HANH-VONG-DOI-NODE.md) — **Sprint 19 của dự án Bookstore**: kiểm kê nền tảng, công cụ đo sẵn sàng qua Ingress, bảo trì `lab-k8s-worker1` không gián đoạn, cửa sổ bảo trì `lab-k8s-worker2` nơi có `db` và PV local, phase `Unknown`, graceful node shutdown, swap, Lease. ⏳ **Nợ #7** chưa trả — xem [giai đoạn 18](#giai-đoạn-18--vòng-đời-chứng-chỉ).
 
 **Checkpoint:** mô phỏng bảo trì một node: cordon → drain → tắt máy → bật lại → uncordon, và quan sát workload dịch chuyển. Kiểm tra graceful node shutdown có được kích hoạt không.
 
@@ -519,7 +523,7 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 
 **Thực hành:** [Tăng cường bảo mật cho Cấp phát tài nguyên động trong cluster của bạn](211-hardening-dra-tasks-vi.md) · [Gán thiết bị cho Pod và Container](268-assign-resources-vi.md) · [Truy cập metadata thiết bị DRA](269-access-dra-device-metadata-vi.md) · [Cấp phát thiết bị cho workload bằng DRA](270-allocate-devices-dra-vi.md) · [Thiết lập DRA trong một cluster](271-set-up-dra-cluster-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 13 — DRA](labs/LAB-13-DRA.md) (tùy chọn) — kiểm tra năng lực DRA bằng năm phép kiểm rồi rẽ nhánh; nối ba con đường cấp phát thiết bị: extended resource, device plugin và DRA. Cluster lab không có GPU nên chạy nhánh đọc-hiểu.
+- [ ] 🧪 [Lab 13 — DRA](labs/LAB-13-DRA.md) (tùy chọn) — **Sprint 20 (tùy chọn) của dự án Bookstore**: đánh giá tính năng giả định "gợi ý sách bằng GPU" — kiểm năng lực DRA rồi rẽ nhánh, DeviceClass, ResourceClaim và template, ba con đường cấp phát thiết bị, PodGroup và gang scheduling, hardening scheduler và DRA, ADR. Cluster lab không có GPU nên chạy nhánh đọc-hiểu.
 
 **Checkpoint:** nếu cluster có GPU, cấp phát một GPU cho Pod bằng DRA. Nếu không, chỉ cần giải thích được DRA khác device plugin truyền thống ở điểm nào.
 
@@ -539,7 +543,7 @@ Nếu đang cần vận hành gấp một cluster production, có thể nhảy t
 
 **Thực hành:** [Khắc phục sự cố Topology Management](313-debug-topology-vi.md) · [Di trú object Kubernetes bằng Storage Version Migration](323-storage-version-migration-vi.md) — làm sau khi đọc hết nhóm bài trên, trước khi mở lab.
 
-- [ ] 🧪 [Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md) — tự viết CRD, đóng vai controller bằng vòng lặp shell dưới ServiceAccount riêng, chứng minh CRD không có controller chỉ là kho lưu dữ liệu; chuyển version lưu trữ của CRD.
+- [ ] 🧪 [Lab 14 — CRD và Operator](labs/LAB-14-CRD-VA-OPERATOR.md) — **Sprint 21 — sprint cuối của dự án Bookstore**: CRD `DbBackup` có validation và `status`, RBAC và quota cho kind mới, `backup-operator` dạng vòng lặp dưới ServiceAccount riêng, chứng minh CRD không có controller chỉ là kho dữ liệu, thêm version `v1` và chuyển storage version; **nghiệm thu cuối dự án** theo R1–R19 và đóng sổ nợ kỹ thuật.
 
 **Đã đọc ở giai đoạn 5:** [Network Plugin](183-network-plugins-vi.md) — nếu cần xem lại trong ngữ cảnh mở rộng thì quay lại bài đó.
 

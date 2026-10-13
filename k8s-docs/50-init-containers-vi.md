@@ -41,8 +41,8 @@ lại nằm ở cuối bài: cách tính tài nguyên hiệu dụng, và yêu c�
 | --- | --- | --- |
 | Ví dụ *Init container trong thực tế* chờ `myservice`/`mydb` bằng `nslookup` | dựa trên Service và DNS chưa học | giai đoạn 5 — bài [82](82-service-vi.md), [10](10-dns-pod-service-vi.md) |
 | Ví dụ đăng ký Pod với server ở xa từ downward API | downward API là bài cuối nhóm này | bài [56](56-downward-api-vi.md) |
-| Phần *hạng QoS hiệu dụng* trong mục chia sẻ tài nguyên | chưa học QoS | giai đoạn 3, nhóm 3b — bài [54](54-pod-qos-vi.md) |
-| *Init container và cgroup trên Linux*, quota và limit | phần cấp phát thuộc quản lý tài nguyên | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
+| Phần *hạng QoS hiệu dụng* trong mục chia sẻ tài nguyên | chưa học QoS | giai đoạn 3, nhóm 3c — bài [54](54-pod-qos-vi.md); thực hành ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B3 |
+| *Init container và cgroup trên Linux*, quota và limit | phần cấp phát thuộc quản lý tài nguyên | giai đoạn 3, nhóm 3c — bài [110](110-manage-resources-containers-vi.md); thực hành ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B3 |
 | `activeDeadlineSeconds` và khuyến nghị chỉ dùng với Job | Job học ở giai đoạn sau | giai đoạn 4 — bài [67](67-job-vi.md) |
 | Mọi so sánh với sidecar container | bài kế trình bày đủ | bài [51](51-sidecar-containers-vi.md) |
 

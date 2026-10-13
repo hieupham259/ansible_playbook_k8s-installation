@@ -9,10 +9,11 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 4/7 ·
-Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
+**Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 1/4 ·
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B1, B2, B4 và B5 (B9 ⭐ cho
+tài nguyên mở rộng).
 
-Đây là **bài bắt buộc phải chắc** của cả nhóm 3b. QoS class ở bài kế tiếp, eviction do áp lực
+Đây là **bài bắt buộc phải chắc** của cả nhóm 3c. QoS class ở bài kế tiếp, eviction do áp lực
 node ở giai đoạn 7a, ResourceQuota và LimitRange ở 7b, HPA và VPA ở giai đoạn 4 — tất cả đều
 đọc lại đúng hai trường `requests` và `limits` này. Đọc lướt ở đây thì mọi bài sau đều mơ hồ.
 
@@ -40,13 +41,15 @@ Cả bài xoay quanh **một sự phân đôi duy nhất**: `requests` nói chuy
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| *Chỉ định tài nguyên ở cấp Pod* và *Ví dụ về tài nguyên Pod* | beta, cần feature gate `PodLevelResources` mà cluster lab không bật | không cần |
+| *Chỉ định tài nguyên ở cấp Pod* và *Ví dụ về tài nguyên Pod* | tầng khai báo thứ hai, chồng lên tầng container; tính năng beta, gate `PodLevelResources` bật mặc định nên baseline đã có, nhưng phải chắc tầng container trước | bài [265](265-assign-pod-level-resources-vi.md) trong khối thực hành của nhóm 3c; kiểm chứng tùy chọn ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B8 ⭐ |
 | *Huge pages* | tính năng riêng của kernel Linux, không dùng trong lộ trình | không cần |
-| *Thay đổi kích thước tài nguyên của container* — `/resize`, `resizePolicy`, VPA | co giãn dọc gắn với autoscaling | giai đoạn 4, bài [73](73-vertical-pod-autoscale-vi.md); thực hành là [nợ lab](labs/README.md#5-sổ-nợ-lab) trả ở Lab 11b |
+| *Thay đổi kích thước tại chỗ* — subresource `/resize`, `resizePolicy` | tính năng stable, bật mặc định trên baseline; cách làm là nội dung của một bài thực hành riêng | bài [289](289-resize-container-resources-vi.md) trong khối thực hành của nhóm 3c; làm ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B5 |
+| Vertical Pod Autoscaler nhắc ở cuối mục *Thay đổi kích thước tài nguyên của container* | co giãn dọc tự động, gắn với autoscaling | giai đoạn 4, bài [73](73-vertical-pod-autoscale-vi.md); phần thực hành VPA là nợ #1 còn treo trong [sổ nợ lab](labs/README.md#5-sổ-nợ-lab) |
 | Ghi chú *Memory QoS với cgroup v2* | alpha, phải bật riêng | giai đoạn 7b, bài [74](74-resource-managers-vi.md) |
 | *Những điều cần cân nhắc với volume `emptyDir` dựa trên bộ nhớ* | chưa học volume | giai đoạn 6, bài [91](91-volumes-vi.md) |
 | *Lưu trữ tạm thời cục bộ* và *Giới hạn PID* | tài nguyên ngoài CPU/memory | giai đoạn 6, bài [95](95-ephemeral-storage-vi.md); giai đoạn 7b, bài [135](135-pid-limiting-vi.md) |
-| *Tài nguyên mở rộng*, device plugin, scheduler extender, DRA | cần cơ chế mở rộng scheduler | giai đoạn 13 và 14 |
+| *Tài nguyên mở rộng* — quảng bá bằng `PATCH` ở mục *Các tài nguyên khác*, và mục *Tiêu thụ tài nguyên mở rộng* | tài nguyên do người vận hành tự đặt tên, nằm ngoài cặp CPU/memory mà bài xoay quanh | bài [284](284-extended-resource-vi.md) trong khối thực hành của nhóm 3c; kiểm chứng tùy chọn ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B9 ⭐ |
+| Device plugin, scheduler extender ở mục *Tài nguyên mở rộng cấp cluster*, và mục *Cấp phát tài nguyên mở rộng bằng DRA* | cần cơ chế mở rộng node và scheduler; riêng cấp phát bằng DRA còn sau gate alpha `DRAExtendedResource`, baseline không bật | giai đoạn 13 — bài [149](149-dynamic-resource-allocation-vi.md), [Lab 13](labs/LAB-13-DRA.md); giai đoạn 14 — bài [184](184-device-plugins-vi.md) |
 | ResourceQuota và LimitRange nhắc ở mục *Khắc phục sự cố* | là chính sách cấp namespace | giai đoạn 7b, bài [133](133-limit-range-vi.md) và [134](134-resource-quotas-vi.md) |
 
 ---

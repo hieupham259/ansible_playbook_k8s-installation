@@ -42,7 +42,7 @@ vào. Đọc để biết **có lựa chọn nào và nó khác các lựa chọ
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Hướng dẫn *Getting Started* của repo Antrea mà mục *Triển khai Antrea với kubeadm* trỏ tới | đó là quy trình cài một CNI thật | **không chạy trên cluster lab** — cluster đã dùng Calico từ [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) và đổi CNI phá [chuỗi snapshot](labs/README.md#3-chuỗi-snapshot). Chỉ mở khi bạn tiếp quản một cluster đã chạy Antrea |
-| *Introduction to Antrea* — tài liệu nền của dự án | là tài liệu của một dự án bên ngoài, không thuộc phạm vi lộ trình | ranh giới "Kubernetes định nghĩa gì, plugin hiện thực gì" đã đọc ở bài [183](183-network-plugins-vi.md), thực hành ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B2 |
+| *Introduction to Antrea* — tài liệu nền của dự án | là tài liệu của một dự án bên ngoài, không thuộc phạm vi lộ trình | ranh giới "Kubernetes định nghĩa gì, plugin hiện thực gì" đã đọc ở bài [183](183-network-plugins-vi.md), thực hành ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket B2 |
 
 ---
 

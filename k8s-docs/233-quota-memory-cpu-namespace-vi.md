@@ -28,8 +28,8 @@ giới quota với LimitRange chính là thứ **Checkpoint giai đoạn 25** b�
 này nói thẳng ra ở mục *Thảo luận*.
 
 Bạn đã đọc lý thuyết ở bài [134](134-resource-quotas-vi.md) và thực hành ở
-[Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md): phần B3 làm trần tổng CPU/memory, so `used`
-với `hard` và hai kiểu từ chối; phần B5 làm việc quota **buộc mọi Pod phải khai** tài nguyên. Cái
+[Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md): ticket B3 làm trần tổng CPU/memory, so `used`
+với `hard`; ticket B6 làm hai kiểu từ chối và việc quota **buộc mọi Pod phải khai** tài nguyên. Cái
 giai đoạn 25 thêm vào ở trang này là **cấu trúc ba mảnh của thông báo từ chối** — thứ Checkpoint
 bắt bạn đọc đúng.
 
@@ -55,7 +55,7 @@ bắt bạn đọc đúng.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Mẹo dùng `jq` cùng JSONPath để in riêng `status.used` | chính bài ghi đây là tùy chọn — "nếu bạn có công cụ `jq`" — và lộ trình không cài thêm phần mềm vào cluster lab; `--output=yaml` đã đọc được đủ | không cần cho lộ trình; cách đọc bằng `--output=yaml` nằm ngay trong bài và đã dùng ở [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) phần B3 |
+| Mẹo dùng `jq` cùng JSONPath để in riêng `status.used` | chính bài ghi đây là tùy chọn — "nếu bạn có công cụ `jq`" — và lộ trình không cài thêm phần mềm vào cluster lab; `--output=yaml` đã đọc được đủ | không cần cho lộ trình; cách đọc bằng `--output=yaml` nằm ngay trong bài và đã dùng ở [Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) ticket B3 |
 | Ghi chú về **in-place Pod resize** — quota được thực thi trên giá trị sau khi resize | resize tại chỗ là một bài riêng | bài [289](289-resize-container-resources-vi.md), dòng Thực hành của [giai đoạn 3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn) |
 | Mục *Trước khi bạn bắt đầu* — minikube và các playground | lộ trình cấm minikube, kind và cluster dùng chung | cluster VM ba node của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
 | Mục *Tiếp theo* — hai danh sách *Dành cho quản trị viên cluster* và *Dành cho nhà phát triển ứng dụng* | là con trỏ, không có nội dung mới | trang con cuối của bài 2/7 là [234](234-quota-pod-namespace-vi.md), đọc ngay sau đây; nhánh nhà phát triển đã đọc ở [giai đoạn 3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn) |

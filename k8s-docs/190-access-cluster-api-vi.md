@@ -15,9 +15,8 @@
 dòng **Thực hành**, bài 10/10 — **bài cuối** của dòng đó, đọc xong là mở
 [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md). Bảng ánh xạ
 [`### 1.1` của Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md#11-ánh-xạ-tài-liệu-sang-bài-thực-hành)
-**không liệt kê riêng bài này**: thao tác của nó trùng với bài [359](359-access-cluster-vi.md) và
-được kiểm chứng dưới tên bài đó ở phần B6.2, B6.3 (`kubectl proxy`) và B6.5 (hai loại token đặt
-cạnh nhau).
+xếp bài này vào ticket B4, cùng bài [359](359-access-cluster-vi.md): `kubectl proxy` chạy bằng
+kubeconfig của CI, và gọi REST thẳng bằng token kèm CA của cluster thay cho `--insecure`.
 
 Bài này và bài [359](359-access-cluster-vi.md) vừa đọc rất gần nhau, phải tách hai góc cho rõ:
 `359` là **bản đồ chung** của mọi cách truy cập cluster — kể cả bảng năm loại proxy. Bài này hẹp
@@ -512,5 +511,5 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 Đây là bài cuối của dòng **Thực hành** giai đoạn 9. Câu nào chưa trả lời được thì quay lại đúng mục
 tương ứng, rồi mở [Lab 9a — ServiceAccount, authn/authz và
-RBAC](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) và làm từ đầu; phần B6.2, B6.3 và B6.5 là
-chỗ bạn gặp lại đúng những lệnh vừa đọc.
+RBAC](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) và làm từ đầu; ticket B4 là chỗ bạn gặp lại
+đúng những lệnh vừa đọc.

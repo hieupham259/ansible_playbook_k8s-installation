@@ -13,9 +13,9 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), dòng
 **Thực hành**, bài 9/10 · Kiểm chứng ở
-[Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B6.3
+[Lab 5a — Service, EndpointSlice và DNS](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B9
 (Service `type: LoadBalancer` vẫn được cấp ClusterIP và NodePort, nhưng `EXTERNAL-IP` treo
-`<pending>`) và phần B7.1 (`externalTrafficPolicy` `Cluster` so với `Local`).
+`<pending>`; `externalTrafficPolicy` `Cluster` so với `Local`).
 
 Đọc bài này để **biết ranh giới trách nhiệm**, không phải để làm theo từng bước. Cluster lab là
 kubeadm trên VM, **không có cloud provider**, nên Service kiểu `LoadBalancer` sẽ ở `<pending>`
@@ -53,8 +53,8 @@ cho production.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Giá trị `LoadBalancer Ingress` thật trong đầu ra `kubectl describe`, và ghi chú `minikube service --url` | trên cluster lab trường `status.loadBalancer` rỗng vĩnh viễn, và lộ trình không dùng minikube | [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B6.3 — lab chỉ kiểm chứng phần API (ClusterIP và NodePort vẫn được cấp); phần đường đi dữ liệu thì cluster lab không tái hiện được |
-| Mục *Lưu ý và hạn chế khi giữ nguyên IP nguồn* — trọng số cho từng đích, quan hệ `NumServicePods` với `NumNodes` | phụ thuộc hiện thực bộ cân bằng tải của từng nhà cung cấp cloud; không có load balancer thật thì không quan sát được | [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B7.1 đo được `externalTrafficPolicy` qua NodePort; riêng phần trọng số thì không có cách kiểm chứng trên cluster lab |
+| Giá trị `LoadBalancer Ingress` thật trong đầu ra `kubectl describe`, và ghi chú `minikube service --url` | trên cluster lab trường `status.loadBalancer` rỗng vĩnh viễn, và lộ trình không dùng minikube | [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B9 — lab chỉ kiểm chứng phần API (ClusterIP và NodePort vẫn được cấp); phần đường đi dữ liệu thì cluster lab không tái hiện được |
+| Mục *Lưu ý và hạn chế khi giữ nguyên IP nguồn* — trọng số cho từng đích, quan hệ `NumServicePods` với `NumNodes` | phụ thuộc hiện thực bộ cân bằng tải của từng nhà cung cấp cloud; không có load balancer thật thì không quan sát được | [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B9 đo được `externalTrafficPolicy` qua NodePort; riêng phần trọng số thì không có cách kiểm chứng trên cluster lab |
 | Câu "Bạn cũng có thể dùng Ingress thay cho Service" ở đoạn mở đầu | Ingress nằm sau Lab 5a trong chính giai đoạn 5, và chỉ có nghĩa khi đã có ingress controller đang chạy | bài [11](11-ingress-vi.md) và [12](12-ingress-controllers-vi.md), thực hành ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) |
 
 ---

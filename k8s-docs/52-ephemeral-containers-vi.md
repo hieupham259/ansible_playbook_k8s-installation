@@ -35,7 +35,7 @@ những gì.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Ghi chú ephemeral container không được static pod hỗ trợ | chưa học static Pod | giai đoạn 3, nhóm 3b — bài [58](58-static-pods-vi.md) |
+| Ghi chú ephemeral container không được static pod hỗ trợ | chưa học static Pod | giai đoạn 3, nhóm 3c — bài [58](58-static-pods-vi.md) |
 | Thao tác bật *chia sẻ process namespace* | là cấu hình Pod, chỉ làm khi thật sự cần debug | Lab 3a |
 | Mục *Tiếp theo* — hướng dẫn gỡ lỗi pod bằng ephemeral container | là tài liệu tác vụ, làm khi có Pod hỏng thật | Lab 3a |
 

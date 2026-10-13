@@ -12,7 +12,7 @@
 **Vị trí:**
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 6 — Lưu trữ](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ), dòng **Thực hành**, bài 1/4 ·
-Kiểm chứng ở [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md), phần B7.1–B7.2.
+Kiểm chứng ở [Lab 6a — PV, PVC và StorageClass](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md), ticket B6.
 
 Đây là bài thực hành ngắn nhất của nhóm và là bản chạy tay của bài
 [93](93-projected-volumes-vi.md) bạn vừa đọc. Nó không thêm khái niệm mới, chỉ cho bạn thấy một
@@ -39,7 +39,7 @@ Pod thật có `projected` trông ra sao.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Nguồn `serviceAccountToken` và ghi chú "không phải là một loại volume" | bài chỉ nêu tên, không có ví dụ; hiểu nó cần biết ServiceAccount và bên nhận token | [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy); [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B7.3 chỉ cho bạn thấy Pod nào cũng đang mang sẵn một projection như vậy |
+| Nguồn `serviceAccountToken` và ghi chú "không phải là một loại volume" | bài chỉ nêu tên, không có ví dụ; hiểu nó cần biết ServiceAccount và bên nhận token | [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy); [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) ticket B6 chỉ cho bạn thấy Pod nào cũng đang mang sẵn một projection như vậy |
 | Nguồn `downwardAPI` — có trong danh sách nhưng bài không dùng | ví dụ của bài chỉ gộp hai Secret | bài [93](93-projected-volumes-vi.md) vừa đọc ở đầu [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) |
 | Mục *Trước khi bạn bắt đầu* gợi ý minikube và các playground | lộ trình chạy trên cluster ba VM riêng, không dùng cluster dùng chung | [Lab 00 — Môi trường](labs/LAB-00-MOI-TRUONG-1.35.7.md), đã dựng từ giai đoạn 1 |
 
@@ -186,7 +186,7 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    nên container chỉ thấy đúng một thư mục `/projected-volume`. Đó là điều bài muốn minh họa:
    "mount nhiều nguồn volume có sẵn vào cùng một thư mục".
 2. **`name`.** Manifest của bài viết `- secret: name: user`, không phải `secretName`. Đây là chỗ
-   dễ gõ nhầm; [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) B7.4 cho bạn thấy kết quả thật khi
+   dễ gõ nhầm; [Lab 6a](labs/LAB-6A-PV-PVC-VA-STORAGECLASS.md) ticket B6 cho bạn thấy kết quả thật khi
    viết nhầm.
 3. **Không mâu thuẫn.** Bài phân biệt hai chuyện khác nhau: thứ *chiếu được* vào một `projected`
    volume, và thứ *là một loại volume*. `serviceAccountToken` thuộc nhóm đầu chứ không thuộc nhóm

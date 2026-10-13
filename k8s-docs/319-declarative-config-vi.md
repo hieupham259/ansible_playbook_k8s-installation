@@ -14,7 +14,7 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** Giai đoạn 4 → nhóm [4a](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout), bài 2/7 ·
-Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) phần B9.2.
+Kiểm chứng ở [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) ticket B8.
 
 **Đây là bài dài nhất trong nhóm 4a.** Nó gồm hai nửa rất khác nhau. Nửa đầu — từ *Cách tạo object*
 tới *Cách xóa object* — là một bài thực hành liền mạch, đọc kỹ. Nửa sau — từ *Cách apply tính toán

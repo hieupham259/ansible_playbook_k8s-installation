@@ -11,7 +11,7 @@
 
 **Vị trí:** [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), dòng **Thực
-hành**, bài 6/10 · Kiểm chứng ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B11.3 —
+hành**, bài 6/10 · Kiểm chứng ở [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B12 —
 headless Service với selector `job-name`, `completionMode: Indexed` và `subdomain`; Job chỉ
 `Complete` khi mọi Pod gọi được nhau bằng hostname.
 
@@ -41,8 +41,8 @@ trước, còn Service mới là thứ khiến hostname đó phân giải đư�
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Link *chế độ hoàn thành Indexed* trỏ ra bài blog kubernetes.io năm 2021 | bài blog là phần giới thiệu lịch sử; bản thân `completionMode: Indexed` bạn đã học và đã chạy rồi | bài [67 — Jobs](67-job-vi.md) và [353](353-indexed-parallel-processing-vi.md) ở [giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), thực hành ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B6.3 |
-| Script bash trong container ví dụ — vòng `while` `ping` lại tới khi `gotStatus` bằng `wantStatus` | đây là cách bài **chứng minh** mọi Pod gọi được nhau, không phải một cơ chế của Kubernetes; điều cần nhớ là Job chỉ hoàn thành sau khi mọi Pod ping thành công lẫn nhau | [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B11.3 chạy đúng ý tưởng này trên cluster lab |
+| Link *chế độ hoàn thành Indexed* trỏ ra bài blog kubernetes.io năm 2021 | bài blog là phần giới thiệu lịch sử; bản thân `completionMode: Indexed` bạn đã học và đã chạy rồi | bài [67 — Jobs](67-job-vi.md) và [353](353-indexed-parallel-processing-vi.md) ở [giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller), thực hành ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) ticket B9 |
+| Script bash trong container ví dụ — vòng `while` `ping` lại tới khi `gotStatus` bằng `wantStatus` | đây là cách bài **chứng minh** mọi Pod gọi được nhau, không phải một cơ chế của Kubernetes; điều cần nhớ là Job chỉ hoàn thành sau khi mọi Pod ping thành công lẫn nhau | [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B12 chạy đúng ý tưởng này trên cluster lab |
 
 ---
 

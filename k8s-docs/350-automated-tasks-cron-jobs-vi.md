@@ -15,8 +15,8 @@
 → [4b. StatefulSet, DaemonSet, Job và autoscaling](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling),
 bài 4/7 của dòng **Thực hành** · Kiểm chứng ở
 [Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md),
-**phần B9.1** (tạo CronJob, đọc Job và Pod nó sinh ra) và **B9.5** (xóa CronJob, quan sát Job
-biến mất theo).
+**ticket B6** (tạo CronJob, đọc Job và Pod nó sinh ra; xóa CronJob, quan sát Job và Pod biến
+mất theo).
 
 Bài này chỉ đi qua vòng đời cơ bản của một CronJob. Các núm điều khiển thật sự khó —
 `concurrencyPolicy`, `startingDeadlineSeconds`, `suspend` — nằm ở bài khái niệm
@@ -43,7 +43,7 @@ Bài này chỉ đi qua vòng đời cơ bản của một CronJob. Các núm đ
 | --- | --- | --- |
 | Mục *Trước khi bạn bắt đầu* — minikube và các playground | cluster lab ba VM đã dựng sẵn từ trước | [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
 | Link *thu gom rác* — cơ chế đứng sau việc xóa CronJob kéo theo Job và Pod | ở đây chỉ cần biết kết quả, chưa cần quan hệ owner và dependent | bài [36](36-garbage-collection-vi.md) đã đọc ở [1c. Vòng đời và cơ chế nền của object](00-ALO-TRINH-ADMIN.md#1c-vòng-đời-và-cơ-chế-nền-của-object) |
-| Việc lấy manifest ví dụ thẳng từ `k8s.io/examples` bằng `kubectl create -f <URL>` | lab tự viết manifest vào `~/lab-work/4b/` để sửa và đọc lại được | [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B9.1 |
+| Việc lấy manifest ví dụ thẳng từ `k8s.io/examples` bằng `kubectl create -f <URL>` | lab tự viết manifest vào `~/lab-work/4b/` để sửa và đọc lại được | [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) ticket B6 |
 
 ---
 

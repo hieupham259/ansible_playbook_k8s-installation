@@ -48,7 +48,7 @@ tiết.
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Điều kiện tiên quyết "cấu hình aggregation layer và bật các flag tương ứng của apiserver" | bài này chỉ nêu một dòng và trỏ đi, không giải thích cờ nào | bài [374](374-configure-aggregation-layer-vi.md) — bài 2/11 của chính [giai đoạn 28](00-ALO-TRINH-ADMIN.md#giai-đoạn-28--mở-rộng-kubernetes), đọc ngay trước bài này; ở mức khái niệm là bài [180](180-apiserver-aggregation-vi.md) |
-| `sample-apiserver` và `apiserver-builder` (bước 7 cần một image "hoạt động được") | phải viết và build binary cùng image từ mã nguồn Go — ngoài baseline của Lab 00, đúng lý do [Lab 14 ghi ở bảng phần không thực hành được](labs/LAB-14-CRD-VA-OPERATOR.md#11-ánh-xạ-tài-liệu-sang-bài-thực-hành) | không thuộc lộ trình — extension API server duy nhất bạn quan sát được trên cluster lab là metrics-server, đã mổ ở [Lab 14 phần B2](labs/LAB-14-CRD-VA-OPERATOR.md#b2-đúng-hai-cách-thêm-custom-resource-đo-trên-cluster-thật) |
+| `sample-apiserver` và `apiserver-builder` (bước 7 cần một image "hoạt động được") | phải viết và build binary cùng image từ mã nguồn Go — ngoài baseline của Lab 00, đúng lý do [Lab 14 ghi ở bảng phần không thực hành được](labs/LAB-14-CRD-VA-OPERATOR.md#11-ánh-xạ-tài-liệu-sang-bài-thực-hành) | không thuộc lộ trình — extension API server duy nhất bạn quan sát được trên cluster lab là metrics-server, đã mổ ở [Lab 14 ticket B1](labs/LAB-14-CRD-VA-OPERATOR.md#b1-bs-14-01-điều-tra-bản-đồ-điểm-mở-rộng-của-cluster) |
 | Bước 1 — kiểm `--runtime-config` xem API APIService còn bật không | bài nói rõ mặc định nó đã bật; chỉ phải đụng khi có người cố ý tắt, mà đó là sửa cờ của kube-apiserver đang chạy | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
 
 ---

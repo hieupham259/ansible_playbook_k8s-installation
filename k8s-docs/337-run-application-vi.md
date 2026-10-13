@@ -13,7 +13,7 @@
 
 **Vị trí:** Giai đoạn 4 → nhóm [4a](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout), bài 4/7 ·
 [Lab 4a](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) **không có phần thực hành cho bài này** —
-lab ghi rõ lý do ở bảng cuối mục 1.1: đây là trang mục lục, toàn bộ nội dung là danh sách link nên
+lab ghi rõ lý do ở bảng mục 1.1: đây là trang mục lục, toàn bộ nội dung là danh sách link nên
 không có thao tác nào để kiểm chứng.
 
 Đọc trang này trong vài phút, coi như một tấm bản đồ. Nó **không dạy gì mới**.

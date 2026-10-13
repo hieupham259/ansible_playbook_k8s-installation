@@ -13,8 +13,8 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3b. Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
-bài 7/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B4 (`command`, `args`,
-biến môi trường), B5 (biến lấy từ file) và B8 (Pod tiêu thụ Secret).
+bài 7/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) ticket B3 (biến môi trường),
+B9 (`command`, `args`), B11 ⭐ (biến lấy từ file) và B5 (Pod tiêu thụ Secret).
 
 Đây là **trang mục lục**, đọc trong vài phút. Nó chỉ liệt kê các trang con của mục *Inject Data
 Into Applications*.

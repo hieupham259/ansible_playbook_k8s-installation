@@ -9,15 +9,15 @@
 > Phần này không có trong trang gốc. Nó cho biết ở lần đọc này bạn cần hiểu sâu tới đâu và
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
-**Vị trí:** Giai đoạn 3 → nhóm [3b](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod), bài 7/7 ·
-Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md).
+**Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 4/4 ·
+Kiểm chứng ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B7.
 
 Bài ngắn nhất nhóm, nhưng nó giải thích chính **cluster của bạn**: `kube-apiserver`,
 `kube-controller-manager`, `kube-scheduler` và `etcd` trên `lab-k8s-master` đều là static Pod. Bạn
 đã nhìn thấy chúng dưới dạng file manifest ở
 [Lab 1a](labs/LAB-1A-KIEN-TRUC-VA-MO-HINH-DIEU-KHIEN.md#b2-kiểm-kê-component) mà chưa được
-gọi tên; bài này là cái tên đó. Nó cũng khép lại nhóm 3b bằng cách giải thích vì sao bài
-[109](109-secret-vi.md) nói static Pod không dùng được Secret.
+gọi tên; bài này là cái tên đó. Nó khép lại phần khái niệm của nhóm 3c, và giải thích luôn vì sao
+bài [109](109-secret-vi.md) ở nhóm 3b nói static Pod không dùng được Secret.
 
 **Phải hiểu ở lần đọc này:**
 
@@ -39,9 +39,9 @@ gọi tên; bài này là cái tên đó. Nó cũng khép lại nhóm 3b bằng 
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Cách tạo static Pod (link *tạo static Pod* ở mục cuối) | là thao tác dựng cluster | giai đoạn 8, bài [02](02-create-cluster-kubeadm-vi.md) |
+| Cách tạo static Pod (link *tạo static Pod* ở mục cuối) | là thao tác trên file của node, thuộc một bài thực hành riêng | bài [293](293-static-pod-tasks-vi.md) trong khối thực hành của nhóm 3c; làm ở [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B7 |
 | DaemonSet như một lựa chọn thay thế | chưa học controller | giai đoạn 4, bài [66](66-daemonset-vi.md) |
-| Annotation `kubernetes.io/config.mirror` | chi tiết nhận diện, dùng khi tra cứu | không cần |
+| Annotation `kubernetes.io/config.mirror` | chi tiết nhận diện, dùng khi tra cứu | [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) ticket B7 dùng nó để đếm và nhận ra mirror Pod |
 | Vì sao static Pod là rủi ro bảo mật (chạy được Pod mà không qua API server) | cần mô hình kiểm soát truy cập | giai đoạn 9, bài [128](128-api-server-bypass-risks-vi.md) |
 
 ---
@@ -156,6 +156,6 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
 
 </details>
 
-Nhóm 3b kết thúc ở đây. Câu nào chưa trả lời được thì quay lại đúng mục tương ứng, rồi chuyển
-sang [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) để kiểm chứng cả bảy
-bài trên cluster thật.
+Phần khái niệm của nhóm 3c kết thúc ở đây. Câu nào chưa trả lời được thì quay lại đúng mục tương
+ứng, rồi làm khối thực hành của nhóm và chuyển sang
+[Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) để kiểm chứng cả nhóm trên cluster thật.

@@ -13,9 +13,11 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
 dòng **Thực hành**, bài 5/10 · Kiểm chứng ở
-[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), phần B0.3 (tạo
-namespace bằng đúng khuôn manifest của bài), B1.2 (selector `!pod-security.kubernetes.io/enforce`)
-và B3.5 (`kubectl label --dry-run=server`).
+[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), ticket
+[B1](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b1-bs-9b-01-điều-tra-ba-profile-và-ba-chế-độ-trên-namespace-thử-nghiệm) (tạo
+namespace bằng đúng khuôn nhãn của bài, selector `!pod-security.kubernetes.io/enforce`,
+`kubectl label --dry-run=server`), [B2](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b2-bs-9b-02-bật-warn-và-audit-cho-bookstore-kiểm-kê-vi-phạm) (`enforce` ở mức chắc chắn,
+`warn`/`audit` ở mức mong muốn) và [B6](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b6-bs-9b-06-bật-enforce-restricted) (dry-run trước khi siết).
 
 Bài này là mặt còn lại của bài [282](282-enforce-standards-admission-controller-vi.md): cùng một
 chuẩn, hai chỗ đặt. Bài 282 đặt ở tầng cluster bằng file cấu hình của `kube-apiserver`; bài này
@@ -48,9 +50,9 @@ namespace thì sửa được cả mức chính sách — nằm ở mục 1 củ
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Nội dung thật sự của ba mức `privileged`, `baseline`, `restricted` — cái gì bị chặn ở mức nào | ở bài này chúng mới chỉ là **giá trị** của nhãn | bài [115](115-pod-security-standards-vi.md), đọc ngay sau Lab 9a trong cùng giai đoạn 9 |
-| Cơ chế phía sau nhãn: thứ tự đánh giá, miễn trừ, hành vi khác nhau giữa Pod và workload resource | bài này chỉ là công thức đặt nhãn, không giải thích plugin | bài [116](116-pod-security-admission-vi.md); [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) B1.2 và B3 làm rõ từng chế độ |
+| Cơ chế phía sau nhãn: thứ tự đánh giá, miễn trừ, hành vi khác nhau giữa Pod và workload resource | bài này chỉ là công thức đặt nhãn, không giải thích plugin | bài [116](116-pod-security-admission-vi.md); [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b1-bs-9b-01-điều-tra-ba-profile-và-ba-chế-độ-trên-namespace-thử-nghiệm) ticket B1 làm rõ từng chế độ |
 | Audit annotation mà chế độ `audit` ghi ra khi Pod vi phạm | đọc được nội dung đó cần một audit backend đang chạy, tức phải sửa cờ của `kube-apiserver` | [giai đoạn 22 — Audit và mã hóa dữ liệu](00-ALO-TRINH-ADMIN.md#giai-đoạn-22--audit-và-mã-hóa-dữ-liệu), bài [306](306-audit-vi.md) |
-| Con số phiên bản `v1.36` trong các ví dụ nhãn `-version` | là phiên bản của trang gốc, không phải của cluster bạn | phiên bản khóa nằm ở [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) B0.2 suy nhãn version từ chính cluster |
+| Con số phiên bản `v1.36` trong các ví dụ nhãn `-version` | là phiên bản của trang gốc, không phải của cluster bạn | phiên bản khóa nằm ở [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa); [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b0-nhận-bàn-giao-sprint) B0 suy nhãn version từ chính cluster |
 
 ---
 

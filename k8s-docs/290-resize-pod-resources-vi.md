@@ -11,14 +11,16 @@
 
 **Vị trí:** Giai đoạn 3 → nhóm [3c](00-ALO-TRINH-ADMIN.md#3c-tài-nguyên-qos-và-gián-đoạn), bài 7/9 ·
 **Không kiểm chứng được trên cluster lab** — [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md)
-ghi rõ lý do ở bảng *Ánh xạ tài liệu sang bài thực hành*; phần gần nhất bạn làm được là B6, nơi
-resize diễn ra ở **cấp container**.
+ghi rõ lý do ở bảng *Ánh xạ tài liệu sang bài thực hành*; phần gần nhất bạn làm được là ticket B5,
+nơi resize diễn ra ở **cấp container**, còn ticket B8 ⭐ chứng minh API server chặn resize cấp Pod.
 
 Bài là giao điểm của hai bài vừa đọc: [265](265-assign-pod-level-resources-vi.md) cho tài nguyên
 cấp Pod và [289](289-resize-container-resources-vi.md) cho cơ chế resize. Đọc bài này **sau** cả
-hai, nếu không mọi câu trong bài đều treo lơ lửng. Tính năng đòi bốn feature gate mà baseline của
-[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) không bật, nên đây là bài đọc để hiểu ranh giới, không
-phải để chạy.
+hai, nếu không mọi câu trong bài đều treo lơ lửng. Tính năng đòi bốn feature gate. Ở baseline của
+[Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md), hai gate đã bật mặc định — `InPlacePodVerticalScaling`
+(GA) và `PodLevelResources` (beta); hai gate còn lại, `InPlacePodLevelResourcesVerticalScaling` và
+`NodeDeclaredFeatures`, đều alpha và tắt. Vì vậy đây là bài đọc để hiểu ranh giới, không phải để
+chạy.
 
 **Phải hiểu ở lần đọc này:**
 
@@ -46,7 +48,7 @@ phải để chạy.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Bốn feature gate liệt kê ở *Trước khi bạn bắt đầu* và cách bật chúng | bật gate là sửa apiserver và kubelet của cluster đang chạy, làm lệch baseline Lab 00 | [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy) |
+| Cách bật hai gate alpha còn tắt trong danh sách ở *Trước khi bạn bắt đầu* | bật gate là sửa apiserver và kubelet của cluster đang chạy, làm lệch baseline Lab 00 | cách bật gate: bài [196](196-configure-feature-gates-vi.md) ở [giai đoạn 20](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy); bản thân resize cấp Pod không kiểm chứng trong lộ trình — bảng phần hoãn của [Lab 3c](labs/LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) |
 | Thứ tự thử lại các resize `Deferred` theo PriorityClass rồi tới lớp QoS | cần biết PriorityClass trước | bài [141](141-pod-priority-preemption-vi.md) ở [giai đoạn 7a](00-ALO-TRINH-ADMIN.md#7a-scheduling-và-eviction) |
 | Các trường `observedGeneration` dùng để truy vết yêu cầu resize | công cụ đối chiếu chi tiết khi một lần resize treo | mô tả đầy đủ ở bài [289](289-resize-container-resources-vi.md), dùng tới khi gỡ rối ở [giai đoạn 24](00-ALO-TRINH-ADMIN.md#giai-đoạn-24--xử-lý-sự-cố) |
 

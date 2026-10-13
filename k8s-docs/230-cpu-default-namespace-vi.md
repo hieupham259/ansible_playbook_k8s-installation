@@ -28,8 +28,8 @@ LimitRange đặt `min`/`max` — **từ chối** Pod khai ngoài khoảng — v
 **ResourceQuota**, trần của **cả namespace**.
 
 Việc "LimitRange chèn giá trị mặc định vào Pod trần" bạn đã làm ở
-[Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) phần B2.3, và cái bẫy `default` nhỏ hơn
-`requests` của client ở phần B2.6. Cái giai đoạn 25 thêm vào ở trang này là **hai trường hợp khai
+[Lab 7b](labs/LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) ticket B2, và cái bẫy `default` nhỏ hơn
+`requests` của client cũng ở ticket B2. Cái giai đoạn 25 thêm vào ở trang này là **hai trường hợp khai
 nửa vời** — chỉ khai limit, hoặc chỉ khai request — và chúng cho ra hai kết quả khác nhau.
 
 **Phải hiểu ở lần đọc này:**

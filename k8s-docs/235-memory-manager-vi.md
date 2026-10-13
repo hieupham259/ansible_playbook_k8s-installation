@@ -24,7 +24,7 @@ bài [224](224-kubelet-config-file-vi.md). Nền lý thuyết đã có ở bài
 Nói thẳng về giới hạn của cluster lab: cả ba VM chỉ có **một NUMA domain**, và chính sách mặc
 định là `None`. Trên cluster này bạn **đo được** hai thứ: đếm số NUMA node bằng
 `ls -d /sys/devices/system/node/node[0-9]*` và đọc `memoryManagerPolicy` **hiệu lực** qua
-`configz`, đúng như [Lab 14 phần B10.4](labs/LAB-14-CRD-VA-OPERATOR.md#b104-topology-manager-đang-ở-policy-nào)
+`configz`, đúng như [Lab 14 ticket B7](labs/LAB-14-CRD-VA-OPERATOR.md#b7-bs-14-07-điều-tra-thiết-bị-chuyên-dụng-và-topology-của-node)
 đã làm. Bạn **không đo được** hiệu quả của chính sách `Static`: với một NUMA domain thì "số NUMA
 node tối thiểu" luôn bằng 1, không có ranh giới nào để căn. Đọc bài để biết cấu hình đúng khi
 vận hành máy chủ vật lý nhiều socket, đừng sửa kubelet của lab để "thử cho biết".
@@ -58,7 +58,7 @@ vận hành máy chủ vật lý nhiều socket, đừng sửa kubelet của lab
 | Mục *Trước khi bạn bắt đầu* — minikube và ba playground trực tuyến | cluster lab đã có sẵn ba VM; lộ trình không dùng minikube hay cluster dùng chung | [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) |
 | Mục *Hỗ trợ Windows* và chính sách `BestEffort` | ba node lab đều là Linux; tính năng còn alpha, cần feature gate và container runtime hỗ trợ | [Giai đoạn 15 — Windows](00-ALO-TRINH-ADMIN.md#giai-đoạn-15--windows-nếu-môi-trường-có-node-windows), chỉ mở khi môi trường thật có node Windows |
 | Mục *Cú pháp bộ nhớ dành riêng* (Ví dụ 1, Ví dụ 2, `hugepages-1Gi`) và *Các cấu hình cần tránh* | chỉ dùng được khi bật `Static` trên máy nhiều NUMA domain; VM lab chỉ có một | khi vận hành máy chủ vật lý nhiều socket; đối chiếu bài [74](74-resource-managers-vi.md) ở [nhóm 7b](00-ALO-TRINH-ADMIN.md#7b-chính-sách-giới-hạn-tài-nguyên) — đã đọc |
-| Sơ đồ luồng admission và các bộ đếm nội bộ *Node Map and Memory Maps* | là chi tiết cài đặt bên trong kubelet, chỉ cần khi phải tra lỗi thật | bài [313 — Khắc phục sự cố Topology Management](313-debug-topology-vi.md) (dòng Thực hành [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng)) — đã đọc, kiểm chứng ở [Lab 14 B10.4](labs/LAB-14-CRD-VA-OPERATOR.md#b104-topology-manager-đang-ở-policy-nào) |
+| Sơ đồ luồng admission và các bộ đếm nội bộ *Node Map and Memory Maps* | là chi tiết cài đặt bên trong kubelet, chỉ cần khi phải tra lỗi thật | bài [313 — Khắc phục sự cố Topology Management](313-debug-topology-vi.md) (dòng Thực hành [giai đoạn 14](00-ALO-TRINH-ADMIN.md#giai-đoạn-14--khả-năng-mở-rộng)) — đã đọc, kiểm chứng ở [Lab 14 ticket B7](labs/LAB-14-CRD-VA-OPERATOR.md#b7-bs-14-07-điều-tra-thiết-bị-chuyên-dụng-và-topology-của-node) |
 
 ---
 

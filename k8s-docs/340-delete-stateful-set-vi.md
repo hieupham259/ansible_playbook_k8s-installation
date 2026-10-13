@@ -11,10 +11,10 @@
 
 **Vị trí:** [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng), dòng **Thực
-hành**, bài 4/10 · Kiểm chứng ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B3.3 —
-xóa theo tầng so với `--cascade=orphan`, rồi dọn Pod bằng label; và
-[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B13 nhắc lại đúng điểm mà bài này thêm
-vào: Service quản trị **không** bị xóa theo StatefulSet.
+hành**, bài 4/10 · Kiểm chứng ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) ticket B3 —
+xóa StatefulSet với `--cascade=orphan`, rồi dọn Pod bằng label; và
+[Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B12 — xóa một StatefulSet thử nghiệm
+theo đúng trình tự của bài, và đúng điểm bài này thêm vào: Service quản trị **không** bị xóa theo.
 
 Bài về StatefulSet nhưng được xếp ở giai đoạn 5 vì nó chạm tới **headless Service**: mục *Xóa một
 StatefulSet* nói bạn có thể phải xóa riêng Service đó sau khi StatefulSet đã biến mất, và chỉ ở

@@ -17,8 +17,8 @@
 → [4b. StatefulSet, DaemonSet, Job và autoscaling](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling),
 bài 3/7 của dòng **Thực hành** · Kiểm chứng ở
 [Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md),
-**phần B6**: lab dùng trang này như bảng chọn và chạy ba mẫu mà nó liệt kê — Indexed Job ở
-**B6.3**, CronJob ở **B9**, khai triển template ở **B10**.
+**ticket B9**: lab dùng trang này như bảng chọn và chạy các mẫu mà nó liệt kê — Indexed Job ở
+**B9**, CronJob ở **B6**, khai triển template ở phần ⭐ của **B9**.
 
 Đây là **trang mục lục**, đọc trong vài phút. Không có bước nào để làm theo.
 
@@ -94,13 +94,13 @@ Trả lời được các câu sau mà không nhìn lại bài là đủ cho l�
    [355](355-parallel-processing-expansion-vi.md).
 3. Chạy thật ở nhóm 4b: **CronJob ([350](350-automated-tasks-cron-jobs-vi.md))**, **Indexed Job
    ([353](353-indexed-parallel-processing-vi.md))** và **khai triển template
-   ([355](355-parallel-processing-expansion-vi.md))** — tương ứng các phần B9, B6.3 và B10 của
+   ([355](355-parallel-processing-expansion-vi.md))** — tương ứng ticket B6, B9 và phần ⭐ của B9 trong
    [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md). Để lại giai đoạn sau: **hàng đợi công
    việc mịn ([352](352-fine-parallel-work-queue-vi.md))** và **Job giao tiếp Pod-với-Pod
    ([354](354-job-pod-to-pod-communication-vi.md))** ở giai đoạn 5, **Pod failure policy
    ([383](383-pod-failure-policy-vi.md))** ở giai đoạn 29. Còn **hàng đợi công việc thô
    ([351](351-coarse-parallel-work-queue-vi.md))** thì đọc ở nhóm 4b để nắm mẫu, nhưng lab chỉ
-   dựng được **hình dạng** của nó ở phần B6.4.
+   dựng được **hình dạng** của nó ở phần ⭐ của ticket B9.
 
 </details>
 

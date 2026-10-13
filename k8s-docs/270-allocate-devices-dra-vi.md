@@ -13,11 +13,11 @@
 > phần nào để dành cho giai đoạn sau. Xem [lộ trình](00-ALO-TRINH-ADMIN.md).
 
 **Vị trí:** [Giai đoạn 13 — Lập lịch và workload nâng cao](00-ALO-TRINH-ADMIN.md#giai-đoạn-13--lập-lịch-và-workload-nâng-cao)
-→ dòng **Thực hành**, bài 4/5 · Kiểm chứng ở [Lab 13 — DRA](labs/LAB-13-DRA.md) phần B4.
+→ dòng **Thực hành**, bài 4/5 · Kiểm chứng ở [Lab 13 — DRA](labs/LAB-13-DRA.md) ticket B2 và B3.
 
 Bài này viết cho **người vận hành workload**, không phải cho quản trị viên — đó là lý do nó bắt
 đầu bằng `kubectl get deviceclasses` chứ không bằng việc tạo ra DeviceClass. Cluster lab không có
-thiết bị nào, nên ở phần B4 của Lab 13 bạn chỉ đi tới **đúng chỗ mà bài nói luồng sẽ dừng lại**:
+thiết bị nào, nên ở ticket B2 của Lab 13 bạn chỉ đi tới **đúng chỗ mà bài nói luồng sẽ dừng lại**:
 Pod ở trạng thái pending.
 
 **Phải hiểu ở lần đọc này:**
@@ -47,7 +47,7 @@ Pod ở trạng thái pending.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Biểu thức CEL trong `selectors` — `device.attributes[…]`, `device.capacity[…] == quantity("64Gi")` | phải có ResourceSlice thật mới biết thuộc tính nào tồn tại; không có thiết bị thì mọi selector đều không khớp | bài [271](271-set-up-dra-cluster-vi.md) mục *Tạo DeviceClass*, bài kế của nhóm; [Lab 13](labs/LAB-13-DRA.md) phần B3.2 |
+| Biểu thức CEL trong `selectors` — `device.attributes[…]`, `device.capacity[…] == quantity("64Gi")` | phải có ResourceSlice thật mới biết thuộc tính nào tồn tại; không có thiết bị thì mọi selector đều không khớp | bài [271](271-set-up-dra-cluster-vi.md) mục *Tạo DeviceClass*, bài kế của nhóm; [Lab 13](labs/LAB-13-DRA.md) ticket B2 |
 | Cơ chế `completions: 10` và `parallelism: 2` của Job ví dụ | ở đây Job chỉ là cái vỏ để cho thấy hai chỗ khai báo claim | bài [67](67-job-vi.md), đã đọc ở [giai đoạn 4](00-ALO-TRINH-ADMIN.md#giai-đoạn-4--workload-controller) |
 | Chạy thật Job ví dụ rồi xem thiết bị được cấp phát, và mục *Dọn dẹp* đi kèm | cluster lab không có GPU và không có DRA driver | [Lab 13](labs/LAB-13-DRA.md) — chỉ nhánh A cấp phát thật; nhánh B dừng lại ở trạng thái pending |
 

@@ -13,7 +13,7 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → [nhóm 3b — Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
-bài 10/12 · Kiểm chứng ở [Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md), `phần B5`
+bài 10/12 · Kiểm chứng ở [Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md), ticket B11 ⭐
 (`fileKeyRef`, `emptyDir` và cú pháp file env).
 
 Đây là bài duy nhất trong nhóm nói về một tính năng còn ở trạng thái **beta**, và bài cũng đòi
@@ -45,7 +45,7 @@ chiếu ở đó trước khi thử, đừng lấy số trong bài. Bài đứng
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Ghi chú "mọi loại container đều hỗ trợ nạp biến từ file", gồm sidecar và ephemeral container | bài chỉ dựng đúng một đường: init container ghi → container thường đọc | bài [51](51-sidecar-containers-vi.md) và [52](52-ephemeral-containers-vi.md) đã đọc ở [nhóm 3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời) |
-| Đường **đúng** để đưa dữ liệu nhạy cảm vào container | bài này chỉ cảnh báo rằng `emptyDir` không phải chỗ đó, không chỉ chỗ thay thế | bài [334](334-distribute-credentials-secure-vi.md) cuối nhóm 3b, kiểm chứng ở `phần B8` của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
+| Đường **đúng** để đưa dữ liệu nhạy cảm vào container | bài này chỉ cảnh báo rằng `emptyDir` không phải chỗ đó, không chỉ chỗ thay thế | bài [334](334-distribute-credentials-secure-vi.md) cuối nhóm 3b, kiểm chứng ở ticket B5 của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
 | Bản thân volume `emptyDir`: vòng đời, nơi lưu, giới hạn dung lượng | ở đây nó chỉ đóng vai chỗ trung chuyển một file | bài [91](91-volumes-vi.md) ở [giai đoạn 6](00-ALO-TRINH-ADMIN.md#giai-đoạn-6--lưu-trữ) |
 
 ---

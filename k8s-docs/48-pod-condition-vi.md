@@ -42,7 +42,7 @@ không lên `Ready` mà `kubectl get pod` chưa nói được vì sao.
 | --- | --- | --- |
 | Trường `observedGeneration` của condition | là chi tiết API của Pod generation | bài [46](46-pods-vi.md), mục *Generation của Pod* |
 | Việc Pod không `Ready` bị loại khỏi endpoint của Service | chưa học Service | giai đoạn 5 — bài [82](82-service-vi.md) |
-| `PodResizePending` và `PodResizeInProgress` | dựa trên requests/limits chưa học | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
+| `PodResizePending` và `PodResizeInProgress` | dựa trên requests/limits chưa học | giai đoạn 3, nhóm 3c — bài [110](110-manage-resources-containers-vi.md) |
 | Cơ chế đứng sau từng `reason` của `DisruptionTarget` | mỗi cơ chế là một bài riêng | giai đoạn 7 — bài [139](139-taint-and-toleration-vi.md), [141](141-pod-priority-preemption-vi.md), [143](143-api-eviction-vi.md) |
 | *Độ sẵn sàng nâng cao của Pod* — tự viết controller quản condition tùy chỉnh | cần biết viết controller | giai đoạn 14 — bài [181](181-operator-vi.md) |
 

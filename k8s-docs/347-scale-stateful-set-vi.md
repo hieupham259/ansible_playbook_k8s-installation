@@ -15,7 +15,7 @@
 → [4b. StatefulSet, DaemonSet, Job và autoscaling](00-ALO-TRINH-ADMIN.md#4b-statefulset-daemonset-job-và-autoscaling),
 bài 2/7 của dòng **Thực hành** · Kiểm chứng ở
 [Lab 4b — StatefulSet, DaemonSet và Job](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md),
-**phần B2**.
+**ticket B2**.
 
 Bài rất ngắn, và phần đáng giá nhất nằm ở mục *Xử lý sự cố* chứ không ở mấy lệnh scale. Đọc kỹ
 mục đó: nó giải thích vì sao StatefulSet không chịu thu nhỏ khi có Pod đang hỏng.
@@ -44,8 +44,8 @@ mục đó: nó giải thích vì sao StatefulSet không chịu thu nhỏ khi c�
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Ghi chú StatefulSet chỉ khả dụng từ Kubernetes 1.5 trở lên, và lệnh `kubectl version` để kiểm tra | phiên bản khóa của cluster lab mới hơn rất nhiều nên điều kiện luôn thỏa | [bảng A1.3 của Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa) |
-| Hai link trỏ thẳng ra kubernetes.io: *hướng dẫn StatefulSet* và *cập nhật tại chỗ* | là tài liệu ngoài lộ trình dịch, không cần cho lần đọc này | thao tác scale hai chiều làm trực tiếp ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B2 |
-| Link *xóa một StatefulSet* (bài [340](340-delete-stateful-set-vi.md)) ở mục *Tiếp theo* | lộ trình xếp bài đó ở một giai đoạn sau, không thuộc nhóm 4b | dòng **Thực hành** của [giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng); riêng thao tác xóa theo tầng và `--cascade=orphan` đã có ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) phần B3.3 |
+| Hai link trỏ thẳng ra kubernetes.io: *hướng dẫn StatefulSet* và *cập nhật tại chỗ* | là tài liệu ngoài lộ trình dịch, không cần cho lần đọc này | thao tác scale hai chiều làm trực tiếp ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) ticket B2 |
+| Link *xóa một StatefulSet* (bài [340](340-delete-stateful-set-vi.md)) ở mục *Tiếp theo* | lộ trình xếp bài đó ở một giai đoạn sau, không thuộc nhóm 4b | dòng **Thực hành** của [giai đoạn 5 — Mạng nền tảng](00-ALO-TRINH-ADMIN.md#giai-đoạn-5--mạng-nền-tảng); riêng thao tác xóa theo tầng và `--cascade=orphan` đã có ở [Lab 4b](labs/LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) ticket B3 |
 
 ---
 

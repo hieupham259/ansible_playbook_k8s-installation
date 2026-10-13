@@ -13,8 +13,9 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
 dòng **Thực hành**, bài 2/10 · Kiểm chứng ở
-[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), phần B5 (B5.1 vì sao
-không ghi thẳng vào `/proc/sys`, B5.2 sysctl an toàn, B5.3 sysctl không an toàn).
+[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), ticket
+[B7 ⭐](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b7-bs-9b-07--điều-tra-kernel-thật-sự-áp-gì-và-sysctl)
+(vì sao không ghi thẳng vào `/proc/sys`, sysctl an toàn, sysctl không an toàn).
 
 Bài mở đầu bằng phần *Trước khi bạn bắt đầu* gợi ý minikube và các playground. Bỏ qua đoạn đó:
 mọi lab của lộ trình chạy trên ba VM `lab-k8s-master`, `lab-k8s-worker1`, `lab-k8s-worker2`, và
@@ -45,8 +46,8 @@ mọi lab của lộ trình chạy trên ba VM `lab-k8s-master`, `lab-k8s-worker
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Danh sách đầy đủ tên sysctl an toàn kèm phiên bản Kubernetes và kernel tối thiểu của từng cái | là bảng tra cứu, không phải thứ học thuộc; ở đây chỉ cần biết danh sách này **ngắn và đóng** | bài [115](115-pod-security-standards-vi.md) đọc ngay sau Lab 9a — chính danh sách này là một ô trong bảng đặc tả Baseline; [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) B5.2 dùng đúng một mục trong đó |
-| Cờ kubelet `--allowed-unsafe-sysctls` và biến thể `--extra-config` của minikube | bật nó là **sửa cấu hình kubelet trên từng node**, việc mà Lab 9b cấm | [giai đoạn 20 — Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy); [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md) B5.3 chứng minh mặt còn lại của cùng một câu mà không đụng vào node nào |
+| Danh sách đầy đủ tên sysctl an toàn kèm phiên bản Kubernetes và kernel tối thiểu của từng cái | là bảng tra cứu, không phải thứ học thuộc; ở đây chỉ cần biết danh sách này **ngắn và đóng** | bài [115](115-pod-security-standards-vi.md) đọc ngay sau Lab 9a — chính danh sách này là một ô trong bảng đặc tả Baseline; [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b7-bs-9b-07--điều-tra-kernel-thật-sự-áp-gì-và-sysctl) ticket B7 dùng đúng một mục trong đó |
+| Cờ kubelet `--allowed-unsafe-sysctls` và biến thể `--extra-config` của minikube | bật nó là **sửa cấu hình kubelet trên từng node**, việc mà Lab 9b cấm | [giai đoạn 20 — Cấu hình lại cluster đang chạy](00-ALO-TRINH-ADMIN.md#giai-đoạn-20--cấu-hình-lại-cluster-đang-chạy); [Lab 9b](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b7-bs-9b-07--điều-tra-kernel-thật-sự-áp-gì-và-sysctl) ticket B7 chứng minh mặt còn lại của cùng một câu mà không đụng vào node nào |
 | Mục *Liệt kê tất cả các tham số sysctl* — `sudo sysctl -a`, `/proc/sys/`, các tiền tố `kernel.` `net.` `vm.` `dev.` | là kiến thức Linux nền, không phải cơ chế của Kubernetes | [giai đoạn 0 — Kiến thức nền ngoài thư mục này](00-ALO-TRINH-ADMIN.md#giai-đoạn-0--kiến-thức-nền-ngoài-thư-mục-này) |
 | Khuyến nghị coi node có sysctl đặc biệt như node bị taint, và dùng taint/toleration để ghim Pod vào đúng node | đây là lời khuyên vận hành dựa trên cơ chế đã học rồi | bài [139](139-taint-and-toleration-vi.md) ở [giai đoạn 7](00-ALO-TRINH-ADMIN.md#giai-đoạn-7--lập-lịch-và-chính-sách-tài-nguyên), đã thực hành ở [Lab 7a](labs/LAB-7A-LAP-LICH-VA-EVICTION.md) |
 

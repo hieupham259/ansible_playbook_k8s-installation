@@ -1,7 +1,16 @@
 # Lab thực hành cho lộ trình Kubernetes Administrator
 
-Thư mục này chứa các bài lab đi kèm [00-ALO-TRINH-ADMIN.md](../00-ALO-TRINH-ADMIN.md). Mỗi lab là một
-runbook chạy được trên cluster thật, có gate `PASS:` ở từng bước và checkpoint vấn đáp ở cuối.
+Thư mục này chứa các bài lab đi kèm [00-ALO-TRINH-ADMIN.md](../00-ALO-TRINH-ADMIN.md). Mỗi lab chạy
+trên cluster thật, có gate `PASS:` và checkpoint vấn đáp ở cuối.
+
+Các lab có hai dạng:
+
+- **Lab 00 → Lab 2 và Lab 15** là runbook: đưa sẵn lệnh, gate sau từng bước.
+- **Lab 3a → Lab 14** là các **sprint** của [dự án Bookstore](DU-AN-BOOKSTORE.md) — đưa một ứng dụng
+  ba tầng (nginx → PostgREST → PostgreSQL) lên Kubernetes và hoàn thiện nó qua từng nhóm bài. Lab
+  giao **ticket** (yêu cầu, ràng buộc, mục tài liệu cần đọc lại, tiêu chí nghiệm thu), người học tự
+  viết manifest và tự chứng minh bằng script nghiệm thu; gợi ý và lời giải nằm trong khối gập. Đọc
+  [file dự án](DU-AN-BOOKSTORE.md) trước khi mở Lab 3a.
 
 Bắt đầu ở [Lab 00 — Môi trường](LAB-00-MOI-TRUONG-1.35.7.md). Không lab nào khác lặp lại phần dựng
 môi trường; tất cả đều bắt đầu từ một snapshot có tên.
@@ -77,27 +86,27 @@ khi sang lab sau.
 | [1b — Object, label, kubectl và kubeconfig](LAB-1B-OBJECT-LABEL-KUBECTL-VA-KUBECONFIG.md) | 1b (9 bài) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
 | [1c — Vòng đời và cơ chế nền của object](LAB-1C-VONG-DOI-VA-CO-CHE-NEN-CUA-OBJECT.md) | 1c (7 bài + 1 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
 | [2 — Container, image, CRI và cgroup](LAB-2-CONTAINER-IMAGE-CRI-VA-CGROUP.md) | 2 (8 bài + 2 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
-| [3a — Pod và vòng đời](LAB-3A-POD-VA-VONG-DOI.md) | 3a (11 bài + 11 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
-| [3b — Cấu hình ứng dụng](LAB-3B-CAU-HINH-UNG-DUNG.md) | 3b (3 bài + 11 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
-| [3c — Tài nguyên, QoS và gián đoạn](LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) | 3c (4 bài + 8 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
-| [4a — ReplicaSet, Deployment và rollout](LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) | 4a (6 bài + 4 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 2–3 | ✅ đã viết |
-| [4b — StatefulSet, DaemonSet và Job](LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) | 4b (9 bài + 9 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
-| [5a — Service, EndpointSlice và DNS](LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) | 5 (phần Service/DNS) | `01-cluster-ready` | trả về `01-cluster-ready` | 3–4 | ✅ đã viết |
-| [5b — NetworkPolicy, Ingress và CNI](LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) | 5 (phần policy/ingress) | `01-cluster-ready` | **tạo** `02-net-ready` | 3–4 | ✅ đã viết |
-| [6a — PV, PVC và StorageClass](LAB-6A-PV-PVC-VA-STORAGECLASS.md) | 6 (phần cốt lõi) | `02-net-ready` | **tạo** `03-storage-ready` | 3–4 | ✅ đã viết |
-| [6b — Snapshot và volume nâng cao](LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md) | 6 (phần còn lại) | `03-storage-ready` | trả về `03-storage-ready` | 2–3 | ✅ đã viết |
-| [7a — Lập lịch và eviction](LAB-7A-LAP-LICH-VA-EVICTION.md) | 7a (13 bài) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ✅ đã viết |
-| [7b — Quota và giới hạn tài nguyên](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) | 7b (6 bài) | `03-storage-ready` | trả về `03-storage-ready` | 2–3 | ✅ đã viết |
-| [8a — Dựng cluster bằng kubeadm](LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md) | 8 (bài 01–05, 09) | `03-storage-ready` | phá cluster rồi **restore** `03-storage-ready` | 4 | ✅ đã viết |
-| [8b — HA với stacked etcd](LAB-8B-HA-VOI-STACKED-ETCD.md) | 8 (bài 06, 08) | bộ VM riêng, dựng mới | **tạo** `8x-ha-stacked` | 4 | ✅ đã viết |
-| [8c — HA với external etcd](LAB-8C-HA-VOI-EXTERNAL-ETCD.md) | 8 (bài 06, 07, 08) | bộ VM riêng của lab 8b, reset | **tạo** `8x-ha-external` | 4 | ✅ đã viết |
-| [9a — ServiceAccount, authn/authz và RBAC](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) | 9 (phần truy cập) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ✅ đã viết |
-| [9b — Pod Security và hardening](LAB-9B-POD-SECURITY-VA-HARDENING.md) | 9 (phần policy) | `03-storage-ready` | trả về `03-storage-ready` | 3–4 | ✅ đã viết |
-| [11a — Observability](LAB-11A-OBSERVABILITY.md) | 11 (6 bài) | `03-storage-ready` | **tạo** `04-metrics-ready` | 3–4 | ✅ đã viết |
-| [11b — HPA và VPA](LAB-11B-HPA-VA-VPA.md) | trả nợ giai đoạn 4 | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ✅ đã viết |
-| [12 — Vận hành vòng đời node](LAB-12-VAN-HANH-VONG-DOI-NODE.md) | 12 (8 bài) | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ✅ đã viết |
-| [13 — DRA (tùy chọn)](LAB-13-DRA.md) | 13 | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ✅ đã viết |
-| [14 — CRD và Operator](LAB-14-CRD-VA-OPERATOR.md) | 14 (7 bài) | `04-metrics-ready` | trả về `04-metrics-ready` | 2–3 | ✅ đã viết |
+| [3a — Pod và vòng đời](LAB-3A-POD-VA-VONG-DOI.md) · Sprint 1 | 3a (11 bài + 11 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 4–6 | ✅ đã viết |
+| [3b — Cấu hình ứng dụng](LAB-3B-CAU-HINH-UNG-DUNG.md) · Sprint 2 | 3b (3 bài + 11 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 4–6 | ✅ đã viết |
+| [3c — Tài nguyên, QoS và gián đoạn](LAB-3C-TAI-NGUYEN-QOS-VA-GIAN-DOAN.md) · Sprint 3 | 3c (4 bài + 9 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 4–5 | ✅ đã viết |
+| [4a — ReplicaSet, Deployment và rollout](LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md) · Sprint 4 | 4a (5 bài + 7 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 4–5 | ✅ đã viết |
+| [4b — StatefulSet, DaemonSet và Job](LAB-4B-STATEFULSET-DAEMONSET-VA-JOB.md) · Sprint 5 | 4b (9 bài + 9 bài thực hành) | `01-cluster-ready` | trả về `01-cluster-ready` | 4–5 | ✅ đã viết |
+| [5a — Service, EndpointSlice và DNS](LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) · Sprint 6 | 5 (phần Service/DNS) | `01-cluster-ready` | trả về `01-cluster-ready` | 4–5 | ✅ đã viết |
+| [5b — NetworkPolicy, Ingress và CNI](LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) · Sprint 7 | 5 (phần policy/ingress) | `01-cluster-ready` | **tạo** `02-net-ready` | 4–5 | ✅ đã viết |
+| [6a — PV, PVC và StorageClass](LAB-6A-PV-PVC-VA-STORAGECLASS.md) · Sprint 8 | 6 (phần cốt lõi) | `02-net-ready` | **tạo** `03-storage-ready` | 4–5 | ✅ đã viết |
+| [6b — Snapshot và volume nâng cao](LAB-6B-SNAPSHOT-VA-VOLUME-NANG-CAO.md) · Sprint 9 | 6 (phần còn lại) | `03-storage-ready` | trả về `03-storage-ready` | 4–5 | ✅ đã viết |
+| [7a — Lập lịch và eviction](LAB-7A-LAP-LICH-VA-EVICTION.md) · Sprint 10 | 7a (13 bài) | `03-storage-ready` | trả về `03-storage-ready` | 4–5 | ✅ đã viết |
+| [7b — Quota và giới hạn tài nguyên](LAB-7B-QUOTA-VA-GIOI-HAN-TAI-NGUYEN.md) · Sprint 11 | 7b (6 bài) | `03-storage-ready` | trả về `03-storage-ready` | 4–5 | ✅ đã viết |
+| [8a — Dựng cluster bằng kubeadm](LAB-8A-DUNG-CLUSTER-BANG-KUBEADM.md) · Sprint 12 | 8 (bài 01–05, 09) | `03-storage-ready` | phá cluster rồi **restore** `03-storage-ready` | 5–6 | ✅ đã viết |
+| [8b — HA với stacked etcd](LAB-8B-HA-VOI-STACKED-ETCD.md) · Sprint 13 | 8 (bài 06, 08) | bộ VM riêng, dựng mới | **tạo** `8x-ha-stacked` | 4–5, chưa kể dựng VM | ✅ đã viết |
+| [8c — HA với external etcd](LAB-8C-HA-VOI-EXTERNAL-ETCD.md) · Sprint 14 | 8 (bài 06, 07, 08) | bộ VM riêng của lab 8b, reset | **tạo** `8x-ha-external` | 4–5 | ✅ đã viết |
+| [9a — ServiceAccount, authn/authz và RBAC](LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) · Sprint 15 | 9 (phần truy cập) | `03-storage-ready` | trả về `03-storage-ready` | 4–5 | ✅ đã viết |
+| [9b — Pod Security và hardening](LAB-9B-POD-SECURITY-VA-HARDENING.md) · Sprint 16 | 9 (phần policy) | `03-storage-ready` | trả về `03-storage-ready` | 4–5 | ✅ đã viết |
+| [11a — Observability](LAB-11A-OBSERVABILITY.md) · Sprint 17 | 11 (6 bài) | `03-storage-ready` | **tạo** `04-metrics-ready` | 4–6 | ✅ đã viết |
+| [11b — HPA và VPA](LAB-11B-HPA-VA-VPA.md) · Sprint 18 | trả nợ giai đoạn 4 | `04-metrics-ready` | trả về `04-metrics-ready` | 4–5 | ✅ đã viết |
+| [12 — Vận hành vòng đời node](LAB-12-VAN-HANH-VONG-DOI-NODE.md) · Sprint 19 | 12 (8 bài) | `04-metrics-ready` | trả về `04-metrics-ready` | 4–5 | ✅ đã viết |
+| [13 — DRA (tùy chọn)](LAB-13-DRA.md) · Sprint 20 | 13 | `04-metrics-ready` | trả về `04-metrics-ready` | 4–5 | ✅ đã viết |
+| [14 — CRD và Operator](LAB-14-CRD-VA-OPERATOR.md) · Sprint 21 | 14 (7 bài) | `04-metrics-ready` | trả về `04-metrics-ready` | 4–5 | ✅ đã viết |
 | [15 — Node Windows (tùy chọn)](LAB-15-NODE-WINDOWS.md) | 15 | `04-metrics-ready` (nhánh thực hành cần thêm 1 VM Windows) | nhánh A **tạo** `15-windows-ready`; nhánh B **trả về** `04-metrics-ready` | 4 | ✅ đã viết |
 
 Trên chuỗi chính chỉ có **bốn lab tạo mốc mới**: 00, 5b, 6a và 11a. Hai lab HA (8b, 8c) dùng
@@ -135,3 +144,14 @@ Số hiệu nợ ở cột đầu **khớp với** [Sổ nợ lộ trình](../00
 - Số phiên bản chỉ tồn tại ở [bảng A1.3 của Lab 00](LAB-00-MOI-TRUONG-1.35.7.md#a13-phiên-bản-được-khóa);
   lab khác link về đó thay vì chép lại con số.
 - Checkpoint là vấn đáp không nhìn tài liệu, không phải danh sách lệnh đã chạy.
+
+Thêm cho các lab dự án (3a → 14):
+
+- Repo dự án ở `~/bookstore` trên `lab-k8s-master`. Lab bắt đầu từ tag của lab trước, dựng lại toàn
+  bộ hệ thống bằng `./scripts/deploy.sh` và `./tests/smoke.sh`; kết thúc bằng tag `lab-<mã>`, bundle
+  chép ra máy host và `./scripts/teardown.sh`. Xem [mục 6 của file dự án](DU-AN-BOOKSTORE.md#6-nhịp-của-một-lab-dự-án).
+- Snapshot chỉ chứa hạ tầng: dự án luôn được teardown trước khi chụp mốc mới.
+- Restore snapshot đưa cả `~/bookstore` về quá khứ — luôn có bundle mới nhất ngoài VM
+  ([mục 5.4](DU-AN-BOOKSTORE.md#54-sao-lưu-repo-ra-ngoài-vm)).
+- Nợ kỹ thuật của hệ thống (`TD-nn`) nằm ở [mục 8 của file dự án](DU-AN-BOOKSTORE.md#8-sổ-nợ-kỹ-thuật-dự-án),
+  tách khỏi sổ nợ lab ở mục 5.

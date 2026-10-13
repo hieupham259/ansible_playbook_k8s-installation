@@ -13,7 +13,7 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3a. Pod và vòng đời](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời), bài thực hành 9/11 ·
-Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) phần B10.2.
+Kiểm chứng ở [Lab 3a](labs/LAB-3A-POD-VA-VONG-DOI.md) ticket B5.
 
 Đây là **một nửa** của downward API — nửa "file trong volume". Nửa còn lại là biến môi trường,
 bài [336](336-env-variable-expose-pod-info-vi.md) ngay sau. Bài dài chủ yếu vì có hai manifest

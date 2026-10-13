@@ -26,7 +26,7 @@ Nói thẳng về giới hạn của cluster lab: ba VM đều chỉ có **một
 `none`. Trên cluster này bạn **đo được** hai thứ: đếm NUMA node bằng
 `ls -d /sys/devices/system/node/node[0-9]*` và đọc chính sách **hiệu lực** qua `configz` (Lab 14
 đọc nó dưới tên `topologyManagerPolicy`), đúng như
-[Lab 14 phần B10.4](labs/LAB-14-CRD-VA-OPERATOR.md#b104-topology-manager-đang-ở-policy-nào) đã
+[Lab 14 ticket B7](labs/LAB-14-CRD-VA-OPERATOR.md#b7-bs-14-07-điều-tra-thiết-bị-chuyên-dụng-và-topology-của-node) đã
 làm. Bạn **không dựng được** tình huống Pod bị từ chối vì topology: với một NUMA domain thì mọi
 cách sắp đặt đều thỏa mãn, kể cả `single-numa-node`. Đọc bài để biết cấu hình đúng khi vận hành
 máy chủ nhiều socket, đừng sửa kubelet của lab để "thử cho biết".

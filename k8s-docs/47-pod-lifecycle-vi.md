@@ -45,9 +45,9 @@ thúc êm. Đọc kỹ bốn phần đó, phần còn lại đọc lướt để
 | *Container probe* — startup, liveness, readiness | ở đây chỉ là tóm tắt | bài [49](49-probes-vi.md) |
 | *Chính sách và quy tắc khởi động lại cho từng container* (`restartPolicyRules`), *Khởi động lại tất cả container*, *Định nghĩa tín hiệu dừng tùy chỉnh* | đều nằm sau feature gate beta/alpha, cluster lab không bật | giai đoạn 8 — bài [03](03-control-plane-flags-vi.md), khi học cách bật feature gate |
 | *Giảm* và *Cấu hình độ trễ khởi động lại container* (`maxContainerRestartPeriod`) | là cấu hình kubelet theo từng node | giai đoạn 8 — bài [04](04-kubelet-integration-vi.md) |
-| *Thay đổi kích thước Pod* và hai condition `PodResizePending`/`PodResizeInProgress` | dựa trên requests/limits chưa học | giai đoạn 3, nhóm 3b — bài [110](110-manage-resources-containers-vi.md) |
+| *Thay đổi kích thước Pod* và hai condition `PodResizePending`/`PodResizeInProgress` | dựa trên requests/limits chưa học | giai đoạn 3, nhóm 3c — bài [110](110-manage-resources-containers-vi.md) |
 | Việc Pod đang kết thúc bị rút khỏi EndpointSlice, condition `serving` | chưa học Service | giai đoạn 5 — bài [83](83-endpoint-slices-vi.md) |
-| *Thu gom rác cho Pod* (PodGC) và condition `DisruptionTarget` | gắn với gián đoạn và eviction | giai đoạn 3, nhóm 3b — bài [53](53-disruptions-vi.md); giai đoạn 7 |
+| *Thu gom rác cho Pod* (PodGC) và condition `DisruptionTarget` | gắn với gián đoạn và eviction | giai đoạn 3, nhóm 3c — bài [53](53-disruptions-vi.md); giai đoạn 7 |
 | *Hành vi của Pod khi kubelet khởi động lại* | là tình huống vận hành node | giai đoạn 12 |
 
 ---

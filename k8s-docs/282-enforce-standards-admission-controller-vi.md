@@ -13,8 +13,10 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 9 — Bảo mật và multi-tenancy](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy),
 dòng **Thực hành**, bài 4/10 · Kiểm chứng ở
-[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), phần B1.3 (namespace
-không có nhãn thì mặc định là gì) và B7.1 (apiserver của cluster lab **không** có
+[Lab 9b — Pod Security và hardening](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md), ticket
+[B1](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b1-bs-9b-01-điều-tra-ba-profile-và-ba-chế-độ-trên-namespace-thử-nghiệm) (namespace
+không có nhãn thì mặc định là gì) và [B10](labs/LAB-9B-POD-SECURITY-VA-HARDENING.md#b10-bs-9b-10-điều-tra-tầng-api-server--admission-psp-webhook-apf)
+(apiserver của cluster lab **không** có
 `--admission-control-config-file`, nên bộ mặc định trong bài đang có hiệu lực nguyên vẹn).
 
 Bài này và bài [283](283-enforce-standards-namespace-labels-vi.md) là **hai cách thực thi cùng một

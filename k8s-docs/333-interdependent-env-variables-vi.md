@@ -13,7 +13,7 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → [nhóm 3b — Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
-bài 11/12 · Kiểm chứng ở [Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md), `phần B4.4`
+bài 11/12 · Kiểm chứng ở [Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md), ticket B3
 (thứ tự trong danh sách `env` và cách thoát `$$(VAR)`).
 
 Bài rất ngắn và chỉ có **một** manifest, nhưng manifest đó là toàn bộ bài học: ba biến
@@ -40,8 +40,8 @@ cho ba kết quả khác nhau. Đây là chỗ trả lời chi tiết cho ghi ch
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
 | Cách lấy giá trị biến từ ConfigMap hoặc Secret thay vì viết thẳng vào `value` | bài này chỉ dùng `value` cố định để cô lập đúng chuyện thứ tự | bài [275](275-configure-pod-configmap-vi.md) và [334](334-distribute-credentials-secure-vi.md) cùng nhóm 3b |
-| Dùng `$(VAR)` trong `command` và `args` thay vì trong `value` của một biến khác | cùng cú pháp nhưng khác chỗ đặt; bài không bàn tới | bài [330](330-define-command-argument-vi.md) cùng nhóm 3b, kiểm chứng ở `phần B4.2` của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
-| Địa chỉ `172.17.0.1` và image `busybox:1.28` trong manifest | chỉ là giá trị minh họa của trang gốc, không liên quan tới mạng cluster lab | `phần B4.4` của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) chạy lại ví dụ này bằng image của lab |
+| Dùng `$(VAR)` trong `command` và `args` thay vì trong `value` của một biến khác | cùng cú pháp nhưng khác chỗ đặt; bài không bàn tới | bài [330](330-define-command-argument-vi.md) cùng nhóm 3b, kiểm chứng ở ticket B9 của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
+| Địa chỉ `172.17.0.1` và image `busybox:1.28` trong manifest | chỉ là giá trị minh họa của trang gốc, không liên quan tới mạng cluster lab | ticket B3 của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) chạy lại ví dụ này bằng image của lab |
 
 ---
 

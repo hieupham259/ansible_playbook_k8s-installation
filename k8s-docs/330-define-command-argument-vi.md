@@ -11,8 +11,8 @@
 
 **Vị trí:** [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → nhóm [3b. Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
-bài 8/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) phần B4.1 (`command`/`args` ghi
-đè image) và B4.2 (`args` lấy từ biến môi trường).
+bài 8/12 · Kiểm chứng ở [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) ticket B9 (`command`/`args` ghi
+đè image, `args` lấy từ biến môi trường).
 
 Bài ngắn và chỉ có ba mục nội dung, nhưng nó là chỗ nối: cú pháp `$(VAR)` học ở đây được dùng lại
 cho mọi nguồn biến môi trường của nhóm 3b — ConfigMap ở [275](275-configure-pod-configmap-vi.md),

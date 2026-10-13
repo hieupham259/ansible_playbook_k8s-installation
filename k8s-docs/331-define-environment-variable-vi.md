@@ -13,8 +13,8 @@
 [Phần I — Nền tảng Kubernetes](00-ALO-TRINH-ADMIN.md#phần-i--nền-tảng-kubernetes)
 → [Giai đoạn 3 — Pod và cấu hình](00-ALO-TRINH-ADMIN.md#giai-đoạn-3--pod-và-cấu-hình)
 → [nhóm 3b — Cấu hình ứng dụng](00-ALO-TRINH-ADMIN.md#3b-cấu-hình-ứng-dụng-configmap-secret-và-dữ-liệu-cho-pod),
-bài 9/12 · Kiểm chứng ở [Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md), `phần B2.2`
-(`envFrom` và `prefix`) và `phần B4.3` (`env` ghi đè biến của image, `$(VAR)` trong cấu hình).
+bài 9/12 · Kiểm chứng ở [Lab 3b — Cấu hình ứng dụng](labs/LAB-3B-CAU-HINH-UNG-DUNG.md), ticket B3
+(`envFrom`, `$(VAR)` trong cấu hình), ticket B8 (`prefix`) và ticket B9 (`env` ghi đè biến của image).
 
 Bài ngắn nhưng là bài **gốc** của ba bài liên tiếp về biến môi trường: bài này đặt luật chung,
 [332](332-define-env-via-file-vi.md) thêm một nguồn giá trị mới, còn
@@ -41,7 +41,7 @@ tự tham chiếu. Vì vậy đừng bỏ qua hai ghi chú ở cuối mục đ�
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Link "đọc thêm về ConfigMap" ở cuối phần định nghĩa `envFrom` | ở đây chỉ cần biết `envFrom` tồn tại và khác `env` ở điểm nào | bài [275](275-configure-pod-configmap-vi.md) cùng nhóm 3b, kiểm chứng ở `phần B2.2` của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
+| Link "đọc thêm về ConfigMap" ở cuối phần định nghĩa `envFrom` | ở đây chỉ cần biết `envFrom` tồn tại và khác `env` ở điểm nào | bài [275](275-configure-pod-configmap-vi.md) cùng nhóm 3b, kiểm chứng ở ticket B3 của [Lab 3b](labs/LAB-3B-CAU-HINH-UNG-DUNG.md) |
 | Link "đọc thêm về Secret" ngay cạnh đó | Secret là nửa sau của nhóm 3b, chưa động tới ở bài này | bài [334](334-distribute-credentials-secure-vi.md), bài cuối nhóm 3b |
 | Điều gì xảy ra khi `$(VAR)` trỏ tới biến chưa định nghĩa, và cách thoát bằng `$$(VAR)` | bài này chỉ nêu quy tắc thứ tự trong một ghi chú, không nói kết quả | bài [333](333-interdependent-env-variables-vi.md) cùng nhóm 3b |
 | Link `EnvVarSource` và các nguồn `valueFrom` khác trong mục *Tiếp theo* | tra cứu API, không phải nội dung bài | bài [336](336-env-variable-expose-pod-info-vi.md) — Downward API, đã đọc ở [nhóm 3a](00-ALO-TRINH-ADMIN.md#3a-pod-và-vòng-đời) |

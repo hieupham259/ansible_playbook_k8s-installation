@@ -14,8 +14,8 @@
 
 **Vị trí:** [Giai đoạn 11 — Observability](00-ALO-TRINH-ADMIN.md#giai-đoạn-11--observability)
 → dòng **Thực hành**, bài 1/7 · Kiểm chứng ở
-[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) phần B1.3, và phần B11.5 khi lab vẽ
-lại ranh giới trước khi sang giai đoạn 24.
+[Lab 11a — Observability](labs/LAB-11A-OBSERVABILITY.md) ticket B7 (xếp sự cố vào đúng nhánh trước
+khi chẩn đoán, và ranh giới trước khi sang giai đoạn 24) và ticket B6 (hai nhánh ghi log, giám sát).
 
 Đây là **trang mục lục** mở đầu cả nhánh `/docs/tasks/debug/`, không phải bài dạy thao tác.
 Nửa sau trang là hướng dẫn xin trợ giúp từ cộng đồng, không phải kiến thức kỹ thuật. Đọc nó để

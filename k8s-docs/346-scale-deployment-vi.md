@@ -15,7 +15,7 @@
 → [4a. ReplicaSet, Deployment và rollout](00-ALO-TRINH-ADMIN.md#4a-replicaset-deployment-và-rollout),
 bài 6/7 của dòng **Thực hành** · Kiểm chứng ở
 [Lab 4a — ReplicaSet, Deployment và rollout](labs/LAB-4A-REPLICASET-DEPLOYMENT-VA-ROLLOUT.md),
-**phần B3**.
+**ticket B3 và B8**.
 
 Bài ngắn và toàn bộ thao tác đều nằm trong tầm kiến thức đã có. Chỉ có bảng so sánh với
 HorizontalPodAutoscaler ở gần cuối là nói tới thứ chưa học.

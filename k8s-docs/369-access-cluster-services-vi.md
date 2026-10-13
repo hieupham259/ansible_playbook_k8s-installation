@@ -18,8 +18,8 @@ bài 4/4 — **bài cuối của giai đoạn 30 và cũng là bài cuối của
 thực hành thẳng trên cluster VM của [Lab 00](labs/LAB-00-MOI-TRUONG-1.35.7.md) và tự chấm bằng
 **Checkpoint** ở cuối
 [mục giai đoạn 30](00-ALO-TRINH-ADMIN.md#giai-đoạn-30--truy-cập-ứng-dụng-trong-cluster). Cơ chế
-của bài đã được kiểm chứng ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần **B6** —
-cụ thể là **B6.4**, nơi bạn gọi một Service bên trong cluster qua `kubectl proxy` rồi qua apiserver
+của bài đã được kiểm chứng ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket **B7**,
+nơi bạn gọi một Service bên trong cluster qua `kubectl proxy` rồi qua apiserver
 proxy.
 
 Bài nối tiếp [190 — Truy cập cluster bằng Kubernetes API](190-access-cluster-api-vi.md) và là
@@ -56,8 +56,8 @@ cluster.
 
 | Phần | Vì sao hoãn | Sẽ hiểu ở |
 | --- | --- | --- |
-| Danh sách service trong output ví dụ `kubectl cluster-info` — elasticsearch-logging, kibana-logging, grafana, heapster — và cách gọi "Kubernetes master" | đó là addon của cluster viết tài liệu, cluster lab do kubeadm dựng không có chúng | **không áp dụng cho cluster lab**: [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) phần B0.3 đã xác nhận addon kiểu này trên cluster của bạn là CoreDNS với Service `kube-dns`; addon quan sát thì cài ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md) |
-| Mọi ví dụ URL Elasticsearch (`_search?q=user:kimchy`, `_cluster/health?pretty=true`) và khối JSON kết quả | Elasticsearch chỉ là ứng dụng làm ví dụ, không phải nội dung của proxy URL | thứ cần nhớ là **khuôn URL**, đã kiểm chứng bằng Service HTTP của bạn ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B6.4 |
+| Danh sách service trong output ví dụ `kubectl cluster-info` — elasticsearch-logging, kibana-logging, grafana, heapster — và cách gọi "Kubernetes master" | đó là addon của cluster viết tài liệu, cluster lab do kubeadm dựng không có chúng | **không áp dụng cho cluster lab**: [Lab 5a](labs/LAB-5A-SERVICE-ENDPOINTSLICE-VA-DNS.md) ticket B6 đã xác nhận addon kiểu này trên cluster của bạn là CoreDNS với Service `kube-dns`; addon quan sát thì cài ở [Lab 11a](labs/LAB-11A-OBSERVABILITY.md) |
+| Mọi ví dụ URL Elasticsearch (`_search?q=user:kimchy`, `_cluster/health?pretty=true`) và khối JSON kết quả | Elasticsearch chỉ là ứng dụng làm ví dụ, không phải nội dung của proxy URL | thứ cần nhớ là **khuôn URL**, đã kiểm chứng bằng Service HTTP của bạn ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket B7 |
 | Cách truyền credentials vào các proxy URL — chính bài trỏ sang chỗ khác | đây là nội dung xác thực với API server, không phải nội dung của bài này | bài [190](190-access-cluster-api-vi.md), mục *Truy cập Kubernetes API*, đã đọc ở [giai đoạn 9](00-ALO-TRINH-ADMIN.md#giai-đoạn-9--bảo-mật-và-multi-tenancy) |
 | Nhánh xác thực cơ bản (basic auth) cho trình duyệt | bài đã nói ngay là cluster của bạn có thể không được cấu hình chấp nhận basic auth | **không áp dụng cho cluster lab**: đường xác thực của bạn là kubeconfig và token, đã học ở bài [119](119-controlling-access-vi.md) và thực hành ở [Lab 9a](labs/LAB-9A-SERVICEACCOUNT-AUTHN-AUTHZ-VA-RBAC.md) |
 
@@ -231,10 +231,11 @@ kiểm tra cuối cùng của lộ trình:
    đều cho bạn chạm tới workload mà không phải mở thêm port nào ra ngoài. Vậy hai đường đó có phải
    là hai cách gõ của cùng một cơ chế không? Ai kiểm soát truy cập, và mỗi đường bị giới hạn ở
    giao thức nào?
-3. Ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B6.4 bạn đã gọi Service `web`
-   (port tên `http`, namespace `lab-5b`) qua URL
-   `/api/v1/namespaces/lab-5b/services/web:http/proxy/`. Dựa theo khuôn của bài, hãy sửa URL đó cho
-   trường hợp Service nghe **HTTPS** trên port mặc định không đặt tên. Và vì sao khi gọi qua
+3. Ở [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket B7 bạn gọi apiserver proxy theo
+   khuôn `/api/v1/namespaces/<ns>/services/<tên>:<tên cổng>/proxy/`. Áp vào Service `web` của
+   Bookstore (namespace `bookstore`, port tên `http`) thì được
+   `/api/v1/namespaces/bookstore/services/web:http/proxy/`. Dựa theo khuôn của bài, hãy sửa URL đó
+   cho trường hợp `web` nghe **HTTPS** trên port mặc định không đặt tên. Và vì sao khi gọi qua
    `kubectl proxy` trên `lab-k8s-master` thì `curl` không phải kèm token nào?
 4. Một ứng dụng web bình thường đặt sau apiserver proxy có thể hỏng vì hai lý do bài nêu. Hai lý do
    đó là gì?
@@ -258,12 +259,12 @@ kiểm tra cuối cùng của lộ trình:
    khi chạm tới đích, nhưng nó **chỉ hoạt động với HTTP/HTTPS** — thứ gì không phải HTTP thì đường
    này chịu. Điểm chung duy nhất: cả hai đều đi qua API server nên đều đòi credentials, và cả hai
    đều không mở thêm cửa nào trên node.
-3. URL thành **`/api/v1/namespaces/lab-5b/services/https:web:/proxy/`** — thêm tiền tố `https:`
+3. URL thành **`/api/v1/namespaces/bookstore/services/https:web:/proxy/`** — thêm tiền tố `https:`
    trước tên service, và **giữ dấu hai chấm ở cuối** vì đây là port mặc định/không tên. (Không khai
    gì thì apiserver proxy tới service bằng HTTP, nên phải nói rõ mới thành HTTPS.) Còn `curl` không
    cần token vì **`kubectl proxy` mới là thứ nói chuyện với apiserver**: nó nhận HTTP thuần từ
    localhost rồi tự gắn thông tin xác thực từ kubeconfig của bạn — đúng điều bạn đã đo ở
-   [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) phần B6.4. Hệ quả: ai chạm được cổng đó
+   [Lab 5b](labs/LAB-5B-NETWORKPOLICY-INGRESS-VA-CNI.md) ticket B7. Hệ quả: ai chạm được cổng đó
    đang phát request với danh nghĩa của bạn.
 4. Thứ nhất, **trình duyệt thường không truyền được token**, nên có thể phải dùng basic auth mà
    cluster lại không được cấu hình để chấp nhận. Thứ hai, **JavaScript phía client tự dựng URL mà

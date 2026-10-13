@@ -1031,6 +1031,150 @@ với Pod web replica 1; một request thông thường không được broadcas
 
 </details>
 
+### Câu hỏi — vòng 2: vận hành và xử lý sự cố
+
+#### Câu 1/6 — Tunnel mất kết nối
+
+Trước đó `https://app.hieupn.site/` hoạt động bình thường. Hiện tại:
+
+- `nslookup app.hieupn.site` vẫn trả Cloudflare Edge IP.
+- Browser hiển thị lỗi Cloudflare **1033**.
+- Dashboard tunnel `homelab-k8s` không còn connector Healthy.
+- Gọi nội bộ qua ClusterIP Traefik với `Host: app.hieupn.site` vẫn trả đúng nội dung app.
+
+Hãy trả lời:
+
+1. Các kết quả trên giúp khoanh vùng lỗi ở phần nào? Những phần nào đã có bằng chứng hoạt động?
+2. Bạn sẽ kiểm tra gì trong Kubernetes? Nêu lệnh và mục đích của từng lệnh.
+3. Nếu Pod `cloudflared` vẫn `Running` nhưng log liên tục báo không kết nối được tới Edge,
+   bạn kiểm tra những điều kiện mạng nào?
+4. Nếu log báo lỗi xác thực tunnel, bạn kiểm tra cấu hình nào trong Deployment/Secret
+   và đối chiếu với thông tin nào trên Cloudflare?
+
+**Câu hỏi bổ sung:** Windows truy cập Internet bình thường, cả hai Pod connector đều
+`Running`, nhưng log liên tục báo timeout khi kết nối Edge trên port `7844`.
+Đã đủ cơ sở kết luận token sai chưa? Bạn ưu tiên kiểm tra gì tiếp theo?
+
+<details>
+<summary>Đáp án vòng 2 — câu 1/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Khoanh vùng bằng bằng chứng**
+
+Trong tình huống đã cho, tập trung vào **kết nối connector ↔ Cloudflare**:
+1033 cùng trạng thái không có connector Healthy cho thấy Cloudflare không có
+connector khả dụng để chuyển request xuống tunnel được chọn.
+
+| Bằng chứng | Chứng minh được | Chưa chứng minh được |
+| --- | --- | --- |
+| DNS trả Edge IP | Resolver phân giải hostname public được | Connector đã kết nối hoặc DNS record đang trỏ đúng tunnel mong muốn |
+| Browser nhận trang lỗi Cloudflare | Browser đã tới Cloudflare và nhận response | Origin trong cluster nhận request |
+| Test ClusterIP Traefik với Host thật trả đúng app | Traefik/Ingress/backend hoạt động từ vị trí chạy test | Đường mạng từ Pod connector tới origin |
+| Dashboard không có connector Healthy | Tunnel đang kiểm tra thiếu connector khả dụng | Nguyên nhân là token, DNS, firewall hay thành phần khác |
+
+Đối chiếu thêm ID tunnel mà DNS record/route trỏ tới với tunnel đang xem trên
+dashboard; không chỉ dựa vào tên hiển thị. Chưa có lý do sửa Ingress hoặc restart
+Pod web khi test nội bộ vẫn PASS. Tham chiếu §12.1–§12.3.3 và §13.
+
+**2. Kiểm tra Deployment, cả hai Pod, events và log**
+
+```bash
+kubectl -n cloudflare get deployment cloudflared
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
+kubectl -n cloudflare describe deployment cloudflared
+```
+
+- Deployment: desired/ready/available replicas và tình trạng rollout.
+- Pods: trạng thái, số restart, Pod IP và node đang chạy để khoanh đúng đường mạng.
+- Describe Deployment: điều kiện và events liên quan việc tạo/duy trì replica.
+
+Với **từng Pod** tìm được, thay `<pod-name>` bằng tên thật:
+
+```bash
+kubectl -n cloudflare describe pod <pod-name>
+kubectl -n cloudflare logs <pod-name> --tail=100
+```
+
+- `describe pod`: xem events, trạng thái container, lỗi khởi động, probe và tham chiếu Secret.
+- `logs`: phân biệt DNS lookup failure, connection timeout, TLS hoặc authentication error.
+
+Nếu container đã restart, đọc log lần chạy trước nếu còn:
+
+```bash
+kubectl -n cloudflare logs <pod-name> --previous --tail=100
+```
+
+`get pods` **không đọc log**. Pod `Running` chỉ cho biết trạng thái chạy container,
+không tự chứng minh connector đã đăng ký/kết nối thành công với Edge.
+Không chỉ kiểm tra một replica rồi suy ra cả tunnel. Không chia sẻ log có token.
+
+**3. Kiểm tra egress từ Pod/node connector**
+
+Windows vào Internet được chưa chứng minh đường ra của Pod Kubernetes hoạt động.
+Kiểm tra đường mạng từ connector qua node, gateway/NAT tới Cloudflare:
+
+- DNS trong môi trường Pod có phân giải được các endpoint Edge không?
+- Node/Pod có route ra ngoài và gateway/NAT hoạt động không?
+- Firewall trên node, router hoặc NetworkPolicy có chặn egress không?
+  NetworkPolicy chỉ có hiệu lực khi dataplane/CNI triển khai việc enforcement;
+  việc có object policy không tự chứng minh nó đang chặn traffic.
+- Outbound **UDP 7844** cho QUIC và **TCP 7844** cho HTTP/2 có được phép tới
+  các endpoint tunnel của Cloudflare không? Kiểm tra theo giao thức thực tế trong log.
+- Nếu chỉ UDP bị chặn, chế độ tự động có thể chuyển sang HTTP/2 qua TCP.
+  Nếu ép QUIC, cần đối chiếu cấu hình protocol thay vì giả định luôn có fallback.
+- Nếu log là lỗi certificate/TLS, kiểm tra thêm giờ hệ thống và việc can thiệp TLS
+  trên đường mạng theo bằng chứng.
+
+Truy cập web HTTPS trên port 443 thành công **không chứng minh port 7844 thông**.
+Dùng log connector và test/debug trong môi trường mạng phù hợp; không mở inbound
+router để chữa lỗi kết nối outbound. Tham chiếu §5.7 và §12.2.
+
+**4. Kiểm tra token và cách container nhận token**
+
+Đối chiếu chuỗi cấu hình của §12.2:
+
+| Thành phần | Giá trị mong đợi |
+| --- | --- |
+| Deployment | `cloudflared`, namespace `cloudflare` |
+| Biến môi trường | `TUNNEL_TOKEN` |
+| Nguồn biến | `valueFrom.secretKeyRef` |
+| Secret | `tunnel-token`, cùng namespace |
+| Key | `token` |
+| Token thực tế | Còn hợp lệ và thuộc đúng tunnel dự định dùng ở §12.1 |
+
+Kiểm tra Secret tồn tại mà không in giá trị token:
+
+```bash
+kubectl -n cloudflare get secret tunnel-token
+```
+
+Xem tham chiếu env trong Deployment/Pod; không xuất toàn bộ Secret để đưa vào
+nội dung chia sẻ. Xác nhận Secret thực sự chứa key `token`, token được nhập đúng,
+không bị thu hồi/rotate và gắn với đúng tunnel/account trên Cloudflare.
+Không kết luận token hợp lệ chỉ vì Secret tồn tại hoặc tên tunnel giống nhau.
+
+Nếu token đã rotate, lấy token hợp lệ của đúng tunnel và cập nhật Secret bằng
+cách riêng tư. Token truyền qua **biến môi trường không tự cập nhật trong container
+đang chạy** khi Secret đổi; sau khi sửa cần tạo lại Pod để nạp giá trị mới:
+
+```bash
+kubectl -n cloudflare rollout restart deployment/cloudflared
+kubectl -n cloudflare rollout status deployment/cloudflared --timeout=180s
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
+```
+
+Chỉ coi khôi phục khi các replica ổn định, log cho thấy connector đã kết nối,
+dashboard đúng tunnel có connector Healthy và kiểm tra public theo §13 thành công.
+Restart là bước nạp cấu hình đã sửa, không thay thế việc tìm nguyên nhân.
+
+**Đáp án câu bổ sung**
+
+**Chưa đủ cơ sở kết luận token sai.** Timeout ưu tiên gợi ý vấn đề reachability:
+kiểm tra egress từ Pod/node, firewall/router/NetworkPolicy có hiệu lực, cùng outbound
+UDP/TCP 7844 tới Edge. Token sai cần bằng chứng lỗi xác thực phù hợp; Internet
+trên Windows và trạng thái Pod Running không thay thế kiểm tra đường mạng tunnel.
+
+</details>
+
 Câu nào chưa trả lời được thì quay lại §9–§13 và phần giải thích tương ứng trước
 khi học Rancher ở §14 hoặc chuyển sang các tình huống xử lý sự cố nâng cao.
 

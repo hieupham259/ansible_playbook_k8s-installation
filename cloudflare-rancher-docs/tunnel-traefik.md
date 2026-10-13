@@ -1031,6 +1031,934 @@ với Pod web replica 1; một request thông thường không được broadcas
 
 </details>
 
+### Câu hỏi — vòng 2: vận hành và xử lý sự cố
+
+#### Câu 1/6 — Tunnel mất kết nối
+
+Trước đó `https://app.hieupn.site/` hoạt động bình thường. Hiện tại:
+
+- `nslookup app.hieupn.site` vẫn trả Cloudflare Edge IP.
+- Browser hiển thị lỗi Cloudflare **1033**.
+- Dashboard tunnel `homelab-k8s` không còn connector Healthy.
+- Gọi nội bộ qua ClusterIP Traefik với `Host: app.hieupn.site` vẫn trả đúng nội dung app.
+
+Hãy trả lời:
+
+1. Các kết quả trên giúp khoanh vùng lỗi ở phần nào? Những phần nào đã có bằng chứng hoạt động?
+2. Bạn sẽ kiểm tra gì trong Kubernetes? Nêu lệnh và mục đích của từng lệnh.
+3. Nếu Pod `cloudflared` vẫn `Running` nhưng log liên tục báo không kết nối được tới Edge,
+   bạn kiểm tra những điều kiện mạng nào?
+4. Nếu log báo lỗi xác thực tunnel, bạn kiểm tra cấu hình nào trong Deployment/Secret
+   và đối chiếu với thông tin nào trên Cloudflare?
+
+**Câu hỏi bổ sung:** Windows truy cập Internet bình thường, cả hai Pod connector đều
+`Running`, nhưng log liên tục báo timeout khi kết nối Edge trên port `7844`.
+Đã đủ cơ sở kết luận token sai chưa? Bạn ưu tiên kiểm tra gì tiếp theo?
+
+<details>
+<summary>Đáp án vòng 2 — câu 1/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Khoanh vùng bằng bằng chứng**
+
+Trong tình huống đã cho, tập trung vào **kết nối connector ↔ Cloudflare**:
+1033 cùng trạng thái không có connector Healthy cho thấy Cloudflare không có
+connector khả dụng để chuyển request xuống tunnel được chọn.
+
+| Bằng chứng | Chứng minh được | Chưa chứng minh được |
+| --- | --- | --- |
+| DNS trả Edge IP | Resolver phân giải hostname public được | Connector đã kết nối hoặc DNS record đang trỏ đúng tunnel mong muốn |
+| Browser nhận trang lỗi Cloudflare | Browser đã tới Cloudflare và nhận response | Origin trong cluster nhận request |
+| Test ClusterIP Traefik với Host thật trả đúng app | Traefik/Ingress/backend hoạt động từ vị trí chạy test | Đường mạng từ Pod connector tới origin |
+| Dashboard không có connector Healthy | Tunnel đang kiểm tra thiếu connector khả dụng | Nguyên nhân là token, DNS, firewall hay thành phần khác |
+
+Đối chiếu thêm ID tunnel mà DNS record/route trỏ tới với tunnel đang xem trên
+dashboard; không chỉ dựa vào tên hiển thị. Chưa có lý do sửa Ingress hoặc restart
+Pod web khi test nội bộ vẫn PASS. Tham chiếu §12.1–§12.3.3 và §13.
+
+**2. Kiểm tra Deployment, cả hai Pod, events và log**
+
+```bash
+kubectl -n cloudflare get deployment cloudflared
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
+kubectl -n cloudflare describe deployment cloudflared
+```
+
+- Deployment: desired/ready/available replicas và tình trạng rollout.
+- Pods: trạng thái, số restart, Pod IP và node đang chạy để khoanh đúng đường mạng.
+- Describe Deployment: điều kiện và events liên quan việc tạo/duy trì replica.
+
+Với **từng Pod** tìm được, thay `<pod-name>` bằng tên thật:
+
+```bash
+kubectl -n cloudflare describe pod <pod-name>
+kubectl -n cloudflare logs <pod-name> --tail=100
+```
+
+- `describe pod`: xem events, trạng thái container, lỗi khởi động, probe và tham chiếu Secret.
+- `logs`: phân biệt DNS lookup failure, connection timeout, TLS hoặc authentication error.
+
+Nếu container đã restart, đọc log lần chạy trước nếu còn:
+
+```bash
+kubectl -n cloudflare logs <pod-name> --previous --tail=100
+```
+
+`get pods` **không đọc log**. Pod `Running` chỉ cho biết trạng thái chạy container,
+không tự chứng minh connector đã đăng ký/kết nối thành công với Edge.
+Không chỉ kiểm tra một replica rồi suy ra cả tunnel. Không chia sẻ log có token.
+
+**3. Kiểm tra egress từ Pod/node connector**
+
+Windows vào Internet được chưa chứng minh đường ra của Pod Kubernetes hoạt động.
+Kiểm tra đường mạng từ connector qua node, gateway/NAT tới Cloudflare:
+
+- DNS trong môi trường Pod có phân giải được các endpoint Edge không?
+- Node/Pod có route ra ngoài và gateway/NAT hoạt động không?
+- Firewall trên node, router hoặc NetworkPolicy có chặn egress không?
+  NetworkPolicy chỉ có hiệu lực khi dataplane/CNI triển khai việc enforcement;
+  việc có object policy không tự chứng minh nó đang chặn traffic.
+- Outbound **UDP 7844** cho QUIC và **TCP 7844** cho HTTP/2 có được phép tới
+  các endpoint tunnel của Cloudflare không? Kiểm tra theo giao thức thực tế trong log.
+- Nếu chỉ UDP bị chặn, chế độ tự động có thể chuyển sang HTTP/2 qua TCP.
+  Nếu ép QUIC, cần đối chiếu cấu hình protocol thay vì giả định luôn có fallback.
+- Nếu log là lỗi certificate/TLS, kiểm tra thêm giờ hệ thống và việc can thiệp TLS
+  trên đường mạng theo bằng chứng.
+
+Truy cập web HTTPS trên port 443 thành công **không chứng minh port 7844 thông**.
+Dùng log connector và test/debug trong môi trường mạng phù hợp; không mở inbound
+router để chữa lỗi kết nối outbound. Tham chiếu §5.7 và §12.2.
+
+**4. Kiểm tra token và cách container nhận token**
+
+Đối chiếu chuỗi cấu hình của §12.2:
+
+| Thành phần | Giá trị mong đợi |
+| --- | --- |
+| Deployment | `cloudflared`, namespace `cloudflare` |
+| Biến môi trường | `TUNNEL_TOKEN` |
+| Nguồn biến | `valueFrom.secretKeyRef` |
+| Secret | `tunnel-token`, cùng namespace |
+| Key | `token` |
+| Token thực tế | Còn hợp lệ và thuộc đúng tunnel dự định dùng ở §12.1 |
+
+Kiểm tra Secret tồn tại mà không in giá trị token:
+
+```bash
+kubectl -n cloudflare get secret tunnel-token
+```
+
+Xem tham chiếu env trong Deployment/Pod; không xuất toàn bộ Secret để đưa vào
+nội dung chia sẻ. Xác nhận Secret thực sự chứa key `token`, token được nhập đúng,
+không bị thu hồi/rotate và gắn với đúng tunnel/account trên Cloudflare.
+Không kết luận token hợp lệ chỉ vì Secret tồn tại hoặc tên tunnel giống nhau.
+
+Nếu token đã rotate, lấy token hợp lệ của đúng tunnel và cập nhật Secret bằng
+cách riêng tư. Token truyền qua **biến môi trường không tự cập nhật trong container
+đang chạy** khi Secret đổi; sau khi sửa cần tạo lại Pod để nạp giá trị mới:
+
+```bash
+kubectl -n cloudflare rollout restart deployment/cloudflared
+kubectl -n cloudflare rollout status deployment/cloudflared --timeout=180s
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
+```
+
+Chỉ coi khôi phục khi các replica ổn định, log cho thấy connector đã kết nối,
+dashboard đúng tunnel có connector Healthy và kiểm tra public theo §13 thành công.
+Restart là bước nạp cấu hình đã sửa, không thay thế việc tìm nguyên nhân.
+
+**Đáp án câu bổ sung**
+
+**Chưa đủ cơ sở kết luận token sai.** Timeout ưu tiên gợi ý vấn đề reachability:
+kiểm tra egress từ Pod/node, firewall/router/NetworkPolicy có hiệu lực, cùng outbound
+UDP/TCP 7844 tới Edge. Token sai cần bằng chứng lỗi xác thực phù hợp; Internet
+trên Windows và trạng thái Pod Running không thay thế kiểm tra đường mạng tunnel.
+
+</details>
+
+#### Câu 2/6 — Tunnel Healthy nhưng app trả 502
+
+Bạn quan sát:
+
+- `nslookup app.hieupn.site` trả Cloudflare Edge IP.
+- Dashboard tunnel `homelab-k8s` hiển thị **Healthy**.
+- Browser truy cập `https://app.hieupn.site/` nhận **502 Bad Gateway**.
+- Origin trên Cloudflare được cấu hình là `http://traefik.traefik.svc.cluster.local:80`.
+
+Trên **máy master**, chạy đúng hai lệnh:
+
+```bash
+ING_IP=$(kubectl -n traefik get svc traefik \
+  -o jsonpath='{.spec.clusterIP}')
+
+curl -v -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+Lệnh curl trả đúng nội dung app. Request này xuất phát từ terminal trên máy master,
+dùng trực tiếp ClusterIP; **không chạy trong Pod connector, không đi qua tunnel,
+không phân giải hostname Service Traefik**. Lệnh kubectl phía trước chỉ lấy ClusterIP
+từ Kubernetes API, không kiểm tra CoreDNS.
+
+Hãy trả lời:
+
+1. Tunnel Healthy chứng minh điều gì? Vì sao đường public vẫn có thể trả 502?
+2. Lệnh curl trên master ở đề bài chứng minh những phần nào hoạt động? Nó đã chứng minh
+   **Pod cloudflared phân giải được tên Service và kết nối được tới Traefik** chưa? Vì sao?
+3. Để kiểm tra đường **connector → origin**, cần kiểm tra cấu hình gì trên Cloudflare
+   và thực hiện các phép kiểm tra DNS/HTTP từ đâu? Nêu lệnh hoặc cách kiểm tra.
+4. Nếu log connector báo `lookup traefik.traefik.svc.cluster.local ... no such host`,
+   ưu tiên kiểm tra những gì? Đây có phải bằng chứng rule Ingress sai không?
+   Có nên sửa token hoặc mở inbound router không?
+
+**Câu hỏi bổ sung:** từ **môi trường mạng của chính Pod connector**, bằng debug container
+có công cụ phù hợp, bạn thấy:
+
+- Phân giải `traefik.traefik.svc.cluster.local` thất bại.
+- Gọi trực tiếp ClusterIP Traefik trên port 80, với `Host: app.hieupn.site`,
+  trả đúng nội dung app.
+
+Khoanh vùng lỗi ở phần nào? Những nguyên nhân nào cần kiểm tra tiếp?
+Có cần sửa Ingress hay restart Pod web không?
+
+<details>
+<summary>Đáp án vòng 2 — câu 2/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Healthy chỉ chứng minh kết nối tunnel, không chứng minh origin**
+
+Tunnel Healthy cho biết có kết nối connector hoạt động với Cloudflare.
+Nó không tự chứng minh connector phân giải được hostname origin, gọi được Service
+Traefik hoặc nhận được response backend đúng.
+
+502 có thể liên quan đường connector → origin: sai Service URL/port, lỗi DNS,
+không kết nối được hoặc origin gặp lỗi. Mã 502 riêng lẻ không xác định chính xác
+thành phần tạo lỗi; cần đối chiếu log của request/connector và các phép test.
+Nếu có nhiều replica, trạng thái Healthy chung cũng không chứng minh mọi replica
+đều gọi được origin.
+
+**2. Test trên master chưa chứng minh đường gọi từ connector**
+
+| Phép kiểm tra | Đường được kiểm tra |
+| --- | --- |
+| Curl trên master tới ClusterIP, đặt Host public | Mạng master → Service Traefik → Traefik khớp Ingress → backend web |
+| Connector gọi origin URL | DNS/mạng Pod connector → Service Traefik → Traefik → backend |
+
+Hai nguồn request có thể có routing, firewall hoặc chính sách mạng khác nhau.
+Master gọi được không có nghĩa Pod connector gọi được. Test trực tiếp ClusterIP
+còn bỏ qua bước DNS nội bộ, nên không chứng minh hostname Service được phân giải.
+
+**Hai môi trường phân giải tên khác nhau trong cấu hình lab:**
+
+| Nơi chạy | Resolver thường được dùng | Khi hỏi tên Service `traefik.traefik.svc.cluster.local` |
+| --- | --- | --- |
+| Terminal trên master node | Resolver của Ubuntu theo Netplan §5.2; `systemd-resolved` có thể hiện `127.0.0.53` là stub cục bộ | DNS công cộng không biết tên Service nội bộ, trừ khi node được cấu hình riêng để hỏi DNS của cụm |
+| Pod `cloudflared` với `dnsPolicy: ClusterFirst` | DNS của cụm (`kube-dns`/CoreDNS) do kubelet cấu hình cho Pod | CoreDNS trả ClusterIP của Service `traefik` trong namespace `traefik` |
+
+Runbook [§5.2](../runbook-k8s-vmware.md#52-ip-tĩnh-netplan) cấu hình DNS cho
+các node bằng `nameservers: addresses: [1.1.1.1, 8.8.8.8]`;
+[§8.4](../runbook-k8s-vmware.md#84-tầng-4--dns) kiểm tra phân giải cả
+tên Service nội bộ lẫn tên public từ Pod. Với tên ngoài cụm như `google.com`,
+CoreDNS không tự giữ sẵn IP của Google: Corefile mặc định dùng
+`forward . /etc/resolv.conf` để hỏi DNS upstream. Theo cấu hình node trong
+runbook, upstream dự kiến là `1.1.1.1` hoặc `8.8.8.8`. Đây là **chọn DNS công
+cộng làm upstream**, không có bước tự cài thêm một DNS server upstream.
+Muốn biết cụm đang chạy thực sự dùng upstream nào thì xem ConfigMap/Corefile
+CoreDNS và resolver thực tế trong Pod CoreDNS; đừng suy chỉ từ file hướng dẫn.
+
+Riêng lệnh `curl -H 'Host: app.hieupn.site' "http://$ING_IP/"` không dùng DNS
+để tìm Traefik: `$ING_IP` đã là ClusterIP lấy bằng `kubectl` từ Kubernetes API.
+`Host` là HTTP header để Traefik chọn router, không phải tên mà `curl` phải
+phân giải. Vì vậy test trên master chưa kiểm tra CoreDNS của Pod connector,
+kể cả khi master và Pod tình cờ dùng chung DNS upstream cho tên public.
+
+**3. Kiểm tra cấu hình và test từ đúng môi trường**
+
+Trên Cloudflare, mở route trong **đúng tunnel → Published application routes**
+theo §12.3.3. Đối chiếu scheme `http`, tên
+`traefik.traefik.svc.cluster.local`, port `80` và các Host override nếu có.
+
+Kiểm tra Service và endpoint để biết origin tồn tại:
+
+```bash
+kubectl -n traefik get svc traefik -o wide
+kubectl -n traefik get endpointslice \
+  -l kubernetes.io/service-name=traefik -o wide
+```
+
+Các lệnh get này đọc trạng thái qua API, không tự kiểm tra đường connector → origin.
+
+Đọc log **connector hiện đang chạy**, đối chiếu cả hai Pod:
+
+```bash
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
+kubectl -n cloudflare logs <pod-cloudflared> --tail=100
+```
+
+Lệnh `cloudflared ... tunnel run` khởi chạy connector mới; không phải lệnh đọc
+log Pod Kubernetes hiện tại. Không cần chạy thêm connector để chẩn đoán.
+
+Thực hiện test bằng công cụ sẵn có trong container; nếu image thiếu shell/công cụ,
+dùng debug container chia sẻ môi trường mạng của chính Pod connector.
+Kiểm tra thêm cấu hình DNS của Pod, `/etc/resolv.conf` và DNS policy của môi trường
+test để bảo đảm test phản ánh cách connector phân giải tên.
+
+Trong môi trường đó:
+
+```bash
+nslookup traefik.traefik.svc.cluster.local
+
+curl -v -H 'Host: app.hieupn.site' \
+  http://traefik.traefik.svc.cluster.local:80/
+```
+
+So sánh thêm với request trực tiếp ClusterIP, thay IP minh họa bằng IP thật:
+
+```bash
+curl -v -H 'Host: app.hieupn.site' http://10.96.123.45:80/
+```
+
+Nếu dùng Pod test riêng, kết quả có ích nhưng chưa chắc đại diện connector vì
+label, node, DNS configuration và chính sách mạng có thể khác.
+Chỉ kiểm tra trên master không thay thế test từ môi trường connector.
+
+**4. No such host khoanh vùng bước phân giải tên**
+
+Lỗi này cho biết connector không phân giải được hostname origin. Nó chưa có IP để
+mở connection tới Traefik cho request đó; vì vậy **chưa có bằng chứng Ingress sai**.
+
+Ưu tiên kiểm tra:
+
+| Hạng mục | Điều cần đối chiếu |
+| --- | --- |
+| Service URL §12.3.3 | Tên Service/namespace/domain nội bộ có gõ đúng không |
+| Service §9.3 | Service traefik có tồn tại trong namespace traefik không |
+| Pod connector §12.2 | dnsPolicy/dnsConfig và resolver thực tế có đúng không |
+| DNS trong cluster §8.4 | CoreDNS Pods, Service DNS, endpoints, cấu hình/log và khả năng trả lời |
+| Đường Pod → DNS | UDP/TCP 53, routing/firewall và NetworkPolicy có hiệu lực |
+
+Không cần sửa token hoặc mở inbound router để xử lý lỗi DNS origin này.
+Lý do là **lỗi quan sát được thuộc bước phân giải origin**, không phải vì Healthy
+tự chứng minh mọi request đã xuống đúng connector hoặc mọi cấu hình token đều đúng.
+
+**Đáp án câu bổ sung**
+
+Khoanh vùng ở **phân giải DNS nội bộ của hostname origin**. Test trực tiếp IP
+thành công chứng minh connector có đường tới Traefik/backend khi bỏ qua DNS.
+
+Chưa đủ bằng chứng chốt CoreDNS đang chạy lỗi. Còn các khả năng: tên/namespace sai,
+cấu hình resolver của Pod sai, đường Pod → DNS bị chặn, hoặc CoreDNS/configuration
+DNS Kubernetes có vấn đề. Đối chiếu các hạng mục ở bảng trên trước khi sửa.
+
+Không sửa Ingress hoặc restart Pod web để chữa lỗi này: request trực tiếp IP với
+Host thật đã khớp route và nhận đúng nội dung app.
+
+</details>
+
+#### Câu 3/6 — App trả 404
+
+Bạn quan sát:
+
+- DNS public trả đúng Cloudflare Edge IP.
+- Tunnel `homelab-k8s` Healthy.
+- Browser mở `https://app.hieupn.site/` nhận **404 Not Found**.
+- Published application route trỏ tới `http://traefik.traefik.svc.cluster.local:80`.
+
+Trên **máy master**, chạy:
+
+```bash
+ING_IP=$(kubectl -n traefik get svc traefik \
+  -o jsonpath='{.spec.clusterIP}')
+
+curl -i -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+Kết quả cũng là 404. Test này gọi trực tiếp Service Traefik từ master, không đi
+qua Cloudflare hoặc connector.
+
+1. Đã đủ bằng chứng kết luận rule Ingress sai chưa? Những thành phần nào có thể
+   tạo response 404?
+2. Cần kiểm tra những trường nào trong Ingress `web`? Nêu lệnh kiểm tra.
+3. Nếu Ingress vẫn khai `host: app.example.com`, tại sao request không khớp?
+   Sửa ở đâu và kiểm tra lại thế nào?
+4. Nếu Host, path và IngressClass đúng, làm sao phân biệt **Traefik không tìm được
+   router phù hợp** với **request đã tới ứng dụng nhưng ứng dụng trả 404**?
+
+**Câu hỏi bổ sung:** Deployment web có hai replica. Gửi một request nhưng chỉ xem
+log Pod web replica 1 và không thấy request đó: có thể kết luận Traefik không chuyển
+request tới backend không? Cần kiểm tra thêm gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Chưa đủ kết luận Ingress sai**
+
+Test nội bộ cũng trả 404 cho thấy có thể tái hiện lỗi mà không đi qua Cloudflare,
+nhưng chưa xác định tầng nào tạo response. Hai khả năng cần phân biệt:
+
+| Thành phần | Ví dụ tạo 404 |
+| --- | --- |
+| Traefik | Không có router khớp Host/path/entrypoint |
+| Ứng dụng backend | Request đã tới app nhưng app không có resource/path được yêu cầu |
+
+Đường public còn có thể có response do các rule/worker phía Edge nếu được cấu hình;
+không dùng một status giống nhau để kết luận chắc chắn cả hai response cùng nguồn.
+
+Ingress là object cấu hình, không tự phát HTTP response. Sai backend port hoặc
+Service không có backend thường liên quan lỗi cấu hình/kết nối/không có backend,
+có thể dẫn tới 502/503 hoặc router không được nạp tùy trường hợp; phải xem log,
+không quy mọi lỗi Service/Deployment thành 404.
+
+**2. Kiểm tra cả rule, class, namespace và router thực tế**
+
+```bash
+kubectl -n default get ingress web -o yaml
+kubectl -n default describe ingress web
+```
+
+Trong lab, app nằm ở namespace default. Đối chiếu:
+
+- `spec.ingressClassName: traefik`.
+- `spec.rules[].host: app.hieupn.site`.
+- Path `/` và `pathType: Prefix`.
+- Backend Service name `web` và Service port `80`.
+- Ingress và Service backend cùng namespace.
+- Events và log Traefik về việc đọc/nạp cấu hình.
+
+Nếu cần:
+
+```bash
+kubectl get ingressclass traefik -o yaml
+kubectl -n default get svc web -o yaml
+kubectl -n default get endpointslice \
+  -l kubernetes.io/service-name=web -o wide
+kubectl -n traefik logs deployment/traefik --tail=100
+```
+
+YAML đúng trên API chưa tự chứng minh Traefik đã nạp router đúng. Có thể xem
+dashboard nội bộ theo §9.3.2 để đối chiếu router/service thực tế.
+
+**3. Host khác nhau nên không khớp; sửa source manifest theo §12.3.1**
+
+Request mang `Host: app.hieupn.site`; rule còn `app.example.com` nên không khớp.
+Mở `~/demo-app.yaml`, trong object Ingress đổi:
+
+```yaml
+- host: app.example.com
+```
+
+thành:
+
+```yaml
+- host: app.hieupn.site
+```
+
+Sau đó:
+
+```bash
+kubectl apply --dry-run=client -f ~/demo-app.yaml
+kubectl apply -f ~/demo-app.yaml
+
+kubectl -n default get ingress web \
+  -o jsonpath='{.spec.rules[*].host}{"\n"}'
+
+ING_IP=$(kubectl -n traefik get svc traefik \
+  -o jsonpath='{.spec.clusterIP}')
+
+curl -i -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+PASS khi object hiện Host đúng và request trả nội dung demo mong đợi. Field
+host không có scheme `https://` hoặc dấu `/`. Khi test nội bộ PASS, kiểm tra
+lại URL public theo §13.
+
+**4. Dùng bằng chứng của đúng request, không suy từ việc thiếu log**
+
+Đối chiếu cùng thời điểm, Host, path và dấu nhận diện request khi có:
+
+- **Access log Traefik nếu đã bật:** router/backend nào được chọn, status trả client
+  và origin status nếu có. Log thông thường của Deployment không tự thay thế access log.
+- **Access log app nếu đã bật:** đúng request/path với status 404 là bằng chứng app
+  đã nhận request và tạo response đó.
+- **Dashboard/configuration Traefik:** router của Ingress có thực sự tồn tại và
+  khớp entrypoint/Host/path không?
+- **Gọi trực tiếp Service web** từ môi trường có đường mạng tới Service, giữ cùng
+  Host/path để so sánh với chặng qua Traefik.
+
+Ví dụ chạy trong Pod/debug container có curl và dùng cluster DNS:
+
+```bash
+curl -i -H 'Host: app.hieupn.site' \
+  http://web.default.svc.cluster.local:80/
+```
+
+Test này bỏ qua Traefik và tunnel; kết hợp log để kết luận nguồn 404. Nếu app trả
+404 trực tiếp, điều tra routing/resource phía app. Nếu app trả đúng nội dung nhưng
+qua Traefik trả 404, điều tra router/configuration/header/path thực tế ở Traefik.
+
+Không thấy request trong log chưa chứng minh app không nhận: có thể access log chưa
+bật, log ở nơi khác, đang xem nhầm replica hoặc ngoài khoảng thời gian cần kiểm tra.
+
+**Đáp án câu bổ sung**
+
+**Không thể kết luận.** Request có thể tới replica 2; kiểm tra access log của cả
+hai Pod và đối chiếu đúng request.
+
+```bash
+kubectl -n default get pods -l app=web -o wide
+kubectl -n default logs <pod-web-1> --tail=100
+kubectl -n default logs <pod-web-2> --tail=100
+```
+
+Ngay cả khi cả hai không có dòng log tương ứng, cần xác nhận access logging đã bật,
+đang xem đúng nơi ghi log và đúng khoảng thời gian. Đối chiếu access log/router
+Traefik trước khi kết luận request chưa tới backend.
+
+</details>
+
+#### Câu 4/6 — Service và EndpointSlice không có backend Ready
+
+Bạn quan sát:
+
+- Tunnel Healthy.
+- Ingress web có đúng Host, path và IngressClass.
+- Service web tồn tại, selector là `app: web`.
+- Hai Pod web đều Running nhưng mang label `app: demo`.
+- EndpointSlice của Service web không có endpoint.
+
+Hãy trả lời:
+
+1. Vì sao Service tồn tại và Pod Running nhưng request vẫn không tới ứng dụng?
+2. Lỗi cấu hình nằm ở đâu? Sửa thế nào và dùng lệnh gì để kiểm tra?
+3. Nếu label/selector đã khớp nhưng Pod có condition `Ready=False`, Pod có được dùng
+   làm backend phục vụ bình thường không? Giả sử Service không bật
+   `publishNotReadyAddresses`.
+4. EndpointSlice có endpoint Ready đã đủ chứng minh app trả đúng HTTP response chưa?
+   Cần test thêm gì?
+
+**Câu hỏi bổ sung:** nếu gọi trực tiếp Pod IP trả đúng app nhưng gọi ClusterIP
+Service thất bại, ưu tiên kiểm tra những cấu hình hoặc thành phần nào?
+Khi so sánh phải gọi cùng giao thức, Host/path từ cùng vị trí mạng, đồng thời dùng
+đúng Pod port và Service port tương ứng.
+
+<details>
+<summary>Đáp án vòng 2 — câu 4/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Selector không khớp nên không có backend được chọn**
+
+Service chọn Pod có label `app: web`; hai Pod hiện có mang `app: demo` nên không
+được chọn. Service/ClusterIP tồn tại không đồng nghĩa có endpoint để chuyển tiếp.
+Pod Running không thay thế việc label khớp và readiness đạt.
+
+Selector Service **chọn backend**, không quản lý vòng đời Pod. Không có backend
+qua Service này không có nghĩa không thể gọi Pod IP trực tiếp.
+
+**2. Sửa sự không khớp, không đặt lại selector giống giá trị đang có**
+
+Với dữ kiện đề bài, đổi Service selector từ app:web sang app:demo là một cách sửa,
+nếu app:demo là label đúng của ứng dụng:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector:
+    app: demo
+  ports:
+    - port: 80
+      targetPort: 80
+```
+
+Sửa trong source manifest demo-app.yaml, apply rồi kiểm tra:
+
+```bash
+kubectl apply -f demo-app.yaml
+kubectl -n default get pods --show-labels
+kubectl -n default get svc web -o yaml
+kubectl -n default get endpointslice \
+  -l kubernetes.io/service-name=web -o yaml
+```
+
+Không sửa thành `selector: { app: web }` rồi coi là xong: đó chính là giá trị
+hiện tại nên lỗi vẫn còn. `get svc web -o wide` chưa chứng minh Service có
+endpoint Ready; cần xem địa chỉ, port và `conditions.ready` trong EndpointSlice.
+
+Cách khác là thống nhất label Pod template về app:web. Khi chọn cách này, selector
+Deployment phải khớp template; selector Deployment đã tạo thường không sửa trực
+tiếp được. Nếu nó đã là app:demo, cần lập kế hoạch tạo/thay Deployment phù hợp,
+không chỉ apply một selector mới rồi mong Kubernetes chấp nhận. Không đổi label
+Pod thủ công làm giải pháp lâu dài vì Deployment tạo lại Pod theo template.
+
+**3. Ready=False không phục vụ traffic thông thường qua Service**
+
+Với giả định không bật publishNotReadyAddresses, endpoint chưa Ready không được
+chọn cho traffic thông thường qua Service; Traefik cũng thông thường chỉ dùng
+backend Ready do Kubernetes provider cung cấp. Endpoint có thể vẫn xuất hiện trong
+EndpointSlice với `ready: false`: có địa chỉ không đồng nghĩa đủ điều kiện phục vụ.
+
+Pod/container vẫn có thể chạy. Readiness không tự kill/restart container;
+các connection đang có và truy cập trực tiếp Pod IP không được bảo đảm dừng tức thì.
+
+**4. Ready chưa chứng minh response đúng**
+
+Cần gọi Service từ môi trường có cluster DNS/network, quan sát status và body:
+
+```bash
+curl -i -H 'Host: app.hieupn.site' \
+  http://web.default.svc.cluster.local:80/
+```
+
+Sau đó test qua Traefik từ master theo §12.3.1:
+
+```bash
+ING_IP=$(kubectl -n traefik get svc traefik \
+  -o jsonpath='{.spec.clusterIP}')
+curl -i -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+Khi đường nội bộ PASS, kiểm tra public theo §13. Endpoint Ready phản ánh trạng thái
+readiness, không kiểm tra mọi method/path và tính đúng của dữ liệu ứng dụng.
+
+**Đáp án câu bổ sung**
+
+Ưu tiên đường **Service → backend và Service dataplane**, nhưng trước hết bảo đảm
+hai phép test tương đương: cùng nguồn mạng, Host/path, giao thức và đúng các port.
+
+- Service selector có khớp Pod label không?
+- EndpointSlice có đúng Pod IP, port và endpoint Ready không?
+- Service port/targetPort, protocol và named port nếu dùng có đúng không?
+- App có thực sự lắng nghe Pod port được Service chỉ định không?
+- kube-proxy hoặc dataplane thay thế có hoạt động và lập rule Service đúng không?
+- Routing/CNI, firewall hoặc NetworkPolicy có hiệu lực có chặn đường tương ứng không?
+
+Lệnh đối chiếu trong lab:
+
+```bash
+kubectl -n default get svc web -o yaml
+kubectl -n default get pods --show-labels -o wide
+kubectl -n default get endpointslice \
+  -l kubernetes.io/service-name=web -o yaml
+kubectl -n kube-system get pods -l k8s-app=kube-proxy -o wide
+```
+
+Nếu gọi trực tiếp IP, phép test không phụ thuộc DNS. Không vội sửa Ingress hay
+restart app khi đường Service đang lỗi. Kiểm tra Service/kube-proxy theo §8.5,
+mạng Pod theo §8.3 và selector/manifest theo §10.1.
+
+</details>
+
+#### Câu 5/6 — Một replica chết
+
+Lab có **hai Pod cloudflared và hai Pod web**. Xét riêng:
+
+- **A:** một Pod cloudflared chết; connector còn lại vẫn Healthy.
+- **B:** một Pod web chết; Pod web còn lại Ready và hoạt động bình thường.
+
+1. Trong mỗi tình huống, request mới có thể tiếp tục được phục vụ không?
+   Điều kiện là gì?
+2. Request đang xử lý qua Pod vừa chết có chắc chắn hoàn tất không? Vì sao?
+3. Connector replica 1 có gắn cố định với Pod web replica 1 không?
+   Ai chọn connector và ai chọn backend web?
+4. Hai replica có tự bảo đảm chịu được việc một worker chết không?
+   Cần kiểm tra cách đặt Pod trên node và cấu hình gì thêm?
+
+**Thông tin về lab:** với cài mới đúng §9.3, chart Traefik 41.0.2 có mặc định
+`deployment.kind: Deployment`, `deployment.replicas: 1`; lệnh runbook không
+override số replica. Vì vậy mặc định là **2 connector, 1 Traefik, 2 web**.
+Cluster đã được chỉnh riêng hoặc nâng cấp release cần kiểm tra số replica thực tế.
+
+**Câu hỏi bổ sung:**
+
+1. Hai Pod web nằm trên hai worker khác nhau, nhưng Traefik Pod duy nhất nằm trên
+   worker vừa chết. Connector còn Healthy và một Pod web còn Ready.
+   App public có chắc tiếp tục hoạt động không? Vì sao phải xét cả Traefik?
+2. Nếu Traefik có hai Pod thay vì một, câu trả lời thay đổi thế nào?
+   So sánh khi chúng nằm trên hai worker khác nhau và cùng nằm trên worker chết.
+
+<details>
+<summary>Đáp án vòng 2 — câu 5/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Request mới có thể tiếp tục, nếu toàn bộ đường đi còn hoạt động**
+
+| Tình huống | Điều kiện tiếp tục phục vụ |
+| --- | --- |
+| A — mất một connector | Cloudflare chọn được connector còn Healthy; connector đó phân giải/gọi được origin; Traefik và backend còn phục vụ |
+| B — mất một Pod web | Traefik/Service dataplane chọn được backend web còn Ready và gọi được app; connector và Traefik vẫn hoạt động |
+
+Pod còn lại phải đủ năng lực chịu tải và các dependency còn hoạt động. Không có
+ngưỡng bắt buộc tải phải thấp/trung bình: cần tải không vượt khả năng thực tế.
+Phát hiện lỗi/cập nhật endpoint và routing mất thời gian, nên request mới vẫn có
+thể gặp lỗi trong giai đoạn chuyển tiếp; không bảo đảm failover tức thì.
+
+**2. Request đang xử lý không được bảo đảm hoàn tất**
+
+Pod có thể chết đột ngột dù CPU/memory trước đó bình thường. Connection/stream đang
+xử lý có thể đứt; trạng thái trong bộ nhớ của process mất. Replica còn lại không
+tự tiếp quản nguyên trạng request.
+
+Nếu client/proxy retry, đó là gửi lại request theo chính sách cụ thể, không phải
+tiếp tục process đã chết. POST có thể đã thực hiện thao tác nhưng client chưa nhận
+response; retry có thể gây thao tác trùng. Khi cần retry an toàn, ứng dụng phải
+thiết kế tính idempotent hoặc cơ chế chống trùng phù hợp.
+
+**3. Hai lần lựa chọn độc lập**
+
+| Quyết định | Bên thực hiện |
+| --- | --- |
+| Connector của tunnel | Cloudflare chọn trong các connector khả dụng |
+| Pod web khi Traefik gọi endpoint trực tiếp | Traefik chọn backend từ thông tin Kubernetes |
+| Backend khi kết nối qua Service ClusterIP | Service dataplane, ví dụ rule do kube-proxy lập, lựa chọn/chuyển tiếp |
+
+Kernel trên master không chọn connector. Master không phải điểm trung chuyển bắt
+buộc của request. Khi sử dụng kube-proxy, nó lập rule; dataplane xử lý traffic
+trên node liên quan, không phải mọi request đều đi qua master.
+
+Connector 1 không ghép cố định với web 1. Điều này không phụ thuộc việc workload
+là Deployment hay StatefulSet; StatefulSet không tự tạo quan hệ ghép connector/backend.
+
+**4. Replica phải được phân tán và đủ khả năng phục vụ**
+
+Nếu cả hai replica trên worker chết, mất cả hai. Kiểm tra node của các Pod:
+
+```bash
+kubectl -n cloudflare get pods -l app=cloudflared -o wide
+kubectl -n traefik get deployment traefik
+kubectl -n traefik get pods -o wide
+kubectl -n default get pods -l app=web -o wide
+```
+
+Dùng `topologySpreadConstraints` theo topology node hoặc Pod anti-affinity phù hợp
+để phân tán replica. Ràng buộc mềm là ưu tiên, không bảo đảm tách node; ràng buộc
+cứng có thể khiến Pod Pending nếu không đủ node/tài nguyên phù hợp.
+
+Cần xét cả connector, Traefik, web, DNS/network và các dependency khác; còn đủ
+tài nguyên, endpoint và đường mạng trên node sống. Replica của một tầng không
+bảo đảm HA cho toàn bộ chuỗi. PDB hỗ trợ giới hạn gián đoạn tự nguyện như drain,
+không ngăn worker chết đột ngột.
+
+DaemonSet dùng khi muốn Pod trên mỗi node đủ điều kiện. Không cần đổi web/connector
+sang DaemonSet chỉ để phân tán hai replica. Tăng replicas cho Deployment và cấu
+hình phân tán thường phù hợp hơn với mục tiêu đó.
+
+**Đáp án bổ sung 1 — Traefik duy nhất chết**
+
+**Không chắc tiếp tục hoạt động; nếu chưa có Traefik thay thế Ready, đường public
+bị gián đoạn.** Connector và web còn sống nhưng thiếu process ở giữa:
+
+| Chặng | Trạng thái |
+| --- | --- |
+| Edge → connector | Có thể còn hoạt động |
+| Connector → Service Traefik | ClusterIP tồn tại nhưng không còn Traefik backend hoạt động |
+| Traefik → web | Không thực hiện được vì Traefik duy nhất đã chết |
+
+Service là object/địa chỉ ảo, không chạy thay chương trình Traefik. Ingress là
+cấu hình, không tự proxy request. Request không tự bỏ qua Traefik để tới web
+vì Service URL vẫn trỏ Service Traefik.
+
+Kubernetes có thể tạo lại Traefik trên node khác nếu scheduler, tài nguyên và
+các điều kiện liên quan cho phép. Cần chờ Pod mới Ready, có mạng và nạp routing;
+trong lúc đó vẫn có thể gián đoạn. Đây là lý do phải xét cả Traefik khi đánh giá
+chịu lỗi worker.
+
+Mặc định chart được đối chiếu tại:
+[Traefik chart v41.0.2 — values.yaml](https://github.com/traefik/traefik-helm-chart/blob/v41.0.2/traefik/values.yaml).
+Không suy ra số Pod hiện tại chỉ từ mặc định nếu release đã được thay đổi;
+dùng các lệnh ở trên để xác nhận cluster thực tế.
+
+**Đáp án bổ sung 2 — Có hai Traefik Pod**
+
+- **Hai node khác nhau, còn một Traefik Ready trên node sống:** request mới có thể
+  tiếp tục nếu connector gọi được Service, endpoint Traefik còn lại được chọn,
+  Traefik gọi được web Ready và phần còn lại đủ năng lực phục vụ.
+- **Cả hai trên worker chết:** vẫn mất toàn bộ Traefik và gián đoạn.
+- Trong cả hai trường hợp, request đang chạy qua Traefik vừa chết có thể thất bại;
+  replica còn lại không tự tiếp quản nguyên trạng request đó.
+
+**Hai replica chỉ giúp chịu lỗi node khi cách đặt Pod và toàn bộ đường đi phù hợp.**
+
+</details>
+
+#### Câu 6/6 — HTTPS, SNI, certificate và ranh giới TLS
+
+Trong bài, người dùng mở `https://app.hieupn.site/`. Cloudflare Tunnel có
+Published application route với Service URL
+`http://traefik.traefik.svc.cluster.local:80`; Traefik chuyển tới Pod web bằng
+HTTP. Hãy trả lời trước khi mở đáp án:
+
+1. Vì sao browser dùng HTTPS trong khi `cloudflared` gọi origin bằng HTTP?
+   Public DNS quyết định giao thức không? Đoạn nội bộ HTTP được bảo vệ tới mức
+   nào?
+2. TLS của browser kết thúc ở đâu? Liệt kê giao thức trên các chặng tiếp theo;
+   phân biệt các kết nối/phiên mã hóa độc lập.
+3. Chỉ đổi Service URL sang `https://traefik.traefik.svc.cluster.local:443`
+   đã đủ chưa? Cần chuẩn bị gì ở Traefik, certificate và `cloudflared`? Có nhất
+   thiết phải đổi giá trị Host/path của Ingress không?
+4. SNI xuất hiện vào lúc nào, giải quyết việc gì? So sánh SNI với DNS, HTTP
+   `Host`/`:authority` và tên trong certificate.
+5. Nếu certificate origin do CA riêng cấp hoặc chỉ có tên public
+   `app.hieupn.site` trong khi Service URL mang tên nội bộ, client TLS sẽ kiểm
+   tra những gì? `originServerName`, `caPool` và `noTLSVerify` khác nhau ra sao?
+
+<details>
+<summary>Đáp án vòng 2 — câu 6/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**Nhận xét câu trả lời ban đầu**
+
+- **Câu 1:** đúng là Service URL `http://...:80` khiến `cloudflared` gọi Traefik
+  bằng HTTP. Cần sửa hai chỗ: browser dùng HTTPS vì URL có scheme `https`,
+  **không phải vì DNS hay dashboard trả IP cho HTTPS**; mạng nội bộ không phải
+  bằng chứng đoạn HTTP đã được mã hóa/xác thực. Mức cô lập mạng và bảo vệ TLS
+  là hai cơ chế khác nhau.
+- **Câu 2:** đúng cho bài này: TLS của browser kết thúc ở Cloudflare Edge và
+  Traefik → Pod web dùng HTTP. Còn một kết nối tunnel được mã hóa riêng giữa
+  `cloudflared` và Cloudflare; `cloudflared` → Traefik đang dùng HTTP riêng.
+  Không có một phiên TLS liên tục từ browser đến Pod.
+- **Câu 3:** đúng khi nói chỉ đổi Service URL là chưa đủ. Nhưng **không nhất
+  thiết đổi Host/path rule** của Ingress: rule định tuyến `app.hieupn.site` + `/`
+  có thể giữ nguyên. Traefik cần listener/entrypoint HTTPS, certificate và
+  private key phù hợp, cấu hình TLS/router phù hợp; `cloudflared` phải tin
+  certificate và kiểm tra đúng tên. Tùy cấu hình controller mà cần thêm TLS vào
+  Ingress hoặc loại cấu hình router tương ứng.
+
+**Sơ đồ nền tảng: bất kỳ ứng dụng HTTPS nào**
+
+Sơ đồ bắt đầu từ lúc người dùng **nhập URL HTTPS vào browser**. URL chưa phải
+HTTP request: browser phải tìm địa chỉ, tạo kết nối và hoàn tất TLS trước.
+“Public endpoint” có thể là chính server ứng dụng hoặc một proxy phía trước.
+
+```mermaid
+flowchart LR
+    subgraph S1["1. Browser"]
+        direction TB
+        U["Nhận URL HTTPS"] --> D["DNS tìm IP"]
+    end
+    subgraph S2["2. Kết nối"]
+        direction TB
+        N["TCP/QUIC tới IP:443"] --> T["TLS: SNI → certificate → xác minh → khóa phiên"]
+    end
+    subgraph S3["3. HTTP"]
+        direction TB
+        H["Gửi method, path, Host/:authority, body nếu có"]
+    end
+    subgraph S4["4. Chuyển tiếp"]
+        direction TB
+        P{"Public endpoint là proxy?"}
+        Q["Chọn route, kết nối tới chặng tiếp theo"]
+        P -->|Có| Q
+    end
+    subgraph S5["5. Ứng dụng"]
+        direction TB
+        A["Nhận và xử lý HTTP request"] --> O["Response quay về qua các chặng"]
+    end
+    D --> N
+    T --> H
+    H --> P
+    P -->|Không| A
+    Q --> A
+```
+
+Nếu có nhiều proxy, lặp lại bước **chọn route → kết nối chặng kế tiếp → gửi
+HTTP**. Proxy có thể tái sử dụng kết nối sẵn có, thay vì mở một TCP/TLS
+connection mới cho từng request. Sơ đồ không giả định ứng dụng chạy trong
+Kubernetes hay đặt sau Cloudflare.
+
+**Từng bước: DNS, transport, TLS, rồi mới HTTP**
+
+1. Browser tách URL thành `https`, hostname `host`, cổng mặc định `443`, path
+   `/path` và query `query`. DNS (hoặc cache DNS) cung cấp IP của điểm vào;
+   nó không quyết định scheme, certificate hay backend HTTP. Tên public có thể
+   đi qua CNAME/proxy trước khi ra IP cuối cùng.
+2. Browser mở kết nối mạng tới IP/cổng đó. Với HTTPS trên TCP, hai bên làm
+   TCP handshake rồi bắt tay TLS. Với HTTP/3, QUIC chạy trên UDP và tích hợp
+   thiết lập TLS; không mô tả HTTP/3 bằng TCP handshake.
+3. Browser gửi TLS `ClientHello`: phiên bản/thuật toán hỗ trợ, dữ liệu trao đổi
+   khóa, **SNI** cho hostname mà nó muốn gặp, và thường có **ALPN** để thương
+   lượng giao thức HTTP. SNI giúp đầu nhận dùng chung IP/cổng chọn ngữ cảnh
+   TLS và certificate **trước khi nó nhận HTTP request**. SNI là tên do client
+   khai, không tự chứng minh server đáng tin hay cấp quyền truy cập.
+4. Server gửi thông tin bắt tay và certificate. Browser kiểm tra certificate
+   còn hợp lệ, chuỗi chứng nhận dẫn tới CA được tin cậy, và tên trong SAN của
+   certificate khớp hostname trong URL. Bước bắt tay cũng xác minh server nắm
+   private key tương ứng và tạo khóa đối xứng cho phiên. Certificate hỗ trợ
+   xác thực danh tính; nó không phải khóa dùng trực tiếp để mã hóa mọi HTTP
+   request. Nếu kiểm tra bắt buộc thất bại, browser không tiếp tục request
+   một cách bình thường.
+5. Khi TLS hoàn tất, browser gửi HTTP request được bảo vệ trong phiên TLS,
+   ví dụ `GET /path?query`. Với HTTP/1.1 có `Host: host`; HTTP/2/3 dùng
+   `:authority` mang tên đích tương ứng. POST có thể mang body. Server hoặc
+   proxy giải mã HTTP, áp dụng route theo hostname/path và các rule liên quan.
+6. Nếu điểm vào là proxy, proxy có thể kết thúc phiên TLS này và tạo một HTTP
+   request cho chặng sau. HTTPS ở chặng sau đòi hỏi **một phiên TLS khác**:
+   proxy lúc này là TLS client và phải xác minh server của chặng ấy. HTTP ở
+   chặng sau không có TLS bảo vệ cho đoạn truyền đó. Cuối cùng ứng dụng nhận
+   method, path/query, headers và body theo cách proxy chuyển tiếp; ứng dụng
+   tạo response, mỗi proxy trả response trên kết nối tương ứng về browser.
+
+Với TLS 1.3, các thông điệp như ServerHello, Certificate, CertificateVerify
+và Finished có trình tự và mức mã hóa riêng trong handshake; sơ đồ trên rút
+gọn chúng thành bước xác minh và tạo khóa. Session resumption/0-RTT cũng có
+thể làm trình tự thực tế khác đi; phần giải thích dùng full handshake thông
+thường.
+
+| Thông tin | Có từ lúc nào? | Trả lời câu hỏi gì? |
+| --- | --- | --- |
+| DNS/IP | Trước khi kết nối | Mở kết nối mạng tới đâu? |
+| SNI trong TLS ClientHello | Trước HTTP | Server cần chọn cấu hình TLS/certificate cho tên nào? |
+| Certificate và SAN | Trong TLS handshake | Client có xác minh đúng server cho tên kỳ vọng không? |
+| HTTP `Host` hoặc `:authority` | Sau khi lập TLS, nằm trong HTTP | HTTP request hướng tới hostname nào để chọn route? |
+| HTTP path/query | Trong HTTP | Request nhắm tới tài nguyên/hành động nào? |
+
+SNI **không thay thế** `Host`/`:authority`: TLS server cần chọn certificate
+trước khi xử lý HTTP; HTTP router dựa trên request đã được nhận. Nếu dùng
+Encrypted ClientHello (ECH), một phần ClientHello/SNI có thể được che giấu;
+mô tả ở trên là trường hợp SNI thông thường.
+
+**Áp dụng cho chuỗi Cloudflare Tunnel của bài**
+
+| Chặng | Kết nối và giao thức | Vai trò, TLS |
+| --- | --- | --- |
+| Browser → Cloudflare Edge | Browser tìm Edge IP, kết nối cổng HTTPS, gửi SNI `app.hieupn.site`, xác minh certificate rồi gửi HTTP | TLS phiên 1 kết thúc tại Edge; Edge đọc hostname/path và tra route |
+| `cloudflared` ↔ Cloudflare | Connector chủ động duy trì kết nối tunnel outbound được mã hóa; Edge chuyển request qua kết nối thích hợp | Phiên/kết nối bảo vệ riêng, không dùng khóa TLS của browser |
+| `cloudflared` → Traefik | Connector phân giải Service URL qua DNS nội bộ, kết nối ClusterIP của Service Traefik port 80, gửi HTTP với Host public nếu không override | Hiện tại không có TLS, vì Service URL là `http://...:80` |
+| Traefik → ứng dụng | Traefik khớp Ingress/router rồi gọi backend phù hợp | HTTP trong demo; ứng dụng nhận request và tạo response |
+
+“Tunnel đã mở outbound” nghĩa là kết nối hai chiều được duy trì để nhận và
+chuyển dữ liệu; request người dùng không phải **response HTTP** của một lệnh
+outbound ban đầu. Request public tới Edge, được proxy vào tunnel; connector
+lại tạo/chọn kết nối tới origin. Không cần mở inbound tới IP của lab.
+
+**Đổi riêng chặng connector → origin sang HTTPS**
+
+Với Service URL `https://traefik.traefik.svc.cluster.local:443`, connector sẽ
+là **TLS client** và Traefik sẽ là **TLS server**. Trước khi chạy được, cần:
+
+- Service/cổng/entrypoint Traefik thực sự phục vụ TLS; Traefik có certificate,
+  private key và router/Ingress TLS phù hợp. Host/path rule có thể giữ nguyên.
+- Xác định tên mà connector kỳ vọng ở certificate. Nếu certificate chỉ hợp lệ
+  cho `app.hieupn.site` nhưng URL kết nối là tên `*.svc.cluster.local`, cần
+  cấu hình phù hợp, chẳng hạn `originServerName: app.hieupn.site`, để kiểm tra
+  đúng danh tính; đối chiếu thêm SNI nếu có cấu hình `matchSNItoHost`.
+- Nếu dùng CA nội bộ, cung cấp CA cho connector bằng `caPool` và bảo đảm file
+  CA thực sự có trong môi trường chạy của `cloudflared`. HTTP `Host`/`:authority`
+  phục vụ routing sau TLS; `httpHostHeader` chỉ cần cấu hình khi muốn đặt lại
+  hostname HTTP mà connector gửi tới origin.
+
+`noTLSVerify: true` làm connector bỏ qua xác minh certificate origin: dữ liệu
+vẫn được mã hóa bằng TLS, nhưng connector không còn xác thực chắc chắn danh
+tính origin. Nó không sửa lỗi TCP sai port, listener không nói TLS hay HTTP
+router sai. Nó cũng không thay đổi việc browser xác minh certificate của Edge.
+
+Phân biệt khi chẩn đoán: **không nối được cổng** là lỗi network/listener;
+**TLS handshake/certificate fail** là lỗi cấu hình TLS, tên hoặc CA;
+**TLS thành công nhưng 404** thường cần kiểm tra HTTP `Host`, path và router.
+
+Đọc thêm tài liệu gốc: [RFC 6066 — SNI](https://www.rfc-editor.org/rfc/rfc6066.html),
+[RFC 8446 — TLS 1.3](https://www.rfc-editor.org/rfc/rfc8446.html),
+[RFC 9525 — xác minh tên server](https://www.rfc-editor.org/rfc/rfc9525.html),
+[RFC 9110 — HTTP semantics](https://www.rfc-editor.org/rfc/rfc9110.html),
+[Cloudflare Tunnel origin parameters](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/).
+
+</details>
+
 Câu nào chưa trả lời được thì quay lại §9–§13 và phần giải thích tương ứng trước
 khi học Rancher ở §14 hoặc chuyển sang các tình huống xử lý sự cố nâng cao.
 

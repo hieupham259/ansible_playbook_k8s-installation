@@ -28,7 +28,7 @@
 11. [Mua &amp; cấu hình domain trên Cloudflare](#section-11)
 12. [Tạo Cloudflare Tunnel (chạy trong cụm)](#12-tạo-cloudflare-tunnel-chạy-trong-cụm)
 13. [Trỏ domain &amp; kiểm tra trên Internet](#13-trỏ-domain--kiểm-tra-trên-internet)
-    - [Tự kiểm tra — xử lý lỗi 404](#tự-kiểm-tra--xử-lý-lỗi-404)
+    - [Tự kiểm tra — xử lý lỗi 404 và backend Service](#tự-kiểm-tra--xử-lý-lỗi-404-và-backend-service)
 14. [Cài Rancher 2.14.3 &amp; quản lý cụm](#14-cài-rancher-2143--quản-lý-cụm)
 15. [Vận hành &amp; troubleshooting](#15-vận-hành--troubleshooting)
 16. [Nguồn official](#16-nguồn-official)
@@ -2713,9 +2713,9 @@ Traefik Service/Pod → Ingress Router (Host match) → Service web → Pod web
 
 ---
 
-## Tự kiểm tra — xử lý lỗi 404
+## Tự kiểm tra — xử lý lỗi 404 và backend Service
 
-Phần này ghi câu **3/6 vòng 2** và đáp án chuẩn. Các câu vòng 1 cùng câu 1–2 vòng 2
+Phần này ghi câu **3/6 và 4/6 vòng 2** cùng đáp án chuẩn. Các câu vòng 1 cùng câu 1–2 vòng 2
 nằm trong [Tự kiểm tra của tunnel-traefik.md](cloudflare-rancher-docs/tunnel-traefik.md#tự-kiểm-tra).
 Tự trả lời trước khi mở khối đáp án.
 
@@ -2877,6 +2877,139 @@ kubectl -n default logs <pod-web-2> --tail=100
 Ngay cả khi cả hai không có dòng log tương ứng, cần xác nhận access logging đã bật,
 đang xem đúng nơi ghi log và đúng khoảng thời gian. Đối chiếu access log/router
 Traefik trước khi kết luận request chưa tới backend.
+
+</details>
+
+### Câu 4/6 — Service và EndpointSlice không có backend Ready
+
+Bạn quan sát:
+
+- Tunnel Healthy.
+- Ingress web có đúng Host, path và IngressClass.
+- Service web tồn tại, selector là `app: web`.
+- Hai Pod web đều Running nhưng mang label `app: demo`.
+- EndpointSlice của Service web không có endpoint.
+
+Hãy trả lời:
+
+1. Vì sao Service tồn tại và Pod Running nhưng request vẫn không tới ứng dụng?
+2. Lỗi cấu hình nằm ở đâu? Sửa thế nào và dùng lệnh gì để kiểm tra?
+3. Nếu label/selector đã khớp nhưng Pod có condition `Ready=False`, Pod có được dùng
+   làm backend phục vụ bình thường không? Giả sử Service không bật
+   `publishNotReadyAddresses`.
+4. EndpointSlice có endpoint Ready đã đủ chứng minh app trả đúng HTTP response chưa?
+   Cần test thêm gì?
+
+**Câu hỏi bổ sung:** nếu gọi trực tiếp Pod IP trả đúng app nhưng gọi ClusterIP
+Service thất bại, ưu tiên kiểm tra những cấu hình hoặc thành phần nào?
+Khi so sánh phải gọi cùng giao thức, Host/path từ cùng vị trí mạng, đồng thời dùng
+đúng Pod port và Service port tương ứng.
+
+<details>
+<summary>Đáp án vòng 2 — câu 4/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Selector không khớp nên không có backend được chọn**
+
+Service chọn Pod có label `app: web`; hai Pod hiện có mang `app: demo` nên không
+được chọn. Service/ClusterIP tồn tại không đồng nghĩa có endpoint để chuyển tiếp.
+Pod Running không thay thế việc label khớp và readiness đạt.
+
+Selector Service **chọn backend**, không quản lý vòng đời Pod. Không có backend
+qua Service này không có nghĩa không thể gọi Pod IP trực tiếp.
+
+**2. Sửa sự không khớp, không đặt lại selector giống giá trị đang có**
+
+Với dữ kiện đề bài, đổi Service selector từ app:web sang app:demo là một cách sửa,
+nếu app:demo là label đúng của ứng dụng:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector:
+    app: demo
+  ports:
+    - port: 80
+      targetPort: 80
+```
+
+Sửa trong source manifest demo-app.yaml, apply rồi kiểm tra:
+
+```bash
+kubectl apply -f demo-app.yaml
+kubectl -n default get pods --show-labels
+kubectl -n default get svc web -o yaml
+kubectl -n default get endpointslice \
+  -l kubernetes.io/service-name=web -o yaml
+```
+
+Không sửa thành `selector: { app: web }` rồi coi là xong: đó chính là giá trị
+hiện tại nên lỗi vẫn còn. `get svc web -o wide` chưa chứng minh Service có
+endpoint Ready; cần xem địa chỉ, port và `conditions.ready` trong EndpointSlice.
+
+Cách khác là thống nhất label Pod template về app:web. Khi chọn cách này, selector
+Deployment phải khớp template; selector Deployment đã tạo thường không sửa trực
+tiếp được. Nếu nó đã là app:demo, cần lập kế hoạch tạo/thay Deployment phù hợp,
+không chỉ apply một selector mới rồi mong Kubernetes chấp nhận. Không đổi label
+Pod thủ công làm giải pháp lâu dài vì Deployment tạo lại Pod theo template.
+
+**3. Ready=False không phục vụ traffic thông thường qua Service**
+
+Với giả định không bật publishNotReadyAddresses, endpoint chưa Ready không được
+chọn cho traffic thông thường qua Service; Traefik cũng thông thường chỉ dùng
+backend Ready do Kubernetes provider cung cấp. Endpoint có thể vẫn xuất hiện trong
+EndpointSlice với `ready: false`: có địa chỉ không đồng nghĩa đủ điều kiện phục vụ.
+
+Pod/container vẫn có thể chạy. Readiness không tự kill/restart container;
+các connection đang có và truy cập trực tiếp Pod IP không được bảo đảm dừng tức thì.
+
+**4. Ready chưa chứng minh response đúng**
+
+Cần gọi Service từ môi trường có cluster DNS/network, quan sát status và body:
+
+```bash
+curl -i -H 'Host: app.hieupn.site' \
+  http://web.default.svc.cluster.local:80/
+```
+
+Sau đó test qua Traefik từ master theo §12.3.1:
+
+```bash
+ING_IP=$(kubectl -n traefik get svc traefik \
+  -o jsonpath='{.spec.clusterIP}')
+curl -i -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+Khi đường nội bộ PASS, kiểm tra public theo §13. Endpoint Ready phản ánh trạng thái
+readiness, không kiểm tra mọi method/path và tính đúng của dữ liệu ứng dụng.
+
+**Đáp án câu bổ sung**
+
+Ưu tiên đường **Service → backend và Service dataplane**, nhưng trước hết bảo đảm
+hai phép test tương đương: cùng nguồn mạng, Host/path, giao thức và đúng các port.
+
+- Service selector có khớp Pod label không?
+- EndpointSlice có đúng Pod IP, port và endpoint Ready không?
+- Service port/targetPort, protocol và named port nếu dùng có đúng không?
+- App có thực sự lắng nghe Pod port được Service chỉ định không?
+- kube-proxy hoặc dataplane thay thế có hoạt động và lập rule Service đúng không?
+- Routing/CNI, firewall hoặc NetworkPolicy có hiệu lực có chặn đường tương ứng không?
+
+Lệnh đối chiếu trong lab:
+
+```bash
+kubectl -n default get svc web -o yaml
+kubectl -n default get pods --show-labels -o wide
+kubectl -n default get endpointslice \
+  -l kubernetes.io/service-name=web -o yaml
+kubectl -n kube-system get pods -l k8s-app=kube-proxy -o wide
+```
+
+Nếu gọi trực tiếp IP, phép test không phụ thuộc DNS. Không vội sửa Ingress hay
+restart app khi đường Service đang lỗi. Kiểm tra Service/kube-proxy theo §8.5,
+mạng Pod theo §8.3 và selector/manifest theo §10.1.
 
 </details>
 

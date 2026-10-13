@@ -1,24 +1,23 @@
-# Review kiến trúc EKS + ALB và phương án lab 5–6 triệu VND/tháng
+# Review kiến trúc EKS + ALB: lab giữ nguyên kết cấu M và giới hạn ngân sách
 
 Ngày review: **2026-10-13**. Tài liệu nguồn: [kien-truc-eks-alb-100-1000-ccu.md](kien-truc-eks-alb-100-1000-ccu.md).
 
-Người dùng đã xác nhận đây là **lab, được tắt ngoài giờ**. Review này kiểm tra tài liệu và giá công khai, chưa kiểm tra tài khoản AWS, Terraform state, manifest đang triển khai hoặc chạy load test. Các cấu hình dưới đây là đề xuất, chưa áp dụng lên hạ tầng.
+Người dùng đã xác nhận đây là **lab, được tắt ngoài giờ**, và yêu cầu **giữ nguyên kết cấu mức M**: 3 AZ, 3 NAT, nhóm node hệ thống/app riêng và đầy đủ các service/addon của M. Review này kiểm tra tài liệu và giá công khai, chưa kiểm tra tài khoản AWS, Terraform state, manifest đang triển khai hoặc chạy load test. Các cấu hình dưới đây là đề xuất, chưa áp dụng lên hạ tầng.
 
 ## 1. Kết luận và phạm vi giữ nguyên kiến trúc
 
 Kiến trúc tổng thể khả thi: Route 53 → CloudFront/WAF → VPC origin → ALB internal → EKS; S3 riêng tư qua OAC; RDS PostgreSQL Multi-AZ; Valkey primary/replica; SQS cho tác vụ bất đồng bộ. Tuy nhiên, tài liệu **chưa đủ để cam kết 100–1000 CCU, p99 < 300 ms, không bán quá tồn và deploy không downtime**. Có lỗi cấu hình ALB, thiếu ngân sách tài nguyên rollout và thiếu bảo đảm nhất quán trong luồng đặt hàng.
 
-**Ngân sách 5–6 triệu có thể đạt với lab theo kết cấu S**, giữ 2 AZ, 1 NAT, ALB internal, EKS managed node group với 2 node khi mở lab, RDS Multi-AZ và 2 node Valkey. Phương án đề xuất:
+**Mục tiêu 5–6 triệu VND/tháng không đạt trong phạm vi giữ nguyên M.** Ngay cả giả định tất cả EC2/RDS compute đã nghỉ, thu Valkey xuống micro và chuyển edge sang trả theo dùng, một phần phí cố định đã khoảng **7,04 triệu/tháng**, chưa gồm storage và các service còn lại. Giảm CCU không loại bỏ phí theo giờ của EKS/NAT/ALB/cache.
 
-- Giữ 2 × `m7g.large`, không cần chuyển node EKS sang CPU burstable.
-- Thu RDS về `db.t4g.small` Multi-AZ; Valkey về 2 × `cache.t4g.micro` ở hai AZ.
-- Mục tiêu ban đầu **10–20 CCU**, chỉ thử lên 50 CCU sau khi đo.
-- Giới hạn **24–32 giờ tính phí compute/tháng**, đã gồm thời gian khởi động và kết thúc buổi học.
-- Dự toán khoảng **5,30–5,36 triệu trước thuế**, hoặc **5,83–5,90 triệu khi cộng 10% dự phòng**, với tháng quy ước 730 giờ. Tháng 31 ngày: khoảng **5,38–5,45 triệu trước thuế**, **5,92–5,99 triệu với dự phòng**.
+**Phương án tối ưu áp dụng là M thu nhỏ cho lab:** giữ 3 node hệ thống + 3 node app khi mở lab, 3 AZ/3 NAT, ALB internal, RDS Multi-AZ, cache primary/replica và Karpenter/KEDA/Prometheus/Grafana/Argo CD. Giảm DB/cache/dataset, đổi gói thanh toán edge và giảm giờ compute; không hợp nhất nhóm node, giảm AZ/NAT hay bỏ addon.
 
-**Nếu phải giữ kết cấu M**, gồm 3 AZ, 3 NAT và nhóm node hệ thống/app riêng, mục tiêu này không khả thi: ngay cả giả định tất cả EC2/RDS đã nghỉ, thu Valkey xuống micro và chuyển edge sang trả theo dùng, một phần phí cố định đã khoảng **7,04 triệu/tháng**, chưa gồm storage và các service còn lại. Chuyển M sang S sẽ thay đổi kết cấu, nên không được xem là tối ưu hợp lệ theo ràng buộc người dùng.
+- Mục tiêu khởi đầu **10–20 CCU**, chưa được load test xác nhận; giữ 3 API Pod.
+- `db.t4g.small` Multi-AZ; 2 × `cache.t4g.micro`; 6 × `m7g.large` chỉ chạy trong giờ lab.
+- **24–32 giờ compute/tháng**, gồm khởi động/kết thúc; ngoài giờ capacity hệ thống/app về 0 và RDS dừng, còn EKS/3 NAT/ALB/cache/storage vẫn tính phí.
+- Lab dựng mới, dataset nhỏ: khoảng **8,36–8,51 triệu trước thuế**, **9,20–9,36 triệu với 10% dự phòng**, tại 730 giờ/tháng. Tháng 31 ngày: khoảng **8,49–8,64 triệu trước thuế**, **9,34–9,50 triệu với dự phòng**.
 
-Phương án S giữ đầy đủ service/addon thuộc S trong tài liệu. Nếu yêu cầu giữ cả Karpenter, KEDA, Prometheus, Grafana và Argo CD của M, phải giữ chúng trong phạm vi và tính lại tài nguyên; không được âm thầm bỏ để đạt ngân sách S.
+Phương án S đã được loại khỏi phần đề xuất sau khi người dùng chọn M. Không dùng kết quả 5–6 triệu của S để quảng bá cho M. Ngân sách phù hợp để lập kế hoạch M lab nhỏ là khoảng **9,5 triệu/tháng có dự phòng**, cần cộng thêm nếu giữ dataset/storage lớn của M gốc.
 
 ## 2. Những phần đúng
 
@@ -64,7 +63,7 @@ Theo chính các số requests của tài liệu:
 - S khi HPA lên 4 API Pod: `4 × 0,5 + 0,25 + 0,6 + 2 × 0,3 = 3,45 vCPU`. Rollout cần thêm 1 Pod: **3,95 vCPU**, vượt tổng 3,8 vCPU allocatable của 2 node.
 - M tại flash sale: 15 API + 4 worker dùng 8,5 vCPU. `maxSurge: 25%` cho thêm **4** API Pod, đưa nhu cầu lên **10,5 vCPU**, vượt 9,6 vCPU dành cho workload trên 6 node app.
 
-`maxUnavailable: 0` có thể làm rollout đứng chờ capacity. Cần tính headroom cho surge, Pod đang terminating, RAM, IP và ràng buộc placement. Với S lab, giữ 2 API Pod trong cấu hình ngân sách và tránh rollout đồng thời với load test sát trần; nếu scale node thứ ba phải cộng giờ máy/EBS. [Kubernetes Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
+`maxUnavailable: 0` có thể làm rollout đứng chờ capacity. Cần tính headroom cho surge, Pod đang terminating, RAM, IP và ràng buộc placement. Phương án M lab giảm trần replica để giữ capacity rollout trên 3 node app; nếu vẫn dùng cron 15 replica của M gốc thì phải cấp thêm node và tính lại ngân sách. [Kubernetes Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
 
 ### 3.4. P2 — Managed node group không tự scale chỉ vì đặt `maxSize: 3`
 
@@ -121,106 +120,97 @@ ALB tính LCU theo **giá trị lớn nhất của bốn chiều**, không mặc
 
 100 RPS/Pod với requests 0,5 vCPU, 1 ms lock PostgreSQL và 0,1 ms Valkey không phải sức chịu được AWS bảo đảm. p99 phụ thuộc query/index, cache hit, TLS, network, pool, payload và tỉ lệ thao tác ghi. Latency dưới 300 ms cho API nhận `202` cũng khác thời gian đơn được xử lý/hoàn tất thanh toán. Đo hai chỉ tiêu riêng.
 
-## 4. Cấu hình lab giữ kết cấu S
+## 4. Phương án áp dụng: lab giữ nguyên M
 
-| Thành phần | Đề xuất | Điều kiện |
+### 4.1. Thành phần và cấu hình
+
+| Thành phần | Cấu hình lab M đề xuất | Phần được giữ nguyên |
 | --- | --- | --- |
-| Region/VPC/subnet | Giữ Singapore, 2 AZ, public/private/data subnet | Giữ route, SG, S3 gateway endpoint; không đổi sang public node hoặc NAT instance. |
-| EKS | 1 cluster trong standard support | Control plane tồn tại cả tháng; không bật Auto Mode/Fargate hoặc tier tính phí khác trong mô hình này. |
-| Node group | Giữ managed node group; 2 × `m7g.large` khi lab mở | Sau buổi lab giảm desired/min xuống 0, giữ node group; khi mở khôi phục 2 node và kiểm tra phân bố AZ. |
-| API/worker | Giữ 2 API Pod, mỗi Pod requests 500m/1 GiB; giữ worker | Không scale khỏi cấu hình này trong ngân sách chuẩn. Đo mức dùng worker/addon và RAM; không hạ requests chỉ để ép Pod vào node. |
-| Addon S | Giữ VPC CNI, kube-proxy, CoreDNS, metrics-server, Load Balancer Controller, Pod Identity agent, External Secrets, Fluent Bit | Deployment/Service/Secret giữ trong cluster khi node về 0. |
-| ALB | Giữ internal, TargetGroupBinding, target `ip`, listener/target group | ALB tồn tại 24/7; ngoài giờ lab có thể trả lỗi vì không có target, không cam kết app liên tục hoạt động. |
-| NAT Gateway | Giữ 1 NAT và EIP 24/7 | NAT không có thao tác stop. Không giả định tắt EC2 sẽ tắt NAT. |
-| RDS PostgreSQL | `db.t4g.small` Multi-AZ, gp3 **20 GB cho lab dựng mới** | Dừng ngoài giờ; primary/standby vẫn thuộc cấu hình Multi-AZ. Giới hạn pool: API khoảng 5 kết nối/Pod, worker 2; chừa kết nối quản trị. |
-| ElastiCache Valkey | 2 × `cache.t4g.micro`, 1 primary + 1 replica khác AZ | Bật Multi-AZ/automatic failover; chạy 24/7. Mỗi node 0,5 GiB, replica không tăng dung lượng cache hữu dụng. |
-| CloudFront/WAF | Giữ pay-as-you-go, VPC origin; 1 ACL và 6 rule tính phí như file gốc | Không dùng Pro vì thiếu VPC origin; Business $200 riêng edge đã gần hết ngân sách lab. Tránh rule trả phí bổ sung nếu chưa lập ngân sách. |
-| CloudWatch | Giữ Fluent Bit, khoảng 10 alarm; log gọn, retention 7–14 ngày | Dự toán khoảng $2; không ghi body/token, không bật debug toàn thời gian. |
-| S3/ECR/Secrets/KMS/SQS/Route 53 | Giữ tất cả | Lab mới: S3 10 GB, ECR 2 GB, 3 secret độc lập cần thiết, 1 key, 1 hosted zone; lifecycle image/log phù hợp. Không gộp secret khác quyền truy cập chỉ để tiết kiệm. |
+| VPC/AZ/subnet | Singapore; 3 AZ; public/private/data subnet mỗi AZ | Kết cấu mạng, route và security boundary. |
+| NAT | **3 NAT + 3 EIP**, mỗi AZ một NAT, chạy cả tháng | Không giảm NAT hoặc đổi sang NAT instance. |
+| Edge/ALB | CloudFront pay-as-you-go + WAF; VPC origin đến ALB internal do Terraform tạo | Giữ toàn bộ service và luồng request; chỉ đổi phương thức thanh toán từ Premium. |
+| EKS | 1 cluster standard support | Control plane tồn tại cả tháng. |
+| Hệ thống | Managed node group **3 × m7g.large** khi mở, một node mỗi AZ theo placement thực tế | Karpenter, LBC, CoreDNS, KEDA, metrics-server, External Secrets, Prometheus, Grafana, Argo CD và các agent/DaemonSet. |
+| App | Karpenter cấp **3 × m7g.large**, mỗi AZ một node khi mở | Giữ nhóm app riêng; API 3 replica, KEDA/HPA tối đa 4; worker tối đa 3. Không chạy Karpenter trên node do chính nó cấp. |
+| PostgreSQL | `db.t4g.small` **Multi-AZ DB instance**, gp3 20 GB nếu dựng mới | Primary/standby khác AZ; stop/start ngoài giờ, storage còn nguyên. |
+| Valkey | 2 × `cache.t4g.micro`, primary + replica khác AZ, Multi-AZ/failover bật | Giữ ElastiCache và cache replication. Dung lượng mỗi node 0,5 GiB, chỉ phù hợp dataset lab nhỏ. |
+| Quan sát | CloudWatch khoảng 20 alarm; Prometheus/Grafana vẫn tự host; PVC Prometheus 50 GB | Giữ observability stack; giảm log, cardinality và retention phù hợp lab. |
+| Dịch vụ khác | S3, ECR, Secrets Manager, KMS, SQS, Route 53 và GitOps | Giữ tất cả; lab mới dùng S3 10 GB, ECR 2 GB, 3 secret độc lập cần thiết, 2 KMS key như M gốc. |
 
-**Lý do giữ `m7g.large`:** hai node chỉ chạy 32 giờ tốn khoảng **$6,53**. Đổi sang `t4g.medium` tiết kiệm khoảng **$3,81/tháng**, gần 99.000 VND, nhưng RAM giảm một nửa và có giới hạn CPU credit. Node được terminate khi scale về 0 không giữ credit để lần sau dùng lại; T4g không có launch credit. Lợi ích nhỏ so với rủi ro làm load test khó diễn giải. [EC2 CPU credits](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-credits-baseline-concepts.html).
+Giữ `m7g.large` giúp tránh CPU credits và giảm rủi ro thiếu RAM khi chạy Prometheus/Argo CD. 6 node chỉ chạy 32 giờ tốn **$19,58**, nên tiền tiết kiệm từ đổi sang burstable tương đối nhỏ. Requests/limits của Argo CD và mọi addon phải được cộng vào capacity trước khi triển khai; số 3,1 vCPU/8,3 GiB hệ thống trong file gốc chưa bao gồm rõ Argo CD.
 
-RDS nhỏ dùng CPU burstable: theo dõi credit balance/surplus và bộ nhớ; phần CPU vượt baseline có thể tính thêm phí. Không dùng cấu hình này để mặc định xác nhận tải ghi cao liên tục.
+Karpenter có thể consolidate khiến số app node thực tế giảm. Nếu mục tiêu là giữ một node app mỗi AZ trong giờ lab, phải định nghĩa placement/capacity tương ứng và kiểm tra sau mỗi lần mở; không chỉ nhìn tổng số Pod. Việc tăng thêm node để rollout hoặc diễn tập AZ phải cộng giờ máy. [AWS Karpenter recommendations](https://docs.aws.amazon.com/eks/latest/best-practices/karpenter.html).
 
-**Nếu lab đã dựng:** không được giảm trực tiếp allocated storage RDS từ 50 GB xuống 20 GB. Phải giữ 50 GB và cộng **$8,28/tháng**, hoặc lập kế hoạch migration riêng. Review này không thực hiện migration. Storage RDS tăng được nhưng không thu nhỏ trực tiếp. [RDS storage](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PIOPS.StorageTypes.html).
+Giữ KEDA/CPU scaler nhưng giảm `minReplicaCount`/`maxReplicaCount` của API về **3/4** và cron `desiredReplicas` về **4** nếu có buổi thử scale theo lịch; không giữ cron 15 Pod lúc 19:30 thứ Sáu từ file gốc. Worker scaler giữ service hoạt động, giới hạn tối đa 3 worker cho lab nhỏ. Đây là giảm capacity/autoscaling theo CCU, không loại bỏ KEDA hoặc đổi nhóm compute. 4 API + 3 worker dùng khoảng 2,75 vCPU requests; surge 1 API đưa lên 3,25 vCPU, dưới 4,8 vCPU workload trên 3 node app theo giả định gốc. Vẫn phải kiểm tra RAM, bin packing, placement và Pod terminating thực tế.
 
-## 5. Bảng chi phí có thể tính lại
+Chuyển Premium sang pay-as-you-go không thay kết cấu CloudFront/WAF/VPC origin. Với tải lab vài trăm nghìn request/tháng, Premium $1.000 không phù hợp. Việc chuyển gói thật còn phụ thuộc điều kiện billing/eligibility và thời điểm áp dụng; phương án này không thực hiện thay đổi subscription.
 
-### 5.1. Các giả định
+### 4.2. Bảng giá lab M, H = 32, tháng 730 giờ
 
-- Tháng chuẩn 730 giờ; USD/VND **26.000 là giả định kế hoạch**, không phải tỷ giá thị trường được xác nhận.
-- `H = 32` là số giờ mỗi node và RDS ở trạng thái phát sinh phí compute. Hai node tương đương **64 instance-hours**. Không hiểu H là tổng giờ của hai node.
-- Ví dụ 8 buổi/tháng: mỗi buổi 3 giờ sử dụng và 1 giờ cho khởi động/kết thúc; nếu RDS chậm phải tính thời gian thực tế, giảm giờ sử dụng hoặc chấp nhận tăng tiền.
-- Đỉnh mục tiêu 20 CCU; trung bình **trong giờ tính tải** là 5 CCU. Ngoài giờ không có tải nghiệp vụ; lượng scan internet/WAF phải theo dõi riêng.
-- Giữ giả định 0,2 API request/s, 0,5 tổng request/s, 10 KB/s mỗi người. Mô hình không cộng flash sale liên tục hoặc benchmark lớn ngoài lịch.
-- 32 giờ → 115.200 API request, 288.000 CloudFront request, khoảng 5,76 GB trả về người dùng. Dùng đơn vị KB/GB thập phân nhất quán với phép tính file gốc.
-- Root EBS: 2 × 20 GB, **tính bảo thủ đủ cả tháng** dù node group scale về 0 thường xoá root volume. RDS storage và cache tính đủ tháng.
-
-### 5.2. Dự toán lab mới, 730 giờ/tháng
+H là số giờ tính phí của mỗi node và RDS. Hai nhóm 3 node có tổng **192 EC2 instance-hours** ở H = 32; không được tính thành 32 giờ cho toàn bộ 6 máy. Root EBS tính bảo thủ cả tháng; PVC Prometheus luôn tính cả tháng.
 
 | Hạng mục | Cách tính | USD/tháng |
 | --- | --- | ---: |
-| EKS control plane | 0,10 × 730 | 73,000 |
-| 2 node `m7g.large` | 2 × 0,102 × 32 | 6,528 |
-| Root EBS gp3 | 2 × 20 × 0,096, bảo thủ 24/7 | 3,840 |
-| ALB | 0,0252 × 730 + dự phòng LCU 0,10 | 18,496 |
-| 1 NAT + IPv4 + 10 GB NAT | (0,059 + 0,005) × 730 + 10 × 0,059 | 47,310 |
-| RDS `db.t4g.small` Multi-AZ | 0,102 × 32; giá này đã gồm deployment Multi-AZ, không nhân đôi thêm | 3,264 |
-| RDS gp3 Multi-AZ 20 GB | 20 × 0,276 | 5,520 |
-| Valkey 2 × `cache.t4g.micro` | 2 × 0,0192 × 730 | 28,032 |
-| CloudFront | Khoản dự phòng, không bắt buộc dựa vào free tier | 2,000 |
-| WAF | 5 + 6 × 1 + 0,288 triệu × 0,60 | 11,173 |
-| CloudWatch logs/retention/alarms | Hạn mức dự toán | 2,000 |
-| Secrets Manager | 3 × 0,40 | 1,200 |
-| KMS | 1 key | 1,000 |
-| ECR | 2 GB × 0,10 | 0,200 |
-| Route 53 | 1 hosted zone; alias đến CloudFront | 0,500 |
-| S3 storage | 10 GB × 0,025 | 0,250 |
-| S3 requests | Dự phòng | 0,300 |
-| SQS | Dự phòng request, không coi message là request duy nhất | 0,500 |
-| Traffic giữa AZ | Dự phòng khoảng 10 GB tính hai chiều | 0,200 |
-| Backup dư/API khác | Dự phòng nhỏ; cần đo | 1,000 |
-| **Tổng chưa thuế/phí** | Tính từ số chưa làm tròn từng dòng | **206,313** |
-| **Quy đổi VND** | × 26.000 | **5.364.133 VND** |
-| **Cộng 10% dự phòng** | Không phải xác nhận thuế suất thực tế | **5.900.546 VND** |
+| EKS | 0,10 × 730 | 73,000 |
+| 3 node hệ thống | 3 × 0,102 × 32 | 9,792 |
+| 3 node app | 3 × 0,102 × 32 | 9,792 |
+| Root EBS | 6 × 20 GB × 0,096, bảo thủ cả tháng | 11,520 |
+| Prometheus EBS | 50 GB × 0,096 | 4,800 |
+| ALB + LCU allowance | 0,0252 × 730 + 0,10 | 18,496 |
+| **3 NAT + IPv4 + 10 GB tổng NAT data** | 3 × (0,059 + 0,005) × 730 + 10 × 0,059 | **140,750** |
+| RDS compute | 0,102 × 32, giá Multi-AZ đã gồm deployment | 3,264 |
+| RDS gp3 Multi-AZ | 20 × 0,276 | 5,520 |
+| Valkey 2 micro | 2 × 0,0192 × 730 | 28,032 |
+| CloudFront | Allowance tải lab nhỏ | 2,000 |
+| WAF | 5 + 6 + 0,288 triệu × 0,60 | 11,173 |
+| CloudWatch | 20 alarm + log/retention allowance | 3,000 |
+| Secrets | 3 × 0,40 | 1,200 |
+| KMS | 2 key | 2,000 |
+| ECR | 2 GB | 0,200 |
+| Route 53 | 1 zone | 0,500 |
+| S3 storage | 10 GB | 0,250 |
+| S3 requests | Allowance | 0,300 |
+| SQS requests | Allowance | 0,500 |
+| Cross-AZ | Allowance | 0,200 |
+| Backup dư/API khác | Allowance | 1,000 |
+| **Tổng chưa thuế/phí** | Cộng số chưa làm tròn từng dòng | **327,289** |
+| **Quy đổi × 26.000 VND/USD** | Tỷ giá giả định | **8.509.509 VND** |
+| **Cộng 10% dự phòng** | Không phải xác nhận thuế suất | **9.360.460 VND** |
 
-CloudFront pay-as-you-go có free tier 1 TB và 10 triệu request nhưng được chia sẻ theo phạm vi billing; không nên mặc định lab được hưởng toàn bộ. Với lượng tải này, tiền byte/request kể cả chưa miễn phí vẫn thấp hơn khoản $2 dự phòng. [CloudFront billing FAQ](https://aws.amazon.com/cloudfront/faqs/).
-
-Khoản LCU $0,10 giả định processed bytes là chiều lớn nhất, không nhiều kết nối mới/rule evaluations. Đây là allowance theo tải nhỏ, không phải trần tính phí. Tải bất thường, paid managed rules, CPU credit, log/query và backup có thể vượt dự toán.
-
-### 5.3. Giờ chạy là biến quan trọng hơn CCU
-
-Giữ các giả định trên, tại 730 giờ/tháng:
+Trung bình 5 CCU trong 32 giờ tương đương 288.000 request CloudFront, 115.200 API request và 5,76 GB dữ liệu theo giả định gốc. Khoản CloudFront $2 không cần dựa hoàn toàn vào free tier. Traffic scan ngoài giờ, CPU credits RDS, backup/log lớn và các WAF paid features có thể vượt allowance.
 
 ```text
-USD(H) = 196,348 + 0,3114 × H
+USD_M(H) = 304,268 + 0,7194 × H
 
-0,3114 = 2 × 0,102       # hai node m7g.large
-         + 0,102        # RDS t4g.small Multi-AZ
-         + 0,0054       # request WAF với trung bình 5 CCU
+0,7194 = 6 × 0,102 + 0,102 + 0,0054
+         # 6 node    # RDS   # request WAF
 
-VND(H) = USD(H) × 26.000
+Nếu tháng có T giờ: thêm (T − 730) × 0,3556 USD
 ```
 
-Phần $196,348 gồm phí cố định và các allowance đã nêu, nên không phải hoá đơn tối thiểu tuyệt đối ở tải bằng 0. LCU đang được dự toán trong allowance riêng, không nhân lại với H.
+Các allowance trong phần cố định là khoản kế hoạch, không phải hoá đơn tối thiểu tuyệt đối. Công thức giả định 6 node và RDS có cùng H; nếu khác phải tính riêng `0,102 × tổng EC2 instance-hours + 0,102 × giờ RDS` và cộng request thực tế.
 
 | Giờ compute H/tháng | Trước thuế/phí | Cộng 10% dự phòng |
 | ---: | ---: | ---: |
-| 24 | 5,30 triệu | 5,83 triệu |
-| **32** | **5,36 triệu** | **5,90 triệu** |
-| 40 | 5,43 triệu | 5,97 triệu |
-| 80 | 5,75 triệu | 6,33 triệu |
-| 120 | 6,08 triệu | 6,68 triệu |
-| 160 | 6,40 triệu | 7,04 triệu |
-| 730 | 11,02 triệu | 12,12 triệu |
+| 0, chưa mở buổi nào, vẫn giữ các allowance | 7,91 triệu | 8,70 triệu |
+| **24** | **8,36 triệu** | **9,20 triệu** |
+| **32** | **8,51 triệu** | **9,36 triệu** |
+| 40 | 8,66 triệu | 9,53 triệu |
+| 80 | 9,41 triệu | 10,35 triệu |
+| 160 | 10,90 triệu | 11,99 triệu |
+| 730 | 21,57 triệu | 23,72 triệu |
 
-Nếu tháng có T giờ, thêm `(T − 730) × 0,2276 USD` cho EKS, NAT/IPv4, ALB và Valkey. Tháng 31 ngày có 744 giờ, thêm khoảng **$3,19**, tức 82.846 VND trước dự phòng. Khi H = 32, tổng với dự phòng là **5,99 triệu**; H = 40 lên **6,06 triệu**. Vì vậy đề xuất **24–32 giờ**, không lấy 40 giờ làm lịch chắc chắn dưới 6 triệu cho mọi tháng.
+Tháng 744 giờ tăng khoảng **$4,98**, tương đương 129.438 VND trước dự phòng. H = 32 khi đó khoảng **8,64 triệu trước thuế**, **9,50 triệu với dự phòng**. H = 0 vẫn vượt mục tiêu, nên không có số giờ H không âm nào giải được ngân sách 6 triệu trong mô hình này.
 
-Ở 730 giờ, trần 6 triệu trước thuế tương đương khoảng 110 giờ compute; nếu chừa 10% thì khoảng 43 giờ. Tháng 744 giờ và chừa 10% chỉ còn khoảng 33 giờ. Đổi tỷ giá hoặc tăng các allowance phải tính lại, không dùng các ngưỡng này như cam kết cứng.
+Nếu phải giữ storage/dataset M gốc: RDS 100 GB, root 30 GB/node, 10 secrets, ECR 10 GB và S3 200 GB, cộng khoảng **$36,19/tháng** so với lab nhỏ. H = 32 khi đó khoảng **9,45 triệu trước thuế**, **10,40 triệu với dự phòng**, tại 730 giờ; Prometheus 50 GB đã tính ở cả hai phương án. Riêng RDS 100 GB không thu nhỏ trực tiếp được: giữ nó cộng **$22,08/tháng**. Dataset không vừa DB/cache nhỏ thì giữ cấu hình lớn hơn và tính lại.
 
-Nếu giữ nguyên cấu hình dung lượng/phụ trợ S gốc: RDS 50 GB, root 30 GB/node, 10 secrets, ECR 5 GB, S3 50 GB, cộng khoảng **$14,30/tháng** vào bảng. H = 32 khi đó khoảng **5,74 triệu trước thuế**, **6,31 triệu với dự phòng**. Không nên quảng bá 5,90 triệu nếu chưa thu được các khoản này. Chỉ riêng RDS vẫn 50 GB thì cộng $8,28: khoảng 5,58 triệu trước thuế ở H = 32.
+### 4.3. Giới hạn cần chốt với ngân sách M
 
-### 5.4. Vì sao giữ M không đạt mục tiêu
+Đề xuất kế hoạch **khoảng 9,5 triệu/tháng** cho M lab dựng mới, ít dữ liệu và 24–32 giờ compute. Nếu giữ dung lượng M gốc, dùng khoảng **10,5–10,6 triệu/tháng có dự phòng** cho cùng lịch. Đây là dự toán, chưa phải cam kết hóa đơn.
+
+Giảm CCU, giảm thêm giờ máy, chọn Spot hoặc mua reservation cho cache có thể giảm một phần, nhưng không đưa khoản phí cố định xuống 5–6 triệu. Không xoá/dựng lại EKS/NAT/ALB theo buổi để giả định chúng chỉ tính H: các thao tác đó làm thay đổi vòng đời tài nguyên và chưa được người dùng cho phép trong yêu cầu giữ service này.
+
+### 4.4. Chứng minh phí cố định vượt mục tiêu
 
 Lấy giả định rất thuận lợi: EC2 và RDS compute không chạy, Valkey đã thu về 2 micro, CloudFront trả theo dùng, không tính request:
 
@@ -236,16 +226,17 @@ Chỉ các khoản này   = 270,588 USD ≈ 7,035 triệu VND
 
 Chưa có storage RDS/EBS/Prometheus, ECR/S3, Secrets/KMS, logs, request, thuế hoặc một giờ node hệ thống/app. Giảm CCU hay giảm giờ node không xoá được các khoản này. Giữ Premium $1.000 thì còn vượt xa hơn. Đây là giới hạn ngân sách dưới ràng buộc giữ kết cấu M.
 
-## 6. Tắt/mở lab mà vẫn giữ các service
+## 5. Tắt/mở lab mà vẫn giữ các service
 
-Không dùng “stop EC2” trực tiếp cho managed node group: Auto Scaling có thể thay node để duy trì desired size. Cách phù hợp là đổi min/desired của node group về 0, giữ max hợp lệ; số node quay lại bằng 2 khi mở. Đây là giảm capacity, không xoá EKS/node group hoặc service. [NodegroupScalingConfig](https://docs.aws.amazon.com/eks/latest/APIReference/API_NodegroupScalingConfig.html).
+Với nhóm hệ thống, không dùng “stop EC2” trực tiếp cho managed node group: Auto Scaling có thể thay node để duy trì desired size. Giảm min/desired về 0, giữ max hợp lệ; khi mở khôi phục 3 node. Nhóm app do Karpenter quản lý cần quy trình giảm capacity riêng, không dùng API managed node group cho các node này. [NodegroupScalingConfig](https://docs.aws.amazon.com/eks/latest/APIReference/API_NodegroupScalingConfig.html), [Karpenter disruption](https://karpenter.sh/docs/concepts/disruption/).
 
 Quy trình cần xây dựng trên máy/runner quản trị đã có, nằm ngoài các node sẽ bị tắt:
 
-1. Trước giờ lab, start RDS và tăng node group về 2 node. Chờ RDS available, node Ready, addon hoạt động, Pod có readiness gate và target ALB healthy; kiểm tra một node/Pod mỗi AZ. Không chỉ sleep một khoảng cố định rồi coi đã sẵn sàng.
-2. Khi kết thúc, ngừng phát sinh đơn mới; cho worker xử lý/đóng tác vụ an toàn, lưu dữ liệu cần giữ. Đưa compute node group về 0 và chờ hoàn tất; dừng RDS. Kiểm tra trạng thái thực tế để không bỏ quên máy.
-3. Giữ ALB, NAT/EIP, CloudFront/WAF, S3/ECR, RDS storage, Valkey, Secrets/KMS, Route 53 và các cấu hình Kubernetes.
-4. Theo dõi giờ chạy thực tế; nếu RDS vẫn starting/stopping hoặc node còn tồn tại, lấy số đo billing làm căn cứ. RDS start có thể mất từ phút tới giờ.
+1. Trước giờ lab, start RDS và tăng managed node group hệ thống về 3 node. Chờ node Ready và Karpenter/addon hoạt động, rồi khôi phục workload để Karpenter cấp 3 node app. Karpenter không thể tự khởi động từ 0 nếu chính controller chưa có node hệ thống để chạy.
+2. Khôi phục trạng thái GitOps/autoscaling của giờ lab; chờ RDS available, 3 API Pod có readiness gate và target ALB healthy. Kiểm tra một node hệ thống và một node app mỗi AZ. Không chỉ sleep một khoảng cố định rồi coi sẵn sàng.
+3. Khi kết thúc, ngừng phát sinh đơn mới và đóng tác vụ an toàn. Ngăn Argo CD self-heal/KEDA/HPA khôi phục replica trong lúc tắt; hạ workload app có chủ đích, cho Karpenter thu hồi capacity và xác nhận app node về 0 **khi controller còn chạy trên nhóm hệ thống**. PDB, Pod chống disruption hoặc PVC/placement có thể cản thu hồi, nên phải kiểm tra chứ không mặc định tự hoàn tất. [Argo CD automated sync](https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/).
+4. Sau khi app node về 0 và dữ liệu persistent đã an toàn, giảm managed node group hệ thống về 0 và stop RDS. Giữ EKS, cả hai cấu hình nhóm compute, ALB, 3 NAT/EIP, CloudFront/WAF, S3/ECR, RDS storage, Valkey, Secrets/KMS, Route 53, Prometheus PVC và cấu hình GitOps/KEDA/Kubernetes.
+5. Khi mở lại, phục hồi mọi trạng thái GitOps/autoscaling đã tạm ngưng; không bỏ Argo CD/KEDA/Karpenter ra khỏi lab. Theo dõi số giờ từng nhóm thực tế; nếu RDS còn starting/stopping hoặc node còn tồn tại thì tính theo billing. RDS start có thể mất từ phút tới giờ.
 
 RDS PostgreSQL **Multi-AZ DB instance** có thể stop/start, vẫn tính storage/backup khi dừng và **tự bật sau 7 ngày dừng liên tục**. Lịch cuối tuần không vướng 7 ngày nhưng kỳ nghỉ dài phải kiểm tra việc tự bật. Không áp quy tắc này máy móc cho Multi-AZ DB cluster. [AWS stop DB instance](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_StopInstance.html).
 
@@ -253,9 +244,9 @@ ElastiCache provisioned không có cơ chế stop/start như RDS; ngân sách t�
 
 PVC/EBS cần giữ sau khi node terminate phải có vòng đời độc lập với root disk. Root disk, emptyDir và dữ liệu container không phải nơi lưu dữ liệu lab bền vững. [EC2 lifecycle](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html).
 
-Không mua Savings Plan/Reserved Instance cho compute chỉ dùng vài chục giờ/tháng: cam kết vẫn phát sinh dù máy nghỉ. Valkey chạy 24/7 có thể xem xét reserved sau khi xác nhận kích thước và thời gian dùng, nhưng phương án hiện tại **không cần cam kết dài hạn** để đạt ngân sách.
+Không mua Savings Plan/Reserved Instance cho compute chỉ dùng vài chục giờ/tháng: cam kết vẫn phát sinh dù máy nghỉ. Valkey chạy 24/7 có thể xem xét reserved sau khi xác nhận kích thước và thời gian dùng; khoản tiết kiệm này không đủ khép khoảng cách giữa M và ngân sách 5–6 triệu. Phương án dự toán không giả định đã mua cam kết dài hạn.
 
-## 7. CCU đề xuất và cách xác nhận tính khả thi
+## 6. CCU đề xuất và cách xác nhận tính khả thi
 
 Mức **10–20 CCU** là giới hạn thử ban đầu do người lập kế hoạch đặt ra, không phải benchmark đã đạt. Theo giả định file gốc:
 
@@ -265,20 +256,20 @@ Mức **10–20 CCU** là giới hạn thử ban đầu do người lập kế h
 | 20 | 4 RPS | 20 RPS |
 | 50, chỉ thử sau | 10 RPS | 50 RPS |
 
-Vẫn giữ requests 500m/1 GiB và hai API Pod; việc hạ CCU cho phép giảm DB/cache và giới hạn chi phí biến đổi. Không tự kết luận giảm 5 lần CCU thì giảm 5 lần máy/tiền. EKS + NAT/IPv4 + ALB hourly + Valkey micro riêng đã khoảng **$166,16**, tương đương 4,32 triệu/tháng tại 730 giờ.
+Vẫn giữ requests 500m/1 GiB và **3 API Pod** trải 3 AZ; việc hạ CCU cho phép giảm DB/cache và giới hạn chi phí biến đổi. Không tự kết luận giảm 5 lần CCU thì giảm 5 lần máy/tiền. EKS + 3 NAT/IPv4 + ALB hourly + Valkey micro riêng đã khoảng **$259,59**, tương đương 6,75 triệu/tháng tại 730 giờ, chưa có WAF/storage/compute.
 
 Điều kiện trước khi chấp nhận 20 CCU:
 
 - Trong giờ lab, chạy tải 20 CCU đúng hành vi đọc/ghi; thử đỉnh ngắn 30 CCU. Nếu thử flash sale thì dùng tần suất API 1/s/người thay vì 0,2/s/người. Tổng thời gian benchmark phải nằm trong H.
 - Đo p99 API ở vị trí client xác định, lỗi 5xx/timeout và độ trễ hoàn tất đơn riêng. Chưa đo thì không cam kết p99 < 300 ms.
 - Đo CPU requests/actual, memory, DB connections, RDS CPU credits, cache memory/evictions và tuổi message SQS. Giữ cache dataset nhỏ; không đặt cả dữ liệu lab vào 0,5 GiB.
-- Rollout khi có tải, kiểm tra graceful shutdown/readiness gate và capacity surge. Diễn tập mất một node trong buổi riêng; phân biệt với mất AZ vì S chỉ có một NAT.
+- Rollout khi có tải, kiểm tra graceful shutdown/readiness gate và capacity surge. Diễn tập mất node/AZ trong buổi riêng khi lab mở; M vẫn có NAT từng AZ. RDS/cache failover có gián đoạn, vì vậy không mặc định yêu cầu p99 300 ms được giữ trong cả khoảng failover. Đo cả khả năng phục hồi và độ đúng dữ liệu.
 - Retry đơn, giao SQS trùng, lỗi gửi message và failover cache phải không tạo đơn/thanh toán trùng hoặc âm tồn trong DB.
 - Đối chiếu chi phí thật trong tuần đầu rồi cập nhật allowance. Theo dõi cả traffic ngoài giờ; WAF pay-as-you-go vẫn tính request bị chặn, nên lab nghỉ không đồng nghĩa traffic edge bằng 0.
 
 Nếu không đạt: giảm CCU về 10 hoặc giảm độ phức tạp/dung lượng dữ liệu lab, sửa query/index/pool và luồng đơn trước. Chỉ tăng cấu hình sau khi tính lại ngân sách. Không xoá service, chuyển RDS Single-AZ, bỏ cache replica, đổi NAT hoặc đổi EKS thành ECS để làm đẹp bảng giá.
 
-## 8. Bằng chứng giá và giới hạn kiểm chứng
+## 7. Bằng chứng giá và giới hạn kiểm chứng
 
 Các bảng giá AWS công khai được đọc bằng HTTP GET **vào RAM**, lọc SKU rồi tính bằng Python sẵn có. Không tải/cài phần mềm, không mua cam kết và không truy cập hay thay đổi tài khoản AWS.
 

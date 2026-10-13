@@ -1245,6 +1245,30 @@ Hai nguồn request có thể có routing, firewall hoặc chính sách mạng k
 Master gọi được không có nghĩa Pod connector gọi được. Test trực tiếp ClusterIP
 còn bỏ qua bước DNS nội bộ, nên không chứng minh hostname Service được phân giải.
 
+**Hai môi trường phân giải tên khác nhau trong cấu hình lab:**
+
+| Nơi chạy | Resolver thường được dùng | Khi hỏi tên Service `traefik.traefik.svc.cluster.local` |
+| --- | --- | --- |
+| Terminal trên master node | Resolver của Ubuntu theo Netplan §5.2; `systemd-resolved` có thể hiện `127.0.0.53` là stub cục bộ | DNS công cộng không biết tên Service nội bộ, trừ khi node được cấu hình riêng để hỏi DNS của cụm |
+| Pod `cloudflared` với `dnsPolicy: ClusterFirst` | DNS của cụm (`kube-dns`/CoreDNS) do kubelet cấu hình cho Pod | CoreDNS trả ClusterIP của Service `traefik` trong namespace `traefik` |
+
+Runbook [§5.2](../runbook-k8s-vmware.md#52-ip-tĩnh-netplan) cấu hình DNS cho
+các node bằng `nameservers: addresses: [1.1.1.1, 8.8.8.8]`;
+[§8.4](../runbook-k8s-vmware.md#84-tầng-4--dns) kiểm tra phân giải cả
+tên Service nội bộ lẫn tên public từ Pod. Với tên ngoài cụm như `google.com`,
+CoreDNS không tự giữ sẵn IP của Google: Corefile mặc định dùng
+`forward . /etc/resolv.conf` để hỏi DNS upstream. Theo cấu hình node trong
+runbook, upstream dự kiến là `1.1.1.1` hoặc `8.8.8.8`. Đây là **chọn DNS công
+cộng làm upstream**, không có bước tự cài thêm một DNS server upstream.
+Muốn biết cụm đang chạy thực sự dùng upstream nào thì xem ConfigMap/Corefile
+CoreDNS và resolver thực tế trong Pod CoreDNS; đừng suy chỉ từ file hướng dẫn.
+
+Riêng lệnh `curl -H 'Host: app.hieupn.site' "http://$ING_IP/"` không dùng DNS
+để tìm Traefik: `$ING_IP` đã là ClusterIP lấy bằng `kubectl` từ Kubernetes API.
+`Host` là HTTP header để Traefik chọn router, không phải tên mà `curl` phải
+phân giải. Vì vậy test trên master chưa kiểm tra CoreDNS của Pod connector,
+kể cả khi master và Pod tình cờ dùng chung DNS upstream cho tên public.
+
 **3. Kiểm tra cấu hình và test từ đúng môi trường**
 
 Trên Cloudflare, mở route trong **đúng tunnel → Published application routes**

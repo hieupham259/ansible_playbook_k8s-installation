@@ -28,6 +28,7 @@
 11. [Mua &amp; cấu hình domain trên Cloudflare](#section-11)
 12. [Tạo Cloudflare Tunnel (chạy trong cụm)](#12-tạo-cloudflare-tunnel-chạy-trong-cụm)
 13. [Trỏ domain &amp; kiểm tra trên Internet](#13-trỏ-domain--kiểm-tra-trên-internet)
+    - [Tự kiểm tra — xử lý lỗi 404](#tự-kiểm-tra--xử-lý-lỗi-404)
 14. [Cài Rancher 2.14.3 &amp; quản lý cụm](#14-cài-rancher-2143--quản-lý-cụm)
 15. [Vận hành &amp; troubleshooting](#15-vận-hành--troubleshooting)
 16. [Nguồn official](#16-nguồn-official)
@@ -2709,6 +2710,175 @@ Traefik Service/Pod → Ingress Router (Host match) → Service web → Pod web
 **PASS §13 / hoàn thành public app:** §13.1 DNS PASS, §13.2 HTTPS headers trả `200`, §13.3 body/trình duyệt hiển thị ứng dụng.
 
 > **TLS:** Cloudflare lo certificate ở edge (Internet ⇄ Cloudflare = HTTPS). Đoạn Cloudflare ⇄ cluster đi trong tunnel mã hóa; chặng `cloudflared` ⇄ Traefik của lab dùng HTTP nội bộ nên không cần cert nội bộ. Traefik không tự redirect HTTP→HTTPS trong cấu hình này; với `ingress-nginx` thì đây là chỗ thường phải thêm annotation `ssl-redirect: "false"`.
+
+---
+
+## Tự kiểm tra — xử lý lỗi 404
+
+Phần này ghi câu **3/6 vòng 2** và đáp án chuẩn. Các câu vòng 1 cùng câu 1–2 vòng 2
+nằm trong [Tự kiểm tra của tunnel-traefik.md](cloudflare-rancher-docs/tunnel-traefik.md#tự-kiểm-tra).
+Tự trả lời trước khi mở khối đáp án.
+
+### Câu 3/6 — App trả 404
+
+Bạn quan sát:
+
+- DNS public trả đúng Cloudflare Edge IP.
+- Tunnel `homelab-k8s` Healthy.
+- Browser mở `https://app.hieupn.site/` nhận **404 Not Found**.
+- Published application route trỏ tới `http://traefik.traefik.svc.cluster.local:80`.
+
+Trên **máy master**, chạy:
+
+```bash
+ING_IP=$(kubectl -n traefik get svc traefik \
+  -o jsonpath='{.spec.clusterIP}')
+
+curl -i -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+Kết quả cũng là 404. Test này gọi trực tiếp Service Traefik từ master, không đi
+qua Cloudflare hoặc connector.
+
+1. Đã đủ bằng chứng kết luận rule Ingress sai chưa? Những thành phần nào có thể
+   tạo response 404?
+2. Cần kiểm tra những trường nào trong Ingress `web`? Nêu lệnh kiểm tra.
+3. Nếu Ingress vẫn khai `host: app.example.com`, tại sao request không khớp?
+   Sửa ở đâu và kiểm tra lại thế nào?
+4. Nếu Host, path và IngressClass đúng, làm sao phân biệt **Traefik không tìm được
+   router phù hợp** với **request đã tới ứng dụng nhưng ứng dụng trả 404**?
+
+**Câu hỏi bổ sung:** Deployment web có hai replica. Gửi một request nhưng chỉ xem
+log Pod web replica 1 và không thấy request đó: có thể kết luận Traefik không chuyển
+request tới backend không? Cần kiểm tra thêm gì?
+
+<details>
+<summary>Đáp án — chỉ mở sau khi đã tự trả lời</summary>
+
+**1. Chưa đủ kết luận Ingress sai**
+
+Test nội bộ cũng trả 404 cho thấy có thể tái hiện lỗi mà không đi qua Cloudflare,
+nhưng chưa xác định tầng nào tạo response. Hai khả năng cần phân biệt:
+
+| Thành phần | Ví dụ tạo 404 |
+| --- | --- |
+| Traefik | Không có router khớp Host/path/entrypoint |
+| Ứng dụng backend | Request đã tới app nhưng app không có resource/path được yêu cầu |
+
+Đường public còn có thể có response do các rule/worker phía Edge nếu được cấu hình;
+không dùng một status giống nhau để kết luận chắc chắn cả hai response cùng nguồn.
+
+Ingress là object cấu hình, không tự phát HTTP response. Sai backend port hoặc
+Service không có backend thường liên quan lỗi cấu hình/kết nối/không có backend,
+có thể dẫn tới 502/503 hoặc router không được nạp tùy trường hợp; phải xem log,
+không quy mọi lỗi Service/Deployment thành 404.
+
+**2. Kiểm tra cả rule, class, namespace và router thực tế**
+
+```bash
+kubectl -n default get ingress web -o yaml
+kubectl -n default describe ingress web
+```
+
+Trong lab, app nằm ở namespace default. Đối chiếu:
+
+- `spec.ingressClassName: traefik`.
+- `spec.rules[].host: app.hieupn.site`.
+- Path `/` và `pathType: Prefix`.
+- Backend Service name `web` và Service port `80`.
+- Ingress và Service backend cùng namespace.
+- Events và log Traefik về việc đọc/nạp cấu hình.
+
+Nếu cần:
+
+```bash
+kubectl get ingressclass traefik -o yaml
+kubectl -n default get svc web -o yaml
+kubectl -n default get endpointslice \
+  -l kubernetes.io/service-name=web -o wide
+kubectl -n traefik logs deployment/traefik --tail=100
+```
+
+YAML đúng trên API chưa tự chứng minh Traefik đã nạp router đúng. Có thể xem
+dashboard nội bộ theo §9.3.2 để đối chiếu router/service thực tế.
+
+**3. Host khác nhau nên không khớp; sửa source manifest theo §12.3.1**
+
+Request mang `Host: app.hieupn.site`; rule còn `app.example.com` nên không khớp.
+Mở `~/demo-app.yaml`, trong object Ingress đổi:
+
+```yaml
+- host: app.example.com
+```
+
+thành:
+
+```yaml
+- host: app.hieupn.site
+```
+
+Sau đó:
+
+```bash
+kubectl apply --dry-run=client -f ~/demo-app.yaml
+kubectl apply -f ~/demo-app.yaml
+
+kubectl -n default get ingress web \
+  -o jsonpath='{.spec.rules[*].host}{"\n"}'
+
+ING_IP=$(kubectl -n traefik get svc traefik \
+  -o jsonpath='{.spec.clusterIP}')
+
+curl -i -H 'Host: app.hieupn.site' "http://$ING_IP/"
+```
+
+PASS khi object hiện Host đúng và request trả nội dung demo mong đợi. Field
+host không có scheme `https://` hoặc dấu `/`. Khi test nội bộ PASS, kiểm tra
+lại URL public theo §13.
+
+**4. Dùng bằng chứng của đúng request, không suy từ việc thiếu log**
+
+Đối chiếu cùng thời điểm, Host, path và dấu nhận diện request khi có:
+
+- **Access log Traefik nếu đã bật:** router/backend nào được chọn, status trả client
+  và origin status nếu có. Log thông thường của Deployment không tự thay thế access log.
+- **Access log app nếu đã bật:** đúng request/path với status 404 là bằng chứng app
+  đã nhận request và tạo response đó.
+- **Dashboard/configuration Traefik:** router của Ingress có thực sự tồn tại và
+  khớp entrypoint/Host/path không?
+- **Gọi trực tiếp Service web** từ môi trường có đường mạng tới Service, giữ cùng
+  Host/path để so sánh với chặng qua Traefik.
+
+Ví dụ chạy trong Pod/debug container có curl và dùng cluster DNS:
+
+```bash
+curl -i -H 'Host: app.hieupn.site' \
+  http://web.default.svc.cluster.local:80/
+```
+
+Test này bỏ qua Traefik và tunnel; kết hợp log để kết luận nguồn 404. Nếu app trả
+404 trực tiếp, điều tra routing/resource phía app. Nếu app trả đúng nội dung nhưng
+qua Traefik trả 404, điều tra router/configuration/header/path thực tế ở Traefik.
+
+Không thấy request trong log chưa chứng minh app không nhận: có thể access log chưa
+bật, log ở nơi khác, đang xem nhầm replica hoặc ngoài khoảng thời gian cần kiểm tra.
+
+**Đáp án câu bổ sung**
+
+**Không thể kết luận.** Request có thể tới replica 2; kiểm tra access log của cả
+hai Pod và đối chiếu đúng request.
+
+```bash
+kubectl -n default get pods -l app=web -o wide
+kubectl -n default logs <pod-web-1> --tail=100
+kubectl -n default logs <pod-web-2> --tail=100
+```
+
+Ngay cả khi cả hai không có dòng log tương ứng, cần xác nhận access logging đã bật,
+đang xem đúng nơi ghi log và đúng khoảng thời gian. Đối chiếu access log/router
+Traefik trước khi kết luận request chưa tới backend.
+
+</details>
 
 ---
 

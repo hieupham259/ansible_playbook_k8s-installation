@@ -164,6 +164,162 @@ thành phần này để phục vụ Rancher.
    cert-manager cũng có webhook để kiểm tra các object liên quan. Bạn phải chờ những thành phần
    này sẵn sàng trước khi giao việc cấp certificate cho chúng.
 
+   **Hai đường certificate khi gọi `https://rancher.hieupn.site`**
+
+   Với **`https://rancher.hieupn.site`**, hai đường nhìn thấy certificate khác nhau:
+
+   - **Browser bên ngoài** thấy certificate public tại Cloudflare Edge.
+   - **Client trong cluster** thấy certificate Rancher do CA riêng ký, được Traefik trình trực tiếp.
+   - Trên đường browser, **`cloudflared`** là client nhìn thấy certificate Rancher ở chặng bên trong.
+
+   Trước khi có request, certificate Rancher và private key tương ứng đã được lưu trong Secret
+   `tls-rancher-ingress`; Traefik đã nạp chúng để phục vụ HTTPS.
+
+   Phần này giả sử các kết nối cần được mở mới, sử dụng **TLS 1.3 handshake đầy đủ**, và Access
+   cho phép request đi tiếp. Trong TLS 1.3, hai bên trao đổi `key_share` và tính khóa bảo vệ
+   handshake **trước khi server gửi certificate**; các thông điệp certificate được bảo vệ bằng
+   những khóa này. Xem
+   [RFC 8446 — TLS 1.3, Protocol Overview](https://datatracker.ietf.org/doc/html/rfc8446#section-2).
+
+   Khi **browser bên ngoài gọi URL**, luồng diễn ra như sau:
+
+   1. **Browser hỏi DNS public**, nhận IP Cloudflare Edge.
+
+   2. **Browser thiết lập TLS với Edge.** Browser khai SNI `rancher.hieupn.site`. Edge trình
+      certificate public chứng nhận hostname đó.
+
+   3. **Browser kiểm tra certificate public:** chuỗi CA tin cậy, hostname, thời hạn, cùng bằng
+      chứng xác thực trong handshake. Nếu đạt, phiên TLS giữa browser và Edge hoàn tất.
+
+      **Browser chưa nhìn thấy certificate do CA riêng của Rancher ký.** Phiên TLS của browser
+      kết thúc tại Edge.
+
+   4. **Sau khi Access cho phép**, Edge chuyển request xuống tunnel đã được `cloudflared` mở sẵn.
+      Tunnel là một kênh bảo mật riêng, đã tồn tại từ trước.
+
+   5. **`cloudflared` tìm origin và mở một phiên TLS khác.** Route Rancher khai:
+
+      `https://traefik.traefik.svc.cluster.local:443`
+
+      Connector hỏi CoreDNS, nhận ClusterIP Traefik rồi kết nối tới port `443`. Setting
+      `originServerName: rancher.hieupn.site` đặt tên cho TLS để Traefik chọn đúng certificate
+      Rancher.
+
+   6. **Traefik trình certificate từ `tls-rancher-ingress` cho connector.** Trong lab, connector
+      dùng `noTLSVerify: true`, nên bỏ kiểm tra độ tin cậy của certificate origin. TLS vẫn thực
+      hiện các bước mật mã còn lại và thiết lập kênh mã hóa. Xem
+      [Cloudflare — Origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/).
+
+   **Dừng tại đây:** phiên TLS giữa `cloudflared` và Traefik đã hoàn tất. Đường browser có **hai
+   phiên HTTPS riêng**, được nối qua tunnel.
+
+   ```mermaid
+   sequenceDiagram
+       participant B as Browser ngoài Internet
+       participant D as DNS public
+       participant E as Cloudflare Edge
+       participant C as cloudflared
+       participant T as Traefik :443
+
+       B->>D: Resolve rancher.hieupn.site
+       D-->>B: Cloudflare Edge IP
+
+       B->>E: ClientHello, SNI và key_share
+       E-->>B: ServerHello và key_share
+       Note over B,E: Tính khóa bảo vệ handshake
+       E-->>B: Mã hóa: certificate public và bằng chứng xác thực
+       Note over B: Kiểm tra certificate và thông điệp handshake
+       B->>E: Finished
+       Note over B,E: TLS public hoàn tất
+
+       Note over E: Access cho phép request tiếp tục
+       E->>C: Chuyển request qua tunnel đã mở sẵn
+       Note over C: CoreDNS trả ClusterIP Service Traefik
+
+       C->>T: ClientHello, SNI rancher.hieupn.site và key_share
+       T-->>C: ServerHello và key_share
+       Note over C,T: Tính khóa bảo vệ handshake
+       T-->>C: Mã hóa: certificate Rancher và bằng chứng xác thực
+       Note over C: noTLSVerify bỏ kiểm tra certificate origin
+       C->>T: Finished
+       Note over C,T: Dừng: TLS tới Traefik hoàn tất
+   ```
+
+   Khi **client trong Pod gọi cùng URL**, luồng ngắn hơn:
+
+   1. **Pod hỏi CoreDNS** về `rancher.hieupn.site`.
+
+   2. **Split DNS trả ClusterIP Traefik.** Pod kết nối thẳng tới Traefik `:443`, giữ nguyên
+      hostname trong URL. Nó không đi qua Cloudflare Edge, Access hoặc Tunnel.
+
+   3. **Pod bắt đầu TLS handshake**, khai SNI `rancher.hieupn.site`. Traefik chọn cùng certificate
+      đã nạp từ `tls-rancher-ingress`.
+
+   4. **Traefik trình certificate Rancher cho client.** Việc kiểm tra thuộc về chính chương trình
+      trong Pod:
+
+      - Nếu đã được cấu hình tin CA riêng, nó có thể xác minh chữ ký, hostname, thời hạn và bằng
+        chứng sở hữu private key của server.
+      - Nếu chưa tin CA riêng, verification có thể dừng với lỗi `unknown authority`.
+      - Nếu chương trình chủ động tắt verification, nó có thể tiếp tục nhưng bỏ kiểm chứng
+        certificate.
+
+      **`noTLSVerify` của `cloudflared` không tác động tới Pod này.**
+
+   5. Nếu verification đạt và các bước handshake hoàn tất, phiên TLS giữa Pod và Traefik được
+      thiết lập.
+
+   **Dừng tại đây:** client nội bộ đã hoàn tất phần certificate và TLS với Traefik. Diagram dưới
+   đây minh họa client nội bộ **bật verification**.
+
+   ```mermaid
+   sequenceDiagram
+       participant P as Client trong Pod
+       participant D as CoreDNS
+       participant T as Traefik :443
+
+       Note over T: Đã nạp certificate từ tls-rancher-ingress
+       P->>D: Resolve rancher.hieupn.site
+       D-->>P: ClusterIP Service Traefik
+
+       P->>T: ClientHello, SNI rancher.hieupn.site và key_share
+       T-->>P: ServerHello và key_share
+       Note over P,T: Tính khóa bảo vệ handshake
+       T-->>P: Mã hóa: certificate Rancher và bằng chứng xác thực
+
+       alt Verification đạt
+           P->>T: Finished
+           Note over P,T: Dừng: TLS tới Traefik hoàn tất
+       else Client chưa tin CA riêng
+           Note over P: Dừng: lỗi unknown authority
+       end
+   ```
+
+   **Certificate được trình ở Traefik là cùng một certificate trong cả hai đường.** Điểm khác
+   là bên nhận: `cloudflared` bỏ kiểm tra certificate theo cấu hình lab, còn client nội bộ tự
+   kiểm tra bằng trust store của nó.
+
+   **Đối chiếu bước “Mã hóa: certificate Rancher và bằng chứng xác thực” trong hai diagram**
+
+   Dòng này tương ứng với cả hai bước Traefik trình certificate đã mô tả:
+
+   | Luồng | Traefik trình certificate cho ai? |
+   | --- | --- |
+   | Browser bên ngoài → Cloudflare → tunnel | Connector **`cloudflared`** |
+   | Client trong Pod → Traefik trực tiếp | **Client trong Pod** |
+
+   Cả hai đều nhận **cùng certificate từ Secret `tls-rancher-ingress`**. “Bằng chứng xác thực”
+   là phần Traefik chứng minh sở hữu private key tương ứng trong TLS handshake.
+
+   Khác biệt nằm ở bước tiếp theo:
+
+   - `cloudflared` **bỏ kiểm tra certificate** theo `noTLSVerify: true`.
+   - Client trong Pod **tự kiểm tra certificate**; nhánh **“Verification đạt”** trong diagram là
+     trường hợp kiểm tra thành công.
+
+   Browser bên ngoài chỉ thấy certificate public của Cloudflare Edge; connector nhận certificate
+   Rancher cho chặng kết nối nội bộ.
+
 3. **Bạn chuẩn bị câu trả lời DNS riêng cho client trong cluster — §14.2.**
 
    Ngoài Internet, `rancher.hieupn.site` sẽ dẫn browser đến Cloudflare Edge.

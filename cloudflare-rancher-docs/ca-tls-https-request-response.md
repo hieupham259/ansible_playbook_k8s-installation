@@ -38,8 +38,29 @@ biết **có tin bên đóng dấu đó hay không**.
 
 Browser có **trust store**: tập hợp các certificate CA gốc mà nó tin. Một certificate website
 thường được cấp qua chuỗi Root CA → Intermediate CA → certificate website. Browser kiểm tra
-chuỗi chữ ký để tìm về một CA gốc đã được tin cậy. Xem
-[MDN — Certificate authority](https://developer.mozilla.org/en-US/docs/Glossary/Certificate_authority).
+chuỗi chữ ký để tìm về một CA gốc đã được tin cậy.
+
+**Trust store không phải lúc nào cũng là store của hệ điều hành, và các process trên cùng máy
+không nhất thiết tin cùng một tập CA.** Ví dụ:
+
+| Client | Nguồn CA tin cậy |
+| --- | --- |
+| Chrome trên các nền tảng hỗ trợ Chrome Root Store | Có root store riêng; có cơ chế tích hợp CA do người dùng/quản trị viên tin ở nền tảng. Chrome trên iOS dùng cơ chế của Apple |
+| Firefox | Có root store của Mozilla; còn có thể tin CA được thêm vào OS theo nền tảng và cấu hình |
+| Safari | Dùng cơ chế tin cậy certificate của hệ điều hành Apple |
+| curl | Phụ thuộc bản build và TLS backend: bản dùng Schannel trên Windows dùng Windows CA store; nhiều bản khác dùng CA bundle dạng file |
+| Python `requests` | Bản upstream mặc định dùng bundle của `certifi`; có thể chỉ định bundle bằng `verify="/path/ca-bundle.pem"` hoặc `REQUESTS_CA_BUNDLE`. Bản đóng gói/tùy biến có thể khác |
+
+Vì vậy, “process cần tin CA riêng” nghĩa là phải cấp CA cho **đúng trust store/bundle mà process
+đó thực sự dùng**. Browser truy cập được không chứng minh một script Python hoặc Pod cũng sẽ
+verify được. Không suy ra mọi bản curl trên Windows đều dùng Schannel; có thể xem TLS backend
+bằng `curl -V`.
+
+Tham khảo: [Chrome Root Store FAQ](https://chromium.googlesource.com/chromium/src/+/main/net/data/ssl/chrome_root_store/faq.md),
+[Mozilla — Set up CAs in Firefox](https://support.mozilla.org/en-US/kb/setting-certificate-authorities-firefox),
+[Apple — Certificate management](https://support.apple.com/guide/deployment/intro-to-certificate-management-depb5eff8914/web),
+[curl — TLS Certificate Verification](https://curl.se/docs/sslcerts.html) và
+[Requests — CA Certificates](https://requests.readthedocs.io/en/latest/user/advanced/#ca-certificates).
 
 Các loại khóa làm những việc khác nhau:
 
@@ -49,19 +70,27 @@ Các loại khóa làm những việc khác nhau:
 | Public key của CA | Kiểm tra chữ ký trên certificate |
 | Private key của server | Chứng minh server sở hữu khóa tương ứng với certificate |
 | Public key của server | Giúp client kiểm tra bằng chứng đó |
-| Khóa phiên TLS | Mã hóa và kiểm tra tính toàn vẹn của dữ liệu trao đổi trong phiên |
+| Cặp khóa tạm thời của mỗi bên trong trao đổi (EC)DHE | Public share được gửi trong `key_share`; private key tương ứng được giữ kín để tính bí mật chung |
+| Handshake traffic keys | Bảo vệ các thông điệp handshake sau `ServerHello` trong TLS 1.3 |
+| Application traffic keys | Mã hóa và kiểm tra tính toàn vẹn của dữ liệu ứng dụng như HTTP |
 
 Vì vậy, certificate giúp thiết lập danh tính; **dữ liệu request/response được bảo vệ bằng khóa
 phiên TLS**.
 
-Trước khi website phục vụ HTTPS, người vận hành cần chuẩn bị certificate. Với một public CA
-như Let’s Encrypt, quá trình cơ bản là:
+Trước khi website phục vụ HTTPS, người vận hành cần chuẩn bị certificate. Với public CA như
+Let’s Encrypt, **ACME client** — chẳng hạn certbot hoặc cert-manager — làm việc với CA; nó không
+nhất thiết là process đang phục vụ HTTPS. Quá trình cơ bản là:
 
-1. Tạo cặp public/private key cho server.
+1. ACME client tạo hoặc sử dụng khóa tài khoản ACME để xác thực các yêu cầu quản lý certificate.
 2. Chứng minh quyền kiểm soát domain, chẳng hạn bằng một DNS record hoặc tài nguyên HTTP theo yêu
    cầu của CA.
-3. Gửi yêu cầu cấp certificate cho public key và hostname đó.
-4. Nhận certificate đã ký, rồi cấu hình certificate cùng private key tại điểm phục vụ HTTPS.
+3. Tạo cặp khóa cho certificate, lập CSR chứa public key và hostname, rồi xin CA cấp certificate.
+4. Nhận certificate đã ký và chuỗi intermediate, rồi cấu hình chúng cùng private key tương ứng
+   tại điểm phục vụ HTTPS.
+
+**Khóa tài khoản ACME và khóa của certificate là hai cặp khóa khác nhau.** Khóa tài khoản dùng
+với dịch vụ ACME; private key của certificate được điểm phục vụ HTTPS dùng để chứng minh danh
+tính trong TLS. Cặp khóa tạm thời trong `key_share` lại phục vụ việc thiết lập bí mật chung.
 
 Xem [Let’s Encrypt — How It Works](https://letsencrypt.org/how-it-works/).
 
@@ -69,29 +98,36 @@ Xem [Let’s Encrypt — How It Works](https://letsencrypt.org/how-it-works/).
 certificate diễn ra trước. Khi kết nối, browser kiểm tra certificate mà server trình; các kiểm
 tra trạng thái certificate bổ sung tùy chính sách của client.
 
-Sơ đồ dưới đây thể hiện một lần kết nối HTTPS mới dùng TCP:
+Sơ đồ dưới đây thể hiện một kết nối mới dùng TCP và **TLS 1.3 với certificate và (EC)DHE**;
+không vẽ các nhánh resumption/PSK, 0-RTT, HelloRetryRequest hoặc xác thực client bằng certificate:
 
 ```mermaid
 sequenceDiagram
     participant B as Browser
     participant D as DNS
+    participant A as ACME client
     participant S as Điểm phục vụ HTTPS
     participant C as CA
 
-    Note over S,C: Chuẩn bị trước khi người dùng truy cập
-    S->>C: Xin certificate và chứng minh quyền kiểm soát domain
-    C-->>S: Certificate đã ký
+    Note over A,C: Chuẩn bị trước khi người dùng truy cập
+    A->>C: Chứng minh quyền kiểm soát domain và gửi CSR
+    C-->>A: Certificate đã ký và chuỗi intermediate
+    Note over A,S: Cấu hình certificate, chain và private key tại điểm HTTPS
 
     Note over B,S: Khi người dùng mở URL
     B->>D: Tìm địa chỉ app.example.com
     D-->>B: Trả IP
     B->>S: Thiết lập kết nối TCP
-    B->>S: Bắt đầu TLS handshake
-    S-->>B: Trình certificate và bằng chứng sở hữu private key
-    Note over B: Kiểm tra certificate bằng trust store
-    Note over B,S: Hoàn tất TLS và thiết lập khóa phiên
-    B->>S: HTTP request trong kênh TLS
-    S-->>B: HTTP response trong kênh TLS
+    B->>S: ClientHello: key_share, SNI, ALPN, versions, cipher suites
+    Note over S: Dùng SNI để chọn cấu hình TLS và certificate
+    S-->>B: ServerHello: key_share và tham số đã chọn
+    Note over B,S: Tính bí mật chung và dẫn xuất handshake traffic keys
+    S-->>B: EncryptedExtensions, Certificate, CertificateVerify, Finished
+    Note over B,S: Các thông điệp trên được mã hóa bằng handshake traffic keys
+    Note over B: Kiểm tra certificate chain, hostname, CertificateVerify và Finished
+    B->>S: Finished của client, mã hóa bằng handshake traffic key
+    B->>S: HTTP request, mã hóa bằng application traffic key
+    S-->>B: HTTP response, mã hóa bằng application traffic key
     Note over B: Xử lý nội dung và hiển thị trang
 ```
 
@@ -134,6 +170,12 @@ Bây giờ theo lần lượt từ lúc nhập URL đến khi nhìn thấy ứng
    Ví dụ minh họa, hostname phân giải thành `203.0.113.10`. Browser chuẩn bị kết nối tới IP đó
    trên port `443`, nhưng vẫn giữ hostname để sử dụng ở những bước tiếp theo.
 
+   **Riêng lab `rancher.hieupn.site` qua Cloudflare Tunnel:** DNS public được cấu hình bằng
+   CNAME proxied tới `<TUNNEL-UUID>.cfargotunnel.com`. Client nhận địa chỉ IP của Cloudflare
+   qua câu trả lời A/AAAA, **không phải IP máy lab**. Edge chuyển request qua tunnel sau đó;
+   DNS không trỏ browser thẳng vào Traefik nội bộ. Xem
+   [Cloudflare — DNS records for Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/routing-to-tunnel/dns/).
+
 3. **Hệ thống mạng đưa dữ liệu tới địa chỉ đích; TCP thiết lập kết nối.**
 
    Dữ liệu đi qua mạng của máy, gateway và các router tới server. Firewall phải cho phép kết
@@ -150,13 +192,13 @@ Bây giờ theo lần lượt từ lúc nhập URL đến khi nhìn thấy ứng
    website bằng certificate.** Xem
    [RFC 9293 — Transmission Control Protocol](https://www.rfc-editor.org/rfc/rfc9293.html).
 
-4. **TLS tạo kênh bảo mật trên kết nối đó.**
+4. **TLS 1.3 bắt đầu bằng ClientHello có SNI và trao đổi khóa trước khi gửi certificate.**
 
    **TLS — Transport Layer Security** — cung cấp ba đặc tính:
 
    | Đặc tính | Ý nghĩa |
    | --- | --- |
-   | Mã hóa | Người ở giữa không đọc được nội dung trao đổi |
+   | Mã hóa | Người nghe lén thụ động trên đường truyền không đọc được nội dung HTTP |
    | Toàn vẹn | Việc sửa dữ liệu trên đường truyền bị phát hiện |
    | Xác thực | Client kiểm chứng danh tính đầu bên kia |
 
@@ -164,20 +206,46 @@ Bây giờ theo lần lượt từ lúc nhập URL đến khi nhìn thấy ứng
    cách gọi “SSL certificate” vẫn thường được dùng cho certificate phục vụ TLS. Xem
    [MDN — Transport Layer Security](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Transport_Layer_Security).
 
-   Trong một TLS handshake đầy đủ dùng certificate, có những công việc chính:
+   Với handshake TLS 1.3 dùng certificate và (EC)DHE như sơ đồ, thứ tự là:
 
-   - Client gửi `ClientHello`, khai các phiên bản và tham số bảo mật hỗ trợ.
-   - Server chọn tham số phù hợp, trình certificate và bằng chứng sở hữu private key.
-   - Client kiểm tra certificate và bằng chứng của server.
-   - Hai bên thực hiện trao đổi khóa, tạo các khóa phiên và xác nhận handshake.
-   - Dữ liệu ứng dụng được trao đổi bằng những khóa đó.
+   - Client gửi `ClientHello` chứa `key_share`, các phiên bản hỗ trợ (`supported_versions`),
+     cipher suites, cùng SNI và ALPN cho kết nối HTTPS này. `key_share` là phần công khai
+     phục vụ trao đổi khóa, không chứa private key.
+   - **SNI — Server Name Indication** — khai hostname `app.example.com` ngay trong
+     `ClientHello`. Một IP và port `443` có thể phục vụ nhiều hostname; server dùng SNI để
+     chọn cấu hình TLS/certificate **trước khi trình certificate và trước HTTP**.
+   - Server trả `ServerHello`, gồm `key_share` của nó và các tham số đã chọn. Hai bên tính
+     bí mật chung và dẫn xuất **handshake traffic keys** ngay sau cặp Hello này; chưa xác
+     thực xong danh tính server ở thời điểm đó.
+   - Server gửi `EncryptedExtensions` (trong đó có kết quả chọn ALPN), `Certificate`,
+     `CertificateVerify`, rồi `Finished`, **đều được mã hóa bằng handshake traffic keys**.
+     Certificate trong TLS 1.3 không được gửi dưới dạng plaintext cho người nghe lén.
 
-   Client không cần nhận private key của server. Trong TLS 1.3, server dùng chữ ký trong
-   `CertificateVerify` để chứng minh sở hữu khóa; các bên thiết lập khóa bảo vệ traffic qua cơ
-   chế trao đổi và dẫn xuất khóa. Xem
-   [RFC 8446 — The Transport Layer Security Protocol Version 1.3](https://www.rfc-editor.org/rfc/rfc8446).
+   Client tiếp tục kiểm tra các thông điệp ở bước 5 và gửi `Finished` ở bước 6. Không mô tả
+   thành “kiểm tra certificate xong mới trao đổi khóa”: đó không phải thứ tự TLS 1.3 ở đây.
+   Xem [RFC 8446 §2 — Protocol Overview](https://www.rfc-editor.org/rfc/rfc8446.html#section-2)
+   và [RFC 6066 §3 — SNI](https://datatracker.ietf.org/doc/html/rfc6066#section-3).
 
-5. **Client kiểm tra certificate có hợp lệ cho server muốn gọi không.**
+   Cùng một hostname có ba vai trò, xuất hiện ở các thời điểm khác nhau:
+
+   | Nơi sử dụng | Mục đích |
+   | --- | --- |
+   | DNS, trước kết nối | Tìm địa chỉ IP |
+   | TLS SNI trong `ClientHello` | Giúp server chọn cấu hình TLS/certificate |
+   | HTTP Host hoặc `:authority`, sau khi client hoàn tất handshake | Cho server biết request thuộc website nào |
+
+   SNI và HTTP Host thuộc hai lớp khác nhau. Đây là lý do runbook có cả `originServerName`
+   và `httpHostHeader`; chỉ sửa HTTP Host không tự sửa SNI khi chưa bật `matchSNItoHost`.
+
+   **Giới hạn của tính bí mật:** người quan sát vẫn thấy IP, port, kích thước và thời điểm
+   gửi gói tin. Khi không dùng **ECH — Encrypted ClientHello**, họ còn thấy SNI plaintext
+   trong `ClientHello`, dù certificate và HTTP sau đó được mã hóa. Khi client và server dùng
+   ECH thành công, hostname thật được bảo vệ trong ClientHello bên trong; ECH không che IP,
+   port hay toàn bộ metadata lưu lượng. Không mặc định mọi kết nối TLS 1.3 đều có ECH. Xem
+   [RFC 8446 Appendix E.3 — Traffic Analysis](https://www.rfc-editor.org/rfc/rfc8446.html#appendix-E.3)
+   và [Cloudflare — ECH](https://developers.cloudflare.com/ssl/edge-certificates/ech/).
+
+5. **Client kiểm tra certificate, CertificateVerify và Finished của server.**
 
    Những kiểm tra quan trọng gồm:
 
@@ -191,36 +259,44 @@ Bây giờ theo lần lượt từ lúc nhập URL đến khi nhìn thấy ứng
    `subjectAltName`. Xem
    [RFC 9525 — Service Identity in TLS](https://www.rfc-editor.org/rfc/rfc9525.html).
 
-   Hai lỗi khác nhau thường gặp:
+   Client còn dùng public key trong certificate để kiểm tra chữ ký `CertificateVerify`:
+   server phải chứng minh sở hữu private key tương ứng và ràng buộc bằng chứng với nội dung
+   handshake. Sau đó client kiểm tra `Finished` để xác nhận khóa và tính toàn vẹn của
+   handshake. `Finished` dùng MAC từ bí mật handshake, không phải chữ ký của CA. Xem
+   [RFC 8446 §4.4.3 — CertificateVerify](https://www.rfc-editor.org/rfc/rfc8446.html#section-4.4.3)
+   và [§4.4.4 — Finished](https://www.rfc-editor.org/rfc/rfc8446.html#section-4.4.4).
+
+   Lỗi chain trust và lỗi hostname khác nhau; thông báo cụ thể còn tùy client/TLS backend:
 
    | Lỗi | Ý nghĩa |
    | --- | --- |
-   | `unknown authority` | Client không xây dựng được chuỗi tin cậy tới CA mà nó tin |
+   | Go, như `cloudflared`: `x509: certificate signed by unknown authority` | Không xây dựng được chuỗi tới CA được tin |
+   | Chrome: `NET::ERR_CERT_AUTHORITY_INVALID` | Lỗi về độ tin cậy của certificate/chuỗi cấp |
+   | curl với OpenSSL: `unable to get local issuer certificate` | Thiếu issuer cần thiết để xây dựng chuỗi tin cậy |
    | Hostname mismatch | Certificate không chứng nhận đúng tên client đang gọi |
 
-   Có đúng địa chỉ IP chưa đủ để vượt qua những kiểm tra này.
+   Không chỉ CA riêng chưa được tin mới gây lỗi chain: **server quên gửi intermediate** cũng
+   là một nguyên nhân thường gặp, kể cả khi root CA đã được tin. Điểm HTTPS cần gửi leaf
+   certificate và các intermediate cần thiết; thường không cần gửi root. Sửa chain thiếu ở
+   server, và cấu hình CA tin cậy đúng ở client; không giải quyết bằng cách tắt verification.
+   Xem [RFC 8446 §4.4.2 — Certificate](https://www.rfc-editor.org/rfc/rfc8446.html#section-4.4.2).
 
-6. **SNI giúp server chọn certificate trước khi đọc HTTP.**
+   Có đúng địa chỉ IP chưa đủ để vượt qua những kiểm tra này. Nếu một kiểm tra bắt buộc thất
+   bại, client ngắt handshake thay vì gửi HTTP.
 
-   Một IP và port `443` có thể phục vụ nhiều hostname, mỗi hostname dùng certificate riêng.
+6. **Client gửi Finished rồi dùng application traffic keys cho HTTP.**
 
-   **SNI — Server Name Indication** — cho client khai tên server trong TLS handshake. Ví dụ,
-   client khai `app.example.com` để server chọn certificate phù hợp.
+   Sau khi các kiểm tra ở bước 5 thành công, client gửi `Finished` của mình, vẫn được mã hóa
+   bằng handshake traffic key của client. Server kiểm tra thông điệp này. Trong luồng đang
+   mô tả, client chỉ bắt đầu gửi HTTP sau `Finished`, dùng **application traffic keys**;
+   đây là bộ khóa khác với bộ bảo vệ handshake.
 
-   HTTP chưa được trao đổi ở thời điểm lựa chọn certificate, nên server cần thông tin tên ở
-   lớp TLS này. Xem
-   [RFC 6066 — TLS Extensions](https://datatracker.ietf.org/doc/html/rfc6066).
-
-   Cùng một hostname có ba vai trò:
-
-   | Nơi sử dụng | Mục đích |
-   | --- | --- |
-   | DNS | Tìm địa chỉ IP |
-   | TLS SNI | Giúp server chọn cấu hình TLS/certificate |
-   | HTTP Host hoặc `:authority` | Cho server biết request thuộc website nào |
-
-   SNI và HTTP Host thuộc hai lớp khác nhau. Đây chính là lý do runbook có cả
-   `originServerName` và `httpHostHeader`.
+   Về lịch dẫn xuất khóa, application traffic secrets đã có thể được tính sau `Finished`
+   của server; không phải chờ tới lúc gửi HTTP mới sinh. TLS 1.3 còn cho phép server gửi
+   application data ngay sau `Finished` của nó, trước khi nhận `Finished` của client.
+   Sơ đồ chọn luồng request/response thông thường để dễ theo dõi; 0-RTT không nằm trong ví
+   dụ này. Xem [RFC 8446 §2](https://www.rfc-editor.org/rfc/rfc8446.html#section-2) và
+   [§7.1 — Key Schedule](https://www.rfc-editor.org/rfc/rfc8446.html#section-7.1).
 
 7. **Browser gửi HTTP request trong kênh TLS.**
 
@@ -309,13 +385,26 @@ Secret để thực hiện việc ký. Những certificate được cấp không
 các client cần được cấu hình tin CA phù hợp. Xem
 [cert-manager — CA issuer](https://cert-manager.io/docs/configuration/ca/).
 
-Áp dụng vào những đường đã học:
+Áp dụng vào những đường đã học: **đường public có ba đoạn TLS riêng biệt**, mỗi đoạn có đầu
+cuối và khóa riêng. Không có một phiên TLS xuyên suốt từ browser tới Traefik.
 
-| Client và kết nối | Certificate nhìn thấy | Cách kiểm chứng trong cấu hình lab |
-| --- | --- | --- |
-| Browser → Cloudflare Edge | Certificate public tại Edge | Browser kiểm tra bằng trust store của nó |
-| `cloudflared` → Traefik | Certificate Rancher do CA riêng ký | `noTLSVerify: true` bỏ verification ở connector |
-| Process nội bộ → Traefik | Cùng certificate Rancher | Process cần tin CA riêng để verify thành công |
+| Đoạn | Client và kết nối | Certificate phía server trình | Ai kiểm chứng? |
+| --- | --- | --- | --- |
+| TLS 1 — public | Browser → Cloudflare Edge | Certificate public cho hostname Rancher tại Edge | Browser dùng trust store của nó |
+| TLS 2 — tunnel | `cloudflared` → Cloudflare; tunnel truyền dữ liệu hai chiều | Certificate của endpoint tunnel Cloudflare, không phải certificate Rancher | `cloudflared` kiểm tra certificate của Cloudflare khi thiết lập tunnel |
+| TLS 3 — origin | `cloudflared` → Traefik | Certificate Rancher do CA riêng ký **khi SNI là `rancher.hieupn.site` và Traefik đã nạp certificate đó**; nếu khác có thể nhận certificate mặc định | Trong cấu hình lab hiện tại, `noTLSVerify: true` bỏ verification của certificate origin; cấu hình kiểm chứng đầy đủ được nêu bên dưới |
+| Đường nội bộ riêng | Process nội bộ → Traefik | Certificate Rancher nếu gửi đúng SNI và Traefik đã nạp certificate; nếu khác có thể nhận certificate mặc định | Process cần tin CA riêng trong đúng trust store/bundle của nó và kiểm tra hostname |
+
+**Tunnel do `cloudflared` chủ động mở outbound tới Cloudflare**, dùng QUIC trên UDP với TLS
+1.3 tích hợp, hoặc HTTP/2 trên TCP được TLS bảo vệ, tới port `7844`. Request từ Edge về lab và
+response về Edge đi trên kết nối đã mở này; không phải Edge khởi tạo kết nối inbound trực tiếp
+tới máy lab. Xem [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/)
+và [Tunnel with firewall](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/).
+
+Cloudflare Edge **terminate TLS của browser nên Cloudflare đọc được HTTP** và áp dụng Access,
+WAF hoặc các tính năng proxy. Dữ liệu tiếp tục được bảo vệ trên tunnel và kết nối HTTPS từ
+connector tới Traefik bằng các khóa khác. Đây không phải mã hóa end-to-end giữa browser và
+Traefik. Sau khi Traefik terminate TLS, kết nối tới Pod Rancher dùng HTTP theo runbook.
 
 Traefik đọc certificate và private key trong Secret `tls-rancher-ingress` để phục vụ TLS.
 cert-manager quản lý việc cấp certificate; **Traefik mới là thành phần thực hiện TLS handshake
@@ -323,5 +412,64 @@ với client trên đường này**.
 
 Một client nội bộ được cung cấp CA đúng có thể kiểm tra đầy đủ: chữ ký dẫn về CA đó, hostname
 khớp `rancher.hieupn.site`, certificate còn hiệu lực và server chứng minh sở hữu private key.
-Nếu client dùng `-k` hoặc connector dùng `noTLSVerify`, kênh vẫn mã hóa nhưng client bỏ phần
-kiểm chứng danh tính server tương ứng.
+
+**Điều kiện để `cloudflared` nhận đúng certificate Rancher:**
+
+- Với service URL `https://traefik.traefik.svc.cluster.local:443`, đặt
+  `originServerName: rancher.hieupn.site` để khai đúng SNI và tên cần kiểm tra trên certificate.
+- Hoặc dùng `matchSNItoHost: true` khi Host gửi tới origin là `rancher.hieupn.site`.
+  Tham số này lấy SNI theo Host gửi tới origin, dùng giá trị `httpHostHeader` nếu đã đặt,
+  và ghi đè lựa chọn SNI từ `originServerName` cho từng request.
+- Nếu không đặt `originServerName` và không bật `matchSNItoHost`, connector dùng hostname trong
+  service URL — ở đây là `traefik.traefik.svc.cluster.local`. Traefik có thể trả certificate
+  mặc định thay vì certificate Rancher. **`noTLSVerify: true` che lỗi certificate/tên này**;
+  việc request HTTP vẫn chạy không chứng minh certificate đúng. Chỉ đặt `httpHostHeader`
+  không đủ để đổi SNI khi `matchSNItoHost` chưa bật.
+
+Xem [Cloudflare — Origin parameters](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/).
+
+**`curl -k` / `noTLSVerify: true`: mã hóa còn, xác thực server mất.** Client vẫn mã hóa tới bên
+trả lời handshake và có private key khớp certificate mà bên đó tự trình. Nhưng vì không kiểm
+chứng certificate có thuộc server mong muốn, bên trả lời có thể là kẻ giả mạo. Kẻ MITM chủ động
+có thể lập hai kết nối TLS, giải mã, đọc/sửa rồi mã hóa lại dữ liệu. Vì vậy “vẫn mã hóa” chỉ mô
+tả khả năng chống nghe lén thụ động trên đoạn đó, **không bảo đảm chống MITM chủ động**.
+
+`noTLSVerify` trong origin parameters chỉ bỏ kiểm chứng certificate trên đoạn
+`cloudflared` → Traefik; nó không tắt verification trên tunnel tới Cloudflare, và không thay
+đổi trust store của browser hay process nội bộ.
+
+**Cách cấu hình để xác thực origin bằng CA riêng:**
+
+1. Cung cấp certificate CA gốc tin cậy dạng PEM/bundle cho Pod `cloudflared`, ví dụ mount tại
+   `/etc/cloudflared/certs/rancher-ca.pem`. Lấy CA từ nguồn quản trị đáng tin; không cần đưa
+   private key của CA hay private key của server sang connector.
+2. Đặt `caPool` trỏ tới file đó và `originServerName: rancher.hieupn.site`; giữ HTTP Host khớp
+   Ingress bằng `httpHostHeader`.
+3. **Bỏ `noTLSVerify: true`**; mặc định `noTLSVerify` là `false`. Traefik phải gửi chain đủ,
+   certificate còn hạn và có SAN khớp hostname.
+
+Ví dụ **một ingress rule** trong file cấu hình tunnel quản lý cục bộ; đây không phải toàn bộ
+file cấu hình:
+
+```yaml
+ingress:
+  - hostname: rancher.hieupn.site
+    service: https://traefik.traefik.svc.cluster.local:443
+    originRequest:
+      originServerName: rancher.hieupn.site
+      httpHostHeader: rancher.hieupn.site
+      caPool: /etc/cloudflared/certs/rancher-ca.pem
+  - service: http_status:404
+```
+
+Với tunnel quản lý từ dashboard như lab, đặt các giá trị tương ứng trong TLS/HTTP origin
+parameters của published application route, tắt **Disable TLS certificate verification**,
+và vẫn mount file CA tại đúng đường dẫn trên **mọi replica connector**. Đường dẫn `caPool` là
+file trong container `cloudflared`, không phải đường dẫn file trên máy đang mở dashboard.
+Kiểm tra cả cấu hình cấp tunnel và cấp route để không còn giá trị `noTLSVerify: true` được
+kế thừa. Đây là cấu hình đề xuất trong tài liệu, không phải xác nhận lab đã được thay đổi.
+
+Client nội bộ dùng curl có thể chỉ định `--cacert /path/rancher-ca.pem` thay cho `-k`;
+Python `requests` có thể dùng `verify="/path/rancher-ca.pem"`. Cả hai vẫn cần gọi bằng hostname
+đúng và có đường phân giải nội bộ tới Traefik nếu muốn kiểm tra đường nội bộ. Khi gọi hostname
+qua DNS public Cloudflare, client đang kiểm tra certificate của Edge.

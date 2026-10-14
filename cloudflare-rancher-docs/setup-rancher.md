@@ -13,14 +13,13 @@
 > không lặp lại phần đó; nó tập trung vào những gì Rancher **thêm vào** chuỗi: TLS nội bộ,
 > hai đường vào cùng một hostname, và lớp Cloudflare Access.
 
-Bố cục: nhìn nhanh §14 cài gì và để làm gì → có thể setup đơn giản như app demo không (chuỗi
-domino từ một quyết định an ninh) → từ điển khái niệm nền (HTTP/HTTPS/TLS,
-certificate/CA, terminate TLS/SNI, ví dụ tự host một web server, CRD/webhook, etcd, các vai
-cluster quanh Rancher, `cattle-cluster-agent`, Server URL, origin, vì sao không mở inbound,
-SSO/Access, split DNS, bảng từ nhanh) → sơ đồ toàn cảnh hai đường vào → sơ đồ tuần tự
-chuỗi cấp certificate → bản kể lại §14.0 → §14.7 bằng ngôn ngữ đơn giản → nền tảng ba công cụ
-Helm / cert-manager / Rancher → giải thích từng mục §14.0 → §14.7 (mỗi lệnh, mỗi flag, mỗi key
-trong values) → 15 mục đào sâu từng cơ chế.
+Bố cục: nhìn nhanh §14 cài gì và để làm gì → có thể setup đơn giản như app demo không
+(chuỗi domino từ một quyết định an ninh) → **cách đọc toàn bộ §14 theo ngôn ngữ đơn giản**
+(cài đặt, diagram, đường browser, đường client nội bộ, SelfUser và gate hoàn thành) →
+từ điển khái niệm nền → sơ đồ toàn cảnh hai đường vào → sơ đồ sự cố sau reboot và luồng
+điều tra → sơ đồ tuần tự chuỗi cấp certificate → nền tảng ba công cụ Helm / cert-manager /
+Rancher → giải thích từng mục §14.0 → §14.7 (mỗi lệnh, mỗi flag, mỗi key trong values) →
+15 mục đào sâu từng cơ chế.
 
 ## Nhìn nhanh — §14 cài gì và để làm gì
 
@@ -46,7 +45,7 @@ Vì sao "cài một web app" mà tốn tám mục? Vì Rancher là giao diện q
 trên cluster, nên nó cần ba thứ mà app demo của §13 không cần: **HTTPS thật ngay tại origin**
 (sinh ra cert-manager và CA riêng), **đường gọi nội bộ không phụ thuộc Internet** (sinh ra split
 DNS), và **cổng gác danh tính trước khi lộ ra Internet** (sinh ra Cloudflare Access). Ba nhu cầu
-đó đẻ ra gần hết thuật ngữ của bài; phần từ điển ngay dưới định nghĩa từng cái trước khi đi vào
+đó đẻ ra gần hết thuật ngữ của bài; phần từ điển định nghĩa từng cái trước khi đi vào
 cơ chế — mở đầu bằng chính cụm khó nhất vừa nêu: HTTP/HTTPS/TLS là gì, origin là gì, và
 "HTTPS thật ngay tại origin" nghĩa là sao.
 
@@ -102,6 +101,381 @@ demo.
 > cầm `cluster-admin`**. App demo không có gì để bảo vệ nên không phải trả gì. Chọn ngược lại
 > (chạy Rancher public như app, dựa vào mật khẩu mạnh + MFA + vá nhanh) là một lựa chọn có thật
 > ngoài đời — chỉ là lab này không chọn thế.
+
+## Cách đọc toàn bộ §14 theo ngôn ngữ đơn giản
+
+**Mục tiêu của §14 là đưa Rancher vào chính cluster Kubernetes của bạn, rồi tạo hai đường truy cập cùng hostname `rancher.hieupn.site`: một đường dành cho người quản trị từ Internet và một đường dành cho client trong cluster.**
+
+Có thể hình dung các nhân vật như sau: **Rancher Server** là ứng dụng quản trị chạy như một Pod
+bình thường trong `cattle-system`; **cụm `local`** là chính cluster đang host nó — Rancher quản
+nó trực tiếp, không qua `cattle-cluster-agent` trung gian; **cert-manager** là nhà máy cấp và gia hạn
+certificate; **CA riêng của Rancher** là con dấu mà client phải chủ động tin; **Traefik** là lễ tân
+đọc hostname và terminate TLS; **khối `hosts` trong CoreDNS** là bảng chỉ đường nội bộ;
+**Cloudflare Access** là cổng gác trên đường public; **Published application route** khai đường từ
+Edge vào cluster. `cattle-cluster-agent` chỉ xuất hiện ở downstream cluster, xem mục đào sâu 14.
+
+Sơ đồ này chỉ thể hiện đường chuyển tiếp request. DNS giúp tìm địa chỉ trước khi kết nối; Ingress
+cung cấp cấu hình để Traefik chọn backend.
+
+```mermaid
+flowchart TD
+    B["Browser ngoài Internet"] -->|"HTTPS"| E["Cloudflare Edge và Access"]
+    E -->|"Tunnel đã mở sẵn"| C["Pod cloudflared"]
+    C -->|"HTTPS nội bộ"| T["Traefik :443"]
+
+    P["Client trong cluster"] -->|"HTTPS qua địa chỉ nội bộ"| T
+    T -->|"HTTP qua backend Service rancher"| R["Pod Rancher :80"]
+```
+
+Tại điểm bắt đầu, bạn đã có cluster kubeadm hoạt động, CoreDNS phục vụ DNS trong cluster, Traefik
+tiếp nhận request và `cloudflared` duy trì kết nối với tunnel `homelab-k8s`. §14 sử dụng những
+thành phần này để phục vụ Rancher.
+
+### Trước khi truy cập — §14 chuẩn bị những gì
+
+1. **Bạn kiểm tra cluster và chuẩn bị đường phục hồi — §14.0.**
+
+   Rancher cần CPU, RAM, quyền truy cập Kubernetes API và một hệ thống mạng đang hoạt động. Vì vậy,
+   bạn kiểm tra node, tài nguyên, quyền của tài khoản đang dùng, Traefik và connector trước khi cài.
+
+   Sau đó, bạn chụp snapshot etcd và sao lưu `/etc/kubernetes`, rồi đưa bản sao ra ngoài VM và đối
+   chiếu checksum.
+
+   Hiểu đơn giản: bạn giữ lại **trạng thái Kubernetes trước khi cài Rancher**, cùng certificate và
+   cấu hình cần thiết để phục hồi. Việc này quan trọng vì Rancher và cert-manager sẽ thêm nhiều
+   loại object, webhook và dữ liệu quản lý vào cluster. Snapshot etcd bảo vệ dữ liệu lưu trong
+   etcd; dữ liệu ứng dụng nằm trên disk hoặc PVC cần cơ chế backup riêng.
+
+2. **Bạn cài bộ máy cấp certificate — §14.1.**
+
+   Trong cấu hình của runbook, Traefik sẽ phục vụ HTTPS cho Rancher bằng certificate ký bởi CA
+   riêng. Bạn cài cert-manager để tự động cấp và gia hạn certificate đó.
+
+   cert-manager bổ sung các loại object như `Issuer`, `Certificate` và `CertificateRequest` vào
+   Kubernetes. Có thể hiểu:
+
+   | Object | Ý nghĩa đơn giản |
+   | --- | --- |
+   | `Issuer` | Certificate sẽ được cấp bằng nguồn hoặc CA nào |
+   | `Certificate` | Muốn certificate cho hostname nào, lưu kết quả ở đâu |
+   | `CertificateRequest` | Một lần yêu cầu cấp certificate cụ thể |
+   | Secret TLS | Nơi giữ certificate và private key để Traefik sử dụng |
+
+   cert-manager cũng có webhook để kiểm tra các object liên quan. Bạn phải chờ những thành phần
+   này sẵn sàng trước khi giao việc cấp certificate cho chúng.
+
+3. **Bạn chuẩn bị câu trả lời DNS riêng cho client trong cluster — §14.2.**
+
+   Ngoài Internet, `rancher.hieupn.site` sẽ dẫn browser đến Cloudflare Edge.
+
+   Nhưng khi một Pod trong cluster gọi cùng hostname đó, bạn muốn nó đi thẳng đến Traefik trong
+   cluster. Vì vậy, bạn thêm vào CoreDNS ánh xạ:
+
+   **`rancher.hieupn.site` → ClusterIP của Service Traefik.**
+
+   Đây là split DNS: **cùng một tên, nhưng nhận địa chỉ khác nhau tùy nơi hỏi**.
+
+   Việc này giúp client nội bộ gọi Rancher mà không phải vòng ra Internet, qua Cloudflare Access
+   rồi quay lại cluster. Với policy đăng nhập tương tác của runbook, một process thông thường
+   không tự hoàn thành màn hình đăng nhập như browser của người quản trị.
+
+   Entry này chỉ áp dụng trong phạm vi DNS của cluster đã cấu hình. Các tên khác vẫn cần được xử
+   lý bình thường; dòng `fallthrough` giúp những query không khớp tiếp tục sang plugin tiếp theo.
+
+4. **Bạn khai báo cách Rancher sẽ chạy — §14.3.**
+
+   Trong Helm values, bạn chọn hostname `rancher.hieupn.site`, số replica phù hợp với lab, Ingress
+   class `traefik`, mô hình TLS tại Ingress và nguồn certificate `rancher`. Values cũng ghim
+   `networkExposure.type: ingress`, tên Secret `tls-rancher-ingress` và `agentTLSMode: strict`.
+
+   Bạn render chart trước để xem các manifest sắp được tạo. Bước này kiểm tra rằng chart tạo đúng
+   Ingress, hostname, class và tên Secret TLS, không đi nhầm sang Gateway API. Khi mô phỏng phiên
+   bản Kubernetes lúc render, `--kube-version` phải khớp môi trường thực tế.
+
+   Sau đó, `helm install` gửi các manifest tới Kubernetes API. Kubernetes tạo Deployment,
+   Service, Ingress và những tài nguyên khác của chart, rồi chạy Pod Rancher trong namespace
+   `cattle-system`.
+
+   **Rancher lúc này là một ứng dụng chạy trong cluster.** Nó sử dụng Kubernetes hiện có để quản
+   lý và hiển thị thông tin về cluster.
+
+5. **Chuỗi cấp certificate chạy ở phía sau.**
+
+   Ingress của Rancher khai báo hostname và Secret TLS cần dùng. Thành phần `ingress-shim` của
+   cert-manager quan sát Ingress đó và tạo object `Certificate`. cert-manager xử lý yêu cầu cấp
+   certificate bằng `Issuer`, rồi ghi certificate cùng private key vào Secret
+   `tls-rancher-ingress`. Traefik đọc Secret để phục vụ HTTPS.
+   Xem [cert-manager — Securing Ingress resources](https://cert-manager.io/docs/usage/ingress/).
+
+   Vì các controller xử lý công việc theo thời gian, những thứ này không nhất thiết hoàn thành
+   cùng lúc với lệnh Helm.
+
+   Có thể xảy ra trạng thái: **Pod Rancher đã Ready, nhưng certificate vẫn đang được cấp**. Do
+   đó, Helm báo thành công vẫn cần kiểm tra riêng phần certificate.
+
+6. **Bạn thử đường HTTPS nội bộ trước khi publish — §14.4.**
+
+   Sau khi Certificate Ready và Secret TLS tồn tại, bạn thử gọi `/healthz` qua Traefik bằng
+   hostname thật.
+
+   Lệnh `curl --resolve` giữ URL là `https://rancher.hieupn.site`, nhưng ép kết nối đến ClusterIP
+   Traefik. Nhờ vậy, client vẫn gửi đúng tên trong TLS handshake và HTTP request, dù không dùng
+   DNS public.
+
+   Cờ `-k` trong bài test cho phép `curl` bỏ qua kiểm tra certificate do máy chạy lệnh chưa tin
+   CA riêng.
+
+   Nếu nhận `200`, bạn có bằng chứng rằng từ vị trí chạy test, chuỗi **Traefik → routing Rancher
+   → Pod Rancher** đang hoạt động. Kết quả đó chưa chứng minh client tin CA, đường Cloudflare đã
+   thông hoặc mọi API bên trong Rancher đã sẵn sàng.
+
+7. **Bạn đặt Access trước, rồi mới mở route public — §14.5.**
+
+   Bạn tạo Access application cho `rancher.hieupn.site` và policy cho phép danh tính mong muốn
+   truy cập; MFA được áp dụng theo cấu hình xác thực.
+
+   Sau đó, bạn tạo Published application route trong tunnel `homelab-k8s`, trỏ tới:
+
+   `https://traefik.traefik.svc.cluster.local:443`
+
+   Hai cấu hình này làm hai việc khác nhau:
+
+   | Cấu hình | Câu hỏi nó trả lời |
+   | --- | --- |
+   | Access application và policy | Ai được phép truy cập hostname này? |
+   | Published application route | Request của hostname này đi vào tunnel và origin nào? |
+
+   Bạn đặt Access trước để hostname được bảo vệ ngay khi đường public bắt đầu hoạt động.
+
+   Đối với chặng `cloudflared` gọi Traefik, runbook ghim thêm:
+
+   | Tham số | Giá trị | Tác dụng |
+   | --- | --- | --- |
+   | `originServerName` | `rancher.hieupn.site` | Đặt tên origin cho TLS, giúp Traefik trình đúng certificate |
+   | `httpHostHeader` | `rancher.hieupn.site` | Gửi HTTP Host khớp Ingress Rancher |
+   | `noTLSVerify` | `true` | Cho `cloudflared` chấp nhận certificate origin mà không kiểm chứng nó |
+
+   **`noTLSVerify: true` vẫn giữ mã hóa TLS, nhưng bỏ kiểm chứng danh tính origin.** Cloudflare
+   cũng hỗ trợ `caPool` để cung cấp CA riêng cho connector khi muốn bật verification. Xem
+   [Cloudflare — Origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/).
+
+### Khi browser ngoài Internet mở Rancher
+
+Đến đây, các thành phần đã được lắp đặt và nối với nhau. Khi bạn mở
+`https://rancher.hieupn.site` từ browser ngoài Internet, luồng thực tế diễn ra như sau.
+
+1. **Browser tìm địa chỉ của hostname.**
+
+   Browser sử dụng DNS để phân giải `rancher.hieupn.site`. Với hostname được proxy qua
+   Cloudflare, nó nhận IP của Cloudflare Edge.
+
+   Browser dùng IP đó để kết nối. Hostname vẫn được giữ lại để sử dụng trong TLS và HTTP; DNS
+   không thay hostname trong URL thành tên Service Kubernetes.
+
+2. **Browser thiết lập HTTPS với Cloudflare Edge.**
+
+   Cloudflare trình certificate public hợp lệ cho hostname. Browser kiểm tra certificate, rồi
+   trao đổi HTTP bên trong kết nối TLS này.
+
+   **Certificate browser nhìn thấy là certificate tại Cloudflare Edge.** Certificate nội bộ
+   trong Secret `tls-rancher-ingress` phục vụ một kết nối khác ở phía sau.
+
+3. **Access kiểm tra người truy cập.**
+
+   Nếu chưa có phiên Access hợp lệ, browser được đưa tới luồng đăng nhập đã cấu hình. Sau khi
+   danh tính đáp ứng policy, Access cho request đi tiếp.
+
+   Đây là lớp kiểm soát trước Rancher. Nó quyết định người dùng có được tiếp cận ứng dụng hay
+   không; tài khoản và quyền trong Rancher vẫn được Rancher kiểm tra riêng.
+
+4. **Cloudflare chuyển request xuống tunnel.**
+
+   Route đã lưu cho biết hostname này thuộc tunnel `homelab-k8s`. Cloudflare chuyển request
+   xuống một connector khả dụng của tunnel.
+
+   Kết nối giữa connector và Cloudflare đã được Pod `cloudflared` chủ động mở từ trước.
+   Request đi xuống qua kết nối đó, nên router của lab không cần nhận một kết nối inbound mới
+   từ Internet.
+
+   “Mở outbound” nói về bên khởi tạo kết nối. Sau khi được thiết lập, kết nối vẫn truyền dữ liệu
+   theo cả hai chiều.
+
+5. **Connector tìm địa chỉ Traefik.**
+
+   `cloudflared` sử dụng origin URL đã khai trong route. Nó phân giải tên:
+
+   `traefik.traefik.svc.cluster.local`
+
+   CoreDNS trả ClusterIP của Service `traefik` trong namespace `traefik`. Connector sau đó kết
+   nối đến địa chỉ này trên port `443`.
+
+   Có hai tên đang được dùng với hai mục đích:
+
+   | Tên | Dùng để làm gì? |
+   | --- | --- |
+   | `traefik.traefik.svc.cluster.local` | Tìm địa chỉ Service origin để kết nối |
+   | `rancher.hieupn.site` | Chọn certificate và khớp website Rancher |
+
+6. **Connector thiết lập một phiên TLS riêng với Traefik.**
+
+   Traefik sử dụng tên trong TLS handshake để chọn certificate Rancher, rồi trình certificate
+   đó cho connector.
+
+   Theo cấu hình hiện tại, `cloudflared` chấp nhận certificate mà không verify. Hai bên vẫn thiết
+   lập khóa phiên và mã hóa dữ liệu trên chặng này.
+
+   Vì vậy, đường browser có những kênh riêng: HTTPS giữa browser và Edge, tunnel mã hóa giữa Edge
+   và connector, rồi HTTPS giữa connector và Traefik.
+
+7. **Traefik đọc request và chọn Rancher.**
+
+   Sau khi nhận và giải mã HTTP, Traefik đọc Host `rancher.hieupn.site` cùng path để khớp rule đã
+   nạp từ Ingress Rancher.
+
+   Ingress là object cấu hình mà Traefik đọc từ Kubernetes API. Request được Traefik xử lý dựa
+   trên rule đó.
+
+   Traefik chọn backend của Service `rancher` và chuyển request tới Pod Rancher bằng HTTP port
+   `80`. Header `X-Forwarded-Proto: https` giúp Rancher biết rằng request đã đi qua proxy phục
+   vụ HTTPS.
+
+   **HTTPS kết thúc tại Traefik trên chặng này; phía sau Traefik là HTTP theo cấu hình của lab.**
+
+8. **Rancher xử lý và response quay trở lại.**
+
+   Pod Rancher trả response cho Traefik. Traefik gửi response trong phiên TLS với connector;
+   connector chuyển nó qua tunnel tới Edge; Edge trả cho browser qua phiên HTTPS public.
+
+   Response quay về qua các thành phần proxy tương ứng. DNS đã làm nhiệm vụ tìm địa chỉ và không
+   chuyển tiếp response HTTP.
+
+### Đăng nhập lần đầu — §14.6
+
+Ở lần đăng nhập đầu tiên, bạn vượt qua Access trước, sau đó đăng nhập Rancher bằng bootstrap
+password. Trong cấu hình của runbook, values không đặt `bootstrapPassword`; Rancher tự sinh
+mật khẩu và lưu vào `bootstrap-secret` khi khởi động. Vì vậy, phải chờ Secret xuất hiện rồi mới
+đọc; gặp `NotFound` quá sớm chưa đủ để kết luận cài đặt hỏng.
+
+Bạn đặt mật khẩu admin và xác nhận Server URL là `https://rancher.hieupn.site`. Địa chỉ này
+được Rancher dùng trong các link, redirect và cấu hình cấp cho client.
+
+### Khi client trong cluster gọi cùng Server URL
+
+Cùng URL đó, **một client trong cluster đi theo đường khác**:
+
+1. **Client hỏi CoreDNS.** Entry đã thêm ở §14.2 trả ClusterIP Traefik cho
+   `rancher.hieupn.site`.
+2. **Client kết nối thẳng tới Traefik bằng HTTPS.** Hostname trong URL vẫn là
+   `rancher.hieupn.site`, nên tên TLS và HTTP Host vẫn đúng.
+3. **Client tự kiểm tra certificate.** Nếu tin CA riêng và certificate hợp lệ, verification
+   thành công. Nếu chưa tin CA, nó có thể báo `unknown authority`. Cấu hình `noTLSVerify` của
+   connector không tác động đến client này.
+4. **Traefik chuyển tới Rancher như trước.** Response quay về trực tiếp qua Traefik tới client,
+   không đi qua Edge, Access hoặc Tunnel.
+
+**Split DNS giải quyết đường đi; nó không tự cấp quyền gọi API và không tự phân phối CA cho mọi
+Pod.** Client nội bộ vẫn cần thông tin xác thực phù hợp và cấu hình trust phù hợp.
+
+Setting `agentTLSMode: strict` điều khiển cách các agent Rancher kiểm tra certificate: chúng chỉ
+tin CA được Rancher công bố trong setting `cacerts`. Nó không phải một thiết lập TLS áp dụng tự
+động cho mọi script hoặc Pod bất kỳ. Xem
+[Rancher — Agent TLS Enforcement](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-references/tls-settings).
+
+Hai đường vào cùng một hostname được đối chiếu như sau:
+
+| Câu hỏi | Đường người — browser ngoài Internet | Đường máy — client trong cluster |
+| --- | --- | --- |
+| DNS trả địa chỉ nào? | Public DNS trả Cloudflare Edge IP | CoreDNS trả ClusterIP Traefik |
+| Có qua Access không? | Có; session phải đáp ứng policy | Không; Rancher vẫn kiểm xác thực và quyền API |
+| Có qua tunnel không? | Có | Không |
+| Client đầu đường nhìn thấy cert nào? | Browser thấy cert public của Cloudflare | Client nội bộ thấy cert Rancher tại Traefik |
+| Ai verify cert ở Traefik? | `cloudflared` bỏ verify theo `noTLSVerify` | Client nội bộ tự quyết định theo trust store/cấu hình của nó |
+| Điểm cuối | Traefik `:443` chọn backend Rancher | Cùng backend đó |
+
+Các chặng bảo mật của cả hai đường:
+
+| Chặng | Giao thức và certificate |
+| --- | --- |
+| Browser ⇄ Cloudflare Edge | HTTPS; certificate public tại Cloudflare |
+| Cloudflare Edge ⇄ `cloudflared` | Tunnel mã hóa đã được connector chủ động mở |
+| `cloudflared` ⇄ Traefik | HTTPS; certificate Rancher; connector bỏ verification trong cấu hình lab |
+| Client nội bộ ⇄ Traefik | HTTPS; certificate Rancher; verification do client quyết định |
+| Traefik ⇄ Pod Rancher | HTTP `:80` theo cấu hình lab |
+
+### Khi bạn sử dụng Dashboard để quản lý cluster
+
+Khi bạn đã vào Dashboard và thao tác với cluster, Rancher tiếp tục gọi Kubernetes API để đọc hoặc
+thay đổi tài nguyên. Với cụm `local`, Rancher đang chạy ngay trong cluster đó và sử dụng danh
+tính service account cùng quyền được cấp.
+
+Ví dụ, khi bạn đổi số replica của Deployment trong UI, Rancher gửi thay đổi tới Kubernetes API.
+Kubernetes lưu trạng thái mong muốn và các controller thực hiện việc tạo hoặc giảm Pod. Đây là
+lý do Rancher cần quyền cao và runbook bảo vệ đường truy cập quản trị.
+
+Tên **`local`** có nghĩa là “cluster đang host Rancher”, dù các node của nó chạy trên VM. Trong
+mô hình này, không thấy `cattle-cluster-agent` trong `cattle-system` là kết quả dự kiến. Agent
+đó phục vụ việc kết nối với downstream cluster.
+
+### Luồng SelfUser và sự cố sau reboot
+
+Bên trong Rancher còn một luồng quan trọng mà việc “tải được trang web” chưa kiểm chứng hết:
+**Dashboard cần lấy thông tin người dùng hiện đang đăng nhập qua `SelfUser`.** Resource này phục
+vụ chính mục đích đó. Xem
+[Rancher — Get a Current User’s Information](https://ranchermanager.docs.rancher.com/api/workflows/users).
+
+Trong case được mô tả trong tài liệu:
+
+1. Dashboard gọi `/v1/ext.cattle.io.selfuser`.
+2. Lớp API Steve của Rancher cần biết schema tương ứng.
+3. Kubernetes API sử dụng Aggregation Layer và `APIService/v1.ext.cattle.io` để kết nối tới
+   extension API.
+4. Backend là Service `imperative-api-extension:6666`, dẫn tới extension API server trong Pod
+   Rancher.
+
+Rancher đăng ký extension API thông qua Kubernetes Aggregation Layer. Đây là một phần phụ thuộc
+riêng cần hoạt động đúng. Xem
+[Rancher — Extension API Server](https://ranchermanager.docs.rancher.com/api/extension-apiserver).
+
+Do đó, Pod Ready hoặc `/healthz` trả `200` chưa đảm bảo luồng `SelfUser` đã hoàn chỉnh. Trong
+sự cố sau reboot được ghi trong file, dependency bên dưới đã hồi phục nhưng Steve vẫn giữ schema
+thiếu `SelfUser`; restart Rancher sau khi kiểm tra dependency sẵn sàng đã giúp đăng nhập hoạt
+động trở lại.
+
+Nếu sau đó các node khỏe nhưng card `local` vẫn báo `Unavailable`, cần kiểm tra condition quản
+lý cluster và controller cập nhật nó. Trạng thái node, trạng thái Deployment Rancher và trạng
+thái cluster trong Rancher đến từ những nguồn khác nhau. Sơ đồ sự cố và phần điều tra phía sau
+bài ghi rõ bằng chứng, gate trước restart và ranh giới giữa kết luận với giả thuyết.
+
+### Xác nhận hoàn thành — §14.7
+
+Việc hoàn thành được xác nhận bằng nhiều kiểm tra, vì mỗi kiểm tra chỉ trả lời một phần của bài
+toán:
+
+| Kiểm tra | Điều nó xác nhận |
+| --- | --- |
+| Render chart đúng | Các manifest dự kiến khớp cấu hình |
+| Deployment Rancher Ready | Workload đã đạt readiness được khai báo |
+| Certificate Ready và Secret tồn tại | Certificate nội bộ đã được cấp |
+| `/healthz` qua Traefik trả `200` | Đường origin hoạt động từ nơi chạy test |
+| Request chưa đăng nhập bị Access chặn | Lớp Access đang kiểm soát truy cập public; chưa chứng minh tunnel → origin thông |
+| Đăng nhập và sử dụng UI thành công | Đường browser hoạt động tới ứng dụng |
+| Inventory và settings đúng | Thành phần runtime, `server-url` và `agent-tls-mode` khớp thiết kế |
+| Cluster `local` Active | Rancher đang báo cụm host ở trạng thái quản lý mong muốn |
+
+Sau khi server chạy, Rancher tự sinh thêm các thành phần runtime như `rancher-webhook`; inventory
+`cattle-system` cần được kiểm theo thực tế. Setting đúng chưa tự chứng minh hành vi TLS thật của
+mọi agent.
+
+### Nếu sau này import downstream cluster
+
+Với **downstream cluster**, còn phải thiết kế đường kết nối riêng trước khi import. Cluster đó
+dùng DNS và network của chính nó, nên không tự nhận entry CoreDNS hoặc truy cập ClusterIP Traefik
+của cụm `local`. Agent downstream cần gọi được Server URL, vượt qua cơ chế kiểm soát dành cho máy
+và nhìn thấy certificate phù hợp với trust của nó. Việc browser đăng nhập thành công và cụm
+`local` Active chưa chứng minh những điều kiện này.
+
+Phần còn lại của bài đào sâu những mảnh vừa đi qua: từ điển khái niệm, sơ đồ hai đường vào và sự
+cố, chuỗi cấp certificate, nền tảng Helm/cert-manager/Rancher, từng mục §14 và 15 cơ chế riêng.
 
 ## Từ điển khái niệm nền
 
@@ -1334,66 +1708,6 @@ sequenceDiagram
 
 Sơ đồ này giải thích vì sao §14.4 phải có gate riêng chờ `certificate/tls-rancher-ingress`:
 Certificate là resource sinh **bất đồng bộ** bởi controller khác sau khi Helm đã xong việc.
-
-## Cách đọc toàn bộ §14 theo ngôn ngữ đơn giản
-
-Có thể hình dung các nhân vật như sau: **Rancher Server** là ứng dụng quản trị chạy như một Pod
-bình thường trong `cattle-system`; **cụm `local`** là chính cluster đang host nó — Rancher quản
-nó trực tiếp, không qua agent trung gian (`cattle-cluster-agent` chỉ xuất hiện ở downstream
-cluster, xem mục đào sâu 14); **cert-manager** là nhà máy cấp certificate tự động; **CA riêng của Rancher** là con dấu chỉ có
-giá trị nội bộ; **Traefik** vẫn là lễ tân đọc hostname, nhưng giờ kiêm thêm việc terminate TLS
-cho Rancher; **khối `hosts` trong CoreDNS** là bảng chỉ đường nội bộ; **Cloudflare Access** là
-cổng gác chỉ cho người qua; **Published application route** là đường từ edge vào cluster.
-
-Trước khi người quản trị đăng nhập lần đầu ở §14.6, §14 đã chuẩn bị sáu thứ theo đúng thứ tự:
-
-1. **§14.0 — ảnh chụp trạng thái.** Snapshot etcd + `/etc/kubernetes`, copy ra ngoài VM, đối
-   chiếu checksum. Đây là đường lui duy nhất vì cert-manager và Rancher sắp ghi CRD, webhook và
-   state vào khắp cluster.
-2. **§14.1 — nhà máy certificate.** cert-manager phải chạy trước, vì chart Rancher sẽ giao toàn
-   bộ việc cấp TLS nội bộ cho nó; webhook của cert-manager chưa Ready thì yêu cầu cấp cert treo.
-3. **§14.2 — bảng chỉ đường nội bộ của cụm `local`.** Entry `rancher.hieupn.site → ClusterIP
-   Traefik` trong CoreDNS đứng trước bước cài để ngay từ đầu client trong chính cụm này gọi Server
-   URL đều nhận câu trả lời nội bộ; entry đó không được downstream cluster kế thừa.
-4. **§14.3 — cài Rancher.** Values chọn nhánh Ingress, ghim class/host/Secret, bật
-   `agentTLSMode: strict`; render offline để soi manifest trước, rồi mới `helm install`.
-5. **§14.4 — chứng minh origin sống.** Certificate Ready, Secret tồn tại, `curl --resolve` vào
-   thẳng ClusterIP Traefik trả `HTTP 200` — toàn bộ chuỗi nội bộ đã thông, chưa cần tới
-   Cloudflare.
-6. **§14.5 — dựng cổng gác rồi mở đường.** Tạo Access application (ai được vào) trước, thêm
-   Published application route (đường đi) sau, kèm ba origin parameter cho chặng TLS cuối.
-
-Sau đó §14.6 lấy bootstrap password **từ trong cluster** để đăng nhập, và §14.7 xác nhận cấu
-hình đường máy: `server-url`/`agent-tls-mode` đúng như đã pin, và inventory runtime đúng thực
-tế — cụm `local` Active **mà không có** `cattle-cluster-agent` là kết quả đúng, không phải cài
-thiếu (xem mục đào sâu 14).
-
-Hai đường vào cùng một hostname khác nhau ở mọi tầng, trừ điểm cuối:
-
-| Câu hỏi | Đường người (browser) | Đường máy (client trong cluster) |
-| --- | --- | --- |
-| DNS nào trả lời? | Public DNS → Cloudflare Edge IP | Khối `hosts` của CoreDNS → ClusterIP Traefik |
-| Ai gác cửa? | Cloudflare Access (SSO + MFA) | Không ai — traffic không rời cluster |
-| Đi qua tunnel? | Có | Không |
-| TLS với Traefik do ai verify? | `cloudflared` handshake nhưng không verify (`noTLSVerify`) | Client local thấy cert do CA Rancher ký; việc client có verify CA hay không tùy trust store của nó |
-| Điểm cuối | Traefik `:443` → Ingress khớp host → Pod Rancher | Cùng điểm đó |
-
-Các chặng bảo mật của cả hai đường:
-
-```text
-Browser ── HTTPS, cert public của Cloudflare ──> Edge (Access gác trước khi cho qua)
-Edge ══ tunnel mã hóa ══> cloudflared Pod
-cloudflared ── TLS :443, cert Rancher, KHÔNG verify ──> Traefik
-client nội bộ ── TLS :443, thấy đúng cert Rancher ──> Traefik
-Traefik ── HTTP :80 nội bộ ──> Pod Rancher
-```
-
-Tóm lại: so với app demo, Rancher thêm đúng ba thứ vào chuỗi — **một CA nội bộ và certificate do
-cert-manager quản** (vì server phải phục vụ HTTPS thật và chứng minh được danh tính với client
-verify nghiêm ngặt), **một entry DNS nội bộ** (để client trong cluster không đi vòng), và
-**một lớp Access** (vì đây là giao diện quản trị). Phần còn lại của
-bài đi theo ba tầng: **nền tảng** — Helm, cert-manager và Rancher thực chất là gì; **từng mục của
-§14** — mỗi lệnh làm gì và vì sao; và **15 mục đào sâu** — mỗi cơ chế một mục, đọc theo nhu cầu.
 
 ## Nền tảng — Helm, cert-manager và Rancher thực chất là gì
 

@@ -2914,11 +2914,65 @@ Verify dừng ở mức exit code, `cmp` và checksum là có chủ đích: imag
 
 Certificate (chứng chỉ TLS) là nền của HTTPS: một file chứa public key + tên miền, được một **CA** (Certificate Authority) ký xác nhận, nhờ đó client vừa mã hóa được kết nối vừa biết server "đúng là nó". Certificate có hạn dùng; hết hạn phải được cấp lại, không thì dịch vụ mất HTTPS vào một ngày ngẫu nhiên.
 
-Trong cluster, không chỉ trình duyệt của bạn cần HTTPS. Nhiều thành phần nói chuyện với nhau và phải chứng minh danh tính cho nhau: UI Rancher phục vụ HTTPS, agent Rancher phải xác minh server nó gọi có đúng là Rancher thật không, webhook cần certificate để API server tin nó. Làm tay nghĩa là sinh key, xin CA ký, nhét vào Secret, canh ngày hết hạn để làm lại — lặp cho từng thành phần.
+Trong cluster, client HTTPS có thể là connector `cloudflared`, chương trình tích hợp API chạy trong Pod hoặc Rancher agent ở một luồng riêng. UI/API Rancher được công bố qua endpoint HTTPS do Traefik phục vụ; endpoint này cần certificate để client có thể xác minh danh tính server. Những luồng TLS khác, chẳng hạn Kubernetes API server gọi webhook, có certificate và phạm vi riêng. Nếu quản lý certificate bằng tay, người vận hành phải sinh key, cấp certificate, đưa vào Secret và theo dõi gia hạn cho từng thành phần.
 
 cert-manager tự động hóa đúng việc đó. Nó là một **controller** chạy trong cluster — quan sát trạng thái mong muốn rồi tự hành động cho khớp — và thêm vào Kubernetes các kind mới qua CRD: `Issuer`/`ClusterIssuer` khai báo "CA của tôi là ai", `Certificate` khai báo "cần certificate cho tên miền X, lưu vào Secret Y". Bạn chỉ khai báo mong muốn; cert-manager sinh key, xin Issuer ký, ghi kết quả vào Secret và tự gia hạn trước khi hết hạn.
 
-Trong mô hình của runbook này, HTTPS **công khai** (`https://rancher.hieupn.site` từ Internet) do Cloudflare lo ở edge ([§12](#12-tạo-cloudflare-tunnel-chạy-trong-cụm)–[§13](#13-trỏ-domain--kiểm-tra-trên-internet)) — phần đó không liên quan cert-manager. Nhưng **bên trong cluster**, Rancher vẫn phải phục vụ HTTPS thật: nó tạo một CA riêng rồi nhờ cert-manager cấp certificate từ CA đó cho chính nó, và `agentTLSMode: strict` trong values ở §14.3 làm agent **từ chối kết nối** nếu certificate không xác minh được. Chart Rancher vì vậy yêu cầu cert-manager có mặt trước — đó là lý do §14.1 đứng trước §14.3 và là nghĩa của cụm "cấp TLS nội bộ" trong tiêu đề mục.
+**HTTPS nội bộ kết thúc ở Traefik; backend Rancher dùng HTTP**
+
+Trong mô hình của runbook, browser ngoài Internet kết nối HTTPS tới Cloudflare Edge và nhận
+certificate public của Edge. Certificate đó độc lập với certificate origin do cert-manager quản lý.
+
+Bên trong cluster, **endpoint `https://rancher.hieupn.site` được Traefik phục vụ HTTPS ở
+cổng `443`**. Với `ingress.tls.source: rancher`, Rancher tạo CA riêng; cert-manager cấp và
+gia hạn certificate cho hostname Rancher, lưu certificate/private key vào Secret
+`tls-rancher-ingress`. **Traefik đọc Secret này, trình certificate và kết thúc TLS**.
+
+| Chặng của luồng đang xét | Giao thức |
+| --- | --- |
+| `cloudflared` → Service Traefik `:443` → Pod Traefik | HTTPS |
+| Client ứng dụng trong Pod → Service Traefik `:443` → Pod Traefik | HTTPS |
+| Pod Traefik → backend Rancher qua Service Rancher `:80` | HTTP |
+
+```mermaid
+flowchart TB
+    C["cloudflared"] -->|"HTTPS :443"| T["Pod Traefik"]
+    P["Client trong Pod"] -->|"HTTPS :443"| T
+    S["Secret tls-rancher-ingress"] -.->|"Certificate và private key"| T
+    T -->|"HTTP qua Service Rancher :80"| R["Pod Rancher"]
+```
+
+“Cấp certificate cho Rancher” nghĩa là cấp cho **danh tính `rancher.hieupn.site`** để
+Traefik sử dụng; không có nghĩa request trên chặng Traefik → Pod Rancher phải dùng HTTPS.
+Traefik giải mã request nhận từ phiên TLS rồi mở hoặc tái sử dụng một kết nối backend khác.
+Runbook chọn backend HTTP bằng `ingress.servicePort: 80`. Vì vậy “HTTPS thật bên trong
+cluster” chỉ rõ chặng client → Traefik, không khẳng định mọi chặng nội bộ đều có TLS.
+
+**`agentTLSMode: strict` là chính sách của một loại client, không phải giao thức backend.**
+Rancher agent cũng là TLS client khi nó chủ động kết nối về Server URL. Nó xác minh
+certificate do **server ở đầu bên kia phiên TLS của agent** trình: nếu phiên này kết thúc
+ở Traefik thì certificate đó do Traefik trình; nếu đi qua Cloudflare Edge thì nó thấy
+certificate của Edge. Việc xác minh diễn ra khi agent thiết lập kết nối HTTPS, trước khi
+HTTP request được gửi tới backend. Không có bước agent kiểm tra certificate ở phía sau
+chặng Traefik → Rancher HTTP.
+
+Chế độ `strict` yêu cầu certificate mà agent nhận xác minh được bằng CA trong setting
+`cacerts`. Setting này áp dụng cho các Rancher agent được hỗ trợ, không tự cấu hình trust
+cho `cloudflared` hay chương trình Python thông thường và không đổi chặng backend HTTP
+thành HTTPS. Sơ đồ trên mô tả hai client đang bàn; agent là ví dụ về vai trò client ở
+một luồng khác, không phải một hop bổ sung sau Traefik. Cụm `local` không có
+`cattle-cluster-agent`; đường truy cập của downstream agent phải được thiết kế riêng
+theo phạm vi §14.7, không tự kế thừa ClusterIP/split DNS của cụm `local`.
+
+**Vì đã chọn `ingress.tls.source: rancher`**, runbook cần cert-manager trước khi cài Rancher:
+đó là lý do §14.1 đứng trước §14.3 và là nghĩa của “cấp TLS nội bộ” trong tiêu đề.
+Không phải mọi cách cài Rancher đều cần cert-manager; dùng certificate có sẵn với
+`ingress.tls.source: secret` hoặc TLS termination bên ngoài có quy trình khác.
+
+Đối chiếu:
+[Rancher — TLS settings](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/tls-settings),
+[Rancher — Helm chart options](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/helm-chart-options) và
+[Rancher — Certificate options](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/install-upgrade-on-a-kubernetes-cluster/).
 
 Release cert-manager gồm ba Deployment: `cert-manager` (controller chính — cấp và gia hạn certificate), `cert-manager-cainjector` (tiêm CA vào cấu hình các webhook cần tin nhau) và `cert-manager-webhook` (cổng validate mọi object `Certificate`/`Issuer` khi chúng được tạo). Mọi yêu cầu cấp certificate đi qua webhook, nên webhook chưa Ready thì yêu cầu của Rancher sẽ treo — vì vậy gate bên dưới bắt STOP khi nó chưa Ready.
 

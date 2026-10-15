@@ -151,6 +151,62 @@ thành phần này để phục vụ Rancher.
    Trong cấu hình của runbook, Traefik sẽ phục vụ HTTPS cho Rancher bằng certificate ký bởi CA
    riêng. Bạn cài cert-manager để tự động cấp và gia hạn certificate đó.
 
+   **HTTPS nội bộ kết thúc ở Traefik; backend Rancher dùng HTTP**
+
+   Trong mô hình của runbook, browser ngoài Internet kết nối HTTPS tới Cloudflare Edge và nhận
+   certificate public của Edge. Certificate đó độc lập với certificate origin do cert-manager quản lý.
+
+   Bên trong cluster, **endpoint `https://rancher.hieupn.site` được Traefik phục vụ HTTPS ở
+   cổng `443`**. Với `ingress.tls.source: rancher`, Rancher tạo CA riêng; cert-manager cấp và
+   gia hạn certificate cho hostname Rancher, lưu certificate/private key vào Secret
+   `tls-rancher-ingress`. **Traefik đọc Secret này, trình certificate và kết thúc TLS**.
+
+   | Chặng của luồng đang xét | Giao thức |
+   | --- | --- |
+   | `cloudflared` → Service Traefik `:443` → Pod Traefik | HTTPS |
+   | Client ứng dụng trong Pod → Service Traefik `:443` → Pod Traefik | HTTPS |
+   | Pod Traefik → backend Rancher qua Service Rancher `:80` | HTTP |
+
+   ```mermaid
+   flowchart TB
+       C["cloudflared"] -->|"HTTPS :443"| T["Pod Traefik"]
+       P["Client trong Pod"] -->|"HTTPS :443"| T
+       S["Secret tls-rancher-ingress"] -.->|"Certificate và private key"| T
+       T -->|"HTTP qua Service Rancher :80"| R["Pod Rancher"]
+   ```
+
+   “Cấp certificate cho Rancher” nghĩa là cấp cho **danh tính `rancher.hieupn.site`** để
+   Traefik sử dụng; không có nghĩa request trên chặng Traefik → Pod Rancher phải dùng HTTPS.
+   Traefik giải mã request nhận từ phiên TLS rồi mở hoặc tái sử dụng một kết nối backend khác.
+   Runbook chọn backend HTTP bằng `ingress.servicePort: 80`. Vì vậy “HTTPS thật bên trong
+   cluster” chỉ rõ chặng client → Traefik, không khẳng định mọi chặng nội bộ đều có TLS.
+
+   **`agentTLSMode: strict` là chính sách của một loại client, không phải giao thức backend.**
+   Rancher agent cũng là TLS client khi nó chủ động kết nối về Server URL. Nó xác minh
+   certificate do **server ở đầu bên kia phiên TLS của agent** trình: nếu phiên này kết thúc
+   ở Traefik thì certificate đó do Traefik trình; nếu đi qua Cloudflare Edge thì nó thấy
+   certificate của Edge. Việc xác minh diễn ra khi agent thiết lập kết nối HTTPS, trước khi
+   HTTP request được gửi tới backend. Không có bước agent kiểm tra certificate ở phía sau
+   chặng Traefik → Rancher HTTP.
+
+   Chế độ `strict` yêu cầu certificate mà agent nhận xác minh được bằng CA trong setting
+   `cacerts`. Setting này áp dụng cho các Rancher agent được hỗ trợ, không tự cấu hình trust
+   cho `cloudflared` hay chương trình Python thông thường và không đổi chặng backend HTTP
+   thành HTTPS. Sơ đồ trên mô tả hai client đang bàn; agent là ví dụ về vai trò client ở
+   một luồng khác, không phải một hop bổ sung sau Traefik. Cụm `local` không có
+   `cattle-cluster-agent`; đường truy cập của downstream agent phải được thiết kế riêng
+   theo phạm vi §14.7, không tự kế thừa ClusterIP/split DNS của cụm `local`.
+
+   **Vì đã chọn `ingress.tls.source: rancher`**, runbook cần cert-manager trước khi cài Rancher:
+   đó là lý do §14.1 đứng trước §14.3 và là nghĩa của “cấp TLS nội bộ” trong tiêu đề.
+   Không phải mọi cách cài Rancher đều cần cert-manager; dùng certificate có sẵn với
+   `ingress.tls.source: secret` hoặc TLS termination bên ngoài có quy trình khác.
+
+   Đối chiếu:
+   [Rancher — TLS settings](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/tls-settings),
+   [Rancher — Helm chart options](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/helm-chart-options) và
+   [Rancher — Certificate options](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/install-upgrade-on-a-kubernetes-cluster/).
+
    cert-manager bổ sung các loại object như `Issuer`, `Certificate` và `CertificateRequest` vào
    Kubernetes. Có thể hiểu:
 
@@ -2194,13 +2250,32 @@ giới khác nhau.
 
 ## 5. `agentTLSMode: strict` — lời hứa và cái giá
 
-`strict` nghĩa là: agent **từ chối kết nối** trừ khi certificate của server xác minh được bằng
-đúng CA mà Rancher công bố. Lời hứa đổi lại là vòng điều khiển agent ⇄ server không thể bị
-man-in-the-middle: kẻ đứng giữa không có private key của CA riêng thì không giả được Rancher.
+`strict` nghĩa là: Rancher agent chỉ chấp nhận certificate của endpoint server khi xác minh
+được bằng CA trong setting `cacerts`, cùng các kiểm tra TLS cần thiết như hostname. Đây là
+chính sách xác minh **phía client agent**, không phải yêu cầu mã hóa chặng Traefik → Rancher.
 
-Cái giá là mọi đường tới server mà trình ra một cert khác — kể cả cert *hợp lệ công khai* của
-Cloudflare — đều bị agent coi là giả: dù Access có cho qua, agent thấy cert Cloudflare thay vì
-cert Rancher và tự ngắt (lớp chặn thứ nhất là Access, xem mục đào sâu 7).
+Agent cũng là một **TLS client** khi chủ động gọi Server URL. Ở một đường kết nối đã được
+thiết kế để TLS kết thúc tại Traefik, agent nhận certificate do Traefik trình, xác minh nó
+trong lúc thiết lập HTTPS, rồi mới gửi HTTP request qua kênh mã hóa. Traefik giải mã và
+chuyển HTTP tới backend Rancher. Agent không phải một hop đứng sau Traefik, không đợi
+backend Rancher gửi thêm certificate, và không tham gia phiên connector → Traefik của browser.
+
+Do đó endpoint mà agent truy cập phải trình certificate xác minh được bằng CA đã cấu hình
+cho agent. Trong lab, đi qua Cloudflare Edge thì agent thấy certificate public của Edge;
+CA đó khác CA riêng Rancher đang công bố, nên `strict` có thể từ chối dù certificate public
+hợp lệ với browser. Access tương tác cũng là một trở ngại độc lập (xem mục đào sâu 7).
+Không phải cứ certificate thay đổi là thất bại: certificate mới vẫn có thể hợp lệ nếu
+được cấp bởi CA agent tin tưởng và khớp hostname.
+
+Chính sách của từng client được tách biệt:
+
+| TLS client | Cách kiểm tra certificate trong ngữ cảnh này |
+| --- | --- |
+| `cloudflared` | Lab đặt `noTLSVerify: true` nên bỏ kiểm tra certificate origin |
+| Chương trình Python trong Pod | Theo cấu hình thư viện/trust store của chương trình; không chịu tác động tự động của hai setting kia |
+| Rancher agent thuộc phạm vi `agent-tls-mode` | Với `strict`, xác minh bằng CA từ `cacerts` |
+
+Xem [Rancher — Agent TLS Enforcement](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/tls-settings).
 
 Phạm vi cần chính xác: cụm `local` không có `cattle-cluster-agent` (mục đào sâu 14), nhưng từ đó **không
 được suy ra rằng không có agent nào khác**. Rancher áp dụng `agent-tls-mode` cho `cluster-agent`,

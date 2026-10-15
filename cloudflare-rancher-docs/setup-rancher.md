@@ -13,13 +13,107 @@
 > không lặp lại phần đó; nó tập trung vào những gì Rancher **thêm vào** chuỗi: TLS nội bộ,
 > hai đường vào cùng một hostname, và lớp Cloudflare Access.
 
-Bố cục: nhìn nhanh §14 cài gì và để làm gì → có thể setup đơn giản như app demo không
-(chuỗi domino từ một quyết định an ninh) → **cách đọc toàn bộ §14 theo ngôn ngữ đơn giản**
-(cài đặt, diagram, đường browser, đường client nội bộ, SelfUser và gate hoàn thành) →
-từ điển khái niệm nền → sơ đồ toàn cảnh hai đường vào → sơ đồ sự cố sau reboot và luồng
-điều tra → sơ đồ tuần tự chuỗi cấp certificate → nền tảng ba công cụ Helm / cert-manager /
-Rancher → giải thích từng mục §14.0 → §14.7 (mỗi lệnh, mỗi flag, mỗi key trong values) →
-15 mục đào sâu từng cơ chế → tự kiểm tra (câu hỏi, đáp án và nhận xét lượt trả lời).
+**Cách đọc:** bắt đầu bằng phần nhìn nhanh và luồng giải thích đơn giản; sau đó đọc từ điển,
+nền tảng ba công cụ và chuỗi cấp certificate trước khi đi vào sơ đồ truy cập, từng bước §14
+và các cơ chế chuyên sâu. Phần sự cố và bài tự kiểm tra nằm cuối tài liệu.
+
+## Mục lục
+
+1. [Nhìn nhanh — §14 cài gì và để làm gì](#nhìn-nhanh--14-cài-gì-và-để-làm-gì)
+2. [Cách đọc toàn bộ §14 theo ngôn ngữ đơn giản](#cách-đọc-toàn-bộ-14-theo-ngôn-ngữ-đơn-giản)
+3. [Từ điển khái niệm nền](#từ-điển-khái-niệm-nền)
+4. [Nền tảng — Helm, cert-manager và Rancher thực chất là gì](#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì)
+5. [Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`](#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install)
+6. [Sơ đồ toàn cảnh — hai đường vào cùng một hostname](#sơ-đồ-toàn-cảnh--hai-đường-vào-cùng-một-hostname)
+7. [Đi qua §14 từng mục — mỗi lệnh làm gì](#đi-qua-14-từng-mục--mỗi-lệnh-làm-gì)
+8. [Đào sâu 15 cơ chế của §14](#đào-sâu-15-cơ-chế-của-14)
+9. [Sơ đồ sự cố sau reboot — `SelfUser` 404 và cluster `local` `Unavailable`](#sơ-đồ-sự-cố-sau-reboot--selfuser-404-và-cluster-local-unavailable)
+10. [Tự kiểm tra](#tự-kiểm-tra)
+
+<details>
+<summary>Mục lục chi tiết — các phần nhỏ, mục đào sâu và câu hỏi</summary>
+
+- [Nhìn nhanh — §14 cài gì và để làm gì](#nhìn-nhanh--14-cài-gì-và-để-làm-gì)
+  - [Có thể setup Rancher đơn giản như app demo không?](#có-thể-setup-rancher-đơn-giản-như-app-demo-không)
+- [Cách đọc toàn bộ §14 theo ngôn ngữ đơn giản](#cách-đọc-toàn-bộ-14-theo-ngôn-ngữ-đơn-giản)
+  - [Trước khi truy cập — §14 chuẩn bị những gì](#trước-khi-truy-cập--14-chuẩn-bị-những-gì)
+  - [Khi browser ngoài Internet mở Rancher](#khi-browser-ngoài-internet-mở-rancher)
+  - [Đăng nhập lần đầu — §14.6](#đăng-nhập-lần-đầu--146)
+  - [Khi client trong cluster gọi cùng Server URL](#khi-client-trong-cluster-gọi-cùng-server-url)
+  - [Khi bạn sử dụng Dashboard để quản lý cluster](#khi-bạn-sử-dụng-dashboard-để-quản-lý-cluster)
+  - [Luồng SelfUser và sự cố sau reboot](#luồng-selfuser-và-sự-cố-sau-reboot)
+  - [Xác nhận hoàn thành — §14.7](#xác-nhận-hoàn-thành--147)
+  - [Nếu sau này import downstream cluster](#nếu-sau-này-import-downstream-cluster)
+- [Từ điển khái niệm nền](#từ-điển-khái-niệm-nền)
+  - [HTTP, HTTPS và TLS — từ kênh chữ thuần tới kênh có khóa](#http-https-và-tls--từ-kênh-chữ-thuần-tới-kênh-có-khóa)
+  - [Certificate, CA và "ký" — nền của mọi kết nối TLS](#certificate-ca-và-ký--nền-của-mọi-kết-nối-tls)
+  - [Terminate TLS và SNI — ai giữ cert, ai khai tên](#terminate-tls-và-sni--ai-giữ-cert-ai-khai-tên)
+  - [Ghép tất cả lại — ví dụ tự host một web server có domain, không K8s](#ghép-tất-cả-lại--ví-dụ-tự-host-một-web-server-có-domain-không-k8s)
+  - ["Cert do CA riêng của Rancher ký" nghĩa là gì](#cert-do-ca-riêng-của-rancher-ký-nghĩa-là-gì)
+  - [CRD và webhook — cách cert-manager và Rancher "cắm thêm" vào Kubernetes](#crd-và-webhook--cách-cert-manager-và-rancher-cắm-thêm-vào-kubernetes)
+  - [etcd và snapshot etcd — đường lui duy nhất của §14](#etcd-và-snapshot-etcd--đường-lui-duy-nhất-của-14)
+  - [Cụm `local` và downstream cluster — vai trò, không phải loại máy](#cụm-local-và-downstream-cluster--vai-trò-không-phải-loại-máy)
+  - [`cattle-cluster-agent` — đại diện của Rancher trong downstream cluster](#cattle-cluster-agent--đại-diện-của-rancher-trong-downstream-cluster)
+  - [Server URL — một địa chỉ cho mọi loại client](#server-url--một-địa-chỉ-cho-mọi-loại-client)
+  - [Origin và origin parameter — từ vựng phía Cloudflare](#origin-và-origin-parameter--từ-vựng-phía-cloudflare)
+  - [Vì sao cluster không mở port nào mà Internet vẫn vào được](#vì-sao-cluster-không-mở-port-nào-mà-internet-vẫn-vào-được)
+  - [SSO, IdP, MFA — bộ từ quanh Cloudflare Access](#sso-idp-mfa--bộ-từ-quanh-cloudflare-access)
+  - [Split DNS — một tên miền, hai câu trả lời](#split-dns--một-tên-miền-hai-câu-trả-lời)
+  - [Bảng từ nhanh](#bảng-từ-nhanh)
+  - [Từ nào tra ở đâu](#từ-nào-tra-ở-đâu)
+- [Nền tảng — Helm, cert-manager và Rancher thực chất là gì](#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì)
+  - [Helm — trình quản lý gói của Kubernetes](#helm--trình-quản-lý-gói-của-kubernetes)
+  - [cert-manager — CRD và chuỗi cấp phát](#cert-manager--crd-và-chuỗi-cấp-phát)
+  - [Rancher — thứ gì do chart tạo, thứ gì Rancher tự sinh](#rancher--thứ-gì-do-chart-tạo-thứ-gì-rancher-tự-sinh)
+- [Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`](#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install)
+- [Sơ đồ toàn cảnh — hai đường vào cùng một hostname](#sơ-đồ-toàn-cảnh--hai-đường-vào-cùng-một-hostname)
+  - [Luồng nội bộ bên trong Rancher còn thiếu ở phiên bản sơ đồ cũ](#luồng-nội-bộ-bên-trong-rancher-còn-thiếu-ở-phiên-bản-sơ-đồ-cũ)
+- [Đi qua §14 từng mục — mỗi lệnh làm gì](#đi-qua-14-từng-mục--mỗi-lệnh-làm-gì)
+  - [§14.0 — gate read-only: đo trước khi đụng](#140--gate-read-only-đo-trước-khi-đụng)
+  - [§14.0.1 — backup: cơ chế từng lệnh](#1401--backup-cơ-chế-từng-lệnh)
+  - [§14.1 — cài cert-manager](#141--cài-cert-manager)
+  - [§14.2 — split DNS](#142--split-dns)
+  - [§14.3 — cài Rancher](#143--cài-rancher)
+  - [§14.4 — gate origin nội bộ](#144--gate-origin-nội-bộ)
+  - [§14.5 — Access rồi mới publish](#145--access-rồi-mới-publish)
+  - [§14.6 — đăng nhập lần đầu](#146--đăng-nhập-lần-đầu)
+  - [§14.7 — gate hoàn thành](#147--gate-hoàn-thành)
+- [Đào sâu 15 cơ chế của §14](#đào-sâu-15-cơ-chế-của-14)
+  - [1. Rancher là workload trong chính cluster nó quản lý](#1-rancher-là-workload-trong-chính-cluster-nó-quản-lý)
+  - [2. Vì sao đường lui duy nhất là snapshot etcd](#2-vì-sao-đường-lui-duy-nhất-là-snapshot-etcd)
+  - [3. Vì sao cert-manager phải có mặt trước Rancher](#3-vì-sao-cert-manager-phải-có-mặt-trước-rancher)
+  - [4. Hai hệ certificate ở tầng ứng dụng không chạm nhau](#4-hai-hệ-certificate-ở-tầng-ứng-dụng-không-chạm-nhau)
+  - [5. `agentTLSMode: strict` — lời hứa và cái giá](#5-agenttlsmode-strict--lời-hứa-và-cái-giá)
+  - [6. Split DNS — cùng một tên, hai câu trả lời](#6-split-dns--cùng-một-tên-hai-câu-trả-lời)
+  - [7. Hai đường vào cùng một Ingress](#7-hai-đường-vào-cùng-một-ingress)
+  - [8. `helm template` và `helm install` nhìn thấy hai "cluster" khác nhau](#8-helm-template-và-helm-install-nhìn-thấy-hai-cluster-khác-nhau)
+  - [9. Bootstrap password không nằm trong values](#9-bootstrap-password-không-nằm-trong-values)
+  - [10. Traefik hợp Rancher mà không cần annotation NGINX](#10-traefik-hợp-rancher-mà-không-cần-annotation-nginx)
+  - [11. Vì sao route Rancher dùng `https://…:443` còn app demo dùng `http://…:80`](#11-vì-sao-route-rancher-dùng-https443-còn-app-demo-dùng-http80)
+  - [12. Ba origin parameter của route Rancher](#12-ba-origin-parameter-của-route-rancher)
+  - [13. Access application và Published application route — hai lớp, hai câu hỏi](#13-access-application-và-published-application-route--hai-lớp-hai-câu-hỏi)
+  - [14. `cattle-cluster-agent` — chỉ dành cho downstream cluster](#14-cattle-cluster-agent--chỉ-dành-cho-downstream-cluster)
+  - [15. Mỗi gate chứng minh được gì — và không chứng minh được gì](#15-mỗi-gate-chứng-minh-được-gì--và-không-chứng-minh-được-gì)
+- [Sơ đồ sự cố sau reboot — `SelfUser` 404 và cluster `local` `Unavailable`](#sơ-đồ-sự-cố-sau-reboot--selfuser-404-và-cluster-local-unavailable)
+  - [Luồng suy luận điều tra — từ triệu chứng đến đúng hung thủ](#luồng-suy-luận-điều-tra--từ-triệu-chứng-đến-đúng-hung-thủ)
+    - [Bản đồ quyết định dùng lại cho những lỗi tương tự](#bản-đồ-quyết-định-dùng-lại-cho-những-lỗi-tương-tự)
+    - [Bước 0 — đóng băng hiện trường trước khi sửa](#bước-0--đóng-băng-hiện-trường-trước-khi-sửa)
+    - [Bước 1 — bắt đầu tại request hỏng và phân loại mã lỗi](#bước-1--bắt-đầu-tại-request-hỏng-và-phân-loại-mã-lỗi)
+    - [Bước 2 — vẽ ngược dependency của resource đang lỗi](#bước-2--vẽ-ngược-dependency-của-resource-đang-lỗi)
+    - [Bước 3 — kiểm tra trạng thái thật của extension API ở thời điểm hiện tại](#bước-3--kiểm-tra-trạng-thái-thật-của-extension-api-ở-thời-điểm-hiện-tại)
+    - [Bước 4 — phân biệt trạng thái hiện tại với nguyên nhân lịch sử](#bước-4--phân-biệt-trạng-thái-hiện-tại-với-nguyên-nhân-lịch-sử)
+    - [Bước 5 — dựng timeline thay vì đọc log rời rạc](#bước-5--dựng-timeline-thay-vì-đọc-log-rời-rạc)
+    - [Bước 6 — dùng mâu thuẫn trạng thái để khoanh đúng process](#bước-6--dùng-mâu-thuẫn-trạng-thái-để-khoanh-đúng-process)
+    - [Bước 7 — chỉ restart sau gate, rồi coi restart như một thí nghiệm](#bước-7--chỉ-restart-sau-gate-rồi-coi-restart-như-một-thí-nghiệm)
+    - [Bước 8 — hậu kiểm cluster `local`: node `Active` nhưng card báo `Unavailable`](#bước-8--hậu-kiểm-cluster-local-node-active-nhưng-card-báo-unavailable)
+    - [Bước 9 — kết luận đúng cấp độ nguyên nhân](#bước-9--kết-luận-đúng-cấp-độ-nguyên-nhân)
+    - [Những kết luận sai cần tránh](#những-kết-luận-sai-cần-tránh)
+- [Tự kiểm tra](#tự-kiểm-tra)
+  - [Câu hỏi — vòng 1: toàn cảnh Rancher](#câu-hỏi--vòng-1-toàn-cảnh-rancher)
+    - [Câu 1/6 — Hai đường truy cập cùng một Rancher](#câu-16--hai-đường-truy-cập-cùng-một-rancher)
+    - [Câu 2/6 — Helm đã xong thì certificate đã sẵn sàng chưa?](#câu-26--helm-đã-xong-thì-certificate-đã-sẵn-sàng-chưa)
+
+</details>
 
 ## Nhìn nhanh — §14 cài gì và để làm gì
 
@@ -150,6 +244,9 @@ thành phần này để phục vụ Rancher.
 
    Trong cấu hình của runbook, Traefik sẽ phục vụ HTTPS cho Rancher bằng certificate ký bởi CA
    riêng. Bạn cài cert-manager để tự động cấp và gia hạn certificate đó.
+
+   **Đọc sâu:** [Nền tảng — Helm, cert-manager và Rancher](#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì) giải thích vai trò từng công cụ;
+   [Sơ đồ tuần tự cấp certificate](#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install) nối chúng thành chuỗi xử lý sau `helm install`.
 
    **HTTPS nội bộ kết thúc ở Traefik; backend Rancher dùng HTTP**
 
@@ -710,8 +807,9 @@ cần gọi được Server URL, vượt qua cơ chế kiểm soát dành cho m�
 và nhìn thấy certificate phù hợp với trust của nó. Việc browser đăng nhập thành công và cụm
 `local` Active chưa chứng minh những điều kiện này.
 
-Phần còn lại của bài đào sâu những mảnh vừa đi qua: từ điển khái niệm, sơ đồ hai đường vào và sự
-cố, chuỗi cấp certificate, nền tảng Helm/cert-manager/Rancher, từng mục §14 và 15 cơ chế riêng.
+Phần còn lại của bài đi từ từ điển khái niệm và nền tảng Helm/cert-manager/Rancher tới chuỗi
+cấp certificate, sơ đồ hai đường vào, từng mục §14 và 15 cơ chế riêng; phần điều tra sự cố
+sau reboot và bài tự kiểm tra nằm cuối.
 
 ## Từ điển khái niệm nền
 
@@ -1234,6 +1332,145 @@ Ba nhóm từ bài này dùng nhưng cố ý không định nghĩa lại:
   (Issuer → Certificate → Secret, ingress-shim), Rancher (thành phần nào do ai tạo) — có riêng
   phần [Nền tảng](#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì) ngay dưới.
 
+## Nền tảng — Helm, cert-manager và Rancher thực chất là gì
+
+§14 dùng ba công cụ lồng vào nhau: Helm cài cert-manager và Rancher; cert-manager cấp TLS cho
+Rancher; Rancher sau khi chạy lại tự sinh thêm thành phần mà cả Helm lẫn cert-manager đều không
+biết. Nắm ba mục dưới đây thì phần lớn lệnh trong §14 trở thành hiển nhiên.
+
+### Helm — trình quản lý gói của Kubernetes
+
+Cài "một ứng dụng" lên Kubernetes thực chất là apply hàng chục manifest (Deployment, Service,
+Ingress, ServiceAccount, RBAC…) có nội dung phải khớp nhau. Helm đóng gói việc đó bằng bốn
+khái niệm:
+
+| Khái niệm | Là gì | Trong §14 |
+| --- | --- | --- |
+| **Chart** | Gói template manifest + values mặc định + metadata (`Chart.yaml`) | chart `rancher` `2.14.3`, chart `cert-manager` `v1.21.1` |
+| **Repo / OCI registry** | Nơi phát hành chart: repo là index HTTP, OCI là container registry | repo `rancher-stable`; `oci://quay.io/jetstack/charts/cert-manager` |
+| **Values** | Tham số đè lên default của chart — chỉ ghi phần khác biệt | `rancher-values.yaml` |
+| **Release** | Một lần cài chart, có tên và state được Helm lưu trong cluster | release `rancher` ở `cattle-system`, release `cert-manager` ở `cert-manager` |
+
+Từ đó đọc được các lệnh chuẩn bị của §14.3:
+
+- `helm repo add rancher-stable <URL> --force-update` — khai báo nguồn chart; `--force-update`
+  làm lệnh idempotent: entry cùng tên đã tồn tại thì ghi đè thay vì báo lỗi.
+- `helm repo update rancher-stable` — tải index mới nhất của đúng repo đó về máy; không đụng gì
+  tới cluster.
+- `helm show chart rancher-stable/rancher --version 2.14.3` — in `Chart.yaml` của bản pin để
+  chứng minh nó tồn tại **trước khi** render/cài. Dòng PASS chứa ba con số dễ nhầm là một:
+  `version: 2.14.3` là **chart version** (phiên bản của gói), `appVersion: v2.14.3` là bản
+  Rancher thật bên trong (với Rancher hai số này trùng nhau, chart khác thường không trùng), còn
+  `kubeVersion: < 1.36.0-0` là **ràng buộc** phiên bản Kubernetes mà chart chấp nhận.
+- cert-manager không cần `repo add`: chart phát hành qua OCI registry, kéo trực tiếp bằng URL
+  `oci://` + `--version`, không có bước index.
+
+Hai cơ chế Helm còn lại mà §14 dựa vào:
+
+- **Release state.** Helm lưu trạng thái mỗi release (values đã dùng, manifest đã render, số
+  revision) trong Secret ngay tại namespace của release; `helm list`/`helm status` đọc từ đó.
+  Gate §14.0 dùng chính state này để phát hiện cài đặt cũ, và "namespace tồn tại nhưng release
+  không tồn tại" là trạng thái mồ côi (cài dở, xóa dở) phải điều tra thay vì cài đè.
+- **`--wait` chỉ chờ được thứ chart render.** `helm install --wait --timeout 15m` theo dõi các
+  resource **do chart tạo ra** tới khi Ready hoặc hết giờ. Resource mà controller khác sinh sau
+  đó (Certificate của cert-manager, các thành phần runtime của Rancher) nằm ngoài tầm mắt của Helm — đây là nguồn
+  gốc của gate chờ riêng ở §14.4 và cách kiểm inventory ở §14.7.
+
+Xem [Helm — Using Helm](https://helm.sh/docs/intro/using_helm/).
+
+### cert-manager — CRD và chuỗi cấp phát
+
+§14.1.1 của runbook đã nói cert-manager *để làm gì*; ở đây nói *nó làm bằng cách nào*.
+cert-manager mở rộng Kubernetes bằng CRD — các kind mới mà API server chấp nhận như kind chuẩn —
+và một bộ controller reconcile chúng:
+
+```text
+Issuer              "CA của tôi là ai, ký bằng gì"           (khai báo, theo namespace)
+  ↑ tham chiếu
+Certificate         "cần cert cho tên X, lưu vào Secret Y"   (khai báo mong muốn)
+  ↓ controller sinh
+CertificateRequest  một lần xin ký cụ thể                    (bản ghi giao dịch)
+  ↓ Issuer ký xong
+Secret kubernetes.io/tls   tls.crt + tls.key                 (kết quả — thứ Traefik dùng)
+```
+
+Người dùng (hoặc chart) chỉ tạo hai tầng trên; hai tầng dưới cert-manager tự sinh và tự làm mới
+trước khi cert hết hạn. Ba Deployment chia vai đúng theo chuỗi: `cert-manager` (controller —
+chạy chuỗi trên), `cert-manager-webhook` (cổng validate: API server gọi nó để kiểm mọi object
+`Certificate`/`Issuer` lúc tạo — nó chưa Ready thì **không ai tạo được** object nào),
+`cert-manager-cainjector` (tiêm CA bundle vào cấu hình webhook để API server tin webhook).
+
+Còn một controller con quan trọng: **ingress-shim**. Nó watch các Ingress mang annotation
+`cert-manager.io/issuer` và **tự tạo** object `Certificate` theo `spec.tls[]` của Ingress. Nhờ
+nó, chart Rancher không cần render Certificate — chỉ cần annotate Ingress, phần còn lại
+cert-manager tự lo; chuỗi đầy đủ nằm trong [sơ đồ tuần tự cấp certificate](#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install). Xem
+[cert-manager — Concepts](https://cert-manager.io/docs/concepts/).
+
+### Rancher — thứ gì do chart tạo, thứ gì Rancher tự sinh
+
+Rancher là một **management plane**: UI + API + bộ controller quản nhiều cluster từ một chỗ
+(auth tập trung, RBAC, catalog app, monitoring…). Trong lab nó quản đúng một cụm — chính cụm nó
+đang chạy trên đó, hiện trong UI là `local`.
+
+Điều làm §14.6–§14.7 khó hiểu nếu không biết trước: **namespace `cattle-system` có hai đợt thành
+phần, do hai "tác giả" tạo ra ở hai thời điểm khác nhau**:
+
+| Thành phần trong `cattle-system` | Ai tạo | Khi nào |
+| --- | --- | --- |
+| Deployment `rancher`, Service, Ingress, `Issuer` | Helm chart | Lúc `helm install` |
+| Service `imperative-api-extension` + `APIService/v1.ext.cattle.io` | Rancher Server | Lúc runtime khởi động extension API; readiness bất đồng bộ với `/healthz` |
+| `Certificate` + Secret `tls-rancher-ingress` | cert-manager (ingress-shim) | Ngay sau install, bất đồng bộ |
+| Secret `bootstrap-secret` | Rancher Server | Lần khởi động đầu tiên |
+| Deployment `rancher-webhook` | Rancher Server | Sau khi server chạy |
+| Deployment `fleet-agent` của cụm `local` | Fleet do Rancher quản lý | Có thể được bootstrap tự động trong `cattle-fleet-local-system`; kiểm inventory/cấu hình thực tế, không suy từ danh sách `cattle-system` |
+| Deployment `cattle-cluster-agent` | Rancher Server | **Chỉ ở downstream cluster** khi đăng ký cluster đó — cụm `local` không có |
+| `settings.management.cattle.io` (`server-url`, `agent-tls-mode`…) | Rancher Server | Runtime, chốt từ values và màn hình đăng nhập đầu |
+
+Đợt một là thứ Helm biết và `--wait` chờ được. Đợt hai là thứ Rancher tự sinh **sau khi** Helm đã
+báo xong — Helm không track, `helm uninstall` không dọn hết, và mọi gate liên quan phải chờ/kiểm
+theo cách riêng (`wait --for=create`, xem inventory thật). Ranh giới hai đợt này là sợi chỉ xuyên
+qua các mục đào sâu 9, 14 và 15.
+
+Về cách Rancher "quản" một cluster, kiến trúc chia hai trường hợp. Với **downstream cluster**,
+server không gọi vào cluster đó; `cattle-cluster-agent` chạy trong downstream **chủ động gọi ra
+server** rồi giữ tunnel dài hạn, server đẩy lệnh xuống qua chính kết nối đó — đúng mô hình
+`cloudflared` với Cloudflare Edge ở [`tunnel-traefik.md`](tunnel-traefik.md): bên trong gọi ra,
+không ai gọi vào. Với cụm **`local`**, Rancher không cần `cattle-cluster-agent` trung gian: server chạy ngay trong cluster và
+gọi API server trực tiếp bằng service account — vì vậy sau §14, `cattle-system` có `rancher` +
+`rancher-webhook` mà **không có** `cattle-cluster-agent`, cụm `local` vẫn Active. Split DNS
+(§14.2) chỉ phục vụ client trong cụm `local` gọi Server URL. `agentTLSMode: strict` (§14.3) là
+setting phía server cho `cattle-cluster-agent`, `fleet-agent` và `rancher-system-agent` trong
+phạm vi tương ứng, không cài các agent đó. `fleet-agent` có thể được tạo tự động cho `local`;
+`rancher-system-agent` thuộc luồng provision RKE2/K3s. Đường mạng để `cattle-cluster-agent`
+của downstream gọi về server thì §14 chưa triển khai. Xem
+[Rancher — Architecture](https://ranchermanager.docs.rancher.com/reference-guides/rancher-manager-architecture).
+
+## Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`
+
+```mermaid
+%%{init: {"themeVariables": {"noteBkgColor": "#f1f5ff", "noteBorderColor": "#8094c4", "noteTextColor": "#10203f"}}}%%
+sequenceDiagram
+    participant H as helm install rancher
+    participant API as Kubernetes API
+    participant CM as cert-manager (ingress-shim)
+    participant I as Issuer của Rancher
+    participant S as Secret tls-rancher-ingress
+    participant T as Traefik
+
+    H->>API: Deployment rancher + Issuer + Ingress<br/>(annotation cert-manager.io/issuer)
+    Note over H,API: helm --wait chỉ chờ Deployment Ready<br/>không chờ certificate
+    CM->>API: watch Ingress, thấy spec.tls[].secretName
+    CM->>API: tạo Certificate tên tls-rancher-ingress
+    CM->>I: xin ký bằng CA riêng của Rancher
+    I-->>CM: certificate đã ký
+    CM->>S: ghi tls.crt / tls.key
+    T->>S: đọc Secret khi terminate TLS cho rancher.hieupn.site
+    Note over CM,S: cert-manager tự gia hạn trước khi hết hạn<br/>không ai phải canh ngày
+```
+
+Sơ đồ này giải thích vì sao §14.4 phải có gate riêng chờ `certificate/tls-rancher-ingress`:
+Certificate là resource sinh **bất đồng bộ** bởi controller khác sau khi Helm đã xong việc.
+
 ## Sơ đồ toàn cảnh — hai đường vào cùng một hostname
 
 Điểm cốt lõi: **§14 phục vụ đồng thời hai loại client rất khác nhau trên cùng một hostname trong
@@ -1372,7 +1609,7 @@ Hai chuỗi của sơ đồ, kể bằng lời — mô tả chung nhất trướ
    khai SNI = `rancher.hieupn.site` theo `originServerName`.
 3. **Traefik làm terminate TLS**: tra SNI vừa nhận để chọn certificate — khớp
    `rancher.hieupn.site` thì rút cert từ Secret `tls-rancher-ingress` (cert do cert-manager cấp
-   từ CA riêng của Rancher — sơ đồ tuần tự bên dưới), không khớp thì chỉ còn cert default tự
+   từ CA riêng của Rancher — xem [sơ đồ tuần tự cấp certificate](#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install)), không khớp thì chỉ còn cert default tự
    ký — rồi trình về cho `cloudflared`; `cloudflared` **không verify** theo cấu hình
    `noTLSVerify: true`; hai bên thỏa thuận khóa phiên — kênh mã hóa hình thành.
 4. `cloudflared` gửi request HTTP bên trong kênh, `Host: rancher.hieupn.site` theo
@@ -1403,6 +1640,567 @@ Hai chuỗi của sơ đồ, kể bằng lời — mô tả chung nhất trướ
 
 Hai chuỗi trong cụm chỉ khác nhau ở đầu vào (ai resolve tên gì, SNI do ai đặt) và ở bước 3
 (ai quyết định verify); từ Traefik trở xuống là một.
+
+## Đi qua §14 từng mục — mỗi lệnh làm gì
+
+Phần này bám đúng thứ tự runbook. Mục nào runbook đã giải thích sâu tại chỗ (§14.1.1, §14.2.1)
+hoặc đã có mục đào sâu riêng bên dưới thì chỉ tóm và trỏ, không lặp lại.
+
+### §14.0 — gate read-only: đo trước khi đụng
+
+Chín lệnh, không lệnh nào thay đổi cluster; mỗi lệnh loại trừ một cách hỏng trước khi cài:
+
+| Lệnh | Loại trừ điều gì |
+| --- | --- |
+| `helm version --short` | Helm dưới baseline `3.18` — Rancher yêu cầu Helm 3 tương thích |
+| `kubectl version` | client/server lệch baseline `v1.35.6` của §2.1 |
+| `kubectl get nodes -o wide` | node chưa `Ready` — cài lên cụm ốm là chồng lỗi lên lỗi |
+| `kubectl auth can-i '*' '*' --all-namespaces` | thiếu quyền `cluster-admin` — chart tạo RBAC/CRD toàn cụm |
+| `kubectl top nodes` + `describe nodes \| grep Allocated` | thiếu tài nguyên — Rancher nặng; memory requests phải còn dưới ~50% |
+| `get pods,svc -n traefik` + `get ingressclass traefik` | tầng ingress chưa sẵn sàng — Ingress của Rancher sẽ vô chủ |
+| `get pods -n cloudflare` | tunnel chưa sẵn sàng — §14.5 sẽ không có đường publish |
+| `helm list -A \| grep …` | còn release cert-manager/Rancher cũ — quy trình này là cài mới, không phải upgrade |
+| `get namespace … --ignore-not-found` | namespace mồ côi (cài dở/xóa dở) — điều tra trước, không cài đè |
+
+### §14.0.1 — backup: cơ chế từng lệnh
+
+- `kubectl exec` vào Pod `etcd-k8s-master` vì `etcdctl` có sẵn trong image etcd — không phải cài
+  thêm gì lên node. Ba flag `--cacert/--cert/--key` trỏ vào PKI của etcd vì etcd đòi client
+  chứng minh danh tính bằng TLS hai chiều; endpoint là địa chỉ localhost của etcd ngay trên node
+  control plane.
+- File staging ghi vào `/var/lib/etcd` vì đó là **hostPath volume** của static Pod etcd: file
+  ghi bên trong container hiện ra trên disk của node — cây cầu duy nhất để lấy snapshot ra khỏi
+  container mà không cần thêm công cụ copy nào.
+- `cp -a /etc/kubernetes` giữ nguyên cả cây PKI + static Pod manifest + kubeconfig —
+  certificate và cấu hình mà một lần restore sẽ cần để cluster nhận lại chính nó.
+- Chuỗi `test -s` → `cmp -s` → `tar` → `chmod`/`stat` → `sha256sum` là chuỗi **chứng minh**, không
+  phải trang trí: bản copy khác rỗng, trùng từng byte với bản gốc, đóng gói thành một file,
+  quyền `700/600` (backup chứa private key và Secret), và một hash cho bước 2 đối chiếu. Không
+  kiểm metadata snapshot tại chỗ được vì image etcd 3.6 đã bỏ `etcdctl snapshot status`; hash
+  toàn vẹn nhúng trong snapshot sẽ được `etcdutl snapshot restore` tự kiểm lúc restore.
+- Bước 2 (PowerShell + `scp`) tồn tại vì snapshot nằm cùng disk với etcd thì hỏng disk là mất cả
+  hai; so hash tại đích chứng minh bản copy nguyên vẹn, và block viết dạng idempotent — chạy lại
+  an toàn, file đích đã đúng hash thì PASS ngay không copy lại.
+
+### §14.1 — cài cert-manager
+
+Khái niệm ở phần Nền tảng và §14.1.1 của runbook. Về lệnh: `oci://quay.io/jetstack/charts/…` kéo
+chart thẳng từ OCI registry; `--create-namespace` tạo namespace nếu chưa có; `--version v1.21.1`
+ghim patch; `--set crds.enabled=true` bảo chart cài và quản luôn các CRD — thiếu nó thì kind
+`Certificate`/`Issuer` không tồn tại, mọi thứ phía sau vô nghĩa; `--wait --timeout 10m` chờ đủ
+ba Deployment. Bốn lệnh verify soi đúng bốn tầng: release (`helm status`), Deployment
+(`kubectl wait --for=condition=Available`), Pod (`get pods`), CRD (`get crd | grep`). Gate STOP
+theo webhook vì webhook chưa Ready thì không ai tạo được object cert-manager nào — Rancher sẽ
+treo ở bước xin certificate.
+
+### §14.2 — split DNS
+
+Cơ chế đầy đủ ở mục đào sâu 6 và §14.2.1 của runbook. Điều cần giữ trong đầu về *vị trí*: entry
+`hosts` đứng trước bước cài Rancher (§14.3) để không có khoảnh khắc nào hostname trong cluster
+còn trỏ ra Cloudflare đối với client nội bộ;
+`fallthrough` là dòng giữ cho phần DNS còn lại của cluster sống; test phải chạy từ trong Pod vì
+chỉ Pod dùng cluster DNS.
+
+### §14.3 — cài Rancher
+
+Ba lệnh chuẩn bị (`repo add` / `repo update` / `show chart`) đã giải thích ở phần Nền tảng.
+Values file viết bằng heredoc `<<'EOF'` — dấu nháy quanh `EOF` bảo shell **không** expand biến
+hay lệnh bên trong, file được ghi nguyên văn. Ý nghĩa từng key:
+
+| Key | Vai trò |
+| --- | --- |
+| `hostname` | Cái tên mọi thứ xoay quanh: host của Ingress, tên trong certificate, Server URL gợi ý ở lần đăng nhập đầu |
+| `replicas: 1` | Homelab đủ tài nguyên cho 1; chart mặc định 3 (HA) |
+| `agentTLSMode: strict` | Chính sách xác minh CA trong `cacerts` cho `cattle-cluster-agent`, `fleet-agent`, `rancher-system-agent` theo tình huống tương ứng; không cài agent — mục đào sâu 5 |
+| `networkExposure.type: ingress` | **Mode selector** của chart 2.14: chọn nhánh render Ingress, không phải nhánh Gateway API |
+| `ingress.enabled: true` | Vế thứ hai của điều kiện render Ingress — chart đòi cả hai cùng đúng |
+| `ingress.includeDefaultExtraAnnotations: false` | Không render bộ annotation NGINX — Traefik không đọc chúng, mục đào sâu 10 |
+| `ingress.ingressClassName: traefik` | Ghim class tường minh, không dựa vào default IngressClass |
+| `ingress.servicePort: 80` | Traefik nói chuyện với Pod Rancher bằng HTTP sau khi đã terminate TLS |
+| `ingress.tls.source: rancher` | Rancher tự tạo CA riêng; cert-manager cấp cert từ CA đó |
+| `ingress.tls.secretName: tls-rancher-ingress` | Tên Secret mà ingress-shim sẽ tạo và Traefik sẽ dùng — mọi gate phía sau bám vào tên này |
+
+Không có `bootstrapPassword` — cố ý, xem mục đào sâu 9. Cặp `helm template`/`helm install` và
+render gate ở mục đào sâu 8. Khối gate dùng subshell `( set -e … )` + biến `RENDER_RC` +
+`( exit "$RENDER_RC" )` để trả đúng mã lỗi mà không đóng phiên SSH — cùng khuôn với gate backup
+§14.0.1.
+
+### §14.4 — gate origin nội bộ
+
+Từng lệnh bám đúng chuỗi bất đồng bộ của cert-manager:
+
+- `wait --for=create certificate/tls-rancher-ingress` — chờ ingress-shim **tạo ra** object
+  Certificate (nó chưa tồn tại ngay sau `helm install`); không dùng `--all` vì khi chưa có
+  Certificate nào, lệnh đó thoát ngay với `no matching resources` thay vì đợi.
+- `wait --for=condition=Ready` — chờ chuỗi ký hoàn tất: Issuer ký xong, Secret đã được ghi.
+- `get issuer,certificate` + `get secret tls-rancher-ingress` — nhìn tận mắt các tầng của chuỗi
+  cấp phát.
+- `get ingress rancher -o jsonpath=…` — in đúng hai field class/host để so với values đã pin.
+- `curl -skS --resolve "rancher.hieupn.site:443:$TRAEFIK_IP" https://…/healthz` — bài test quyết
+  định: `--resolve` ép kết nối tới ClusterIP Traefik nhưng vẫn gửi SNI/Host thật, mô phỏng đúng
+  cách client nội bộ và `cloudflared` sẽ gọi; `-k` vì máy master cũng không tin CA riêng (mục đào sâu 4);
+  `/healthz` trả `200` chứng minh chuỗi Traefik → TLS → Ingress → Pod Rancher sống; nó **chưa**
+  chứng minh extension API `:6666`, `APIService/v1.ext.cattle.io` hoặc schema Steve `SelfUser`
+  đã sẵn sàng.
+
+### §14.5 — Access rồi mới publish
+
+Cơ chế ở mục đào sâu 11, 12, 13: hai lớp Access/route, vì sao Service URL là `https://…:443`, và
+ba origin parameter làm gì ở tầng nào. Điểm còn lại đáng nhớ về *quy trình*: gate §14.5.1 tồn tại
+vì UI có thể hiện modal rút gọn không lưu ba parameter — verify nghĩa là mở lại **route detail**
+và thấy đủ `noTLSVerify: true`, `httpHostHeader`, `originServerName`, không phải tin vào việc đã
+bấm Save.
+
+### §14.6 — đăng nhập lần đầu
+
+- `rollout status deployment/rancher --timeout=300s` — chốt server đã Ready; trước thời điểm này
+  `bootstrap-secret` chưa chắc tồn tại.
+- `wait --for=create secret/bootstrap-secret` — chờ Rancher **tự sinh** Secret lúc runtime (mục
+  đào sâu 9); đọc sớm gặp `NotFound` nghĩa là "chưa sinh ra", không phải cài hỏng.
+- `kubectl get secret … -o go-template='{{ .data.bootstrapPassword | base64decode }}'` — Secret
+  Kubernetes lưu giá trị dạng base64; go-template decode ngay trong lệnh để in plaintext đúng
+  một lần, không ghi ra file.
+- Đăng nhập hai lớp đúng như kiến trúc: Access xác thực **người** trước, Rancher xác thực **tài
+  khoản quản trị** sau. Bảng chẩn đoán `502` trong runbook là bảng "ba origin parameter" chiếu
+  sang log — mỗi dòng log ứng với một parameter sai (mục đào sâu 12).
+
+### §14.7 — gate hoàn thành
+
+Các lệnh soi đúng **đợt thành phần thứ hai** (bảng ở phần Nền tảng): inventory thật của
+`cattle-system` (`get pods`, `get deploy` — kỳ vọng thấy `rancher-webhook`; **không** kỳ vọng
+`cattle-cluster-agent`, vì loại agent này thuộc downstream cluster — mục đào sâu 14), và hai setting
+`server-url`/`agent-tls-mode` đọc từ CRD `settings.management.cattle.io` — cấu hình phía server,
+tồn tại độc lập với việc có agent hay không. Gate local cố ý không gọi log
+`cattle-cluster-agent`; log đó chỉ có ý nghĩa khi chạy bằng kubeconfig của một downstream cluster
+đã import và inventory tại đó xác nhận Pod tồn tại.
+
+---
+
+Các mục đánh số dưới đây đào sâu từng cơ chế độc lập; đọc theo nhu cầu, không cần tuần tự.
+
+## Đào sâu 15 cơ chế của §14
+
+Các mục dưới đây giải thích sâu từng cơ chế đã xuất hiện trong §14. Có thể đọc theo thứ tự
+hoặc dùng mục lục để tìm đúng vấn đề cần tra.
+
+### 1. Rancher là workload trong chính cluster nó quản lý
+
+Rancher không phải một "control plane thứ hai" đứng ngoài: nó là một Deployment bình thường trong
+namespace `cattle-system`, chịu mọi luật của cluster — được schedule lên node, cần Service/Ingress
+để có đường vào, cần Secret để có TLS. Cụm host nó tự xuất hiện trong UI dưới tên **`local`**,
+không cần import thủ công.
+
+Hệ quả quan trọng: **mọi thứ Rancher cần, chính cluster phải tự phục vụ**. Đường vào đi qua
+Traefik của §9; DNS nội bộ do CoreDNS trả lời; TLS do cert-manager cấp. Không có thành phần nào
+"bên ngoài" đỡ cho Rancher cả. Đây là lý do §14 phải lắp từng mảnh theo thứ tự phụ thuộc, và cũng
+là lý do backup §14.0 quan trọng: Rancher hỏng kéo theo state nằm ngay trong etcd của cluster
+đang chạy nó.
+
+Lưu ý phạm vi hỗ trợ — support matrix có **hai bảng khác nhau**, đừng trộn: dải Kubernetes
+`1.33–1.35` thuộc bảng *downstream/imported cluster* (các cụm mà Rancher sẽ quản); còn bảng nền
+tảng **Rancher Manager host** được chứng nhận chỉ liệt kê RKE2, K3s và một số managed Kubernetes.
+Cài Rancher lên kubeadm là dùng kubeadm làm host: tương thích về version và chạy được trong lab,
+nhưng **không phải** nền tảng host được SUSE chứng nhận. Xem
+[Rancher — Install on Kubernetes](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/install-upgrade-on-a-kubernetes-cluster)
+và [SUSE support matrix](https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/).
+
+### 2. Vì sao đường lui duy nhất là snapshot etcd
+
+`coredns-before-rancher.yaml` của §14.2 chỉ rollback được đúng một ConfigMap. Nhưng cert-manager
+và Rancher ghi vào cluster nhiều hơn thế rất nhiều: CRD mới (`cert-manager.io`,
+`management.cattle.io`…), webhook, controller, và toàn bộ object mà các controller đó tự sinh ra
+lúc runtime. Không có "uninstall sạch" nào đảo ngược được hết chuỗi đó một cách đáng tin.
+
+etcd là nơi giữ **toàn bộ** state Kubernetes — mọi object, mọi Secret, và sau §14 là cả state
+Rancher. Snapshot etcd vì vậy là ảnh chụp nguyên tử của cả cluster tại một thời điểm; restore nó
+là quay về đúng thời điểm đó. Bản copy ngoài VM + đối chiếu checksum tồn tại vì snapshot nằm cùng
+disk với etcd thì hỏng disk là mất cả hai. Xem
+[Kubernetes — Operating etcd clusters](https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/).
+
+### 3. Vì sao cert-manager phải có mặt trước Rancher
+
+Chart Rancher với `ingress.tls.source: rancher` **không tự cấp certificate**. Nó chỉ khai báo mong
+muốn: render một `Issuer` (đại diện CA riêng của Rancher) và một Ingress mang annotation
+`cert-manager.io/issuer`. Người thực thi mong muốn đó là cert-manager:
+
+1. Controller `ingress-shim` của cert-manager watch các Ingress có annotation.
+2. Thấy `spec.tls[].secretName: tls-rancher-ingress`, nó tạo object `Certificate` cùng tên.
+3. cert-manager sinh key, xin `Issuer` ký, ghi kết quả vào Secret `tls-rancher-ingress`.
+4. Từ đó cert-manager tự gia hạn trước khi hết hạn — không ai phải canh ngày.
+
+Chuỗi này giải thích hai điều trong runbook. Thứ nhất, **thứ tự**: §14.1 đứng trước §14.3 vì thiếu
+cert-manager thì annotation kia không ai đọc, Rancher không bao giờ có TLS nội bộ và gate §14.4
+không bao giờ PASS. Thứ hai, **gate §14.4**: `helm install --wait` chỉ chờ Deployment Ready, còn
+Certificate là resource sinh bất đồng bộ bởi controller khác — nên phải chờ riêng bằng
+`kubectl wait --for=create` rồi `--for=condition=Ready`, và không dùng `--all` vì lệnh đó thoát
+ngay khi chưa có Certificate nào thay vì đợi.
+
+Ba Deployment của cert-manager chia vai: `cert-manager` cấp và gia hạn, `cert-manager-cainjector`
+tiêm CA vào cấu hình webhook, `cert-manager-webhook` validate mọi object `Certificate`/`Issuer`
+lúc tạo. Webhook chưa Ready thì mọi yêu cầu cấp cert treo — vì thế §14.1 bắt STOP khi nó chưa
+Ready. Xem [cert-manager — Securing Ingress resources](https://cert-manager.io/docs/usage/ingress/).
+
+### 4. Hai hệ certificate ở tầng ứng dụng không chạm nhau
+
+Ở tầng HTTPS ứng dụng có **hai hệ certificate độc lập**, mỗi hệ phục vụ một đoạn. Kết nối tunnel
+`cloudflared` ⇄ Cloudflare Edge là một kênh mã hóa riêng của connector, không phải một trong hai
+certificate ứng dụng đang so sánh trong bảng:
+
+| | Certificate public của Cloudflare | Certificate nội bộ của Rancher |
+| --- | --- | --- |
+| Ai ký? | CA công cộng (browser tin sẵn) | CA riêng do Rancher tạo, cert-manager cấp |
+| Bảo vệ đoạn nào? | Browser ⇄ Cloudflare Edge | (cloudflared \| client nội bộ) ⇄ Traefik |
+| Ai nhìn thấy nó? | Chỉ client ngoài Internet | Chỉ client bên trong cluster |
+
+Browser không bao giờ thấy cert của Rancher — TLS của nó kết thúc ở Edge. Client nội bộ không
+bao giờ thấy cert của Cloudflare — split DNS giữ nó trong cluster. Hai thế giới chỉ "gặp nhau" ở chỗ
+`cloudflared`: sau khi nhận request từ tunnel, nó handshake với Traefik và **nhìn thấy** cert
+Rancher, nhưng không có căn cứ để tin (CA riêng không nằm trong trust store của nó) — đó là nguồn
+gốc của `noTLSVerify` ở mục đào sâu 12.
+
+Hiểu ranh giới này thì đọc được các gate: `curl -k` ở §14.4 vì máy master cũng không tin CA riêng;
+`nslookup` trả IP Cloudflare ở §14.5 là **đúng** cho client ngoài, trong khi cùng lệnh đó chạy
+trong Pod ở §14.2 phải trả ClusterIP — hai kết quả ngược nhau, cả hai đều PASS, vì thuộc hai thế
+giới khác nhau.
+
+### 5. `agentTLSMode: strict` — lời hứa và cái giá
+
+**Phạm vi trước khi đọc:** chính sách `agent-tls-mode` áp dụng cho `cattle-cluster-agent`,
+`fleet-agent` và `rancher-system-agent`, nhưng không cài chúng. §14 chưa có downstream cluster
+nên không cài `cattle-cluster-agent` vào `local`; Fleet có thể tự tạo `fleet-agent` cho
+`local`; `rancher-system-agent` thuộc luồng provision RKE2/K3s, không phải bước cài Rancher
+lên kubeadm. Bảng trong phần “Bạn cài bộ máy cấp certificate — §14.1” ghi nơi chạy và công việc
+của từng loại.
+
+`strict` yêu cầu certificate của endpoint mà agent kết nối tới xác minh được bằng CA trong
+setting `cacerts`, cùng các kiểm tra TLS cần thiết như hostname. Đây là chính sách xác minh
+**phía client agent**, không phải yêu cầu mã hóa chặng Traefik → Rancher.
+
+**Ví dụ cụ thể, ngoài phạm vi cài đặt hiện tại:** sau này import một downstream cluster,
+`cattle-cluster-agent` trong namespace `cattle-system` của cluster đó chủ động gọi Server
+URL. Nếu đã thiết kế đường riêng để TLS kết thúc tại Traefik, agent này nhận certificate của
+Traefik và xác minh trong lúc thiết lập HTTPS, rồi mới gửi HTTP request qua kênh mã hóa.
+Traefik giải mã và chuyển HTTP tới backend Rancher. Agent không phải một hop đứng sau Traefik,
+không đợi backend Rancher gửi thêm certificate, và không tham gia phiên connector → Traefik
+của browser.
+
+Nếu `cattle-cluster-agent` của downstream đi qua Cloudflare Edge theo cấu hình lab hiện tại,
+nó thấy certificate public của Edge; CA đó khác CA riêng Rancher đang công bố, nên không đáp
+ứng trust của `strict`. Access tương tác cũng là một trở ngại độc lập (mục đào sâu 7).
+Không phải cứ certificate thay đổi là thất bại: certificate mới vẫn có thể hợp lệ nếu được
+cấp bởi CA agent tin tưởng và khớp hostname. Đường của ví dụ này chưa được §14 triển khai.
+
+Chính sách của từng client được tách biệt:
+
+| TLS client | Cách kiểm tra certificate và tình huống áp dụng |
+| --- | --- |
+| `cloudflared` | Connector đang phục vụ đường browser; lab đặt `noTLSVerify: true` nên bỏ kiểm tra certificate origin. Đây không phải Rancher agent |
+| Chương trình Python trong Pod | Workload tích hợp API giả định, không được §14 cài sẵn; verification theo thư viện/trust store của chương trình |
+| `cattle-cluster-agent` của downstream | Chỉ xét khi đăng ký/import một cluster khác; dùng `strict` thì xác minh bằng CA từ `cacerts`. Không có Deployment này trong `local` của bài |
+| `fleet-agent` | Có thể được tạo tự động cho `local` trong `cattle-fleet-local-system`; thuộc phạm vi `agent-tls-mode`, nhưng cần xem cấu hình và đường kết nối thực tế trước khi kết luận certificate nó nhận |
+| `rancher-system-agent` | Thuộc phạm vi `agent-tls-mode` trong tình huống quản lý node RKE2/K3s do Rancher provision; không được cài lên các VM kubeadm chỉ bởi §14 |
+
+Xem [Rancher — Agent TLS Enforcement](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/tls-settings),
+[Rancher — Rancher agents](https://ranchermanager.docs.rancher.com/v2.14/how-to-guides/new-user-guides/launch-kubernetes-with-rancher/about-rancher-agents) và
+[Fleet — Agent log namespaces](https://fleet.rancher.io/troubleshooting).
+
+§14.7 chỉ kiểm **giá trị setting** và inventory trong `cattle-system`; chưa xem namespace
+`cattle-fleet-local-system` và không chứng minh hành vi TLS thực tế của Fleet agent. Với
+`cattle-cluster-agent` của downstream sau này, phải kiểm riêng đường Server URL và trạng thái
+`AgentTlsStrictCheck` của cluster đó trước khi kết luận sẵn sàng dùng `strict`.
+
+### 6. Split DNS — cùng một tên, hai câu trả lời
+
+Split DNS (split-horizon DNS) là kỹ thuật cho **cùng một hostname trả lời khác nhau tùy nơi
+hỏi**. Ở đây: Internet hỏi `rancher.hieupn.site` nhận IP Cloudflare (record Proxied); Pod trong
+cụm `local` hỏi thì khối `hosts` của CoreDNS local chặn query và trả thẳng ClusterIP Traefik.
+Downstream cluster dùng DNS và network riêng, không nhìn thấy entry hay ClusterIP này.
+
+Cơ chế nằm ở thứ tự plugin trong Corefile: query chạm `hosts` trước, khớp thì trả lời tại chỗ và
+dừng; không khớp mới rơi xuống `forward . /etc/resolv.conf` ra resolver ngoài. Ba chi tiết sống
+còn:
+
+- `fallthrough` — thiếu nó, `hosts` trở thành người trả lời cuối cùng cho **mọi** tên, và mọi
+  lookup không khớp bảng (toàn bộ DNS còn lại của cluster) nhận NXDOMAIN. Quên một dòng là hỏng
+  DNS cả cluster.
+- `ttl 60` — nếu ClusterIP Traefik đổi (xóa/tạo lại Service), câu trả lời cũ chỉ sống tối đa 60
+  giây trong cache thay vì hàng giờ.
+- Test phải chạy **từ trong một Pod** (`kubectl run dns-check`), vì chỉ Pod dùng cluster DNS;
+  `nslookup` từ VM hay máy host hỏi resolver khác, không chứng minh được đường mà client trong
+  cluster sẽ đi.
+
+**Vì sao Rancher cần split DNS còn app demo thì không.** Trước hết phải đặt lại khung: split
+DNS không "phục vụ cả đường browser" — đường browser chạy bằng **public DNS**, record do
+Cloudflare tự tạo khi Save route, tồn tại sẵn và không liên quan tới §14.2. Split DNS chỉ là
+**nửa còn lại**: thêm câu trả lời *nội bộ* cho cùng cái tên. Vậy câu hỏi đúng là: *app demo có
+cần câu trả lời nội bộ không?* — không, vì ba lý do:
+
+1. **Không Pod nào trong cluster cần gọi `app.hieupn.site`.** App demo là *đích đến cho người
+   ngoài Internet*, không phải dịch vụ mà thành phần trong cụm gọi tới. Nếu một Pod thật sự
+   muốn gọi app demo, cách chuẩn của Kubernetes là gọi bằng **tên Service nội bộ**
+   `web.default.svc.cluster.local:80` — tên này CoreDNS trả lời sẵn, không cần cấu hình gì
+   thêm. Hostname public chỉ là "biển hiệu ngoài phố"; trong nhà gọi nhau bằng tên nội bộ.
+2. **Rancher thì khác — nó có Server URL.** `https://rancher.hieupn.site` là địa chỉ bị "khắc"
+   vào khắp nơi (agent đăng ký, link trong UI, redirect — xem mục Server URL của từ điển), nên
+   tồn tại một **vai** client nội bộ buộc phải gọi đúng cái tên public đó — không thay bằng tên
+   Service nội bộ được, vì cert chỉ đúng cho `rancher.hieupn.site` và mọi cấu hình đều trỏ về
+   tên đó. App demo không có gì tương đương: không config nào ép ai trong cụm phải dùng
+   `app.hieupn.site`.
+3. **Kể cả khi một Pod "lỡ" gọi `app.hieupn.site` — nó vẫn chạy được.** Không có split DNS, Pod
+   resolve ra IP Cloudflare Edge và đi vòng: NAT → Edge → tunnel → về lại chính cluster. Đường
+   vòng này **không hỏng** với app demo, vì hai rào cản của Rancher đều vắng mặt:
+
+| Rào cản trên đường vòng | `rancher.hieupn.site` | `app.hieupn.site` |
+| --- | --- | --- |
+| Cloudflare Access | Có — process kẹt ở trang login SSO | Không có — app cố ý public |
+| Certificate | Client thấy cert Cloudflare, không khớp CA Rancher (`strict` ngắt) | Cert Cloudflare là cert public hợp lệ — client verify bình thường, PASS |
+
+Tức là với app demo, thiếu split DNS chỉ tốn một đường vòng xấu (phụ thuộc Internet, chậm hơn)
+chứ không gãy chức năng. Với Rancher, đường vòng đó **gãy hẳn** — nên split DNS từ "nice to
+have" trở thành bắt buộc, và §14.2 phải đứng trước cả bước cài Rancher.
+
+Tóm gọn: split DNS tồn tại không phải vì "trong cụm có domain thì phải resolve nội bộ", mà vì
+**Rancher tạo ra một loại client nội bộ buộc phải gọi tên public trong điều kiện tên đó đã bị
+Access + CA riêng chặn đường vòng**. App demo không tạo ra loại client nào như vậy — ai trong
+cụm cần nó thì gọi `web.default.svc.cluster.local`, ai ngoài Internet cần nó thì đi qua Edge.
+Hai thế giới không giao nhau, nên không cần "một tên hai câu trả lời" (với app demo, câu hỏi
+của mục đào sâu 7 — "vì sao không cho client nội bộ đi chung đường với browser" — không đặt ra
+vì không có client nội bộ nào cả).
+
+**Câu hỏi tự nhiên tiếp theo: Rancher cũng có Service — sao Pod không gọi thẳng tên Service như
+với app?** Service đó tồn tại thật và Pod nhìn thấy nó y như service của app:
+
+```bash
+kubectl -n cattle-system get svc rancher
+# tên nội bộ: rancher.cattle-system.svc.cluster.local (port 80, 443)
+```
+
+Về mặt mạng, gọi `rancher.cattle-system.svc.cluster.local` dễ y như gọi
+`web.default.svc.cluster.local` — không ai giấu nó cả. Vấn đề không nằm ở *thấy được hay
+không*, mà ở *gọi vào rồi thì chuyện gì xảy ra* — vấp ba thứ:
+
+1. **Cổng 80 là HTTP trần — nhưng Rancher không phải app câm.** Rancher Pod nghe port 80 với
+   giả định đứng sau một proxy đã terminate TLS và gắn `X-Forwarded-Proto: https` (việc Traefik
+   làm trong chuỗi trong cụm). Client gọi thẳng port 80 không có header đó → Rancher coi là
+   kết nối không an toàn và đòi HTTPS — nó redirect về địa chỉ HTTPS chính thức thay vì phục vụ
+   phiên làm việc. Client bị đá ngược về `rancher.hieupn.site` — đúng cái tên đang cố né.
+2. **Muốn HTTPS thì cert không khớp tên.** Cert được cấp cho tên `rancher.hieupn.site`; client
+   gọi `https://rancher.cattle-system.svc.cluster.local` nhận cert mang tên khác với tên đang
+   gọi → verify FAIL tất định (mismatch hostname). Muốn qua thì phải tắt verify — tự bỏ đúng
+   thứ giá trị mà một client nghiêm túc cần.
+3. **Client thực tế không có quyền chọn tên.** Với app demo, người viết client tự chọn URL —
+   muốn gọi tên Service thì gọi. Với Rancher, client nghiêm túc dùng **artifact do Rancher
+   phát ra**: kubeconfig tải từ UI ghi `server: https://rancher.hieupn.site/...`, manifest
+   import agent ghi `CATTLE_SERVER=https://rancher.hieupn.site`, mọi link/redirect trong UI
+   build từ `server-url`. Client cầm artifact thì quay số đúng chuỗi trong artifact — không có
+   ô nào để điền "riêng tôi dùng tên Service nội bộ".
+
+App demo thoát cả ba vấn đề vì nó **không quan tâm mình được gọi bằng tên gì**: không redirect,
+không TLS, không auth, không phát artifact chứa địa chỉ — ai gọi tên nào, giao thức nào cũng
+trả về cùng một trang HTML. Nó là nội dung câm; Rancher thì "name-aware" — danh tính
+(`server-url`) ngấm vào giao thức (đòi HTTPS), vào cert (đúng tên) và vào mọi thứ nó phát ra.
+So sánh gọn:
+
+| | Gọi app demo trong cụm | Gọi Rancher trong cụm |
+| --- | --- | --- |
+| Tên Service nội bộ | `web.default.svc.cluster.local` — dùng tốt | `rancher.cattle-system.svc.cluster.local` — thấy được nhưng vấp redirect + cert sai tên |
+| Ai chọn URL? | Người viết client | Artifact do Rancher phát |
+| Lối đi đúng | Tên Service | Tên public + split DNS |
+
+Ba ngõ cụt dồn về một lối thoát duy nhất: giữ nguyên tên `rancher.hieupn.site` và làm cho tên
+đó resolve nội bộ — chính là split DNS.
+
+Giải thích từng lệnh và từng dòng đầy đủ nằm ở §14.2.1 của runbook. Xem
+[CoreDNS — hosts plugin](https://coredns.io/plugins/hosts/).
+
+### 7. Hai đường vào cùng một Ingress
+
+Bảng "hai đường vào" ở phần đầu là hệ quả trực tiếp của hai mục trên. Điểm đáng dừng lại: **vì
+sao không cho client nội bộ đi chung đường với browser cho đơn giản?** Vì đường browser có hai
+lớp mà process không vượt được:
+
+1. **Access chỉ cho người qua.** Xác thực của Access là SSO tương tác trong browser; client dạng
+   process nhận về trang login HTML thay vì API Rancher.
+2. **Client verify nghiêm ngặt chỉ tin cert Rancher.** Qua Cloudflare, client thấy cert
+   Cloudflare — mục đào sâu 5.
+
+Và một hệ quả kiến trúc: client ⇄ server của **cùng một cluster** mà đi vòng ra WAN thì vòng gọi
+nội bộ phụ thuộc Internet — đứt mạng ngoài là client mất server dù hai Pod nằm cạnh nhau.
+Split DNS cắt sự phụ thuộc đó: đường máy nằm trọn trong cluster, Internet chỉ còn phục vụ
+đường người.
+
+### 8. `helm template` và `helm install` nhìn thấy hai "cluster" khác nhau
+
+Render gate §14.3 chạy `helm template` — lệnh này render **phía client, không truy vấn API
+server của cluster**; nó vẫn có thể ra mạng để kéo chart từ repo nếu cache chưa có.
+Khi chart khai `kubeVersion: < 1.36.0-0`, Helm phải lấy một phiên bản Kubernetes để so sánh, và
+vì không hỏi cluster, nó dùng phiên bản **giả lập gắn sẵn trong binary** (bằng bản thư viện
+Kubernetes mà Helm được build cùng). Nếu Helm trên máy là bản mới, phiên bản giả lập đó có thể
+là `v1.36.x` → render FAIL oan dù cluster thật `v1.35.6` thỏa constraint. Flag
+`--kube-version v1.35.6` bảo Helm giả lập đúng cluster của lab.
+
+`helm install` thì ngược lại: nó nói chuyện với API server thật, thấy version thật, nên không cần
+flag. Cặp lệnh này minh họa một nguyên tắc chung: **kiểm tra offline dùng giả lập thì mọi tham số
+của giả lập phải được ghim theo môi trường thật**, nếu không gate sẽ trôi theo tool thay vì theo
+cluster.
+
+Render gate soi bốn thứ trong manifest: có `kind: Ingress`; đúng `ingressClassName`/`host`/
+`secretName` như values đã pin; và **không có** `Gateway`/`HTTPRoute` — vì chart 2.14 có nhánh
+`networkExposure.type: gateway` render tài nguyên Gateway API mà lab không cài CRD, đi nhầm nhánh
+là Helm lỗi hoặc Rancher không có route. Xem
+[Helm — Built-in Objects (Capabilities)](https://helm.sh/docs/chart_template_guide/builtin_objects/).
+
+### 9. Bootstrap password không nằm trong values
+
+Values §14.3 cố ý **không** đặt `bootstrapPassword`. Cơ chế của chart: khi giá trị này rỗng và
+Secret chưa tồn tại, template không render `bootstrap-secret`; Rancher Server tự sinh mật khẩu
+ngẫu nhiên trong lần khởi động đầu tiên rồi ghi vào Secret `bootstrap-secret` **lúc runtime**.
+
+Được hai thứ: mật khẩu không nằm trong shell history / file values / manifest đã render (ba chỗ
+rất dễ bị đọc lại), và không tồn tại trước khi Rancher chạy. Đổi lại một ràng buộc về thứ tự mà
+§14.6 phản ánh đúng: phải chờ Deployment Ready **rồi mới** đọc Secret
+(`wait --for=create secret/bootstrap-secret`); đọc sớm gặp `NotFound` chỉ có nghĩa "chưa sinh
+ra", không phải bằng chứng cài đặt hỏng.
+
+### 10. Traefik hợp Rancher mà không cần annotation NGINX
+
+Rancher dùng WebSocket rất nhiều (shell, log, event stream) và cần `X-Forwarded-Proto` đúng để
+không rơi vào redirect-loop. Traefik đáp ứng cả hai **mặc định**: WebSocket không cần annotation,
+`X-Forwarded-Proto` tự set khi terminate TLS.
+
+Values pin `ingress.includeDefaultExtraAnnotations: false` vì bộ annotation mặc định của chart
+(`nginx.ingress.kubernetes.io/proxy-*-timeout`) thuộc về ingress-nginx; Traefik provider chuẩn
+của §9 không diễn giải chúng — render ra chỉ tạo cảm giác sai rằng chúng có tác dụng. Nếu
+Shell/Logs rớt khi idle, chỗ cần nhìn là timeout của từng hop Cloudflare và
+`transport.respondingTimeouts` của entrypoint Traefik, không phải thêm annotation NGINX.
+
+### 11. Vì sao route Rancher dùng `https://…:443` còn app demo dùng `http://…:80`
+
+Hai Service URL trỏ tới **cùng một Service Traefik, cùng ClusterIP** — khác nhau ở entrypoint và
+cách `cloudflared` nói chuyện ở hop cuối. Nguyên tắc chọn: **theo Ingress đích có terminate TLS
+tại Traefik hay không**, không phải "HTTPS an toàn hơn HTTP" chung chung.
+
+- Ingress của app demo không có khối `tls:` → Traefik phục vụ nó dạng HTTP trên entrypoint `web`
+  → route trỏ `http://…:80`, không cần cấu hình gì thêm.
+- Ingress của Rancher có `tls` với Secret `tls-rancher-ingress` → Traefik giữ cert và terminate
+  TLS trên entrypoint `websecure` → route trỏ `https://…:443` để hop cuối đi đúng cổng TLS đó —
+  cùng cổng, cùng cert mà mọi client nội bộ nhìn thấy.
+
+Cho Rancher đi `http://…:80` **với values hiện tại** (`tls=ingress` + `source=rancher`) là phá mô
+hình đã chọn: hop cuối thành plaintext, request rơi vào router HTTP và mang `X-Forwarded-Proto`
+không phải `https`. Đây không phải luật tuyệt đối: Rancher hỗ trợ mô hình khác — `tls=external`,
+terminate TLS bên ngoài rồi chuyển đủ `Host`/`X-Forwarded-*` header, đúng ghi chú "không trộn hai
+mô hình TLS" của §14.3 — nhưng đó là kiến trúc phải chọn trọn gói ngay từ values, không phải chỉ
+đổi Service URL là xong. Cho app demo đi
+`https://…:443` thì Traefik không có cert nào cho `app.hieupn.site`, phải trả cert default và kéo
+theo cả bộ origin parameter — tốn ba setting cho một hop nội bộ không cần bảo vệ thêm.
+
+### 12. Ba origin parameter của route Rancher
+
+Chặng cuối `cloudflared → Traefik :443` là một TLS handshake thật. Runbook **chủ động ghim ba
+origin parameter** để cấu hình tường minh và gate có thể kiểm tra bằng mắt; đây không phải khẳng
+định rằng giao thức luôn bắt buộc đủ cả ba trong mọi topology:
+
+| Parameter | Tầng | Việc nó làm |
+| --- | --- | --- |
+| `originServerName` | TLS handshake | Đặt SNI = `rancher.hieupn.site` để Traefik chọn đúng cert trong Secret `tls-rancher-ingress` thay vì cert default |
+| `httpHostHeader` | HTTP sau handshake | Giữ `Host: rancher.hieupn.site` để Traefik khớp đúng router của Ingress Rancher |
+| `noTLSVerify` | TLS handshake | Cho phép `cloudflared` chấp nhận cert do CA riêng ký — CA đó không nằm trong trust store của nó |
+
+Ba tham số không ánh xạ 1-1 sang ba lỗi; bảng `502` ở §14.6 đọc theo chiều **chẩn đoán** (thấy
+triệu chứng trong log → nghi tham số tương ứng), không phải chiều "thiếu X thì chắc chắn gây Y".
+Ví dụ khi `noTLSVerify: true` đã tắt verification, thiếu `originServerName` thường **không** gây
+lỗi thấy được: SNI lúc đó lấy theo hostname trong Service URL, Traefik trả cert default,
+`cloudflared` vẫn chấp nhận, và routing vẫn đúng nhờ Host header — pin đủ ba tham số là để cấu
+hình tường minh và verify được bằng mắt ở gate §14.5.1, không phải vì thiếu một cái là chắc chắn
+sập. Ngược lại, để `noTLSVerify` là `false` (mặc định) với CA riêng thì chết tất định:
+`x509: certificate signed by unknown authority` → browser nhận Cloudflare `502`.
+
+`noTLSVerify: true` nghĩa là **mã hóa nhưng không xác thực**: chống nghe lén thụ động trên hop
+đó, không chống MITM chủ động. Trong trình tự terminate ở mục từ điển "Terminate TLS và SNI",
+nó chỉ thay đổi đúng bước 3 (client xử lý cert) của các session do `cloudflared` khởi tạo —
+các bước còn lại nguyên vẹn, và bước 3 của client nội bộ không bị ảnh hưởng. `cloudflared` không có kênh **tự động** nhận CA riêng của Rancher
+như trường hợp `cattle-cluster-agent` được bootstrap CA khi đăng ký downstream cluster sau này.
+Đó là một luồng ngoài phạm vi cài đặt §14, không phải agent hiện có trong `local`.
+Với `cloudflared`, có đường cấu hình trust thủ công: Cloudflare hỗ trợ
+`caPool` — đường dẫn tới file CA bundle cục bộ — nên production có thể mount CA của Rancher vào
+Pod `cloudflared` rồi khai `caPool` để verify thật thay vì tắt verify; ngoài ra có
+`matchSNItoHost` để lấy SNI theo hostname của request thay vì ghim `originServerName` tĩnh. Xem
+[Cloudflare — Origin parameters](https://developers.cloudflare.com/tunnel/advanced/origin-parameters/).
+
+### 13. Access application và Published application route — hai lớp, hai câu hỏi
+
+Sáu bước đầu §14.5 nằm trọn trong Zero Trust → Access và chỉ tạo **một** đối tượng: Access
+application cho `rancher.hieupn.site` kèm policy. Bảng route ngay sau đó thuộc về **tunnel**. Hai
+lớp trả lời hai câu hỏi khác nhau:
+
+- **Published application route**: request tới hostname này đi *đường nào* vào cluster?
+- **Access application**: *ai được phép* gửi request tới đó, quyết định ngay tại edge?
+
+Bước khai báo Subdomain/Domain trong Access dễ nhầm là tạo route, nhưng nó không tạo routing nào
+— chỉ gắn cổng gác vào hostname. App demo có route mà không có Access (cố ý public); về lý thuyết
+một hostname cũng có thể có Access mà chưa có route (gác một cánh cửa chưa mở).
+
+Thứ tự "Access trước, publish sau" là chủ đích: route được Save là hostname public hoạt động ngay
+lập tức, nên cổng gác phải đứng đó **trước** khoảnh khắc ấy — không có giây nào Rancher phơi ra
+Internet không người gác. Đây cũng là lý do gate §14.5 kỳ vọng `curl` **không** nhận `200`:
+nhận `302/401/403` từ Access mới là thành công — ngược hẳn với gate của app demo ở §13. Xem
+[Cloudflare — Access policies](https://developers.cloudflare.com/cloudflare-one/policies/access/).
+
+### 14. `cattle-cluster-agent` — chỉ dành cho downstream cluster
+
+Deployment `cattle-cluster-agent` **không nằm trong Helm chart**, và với cụm `local` nó **không
+xuất hiện**. Kiến trúc Rancher đặt agent này ở **downstream cluster**: agent chạy trong cluster
+được quản, mở tunnel outbound về cluster controller trong Rancher server để server điều khiển
+cluster đó từ xa. Cụm `local` thì không cần trung gian — Rancher chạy ngay trong cluster và gọi
+API server trực tiếp bằng service account. Vì vậy sau §14, inventory `cattle-system` gồm
+`rancher` + `rancher-webhook` (Rancher tự cài lúc runtime) mà **không có** `cattle-cluster-agent`, và cụm `local`
+vẫn Active — đó là kết quả đúng, không phải cài thiếu.
+
+Hệ quả cho cách verify ở §14.7: gate của cụm `local` chỉ xem inventory (`get deploy`, `get pods`)
+và không chạy `logs deploy/cattle-cluster-agent`. Log agent là bài test riêng, chỉ chạy bằng
+kubeconfig của downstream cluster **khi agent thực sự hiện diện trong inventory tại đó**. Hai
+setting `server-url` và `agent-tls-mode` đọc từ `settings.management.cattle.io` thì luôn kiểm
+được: đó là cấu hình phía server, tồn tại độc lập với việc có agent hay không. Xem
+[Rancher — Rancher agents](https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/launch-kubernetes-with-rancher/about-rancher-agents).
+
+**Phạm vi loại agent:** mục này chỉ nói về `cattle-cluster-agent` được triển khai khi đăng ký/import
+downstream cluster. `fleet-agent` của cụm `local` có thể được Fleet tạo tự động trong
+`cattle-fleet-local-system`; `rancher-system-agent` phục vụ quản lý node RKE2/K3s do Rancher
+provision, không được §14 cài lên các VM kubeadm. Không suy rộng “không có cluster agent”
+thành “không có bất kỳ agent nào”; xem bảng §14.1 và mục đào sâu 5.
+
+Không được suy từ split DNS của §14.2 rằng `cattle-cluster-agent` của downstream đã có đường
+về server. Agent này nằm ở downstream cluster và phải tự mở tunnel tới Server URL từ
+network/DNS của cluster đó. Với cấu
+hình hiện tại, hostname public bị Cloudflare Access bảo vệ bằng đăng nhập tương tác; Cloudflare
+service token lại yêu cầu client gửi header xác thực riêng, trong khi runbook không cấu hình
+`cattle-cluster-agent` gửi các header này. Vì vậy `Import Existing` nằm ngoài phạm vi hoàn tất của §14:
+trước khi import phải thiết kế và kiểm tra riêng endpoint machine-to-machine, DNS/network reachability
+và certificate khớp CA của chế độ `strict`. Xem
+[Rancher — Communicating with Downstream User Clusters](https://ranchermanager.docs.rancher.com/reference-guides/rancher-manager-architecture/communicating-with-downstream-user-clusters),
+[Rancher — TLS Settings](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-references/tls-settings) và
+[Cloudflare — Service tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/).
+
+### 15. Mỗi gate chứng minh được gì — và không chứng minh được gì
+
+§14 nhiều gate vì mỗi gate chỉ phủ một đoạn của chuỗi; PASS một gate không thay được gate khác:
+
+| Gate | Chứng minh được | Chưa chứng minh được |
+| --- | --- | --- |
+| Render gate §14.3 | Manifest đúng nhánh Ingress, đúng host/class/Secret, không lạc sang Gateway | Chart chạy được trên cluster thật |
+| `helm install --wait` | Deployment Rancher Ready | Certificate đã cấp (sinh bất đồng bộ); đường vào hoạt động |
+| §14.4 `curl --resolve /healthz` | Chuỗi nội bộ Traefik → TLS → Ingress → Rancher HTTP `:80` sống | Đường public: tunnel, route, Access; extension API `:6666`, `APIService` và schema Steve `SelfUser` đã sẵn sàng |
+| §14.5 `curl` nhận `302/401/403` | DNS public → Edge → Access hoạt động | Chặng tunnel → origin (response sinh ở Access, **trước khi** request xuống tunnel) |
+| §14.6 đăng nhập UI | End-to-end **đường người**, gồm cả origin parameters | Cấu hình phía client nội bộ |
+| §14.7 inventory + settings | `server-url`/`agent-tls-mode` đúng như pin; inventory `cattle-system` của `local` (không có `cattle-cluster-agent`) | Inventory/hành vi TLS của `fleet-agent` trong `cattle-fleet-local-system`; đường và TLS của `cattle-cluster-agent` downstream sau này. `rancher-system-agent` thuộc luồng provision RKE2/K3s ngoài bài này |
+
+Đọc bảng này theo chiều ngược cũng ra sơ đồ chẩn đoán: lỗi ở gate nào thì khoanh vùng vào đúng
+đoạn gate đó phủ. Ví dụ §14.5 PASS mà đăng nhập ra `502 Bad gateway` nghĩa là đoạn duy nhất chưa
+được gate nào phủ — `cloudflared` → Traefik — có vấn đề, và đó chính là lúc soi ba origin
+parameter theo bảng log ở §14.6.
+
+---
 
 ## Sơ đồ sự cố sau reboot — `SelfUser` 404 và cluster `local` `Unavailable`
 
@@ -1929,701 +2727,6 @@ và [Flannel — quá trình tạo `/run/flannel/subnet.env`](https://github.com
 Nguồn cho nhánh `local Unavailable`:
 [Rancher v2.14.3 — HealthSyncer cập nhật `ClusterConditionReady`](https://github.com/rancher/rancher/blob/v2.14.3/pkg/controllers/managementuser/healthsyncer/healthsyncer.go#L130-L195)
 và [connectivity của internal cluster](https://github.com/rancher/rancher/blob/v2.14.3/pkg/controllers/management/clusterconnected/clusterconnected.go#L83-L88).
-
-## Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`
-
-```mermaid
-%%{init: {"themeVariables": {"noteBkgColor": "#f1f5ff", "noteBorderColor": "#8094c4", "noteTextColor": "#10203f"}}}%%
-sequenceDiagram
-    participant H as helm install rancher
-    participant API as Kubernetes API
-    participant CM as cert-manager (ingress-shim)
-    participant I as Issuer của Rancher
-    participant S as Secret tls-rancher-ingress
-    participant T as Traefik
-
-    H->>API: Deployment rancher + Issuer + Ingress<br/>(annotation cert-manager.io/issuer)
-    Note over H,API: helm --wait chỉ chờ Deployment Ready<br/>không chờ certificate
-    CM->>API: watch Ingress, thấy spec.tls[].secretName
-    CM->>API: tạo Certificate tên tls-rancher-ingress
-    CM->>I: xin ký bằng CA riêng của Rancher
-    I-->>CM: certificate đã ký
-    CM->>S: ghi tls.crt / tls.key
-    T->>S: đọc Secret khi terminate TLS cho rancher.hieupn.site
-    Note over CM,S: cert-manager tự gia hạn trước khi hết hạn<br/>không ai phải canh ngày
-```
-
-Sơ đồ này giải thích vì sao §14.4 phải có gate riêng chờ `certificate/tls-rancher-ingress`:
-Certificate là resource sinh **bất đồng bộ** bởi controller khác sau khi Helm đã xong việc.
-
-## Nền tảng — Helm, cert-manager và Rancher thực chất là gì
-
-§14 dùng ba công cụ lồng vào nhau: Helm cài cert-manager và Rancher; cert-manager cấp TLS cho
-Rancher; Rancher sau khi chạy lại tự sinh thêm thành phần mà cả Helm lẫn cert-manager đều không
-biết. Nắm ba mục dưới đây thì phần lớn lệnh trong §14 trở thành hiển nhiên.
-
-### Helm — trình quản lý gói của Kubernetes
-
-Cài "một ứng dụng" lên Kubernetes thực chất là apply hàng chục manifest (Deployment, Service,
-Ingress, ServiceAccount, RBAC…) có nội dung phải khớp nhau. Helm đóng gói việc đó bằng bốn
-khái niệm:
-
-| Khái niệm | Là gì | Trong §14 |
-| --- | --- | --- |
-| **Chart** | Gói template manifest + values mặc định + metadata (`Chart.yaml`) | chart `rancher` `2.14.3`, chart `cert-manager` `v1.21.1` |
-| **Repo / OCI registry** | Nơi phát hành chart: repo là index HTTP, OCI là container registry | repo `rancher-stable`; `oci://quay.io/jetstack/charts/cert-manager` |
-| **Values** | Tham số đè lên default của chart — chỉ ghi phần khác biệt | `rancher-values.yaml` |
-| **Release** | Một lần cài chart, có tên và state được Helm lưu trong cluster | release `rancher` ở `cattle-system`, release `cert-manager` ở `cert-manager` |
-
-Từ đó đọc được các lệnh chuẩn bị của §14.3:
-
-- `helm repo add rancher-stable <URL> --force-update` — khai báo nguồn chart; `--force-update`
-  làm lệnh idempotent: entry cùng tên đã tồn tại thì ghi đè thay vì báo lỗi.
-- `helm repo update rancher-stable` — tải index mới nhất của đúng repo đó về máy; không đụng gì
-  tới cluster.
-- `helm show chart rancher-stable/rancher --version 2.14.3` — in `Chart.yaml` của bản pin để
-  chứng minh nó tồn tại **trước khi** render/cài. Dòng PASS chứa ba con số dễ nhầm là một:
-  `version: 2.14.3` là **chart version** (phiên bản của gói), `appVersion: v2.14.3` là bản
-  Rancher thật bên trong (với Rancher hai số này trùng nhau, chart khác thường không trùng), còn
-  `kubeVersion: < 1.36.0-0` là **ràng buộc** phiên bản Kubernetes mà chart chấp nhận.
-- cert-manager không cần `repo add`: chart phát hành qua OCI registry, kéo trực tiếp bằng URL
-  `oci://` + `--version`, không có bước index.
-
-Hai cơ chế Helm còn lại mà §14 dựa vào:
-
-- **Release state.** Helm lưu trạng thái mỗi release (values đã dùng, manifest đã render, số
-  revision) trong Secret ngay tại namespace của release; `helm list`/`helm status` đọc từ đó.
-  Gate §14.0 dùng chính state này để phát hiện cài đặt cũ, và "namespace tồn tại nhưng release
-  không tồn tại" là trạng thái mồ côi (cài dở, xóa dở) phải điều tra thay vì cài đè.
-- **`--wait` chỉ chờ được thứ chart render.** `helm install --wait --timeout 15m` theo dõi các
-  resource **do chart tạo ra** tới khi Ready hoặc hết giờ. Resource mà controller khác sinh sau
-  đó (Certificate của cert-manager, các thành phần runtime của Rancher) nằm ngoài tầm mắt của Helm — đây là nguồn
-  gốc của gate chờ riêng ở §14.4 và cách kiểm inventory ở §14.7.
-
-Xem [Helm — Using Helm](https://helm.sh/docs/intro/using_helm/).
-
-### cert-manager — CRD và chuỗi cấp phát
-
-§14.1.1 của runbook đã nói cert-manager *để làm gì*; ở đây nói *nó làm bằng cách nào*.
-cert-manager mở rộng Kubernetes bằng CRD — các kind mới mà API server chấp nhận như kind chuẩn —
-và một bộ controller reconcile chúng:
-
-```text
-Issuer              "CA của tôi là ai, ký bằng gì"           (khai báo, theo namespace)
-  ↑ tham chiếu
-Certificate         "cần cert cho tên X, lưu vào Secret Y"   (khai báo mong muốn)
-  ↓ controller sinh
-CertificateRequest  một lần xin ký cụ thể                    (bản ghi giao dịch)
-  ↓ Issuer ký xong
-Secret kubernetes.io/tls   tls.crt + tls.key                 (kết quả — thứ Traefik dùng)
-```
-
-Người dùng (hoặc chart) chỉ tạo hai tầng trên; hai tầng dưới cert-manager tự sinh và tự làm mới
-trước khi cert hết hạn. Ba Deployment chia vai đúng theo chuỗi: `cert-manager` (controller —
-chạy chuỗi trên), `cert-manager-webhook` (cổng validate: API server gọi nó để kiểm mọi object
-`Certificate`/`Issuer` lúc tạo — nó chưa Ready thì **không ai tạo được** object nào),
-`cert-manager-cainjector` (tiêm CA bundle vào cấu hình webhook để API server tin webhook).
-
-Còn một controller con quan trọng: **ingress-shim**. Nó watch các Ingress mang annotation
-`cert-manager.io/issuer` và **tự tạo** object `Certificate` theo `spec.tls[]` của Ingress. Nhờ
-nó, chart Rancher không cần render Certificate — chỉ cần annotate Ingress, phần còn lại
-cert-manager tự lo; chuỗi đầy đủ nằm ở sơ đồ tuần tự đầu bài. Xem
-[cert-manager — Concepts](https://cert-manager.io/docs/concepts/).
-
-### Rancher — thứ gì do chart tạo, thứ gì Rancher tự sinh
-
-Rancher là một **management plane**: UI + API + bộ controller quản nhiều cluster từ một chỗ
-(auth tập trung, RBAC, catalog app, monitoring…). Trong lab nó quản đúng một cụm — chính cụm nó
-đang chạy trên đó, hiện trong UI là `local`.
-
-Điều làm §14.6–§14.7 khó hiểu nếu không biết trước: **namespace `cattle-system` có hai đợt thành
-phần, do hai "tác giả" tạo ra ở hai thời điểm khác nhau**:
-
-| Thành phần trong `cattle-system` | Ai tạo | Khi nào |
-| --- | --- | --- |
-| Deployment `rancher`, Service, Ingress, `Issuer` | Helm chart | Lúc `helm install` |
-| Service `imperative-api-extension` + `APIService/v1.ext.cattle.io` | Rancher Server | Lúc runtime khởi động extension API; readiness bất đồng bộ với `/healthz` |
-| `Certificate` + Secret `tls-rancher-ingress` | cert-manager (ingress-shim) | Ngay sau install, bất đồng bộ |
-| Secret `bootstrap-secret` | Rancher Server | Lần khởi động đầu tiên |
-| Deployment `rancher-webhook` | Rancher Server | Sau khi server chạy |
-| Deployment `fleet-agent` của cụm `local` | Fleet do Rancher quản lý | Có thể được bootstrap tự động trong `cattle-fleet-local-system`; kiểm inventory/cấu hình thực tế, không suy từ danh sách `cattle-system` |
-| Deployment `cattle-cluster-agent` | Rancher Server | **Chỉ ở downstream cluster** khi đăng ký cluster đó — cụm `local` không có |
-| `settings.management.cattle.io` (`server-url`, `agent-tls-mode`…) | Rancher Server | Runtime, chốt từ values và màn hình đăng nhập đầu |
-
-Đợt một là thứ Helm biết và `--wait` chờ được. Đợt hai là thứ Rancher tự sinh **sau khi** Helm đã
-báo xong — Helm không track, `helm uninstall` không dọn hết, và mọi gate liên quan phải chờ/kiểm
-theo cách riêng (`wait --for=create`, xem inventory thật). Ranh giới hai đợt này là sợi chỉ xuyên
-qua các mục đào sâu 9, 14 và 15.
-
-Về cách Rancher "quản" một cluster, kiến trúc chia hai trường hợp. Với **downstream cluster**,
-server không gọi vào cluster đó; `cattle-cluster-agent` chạy trong downstream **chủ động gọi ra
-server** rồi giữ tunnel dài hạn, server đẩy lệnh xuống qua chính kết nối đó — đúng mô hình
-`cloudflared` với Cloudflare Edge ở [`tunnel-traefik.md`](tunnel-traefik.md): bên trong gọi ra,
-không ai gọi vào. Với cụm **`local`**, Rancher không cần `cattle-cluster-agent` trung gian: server chạy ngay trong cluster và
-gọi API server trực tiếp bằng service account — vì vậy sau §14, `cattle-system` có `rancher` +
-`rancher-webhook` mà **không có** `cattle-cluster-agent`, cụm `local` vẫn Active. Split DNS
-(§14.2) chỉ phục vụ client trong cụm `local` gọi Server URL. `agentTLSMode: strict` (§14.3) là
-setting phía server cho `cattle-cluster-agent`, `fleet-agent` và `rancher-system-agent` trong
-phạm vi tương ứng, không cài các agent đó. `fleet-agent` có thể được tạo tự động cho `local`;
-`rancher-system-agent` thuộc luồng provision RKE2/K3s. Đường mạng để `cattle-cluster-agent`
-của downstream gọi về server thì §14 chưa triển khai. Xem
-[Rancher — Architecture](https://ranchermanager.docs.rancher.com/reference-guides/rancher-manager-architecture).
-
-## Đi qua §14 từng mục — mỗi lệnh làm gì
-
-Phần này bám đúng thứ tự runbook. Mục nào runbook đã giải thích sâu tại chỗ (§14.1.1, §14.2.1)
-hoặc đã có mục đào sâu riêng bên dưới thì chỉ tóm và trỏ, không lặp lại.
-
-### §14.0 — gate read-only: đo trước khi đụng
-
-Chín lệnh, không lệnh nào thay đổi cluster; mỗi lệnh loại trừ một cách hỏng trước khi cài:
-
-| Lệnh | Loại trừ điều gì |
-| --- | --- |
-| `helm version --short` | Helm dưới baseline `3.18` — Rancher yêu cầu Helm 3 tương thích |
-| `kubectl version` | client/server lệch baseline `v1.35.6` của §2.1 |
-| `kubectl get nodes -o wide` | node chưa `Ready` — cài lên cụm ốm là chồng lỗi lên lỗi |
-| `kubectl auth can-i '*' '*' --all-namespaces` | thiếu quyền `cluster-admin` — chart tạo RBAC/CRD toàn cụm |
-| `kubectl top nodes` + `describe nodes \| grep Allocated` | thiếu tài nguyên — Rancher nặng; memory requests phải còn dưới ~50% |
-| `get pods,svc -n traefik` + `get ingressclass traefik` | tầng ingress chưa sẵn sàng — Ingress của Rancher sẽ vô chủ |
-| `get pods -n cloudflare` | tunnel chưa sẵn sàng — §14.5 sẽ không có đường publish |
-| `helm list -A \| grep …` | còn release cert-manager/Rancher cũ — quy trình này là cài mới, không phải upgrade |
-| `get namespace … --ignore-not-found` | namespace mồ côi (cài dở/xóa dở) — điều tra trước, không cài đè |
-
-### §14.0.1 — backup: cơ chế từng lệnh
-
-- `kubectl exec` vào Pod `etcd-k8s-master` vì `etcdctl` có sẵn trong image etcd — không phải cài
-  thêm gì lên node. Ba flag `--cacert/--cert/--key` trỏ vào PKI của etcd vì etcd đòi client
-  chứng minh danh tính bằng TLS hai chiều; endpoint là địa chỉ localhost của etcd ngay trên node
-  control plane.
-- File staging ghi vào `/var/lib/etcd` vì đó là **hostPath volume** của static Pod etcd: file
-  ghi bên trong container hiện ra trên disk của node — cây cầu duy nhất để lấy snapshot ra khỏi
-  container mà không cần thêm công cụ copy nào.
-- `cp -a /etc/kubernetes` giữ nguyên cả cây PKI + static Pod manifest + kubeconfig —
-  certificate và cấu hình mà một lần restore sẽ cần để cluster nhận lại chính nó.
-- Chuỗi `test -s` → `cmp -s` → `tar` → `chmod`/`stat` → `sha256sum` là chuỗi **chứng minh**, không
-  phải trang trí: bản copy khác rỗng, trùng từng byte với bản gốc, đóng gói thành một file,
-  quyền `700/600` (backup chứa private key và Secret), và một hash cho bước 2 đối chiếu. Không
-  kiểm metadata snapshot tại chỗ được vì image etcd 3.6 đã bỏ `etcdctl snapshot status`; hash
-  toàn vẹn nhúng trong snapshot sẽ được `etcdutl snapshot restore` tự kiểm lúc restore.
-- Bước 2 (PowerShell + `scp`) tồn tại vì snapshot nằm cùng disk với etcd thì hỏng disk là mất cả
-  hai; so hash tại đích chứng minh bản copy nguyên vẹn, và block viết dạng idempotent — chạy lại
-  an toàn, file đích đã đúng hash thì PASS ngay không copy lại.
-
-### §14.1 — cài cert-manager
-
-Khái niệm ở phần Nền tảng và §14.1.1 của runbook. Về lệnh: `oci://quay.io/jetstack/charts/…` kéo
-chart thẳng từ OCI registry; `--create-namespace` tạo namespace nếu chưa có; `--version v1.21.1`
-ghim patch; `--set crds.enabled=true` bảo chart cài và quản luôn các CRD — thiếu nó thì kind
-`Certificate`/`Issuer` không tồn tại, mọi thứ phía sau vô nghĩa; `--wait --timeout 10m` chờ đủ
-ba Deployment. Bốn lệnh verify soi đúng bốn tầng: release (`helm status`), Deployment
-(`kubectl wait --for=condition=Available`), Pod (`get pods`), CRD (`get crd | grep`). Gate STOP
-theo webhook vì webhook chưa Ready thì không ai tạo được object cert-manager nào — Rancher sẽ
-treo ở bước xin certificate.
-
-### §14.2 — split DNS
-
-Cơ chế đầy đủ ở mục đào sâu 6 và §14.2.1 của runbook. Điều cần giữ trong đầu về *vị trí*: entry
-`hosts` đứng trước bước cài Rancher (§14.3) để không có khoảnh khắc nào hostname trong cluster
-còn trỏ ra Cloudflare đối với client nội bộ;
-`fallthrough` là dòng giữ cho phần DNS còn lại của cluster sống; test phải chạy từ trong Pod vì
-chỉ Pod dùng cluster DNS.
-
-### §14.3 — cài Rancher
-
-Ba lệnh chuẩn bị (`repo add` / `repo update` / `show chart`) đã giải thích ở phần Nền tảng.
-Values file viết bằng heredoc `<<'EOF'` — dấu nháy quanh `EOF` bảo shell **không** expand biến
-hay lệnh bên trong, file được ghi nguyên văn. Ý nghĩa từng key:
-
-| Key | Vai trò |
-| --- | --- |
-| `hostname` | Cái tên mọi thứ xoay quanh: host của Ingress, tên trong certificate, Server URL gợi ý ở lần đăng nhập đầu |
-| `replicas: 1` | Homelab đủ tài nguyên cho 1; chart mặc định 3 (HA) |
-| `agentTLSMode: strict` | Chính sách xác minh CA trong `cacerts` cho `cattle-cluster-agent`, `fleet-agent`, `rancher-system-agent` theo tình huống tương ứng; không cài agent — mục đào sâu 5 |
-| `networkExposure.type: ingress` | **Mode selector** của chart 2.14: chọn nhánh render Ingress, không phải nhánh Gateway API |
-| `ingress.enabled: true` | Vế thứ hai của điều kiện render Ingress — chart đòi cả hai cùng đúng |
-| `ingress.includeDefaultExtraAnnotations: false` | Không render bộ annotation NGINX — Traefik không đọc chúng, mục đào sâu 10 |
-| `ingress.ingressClassName: traefik` | Ghim class tường minh, không dựa vào default IngressClass |
-| `ingress.servicePort: 80` | Traefik nói chuyện với Pod Rancher bằng HTTP sau khi đã terminate TLS |
-| `ingress.tls.source: rancher` | Rancher tự tạo CA riêng; cert-manager cấp cert từ CA đó |
-| `ingress.tls.secretName: tls-rancher-ingress` | Tên Secret mà ingress-shim sẽ tạo và Traefik sẽ dùng — mọi gate phía sau bám vào tên này |
-
-Không có `bootstrapPassword` — cố ý, xem mục đào sâu 9. Cặp `helm template`/`helm install` và
-render gate ở mục đào sâu 8. Khối gate dùng subshell `( set -e … )` + biến `RENDER_RC` +
-`( exit "$RENDER_RC" )` để trả đúng mã lỗi mà không đóng phiên SSH — cùng khuôn với gate backup
-§14.0.1.
-
-### §14.4 — gate origin nội bộ
-
-Từng lệnh bám đúng chuỗi bất đồng bộ của cert-manager:
-
-- `wait --for=create certificate/tls-rancher-ingress` — chờ ingress-shim **tạo ra** object
-  Certificate (nó chưa tồn tại ngay sau `helm install`); không dùng `--all` vì khi chưa có
-  Certificate nào, lệnh đó thoát ngay với `no matching resources` thay vì đợi.
-- `wait --for=condition=Ready` — chờ chuỗi ký hoàn tất: Issuer ký xong, Secret đã được ghi.
-- `get issuer,certificate` + `get secret tls-rancher-ingress` — nhìn tận mắt các tầng của chuỗi
-  cấp phát.
-- `get ingress rancher -o jsonpath=…` — in đúng hai field class/host để so với values đã pin.
-- `curl -skS --resolve "rancher.hieupn.site:443:$TRAEFIK_IP" https://…/healthz` — bài test quyết
-  định: `--resolve` ép kết nối tới ClusterIP Traefik nhưng vẫn gửi SNI/Host thật, mô phỏng đúng
-  cách client nội bộ và `cloudflared` sẽ gọi; `-k` vì máy master cũng không tin CA riêng (mục đào sâu 4);
-  `/healthz` trả `200` chứng minh chuỗi Traefik → TLS → Ingress → Pod Rancher sống; nó **chưa**
-  chứng minh extension API `:6666`, `APIService/v1.ext.cattle.io` hoặc schema Steve `SelfUser`
-  đã sẵn sàng.
-
-### §14.5 — Access rồi mới publish
-
-Cơ chế ở mục đào sâu 11, 12, 13: hai lớp Access/route, vì sao Service URL là `https://…:443`, và
-ba origin parameter làm gì ở tầng nào. Điểm còn lại đáng nhớ về *quy trình*: gate §14.5.1 tồn tại
-vì UI có thể hiện modal rút gọn không lưu ba parameter — verify nghĩa là mở lại **route detail**
-và thấy đủ `noTLSVerify: true`, `httpHostHeader`, `originServerName`, không phải tin vào việc đã
-bấm Save.
-
-### §14.6 — đăng nhập lần đầu
-
-- `rollout status deployment/rancher --timeout=300s` — chốt server đã Ready; trước thời điểm này
-  `bootstrap-secret` chưa chắc tồn tại.
-- `wait --for=create secret/bootstrap-secret` — chờ Rancher **tự sinh** Secret lúc runtime (mục
-  đào sâu 9); đọc sớm gặp `NotFound` nghĩa là "chưa sinh ra", không phải cài hỏng.
-- `kubectl get secret … -o go-template='{{ .data.bootstrapPassword | base64decode }}'` — Secret
-  Kubernetes lưu giá trị dạng base64; go-template decode ngay trong lệnh để in plaintext đúng
-  một lần, không ghi ra file.
-- Đăng nhập hai lớp đúng như kiến trúc: Access xác thực **người** trước, Rancher xác thực **tài
-  khoản quản trị** sau. Bảng chẩn đoán `502` trong runbook là bảng "ba origin parameter" chiếu
-  sang log — mỗi dòng log ứng với một parameter sai (mục đào sâu 12).
-
-### §14.7 — gate hoàn thành
-
-Các lệnh soi đúng **đợt thành phần thứ hai** (bảng ở phần Nền tảng): inventory thật của
-`cattle-system` (`get pods`, `get deploy` — kỳ vọng thấy `rancher-webhook`; **không** kỳ vọng
-`cattle-cluster-agent`, vì loại agent này thuộc downstream cluster — mục đào sâu 14), và hai setting
-`server-url`/`agent-tls-mode` đọc từ CRD `settings.management.cattle.io` — cấu hình phía server,
-tồn tại độc lập với việc có agent hay không. Gate local cố ý không gọi log
-`cattle-cluster-agent`; log đó chỉ có ý nghĩa khi chạy bằng kubeconfig của một downstream cluster
-đã import và inventory tại đó xác nhận Pod tồn tại.
-
----
-
-Các mục đánh số dưới đây đào sâu từng cơ chế độc lập; đọc theo nhu cầu, không cần tuần tự.
-
-## 1. Rancher là workload trong chính cluster nó quản lý
-
-Rancher không phải một "control plane thứ hai" đứng ngoài: nó là một Deployment bình thường trong
-namespace `cattle-system`, chịu mọi luật của cluster — được schedule lên node, cần Service/Ingress
-để có đường vào, cần Secret để có TLS. Cụm host nó tự xuất hiện trong UI dưới tên **`local`**,
-không cần import thủ công.
-
-Hệ quả quan trọng: **mọi thứ Rancher cần, chính cluster phải tự phục vụ**. Đường vào đi qua
-Traefik của §9; DNS nội bộ do CoreDNS trả lời; TLS do cert-manager cấp. Không có thành phần nào
-"bên ngoài" đỡ cho Rancher cả. Đây là lý do §14 phải lắp từng mảnh theo thứ tự phụ thuộc, và cũng
-là lý do backup §14.0 quan trọng: Rancher hỏng kéo theo state nằm ngay trong etcd của cluster
-đang chạy nó.
-
-Lưu ý phạm vi hỗ trợ — support matrix có **hai bảng khác nhau**, đừng trộn: dải Kubernetes
-`1.33–1.35` thuộc bảng *downstream/imported cluster* (các cụm mà Rancher sẽ quản); còn bảng nền
-tảng **Rancher Manager host** được chứng nhận chỉ liệt kê RKE2, K3s và một số managed Kubernetes.
-Cài Rancher lên kubeadm là dùng kubeadm làm host: tương thích về version và chạy được trong lab,
-nhưng **không phải** nền tảng host được SUSE chứng nhận. Xem
-[Rancher — Install on Kubernetes](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/install-upgrade-on-a-kubernetes-cluster)
-và [SUSE support matrix](https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/).
-
-## 2. Vì sao đường lui duy nhất là snapshot etcd
-
-`coredns-before-rancher.yaml` của §14.2 chỉ rollback được đúng một ConfigMap. Nhưng cert-manager
-và Rancher ghi vào cluster nhiều hơn thế rất nhiều: CRD mới (`cert-manager.io`,
-`management.cattle.io`…), webhook, controller, và toàn bộ object mà các controller đó tự sinh ra
-lúc runtime. Không có "uninstall sạch" nào đảo ngược được hết chuỗi đó một cách đáng tin.
-
-etcd là nơi giữ **toàn bộ** state Kubernetes — mọi object, mọi Secret, và sau §14 là cả state
-Rancher. Snapshot etcd vì vậy là ảnh chụp nguyên tử của cả cluster tại một thời điểm; restore nó
-là quay về đúng thời điểm đó. Bản copy ngoài VM + đối chiếu checksum tồn tại vì snapshot nằm cùng
-disk với etcd thì hỏng disk là mất cả hai. Xem
-[Kubernetes — Operating etcd clusters](https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/).
-
-## 3. Vì sao cert-manager phải có mặt trước Rancher
-
-Chart Rancher với `ingress.tls.source: rancher` **không tự cấp certificate**. Nó chỉ khai báo mong
-muốn: render một `Issuer` (đại diện CA riêng của Rancher) và một Ingress mang annotation
-`cert-manager.io/issuer`. Người thực thi mong muốn đó là cert-manager:
-
-1. Controller `ingress-shim` của cert-manager watch các Ingress có annotation.
-2. Thấy `spec.tls[].secretName: tls-rancher-ingress`, nó tạo object `Certificate` cùng tên.
-3. cert-manager sinh key, xin `Issuer` ký, ghi kết quả vào Secret `tls-rancher-ingress`.
-4. Từ đó cert-manager tự gia hạn trước khi hết hạn — không ai phải canh ngày.
-
-Chuỗi này giải thích hai điều trong runbook. Thứ nhất, **thứ tự**: §14.1 đứng trước §14.3 vì thiếu
-cert-manager thì annotation kia không ai đọc, Rancher không bao giờ có TLS nội bộ và gate §14.4
-không bao giờ PASS. Thứ hai, **gate §14.4**: `helm install --wait` chỉ chờ Deployment Ready, còn
-Certificate là resource sinh bất đồng bộ bởi controller khác — nên phải chờ riêng bằng
-`kubectl wait --for=create` rồi `--for=condition=Ready`, và không dùng `--all` vì lệnh đó thoát
-ngay khi chưa có Certificate nào thay vì đợi.
-
-Ba Deployment của cert-manager chia vai: `cert-manager` cấp và gia hạn, `cert-manager-cainjector`
-tiêm CA vào cấu hình webhook, `cert-manager-webhook` validate mọi object `Certificate`/`Issuer`
-lúc tạo. Webhook chưa Ready thì mọi yêu cầu cấp cert treo — vì thế §14.1 bắt STOP khi nó chưa
-Ready. Xem [cert-manager — Securing Ingress resources](https://cert-manager.io/docs/usage/ingress/).
-
-## 4. Hai hệ certificate ở tầng ứng dụng không chạm nhau
-
-Ở tầng HTTPS ứng dụng có **hai hệ certificate độc lập**, mỗi hệ phục vụ một đoạn. Kết nối tunnel
-`cloudflared` ⇄ Cloudflare Edge là một kênh mã hóa riêng của connector, không phải một trong hai
-certificate ứng dụng đang so sánh trong bảng:
-
-| | Certificate public của Cloudflare | Certificate nội bộ của Rancher |
-| --- | --- | --- |
-| Ai ký? | CA công cộng (browser tin sẵn) | CA riêng do Rancher tạo, cert-manager cấp |
-| Bảo vệ đoạn nào? | Browser ⇄ Cloudflare Edge | (cloudflared \| client nội bộ) ⇄ Traefik |
-| Ai nhìn thấy nó? | Chỉ client ngoài Internet | Chỉ client bên trong cluster |
-
-Browser không bao giờ thấy cert của Rancher — TLS của nó kết thúc ở Edge. Client nội bộ không
-bao giờ thấy cert của Cloudflare — split DNS giữ nó trong cluster. Hai thế giới chỉ "gặp nhau" ở chỗ
-`cloudflared`: sau khi nhận request từ tunnel, nó handshake với Traefik và **nhìn thấy** cert
-Rancher, nhưng không có căn cứ để tin (CA riêng không nằm trong trust store của nó) — đó là nguồn
-gốc của `noTLSVerify` ở mục đào sâu 12.
-
-Hiểu ranh giới này thì đọc được các gate: `curl -k` ở §14.4 vì máy master cũng không tin CA riêng;
-`nslookup` trả IP Cloudflare ở §14.5 là **đúng** cho client ngoài, trong khi cùng lệnh đó chạy
-trong Pod ở §14.2 phải trả ClusterIP — hai kết quả ngược nhau, cả hai đều PASS, vì thuộc hai thế
-giới khác nhau.
-
-## 5. `agentTLSMode: strict` — lời hứa và cái giá
-
-**Phạm vi trước khi đọc:** chính sách `agent-tls-mode` áp dụng cho `cattle-cluster-agent`,
-`fleet-agent` và `rancher-system-agent`, nhưng không cài chúng. §14 chưa có downstream cluster
-nên không cài `cattle-cluster-agent` vào `local`; Fleet có thể tự tạo `fleet-agent` cho
-`local`; `rancher-system-agent` thuộc luồng provision RKE2/K3s, không phải bước cài Rancher
-lên kubeadm. Bảng trong phần “Bạn cài bộ máy cấp certificate — §14.1” ghi nơi chạy và công việc
-của từng loại.
-
-`strict` yêu cầu certificate của endpoint mà agent kết nối tới xác minh được bằng CA trong
-setting `cacerts`, cùng các kiểm tra TLS cần thiết như hostname. Đây là chính sách xác minh
-**phía client agent**, không phải yêu cầu mã hóa chặng Traefik → Rancher.
-
-**Ví dụ cụ thể, ngoài phạm vi cài đặt hiện tại:** sau này import một downstream cluster,
-`cattle-cluster-agent` trong namespace `cattle-system` của cluster đó chủ động gọi Server
-URL. Nếu đã thiết kế đường riêng để TLS kết thúc tại Traefik, agent này nhận certificate của
-Traefik và xác minh trong lúc thiết lập HTTPS, rồi mới gửi HTTP request qua kênh mã hóa.
-Traefik giải mã và chuyển HTTP tới backend Rancher. Agent không phải một hop đứng sau Traefik,
-không đợi backend Rancher gửi thêm certificate, và không tham gia phiên connector → Traefik
-của browser.
-
-Nếu `cattle-cluster-agent` của downstream đi qua Cloudflare Edge theo cấu hình lab hiện tại,
-nó thấy certificate public của Edge; CA đó khác CA riêng Rancher đang công bố, nên không đáp
-ứng trust của `strict`. Access tương tác cũng là một trở ngại độc lập (mục đào sâu 7).
-Không phải cứ certificate thay đổi là thất bại: certificate mới vẫn có thể hợp lệ nếu được
-cấp bởi CA agent tin tưởng và khớp hostname. Đường của ví dụ này chưa được §14 triển khai.
-
-Chính sách của từng client được tách biệt:
-
-| TLS client | Cách kiểm tra certificate và tình huống áp dụng |
-| --- | --- |
-| `cloudflared` | Connector đang phục vụ đường browser; lab đặt `noTLSVerify: true` nên bỏ kiểm tra certificate origin. Đây không phải Rancher agent |
-| Chương trình Python trong Pod | Workload tích hợp API giả định, không được §14 cài sẵn; verification theo thư viện/trust store của chương trình |
-| `cattle-cluster-agent` của downstream | Chỉ xét khi đăng ký/import một cluster khác; dùng `strict` thì xác minh bằng CA từ `cacerts`. Không có Deployment này trong `local` của bài |
-| `fleet-agent` | Có thể được tạo tự động cho `local` trong `cattle-fleet-local-system`; thuộc phạm vi `agent-tls-mode`, nhưng cần xem cấu hình và đường kết nối thực tế trước khi kết luận certificate nó nhận |
-| `rancher-system-agent` | Thuộc phạm vi `agent-tls-mode` trong tình huống quản lý node RKE2/K3s do Rancher provision; không được cài lên các VM kubeadm chỉ bởi §14 |
-
-Xem [Rancher — Agent TLS Enforcement](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/tls-settings),
-[Rancher — Rancher agents](https://ranchermanager.docs.rancher.com/v2.14/how-to-guides/new-user-guides/launch-kubernetes-with-rancher/about-rancher-agents) và
-[Fleet — Agent log namespaces](https://fleet.rancher.io/troubleshooting).
-
-§14.7 chỉ kiểm **giá trị setting** và inventory trong `cattle-system`; chưa xem namespace
-`cattle-fleet-local-system` và không chứng minh hành vi TLS thực tế của Fleet agent. Với
-`cattle-cluster-agent` của downstream sau này, phải kiểm riêng đường Server URL và trạng thái
-`AgentTlsStrictCheck` của cluster đó trước khi kết luận sẵn sàng dùng `strict`.
-
-## 6. Split DNS — cùng một tên, hai câu trả lời
-
-Split DNS (split-horizon DNS) là kỹ thuật cho **cùng một hostname trả lời khác nhau tùy nơi
-hỏi**. Ở đây: Internet hỏi `rancher.hieupn.site` nhận IP Cloudflare (record Proxied); Pod trong
-cụm `local` hỏi thì khối `hosts` của CoreDNS local chặn query và trả thẳng ClusterIP Traefik.
-Downstream cluster dùng DNS và network riêng, không nhìn thấy entry hay ClusterIP này.
-
-Cơ chế nằm ở thứ tự plugin trong Corefile: query chạm `hosts` trước, khớp thì trả lời tại chỗ và
-dừng; không khớp mới rơi xuống `forward . /etc/resolv.conf` ra resolver ngoài. Ba chi tiết sống
-còn:
-
-- `fallthrough` — thiếu nó, `hosts` trở thành người trả lời cuối cùng cho **mọi** tên, và mọi
-  lookup không khớp bảng (toàn bộ DNS còn lại của cluster) nhận NXDOMAIN. Quên một dòng là hỏng
-  DNS cả cluster.
-- `ttl 60` — nếu ClusterIP Traefik đổi (xóa/tạo lại Service), câu trả lời cũ chỉ sống tối đa 60
-  giây trong cache thay vì hàng giờ.
-- Test phải chạy **từ trong một Pod** (`kubectl run dns-check`), vì chỉ Pod dùng cluster DNS;
-  `nslookup` từ VM hay máy host hỏi resolver khác, không chứng minh được đường mà client trong
-  cluster sẽ đi.
-
-**Vì sao Rancher cần split DNS còn app demo thì không.** Trước hết phải đặt lại khung: split
-DNS không "phục vụ cả đường browser" — đường browser chạy bằng **public DNS**, record do
-Cloudflare tự tạo khi Save route, tồn tại sẵn và không liên quan tới §14.2. Split DNS chỉ là
-**nửa còn lại**: thêm câu trả lời *nội bộ* cho cùng cái tên. Vậy câu hỏi đúng là: *app demo có
-cần câu trả lời nội bộ không?* — không, vì ba lý do:
-
-1. **Không Pod nào trong cluster cần gọi `app.hieupn.site`.** App demo là *đích đến cho người
-   ngoài Internet*, không phải dịch vụ mà thành phần trong cụm gọi tới. Nếu một Pod thật sự
-   muốn gọi app demo, cách chuẩn của Kubernetes là gọi bằng **tên Service nội bộ**
-   `web.default.svc.cluster.local:80` — tên này CoreDNS trả lời sẵn, không cần cấu hình gì
-   thêm. Hostname public chỉ là "biển hiệu ngoài phố"; trong nhà gọi nhau bằng tên nội bộ.
-2. **Rancher thì khác — nó có Server URL.** `https://rancher.hieupn.site` là địa chỉ bị "khắc"
-   vào khắp nơi (agent đăng ký, link trong UI, redirect — xem mục Server URL của từ điển), nên
-   tồn tại một **vai** client nội bộ buộc phải gọi đúng cái tên public đó — không thay bằng tên
-   Service nội bộ được, vì cert chỉ đúng cho `rancher.hieupn.site` và mọi cấu hình đều trỏ về
-   tên đó. App demo không có gì tương đương: không config nào ép ai trong cụm phải dùng
-   `app.hieupn.site`.
-3. **Kể cả khi một Pod "lỡ" gọi `app.hieupn.site` — nó vẫn chạy được.** Không có split DNS, Pod
-   resolve ra IP Cloudflare Edge và đi vòng: NAT → Edge → tunnel → về lại chính cluster. Đường
-   vòng này **không hỏng** với app demo, vì hai rào cản của Rancher đều vắng mặt:
-
-| Rào cản trên đường vòng | `rancher.hieupn.site` | `app.hieupn.site` |
-| --- | --- | --- |
-| Cloudflare Access | Có — process kẹt ở trang login SSO | Không có — app cố ý public |
-| Certificate | Client thấy cert Cloudflare, không khớp CA Rancher (`strict` ngắt) | Cert Cloudflare là cert public hợp lệ — client verify bình thường, PASS |
-
-Tức là với app demo, thiếu split DNS chỉ tốn một đường vòng xấu (phụ thuộc Internet, chậm hơn)
-chứ không gãy chức năng. Với Rancher, đường vòng đó **gãy hẳn** — nên split DNS từ "nice to
-have" trở thành bắt buộc, và §14.2 phải đứng trước cả bước cài Rancher.
-
-Tóm gọn: split DNS tồn tại không phải vì "trong cụm có domain thì phải resolve nội bộ", mà vì
-**Rancher tạo ra một loại client nội bộ buộc phải gọi tên public trong điều kiện tên đó đã bị
-Access + CA riêng chặn đường vòng**. App demo không tạo ra loại client nào như vậy — ai trong
-cụm cần nó thì gọi `web.default.svc.cluster.local`, ai ngoài Internet cần nó thì đi qua Edge.
-Hai thế giới không giao nhau, nên không cần "một tên hai câu trả lời" (với app demo, câu hỏi
-của mục đào sâu 7 — "vì sao không cho client nội bộ đi chung đường với browser" — không đặt ra
-vì không có client nội bộ nào cả).
-
-**Câu hỏi tự nhiên tiếp theo: Rancher cũng có Service — sao Pod không gọi thẳng tên Service như
-với app?** Service đó tồn tại thật và Pod nhìn thấy nó y như service của app:
-
-```bash
-kubectl -n cattle-system get svc rancher
-# tên nội bộ: rancher.cattle-system.svc.cluster.local (port 80, 443)
-```
-
-Về mặt mạng, gọi `rancher.cattle-system.svc.cluster.local` dễ y như gọi
-`web.default.svc.cluster.local` — không ai giấu nó cả. Vấn đề không nằm ở *thấy được hay
-không*, mà ở *gọi vào rồi thì chuyện gì xảy ra* — vấp ba thứ:
-
-1. **Cổng 80 là HTTP trần — nhưng Rancher không phải app câm.** Rancher Pod nghe port 80 với
-   giả định đứng sau một proxy đã terminate TLS và gắn `X-Forwarded-Proto: https` (việc Traefik
-   làm trong chuỗi trong cụm). Client gọi thẳng port 80 không có header đó → Rancher coi là
-   kết nối không an toàn và đòi HTTPS — nó redirect về địa chỉ HTTPS chính thức thay vì phục vụ
-   phiên làm việc. Client bị đá ngược về `rancher.hieupn.site` — đúng cái tên đang cố né.
-2. **Muốn HTTPS thì cert không khớp tên.** Cert được cấp cho tên `rancher.hieupn.site`; client
-   gọi `https://rancher.cattle-system.svc.cluster.local` nhận cert mang tên khác với tên đang
-   gọi → verify FAIL tất định (mismatch hostname). Muốn qua thì phải tắt verify — tự bỏ đúng
-   thứ giá trị mà một client nghiêm túc cần.
-3. **Client thực tế không có quyền chọn tên.** Với app demo, người viết client tự chọn URL —
-   muốn gọi tên Service thì gọi. Với Rancher, client nghiêm túc dùng **artifact do Rancher
-   phát ra**: kubeconfig tải từ UI ghi `server: https://rancher.hieupn.site/...`, manifest
-   import agent ghi `CATTLE_SERVER=https://rancher.hieupn.site`, mọi link/redirect trong UI
-   build từ `server-url`. Client cầm artifact thì quay số đúng chuỗi trong artifact — không có
-   ô nào để điền "riêng tôi dùng tên Service nội bộ".
-
-App demo thoát cả ba vấn đề vì nó **không quan tâm mình được gọi bằng tên gì**: không redirect,
-không TLS, không auth, không phát artifact chứa địa chỉ — ai gọi tên nào, giao thức nào cũng
-trả về cùng một trang HTML. Nó là nội dung câm; Rancher thì "name-aware" — danh tính
-(`server-url`) ngấm vào giao thức (đòi HTTPS), vào cert (đúng tên) và vào mọi thứ nó phát ra.
-So sánh gọn:
-
-| | Gọi app demo trong cụm | Gọi Rancher trong cụm |
-| --- | --- | --- |
-| Tên Service nội bộ | `web.default.svc.cluster.local` — dùng tốt | `rancher.cattle-system.svc.cluster.local` — thấy được nhưng vấp redirect + cert sai tên |
-| Ai chọn URL? | Người viết client | Artifact do Rancher phát |
-| Lối đi đúng | Tên Service | Tên public + split DNS |
-
-Ba ngõ cụt dồn về một lối thoát duy nhất: giữ nguyên tên `rancher.hieupn.site` và làm cho tên
-đó resolve nội bộ — chính là split DNS.
-
-Giải thích từng lệnh và từng dòng đầy đủ nằm ở §14.2.1 của runbook. Xem
-[CoreDNS — hosts plugin](https://coredns.io/plugins/hosts/).
-
-## 7. Hai đường vào cùng một Ingress
-
-Bảng "hai đường vào" ở phần đầu là hệ quả trực tiếp của hai mục trên. Điểm đáng dừng lại: **vì
-sao không cho client nội bộ đi chung đường với browser cho đơn giản?** Vì đường browser có hai
-lớp mà process không vượt được:
-
-1. **Access chỉ cho người qua.** Xác thực của Access là SSO tương tác trong browser; client dạng
-   process nhận về trang login HTML thay vì API Rancher.
-2. **Client verify nghiêm ngặt chỉ tin cert Rancher.** Qua Cloudflare, client thấy cert
-   Cloudflare — mục đào sâu 5.
-
-Và một hệ quả kiến trúc: client ⇄ server của **cùng một cluster** mà đi vòng ra WAN thì vòng gọi
-nội bộ phụ thuộc Internet — đứt mạng ngoài là client mất server dù hai Pod nằm cạnh nhau.
-Split DNS cắt sự phụ thuộc đó: đường máy nằm trọn trong cluster, Internet chỉ còn phục vụ
-đường người.
-
-## 8. `helm template` và `helm install` nhìn thấy hai "cluster" khác nhau
-
-Render gate §14.3 chạy `helm template` — lệnh này render **phía client, không truy vấn API
-server của cluster**; nó vẫn có thể ra mạng để kéo chart từ repo nếu cache chưa có.
-Khi chart khai `kubeVersion: < 1.36.0-0`, Helm phải lấy một phiên bản Kubernetes để so sánh, và
-vì không hỏi cluster, nó dùng phiên bản **giả lập gắn sẵn trong binary** (bằng bản thư viện
-Kubernetes mà Helm được build cùng). Nếu Helm trên máy là bản mới, phiên bản giả lập đó có thể
-là `v1.36.x` → render FAIL oan dù cluster thật `v1.35.6` thỏa constraint. Flag
-`--kube-version v1.35.6` bảo Helm giả lập đúng cluster của lab.
-
-`helm install` thì ngược lại: nó nói chuyện với API server thật, thấy version thật, nên không cần
-flag. Cặp lệnh này minh họa một nguyên tắc chung: **kiểm tra offline dùng giả lập thì mọi tham số
-của giả lập phải được ghim theo môi trường thật**, nếu không gate sẽ trôi theo tool thay vì theo
-cluster.
-
-Render gate soi bốn thứ trong manifest: có `kind: Ingress`; đúng `ingressClassName`/`host`/
-`secretName` như values đã pin; và **không có** `Gateway`/`HTTPRoute` — vì chart 2.14 có nhánh
-`networkExposure.type: gateway` render tài nguyên Gateway API mà lab không cài CRD, đi nhầm nhánh
-là Helm lỗi hoặc Rancher không có route. Xem
-[Helm — Built-in Objects (Capabilities)](https://helm.sh/docs/chart_template_guide/builtin_objects/).
-
-## 9. Bootstrap password không nằm trong values
-
-Values §14.3 cố ý **không** đặt `bootstrapPassword`. Cơ chế của chart: khi giá trị này rỗng và
-Secret chưa tồn tại, template không render `bootstrap-secret`; Rancher Server tự sinh mật khẩu
-ngẫu nhiên trong lần khởi động đầu tiên rồi ghi vào Secret `bootstrap-secret` **lúc runtime**.
-
-Được hai thứ: mật khẩu không nằm trong shell history / file values / manifest đã render (ba chỗ
-rất dễ bị đọc lại), và không tồn tại trước khi Rancher chạy. Đổi lại một ràng buộc về thứ tự mà
-§14.6 phản ánh đúng: phải chờ Deployment Ready **rồi mới** đọc Secret
-(`wait --for=create secret/bootstrap-secret`); đọc sớm gặp `NotFound` chỉ có nghĩa "chưa sinh
-ra", không phải bằng chứng cài đặt hỏng.
-
-## 10. Traefik hợp Rancher mà không cần annotation NGINX
-
-Rancher dùng WebSocket rất nhiều (shell, log, event stream) và cần `X-Forwarded-Proto` đúng để
-không rơi vào redirect-loop. Traefik đáp ứng cả hai **mặc định**: WebSocket không cần annotation,
-`X-Forwarded-Proto` tự set khi terminate TLS.
-
-Values pin `ingress.includeDefaultExtraAnnotations: false` vì bộ annotation mặc định của chart
-(`nginx.ingress.kubernetes.io/proxy-*-timeout`) thuộc về ingress-nginx; Traefik provider chuẩn
-của §9 không diễn giải chúng — render ra chỉ tạo cảm giác sai rằng chúng có tác dụng. Nếu
-Shell/Logs rớt khi idle, chỗ cần nhìn là timeout của từng hop Cloudflare và
-`transport.respondingTimeouts` của entrypoint Traefik, không phải thêm annotation NGINX.
-
-## 11. Vì sao route Rancher dùng `https://…:443` còn app demo dùng `http://…:80`
-
-Hai Service URL trỏ tới **cùng một Service Traefik, cùng ClusterIP** — khác nhau ở entrypoint và
-cách `cloudflared` nói chuyện ở hop cuối. Nguyên tắc chọn: **theo Ingress đích có terminate TLS
-tại Traefik hay không**, không phải "HTTPS an toàn hơn HTTP" chung chung.
-
-- Ingress của app demo không có khối `tls:` → Traefik phục vụ nó dạng HTTP trên entrypoint `web`
-  → route trỏ `http://…:80`, không cần cấu hình gì thêm.
-- Ingress của Rancher có `tls` với Secret `tls-rancher-ingress` → Traefik giữ cert và terminate
-  TLS trên entrypoint `websecure` → route trỏ `https://…:443` để hop cuối đi đúng cổng TLS đó —
-  cùng cổng, cùng cert mà mọi client nội bộ nhìn thấy.
-
-Cho Rancher đi `http://…:80` **với values hiện tại** (`tls=ingress` + `source=rancher`) là phá mô
-hình đã chọn: hop cuối thành plaintext, request rơi vào router HTTP và mang `X-Forwarded-Proto`
-không phải `https`. Đây không phải luật tuyệt đối: Rancher hỗ trợ mô hình khác — `tls=external`,
-terminate TLS bên ngoài rồi chuyển đủ `Host`/`X-Forwarded-*` header, đúng ghi chú "không trộn hai
-mô hình TLS" của §14.3 — nhưng đó là kiến trúc phải chọn trọn gói ngay từ values, không phải chỉ
-đổi Service URL là xong. Cho app demo đi
-`https://…:443` thì Traefik không có cert nào cho `app.hieupn.site`, phải trả cert default và kéo
-theo cả bộ origin parameter — tốn ba setting cho một hop nội bộ không cần bảo vệ thêm.
-
-## 12. Ba origin parameter của route Rancher
-
-Chặng cuối `cloudflared → Traefik :443` là một TLS handshake thật. Runbook **chủ động ghim ba
-origin parameter** để cấu hình tường minh và gate có thể kiểm tra bằng mắt; đây không phải khẳng
-định rằng giao thức luôn bắt buộc đủ cả ba trong mọi topology:
-
-| Parameter | Tầng | Việc nó làm |
-| --- | --- | --- |
-| `originServerName` | TLS handshake | Đặt SNI = `rancher.hieupn.site` để Traefik chọn đúng cert trong Secret `tls-rancher-ingress` thay vì cert default |
-| `httpHostHeader` | HTTP sau handshake | Giữ `Host: rancher.hieupn.site` để Traefik khớp đúng router của Ingress Rancher |
-| `noTLSVerify` | TLS handshake | Cho phép `cloudflared` chấp nhận cert do CA riêng ký — CA đó không nằm trong trust store của nó |
-
-Ba tham số không ánh xạ 1-1 sang ba lỗi; bảng `502` ở §14.6 đọc theo chiều **chẩn đoán** (thấy
-triệu chứng trong log → nghi tham số tương ứng), không phải chiều "thiếu X thì chắc chắn gây Y".
-Ví dụ khi `noTLSVerify: true` đã tắt verification, thiếu `originServerName` thường **không** gây
-lỗi thấy được: SNI lúc đó lấy theo hostname trong Service URL, Traefik trả cert default,
-`cloudflared` vẫn chấp nhận, và routing vẫn đúng nhờ Host header — pin đủ ba tham số là để cấu
-hình tường minh và verify được bằng mắt ở gate §14.5.1, không phải vì thiếu một cái là chắc chắn
-sập. Ngược lại, để `noTLSVerify` là `false` (mặc định) với CA riêng thì chết tất định:
-`x509: certificate signed by unknown authority` → browser nhận Cloudflare `502`.
-
-`noTLSVerify: true` nghĩa là **mã hóa nhưng không xác thực**: chống nghe lén thụ động trên hop
-đó, không chống MITM chủ động. Trong trình tự terminate ở mục từ điển "Terminate TLS và SNI",
-nó chỉ thay đổi đúng bước 3 (client xử lý cert) của các session do `cloudflared` khởi tạo —
-các bước còn lại nguyên vẹn, và bước 3 của client nội bộ không bị ảnh hưởng. `cloudflared` không có kênh **tự động** nhận CA riêng của Rancher
-như trường hợp `cattle-cluster-agent` được bootstrap CA khi đăng ký downstream cluster sau này.
-Đó là một luồng ngoài phạm vi cài đặt §14, không phải agent hiện có trong `local`.
-Với `cloudflared`, có đường cấu hình trust thủ công: Cloudflare hỗ trợ
-`caPool` — đường dẫn tới file CA bundle cục bộ — nên production có thể mount CA của Rancher vào
-Pod `cloudflared` rồi khai `caPool` để verify thật thay vì tắt verify; ngoài ra có
-`matchSNItoHost` để lấy SNI theo hostname của request thay vì ghim `originServerName` tĩnh. Xem
-[Cloudflare — Origin parameters](https://developers.cloudflare.com/tunnel/advanced/origin-parameters/).
-
-## 13. Access application và Published application route — hai lớp, hai câu hỏi
-
-Sáu bước đầu §14.5 nằm trọn trong Zero Trust → Access và chỉ tạo **một** đối tượng: Access
-application cho `rancher.hieupn.site` kèm policy. Bảng route ngay sau đó thuộc về **tunnel**. Hai
-lớp trả lời hai câu hỏi khác nhau:
-
-- **Published application route**: request tới hostname này đi *đường nào* vào cluster?
-- **Access application**: *ai được phép* gửi request tới đó, quyết định ngay tại edge?
-
-Bước khai báo Subdomain/Domain trong Access dễ nhầm là tạo route, nhưng nó không tạo routing nào
-— chỉ gắn cổng gác vào hostname. App demo có route mà không có Access (cố ý public); về lý thuyết
-một hostname cũng có thể có Access mà chưa có route (gác một cánh cửa chưa mở).
-
-Thứ tự "Access trước, publish sau" là chủ đích: route được Save là hostname public hoạt động ngay
-lập tức, nên cổng gác phải đứng đó **trước** khoảnh khắc ấy — không có giây nào Rancher phơi ra
-Internet không người gác. Đây cũng là lý do gate §14.5 kỳ vọng `curl` **không** nhận `200`:
-nhận `302/401/403` từ Access mới là thành công — ngược hẳn với gate của app demo ở §13. Xem
-[Cloudflare — Access policies](https://developers.cloudflare.com/cloudflare-one/policies/access/).
-
-## 14. `cattle-cluster-agent` — chỉ dành cho downstream cluster
-
-Deployment `cattle-cluster-agent` **không nằm trong Helm chart**, và với cụm `local` nó **không
-xuất hiện**. Kiến trúc Rancher đặt agent này ở **downstream cluster**: agent chạy trong cluster
-được quản, mở tunnel outbound về cluster controller trong Rancher server để server điều khiển
-cluster đó từ xa. Cụm `local` thì không cần trung gian — Rancher chạy ngay trong cluster và gọi
-API server trực tiếp bằng service account. Vì vậy sau §14, inventory `cattle-system` gồm
-`rancher` + `rancher-webhook` (Rancher tự cài lúc runtime) mà **không có** `cattle-cluster-agent`, và cụm `local`
-vẫn Active — đó là kết quả đúng, không phải cài thiếu.
-
-Hệ quả cho cách verify ở §14.7: gate của cụm `local` chỉ xem inventory (`get deploy`, `get pods`)
-và không chạy `logs deploy/cattle-cluster-agent`. Log agent là bài test riêng, chỉ chạy bằng
-kubeconfig của downstream cluster **khi agent thực sự hiện diện trong inventory tại đó**. Hai
-setting `server-url` và `agent-tls-mode` đọc từ `settings.management.cattle.io` thì luôn kiểm
-được: đó là cấu hình phía server, tồn tại độc lập với việc có agent hay không. Xem
-[Rancher — Rancher agents](https://ranchermanager.docs.rancher.com/how-to-guides/new-user-guides/launch-kubernetes-with-rancher/about-rancher-agents).
-
-**Phạm vi loại agent:** mục này chỉ nói về `cattle-cluster-agent` được triển khai khi đăng ký/import
-downstream cluster. `fleet-agent` của cụm `local` có thể được Fleet tạo tự động trong
-`cattle-fleet-local-system`; `rancher-system-agent` phục vụ quản lý node RKE2/K3s do Rancher
-provision, không được §14 cài lên các VM kubeadm. Không suy rộng “không có cluster agent”
-thành “không có bất kỳ agent nào”; xem bảng §14.1 và mục đào sâu 5.
-
-Không được suy từ split DNS của §14.2 rằng `cattle-cluster-agent` của downstream đã có đường
-về server. Agent này nằm ở downstream cluster và phải tự mở tunnel tới Server URL từ
-network/DNS của cluster đó. Với cấu
-hình hiện tại, hostname public bị Cloudflare Access bảo vệ bằng đăng nhập tương tác; Cloudflare
-service token lại yêu cầu client gửi header xác thực riêng, trong khi runbook không cấu hình
-`cattle-cluster-agent` gửi các header này. Vì vậy `Import Existing` nằm ngoài phạm vi hoàn tất của §14:
-trước khi import phải thiết kế và kiểm tra riêng endpoint machine-to-machine, DNS/network reachability
-và certificate khớp CA của chế độ `strict`. Xem
-[Rancher — Communicating with Downstream User Clusters](https://ranchermanager.docs.rancher.com/reference-guides/rancher-manager-architecture/communicating-with-downstream-user-clusters),
-[Rancher — TLS Settings](https://ranchermanager.docs.rancher.com/getting-started/installation-and-upgrade/installation-references/tls-settings) và
-[Cloudflare — Service tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/).
-
-## 15. Mỗi gate chứng minh được gì — và không chứng minh được gì
-
-§14 nhiều gate vì mỗi gate chỉ phủ một đoạn của chuỗi; PASS một gate không thay được gate khác:
-
-| Gate | Chứng minh được | Chưa chứng minh được |
-| --- | --- | --- |
-| Render gate §14.3 | Manifest đúng nhánh Ingress, đúng host/class/Secret, không lạc sang Gateway | Chart chạy được trên cluster thật |
-| `helm install --wait` | Deployment Rancher Ready | Certificate đã cấp (sinh bất đồng bộ); đường vào hoạt động |
-| §14.4 `curl --resolve /healthz` | Chuỗi nội bộ Traefik → TLS → Ingress → Rancher HTTP `:80` sống | Đường public: tunnel, route, Access; extension API `:6666`, `APIService` và schema Steve `SelfUser` đã sẵn sàng |
-| §14.5 `curl` nhận `302/401/403` | DNS public → Edge → Access hoạt động | Chặng tunnel → origin (response sinh ở Access, **trước khi** request xuống tunnel) |
-| §14.6 đăng nhập UI | End-to-end **đường người**, gồm cả origin parameters | Cấu hình phía client nội bộ |
-| §14.7 inventory + settings | `server-url`/`agent-tls-mode` đúng như pin; inventory `cattle-system` của `local` (không có `cattle-cluster-agent`) | Inventory/hành vi TLS của `fleet-agent` trong `cattle-fleet-local-system`; đường và TLS của `cattle-cluster-agent` downstream sau này. `rancher-system-agent` thuộc luồng provision RKE2/K3s ngoài bài này |
-
-Đọc bảng này theo chiều ngược cũng ra sơ đồ chẩn đoán: lỗi ở gate nào thì khoanh vùng vào đúng
-đoạn gate đó phủ. Ví dụ §14.5 PASS mà đăng nhập ra `502 Bad gateway` nghĩa là đoạn duy nhất chưa
-được gate nào phủ — `cloudflared` → Traefik — có vấn đề, và đó chính là lúc soi ba origin
-parameter theo bảng log ở §14.6.
-
----
 
 ## Tự kiểm tra
 

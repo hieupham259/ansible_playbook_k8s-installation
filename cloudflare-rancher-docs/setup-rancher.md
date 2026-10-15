@@ -19,7 +19,7 @@ Bố cục: nhìn nhanh §14 cài gì và để làm gì → có thể setup đ�
 từ điển khái niệm nền → sơ đồ toàn cảnh hai đường vào → sơ đồ sự cố sau reboot và luồng
 điều tra → sơ đồ tuần tự chuỗi cấp certificate → nền tảng ba công cụ Helm / cert-manager /
 Rancher → giải thích từng mục §14.0 → §14.7 (mỗi lệnh, mỗi flag, mỗi key trong values) →
-15 mục đào sâu từng cơ chế.
+15 mục đào sâu từng cơ chế → tự kiểm tra (câu hỏi, đáp án và nhận xét lượt trả lời).
 
 ## Nhìn nhanh — §14 cài gì và để làm gì
 
@@ -2490,3 +2490,231 @@ và certificate khớp CA của chế độ `strict`. Xem
 đoạn gate đó phủ. Ví dụ §14.5 PASS mà đăng nhập ra `502 Bad gateway` nghĩa là đoạn duy nhất chưa
 được gate nào phủ — `cloudflared` → Traefik — có vấn đề, và đó chính là lúc soi ba origin
 parameter theo bảng log ở §14.6.
+
+---
+
+## Tự kiểm tra
+
+Các tham chiếu §14 bên dưới trỏ tới [runbook-k8s-vmware.md](../runbook-k8s-vmware.md).
+Cách trình bày tương tự [phần tự kiểm tra của bài Tunnel → Traefik](tunnel-traefik.md#tự-kiểm-tra):
+đọc tình huống, tự trả lời trước, sau đó mới mở đáp án. Phần nhận xét ghi lại những điểm đúng
+và những nhầm lẫn cần sửa trong lượt phỏng vấn; đáp án hoàn chỉnh bên dưới đã được chuẩn hóa.
+
+### Câu hỏi — vòng 1: toàn cảnh Rancher
+
+#### Câu 1/6 — Hai đường truy cập cùng một Rancher
+
+**Ngữ cảnh chung:** đã hoàn thành §14 theo đúng cấu hình của runbook, gồm split DNS tại §14.2.
+Rancher dùng hostname `rancher.hieupn.site`; Ingress do Traefik xử lý. Có hai client độc lập:
+
+- **Browser trên laptop ngoài cluster**, dùng DNS public, mở `https://rancher.hieupn.site`.
+- **Pod ứng dụng giả định `rancher-api-client`**, chạy trong chính cluster host Rancher
+  (cụm `local`), dùng CoreDNS. Một chương trình Python trong Pod này chủ động gọi API tại
+  `https://rancher.hieupn.site`.
+
+Pod `rancher-api-client` là một client khác với Pod `cloudflared`, Pod Traefik và Pod Rancher.
+Nó không phải một bước trung gian trong đường đi của browser. Đây là tình huống giả định để
+kiểm tra đường client nội bộ; runbook không khẳng định cluster đã có workload thường trực
+như vậy, cũng không nói mọi Pod đều phải gọi Rancher. Không xét downstream cluster ở câu này.
+
+Route Rancher của tunnel `homelab-k8s` giữ đúng cấu hình hiện tại:
+
+| Tham số | Giá trị |
+| --- | --- |
+| Service URL | `https://traefik.traefik.svc.cluster.local:443` |
+| `originServerName` | `rancher.hieupn.site` |
+| `httpHostHeader` | `rancher.hieupn.site` |
+| `noTLSVerify` | `true` |
+
+Hãy trả lời:
+
+1. **Đường browser:** browser hỏi DNS public nhận IP của thành phần nào? Sau khi có IP,
+   HTTP request đi qua những thành phần nào để tới Pod Rancher? Cloudflare Access kiểm
+   tra người dùng ở đâu? Phân biệt truy vấn DNS, chuyển tiếp request và cấu hình Ingress.
+2. **Đường Pod ứng dụng:** khi Python trong `rancher-api-client` gọi URL trên, CoreDNS trả
+   IP của thành phần nào? Sau khi phân giải DNS, request đi qua những thành phần nào để tới
+   Pod Rancher? Có qua Cloudflare Edge, Access hoặc Tunnel không? Vì sao runbook chuẩn bị
+   đường đi này?
+3. **Certificate và ranh giới TLS:** browser, connector `cloudflared` và Python trong
+   `rancher-api-client` lần lượt nhận certificate do thành phần nào trình, dành cho hostname
+   nào? Các phiên TLS tương ứng kết thúc ở đâu? Vì sao client gọi HTTPS nhưng chặng
+   Traefik → backend Rancher của runbook vẫn dùng HTTP?
+4. **Kiểm chứng split DNS:** nêu lệnh lookup cùng hostname `rancher.hieupn.site` từ laptop
+   ngoài cluster và từ một Pod dùng CoreDNS; ghi rõ nơi thực thi và kết quả mong đợi.
+   Chạy `nslookup` trên VM master có đủ chứng minh DNS của Pod đúng không?
+   Chỉ lookup `traefik.traefik.svc.cluster.local` trong Pod đã đủ chứng minh split DNS
+   của hostname Rancher chưa?
+
+<details>
+<summary>Đáp án vòng 1 — câu 1/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**Nhận xét lượt trả lời — 2/3 điểm**
+
+- **Đường browser:** đã nhận diện được Public DNS, Edge, tunnel, connector, Traefik và
+  backend Rancher; hiểu DNS public trả Edge IP và CoreDNS trả ClusterIP Service.
+  Cần sửa cách nối chuỗi: Public DNS và CoreDNS không chuyển tiếp HTTP request;
+  `cloudflared` hỏi CoreDNS trước khi kết nối Service Traefik. ClusterIP là địa chỉ
+  của Service, không phải một thành phần nằm sau Service. Traefik đọc Ingress để khớp
+  Host/path; request không được gửi tới object Ingress.
+- **Đường Pod ứng dụng:** sau khi làm rõ client là một Pod ứng dụng khác với `cloudflared`,
+  đã trả lời đúng: CoreDNS trả ClusterIP Traefik, client đi thẳng nội bộ tới `:443` và
+  không qua Edge/Access/Tunnel. Cần bổ sung mục đích tránh Access tương tác và đường vòng
+  qua Internet.
+- **TLS:** đúng về certificate Edge, certificate Traefik và việc TLS tới origin kết thúc
+  tại Traefik. Điểm cần sửa là gắn Python nội bộ với Cloudflare Edge: Python ở đường nội
+  bộ không bắt tay TLS với Edge. Traefik kết thúc TLS của client rồi dùng kết nối backend
+  riêng; backend HTTP là lựa chọn cấu hình của runbook, không phải hệ quả bắt buộc của
+  việc TLS đã kết thúc.
+- **DNS:** đúng về việc thử từ Pod, hai kết quả mong đợi và giới hạn của lookup trên VM
+  master. Phép so sánh split DNS phải dùng cùng tên `rancher.hieupn.site` ở hai nơi;
+  lookup tên Service Traefik chỉ kiểm một bản ghi Service DNS khác.
+
+**1. Browser: DNS tìm địa chỉ; Edge, connector và Traefik chuyển tiếp request**
+
+Browser lấy hostname `rancher.hieupn.site` từ URL và dùng resolver DNS public để lấy
+**IP Cloudflare Edge**. Browser kết nối HTTPS tới Edge IP, dùng hostname Rancher cho TLS,
+kiểm tra certificate public và gửi HTTP request sau khi TLS hoàn tất.
+
+**Cloudflare Access kiểm tra người dùng tại Edge, trước khi request được chuyển xuống
+tunnel.** Khi chưa có phiên Access hợp lệ, Edge có thể trả trang đăng nhập hoặc từ chối
+truy cập ngay tại đây; origin Rancher chưa nhất thiết nhận được request đó.
+
+Khi request được phép đi tiếp, Edge chuyển nó qua tunnel mã hóa đã mở sẵn tới một connector
+`cloudflared`. Connector dùng origin đã khai trong route:
+
+```text
+https://traefik.traefik.svc.cluster.local:443
+```
+
+Để mở kết nối origin theo tên đó, connector hỏi CoreDNS về
+`traefik.traefik.svc.cluster.local` và nhận **ClusterIP Service Traefik**. Sau khi có địa chỉ,
+nó kết nối `:443`; dataplane của Service chuyển kết nối tới một Pod Traefik.
+
+Traefik hoàn tất TLS, đọc HTTP Host `rancher.hieupn.site` cùng path, đối chiếu router được tạo
+từ Ingress Rancher rồi chuyển request tới backend Rancher. Service `rancher` ở namespace
+`cattle-system` xác định nhóm backend; Traefik có thể kết nối trực tiếp Pod endpoint hoặc qua
+Service IP tùy cấu hình. Một Pod Rancher xử lý request và response quay về qua các proxy
+trên những kết nối tương ứng.
+
+| Thành phần / thông tin | Vai trò |
+| --- | --- |
+| Public DNS | Cho browser địa chỉ Edge |
+| CoreDNS | Cho connector địa chỉ Service Traefik |
+| ClusterIP Traefik | IP ảo của Service Traefik; không phải một hop đứng sau Service |
+| Service Traefik và dataplane | Đưa kết nối tới Pod Traefik |
+| Pod Traefik | Kết thúc TLS origin, đọc Host/path và chuyển tiếp HTTP |
+| Ingress Rancher | Object cấu hình để Traefik tạo router; không tự nhận/chuyển tiếp packet |
+| Backend Rancher | Nhận request ứng dụng và tạo response |
+
+Địa chỉ origin và HTTP Host là hai thông tin khác nhau. Connector kết nối tới tên Service
+nội bộ nhưng gửi `Host: rancher.hieupn.site` theo `httpHostHeader`. SNI do `originServerName`
+đặt được dùng ở bước TLS để chọn certificate; HTTP Host được dùng sau đó để chọn HTTP router.
+
+**2. Pod ứng dụng: một request khác, khởi phát ngay trong cluster**
+
+Python trong Pod `rancher-api-client` gọi **Server URL của ứng dụng Rancher**:
+`https://rancher.hieupn.site`. Nó không nhận request từ tunnel và không dùng Service URL
+của connector làm URL ứng dụng.
+
+CoreDNS đã có entry split DNS của §14.2 nên trả **ClusterIP Traefik** cho hostname này.
+Python kết nối tới ClusterIP đó ở `:443`, đồng thời vẫn dùng tên `rancher.hieupn.site`
+cho TLS và HTTP request. Traefik xử lý TLS/Ingress rồi chuyển tới backend Rancher.
+
+**Request này không đi qua Cloudflare Edge, Access hay Tunnel.** Mục đích là để client
+trong cluster gọi được Rancher bằng cùng Server URL, tránh lớp Access tương tác dành cho
+người dùng và tránh vòng gọi nội bộ phụ thuộc đường Internet. Đây là đường nội bộ được
+chuẩn bị sẵn cho các chương trình tích hợp API Rancher nếu có.
+
+Hai luồng HTTP sau khi tìm địa chỉ có thể hình dung như sau; các truy vấn DNS là những
+lượt trao đổi riêng, không phải trạm chuyển tiếp HTTP trong sơ đồ:
+
+```mermaid
+flowchart TB
+    B["Browser ngoài Internet"] -->|"HTTPS"| E["Cloudflare Edge và Access"]
+    E -->|"Tunnel mã hóa đã mở sẵn"| C["Pod cloudflared"]
+    C -->|"HTTPS qua Service Traefik :443"| T["Pod Traefik"]
+    P["Pod rancher-api-client"] -->|"HTTPS qua Service Traefik :443"| T
+    T -->|"HTTP tới backend Rancher"| R["Pod Rancher"]
+```
+
+**3. Certificate, client TLS và điểm kết thúc**
+
+| Phiên kết nối | TLS client | Server trình certificate | Tên certificate cần hợp lệ cho | TLS kết thúc tại |
+| --- | --- | --- | --- | --- |
+| Browser → Edge | Browser | Cloudflare Edge, certificate public | `rancher.hieupn.site` | Edge |
+| Connector → Traefik | `cloudflared` | Traefik, certificate từ `tls-rancher-ingress` | `rancher.hieupn.site` | Traefik |
+| Pod ứng dụng → Traefik | Python trong `rancher-api-client` | Traefik, certificate từ `tls-rancher-ingress` | `rancher.hieupn.site` | Traefik |
+
+Certificate origin có thể được chọn theo tên Rancher dù connector tìm địa chỉ bằng tên
+Service nội bộ. Đây là tác dụng của `originServerName: rancher.hieupn.site`. Certificate
+public ở Edge và certificate do CA riêng của Rancher ký là hai hệ khác nhau.
+
+Trong lab, `noTLSVerify: true` chỉ khiến **connector** bỏ kiểm tra certificate origin;
+TLS connector → Traefik vẫn được dùng. Setting này không cấu hình trust cho Python hay
+bất kỳ Pod ứng dụng nào khác. Nếu Python bật xác minh TLS, client phải tin CA riêng của
+Rancher và certificate phải vượt qua các kiểm tra hợp lệ, gồm hostname và thời hạn,
+thì handshake mới thành công.
+
+Cloudflare ↔ `cloudflared` còn có **kết nối tunnel mã hóa riêng**. Nó không phải sự kéo dài
+của phiên TLS browser → Edge hay của phiên TLS connector → Traefik. Python trên đường
+nội bộ không tham gia bất kỳ phiên TLS nào với Edge.
+
+Sau khi kết thúc TLS, Traefik đọc được HTTP request rồi mở hoặc tái sử dụng **kết nối backend
+khác**. Runbook chọn backend port `80` bằng `ingress.servicePort: 80`, nên chặng Traefik →
+backend Rancher dùng HTTP. Không có một phiên TLS xuyên suốt từ browser/Python đến Pod
+Rancher. Terminate TLS không bắt buộc upstream dùng HTTP; có thể cấu hình upstream HTTPS
+nếu backend và cấu hình proxy hỗ trợ, nhưng đó không phải mô hình của runbook này.
+
+**4. Kiểm chứng: cùng hostname, hai vị trí chạy test**
+
+Trên **laptop ngoài cluster**, dùng DNS public:
+
+```bash
+nslookup rancher.hieupn.site
+```
+
+Kết quả cho hostname Rancher phải là **IP Cloudflare Edge**, không phải ClusterIP Traefik.
+Đọc phần địa chỉ trả cho hostname được hỏi; địa chỉ ở mục DNS `Server` là resolver,
+không phải đích ứng dụng.
+
+Trên **VM master có kubectl/kubeconfig đúng cluster**, lấy ClusterIP để đối chiếu rồi yêu cầu
+Kubernetes chạy `nslookup` trong một Pod dùng cluster DNS:
+
+```bash
+TRAEFIK_IP=$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.clusterIP}')
+printf 'Traefik ClusterIP: %s\n' "$TRAEFIK_IP"
+
+kubectl run dns-check --rm -i --restart=Never --image=busybox:1.36 \
+  -- nslookup rancher.hieupn.site
+```
+
+- Hai lệnh đầu đọc Service và in ClusterIP mong đợi.
+- `kubectl run` được gõ trên master, nhưng **`nslookup` thực thi trong Pod `dns-check`**;
+  `--rm` yêu cầu xóa Pod sau khi lệnh kết thúc. Đây là phép thử từ môi trường client Pod.
+- Kết quả lookup trong Pod phải trả đúng `$TRAEFIK_IP`, không phải IP Edge. Đây là phép
+  kiểm tra được dùng ở §14.2; lệnh chỉ minh họa cách kiểm chứng, không thay đổi thứ tự gate
+  triển khai trong runbook.
+
+| Nơi thực thi `nslookup rancher.hieupn.site` | Kết quả mong đợi |
+| --- | --- |
+| Laptop ngoài cluster, DNS public | IP Cloudflare Edge |
+| Pod dùng CoreDNS đã cấu hình §14.2 | ClusterIP Service Traefik |
+
+Chạy `nslookup` trực tiếp trên VM master kiểm resolver và đường mạng của hệ điều hành host.
+Dù host có thể được cấu hình dùng cùng DNS, kết quả đó vẫn không tự chứng minh DNS policy,
+resolver và đường truy cập DNS của Pod đang đúng. Phải thử từ Pod đại diện cho client cần
+kiểm tra.
+
+Lookup `traefik.traefik.svc.cluster.local` trong Pod hữu ích để kiểm DNS Service, nhưng
+không chứng minh entry split DNS của **`rancher.hieupn.site`** đã hoạt động. Hai phép lookup
+cần so sánh phải hỏi cùng hostname Rancher.
+
+Hai câu trả lời DNS khác nhau đều đúng theo thiết kế. Chúng chỉ chứng minh phân giải tên
+từ hai vị trí; chưa chứng minh client nội bộ đã tin CA, TLS đã thành công, Access đã cho
+phép người dùng hay API Rancher đã trả response đúng.
+
+Đọc lại: §14.2 về split DNS, §14.3–§14.4 về TLS origin, §14.5–§14.5.1 về Access và route
+trong [runbook](../runbook-k8s-vmware.md);
+[Cloudflare — Origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/).
+
+</details>

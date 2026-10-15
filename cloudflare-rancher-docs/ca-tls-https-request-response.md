@@ -236,6 +236,8 @@ Bây giờ theo lần lượt từ lúc nhập URL đến khi nhìn thấy ứng
 
    SNI và HTTP Host thuộc hai lớp khác nhau. Đây là lý do runbook có cả `originServerName`
    và `httpHostHeader`; chỉ sửa HTTP Host không tự sửa SNI khi chưa bật `matchSNItoHost`.
+   Xem [Origin Server Name](#origin-server-name) để phân biệt địa chỉ Service, tên TLS và Host
+   trong cấu hình lab.
 
    **Giới hạn của tính bí mật:** người quan sát vẫn thấy IP, port, kích thước và thời điểm
    gửi gói tin. Khi không dùng **ECH — Encrypted ClientHello**, họ còn thấy SNI plaintext
@@ -413,20 +415,83 @@ với client trên đường này**.
 Một client nội bộ được cung cấp CA đúng có thể kiểm tra đầy đủ: chữ ký dẫn về CA đó, hostname
 khớp `rancher.hieupn.site`, certificate còn hiệu lực và server chứng minh sở hữu private key.
 
-**Điều kiện để `cloudflared` nhận đúng certificate Rancher:**
+## Origin Server Name
 
-- Với service URL `https://traefik.traefik.svc.cluster.local:443`, đặt
-  `originServerName: rancher.hieupn.site` để khai đúng SNI và tên cần kiểm tra trên certificate.
-- Hoặc dùng `matchSNItoHost: true` khi Host gửi tới origin là `rancher.hieupn.site`.
-  Tham số này lấy SNI theo Host gửi tới origin, dùng giá trị `httpHostHeader` nếu đã đặt,
-  và ghi đè lựa chọn SNI từ `originServerName` cho từng request.
-- Nếu không đặt `originServerName` và không bật `matchSNItoHost`, connector dùng hostname trong
-  service URL — ở đây là `traefik.traefik.svc.cluster.local`. Traefik có thể trả certificate
-  mặc định thay vì certificate Rancher. **`noTLSVerify: true` che lỗi certificate/tên này**;
-  việc request HTTP vẫn chạy không chứng minh certificate đúng. Chỉ đặt `httpHostHeader`
-  không đủ để đổi SNI khi `matchSNItoHost` chưa bật.
+**Origin Server Name** (trong file cấu hình là `originServerName`) là hostname mà
+`cloudflared` dùng làm tên TLS của origin HTTPS. Nó có hai vai trò: **khai SNI để origin chọn
+certificate**, và **làm tên đối chiếu với certificate khi bật verification**. Giá trị là
+hostname, ví dụ `rancher.hieupn.site`, không kèm `https://`, port hoặc path.
 
-Xem [Cloudflare — Origin parameters](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/).
+Trong lab, origin mà connector gọi là Traefik. Địa chỉ kết nối tới Traefik và tên được ghi
+trên certificate Rancher khác nhau; bảng dưới phân biệt từng chỗ cấu hình:
+
+| Chỗ cấu hình | Giá trị của route Rancher | Vai trò |
+| --- | --- | --- |
+| Public hostname | `rancher.hieupn.site` | Chọn published application route khi request tới Cloudflare |
+| Service URL | `https://traefik.traefik.svc.cluster.local:443` | Chọn giao thức, địa chỉ cần phân giải và port để connector kết nối tới origin |
+| Origin Server Name | `rancher.hieupn.site` | Khai SNI và, khi verify, kiểm tra certificate có chứng nhận tên này |
+| HTTP Host Header | `rancher.hieupn.site` | Đặt Host trong HTTP để Traefik chọn router của Ingress sau handshake |
+
+**Vì sao không đặt Origin Server Name bằng tên Service?** Tên
+`traefik.traefik.svc.cluster.local` giúp tìm tới Traefik trong Kubernetes, nhưng certificate
+Rancher được cấp cho `rancher.hieupn.site`. Biết đúng nơi kết nối chưa đồng nghĩa đang dùng
+đúng tên TLS. Setting này cho phép giữ địa chỉ Service nội bộ mà vẫn khai và kiểm tra danh
+tính Rancher.
+
+Với một kết nối origin mới, trình tự sử dụng các giá trị trên là:
+
+1. Connector lấy hostname từ **Service URL**, hỏi CoreDNS về
+   `traefik.traefik.svc.cluster.local`, rồi kết nối TCP tới ClusterIP Traefik, port `443`.
+2. Trong TLS `ClientHello`, connector gửi **SNI = `rancher.hieupn.site`** theo
+   `originServerName`. Setting này không khiến connector phân giải hostname public để tìm
+   địa chỉ origin, nên không tự tạo đường vòng qua Cloudflare Edge.
+3. Traefik dùng SNI để chọn cấu hình TLS/certificate, rồi trả `ServerHello` có `key_share`.
+   Trong TLS 1.3, hai bên dẫn xuất handshake keys trước khi Traefik gửi certificate Rancher
+   từ `tls-rancher-ingress` trong thông điệp `Certificate` đã mã hóa.
+4. Nếu verification bật, connector kiểm tra chain trust, thời hạn và tên
+   `rancher.hieupn.site` trong SAN, cùng các kiểm tra TLS còn lại. CA riêng phải được connector
+   tin, chẳng hạn qua `caPool`. Nếu `noTLSVerify: true`, kiểm tra certificate chain/hostname
+   bị bỏ qua; SNI vẫn được gửi và TLS vẫn phải hoàn tất handshake.
+5. Sau handshake, connector gửi HTTP với **Host = `rancher.hieupn.site`** theo
+   `httpHostHeader`. Đây là lúc Traefik chọn router HTTP; Host không quay ngược thời gian để
+   thay certificate đã chọn trong handshake.
+
+Do đó, **đặt Origin Server Name không tự làm CA riêng trở thành đáng tin**. Nó chọn/đối chiếu
+tên; `caPool` cung cấp CA tin cậy, còn `noTLSVerify` quyết định có kiểm tra certificate origin
+hay không. Khi `noTLSVerify: true`, vai trò chọn certificate bằng SNI vẫn có ý nghĩa, nhưng
+connector không xác thực certificate đó thuộc Rancher mong muốn.
+
+**Nếu để trống thì sao?**
+
+Mặc định `originServerName` là chuỗi rỗng `""`. Với origin HTTPS và
+`matchSNItoHost: false` mặc định, connector lấy tên TLS từ hostname trong Service URL.
+Trong ví dụ Rancher, tên đó sẽ là `traefik.traefik.svc.cluster.local`; Traefik có thể trả
+certificate mặc định nếu không có certificate khớp SNI này. Khi bật verification, kết nối có
+thể thất bại vì chain không được tin hoặc tên không khớp. Khi `noTLSVerify: true`, request có
+thể vẫn chạy dù connector nhận nhầm certificate.
+
+Nếu bật `matchSNItoHost: true`, connector lấy SNI theo Host gửi tới origin, dùng
+`httpHostHeader` nếu đã đặt, và ghi đè lựa chọn từ `originServerName` cho từng request.
+Với route Rancher cố định trong ví dụ này, dùng `originServerName: rancher.hieupn.site` và để
+`matchSNItoHost: false` giúp thấy rõ tên TLS đang được cấu hình.
+
+**Vì sao route app demo không cần đặt Origin Server Name?**
+
+Route `app.hieupn.site` trong [tunnel-traefik.md](tunnel-traefik.md) dùng origin
+`http://traefik.traefik.svc.cluster.local:80`. Đoạn connector → Traefik này là HTTP, không có
+TLS handshake, SNI hay certificate origin để chọn/verify. Vì vậy Origin Server Name để trống
+không tham gia vào kết nối đó. Browser → Cloudflare Edge vẫn dùng HTTPS; tunnel giữa
+Cloudflare và connector vẫn được mã hóa.
+
+Với route Rancher dùng origin HTTPS, đặt giá trị trong **Edit → Additional application
+settings → TLS → Origin Server Name** của published application route. Setting này áp dụng
+cho `cloudflared` → origin, không thay certificate public tại Edge và không cấu hình hộ SNI
+cho process nội bộ gọi trực tiếp Traefik.
+
+Tham khảo: [Cloudflare — Origin Server Name](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/#originservername)
+và [Match SNI to host](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/#matchsnitohost).
+
+## Kiểm chứng certificate origin
 
 **`curl -k` / `noTLSVerify: true`: mã hóa còn, xác thực server mất.** Client vẫn mã hóa tới bên
 trả lời handshake và có private key khớp certificate mà bên đó tự trình. Nhưng vì không kiểm

@@ -2718,3 +2718,152 @@ trong [runbook](../runbook-k8s-vmware.md);
 [Cloudflare — Origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/).
 
 </details>
+
+#### Câu 2/6 — Helm đã xong thì certificate đã sẵn sàng chưa?
+
+Giả sử bạn cài Rancher theo §14.3, dùng mode Ingress và cấu hình:
+
+```yaml
+ingress:
+  tls:
+    source: rancher
+    secretName: tls-rancher-ingress
+```
+
+Kết quả hiện tại:
+
+- `helm install ... --wait` báo thành công.
+- Deployment Rancher đã Ready.
+- Trong namespace `cattle-system`, **Issuer và Ingress đã tồn tại**.
+- Nhưng **chưa thấy Certificate và Secret `tls-rancher-ingress`**.
+
+Đây là tình huống kiểm tra ranh giới readiness, không phải khẳng định cluster thực tế đang lỗi.
+Hãy trả lời:
+
+1. Thành phần nào có nhiệm vụ tạo **Certificate**, rồi thành phần nào cấp certificate và
+   ghi vào **Secret**?
+2. Vì sao `helm --wait` thành công mà các tài nguyên đó vẫn có thể chưa sẵn sàng?
+3. Bạn sẽ kiểm tra hoặc chờ những tài nguyên, điều kiện nào trước khi publish route Rancher
+   ra Cloudflare?
+
+<details>
+<summary>Đáp án vòng 1 — câu 2/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**Nhận xét lượt trả lời — 2/3 điểm**
+
+- **Vai trò controller:** đã trả lời đúng ở mức tổng quát: cert-manager phụ trách cấp và gia
+  hạn certificate. Cần tách rõ controller tạo object `Certificate` là **ingress-shim**, còn
+  các controller cấp phát của cert-manager xử lý yêu cầu cấp và ghi certificate/private key
+  vào Secret. Không đồng nhất object khai báo `Certificate` với certificate thực tế.
+- **Giới hạn của Helm:** đúng khi nhận ra Certificate và các thành phần runtime được
+  controller khác sinh bất đồng bộ, nên Helm hoàn tất chưa chứng minh toàn bộ hệ thống
+  đã sẵn sàng. Cần hiểu `--wait` theo các điều kiện readiness mà Helm hỗ trợ, không phải
+  một cơ chế chờ mọi controller và mọi custom resource trong cluster.
+- **Gate trước publish:** đã chọn đúng Certificate, Issuer, Secret, Ingress và phép thử
+  `curl --resolve /healthz`. Cần bổ sung điều kiện PASS: Certificate được tạo rồi
+  `Ready=True`, Secret tồn tại, Ingress đúng class/host, origin health trả `HTTP 200`.
+  Hai lần nhắc Certificate tương ứng với hai lần chờ khác nhau: **xuất hiện** và **Ready**.
+
+**1. Ai tạo khai báo, ai cấp certificate, ai sử dụng kết quả?**
+
+| Thành phần | Công việc trong cấu hình của runbook |
+| --- | --- |
+| Helm chart Rancher | Render Issuer và Ingress có annotation `cert-manager.io/issuer`, TLS hostname và tên Secret |
+| `ingress-shim` của cert-manager | Quan sát Ingress được annotate, tạo/đồng bộ object `Certificate` trong cùng namespace |
+| Các controller cấp phát của cert-manager | Xử lý chuỗi yêu cầu cấp phát theo Issuer, gồm `CertificateRequest`, rồi ghi certificate/private key vào Secret |
+| Traefik | Đọc Secret TLS được Ingress tham chiếu để trình certificate và kết thúc TLS cho hostname Rancher |
+
+Trong nhánh Ingress này, chart Rancher **không trực tiếp render object Certificate**.
+Ingress-shim tạo Certificate từ cấu hình `spec.tls[]`; tên được lấy theo
+`spec.tls[].secretName`, nên cả Certificate và Secret kết quả đều mang tên
+`tls-rancher-ingress` nhưng là **hai kind khác nhau**.
+
+- Object `Certificate` mô tả mong muốn: cấp certificate cho tên nào, qua Issuer nào,
+  lưu kết quả vào Secret nào.
+- Secret `tls-rancher-ingress` chứa kết quả TLS, gồm `tls.crt` và `tls.key`.
+- Issuer là object cấu hình cơ chế ký/cấp phát, không phải một Pod mà request HTTP đi qua.
+- Ingress-shim là bộ phận của cert-manager, không phải một Deployment riêng cần cài thêm.
+
+Certificate được cấp cho danh tính `rancher.hieupn.site` và được Traefik sử dụng ở ingress.
+Điều này không yêu cầu chặng **Traefik → backend Rancher** đổi sang HTTPS; runbook vẫn
+chọn backend HTTP qua `ingress.servicePort: 80`.
+
+**2. Vì sao Helm xong trước khi chuỗi cấp certificate xong?**
+
+Helm cài các manifest do chart render và, khi có `--wait`, chờ các điều kiện sẵn sàng
+được Helm hỗ trợ cho tài nguyên trong release. Đây không phải một phép kiểm tra end-to-end
+của ứng dụng và cũng không tự đợi mọi custom resource đạt condition riêng của nó.
+
+Ở cấu hình này, Helm gửi Issuer/Ingress tới API server. Controller cert-manager quan sát
+Ingress rồi mới tạo Certificate và xử lý cấp certificate. Chuỗi này reconcile bất đồng bộ;
+Certificate/Secret không phải manifest mà Helm trực tiếp render trong nhánh Ingress của
+chart Rancher. Chúng có thể hoàn thành trước hoặc sau khi Helm báo thành công, không có
+bảo đảm rằng `--wait` phải chờ đến bước cuối đó.
+
+Deployment Rancher Ready chỉ chứng minh readiness của Deployment theo phép kiểm tra tương ứng.
+Nó không chứng minh Secret TLS đã có hay client đã truy cập HTTPS tới Rancher thành công.
+Cũng không suy ra các thành phần khác do Rancher tự sinh lúc runtime đều đã Ready.
+
+**3. Gate phải kiểm tra tài nguyên và trạng thái, không chỉ đọc tên tài nguyên**
+
+Chạy trên **VM master**, dùng kubeconfig có quyền truy cập đúng cluster. Khối dưới được
+trích từ §14.4 của [runbook](../runbook-k8s-vmware.md); chỉ thực hiện sau các gate trước đó
+theo đúng thứ tự triển khai trong runbook:
+
+```bash
+kubectl -n cattle-system wait --for=create \
+  certificate/tls-rancher-ingress --timeout=120s
+kubectl -n cattle-system wait --for=condition=Ready \
+  certificate/tls-rancher-ingress --timeout=300s
+kubectl -n cattle-system get issuer,certificate
+kubectl -n cattle-system get secret tls-rancher-ingress
+kubectl -n cattle-system get ingress rancher \
+  -o jsonpath='{.spec.ingressClassName}{"\t"}{.spec.rules[0].host}{"\n"}'
+# PASS: traefik    rancher.hieupn.site
+
+TRAEFIK_IP=$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.clusterIP}')
+curl -skS --resolve "rancher.hieupn.site:443:$TRAEFIK_IP" \
+  -o /dev/null -w 'HTTP %{http_code}\n' \
+  https://rancher.hieupn.site/healthz
+# PASS: HTTP 200
+```
+
+| Lệnh / phép kiểm tra | Ý nghĩa | Kết quả cần đạt |
+| --- | --- | --- |
+| `wait --for=create certificate/tls-rancher-ingress` | Chờ ingress-shim tạo object Certificate | Object xuất hiện trước timeout |
+| `wait --for=condition=Ready certificate/tls-rancher-ingress` | Chờ cert-manager hoàn thành cấp phát | Certificate `Ready=True` |
+| `get issuer,certificate` | Đọc trạng thái các khai báo cấp phát | Quan sát condition/lỗi; Certificate cần `Ready=True` như lần chờ phía trên |
+| `get secret tls-rancher-ingress` | Xác nhận Secret đầu ra tồn tại | Secret được tìm thấy trong `cattle-system` |
+| `get ingress rancher -o jsonpath=...` | Kiểm class và HTTP hostname của Ingress | `traefik` và `rancher.hieupn.site` |
+| Đọc `.spec.clusterIP` của Service Traefik | Lấy địa chỉ origin nội bộ để test | `TRAEFIK_IP` là ClusterIP thật của Service Traefik |
+| `curl --resolve ... /healthz` | Thử trực tiếp HTTPS ingress và backend health | `HTTP 200` |
+
+Không thay hai lần chờ bằng `kubectl wait certificate --all` khi Certificate chưa xuất hiện:
+lệnh có thể trả `no matching resources found` ngay, thay vì chờ ingress-shim tạo object.
+
+**Hiểu đúng phép thử curl:**
+
+- `--resolve "rancher.hieupn.site:443:$TRAEFIK_IP"` buộc curl kết nối tới ClusterIP Traefik
+  nhưng vẫn dùng hostname `rancher.hieupn.site` cho SNI và HTTP Host.
+- `-k` bỏ xác minh certificate của server; TLS vẫn diễn ra. Vì vậy `HTTP 200` từ phép thử
+  này không chứng minh máy master đã tin CA riêng, cũng không thay thế việc kiểm tra
+  danh tính certificate mà Traefik thực sự trình.
+- `-sS` giảm output tiến trình nhưng vẫn hiện lỗi; `-o /dev/null` bỏ response body;
+  `-w` in status HTTP để đối chiếu.
+- HTTP response từ `/healthz` kiểm được chuỗi Traefik → router Rancher → backend health.
+  Nó chưa kiểm đường public qua tunnel/Access, đăng nhập UI, extension API hay client/agent
+  riêng đã tin CA.
+
+**PASS §14.4:** Certificate `Ready=True`, Secret TLS tồn tại, Ingress đúng class/host và
+`/healthz` trả `HTTP 200`. Nếu bất kỳ điều kiện nào chưa đạt, **chưa publish route Cloudflare**;
+xem trạng thái/lỗi ở bước tương ứng thay vì dùng kết quả Helm để bỏ qua gate.
+
+Đọc lại: **Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`**;
+**Nền tảng — Helm, cert-manager và Rancher thực chất là gì**; §14.3–§14.4 của
+[runbook](../runbook-k8s-vmware.md).
+Nguồn đối chiếu:
+[cert-manager — Annotated Ingress resource](https://cert-manager.io/docs/usage/ingress/),
+[Helm — helm install](https://helm.sh/docs/v3/helm/helm_install/) và
+[Rancher — TLS settings](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/tls-settings).
+
+</details>

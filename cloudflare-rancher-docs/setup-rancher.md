@@ -14,21 +14,22 @@
 > hai đường vào cùng một hostname, và lớp Cloudflare Access.
 
 **Cách đọc:** bắt đầu bằng phần nhìn nhanh và luồng giải thích đơn giản; sau đó đọc từ điển,
-nền tảng ba công cụ và chuỗi cấp certificate trước khi đi vào sơ đồ truy cập, từng bước §14
-và các cơ chế chuyên sâu. Phần sự cố và bài tự kiểm tra nằm cuối tài liệu.
+bảng thứ tự đọc, nền tảng ba công cụ và chuỗi cấp certificate trước khi đi vào sơ đồ truy cập,
+từng bước §14 và các cơ chế chuyên sâu. Phần sự cố và bài tự kiểm tra nằm cuối tài liệu.
 
 ## Mục lục
 
 1. [Nhìn nhanh — §14 cài gì và để làm gì](#nhìn-nhanh--14-cài-gì-và-để-làm-gì)
 2. [Cách đọc toàn bộ §14 theo ngôn ngữ đơn giản](#cách-đọc-toàn-bộ-14-theo-ngôn-ngữ-đơn-giản)
 3. [Từ điển khái niệm nền](#từ-điển-khái-niệm-nền)
-4. [Nền tảng — Helm, cert-manager và Rancher thực chất là gì](#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì)
-5. [Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`](#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install)
-6. [Sơ đồ toàn cảnh — hai đường vào cùng một hostname](#sơ-đồ-toàn-cảnh--hai-đường-vào-cùng-một-hostname)
-7. [Đi qua §14 từng mục — mỗi lệnh làm gì](#đi-qua-14-từng-mục--mỗi-lệnh-làm-gì)
-8. [Đào sâu 15 cơ chế của §14](#đào-sâu-15-cơ-chế-của-14)
-9. [Sơ đồ sự cố sau reboot — `SelfUser` 404 và cluster `local` `Unavailable`](#sơ-đồ-sự-cố-sau-reboot--selfuser-404-và-cluster-local-unavailable)
-10. [Tự kiểm tra](#tự-kiểm-tra)
+4. [Thứ tự đọc phù hợp — chuẩn bị cho câu 2/6 và 3/6](#thứ-tự-đọc-phù-hợp--chuẩn-bị-cho-câu-26-và-36)
+5. [Nền tảng — Helm, cert-manager và Rancher thực chất là gì](#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì)
+6. [Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`](#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install)
+7. [Sơ đồ toàn cảnh — hai đường vào cùng một hostname](#sơ-đồ-toàn-cảnh--hai-đường-vào-cùng-một-hostname)
+8. [Đi qua §14 từng mục — mỗi lệnh làm gì](#đi-qua-14-từng-mục--mỗi-lệnh-làm-gì)
+9. [Đào sâu 15 cơ chế của §14](#đào-sâu-15-cơ-chế-của-14)
+10. [Sơ đồ sự cố sau reboot — `SelfUser` 404 và cluster `local` `Unavailable`](#sơ-đồ-sự-cố-sau-reboot--selfuser-404-và-cluster-local-unavailable)
+11. [Tự kiểm tra](#tự-kiểm-tra)
 
 <details>
 <summary>Mục lục chi tiết — các phần nhỏ, mục đào sâu và câu hỏi</summary>
@@ -61,11 +62,16 @@ và các cơ chế chuyên sâu. Phần sự cố và bài tự kiểm tra nằm
   - [Split DNS — một tên miền, hai câu trả lời](#split-dns--một-tên-miền-hai-câu-trả-lời)
   - [Bảng từ nhanh](#bảng-từ-nhanh)
   - [Từ nào tra ở đâu](#từ-nào-tra-ở-đâu)
+- [Thứ tự đọc phù hợp — chuẩn bị cho câu 2/6 và 3/6](#thứ-tự-đọc-phù-hợp--chuẩn-bị-cho-câu-26-và-36)
 - [Nền tảng — Helm, cert-manager và Rancher thực chất là gì](#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì)
   - [Helm — trình quản lý gói của Kubernetes](#helm--trình-quản-lý-gói-của-kubernetes)
   - [cert-manager — CRD và chuỗi cấp phát](#cert-manager--crd-và-chuỗi-cấp-phát)
   - [Rancher — thứ gì do chart tạo, thứ gì Rancher tự sinh](#rancher--thứ-gì-do-chart-tạo-thứ-gì-rancher-tự-sinh)
 - [Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`](#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install)
+  - [Sơ đồ 1 — Ai tạo gì trong chuỗi cấp certificate](#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate)
+  - [Sơ đồ 2 — Helm và cert-manager chạy song song](#sơ-đồ-2--helm-và-cert-manager-chạy-song-song)
+  - [Sơ đồ 3 — Theo dõi từng bước qua Kubernetes API](#sơ-đồ-3--theo-dõi-từng-bước-qua-kubernetes-api)
+  - [Đọc gate §14.4 theo từng câu xác nhận](#đọc-gate-144-theo-từng-câu-xác-nhận)
 - [Sơ đồ toàn cảnh — hai đường vào cùng một hostname](#sơ-đồ-toàn-cảnh--hai-đường-vào-cùng-một-hostname)
   - [Luồng nội bộ bên trong Rancher còn thiếu ở phiên bản sơ đồ cũ](#luồng-nội-bộ-bên-trong-rancher-còn-thiếu-ở-phiên-bản-sơ-đồ-cũ)
 - [Đi qua §14 từng mục — mỗi lệnh làm gì](#đi-qua-14-từng-mục--mỗi-lệnh-làm-gì)
@@ -1330,7 +1336,29 @@ Ba nhóm từ bài này dùng nhưng cố ý không định nghĩa lại:
   [`tunnel-traefik.md`](tunnel-traefik.md).
 - **Bộ ba công cụ của §14** — Helm (chart / repo / values / release), cert-manager
   (Issuer → Certificate → Secret, ingress-shim), Rancher (thành phần nào do ai tạo) — có riêng
-  phần [Nền tảng](#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì) ngay dưới.
+  phần [Nền tảng](#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì), sau bảng thứ tự đọc.
+
+## Thứ tự đọc phù hợp — chuẩn bị cho câu 2/6 và 3/6
+
+Nếu đã hiểu đường browser → Edge → tunnel → Traefik nhưng còn mơ hồ về Helm và certificate,
+hãy đọc theo các lượt dưới đây. Trước mắt, tập trung vào **chuẩn bị certificate trước lúc
+client bắt tay TLS**; chưa cần học chi tiết `ClientHello`, `key_share` hoặc `CertificateVerify`.
+
+| Lượt | Đọc ở đâu | Điều cần nắm |
+| --- | --- | --- |
+| **1** | Phần Nền tảng → [Helm — trình quản lý gói của Kubernetes](#helm--trình-quản-lý-gói-của-kubernetes) | Chart, values, release; Helm gửi những gì vào Kubernetes |
+| **2** | Phần Nền tảng → [cert-manager — CRD và chuỗi cấp phát](#cert-manager--crd-và-chuỗi-cấp-phát) | Phân biệt Issuer, Certificate, CertificateRequest và Secret; đối chiếu sơ đồ “Ai tạo gì” bên dưới |
+| **3** | Phần Nền tảng → [Rancher — thứ gì do chart tạo, thứ gì Rancher tự sinh](#rancher--thứ-gì-do-chart-tạo-thứ-gì-rancher-tự-sinh) | Ai tạo từng thành phần; công việc của controller có thể diễn ra trong lúc Helm vẫn đang chờ |
+| **4** | [Runbook §14.1.2 — cài cert-manager](../runbook-k8s-vmware.md#1412-cài-đặt-và-verify), rồi [§14.3 — cài Rancher](../runbook-k8s-vmware.md#143-cài-rancher-helm-pin-2143) | Nối kiến thức với hai lần cài: cài bộ máy cert-manager trước, cài Rancher sau |
+| **5** | [Runbook §14.4 — Gate origin HTTPS nội bộ trước khi publish](../runbook-k8s-vmware.md#144-gate-origin-https-nội-bộ-trước-khi-publish) | Giải nghĩa từng kiểm tra; phân biệt object đã xuất hiện, certificate đã cấp, Secret tồn tại và endpoint trả lời |
+
+Sau lượt 2–3, xem [Ai tạo gì trong chuỗi cấp certificate](#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate)
+và [Helm và cert-manager chạy song song](#sơ-đồ-2--helm-và-cert-manager-chạy-song-song).
+Hai sơ đồ này bổ sung vai trò và thời điểm cho sơ đồ tuần tự.
+
+Muốn học cùng mentor theo từng bài, dùng [Giáo án Helm, certificate và TLS cho Rancher](rancher-mentor-study-plan.md).
+Giáo án đi từ M01 đến M12, có mục tiêu, ví dụ, bài đọc và cách kiểm tra hiểu; chỉ trở lại câu
+2/6 và 3/6 sau khi đã học phần nền tương ứng.
 
 ## Nền tảng — Helm, cert-manager và Rancher thực chất là gì
 
@@ -1371,10 +1399,15 @@ Hai cơ chế Helm còn lại mà §14 dựa vào:
   revision) trong Secret ngay tại namespace của release; `helm list`/`helm status` đọc từ đó.
   Gate §14.0 dùng chính state này để phát hiện cài đặt cũ, và "namespace tồn tại nhưng release
   không tồn tại" là trạng thái mồ côi (cài dở, xóa dở) phải điều tra thay vì cài đè.
-- **`--wait` chỉ chờ được thứ chart render.** `helm install --wait --timeout 15m` theo dõi các
-  resource **do chart tạo ra** tới khi Ready hoặc hết giờ. Resource mà controller khác sinh sau
-  đó (Certificate của cert-manager, các thành phần runtime của Rancher) nằm ngoài tầm mắt của Helm — đây là nguồn
-  gốc của gate chờ riêng ở §14.4 và cách kiểm inventory ở §14.7.
+- **`--wait` có phạm vi chờ, không xác nhận toàn bộ hệ thống.** Helm chờ theo tài nguyên của
+  release và cơ chế readiness được phiên bản/strategy đang dùng hỗ trợ. Trong nhánh Ingress
+  của lab, chart không render `Certificate`; object này do ingress-shim tạo từ Ingress.
+  Helm không tự mở rộng việc chờ sang toàn bộ tài nguyên runtime mà controller khác sinh ra.
+  Vì vậy Helm thành công vẫn cần gate certificate riêng ở §14.4 và inventory ở §14.7.
+  Không suy rộng rằng mọi loại tài nguyên do chart render đều được chờ cùng một condition:
+  chi tiết `--wait` khác giữa Helm 3 và Helm 4. Xem
+  [Helm 3 — install](https://helm.sh/docs/v3/helm/helm_install/) và
+  [Helm — install](https://helm.sh/docs/helm/helm_install/).
 
 Xem [Helm — Using Helm](https://helm.sh/docs/intro/using_helm/).
 
@@ -1390,12 +1423,13 @@ Issuer              "CA của tôi là ai, ký bằng gì"           (khai báo,
 Certificate         "cần cert cho tên X, lưu vào Secret Y"   (khai báo mong muốn)
   ↓ controller sinh
 CertificateRequest  một lần xin ký cụ thể                    (bản ghi giao dịch)
-  ↓ Issuer ký xong
+  ↓ controller ký theo Issuer
 Secret kubernetes.io/tls   tls.crt + tls.key                 (kết quả — thứ Traefik dùng)
 ```
 
-Người dùng (hoặc chart) chỉ tạo hai tầng trên; hai tầng dưới cert-manager tự sinh và tự làm mới
-trước khi cert hết hạn. Ba Deployment chia vai đúng theo chuỗi: `cert-manager` (controller —
+Trong nhánh Ingress của lab, chart tạo `Issuer` và Ingress; ingress-shim tạo `Certificate`
+từ Ingress, còn các controller cấp phát tạo `CertificateRequest`, xử lý ký và ghi Secret.
+`Issuer` là cấu hình cho controller sử dụng, không phải một server riêng nhận request ký. Ba Deployment chia vai đúng theo chuỗi: `cert-manager` (controller —
 chạy chuỗi trên), `cert-manager-webhook` (cổng validate: API server gọi nó để kiểm mọi object
 `Certificate`/`Issuer` lúc tạo — nó chưa Ready thì **không ai tạo được** object nào),
 `cert-manager-cainjector` (tiêm CA bundle vào cấu hình webhook để API server tin webhook).
@@ -1412,24 +1446,26 @@ Rancher là một **management plane**: UI + API + bộ controller quản nhiề
 (auth tập trung, RBAC, catalog app, monitoring…). Trong lab nó quản đúng một cụm — chính cụm nó
 đang chạy trên đó, hiện trong UI là `local`.
 
-Điều làm §14.6–§14.7 khó hiểu nếu không biết trước: **namespace `cattle-system` có hai đợt thành
-phần, do hai "tác giả" tạo ra ở hai thời điểm khác nhau**:
+Điều làm §14.6–§14.7 khó hiểu nếu không biết trước: **tài nguyên của chart và tài nguyên
+runtime do các controller tạo có vòng đời khác nhau**. Bảng ghi rõ cả thành phần trong
+`cattle-system` lẫn agent có phạm vi riêng:
 
-| Thành phần trong `cattle-system` | Ai tạo | Khi nào |
+| Thành phần và phạm vi | Ai tạo | Khi nào |
 | --- | --- | --- |
 | Deployment `rancher`, Service, Ingress, `Issuer` | Helm chart | Lúc `helm install` |
 | Service `imperative-api-extension` + `APIService/v1.ext.cattle.io` | Rancher Server | Lúc runtime khởi động extension API; readiness bất đồng bộ với `/healthz` |
-| `Certificate` + Secret `tls-rancher-ingress` | cert-manager (ingress-shim) | Ngay sau install, bất đồng bộ |
+| `Certificate` + Secret `tls-rancher-ingress` | cert-manager: ingress-shim tạo Certificate; các controller cấp phát ghi Secret | Bắt đầu từ khi Ingress xuất hiện, có thể trong lúc Helm còn chờ |
 | Secret `bootstrap-secret` | Rancher Server | Lần khởi động đầu tiên |
 | Deployment `rancher-webhook` | Rancher Server | Sau khi server chạy |
 | Deployment `fleet-agent` của cụm `local` | Fleet do Rancher quản lý | Có thể được bootstrap tự động trong `cattle-fleet-local-system`; kiểm inventory/cấu hình thực tế, không suy từ danh sách `cattle-system` |
 | Deployment `cattle-cluster-agent` | Rancher Server | **Chỉ ở downstream cluster** khi đăng ký cluster đó — cụm `local` không có |
 | `settings.management.cattle.io` (`server-url`, `agent-tls-mode`…) | Rancher Server | Runtime, chốt từ values và màn hình đăng nhập đầu |
 
-Đợt một là thứ Helm biết và `--wait` chờ được. Đợt hai là thứ Rancher tự sinh **sau khi** Helm đã
-báo xong — Helm không track, `helm uninstall` không dọn hết, và mọi gate liên quan phải chờ/kiểm
-theo cách riêng (`wait --for=create`, xem inventory thật). Ranh giới hai đợt này là sợi chỉ xuyên
-qua các mục đào sâu 9, 14 và 15.
+Helm quản lý tài nguyên của release; việc chờ còn phụ thuộc loại tài nguyên và cơ chế readiness.
+Các controller có thể bắt đầu sinh tài nguyên runtime **trong lúc Helm vẫn đang chạy**, không
+nhất thiết chờ lệnh báo xong. Những tài nguyên đó cần gate riêng (`wait --for=create`, kiểm
+condition, xem inventory); `helm uninstall` cũng không mặc nhiên dọn mọi tài nguyên runtime.
+Ranh giới này xuyên suốt các mục đào sâu 9, 14 và 15.
 
 Về cách Rancher "quản" một cluster, kiến trúc chia hai trường hợp. Với **downstream cluster**,
 server không gọi vào cluster đó; `cattle-cluster-agent` chạy trong downstream **chủ động gọi ra
@@ -1447,29 +1483,145 @@ của downstream gọi về server thì §14 chưa triển khai. Xem
 
 ## Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`
 
-```mermaid
-%%{init: {"themeVariables": {"noteBkgColor": "#f1f5ff", "noteBorderColor": "#8094c4", "noteTextColor": "#10203f"}}}%%
-sequenceDiagram
-    participant H as helm install rancher
-    participant API as Kubernetes API
-    participant CM as cert-manager (ingress-shim)
-    participant I as Issuer của Rancher
-    participant S as Secret tls-rancher-ingress
-    participant T as Traefik
+Ở đây “sau `helm install`” nghĩa là sau khi Helm gửi tài nguyên tới Kubernetes. Controller
+có thể bắt đầu làm việc **khi lệnh Helm vẫn đang chờ**. Chỉ nhìn exit code của Helm chưa đủ
+để biết certificate đã cấp và Traefik đã nạp đúng dữ liệu hay chưa.
 
-    H->>API: Deployment rancher + Issuer + Ingress<br/>(annotation cert-manager.io/issuer)
-    Note over H,API: helm --wait chỉ chờ Deployment Ready<br/>không chờ certificate
-    CM->>API: watch Ingress, thấy spec.tls[].secretName
-    CM->>API: tạo Certificate tên tls-rancher-ingress
-    CM->>I: xin ký bằng CA riêng của Rancher
-    I-->>CM: certificate đã ký
-    CM->>S: ghi tls.crt / tls.key
-    T->>S: đọc Secret khi terminate TLS cho rancher.hieupn.site
-    Note over CM,S: cert-manager tự gia hạn trước khi hết hạn<br/>không ai phải canh ngày
+### Sơ đồ 1 — Ai tạo gì trong chuỗi cấp certificate
+
+Đọc theo ngôn ngữ đơn giản:
+
+1. Helm gửi cấu hình; Kubernetes tạo các tài nguyên của chart và chạy Pod Rancher.
+2. Rancher chuẩn bị CA riêng. `Issuer/rancher` khai CA cần dùng; trong chart hiện tại nó
+   tham chiếu Secret `tls-rancher`.
+3. Ingress khai hostname `rancher.hieupn.site` và tên Secret TLS. `ingress-shim` thấy nhu
+   cầu này rồi tạo object `Certificate`.
+4. Các controller cấp phát sinh khóa, tạo `CertificateRequest`, xử lý ký theo Issuer rồi
+   ghi certificate/private key vào `tls-rancher-ingress`.
+5. Cert-manager phản ánh trạng thái của `Certificate`; Traefik theo dõi cấu hình và nạp
+   dữ liệu Secret để trình certificate khi client bắt tay TLS.
+
+`Certificate` là **object khai nhu cầu cấp chứng chỉ**. Dữ liệu chứng chỉ thực tế nằm trong
+`tls.crt` của Secret. `tls-rancher` chứa CA; `tls-rancher-ingress` chứa certificate/key
+của endpoint Rancher. `Issuer` là cấu hình, không phải một process ký riêng.
+
+Mũi tên sau mô tả **quan hệ tạo và sử dụng tài nguyên**, không phải đường request của browser.
+
+```mermaid
+flowchart TB
+    H["Helm gửi cấu hình Rancher"] --> K["Kubernetes lưu các tài nguyên"]
+
+    K --> R["Deployment làm Pod Rancher chạy"]
+    R --> CA["Rancher chuẩn bị CA trong tls-rancher"]
+
+    K --> I["Ingress khai hostname và Secret TLS"]
+    I --> SH["ingress-shim tạo Certificate"]
+    SH --> REQ["Controller tạo CertificateRequest"]
+
+    K --> ISS["Issuer rancher tham chiếu CA"]
+    ISS --> SIGN["Controller dùng CA để ký"]
+    CA --> SIGN
+    REQ --> SIGN
+
+    SIGN --> S["Ghi certificate và key vào tls-rancher-ingress"]
+    S --> READY["Certificate đạt Ready=True"]
+    S --> T["Traefik nạp certificate và private key"]
+
+    T --> USE["Traefik có certificate để trình cho TLS client"]
 ```
 
-Sơ đồ này giải thích vì sao §14.4 phải có gate riêng chờ `certificate/tls-rancher-ingress`:
-Certificate là resource sinh **bất đồng bộ** bởi controller khác sau khi Helm đã xong việc.
+CA/Issuer phải sử dụng được thì bước ký mới thành công. Sơ đồ không ép mọi controller chạy
+theo một lịch cố định; hai nhánh “CA sẵn sàng” và “yêu cầu cấp” gặp nhau ở công việc ký.
+Certificate Ready và Traefik nạp Secret là hai mốc riêng.
+
+### Sơ đồ 2 — Helm và cert-manager chạy song song
+
+Helm theo dõi phạm vi chờ của release; cert-manager xử lý yêu cầu cấp certificate. Hai nhánh
+có thể tiến triển cùng lúc. Không có quy tắc rằng Helm thành công thì nhánh certificate đã xong.
+
+```mermaid
+sequenceDiagram
+    participant H as Helm
+    participant K as Kubernetes
+    participant C as cert-manager
+    participant T as Traefik
+
+    H->>K: Tạo các tài nguyên của chart Rancher
+
+    par Nhánh chờ của Helm
+        H->>K: Theo dõi readiness của workload
+        K-->>H: Các điều kiện Helm chờ đã đạt
+        H->>H: Báo cài đặt thành công
+    and Nhánh cấp certificate
+        K-->>C: Ingress cần certificate xuất hiện
+        C->>C: Tạo Certificate và xử lý yêu cầu cấp
+        C->>K: Ghi Secret và cập nhật trạng thái Certificate
+        K-->>T: Ingress và Secret được cập nhật
+        T->>T: Nạp certificate để phục vụ HTTPS
+    end
+
+    Note over H,T: Hai nhánh không được bảo đảm hoàn tất cùng lúc
+```
+
+`--wait` không phải lời hứa rằng mọi custom resource hay mọi chức năng Rancher đều sẵn sàng.
+Trong lab, `Certificate` do ingress-shim tạo ngoài manifest của chart Ingress, nên vẫn phải
+chờ riêng ở §14.4. Khi cần mô tả chi tiết `--wait`, đối chiếu đúng phiên bản Helm đang dùng.
+
+### Sơ đồ 3 — Theo dõi từng bước qua Kubernetes API
+
+Sơ đồ này mở rõ các object được tạo và nơi lưu kết quả. Các thao tác đọc/ghi tài nguyên đi
+qua Kubernetes API; Traefik không gửi request xin ký tới cert-manager trong lúc bắt tay TLS.
+Giả định cert-manager hoạt động và CA riêng của Rancher đã được chuẩn bị.
+
+```mermaid
+sequenceDiagram
+    participant H as Helm
+    participant API as Kubernetes API
+    participant CM as cert-manager
+    participant T as Traefik
+
+    H->>API: Tạo Deployment, Service, Issuer và Ingress
+    Note over H,API: Helm chờ theo phạm vi release, chưa chứng minh Certificate Ready
+    T->>API: Theo dõi Ingress và Secret
+    API-->>CM: ingress-shim quan sát Ingress Rancher
+    CM->>API: ingress-shim tạo Certificate tls-rancher-ingress
+    CM->>CM: Controller cấp phát sinh khóa và yêu cầu ký
+    CM->>API: Tạo CertificateRequest và đọc Issuer, Secret CA
+    CM->>CM: Controller ký theo cấu hình CA của Issuer
+    CM->>API: Ghi tls.crt và tls.key vào tls-rancher-ingress
+    CM->>API: Cập nhật Certificate Ready=True
+    API-->>T: Dữ liệu Secret TLS thay đổi
+    T->>T: Nạp certificate và private key
+    Note over CM,T: Khi đến lịch, gia hạn ở nền và cập nhật Secret
+```
+
+Thông báo Secret và cập nhật status được xử lý bất đồng bộ; việc sơ đồ xếp chúng theo dòng
+không bảo đảm Traefik chỉ nhận Secret sau khi status `Ready=True` đã được quan sát.
+
+### Đọc gate §14.4 theo từng câu xác nhận
+
+| Kiểm tra | Câu hỏi được trả lời |
+| --- | --- |
+| `wait --for=create certificate/…` | Object yêu cầu cấp certificate đã xuất hiện chưa? |
+| `wait --for=condition=Ready certificate/…` | Cert-manager đã báo certificate sẵn sàng chưa? |
+| `get issuer,certificate` | Các object cấp phát đang có trạng thái gì? |
+| `get secret tls-rancher-ingress` | Secret kết quả đã tồn tại chưa? |
+| Đọc host/class của Ingress | Cấu hình có nhắm đúng hostname và Traefik không? |
+| `curl -k --resolve … /healthz` | Từ nơi chạy test, đường HTTPS qua Traefik tới Rancher có trả `200` không? |
+
+`Certificate Ready=True`, Secret tồn tại và Traefik nạp đúng certificate là các mốc khác
+nhau. Gate dùng `curl -k` để kiểm đường origin, **bỏ xác minh certificate**; `HTTP 200` riêng
+lẻ không chứng minh client tin CA, Traefik trình đúng certificate mong muốn hay đường public
+qua Cloudflare Access đã hoạt động. Toàn bộ lệnh và điều kiện PASS giữ ở
+[runbook §14.4](../runbook-k8s-vmware.md#144-gate-origin-https-nội-bộ-trước-khi-publish).
+
+Nguồn đối chiếu:
+[cert-manager — Ingress](https://cert-manager.io/docs/usage/ingress/),
+[cert-manager — Certificate](https://cert-manager.io/docs/usage/certificate/),
+[Rancher 2.14.3 — Issuer](https://github.com/rancher/rancher/blob/v2.14.3/chart/templates/ingate/issuer-rancher.yaml),
+[Rancher 2.14.3 — Ingress](https://github.com/rancher/rancher/blob/v2.14.3/chart/templates/ingate/ingress.yaml),
+[Helm 3 — install](https://helm.sh/docs/v3/helm/helm_install/) và
+[Helm — install](https://helm.sh/docs/helm/helm_install/).
 
 ## Sơ đồ toàn cảnh — hai đường vào cùng một hostname
 

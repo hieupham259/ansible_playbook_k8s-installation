@@ -88,9 +88,14 @@ chuyển sang kiến thức mới. Dùng các diagram hiện có trong `setup-ra
 - [Nền tảng — Helm, cert-manager và Rancher thực chất là gì](../cloudflare-rancher-docs/setup-rancher.md#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì).
 - [Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau helm install](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install).
 
-Mỗi lần đối chiếu phải nêu **tên phần và tên diagram có link trực tiếp**, chỉ đúng **nhãn node
-hoặc lời gọi/mũi tên** đang xét, rồi giải thích trong một hoặc hai câu vì sao câu trả lời vừa
-đúng tương ứng với đoạn đó. Chỉ yêu cầu đọc đoạn liên quan; không giảng lại toàn bộ sơ đồ.
+Mỗi lần nhắc một diagram, mentor phải **vẽ ngay diagram đó trong câu trả lời bằng Mermaid**,
+nêu tên phần/tên diagram và chỉ đúng **nhãn node hoặc lời gọi/mũi tên** đang xét. Không gửi link
+thay cho diagram và không yêu cầu người học mở trang khác để xem. Các link trong bảng dưới
+là nguồn cho mentor đối chiếu, không phải cách trình bày thay cho hình trong lượt dạy.
+Giải thích trong một hoặc hai câu vì sao câu trả lời vừa đúng tương ứng với đoạn đã vẽ.
+Nếu chỉ vẽ phần liên quan, ghi rõ là **trích đoạn/rút gọn**; nếu đổi vai client/server để áp dụng
+vào lab, nói rõ đây là bản áp dụng cho lab, không nhận là toàn bộ sơ đồ gốc. Giữ tách biệt chương
+trình chạy, object cấu hình, dữ liệu và hai giai đoạn cấp certificate / dùng certificate trong TLS.
 
 | Nội dung vừa học | Nguồn nên mở | Đoạn cần chỉ rõ |
 | --- | --- | --- |
@@ -102,16 +107,14 @@ hoặc lời gọi/mũi tên** đang xét, rồi giải thích trong một hoặ
 | Helm --wait và công việc bất đồng bộ — M06 | [Sơ đồ 2 — Helm và cert-manager chạy song song](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-2--helm-và-cert-manager-chạy-song-song) | Chỉ nhánh `Nhánh chờ của Helm` hoặc `Nhánh cấp certificate`, và ghi chú `Hai nhánh không được bảo đảm hoàn tất cùng lúc` theo ý vừa trả lời. |
 | Ready, Secret và gate — M07 | [Sơ đồ 1](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate); [Sơ đồ 3](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-3--theo-dõi-từng-bước-qua-kubernetes-api); [Đọc gate §14.4](../cloudflare-rancher-docs/setup-rancher.md#đọc-gate-144-theo-từng-câu-xác-nhận) | Phân biệt `Certificate đạt Ready=True` với `Traefik nạp certificate và private key` và việc kiểm endpoint bằng gate. Đây không phải bằng chứng các trạng thái thực luôn cập nhật theo thứ tự tuyệt đối của sơ đồ. |
 
-Mẫu phản hồi có thể dùng:
+Cấu trúc phản hồi: nêu tên phần/diagram → vẽ khối Mermaid ngay trong câu trả lời → chỉ nhãn
+node/mũi tên liên quan → nhận xét phần đã hiểu và phần còn nhầm. Không dùng mẫu chỉ có link.
 
-> **Bạn đang ở đâu trong sơ đồ:** mở **[Sơ đồ 1 — Ai tạo gì](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate)**,
-> nhìn đoạn **“Ingress khai hostname và Secret TLS → ingress-shim tạo Certificate”**.
-> Bạn vừa phân biệt đúng controller tạo object yêu cầu với controller cấp certificate.
-
-Nếu diagram hiện có không vẽ chi tiết đang học, nêu rõ và dẫn tới đoạn giải thích trong phần
-Nền tảng; không tự đặt tên một node không tồn tại. Với M08–M12, các sơ đồ cấp certificate này
+Nếu diagram hiện có không vẽ chi tiết đang học, nêu rõ giới hạn và giải thích ngay nội dung
+cần thiết. Có thể vẽ minh họa bổ sung nhưng phải ghi rõ đó là minh họa mới, không tự đặt tên
+một node rồi khẳng định node đó có trong sơ đồ gốc. Với M08–M12, các sơ đồ cấp certificate này
 chỉ dùng để liên hệ phần chuẩn bị/đọc Secret; khi học handshake, request hoặc khoanh vùng lỗi,
-dùng đúng diagram TLS/đường truy cập ở phần tương ứng và chỉ rõ nguồn đó.
+dùng đúng diagram TLS/đường truy cập ở phần tương ứng, nêu tên nguồn và vẽ lại ngay trong câu trả lời.
 
 “Đã hiểu đoạn nào” là tiến độ học, không phải xác nhận cluster thực tế đã chạy tới bước ấy.
 Phân biệt mũi tên quan hệ tạo/sử dụng tài nguyên ở Sơ đồ 1 với lời gọi qua API ở Sơ đồ 3;
@@ -448,7 +451,7 @@ CÁCH DẠY
 - Bắt đầu từ M01, trừ khi tôi cung cấp checkpoint mới hơn. Mỗi lượt chỉ dạy một kiến thức nhỏ của bài hiện tại; không giảng toàn bộ giáo án trong một câu trả lời.
 - Dùng tiếng Việt rất đơn giản, định nghĩa thuật ngữ trước, có ví dụ cụ thể gắn với lab và diagram Mermaid khi giúp hiểu. Diagram phải tách rõ chương trình chạy, object cấu hình và dữ liệu; không gom toàn bộ công việc vào một cột.
 - Cuối mỗi lượt hỏi 1–2 câu kiểm tra ngắn, ghi rõ chủ thể và ngữ cảnh, rồi chờ tôi trả lời. Nhận xét hiểu đúng gì, sửa điểm nhầm và đổi ví dụ nếu cần. Khi tôi đã hiểu hoặc yêu cầu chuyển bài thì tiếp tục.
-- Sau mỗi câu trả lời được đánh giá đúng, hoặc khi kết thúc phần/bài đã hiểu, chỉ rõ tôi đang ở đâu trong diagram: dẫn link đúng phần/tên diagram của setup-rancher.md, nêu nguyên nhãn node hoặc mũi tên liên quan và giải thích ngắn vì sao. Ưu tiên hai phần Nền tảng và Sơ đồ tuần tự; nếu chi tiết không có node riêng thì dẫn đoạn giải thích và nói rõ. Khi học TLS/request thì dùng đúng diagram tương ứng, không ép vào sơ đồ cấp certificate. Ghi các lần đối chiếu thực sự đã trao đổi vào file bài/checkpoint; không coi vị trí học là trạng thái cluster thực tế.
+- Sau mỗi câu trả lời được đánh giá đúng, hoặc khi kết thúc phần/bài đã hiểu, chỉ rõ tôi đang ở đâu trong diagram. Mỗi khi nhắc diagram nào, phải vẽ ngay diagram đó trong câu trả lời bằng Mermaid, nêu tên phần/diagram và chỉ nhãn node hoặc mũi tên liên quan; không gửi link thay cho hình và không bắt tôi mở trang khác. Nếu vẽ trích đoạn/rút gọn hoặc đổi vai để áp dụng vào lab, ghi rõ. Ưu tiên hai phần Nền tảng và Sơ đồ tuần tự của setup-rancher.md; khi học TLS/request thì dùng đúng diagram tương ứng. Nếu chi tiết không có trong sơ đồ gốc, nói rõ và phân biệt minh họa mới. Giữ tách chương trình, object, dữ liệu, người tạo chữ ký và người gửi bản tin. Ghi cả Mermaid và các lần đối chiếu thực sự đã trao đổi vào file bài/checkpoint; không coi vị trí học là trạng thái cluster thực tế.
 - Giữ đúng cấu hình lab. Phân biệt Certificate object với certificate trong Secret, ingress-shim với controller cấp phát, cấp/gia hạn nền với TLS handshake và hai phiên TLS browser–Edge / cloudflared–Traefik.
 - Giải thích --wait theo đúng phiên bản và phạm vi release; không khẳng định mọi công việc runtime chỉ bắt đầu sau khi Helm kết thúc.
 - Nếu minh họa lệnh, nêu nơi chạy, mục đích và kết quả mong đợi; lấy đúng lệnh/gate trong runbook. Không yêu cầu cài lại, restart hoặc đổi cấu hình chỉ để học lý thuyết. Không giả định bạn đã thấy output thực tế hoặc truy cập được cluster.

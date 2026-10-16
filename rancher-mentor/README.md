@@ -20,14 +20,16 @@ Xem [quy tắc chi tiết trong giáo án](rancher-mentor-study-plan.md#lưu-đ�
 ## Đối chiếu vị trí trong diagram
 
 Sau mỗi câu trả lời được đánh giá đúng hoặc khi hoàn tất một phần/bài, mentor chỉ rõ **phần,
-tên diagram có link, nhãn node/mũi tên và ý nghĩa của đoạn vừa hiểu**. Dùng
+tên diagram, nhãn node/mũi tên và ý nghĩa của đoạn vừa hiểu**. **Khi nhắc một diagram, phải vẽ
+ngay bằng Mermaid trong câu trả lời; không gửi link thay cho hình hoặc bắt người học mở trang khác.** Dùng
 [Nền tảng](../cloudflare-rancher-docs/setup-rancher.md#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì)
 và [chuỗi cấp certificate](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install)
 để đối chiếu. Xem [bảng hướng dẫn trong giáo án](rancher-mentor-study-plan.md#đối-chiếu-diagram-sau-mỗi-phần-đã-hiểu).
 
-Các lần đối chiếu thực sự đã trao đổi sẽ được giữ trong file bài và checkpoint. Nếu diagram
-không có node riêng cho chi tiết đang học, mentor dẫn đúng đoạn giải thích và nói rõ giới hạn.
-Đây là tiến độ hiểu bài, không phải trạng thái cluster thực tế.
+Các lần đối chiếu và Mermaid thực sự đã đưa trong hội thoại sẽ được giữ trong file bài và
+checkpoint. Nếu vẽ trích đoạn/rút gọn hoặc đổi vai client/server cho lab, phải nói rõ. Nếu diagram
+không có node riêng cho chi tiết đang học, giải thích ngay và nói rõ giới hạn; minh họa mới phải
+được phân biệt với sơ đồ gốc. Đây là tiến độ hiểu bài, không phải trạng thái cluster thực tế.
 
 ## Tiến độ và danh sách bài
 
@@ -69,10 +71,19 @@ Không dùng việc tạo thư mục hoặc chuyển giáo án để xác nhận
   bí mật tương ứng. Certificate được phép gửi cho client; private key phải được giữ kín.
 - **Ví dụ:** khi Traefik đã nạp certificate Rancher đúng cấu hình lab từ Secret
   `tls-rancher-ingress`, certificate dành cho `rancher.hieupn.site` được trình cho client.
-- **Câu kiểm tra M03 đang chờ trả lời:** “Giả sử Traefik đã nạp certificate Rancher đúng cấu hình
-  lab. Trong hai thứ certificate và private key tương ứng, Traefik gửi thứ nào cho cloudflared,
-  giữ kín thứ nào?”
-- **Phần tiếp theo:** kiểm tra phân biệt certificate/private key, rồi tiếp tục vai trò khóa và CA.
+- **Người học đã tự giải thích đúng ở M03:** Traefik gửi certificate, giữ kín private key;
+  CertificateVerify hợp lệ chứng minh bên kia giữ private key tương ứng, còn noTLSVerify=true
+  chưa xác minh danh tính endpoint qua CA/hostname.
+- **Điểm còn nhầm:** người học chọn khóa Traefik cho chữ ký có sẵn trên certificate và gọi
+  Certificate / CertificateVerify là hai certificates. Cần tách người tạo chữ ký với người gửi:
+  controller dùng khóa CA ký certificate trước; Traefik gửi certificate đó rồi ký dữ liệu handshake
+  bằng khóa HTTPS riêng để tạo CertificateVerify trong ví dụ TLS 1.3.
+- **Cách định vị từ lượt này:** vẽ diagram trực tiếp trong câu trả lời bằng Mermaid; không chỉ gửi link.
+  Phân biệt giai đoạn cấp certificate với đoạn Traefik gửi Certificate và CertificateVerify cho cloudflared.
+- **Câu kiểm tra M03 đang chờ sau phần sửa nhầm:** “Trong bản tin Certificate do Traefik gửi,
+  ai đã tạo chữ ký có sẵn trên certificate, dùng khóa của CA hay khóa HTTPS của Traefik?”
+- **Phần tiếp theo:** củng cố chữ ký CA trên certificate / chữ ký Traefik trong handshake;
+  chưa xác nhận hoàn tất M03.
 - **Câu 2/6 và 3/6:** chưa trả lời/chấm lượt mới; giữ mốc sau M07 và M12.
 - **Cluster thực tế:** chưa có output được cung cấp trong các bài này. Ví dụ là giả định để học,
   không phải kết quả kiểm tra cluster.

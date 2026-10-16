@@ -68,6 +68,7 @@ từng bước §14 và các cơ chế chuyên sâu. Phần sự cố và bài t
   - [cert-manager — CRD và chuỗi cấp phát](#cert-manager--crd-và-chuỗi-cấp-phát)
   - [Rancher — thứ gì do chart tạo, thứ gì Rancher tự sinh](#rancher--thứ-gì-do-chart-tạo-thứ-gì-rancher-tự-sinh)
 - [Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`](#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install)
+  - [Controller nào cấp certificate và ai gửi hai bản tin TLS?](#controller-nào-cấp-certificate-và-ai-gửi-hai-bản-tin-tls)
   - [Sơ đồ 1 — Ai tạo gì trong chuỗi cấp certificate](#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate)
   - [Sơ đồ 2 — Helm và cert-manager chạy song song](#sơ-đồ-2--helm-và-cert-manager-chạy-song-song)
   - [Sơ đồ 3 — Theo dõi từng bước qua Kubernetes API](#sơ-đồ-3--theo-dõi-từng-bước-qua-kubernetes-api)
@@ -1486,6 +1487,96 @@ của downstream gọi về server thì §14 chưa triển khai. Xem
 Ở đây “sau `helm install`” nghĩa là sau khi Helm gửi tài nguyên tới Kubernetes. Controller
 có thể bắt đầu làm việc **khi lệnh Helm vẫn đang chờ**. Chỉ nhìn exit code của Helm chưa đủ
 để biết certificate đã cấp và Traefik đã nạp đúng dữ liệu hay chưa.
+
+### Controller nào cấp certificate và ai gửi hai bản tin TLS?
+
+**Không phải `ingress-shim` thực hiện việc ký certificate hay ghi Secret TLS cuối cùng.**
+Trong Deployment `cert-manager` có nhiều controller. Mỗi controller là phần chương trình
+theo dõi một loại công việc và xử lý để trạng thái thực tiến gần trạng thái được khai báo.
+
+| Controller | Nhiệm vụ trong lab |
+|---|---|
+| **`ingress-shim`** | Đọc Ingress và tạo **object `Certificate`**, khai nhu cầu cấp chứng chỉ. |
+| **`certificaterequests-issuer-ca`** | Xử lý `CertificateRequest` theo CA Issuer: dùng private key CA để **ký certificate**, trả kết quả để lưu vào `CertificateRequest.status.certificate`. |
+| **`certificates-issuing`** | Lấy certificate đã ký và private key HTTPS đã được chuẩn bị, rồi ghi vào **Secret `tls-rancher-ingress`**. |
+
+Vì vậy, **khâu ký và khâu ghi Secret do hai controller khác nhau thực hiện**.
+`Issuer/rancher` là object cấu hình chỉ CA cần dùng; nó không phải chương trình ký.
+Trong lab, Issuer này tham chiếu Secret `tls-rancher`.
+
+**Endpoint Rancher** ở đoạn này là điểm phục vụ HTTPS cho `rancher.hieupn.site`, do
+**Traefik** đảm nhiệm. Client TLS đang kết nối tới Traefik là **`cloudflared`**.
+
+| Private key | Nằm trong Secret | Ai dùng và dùng làm gì? |
+|---|---|---|
+| **Private key của CA** | `tls-rancher` | `certificaterequests-issuer-ca` dùng để ký certificate cho hostname Rancher. |
+| **Private key HTTPS của endpoint Rancher** | `tls-rancher-ingress` | Traefik dùng để chứng minh mình giữ khóa tương ứng với public key trong certificate, ví dụ ký `CertificateVerify` ở TLS 1.3. |
+
+Trong diagram dưới đây, nhãn **Controller cert-manager** đại diện cho các controller
+bên trong Deployment `cert-manager`; tên controller thực hiện từng việc được ghi trên mũi tên.
+Đây là bản rút gọn: các bước chuẩn bị private key HTTPS và tạo `CertificateRequest`
+được gom vào ghi chú. Phần TLS chỉ trích hai bản tin của một lần bắt tay TLS 1.3 mới
+có dùng certificate; các bản tin khác, như `ClientHello`, `ServerHello` và `Finished`,
+được lược bỏ. Nó không khẳng định phiên TLS thực tế của lab đã thương lượng phiên bản nào.
+
+```mermaid
+sequenceDiagram
+    participant CM as Controller cert-manager
+    participant API as Kubernetes API
+    participant T as Traefik
+    participant C as cloudflared
+
+    CM->>API: ingress-shim tạo object Certificate
+    Note over CM,API: Các controller chuẩn bị khóa HTTPS và CertificateRequest
+    CM->>API: certificaterequests-issuer-ca đọc khóa CA từ tls-rancher
+    API-->>CM: Dữ liệu CA trong Secret
+    CM->>CM: certificaterequests-issuer-ca ký certificate
+    CM->>API: Ghi certificate đã ký vào CertificateRequest
+    CM->>API: certificates-issuing ghi cert và key vào tls-rancher-ingress
+    T->>API: Đọc Secret tls-rancher-ingress
+    API-->>T: Certificate có chữ ký CA và private key HTTPS
+
+    Note over T,C: Trích đoạn handshake TLS 1.3
+    rect rgb(230, 245, 255)
+        T-->>C: Certificate đã có chữ ký CA
+    end
+    T->>T: Ký dữ liệu handshake bằng private key HTTPS
+    rect rgb(230, 245, 255)
+        T-->>C: CertificateVerify mang chữ ký Traefik
+    end
+    C->>C: Kiểm chữ ký Traefik bằng public key trong certificate
+```
+
+Đọc bằng ngôn ngữ đơn giản:
+
+1. `ingress-shim` thấy Ingress cần certificate, nên tạo object `Certificate`.
+2. Các controller chuẩn bị private key HTTPS và object `CertificateRequest` để xin cấp certificate.
+3. `certificaterequests-issuer-ca` đọc khóa CA trong `tls-rancher`, ký certificate và trả kết quả về `CertificateRequest`.
+4. `certificates-issuing` ghi certificate đã ký cùng private key HTTPS tương ứng vào `tls-rancher-ingress`.
+5. Traefik đọc Secret này để lấy certificate và private key HTTPS.
+6. **Traefik → `cloudflared`: gửi certificate đã có chữ ký CA từ trước.** Certificate chứa public key của endpoint và thông tin hostname; private key HTTPS không được gửi đi.
+7. Traefik dùng private key HTTPS để ký dữ liệu của lần bắt tay hiện tại.
+8. **Traefik → `cloudflared`: gửi bản tin `CertificateVerify` chứa chữ ký vừa tạo.** Đây là chữ ký trong handshake, không phải certificate thứ hai.
+9. `cloudflared` dùng public key trong certificate để kiểm chữ ký ở bước 8. Kiểm đúng chứng minh bên đang kết nối giữ private key tương ứng.
+
+Hai chữ ký có hai người tạo và hai mục đích:
+
+| Chữ ký | Ai tạo? | Ai gửi sang `cloudflared`? | Ý nghĩa khi kiểm tra thành công |
+|---|---|---|---|
+| **Chữ ký CA trên certificate** | Controller `certificaterequests-issuer-ca`, dùng private key CA trước khi handshake diễn ra. | Traefik gửi certificate đã chứa chữ ký này ở bước 6. | CA đã ký xác nhận sự gắn kết giữa hostname và public key của endpoint. Client còn phải kiểm tra CA có được tin cậy và hostname có khớp hay không. |
+| **Chữ ký trong `CertificateVerify`** | Traefik, dùng private key HTTPS trong lần handshake hiện tại. | Traefik gửi bản tin `CertificateVerify` ở bước 8. | Bên đang kết nối giữ private key tương ứng với public key trong certificate vừa trình. |
+
+Với `noTLSVerify: true` trong lab, `cloudflared` bỏ kiểm tra độ tin cậy của certificate
+theo CA và hostname, nhưng vẫn kiểm chứng mật mã của handshake. Vì vậy, bước 9
+chưa đủ xác nhận bên kia đúng là endpoint Rancher mong muốn. Việc cấp/gia hạn certificate
+chạy nền cũng không phải việc ký lại certificate mỗi khi client kết nối.
+
+Tên controller được đối chiếu theo cert-manager `v1.21.1` mà runbook dùng:
+[ingress-shim](https://github.com/cert-manager/cert-manager/blob/v1.21.1/pkg/controller/certificate-shim/ingresses/controller.go),
+[certificaterequests-issuer-ca](https://github.com/cert-manager/cert-manager/blob/v1.21.1/pkg/controller/certificaterequests/ca/ca.go),
+[certificates-issuing](https://github.com/cert-manager/cert-manager/blob/v1.21.1/pkg/controller/certificates/issuing/issuing_controller.go).
+Bản tin `CertificateVerify` được mô tả trong
+[TLS 1.3, RFC 8446 §4.4.3](https://www.rfc-editor.org/rfc/rfc8446.html#section-4.4.3).
 
 ### Sơ đồ 1 — Ai tạo gì trong chuỗi cấp certificate
 

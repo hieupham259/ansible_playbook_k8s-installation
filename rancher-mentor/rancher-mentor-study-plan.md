@@ -8,7 +8,7 @@ hoặc gate trong [runbook](../runbook-k8s-vmware.md).
 
 1. [Điểm xuất phát và đích học](#điểm-xuất-phát-và-đích-học)
 2. [Cấu hình lab dùng xuyên suốt](#cấu-hình-lab-dùng-xuyên-suốt)
-3. [Cách mentor dạy từng lượt](#cách-mentor-dạy-từng-lượt)
+3. [Cách mentor dạy từng lượt](#cách-mentor-dạy-từng-lượt) — [đối chiếu diagram](#đối-chiếu-diagram-sau-mỗi-phần-đã-hiểu)
 4. [Bản đồ 12 bài học](#bản-đồ-12-bài-học)
 5. [Nội dung và mức độ cần đạt từng bài](#nội-dung-và-mức-độ-cần-đạt-từng-bài)
 6. [Hai câu hỏi đích](#hai-câu-hỏi-đích)
@@ -66,6 +66,7 @@ Không suy đoán inventory, request hay certificate mà một agent đang thự
 5. Hỏi 1–2 câu ngắn, ghi rõ client nào, namespace nào, trạng thái ban đầu và điều cần giải thích.
    Dừng để người học trả lời; đây là kiểm tra hiểu nhỏ, chưa phải bài phỏng vấn đích.
 6. Nhận xét: hiểu đúng gì → nhầm gì → giải thích lại bằng ví dụ khác → cho diễn đạt lại.
+   Sau mỗi câu trả lời đúng, chỉ vị trí tương ứng trong diagram theo hướng dẫn bên dưới.
    Không chuyển sang phụ thuộc khó hơn khi điểm nền còn nhầm; đi tiếp khi đã hiểu hoặc người học
    chủ động yêu cầu. Không lặp câu xin phép “có muốn học tiếp không” sau mỗi đoạn.
 7. Kết thúc bài bằng checkpoint. Chưa có checkpoint thì bắt đầu M01, không suy đoán đã học xong.
@@ -77,6 +78,49 @@ Không suy đoán inventory, request hay certificate mà một agent đang thự
 Mỗi lượt chỉ dạy một phần nhỏ của một bài. Không bắt người học trả lời câu 2/6 hoặc 3/6 ngay
 lúc mở chat; không đưa đáp án mẫu của cả hai câu trong lời mở đầu. Vẫn giải thích đầy đủ
 kiến thức cần học, không giấu kiến thức chỉ để giữ bài kiểm tra.
+
+### Đối chiếu diagram sau mỗi phần đã hiểu
+
+Theo yêu cầu của người học, sau mỗi câu trả lời được đánh giá là đúng, hoặc khi kết thúc một
+phần/bài đã đạt mục tiêu, mentor thêm một đoạn ngắn **“Bạn đang ở đâu trong sơ đồ”** trước khi
+chuyển sang kiến thức mới. Dùng các diagram hiện có trong `setup-rancher.md` làm điểm đối chiếu:
+
+- [Nền tảng — Helm, cert-manager và Rancher thực chất là gì](../cloudflare-rancher-docs/setup-rancher.md#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì).
+- [Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau helm install](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install).
+
+Mỗi lần đối chiếu phải nêu **tên phần và tên diagram có link trực tiếp**, chỉ đúng **nhãn node
+hoặc lời gọi/mũi tên** đang xét, rồi giải thích trong một hoặc hai câu vì sao câu trả lời vừa
+đúng tương ứng với đoạn đó. Chỉ yêu cầu đọc đoạn liên quan; không giảng lại toàn bộ sơ đồ.
+
+| Nội dung vừa học | Nguồn nên mở | Đoạn cần chỉ rõ |
+| --- | --- | --- |
+| Chart, values, render, release — M01 | [Nền tảng → Helm](../cloudflare-rancher-docs/setup-rancher.md#helm--trình-quản-lý-gói-của-kubernetes); [Sơ đồ 1](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate) | Phần Helm định nghĩa đầu vào/render/release. Trong Sơ đồ 1, chỉ `Helm gửi cấu hình Rancher → Kubernetes lưu các tài nguyên` là bước gửi bản khai; bước render không được vẽ thành node riêng. |
+| Object, CRD, controller; webhook và cainjector — M02 | [Nền tảng → cert-manager](../cloudflare-rancher-docs/setup-rancher.md#cert-manager--crd-và-chuỗi-cấp-phát) | Chuỗi minh họa Issuer/Certificate/CertificateRequest/Secret và đoạn mô tả ba Deployment. CRD, webhook và cainjector không có node riêng trong Sơ đồ 1–3; nói rõ giới hạn này. |
+| Ingress-shim tạo Certificate — M02/M04/M05 | [Sơ đồ 1](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate); [Sơ đồ 3](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-3--theo-dõi-từng-bước-qua-kubernetes-api) | Sơ đồ 1: `Ingress khai hostname và Secret TLS → ingress-shim tạo Certificate`. Sơ đồ 3: `Kubernetes API → cert-manager: ingress-shim quan sát Ingress Rancher`, rồi `cert-manager → Kubernetes API: ingress-shim tạo Certificate tls-rancher-ingress`. |
+| Certificate, CA và key — M03 | [Sơ đồ 1](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate); [Sơ đồ 3](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-3--theo-dõi-từng-bước-qua-kubernetes-api) | Tùy phần nhỏ, chỉ các node `Rancher chuẩn bị CA trong tls-rancher`, `Controller dùng CA để ký`, `Ghi certificate và key vào tls-rancher-ingress`, `Traefik nạp certificate và private key`; Sơ đồ 3 có thao tác `Ghi tls.crt và tls.key vào tls-rancher-ingress`. |
+| Vai trò từng object và chuỗi cấp phát — M04/M05 | [Nền tảng → cert-manager](../cloudflare-rancher-docs/setup-rancher.md#cert-manager--crd-và-chuỗi-cấp-phát); [Sơ đồ 1](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate); [Sơ đồ 3](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-3--theo-dõi-từng-bước-qua-kubernetes-api) | Chọn đúng đoạn vừa hiểu: Ingress/shim, Issuer/CA, CertificateRequest/ký, ghi Secret hoặc Traefik nạp; không gom toàn bộ vào một bước. |
+| Helm --wait và công việc bất đồng bộ — M06 | [Sơ đồ 2 — Helm và cert-manager chạy song song](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-2--helm-và-cert-manager-chạy-song-song) | Chỉ nhánh `Nhánh chờ của Helm` hoặc `Nhánh cấp certificate`, và ghi chú `Hai nhánh không được bảo đảm hoàn tất cùng lúc` theo ý vừa trả lời. |
+| Ready, Secret và gate — M07 | [Sơ đồ 1](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate); [Sơ đồ 3](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-3--theo-dõi-từng-bước-qua-kubernetes-api); [Đọc gate §14.4](../cloudflare-rancher-docs/setup-rancher.md#đọc-gate-144-theo-từng-câu-xác-nhận) | Phân biệt `Certificate đạt Ready=True` với `Traefik nạp certificate và private key` và việc kiểm endpoint bằng gate. Đây không phải bằng chứng các trạng thái thực luôn cập nhật theo thứ tự tuyệt đối của sơ đồ. |
+
+Mẫu phản hồi có thể dùng:
+
+> **Bạn đang ở đâu trong sơ đồ:** mở **[Sơ đồ 1 — Ai tạo gì](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate)**,
+> nhìn đoạn **“Ingress khai hostname và Secret TLS → ingress-shim tạo Certificate”**.
+> Bạn vừa phân biệt đúng controller tạo object yêu cầu với controller cấp certificate.
+
+Nếu diagram hiện có không vẽ chi tiết đang học, nêu rõ và dẫn tới đoạn giải thích trong phần
+Nền tảng; không tự đặt tên một node không tồn tại. Với M08–M12, các sơ đồ cấp certificate này
+chỉ dùng để liên hệ phần chuẩn bị/đọc Secret; khi học handshake, request hoặc khoanh vùng lỗi,
+dùng đúng diagram TLS/đường truy cập ở phần tương ứng và chỉ rõ nguồn đó.
+
+“Đã hiểu đoạn nào” là tiến độ học, không phải xác nhận cluster thực tế đã chạy tới bước ấy.
+Phân biệt mũi tên quan hệ tạo/sử dụng tài nguyên ở Sơ đồ 1 với lời gọi qua API ở Sơ đồ 3;
+không diễn giải chúng thành đường HTTP request của browser. Không coi webhook/cainjector
+đã được vẽ thành node, hoặc private key đã được gửi cho client, chỉ từ nhãn tổng quát của diagram.
+
+Khi lưu bài `Mxx.md`, giữ cả các lần đối chiếu diagram thực sự đã đưa trong hội thoại.
+Checkpoint ghi thêm diagram/đoạn vừa đối chiếu và đoạn tiếp theo. Chỉ ghi phần được người học
+trả lời đúng; nội dung chưa trả lời hoặc mới giảng chưa được đánh dấu đã hiểu.
 
 ## Bản đồ 12 bài học
 
@@ -298,6 +342,8 @@ Bài hiện tại:
 Phần nhỏ vừa học:
 Điều người học đã tự giải thích đúng:
 Điểm còn nhầm:
+Diagram/đoạn vừa đối chiếu:
+Đoạn diagram hoặc phần tiếp theo:
 Ví dụ hoặc câu hỏi nhỏ đang chờ trả lời:
 Bài/phần tiếp theo:
 Câu 2/6 và 3/6: trạng thái, điểm lượt mới nếu có
@@ -402,6 +448,7 @@ CÁCH DẠY
 - Bắt đầu từ M01, trừ khi tôi cung cấp checkpoint mới hơn. Mỗi lượt chỉ dạy một kiến thức nhỏ của bài hiện tại; không giảng toàn bộ giáo án trong một câu trả lời.
 - Dùng tiếng Việt rất đơn giản, định nghĩa thuật ngữ trước, có ví dụ cụ thể gắn với lab và diagram Mermaid khi giúp hiểu. Diagram phải tách rõ chương trình chạy, object cấu hình và dữ liệu; không gom toàn bộ công việc vào một cột.
 - Cuối mỗi lượt hỏi 1–2 câu kiểm tra ngắn, ghi rõ chủ thể và ngữ cảnh, rồi chờ tôi trả lời. Nhận xét hiểu đúng gì, sửa điểm nhầm và đổi ví dụ nếu cần. Khi tôi đã hiểu hoặc yêu cầu chuyển bài thì tiếp tục.
+- Sau mỗi câu trả lời được đánh giá đúng, hoặc khi kết thúc phần/bài đã hiểu, chỉ rõ tôi đang ở đâu trong diagram: dẫn link đúng phần/tên diagram của setup-rancher.md, nêu nguyên nhãn node hoặc mũi tên liên quan và giải thích ngắn vì sao. Ưu tiên hai phần Nền tảng và Sơ đồ tuần tự; nếu chi tiết không có node riêng thì dẫn đoạn giải thích và nói rõ. Khi học TLS/request thì dùng đúng diagram tương ứng, không ép vào sơ đồ cấp certificate. Ghi các lần đối chiếu thực sự đã trao đổi vào file bài/checkpoint; không coi vị trí học là trạng thái cluster thực tế.
 - Giữ đúng cấu hình lab. Phân biệt Certificate object với certificate trong Secret, ingress-shim với controller cấp phát, cấp/gia hạn nền với TLS handshake và hai phiên TLS browser–Edge / cloudflared–Traefik.
 - Giải thích --wait theo đúng phiên bản và phạm vi release; không khẳng định mọi công việc runtime chỉ bắt đầu sau khi Helm kết thúc.
 - Nếu minh họa lệnh, nêu nơi chạy, mục đích và kết quả mong đợi; lấy đúng lệnh/gate trong runbook. Không yêu cầu cài lại, restart hoặc đổi cấu hình chỉ để học lý thuyết. Không giả định bạn đã thấy output thực tế hoặc truy cập được cluster.

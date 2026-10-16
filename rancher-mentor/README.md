@@ -17,6 +17,18 @@ xét sửa nhầm và các lượt trả lời lại. Kết thúc bằng checkpo
 đáp án mẫu/tóm tắt, không bịa nội dung chưa trao đổi và không tạo trước file bài chưa hoàn tất.
 Xem [quy tắc chi tiết trong giáo án](rancher-mentor-study-plan.md#lưu-đầy-đủ-từng-bài-sau-khi-hoàn-tất).
 
+## Đối chiếu vị trí trong diagram
+
+Sau mỗi câu trả lời được đánh giá đúng hoặc khi hoàn tất một phần/bài, mentor chỉ rõ **phần,
+tên diagram có link, nhãn node/mũi tên và ý nghĩa của đoạn vừa hiểu**. Dùng
+[Nền tảng](../cloudflare-rancher-docs/setup-rancher.md#nền-tảng--helm-cert-manager-và-rancher-thực-chất-là-gì)
+và [chuỗi cấp certificate](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install)
+để đối chiếu. Xem [bảng hướng dẫn trong giáo án](rancher-mentor-study-plan.md#đối-chiếu-diagram-sau-mỗi-phần-đã-hiểu).
+
+Các lần đối chiếu thực sự đã trao đổi sẽ được giữ trong file bài và checkpoint. Nếu diagram
+không có node riêng cho chi tiết đang học, mentor dẫn đúng đoạn giải thích và nói rõ giới hạn.
+Đây là tiến độ hiểu bài, không phải trạng thái cluster thực tế.
+
 ## Tiến độ và danh sách bài
 
 | Bài | Nội dung | Trạng thái | File khi hoàn tất |
@@ -47,6 +59,11 @@ Không dùng việc tạo thư mục hoặc chuyển giáo án để xác nhận
 - **Câu hỏi phụ M02 chưa được trả lời trực tiếp:** nguồn sinh annotation chỉ Issuer; Issuer là
   object cấu hình hay chương trình. Nội dung đã được giảng và lưu đầy đủ, sẽ củng cố ở M04;
   không ghi các câu này là đã được người học tự giải thích đúng.
+- **Đoạn đã hiểu để đối chiếu:** câu trả lời về ingress-shim khớp với
+  [Sơ đồ 1](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate),
+  đoạn `Ingress khai hostname và Secret TLS → ingress-shim tạo Certificate`.
+  Cainjector được giải thích ở [Nền tảng → cert-manager](../cloudflare-rancher-docs/setup-rancher.md#cert-manager--crd-và-chuỗi-cấp-phát);
+  Sơ đồ 1–3 không có node riêng cho nó.
 - **Bài hiện tại:** M03 — Certificate, CA và key ở mức cần thiết.
 - **Phần mở đầu:** certificate gắn hostname với public key (khóa công khai); private key là khóa
   bí mật tương ứng. Certificate được phép gửi cho client; private key phải được giữ kín.

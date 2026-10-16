@@ -27,7 +27,7 @@ hoặc gate trong [runbook](../runbook-k8s-vmware.md).
 - Chặng B, M08–M12: một phiên TLS → hai phiên TLS của lab → origin parameters → khoanh vùng lỗi.
 - Không đòi người học đọc hết tài liệu hoặc thực hành cài lại trước khi được giải thích.
 
-Mở [bảng thứ tự đọc trong setup-rancher.md](setup-rancher.md#thứ-tự-đọc-phù-hợp--chuẩn-bị-cho-câu-26-và-36)
+Mở [bảng thứ tự đọc trong setup-rancher.md](../cloudflare-rancher-docs/setup-rancher.md#thứ-tự-đọc-phù-hợp--chuẩn-bị-cho-câu-26-và-36)
 để đối chiếu tài liệu. Mentor đọc phần cần dùng và hướng dẫn cụ thể, không chỉ giao danh sách
 thuật ngữ để người học tự tìm.
 
@@ -69,7 +69,10 @@ Không suy đoán inventory, request hay certificate mà một agent đang thự
    Không chuyển sang phụ thuộc khó hơn khi điểm nền còn nhầm; đi tiếp khi đã hiểu hoặc người học
    chủ động yêu cầu. Không lặp câu xin phép “có muốn học tiếp không” sau mỗi đoạn.
 7. Kết thúc bài bằng checkpoint. Chưa có checkpoint thì bắt đầu M01, không suy đoán đã học xong.
-   Chỉ ghi tiến độ lên repo khi người học yêu cầu; checkpoint có thể mang sang chat mới.
+   Theo yêu cầu lưu bài của người học, khi hoàn tất bài nào thì tự động tạo file `Mxx.md` của bài đó
+   trong thư mục `rancher-mentor`, lưu đầy đủ phần giảng và toàn bộ hỏi–đáp, rồi cập nhật mục lục/
+   tiến độ trong [README](README.md). Không cần xin lại xác nhận cho việc lưu bài đã hoàn tất;
+   các chỉnh sửa tài liệu khác vẫn chỉ thực hiện khi được yêu cầu.
 
 Mỗi lượt chỉ dạy một phần nhỏ của một bài. Không bắt người học trả lời câu 2/6 hoặc 3/6 ngay
 lúc mở chat; không đưa đáp án mẫu của cả hai câu trong lời mở đầu. Vẫn giải thích đầy đủ
@@ -92,8 +95,8 @@ kiến thức cần học, không giấu kiến thức chỉ để giữ bài ki
 | [M11](#m11-origin-url-origin-server-name-và-http-host) | Ba origin parameter, hostname và địa chỉ kết nối | Setup → mục đào sâu 11, 12 | Phân biệt đích mạng, SNI/tên TLS và HTTP Host |
 | [M12](#m12-access-302-502-và-khoanh-vùng-theo-bằng-chứng) | Access, Healthy tunnel, `302`, `502`, giới hạn gate | Setup → mục đào sâu 13, 15; runbook §14.5 | Sau bài này trả lời câu 3/6 |
 
-Các liên kết “Setup” trỏ tới [setup-rancher.md](setup-rancher.md);
-“Tài liệu CA/TLS” là [ca-tls-https-request-response.md](ca-tls-https-request-response.md).
+Các liên kết “Setup” trỏ tới [setup-rancher.md](../cloudflare-rancher-docs/setup-rancher.md);
+“Tài liệu CA/TLS” là [ca-tls-https-request-response.md](../cloudflare-rancher-docs/ca-tls-https-request-response.md).
 Không biến các bài thành hướng dẫn sửa cluster khi người học chỉ đang học lý thuyết.
 
 ## Nội dung và mức độ cần đạt từng bài
@@ -216,7 +219,7 @@ Không biến các bài thành hướng dẫn sửa cluster khi người học c
 ## Hai câu hỏi đích
 
 Chỉ đưa các câu này cho người học ở mốc tương ứng. Câu 2 lấy từ
-[phần Tự kiểm tra](setup-rancher.md#câu-26--helm-đã-xong-thì-certificate-đã-sẵn-sàng-chưa);
+[phần Tự kiểm tra](../cloudflare-rancher-docs/setup-rancher.md#câu-26--helm-đã-xong-thì-certificate-đã-sẵn-sàng-chưa);
 đáp án/nhận xét đã có ở đó để mentor đối chiếu sau khi người học trả lời.
 
 ### Câu 2/6 — Helm đã xong thì certificate đã sẵn sàng chưa?
@@ -272,12 +275,15 @@ học chưa yêu cầu ghi kết quả lượt mới.
 
 ## Tiến độ và checkpoint
 
-**Trạng thái khởi tạo:** giáo án đã được tạo, chưa xác nhận hoàn thành bài M01–M12 theo cách
-dạy này. Bước mở đầu là M01. Đây không phải kết luận rằng người học chưa từng biết các khái niệm.
+Tiến độ hiện tại và danh sách file bài đã hoàn tất được theo dõi tại [README](README.md).
+Tại thời điểm chuyển giáo án, M01 đang học phần chart + values → Helm render → manifest;
+người học chưa trả lời câu kiểm tra sau phần sửa nhầm về thứ tự render. Chưa xác nhận hoàn tất M01.
+Đây không phải kết luận rằng người học chưa từng biết các khái niệm.
 
-| Mốc | Trạng thái khởi tạo |
+| Mốc | Trạng thái khi chuyển giáo án |
 | --- | --- |
-| M01–M07 | Chưa học theo giáo án này |
+| M01 | Đang học; chưa tạo file bài hoàn tất |
+| M02–M07 | Chưa học theo giáo án này |
 | Câu 2/6 | Đã có lượt trả lời cũ; chờ học nền và trả lời lại sau M07 |
 | M08–M12 | Chưa học theo giáo án này |
 | Câu 3/6 | Chưa trả lời; đưa sau M12 |
@@ -297,15 +303,46 @@ Câu 2/6 và 3/6: trạng thái, điểm lượt mới nếu có
 Khi tiếp tục từ checkpoint, kiểm tra nhẹ điểm nền đang cần dùng rồi nối tiếp; không tự coi một
 checkpoint do mentor dự định viết là kết quả học đã xảy ra.
 
+### Lưu đầy đủ từng bài sau khi hoàn tất
+
+Thư mục `rancher-mentor` nằm ở gốc repo, ngang cấp với `cloudflare-rancher-docs`.
+Giáo án nằm tại `rancher-mentor/rancher-mentor-study-plan.md`. Mỗi bài hoàn tất có một file
+riêng trong cùng thư mục: `M01.md`, `M02.md`, …, `M12.md`. Không tạo sẵn file như thể
+bài đã học xong. Yêu cầu này là chỉ dẫn lưu bài xuyên suốt các lượt học; không hỏi lại quyền
+ghi file cuối mỗi bài.
+
+Mỗi file bài phải bao gồm:
+
+1. Tên bài, mục tiêu và phạm vi thực sự đã học.
+2. Đầy đủ nội dung mentor đã giảng trong bài, gồm định nghĩa, ví dụ, Mermaid, code/lệnh và
+   liên kết nguồn đã dùng. Nếu có lệnh, giữ nơi chạy, mục đích và kết quả mong đợi.
+3. Toàn bộ câu hỏi và câu trả lời theo thứ tự trao đổi, ghi rõ **Mentor** / **Người học**.
+   Giữ nguyên câu trả lời gốc của người học, kể cả điểm sai và các lượt trả lời lại; không thay
+   bằng đáp án đã sửa hoặc rút gọn thành một bản tổng kết.
+4. Toàn bộ nhận xét, sửa nhầm, giải thích bổ sung và câu trả lời lại thực sự đã diễn ra.
+   Nếu mentor sửa một giải thích trước đó, giữ lịch sử và đánh dấu rõ nội dung đã đính chính.
+5. Checkpoint cuối bài: đã hiểu gì, còn vướng gì, bài/phần tiếp theo. Chỉ ghi hoàn tất khi có
+   căn cứ trong trao đổi; không tự bịa câu trả lời hoặc kết quả thực hành.
+
+Khi lưu xong, thêm liên kết file và cập nhật trạng thái trong [README](README.md), sau đó đưa
+liên kết GitHub cho người học. Nếu có trao đổi bổ sung về bài đã lưu, cập nhật vào chính file
+bài đó, không bỏ lịch sử cũ. Câu 2/6 sau M07 và câu 3/6 sau M12 được bổ sung vào file bài tương
+ứng khi trao đổi thực sự diễn ra, gồm câu trả lời, điểm 0–3, nhận xét và lượt sửa.
+
+Khi tiếp tục ở chat mới, đọc README, checkpoint và các file bài cần dùng để nối tiếp đúng chỗ.
+Nếu không còn đủ lịch sử để lưu nguyên nội dung, nói rõ phần thiếu; không tự dựng hội thoại.
+
 ## Prompt bắt đầu chat mới
 
-Sao chép toàn bộ prompt sau sang chat mới. Nếu đã có checkpoint, thêm nó bên dưới prompt.
+Sao chép toàn bộ prompt sau sang chat mới. Đọc [README](README.md) và checkpoint hiện tại trước
+khi tiếp tục; nếu đã có checkpoint mới hơn, thêm nó bên dưới prompt.
 
 ```text
 Bạn hãy làm mentor dạy tôi theo giáo án trong repo GitHub hieupham259/ansible_playbook_k8s-installation, nhánh main.
 
+Đọc rancher-mentor/README.md và checkpoint hiện tại; đọc các file bài đã lưu nếu cần để tiếp tục đúng chỗ.
 Đọc các file hiện tại trước khi dạy:
-1. Giáo án: https://github.com/hieupham259/ansible_playbook_k8s-installation/blob/main/cloudflare-rancher-docs/rancher-mentor-study-plan.md
+1. Giáo án: https://github.com/hieupham259/ansible_playbook_k8s-installation/blob/main/rancher-mentor/rancher-mentor-study-plan.md
 2. Tài liệu giải thích: https://github.com/hieupham259/ansible_playbook_k8s-installation/blob/main/cloudflare-rancher-docs/setup-rancher.md
 3. Runbook: https://github.com/hieupham259/ansible_playbook_k8s-installation/blob/main/runbook-k8s-vmware.md
 4. Tra cứu TLS khi đến bài tương ứng: https://github.com/hieupham259/ansible_playbook_k8s-installation/blob/main/cloudflare-rancher-docs/ca-tls-https-request-response.md
@@ -367,7 +404,7 @@ CÁCH DẠY
 - Nếu minh họa lệnh, nêu nơi chạy, mục đích và kết quả mong đợi; lấy đúng lệnh/gate trong runbook. Không yêu cầu cài lại, restart hoặc đổi cấu hình chỉ để học lý thuyết. Không giả định bạn đã thấy output thực tế hoặc truy cập được cluster.
 - Nếu nhắc agent, phải ghi rõ loại agent và tình huống áp dụng.
 - Câu 1/6 là nền đã học; chỉ ôn phần cần dùng, không bắt làm lại toàn bộ. Không bắt trả lời ngay câu 2/6 hoặc 3/6. Sau M07 cho tôi trả lời lại câu 2/6; sau M12 đưa câu 3/6. Chấm mỗi câu 0–3, giải thích và cho tôi sửa câu trả lời.
-- Cuối mỗi bài cung cấp checkpoint ngắn. Chỉ cập nhật tiến độ hoặc tài liệu GitHub khi tôi yêu cầu.
+- Cuối mỗi bài cung cấp checkpoint ngắn. Khi học xong bài nào, tự động tạo file Mxx.md tương ứng trong rancher-mentor trên nhánh main, lưu đầy đủ phần giảng, ví dụ, diagram, câu hỏi, nguyên văn câu trả lời của tôi, nhận xét/sửa nhầm và checkpoint; cập nhật mục lục/tiến độ trong rancher-mentor/README.md. Không rút gọn hội thoại thành đáp án mẫu, không bịa nội dung chưa diễn ra và không cần hỏi lại quyền lưu bài. Chỉ sửa các tài liệu khác khi tôi yêu cầu.
 
 Bắt đầu ngay bằng M01: giải thích Helm làm gì qua ví dụ chart Rancher + rancher-values.yaml, rồi hỏi một câu nhỏ để kiểm tra tôi hiểu.
 ```
@@ -376,9 +413,9 @@ Bắt đầu ngay bằng M01: giải thích Helm làm gì qua ví dụ chart Ran
 
 - [Runbook §14](../runbook-k8s-vmware.md#14-cài-rancher-2143--quản-lý-cụm): nguồn lệnh,
   thứ tự thao tác, phiên bản và gate.
-- [Setup Rancher](setup-rancher.md): giải thích cơ chế, sơ đồ, câu 1/6 và câu 2/6.
-- [CA, TLS và HTTP](ca-tls-https-request-response.md): tra cứu khi học M03, M08–M11.
-- [Tunnel và Traefik](tunnel-traefik.md): tra cứu đường app demo; không bắt đọc lại toàn bài.
+- [Setup Rancher](../cloudflare-rancher-docs/setup-rancher.md): giải thích cơ chế, sơ đồ, câu 1/6 và câu 2/6.
+- [CA, TLS và HTTP](../cloudflare-rancher-docs/ca-tls-https-request-response.md): tra cứu khi học M03, M08–M11.
+- [Tunnel và Traefik](../cloudflare-rancher-docs/tunnel-traefik.md): tra cứu đường app demo; không bắt đọc lại toàn bài.
 - [Helm install](https://helm.sh/docs/helm/helm_install/) và
   [Helm 3 install](https://helm.sh/docs/v3/helm/helm_install/): đối chiếu đúng phiên bản.
 - [cert-manager Ingress](https://cert-manager.io/docs/usage/ingress/) và

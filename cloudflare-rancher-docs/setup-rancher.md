@@ -1356,7 +1356,7 @@ Sau lượt 2–3, xem [Ai tạo gì trong chuỗi cấp certificate](#sơ-đồ
 và [Helm và cert-manager chạy song song](#sơ-đồ-2--helm-và-cert-manager-chạy-song-song).
 Hai sơ đồ này bổ sung vai trò và thời điểm cho sơ đồ tuần tự.
 
-Muốn học cùng mentor theo từng bài, dùng [Giáo án Helm, certificate và TLS cho Rancher](rancher-mentor-study-plan.md).
+Muốn học cùng mentor theo từng bài, dùng [Giáo án Helm, certificate và TLS cho Rancher](../rancher-mentor/rancher-mentor-study-plan.md).
 Giáo án đi từ M01 đến M12, có mục tiêu, ví dụ, bài đọc và cách kiểm tra hiểu; chỉ trở lại câu
 2/6 và 3/6 sau khi đã học phần nền tương ứng.
 

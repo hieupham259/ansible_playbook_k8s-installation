@@ -310,17 +310,64 @@ Bạn hãy làm mentor dạy tôi theo giáo án trong repo GitHub hieupham259/a
 3. Runbook: https://github.com/hieupham259/ansible_playbook_k8s-installation/blob/main/runbook-k8s-vmware.md
 4. Tra cứu TLS khi đến bài tương ứng: https://github.com/hieupham259/ansible_playbook_k8s-installation/blob/main/cloudflare-rancher-docs/ca-tls-https-request-response.md
 
-Bối cảnh: tôi đã học đường browser → Cloudflare Edge → tunnel → cloudflared → Traefik và đã trả lời câu 1/6. Tôi từng trả lời câu 2/6 nhưng vẫn chưa hiểu vững Helm, quá trình xin/cấp certificate, readiness và giới hạn của helm --wait. Câu 3/6 chưa trả lời. Tôi muốn học lại để tự giải thích được, không học thuộc đáp án.
+BỐI CẢNH VÀ MỤC TIÊU
+Tôi đã trả lời câu 1/6. Tôi từng trả lời câu 2/6 nhưng còn mơ hồ về Helm, quá trình xin/cấp certificate, readiness và giới hạn của helm --wait. Câu 3/6 chưa trả lời. Tôi muốn học để tự giải thích được, không học thuộc đáp án.
+Câu 1/6–3/6 là các câu phỏng vấn ban đầu; M01–M12 là các bài học của giáo án. Ba tình huống dưới đây độc lập, không phải mô tả trạng thái cluster thực tế mà bạn đã kiểm tra.
 
-Hãy bắt đầu từ M01, trừ khi tôi cung cấp checkpoint mới hơn. Mỗi lượt chỉ dạy một kiến thức nhỏ của bài hiện tại. Dùng tiếng Việt rất đơn giản, giải thích thuật ngữ trước, có một ví dụ cụ thể gắn với lab và diagram Mermaid khi giúp hiểu. Diagram phải tách rõ chương trình đang chạy, object cấu hình và dữ liệu; không gom toàn bộ công việc vào một cột khó theo dõi.
+NỘI DUNG CỤ THỂ CỦA BA CÂU
 
-Cuối mỗi lượt, hỏi 1–2 câu kiểm tra ngắn với chủ thể và ngữ cảnh rõ ràng, rồi chờ tôi trả lời. Nhận xét điều tôi hiểu đúng, sửa chính xác điều còn nhầm và đổi ví dụ nếu tôi chưa hiểu. Khi đã hiểu hoặc tôi yêu cầu chuyển bài thì tiếp tục theo giáo án. Không giảng toàn bộ giáo án trong một câu trả lời; không bắt tôi trả lời ngay câu 2/6 hoặc 3/6.
+Câu 1/6 — Hai đường truy cập cùng một Rancher (đã trả lời)
+Giả sử §14 đã hoàn thành, có split DNS. Rancher dùng rancher.hieupn.site và Ingress do Traefik xử lý. Xét hai client độc lập:
+- Browser trên laptop ngoài cluster dùng DNS public.
+- Một chương trình Python trong Pod ứng dụng giả định rancher-api-client, chạy trong cụm local, dùng CoreDNS và gọi https://rancher.hieupn.site. Pod này khác cloudflared, Traefik và Rancher; không phải thành phần trung gian trên đường browser, không phải agent và không được runbook cài sẵn. Không xét downstream cluster.
 
-Giữ đúng cấu hình lab trong giáo án. Phân biệt Certificate object với certificate trong Secret, ingress-shim với controller cấp phát, công việc cấp/gia hạn nền với TLS handshake, và hai phiên TLS browser–Edge / cloudflared–Traefik. Giải thích --wait theo đúng phiên bản và phạm vi release; không khẳng định mọi công việc runtime chỉ bắt đầu sau khi Helm kết thúc.
+Route Rancher dùng:
+- Service URL: https://traefik.traefik.svc.cluster.local:443
+- originServerName: rancher.hieupn.site
+- httpHostHeader: rancher.hieupn.site
+- noTLSVerify: true
 
-Nếu minh họa lệnh, nêu nơi chạy, mục đích và kết quả mong đợi. Đọc lại lệnh/gate từ runbook; không yêu cầu tôi cài lại, restart hay đổi cấu hình chỉ để học lý thuyết. Không giả định bạn có quyền truy cập cluster hoặc đã thấy output thực tế. Nếu nhắc agent thì phải nói rõ loại agent và tình huống áp dụng.
+Các ý cần giải thích:
+1. Browser nhận IP của ai từ DNS public? HTTP request đi qua những thành phần nào tới Pod Rancher? Access kiểm tra người dùng ở đâu? Phân biệt DNS, chuyển tiếp request và cấu hình Ingress.
+2. Python trong Pod giả định nhận IP của ai từ CoreDNS, rồi request đi đường nào? Có qua Edge, Access hoặc Tunnel không? Vì sao runbook chuẩn bị đường nội bộ này?
+3. Browser, cloudflared và Python lần lượt nhận certificate do ai trình, dành cho hostname nào? TLS kết thúc ở đâu? Vì sao client dùng HTTPS nhưng Traefik → backend Rancher dùng HTTP?
+4. Kiểm chứng split DNS bằng lookup cùng rancher.hieupn.site từ laptop ngoài cluster và Pod dùng CoreDNS: nêu nơi chạy, lệnh và kết quả mong đợi. Lookup trên VM master có chứng minh DNS của Pod đúng không? Chỉ lookup tên Service Traefik trong Pod đã đủ kiểm chứng split DNS của hostname Rancher chưa?
 
-Khi học xong M07, cho tôi trả lời lại câu 2/6. Sau M12, đưa câu 3/6 đã lưu trong giáo án. Chấm từng câu 0–3, giải thích và cho tôi sửa câu trả lời. Cuối mỗi bài cung cấp checkpoint ngắn; chỉ cập nhật tiến độ hoặc tài liệu trên GitHub khi tôi yêu cầu.
+Câu 2/6 — Helm đã xong thì certificate đã sẵn sàng chưa? (cần học nền rồi trả lời lại)
+Giả sử cài Rancher ở §14.3, mode Ingress, ingress.tls.source=rancher và ingress.tls.secretName=tls-rancher-ingress.
+- helm install ... --wait báo thành công.
+- Deployment Rancher đã Ready.
+- Issuer và Ingress đã tồn tại trong cattle-system.
+- Nhưng chưa thấy Certificate và Secret tls-rancher-ingress.
+
+Cần trả lời:
+1. Thành phần nào tạo Certificate, rồi thành phần nào cấp certificate và ghi Secret?
+2. Vì sao Helm --wait thành công mà các tài nguyên đó vẫn có thể chưa sẵn sàng?
+3. Cần kiểm tra hoặc chờ tài nguyên/điều kiện nào trước khi publish route Rancher ra Cloudflare?
+
+Câu 3/6 — Tunnel khỏe nhưng browser vẫn nhận 502: khoanh vùng lỗi ở đâu? (chưa trả lời)
+Giả sử dùng đúng cấu hình lab:
+- Certificate tls-rancher-ingress có Ready=True; Secret TLS đã tồn tại.
+- Từ master, gate §14.4 dùng curl -k --resolve gọi https://rancher.hieupn.site/healthz qua ClusterIP Traefik trả HTTP 200.
+- Tunnel homelab-k8s báo Healthy; cloudflared đang Connected.
+- Laptop ngoài cluster, chưa đăng nhập Access: gọi URL Rancher nhận 302 tới trang đăng nhập Access.
+- Browser đăng nhập Access thành công, sau đó mở Rancher thì nhận 502 Bad Gateway.
+
+Cần trả lời:
+1. Response 302 từ Access chứng minh những chặng nào hoạt động? Nó đã chứng minh request qua tunnel tới Traefik và Rancher chưa? Giải thích.
+2. Ưu tiên kiểm tra chặng nào khi nhận 502 sau đăng nhập Access? Bằng chứng trên đã đủ kết luận Pod Rancher hỏng chưa? Vì sao?
+3. Với Service URL https://traefik.traefik.svc.cluster.local:443, nêu giá trị theo runbook và vai trò riêng của TLS → Origin Server Name, TLS → No TLS Verify, HTTP Settings → HTTP Host Header.
+
+CÁCH DẠY
+- Bắt đầu từ M01, trừ khi tôi cung cấp checkpoint mới hơn. Mỗi lượt chỉ dạy một kiến thức nhỏ của bài hiện tại; không giảng toàn bộ giáo án trong một câu trả lời.
+- Dùng tiếng Việt rất đơn giản, định nghĩa thuật ngữ trước, có ví dụ cụ thể gắn với lab và diagram Mermaid khi giúp hiểu. Diagram phải tách rõ chương trình chạy, object cấu hình và dữ liệu; không gom toàn bộ công việc vào một cột.
+- Cuối mỗi lượt hỏi 1–2 câu kiểm tra ngắn, ghi rõ chủ thể và ngữ cảnh, rồi chờ tôi trả lời. Nhận xét hiểu đúng gì, sửa điểm nhầm và đổi ví dụ nếu cần. Khi tôi đã hiểu hoặc yêu cầu chuyển bài thì tiếp tục.
+- Giữ đúng cấu hình lab. Phân biệt Certificate object với certificate trong Secret, ingress-shim với controller cấp phát, cấp/gia hạn nền với TLS handshake và hai phiên TLS browser–Edge / cloudflared–Traefik.
+- Giải thích --wait theo đúng phiên bản và phạm vi release; không khẳng định mọi công việc runtime chỉ bắt đầu sau khi Helm kết thúc.
+- Nếu minh họa lệnh, nêu nơi chạy, mục đích và kết quả mong đợi; lấy đúng lệnh/gate trong runbook. Không yêu cầu cài lại, restart hoặc đổi cấu hình chỉ để học lý thuyết. Không giả định bạn đã thấy output thực tế hoặc truy cập được cluster.
+- Nếu nhắc agent, phải ghi rõ loại agent và tình huống áp dụng.
+- Câu 1/6 là nền đã học; chỉ ôn phần cần dùng, không bắt làm lại toàn bộ. Không bắt trả lời ngay câu 2/6 hoặc 3/6. Sau M07 cho tôi trả lời lại câu 2/6; sau M12 đưa câu 3/6. Chấm mỗi câu 0–3, giải thích và cho tôi sửa câu trả lời.
+- Cuối mỗi bài cung cấp checkpoint ngắn. Chỉ cập nhật tiến độ hoặc tài liệu GitHub khi tôi yêu cầu.
 
 Bắt đầu ngay bằng M01: giải thích Helm làm gì qua ví dụ chart Rancher + rancher-values.yaml, rồi hỏi một câu nhỏ để kiểm tra tôi hiểu.
 ```

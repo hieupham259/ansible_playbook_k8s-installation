@@ -276,14 +276,16 @@ học chưa yêu cầu ghi kết quả lượt mới.
 ## Tiến độ và checkpoint
 
 Tiến độ hiện tại và danh sách file bài đã hoàn tất được theo dõi tại [README](README.md).
-Tại thời điểm chuyển giáo án, M01 đang học phần chart + values → Helm render → manifest;
-người học chưa trả lời câu kiểm tra sau phần sửa nhầm về thứ tự render. Chưa xác nhận hoàn tất M01.
-Đây không phải kết luận rằng người học chưa từng biết các khái niệm.
+M01 đã hoàn tất, với đầy đủ phần giảng và hỏi–đáp được lưu tại [M01.md](M01.md).
+Đang bắt đầu M02 từ việc phân biệt object cấu hình với chương trình controller;
+checkpoint và câu kiểm tra đang chờ trả lời nằm trong README.
+Đây là tiến độ học lý thuyết, không phải xác nhận trạng thái cluster thực tế.
 
-| Mốc | Trạng thái khi chuyển giáo án |
+| Mốc | Trạng thái hiện tại |
 | --- | --- |
-| M01 | Đang học; chưa tạo file bài hoàn tất |
-| M02–M07 | Chưa học theo giáo án này |
+| M01 | Hoàn tất; đã lưu [M01.md](M01.md) |
+| M02 | Đang học phần object và controller |
+| M03–M07 | Chưa học theo giáo án này |
 | Câu 2/6 | Đã có lượt trả lời cũ; chờ học nền và trả lời lại sau M07 |
 | M08–M12 | Chưa học theo giáo án này |
 | Câu 3/6 | Chưa trả lời; đưa sau M12 |

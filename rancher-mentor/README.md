@@ -21,8 +21,8 @@ Xem [quy tắc chi tiết trong giáo án](rancher-mentor-study-plan.md#lưu-đ�
 
 | Bài | Nội dung | Trạng thái | File khi hoàn tất |
 | --- | --- | --- | --- |
-| M01 | Helm: chart, values, manifest, release | Đang học | `M01.md` — chưa tạo |
-| M02 | Object, controller và CRD | Chưa học | `M02.md` — chưa tạo |
+| M01 | Helm: chart, values, manifest, release | Hoàn tất | [M01.md](M01.md) |
+| M02 | Object, controller và CRD | Đang học phần object và controller | `M02.md` — chưa tạo |
 | M03 | Certificate, CA và key | Chưa học | `M03.md` — chưa tạo |
 | M04 | Ingress, Issuer, Certificate và hai Secret | Chưa học | `M04.md` — chưa tạo |
 | M05 | Chuỗi xin và cấp certificate | Chưa học | `M05.md` — chưa tạo |
@@ -39,19 +39,22 @@ Không dùng việc tạo thư mục hoặc chuyển giáo án để xác nhận
 
 ## Checkpoint đang học
 
-- **Bài hiện tại:** M01.
-- **Phần vừa học:** chart Rancher + `rancher-values.yaml` → Helm render → manifest YAML;
-  khi cài đặt, Helm gửi manifest đã render tới Kubernetes.
-- **Người học đã xác định đúng:** hai đầu vào là chart Rancher và file values.
-- **Điểm mentor vừa sửa, chưa kiểm tra lại:** render do Helm thực hiện trước khi gửi bản khai
-  tới Kubernetes; không phải gửi vào Kubernetes để Kubernetes render.
-- **Câu kiểm tra đang chờ trả lời:** “Giả sử chưa cài Rancher, bạn chỉ dùng Helm để render chart
-  với values, chưa gửi bản khai tới Kubernetes. Lúc này cluster đã có Pod Rancher mới chưa?
-  Vì sao?”
-- **Phần tiếp theo:** kiểm tra lại điểm trên, sau đó tiếp tục M01 về mục đích của
-  `helm template` / `helm install`, release và vai trò của Kubernetes trong việc chạy Pod.
-- **Trạng thái:** chưa hoàn tất M01, chưa tạo `M01.md`; chưa chấm lượt mới câu 2/6 hoặc 3/6.
-
-Các lượt giảng và hỏi–đáp trước checkpoint vẫn cần được giữ nguyên để đưa vào `M01.md` khi
-hoàn tất bài. Khi nối tiếp ở chat mới, dùng lịch sử hội thoại cùng checkpoint; nếu thiếu lịch
-sử thì nêu rõ phần thiếu, không tự dựng lại câu trả lời.
+- **Bài đã hoàn tất:** [M01 — Helm làm gì?](M01.md). Đã lưu đầy đủ phần giảng và hỏi–đáp,
+  gồm câu trả lời gốc, nhận xét và các lượt sửa.
+- **Điều người học đã tự giải thích đúng ở M01:** đầu vào của render; chỉ render thì chưa tạo Pod;
+  dùng `helm template` để xem manifest trước khi cài; Kubernetes nhận manifest rồi tạo tài nguyên;
+  thay Pod không tự tạo release Helm mới.
+- **Điểm cần tiếp tục củng cố:** release là bản cài có tên do Helm quản lý; không đồng nhất
+  release với manifest hay Pod.
+- **Bài hiện tại:** M02 — object, controller và CRD.
+- **Phần mở đầu:** object là bản ghi cấu hình/trạng thái trong Kubernetes; controller là chương
+  trình quan sát và xử lý để trạng thái thực tiến gần trạng thái mong muốn.
+- **Ví dụ:** object Deployment `rancher` ở namespace `cattle-system` khai `replicas: 1`;
+  các controller liên quan phối hợp để duy trì số Pod mong muốn.
+- **Câu kiểm tra M02 đang chờ trả lời:** “Giả sử trong namespace cattle-system, Deployment Rancher
+  vẫn khai replicas: 1 nhưng các controller liên quan không hoạt động. Nếu Pod mất đi, chỉ
+  riêng bản khai đó có tự tạo Pod bù không? Vì sao?”
+- **Phần tiếp theo:** kiểm tra phân biệt object/controller, rồi tiếp tục M02 theo giáo án.
+- **Câu 2/6 và 3/6:** chưa trả lời/chấm lượt mới; giữ mốc sau M07 và M12.
+- **Cluster thực tế:** chưa có output được cung cấp trong các bài này; ví dụ trên là tình huống
+  giả định để học, không phải kết quả kiểm tra cluster.

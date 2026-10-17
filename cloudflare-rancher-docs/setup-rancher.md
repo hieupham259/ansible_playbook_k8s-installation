@@ -1552,7 +1552,20 @@ sequenceDiagram
 **Trước khi `cloudflared` kết nối:**
 
 1. `ingress-shim` thấy Ingress cần certificate, nên tạo object `Certificate`.
-2. **Controller `certificaterequests-issuer-ca` lấy private key của CA** từ Secret `tls-rancher`.
+2. **Controller `certificaterequests-issuer-ca` đọc cấu hình `Issuer/rancher` để biết phải dùng CA nào để ký.** Issuer này khai `spec.ca.secretName: tls-rancher`, nghĩa là **dùng CA nằm trong Secret `tls-rancher`**. Controller đọc Secret đó, lấy **certificate CA và private key CA** để thực hiện việc ký ở bước 3.
+
+   Trong lab, `Issuer/rancher` ghi:
+
+   ```yaml
+   spec:
+     ca:
+       secretName: tls-rancher
+   ```
+
+   Có thể đọc thành câu:
+
+   > **“Hãy lấy certificate CA và private key CA trong Secret `tls-rancher`. Dùng private key CA đó để ký certificate cho `rancher.hieupn.site`.”**
+
 3. **Controller `certificaterequests-issuer-ca` lấy hostname `rancher.hieupn.site` và public key của endpoint Rancher từ yêu cầu xin ký trong object `CertificateRequest`.** Controller tạo certificate **chứa hostname và public key này**, rồi dùng **private key CA đã lấy ở bước 2** để ký certificate.
 4. **Controller `certificates-issuing` lưu kết quả vào Secret `tls-rancher-ingress`:** certificate đã có chữ ký CA và private key HTTPS tương ứng.
 5. **Traefik yêu cầu đọc Secret đó.**

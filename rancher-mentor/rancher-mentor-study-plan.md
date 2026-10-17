@@ -323,17 +323,19 @@ học chưa yêu cầu ghi kết quả lượt mới.
 ## Tiến độ và checkpoint
 
 Tiến độ hiện tại và danh sách file bài đã hoàn tất được theo dõi tại [README](README.md).
-M01 và M02 đã hoàn tất, với đầy đủ phần giảng và hỏi–đáp được lưu tại
-[M01.md](M01.md) và [M02.md](M02.md). Đang bắt đầu M03 từ certificate và cặp khóa;
-checkpoint, câu kiểm tra đang chờ và các điểm cần củng cố nằm trong README.
+M01, M02 và M03 đã hoàn tất kiến thức. M01/M02 được lưu tại [M01.md](M01.md) và
+[M02.md](M02.md). [M03.md](M03.md) giữ các lượt còn truy xuất được và đánh dấu rõ phần
+lời giảng đầu bài còn thiếu nguyên văn; không coi bản lưu M03 là đủ toàn văn hội thoại.
+Đang học phần mở đầu M04: Ingress khai tên Secret. Checkpoint và câu kiểm tra đang chờ nằm trong README.
 Đây là tiến độ học lý thuyết, không phải xác nhận trạng thái cluster thực tế.
 
 | Mốc | Trạng thái hiện tại |
 | --- | --- |
 | M01 | Hoàn tất; đã lưu [M01.md](M01.md) |
 | M02 | Hoàn tất; đã lưu [M02.md](M02.md) |
-| M03 | Đang học phần certificate và cặp khóa |
-| M04–M07 | Chưa học theo giáo án này |
+| M03 | Hoàn tất kiến thức; đã lưu [M03.md](M03.md), còn thiếu một số lời giảng gốc |
+| M04 | Đang học phần Ingress khai tên Secret |
+| M05–M07 | Chưa học theo giáo án này |
 | Câu 2/6 | Đã có lượt trả lời cũ; chờ học nền và trả lời lại sau M07 |
 | M08–M12 | Chưa học theo giáo án này |
 | Câu 3/6 | Chưa trả lời; đưa sau M12 |

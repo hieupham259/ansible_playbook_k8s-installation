@@ -37,8 +37,8 @@ không có node riêng cho chi tiết đang học, giải thích ngay và nói r
 | --- | --- | --- | --- |
 | M01 | Helm: chart, values, manifest, release | Hoàn tất | [M01.md](M01.md) |
 | M02 | Object, controller và CRD | Hoàn tất | [M02.md](M02.md) |
-| M03 | Certificate, CA và key | Đang học phần certificate và cặp khóa | `M03.md` — chưa tạo |
-| M04 | Ingress, Issuer, Certificate và hai Secret | Chưa học | `M04.md` — chưa tạo |
+| M03 | Certificate, CA và key | Hoàn tất kiến thức; bản lưu còn thiếu một số lời giảng đầu bài | [M03.md](M03.md) |
+| M04 | Ingress, Issuer, Certificate và hai Secret | Đang học phần Ingress khai tên Secret | `M04.md` — chưa tạo |
 | M05 | Chuỗi xin và cấp certificate | Chưa học | `M05.md` — chưa tạo |
 | M06 | Helm --wait và công việc bất đồng bộ | Chưa học | `M06.md` — chưa tạo |
 | M07 | Readiness và gate §14.4 | Chưa học | `M07.md` — chưa tạo |
@@ -53,37 +53,17 @@ Không dùng việc tạo thư mục hoặc chuyển giáo án để xác nhận
 
 ## Checkpoint đang học
 
-- **Bài đã hoàn tất:** [M01 — Helm](M01.md), [M02 — Object, controller và CRD](M02.md).
-  Các file giữ đầy đủ phần giảng, câu trả lời gốc và nhận xét.
-- **Điều người học đã tự giải thích đúng ở M02:** cần controller hoạt động để thực hiện yêu cầu;
-  phân biệt lỗi chấp nhận bản khai ở webhook với xử lý object đã lưu; ingress-shim là controller
-  tạo object Certificate; cainjector là controller cập nhật dữ liệu CA trong cấu hình webhook.
-- **Câu hỏi phụ M02 chưa được trả lời trực tiếp:** nguồn sinh annotation chỉ Issuer; Issuer là
-  object cấu hình hay chương trình. Nội dung đã được giảng và lưu đầy đủ, sẽ củng cố ở M04;
-  không ghi các câu này là đã được người học tự giải thích đúng.
-- **Đoạn đã hiểu để đối chiếu:** câu trả lời về ingress-shim khớp với
-  [Sơ đồ 1](../cloudflare-rancher-docs/setup-rancher.md#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate),
-  đoạn `Ingress khai hostname và Secret TLS → ingress-shim tạo Certificate`.
-  Cainjector được giải thích ở [Nền tảng → cert-manager](../cloudflare-rancher-docs/setup-rancher.md#cert-manager--crd-và-chuỗi-cấp-phát);
-  Sơ đồ 1–3 không có node riêng cho nó.
-- **Bài hiện tại:** M03 — Certificate, CA và key ở mức cần thiết.
-- **Phần mở đầu:** certificate gắn hostname với public key (khóa công khai); private key là khóa
-  bí mật tương ứng. Certificate được phép gửi cho client; private key phải được giữ kín.
-- **Ví dụ:** khi Traefik đã nạp certificate Rancher đúng cấu hình lab từ Secret
-  `tls-rancher-ingress`, certificate dành cho `rancher.hieupn.site` được trình cho client.
-- **Người học đã tự giải thích đúng ở M03:** Traefik gửi certificate, giữ kín private key;
-  CertificateVerify hợp lệ chứng minh bên kia giữ private key tương ứng, còn noTLSVerify=true
-  chưa xác minh danh tính endpoint qua CA/hostname.
-- **Điểm còn nhầm:** người học chọn khóa Traefik cho chữ ký có sẵn trên certificate và gọi
-  Certificate / CertificateVerify là hai certificates. Cần tách người tạo chữ ký với người gửi:
-  controller dùng khóa CA ký certificate trước; Traefik gửi certificate đó rồi ký dữ liệu handshake
-  bằng khóa HTTPS riêng để tạo CertificateVerify trong ví dụ TLS 1.3.
-- **Cách định vị từ lượt này:** vẽ diagram trực tiếp trong câu trả lời bằng Mermaid; không chỉ gửi link.
-  Phân biệt giai đoạn cấp certificate với đoạn Traefik gửi Certificate và CertificateVerify cho cloudflared.
-- **Câu kiểm tra M03 đang chờ sau phần sửa nhầm:** “Trong bản tin Certificate do Traefik gửi,
-  ai đã tạo chữ ký có sẵn trên certificate, dùng khóa của CA hay khóa HTTPS của Traefik?”
-- **Phần tiếp theo:** củng cố chữ ký CA trên certificate / chữ ký Traefik trong handshake;
-  chưa xác nhận hoàn tất M03.
-- **Câu 2/6 và 3/6:** chưa trả lời/chấm lượt mới; giữ mốc sau M07 và M12.
-- **Cluster thực tế:** chưa có output được cung cấp trong các bài này. Ví dụ là giả định để học,
-  không phải kết quả kiểm tra cluster.
+- **Bài đã hoàn tất:** [M01 — Helm](M01.md), [M02 — Object, controller và CRD](M02.md), [M03 — Certificate, CA và key](M03.md).
+- **Giới hạn bản lưu M03:** còn thiếu nguyên văn nhiều phản hồi Mentor và một số Mermaid đầu bài. File giữ nguyên những lượt còn truy xuất được, đánh dấu chỗ thiếu và chép phần lời giảng trong ảnh 2; không dựng hội thoại. Trạng thái hoàn tất kiến thức dựa trên các câu trả lời cuối bài, không có nghĩa bản chép đã đủ toàn văn.
+- **Điều người học đã tự giải thích đúng ở M03:** chữ ký trên certificate dùng private key CA từ Secret `tls-rancher` và có từ trước kết nối; CertificateVerify chứng minh bên kia giữ private key tương ứng với public key trong certificate; HTTPS vẫn mã hóa khi `noTLSVerify: true`, nhưng kết nối thành công chưa chứng minh xác minh đúng Rancher theo CA/hostname.
+- **Câu trả lời chốt M03 nguyên văn:** “dữ liệu được mã hoá nhưng việc kết nối thành công không đủ chứng minh `cloudflared` xác minh đúng Rancher theo CA và hostname”.
+- **Điểm đã được sửa trong M03:** người tạo chữ ký CA khác người gửi certificate; CertificateVerify là bản tin mang chữ ký handshake, không phải certificate thứ hai. Giữ các câu trả lời nhầm ban đầu trong file bài, không thay bằng đáp án đã sửa.
+- **Vị trí vừa đối chiếu:** phần “Controller nào cấp certificate và ai gửi hai bản tin TLS?” của `setup-rancher.md`, bước 3/bước 8 và bước 10 cùng ghi chú `noTLSVerify`. Minh họa bổ sung tách kiểm chữ ký handshake khỏi kiểm CA/hostname được lưu ở lượt chốt M03.
+- **Bài hiện tại:** M04 — Ingress, Issuer, Certificate và hai Secret.
+- **Phần nhỏ đang học:** Ingress là object cấu hình. Trong lab nó khai hostname `rancher.hieupn.site` và tham chiếu Secret TLS `tls-rancher-ingress`; việc khai tên chưa chứng minh Secret tồn tại hay có certificate.
+- **Câu kiểm tra M04 đang chờ:** “Ingress Rancher khai Secret TLS tên `tls-rancher-ingress`. Chỉ nhìn khai báo ấy, bạn đã kết luận Secret tồn tại và chứa certificate được chưa? Vì sao?”
+- **Chưa đánh dấu đã hiểu ở M04:** vai trò và dữ liệu của từng object; người học chưa trả lời câu kiểm tra mở đầu M04.
+- **Điểm nền từ M02 cần củng cố ở M04:** annotation chỉ Issuer đến từ template chart khi Helm render; `Issuer/rancher` là object cấu hình, không phải chương trình ký. Các câu hỏi phụ này trước đây mới được giảng, chưa được người học tự trả lời trực tiếp.
+- **Câu 2/6:** chưa trả lời lại/chấm lượt mới; giữ mốc sau M07.
+- **Câu 3/6:** chưa trả lời; giữ mốc sau M12.
+- **Cluster thực tế:** chưa có output được người học cung cấp trong các bài này; ví dụ là giả định để học.

@@ -119,6 +119,7 @@ từng bước §14 và các cơ chế chuyên sâu. Phần sự cố và bài t
   - [Câu hỏi — vòng 1: toàn cảnh Rancher](#câu-hỏi--vòng-1-toàn-cảnh-rancher)
     - [Câu 1/6 — Hai đường truy cập cùng một Rancher](#câu-16--hai-đường-truy-cập-cùng-một-rancher)
     - [Câu 2/6 — Helm đã xong thì certificate đã sẵn sàng chưa?](#câu-26--helm-đã-xong-thì-certificate-đã-sẵn-sàng-chưa)
+    - [Câu 3/6 — Tunnel khỏe nhưng browser vẫn nhận 502: khoanh vùng lỗi ở đâu?](#câu-36--tunnel-khỏe-nhưng-browser-vẫn-nhận-502-khoanh-vùng-lỗi-ở-đâu)
 
 </details>
 
@@ -1358,8 +1359,9 @@ và [Helm và cert-manager chạy song song](#sơ-đồ-2--helm-và-cert-manager
 Hai sơ đồ này bổ sung vai trò và thời điểm cho sơ đồ tuần tự.
 
 Muốn học cùng mentor theo từng bài, dùng [Giáo án Helm, certificate và TLS cho Rancher](../rancher-mentor/rancher-mentor-study-plan.md).
-Giáo án đi từ M01 đến M12, có mục tiêu, ví dụ, bài đọc và cách kiểm tra hiểu; chỉ trở lại câu
-2/6 và 3/6 sau khi đã học phần nền tương ứng.
+Giáo án gồm 6 bài: M01–M04 là nền đã học; M05 dùng Câu 2/6 ngay từ đầu, M06 dùng Câu 3/6
+ngay từ đầu. Bảng trên là nguồn tra cứu để bổ sung đúng chỗ đang vướng trong tình huống,
+không phải các bài bắt buộc phải học xong rồi mới được trả lời câu hỏi.
 
 ## Nền tảng — Helm, cert-manager và Rancher thực chất là gì
 
@@ -3407,5 +3409,93 @@ Nguồn đối chiếu:
 [cert-manager — Annotated Ingress resource](https://cert-manager.io/docs/usage/ingress/),
 [Helm — helm install](https://helm.sh/docs/v3/helm/helm_install/) và
 [Rancher — TLS settings](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/tls-settings).
+
+</details>
+
+
+#### Câu 3/6 — Tunnel khỏe nhưng browser vẫn nhận 502: khoanh vùng lỗi ở đâu?
+
+Giả sử dùng đúng cấu hình Rancher trong runbook:
+
+- Certificate `tls-rancher-ingress` có `Ready=True`, Secret TLS đã tồn tại.
+- Gate §14.4: `curl -k --resolve` gọi `https://rancher.hieupn.site/healthz` qua ClusterIP
+  Traefik từ master trả HTTP `200`.
+- Tunnel `homelab-k8s` báo Healthy, connector `cloudflared` đang Connected.
+- Laptop ngoài cluster, chưa đăng nhập Access: gọi URL Rancher nhận `302` tới trang đăng nhập Access.
+- Browser đăng nhập Access thành công rồi mở Rancher thì nhận `502 Bad Gateway`.
+
+Trả lời ba ý:
+
+1. Response `302` từ Access chứng minh những chặng nào đã hoạt động? Nó đã chứng minh request
+   qua tunnel tới Traefik và Rancher chưa? Giải thích.
+2. Ưu tiên kiểm tra chặng nào khi nhận `502` sau khi đăng nhập Access? Bằng chứng trên đã đủ
+   kết luận Pod Rancher bị lỗi chưa? Vì sao?
+3. Route dùng `https://traefik.traefik.svc.cluster.local:443`. Nêu giá trị theo runbook và vai
+   trò riêng của TLS → Origin Server Name, TLS → No TLS Verify, HTTP Settings → HTTP Host Header.
+
+Câu này là tình huống học xuyên suốt M06 trong [giáo án 6 bài](../rancher-mentor/rancher-mentor-study-plan.md#m06-tls-origin-và-khoanh-vùng-lỗi).
+Người học bắt đầu từ tình huống, trả lời từng ý hoặc hỏi chỗ chưa rõ; kiến thức TLS/origin/Access
+được bổ sung ngay trong lúc giải quyết câu hỏi. Không yêu cầu thực hiện thao tác trên cluster để học lý thuyết.
+
+<details>
+<summary>Đáp án vòng 1 — câu 3/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**Đáp án tham khảo — chưa có lượt trả lời hoặc điểm của người học cho câu này.**
+
+**1. Response 302 từ Access chứng minh gì?**
+
+Trong tình huống đã cho, client đã tới Cloudflare Edge và Access đang áp dụng luồng đăng nhập
+cho hostname Rancher. Response chuyển hướng này được tạo ở Edge trước khi request được chuyển
+qua tunnel tới origin. Nó chưa chứng minh `cloudflared` phân giải được tên Service, bắt tay TLS
+được với Traefik hoặc Rancher trả response. Đăng nhập Access thành công cũng chưa tự xác nhận
+đường connector → origin hoạt động.
+
+| Bằng chứng | Chứng minh được trong tình huống | Giới hạn |
+| --- | --- | --- |
+| Certificate `Ready=True`, Secret TLS tồn tại | Chuỗi cấp phát đã báo sẵn sàng và có Secret kết quả | Chưa tự chứng minh Traefik đang trình đúng certificate hoặc đường public hoạt động |
+| `curl -k --resolve` từ master trả `/healthz` HTTP 200 | Đường từ master qua ClusterIP Traefik, rule Rancher và backend health hoạt động lúc test | Không đi qua connector/tunnel/Access; không kiểm DNS Service từ Pod connector; `-k` bỏ xác minh certificate |
+| Tunnel Healthy, connector Connected | Có kết nối connector ↔ Cloudflare Edge khả dụng | Chưa kiểm chứng connector → Traefik hoặc backend ứng dụng |
+| Chưa có Access session, nhận 302 đăng nhập | Client tới Edge và Access áp dụng luồng đăng nhập | Chưa chứng minh request đã đi qua tunnel tới Rancher |
+
+**2. Ưu tiên kiểm tra chặng nào khi có 502 sau đăng nhập?**
+
+Ưu tiên đối chiếu route Rancher và chặng **`cloudflared` → origin Traefik**. Gate từ master
+đã kiểm một đường tới origin, nhưng không dùng cùng vị trí mạng và cách phân giải tên với Pod
+connector. Chưa đủ bằng chứng kết luận Pod Rancher bị lỗi.
+
+- Đối chiếu đúng tunnel/route, public hostname và Service URL đã lưu; xác nhận đủ giá trị origin
+  parameters, không suy ra chúng đúng chỉ từ số lượng cấu hình hoặc trạng thái Healthy.
+- Xem log connector ở thời điểm request thất bại để phân biệt lỗi DNS, kết nối, TLS hoặc lỗi
+  origin trả về. Xác định thành phần sinh 502 trước khi kết luận nguyên nhân.
+- Nếu cần kiểm chứng đường connector → origin, thực hiện phép kiểm tra DNS/kết nối từ môi trường
+  mạng của chính Pod connector với công cụ phù hợp. Kết quả curl từ master không thay thế phép kiểm tra này.
+- Nếu connector đã kết nối origin được, tiếp tục đối chiếu router/Host và log Traefik/backend theo
+  bằng chứng. Không tự sửa token, đổi cấu hình hoặc restart Pod chỉ từ mã 502.
+
+Các mục này là hướng suy luận. Nếu thực hiện chẩn đoán thực tế, đọc đúng lệnh/gate hiện tại trong
+runbook, nêu nơi chạy, mục đích và kết quả mong đợi; không coi dữ kiện giả định là output đã quan sát.
+
+**3. Vai trò riêng của Service URL và ba origin parameters**
+
+| Trường | Giá trị theo lab | Vai trò |
+| --- | --- | --- |
+| Service URL | `https://traefik.traefik.svc.cluster.local:443` | Chọn HTTPS và đích mạng Service Traefik port 443; connector cần phân giải tên Service này |
+| TLS → Origin Server Name | `rancher.hieupn.site` | Đặt tên TLS/SNI gửi tới origin; tên này cũng là danh tính mong đợi khi bật xác minh certificate |
+| TLS → No TLS Verify | ON, tương ứng `noTLSVerify: true` | Bỏ xác minh certificate theo CA tin cậy và hostname; TLS vẫn mã hóa và thực hiện kiểm chứng mật mã của handshake, nhưng chưa xác minh đúng danh tính origin |
+| HTTP Settings → HTTP Host Header | `rancher.hieupn.site` | Đặt HTTP Host để Traefik khớp rule Rancher đã nạp từ Ingress sau khi xử lý TLS |
+
+Browser–Edge và `cloudflared`–Traefik là hai phiên TLS riêng. Browser nhận certificate do
+Cloudflare Edge trình; `cloudflared` nhận certificate do Traefik trình từ Secret
+`tls-rancher-ingress`. Sau Traefik, backend Rancher vẫn dùng HTTP port 80 theo runbook.
+SNI và HTTP Host có hai vai trò riêng, không được gộp thành một bước.
+
+**Chấm lượt trả lời mới:** mỗi ý 0–1, tổng 0–3. Nêu đúng, thiếu và sai; cho người học sửa.
+Lưu nguyên văn trao đổi và điểm thực tế vào `rancher-mentor/M06.md` khi bài hoàn tất; không tự
+ghi điểm hoặc bịa lượt trả lời trong phần đáp án tham khảo này.
+
+Đọc lại: phần “Đường browser”, “Hai hệ certificate”, các mục đào sâu 11–13 và 15;
+§14.4 và §14.5.1 của [runbook](../runbook-k8s-vmware.md).
+Nguồn đối chiếu: [Cloudflare — Origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/)
+và [Cloudflare — Common tunnel errors](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/troubleshoot-tunnels/common-errors/).
 
 </details>

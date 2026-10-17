@@ -33,22 +33,20 @@ không có node riêng cho chi tiết đang học, giải thích ngay và nói r
 
 ## Tiến độ và danh sách bài
 
+Giáo án hiện có **6 bài**. M05 mới gộp M05–M07 cũ; M06 mới gộp M08–M12 cũ. Nội dung cũ
+trở thành các mục kiến thức bên trong hai tình huống, không phải các bài độc lập cần học xong
+trước khi được trả lời. Các mã/mốc cũ trong M01–M04 là lịch sử đã lưu; giữ nguyên các file đó.
+
 | Bài | Nội dung | Trạng thái | File khi hoàn tất |
 | --- | --- | --- | --- |
 | M01 | Helm: chart, values, manifest, release | Hoàn tất | [M01.md](M01.md) |
 | M02 | Object, controller và CRD | Hoàn tất | [M02.md](M02.md) |
 | M03 | Certificate, CA và key | Hoàn tất kiến thức; bản lưu còn thiếu một số lời giảng đầu bài | [M03.md](M03.md) |
 | M04 | Ingress, Issuer, Certificate và hai Secret | Hoàn tất | [M04.md](M04.md) |
-| M05 | Chuỗi xin và cấp certificate | Chưa học | `M05.md` — chưa tạo |
-| M06 | Helm --wait và công việc bất đồng bộ | Chưa học | `M06.md` — chưa tạo |
-| M07 | Readiness và gate §14.4 | Chưa học | `M07.md` — chưa tạo |
-| M08 | Một phiên TLS: client và server | Chưa học | `M08.md` — chưa tạo |
-| M09 | Handshake TLS 1.3 | Chưa học | `M09.md` — chưa tạo |
-| M10 | Hai phiên TLS và hai hệ DNS trong lab | Chưa học | `M10.md` — chưa tạo |
-| M11 | Origin URL, Origin Server Name và HTTP Host | Chưa học | `M11.md` — chưa tạo |
-| M12 | Access, 302, 502 và khoanh vùng lỗi | Chưa học | `M12.md` — chưa tạo |
+| M05 | Helm, cấp certificate và gate | Chưa học; dùng Câu 2/6 ngay từ đầu bài | `M05.md` — chưa tạo |
+| M06 | TLS, origin và khoanh vùng lỗi | Chưa học; dùng Câu 3/6 ngay từ đầu bài | `M06.md` — chưa tạo |
 
-Câu 1/6 đã trả lời trước giáo án. Câu 2/6 chờ trả lời lại sau M07; câu 3/6 chờ sau M12.
+Câu 1/6 đã trả lời trước giáo án. Câu 2/6 được dùng ngay từ đầu M05; Câu 3/6 được dùng ngay từ đầu M06.
 Không dùng việc tạo thư mục hoặc chuyển giáo án để xác nhận hoàn tất bài học.
 
 ## Checkpoint đang học
@@ -65,9 +63,9 @@ Không dùng việc tạo thư mục hoặc chuyển giáo án để xác nhận
 - **Câu trả lời chốt M04 nguyên văn:** “tức là vì Cần certificate mới nên cần dùng `CertificateRequest`mới để cấp lại certificate”. Mentor đã xác nhận đây là việc cấp/gia hạn chạy nền, không xảy ra cho mỗi kết nối TLS hoặc mỗi HTTP request mới.
 - **Điểm đã được sửa trong M04:** Certificate object khác nơi lưu certificate đã ký và khác bản tin TLS Certificate; CertificateRequest đã hoàn tất khác với certificate đã cấp hết hạn; quy tắc một lần cấp thuộc API/controller của cert-manager. Giữ nguyên các câu trả lời nhầm, các phản biện và những giải thích Mentor đã đính chính trong file bài.
 - **Vị trí vừa đối chiếu ở M04:** các minh họa mới về yêu cầu → controller → Secret kết quả, Issuer → Secret CA, hai Secret có hai mục đích, và Certificate → key-manager/request-manager → CertificateRequest. Đoạn 10 bước trong setup-rancher.md đã được người học review và yêu cầu cập nhật ở commit 2684e67; không coi các minh họa là trạng thái cluster thực tế.
-- **Bài tiếp theo:** M05 — hệ thống lại chuỗi xin và cấp certificate, ai tạo gì và ai đọc gì tới lúc Traefik nạp dữ liệu. Chưa bắt đầu bài M05; các phần tra cứu để sửa tài liệu không tự xác nhận hoàn tất M05.
+- **Bài tiếp theo:** M05 — Helm, cấp certificate và gate, học cùng Câu 2/6 ngay từ đầu. Gộp phần chuỗi cấp phát, phạm vi `--wait` và gate §14.4 thành kiến thức bổ sung trong tình huống. M05 và M06 đều chưa bắt đầu; việc gộp bài không xác nhận đã học xong các phần đó.
 - **Câu kiểm tra M04 đang chờ:** không còn; điểm cuối đã được người học tự chốt.
 - **Điểm từ M02 chưa có câu trả lời riêng trực tiếp trong phiên M04:** annotation chỉ Issuer đến từ template chart khi Helm render. Không ghi câu này là đã được người học tự trả lời trong phiên.
-- **Câu 2/6:** chưa trả lời lại/chấm lượt mới; giữ mốc sau M07.
-- **Câu 3/6:** chưa trả lời; giữ mốc sau M12.
+- **Câu 2/6:** chưa trả lời lại/chấm lượt mới; dùng ngay từ đầu M05 và giữ nguyên lịch sử/điểm cũ.
+- **Câu 3/6:** chưa trả lời; dùng ngay từ đầu M06.
 - **Cluster thực tế:** chưa có output được người học cung cấp trong các bài này; ví dụ là giả định để học.

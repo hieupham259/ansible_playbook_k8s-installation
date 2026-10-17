@@ -47,7 +47,7 @@ trước khi được trả lời. Các mã/mốc cũ trong M01–M04 là lịch
 | M02 | Object, controller và CRD | Hoàn tất | [M02.md](M02.md) |
 | M03 | Certificate, CA và key | Hoàn tất kiến thức; bản lưu còn thiếu một số lời giảng đầu bài | [M03.md](M03.md) |
 | M04 | Ingress, Issuer, Certificate và hai Secret | Hoàn tất | [M04.md](M04.md) |
-| M05 | Helm, cấp certificate và gate | Chưa học; dùng Câu 2/6 ngay từ đầu bài | `M05.md` — chưa tạo |
+| M05 | Helm, cấp certificate và gate | Hoàn tất; Câu 2/6 đạt 3/3 sau sửa | [M05.md](M05.md) |
 | M06 | TLS, origin và khoanh vùng lỗi | Chưa học; dùng Câu 3/6 ngay từ đầu bài | `M06.md` — chưa tạo |
 
 Câu 1/6 đã trả lời trước giáo án. Câu 2/6 được dùng ngay từ đầu M05; Câu 3/6 được dùng ngay từ đầu M06.
@@ -71,22 +71,27 @@ khi các phần còn thiếu đã được giải thích và có căn cứ từ 
 
 ## Checkpoint đang học
 
-- **Bài đã hoàn tất:** [M01 — Helm](M01.md), [M02 — Object, controller và CRD](M02.md), [M03 — Certificate, CA và key](M03.md), [M04 — Ingress, Issuer, Certificate và hai Secret](M04.md).
+- **Bài đã hoàn tất:** [M01 — Helm](M01.md), [M02 — Object, controller và CRD](M02.md), [M03 — Certificate, CA và key](M03.md), [M04 — Ingress, Issuer, Certificate và hai Secret](M04.md), [M05 — Helm, cấp certificate và gate](M05.md).
 - **Giới hạn bản lưu M03:** còn thiếu nguyên văn nhiều phản hồi Mentor và một số Mermaid đầu bài. File giữ nguyên những lượt còn truy xuất được, đánh dấu chỗ thiếu và chép phần lời giảng trong ảnh 2; không dựng hội thoại. Trạng thái hoàn tất kiến thức dựa trên các câu trả lời cuối bài, không có nghĩa bản chép đã đủ toàn văn.
 - **Điều người học đã tự giải thích đúng ở M03:** chữ ký trên certificate dùng private key CA từ Secret `tls-rancher` và có từ trước kết nối; CertificateVerify chứng minh bên kia giữ private key tương ứng với public key trong certificate; HTTPS vẫn mã hóa khi `noTLSVerify: true`, nhưng kết nối thành công chưa chứng minh xác minh đúng Rancher theo CA/hostname.
 - **Câu trả lời chốt M03 nguyên văn:** “dữ liệu được mã hoá nhưng việc kết nối thành công không đủ chứng minh `cloudflared` xác minh đúng Rancher theo CA và hostname”.
 - **Điểm đã được sửa trong M03:** người tạo chữ ký CA khác người gửi certificate; CertificateVerify là bản tin mang chữ ký handshake, không phải certificate thứ hai. Giữ các câu trả lời nhầm ban đầu trong file bài, không thay bằng đáp án đã sửa.
 - **Vị trí đối chiếu cuối M03:** phần “Controller nào cấp certificate và ai gửi hai bản tin TLS?” của `setup-rancher.md`, bước 3/bước 8 và bước 10 cùng ghi chú `noTLSVerify`. Minh họa bổ sung tách kiểm chữ ký handshake khỏi kiểm CA/hostname được lưu ở lượt chốt M03.
-- **Bài vừa hoàn tất:** [M04 — Ingress, Issuer, Certificate và hai Secret](M04.md), ngày 18/10/2026 (giờ Việt Nam).
+- **Mốc hoàn tất M04:** [M04 — Ingress, Issuer, Certificate và hai Secret](M04.md), ngày 18/10/2026 (giờ Việt Nam).
 - **Giới hạn bản lưu M04:** phần trước phiên này chỉ có checkpoint người học cung cấp; không dựng lại hội thoại cũ. File giữ phần giảng, các lượt hỏi–đáp, nhận xét/sửa nhầm, Mermaid và bản review 10 bước trong phiên 17–18/10/2026.
 - **Điều người học đã tự giải thích đúng ở M04:** Certificate tồn tại chưa chứng minh Secret có certificate đã ký; certificates-issuing ghi kết quả; CSR nằm trong CertificateRequest; Issuer tham chiếu CA bằng spec.ca.secretName; tls-rancher giữ dữ liệu CA dùng để ký, tls-rancher-ingress giữ certificate/key endpoint cho Traefik; có thể cấp lại bằng cùng CA còn hợp lệ; khi cần certificate mới, cert-manager tạo CertificateRequest mới cho lần xin cấp đó.
 - **Câu trả lời chốt M04 nguyên văn:** “tức là vì Cần certificate mới nên cần dùng `CertificateRequest`mới để cấp lại certificate”. Mentor đã xác nhận đây là việc cấp/gia hạn chạy nền, không xảy ra cho mỗi kết nối TLS hoặc mỗi HTTP request mới.
 - **Điểm đã được sửa trong M04:** Certificate object khác nơi lưu certificate đã ký và khác bản tin TLS Certificate; CertificateRequest đã hoàn tất khác với certificate đã cấp hết hạn; quy tắc một lần cấp thuộc API/controller của cert-manager. Giữ nguyên các câu trả lời nhầm, các phản biện và những giải thích Mentor đã đính chính trong file bài.
 - **Vị trí vừa đối chiếu ở M04:** các minh họa mới về yêu cầu → controller → Secret kết quả, Issuer → Secret CA, hai Secret có hai mục đích, và Certificate → key-manager/request-manager → CertificateRequest. Đoạn 10 bước trong setup-rancher.md đã được người học review và yêu cầu cập nhật ở commit 2684e67; không coi các minh họa là trạng thái cluster thực tế.
-- **Bài tiếp theo:** M05 — Helm, cấp certificate và gate, học cùng Câu 2/6 ngay từ đầu. Gộp phần chuỗi cấp phát, phạm vi `--wait` và gate §14.4 thành kiến thức bổ sung trong tình huống. M05 và M06 đều chưa bắt đầu; việc gộp bài không xác nhận đã học xong các phần đó.
+- **Bài vừa hoàn tất:** [M05 — Helm, cấp certificate và gate](M05.md), ngày 18/10/2026 (giờ Việt Nam).
+- **Quy ước riêng cho bản lưu M05:** theo yêu cầu cuối bài của người học, chỉ giữ ba câu hỏi chính và câu trả lời chốt đầy đủ, không lưu từng lượt trung gian. Câu trả lời được ghi rõ là bản tổng hợp sau trao đổi, không phải lời người học nguyên văn. Quy tắc này không tự sửa các bản lưu trước đó.
+- **Phần đã giải quyết ở M05:** chuỗi controller tạo Certificate/chuẩn bị key và CSR/ký/ghi Secret; phân biệt cấp phát với handshake; phạm vi chờ của Helm 3 và các nhánh bất đồng bộ; điều kiện PASS của gate §14.4.
+- **Bổ sung cuối ý 3:** Ingress phải in class `traefik`, host `rancher.hieupn.site`; condition Certificate là `Ready=True`. Người học chốt nguyên văn: “READY=true”.
+- **Giới hạn bản chốt M05:** ý nghĩa chi tiết của các flag curl và giới hạn bằng chứng có phần Mentor giải thích; không coi toàn bộ phần biên tập là câu trả lời nguyên văn độc lập của người học. Chưa có output xác nhận cluster thực tế.
+- **Bài tiếp theo:** M06 — TLS, origin và khoanh vùng lỗi, học cùng Câu 3/6 ngay từ đầu. M06 chưa bắt đầu.
 - **Câu kiểm tra M04 đang chờ:** không còn; điểm cuối đã được người học tự chốt.
 - **Điểm từ M02 chưa có câu trả lời riêng trực tiếp trong phiên M04:** annotation chỉ Issuer đến từ template chart khi Helm render. Không ghi câu này là đã được người học tự trả lời trong phiên.
-- **Câu 2/6:** chưa trả lời lại/chấm lượt mới; dùng ngay từ đầu M05 và giữ nguyên lịch sử/điểm cũ.
+- **Câu 2/6:** lượt M05 đã trả lời đủ ba ý, đạt **3/3 sau sửa**, lưu tại [M05.md](M05.md). Giữ riêng lịch sử và điểm 2/3 của lượt cũ trong setup-rancher.md.
 - **Câu 3/6:** chưa trả lời; dùng ngay từ đầu M06.
 - **Sau M06:** tiếp tục Câu 4/6–6/6 trực tiếp trong setup-rancher.md; cả ba chưa học/chưa trả lời, chưa có điểm.
 - **Bao phủ toàn bộ tài liệu:** chưa hoàn tất; dùng bảng đối chiếu để ghi các mục đã tự giải thích và còn thiếu. Hoàn tất chặng nền hoặc đọc đáp án chưa xác nhận đã hiểu toàn bộ.

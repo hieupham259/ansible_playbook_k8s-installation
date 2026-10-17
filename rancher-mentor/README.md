@@ -4,12 +4,16 @@ Bắt đầu từ [giáo án](rancher-mentor-study-plan.md). Thư mục này lư
 học đã hoàn tất; tài liệu giải thích cơ chế vẫn nằm trong
 [cloudflare-rancher-docs](../cloudflare-rancher-docs/setup-rancher.md), còn lệnh/gate nằm trong
 [runbook](../runbook-k8s-vmware.md#14-cài-rancher-2143--quản-lý-cụm).
+Mục tiêu là hiểu toàn bộ cơ chế trong setup-rancher.md: M01–M06 là chặng nền, sau đó học
+Câu 4/6–6/6 trực tiếp trong tài liệu và đối chiếu những phần còn thiếu.
 
 ## Cách lưu bài
 
-Khi hoàn tất bài nào, mentor tự động tạo file cùng thư mục: `M01.md`, `M02.md`, …, `M12.md`,
+Khi hoàn tất bài nền nào, mentor tự động tạo file cùng thư mục: `M01.md`, `M02.md`, …, `M06.md`,
 rồi đổi tên file trong bảng bên dưới thành liên kết và cập nhật trạng thái. Đây là yêu cầu lưu
-bài đã được người học đưa ra, không cần hỏi lại xác nhận ở cuối mỗi bài.
+bài đã được người học đưa ra, không cần hỏi lại xác nhận ở cuối mỗi bài. Câu 4/6–6/6 sau M06
+lưu theo cùng quy tắc trong `C04.md`, `C05.md`, `C06.md`; mã C là câu tình huống, không phải
+thêm bài M07–M12. Chỉ tạo file khi đã có trao đổi thực tế và hoàn tất phần tương ứng.
 
 File bài giữ đầy đủ phần giảng, định nghĩa, ví dụ, sơ đồ, code/lệnh, nguồn tham chiếu và các lượt
 hỏi–đáp theo thứ tự. Ghi rõ người nói; giữ nguyên câu trả lời của người học, cả điểm nhầm, nhận
@@ -49,6 +53,22 @@ trước khi được trả lời. Các mã/mốc cũ trong M01–M04 là lịch
 Câu 1/6 đã trả lời trước giáo án. Câu 2/6 được dùng ngay từ đầu M05; Câu 3/6 được dùng ngay từ đầu M06.
 Không dùng việc tạo thư mục hoặc chuyển giáo án để xác nhận hoàn tất bài học.
 
+### Chặng áp dụng sau M06
+
+Hoàn tất M06 chưa phải đã hiểu hết setup-rancher.md. Tiếp tục các tình huống dưới đây, bổ sung
+kiến thức ngay trong lúc giải quyết; sau đó dùng [bảng đối chiếu toàn bộ tài liệu](rancher-mentor-study-plan.md#đối-chiếu-toàn-bộ-setup-ranchermd)
+để tìm và xử lý phần chưa thực sự học.
+
+| Mốc | Nội dung | Trạng thái | File khi hoàn tất |
+| --- | --- | --- | --- |
+| [Câu 4/6](../cloudflare-rancher-docs/setup-rancher.md#câu-46--vì-sao-phải-cài-và-kiểm-tra-theo-thứ-tự-này) | Chuẩn bị, backup, thứ tự §14, values/render, bootstrap và các gate | Chưa học/chưa trả lời; chưa có điểm | `C04.md` — chưa tạo |
+| [Câu 5/6](../cloudflare-rancher-docs/setup-rancher.md#câu-56--browser-dùng-được-thì-client-và-cluster-khác-đã-dùng-được-chưa) | Server URL, client/agent, quyền/trust, local và downstream | Chưa học/chưa trả lời; chưa có điểm | `C05.md` — chưa tạo |
+| [Câu 6/6](../cloudflare-rancher-docs/setup-rancher.md#câu-66--trang-web-và-node-đều-khỏe-vì-sao-rancher-vẫn-lỗi) | Dashboard/API, SelfUser/Steve, sự cố sau reboot và condition local | Chưa học/chưa trả lời; chưa có điểm | `C06.md` — chưa tạo |
+| Đối chiếu bao phủ | Các phần chính, từng bước §14 và 15 cơ chế trong giáo án | Chưa hoàn tất | Ghi checkpoint và bổ sung vào file Mxx/Cxx liên quan |
+
+Điểm 0–3 của từng câu và mức bao phủ tài liệu được theo dõi riêng. Chỉ xác nhận đã học toàn bộ
+khi các phần còn thiếu đã được giải thích và có căn cứ từ trao đổi; xem [tiêu chí hoàn tất](rancher-mentor-study-plan.md#khi-nào-hoàn-tất-toàn-bộ-tài-liệu).
+
 ## Checkpoint đang học
 
 - **Bài đã hoàn tất:** [M01 — Helm](M01.md), [M02 — Object, controller và CRD](M02.md), [M03 — Certificate, CA và key](M03.md), [M04 — Ingress, Issuer, Certificate và hai Secret](M04.md).
@@ -68,4 +88,6 @@ Không dùng việc tạo thư mục hoặc chuyển giáo án để xác nhận
 - **Điểm từ M02 chưa có câu trả lời riêng trực tiếp trong phiên M04:** annotation chỉ Issuer đến từ template chart khi Helm render. Không ghi câu này là đã được người học tự trả lời trong phiên.
 - **Câu 2/6:** chưa trả lời lại/chấm lượt mới; dùng ngay từ đầu M05 và giữ nguyên lịch sử/điểm cũ.
 - **Câu 3/6:** chưa trả lời; dùng ngay từ đầu M06.
+- **Sau M06:** tiếp tục Câu 4/6–6/6 trực tiếp trong setup-rancher.md; cả ba chưa học/chưa trả lời, chưa có điểm.
+- **Bao phủ toàn bộ tài liệu:** chưa hoàn tất; dùng bảng đối chiếu để ghi các mục đã tự giải thích và còn thiếu. Hoàn tất chặng nền hoặc đọc đáp án chưa xác nhận đã hiểu toàn bộ.
 - **Cluster thực tế:** chưa có output được người học cung cấp trong các bài này; ví dụ là giả định để học.

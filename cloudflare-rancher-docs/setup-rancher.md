@@ -120,6 +120,9 @@ từng bước §14 và các cơ chế chuyên sâu. Phần sự cố và bài t
     - [Câu 1/6 — Hai đường truy cập cùng một Rancher](#câu-16--hai-đường-truy-cập-cùng-một-rancher)
     - [Câu 2/6 — Helm đã xong thì certificate đã sẵn sàng chưa?](#câu-26--helm-đã-xong-thì-certificate-đã-sẵn-sàng-chưa)
     - [Câu 3/6 — Tunnel khỏe nhưng browser vẫn nhận 502: khoanh vùng lỗi ở đâu?](#câu-36--tunnel-khỏe-nhưng-browser-vẫn-nhận-502-khoanh-vùng-lỗi-ở-đâu)
+    - [Câu 4/6 — Vì sao phải cài và kiểm tra theo thứ tự này?](#câu-46--vì-sao-phải-cài-và-kiểm-tra-theo-thứ-tự-này)
+    - [Câu 5/6 — Browser dùng được thì client và cluster khác đã dùng được chưa?](#câu-56--browser-dùng-được-thì-client-và-cluster-khác-đã-dùng-được-chưa)
+    - [Câu 6/6 — Trang web và node đều khỏe, vì sao Rancher vẫn lỗi?](#câu-66--trang-web-và-node-đều-khỏe-vì-sao-rancher-vẫn-lỗi)
 
 </details>
 
@@ -1358,10 +1361,12 @@ Sau lượt 2–3, xem [Ai tạo gì trong chuỗi cấp certificate](#sơ-đồ
 và [Helm và cert-manager chạy song song](#sơ-đồ-2--helm-và-cert-manager-chạy-song-song).
 Hai sơ đồ này bổ sung vai trò và thời điểm cho sơ đồ tuần tự.
 
-Muốn học cùng mentor theo từng bài, dùng [Giáo án Helm, certificate và TLS cho Rancher](../rancher-mentor/rancher-mentor-study-plan.md).
+Muốn học cùng mentor theo từng bài, dùng [Giáo án mentor — học toàn bộ cơ chế setup Rancher](../rancher-mentor/rancher-mentor-study-plan.md).
 Giáo án gồm 6 bài: M01–M04 là nền đã học; M05 dùng Câu 2/6 ngay từ đầu, M06 dùng Câu 3/6
-ngay từ đầu. Bảng trên là nguồn tra cứu để bổ sung đúng chỗ đang vướng trong tình huống,
-không phải các bài bắt buộc phải học xong rồi mới được trả lời câu hỏi.
+ngay từ đầu. Đây là chặng nền; sau M06 tiếp tục Câu 4/6–6/6 trực tiếp trong phần Tự kiểm tra,
+rồi dùng [bảng đối chiếu toàn bộ tài liệu](../rancher-mentor/rancher-mentor-study-plan.md#đối-chiếu-toàn-bộ-setup-ranchermd)
+để bổ sung phần chưa học. Hoàn tất M06 chưa phải đã hiểu hết file. Bảng trên là nguồn tra cứu
+cho Câu 2/6–3/6, không phải phạm vi toàn bộ khóa học hoặc điều kiện phải học xong trước khi trả lời.
 
 ## Nền tảng — Helm, cert-manager và Rancher thực chất là gì
 
@@ -3043,6 +3048,9 @@ Các tham chiếu §14 bên dưới trỏ tới [runbook-k8s-vmware.md](../runbo
 Cách trình bày tương tự [phần tự kiểm tra của bài Tunnel → Traefik](tunnel-traefik.md#tự-kiểm-tra):
 đọc tình huống, tự trả lời trước, sau đó mới mở đáp án. Phần nhận xét ghi lại những điểm đúng
 và những nhầm lẫn cần sửa trong lượt phỏng vấn; đáp án hoàn chỉnh bên dưới đã được chuẩn hóa.
+Câu 1/6 là nền đã học; Câu 2/6 học trong M05, Câu 3/6 trong M06 ngay từ đầu; Câu 4/6–6/6
+tiếp tục chặng áp dụng sau M06. Các câu mới có đáp án tham khảo, chưa có câu trả lời/điểm của
+người học. Sau các tình huống vẫn đối chiếu các phần chưa học theo giáo án để bao phủ toàn bộ file.
 
 ### Câu hỏi — vòng 1: toàn cảnh Rancher
 
@@ -3497,5 +3505,294 @@ ghi điểm hoặc bịa lượt trả lời trong phần đáp án tham khảo 
 §14.4 và §14.5.1 của [runbook](../runbook-k8s-vmware.md).
 Nguồn đối chiếu: [Cloudflare — Origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/)
 và [Cloudflare — Common tunnel errors](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/troubleshoot-tunnels/common-errors/).
+
+</details>
+
+#### Câu 4/6 — Vì sao phải cài và kiểm tra theo thứ tự này?
+
+**Tình huống giả định để học quy trình:** bạn chuẩn bị cài Rancher mới theo §14 trên cụm kubeadm
+của lab. Một đồng nghiệp đề xuất bỏ kiểm tra trước cài và backup, chạy Helm trước, rồi mới sửa
+DNS và publish route; nếu có lỗi thì `helm uninstall` và làm lại. Sau đó, người này thấy Helm
+thành công nhưng chưa có `bootstrap-secret`, nên kết luận chart hỏng.
+
+Giữ nguyên cấu hình lab hiện tại. Đây không phải đề nghị thực hiện các thay đổi trên cluster.
+
+**Trả lời ba ý:**
+
+1. Những kiểm tra nào ở §14.0 cần có trước khi thay đổi? Vì sao backup §14.0.1 gồm snapshot etcd,
+   cấu hình/PKI và bản copy ngoài VM có kiểm tra toàn vẹn? `helm uninstall` hoặc khôi phục riêng
+   ConfigMap CoreDNS có thay thế được phạm vi backup đó không?
+2. Giải thích thứ tự cert-manager → split DNS → render/cài Rancher → gate origin → Access rồi
+   publish. Khi đọc render/values, cần hiểu các nhóm cấu hình nào và gate đang chứng minh điều gì?
+   Không cần chép lại toàn bộ lệnh; nêu phần nào chưa rõ để cùng đọc đúng đoạn runbook.
+3. Ai sinh `bootstrap-secret`, `rancher-webhook` và các settings lúc runtime? Chưa có bootstrap
+   Secret ngay sau Helm đã đủ kết luận hỏng chưa? Vì sao đọc password, đăng nhập, xác nhận Server URL
+   và kiểm inventory/`local` ở §14.6–§14.7 vẫn cần thiết sau khi `/healthz` trả 200?
+
+Câu này bắt đầu chặng áp dụng sau M06 trong [giáo án](../rancher-mentor/rancher-mentor-study-plan.md#lộ-trình-áp-dụng-sau-m06).
+Mentor bổ sung định nghĩa và giải thích từng nhóm lệnh/values ngay tại ý đang học, theo bảng
+đối chiếu của giáo án. Không yêu cầu thực thi lại §14 để trả lời.
+
+<details>
+<summary>Đáp án vòng 1 — câu 4/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**Đáp án tham khảo — chưa có lượt trả lời hoặc điểm của người học cho câu này.**
+
+**1. Chuẩn bị và đường lui**
+
+Gate §14.0 đối chiếu phiên bản công cụ/cluster, node và tài nguyên, quyền quản trị, Traefik,
+tunnel, release và namespace còn lại từ lần cài cũ. Mỗi kiểm tra loại trừ một điều kiện có thể
+làm cài mới thất bại hoặc khiến quy trình không còn phù hợp. Dùng baseline và lệnh hiện tại
+trong runbook; không suy từ bản chart tương thích rằng mọi nền tảng host đều được chứng nhận.
+
+etcd lưu trạng thái Kubernetes, gồm các object và Secret; PKI, kubeconfig và static Pod manifest
+trong `/etc/kubernetes` là nhóm cấu hình cần bảo toàn riêng. Trong quy trình backup, `etcdctl`
+chạy trong Pod etcd, dùng certificate/key để xác thực TLS hai chiều; hostPath cho phép lấy file
+snapshot qua disk node. Kiểm tra file, bản copy, quyền và checksum xác nhận các điều kiện khác
+nhau. Bản copy ngoài VM tránh để toàn bộ bản sao phụ thuộc cùng disk với dữ liệu đang chạy.
+Checksum giống nhau chứng minh bản copy khớp, chưa phải bằng chứng đã thử phục hồi thành công.
+
+Helm chỉ quản lý phạm vi release; CRD, tài nguyên runtime và thay đổi do các controller thực
+hiện khiến uninstall không tương đương quay trạng thái về trước cài đặt. Bản sao một ConfigMap
+chỉ phục hồi đúng phần cấu hình đó. Snapshot etcd và backup cấu hình/PKI có phạm vi khác; không
+suy rằng chỉ một snapshot đã chứa mọi dữ liệu trên disk hoặc dữ liệu ứng dụng trong volume.
+
+**2. Thứ tự là các quan hệ phụ thuộc**
+
+| Bước | Vì sao ở vị trí này / điều cần hiểu |
+| --- | --- |
+| Cài và verify cert-manager | Có CRD, webhook và controller phục vụ Issuer/Certificate; chỉ có tên release cert-manager chưa đủ |
+| Chuẩn bị split DNS | Client local gọi đúng Server URL qua Traefik; hiểu `hosts`, `fallthrough`, TTL và test tên Rancher từ Pod |
+| Render rồi cài Rancher | Kiểm nhánh Ingress, class, host, Secret và phiên bản giả lập `--kube-version`; render chưa xác nhận workload chạy được |
+| Gate §14.4 | Phân biệt chờ object xuất hiện, Certificate Ready, Secret và thử endpoint; `/healthz` không kiểm hết chức năng API |
+| Access rồi mới publish | Policy bảo vệ hostname có trước thời điểm route public hoạt động; Access application và route là hai cấu hình khác nhau |
+| Đăng nhập và hậu kiểm | Kiểm thêm runtime, danh tính truy cập và trạng thái quản lý `local`; không thay bằng kết quả Helm hoặc healthz |
+
+Khi đọc §14.3, cần nối từng key với vai trò: hostname/replicas; `agentTLSMode`; lựa chọn nhánh
+Ingress và `ingress.enabled`; class/annotations của Traefik; backend HTTP 80; nguồn TLS và tên
+Secret. Traefik xử lý WebSocket và thông tin giao thức qua `X-Forwarded-Proto`; annotation NGINX
+không trở thành cấu hình Traefik chỉ vì xuất hiện trên Ingress. Header báo chặng proxy HTTPS
+không đổi chặng Traefik → Pod Rancher thành HTTPS.
+
+Các chi tiết shell như heredoc có nháy, subshell, mã thoát, các bước backup/copy và từng flag
+được đọc tại phần “Đi qua §14 từng mục”, rồi đối chiếu nguyên văn runbook. Đây là các phần cần
+giải thích trong lúc học, không phải yêu cầu nhớ tên key hoặc sao chép toàn bộ lệnh trong một lượt.
+
+**3. Release, runtime và chức năng sử dụng có mốc sẵn sàng khác nhau**
+
+Trong cấu hình không đặt `bootstrapPassword`, Rancher Server sinh mật khẩu và ghi
+`bootstrap-secret` lúc khởi động. Rancher cũng tạo `rancher-webhook` và settings lúc runtime;
+cert-manager phụ trách Certificate/Secret TLS. Các công việc có thể diễn ra trong khi Helm
+còn chờ. `NotFound` khi đọc quá sớm chưa chứng minh chart hỏng; phải xét rollout, bước chờ
+Secret, timeout và log theo runbook.
+
+§14.6 chờ đúng mốc rồi đọc password, giải mã base64 để lấy giá trị, đăng nhập Access và Rancher,
+đổi mật khẩu admin và xác nhận Server URL `https://rancher.hieupn.site`. Base64 là cách biểu diễn
+dữ liệu, không phải mã hóa bảo mật. §14.7 kiểm inventory thực tế, `server-url`, `agent-tls-mode`
+và UI `local` Active. Những phép kiểm này có phạm vi khác `/healthz`; chúng chưa xác nhận đường
+hay TLS của downstream agent, hoặc mọi hành vi của Fleet.
+
+**Chấm lượt mới:** mỗi ý 0–1, tổng 0–3; nêu đúng/thiếu/sai và cho sửa. Lưu đầy đủ trao đổi thực
+tế vào `rancher-mentor/C04.md` khi hoàn tất, không dựng lượt trả lời từ đáp án này. Điểm câu hỏi
+không thay thế việc đối chiếu các phần còn thiếu trong bảng bao phủ của giáo án.
+
+Đọc lại: [Đi qua §14 từng mục](#đi-qua-14-từng-mục--mỗi-lệnh-làm-gì),
+[Nền tảng Rancher](#rancher--thứ-gì-do-chart-tạo-thứ-gì-rancher-tự-sinh), mục đào sâu 1–3,
+8–10, 13, 15 và [runbook §14](../runbook-k8s-vmware.md#14-cài-rancher-2143--quản-lý-cụm).
+
+</details>
+
+#### Câu 5/6 — Browser dùng được thì client và cluster khác đã dùng được chưa?
+
+**Tình huống giả định:** đường browser tới Rancher đã hoạt động, Server URL là
+`https://rancher.hieupn.site`, cụm host hiện dưới tên `local`. Split DNS đã được cấu hình trong
+CoreDNS của `local`; `agent-tls-mode` có giá trị `strict`. Chưa có downstream cluster được import.
+
+Bạn muốn cho một chương trình Python trong Pod của `local` gọi Rancher API, và sau này quản lý
+một cluster khác. Có người kết luận: “Browser đã đăng nhập được, `strict` đã bật, vậy cả hai
+client máy cũng sẽ dùng được; nếu `local` thiếu `cattle-cluster-agent` thì cài thêm nó.”
+
+**Trả lời ba ý:**
+
+1. Rancher đang quản cluster `local` bằng cách nào? Khi đổi replica trong Dashboard, ai gọi
+   Kubernetes API, ai lưu trạng thái và ai thực hiện thay đổi Pod? Vì sao `local` không cần
+   `cattle-cluster-agent`? Phân biệt nơi chạy và vai trò của agent này, `fleet-agent` và
+   `rancher-system-agent`.
+2. Chương trình Python trong Pod `local` gọi cùng Server URL sẽ đi đường nào, nhận certificate
+   từ ai và cần tự đáp ứng những điều kiện DNS, trust, xác thực/quyền nào? Split DNS, `strict`
+   và `noTLSVerify` của connector có tự giải quyết mọi điều kiện đó cho chương trình này không?
+3. Vì sao downstream cluster không tự kế thừa đường nội bộ của `local`? Trước khi import, cần
+   thiết kế/kiểm tra riêng gì về Server URL, DNS/network, Access và certificate phù hợp `strict`?
+   Browser dùng được và setting đúng đã chứng minh những điều kiện đó chưa?
+
+Đây là bài phân tích phạm vi và phụ thuộc, chưa phải hướng dẫn triển khai đường import.
+Giữ nguyên cấu hình lab; không cài agent hoặc đổi Access để làm bài lý thuyết.
+
+<details>
+<summary>Đáp án vòng 1 — câu 5/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**Đáp án tham khảo — chưa có lượt trả lời hoặc điểm của người học cho câu này.**
+
+**1. Cluster host và cluster được quản từ xa có cách kết nối khác nhau**
+
+Rancher chạy như workload trong chính cluster `local`. Với cụm này, Rancher dùng service account
+và quyền đã được cấp để gọi Kubernetes API trực tiếp. Dashboard gửi thao tác tới Rancher;
+Rancher yêu cầu Kubernetes thay đổi Deployment; API server lưu trạng thái mong muốn trong etcd;
+các controller và kubelet thực hiện công việc tương ứng để thay đổi Pod. UI không tự tạo Pod
+bằng cách chạy Helm ở browser.
+
+| Thành phần | Nơi chạy / tình huống | Vai trò và giới hạn kết luận |
+| --- | --- | --- |
+| `cattle-cluster-agent` | Downstream cluster khi đăng ký/import | Chủ động mở kết nối về Rancher để phục vụ quản lý cluster từ xa; không phải hop của đường browser và không cần cài vào `local` |
+| `fleet-agent` | Có thể được Fleet bootstrap cho `local` trong `cattle-fleet-local-system`, hoặc cluster do Fleet quản | Phục vụ Fleet; phải xem inventory/cấu hình thực tế, không suy từ danh sách Pod trong `cattle-system` |
+| `rancher-system-agent` | Node thuộc luồng provision RKE2/K3s | Thực hiện công việc quản lý node theo luồng đó; §14 cài Rancher lên kubeadm không tự cài nó lên các VM |
+
+`agentTLSMode: strict` là chính sách TLS áp dụng cho các agent được hỗ trợ trong từng tình
+huống, không phải lệnh cài agent và không áp dụng tự động cho mọi chương trình trong Pod.
+
+**2. Đường máy local có ba yêu cầu riêng: đến đúng nơi, tin đúng server, có quyền gọi API**
+
+Python trong Pod dùng CoreDNS, nhận ClusterIP Traefik cho `rancher.hieupn.site`, kết nối HTTPS
+tới Traefik và giữ hostname đó cho TLS/HTTP. Nó nhận certificate origin do Traefik trình từ
+Secret `tls-rancher-ingress`; request tiếp tục tới Pod Rancher bằng HTTP 80. Đường này không
+qua Edge, Access hoặc Tunnel. Server URL vẫn là tên Rancher, không đổi thành tên Service chỉ
+vì kết nối đang ở trong cluster.
+
+Split DNS giải quyết phân giải/đường đi, không phân phối CA hoặc cấp quyền API. Chương trình
+Python phải có trust store/cấu hình TLS phù hợp để xác minh CA, hostname và tính hợp lệ; đồng
+thời dùng thông tin xác thực và quyền API phù hợp với thao tác. `noTLSVerify: true` chỉ áp dụng
+cho kết nối origin do `cloudflared` tạo. Setting `strict` của Rancher không tự cấu hình thư viện
+Python. Đăng nhập Access của browser cũng không cấp danh tính API cho Pod này.
+
+**3. Downstream phải có đường riêng được kiểm từ nơi nó chạy**
+
+Downstream dùng DNS/network của chính nó; entry CoreDNS và ClusterIP của `local` không tự xuất
+hiện hoặc truy cập được từ cluster khác. `cattle-cluster-agent` tại downstream cần chủ động gọi
+Server URL. Phải kiểm được tên miền phân giải tới đâu, khả năng kết nối, cơ chế truy cập dành
+cho máy và certificate mà agent thực sự nhìn thấy.
+
+Theo mô hình lab, DNS public dẫn tới Edge/Access. Đăng nhập Access tương tác là trở ngại riêng
+cho process; không thể coi session browser là session của agent. Nếu TLS của agent kết thúc tại
+Edge, nó thấy certificate public của Edge; certificate đó không khớp trust CA riêng Rancher
+trong cấu hình `strict` đang xét. Nếu dùng đường kết thúc tại Traefik, cần kiểm reachability và
+certificate khớp CA trong `cacerts`, hostname và các điều kiện TLS cần thiết. Không phải mọi
+certificate mới đều bị từ chối: certificate mới vẫn có thể hợp lệ với cùng trust phù hợp.
+
+§14 chỉ hoàn tất `local`, chưa triển khai đường machine-to-machine này. Service token của
+Cloudflare đòi client gửi thông tin xác thực tương ứng; runbook không cấu hình downstream agent
+gửi các header đó. Vì vậy không kết luận “cứ import” hoặc tự tắt Access/đổi chế độ TLS từ tình
+huống. Phải thiết kế và xác minh riêng trước khi triển khai ngoài phạm vi bài hiện tại.
+
+**Chấm lượt mới:** mỗi ý 0–1, tổng 0–3; cho sửa và lưu đầy đủ trao đổi thực tế vào
+`rancher-mentor/C05.md` khi hoàn tất. Không ghi điểm dự kiến hoặc khẳng định inventory thực tế.
+
+Đọc lại: [Khi client trong cluster gọi cùng Server URL](#khi-client-trong-cluster-gọi-cùng-server-url),
+[Dashboard quản lý cluster](#khi-bạn-sử-dụng-dashboard-để-quản-lý-cluster),
+[Nếu sau này import downstream](#nếu-sau-này-import-downstream-cluster), từ điển `local`/agent/
+Server URL, mục đào sâu 5–7, 14–15 và §14.7 của [runbook](../runbook-k8s-vmware.md).
+
+</details>
+
+#### Câu 6/6 — Trang web và node đều khỏe, vì sao Rancher vẫn lỗi?
+
+**Bài phân tích case đã ghi trong tài liệu:** sau reboot, `/healthz` trả 200 và Pod Rancher
+Ready, nhưng Dashboard gọi `/v1/ext.cattle.io.selfuser` nhận 404. Dữ liệu của case cho thấy:
+
+- Ban đầu Rancher HTTP sẵn sàng trước extension API khoảng 39 giây.
+- Lúc điều tra, Flannel/node đã khỏe, Service/EndpointSlice của extension API có backend port
+  6666, `APIService/v1.ext.cattle.io` Available và raw discovery có `selfusers`; Steve vẫn thiếu schema.
+- Lỗi đăng nhập hết sau khi restart Rancher lúc các dependency đã sẵn sàng.
+- Hậu kiểm thấy các node Active, nhưng object quản lý cluster `local` có `Ready=False`, card
+  báo `Unavailable`; rollout Rancher lần nữa không đổi condition/timestamp.
+
+Đây là dữ kiện của case được lưu để học suy luận, **không phải xác nhận trạng thái cluster hiện
+tại**. Không yêu cầu tái tạo lỗi hoặc thực hiện restart.
+
+**Trả lời ba ý:**
+
+1. Vì sao Pod Ready và `/healthz` 200 chưa chứng minh đăng nhập/SelfUser hoạt động? Giải thích
+   vai trò Dashboard, Steve, Kubernetes Aggregation Layer, APIService và extension API port 6666;
+   các bằng chứng nào kiểm nhánh riêng này?
+2. Phân biệt sự kiện kích hoạt, lỗi tạm thời lúc boot, startup race và trạng thái giữ lỗi trong
+   case. Vì sao phải giữ bằng chứng, dựng timeline và so raw discovery với Steve trước khi cân
+   nhắc phục hồi? Cần những gate nào trước một restart có mục tiêu, và kết quả sau đó xác nhận
+   được điều gì trong case?
+3. Vì sao node Active và `local` Unavailable có thể cùng đúng? Sau khi SelfUser đã hồi phục,
+   cần điều tra tiếp nguồn trạng thái/controller nào, thay vì restart lặp lại hoặc cài
+   `cattle-cluster-agent`? Chỗ nào đã có bằng chứng, chỗ nào còn là giả thuyết?
+
+Mentor dùng đầy đủ bước 0–9 của phần điều tra, giải thích thuật ngữ ngay tại chỗ. Các bước phục
+hồi được phân tích như hành động đã có trong case; thực hiện trên hệ thống thật cần yêu cầu và
+gate tương ứng, không suy từ bài lý thuyết thành lệnh thao tác.
+
+<details>
+<summary>Đáp án vòng 1 — câu 6/6: chỉ mở sau khi đã tự trả lời</summary>
+
+**Đáp án tham khảo — chưa có lượt trả lời hoặc điểm của người học cho câu này.**
+
+**1. Một phép kiểm tra khỏe chỉ bao phủ chức năng mà nó thật sự kiểm**
+
+`/healthz` trên HTTP port 80 và readiness của Pod không kiểm toàn bộ API mà Dashboard sử dụng.
+Dashboard cần SelfUser để lấy thông tin người dùng đang đăng nhập. Steve là lớp API của Rancher
+cần schema của resource đó. Nhánh phụ thuộc liên quan còn gồm Kubernetes Aggregation Layer,
+`APIService/v1.ext.cattle.io`, Service `imperative-api-extension:6666` và extension API server
+trong Pod Rancher. Aggregation Layer cho phép Kubernetes API nối tới API mở rộng; APIService
+là object đăng ký nhóm/phiên bản API đó, không phải một Pod.
+
+Vì vậy cần đối chiếu request lỗi cụ thể, Service/EndpointSlice/backend 6666, condition của
+APIService, raw discovery và schema mà Steve cung cấp. Có resource trong raw Kubernetes chưa
+tự chứng minh Steve đã discovery lại và đang phục vụ đúng schema. Đường HTTP chung, extension
+API và cache/schema của consumer có các mốc sẵn sàng riêng.
+
+**2. Suy luận từ cả trạng thái hiện tại lẫn lịch sử khởi động**
+
+| Vai trò trong case | Bằng chứng / cách đọc |
+| --- | --- |
+| Sự kiện kích hoạt | Các node/VM reboot |
+| Hiện tượng tạm thời | `/run/flannel/subnet.env` chưa được tạo lại nên kubelet từng lỗi sandbox; tự hết khi Flannel khôi phục |
+| Khoảng hở readiness và race | Rancher HTTP sẵn sàng, Steve discovery khi extension API chưa sẵn sàng; timeline ghi khoảng cách khoảng 39 giây |
+| Trạng thái giữ lỗi login | Dependency đã khỏe, raw discovery có resource nhưng Steve vẫn thiếu schema SelfUser; bằng chứng hướng tới state/cache trong Rancher/Steve |
+| Kết quả phục hồi trong case | Restart Rancher khi dependency sẵn sàng giúp process discovery lại; SelfUser và login hoạt động |
+
+Giữ request, mã lỗi, log/event có timestamp và trạng thái trước khi sửa để còn so sánh được
+các thời điểm. Không quy lỗi mạng kéo dài chỉ vì event cũ có Flannel, cũng không dùng trạng
+thái APIService hiện tại để phủ nhận một khoảng chưa sẵn sàng trong quá khứ. So hai góc nhìn
+raw Kubernetes và Steve giúp xác định nơi còn giữ thông tin cũ; timeline kiểm giả thuyết discovery
+quá sớm. Nếu dữ liệu không khớp, phải tìm nguyên nhân khác thay vì khẳng định mọi SelfUser 404
+đều là cache hoặc mọi lỗi đăng nhập đều cần restart.
+
+Trong case, gate trước restart gồm node Ready, Flannel sẵn sàng, Pod Rancher Ready, endpoint
+Ready port 6666, APIService Available và raw discovery có `selfusers`. Restart lúc dependency
+chưa sẵn sàng có thể tạo lại race. Việc process mới discovery được và login hết lỗi hỗ trợ
+kết luận của **nhánh SelfUser trong case này**; restart là bước phục hồi/thử nghiệm, không phải
+tên của nguyên nhân. Kết quả đó chưa chứng minh mọi management condition đã hồi phục.
+
+**3. Trạng thái node và trạng thái quản lý cluster đến từ hai nguồn khác nhau**
+
+Trang Nodes đọc trạng thái node qua Kubernetes API. Card cluster đọc condition trên
+`clusters.management.cattle.io/local`. Vì thế node có thể Ready/Active trong khi object quản
+lý cluster vẫn giữ `Ready=False`; không có mâu thuẫn nếu phân biệt đúng object và controller.
+
+Với `local`, cần theo nhánh local cluster controller/HealthSyncer và việc cập nhật condition:
+quan sát nhiều chu kỳ, condition/timestamp, controller leader lease và log khởi tạo controller,
+cùng lỗi từ client nội bộ Rancher nếu có. `/readyz` PASS bằng kubeconfig của người quản trị
+chưa tự kiểm chứng mọi lần gọi bằng client nội bộ của Rancher. Không cần thêm downstream
+`cattle-cluster-agent` cho cluster host.
+
+Case đã xác nhận phạm vi hậu quả còn lại ở management state của `local`; phần ghi chép chưa có
+đủ output để chọn chính xác leader handover, controller chưa start hay HealthSyncer/client bị
+kẹt. Rollout thêm mà condition và timestamp không đổi không cung cấp lời giải. Giữ các khả
+năng đó là giả thuyết cho tới khi có bằng chứng tương ứng; tách lỗi SelfUser đã phục hồi khỏi
+nhánh `local` còn điều tra.
+
+**Chấm lượt mới:** mỗi ý 0–1, tổng 0–3; nhận xét và cho sửa, rồi lưu đầy đủ trao đổi thực tế
+vào `rancher-mentor/C06.md` khi hoàn tất. Sau câu này vẫn đối chiếu bảng bao phủ giáo án để bổ
+sung phần chưa học; không tự đánh dấu đã hiểu toàn bộ tài liệu chỉ vì đã đọc đáp án.
+
+Đọc lại: [Luồng SelfUser](#luồng-selfuser-và-sự-cố-sau-reboot),
+[luồng nội bộ Rancher](#luồng-nội-bộ-bên-trong-rancher-còn-thiếu-ở-phiên-bản-sơ-đồ-cũ),
+[case sau reboot](#sơ-đồ-sự-cố-sau-reboot--selfuser-404-và-cluster-local-unavailable)
+và toàn bộ [luồng suy luận điều tra](#luồng-suy-luận-điều-tra--từ-triệu-chứng-đến-đúng-hung-thủ),
+gồm bước 0–9, các giới hạn kết luận và nguồn cơ chế đã dẫn tại đó.
 
 </details>

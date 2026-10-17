@@ -1553,7 +1553,7 @@ sequenceDiagram
 
 1. `ingress-shim` thấy Ingress cần certificate, nên tạo object `Certificate`.
 2. **Controller `certificaterequests-issuer-ca` lấy private key của CA** từ Secret `tls-rancher`.
-3. **Controller `certificaterequests-issuer-ca` dùng khóa CA để ký certificate** cho `rancher.hieupn.site`. Certificate ghi hostname này và public key mà Traefik sẽ sử dụng.
+3. **Controller `certificaterequests-issuer-ca` lấy hostname `rancher.hieupn.site` và public key của endpoint Rancher từ yêu cầu xin ký trong object `CertificateRequest`.** Controller tạo certificate **chứa hostname và public key này**, rồi dùng **private key CA đã lấy ở bước 2** để ký certificate.
 4. **Controller `certificates-issuing` lưu kết quả vào Secret `tls-rancher-ingress`:** certificate đã có chữ ký CA và private key HTTPS tương ứng.
 5. **Traefik yêu cầu đọc Secret đó.**
 6. **Traefik nhận và nạp cả certificate lẫn private key HTTPS** để chuẩn bị phục vụ kết nối.

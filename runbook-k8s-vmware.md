@@ -2714,7 +2714,7 @@ Traefik Service/Pod → Ingress Router (Host match) → Service web → Pod web
 
 ## 14. Cài Rancher 2.14.3 & quản lý cụm
 
-> Cài Rancher **vào chính cụm kubeadm** vừa dựng (Rancher chạy như workload trong namespace `cattle-system`). Cụm host nó sẽ tự xuất hiện trong UI Rancher dưới tên **`local`** — **không cần import thủ công**. §14 chỉ hoàn tất đường truy cập cho cụm `local`; trước khi quản thêm cụm khác bằng **Cluster Management → Import Existing**, phải thiết kế riêng đường machine-to-machine để agent trong downstream cluster truy cập được Server URL mà không bị Cloudflare Access tương tác chặn và vẫn thấy certificate hợp lệ với `agentTLSMode: strict`.
+> Cài Rancher **vào chính cụm kubeadm** vừa dựng (Rancher chạy như workload trong namespace `cattle-system`). Cụm host nó sẽ tự xuất hiện trong UI Rancher dưới tên **`local`** — **không cần import thủ công**. §14 chỉ hoàn tất đường truy cập cho cụm `local`; trước khi quản thêm cụm khác bằng **Cluster Management → Import Existing**, phải thiết kế riêng đường machine-to-machine để `cattle-cluster-agent` trong downstream cluster truy cập được Server URL mà không bị Cloudflare Access tương tác chặn và vẫn thấy certificate hợp lệ với `agentTLSMode: strict`.
 >
 > **Hostname đã chốt:** `rancher.hieupn.site`. Chưa tạo Published application route/DNS public cho hostname này cho tới khi Rancher, certificate và phép thử HTTPS nội bộ ở §14.4 đều PASS.
 >
@@ -2731,7 +2731,7 @@ Trước khi chạy lệnh nào của §14, cần trả lời câu hỏi mà m�
 | Browser mở `https://rancher.hieupn.site` | ✅ Chạy — HTTPS do Edge lo bằng cert public, y như app demo |
 | Đăng nhập, dùng UI | ✅ Chạy |
 | Pod nội bộ gọi Server URL | ✅ Chạy — đi vòng qua Edge, cert public hợp lệ nên verify OK |
-| Import downstream cluster, agent gọi về | ✅ Chạy — với `agentTLSMode: system-store`, agent tin cert public của Cloudflare |
+| Import downstream cluster, `cattle-cluster-agent` gọi về | ✅ Chạy — với `agentTLSMode: system-store`, agent này tin cert public của Cloudflare |
 
 Không có gì gãy — tức là **không có yêu cầu kỹ thuật nào ép buộc cách setup của §14 cả**.
 
@@ -2751,7 +2751,7 @@ Cửa riêng đó phải phục vụ đúng URL https://rancher.hieupn.site
 (https là yêu cầu cứng duy nhất của Rancher — Server URL không nhận http://)
 → cửa nội bộ phải tự trình cert cho tên này → CERT-MANAGER + CA RIÊNG (§14.1, §14.3)
    ↓ tùy chọn gia cố thêm
-agentTLSMode: strict — khóa vòng agent về đúng một CA (§14.3)
+agentTLSMode: strict — chính sách xác minh CA cho agent được hỗ trợ; không cài agent (§14.3)
 ```
 
 Đọc ngược cũng đúng: **bỏ quyết định đầu tiên đi thì cả chuỗi domino biến mất** — không cần Access thì không cần split DNS, không cần split DNS thì client đi vòng qua Edge dùng cert public, không cần cert nội bộ, không cần cert-manager. Và đó *chính xác* là cấu hình của app demo.
@@ -2914,11 +2914,85 @@ Verify dừng ở mức exit code, `cmp` và checksum là có chủ đích: imag
 
 Certificate (chứng chỉ TLS) là nền của HTTPS: một file chứa public key + tên miền, được một **CA** (Certificate Authority) ký xác nhận, nhờ đó client vừa mã hóa được kết nối vừa biết server "đúng là nó". Certificate có hạn dùng; hết hạn phải được cấp lại, không thì dịch vụ mất HTTPS vào một ngày ngẫu nhiên.
 
-Trong cluster, không chỉ trình duyệt của bạn cần HTTPS. Nhiều thành phần nói chuyện với nhau và phải chứng minh danh tính cho nhau: UI Rancher phục vụ HTTPS, agent Rancher phải xác minh server nó gọi có đúng là Rancher thật không, webhook cần certificate để API server tin nó. Làm tay nghĩa là sinh key, xin CA ký, nhét vào Secret, canh ngày hết hạn để làm lại — lặp cho từng thành phần.
+Trong luồng public của lab, TLS client kết nối tới Traefik là connector `cloudflared`. Chương trình tích hợp API trong Pod là ví dụ cho một client có thể triển khai thêm, không phải workload được §14 cài sẵn. Ví dụ `cattle-cluster-agent` gọi Rancher thuộc trường hợp sau này import downstream cluster; phân biệt với `fleet-agent` và `rancher-system-agent` trong bảng dưới. UI/API Rancher được công bố qua endpoint HTTPS do Traefik phục vụ; endpoint này cần certificate để client có thể xác minh danh tính server. Những luồng TLS khác, chẳng hạn Kubernetes API server gọi webhook, có certificate và phạm vi riêng. Nếu quản lý certificate bằng tay, người vận hành phải sinh key, cấp certificate, đưa vào Secret và theo dõi gia hạn cho từng thành phần.
 
 cert-manager tự động hóa đúng việc đó. Nó là một **controller** chạy trong cluster — quan sát trạng thái mong muốn rồi tự hành động cho khớp — và thêm vào Kubernetes các kind mới qua CRD: `Issuer`/`ClusterIssuer` khai báo "CA của tôi là ai", `Certificate` khai báo "cần certificate cho tên miền X, lưu vào Secret Y". Bạn chỉ khai báo mong muốn; cert-manager sinh key, xin Issuer ký, ghi kết quả vào Secret và tự gia hạn trước khi hết hạn.
 
-Trong mô hình của runbook này, HTTPS **công khai** (`https://rancher.hieupn.site` từ Internet) do Cloudflare lo ở edge ([§12](#12-tạo-cloudflare-tunnel-chạy-trong-cụm)–[§13](#13-trỏ-domain--kiểm-tra-trên-internet)) — phần đó không liên quan cert-manager. Nhưng **bên trong cluster**, Rancher vẫn phải phục vụ HTTPS thật: nó tạo một CA riêng rồi nhờ cert-manager cấp certificate từ CA đó cho chính nó, và `agentTLSMode: strict` trong values ở §14.3 làm agent **từ chối kết nối** nếu certificate không xác minh được. Chart Rancher vì vậy yêu cầu cert-manager có mặt trước — đó là lý do §14.1 đứng trước §14.3 và là nghĩa của cụm "cấp TLS nội bộ" trong tiêu đề mục.
+**HTTPS nội bộ kết thúc ở Traefik; backend Rancher dùng HTTP**
+
+Trong mô hình của runbook, browser ngoài Internet kết nối HTTPS tới Cloudflare Edge và nhận
+certificate public của Edge. Certificate đó độc lập với certificate origin do cert-manager quản lý.
+
+Bên trong cluster, **endpoint `https://rancher.hieupn.site` được Traefik phục vụ HTTPS ở
+cổng `443`**. Với `ingress.tls.source: rancher`, Rancher tạo CA riêng; cert-manager cấp và
+gia hạn certificate cho hostname Rancher, lưu certificate/private key vào Secret
+`tls-rancher-ingress`. **Traefik đọc Secret này, trình certificate và kết thúc TLS**.
+
+| Chặng của luồng đang xét | Giao thức |
+| --- | --- |
+| `cloudflared` → Service Traefik `:443` → Pod Traefik | HTTPS |
+| Pod tích hợp API giả định → Service Traefik `:443` → Pod Traefik | HTTPS |
+| Pod Traefik → backend Rancher qua Service Rancher `:80` | HTTP |
+
+```mermaid
+flowchart TB
+    C["cloudflared"] -->|"HTTPS :443"| T["Pod Traefik"]
+    P["Pod API ví dụ"] -->|"HTTPS :443"| T
+    S["Secret tls-rancher-ingress"] -.->|"Certificate và private key"| T
+    T -->|"HTTP qua Service Rancher :80"| R["Pod Rancher"]
+```
+
+“Cấp certificate cho Rancher” nghĩa là cấp cho **danh tính `rancher.hieupn.site`** để
+Traefik sử dụng; không có nghĩa request trên chặng Traefik → Pod Rancher phải dùng HTTPS.
+Traefik giải mã request nhận từ phiên TLS rồi mở hoặc tái sử dụng một kết nối backend khác.
+Runbook chọn backend HTTP bằng `ingress.servicePort: 80`. Vì vậy “HTTPS thật bên trong
+cluster” chỉ rõ chặng client → Traefik, không khẳng định mọi chặng nội bộ đều có TLS.
+
+**Phạm vi của `agentTLSMode: strict` và từng loại agent.**
+
+Đây là chính sách xác minh certificate cho các agent được Rancher hỗ trợ; **đặt setting này
+không cài thêm agent**. Phân biệt ba loại:
+
+| Loại agent | Nơi chạy và công việc | Phạm vi của runbook hiện tại |
+| --- | --- | --- |
+| `cattle-cluster-agent` | Deployment trong namespace `cattle-system` của **downstream cluster**, kết nối cluster đó về Rancher khi đăng ký/import | §14 chưa import cluster khác. Cụm `local` được Rancher quản trực tiếp qua Kubernetes API bằng ServiceAccount, không cần agent này |
+| `fleet-agent` | Phục vụ triển khai bằng Fleet/GitOps; agent của cụm `local` chạy trong `cattle-fleet-local-system` | Fleet mặc định triển khai agent cho `local`, nên có thể được tạo tự động dù không có lệnh cài agent riêng. Phải xem inventory thực tế; gate §14.7 chỉ xem `cattle-system`, chưa xác nhận trạng thái hoặc hành vi TLS của Fleet agent |
+| `rancher-system-agent` | Daemon trên hệ điều hành node của cluster RKE2/K3s do Rancher provision, thực hiện kế hoạch quản lý vòng đời node/cluster | Runbook dựng cluster bằng kubeadm; cài Rancher Server ở §14 không phải bước cài daemon này lên các VM |
+
+Tên `cluster-agent` và `system-agent` trong tài liệu chính sách TLS lần lượt chỉ
+`cattle-cluster-agent` và `rancher-system-agent`; không được gộp chúng với `fleet-agent`
+để suy ra tất cả đều hiện diện. `cloudflared` là connector của Cloudflare, **không phải
+Rancher agent**.
+
+**Ví dụ áp dụng sau này:** khi import một downstream cluster, `cattle-cluster-agent` trong
+cluster đó chủ động gọi Server URL. Nó là TLS client và xác minh certificate do **đầu bên kia
+phiên TLS của chính nó** trình. Nếu đường riêng đã được thiết kế để kết thúc TLS tại Traefik,
+nó thấy certificate của Traefik; nếu đi qua Cloudflare Edge, nó thấy certificate của Edge.
+Chế độ `strict` yêu cầu certificate đó xác minh được bằng CA trong setting `cacerts`.
+Đường này chưa được triển khai trong §14 và không tự kế thừa ClusterIP/split DNS của `local`.
+
+Việc xác minh trên diễn ra trong kết nối do agent khởi tạo; agent không phải một hop sau
+Traefik và không kiểm tra certificate trên chặng Traefik → Rancher HTTP. Setting này cũng
+không tự cấu hình trust cho `cloudflared` hoặc chương trình Python và không đổi backend
+thành HTTPS. Trong sơ đồ trên, “Pod API ví dụ” là workload giả định do người dùng tự triển
+khai sau này, không phải một agent được §14 cài thêm. Chặng origin `cloudflared` → Traefik
+dùng HTTPS vì route được cấu hình `https://…:443`; không cần giả định có
+`cattle-cluster-agent` trong cụm để giải thích certificate của chặng này.
+
+Đối chiếu loại agent và Fleet:
+[Rancher — Rancher agents](https://ranchermanager.docs.rancher.com/v2.14/how-to-guides/new-user-guides/launch-kubernetes-with-rancher/about-rancher-agents),
+[Fleet — Local cluster agent](https://fleet.rancher.io/how-tos-for-operators/installation#disabling-the-local-cluster-agent) và
+[Fleet — Agent log namespaces](https://fleet.rancher.io/troubleshooting).
+
+**Vì đã chọn `ingress.tls.source: rancher`**, runbook cần cert-manager trước khi cài Rancher:
+đó là lý do §14.1 đứng trước §14.3 và là nghĩa của “cấp TLS nội bộ” trong tiêu đề.
+Không phải mọi cách cài Rancher đều cần cert-manager; dùng certificate có sẵn với
+`ingress.tls.source: secret` hoặc TLS termination bên ngoài có quy trình khác.
+
+Đối chiếu:
+[Rancher — TLS settings](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/tls-settings),
+[Rancher — Helm chart options](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/installation-references/helm-chart-options) và
+[Rancher — Certificate options](https://ranchermanager.docs.rancher.com/v2.14/getting-started/installation-and-upgrade/install-upgrade-on-a-kubernetes-cluster/).
 
 Release cert-manager gồm ba Deployment: `cert-manager` (controller chính — cấp và gia hạn certificate), `cert-manager-cainjector` (tiêm CA vào cấu hình các webhook cần tin nhau) và `cert-manager-webhook` (cổng validate mọi object `Certificate`/`Issuer` khi chúng được tạo). Mọi yêu cầu cấp certificate đi qua webhook, nên webhook chưa Ready thì yêu cầu của Rancher sẽ treo — vì vậy gate bên dưới bắt STOP khi nó chưa Ready.
 
@@ -2944,7 +3018,7 @@ kubectl get crd | grep cert-manager.io
 
 ### 14.2. Cấu hình split DNS cho client trong cụm `local`
 
-Client chạy **trong cụm `local`** khi gọi Server URL `https://rancher.hieupn.site` phải đi đường nội bộ, không được vòng ra Cloudflare. Cụm `local` không có `cattle-cluster-agent` — agent chỉ thuộc downstream cluster, xem §14.7 — nên "client" ở đây là mọi Pod local gọi hostname Rancher. Cho hostname này phân giải **nội bộ** thẳng tới ClusterIP Traefik để client local không đi vòng ra Cloudflare và không bị Cloudflare Access chặn. Cấu hình này chỉ sửa CoreDNS của cụm `local`; downstream cluster không kế thừa entry và không thể truy cập ClusterIP Traefik này:
+Client chạy **trong cụm `local`** khi gọi Server URL `https://rancher.hieupn.site` phải đi đường nội bộ, không được vòng ra Cloudflare. Cụm `local` không có `cattle-cluster-agent` — loại agent này thuộc downstream cluster, xem §14.7. “Client” ở đây là Pod local thực sự gọi hostname Rancher; ví dụ một chương trình tích hợp API được triển khai thêm. Không được từ đó kết luận rằng cụm không có `fleet-agent`. Cho hostname này phân giải **nội bộ** thẳng tới ClusterIP Traefik để client local không đi vòng ra Cloudflare và không bị Cloudflare Access chặn. Cấu hình này chỉ sửa CoreDNS của cụm `local`; downstream cluster không kế thừa entry và không thể truy cập ClusterIP Traefik này:
 
 ```bash
 TRAEFIK_IP=$(kubectl -n traefik get svc traefik -o jsonpath='{.spec.clusterIP}')
@@ -2983,7 +3057,7 @@ kubectl run dns-check --rm -i --restart=Never --image=busybox:1.36 \
 
 **Split DNS là gì.** Split DNS (split-horizon DNS) nghĩa là **cùng một hostname nhưng trả lời khác nhau tùy nơi hỏi**. Từ Internet, `rancher.hieupn.site` phân giải ra IP Cloudflare edge vì record được Proxied ([§13.1](#131-verify-dns-public-và-hiểu-vì-sao-kết-quả-là-ip-cloudflare)). Từ bên trong cluster, sau mục này, cùng hostname đó phân giải thẳng ra **ClusterIP của Traefik** — traffic đi tắt trong cluster, không bao giờ ra Internet.
 
-**Vì sao client local cần nó.** Pod tích hợp API Rancher chạy trong chính cụm `local` gọi đúng Server URL `https://rancher.hieupn.site` (giá trị `hostname` trong values [§14.3](#143-cài-rancher-helm-pin-2143)). Không có split DNS, client hỏi CoreDNS → CoreDNS forward ra resolver công cộng → nhận IP Cloudflare → client đi vòng ra Internet để gọi... chính cluster của nó. Downstream agent không thuộc luồng này: nó chạy trong cluster khác, dùng DNS/network của cluster đó và cần một thiết kế reachability riêng.
+**Vì sao client local cần nó.** Giả sử sau này triển khai một Pod tích hợp API Rancher trong chính cụm `local`, Pod đó gọi đúng Server URL `https://rancher.hieupn.site` (giá trị `hostname` trong values [§14.3](#143-cài-rancher-helm-pin-2143)). Không có split DNS, client hỏi CoreDNS → CoreDNS forward ra resolver công cộng → nhận IP Cloudflare → client đi vòng ra Internet để gọi... chính cluster của nó. `cattle-cluster-agent` của downstream không thuộc luồng này: nó chạy trong cluster khác, dùng DNS/network của cluster đó và cần một thiết kế reachability riêng.
 
 **Một Server URL cho mọi loại client — bước nào, lệnh nào phục vụ client nào.** Server URL chỉ có một vì nó là setting duy nhất phía server: giá trị xác nhận ở bước 3 của [§14.6](#146-đăng-nhập-lần-đầu) được Rancher đưa cho agent lúc đăng ký, in vào link trong UI và dùng trong các luồng redirect — không thể mỗi loại client một địa chỉ riêng. Vì vậy mọi client đều phải resolve và gọi được cùng cái tên `rancher.hieupn.site`, nhưng "resolve được" không có nghĩa là resolve ra cùng một IP: mỗi loại client được một tầng cấu hình khác nhau của §14 trả lời, và mỗi tầng có bước/lệnh kiểm riêng:
 
@@ -2991,9 +3065,9 @@ kubectl run dns-check --rm -i --restart=Never --image=busybox:1.36 \
 | --- | --- | --- | --- |
 | Browser ngoài Internet | Public DNS — record Proxied do Cloudflare tự tạo khi Save route | IP Cloudflare Edge | [§14.5](#145-bảo-vệ-rancher-bằng-cloudflare-access-rồi-publish-qua-tunnel) tạo Access rồi route; gate `curl` của §14.5 kỳ vọng `302/401/403` từ Access; [§13.1](#131-verify-dns-public-và-hiểu-vì-sao-kết-quả-là-ip-cloudflare) giải thích vì sao `nslookup` từ ngoài trả IP Cloudflare là đúng |
 | Pod trong cụm `local` | CoreDNS — khối `hosts` vừa thêm ở trên | ClusterIP Traefik | Chính §14.2 này: `kubectl edit configmap coredns` thêm entry, rollout restart, rồi `kubectl run dns-check … nslookup` phải trả đúng `$TRAEFIK_IP` |
-| Downstream agent (sau này) | DNS/network của cluster đó — ngoài tầm §14 | Chưa giải | [§14.7](#147-gate-hoàn-thành) chỉ kiểm hai setting bằng `kubectl get settings.management.cattle.io server-url` / `agent-tls-mode`; đường reachability của agent phải thiết kế riêng trước khi `Import Existing` |
+| `cattle-cluster-agent` ở downstream (sau này import) | DNS/network của cluster đó — ngoài tầm §14 | Chưa giải | [§14.7](#147-gate-hoàn-thành) chỉ kiểm hai setting bằng `kubectl get settings.management.cattle.io server-url` / `agent-tls-mode`; đường reachability của agent phải thiết kế riêng trước khi `Import Existing` |
 
-Hai lệnh `nslookup` trả kết quả ngược nhau — trong Pod ra ClusterIP (§14.2), ngoài Internet ra IP Cloudflare (§13.1) — đều PASS, vì chúng kiểm hai hàng khác nhau của bảng này. Lưu ý "Pod trong cụm `local`" là một vai chứ chưa phải một thành phần đang chạy: hiện chưa có workload thường trực nào trong cụm gọi Rancher; §14.2 tồn tại để đường đi có sẵn và đúng **trước khi** client như vậy xuất hiện.
+Hai lệnh `nslookup` trả kết quả ngược nhau — trong Pod ra ClusterIP (§14.2), ngoài Internet ra IP Cloudflare (§13.1) — đều PASS, vì chúng kiểm hai hàng khác nhau của bảng này. Lưu ý “Pod trong cụm `local`” mô tả vai trò client: §14 không cài riêng một workload tích hợp API Rancher thường trực. Điều đó không chứng minh rằng không có thành phần runtime gọi Rancher; chẳng hạn `fleet-agent` có thể được Fleet tạo tự động. Bài test DNS của §14.2 chỉ kiểm tra kết quả phân giải từ Pod, chưa kiểm chứng request hoặc hành vi TLS của Fleet agent hay workload khác.
 
 **Ý nghĩa từng lệnh chuẩn bị:**
 
@@ -3026,7 +3100,7 @@ Nếu Pod local nhận IP Cloudflare, đường gọi API hiện tại sẽ hỏ
 thấy hostname public chưa phải endpoint phù hợp cho downstream agent:
 
 1. **Cloudflare Access chặn Pod local.** [§14.5](#145-bảo-vệ-rancher-bằng-cloudflare-access-rồi-publish-qua-tunnel) đặt Cloudflare Access trước `rancher.hieupn.site` — request phải qua xác thực SSO tương tác dành cho con người. Process không đăng nhập SSO được; nó nhận trang login HTML thay vì API Rancher.
-2. **Downstream cần thiết kế riêng.** Values [§14.3](#143-cài-rancher-helm-pin-2143) đặt `agentTLSMode: strict`, nên agent trong downstream cluster phải truy cập một Server URL trình certificate xác minh được bằng CA Rancher công bố. Đi qua Cloudflare edge hiện tại, agent vừa gặp Access tương tác, vừa thấy certificate Cloudflare thay vì cert Rancher. Split DNS của cụm `local` không sửa được DNS của downstream cluster.
+2. **Downstream cần thiết kế riêng.** Values [§14.3](#143-cài-rancher-helm-pin-2143) đặt `agentTLSMode: strict`, nên `cattle-cluster-agent` trong downstream cluster phải truy cập một Server URL trình certificate xác minh được bằng CA Rancher công bố. Đi qua Cloudflare edge hiện tại, agent vừa gặp Access tương tác, vừa thấy certificate Cloudflare thay vì cert Rancher. Split DNS của cụm `local` không sửa được DNS của downstream cluster.
 
 Ngoài ra là hệ quả kiến trúc: traffic client↔server của cùng một cluster mà đi vòng ra WAN thì vòng gọi nội bộ phụ thuộc vào Internet — mất mạng ngoài là client mất liên lạc với server dù cả hai nằm cạnh nhau.
 
@@ -3129,7 +3203,7 @@ kubectl -n cattle-system get pods,svc,ingress
 - `ingress.includeDefaultExtraAnnotations: false`: không render bộ annotation dành cho ingress-nginx. Traefik provider chuẩn của §9 không diễn giải các annotation NGINX; không bật chúng để cố sửa timeout.
 - `ingress.ingressClassName: traefik`: ghi rõ `spec.ingressClassName=traefik`, không phụ thuộc default IngressClass. Chart `2.14.3` thực tế để giá trị này trống mặc định; nó không mặc định nhắm `ingress-nginx`.
 - `ingress.tls.source: rancher`: Rancher tạo CA/certificate self-signed qua cert-manager cho `rancher.hieupn.site`; Traefik terminate TLS ở cổng 443.
-- `agentTLSMode: strict`: agent chỉ tin CA do Rancher công bố. Với certificate do chính chart Rancher sinh, không cần tự tạo `tls-ca` hay đặt `privateCA=true`; hai bước đó dành cho CA riêng do người vận hành cung cấp.
+- `agentTLSMode: strict`: đặt chính sách xác minh CA trong `cacerts` cho `cattle-cluster-agent`, `fleet-agent` và `rancher-system-agent` trong tình huống tương ứng; không cài các agent này. Trong §14, chưa có downstream `cattle-cluster-agent`; Fleet agent có thể được tạo tự động, còn system agent thuộc luồng provision RKE2/K3s, xem bảng §14.1.1. Với certificate do chính chart Rancher sinh, không cần tự tạo `tls-ca` hay đặt `privateCA=true`; hai bước đó dành cho CA riêng do người vận hành cung cấp.
 
 > **Traefik + Rancher UI:** Rancher dùng **WebSocket** rất nhiều (shell, log, cluster events). Traefik hỗ trợ WebSocket sẵn, không cần annotation gì thêm. Nó cũng tự set `X-Forwarded-Proto` — thứ mà Rancher cần để không rơi vào redirect-loop.
 >
@@ -3285,13 +3359,13 @@ kubectl get settings.management.cattle.io agent-tls-mode \
   -o jsonpath='{.value}{"\n"}'
 ```
 
-`cattle-cluster-agent` không nằm trong Helm chart Rancher, và theo kiến trúc Rancher nó thuộc về **downstream cluster** (agent mở tunnel outbound về cluster controller trong server); cụm `local` được Rancher quản trực tiếp bằng service account nên **không có Deployment này là kết quả đúng** — UI `local` Active trong khi `cattle-system` chỉ có `rancher` + `rancher-webhook` là trạng thái chuẩn, không phải cài thiếu. Gate local không chạy lệnh log `cattle-cluster-agent`; chỉ kiểm log agent trên chính downstream cluster sau khi cluster đó đã được import và inventory xác nhận Pod tồn tại. Việc cụm `local` không có `cattle-cluster-agent` cũng không chứng minh rằng không có `fleet-agent` hoặc `system-agent`; `agent-tls-mode` áp dụng cho cả ba loại agent. Giá trị `server-url` in ra ở đây chính là địa chỉ chung duy nhất mà mọi loại client dùng để gọi Rancher — browser và Pod local đã có đường resolve riêng cho nó, còn downstream agent thì chưa; đối chiếu bảng ở [§14.2.1](#1421-giải-thích-sâu--split-dns-ý-nghĩa-từng-lệnh-và-vì-sao-pass-phải-là-clusterip-traefik). Nếu UI chưa Active thì kiểm tra log `deploy/rancher` và chờ controller reconcile.
+`cattle-cluster-agent` không nằm trong Helm chart Rancher, và theo kiến trúc Rancher nó thuộc về **downstream cluster** (agent mở tunnel outbound về cluster controller trong server); cụm `local` được Rancher quản trực tiếp bằng service account nên **không có Deployment này là kết quả đúng** — UI `local` Active trong khi `cattle-system` chỉ có `rancher` + `rancher-webhook` là trạng thái chuẩn, không phải cài thiếu. Gate local không chạy lệnh log `cattle-cluster-agent`; chỉ kiểm log agent trên chính downstream cluster sau khi cluster đó đã được import và inventory xác nhận Pod tồn tại. Phạm vi từng loại đã được tách ở §14.1.1: `fleet-agent` của cụm `local` có thể được tạo tự động trong `cattle-fleet-local-system`, ngoài namespace mà gate này đang xem; `rancher-system-agent` thuộc luồng provision RKE2/K3s, không được cài lên các VM kubeadm chỉ bởi §14. Không suy ra trạng thái Fleet agent từ inventory `cattle-system`. Giá trị `server-url` in ra ở đây chính là địa chỉ chung duy nhất mà mọi loại client dùng để gọi Rancher — browser và Pod local đã có đường resolve riêng cho nó, còn downstream agent thì chưa; đối chiếu bảng ở [§14.2.1](#1421-giải-thích-sâu--split-dns-ý-nghĩa-từng-lệnh-và-vì-sao-pass-phải-là-clusterip-traefik). Nếu UI chưa Active thì kiểm tra log `deploy/rancher` và chờ controller reconcile.
 
 **PASS §14:** Pod Rancher Ready; `server-url` là `https://rancher.hieupn.site`; `agent-tls-mode` là `strict`; UI `local` Active đủ 3 node; truy cập public bắt buộc đi qua Cloudflare Access. PASS này chỉ hoàn tất cụm `local`, không chứng minh reachability hoặc TLS của downstream agent.
 
 > ⚠️ **Đừng bấm `Cluster Management → Import Existing` ngay sau §14.** Cụm của lab là cụm `local` — Rancher quản nó trực tiếp, không cần đường mạng nào thêm; nhưng hai quyết định của §14 làm cho việc import một cụm **khác** chắc chắn hỏng theo cách khó chẩn đoán, dù mọi gate ở trên đều PASS:
 >
-> 1. Agent ở downstream cluster resolve `rancher.hieupn.site` bằng DNS của cluster **nó** — entry split DNS của [§14.2](#142-cấu-hình-split-dns-cho-client-trong-cụm-local) là tài sản riêng trong CoreDNS của cụm `local`, cluster khác không kế thừa — nên agent nhận IP Cloudflare và đâm vào trang đăng nhập tương tác của Access ([§14.5](#145-bảo-vệ-rancher-bằng-cloudflare-access-rồi-publish-qua-tunnel)), thứ mà một process không vượt được.
+> 1. `cattle-cluster-agent` ở downstream cluster resolve `rancher.hieupn.site` bằng DNS của cluster **nó** — entry split DNS của [§14.2](#142-cấu-hình-split-dns-cho-client-trong-cụm-local) là tài sản riêng trong CoreDNS của cụm `local`, cluster khác không kế thừa — nên agent nhận IP Cloudflare và đâm vào trang đăng nhập tương tác của Access ([§14.5](#145-bảo-vệ-rancher-bằng-cloudflare-access-rồi-publish-qua-tunnel)), thứ mà một process không vượt được.
 > 2. Kể cả có vượt được Access, agent thấy certificate Cloudflare thay vì cert Rancher, và `agentTLSMode: strict` ([§14.3](#143-cài-rancher-helm-pin-2143)) buộc nó từ chối kết nối.
 >
 > Triệu chứng khi phạm phải: cluster import treo ở `Pending` không rõ lý do, trong khi mọi thứ của cụm `local` vẫn xanh. Trước khi import phải thiết kế và kiểm tra riêng một endpoint machine-to-machine: Server URL mà downstream truy cập được, không bị Access tương tác chặn, và trình đúng certificate mà agent verify được bằng CA Rancher công bố — xem mục đào sâu 14 của [`cloudflare-rancher-docs/setup-rancher.md`](cloudflare-rancher-docs/setup-rancher.md).

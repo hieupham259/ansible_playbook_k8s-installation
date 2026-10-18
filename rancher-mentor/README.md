@@ -48,7 +48,7 @@ trước khi được trả lời. Các mã/mốc cũ trong M01–M04 là lịch
 | M03 | Certificate, CA và key | Hoàn tất kiến thức; bản lưu còn thiếu một số lời giảng đầu bài | [M03.md](M03.md) |
 | M04 | Ingress, Issuer, Certificate và hai Secret | Hoàn tất | [M04.md](M04.md) |
 | M05 | Helm, cấp certificate và gate | Hoàn tất; Câu 2/6 đạt 3/3 sau sửa | [M05.md](M05.md) |
-| M06 | TLS, origin và khoanh vùng lỗi | Chưa học; dùng Câu 3/6 ngay từ đầu bài | `M06.md` — chưa tạo |
+| M06 | TLS, origin và khoanh vùng lỗi | Hoàn tất; Câu 3/6 đạt 3/3 sau bổ sung | [M06.md](M06.md) |
 
 Câu 1/6 đã trả lời trước giáo án. Câu 2/6 được dùng ngay từ đầu M05; Câu 3/6 được dùng ngay từ đầu M06.
 Không dùng việc tạo thư mục hoặc chuyển giáo án để xác nhận hoàn tất bài học.
@@ -61,7 +61,7 @@ kiến thức ngay trong lúc giải quyết; sau đó dùng [bảng đối chi�
 
 | Mốc | Nội dung | Trạng thái | File khi hoàn tất |
 | --- | --- | --- | --- |
-| [Câu 4/6](../cloudflare-rancher-docs/setup-rancher.md#câu-46--vì-sao-phải-cài-và-kiểm-tra-theo-thứ-tự-này) | Chuẩn bị, backup, thứ tự §14, values/render, bootstrap và các gate | Chưa học/chưa trả lời; chưa có điểm | `C04.md` — chưa tạo |
+| [Câu 4/6](../cloudflare-rancher-docs/setup-rancher.md#câu-46--vì-sao-phải-cài-và-kiểm-tra-theo-thứ-tự-này) | Chuẩn bị, backup, thứ tự §14, values/render, bootstrap và các gate | Đang học ý 1; chưa trả lời, chưa có điểm | `C04.md` — chưa tạo |
 | [Câu 5/6](../cloudflare-rancher-docs/setup-rancher.md#câu-56--browser-dùng-được-thì-client-và-cluster-khác-đã-dùng-được-chưa) | Server URL, client/agent, quyền/trust, local và downstream | Chưa học/chưa trả lời; chưa có điểm | `C05.md` — chưa tạo |
 | [Câu 6/6](../cloudflare-rancher-docs/setup-rancher.md#câu-66--trang-web-và-node-đều-khỏe-vì-sao-rancher-vẫn-lỗi) | Dashboard/API, SelfUser/Steve, sự cố sau reboot và condition local | Chưa học/chưa trả lời; chưa có điểm | `C06.md` — chưa tạo |
 | Đối chiếu bao phủ | Các phần chính, từng bước §14 và 15 cơ chế trong giáo án | Chưa hoàn tất | Ghi checkpoint và bổ sung vào file Mxx/Cxx liên quan |
@@ -71,7 +71,7 @@ khi các phần còn thiếu đã được giải thích và có căn cứ từ 
 
 ## Checkpoint đang học
 
-- **Bài đã hoàn tất:** [M01 — Helm](M01.md), [M02 — Object, controller và CRD](M02.md), [M03 — Certificate, CA và key](M03.md), [M04 — Ingress, Issuer, Certificate và hai Secret](M04.md), [M05 — Helm, cấp certificate và gate](M05.md).
+- **Bài đã hoàn tất:** [M01 — Helm](M01.md), [M02 — Object, controller và CRD](M02.md), [M03 — Certificate, CA và key](M03.md), [M04 — Ingress, Issuer, Certificate và hai Secret](M04.md), [M05 — Helm, cấp certificate và gate](M05.md), [M06 — TLS, origin và khoanh vùng lỗi](M06.md).
 - **Giới hạn bản lưu M03:** còn thiếu nguyên văn nhiều phản hồi Mentor và một số Mermaid đầu bài. File giữ nguyên những lượt còn truy xuất được, đánh dấu chỗ thiếu và chép phần lời giảng trong ảnh 2; không dựng hội thoại. Trạng thái hoàn tất kiến thức dựa trên các câu trả lời cuối bài, không có nghĩa bản chép đã đủ toàn văn.
 - **Điều người học đã tự giải thích đúng ở M03:** chữ ký trên certificate dùng private key CA từ Secret `tls-rancher` và có từ trước kết nối; CertificateVerify chứng minh bên kia giữ private key tương ứng với public key trong certificate; HTTPS vẫn mã hóa khi `noTLSVerify: true`, nhưng kết nối thành công chưa chứng minh xác minh đúng Rancher theo CA/hostname.
 - **Câu trả lời chốt M03 nguyên văn:** “dữ liệu được mã hoá nhưng việc kết nối thành công không đủ chứng minh `cloudflared` xác minh đúng Rancher theo CA và hostname”.
@@ -83,16 +83,22 @@ khi các phần còn thiếu đã được giải thích và có căn cứ từ 
 - **Câu trả lời chốt M04 nguyên văn:** “tức là vì Cần certificate mới nên cần dùng `CertificateRequest`mới để cấp lại certificate”. Mentor đã xác nhận đây là việc cấp/gia hạn chạy nền, không xảy ra cho mỗi kết nối TLS hoặc mỗi HTTP request mới.
 - **Điểm đã được sửa trong M04:** Certificate object khác nơi lưu certificate đã ký và khác bản tin TLS Certificate; CertificateRequest đã hoàn tất khác với certificate đã cấp hết hạn; quy tắc một lần cấp thuộc API/controller của cert-manager. Giữ nguyên các câu trả lời nhầm, các phản biện và những giải thích Mentor đã đính chính trong file bài.
 - **Vị trí vừa đối chiếu ở M04:** các minh họa mới về yêu cầu → controller → Secret kết quả, Issuer → Secret CA, hai Secret có hai mục đích, và Certificate → key-manager/request-manager → CertificateRequest. Đoạn 10 bước trong setup-rancher.md đã được người học review và yêu cầu cập nhật ở commit 2684e67; không coi các minh họa là trạng thái cluster thực tế.
-- **Bài vừa hoàn tất:** [M05 — Helm, cấp certificate và gate](M05.md), ngày 18/10/2026 (giờ Việt Nam).
+- **Mốc hoàn tất M05:** [M05 — Helm, cấp certificate và gate](M05.md), ngày 18/10/2026 (giờ Việt Nam).
 - **Quy ước riêng cho bản lưu M05:** theo yêu cầu cuối bài của người học, chỉ giữ ba câu hỏi chính và câu trả lời chốt đầy đủ, không lưu từng lượt trung gian. Câu trả lời được ghi rõ là bản tổng hợp sau trao đổi, không phải lời người học nguyên văn. Quy tắc này không tự sửa các bản lưu trước đó.
 - **Phần đã giải quyết ở M05:** chuỗi controller tạo Certificate/chuẩn bị key và CSR/ký/ghi Secret; phân biệt cấp phát với handshake; phạm vi chờ của Helm 3 và các nhánh bất đồng bộ; điều kiện PASS của gate §14.4.
 - **Bổ sung cuối ý 3:** Ingress phải in class `traefik`, host `rancher.hieupn.site`; condition Certificate là `Ready=True`. Người học chốt nguyên văn: “READY=true”.
 - **Giới hạn bản chốt M05:** ý nghĩa chi tiết của các flag curl và giới hạn bằng chứng có phần Mentor giải thích; không coi toàn bộ phần biên tập là câu trả lời nguyên văn độc lập của người học. Chưa có output xác nhận cluster thực tế.
-- **Bài tiếp theo:** M06 — TLS, origin và khoanh vùng lỗi, học cùng Câu 3/6 ngay từ đầu. M06 chưa bắt đầu.
+- **Bài vừa hoàn tất:** [M06 — TLS, origin và khoanh vùng lỗi](M06.md), ngày 18/10/2026 (giờ Việt Nam).
+- **Bản lưu M06:** theo cách lưu người học đã yêu cầu ở M05, giữ ba câu hỏi chính và câu trả lời chốt đầy đủ, bỏ các lượt trung gian. Ghi rõ là bản tổng hợp được biên tập sau trao đổi, không gán toàn bộ lời biên tập thành lời người học nguyên văn.
+- **Phần đã giải quyết ở M06:** 302 từ Access do Edge trả trước khi cần gọi origin; chặng ưu tiên cloudflared → Traefik; master dùng --resolve khác connector dùng CoreDNS; Service Traefik khác chương trình trong Pod Traefik; vai trò và ba giá trị origin parameters.
+- **Giá trị chốt ý 3:** originServerName và httpHostHeader đều là rancher.hieupn.site; noTLSVerify là true (người học ghi True). Bỏ xác minh certificate khác với thêm CA Rancher vào trust store.
+- **Giới hạn bằng chứng:** các trạng thái 200/Healthy/Connected/502 là dữ kiện giả định của bài. Không ghi nhận đã quan sát output hay kiểm chứng cluster thực tế. Các diễn giải bổ sung của Mentor được phân biệt với câu trả lời nguyên văn của người học.
+- **Chặng nền M01–M06:** đã hoàn tất; chưa đồng nghĩa đã hiểu toàn bộ setup-rancher.md.
+- **Phần đang học tiếp:** Câu 4/6 — Vì sao phải cài và kiểm tra theo thứ tự này?, ý 1 về kiểm tra trước thay đổi và phạm vi backup. Đã mở tình huống để học; chưa có câu trả lời/điểm, chưa tạo C04.md.
 - **Câu kiểm tra M04 đang chờ:** không còn; điểm cuối đã được người học tự chốt.
 - **Điểm từ M02 chưa có câu trả lời riêng trực tiếp trong phiên M04:** annotation chỉ Issuer đến từ template chart khi Helm render. Không ghi câu này là đã được người học tự trả lời trong phiên.
 - **Câu 2/6:** lượt M05 đã trả lời đủ ba ý, đạt **3/3 sau sửa**, lưu tại [M05.md](M05.md). Giữ riêng lịch sử và điểm 2/3 của lượt cũ trong setup-rancher.md.
-- **Câu 3/6:** chưa trả lời; dùng ngay từ đầu M06.
-- **Sau M06:** tiếp tục Câu 4/6–6/6 trực tiếp trong setup-rancher.md; cả ba chưa học/chưa trả lời, chưa có điểm.
+- **Câu 3/6:** lượt M06 đã trả lời đủ ba ý, đạt **3/3 sau bổ sung**, lưu tại [M06.md](M06.md). Kết quả thực tế của lượt học được theo dõi ở đây và M06.md, tách khỏi đáp án tham khảo trong setup-rancher.md.
+- **Sau M06:** đang mở ý 1 Câu 4/6; chưa có câu trả lời/điểm cho Câu 4. Câu 5/6–6/6 chưa học/chưa trả lời, chưa có điểm.
 - **Bao phủ toàn bộ tài liệu:** chưa hoàn tất; dùng bảng đối chiếu để ghi các mục đã tự giải thích và còn thiếu. Hoàn tất chặng nền hoặc đọc đáp án chưa xác nhận đã hiểu toàn bộ.
 - **Cluster thực tế:** chưa có output được người học cung cấp trong các bài này; ví dụ là giả định để học.

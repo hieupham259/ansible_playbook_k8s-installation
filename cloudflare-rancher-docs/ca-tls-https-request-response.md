@@ -4,14 +4,49 @@
 > [tunnel-traefik.md](tunnel-traefik.md). Ví dụ tổng quát dùng `app.example.com`;
 > phần cuối áp dụng vào hostname `rancher.hieupn.site` và cấu hình lab.
 
-**CA là Certificate Authority — bên cấp và ký certificate. Trong HTTPS, CA giúp client kiểm
-chứng rằng một khóa công khai thực sự được cấp cho hostname mà client muốn truy cập.**
-
 Để hiểu toàn bộ quá trình, cần nối bốn việc với nhau: **tìm địa chỉ bằng DNS, thiết lập kết nối
 mạng, tạo kênh bảo mật bằng TLS, rồi trao đổi request/response bằng HTTP.** CA tham gia vào việc
 thiết lập niềm tin cho TLS.
 
 Phần sau giải thích trên ví dụ `https://app.example.com/products?id=10`, rồi áp dụng vào Rancher.
+
+## Mục lục
+
+- [HTTP, HTTPS và TLS](#http-https-và-tls)
+- [Certificate, CA và các loại khóa](#certificate-ca-và-các-loại-khóa)
+  - [CA công khai và CA riêng](#ca-công-khai-và-ca-riêng)
+  - [Trust store của từng client](#trust-store-của-từng-client)
+  - [Các loại khóa làm những việc khác nhau](#các-loại-khóa-làm-những-việc-khác-nhau)
+  - [Cấp certificate trước khi phục vụ HTTPS](#cấp-certificate-trước-khi-phục-vụ-https)
+- [Terminate TLS và SNI](#terminate-tls-và-sni)
+- [Ví dụ tự host web có domain, không dùng Kubernetes](#ví-dụ-tự-host-web-có-domain-không-dùng-kubernetes)
+- [Luồng request/response qua TLS 1.3](#luồng-requestresponse-qua-tls-13)
+- [Áp dụng vào lab Rancher](#áp-dụng-vào-lab-rancher)
+- [Origin Server Name](#origin-server-name)
+- [Kiểm chứng certificate origin](#kiểm-chứng-certificate-origin)
+
+## HTTP, HTTPS và TLS
+
+**HTTP — HyperText Transfer Protocol** — là giao thức request/response: client gửi method,
+đường dẫn, headers và có thể có body; server trả status, headers và có thể có body.
+HTTP truyền trực tiếp không tự mã hóa hay xác thực server bằng certificate; bên đứng giữa có
+khả năng quan sát hoặc can thiệp đường truyền có thể đọc/sửa nội dung.
+
+**TLS — Transport Layer Security** — bảo vệ kết nối bằng mã hóa, kiểm tra tính toàn vẹn và
+cơ chế xác thực. Client cần kiểm chứng certificate theo CA tin cậy và hostname để xác thực
+server trong luồng HTTPS dùng certificate đang xét.
+
+**HTTPS** là HTTP chạy trong kênh TLS. Với kết nối TCP thông thường, port mặc định là
+`80` cho HTTP và `443` cho HTTPS. Một lần mở trang có thể sinh nhiều HTTP request; các
+request có thể dùng chung kết nối, không phải mỗi request đều tạo một handshake mới.
+
+Xem [HTTP Semantics — RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html) và
+[TLS 1.3 — RFC 8446](https://www.rfc-editor.org/rfc/rfc8446.html).
+
+## Certificate, CA và các loại khóa
+
+**CA là Certificate Authority — bên cấp và ký certificate. Trong HTTPS, CA giúp client kiểm
+chứng rằng một khóa công khai thực sự được cấp cho hostname mà client muốn truy cập.**
 
 **Trước hết, certificate và CA liên quan với nhau như thế nào?**
 
@@ -40,6 +75,20 @@ Browser có **trust store**: tập hợp các certificate CA gốc mà nó tin. 
 thường được cấp qua chuỗi Root CA → Intermediate CA → certificate website. Browser kiểm tra
 chuỗi chữ ký để tìm về một CA gốc đã được tin cậy.
 
+### CA công khai và CA riêng
+
+**Public CA — CA công khai** — có chuỗi tin cậy dẫn về root CA được nhiều browser/OS tin sẵn.
+Client vẫn phải kiểm tra hostname, thời gian hiệu lực và các điều kiện xác minh còn lại.
+
+**Private CA — CA riêng** — do tổ chức hoặc người vận hành quản lý. Certificate do CA riêng
+ký không tự được mọi client tin. Người vận hành phải cung cấp certificate CA cho đúng trust
+store/bundle của từng client; không cung cấp private key CA cho client.
+
+Việc tạo và ký certificate bằng CA riêng vẫn tách biệt với việc endpoint dùng certificate đó
+trong handshake. Phần áp dụng vào Rancher ở dưới chỉ rõ vai trò của từng thành phần.
+
+### Trust store của từng client
+
 **Trust store không phải lúc nào cũng là store của hệ điều hành, và các process trên cùng máy
 không nhất thiết tin cùng một tập CA.** Ví dụ:
 
@@ -62,7 +111,7 @@ Tham khảo: [Chrome Root Store FAQ](https://chromium.googlesource.com/chromium/
 [curl — TLS Certificate Verification](https://curl.se/docs/sslcerts.html) và
 [Requests — CA Certificates](https://requests.readthedocs.io/en/latest/user/advanced/#ca-certificates).
 
-Các loại khóa làm những việc khác nhau:
+### Các loại khóa làm những việc khác nhau
 
 | Khóa | Vai trò |
 | --- | --- |
@@ -76,6 +125,8 @@ Các loại khóa làm những việc khác nhau:
 
 Vì vậy, certificate giúp thiết lập danh tính; **dữ liệu request/response được bảo vệ bằng khóa
 phiên TLS**.
+
+### Cấp certificate trước khi phục vụ HTTPS
 
 Trước khi website phục vụ HTTPS, người vận hành cần chuẩn bị certificate. Với public CA như
 Let’s Encrypt, **ACME client** — chẳng hạn certbot hoặc cert-manager — làm việc với CA; nó không
@@ -97,6 +148,88 @@ Xem [Let’s Encrypt — How It Works](https://letsencrypt.org/how-it-works/).
 **CA không phải một proxy đứng giữa browser và ứng dụng để chuyển tiếp mỗi request.** Việc cấp
 certificate diễn ra trước. Khi kết nối, browser kiểm tra certificate mà server trình; các kiểm
 tra trạng thái certificate bổ sung tùy chính sách của client.
+
+## Terminate TLS và SNI
+
+**Terminate TLS** nghĩa là một chương trình thực hiện TLS với client và đọc được dữ liệu ứng
+dụng sau khi giải mã. Chương trình đó có thể là chính web server hoặc reverse proxy. Nó giữ
+certificate và private key tương ứng; dữ liệu HTTP được mã hóa/giải mã bằng application
+traffic keys, không phải bằng certificate.
+
+Nếu reverse proxy terminate TLS, nó đọc hostname/path trong HTTP rồi chuyển request tới
+backend bằng một kết nối khác. Kết nối backend có thể là HTTP hoặc HTTPS tùy cấu hình.
+Response quay lại proxy cũng được proxy bảo vệ trong kết nối TLS với client. Hai chặng dùng
+HTTPS, nếu có, vẫn là hai kết nối TLS riêng.
+
+**SNI — Server Name Indication** — là tên server client khai trong `ClientHello`. Một IP và
+port có thể phục vụ nhiều hostname; SNI giúp server chọn cấu hình TLS/certificate trước khi
+trình certificate.
+
+Server cần thông tin này sớm vì HTTP Host chỉ có khi client gửi HTTP sau handshake trong
+luồng đang xét. **SNI chọn cấu hình TLS/certificate; HTTP Host hoặc `:authority` giúp chọn
+website/router HTTP.** Chúng xuất hiện ở hai lớp và hai thời điểm khác nhau.
+
+Một server có thể nạp nhiều certificate cùng các private key tương ứng trước khi có kết
+nối. Với mỗi handshake, server chọn dữ liệu đã nạp để sử dụng; nó không xin CA ký lại
+certificate cho từng HTTP request. Nếu không có certificate khớp SNI, hành vi phụ thuộc cấu
+hình server: có thể dùng certificate mặc định hoặc từ chối handshake.
+
+Xem [RFC 6066 §3 — SNI](https://datatracker.ietf.org/doc/html/rfc6066#section-3) và
+[NGINX — Configuring HTTPS servers](https://nginx.org/en/docs/http/configuring_https_servers.html).
+
+## Ví dụ tự host web có domain, không dùng Kubernetes
+
+Đây là ví dụ giải thích được tách từ từ điển của `setup-rancher.md`, không phải cấu hình cần
+áp dụng vào lab Rancher. Giả sử bạn có web server nginx với IP public `203.0.113.10`, muốn
+phục vụ `https://vidu.com`.
+
+Bốn phần cần chuẩn bị:
+
+1. **DNS.** Tạo A record `vidu.com → 203.0.113.10` tại dịch vụ DNS có thẩm quyền của domain.
+   Record A ánh xạ tên tới IPv4. Với URL `https://vidu.com` trong ví dụ này, browser dùng
+   port mặc định `443`; nếu server nghe `8443`, URL cần ghi `https://vidu.com:8443`.
+2. **Certificate.** ACME client như certbot xin certificate cho `vidu.com` từ public CA.
+   CA yêu cầu chứng minh quyền kiểm soát domain: HTTP-01 dùng tài nguyên HTTP ở đường dẫn
+   thử thách trên port `80`; DNS-01 dùng TXT record theo yêu cầu. Sau khi cấp, người vận
+   hành cấu hình certificate, chuỗi intermediate cần thiết và private key tương ứng cho nginx.
+   Xem [Let's Encrypt — Challenge Types](https://letsencrypt.org/docs/challenge-types/).
+3. **Firewall/NAT.** Cho phép kết nối inbound tới nginx port `443`. Ví dụ bên dưới còn dùng
+   port `80` để chuyển hướng HTTP sang HTTPS; HTTP-01 cũng cần truy cập port `80` khi chọn
+   phương thức này. Nếu server sau NAT, cần ánh xạ port phù hợp.
+4. **Web server.** Cấu hình chương trình nginx nghe HTTPS, đọc certificate và private key đã
+   chuẩn bị. Cùng một chương trình có thể nhận HTTP ở `80` và HTTPS ở `443`.
+
+Ví dụ cấu hình minh họa, giả định các file certificate/key đã tồn tại:
+
+```nginx
+server {
+    listen 80;
+    server_name vidu.com;
+    return 301 https://vidu.com$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name vidu.com;
+    ssl_certificate     /etc/ssl/vidu.com/fullchain.pem;
+    ssl_certificate_key /etc/ssl/vidu.com/privkey.pem;
+    root /var/www/vidu;
+}
+```
+
+Với kết nối mới: browser phân giải `vidu.com` ra IP, mở TCP tới port `443`, rồi gửi SNI
+`vidu.com` trong handshake. nginx chọn cấu hình TLS/certificate phù hợp; browser kiểm chứng
+certificate và các thông điệp handshake. Sau đó browser gửi HTTP với Host `vidu.com` trong
+kênh TLS. Xem [NGINX — Configuring HTTPS servers](https://nginx.org/en/docs/http/configuring_https_servers.html).
+
+DNS giúp client tìm địa chỉ mạng; SNI giúp server chọn certificate; HTTP Host giúp chọn
+website xử lý request. Biết đúng IP chưa đủ để thay thế hai bước chọn theo hostname.
+
+Đối chiếu với Rancher: lab đưa browser tới Cloudflare Edge, dùng tunnel thay cho việc mở
+inbound tới VM, và phục vụ certificate riêng tại Traefik. Cách áp dụng nằm trong
+[từ điển của setup-rancher.md](setup-rancher.md#từ-điển-khái-niệm-nền) và
+[chuỗi cấp certificate của lab](setup-rancher.md#controller-nào-cấp-certificate-và-ai-gửi-hai-bản-tin-tls).
+
+## Luồng request/response qua TLS 1.3
 
 Sơ đồ dưới đây thể hiện một kết nối mới dùng TCP và **TLS 1.3 với certificate và (EC)DHE**;
 không vẽ các nhánh resumption/PSK, 0-RTT, HelloRetryRequest hoặc xác thực client bằng certificate:
@@ -379,7 +512,9 @@ Quá trình vừa mô tả là mô hình một kết nối mới dùng TCP. Có 
 
 Xem [RFC 9114 — HTTP/3](https://www.rfc-editor.org/rfc/rfc9114).
 
-Cuối cùng, **“CA riêng của Rancher” trong lab của bạn là một CA nội bộ dùng để ký certificate
+## Áp dụng vào lab Rancher
+
+**“CA riêng của Rancher” trong lab của bạn là một CA nội bộ dùng để ký certificate
 cho Rancher**, thay vì sử dụng một public CA đã được browser tin sẵn.
 
 Trong mô hình CA issuer của cert-manager, certificate và private key của CA được lưu trong
@@ -492,6 +627,15 @@ Tham khảo: [Cloudflare — Origin Server Name](https://developers.cloudflare.c
 và [Match SNI to host](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/#matchsnitohost).
 
 ## Kiểm chứng certificate origin
+
+Trình certificate và kiểm chứng certificate là hai việc của hai phía: server trình dữ liệu,
+client quyết định có tin danh tính trong certificate hay không.
+
+| Cách client xử lý certificate | Kết quả trong luồng đang xét |
+| --- | --- |
+| Kiểm chứng thành công | Certificate xác nhận đúng danh tính server theo chính sách tin cậy của client; handshake còn phải vượt qua các kiểm chứng mật mã khác |
+| Kiểm chứng thất bại | Client ngắt handshake, không gửi HTTP trên kết nối đó |
+| Chủ động bỏ kiểm chứng certificate | Handshake vẫn cần các kiểm chứng mật mã như `CertificateVerify` và `Finished`, nhưng client không xác thực danh tính origin theo CA tin cậy và hostname |
 
 **`curl -k` / `noTLSVerify: true`: mã hóa còn, xác thực server mất.** Client vẫn mã hóa tới bên
 trả lời handshake và có private key khớp certificate mà bên đó tự trình. Nhưng vì không kiểm

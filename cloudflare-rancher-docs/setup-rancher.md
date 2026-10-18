@@ -16,6 +16,7 @@
 **Cách đọc:** bắt đầu bằng phần nhìn nhanh và luồng giải thích đơn giản; sau đó đọc từ điển,
 bảng thứ tự đọc, nền tảng ba công cụ và chuỗi cấp certificate trước khi đi vào sơ đồ truy cập,
 từng bước §14 và các cơ chế chuyên sâu. Phần sự cố và bài tự kiểm tra nằm cuối tài liệu.
+Nền HTTP/TLS tra trong [tài liệu CA, TLS và request/response](ca-tls-https-request-response.md).
 
 ## Mục lục
 
@@ -46,6 +47,7 @@ từng bước §14 và các cơ chế chuyên sâu. Phần sự cố và bài t
   - [Xác nhận hoàn thành — §14.7](#xác-nhận-hoàn-thành--147)
   - [Nếu sau này import downstream cluster](#nếu-sau-này-import-downstream-cluster)
 - [Từ điển khái niệm nền](#từ-điển-khái-niệm-nền)
+  - [Nền HTTP/TLS đầy đủ — tài liệu tra cứu](ca-tls-https-request-response.md#mục-lục)
   - [HTTP, HTTPS và TLS — từ kênh chữ thuần tới kênh có khóa](#http-https-và-tls--từ-kênh-chữ-thuần-tới-kênh-có-khóa)
   - [Certificate, CA và "ký" — nền của mọi kết nối TLS](#certificate-ca-và-ký--nền-của-mọi-kết-nối-tls)
   - [Terminate TLS và SNI — ai giữ cert, ai khai tên](#terminate-tls-và-sni--ai-giữ-cert-ai-khai-tên)
@@ -824,272 +826,78 @@ sau reboot và bài tự kiểm tra nằm cuối.
 
 ## Từ điển khái niệm nền
 
-Mục này gom các khái niệm mà phần còn lại của bài dùng như từ đã biết, xếp theo bốn lớp:
-TLS → Kubernetes → Rancher → Cloudflare, khép lại bằng split DNS (thứ nối hai thế giới), một
-bảng từ nhanh và chỉ dẫn tra những từ thuộc tài liệu khác. Đọc hết một lượt trước; các phần sau
-không dừng lại định nghĩa nữa.
+Mục này giữ định nghĩa ngắn và cách áp dụng vào lab, rồi giải thích các khái niệm Kubernetes,
+Rancher và Cloudflare cần cho §14. Phần nền HTTP/TLS được trình bày đầy đủ trong
+[`ca-tls-https-request-response.md`](ca-tls-https-request-response.md); các liên kết bên dưới
+dẫn tới đúng mục để tra khi cần.
 
 ### HTTP, HTTPS và TLS — từ kênh chữ thuần tới kênh có khóa
 
-**HTTP (HyperText Transfer Protocol)** là giao thức hỏi–đáp giữa client và server: client gửi
-request (method như `GET`/`POST`, đường dẫn, các header như `Host`), server trả response (mã
-trạng thái như `200`/`404`/`502`, header, nội dung). Toàn bộ trao đổi là **chữ thuần** truyền
-thẳng trên mạng: mọi thiết bị đứng giữa — WiFi, router, ISP, proxy — đều đọc được và sửa được
-từng byte, và server **không phải chứng minh nó là ai** — HTTP không có khái niệm certificate.
-Cổng quy ước là `:80`.
+**HTTP** là giao thức request/response giữa client và server. **TLS** bảo vệ kết nối bằng mã
+hóa, kiểm tra tính toàn vẹn và cơ chế xác thực. **HTTPS** là HTTP chạy trong kênh TLS.
 
-**TLS (Transport Layer Security)** là lớp bọc sửa cả hai điểm yếu đó. Trước khi byte HTTP đầu
-tiên được gửi, client và server phải xong màn chào hỏi gọi là **handshake** (kể đơn giản):
+Trong cấu hình lab, browser–Cloudflare Edge và `cloudflared`–Traefik là các kết nối TLS riêng.
+Sau khi xử lý TLS, Traefik chuyển request tới Pod Rancher bằng **HTTP port `80`**.
 
-1. Client chào server, khai hostname nó muốn gặp (chính là SNI — xem mục "Terminate TLS và
-   SNI" bên dưới).
-2. Server **trình certificate** — tấm thẻ chứa public key của server và chữ ký của CA (mục kế
-   tiếp định nghĩa kỹ). Cert được trình cho *mọi* client kết nối tới, nó không phải bí mật.
-3. Client đối chiếu chữ ký trên cert với danh sách CA nó tin — bước **verify**.
-4. Hai bên thỏa thuận khóa mã hóa dùng riêng cho phiên này; từ đây mọi byte đi qua đều được mã
-   hóa và chống sửa trộm.
-
-**HTTPS** đơn giản là **HTTP chạy bên trong kênh TLS đó**, cổng quy ước `:443`. Nội dung
-request/response không đổi; chỉ khác là người đứng giữa giờ chỉ thấy các byte ngẫu nhiên.
-
-Toàn bộ đường đi, mô phỏng trên ví dụ tự host `https://vidu.com` (server và cấu hình của ví dụ
-này được dựng đầy đủ ở mục "Ghép tất cả lại" bên dưới):
-
-```mermaid
-%%{init: {"themeVariables": {"noteBkgColor": "#f1f5ff", "noteBorderColor": "#8094c4", "noteTextColor": "#10203f"}}}%%
-sequenceDiagram
-    participant B as Browser
-    participant D as DNS resolver
-    participant N as nginx tại 203.0.113.10<br/>(một process nghe :443)
-
-    Note over B: Người dùng gõ https://vidu.com<br/>Browser tách ra: hostname vidu.com,<br/>port 443 (suy từ "https", DNS không mang port)
-
-    rect rgb(253, 243, 224)
-        Note over B,D: Giai đoạn 1 — DNS: tìm đúng cửa (chữ thuần)
-        B->>D: vidu.com là IP nào?
-        D-->>B: 203.0.113.10 (chỉ IP, không có port)
-    end
-
-    rect rgb(241, 245, 255)
-        Note over B,N: Giai đoạn 2 — TCP: mở đường truyền
-        B->>N: kết nối TCP tới 203.0.113.10:443
-    end
-
-    rect rgb(232, 244, 234)
-        Note over B,N: Giai đoạn 3 — TLS handshake (4 bước ở trên, còn chữ thuần)
-        B->>N: 1. ClientHello, SNI = vidu.com
-        N-->>B: 2. trình certificate của vidu.com<br/>(public key + chữ ký Let's Encrypt)
-        Note over B: 3. verify — chữ ký dẫn về Let's Encrypt<br/>trong trust store? Có → tin
-        B->>N: 4. thỏa thuận khóa mã hóa riêng cho phiên
-        Note over B,N: Kênh đã khóa — từ đây người đứng giữa<br/>chỉ thấy byte ngẫu nhiên
-    end
-
-    rect rgb(244, 246, 249)
-        Note over B,N: Giai đoạn 4 — HTTP chạy bên trong kênh TLS
-        B->>N: GET / — Host: vidu.com (được mã hóa)
-        N-->>B: 200 OK + nội dung trang (được mã hóa)
-    end
-```
-
-Đọc sơ đồ này cần để ý hai điều. Thứ nhất, **thứ tự là bắt buộc**: DNS phải xong mới có IP để
-mở TCP, TCP phải xong mới handshake được, handshake phải xong thì byte HTTP đầu tiên mới được
-gửi — vì vậy mọi thứ dùng để *chọn cert* phải nằm trong giai đoạn 3 (SNI), không thể dựa vào
-thứ nằm ở giai đoạn 4 (`Host` header). Thứ hai, **ranh giới mã hóa nằm giữa giai đoạn 3 và 4**:
-DNS query và ClientHello là chữ thuần, nên người đứng giữa vẫn biết bạn *kết nối tới* `vidu.com`
-— nhưng không đọc được đường dẫn, nội dung trang hay dữ liệu form, vì toàn bộ HTTP đã nằm trong
-kênh khóa.
-
-Điểm hay nhầm nhất — và là chìa khóa của cả bài: **trình cert và verify cert là hai việc khác
-nhau, ở hai phía khác nhau**. Server nào phục vụ HTTPS cũng trình cert (bước 2 luôn diễn ra);
-khác biệt nằm ở bước 3, do client quyết định:
-
-| Client làm gì ở bước verify | Kết quả | Ví dụ trong bài |
-| --- | --- | --- |
-| Verify, chữ ký dẫn về CA nó tin | Kênh vừa mã hóa vừa **biết chắc đang nói với ai** | Browser ⇄ Cloudflare Edge; ví dụ `cattle-cluster-agent` sau này ở downstream, xác minh thành công với `strict` |
-| Verify, FAIL (unknown authority) | Ngắt kết nối / báo lỗi | `cloudflared` nếu để `noTLSVerify: false` với CA riêng — lỗi `x509`, browser nhận `502` |
-| Chủ động bỏ verify (`curl -k`, `noTLSVerify: true`) | Vẫn mã hóa nhưng **không biết đang nói với ai** — chống nghe lén, không chống giả mạo | Gate §14.4 và hop `cloudflared` → Traefik |
-
-Từ đó đọc được cụm "**HTTPS thật ngay tại origin**" ở phần Nhìn nhanh. **Origin** là server
-thật đứng sau Cloudflare — nơi request cuối cùng phải tới; ở lab là Traefik (định nghĩa đầy đủ
-ở mục "Origin và origin parameter" bên dưới). Với app demo của §13, HTTPS chỉ tồn tại ở đoạn
-browser ⇄ Cloudflare Edge; hop cuối vào cluster chạy HTTP thường — không TLS, không cert nào
-được trình. Với Rancher thì khác: chính origin cũng phục vụ HTTPS với certificate riêng — client
-bên trong cluster mở kết nối là được trình cert thật, và verify được nếu được phát CA. Nhu cầu
-"origin phải có cert để trình" đó là thứ kéo cert-manager và CA riêng vào §14, điều app demo
-không cần.
+Xem phần nền [HTTP, HTTPS và TLS](ca-tls-https-request-response.md#http-https-và-tls) và
+[luồng request/response qua TLS 1.3](ca-tls-https-request-response.md#luồng-requestresponse-qua-tls-13).
 
 ### Certificate, CA và "ký" — nền của mọi kết nối TLS
 
-Khi client mở kết nối HTTPS, server phải trình một **certificate** (bước 2 của handshake ở mục
-trên) — một file nhỏ gồm ba phần chính: tên server (hostname), public key của server, và
-**chữ ký** của bên phát hành. Certificate tồn tại để trả lời câu hỏi: "server đang nói chuyện
-với mình có đúng là `rancher.hieupn.site` không, hay là kẻ giả mạo đứng giữa?".
+**Certificate** là chứng thư chứa hostname, public key, thời gian hiệu lực và chữ ký của bên
+cấp. **CA** là bên cấp và ký certificate bằng private key của CA. **Private key HTTPS** tương
+ứng với public key trong certificate được endpoint giữ kín để chứng minh sở hữu khóa khi
+handshake.
 
-**CA (Certificate Authority — nhà phát hành certificate)** là bên giữ một private key gốc chuyên
-dùng để **ký** certificate cho người khác. "Ký" là tạo chữ ký số: bất kỳ ai cầm certificate gốc
-của CA (chứa public key của CA) đều tự kiểm tra được một certificate có thật do CA đó phát hành
-và chưa bị sửa hay không — nhưng không ai làm giả được chữ ký nếu không có private key của CA.
-Hình dung đơn giản: CA là **con dấu** — private key là con dấu thật (thứ đóng được dấu),
-certificate gốc của CA là mẫu con dấu công bố cho mọi người đối chiếu.
+Mỗi client có trust store/bundle riêng để xác định CA nào được tin. Trong lab, cần phân biệt
+Secret `tls-rancher` chứa dữ liệu CA dùng để ký và Secret `tls-rancher-ingress` chứa dữ liệu
+HTTPS mà Traefik sử dụng; phần “Cert do CA riêng của Rancher ký” bên dưới giải thích cụ thể.
 
-Mỗi client (browser, `curl`, `cloudflared`, hoặc ví dụ `cattle-cluster-agent` ở downstream…) có cấu hình **trust store** — danh sách mẫu con
-dấu mà nó công nhận. Luật duy nhất của trò chơi: client chỉ chấp nhận certificate mà chữ ký dẫn
-về được một CA trong trust store **của chính nó**. OS và browser xuất xưởng với sẵn hàng trăm
-**public CA** (Let's Encrypt, DigiCert…) — vì thế cert do public CA ký được "cả thế giới" tin
-sẵn. Ngược lại, ai cũng tự tạo được một **private CA** (một cặp key + certificate gốc tự ký):
-cert do nó ký chỉ được tin bởi client nào được chủ động phát mẫu con dấu, còn mọi client khác
-đều báo "unknown authority".
+Xem [certificate, CA và các loại khóa](ca-tls-https-request-response.md#certificate-ca-và-các-loại-khóa).
 
 ### Terminate TLS và SNI — ai giữ cert, ai khai tên
 
-**Terminate TLS** (kết thúc TLS) là điểm mà kênh mã hóa dừng lại: server tại điểm đó giữ
-certificate + private key, thực hiện handshake và giải mã traffic; phía sau nó có thể là một
-kênh khác. Trong lab, Traefik terminate TLS cho `rancher.hieupn.site` — cert nằm trong Secret
-`tls-rancher-ingress` mà Traefik đọc, **không** nằm trong Pod Rancher — rồi nói chuyện với Pod
-Rancher bằng HTTP `:80` (`ingress.servicePort: 80`). Vì thế "client thấy HTTPS" và "Rancher nghe
-HTTP" không mâu thuẫn: đoạn được mã hóa kết thúc ở Traefik.
+**Terminate TLS** nghĩa là thành phần đó thực hiện TLS với client và đọc được HTTP sau khi
+giải mã. **SNI** là hostname client khai trong `ClientHello`, để server chọn cấu hình
+TLS/certificate trước khi nhận HTTP.
 
-Ba chi tiết làm mô tả trên chính xác hẳn:
+Trong cấu hình lab:
 
-**1. Cert không phải thứ trực tiếp "giải mã traffic" — nó phục vụ handshake.** Trình tự chính
-xác, khớp với 4 bước handshake trong mục HTTP/HTTPS/TLS ở trên:
+1. Traefik nạp certificate và private key HTTPS từ Secret `tls-rancher-ingress`.
+2. Khi mở kết nối TLS mới, `cloudflared` gửi SNI `rancher.hieupn.site` theo
+   `originServerName`. Traefik dùng SNI để chọn certificate cùng private key tương ứng đã nạp.
+3. Sau handshake, `cloudflared` gửi HTTP với `Host: rancher.hieupn.site` theo
+   `httpHostHeader`. Traefik khớp Host và path với router đã nạp từ Ingress Rancher, chọn
+   backend của Service `rancher`, rồi chuyển request tới Pod Rancher bằng **HTTP port `80`**.
+   Header `X-Forwarded-Proto: https` giúp Rancher biết chặng vào proxy sử dụng HTTPS.
+4. Response từ Pod Rancher về Traefik là HTTP. Traefik bảo vệ response trong kết nối TLS với
+   `cloudflared` để trả về.
 
-```text
-(từ trước)  Traefik đã watch Ingress/Secret và nạp sẵn cert + private key vào bộ nhớ
-1. Kết nối TLS tới :443 → client khai SNI = rancher.hieupn.site
-2. Traefik tra SNI, rút đúng cert (từ tls-rancher-ingress) ra trình          ← cert dùng ở ĐÂY
-3. Client xử lý cert (verify hoặc bỏ qua tùy client)
-4. Hai bên thỏa thuận KHÓA PHIÊN                                             ← thứ giải mã là ĐÂY
-→  Từ đó mọi byte được mã hóa/giải mã bằng khóa phiên, không phải bằng cert
-```
+Client nội bộ gọi trực tiếp Traefik cũng dùng cơ chế chọn certificate theo SNI và xử lý HTTP
+theo Host/path. Đây là kết nối riêng của client đó.
 
-Tức là: cert + private key là "căn cước + chữ ký" để lập kênh; còn việc mã hóa/giải mã dữ liệu
-chạy bằng khóa phiên sinh ra ở bước 4. Nói "lấy cert rồi giải mã" là cách nói gọn chấp nhận
-được, nhưng cơ chế thật là "dùng cert để lập kênh, dùng khóa phiên để giải mã".
+Gate §14.4 dùng `curl --resolve` để kết nối tới ClusterIP Traefik nhưng vẫn giữ hostname
+`rancher.hieupn.site` cho SNI và HTTP Host. Gọi HTTPS bằng IP trần có thể nhận certificate
+mặc định nếu client không gửi SNI phù hợp.
 
-**2. Sau khi giải mã, Traefik không chuyển mù xuống Pod.** Nó là lễ tân, không phải ống nước:
-đọc HTTP trần vừa giải mã → lấy `Host` header + path → khớp với router đã nạp từ Ingress
-`rancher` → gắn thêm header như `X-Forwarded-Proto: https` (để Rancher biết client gốc dùng
-HTTPS, tránh redirect-loop — mục đào sâu 10) → rồi mới mở kết nối HTTP `:80` tới Service
-`rancher`, và Service chọn Pod. Nếu `Host` không khớp router nào thì trả `404` ngay tại
-Traefik, Pod Rancher không bao giờ thấy request.
+Với `noTLSVerify: true`, `cloudflared` vẫn gửi SNI và thực hiện handshake, nhưng bỏ kiểm
+chứng certificate origin theo CA tin cậy và hostname. Thiết lập này không thay đổi trust
+store hoặc cách kiểm chứng của browser và client nội bộ.
 
-**3. "Kết thúc TLS" là điểm hai chiều, không chỉ giải mã chiều vào.** Response từ Pod Rancher
-quay về Traefik dạng HTTP trần, và chính Traefik mã hóa nó vào cùng phiên TLS để trả cho
-client. Nên chính xác hơn là: Traefik là điểm mà kênh mã hóa **bắt đầu và kết thúc về phía
-cluster** — bóc phong bì chiều vào, dán phong bì chiều ra.
-
-Lưu ý về phạm vi: cơ chế trên không chỉ áp dụng cho traffic từ tunnel gửi đến — cùng cơ chế đó
-áp dụng cho **cả hai đường**: client nội bộ trong cụm gọi thẳng ClusterIP `:443` cũng được
-Traefik terminate y hệt, cùng cert, cùng khóa phiên riêng của nó. Đó chính là ý "hai đường gặp
-nhau tại Traefik `:443`" trong sơ đồ toàn cảnh.
-
-**Vậy `noTLSVerify: true` tác dụng ở đâu trong trình tự này?** Đúng một chỗ duy nhất — bước 3,
-dòng "Client xử lý cert":
-
-```text
-1. Client khai SNI                              ← noTLSVerify không liên quan
-2. Traefik trình cert                           ← vẫn diễn ra nguyên vẹn, không bị ảnh hưởng
-3. Client xử lý cert                            ← noTLSVerify: true tác dụng Ở ĐÂY:
-                                                   cloudflared chọn nhánh "bỏ qua" — không
-                                                   đối chiếu chữ ký về CA nào cả
-4. Thỏa thuận khóa phiên                        ← vẫn diễn ra → kênh vẫn mã hóa
-```
-
-Cụ thể: khi `cloudflared` nhận cert của Traefik ở bước 2, thay vì tra chữ ký về trust store
-(nơi CA riêng của Rancher không có mặt — nếu verify sẽ ra `x509: certificate signed by unknown
-authority` và ngắt ngay tại đây, browser nhận `502`), nó nhảy thẳng qua bước 4. Handshake vẫn
-hoàn tất, khóa phiên vẫn được thỏa thuận, kênh vẫn mã hóa — chỉ thiếu mất phần "biết chắc đang
-nói với ai". Đó chính là câu "mã hóa nhưng không xác thực" của mục đào sâu 12.
-
-Các phần còn lại hoàn toàn nằm ngoài tầm với của `noTLSVerify`:
-
-- **Chi tiết 1, các bước 1, 2, 4** — SNI vẫn được khai (do `originServerName` quyết định),
-  Traefik vẫn trình cert, khóa phiên vẫn sinh. `noTLSVerify` không làm cert "biến mất" khỏi
-  handshake.
-- **Chi tiết 2** — routing sau giải mã (`Host` header khớp router, `X-Forwarded-Proto`) là
-  chuyện của Traefik với HTTP trần, diễn ra *sau khi* TLS đã xong, không dính gì tới verify.
-- **Chi tiết 3** — chiều mã hóa response dùng khóa phiên đã thỏa thuận, cũng không liên quan.
-
-Và giới hạn phạm vi: bước 3 đó chỉ bị `noTLSVerify` chi phối trong các phiên TLS do
-`cloudflared` khởi tạo. Client nội bộ bắt tay với cùng Traefik ấy có bước 3 của riêng nó —
-verify hay bỏ qua là do trust store hoặc cờ (`curl -k`) của chính client đó quyết định.
-
-**SNI (Server Name Indication)** là trường trong bước chào của TLS handshake: client khai
-hostname nó muốn nói chuyện **trước khi** có bất kỳ byte HTTP nào.
-
-Vì sao phải khai sớm như vậy? Một server thường phục vụ **nhiều hostname trên cùng một IP và
-cổng** — chính Traefik của lab là ví dụ: mọi Ingress đều đổ về một Service ClusterIP duy nhất,
-cổng `:443`. Mỗi hostname có certificate riêng, và server phải chọn đúng cert để trình ngay ở
-bước 2 của handshake. Nhưng tại thời điểm đó server chưa có cách nào biết client muốn gặp ai:
-header `Host` — thứ vẫn dùng để phân biệt hostname — là dữ liệu HTTP, mà HTTP chỉ chạy **sau
-khi** handshake xong. Thành vòng con gà – quả trứng: muốn lập kênh phải trình cert → muốn chọn
-cert phải biết hostname → muốn biết hostname phải đọc HTTP → muốn đọc HTTP phải lập kênh xong.
-SNI phá vòng đó bằng cách cho client khai hostname dạng chữ thuần ngay trong gói chào đầu tiên.
-
-Ví dụ ngay trên Traefik của lab — cùng một địa chỉ, hai câu trả lời:
-
-```text
-Client A ── ClientHello, SNI = rancher.hieupn.site ──> Traefik :443
-Client A <── cert của rancher.hieupn.site (Secret tls-rancher-ingress) ──
-
-Client B ── ClientHello, không có SNI (gọi bằng IP trần) ──> cùng Traefik :443 đó
-Client B <── cert default tự ký "TRAEFIK DEFAULT CERT" ──
-```
-
-Client A khai SNI nên Traefik tra được đúng cert trong Secret `tls-rancher-ingress`. Client B
-gọi thẳng `https://<ClusterIP>` — kiểu gọi bằng IP không gửi SNI — nên Traefik không biết chọn
-cert nào, đành trả cert default tự ký của nó. Nếu mai này cluster có thêm `grafana.hieupn.site`
-với cert riêng, vẫn chỉ một cổng `:443` đó phục vụ tất cả: SNI là thứ quyết định cert nào được
-rút ra trình.
-
-Hiểu SNI thì đọc được hai chi tiết của runbook: `curl --resolve` ở §14.4 ép kết nối tới thẳng
-ClusterIP nhưng **giữ nguyên hostname** để SNI vẫn đúng (gọi bằng IP trần thì chỉ nhận cert
-default như Client B); và `originServerName` của route §14.5 chính là chỗ đặt SNI cho hop
-`cloudflared` → Traefik (mục đào sâu 12).
+Xem [terminate TLS và SNI](ca-tls-https-request-response.md#terminate-tls-và-sni),
+[Origin Server Name](ca-tls-https-request-response.md#origin-server-name) và
+[kiểm chứng certificate origin](ca-tls-https-request-response.md#kiểm-chứng-certificate-origin).
+Chuỗi controller → object → Secret → handshake của lab được giữ trong phần
+[Controller nào cấp certificate và ai gửi hai bản tin TLS?](#controller-nào-cấp-certificate-và-ai-gửi-hai-bản-tin-tls).
 
 ### Ghép tất cả lại — ví dụ tự host một web server có domain, không K8s
 
-Tạm quên K8s và Cloudflare. Bạn có một server với IP public `203.0.113.10`, muốn phục vụ
-`https://vidu.com` bằng nginx. Bốn chỗ phải cấu hình:
+Ví dụ tổng quát dùng DNS, nginx và certificate được đặt trong
+[ví dụ tự host web có domain, không dùng Kubernetes](ca-tls-https-request-response.md#ví-dụ-tự-host-web-có-domain-không-dùng-kubernetes).
 
-1. **DNS — chỗ "config domain".** Trong trang quản lý DNS của domain (ở registrar nơi mua
-   domain, hoặc dịch vụ DNS riêng), tạo **A record** `vidu.com → 203.0.113.10`. Đó là *toàn bộ*
-   phần cấu hình domain: một bảng **tên → IP**, không hơn. DNS **không mang thông tin port** —
-   port do browser tự suy từ scheme (`https://` → `:443`, `http://` → `:80`). Hệ quả: muốn
-   người dùng chỉ gõ domain là vào được thì server phải nghe `:443`; nghe port khác vẫn chạy
-   nhưng URL phải kèm `:port` tường minh (`https://vidu.com:8443`).
-2. **Firewall/NAT.** Mở inbound `:80` + `:443` vào server (firewall của máy, security group,
-   port-forward trên router nếu sau NAT).
-3. **Web server.** Một process nginx nghe cả hai cổng — không có "service TLS" riêng nào:
-
-   ```nginx
-   server { listen 80;  server_name vidu.com; return 301 https://vidu.com$request_uri; }
-   server {
-       listen 443 ssl;
-       server_name vidu.com;                 # khớp với SNI/Host mà client gửi
-       ssl_certificate     /etc/ssl/vidu.com/fullchain.pem;
-       ssl_certificate_key /etc/ssl/vidu.com/privkey.pem;
-       root /var/www/vidu;
-   }
-   ```
-
-4. **Certificate.** Xin từ một public CA — phổ biến là Let's Encrypt qua `certbot`. CA bắt
-   chứng minh quyền sở hữu domain trước khi ký: đặt file thử thách lên `http://vidu.com`
-   (HTTP-01) hoặc tạo TXT record trong DNS (DNS-01). Cert cấp **cho tên miền**, không cho IP
-   hay port — vì thứ browser đối chiếu là hostname trong URL với tên trong cert.
-
-Luồng một request sau khi xong: browser tách URL (`vidu.com`, port `:443` suy từ `https`) →
-hỏi DNS, nhận `203.0.113.10` → mở TCP tới `:443` → handshake TLS với SNI `vidu.com`, nginx tra
-`server_name` khớp và trình cert, browser verify chữ ký về Let's Encrypt trong trust store →
-HTTP chạy bên trong kênh. Hai bảng ánh xạ **độc lập** cùng phải đúng: DNS đưa client tới
-**đúng cửa** (tên → IP), còn `server_name`/SNI chọn **đúng nhà sau cửa đó** (tên → site + cert).
-
-Lab của runbook khác ví dụ này ở đúng bước 2: VM nằm sau NAT, không có IP public, không mở
-inbound — nên bước đó được thay bằng Cloudflare Tunnel (mục "Vì sao cluster không mở port nào"
-bên dưới), và cert public ở bước 4 tách làm hai hệ: cert Cloudflare ở Edge + CA riêng ở origin
-(mục đào sâu 4). Còn DNS, SNI và vai trò `server_name` (trong lab là rule `Host` của Ingress) —
-bản chất giữ nguyên.
+Khi áp dụng vào lab này, DNS public đưa browser tới Cloudflare Edge; tunnel đưa request về
+`cloudflared`; Traefik phục vụ HTTPS của origin bằng certificate do CA riêng của Rancher ký.
+Các đối tượng Kubernetes và hai Secret được giải thích tiếp trong tài liệu này.
 
 ### "Cert do CA riêng của Rancher ký" nghĩa là gì
 
@@ -2441,9 +2249,10 @@ sập. Ngược lại, để `noTLSVerify` là `false` (mặc định) với CA 
 `x509: certificate signed by unknown authority` → browser nhận Cloudflare `502`.
 
 `noTLSVerify: true` nghĩa là **mã hóa nhưng không xác thực**: chống nghe lén thụ động trên hop
-đó, không chống MITM chủ động. Trong trình tự terminate ở mục từ điển "Terminate TLS và SNI",
-nó chỉ thay đổi đúng bước 3 (client xử lý cert) của các session do `cloudflared` khởi tạo —
-các bước còn lại nguyên vẹn, và bước 3 của client nội bộ không bị ảnh hưởng. `cloudflared` không có kênh **tự động** nhận CA riêng của Rancher
+đó, không chống MITM chủ động. Xem [kiểm chứng certificate origin](ca-tls-https-request-response.md#kiểm-chứng-certificate-origin):
+thiết lập này bỏ kiểm chứng certificate theo CA tin cậy và hostname trên kết nối do
+`cloudflared` khởi tạo. Nó không tắt các kiểm chứng mật mã còn lại của handshake và không thay
+đổi cách client nội bộ kiểm chứng certificate. `cloudflared` không có kênh **tự động** nhận CA riêng của Rancher
 như trường hợp `cattle-cluster-agent` được bootstrap CA khi đăng ký downstream cluster sau này.
 Đó là một luồng ngoài phạm vi cài đặt §14, không phải agent hiện có trong `local`.
 Với `cloudflared`, có đường cấu hình trust thủ công: Cloudflare hỗ trợ

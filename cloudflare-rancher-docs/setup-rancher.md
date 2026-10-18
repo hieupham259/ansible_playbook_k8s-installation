@@ -1611,27 +1611,37 @@ Các bước 1–6 mô tả việc chuẩn bị và nạp dữ liệu TLS. Công
 
 **Khi đến phần đang xét của handshake TLS**
 
-Các bước 7–10 chỉ trích phần dùng certificate trong một lần bắt tay TLS 1.3 mới. Chúng không liệt kê đầy đủ các bản tin của handshake và không khẳng định phiên TLS thực tế của lab đã thương lượng phiên bản nào.
+Các bước 7–11 mô tả việc mở kết nối và trích phần dùng certificate trong một lần bắt tay TLS 1.3 mới. Chúng không liệt kê đầy đủ các bản tin của handshake và không khẳng định phiên TLS thực tế của lab đã thương lượng phiên bản nào.
 
-7. ⭐ **Traefik → `cloudflared`: gửi bản tin TLS `Certificate`.**
+7. **`cloudflared` mở kết nối và gửi SNI theo `originServerName`; Traefik chọn certificate cùng private key HTTPS đã nạp.**
 
-   Traefik gửi certificate **đã có chữ ký CA từ bước 3**, được lưu vào Secret ở bước 4 và được Traefik nạp ở bước 6. Certificate này chứa public key của endpoint.
+   Trong cấu hình lab này, `cloudflared` mở kết nối tới Traefik theo origin URL `https://traefik.traefik.svc.cluster.local:443`.
+
+   Khi bắt đầu TLS handshake, cấu hình **`originServerName: rancher.hieupn.site`** khiến `cloudflared` gửi **SNI `rancher.hieupn.site` trong bản tin `ClientHello`**. SNI là thông tin cho Traefik biết hostname mà client muốn kết nối tới.
+
+   Traefik dùng SNI này để chọn certificate phù hợp **đã nạp từ Secret `tls-rancher-ingress`, cùng private key HTTPS tương ứng ở bước 6**.
+
+8. ⭐ **Traefik → `cloudflared`: gửi bản tin TLS `Certificate`.**
+
+   Traefik gửi **certificate đã chọn theo SNI ở bước 7** bên trong bản tin TLS `Certificate`.
+
+   Certificate được gửi **đã có chữ ký CA từ bước 3**, được lưu vào Secret ở bước 4 và được Traefik nạp ở bước 6. Certificate này chứa public key của endpoint.
 
    **`Certificate` ở đây là tên bản tin TLS, khác với object Kubernetes `Certificate` ở bước 1.** Traefik không gửi object Kubernetes hoặc private key HTTPS sang `cloudflared`, cũng không tạo chữ ký CA ở bước này.
 
-8. **Traefik tạo một chữ ký mới:** nó dùng private key HTTPS của mình để ký dữ liệu của phiên bắt tay hiện tại.
+9. **Traefik tạo một chữ ký mới:** nó dùng private key HTTPS của mình để ký dữ liệu của phiên bắt tay hiện tại.
 
    Đây là chữ ký phục vụ handshake đang diễn ra, khác với chữ ký CA đã có trên certificate.
 
-9. ⭐ **Traefik → `cloudflared`: gửi bản tin TLS `CertificateVerify`.**
+10. ⭐ **Traefik → `cloudflared`: gửi bản tin TLS `CertificateVerify`.**
 
-   Bản tin này mang **chữ ký Traefik vừa tạo ở bước 8**. Nó không phải một certificate khác.
+   Bản tin này mang **chữ ký Traefik vừa tạo ở bước 9**. Nó không phải một certificate khác.
 
-10. **`cloudflared` kiểm tra chữ ký:** lấy public key trong certificate nhận ở bước 7 để kiểm tra chữ ký nhận ở bước 9.
+11. **`cloudflared` kiểm tra chữ ký:** lấy public key trong certificate nhận ở bước 8 để kiểm tra chữ ký nhận ở bước 10.
 
     Kiểm tra thành công chứng minh bên đang bắt tay giữ private key tương ứng với public key trong certificate vừa trình.
 
-Với **`noTLSVerify: true`** trong lab, `cloudflared` bỏ bước xác minh certificate theo CA tin cậy và hostname, nhưng vẫn thực hiện các kiểm chứng mật mã của handshake. Vì vậy, kết quả ở bước 10 **chưa đủ xác nhận bên kia đúng là endpoint Rancher mong muốn**.
+Với **`noTLSVerify: true`** trong lab, `cloudflared` bỏ bước xác minh certificate theo CA tin cậy và hostname, nhưng vẫn thực hiện các kiểm chứng mật mã của handshake. Vì vậy, kết quả ở bước 11 **chưa đủ xác nhận bên kia đúng là endpoint Rancher mong muốn**.
 
 Việc cấp/gia hạn certificate ở các bước 1–4 chạy nền, độc lập với handshake. Traefik có thể dùng certificate đã nạp để phục vụ nhiều kết nối TLS.
 
@@ -1639,8 +1649,8 @@ Hai chữ ký có hai người tạo và hai mục đích:
 
 | Chữ ký | Ai tạo? | Ai gửi sang `cloudflared`? | Ý nghĩa khi kiểm tra thành công |
 |---|---|---|---|
-| **Chữ ký CA trên certificate** | Controller `certificaterequests-issuer-ca`, dùng private key CA trước khi handshake diễn ra. | Traefik gửi certificate đã chứa chữ ký này ở bước 7. | CA đã ký xác nhận sự gắn kết giữa hostname và public key của endpoint. Client còn phải kiểm tra CA có được tin cậy và hostname có khớp hay không. |
-| **Chữ ký trong `CertificateVerify`** | Traefik, dùng private key HTTPS trong lần handshake hiện tại. | Traefik gửi bản tin `CertificateVerify` ở bước 9. | Bên đang kết nối giữ private key tương ứng với public key trong certificate vừa trình. |
+| **Chữ ký CA trên certificate** | Controller `certificaterequests-issuer-ca`, dùng private key CA trước khi handshake diễn ra. | Traefik gửi certificate đã chứa chữ ký này ở bước 8. | CA đã ký xác nhận sự gắn kết giữa hostname và public key của endpoint. Client còn phải kiểm tra CA có được tin cậy và hostname có khớp hay không. |
+| **Chữ ký trong `CertificateVerify`** | Traefik, dùng private key HTTPS trong lần handshake hiện tại. | Traefik gửi bản tin `CertificateVerify` ở bước 10. | Bên đang kết nối giữ private key tương ứng với public key trong certificate vừa trình. |
 
 Tên controller được đối chiếu theo cert-manager `v1.21.1` mà runbook dùng:
 [ingress-shim](https://github.com/cert-manager/cert-manager/blob/v1.21.1/pkg/controller/certificate-shim/ingresses/controller.go),

@@ -62,8 +62,8 @@ kiến thức ngay trong lúc giải quyết; sau đó dùng [bảng đối chi�
 | Mốc | Nội dung | Trạng thái | File khi hoàn tất |
 | --- | --- | --- | --- |
 | [Câu 4/6](../cloudflare-rancher-docs/setup-rancher.md#câu-46--vì-sao-phải-cài-và-kiểm-tra-theo-thứ-tự-này) | Chuẩn bị, backup, thứ tự §14, values/render, bootstrap và các gate | Hoàn thành lượt học theo yêu cầu ngày 19/10/2026; **2/3**; ý 3 có đính chính Mentor, chưa có lượt trả lời lại | [C04.md](C04.md) |
-| [Câu 5/6](../cloudflare-rancher-docs/setup-rancher.md#câu-56--browser-dùng-được-thì-client-và-cluster-khác-đã-dùng-được-chưa) | Server URL, client/agent, quyền/trust, local và downstream | Hoàn thành lượt trao đổi ngày 19/10/2026; **2/3**; ý 3 có Mentor bổ sung, chưa có lượt tự tổng hợp đầy đủ | [C05.md](C05.md) |
-| [Câu 6/6](../cloudflare-rancher-docs/setup-rancher.md#câu-66--trang-web-và-node-đều-khỏe-vì-sao-rancher-vẫn-lỗi) | Dashboard/API, SelfUser/Steve, sự cố sau reboot và condition local | Chưa học/chưa trả lời; chưa có điểm | `C06.md` — chưa tạo |
+| [Câu 5/6](../cloudflare-rancher-docs/setup-rancher.md#câu-56--browser-dùng-được-thì-client-và-cluster-khác-đã-dùng-được-chưa) | Server URL, client/agent, quyền/trust, local và downstream | Hoàn thành ngày 19/10/2026; **3/3 sau sửa và bổ sung**; giữ lịch sử 2/3 | [C05.md](C05.md) |
+| [Câu 6/6](../cloudflare-rancher-docs/setup-rancher.md#câu-66--trang-web-và-node-đều-khỏe-vì-sao-rancher-vẫn-lỗi) | Dashboard/API, SelfUser/Steve, sự cố sau reboot và condition local | Đã mở tình huống, bắt đầu ý 1; chưa có câu trả lời/điểm | `C06.md` — chưa tạo |
 | Đối chiếu bao phủ | Các phần chính, từng bước §14 và 15 cơ chế trong giáo án | Chưa hoàn tất | Ghi checkpoint và bổ sung vào file Mxx/Cxx liên quan |
 
 Điểm 0–3 của từng câu và mức bao phủ tài liệu được theo dõi riêng. Chỉ xác nhận đã học toàn bộ
@@ -96,13 +96,13 @@ khi các phần còn thiếu đã được giải thích và có căn cứ từ 
 - **Chặng nền M01–M06:** đã hoàn tất; chưa đồng nghĩa đã hiểu toàn bộ setup-rancher.md.
 - **Mốc hoàn tất C04:** [C04 — Vì sao phải cài và kiểm tra theo thứ tự này?](C04.md), ngày 19/10/2026 (giờ Việt Nam), theo yêu cầu người học. Điểm ghi nhận **2/3**; ý 1–2 đã chốt, ý 3 có nhận xét/đính chính Mentor nhưng chưa có lượt người học trả lời lại. Hoàn thành lượt học không đồng nghĩa đã đạt 3/3.
 - **Bản lưu C04:** giữ ba câu hỏi chính và câu trả lời tổng hợp đầy đủ theo cách lưu M05–M06; phân biệt lời biên tập/sửa của Mentor với phần người học tự trả lời. Có lưu đính chính về bootstrap-secret sau Helm --wait; không tiếp tục coi thiếu Secret là chắc chắn chỉ do đọc quá sớm.
-- **Câu vừa hoàn tất:** [C05 — Browser dùng được thì client và cluster khác đã dùng được chưa?](C05.md), ngày 19/10/2026 (giờ Việt Nam), điểm **2/3**. Ý 1–2 đã chốt sau sửa/bổ sung; ý 3 đã trao đổi về downstream, Access và strict/cacerts, nhưng chưa có lượt tự tổng hợp đầy đủ. Có thể sửa ý 3 để xét nâng điểm; chưa nâng thành 3/3.
+- **Câu vừa hoàn tất:** [C05 — Browser dùng được thì client và cluster khác đã dùng được chưa?](C05.md), ngày 19/10/2026 (giờ Việt Nam), đạt **3/3 sau sửa và bổ sung**. Lượt sửa cuối bổ sung Access cùng DNS/mạng/certificate và nêu đúng browser đăng nhập không đồng nghĩa agent được phép truy cập. Giữ lịch sử 2/3 và giới hạn phần Mentor hỗ trợ trong C05.md.
 - **Bản lưu C05:** giữ ba câu hỏi chính và câu trả lời tổng hợp đầy đủ; phân biệt lời người học với phần Mentor bổ sung. Có giải thích Server URL/origin URL, vai trò các agent và giới hạn bằng chứng từ browser. Không ghi toàn bộ bản biên tập thành lời người học tự trả lời.
-- **Phần học tiếp:** Câu 6/6, bắt đầu ý 1 về giới hạn Pod Ready/healthz và nhánh API phục vụ Dashboard; chưa có câu trả lời/điểm, chưa tạo C06.md.
+- **Phần đang học:** Câu 6/6, mở tình huống và bắt đầu ý 1 về giới hạn Pod Ready/healthz khi API SelfUser của Dashboard trả 404; chưa có câu trả lời/điểm, chưa tạo C06.md.
 - **Câu kiểm tra M04 đang chờ:** không còn; điểm cuối đã được người học tự chốt.
 - **Điểm từ M02 chưa có câu trả lời riêng trực tiếp trong phiên M04:** annotation chỉ Issuer đến từ template chart khi Helm render. Không ghi câu này là đã được người học tự trả lời trong phiên.
 - **Câu 2/6:** lượt M05 đã trả lời đủ ba ý, đạt **3/3 sau sửa**, lưu tại [M05.md](M05.md). Giữ riêng lịch sử và điểm 2/3 của lượt cũ trong setup-rancher.md.
 - **Câu 3/6:** lượt M06 đã trả lời đủ ba ý, đạt **3/3 sau bổ sung**, lưu tại [M06.md](M06.md). Kết quả thực tế của lượt học được theo dõi ở đây và M06.md, tách khỏi đáp án tham khảo trong setup-rancher.md.
-- **Sau M06:** Câu 4/6 và Câu 5/6 đã hoàn thành lượt trao đổi, lưu [C04.md](C04.md) và [C05.md](C05.md), mỗi câu 2/3 với giới hạn đã ghi. Câu 6/6 chưa có câu trả lời/điểm.
+- **Sau M06:** Câu 4/6 lưu [C04.md](C04.md), giữ 2/3 với giới hạn đã ghi; Câu 5/6 lưu [C05.md](C05.md), hiện đạt 3/3 sau sửa và bổ sung, giữ lịch sử 2/3. Câu 6/6 đang ý 1, chưa có câu trả lời/điểm.
 - **Bao phủ toàn bộ tài liệu:** chưa hoàn tất; dùng bảng đối chiếu để ghi các mục đã tự giải thích và còn thiếu. Hoàn tất chặng nền hoặc đọc đáp án chưa xác nhận đã hiểu toàn bộ.
 - **Cluster thực tế:** chưa có output được người học cung cấp trong các bài này; ví dụ là giả định để học.

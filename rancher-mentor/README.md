@@ -61,8 +61,8 @@ kiến thức ngay trong lúc giải quyết; sau đó dùng [bảng đối chi�
 
 | Mốc | Nội dung | Trạng thái | File khi hoàn tất |
 | --- | --- | --- | --- |
-| [Câu 4/6](../cloudflare-rancher-docs/setup-rancher.md#câu-46--vì-sao-phải-cài-và-kiểm-tra-theo-thứ-tự-này) | Chuẩn bị, backup, thứ tự §14, values/render, bootstrap và các gate | Đang học ý 1; chưa trả lời, chưa có điểm | `C04.md` — chưa tạo |
-| [Câu 5/6](../cloudflare-rancher-docs/setup-rancher.md#câu-56--browser-dùng-được-thì-client-và-cluster-khác-đã-dùng-được-chưa) | Server URL, client/agent, quyền/trust, local và downstream | Chưa học/chưa trả lời; chưa có điểm | `C05.md` — chưa tạo |
+| [Câu 4/6](../cloudflare-rancher-docs/setup-rancher.md#câu-46--vì-sao-phải-cài-và-kiểm-tra-theo-thứ-tự-này) | Chuẩn bị, backup, thứ tự §14, values/render, bootstrap và các gate | Hoàn thành lượt học theo yêu cầu ngày 19/10/2026; **2/3**; ý 3 có đính chính Mentor, chưa có lượt trả lời lại | [C04.md](C04.md) |
+| [Câu 5/6](../cloudflare-rancher-docs/setup-rancher.md#câu-56--browser-dùng-được-thì-client-và-cluster-khác-đã-dùng-được-chưa) | Server URL, client/agent, quyền/trust, local và downstream | Đang học ý 1; đã mở tình huống, chưa có câu trả lời/điểm | `C05.md` — chưa tạo |
 | [Câu 6/6](../cloudflare-rancher-docs/setup-rancher.md#câu-66--trang-web-và-node-đều-khỏe-vì-sao-rancher-vẫn-lỗi) | Dashboard/API, SelfUser/Steve, sự cố sau reboot và condition local | Chưa học/chưa trả lời; chưa có điểm | `C06.md` — chưa tạo |
 | Đối chiếu bao phủ | Các phần chính, từng bước §14 và 15 cơ chế trong giáo án | Chưa hoàn tất | Ghi checkpoint và bổ sung vào file Mxx/Cxx liên quan |
 
@@ -88,17 +88,19 @@ khi các phần còn thiếu đã được giải thích và có căn cứ từ 
 - **Phần đã giải quyết ở M05:** chuỗi controller tạo Certificate/chuẩn bị key và CSR/ký/ghi Secret; phân biệt cấp phát với handshake; phạm vi chờ của Helm 3 và các nhánh bất đồng bộ; điều kiện PASS của gate §14.4.
 - **Bổ sung cuối ý 3:** Ingress phải in class `traefik`, host `rancher.hieupn.site`; condition Certificate là `Ready=True`. Người học chốt nguyên văn: “READY=true”.
 - **Giới hạn bản chốt M05:** ý nghĩa chi tiết của các flag curl và giới hạn bằng chứng có phần Mentor giải thích; không coi toàn bộ phần biên tập là câu trả lời nguyên văn độc lập của người học. Chưa có output xác nhận cluster thực tế.
-- **Bài vừa hoàn tất:** [M06 — TLS, origin và khoanh vùng lỗi](M06.md), ngày 18/10/2026 (giờ Việt Nam).
+- **Mốc hoàn tất M06:** [M06 — TLS, origin và khoanh vùng lỗi](M06.md), ngày 18/10/2026 (giờ Việt Nam).
 - **Bản lưu M06:** theo cách lưu người học đã yêu cầu ở M05, giữ ba câu hỏi chính và câu trả lời chốt đầy đủ, bỏ các lượt trung gian. Ghi rõ là bản tổng hợp được biên tập sau trao đổi, không gán toàn bộ lời biên tập thành lời người học nguyên văn.
 - **Phần đã giải quyết ở M06:** 302 từ Access do Edge trả trước khi cần gọi origin; chặng ưu tiên cloudflared → Traefik; master dùng --resolve khác connector dùng CoreDNS; Service Traefik khác chương trình trong Pod Traefik; vai trò và ba giá trị origin parameters.
 - **Giá trị chốt ý 3:** originServerName và httpHostHeader đều là rancher.hieupn.site; noTLSVerify là true (người học ghi True). Bỏ xác minh certificate khác với thêm CA Rancher vào trust store.
 - **Giới hạn bằng chứng:** các trạng thái 200/Healthy/Connected/502 là dữ kiện giả định của bài. Không ghi nhận đã quan sát output hay kiểm chứng cluster thực tế. Các diễn giải bổ sung của Mentor được phân biệt với câu trả lời nguyên văn của người học.
 - **Chặng nền M01–M06:** đã hoàn tất; chưa đồng nghĩa đã hiểu toàn bộ setup-rancher.md.
-- **Phần đang học tiếp:** Câu 4/6 — Vì sao phải cài và kiểm tra theo thứ tự này?, ý 1 về kiểm tra trước thay đổi và phạm vi backup. Đã mở tình huống để học; chưa có câu trả lời/điểm, chưa tạo C04.md.
+- **Câu vừa hoàn tất:** [C04 — Vì sao phải cài và kiểm tra theo thứ tự này?](C04.md), ngày 19/10/2026 (giờ Việt Nam), theo yêu cầu người học. Điểm ghi nhận **2/3**; ý 1–2 đã chốt, ý 3 có nhận xét/đính chính Mentor nhưng chưa có lượt người học trả lời lại. Hoàn thành lượt học không đồng nghĩa đã đạt 3/3.
+- **Bản lưu C04:** giữ ba câu hỏi chính và câu trả lời tổng hợp đầy đủ theo cách lưu M05–M06; phân biệt lời biên tập/sửa của Mentor với phần người học tự trả lời. Có lưu đính chính về bootstrap-secret sau Helm --wait; không tiếp tục coi thiếu Secret là chắc chắn chỉ do đọc quá sớm.
+- **Phần đang học tiếp:** Câu 5/6 — Browser dùng được thì client và cluster khác đã dùng được chưa?, ý 1 về Rancher quản lý cluster local và vai trò các agent. Đã mở tình huống; chưa có câu trả lời/điểm, chưa tạo C05.md.
 - **Câu kiểm tra M04 đang chờ:** không còn; điểm cuối đã được người học tự chốt.
 - **Điểm từ M02 chưa có câu trả lời riêng trực tiếp trong phiên M04:** annotation chỉ Issuer đến từ template chart khi Helm render. Không ghi câu này là đã được người học tự trả lời trong phiên.
 - **Câu 2/6:** lượt M05 đã trả lời đủ ba ý, đạt **3/3 sau sửa**, lưu tại [M05.md](M05.md). Giữ riêng lịch sử và điểm 2/3 của lượt cũ trong setup-rancher.md.
 - **Câu 3/6:** lượt M06 đã trả lời đủ ba ý, đạt **3/3 sau bổ sung**, lưu tại [M06.md](M06.md). Kết quả thực tế của lượt học được theo dõi ở đây và M06.md, tách khỏi đáp án tham khảo trong setup-rancher.md.
-- **Sau M06:** đang mở ý 1 Câu 4/6; chưa có câu trả lời/điểm cho Câu 4. Câu 5/6–6/6 chưa học/chưa trả lời, chưa có điểm.
+- **Sau M06:** Câu 4/6 đã hoàn thành lượt học và lưu [C04.md](C04.md), điểm 2/3. Đang học ý 1 Câu 5/6; Câu 5 chưa có câu trả lời/điểm. Câu 6/6 chưa học/chưa trả lời, chưa có điểm.
 - **Bao phủ toàn bộ tài liệu:** chưa hoàn tất; dùng bảng đối chiếu để ghi các mục đã tự giải thích và còn thiếu. Hoàn tất chặng nền hoặc đọc đáp án chưa xác nhận đã hiểu toàn bộ.
 - **Cluster thực tế:** chưa có output được người học cung cấp trong các bài này; ví dụ là giả định để học.

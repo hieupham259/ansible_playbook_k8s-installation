@@ -1687,6 +1687,7 @@ sequenceDiagram
     participant T as Traefik
     participant C as cloudflared
 
+    Note over CM,API: Trước bước 1 – Helm đã tạo Ingress có annotation cert-manager.io/issuer
     CM->>API: ingress-shim tạo object Certificate
     Note over CM,API: Các controller chuẩn bị khóa HTTPS và CertificateRequest
     CM->>API: certificaterequests-issuer-ca lấy private key của CA từ Secret tls-rancher
@@ -1713,6 +1714,16 @@ sequenceDiagram
 **Chuẩn bị certificate — công việc chạy nền của cert-manager**
 
 Các bước 1–6 mô tả việc chuẩn bị và nạp dữ liệu TLS. Công việc này không chạy lại cho mỗi HTTP request hoặc mỗi kết nối TLS mới.
+
+**Trước bước 1 — vì sao đơn đặt hàng xuất hiện**
+
+Bước 1 không tự xảy ra. Đó là phản ứng của cert-manager trước một yêu cầu do Helm tạo ra:
+
+- **Yêu cầu được soạn:** [runbook §14.3](../runbook-k8s-vmware.md#143-cài-rancher-helm-pin-2143) đặt `ingress.tls.source: rancher` trong values. Với giá trị này, chart Rancher tạo ra một Ingress mang annotation `cert-manager.io/issuer: rancher`, cùng phần `spec.tls` ghi hostname `rancher.hieupn.site` và Secret `tls-rancher-ingress`. Chart cũng tạo `Issuer/rancher`.
+- **Yêu cầu được gửi:** `helm install` ở §14.3 tạo Ingress và Issuer đó trên cluster. Đây là **yêu cầu đặt hàng**.
+- **Yêu cầu được nhận:** ingress-shim chạy trong cert-manager, thứ đã được cài ở [runbook §14.1](../runbook-k8s-vmware.md#141-cài-cert-manager-rancher-cần-để-cấp-tls-nội-bộ), và liên tục theo dõi các Ingress. Thấy Ingress mang annotation `cert-manager.io/issuer`, nó lập **đơn đặt hàng**, tức object `Certificate` ở bước 1.
+
+Nguyên nhân dẫn tới kết quả như sau: annotation trên Ingress → ingress-shim tạo object `Certificate` → bước 2–6 làm ra certificate và nạp vào Traefik. Thiếu annotation, hoặc cert-manager chưa chạy, thì bước 1 không xảy ra, và cả chuỗi phía sau cũng không. Vì vậy §14.1 phải đứng trước §14.3.
 
 1. **`ingress-shim` đọc Ingress Rancher và tạo object `Certificate/tls-rancher-ingress`.**
 

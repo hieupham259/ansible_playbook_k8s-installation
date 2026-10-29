@@ -1334,48 +1334,231 @@ Trong lab, Issuer này tham chiếu Secret `tls-rancher`.
 
 **HIỂU TLS TRƯỚC**
 
-Ta xét **một kết nối HTTPS mới dùng TLS 1.3**, trong đó client là browser, server phục vụ `app.example.com`, và chỉ server được yêu cầu trình certificate.
+Dưới đây là bản hoàn chỉnh cho ví dụ **browser truy cập `https://app.example.com` bằng một kết nối mới dùng TCP và TLS 1.3**.
 
-**Trước khi client kết nối, phía server đã có certificate và private key tương ứng.**
+Server xác thực bằng certificate, hai bên thiết lập bí mật chung bằng **ECDHE — cơ chế trao đổi khóa tạm thời**. Client bật đầy đủ việc kiểm chứng server. Ví dụ này không yêu cầu certificate của client và không dùng nhánh khôi phục phiên hoặc 0-RTT.
 
-Một certificate chứa thông tin tương đương:
+**1. Trước khi kết nối: server và client đã chuẩn bị gì?**
+
+Phía server đã có:
+
+- **Certificate của server**, chứng nhận hostname và public key.
+- **Private key tương ứng với public key trong certificate**.
+- Các **certificate CA trung gian** cần thiết.
+
+Certificate của server chứa thông tin tương đương:
 
 ```text
-Hostname: app.example.com
-Public key: public key của server
-Bên cấp: CA
-Thời hạn: ...
-Chữ ký của CA: ...
+Hostname trong subjectAltName: app.example.com
+Public key: public key thuộc cặp khóa danh tính của server
+Bên cấp (Issuer): CA cấp certificate
+Thời hạn: thời điểm bắt đầu và hết hạn
+Chữ ký của CA: chữ ký trên nội dung được chứng nhận
 ```
 
-Public key trong certificate thuộc **cặp khóa danh tính của server**. Private key tương ứng được phía server giữ kín, không nằm trong certificate và không được gửi cho browser trong handshake.
+**Private key của server không nằm trong certificate.**
 
-Chữ ký của CA trên certificate đã được tạo **từ lúc cấp certificate**: CA dùng **private key của CA** để ký. Private key của CA và private key của server là hai khóa khác nhau.
+Trước đó, khi cấp certificate, CA đã dùng **private key của CA** để ký nội dung được chứng nhận, gồm hostname và public key của server.
 
-**Khi client bắt đầu kết nối, handshake diễn ra trước cả thời điểm server gửi certificate.**
+Private key của CA và private key của server thuộc **hai cặp khóa khác nhau**.
 
-Các bản tin xuất hiện theo thứ tự sau:
+Phía client có các **CA gốc được tin cậy** trong trust store hoặc CA bundle mà chương trình đó sử dụng.
 
-| Bản tin số | Bản tin và chiều gửi | Nội dung chính |
-|---|---|---|
-| 1 | Client → Server: **`ClientHello`** | Phiên bản TLS, thuật toán client hỗ trợ; hostname muốn truy cập qua SNI; phần công khai của khóa tạm thời trong `key_share` |
-| 2 | Server → Client: **`ServerHello`** | Phiên bản TLS và thuật toán được chọn; phần công khai của khóa tạm thời phía server |
-| 3 | Server → Client: **`EncryptedExtensions`** | Các tham số bổ sung đã thống nhất, chẳng hạn dùng HTTP/2 |
-| 4 | Server → Client: **`Certificate`** | Chứa certificate của server (trong đó có public key của server), cùng certificate của các CA trung gian trong chuỗi nếu có |
-| 5 | Server → Client: **`CertificateVerify`** | Chữ ký do server tạo, gắn với nội dung các bản tin số 1 đến số 4 |
+**2. `Certificate chain` là gì?**
 
-Đây là trình tự của luồng TLS 1.3 đang xét.
+**Certificate chain — chuỗi certificate** giúp client liên kết certificate của server với một CA mà client đã tin cậy.
 
-Cần phân biệt **hai loại cặp khóa** xuất hiện ở đây:
+Mỗi certificate có public key của chủ thể được cấp certificate, cùng chữ ký của bên cấp nó.
 
-- **Cặp khóa danh tính của server:** public key nằm trong certificate; private key được dùng để tạo chữ ký `CertificateVerify`.
-- **Cặp khóa tạm thời của mỗi bên:** phần công khai được gửi trong `key_share` của hai bản tin Hello; phần bí mật được mỗi bên giữ riêng, phục vụ tính bí mật chung.
+Giả sử có **một CA trung gian**:
 
-Sau hai bản tin Hello, hai bên đã có thể tự tính ra khóa bảo vệ phần handshake tiếp theo. Vì vậy, trong TLS 1.3, `EncryptedExtensions`, `Certificate` và `CertificateVerify` được truyền dưới dạng mã hóa, dù việc xác thực server vẫn chưa hoàn tất.
+| Certificate | Public key nằm trong đó | Ai ký certificate này? | Client lấy từ đâu? |
+|---|---|---|---|
+| **Certificate server**, còn gọi là leaf certificate | Public key của server; kèm hostname `app.example.com` | CA trung gian dùng private key của CA trung gian | Server gửi |
+| **Certificate CA trung gian**, intermediate certificate | Public key của CA trung gian | Root CA dùng private key của Root CA | Server gửi |
+| **Certificate Root CA** | Public key của Root CA | Thường được Root CA tự ký | Đã được cấu hình trong trust store của client |
 
-**“Dữ liệu của cuộc bắt tay hiện tại” là nội dung những bản tin đã trao đổi.**
+Trong ví dụ này, **server gửi certificate server và certificate CA trung gian bên trong bản tin TLS `Certificate`**.
 
-Tại thời điểm server chuẩn bị tạo `CertificateVerify`, cuộc bắt tay đã có:
+Đó là phần chain server cung cấp. Client kết hợp chúng với Root CA đã tin cậy để kiểm chứng chuỗi.
+
+**Chain không phải một bản tin TLS riêng được gửi thêm sau `Certificate`.**
+
+Root CA thường không cần được server gửi. Client tin Root CA vì nó đã được cấu hình làm điểm tin cậy; việc server gửi một root certificate hoặc root certificate có chữ ký tự ký không tự tạo ra niềm tin. [RFC 5280 — Chuỗi tin cậy](https://www.rfc-editor.org/rfc/rfc5280.html#section-6)
+
+Nếu CA được client tin trực tiếp ký certificate server thì không cần tầng CA trung gian. Ví dụ dưới đây dùng một tầng trung gian để thấy rõ vai trò chain.
+
+**3. Sơ đồ toàn bộ luồng**
+
+Các mũi tên biểu diễn thông điệp. Một thông điệp không bắt buộc tương ứng với một gói TCP riêng; server có thể gửi liên tiếp nhiều thông điệp.
+
+```mermaid
+sequenceDiagram
+    participant C as Client / Browser
+    participant S as Server HTTPS
+
+    Note over C: Có Root CA tin cậy
+    Note over S: Có cert server, cert trung gian và private key
+
+    C->>S: Thiết lập kết nối TCP
+    C->>S: ClientHello: SNI, thuật toán, key_share client
+    S-->>C: ServerHello: lựa chọn, key_share server
+
+    Note over C,S: Tự tính bí mật chung và khóa handshake
+
+    S-->>C: EncryptedExtensions, đã mã hóa
+    S-->>C: Certificate: cert server và cert trung gian
+    S-->>C: CertificateVerify: chữ ký handshake
+    S-->>C: Finished của server
+
+    Note over C: Giải mã và kiểm chain, hostname, chữ ký, Finished
+
+    C->>S: Finished của client, đã mã hóa
+    Note over S: Kiểm Finished của client
+
+    C->>S: HTTP request, dùng khóa ứng dụng
+    S-->>C: HTTP response, dùng khóa ứng dụng
+```
+
+**Tất cả thông điệp handshake từ `EncryptedExtensions` trở đi trong sơ đồ đều được mã hóa bằng khóa handshake**, bao gồm cả `Certificate`, `CertificateVerify` và `Finished`.
+
+**4. Client tìm IP và mở kết nối TCP**
+
+Browser lấy hostname `app.example.com` từ URL, phân giải DNS để có IP rồi mở kết nối TCP tới port `443`.
+
+TCP thiết lập đường truyền byte giữa hai bên. **TCP chưa xác thực website bằng certificate.** TLS bắt đầu trên kết nối TCP đó.
+
+**5. Client gửi `ClientHello`**
+
+Đây là bản tin mở đầu của TLS handshake.
+
+| Nội dung client gửi | Mục đích |
+|---|---|
+| Các phiên bản TLS hỗ trợ | Cho server chọn phiên bản phù hợp |
+| Các cipher suite hỗ trợ | Đề xuất thuật toán mã hóa đối xứng và hàm băm |
+| Các thuật toán chữ ký hỗ trợ | Cho server chọn cách ký mà client kiểm tra được |
+| **SNI = `app.example.com`** | Giúp server chọn cấu hình TLS và certificate cho hostname này |
+| **ALPN**, chẳng hạn `h2`, `http/1.1` | Đề xuất giao thức ứng dụng như HTTP/2 hoặc HTTP/1.1 |
+| **`key_share` của client** | Gửi phần công khai của khóa tạm thời phục vụ ECDHE |
+| Giá trị ngẫu nhiên của `ClientHello` | Góp phần tạo dữ liệu riêng cho cuộc bắt tay hiện tại |
+
+Trước khi gửi `key_share`, client đã tạo **cặp khóa tạm thời**:
+
+- Phần công khai được gửi cho server.
+- Phần private được client giữ kín.
+
+Cặp khóa tạm thời này phục vụ thiết lập bí mật chung. Nó khác với cặp khóa danh tính của server được gắn với certificate.
+
+**Server xử lý:** đọc các khả năng client đề xuất, chọn tham số phù hợp và dùng SNI để chọn cấu hình TLS/certificate. HTTP request chưa được gửi ở bước này.
+
+**6. Server gửi `ServerHello`; hai bên tính khóa handshake**
+
+**Server gửi gì?**
+
+Server thông báo:
+
+- Phiên bản TLS được chọn.
+- Cipher suite được chọn.
+- Lựa chọn trao đổi khóa và **`key_share` của server**.
+
+`key_share` này chứa phần công khai thuộc **cặp khóa tạm thời phía server**. Nó khác public key danh tính nằm trong certificate.
+
+**Mục đích:** chốt các tham số cần thiết và cung cấp phần công khai để hai bên tính bí mật chung.
+
+**Client xử lý như thế nào?**
+
+Client kiểm tra những lựa chọn của server có hợp lệ với đề xuất của mình không, rồi lấy `key_share` của server.
+
+Hai bên tính bí mật chung bằng:
+
+| Bên tính | Dữ liệu sử dụng |
+|---|---|
+| Client | Private key tạm thời của client + phần công khai tạm thời của server |
+| Server | Private key tạm thời của server + phần công khai tạm thời của client |
+
+ECDHE cho phép hai bên tính được **cùng một bí mật chung**. Không bên nào phải gửi private key tạm thời hoặc gửi trực tiếp bí mật chung cho bên kia.
+
+Từ bí mật chung và dữ liệu handshake, hai bên tự dẫn xuất **handshake traffic keys** — các khóa đối xứng bảo vệ phần handshake tiếp theo. Mỗi chiều truyền có khóa riêng.
+
+**Đến đây đã có khóa mã hóa handshake, nhưng client chưa xác thực xong danh tính server.**
+
+Client dùng khóa tương ứng để giải mã và kiểm tra tính toàn vẹn của các bản ghi handshake server gửi tiếp theo.
+
+**7. Server gửi `EncryptedExtensions`**
+
+**Server gửi gì?**
+
+Các tham số bổ sung được thương lượng, chẳng hạn kết quả ALPN chọn HTTP/2.
+
+**Mục đích:** hoàn tất những lựa chọn không cần gửi công khai trong `ServerHello` để thiết lập khóa.
+
+**Client xử lý như thế nào?**
+
+Client giải mã bản tin, kiểm tra các extension có hợp lệ và phù hợp với đề xuất của mình, rồi ghi nhận lựa chọn.
+
+Ví dụ, client ghi nhận rằng dữ liệu ứng dụng sau handshake sẽ dùng HTTP/2.
+
+Bản tin này không chứa certificate và chưa chứng minh server sở hữu private key danh tính.
+
+**8. Server gửi `Certificate`: certificate server và chain**
+
+**Server gửi gì?**
+
+Trong ví dụ có một CA trung gian, bản tin `Certificate` chứa danh sách:
+
+1. **Certificate của `app.example.com`**.
+2. **Certificate của CA trung gian cấp certificate đó**.
+
+Public key danh tính của server nằm trong certificate thứ nhất. Public key của CA trung gian nằm trong certificate thứ hai.
+
+**Không certificate nào trong danh sách chứa private key.**
+
+**Mục đích:** cung cấp danh tính được chứng nhận, public key của server và dữ liệu giúp client dựng chuỗi tin cậy.
+
+**Client xử lý như thế nào?**
+
+Client kiểm tra các phần sau.
+
+**Kiểm chữ ký CA và chuỗi tin cậy**
+
+Hai quan hệ chữ ký cần được kiểm chứng trong ví dụ:
+
+| Chữ ký cần kiểm | Public key client sử dụng |
+|---|---|
+| Chữ ký trên **certificate server** | Public key lấy từ **certificate CA trung gian** |
+| Chữ ký trên **certificate CA trung gian** | Public key của **Root CA đã được client tin cậy** |
+
+Client kiểm cả chuỗi và các ràng buộc liên quan để xác lập rằng CA trung gian được phép cấp certificate đó.
+
+Một public key lấy từ certificate do server gửi **chưa tự trở thành đáng tin**. Việc kiểm chuỗi mới nối public key đó về điểm tin cậy đã cấu hình ở client.
+
+Khi chữ ký hợp lệ, nội dung được ký chưa bị sửa và chữ ký tương ứng với private key của bên cấp. Khi chuỗi được xác thực hợp lệ, client có cơ sở tin vào sự gắn kết giữa **hostname và public key trong certificate**. [RFC 5280 — Kiểm chữ ký certificate](https://www.rfc-editor.org/rfc/rfc5280.html#section-6.1.3)
+
+Client không cần private key của bất kỳ CA nào để thực hiện việc này.
+
+**Kiểm hostname**
+
+Client đang gọi `app.example.com`, nên kiểm tên này có khớp định danh được chứng nhận trong **`subjectAltName`** không.
+
+Một certificate được CA tin cậy ký cho một tên hoàn toàn khác vẫn không đáp ứng yêu cầu. [RFC 9525 — Kiểm chứng hostname](https://www.rfc-editor.org/rfc/rfc9525.html)
+
+**Kiểm thời hạn và điều kiện sử dụng**
+
+Client kiểm certificate còn hiệu lực, mục đích sử dụng và thuật toán phù hợp, cùng các ràng buộc của chuỗi CA và chính sách kiểm chứng đang áp dụng. Cách kiểm trạng thái thu hồi phụ thuộc cơ chế và chính sách của client.
+
+Nếu một kiểm tra bắt buộc thất bại, client dừng kết nối.
+
+**Certificate hợp lệ vẫn chưa tự chứng minh bên đang bắt tay giữ private key tương ứng.** Certificate là dữ liệu công khai có thể bị sao chép. Bước tiếp theo kiểm việc sở hữu private key.
+
+**9. Server gửi `CertificateVerify`**
+
+**Server gửi gì?**
+
+Một **chữ ký số mới**, được tạo bằng private key tương ứng với certificate server vừa gửi.
+
+Chữ ký này gắn với **cuộc bắt tay hiện tại**.
+
+Đến thời điểm này đã có:
 
 ```text
 ClientHello
@@ -1384,41 +1567,109 @@ EncryptedExtensions
 Certificate
 ```
 
-Nội dung các bản tin này, được theo dõi theo đúng thứ tự, gọi là **handshake transcript** — có thể hiểu là “bản ghi những gì đã trao đổi trong cuộc bắt tay”.
+Nội dung những bản tin theo đúng thứ tự gọi là **handshake transcript** — bản ghi những gì đã trao đổi trong handshake.
 
-Server tính **bản băm — hash** của chuỗi bản tin đó. Đây là một giá trị được tính từ nội dung các bản tin; nó giúp gắn chữ ký với đúng cuộc trao đổi đang diễn ra.
+Trong đó, bản tin `Certificate` bao gồm danh sách certificate server đã gửi, tức cả certificate server và certificate trung gian trong ví dụ này.
 
-Chính xác hơn, server dùng private key tương ứng với certificate để ký **một cấu trúc chứa bản băm transcript cùng thông tin ngữ cảnh của TLS 1.3**, rồi gửi chữ ký trong `CertificateVerify`.
+Server tính **bản băm — hash** của transcript. Đây là giá trị được tính từ nội dung các thông điệp để gắn bằng chứng với đúng cuộc trao đổi.
 
-**Client kiểm tra chữ ký đó như sau:**
+Chính xác hơn, server ký một cấu trúc chứa **hash của transcript đến hết `Certificate`**, cùng thông tin ngữ cảnh dành cho server `CertificateVerify` trong TLS 1.3. Chữ ký được gửi trong `CertificateVerify`. [RFC 8446 — CertificateVerify](https://www.rfc-editor.org/rfc/rfc8446.html#section-4.4.3)
 
-1. Client lấy **public key của server từ certificate** vừa nhận.
-2. Client tự tính bản băm từ những bản tin mình đã gửi và nhận.
-3. Client dùng public key ấy để kiểm tra chữ ký trong `CertificateVerify` với dữ liệu tương ứng.
+**Mục đích:** chứng minh server giữ private key tương ứng với public key đã được chứng nhận, đồng thời gắn bằng chứng ấy với các tham số và `key_share` của handshake hiện tại.
 
-Việc kiểm tra thành công chứng minh bên đang bắt tay **giữ private key tương ứng và đã ký nội dung của cuộc bắt tay này**. Private key vẫn được giữ kín trong toàn bộ quá trình.
+**Client xử lý như thế nào?**
 
-Đây cũng là lý do chỉ sao chép certificate chưa đủ để giả làm server: certificate công khai, nhưng người sao chép thiếu private key để tạo chữ ký hợp lệ cho handshake mới.
+1. Lấy **public key của server từ certificate server**.
+2. Tự tính transcript hash từ những bản tin mình đã gửi/nhận và dựng dữ liệu kiểm chữ ký tương ứng.
+3. Dùng public key của server để kiểm chữ ký nhận được trong `CertificateVerify`.
 
-**Vì sao phải ký đúng transcript này:**
+Người khác có thể sao chép certificate, nhưng thiếu private key tương ứng thì không tạo được chữ ký hợp lệ cho transcript của cuộc bắt tay mới.
 
-- **Transcript mới ở mỗi lần kết nối.** Nó chứa số ngẫu nhiên mà client vừa sinh trong `ClientHello` và phần công khai của các khóa tạm thời mà hai bên vừa tạo cho lần kết nối này. Mỗi lần kết nối, các giá trị này đều mới, nên chữ ký của lần trước không dùng lại được.
-- **Transcript gắn danh tính với kênh mã hóa.** Nó chứa phần công khai của khóa tạm thời trong `key_share`, thứ hai bên dùng để tính bí mật chung. Chữ ký khớp chứng minh chính chủ certificate đã tham gia lần trao đổi khóa này. Kẻ đứng giữa muốn tráo khóa tạm thời của mình vào thì transcript đổi, và chữ ký không còn khớp.
+**Server gửi chữ ký; private key vẫn được giữ kín.**
 
-**Client còn phải kiểm tra certificate riêng:** chuỗi cấp có dẫn về CA được tin cậy không, hostname có khớp `app.example.com` không, certificate có còn hiệu lực không…
+Cần phân biệt rõ:
 
-Hai chữ ký vì vậy có hai nhiệm vụ:
+| Chữ ký | Ai tạo? | Thời điểm tạo | Client dùng gì để kiểm? |
+|---|---|---|---|
+| Trên certificate server | CA cấp certificate | Khi cấp certificate | Public key của CA cấp |
+| Trên certificate CA trung gian | CA cấp trên | Khi cấp certificate trung gian | Public key của CA cấp trên |
+| Trong `CertificateVerify` | Server | Trong handshake hiện tại | Public key của server |
 
-| Chữ ký | Ai tạo và khi nào? | Mục đích |
+**10. Server gửi `Finished`**
+
+**Server gửi gì?**
+
+Một giá trị kiểm chứng gọi là **`verify_data`**, được tính bằng **HMAC** trên transcript đến hết `CertificateVerify`.
+
+HMAC là mã kiểm chứng được tính từ **dữ liệu và một khóa bí mật**. Khóa dành cho `Finished` của server được dẫn xuất từ bí mật handshake phía server.
+
+`Finished` không phải chữ ký số bằng private key của CA hay private key danh tính của server.
+
+**Mục đích:** xác nhận bên gửi tính được bí mật/khóa handshake tương ứng và nội dung handshake hai bên đang theo dõi khớp nhau.
+
+**Client xử lý như thế nào?**
+
+1. Dùng dữ liệu và bí mật handshake mình tự tính được để dẫn xuất khóa kiểm `Finished` của server.
+2. Tự tính giá trị `verify_data` dự kiến từ transcript tương ứng.
+3. So sánh với giá trị nhận được. Nếu không hợp lệ, dừng handshake.
+
+Sau khi kiểm thành công **certificate/chain, `CertificateVerify` và `Finished`**, client đã kiểm chứng danh tính server và tính nhất quán của handshake trong luồng đang xét.
+
+**11. Client gửi `Finished`; server kiểm chứng lại**
+
+Client tạo `Finished` của mình bằng **khóa Finished dành cho phía client**. Transcript lúc này đã gồm cả `Finished` của server.
+
+Client gửi bản tin này trong bản ghi được bảo vệ bằng handshake traffic key phía client.
+
+Server tự tính giá trị dự kiến rồi kiểm `Finished` của client. Thành công cho thấy client cũng tính được bí mật/khóa tương ứng và transcript khớp.
+
+Ví dụ này không yêu cầu certificate của client, nên bước này chưa xác thực tài khoản người dùng hoặc danh tính client bằng certificate. Đăng nhập ứng dụng là công việc ở lớp ứng dụng.
+
+**12. Hai bên trao đổi HTTP bằng khóa ứng dụng**
+
+Hai bên dùng **application traffic keys** để bảo vệ dữ liệu HTTP. Đây là các khóa đối xứng riêng với khóa bảo vệ handshake, có khóa riêng cho từng chiều truyền.
+
+Trong luồng request/response của ví dụ:
+
+1. Client gửi `Finished`, rồi gửi HTTP request được mã hóa và bảo vệ tính toàn vẹn.
+2. Server giải mã, kiểm tính toàn vẹn rồi xử lý request.
+3. Server gửi HTTP response được bảo vệ.
+4. Client giải mã, kiểm tính toàn vẹn rồi xử lý nội dung.
+
+**Certificate và cặp khóa danh tính của server không trực tiếp mã hóa HTTP trong luồng TLS 1.3 này.** HTTP được bảo vệ bằng application traffic keys.
+
+Application traffic secrets đã có thể được dẫn xuất sau `Finished` của server. TLS 1.3 cũng cho phép server gửi application data sau `Finished` của nó, trước khi nhận `Finished` của client; sơ đồ chọn luồng HTTP request/response thông thường. [RFC 8446 — Finished](https://www.rfc-editor.org/rfc/rfc8446.html#section-4.4.4)
+
+Nhiều HTTP request có thể dùng chung kết nối TLS đã thiết lập. Không phải mỗi request đều bắt tay hoặc xin cấp certificate mới.
+
+**13. Các mốc kiểm chứng chính**
+
+| Mốc | Bên kiểm | Nội dung kiểm | Mục đích |
+|---|---|---|---|
+| **1** | Client | Certificate/chain: chữ ký CA, điểm tin cậy, hostname, thời hạn… | Xác thực sự gắn kết giữa hostname và public key |
+| **2** | Client | Chữ ký `CertificateVerify` | Kiểm server giữ private key tương ứng, gắn với handshake hiện tại |
+| **3** | Client | `Finished` của server | Xác nhận khóa và transcript phía server |
+| **4** | Server | `Finished` của client | Xác nhận khóa và transcript phía client |
+
+Đây là **bốn nhóm kiểm chứng chính để học**. Mỗi nhóm có nhiều phép kiểm tra; các bản ghi mã hóa cũng được kiểm tính toàn vẹn khi nhận.
+
+**14. Khóa nào được gửi và vào lúc nào?**
+
+| Khóa hoặc dữ liệu | Nằm ở đâu / gửi lúc nào? | Công việc |
 |---|---|---|
-| **Chữ ký trên certificate** | CA tạo khi cấp certificate | Chứng nhận nội dung certificate, gồm hostname và public key |
-| **Chữ ký trong `CertificateVerify`** | Server tạo trong handshake hiện tại | Chứng minh server giữ private key tương ứng và gắn bằng chứng với cuộc bắt tay này |
+| **Private key của CA** | Giữ ở phía CA | Ký certificate khi cấp |
+| **Public key của Root CA** | Có trong điểm tin cậy đã cấu hình ở client | Kiểm chứng certificate do Root CA cấp |
+| **Public key của CA trung gian** | Trong certificate trung gian, server gửi trong bản tin `Certificate` | Kiểm chữ ký trên certificate server |
+| **Private key danh tính của server** | Giữ ở phía phục vụ HTTPS | Ký `CertificateVerify` |
+| **Public key danh tính của server** | Trong certificate server, gửi ở bản tin `Certificate` | Client kiểm chữ ký `CertificateVerify` |
+| **Private key tạm thời của mỗi bên** | Giữ riêng tại bên tạo | Tính bí mật chung ECDHE |
+| **Phần công khai tạm thời của mỗi bên** | Gửi qua `key_share` trong hai bản tin Hello | Cho bên kia tính bí mật chung |
+| **Khóa handshake và khóa Finished** | Hai bên tự dẫn xuất, không gửi trực tiếp | Bảo vệ handshake và tạo/kiểm `Finished` |
+| **Khóa ứng dụng** | Hai bên tự dẫn xuất, không gửi trực tiếp | Bảo vệ HTTP |
 
-Sau đó, hai bên còn trao đổi và kiểm tra **`Finished`** để xác nhận khóa và tính toàn vẹn của handshake. Khi các bước cần thiết hoàn tất, dữ liệu HTTP được bảo vệ bằng **khóa mã hóa của kết nối**, được hai bên tính ra; private key danh tính của server tiếp tục được giữ kín.
+Sau handshake, server còn có thể gửi **`NewSessionTicket`** dưới dạng được bảo vệ. Client lưu thông tin thích hợp để có thể khôi phục phiên ở lần kết nối sau. Nó không phải certificate mới và không chứa private key danh tính của server; nhánh khôi phục phiên nằm ngoài ví dụ kết nối mới trên.
 
-**Kết luận để đọc 11 bước bên dưới:** server phải gửi hai thứ là certificate có chữ ký CA và chữ ký `CertificateVerify` tạo bằng private key của server. Vì vậy, trước khi có ai kết nối, server phải giữ sẵn certificate đã được CA ký và private key tương ứng. Trong lab, **Traefik đóng vai server**, còn **`cloudflared` đóng vai client**. Bước 1–6 bên dưới làm ra và trao hai thứ đó cho Traefik; bước 7–11 là lúc Traefik dùng chúng.
-
-Nguồn đối chiếu: [RFC 8446 — TLS 1.3](https://www.rfc-editor.org/rfc/rfc8446.html).
+Bản đầy đủ đã cập nhật: [tls13-client-server-complete.md](https://chatgpt.com/library?file_id=libfile_00e192a1a6348191b15bdec60f1449c1&account_id=personal).
 
 ---
 

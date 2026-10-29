@@ -71,6 +71,7 @@ Nền HTTP/TLS tra trong [tài liệu CA, TLS và request/response](ca-tls-https
   - [Rancher — thứ gì do chart tạo, thứ gì Rancher tự sinh](#rancher--thứ-gì-do-chart-tạo-thứ-gì-rancher-tự-sinh)
 - [Sơ đồ tuần tự — chuỗi cấp certificate chạy ngầm sau `helm install`](#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install)
   - [Controller nào cấp certificate và ai gửi hai bản tin TLS?](#controller-nào-cấp-certificate-và-ai-gửi-hai-bản-tin-tls)
+    - [HIỂU TLS TRƯỚC](#hiểu-tls-trước)
   - [Sơ đồ 1 — Ai tạo gì trong chuỗi cấp certificate](#sơ-đồ-1--ai-tạo-gì-trong-chuỗi-cấp-certificate)
   - [Sơ đồ 2 — Helm và cert-manager chạy song song](#sơ-đồ-2--helm-và-cert-manager-chạy-song-song)
   - [Sơ đồ 3 — Theo dõi từng bước qua Kubernetes API](#sơ-đồ-3--theo-dõi-từng-bước-qua-kubernetes-api)
@@ -1327,6 +1328,100 @@ Trong lab, Issuer này tham chiếu Secret `tls-rancher`.
 | **Private key của CA** | `tls-rancher` | `certificaterequests-issuer-ca` dùng để ký certificate cho hostname Rancher. |
 | **Private key HTTPS của endpoint Rancher** | `tls-rancher-ingress` | Traefik dùng để chứng minh mình giữ khóa tương ứng với public key trong certificate, ví dụ ký `CertificateVerify` ở TLS 1.3. |
 
+---
+
+<a id="hiểu-tls-trước"></a>
+
+**HIỂU TLS TRƯỚC**
+
+Ta xét **một kết nối HTTPS mới dùng TLS 1.3**, trong đó client là browser, server phục vụ `app.example.com`, và chỉ server được yêu cầu trình certificate.
+
+**Trước khi client kết nối, phía server đã có certificate và private key tương ứng.**
+
+Một certificate chứa thông tin tương đương:
+
+```text
+Hostname: app.example.com
+Public key: public key của server
+Bên cấp: CA
+Thời hạn: ...
+Chữ ký của CA: ...
+```
+
+Public key trong certificate thuộc **cặp khóa danh tính của server**. Private key tương ứng được phía server giữ kín, không nằm trong certificate và không được gửi cho browser trong handshake.
+
+Chữ ký của CA trên certificate đã được tạo **từ lúc cấp certificate**: CA dùng **private key của CA** để ký. Private key của CA và private key của server là hai khóa khác nhau.
+
+**Khi client bắt đầu kết nối, handshake diễn ra trước cả thời điểm server gửi certificate.**
+
+Các bản tin xuất hiện theo thứ tự sau:
+
+| Bản tin số | Bản tin và chiều gửi | Nội dung chính |
+|---|---|---|
+| 1 | Client → Server: **`ClientHello`** | Phiên bản TLS, thuật toán client hỗ trợ; hostname muốn truy cập qua SNI; phần công khai của khóa tạm thời trong `key_share` |
+| 2 | Server → Client: **`ServerHello`** | Phiên bản TLS và thuật toán được chọn; phần công khai của khóa tạm thời phía server |
+| 3 | Server → Client: **`EncryptedExtensions`** | Các tham số bổ sung đã thống nhất, chẳng hạn dùng HTTP/2 |
+| 4 | Server → Client: **`Certificate`** | Chứa certificate của server (trong đó có public key của server), cùng certificate của các CA trung gian trong chuỗi nếu có |
+| 5 | Server → Client: **`CertificateVerify`** | Chữ ký do server tạo, gắn với nội dung các bản tin số 1 đến số 4 |
+
+Đây là trình tự của luồng TLS 1.3 đang xét.
+
+Cần phân biệt **hai loại cặp khóa** xuất hiện ở đây:
+
+- **Cặp khóa danh tính của server:** public key nằm trong certificate; private key được dùng để tạo chữ ký `CertificateVerify`.
+- **Cặp khóa tạm thời của mỗi bên:** phần công khai được gửi trong `key_share` của hai bản tin Hello; phần bí mật được mỗi bên giữ riêng, phục vụ tính bí mật chung.
+
+Sau hai bản tin Hello, hai bên đã có thể tự tính ra khóa bảo vệ phần handshake tiếp theo. Vì vậy, trong TLS 1.3, `EncryptedExtensions`, `Certificate` và `CertificateVerify` được truyền dưới dạng mã hóa, dù việc xác thực server vẫn chưa hoàn tất.
+
+**“Dữ liệu của cuộc bắt tay hiện tại” là nội dung những bản tin đã trao đổi.**
+
+Tại thời điểm server chuẩn bị tạo `CertificateVerify`, cuộc bắt tay đã có:
+
+```text
+ClientHello
+ServerHello
+EncryptedExtensions
+Certificate
+```
+
+Nội dung các bản tin này, được theo dõi theo đúng thứ tự, gọi là **handshake transcript** — có thể hiểu là “bản ghi những gì đã trao đổi trong cuộc bắt tay”.
+
+Server tính **bản băm — hash** của chuỗi bản tin đó. Đây là một giá trị được tính từ nội dung các bản tin; nó giúp gắn chữ ký với đúng cuộc trao đổi đang diễn ra.
+
+Chính xác hơn, server dùng private key tương ứng với certificate để ký **một cấu trúc chứa bản băm transcript cùng thông tin ngữ cảnh của TLS 1.3**, rồi gửi chữ ký trong `CertificateVerify`.
+
+**Client kiểm tra chữ ký đó như sau:**
+
+1. Client lấy **public key của server từ certificate** vừa nhận.
+2. Client tự tính bản băm từ những bản tin mình đã gửi và nhận.
+3. Client dùng public key ấy để kiểm tra chữ ký trong `CertificateVerify` với dữ liệu tương ứng.
+
+Việc kiểm tra thành công chứng minh bên đang bắt tay **giữ private key tương ứng và đã ký nội dung của cuộc bắt tay này**. Private key vẫn được giữ kín trong toàn bộ quá trình.
+
+Đây cũng là lý do chỉ sao chép certificate chưa đủ để giả làm server: certificate công khai, nhưng người sao chép thiếu private key để tạo chữ ký hợp lệ cho handshake mới.
+
+**Vì sao phải ký đúng transcript này:**
+
+- **Transcript mới ở mỗi lần kết nối.** Nó chứa số ngẫu nhiên mà client vừa sinh trong `ClientHello` và phần công khai của các khóa tạm thời mà hai bên vừa tạo cho lần kết nối này. Mỗi lần kết nối, các giá trị này đều mới, nên chữ ký của lần trước không dùng lại được.
+- **Transcript gắn danh tính với kênh mã hóa.** Nó chứa phần công khai của khóa tạm thời trong `key_share`, thứ hai bên dùng để tính bí mật chung. Chữ ký khớp chứng minh chính chủ certificate đã tham gia lần trao đổi khóa này. Kẻ đứng giữa muốn tráo khóa tạm thời của mình vào thì transcript đổi, và chữ ký không còn khớp.
+
+**Client còn phải kiểm tra certificate riêng:** chuỗi cấp có dẫn về CA được tin cậy không, hostname có khớp `app.example.com` không, certificate có còn hiệu lực không…
+
+Hai chữ ký vì vậy có hai nhiệm vụ:
+
+| Chữ ký | Ai tạo và khi nào? | Mục đích |
+|---|---|---|
+| **Chữ ký trên certificate** | CA tạo khi cấp certificate | Chứng nhận nội dung certificate, gồm hostname và public key |
+| **Chữ ký trong `CertificateVerify`** | Server tạo trong handshake hiện tại | Chứng minh server giữ private key tương ứng và gắn bằng chứng với cuộc bắt tay này |
+
+Sau đó, hai bên còn trao đổi và kiểm tra **`Finished`** để xác nhận khóa và tính toàn vẹn của handshake. Khi các bước cần thiết hoàn tất, dữ liệu HTTP được bảo vệ bằng **khóa mã hóa của kết nối**, được hai bên tính ra; private key danh tính của server tiếp tục được giữ kín.
+
+**Kết luận để đọc 11 bước bên dưới:** server phải gửi hai thứ là certificate có chữ ký CA và chữ ký `CertificateVerify` tạo bằng private key của server. Vì vậy, trước khi có ai kết nối, server phải giữ sẵn certificate đã được CA ký và private key tương ứng. Trong lab, **Traefik đóng vai server**, còn **`cloudflared` đóng vai client**. Bước 1–6 bên dưới làm ra và trao hai thứ đó cho Traefik; bước 7–11 là lúc Traefik dùng chúng.
+
+Nguồn đối chiếu: [RFC 8446 — TLS 1.3](https://www.rfc-editor.org/rfc/rfc8446.html).
+
+---
+
 Trong diagram dưới đây, nhãn **Controller cert-manager** đại diện cho các controller
 bên trong Deployment `cert-manager`; tên controller thực hiện từng việc được ghi trên mũi tên.
 Đây là bản rút gọn: các bước chuẩn bị private key HTTPS và tạo `CertificateRequest`
@@ -1349,15 +1444,15 @@ sequenceDiagram
     CM->>API: Ghi certificate đã ký vào CertificateRequest
     CM->>API: certificates-issuing ghi cert và key vào tls-rancher-ingress
     T->>API: Đọc Secret tls-rancher-ingress
-    API-->>T: Certificate có chữ ký CA và private key HTTPS
+    API-->>T: certificate có chữ ký CA và private key HTTPS
 
     Note over T,C: Trích đoạn handshake TLS 1.3
     rect rgb(230, 245, 255)
-        T-->>C: Certificate đã có chữ ký CA
+        T-->>C: Bản tin Certificate chứa certificate có chữ ký CA
     end
     T->>T: Ký dữ liệu handshake bằng private key HTTPS
     rect rgb(230, 245, 255)
-        T-->>C: CertificateVerify mang chữ ký Traefik
+        T-->>C: Bản tin CertificateVerify mang chữ ký Traefik
     end
     C->>C: Kiểm chữ ký Traefik bằng public key trong certificate
 ```
@@ -1376,8 +1471,8 @@ Các bước 1–6 mô tả việc chuẩn bị và nạp dữ liệu TLS. Công
 
 2. **Các controller cấp phát đọc object `Certificate` để chuẩn bị khóa HTTPS và tạo object `CertificateRequest`.**
 
-   - Controller **`certificates-key-manager`** đọc cấu hình trong `Certificate` để chuẩn bị **private key HTTPS của endpoint**, lưu khóa vào một Secret tạm.
-   - Controller **`certificates-request-manager`** đọc thông tin trong `Certificate` và sử dụng khóa đã chuẩn bị để tạo **CSR — yêu cầu xin ký certificate**. CSR chứa hostname `rancher.hieupn.site` và public key tương ứng với private key HTTPS.
+   - Controller **`certificates-key-manager`** đọc cấu hình trong object `Certificate` để chuẩn bị **private key HTTPS của endpoint**, lưu khóa vào một Secret tạm.
+   - Controller **`certificates-request-manager`** đọc thông tin trong object `Certificate` và sử dụng khóa đã chuẩn bị để tạo **CSR — yêu cầu xin ký certificate**. CSR chứa hostname `rancher.hieupn.site` và public key tương ứng với private key HTTPS.
    - Controller **`certificates-request-manager`** tạo object **`CertificateRequest`** mang CSR và tham chiếu tới `Issuer/rancher`.
 
    Như vậy, **object `Certificate` là đầu vào để các controller chuẩn bị một lần xin ký cụ thể trong `CertificateRequest`**. Private key HTTPS không được đưa vào CSR.
@@ -1402,7 +1497,7 @@ Các bước 1–6 mô tả việc chuẩn bị và nạp dữ liệu TLS. Công
 
 4. **Controller `certificates-issuing` lưu kết quả vào Secret `tls-rancher-ingress`.**
 
-   Controller lấy **certificate đã ký từ `CertificateRequest`** và **private key HTTPS đã được chuẩn bị ở bước 2**, rồi ghi chúng vào Secret đích được khai trong **`Certificate.spec.secretName`**:
+   Controller lấy **certificate đã ký từ `CertificateRequest`** và **private key HTTPS đã được chuẩn bị ở bước 2**, rồi ghi chúng vào Secret đích được khai trong field **`spec.secretName`** của object `Certificate` ở bước 1:
 
    - `tls.crt`: certificate đã có chữ ký CA.
    - `tls.key`: private key HTTPS tương ứng với public key trong certificate đó.
@@ -1433,9 +1528,9 @@ Các bước 7–11 mô tả việc mở kết nối và trích phần dùng cer
 
    Traefik gửi **certificate đã chọn theo SNI ở bước 7** bên trong bản tin TLS `Certificate`.
 
-   Certificate được gửi **đã có chữ ký CA từ bước 3**, được lưu vào Secret ở bước 4 và được Traefik nạp ở bước 6. Certificate này chứa public key của endpoint.
+   Tấm certificate nằm trong bản tin này **đã có chữ ký CA từ bước 3**, được lưu vào Secret ở bước 4 và được Traefik nạp ở bước 6. Nó chứa public key của endpoint.
 
-   **`Certificate` ở đây là tên bản tin TLS, khác với object Kubernetes `Certificate` ở bước 1.** Traefik không gửi object Kubernetes hoặc private key HTTPS sang `cloudflared`, cũng không tạo chữ ký CA ở bước này.
+   **`Certificate` ở đây là tên bản tin TLS, tức cái phong bì đựng certificate. Nó khác với tấm certificate nằm bên trong, và khác với object Kubernetes `Certificate` ở bước 1.** Traefik không gửi object Kubernetes hoặc private key HTTPS sang `cloudflared`, cũng không tạo chữ ký CA ở bước này.
 
 9. **Traefik tạo một chữ ký mới:** nó dùng private key HTTPS của mình để ký dữ liệu của phiên bắt tay hiện tại.
 
@@ -1443,7 +1538,7 @@ Các bước 7–11 mô tả việc mở kết nối và trích phần dùng cer
 
 10. ⭐ **Traefik → `cloudflared`: gửi bản tin TLS `CertificateVerify`.**
 
-   Bản tin này mang **chữ ký Traefik vừa tạo ở bước 9**. Nó không phải một certificate khác.
+   Bản tin này mang **chữ ký Traefik vừa tạo ở bước 9**. Nó không chứa certificate, cũng không phải một certificate khác.
 
 11. **`cloudflared` kiểm tra chữ ký:** lấy public key trong certificate nhận ở bước 8 để kiểm tra chữ ký nhận ở bước 10.
 
@@ -3116,6 +3211,24 @@ Hãy trả lời:
 2. Vì sao `helm --wait` thành công mà các tài nguyên đó vẫn có thể chưa sẵn sàng?
 3. Bạn sẽ kiểm tra hoặc chờ những tài nguyên, điều kiện nào trước khi publish route Rancher
    ra Cloudflare?
+
+> Chữ "certificate" trong tiêu đề Câu 2/6 **không phải cái phong bì**. Phong bì là bản tin TLS
+> `Certificate`, và nó chỉ xuất hiện lúc bắt tay ở bước 8 của
+> [sơ đồ tuần tự cấp certificate](#sơ-đồ-tuần-tự--chuỗi-cấp-certificate-chạy-ngầm-sau-helm-install).
+> Còn Câu 2/6 hỏi về bước 1–6, khi chưa có kết nối nào.
+>
+> Tuy vậy, Câu 2/6 dùng **hai nghĩa**, cần tách ra:
+>
+> - **Tiêu đề "certificate đã sẵn sàng chưa"** là hỏi về **tờ giấy**: certificate cho
+>   `rancher.hieupn.site` đã được CA ký ở bước 3 và cất vào Secret `tls-rancher-ingress` ở bước 4
+>   chưa.
+> - **Dữ kiện "chưa thấy Certificate và Secret `tls-rancher-ingress`"** là nói về **object
+>   Kubernetes `Certificate`**, tức tờ khai nhu cầu tạo ở bước 1.
+>
+> Hai nghĩa này nối với nhau như sau. Tờ khai (object `Certificate`) là chỗ cert-manager báo kết
+> quả. Khi tờ giấy đã được cấp và cất vào Secret, object `Certificate` chuyển sang `Ready=True`.
+> Trong tình huống của câu hỏi, đến tờ khai còn chưa xuất hiện, tức bước 1 chưa xảy ra, nên tờ
+> giấy chắc chắn cũng chưa có.
 
 <details>
 <summary>Đáp án vòng 1 — câu 2/6: chỉ mở sau khi đã tự trả lời</summary>

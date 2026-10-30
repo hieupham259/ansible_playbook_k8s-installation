@@ -395,7 +395,11 @@ Chứng chỉ CA cung cấp thông tin về bên cấp; **private key CA mới l
 
 CA có thể là CA gốc tự ký hoặc CA trung gian được CA cấp trên ký. Việc thiết lập CA diễn ra trước công việc cấp chứng chỉ endpoint đang xét.
 
-Trong lab, dữ liệu CA được lưu tại **Secret `tls-rancher`**. Controller được giao việc ký đọc dữ liệu đó theo cấu hình của `Issuer/rancher`.
+**Đối chiếu với bước 3 trong bài 11 bước về quan hệ cấp chứng chỉ:**
+
+**Controller `certificaterequests-issuer-ca`** chính là **bộ phận ký**, trực tiếp tạo và ký cấp chứng chỉ endpoint.
+
+Controller này dựa vào cấu hình trong **`Issuer/rancher`** để biết lấy **chứng chỉ của CA** và **private key của CA tương ứng** từ Secret nào. Trong lab, field **`spec.ca.secretName: tls-rancher`** chỉ tới **Secret `tls-rancher`**. Controller đọc Secret này để lấy hai dữ liệu đó. Đây là dữ liệu CA cần có để controller ký cấp chứng chỉ endpoint Rancher.
 
 **Traefik không cần private key CA để thực hiện handshake.**
 

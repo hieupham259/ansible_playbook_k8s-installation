@@ -281,14 +281,13 @@ Trong bài 11 bước của `setup-rancher.md`, **bước 1–6 thuộc giai đo
 
 **1.1. Bài toán cần giải quyết**
 
-Khi truy cập `https://app.example.com`, browser cần kiểm chứng mình đang kết nối đúng website và bảo vệ dữ liệu gửi, nhận trên đường truyền.
+Khi client, ví dụ browser, truy cập `https://app.example.com`, client và server phục vụ website thực hiện **bắt tay TLS**. Mục đích là giúp client kiểm chứng danh tính server và thiết lập kết nối mã hóa để bảo vệ dữ liệu gửi, nhận.
 
-Để làm được điều đó, có hai giai đoạn:
+**Trước đó**, phía vận hành website đã chuẩn bị **Chứng chỉ endpoint — `certificate`** cho `app.example.com` và cấu hình server sử dụng chứng chỉ này cùng private key tương ứng.
 
-- **Trước khi có người truy cập:** phía vận hành website chuẩn bị và cấu hình những dữ liệu cần thiết để server phục vụ HTTPS.
-- **Khi có người truy cập:** browser và server thực hiện bắt tay TLS để thiết lập kết nối bảo mật.
+**Trong quá trình bắt tay**, server gửi **bản tin TLS `Certificate`**, bên trong có **Chứng chỉ endpoint — `certificate`**. Chứng chỉ này chứa **public key của server**. Có thể hình dung bản tin là **phong bao**, còn chứng chỉ là **dữ liệu được đặt bên trong**.
 
-Bài này đi lần lượt qua hai giai đoạn ấy, giải thích cần chuẩn bị những gì, ai thực hiện và các dữ liệu được sử dụng như thế nào khi kết nối.
+Client kiểm tra chứng chỉ endpoint, rồi dùng **public key trong chứng chỉ đó** để kiểm tra **chữ ký server gửi trong bản tin `CertificateVerify`**. Chữ ký này được tạo bằng private key tương ứng và gắn với dữ liệu của cuộc bắt tay hiện tại, giúp client kiểm chứng server sở hữu private key ấy. Hai bên tiếp tục hoàn tất các bước thiết lập và xác nhận kết nối mã hóa trước khi trao đổi HTTP.
 
 **Kịch bản cụ thể:** bạn vận hành website bằng **NGINX**, muốn phục vụ `https://app.example.com` và chọn **Let’s Encrypt** làm CA cấp **Chứng chỉ endpoint — `certificate`** cho `app.example.com`. Bạn cấu hình **Certbot**, một phần mềm quản lý chứng chỉ endpoint, để thực hiện việc xin cấp và gia hạn chứng chỉ endpoint này thay mình.
 

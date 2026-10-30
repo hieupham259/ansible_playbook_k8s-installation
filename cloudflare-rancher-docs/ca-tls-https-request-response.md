@@ -386,7 +386,9 @@ Việc này **bổ sung cho bước 11**: kiểm nguồn cấp dùng **public ke
 
 **2.1. Ghi lại nhu cầu cấp chứng chỉ**
 
-Trước khi có chứng chỉ endpoint, cần biết:
+Các **công cụ quản lý chứng chỉ**, chẳng hạn **Certbot**, ghi nhận **nhu cầu cấp chứng chỉ endpoint** theo cấu hình của người vận hành: cấp cho hostname nào, dùng CA nào và lưu kết quả ở đâu.
+
+Các thông tin cần ghi nhận gồm:
 
 - Cấp cho hostname nào?
 - Dùng CA hoặc phương thức cấp nào?

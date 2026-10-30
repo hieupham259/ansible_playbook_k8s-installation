@@ -423,18 +423,16 @@ Object `Certificate` này là **đầu vào để các controller ở bước 2 
 - **Private key endpoint** được giữ kín.
 - **Public key endpoint** được đưa vào yêu cầu xin cấp chứng chỉ.
 
-Public key này đi qua các giai đoạn:
+Cặp khóa này được chuẩn bị **trước khi CA ký chứng chỉ endpoint**, vì **CA cần public key để đưa vào nội dung chứng chỉ được ký**.
 
-1. **Certbot** chuẩn bị cặp khóa endpoint và đưa **public key** vào **yêu cầu xin cấp chứng chỉ — CSR** gửi Let’s Encrypt.
-2. **Let’s Encrypt** đưa public key đó vào **chứng chỉ endpoint**, rồi ký chứng chỉ bằng private key CA.
-3. **Server** gửi chứng chỉ đã cấp bên trong **bản tin TLS `Certificate`**.
-4. **Client** lấy public key từ chứng chỉ để kiểm tra chữ ký server gửi trong **`CertificateVerify`**.
+| Khóa | Mục đích |
+|---|---|
+| **Public key endpoint** | Đưa vào chứng chỉ endpoint. Khi nhận chứng chỉ, client lấy public key này để kiểm tra chữ ký trong `CertificateVerify`. |
+| **Private key endpoint** | Dùng để ký **yêu cầu xin cấp chứng chỉ — CSR**. Sau đó, server dùng khóa này để tạo chữ ký trong `CertificateVerify`, chứng minh mình sở hữu private key tương ứng với public key trong chứng chỉ. |
 
-**Private key endpoint tương ứng vẫn được giữ kín ở phía server**, dùng để tạo chữ ký trong `CertificateVerify`.
+**Private key endpoint được giữ kín ở phía vận hành/server; không được gửi cho Let’s Encrypt hoặc client.**
 
-Cặp khóa này được chuẩn bị **trước khi CA ký chứng chỉ endpoint**.
-
-Chứng chỉ được cấp sau đó phải chứa public key tương ứng với private key đã chuẩn bị. Nếu chứng chỉ và private key không khớp, server không có bộ dữ liệu đúng để chứng minh việc sở hữu khóa.
+Chứng chỉ được cấp phải chứa **public key tương ứng với private key mà server sử dụng**.
 
 **Đối chiếu với phần chuẩn bị khóa ở bước 2 trong bài 11 bước:** controller **`certificates-key-manager`** đọc cấu hình trong **object `Certificate/tls-rancher-ingress` được tạo ở bước 1**, chuẩn bị **private key endpoint** rồi lưu khóa vào **một Secret tạm**. Cặp khóa này phục vụ endpoint HTTPS cho **`rancher.hieupn.site`**. Public key tương ứng sẽ được đưa vào CSR khi controller **`certificates-request-manager`** lập yêu cầu xin ký ở phần tiếp theo của bước 2, được giải thích tại **mục 2.3**.
 

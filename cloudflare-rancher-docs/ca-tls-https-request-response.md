@@ -451,7 +451,13 @@ CSR được ký bằng private key tương ứng với public key trong yêu c�
 
 Chữ ký CSR không tự chứng minh người xin có quyền với hostname. Quyền được cấp chứng chỉ còn phụ thuộc chính sách và quy trình của bên cấp.
 
-Trong bài 11 bước, object **`CertificateRequest`** mang CSR và thông tin chọn Issuer cho một lần xin cấp cụ thể.
+**Đối chiếu với phần tạo yêu cầu ở bước 2 trong [bài 11 bước](setup-rancher.md#controller-nào-cấp-certificate-và-ai-gửi-hai-bản-tin-tls):** controller **`certificates-request-manager`**:
+
+- Đọc **object `Certificate/tls-rancher-ingress` được tạo ở bước 1** để lấy hostname **`rancher.hieupn.site`** và thông tin chọn **`Issuer/rancher`**.
+- Sử dụng **private key endpoint đã chuẩn bị ở mục 2.2** để lập và ký **CSR**. CSR chứa hostname và public key tương ứng với private key đó.
+- Tạo **object `CertificateRequest`** mang CSR và tham chiếu tới **`Issuer/rancher`**.
+
+Object `Certificate` ghi nhu cầu cấp chứng chỉ cần duy trì; object `CertificateRequest` ghi **một lần xin cấp cụ thể theo nhu cầu đó**. Bộ phận ký ở **bước 3** sẽ xử lý yêu cầu này để cấp chứng chỉ endpoint.
 
 **2.4. Bộ phận ký phải có dữ liệu CA**
 

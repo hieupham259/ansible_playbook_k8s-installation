@@ -285,7 +285,11 @@ Khi client, ví dụ browser, truy cập `https://app.example.com`, client và s
 
 **Trước đó**, phía vận hành website đã chuẩn bị **Chứng chỉ endpoint — `certificate`** cho `app.example.com` và cấu hình server sử dụng chứng chỉ này cùng private key tương ứng.
 
-**Trong quá trình bắt tay**, server gửi **bản tin TLS `Certificate`**, bên trong có **Chứng chỉ endpoint — `certificate`**. Chứng chỉ này chứa **public key của server**. Có thể hình dung bản tin là **phong bao**, còn chứng chỉ là **dữ liệu được đặt bên trong**.
+**Trong quá trình bắt tay**, server gửi **bản tin TLS `Certificate`**, chứa **Chứng chỉ endpoint — `certificate`**, và **bản tin TLS `CertificateVerify`**, chứa **chữ ký do server tạo bằng private key tương ứng**.
+
+Chứng chỉ endpoint chứa **public key của server**. Client dùng public key này để kiểm tra chữ ký trong `CertificateVerify`, qua đó kiểm chứng server sở hữu private key tương ứng.
+
+Có thể hình dung `Certificate` là **phong bao chứa chứng chỉ**, còn `CertificateVerify` là **thông điệp chứa bằng chứng sở hữu private key**, gắn với cuộc bắt tay hiện tại. **Chứng chỉ endpoint — `certificate`** chứa **public key của server**. Có thể hình dung bản tin **TLS `Certificate`** là **phong bao**, còn chứng chỉ là **dữ liệu được đặt bên trong**.
 
 Client kiểm tra chứng chỉ endpoint, rồi dùng **public key trong chứng chỉ đó** để kiểm tra **chữ ký server gửi trong bản tin `CertificateVerify`**. Chữ ký này được tạo bằng private key tương ứng và gắn với dữ liệu của cuộc bắt tay hiện tại, giúp client kiểm chứng server sở hữu private key ấy. Hai bên tiếp tục hoàn tất các bước thiết lập và xác nhận kết nối mã hóa trước khi trao đổi HTTP.
 

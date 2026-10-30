@@ -499,7 +499,7 @@ Bộ phận ký xử lý yêu cầu theo phương thức và chính sách đư�
 1. Lấy thông tin cần chứng nhận, trong đó có hostname và public key endpoint.
 2. Tạo nội dung chứng chỉ, gồm bên cấp, thời hạn và các thuộc tính liên quan.
 3. Dùng **private key CA** tạo chữ ký trên nội dung chứng chỉ.
-4. Trả về chứng chỉ endpoint đã ký, cùng dữ liệu chain cần thiết nếu có.
+4. **Trả về chứng chỉ endpoint certificate đã ký, cùng dữ liệu chain cần thiết nếu có.**
 
 Kết quả chứa **public key endpoint**, không chứa private key endpoint hay private key CA.
 

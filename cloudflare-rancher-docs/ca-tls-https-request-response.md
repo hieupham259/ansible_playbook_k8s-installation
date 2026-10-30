@@ -384,26 +384,7 @@ Việc này **bổ sung cho bước 11**: kiểm nguồn cấp dùng **public ke
 
 **2. Chuẩn bị chứng chỉ: từ nhu cầu đến dữ liệu server sử dụng**
 
-**2.1. Bộ phận ký phải có dữ liệu CA**
-
-Để cấp **Chứng chỉ endpoint — `certificate`** bằng một CA đã được thiết lập, bộ phận ký cần truy cập:
-
-- **Chứng chỉ của CA**: chứa **public key của CA** và thông tin danh tính CA.
-- **Private key của CA tương ứng**: dùng để tạo chữ ký CA trên **chứng chỉ endpoint được cấp**.
-
-Chứng chỉ CA cung cấp thông tin về bên cấp; **private key CA mới là khóa thực hiện thao tác ký**.
-
-CA có thể là CA gốc tự ký hoặc CA trung gian được CA cấp trên ký. Việc thiết lập CA diễn ra trước công việc cấp chứng chỉ endpoint đang xét.
-
-**Đối chiếu với bước 3 trong bài 11 bước về quan hệ cấp chứng chỉ:**
-
-**Controller `certificaterequests-issuer-ca`** chính là **bộ phận ký**, trực tiếp tạo và ký cấp chứng chỉ endpoint.
-
-Controller này dựa vào cấu hình trong **`Issuer/rancher`** để biết lấy **chứng chỉ của CA** và **private key của CA tương ứng** từ Secret nào. Trong lab, field **`spec.ca.secretName: tls-rancher`** chỉ tới **Secret `tls-rancher`**. Controller đọc Secret này để lấy hai dữ liệu đó. Đây là dữ liệu CA cần có để controller ký cấp chứng chỉ endpoint Rancher.
-
-**Traefik không cần private key CA để thực hiện handshake.**
-
-**2.2. Ghi lại nhu cầu cấp chứng chỉ**
+**2.1. Ghi lại nhu cầu cấp chứng chỉ**
 
 Trước khi có chứng chỉ endpoint, cần biết:
 
@@ -424,7 +405,7 @@ Lưu kết quả: nơi server HTTPS sẽ đọc
 
 Trong Kubernetes, object cert-manager **`Certificate`** ghi lại nhu cầu tương tự. Ý nghĩa cụ thể của object này được đối chiếu ở mục 10.
 
-**2.3. Chuẩn bị cặp khóa endpoint**
+**2.2. Chuẩn bị cặp khóa endpoint**
 
 Bên chuẩn bị TLS tạo hoặc sử dụng một cặp khóa endpoint:
 
@@ -435,7 +416,7 @@ Cặp khóa này được chuẩn bị **trước khi CA ký chứng chỉ endpo
 
 Chứng chỉ được cấp sau đó phải chứa public key tương ứng với private key đã chuẩn bị. Nếu chứng chỉ và private key không khớp, server không có bộ dữ liệu đúng để chứng minh việc sở hữu khóa.
 
-**2.4. Tạo CSR — yêu cầu xin ký chứng chỉ**
+**2.3. Tạo CSR — yêu cầu xin ký chứng chỉ**
 
 **CSR — Certificate Signing Request** là yêu cầu xin cấp chứng chỉ, chứa thông tin tương đương:
 
@@ -451,6 +432,25 @@ CSR được ký bằng private key tương ứng với public key trong yêu c�
 Chữ ký CSR không tự chứng minh người xin có quyền với hostname. Quyền được cấp chứng chỉ còn phụ thuộc chính sách và quy trình của bên cấp.
 
 Trong bài 11 bước, object **`CertificateRequest`** mang CSR và thông tin chọn Issuer cho một lần xin cấp cụ thể.
+
+**2.4. Bộ phận ký phải có dữ liệu CA**
+
+Để cấp **Chứng chỉ endpoint — `certificate`** bằng một CA đã được thiết lập, bộ phận ký cần truy cập:
+
+- **Chứng chỉ của CA**: chứa **public key của CA** và thông tin danh tính CA.
+- **Private key của CA tương ứng**: dùng để tạo chữ ký CA trên **chứng chỉ endpoint được cấp**.
+
+Chứng chỉ CA cung cấp thông tin về bên cấp; **private key CA mới là khóa thực hiện thao tác ký**.
+
+CA có thể là CA gốc tự ký hoặc CA trung gian được CA cấp trên ký. Việc thiết lập CA diễn ra trước công việc cấp chứng chỉ endpoint đang xét.
+
+**Đối chiếu với bước 3 trong bài 11 bước về quan hệ cấp chứng chỉ:**
+
+**Controller `certificaterequests-issuer-ca`** chính là **bộ phận ký**, trực tiếp tạo và ký cấp chứng chỉ endpoint.
+
+Controller này dựa vào cấu hình trong **`Issuer/rancher`** để biết lấy **chứng chỉ của CA** và **private key của CA tương ứng** từ Secret nào. Trong lab, field **`spec.ca.secretName: tls-rancher`** chỉ tới **Secret `tls-rancher`**. Controller đọc Secret này để lấy hai dữ liệu đó. Đây là dữ liệu CA cần có để controller ký cấp chứng chỉ endpoint Rancher.
+
+**Traefik không cần private key CA để thực hiện handshake.**
 
 **2.5. Bộ phận ký cấp chứng chỉ endpoint**
 

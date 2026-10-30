@@ -386,10 +386,10 @@ Việc này **bổ sung cho bước 11**: kiểm nguồn cấp dùng **public ke
 
 **2.1. Bộ phận ký phải có dữ liệu CA**
 
-Để cấp chứng chỉ bằng một CA đã được thiết lập, bộ phận ký cần truy cập:
+Để cấp **Chứng chỉ endpoint — `certificate`** bằng một CA đã được thiết lập, bộ phận ký cần truy cập:
 
-- **Chứng chỉ CA**: chứa public key và thông tin danh tính CA.
-- **Private key CA tương ứng**: dùng để tạo chữ ký CA trên chứng chỉ được cấp.
+- **Chứng chỉ của CA**: chứa **public key của CA** và thông tin danh tính CA.
+- **Private key của CA tương ứng**: dùng để tạo chữ ký CA trên **chứng chỉ endpoint được cấp**.
 
 Chứng chỉ CA cung cấp thông tin về bên cấp; **private key CA mới là khóa thực hiện thao tác ký**.
 

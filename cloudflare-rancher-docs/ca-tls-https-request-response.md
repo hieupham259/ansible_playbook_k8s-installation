@@ -388,6 +388,9 @@ Việc này **bổ sung cho bước 11**: kiểm nguồn cấp dùng **public ke
 
 Các **công cụ quản lý chứng chỉ**, chẳng hạn **Certbot**, ghi nhận **nhu cầu cấp chứng chỉ endpoint** theo cấu hình của người vận hành: cấp cho hostname nào, dùng CA nào và lưu kết quả ở đâu.
 
+**Certbot:** ghi nhận nhu cầu theo cấu hình của người vận hành, chuẩn bị và gửi yêu cầu cấp **chứng chỉ endpoint**, rồi nhận và lưu kết quả từ Let’s Encrypt.
+**Let’s Encrypt:** nhận yêu cầu, **xác minh quyền kiểm soát domain**, sau đó dùng **private key CA** ký cấp chứng chỉ endpoint và trả kết quả cho Certbot.
+
 Các thông tin cần ghi nhận gồm:
 
 - Cấp cho hostname nào?

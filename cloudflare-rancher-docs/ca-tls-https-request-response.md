@@ -551,27 +551,92 @@ Hai sơ đồ dưới đây nối tiếp nhau:
 
 **3A. Từ yêu cầu cấp đến lúc server có dữ liệu TLS**
 
+Sơ đồ dùng đúng ví dụ đã giới thiệu ở mục 1.1: người vận hành muốn phục vụ **`https://app.example.com`**, dùng **Certbot** để quản lý chứng chỉ, **Let’s Encrypt** để ký cấp và **NGINX** để phục vụ HTTPS.
+
+Đọc theo các mục **2.1–2.7**. Phần xin cấp và phần nạp dữ liệu được tách thành hai sơ đồ nhỏ. **Đến cuối phần này, browser và NGINX chưa thực hiện handshake với nhau.**
+
+**3A.1. Certbot ghi nhu cầu, chuẩn bị khóa và xin Let’s Encrypt cấp chứng chỉ — mục 2.1–2.5**
+
 ```mermaid
 sequenceDiagram
-    participant P as Bên chuẩn bị TLS
-    participant A as Bộ phận ký CA
-    participant K as Kho dữ liệu TLS
-    participant S as Server HTTPS
+    participant O as Người vận hành website
+    participant C as Certbot
+    participant L as Let’s Encrypt
 
-    Note over A: Có chứng chỉ CA và private key CA
-    P->>P: Nhận hostname, bên cấp và nơi lưu kết quả
-    P->>P: Chuẩn bị cặp khóa endpoint
-    P->>K: Giữ private key endpoint đã chuẩn bị
-    P->>A: CSR chứa hostname, public key và chữ ký yêu cầu
-    A->>A: Dùng private key CA ký chứng chỉ endpoint
-    A-->>P: Chứng chỉ endpoint đã ký và chain cần thiết
-    P->>K: Lưu chứng chỉ và private key endpoint tương ứng
-    S->>K: Đọc dữ liệu TLS theo cấu hình
-    K-->>S: Chứng chỉ, private key endpoint và intermediate nếu cần
-    Note over S: Nạp dữ liệu để phục vụ HTTPS
+    O->>C: 2.1 Đầu vào: app.example.com, Let’s Encrypt và nơi lưu
+    C->>C: Ghi nhận nhu cầu cấp chứng chỉ
+    Note right of C: Đầu ra 2.1: hostname, CA và nơi lưu đã được ghi nhận
+
+    C->>C: 2.2 Dùng cấu hình để chuẩn bị cặp khóa endpoint
+    Note right of C: Đầu ra 2.2: public key và private key endpoint
+
+    C->>C: 2.3 Lấy hostname, public key và ký CSR bằng private key endpoint
+    C->>L: Đầu ra 2.3: CSR chứa hostname, public key endpoint và chữ ký CSR
+    Note over C: Private key endpoint được giữ lại, không gửi cho CA
+
+    L->>L: 2.4 Truy cập chứng chỉ CA và private key CA đã có
+    Note right of L: Đầu ra 2.4: chứng chỉ CA và private key CA được chọn
+    Note over L: Chứng chỉ CA chứa public key CA; private key CA giữ tại CA
+
+    L->>L: 2.5 Tạo chứng chỉ từ CSR, ký bằng private key CA
+    Note over L: Chỉ cấp sau khi xác minh quyền kiểm soát domain
+    L-->>C: Đầu ra 2.5: certificate endpoint đã ký và CA trung gian cần thiết
 ```
 
-Đây là sơ đồ **vai trò tổng quát**. Khi sang bài 11 bước, các công việc được phân cho controller, object và Secret cụ thể.
+**Public key endpoint trong chứng chỉ trả về chính là public key trong CSR.** Private key endpoint vẫn do phía vận hành website giữ; private key CA vẫn do Let’s Encrypt giữ. Sơ đồ thể hiện dữ liệu đầu vào/đầu ra, lược các trao đổi chi tiết của quy trình xác minh và cấp chứng chỉ.
+
+**3A.2. Certbot lưu dữ liệu, NGINX nạp dữ liệu; browser có CA tin cậy — mục 2.6–2.7**
+
+```mermaid
+flowchart TB
+    subgraph SERVER["2.6 Chuẩn bị dữ liệu phía server"]
+        CERT["Certificate endpoint đã ký và CA trung gian cần thiết"]
+        KEY["Private key endpoint giữ từ mục 2.2"]
+        SAVE["Certbot lưu certificate, chain và private key endpoint"]
+        CHAINFILE["fullchain.pem: certificate endpoint và chain"]
+        KEYFILE["privkey.pem: private key endpoint"]
+        LOAD["NGINX đọc hai tệp và nạp dữ liệu"]
+        READY["Đầu ra 2.6: NGINX có certificate và private key để phục vụ HTTPS"]
+
+        CERT -->|"Đầu vào 2.6"| SAVE
+        KEY -->|"Đầu vào 2.6"| SAVE
+        SAVE --> CHAINFILE
+        SAVE --> KEYFILE
+        CHAINFILE --> LOAD
+        KEYFILE --> LOAD
+        LOAD --> READY
+    end
+
+    subgraph CLIENT["2.7 Chuẩn bị CA tin cậy phía client"]
+        ROOT["Đầu vào: chứng chỉ CA gốc được browser hoặc OS tin cậy"]
+        TRUST["Browser sử dụng trust store đã cấu hình"]
+        VERIFY["Đầu ra 2.7: browser có CA tin cậy để kiểm chứng chỉ server"]
+
+        ROOT --> TRUST
+        TRUST --> VERIFY
+    end
+
+    classDef input fill:#eff6ff,stroke:#2563eb,color:#0f172a
+    classDef output fill:#ecfdf5,stroke:#059669,color:#0f172a
+    class CERT,KEY,ROOT input
+    class CHAINFILE,KEYFILE,READY,VERIFY output
+```
+
+**Đầu vào và đầu ra của từng giai đoạn:**
+
+| Mục | Chương trình thực hiện | Đầu vào | Đầu ra |
+|---|---|---|---|
+| **2.1** | **Certbot**, theo cấu hình của người vận hành | Hostname, CA được chọn, nơi lưu kết quả | Nhu cầu cấp chứng chỉ đã được ghi nhận |
+| **2.2** | **Certbot** | Nhu cầu cấp và cấu hình khóa | Cặp **public key endpoint / private key endpoint** |
+| **2.3** | **Certbot** | Hostname và cặp khóa endpoint | **CSR** chứa hostname, public key endpoint và chữ ký của yêu cầu; private key được giữ riêng |
+| **2.4** | **Let’s Encrypt** | CA đã được thiết lập | Chứng chỉ CA chứa **public key CA**, cùng **private key CA** sẵn sàng phục vụ việc ký cấp tại CA |
+| **2.5** | **Let’s Encrypt** | CSR và dữ liệu CA; quyền kiểm soát domain đã được xác minh | **Chứng chỉ endpoint đã ký**, cùng các chứng chỉ trung gian cần thiết |
+| **2.6** | **Certbot**, sau đó **NGINX** | Chứng chỉ endpoint đã ký, chain cần thiết và private key endpoint giữ từ 2.2 | Các tệp dữ liệu đã lưu; **NGINX đã nạp chứng chỉ và private key endpoint** |
+| **2.7** | **Browser / hệ điều hành**, theo cấu hình niềm tin | Chứng chỉ CA gốc được chấp nhận tin cậy | **Trust store mà browser dùng để xác minh** |
+
+**Mục 2.7 là điều kiện riêng ở phía client**, có thể đã được chuẩn bị sẵn trong browser/OS. Nó không phải dữ liệu Certbot bàn giao cho NGINX, và việc server gửi một chứng chỉ CA không tự khiến browser tin CA đó.
+
+**Đối chiếu với lab Rancher:** các công việc của Certbot ở đây được chia cho `ingress-shim`, `certificates-key-manager`, `certificates-request-manager` và `certificates-issuing` như các đoạn đối chiếu ở mục 2.1–2.6. Controller `certificaterequests-issuer-ca` ký cấp bằng CA trong **Secret `tls-rancher`**; **Traefik** đọc và nạp dữ liệu endpoint từ **Secret `tls-rancher-ingress`**. Client trên chặng origin là **`cloudflared`**; với **`noTLSVerify: true`**, việc xác minh chứng chỉ theo CA tin cậy và hostname được bỏ qua như mục 12.
 
 <a id="so-do-handshake-tls"></a>
 

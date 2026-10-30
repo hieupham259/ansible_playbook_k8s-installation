@@ -418,7 +418,7 @@ Object `Certificate` này là **đầu vào để các controller ở bước 2 
 
 **2.2. Chuẩn bị cặp khóa endpoint**
 
-Bên chuẩn bị TLS tạo hoặc sử dụng một cặp khóa endpoint:
+**Công cụ quản lý chứng chỉ, chẳng hạn Certbot, tạo hoặc sử dụng một cặp private key/public key cho endpoint HTTPS của server trước khi xin cấp chứng chỉ.** Trong lab Rancher, controller **`certificates-key-manager`** thực hiện phần chuẩn bị khóa này.
 
 - **Private key endpoint** được giữ kín.
 - **Public key endpoint** được đưa vào yêu cầu xin cấp chứng chỉ.
@@ -426,6 +426,8 @@ Bên chuẩn bị TLS tạo hoặc sử dụng một cặp khóa endpoint:
 Cặp khóa này được chuẩn bị **trước khi CA ký chứng chỉ endpoint**.
 
 Chứng chỉ được cấp sau đó phải chứa public key tương ứng với private key đã chuẩn bị. Nếu chứng chỉ và private key không khớp, server không có bộ dữ liệu đúng để chứng minh việc sở hữu khóa.
+
+**Đối chiếu với phần chuẩn bị khóa ở bước 2 trong bài 11 bước:** controller **`certificates-key-manager`** đọc cấu hình trong **object `Certificate/tls-rancher-ingress` được tạo ở bước 1**, chuẩn bị **private key endpoint** rồi lưu khóa vào **một Secret tạm**. Cặp khóa này phục vụ endpoint HTTPS cho **`rancher.hieupn.site`**. Public key tương ứng sẽ được đưa vào CSR khi controller **`certificates-request-manager`** lập yêu cầu xin ký ở phần tiếp theo của bước 2, được giải thích tại **mục 2.3**.
 
 **2.3. Tạo CSR — yêu cầu xin ký chứng chỉ**
 

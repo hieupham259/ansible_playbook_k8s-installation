@@ -408,7 +408,13 @@ Lưu kết quả: nơi server HTTPS sẽ đọc
 
 Đây mới là **nhu cầu cấp chứng chỉ**, chưa phải chứng chỉ đã được ký.
 
-Trong Kubernetes, object cert-manager **`Certificate`** ghi lại nhu cầu tương tự. Ý nghĩa cụ thể của object này được đối chiếu ở mục 10.
+**Đối chiếu với bước 1 trong bài 11 bước:** controller **`ingress-shim`** đọc Ingress Rancher rồi tạo **object `Certificate/tls-rancher-ingress`** để ghi lại nhu cầu:
+
+- Cấp chứng chỉ endpoint cho **`rancher.hieupn.site`**.
+- Dùng **`Issuer/rancher`** để cấp.
+- Lưu kết quả vào **Secret `tls-rancher-ingress`**.
+
+Object `Certificate` này là **đầu vào để các controller ở bước 2 chuẩn bị khóa và yêu cầu xin ký**. Nó chưa phải chứng chỉ endpoint đã được CA ký. Object `Certificate` và Secret kết quả có thể cùng tên `tls-rancher-ingress`, nhưng là hai loại object khác nhau.
 
 **2.2. Chuẩn bị cặp khóa endpoint**
 

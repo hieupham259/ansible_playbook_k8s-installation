@@ -423,6 +423,15 @@ Object `Certificate` này là **đầu vào để các controller ở bước 2 
 - **Private key endpoint** được giữ kín.
 - **Public key endpoint** được đưa vào yêu cầu xin cấp chứng chỉ.
 
+Public key này đi qua các giai đoạn:
+
+1. **Certbot** chuẩn bị cặp khóa endpoint và đưa **public key** vào **yêu cầu xin cấp chứng chỉ — CSR** gửi Let’s Encrypt.
+2. **Let’s Encrypt** đưa public key đó vào **chứng chỉ endpoint**, rồi ký chứng chỉ bằng private key CA.
+3. **Server** gửi chứng chỉ đã cấp bên trong **bản tin TLS `Certificate`**.
+4. **Client** lấy public key từ chứng chỉ để kiểm tra chữ ký server gửi trong **`CertificateVerify`**.
+
+**Private key endpoint tương ứng vẫn được giữ kín ở phía server**, dùng để tạo chữ ký trong `CertificateVerify`.
+
 Cặp khóa này được chuẩn bị **trước khi CA ký chứng chỉ endpoint**.
 
 Chứng chỉ được cấp sau đó phải chứa public key tương ứng với private key đã chuẩn bị. Nếu chứng chỉ và private key không khớp, server không có bộ dữ liệu đúng để chứng minh việc sở hữu khóa.

@@ -576,7 +576,7 @@ sequenceDiagram
 
     L->>L: 2.4 Truy cập chứng chỉ CA và private key CA đã có
     Note right of L: Đầu ra 2.4: chứng chỉ CA và private key CA được chọn
-    Note over L: Chứng chỉ CA chứa public key CA; private key CA giữ tại CA
+    Note over L: Chứng chỉ CA chứa public key CA, private key CA giữ tại CA
 
     L->>L: 2.5 Tạo chứng chỉ từ CSR, ký bằng private key CA
     Note over L: Chỉ cấp sau khi xác minh quyền kiểm soát domain
@@ -590,6 +590,7 @@ sequenceDiagram
 ```mermaid
 flowchart TB
     subgraph SERVER["2.6 Chuẩn bị dữ liệu phía server"]
+        direction TB
         CERT["Certificate endpoint đã ký và CA trung gian cần thiết"]
         KEY["Private key endpoint giữ từ mục 2.2"]
         SAVE["Certbot lưu certificate, chain và private key endpoint"]
@@ -608,6 +609,7 @@ flowchart TB
     end
 
     subgraph CLIENT["2.7 Chuẩn bị CA tin cậy phía client"]
+        direction TB
         ROOT["Đầu vào: chứng chỉ CA gốc được browser hoặc OS tin cậy"]
         TRUST["Browser sử dụng trust store đã cấu hình"]
         VERIFY["Đầu ra 2.7: browser có CA tin cậy để kiểm chứng chỉ server"]

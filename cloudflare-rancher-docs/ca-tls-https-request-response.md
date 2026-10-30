@@ -366,6 +366,20 @@ Root CA tin cậy thường đã nằm trong **trust store hoặc CA bundle củ
 
 Để nối với bài 11 bước, trước hết theo dõi **CA trong `tls-rancher` ký chứng chỉ endpoint Rancher**. Khi cần đọc cấu hình có CA trung gian, áp dụng thêm quan hệ chain ở trên.
 
+**Về certificate chain:** 11 bước có mô tả **quan hệ cấp chứng chỉ**: CA riêng trong `tls-rancher` ký chứng chỉ endpoint trong `tls-rancher-ingress`. Nó không mô tả thêm tầng CA trung gian hay liệt kê đầy đủ chuỗi chứng chỉ Traefik gửi. Vì vậy, không nên hiểu rằng **“không kiểm chain” đồng nghĩa với “chứng chỉ không có nguồn cấp hoặc không có chữ ký CA”**.
+
+Điểm quyết định ở đây là: **dù server gửi các chứng chỉ cần thiết, `cloudflared` vẫn bỏ việc xác minh nguồn gốc khi `noTLSVerify: true`.**
+
+Nếu muốn kiểm chứng nguồn gốc trên chặng này thì cần:
+
+1. **Bật xác minh:** đặt `noTLSVerify: false`.
+2. **Cho `cloudflared` tin CA riêng:** cung cấp **chứng chỉ CA**, chẳng hạn qua `caPool`. Client chỉ cần chứng chỉ chứa public key CA; không cần private key CA.
+3. Giữ **`originServerName: rancher.hieupn.site`** để kiểm tra tên mong đợi trên chứng chỉ. [Cloudflare Docs](https://developers.cloudflare.com/tunnel/reference/origin-parameters/?utm_source=chatgpt.com)
+
+Khi đó, nếu CA được tin cậy ký trực tiếp chứng chỉ endpoint, `cloudflared` sẽ dùng **public key của CA** để kiểm tra **chữ ký CA trên chứng chỉ endpoint**, đồng thời kiểm tra các điều kiện hợp lệ. Nếu có CA trung gian, nó kiểm tra qua các mắt xích tới CA được tin cậy. [www.rfc-editor.org](https://www.rfc-editor.org/rfc/rfc5280.html?utm_source=chatgpt.com)
+
+Việc này **bổ sung cho bước 11**: kiểm nguồn cấp dùng **public key CA**; kiểm `CertificateVerify` dùng **public key endpoint**.
+
 <a id="tls-chuan-bi-chung-chi"></a>
 
 **2. Chuẩn bị chứng chỉ: từ nhu cầu đến dữ liệu server sử dụng**

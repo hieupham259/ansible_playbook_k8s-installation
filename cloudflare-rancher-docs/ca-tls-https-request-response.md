@@ -461,6 +461,8 @@ Object `Certificate` ghi nhu cầu cấp chứng chỉ cần duy trì; object `C
 
 **2.4. Bộ phận ký phải có dữ liệu CA**
 
+**Nối từ mục 2.3:** công cụ quản lý chứng chỉ đã tạo **CSR** chứa hostname và **public key endpoint**. Trong lab, CSR nằm trong **object `CertificateRequest`** để bộ phận ký xử lý. **Mục 2.4 giải thích việc bộ phận ký lấy dữ liệu CA; mục 2.5 đi vào thao tác tạo và ký cấp chứng chỉ endpoint.**
+
 Để cấp **Chứng chỉ endpoint — `certificate`** bằng một CA đã được thiết lập, bộ phận ký cần truy cập:
 
 - **Chứng chỉ của CA**: chứa **public key của CA** và thông tin danh tính CA.
@@ -469,6 +471,18 @@ Object `Certificate` ghi nhu cầu cấp chứng chỉ cần duy trì; object `C
 Chứng chỉ CA cung cấp thông tin về bên cấp; **private key CA mới là khóa thực hiện thao tác ký**.
 
 CA có thể là CA gốc tự ký hoặc CA trung gian được CA cấp trên ký. Việc thiết lập CA diễn ra trước công việc cấp chứng chỉ endpoint đang xét.
+
+**Phân biệt dữ liệu dùng để cấp chứng chỉ và dữ liệu dùng khi bắt tay TLS:**
+
+**Khi cấp chứng chỉ endpoint**, bộ phận ký sử dụng **CSR + chứng chỉ CA + private key CA**:
+
+- Lấy **hostname và public key endpoint từ CSR** để đưa vào chứng chỉ endpoint.
+- Lấy thông tin bên cấp từ **chứng chỉ CA**.
+- Dùng **private key CA** để ký chứng chỉ endpoint.
+
+**Public key CA nằm trong chứng chỉ CA; nó dùng để kiểm tra chữ ký CA, không phải khóa trực tiếp tạo chữ ký.** Public key được đưa vào chứng chỉ endpoint là **public key endpoint từ CSR**.
+
+**Khi tạo bản tin TLS `CertificateVerify`**, server dùng **private key endpoint đã chuẩn bị ở mục 2.2** để ký dữ liệu gắn với cuộc bắt tay hiện tại, rồi đặt **chữ ký vừa tạo** vào bản tin `CertificateVerify`. Client lấy **public key endpoint trong chứng chỉ** để kiểm tra chữ ký đó. Công việc này diễn ra khi thiết lập kết nối TLS, sau giai đoạn cấp chứng chỉ.
 
 **Đối chiếu với bước 3 trong bài 11 bước về quan hệ cấp chứng chỉ:**
 

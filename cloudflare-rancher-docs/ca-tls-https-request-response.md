@@ -290,23 +290,25 @@ Khi truy cập `https://app.example.com`, browser cần kiểm chứng mình đa
 
 Bài này đi lần lượt qua hai giai đoạn ấy, giải thích cần chuẩn bị những gì, ai thực hiện và các dữ liệu được sử dụng như thế nào khi kết nối.
 
-**Kịch bản cụ thể:** bạn vận hành website bằng **NGINX**, muốn phục vụ `https://app.example.com` và chọn **Let’s Encrypt** làm CA cấp chứng chỉ. Bạn cấu hình **Certbot**, một phần mềm quản lý chứng chỉ, để thực hiện việc xin cấp và gia hạn thay mình.
+**Kịch bản cụ thể:** bạn vận hành website bằng **NGINX**, muốn phục vụ `https://app.example.com` và chọn **Let’s Encrypt** làm CA cấp **Chứng chỉ endpoint — `certificate`** cho `app.example.com`. Bạn cấu hình **Certbot**, một phần mềm quản lý chứng chỉ endpoint, để thực hiện việc xin cấp và gia hạn chứng chỉ endpoint này thay mình.
+
+Ở mục 1.1, việc xin cấp, ký cấp và gia hạn đều nói tới **Chứng chỉ endpoint — `certificate`**, tức dữ liệu chứng chỉ thực tế. **Bản tin TLS `Certificate`** là thông điệp server dùng để gửi chứng chỉ đó cho client trong handshake.
 
 | Câu hỏi | Vai trò liên quan | Trong kịch bản này |
 |---|---|---|
-| **Ai muốn được cấp chứng chỉ?** | **Người vận hành website** | Bạn; hoặc nhà cung cấp hosting/CDN thực hiện thay bạn. |
-| **Ai thực sự gửi yêu cầu?** | **Bên chuẩn bị dữ liệu TLS** | Certbot, chạy theo cấu hình của bạn: gửi yêu cầu cấp/gia hạn, nhận và lưu kết quả để server sử dụng. Các mục sau giải thích cụ thể việc chuẩn bị khóa và lập yêu cầu. |
-| **Gửi yêu cầu cho ai?** | **Bộ phận ký với danh tính CA** | Let’s Encrypt nhận yêu cầu, xác minh quyền kiểm soát domain theo quy trình của họ rồi ký cấp chứng chỉ. |
-| **Khi nào yêu cầu?** | **Thời điểm cấp chứng chỉ** | Khi thiết lập HTTPS lần đầu; sau đó khi cần gia hạn hoặc cấp lại. Không phải mỗi lần người dùng mở website. |
-| **Tại sao phải yêu cầu?** | **Mục đích của việc cấp** | Để CA cấp chứng chỉ xác nhận sự gắn kết giữa hostname và public key của website, giúp browser kiểm chứng danh tính server. Nội dung chứng chỉ được giải thích ở mục 1.2. |
-| **Ai dùng kết quả để phục vụ HTTPS?** | **Server HTTPS** | NGINX nạp dữ liệu đã chuẩn bị để thực hiện TLS với người truy cập. |
+| **Ai muốn được cấp chứng chỉ endpoint?** | **Người vận hành website** | Bạn cần **Chứng chỉ endpoint — `certificate`** cho website; hoặc nhà cung cấp hosting/CDN thực hiện thay bạn. |
+| **Ai thực sự gửi yêu cầu?** | **Bên chuẩn bị dữ liệu TLS** | Certbot, chạy theo cấu hình của bạn: gửi yêu cầu cấp/gia hạn chứng chỉ endpoint, nhận và lưu **`certificate` đã được CA ký** để server sử dụng. Các mục sau giải thích cụ thể việc chuẩn bị khóa và lập yêu cầu. |
+| **Gửi yêu cầu cho ai?** | **Bộ phận ký với danh tính CA** | Let’s Encrypt nhận yêu cầu, xác minh quyền kiểm soát domain theo quy trình của họ rồi ký cấp **Chứng chỉ endpoint — `certificate`**. |
+| **Khi nào yêu cầu?** | **Thời điểm cấp chứng chỉ endpoint** | Khi thiết lập HTTPS lần đầu; sau đó khi cần gia hạn hoặc cấp lại. Không phải mỗi lần người dùng mở website. |
+| **Tại sao phải yêu cầu?** | **Mục đích của việc cấp** | Để CA cấp **chứng chỉ endpoint** xác nhận sự gắn kết giữa hostname và public key của website, giúp browser kiểm chứng danh tính server. Nội dung của **`certificate`** được giải thích ở mục 1.2. |
+| **Ai dùng kết quả để phục vụ HTTPS?** | **Server HTTPS** | NGINX nạp **chứng chỉ endpoint đã cấp và private key tương ứng** để thực hiện TLS với người truy cập. |
 | **Ai kết nối và kiểm chứng server?** | **Client TLS** | Browser của người dùng chủ động kết nối tới website và kiểm chứng server theo cấu hình. |
 
 Ví dụ về quy trình xin cấp được đối chiếu tại [Let’s Encrypt — How It Works](https://letsencrypt.org/how-it-works/).
 
-Đây là các **vai trò**, không bắt buộc là những máy hoặc hệ thống riêng. Nhà cung cấp có thể lo trọn phần chuẩn bị và cấp chứng chỉ giúp bạn.
+Đây là các **vai trò**, không bắt buộc là những máy hoặc hệ thống riêng. Nhà cung cấp có thể lo trọn phần chuẩn bị và cấp chứng chỉ endpoint giúp bạn.
 
-Trong lab Rancher, **cert-manager đảm nhiệm việc chuẩn bị và ký bằng CA riêng; Traefik là server HTTPS; `cloudflared` là client TLS** trên chặng origin.
+Trong lab Rancher, **cert-manager chuẩn bị và ký chứng chỉ endpoint Rancher bằng CA riêng; Traefik là server HTTPS; `cloudflared` là client TLS** trên chặng origin.
 
 **1.2. Chứng chỉ endpoint và chứng chỉ CA**
 

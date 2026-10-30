@@ -1389,23 +1389,40 @@ sequenceDiagram
 
 Các bước 1–6 mô tả việc chuẩn bị và nạp dữ liệu TLS. Công việc này không chạy lại cho mỗi HTTP request hoặc mỗi kết nối TLS mới.
 
-**Trước bước 1 — vì sao đơn đặt hàng xuất hiện**
-
-Bước 1 không tự xảy ra. Đó là phản ứng của cert-manager trước một yêu cầu do Helm tạo ra:
-
-- **Yêu cầu được soạn:** [runbook §14.3](../runbook-k8s-vmware.md#143-cài-rancher-helm-pin-2143) đặt `ingress.tls.source: rancher` trong values. Với giá trị này, chart Rancher tạo ra một Ingress mang annotation `cert-manager.io/issuer: rancher`, cùng phần `spec.tls` ghi hostname `rancher.hieupn.site` và Secret `tls-rancher-ingress`. Chart cũng tạo `Issuer/rancher`.
-- **Yêu cầu được gửi:** `helm install` ở §14.3 tạo Ingress và Issuer đó trên cluster. Đây là **yêu cầu đặt hàng**.
-- **Yêu cầu được nhận:** ingress-shim chạy trong cert-manager, thứ đã được cài ở [runbook §14.1](../runbook-k8s-vmware.md#141-cài-cert-manager-rancher-cần-để-cấp-tls-nội-bộ), và liên tục theo dõi các Ingress. Thấy Ingress mang annotation `cert-manager.io/issuer`, nó lập **đơn đặt hàng**, tức object `Certificate` ở bước 1.
-
-Nguyên nhân dẫn tới kết quả như sau: annotation trên Ingress → ingress-shim tạo object `Certificate` → bước 2–6 làm ra certificate và nạp vào Traefik. Thiếu annotation, hoặc cert-manager chưa chạy, thì bước 1 không xảy ra, và cả chuỗi phía sau cũng không. Vì vậy §14.1 phải đứng trước §14.3.
-
 1. **`ingress-shim` đọc Ingress Rancher và tạo object `Certificate/tls-rancher-ingress`.**
 
-   Ingress khai hostname `rancher.hieupn.site`, annotation chỉ `Issuer/rancher` và tên Secret TLS `tls-rancher-ingress`.
+   Người vận hành khai nhu cầu qua cấu hình Ingress Rancher. **Trong lab Rancher, người khai nhu cầu là bạn — người cấu hình các giá trị cài đặt Rancher rồi chạy `helm install` ở runbook §14.3.** Từ cấu hình đó, Helm dùng chart Rancher để tạo Ingress chứa hostname, thông tin chọn Issuer và tên Secret TLS.
 
-   Object `Certificate` được tạo ra để khai nhu cầu: **cần certificate cho `rancher.hieupn.site`, dùng `Issuer/rancher` để cấp, lưu kết quả vào Secret `tls-rancher-ingress`.** Đây là object cấu hình trong Kubernetes, chưa phải certificate đã được ký.
+   `ingress-shim` — đóng vai trò giống Certbot ở phần ghi nhận nhu cầu — đọc Ingress đó rồi tạo object Kubernetes `Certificate` để ghi lại nhu cầu cấp chứng chỉ.
+
+   Sau bước này, chúng ta có được object Kubernetes `Certificate`, tương ứng với nhu cầu **cần certificate cho `rancher.hieupn.site`**. Đây chưa phải chứng chỉ endpoint đã được CA ký.
+
+   <details>
+   <summary>Đọc thêm: chi tiết controller và dữ liệu</summary>
+
+   Trong lab, cấu hình `ingress.tls.source: rancher` ở runbook §14.3 khiến chart Rancher tạo Ingress có:
+
+   - Annotation **`cert-manager.io/issuer: rancher`** để chỉ định Issuer.
+   - Phần **`spec.tls`** khai hostname **`rancher.hieupn.site`** và tên Secret TLS **`tls-rancher-ingress`**.
+
+   Chart cũng tạo **`Issuer/rancher`**.
+
+   `ingress-shim` theo dõi Ingress và tạo object `Certificate` ghi đầy đủ nhu cầu: **cần certificate cho `rancher.hieupn.site`, dùng `Issuer/rancher` để cấp, lưu kết quả vào Secret `tls-rancher-ingress`.**
+
+   Object `Certificate` và Secret kết quả có thể cùng tên `tls-rancher-ingress`, nhưng là hai loại object khác nhau.
+
+   </details>
 
 2. **Các controller cấp phát đọc object `Certificate` để chuẩn bị khóa HTTPS và tạo object `CertificateRequest`.**
+
+   Ở bước này, chúng ta sẽ có được **public key endpoint** và **private key endpoint**. Trong ví dụ dùng Certbot, Certbot chuẩn bị cặp khóa này; còn trong bài Rancher, controller **`certificates-key-manager`** thực hiện phần chuẩn bị khóa.
+
+   Trong đó, **public key endpoint** sẽ được đưa vào chứng chỉ endpoint `certificate`. Khi nhận chứng chỉ, client lấy public key này để kiểm tra chữ ký trong `CertificateVerify`.
+
+   Còn **private key endpoint** được dùng để tạo và ký CSR; trong lab, yêu cầu CSR này được đặt trong object **`CertificateRequest`**.
+
+   <details>
+   <summary>Đọc thêm: chi tiết controller và dữ liệu</summary>
 
    - Controller **`certificates-key-manager`** đọc cấu hình trong object `Certificate` để chuẩn bị **private key HTTPS của endpoint**, lưu khóa vào một Secret tạm.
    - Controller **`certificates-request-manager`** đọc thông tin trong object `Certificate` và sử dụng khóa đã chuẩn bị để tạo **CSR — yêu cầu xin ký certificate**. CSR chứa hostname `rancher.hieupn.site` và public key tương ứng với private key HTTPS.
@@ -1413,9 +1430,22 @@ Nguyên nhân dẫn tới kết quả như sau: annotation trên Ingress → ing
 
    Như vậy, **object `Certificate` là đầu vào để các controller chuẩn bị một lần xin ký cụ thể trong `CertificateRequest`**. Private key HTTPS không được đưa vào CSR.
 
+   </details>
+
 3. **Controller `certificaterequests-issuer-ca` xử lý `CertificateRequest`, chọn CA theo `Issuer/rancher`, rồi ký certificate.**
 
-   Tham chiếu `issuerRef` trong `CertificateRequest` cho biết yêu cầu này dùng `Issuer/rancher`. Controller đọc cấu hình Issuer để biết phải dùng CA nào.
+   Controller **`certificaterequests-issuer-ca`** dựa vào cấu hình trong **`Issuer/rancher`** để lấy được **chứng chỉ của CA** — chứa **public key CA** — và **private key CA tương ứng**.
+
+   Sau khi có được **CSR từ bước 2 + chứng chỉ của CA + private key CA**, controller sử dụng ba dữ liệu này để tạo và ký chứng chỉ endpoint `certificate`.
+
+   Trong ví dụ Certbot kết hợp với Let’s Encrypt, bên thực hiện việc ký cấp chứng chỉ là **Let’s Encrypt**; còn trong bài Rancher, đó là **controller `certificaterequests-issuer-ca`**.
+
+   Kết quả cuối là **chứng chỉ endpoint `certificate` đã ký, cùng dữ liệu chain cần thiết nếu có**.
+
+   <details>
+   <summary>Đọc thêm: chi tiết controller và dữ liệu</summary>
+
+   Tham chiếu **`issuerRef`** trong `CertificateRequest` cho biết yêu cầu này dùng **`Issuer/rancher`**. Controller đọc cấu hình Issuer để biết phải dùng CA nào.
 
    Trong lab, `Issuer/rancher` khai:
 
@@ -1430,6 +1460,8 @@ Nguyên nhân dẫn tới kết quả như sau: annotation trên Ingress → ing
    Tiếp theo, controller đọc hostname và public key từ CSR trong `CertificateRequest`, tạo certificate chứa thông tin này, rồi dùng **private key CA** để ký.
 
    Controller ghi certificate đã ký vào **`CertificateRequest.status.certificate`**. Đây là kết quả của lần xin ký ở bước 2.
+
+   </details>
 
 4. **Controller `certificates-issuing` lưu kết quả vào Secret `tls-rancher-ingress`.**
 
@@ -1474,7 +1506,7 @@ Các bước 7–11 mô tả việc mở kết nối và trích phần dùng cer
 
 10. ⭐ **Traefik → `cloudflared`: gửi bản tin TLS `CertificateVerify`.**
 
-   Bản tin này mang **chữ ký Traefik vừa tạo ở bước 9**. Nó không chứa certificate, cũng không phải một certificate khác.
+    Bản tin này mang **chữ ký Traefik vừa tạo ở bước 9**. Nó không chứa certificate, cũng không phải một certificate khác.
 
 11. **`cloudflared` kiểm tra chữ ký:** lấy public key trong certificate nhận ở bước 8 để kiểm tra chữ ký nhận ở bước 10.
 
